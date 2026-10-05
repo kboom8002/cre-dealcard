@@ -1,5 +1,6 @@
 import { formatPyeong } from '@/lib/utils/area-conversion';
 import type { SectionData } from './binder-types';
+import { isVacantLeaseRow } from '../../lease-vacancy';
 
 /**
  * 렌트롤 면적 표기 SSOT: ㎡ 소수 1자리 + 천 단위 구분 (예: 2490.3 → '2,490.3')
@@ -58,6 +59,11 @@ export function resolveTenantAndUse(
     use?: unknown;
     business_type?: unknown;
     is_vacant?: unknown;
+    // 점유 상태 SSOT(lease-vacancy) 판정용 — 있으면 사용
+    lease_state?: unknown;
+    note?: unknown;
+    lease_start?: unknown;
+    lease_end?: unknown;
   },
   opts: { maskSeq?: number } = {},
 ): { tenant: string; use: string; isVacant: boolean; isMasked: boolean } {
@@ -65,7 +71,8 @@ export function resolveTenantAndUse(
   let name = clean(l.tenant_name) || clean(l.tenant);
   const explicitUse = clean(l.use);
   let biz = clean(l.tenant_type) || clean(l.business_type);
-  const isVacant = l.is_vacant === true
+  // is_vacant 플래그는 점유 상태 SSOT 로 검증 — 자가사용·통합계약 후행(월세 0 추정)을 '공실'로 표기하지 않는다
+  const isVacant = (l.is_vacant === true && isVacantLeaseRow(l as Record<string, any>))
     || VACANT_MARK.test(name) || VACANT_MARK.test(biz)
     || (!!name && name.includes('공실'));
 

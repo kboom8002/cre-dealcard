@@ -8,6 +8,7 @@
 import type { MobileIMSupplementalInput, AncillaryIncomeItem, FloorLeaseInput } from './types';
 import { sanitizeTextHygiene } from './terminology-normalizer';
 import { humanizeGuardrailTokensForView } from './guardrails';
+import { readSsotLayerAreas, positiveOrNull } from './resolve-total-area';
 
 export interface DealCardToIMBridgeInput {
   // building_ssot_lite fields
@@ -20,6 +21,8 @@ export interface DealCardToIMBridgeInput {
     fit_summary?: string;
     caution_summary?: string;
     layers?: Record<string, any>;
+    /** 메모 원문 — "신축/계획/가능 연면적" 라벨 판정(개발 포스처 계획 GFA 분리)에 사용 (선택) */
+    raw_input?: string;
     lease_summary?: Record<string, any>;
     /** 비임대 부가수입 (통신장비, 주차 등) */
     ancillary_incomes?: AncillaryIncomeItem[];
@@ -127,7 +130,14 @@ export function bridgeDealCardToIM(
 
   // ── R1: Map 8 Missing Domain Layers from SSoT ──
   const hotelOperating = ssot?.layers?.hotel_operating || ssot?.layers?.hotel || (ssot as any)?.hotel_operating || undefined;
-  const developmentSpec = ssot?.layers?.developmentSpec || ssot?.layers?.development || (ssot as any)?.developmentSpec || undefined;
+  // B1: SSoT 면적 키 불일치 흡수 (layers.physical.*_sqm ㎡ + layers.total_floor_area_pyung/land_area_pyung 평 flat)
+  const ssotAreas = readSsotLayerAreas(layers, { memoText: ssot?.raw_input, development: posture === 'development' });
+  const baseDevelopmentSpec = ssot?.layers?.developmentSpec || ssot?.layers?.development || (ssot as any)?.developmentSpec || undefined;
+  // 개발 포스처: 메모의 신축/계획/가능 연면적은 기존 연면적이 아니라 계획 GFA(targetScalePyung)
+  const developmentSpec = (posture === 'development' && ssotAreas.plannedGfaSqm > 0
+    && !(Number(baseDevelopmentSpec?.targetScalePyung) > 0) && !(Number(baseDevelopmentSpec?.targetScalePyeong) > 0))
+    ? { ...(baseDevelopmentSpec ?? {}), targetScalePyung: Math.round(ssotAreas.plannedGfaSqm * 0.3025 * 10) / 10 }
+    : baseDevelopmentSpec;
   const occupancySpec = ssot?.layers?.occupancySpec || ssot?.layers?.occupancy || (ssot as any)?.occupancySpec || undefined;
   const logistics = ssot?.layers?.logistics || (ssot as any)?.logistics || undefined;
   const manualComps = ssot?.layers?.manual_comps || ssot?.layers?.comparables || (ssot as any)?.manual_comps || undefined;
@@ -136,8 +146,12 @@ export function bridgeDealCardToIM(
   const ltvPct = ssot?.layers?.financial?.ltv_pct ?? (ssot as any)?.ltv_pct ?? undefined;
 
   // Additional physical & financial layers
-  const totalGrossAreaM2 = layers.physical?.total_area_sqm ?? (ssot as any)?.total_area ?? (ssot as any)?.total_gross_area_m2 ?? undefined;
-  const landAreaM2 = layers.physical?.plat_area_sqm ?? (ssot as any)?.plat_area ?? (ssot as any)?.land_area_m2 ?? undefined;
+  const totalGrossAreaM2 = (ssotAreas.totalFrom === 'physical_sqm' ? ssotAreas.totalSqm : undefined)
+    ?? positiveOrNull((ssot as any)?.total_area) ?? positiveOrNull((ssot as any)?.total_gross_area_m2)
+    ?? positiveOrNull(ssotAreas.totalSqm) ?? undefined;
+  const landAreaM2 = (ssotAreas.landFrom === 'physical_sqm' ? ssotAreas.landSqm : undefined)
+    ?? positiveOrNull((ssot as any)?.plat_area) ?? positiveOrNull((ssot as any)?.land_area_m2)
+    ?? positiveOrNull(ssotAreas.landSqm) ?? undefined;
   const buildingName = layers.physical?.building_name ?? (ssot as any)?.building_name ?? undefined;
   const floorsAbove = layers.physical?.floors_above ?? (ssot as any)?.floors_above ?? undefined;
   const floorsBelow = layers.physical?.floors_below ?? (ssot as any)?.floors_below ?? undefined;
@@ -198,7 +212,7 @@ export function bridgeDealCardToIM(
 
   if (posture === 'development') {
     // 개발형: 대지면적, 용도지역이 핵심
-    const landArea = layers.physical?.plat_area_sqm;
+    const landArea = landAreaM2;
     if (!landArea) {
       gradeUpItems.push({ field: 'landArea', label: '대지면적', gradeContribution: 'C→B 필수' });
     }
@@ -207,7 +221,7 @@ export function bridgeDealCardToIM(
     }
   } else if (posture === 'owner_occupied') {
     // 사옥형: 연면적, 매각가가 핵심
-    const grossArea = layers.physical?.total_area_sqm;
+    const grossArea = totalGrossAreaM2;
     if (!grossArea) {
       gradeUpItems.push({ field: 'grossArea', label: '연면적 (사용가능면적)', gradeContribution: 'C→B 필수' });
     }

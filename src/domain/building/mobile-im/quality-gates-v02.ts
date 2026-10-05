@@ -108,8 +108,10 @@ export interface GateContext {
   llmSafetyPassed?: boolean;
   /** G26: 등록 사진 수 (3매 이상) */
   photoCount?: number;
-  /** G27: 임차인 마스킹 완료 여부 */
+  /** G27(공개 티저 단계): 임차인 마스킹 완료 여부 — IM(뷰어·PPTX)은 D1 에 따라 실명 표기이므로 이 값으로 차단하지 않는다 */
   tenantMasked?: boolean;
+  /** G27(IM 단계, D1): 본문 임차인 상호가 렌트롤과 정합 — 렌트롤에 없는 유명 브랜드(날조) 0건이면 true */
+  tenantNamesConsistent?: boolean;
   /** G28: totalGross vs effectiveGross 면적 분리 여부 */
   areaMetricSeparated?: boolean;
   /** G29: 브랜드 환각 방지 확인 여부 */
@@ -208,7 +210,8 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G24', label: '면 간 수치 일치', severity: 'block', check: (ctx) => (ctx.crossSlideValueMatch !== false) && (ctx.crossValidationPassed === true) },
   { id: 'G25', label: 'LLM 안전 판정 통과', severity: 'block', check: (ctx) => ctx.llmSafetyPassed !== false },
   { id: 'G26', label: '최소 사진 3매', severity: 'block', check: (ctx) => ctx.photoCount === undefined || ctx.photoCount >= 3 },
-  { id: 'G27', label: '임차인 마스킹 완료', severity: 'block', check: (ctx) => ctx.tenantMasked !== false },
+  // D1: 공개 티저는 마스킹(tenantMasked), IM 은 실명 + 렌트롤 정합(tenantNamesConsistent). 둘 다 미설정이면 통과 (기존 동작).
+  { id: 'G27', label: '임차인명 처리 정합 (공개=마스킹 / IM=렌트롤 정합)', severity: 'block', check: (ctx) => ctx.tenantMasked !== false && ctx.tenantNamesConsistent !== false },
   { id: 'G28', label: '면적 totalGross vs effectiveGross 분리', severity: 'block', check: (ctx) => ctx.areaMetricSeparated !== false },
   { id: 'G29', label: '브랜드 환각 방지', severity: 'block', check: (ctx) => ctx.brandHallucinationBlocked !== false },
   { id: 'G30', label: '가정값 ◇ 표기 확인', severity: 'block', check: (ctx) => ctx.assumptionMarked !== false },

@@ -65,7 +65,7 @@ invariants:
     checked_by: [QA-DEF-01, gating:locked_msg]
   - n: 14
     applies_to: all   # ONTOLOGY_V0.5_SPEC §7
-    text: 물건명·법인명·임차인명은 대외 문서에 표기하지 않는다
+    text: 물건명·법인명은 대외 문서에 표기하지 않는다. 임차인명은 IM(모바일 뷰어·PPTX)에서는 렌트롤 실명을 표기하고, 공개 티저·매거진(NDA 이전)만 업종으로 대체한다 (오너 결정 D1)
     checked_by: [QA-MASK-01, masking:tenant_name, G20]
     gap: 🔴 이미지 경로 미적용 — 사진 간판에 상호 노출
     plan: G20 + im.image.yaml 파이프라인 9단계 (D22-2)

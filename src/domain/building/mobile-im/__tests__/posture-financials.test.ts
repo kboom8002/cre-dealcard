@@ -41,7 +41,7 @@ describe('Financials Strategy Pattern — 5 Postures', () => {
 
     const md = formatFinancialsMarkdown(res);
     expect(md).toContain('개발 사업수지 지표');
-    expect(md).toContain('개발 이익률 추정');
+    expect(md).toContain('개발수익률(총사업비 대비)');
   });
 
   it('operating: should calculate GOP and GOP Cap Rate', () => {

@@ -9,10 +9,13 @@
 import type { FloorLeaseInput } from "./types";
 import { createServiceClient } from '@/lib/supabase/service';
 import { pyeongToSqm, formatPyeong } from '@/lib/utils/area-conversion';
+import { resolveLeaseOccupancy } from './lease-vacancy';
 
 export interface NormalizedLease {
   floor: string;
   tenantType: string;
+  /** 임차인 상호 (렌트롤 실명 — D1: IM 은 실명 표기). 미기재면 undefined */
+  tenantName?: string;
   /** 전용면적 ㎡ (area_pyeong × 3.30578) */
   areaSqm: number;
   /** 보증금 원 (deposit_manwon × 10,000) */
@@ -24,6 +27,8 @@ export interface NormalizedLease {
   leaseStart: string;
   leaseEnd: string;
   isVacant: boolean;
+  /** 자가사용 호실 (공실 아님, 공실률 분모 제외) */
+  isOwnerUse?: boolean;
   note?: string;
 }
 
@@ -70,16 +75,22 @@ export function normalizeFloorLeases(raw: FloorLeaseInput[]): NormalizedLease[] 
     // 임대 만료일: lease_end 우선 → legacy contract_end
     const leaseEnd = r.lease_end ?? (r as any).contract_end ?? "";
 
+    // 점유 상태는 lease-vacancy SSOT 로 판정 — 자가사용·통합계약 후행(월세 0)을 공실로 오표기하지 않는다
+    const occupancy = resolveLeaseOccupancy(r as any);
+    const tenantName = String((r as any).tenant_name ?? (r as any).tenantName ?? '').trim();
+
     return {
       floor:          r.floor ?? "-",
       tenantType:     r.tenant_type ?? "미분류",
+      tenantName:     tenantName || undefined,
       areaSqm,
       depositKrw,
       monthlyRentKrw,
       mgmtFeeKrw,
       leaseStart:     r.lease_start ?? "",
       leaseEnd,
-      isVacant:       r.is_vacant ?? false,
+      isVacant:       occupancy === '공실',
+      isOwnerUse:     occupancy === '자가사용',
       note:           r.note,
     };
   });
@@ -90,7 +101,11 @@ export function normalizeFloorLeases(raw: FloorLeaseInput[]): NormalizedLease[] 
  */
 export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
   if (!leases || leases.length === 0) return '';
-  const header = `### 층별 임대 현황\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|`;
+  // D1: 렌트롤에 임차인 상호가 하나라도 있으면 '임차인' 열을 추가해 실명을 그대로 표기 (없으면 기존 열 구성 유지 — 날조 금지)
+  const hasTenantNames = leases.some((l) => !l.isVacant && !!l.tenantName);
+  const header = hasTenantNames
+    ? `### 층별 임대 현황\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|`
+    : `### 층별 임대 현황\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|`;
   const rows = leases.map((l) => {
     const tenantLabel =
       l.isVacant ? "🚫 공실"
@@ -104,7 +119,10 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
     const rentStr    = l.monthlyRentKrw > 0 ? `${Math.round(l.monthlyRentKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
     const mgmtStr    = l.mgmtFeeKrw > 0 ? `${Math.round(l.mgmtFeeKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
 
-    return `| ${l.floor} | ${tenantLabel} | ${areaPyeong} | ${depositStr} | ${rentStr} | ${mgmtStr} | ${l.leaseEnd || "미정"} |`;
+    const nameCell = l.isVacant ? '-' : (l.tenantName || '-');
+    return hasTenantNames
+      ? `| ${l.floor} | ${nameCell} | ${tenantLabel} | ${areaPyeong} | ${depositStr} | ${rentStr} | ${mgmtStr} | ${l.leaseEnd || "미정"} |`
+      : `| ${l.floor} | ${tenantLabel} | ${areaPyeong} | ${depositStr} | ${rentStr} | ${mgmtStr} | ${l.leaseEnd || "미정"} |`;
   });
   return `${header}\n${rows.join("\n")}`;
 }
@@ -115,8 +133,8 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
 export function formatRentRollSummary(leases: NormalizedLease[]): string {
   if (!leases || leases.length === 0) return '';
   const totalUnits = leases.length;
-  const ownerOccupiedUnits = leases.filter(l => 
-    l.tenantType === '자가사용' || (l.note && l.note.includes('자가사용'))
+  const ownerOccupiedUnits = leases.filter(l =>
+    l.isOwnerUse === true || l.tenantType === '자가사용' || (l.note && l.note.includes('자가사용'))
   ).length;
   const vacantUnits = leases.filter(l => l.isVacant).length;
   const leasableUnits = Math.max(1, totalUnits - ownerOccupiedUnits);
@@ -145,8 +163,7 @@ export function formatRentRollSummary(leases: NormalizedLease[]): string {
 | **공실 현황** | ${vacancyRate}% (${breakdownStr}) | ${vacantUnits > 0 ? `공실 ${vacantUnits}실` : (ownerOccupiedUnits > 0 ? '자가사용 포함 가동 중' : '전 층 만실 운영')} |
 | **월 임대료 합계** | ${monthlyRentStr} | 관리비 별도 (${Math.round(totalMgmtFee / MANWON_TO_WON).toLocaleString()}만 원) |
 | **연 임대 수입** | ${annualRentStr} | 연간 총 임대료 수입 |
-| **보증금 총액** | ${depositStr} | 임차인 보증금 합계 |
-| **임차인 정보** | 실사 및 NDA 체결 후 상세 제공 | 개인정보 보호 처리 |`;
+| **보증금 총액** | ${depositStr} | 임차인 보증금 합계 |`;
 }
 
 export interface LeaseUnitPersistInput {

@@ -247,7 +247,7 @@ ${infra}
           const waleUnits = normalizedLeases
             .filter(l => !l.isVacant && l.leaseEnd)
             .map(l => ({
-              tenantName: l.tenantType,
+              tenantName: l.tenantName || l.tenantType,
               rentAmount: l.monthlyRentKrw,
               areaSqm:    l.areaSqm,
               leaseEndDate: l.leaseEnd,
@@ -287,10 +287,8 @@ ${infra}
 |------|------|
 | **공실 현황** | ${vacancy || "-"} |
 | **월 임대료 합계** | ${monthlyRent > 0 ? `약 ${(monthlyRent / 10000).toFixed(0)}만 원/월 (추정)` : "-"} |
-| **연 임대 수입** | ${annualRent > 0 ? `약 ${(annualRent / 100000000).toFixed(1)}억 원/년 (추정)` : "-"} |
-| **임차인 정보** | NDA 체결 후 공개 |${vacancyPositioningRow}
-${rentRollTable}
-> ⚠️ 임차인명 및 상세 정보는 개인정보 보호를 위해 비공개 처리되었습니다.`;
+| **연 임대 수입** | ${annualRent > 0 ? `약 ${(annualRent / 100000000).toFixed(1)}억 원/년 (추정)` : "-"} |${vacancyPositioningRow}
+${rentRollTable}`;
     }
 
     // ─── 섹션 4: 수익 분석 ──────────────────────────────────────────────────

@@ -566,29 +566,27 @@ export function createGoldenTest(config: GoldenTestConfig) {
           }
           console.log(`  🏨 총 객실 수 ${roomCount}실 입력`);
 
-          // ADR 입력
-          const adrInputs = page.locator('input[placeholder*="12"], input[placeholder*="8.5"], input[placeholder*="ADR"]');
-          const adrCount = await adrInputs.count();
-          for (let i = 0; i < adrCount; i++) {
-            const inp = adrInputs.nth(i);
-            if (await inp.isVisible().catch(() => false)) {
-              await inp.fill(String(adrManwon));
-              console.log(`  🏨 ADR ${adrManwon}만원 입력`);
-              break;
+          // 라벨 기준 입력 — placeholder 부분일치(예: *="12", *="30")는 다른 섹션 입력과 충돌한다.
+          // ADR/OCC/GOP 은 OperatingPerfSection 과 HospitalitySpecSection 이 같은 상태를 공유하므로 보이는 입력 모두에 입력한다.
+          const fillByLabel = async (labelRe: string, value: string, tag: string): Promise<number> => {
+            const inputs = page.locator(`xpath=//label[contains(normalize-space(.), "${labelRe}")]/following-sibling::input[1]`);
+            const n = await inputs.count();
+            let filled = 0;
+            for (let i = 0; i < n; i++) {
+              const inp = inputs.nth(i);
+              if (await inp.isVisible().catch(() => false)) {
+                await inp.scrollIntoViewIfNeeded().catch(() => {});
+                await inp.fill(value);
+                filled++;
+              }
             }
-          }
-
-          // OCC 입력
-          const occInput = page.locator('input[placeholder*="75"]').first();
-          if (await occInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await occInput.fill(String(hop.occupancy_rate_pct || 78));
-          }
-
-          // GOP 마진 입력
-          const gopInput = page.locator('input[placeholder*="30"]').first();
-          if (await gopInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await gopInput.fill(String(hop.gop_margin_pct || 38));
-          }
+            console.log(`  🏨 ${tag} ${value} 입력 (${filled}곳)`);
+            return filled;
+          };
+          // ADR: 원 → 만원 (소수 허용; 반올림으로 95,000원이 10만원이 되는 왜곡 방지)
+          await fillByLabel('ADR', String(Math.round((hop.adr_krw ? hop.adr_krw / 10000 : 10) * 100) / 100), 'ADR(만원)');
+          await fillByLabel('OCC', String(hop.occupancy_rate_pct || 78), 'OCC(%)');
+          await fillByLabel('GOP 마진율', String(hop.gop_margin_pct || 38), 'GOP 마진율(%)');
         } else if (posture === 'development') {
           const dspec = bs.developmentSpec || {};
           const scalePyung = dspec.targetScalePyeong || 2500;

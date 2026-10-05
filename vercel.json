@@ -8,6 +8,12 @@
     },
     "src/app/api/public/im-lite/[buildingId]/pptx/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/weekly-magazine/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/pulse/generate/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -17,15 +23,19 @@
     },
     {
       "path": "/api/cron/weekly-magazine",
-      "schedule": "0 22 * * 0"
+      "schedule": "0 1 * * 1"
+    },
+    {
+      "path": "/api/pulse/generate",
+      "schedule": "0 13 * * 0"
     },
     {
       "path": "/api/cron/hold-expiry",
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/owner-reports",
-      "schedule": "0 9 1 1,4,7,10 *"
+      "path": "/api/cron/retention-purge",
+      "schedule": "0 18 * * *"
     },
     {
       "path": "/api/cron/circle-approval-timeout",

@@ -13,6 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "test:domain": "vitest run src/domain/",
     "test:api": "vitest run src/tests/api/",
+    "test:oracle": "vitest run src/tests/golden/fact-oracle.test.ts",
+    "test:guard": "vitest run src/tests/unit/boundary-guard.test.ts",
     "test:smoke": "vitest run src/tests/e2e/smoke-v3.test.ts",
     "test:e2e": "npx playwright test",
     "test:editor": "npx playwright test e2e/editor --reporter=line",

@@ -104,5 +104,37 @@
       "role": "general",
       "order": 5
     }
-  ]
+  ],
+  "broker_extras": {
+    "market_comps": [
+      {
+        "kind": "transaction",
+        "location": "신사동 586-6",
+        "price_eok": 173,
+        "land_price_per_pyeong_manwon": 23000,
+        "note": "대지 76.7평"
+      },
+      {
+        "kind": "transaction",
+        "location": "신사동 559-6",
+        "price_eok": 200,
+        "land_price_per_pyeong_manwon": 28000,
+        "note": "대지 70.6평"
+      },
+      {
+        "kind": "transaction",
+        "location": "신사동 558-6",
+        "price_eok": 220,
+        "land_price_per_pyeong_manwon": 30000,
+        "note": "대지 73.8평"
+      },
+      {
+        "kind": "transaction",
+        "location": "신사동 588-1",
+        "price_eok": 175,
+        "land_price_per_pyeong_manwon": 32000,
+        "note": "대지 55.1평"
+      }
+    ]
+  }
 }

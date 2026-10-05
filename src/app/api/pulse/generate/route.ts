@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { generateAllWeeklyPulses } from "@/domain/pulse/pulse-generator";
+import { getWeekLabel } from "@/domain/pulse/cre-signal-aggregator";
 
 export async function POST(req: NextRequest) {
   // 간단한 admin/cron 인증
@@ -31,6 +32,27 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  // Vercel Cron(E5/B3b)은 GET + `Authorization: Bearer CRON_SECRET` 으로만 호출한다.
+  // 인증된 GET 은 주간 펄스를 생성(POST 위임)하고, 인증 없는 GET 은 기존처럼 공개 목록을 반환한다.
+  // 생성기는 INSERT 이므로 같은 주 라벨 펄스가 이미 있으면 재생성하지 않는다(중복 방지).
+  const cronSecretForGet = process.env.CRON_SECRET;
+  if (cronSecretForGet && req.headers.get("authorization") === `Bearer ${cronSecretForGet}`) {
+    const guardClient = createServiceClient();
+    const weekLabel = getWeekLabel();
+    const { count, error: guardError } = await guardClient
+      .from("cre_pulses")
+      .select("id", { count: "exact", head: true })
+      .eq("period_type", "weekly")
+      .eq("period_label", weekLabel);
+    if (guardError) {
+      return NextResponse.json({ error: guardError.message }, { status: 500 });
+    }
+    if ((count ?? 0) > 0) {
+      return NextResponse.json({ ok: true, skipped: "ALREADY_GENERATED", weekLabel });
+    }
+    return POST(req);
+  }
+
   const { searchParams } = req.nextUrl;
   const region = searchParams.get("region");
   const periodType = searchParams.get("periodType") ?? "weekly";

@@ -105,9 +105,10 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
         asOf: '2026-09-06',
         status: 'reconciled',
       });
+      // 2026-10 RCA R2: development 필수 면적은 연면적(total_area)이 아니라 대지면적(land_area)
       registry.register({
-        subject: 'total_area',
-        value: 3000,
+        subject: 'land_area_sqm',
+        value: 900,
         evidence: [],
         provenance: 'public_api',
         asOf: '2026-09-06',

@@ -60,12 +60,142 @@ export interface PlacedPoi {
   poi: SelectedPoi;
   px: number;
   py: number;
+  /** 뷰 밖 POI: 프레임 가장자리 마커 (진행 방향 각도, 라디안, 화면 좌표계 — 0=동, +π/2=남) */
+  edgeAngle?: number;
+}
+
+/** 가장자리 마커 중심의 프레임 안쪽 여유 (마커 반경 + 화살표 길이) */
+export const EDGE_INSET_PX = POI_MARKER_R + 14;
+
+export interface ViewRect { x0: number; y0: number; x1: number; y1: number }
+
+/** 본건(target)에서 angle 방향 광선이 프레임(안쪽 여유 적용)과 만나는 점 — 정수 좌표 (Rule 61) */
+export function edgeAnchorPoint(
+  view: ViewRect,
+  target: { cx: number; cy: number },
+  angle: number,
+  inset = EDGE_INSET_PX,
+): { px: number; py: number } {
+  const xmin = view.x0 + inset;
+  const xmax = view.x1 - inset;
+  const ymin = view.y0 + inset;
+  const ymax = view.y1 - inset;
+  const ux = Math.cos(angle);
+  const uy = Math.sin(angle);
+  const tx = Math.abs(ux) < 1e-9 ? Infinity : ((ux > 0 ? xmax : xmin) - target.cx) / ux;
+  const ty = Math.abs(uy) < 1e-9 ? Infinity : ((uy > 0 ? ymax : ymin) - target.cy) / uy;
+  const t = Math.max(0, Math.min(tx, ty));
+  const px = Math.min(xmax, Math.max(xmin, target.cx + ux * t));
+  const py = Math.min(ymax, Math.max(ymin, target.cy + uy * t));
+  return { px: Math.round(px), py: Math.round(py) };
+}
+
+/** 프레임 둘레 매개변수: 좌상단에서 시계 방향 (상단→우측→하단→좌측) */
+function perimeterToS(view: ViewRect, p: { px: number; py: number }, inset: number): number {
+  const xmin = view.x0 + inset;
+  const xmax = view.x1 - inset;
+  const ymin = view.y0 + inset;
+  const ymax = view.y1 - inset;
+  const w = xmax - xmin;
+  const h = ymax - ymin;
+  const dTop = Math.abs(p.py - ymin);
+  const dBottom = Math.abs(p.py - ymax);
+  const dLeft = Math.abs(p.px - xmin);
+  const dRight = Math.abs(p.px - xmax);
+  const m = Math.min(dTop, dBottom, dLeft, dRight);
+  if (m === dTop) return p.px - xmin;
+  if (m === dRight) return w + (p.py - ymin);
+  if (m === dBottom) return w + h + (xmax - p.px);
+  return 2 * w + h + (ymax - p.py);
+}
+
+function perimeterFromS(view: ViewRect, sRaw: number, inset: number): { px: number; py: number } {
+  const xmin = view.x0 + inset;
+  const xmax = view.x1 - inset;
+  const ymin = view.y0 + inset;
+  const ymax = view.y1 - inset;
+  const w = xmax - xmin;
+  const h = ymax - ymin;
+  const total = 2 * (w + h);
+  const s = ((sRaw % total) + total) % total;
+  if (s < w) return { px: Math.round(xmin + s), py: Math.round(ymin) };
+  if (s < w + h) return { px: Math.round(xmax), py: Math.round(ymin + (s - w)) };
+  if (s < 2 * w + h) return { px: Math.round(xmax - (s - w - h)), py: Math.round(ymax) };
+  return { px: Math.round(xmin), py: Math.round(ymax - (s - 2 * w - h)) };
+}
+
+export interface EdgeMarkerRequest { index: number; angle: number }
+
+/**
+ * 뷰 밖 POI의 가장자리 마커 위치 산출.
+ * 방향선이 프레임과 만나는 점에 두되, 이미 놓인 마커(occupied)나 다른 가장자리 마커와 겹치면 둘레를 따라 가장 가까운 빈 자리로 이동한다.
+ * 번호순(index) 처리 — 결정적.
+ */
+export function placeEdgeMarkers(
+  requests: ReadonlyArray<EdgeMarkerRequest>,
+  view: ViewRect,
+  target: { cx: number; cy: number },
+  occupied: ReadonlyArray<{ px: number; py: number }>,
+  inset = EDGE_INSET_PX,
+): Map<number, { px: number; py: number }> {
+  const minGap = POI_MARKER_R * 2 + 6;
+  const taken: Array<{ px: number; py: number }> = [...occupied];
+  const out = new Map<number, { px: number; py: number }>();
+  const collides = (p: { px: number; py: number }) => taken.some(o => Math.hypot(o.px - p.px, o.py - p.py) < minGap);
+  const w = view.x1 - view.x0 - 2 * inset;
+  const h = view.y1 - view.y0 - 2 * inset;
+  const total = 2 * (Math.max(0, w) + Math.max(0, h));
+  const maxSteps = Math.max(1, Math.ceil(total / minGap));
+  for (const r of [...requests].sort((a, b) => a.index - b.index)) {
+    const base = edgeAnchorPoint(view, target, r.angle, inset);
+    let chosen = base;
+    if (collides(base)) {
+      const s0 = perimeterToS(view, base, inset);
+      let found: { px: number; py: number } | null = null;
+      for (let k = 1; k <= maxSteps && !found; k++) {
+        for (const sign of [1, -1]) {
+          const cand = perimeterFromS(view, s0 + sign * k * minGap, inset);
+          if (!collides(cand)) {
+            found = cand;
+            break;
+          }
+        }
+      }
+      if (found) chosen = found;
+    }
+    taken.push(chosen);
+    out.set(r.index, chosen);
+  }
+  return out;
+}
+
+/** 가장자리 마커 방향 화살표 (마커 바깥쪽 삼각형) — 폰트 무관 벡터 */
+export function edgeArrowSvg(cx: number, cy: number, angle: number, fill: string): string {
+  const ux = Math.cos(angle);
+  const uy = Math.sin(angle);
+  const nx = -uy;
+  const ny = ux;
+  const r0 = POI_MARKER_R + 1;
+  const r1 = POI_MARKER_R + 12;
+  const hw = 7;
+  const bx = cx + ux * r0;
+  const by = cy + uy * r0;
+  const pts = [
+    [bx + nx * hw, by + ny * hw],
+    [bx - nx * hw, by - ny * hw],
+    [cx + ux * r1, cy + uy * r1],
+  ].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  return `<polygon points="${pts}" fill="${fill}" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>`;
 }
 
 /** 전체 캔버스 크기 단일 SVG 레이어 (composite left/top=0 → Rule 61 정수 좌표 이슈 원천 차단) */
 export function buildNumberedPoiLayer(placed: PlacedPoi[], canvasW: number, canvasH: number): Buffer | null {
   if (placed.length === 0) return null;
-  const body = placed.map(p => numberedMarkerSvg(p.px, p.py, p.poi.index, poiMarkerFill(p.poi.kind))).join('');
+  const body = placed.map(p => {
+    const fill = poiMarkerFill(p.poi.kind);
+    const arrow = p.edgeAngle != null ? edgeArrowSvg(p.px, p.py, p.edgeAngle, fill) : '';
+    return arrow + numberedMarkerSvg(p.px, p.py, p.poi.index, fill);
+  }).join('');
   return Buffer.from(`<svg width="${canvasW}" height="${canvasH}" viewBox="0 0 ${canvasW} ${canvasH}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`);
 }
 
@@ -108,9 +238,18 @@ export function buildWalkCircleSvg(canvasW: number, canvasH: number, cx: number,
   `);
 }
 
+/** 줌 하한 — 뷰 정책: 앵커 랜드마크를 보여주기 위해서라도 1.0 아래로는 내리지 않는다 */
+export const MIN_LOCATION_ZOOM = 1.0;
+/** 앵커 랜드마크로 간주하는 최대 거리 (m) */
+export const ANCHOR_LANDMARK_MAX_M = 1000;
+
 /**
- * 확대 배율 결정: 요청 배율(기본 1.5)을 우선하되 최근접 역이 뷰 밖이면 1.0까지 낮춘다.
+ * 확대 배율 결정: 요청 배율(기본 1.5)을 우선하되
+ *  (a) 최근접 역이 뷰 밖이면 1.0까지 낮춘다.
+ *  (b) 1km 이내 앵커 랜드마크(extraTargets)가 뷰 밖이면, 1.0 이상 배율에서 뷰 안으로 들어올 때에 한해 배율을 낮춘다.
+ *      1.0 으로도 들어오지 못하는 랜드마크는 무시한다(가장자리 마커 + 방향 범례로 표시).
  * @param nearestStation 본건 기준 역의 동/북 방향 변위(m)
+ * @param extraTargets 본건 기준 앵커 랜드마크 변위(m) 목록
  */
 export function chooseLocationZoom(
   requestedZoom: number,
@@ -118,10 +257,20 @@ export function chooseLocationZoom(
   canvasH: number,
   nearestStation?: { dxM: number; dyM: number } | null,
   marginPx = 48,
+  extraTargets?: ReadonlyArray<{ dxM: number; dyM: number }> | null,
 ): number {
-  const maxZoom = Math.max(1, requestedZoom);
-  if (!nearestStation) return maxZoom;
-  const zx = Math.abs(nearestStation.dxM) > 0 ? (canvasW / 2 - marginPx) / Math.abs(nearestStation.dxM) : Infinity;
-  const zy = Math.abs(nearestStation.dyM) > 0 ? (canvasH / 2 - marginPx) / Math.abs(nearestStation.dyM) : Infinity;
-  return Math.max(1, Math.min(maxZoom, zx, zy));
+  const maxZoom = Math.max(MIN_LOCATION_ZOOM, requestedZoom);
+  const zoomToFit = (t: { dxM: number; dyM: number }): number => {
+    const zx = Math.abs(t.dxM) > 0 ? (canvasW / 2 - marginPx) / Math.abs(t.dxM) : Infinity;
+    const zy = Math.abs(t.dyM) > 0 ? (canvasH / 2 - marginPx) / Math.abs(t.dyM) : Infinity;
+    return Math.min(zx, zy);
+  };
+  let zoom = maxZoom;
+  if (nearestStation) zoom = Math.min(zoom, zoomToFit(nearestStation));
+  for (const t of extraTargets ?? []) {
+    const z = zoomToFit(t);
+    // 하한(1.0)에서도 못 들어오는 타깃은 줌 결정에서 제외 (가장자리 마커로 표시)
+    if (z >= MIN_LOCATION_ZOOM) zoom = Math.min(zoom, z);
+  }
+  return Math.max(MIN_LOCATION_ZOOM, zoom);
 }

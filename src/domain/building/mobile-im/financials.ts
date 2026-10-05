@@ -306,9 +306,11 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
     const platArea = inputs.platAreaSqm || 0;
     const platPyeong = sqmToPyeong(platArea);
 
-    const landPricePerPyeong = (purchasePrice > 0 && platPyeong > 0)
+    // 중개인 제시 토지평당가(만원/평)가 있으면 매매가/대지면적 역산값보다 우선 (Rule 34)
+    const brokerLandPrice = Number(inputs.brokerLandPricePerPyeongManwon) > 0 ? Math.round(Number(inputs.brokerLandPricePerPyeongManwon)) : null;
+    const landPricePerPyeong = brokerLandPrice ?? ((purchasePrice > 0 && platPyeong > 0)
       ? Math.round((purchasePrice / 10000) / platPyeong)
-      : null;
+      : null);
 
     const constCostPerPyeong = inputs.constructionCostPerPyeong
       ?? ((ASSUMPTIONS.constructionCostPerPyeong.value ?? 12_000_000) / 10000); 
@@ -319,19 +321,23 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
     const totalProjectCostKrw = purchasePrice + estConstructionCostKrw + otherProjectCostKrw;
     const totalProjectCostBil = totalProjectCostKrw > 0 ? parseFloat((totalProjectCostKrw / 1e8).toFixed(1)) : null;
 
-    const salesPricePerPyeong = inputs.expectedSalesPricePerPyeong ?? (landPricePerPyeong ? landPricePerPyeong * 1.4 : 3500);
-    const expectedSalesRevenueKrw = targetGrossPyeong * salesPricePerPyeong * 10000;
+    // D2(Rule 34): 분양가·공사비는 중개인이 입력한 값만으로 수익률을 산출한다.
+    // 구 기본값(분양가 = 토지평단가×1.4 또는 3,500만/평, 공사비 1,200만/평)으로 계산한 개발이익률은 날조 수치(예: 201.4%)였다.
+    const brokerSalesPricePerPyeong = Number(inputs.expectedSalesPricePerPyeong) > 0 ? Number(inputs.expectedSalesPricePerPyeong) : null;
+    const brokerConstCostPerPyeong = Number(inputs.constructionCostPerPyeong) > 0 ? Number(inputs.constructionCostPerPyeong) : null;
+    const expectedSalesRevenueKrw = brokerSalesPricePerPyeong != null ? targetGrossPyeong * brokerSalesPricePerPyeong * 10000 : 0;
     const expectedSalesRevenueBil = expectedSalesRevenueKrw > 0 ? parseFloat((expectedSalesRevenueKrw / 1e8).toFixed(1)) : null;
 
     // Hold 모드 분기: floor_leases 임대수익이 있으면 보유형 연 수익률 산출
     const holdMonthlyRentManwon = inputs.devHoldMonthlyRentManwon ?? 0;
     const holdAnnualRentKrw = holdMonthlyRentManwon * 12 * 10000;
-    const devHoldYieldPct = (holdAnnualRentKrw > 0 && totalProjectCostKrw > 0)
+    // 보유형 수익률은 총사업비(공사비 포함) 분모 — 공사비 미입력이면 기본 단가 추정으로 수익률을 만들지 않는다 (D2)
+    const devHoldYieldPct = (brokerConstCostPerPyeong != null && holdAnnualRentKrw > 0 && totalProjectCostKrw > 0)
       ? parseFloat(((holdAnnualRentKrw / totalProjectCostKrw) * 100).toFixed(2))
       : null;
 
-    // 분양형 이익률 (기존 로직)
-    const saleProfitMarginPct = (totalProjectCostKrw > 0 && expectedSalesRevenueKrw > 0)
+    // 분양형 개발수익률(총사업비 대비) — 분양가·공사비가 모두 입력된 경우에만 산출 (D2)
+    const saleProfitMarginPct = (brokerSalesPricePerPyeong != null && brokerConstCostPerPyeong != null && totalProjectCostKrw > 0 && expectedSalesRevenueKrw > 0)
       ? parseFloat((((expectedSalesRevenueKrw - totalProjectCostKrw) / totalProjectCostKrw) * 100).toFixed(1))
       : null;
 
@@ -393,7 +399,7 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
     if (f.landPricePerPyeong != null) rows.push(`| **토지 평당가** | **${f.landPricePerPyeong.toLocaleString()}만원/평** | 대지면적 기준 |`);
     if (f.totalProjectCostBil != null) rows.push(`| **총 사업비 추정** | **약 ${f.totalProjectCostBil}억 원** | 토지비 + 공사비(평당 1,200만) + 기타비용 |`);
     if (f.expectedSalesRevenueBil != null) rows.push(`| **예상 분양/매각 수입** | **약 ${f.expectedSalesRevenueBil}억 원** | 목표 연면적 기준 |`);
-    if (f.devProfitMarginPct != null) rows.push(`| **개발 이익률 추정** | **${f.devProfitMarginPct}%** | 총 사업비 대비 이익 |`);
+    if (f.devProfitMarginPct != null) rows.push(`| **개발수익률(총사업비 대비)** | **${f.devProfitMarginPct}%** | 중개인 입력 분양가·공사비 기준 |`);
     if (f.landCostRatioPct != null) rows.push(`| **토지비 비중** | **${f.landCostRatioPct}%** | 총 사업비 내 비중 |`);
     if (f.equityRequired != null) rows.push(`| **토지 매입 실투자금(자기자본)** | **약 ${f.equityRequired}억 원** | 브릿지 대출 제외 초기자금 |`);
     if (f.regulationExpiry != null) rows.push(`| **한시 규제완화 기한** | **${f.regulationExpiry} (잔여 ${f.regulationDaysLeft}일)** | 서울시 소규모 신축 완화 |`);
@@ -414,11 +420,14 @@ class OperatingFinancialStrategy implements PostureFinancialStrategy {
   calculate(inputs: FinancialInputs): FinancialOutputs {
     const purchasePrice = inputs.purchasePriceKrw || 0;
     const annualRevenue = inputs.annualRevenueKrw ?? ((inputs.monthlyRentKrw ?? 0) * 12);
-    const gopMargin = (inputs.gopMarginPct ?? 35) / 100;
-
-    const annualGopKrw = annualRevenue * gopMargin;
+    // Rule 34: GOP 마진·GOP 는 중개인 제시값(gopMarginPct / gopKrw)만 사용한다.
+    // 구 기본 마진 35% 가정은 중개인 38% 와 충돌해 히어로카드에 영속되었다 → 제거 (미입력이면 null → 호출부 '-' 또는 행 생략).
+    const brokerGopMarginPct = Number(inputs.gopMarginPct) > 0 ? Number(inputs.gopMarginPct) : null;
+    const brokerGopKrw = Number(inputs.gopKrw) > 0 ? Number(inputs.gopKrw) : null;
+    const annualGopKrw = brokerGopKrw ?? (brokerGopMarginPct != null && annualRevenue > 0 ? annualRevenue * brokerGopMarginPct / 100 : 0);
     const annualGopBil = annualGopKrw > 0 ? parseFloat((annualGopKrw / 1e8).toFixed(1)) : null;
-    const gopMarginPct = inputs.gopMarginPct ?? 35;
+    const gopMarginPct = brokerGopMarginPct
+      ?? (brokerGopKrw != null && annualRevenue > 0 ? parseFloat(((brokerGopKrw / annualRevenue) * 100).toFixed(1)) : null);
 
     const gopCapRatePct = (purchasePrice > 0 && annualGopKrw > 0)
       ? parseFloat(((annualGopKrw / purchasePrice) * 100).toFixed(2))
@@ -426,7 +435,10 @@ class OperatingFinancialStrategy implements PostureFinancialStrategy {
 
     const adrKrw = inputs.adrKrw ?? null;
     const occPct = inputs.occPct ?? null;
-    const revparKrw = (adrKrw && occPct) ? Math.round(adrKrw * (occPct / 100)) : null;
+    // RevPAR: 중개인 제시값 우선(충돌하는 두 숫자 동시 표기 금지), 없으면 ADR×OCC 결정론 파생
+    const revparKrw = Number(inputs.revparKrw) > 0
+      ? Math.round(Number(inputs.revparKrw))
+      : ((adrKrw && occPct) ? Math.round(adrKrw * (occPct / 100)) : null);
 
     const pricePerSqm = (purchasePrice > 0 && inputs.totalAreaSqm && inputs.totalAreaSqm > 0)
       ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
@@ -468,7 +480,7 @@ class OperatingFinancialStrategy implements PostureFinancialStrategy {
 
   formatMarkdown(f: FinancialOutputs): string {
     const rows: string[] = [];
-    if (f.annualGopBil != null) rows.push(`| **연 실질 영업이익(GOP)** | **약 ${f.annualGopBil}억 원/년** | 총매출의 ${f.gopMarginPct}% 마진 기준 |`);
+    if (f.annualGopBil != null) rows.push(`| **연 실질 영업이익(GOP)** | **약 ${f.annualGopBil}억 원/년** | ${f.gopMarginPct != null ? `총매출의 ${f.gopMarginPct}% 마진 기준` : '중개인 제시 GOP'} |`);
     if (f.gopMarginPct != null) rows.push(`| **GOP 마진율** | **${f.gopMarginPct}%** | 총매출 대비 실질 마진 |`);
     if (f.gopCapRatePct != null) rows.push(`| **GOP 수익률 (GOP Cap Rate)** | **${f.gopCapRatePct}%** | 매매가 대비 직영 영업이익 |`);
     if (f.adrKrw != null) rows.push(`| **객실 단가(ADR)** | **${f.adrKrw.toLocaleString()}원/박** | 실측 또는 인근 평균 |`);
@@ -502,10 +514,12 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
       ?? inputs.occupancySpec?.currentRentMonthlyManwon;
     const currentRentMonthlyKrw = currentRentManwon ? currentRentManwon * 10000 : null;
 
-    const marketRentPerPyeong = inputs.marketRentPerPyeongKrw ?? 70000;
-    const virtualAnnualRentKrw = currentRentMonthlyKrw
+    // Rule 34: 임차 대비 절감은 현 임차료(중개인) 또는 입력된 시장임대료로만 산출한다.
+    // 구 기본 시장임대료 7만원/평 가정(절감 5.3억·손익분기 43년)은 중개인 값(7.5억/4.2년)과 충돌했다 → 제거.
+    const marketRentPerPyeong = Number(inputs.marketRentPerPyeongKrw) > 0 ? Number(inputs.marketRentPerPyeongKrw) : null;
+    const virtualAnnualRentKrw: number | null = currentRentMonthlyKrw
       ? currentRentMonthlyKrw * 12
-      : marketRentPerPyeong * selfUseAreaPyeong * 12;
+      : (marketRentPerPyeong != null ? marketRentPerPyeong * selfUseAreaPyeong * 12 : null);
     // 잔여층/지하층 임대수입 가산
     const annualRentalIncomeKrw = (inputs.monthlyRentKrw ?? 0) * 12;
 
@@ -513,14 +527,21 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
     const loanKrw = inputs.loanAmountManwon ? inputs.loanAmountManwon * 10000 : 0;
     const loanRate = ASSUMPTIONS.loanRateDefault.value ?? 0.045;
     const annualDebtServiceKrw = loanKrw * loanRate;
-    const ownVsLeaseSavingsKrw = (virtualAnnualRentKrw + annualRentalIncomeKrw) - annualDebtServiceKrw;
-    const ownVsLeaseSavingsBil = parseFloat((ownVsLeaseSavingsKrw / 1e8).toFixed(1));
+    // 중개인 제시 절감액이 있으면 그 값을 우선 (구조화/원문 메모 명시값)
+    const brokerSavingsBil = Number(inputs.brokerAnnualSavingsBil) > 0 ? Number(inputs.brokerAnnualSavingsBil) : null;
+    const computedSavingsKrw: number | null = virtualAnnualRentKrw != null
+      ? (virtualAnnualRentKrw + annualRentalIncomeKrw) - annualDebtServiceKrw
+      : null;
+    const ownVsLeaseSavingsKrw: number | null = brokerSavingsBil != null ? brokerSavingsBil * 1e8 : computedSavingsKrw;
+    const ownVsLeaseSavingsBil = ownVsLeaseSavingsKrw != null ? parseFloat((ownVsLeaseSavingsKrw / 1e8).toFixed(1)) : null;
 
     const equityKrw = purchasePrice - loanKrw;
     const equityRequired = equityKrw > 0 ? parseFloat((equityKrw / 1e8).toFixed(1)) : null;
-    const breakevenYears = (equityKrw > 0 && ownVsLeaseSavingsKrw > 0)
-      ? parseFloat((equityKrw / ownVsLeaseSavingsKrw).toFixed(1))
-      : null;
+    const brokerBreakevenYears = Number(inputs.brokerBreakevenYears) > 0 ? Number(inputs.brokerBreakevenYears) : null;
+    const breakevenYears = brokerBreakevenYears
+      ?? ((equityKrw > 0 && ownVsLeaseSavingsKrw != null && ownVsLeaseSavingsKrw > 0)
+        ? parseFloat((equityKrw / ownVsLeaseSavingsKrw).toFixed(1))
+        : null);
 
     const monthlyMgmtFeeKrw = (inputs.mgmtFeeTotalManwon ?? 0) * 10000;
     const occupancyCostPerPyeongMonthly = selfUseAreaPyeong > 0

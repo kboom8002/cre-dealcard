@@ -1,4 +1,5 @@
 import { createModuleLogger } from "@/lib/logger";
+import { decodeEntities, stripTags } from "@/lib/magazine/escape";
 
 const log = createModuleLogger("naver-search");
 
@@ -45,18 +46,8 @@ export async function searchNaverNews(query: string, display: number = 10): Prom
     const data = (await res.json()) as NaverSearchResponse;
     if (!data.items) return [];
     
-    // 네이버 API는 검색어 하이라이트를 <b> 태그로 반환하므로 제거
-    function cleanHtml(text: string): string {
-      return text
-        .replace(/<[^>]*>?/gm, '')
-        .replace(/&quot;/g, '"')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&#39;|&apos;/g, "'")
-        .replace(/&nbsp;/g, ' ')
-        .trim();
-    }
+    // 네이버 API는 검색어 하이라이트를 <b> 태그로 반환하므로 제거 + 엔티티 디코드 (공용 유틸, M2-17 중복 구현 통일)
+    const cleanHtml = (text: string): string => decodeEntities(stripTags(text ?? "")).trim();
     
     return data.items.map(item => ({
       ...item,

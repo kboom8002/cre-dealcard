@@ -12,6 +12,7 @@ import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+import { resolveHotelOperating } from "./broker-memo-facts";
 
 export function buildCapitalFromIncome(markdown: string, tables: ParsedTable[], body?: Record<string, any>, building?: Record<string, any>): Record<string, any> {
     return buildA16Props(markdown, tables, body, building);
@@ -258,7 +259,7 @@ export function buildOwnerOccupiedPlanProps(body: Record<string, any> = {}, buil
     const occ = body?.occupancySpec || {};
     const hero = body?.heroCard || {};
     const ssot = body?.ssot_summary || {};
-    const grossAreaM2 = hero.grossFloorAreaM2 || ssot.total_gross_area_sqm || ssot.total_area || 0;
+    const grossAreaM2 = hero.totalGrossAreaM2 || hero.grossFloorAreaM2 || ssot.total_gross_area_sqm || ssot.total_area || 0;
     const grossAreaPy = grossAreaM2 > 0 ? (sqmToPyeong(grossAreaM2)).toFixed(1) : '0';
     const headcount = occ.targetHeadcount || occ.headcount || (grossAreaM2 > 0 ? Math.max(10, Math.round(parseFloat(grossAreaPy) * 0.75 / 3.5)) : 50);
     const perPersonPy = headcount > 0 && parseFloat(grossAreaPy) > 0 ? (parseFloat(grossAreaPy) * 0.75 / headcount).toFixed(1) : '-';
@@ -678,14 +679,14 @@ export function buildOperatingKpiProps(
   body: Record<string, any> = {},
   building: any = {},
 ): Record<string, any> {
-  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const op = resolveHotelOperating(body, building); // 구조화 입력 우선 + 원문 메모(중개인 명시값) 보충
   const hero = body?.heroCard || {};
   const ssot = body?.ssot_summary || {};
   const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
 
   const totalRooms = op.total_rooms || hero.totalRooms || ssot.total_rooms || 0;
-  const adrKrw = op.adr_krw || hero.adrKrw || 0;
-  const occPct = op.occupancy_rate_pct || hero.occRate || 0;
+  const adrKrw = op.adr_krw || hero.adrKrw || hero.adr || 0;
+  const occPct = op.occupancy_rate_pct || hero.occRate || hero.occPct || 0;
   const revparKrw = op.revpar_krw || hero.revpar || (adrKrw > 0 && occPct > 0 ? Math.round(adrKrw * occPct / 100) : 0);
   const gopMargin = op.gop_margin_pct || hero.gopMarginPct || 0;
   const annualGopKrw = op.annual_gop_krw || 0;
@@ -730,7 +731,7 @@ export function buildOperatingRevenueProps(
   body: Record<string, any> = {},
   building: any = {},
 ): Record<string, any> {
-  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const op = resolveHotelOperating(body, building); // 구조화 입력 우선 + 원문 메모(중개인 명시값) 보충
   const hero = body?.heroCard || {};
   const ssot = body?.ssot_summary || {};
   const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
@@ -791,7 +792,7 @@ export function buildOperatingSeasonalityProps(
   body: Record<string, any> = {},
   building: any = {},
 ): Record<string, any> {
-  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const op = resolveHotelOperating(body, building); // 구조화 입력 우선 + 원문 메모(중개인 명시값) 보충
   const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
 
   const occPct = op.occupancy_rate_pct || 0;
@@ -825,7 +826,7 @@ export function buildOperatingOperatorProps(
   body: Record<string, any> = {},
   building: any = {},
 ): Record<string, any> {
-  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const op = resolveHotelOperating(body, building); // 구조화 입력 우선 + 원문 메모(중개인 명시값) 보충
   const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
 
   const operatorName = op.operator_name || '운영사 협의 대상';

@@ -29,6 +29,21 @@ const SOCIAL_BOT_PATTERNS = [
   'duckduckbot', 'ia_archiver', 'applebot',
 ];
 
+/**
+ * P0-02 (S2-02): 봇 예외는 OG 메타 목적의 정확히 2개 경로에만 적용한다.
+ * 그 외 /broker/* (dashboard, magazine-editor, deal-card/x/edit, deal-card/new …)는 UA 위조와 무관하게 로그인 리다이렉트.
+ * 순수 함수 — UA 는 소문자 비교.
+ */
+const SOCIAL_BOT_ALLOWED_PATHS = [
+  /^\/broker\/deal-card\/(?!new$)[^/]+$/,
+  /^\/broker\/leasing\/(?!new$)[^/]+$/,
+];
+export function isSocialBotAllowedPath(pathname: string, ua: string): boolean {
+  const lower = ua.toLowerCase();
+  return SOCIAL_BOT_PATTERNS.some((p) => lower.includes(p))
+    && SOCIAL_BOT_ALLOWED_PATHS.some((re) => re.test(pathname));
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -71,7 +86,7 @@ export async function proxy(request: NextRequest) {
   //    Exception: social crawlers are allowed through to read OG meta tags
   if ((isBrokerRoute || isAdminRoute) && !user) {
     const ua = (request.headers.get('user-agent') || '').toLowerCase();
-    const isSocialBot = !isAdminRoute && SOCIAL_BOT_PATTERNS.some(p => ua.includes(p));
+    const isSocialBot = !isAdminRoute && isSocialBotAllowedPath(pathname, ua);
     const isE2ETest =
       process.env.NODE_ENV !== 'production' &&
       (request.headers.get('x-playwright-test') === 'true' || ua.includes('playwright'));

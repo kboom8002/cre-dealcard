@@ -7,11 +7,13 @@ import { calculateWALE, type LeaseUnit, type WaleResult } from "../../wale-calcu
 import { PRIME_TEMPLATE_ALIASES } from "../pptx-theme";
 import { calculateSetbackRatio, inferTenantCategory } from "../archetypes/a22-stacking-plan";
 import type { StackingPlanFloor, StackingPlanSummary } from "../../types";
-import { enforceTextBudget } from "../text-budget";
+import { enforceTextBudget, shortenWithoutEllipsis } from "../text-budget";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+import { isVacantLeaseRow } from "../../lease-vacancy";
+import { resolveBrokerMemoFacts, resolveHotelOperating, BROKER_STATED_TAG } from "./broker-memo-facts";
 
 /**
  * 아키타입별 props 변환기
@@ -197,10 +199,15 @@ export function buildA17Props(markdown: string, tables: ParsedTable[], lines: st
     const heroCard = body?.heroCard || {};
     const enrichment = body?.enrichment || {};
     const landPlan = enrichment?.landUsePlan || {};
-    const platAreaM2 = heroCard.landAreaM2 || enrichment?.buildingRegister?.platArea || 0;
-    const platAreaPyeong = platAreaM2 ? (sqmToPyeong(platAreaM2)).toFixed(1) : (body?.landAreaPyeong ? String(body.landAreaPyeong) : '0');
-    const grossAreaM2 = heroCard.grossFloorAreaM2 || enrichment?.buildingRegister?.totalArea || 0;
-    const grossAreaPyeong = grossAreaM2 ? (sqmToPyeong(grossAreaM2)).toFixed(1) : '0';
+    // 대지면적: 해석된 값(heroCard/ssot_summary) > 대장 platArea. 0/NaN 은 누락 → undefined (렌더러가 '-' 표기; '0' 문자열 폴백 금지 — Rule 37)
+    const posNum = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const platAreaM2 = posNum(heroCard.landAreaM2) || posNum(body?.ssot_summary?.land_area_sqm) || posNum(enrichment?.buildingRegister?.platArea);
+    const platAreaPyeong = platAreaM2 ? (sqmToPyeong(platAreaM2)).toFixed(1) : (posNum(body?.landAreaPyeong) ? String(body?.landAreaPyeong) : undefined);
+    // 예상 신축(계획) 연면적: 개발 스펙의 targetScalePyung 만 사용. 기존(현황) 연면적(total_area)과 절대 혼용하지 않는다.
+    // (히어로카드 키는 totalGrossAreaM2 — 과거 grossFloorAreaM2 로 읽어 항상 미스되던 키 불일치 정리)
+    const devSpec = (body?.developmentSpec || {}) as Record<string, any>;
+    const plannedGfaPy = posNum(devSpec.targetScalePyung) || posNum(devSpec.targetScalePyeong);
+    const grossAreaPyeong = plannedGfaPy ? plannedGfaPy.toFixed(1) : undefined;
     const bcrPct = landPlan.buildingCoverageMax || 50;
     const farPct = landPlan.floorAreaRatioMax || 250;
     const costBil = body?.constructionCostBil || 0;
@@ -333,7 +340,8 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
     });
     const heroCard = body?.heroCard || {};
     const ssotSummary = body?.ssot_summary || {};
-    const totalGfaPy = heroCard.grossFloorAreaM2 ? Math.round(sqmToPyeong(heroCard.grossFloorAreaM2) * 10) / 10
+    const heroGfaM2 = heroCard.totalGrossAreaM2 ?? heroCard.grossFloorAreaM2;
+    const totalGfaPy = heroGfaM2 ? Math.round(sqmToPyeong(heroGfaM2) * 10) / 10
             : (ssotSummary.total_gross_area_sqm ? Math.round(sqmToPyeong(ssotSummary.total_gross_area_sqm) * 10) / 10
             : (ssotSummary.total_area ? Math.round(sqmToPyeong(ssotSummary.total_area) * 10) / 10
             : Math.round(floors.reduce((acc, f) => acc + (f.floorAreaPy || 0), 0) * 10) / 10));
@@ -651,14 +659,14 @@ export function buildA06Props(markdown: string, tables: ParsedTable[], lines: st
       return (sp > 10 ? label.slice(0, sp) : label.slice(0, 28)).trim();
     };
     const truncatedRows: [string, string][] = rows.slice(0, 6).map(([label, value]) => 
-            [cutLabel(label), enforceTextBudget(value, 200)] as [string, string]
+            [cutLabel(label), shortenWithoutEllipsis(value, 200)] as [string, string]
           );
     return {
     left: { sub: stripMarkdown(sub), source: '' },
     right: { 
       sub: '', 
       rows: truncatedRows,
-      callout: calloutItem ? { kind: 'info', title: '', body: enforceTextBudget(stripMarkdown(calloutItem.replace(/^>\s*/, '')), 240) } : undefined,
+      callout: calloutItem ? { kind: 'info', title: '', body: shortenWithoutEllipsis(stripMarkdown(calloutItem.replace(/^>\s*/, '')), 240) } : undefined,
     },
     };
 }
@@ -890,7 +898,8 @@ export function buildVacancyCompact(floorLeases: any): string | null {
   if (!Array.isArray(floorLeases) || floorLeases.length === 0) return null;
   const leases = floorLeases.filter((fl: any) => fl && typeof fl === 'object');
   if (leases.length === 0) return null;
-  const isVacant = (fl: any) => !!fl.is_vacant || String(fl.tenant_type || fl.tenant_name || '').includes('공실');
+  // 점유 상태 SSOT: 자가사용·통합계약 후행(월세 0)은 공실이 아니다
+  const isVacant = (fl: any) => isVacantLeaseRow(fl);
   const areaPy = (fl: any): number => {
     const sqm = Number(fl.area_sqm);
     if (!fl.area_sqm_is_proxy && Number.isFinite(sqm) && sqm > 0) return sqm * 0.3025;
@@ -926,11 +935,11 @@ export function shortenVacancyText(text: string, max = 18): string {
   return base;
 }
 
-export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body: Record<string, any>): Record<string, any> {
+export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body: Record<string, any>, building?: any): Record<string, any> {
     const heroCard = body?.heroCard ?? {};
     const posture = heroCard.posture || 'income';
     const lines = markdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const metrics: Array<{label: string; value: string; unit?: string}> = [];
+    const metrics: Array<{label: string; value: string; unit?: string; sub?: string}> = [];
     const ssotAskManwon = body?.ssot_summary?.asking_price_manwon;
     const askPrice = (ssotAskManwon && Number.isFinite(Number(ssotAskManwon)) && Number(ssotAskManwon) > 0)
             ? `${(Number(ssotAskManwon) / 10000).toLocaleString()}억 원`
@@ -964,7 +973,7 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       summaryYield = yieldObj;
       metrics.push(yieldSummaryMetric(yieldObj, heroCard));
     }
-    const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl && (fl.is_vacant || String(fl.tenant_type || '').includes('공실')));
+    const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl && isVacantLeaseRow(fl));
     const vacCompact = buildVacancyCompact(body?.floor_leases);
     const vacDisplayRaw = (heroCard.vacancyDisplay && heroCard.vacancyDisplay !== '확인 중') ? String(heroCard.vacancyDisplay) : '';
     const vacSignalRaw = ssotB.vacancy_signal ? String(ssotB.vacancy_signal) : '';
@@ -1010,8 +1019,19 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     } else if (posture === 'owner_occupied') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
     if (heroCard.pricePerPyeong) metrics.push({ label: '평당 매매가', value: `${heroCard.pricePerPyeong.toLocaleString()}원/평` });
-    if (heroCard.ownVsLeaseSavingsBil) metrics.push({ label: '연 임대료 절감액', value: `약 ${heroCard.ownVsLeaseSavingsBil}억 원/년` });
-    if (heroCard.breakevenYears) metrics.push({ label: '자가전환 손익분기', value: `약 ${heroCard.breakevenYears}년` });
+    // Rule 34: 중개인 메모 명시값(절감액·손익분기)이 계산기(시장임대료 가정 기반) 값보다 우선 — 출처 라벨 병기, 충돌하는 두 숫자 동시 표기 금지
+    const ownerMemo = resolveBrokerMemoFacts(body, building).owner;
+    if (ownerMemo.annualSavingsBil) {
+      metrics.push({ label: '연 임대료 절감액', value: `약 ${ownerMemo.annualSavingsBil}억 원/년`, sub: BROKER_STATED_TAG });
+    } else if (heroCard.ownVsLeaseSavingsBil) {
+      metrics.push({ label: '연 임대료 절감액', value: `약 ${heroCard.ownVsLeaseSavingsBil}억 원/년` });
+    }
+    if (ownerMemo.breakevenYears) {
+      metrics.push({ label: '자가전환 손익분기', value: `약 ${ownerMemo.breakevenYears}년`, sub: BROKER_STATED_TAG });
+    } else if (heroCard.breakevenYears && !ownerMemo.annualSavingsBil) {
+      // 계산 손익분기는 계산 절감액을 전제로 함 — 절감액을 중개인 값으로 대체했다면 불일치하므로 생략
+      metrics.push({ label: '자가전환 손익분기', value: `약 ${heroCard.breakevenYears}년` });
+    }
     } else if (posture === 'trading') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
     if (heroCard.pricePerPyeong) metrics.push({ label: '평당 매매가', value: `${heroCard.pricePerPyeong.toLocaleString()}원/평` });
@@ -1019,19 +1039,53 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     if (heroCard.targetHprPct) metrics.push({ label: '목표 수익률(HPR)', value: `${heroCard.targetHprPct}%` });
     } else if (posture === 'development') {
     if (askPrice) metrics.push({ label: '토지 매입가', value: String(askPrice) });
-    if (heroCard.landPricePerPyeong) metrics.push({ label: '토지 평당가', value: `${heroCard.landPricePerPyeong.toLocaleString()}만원/평` });
+    const devMemo = resolveBrokerMemoFacts(body, building).development;
+    const devSpec: Record<string, any> = body?.developmentSpec ?? {};
+    // 중개인 제시 토지평당가가 있으면 계산값(매매가 ÷ 대지평수)보다 우선 — 출처 라벨 병기 (두 숫자 동시 표기 금지)
+    if (devMemo.landPricePerPyeongManwon) {
+      metrics.push({ label: '토지 평당가', value: `약 ${devMemo.landPricePerPyeongManwon.toLocaleString()}만원/평`, sub: BROKER_STATED_TAG });
+    } else if (heroCard.landPricePerPyeong) {
+      metrics.push({ label: '토지 평당가', value: `${heroCard.landPricePerPyeong.toLocaleString()}만원/평` });
+    }
     // Hold 모드 분기: devHoldYieldPct 있으면 보유형 수익률, 아니면 분양형 이익률
     if (heroCard.devHoldYieldPct != null && heroCard.devHoldYieldPct > 0) {
       metrics.push({ label: '보유형 연 순수익률', value: `${heroCard.devHoldYieldPct}%` });
     } else if (heroCard.devProfitMarginPct != null) {
       metrics.push({ label: '예상 개발이익률', value: `${heroCard.devProfitMarginPct}%` });
     }
-    if (heroCard.totalGrossAreaM2) metrics.push({ label: '신축 연면적', value: `${heroCard.totalGrossAreaM2.toLocaleString()}㎡` });
+    // 신축 목표 규모(계획 GFA) — 기존(현황) 연면적과 엄격히 분리. 구조화 입력(developmentSpec) → 메모 '신축 가능 연면적' 순
+    const plannedPy = Number(devSpec.targetScalePyung ?? devSpec.targetScalePyeong) || devMemo.plannedGfaPyung;
+    if (plannedPy && Number.isFinite(plannedPy) && plannedPy > 0) {
+      metrics.push({ label: '신축 목표 규모', value: `${(Math.round(plannedPy * 10) / 10).toLocaleString()}평`, sub: BROKER_STATED_TAG });
+    }
+    // 허가(인허가) 용적률 — 법정 용적률(용도지역/대장)과 별개의 중개인 제시값
+    const maxFar = Number(devSpec.maxFAR ?? devSpec.maxFar) || devMemo.maxFarPct;
+    if (maxFar && Number.isFinite(maxFar) && maxFar > 0) {
+      metrics.push({ label: '허가 용적률', value: `${(Math.round(maxFar * 10) / 10).toLocaleString()}%`, sub: BROKER_STATED_TAG });
+    }
+    // heroCard.totalGrossAreaM2 는 현황(대장) 연면적 — '신축 연면적' 라벨 사용 금지
+    if (heroCard.totalGrossAreaM2) metrics.push({ label: '현황 연면적', value: `${heroCard.totalGrossAreaM2.toLocaleString()}㎡` });
     } else if (posture === 'operating') {
+    // 구조화 입력(바텀시트) 우선 → 비어 있는 키만 원문 메모에서 복원. 중개인 값이 heroCard 의 기본 가정(GOP 35% 등)보다 우선
+    const hotel = resolveHotelOperating(body, building);
+    const won = (n: number) => `${Math.round(n).toLocaleString()}원`;
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
-    if (heroCard.noiBaseBil) metrics.push({ label: '연간 실질 GOP', value: `약 ${heroCard.noiBaseBil}억 원` });
-    if (heroCard.gopMarginPct) metrics.push({ label: 'GOP 마진율', value: `${heroCard.gopMarginPct}%` });
-    if (heroCard.revpar) metrics.push({ label: 'RevPAR(객실매출)', value: `약 ${(heroCard.revpar / 10000).toFixed(1)}만원` });
+    if (Number(hotel.total_rooms) > 0) metrics.push({ label: '총 객실 수', value: `${hotel.total_rooms}실` });
+    if (Number(hotel.adr_krw) > 0) metrics.push({ label: 'ADR (객실 단가)', value: won(Number(hotel.adr_krw)) });
+    const occ = Number(hotel.occupancy_rate_pct) || Number(heroCard.occPct) || 0;
+    if (occ > 0) metrics.push({ label: 'OCC (점유율)', value: `${occ}%` });
+    const revpar = Number(hotel.revpar_krw) || Number(heroCard.revpar) || 0;
+    if (revpar > 0) metrics.push({ label: 'RevPAR (객실당 매출)', value: won(revpar) });
+    const gopMargin = Number(hotel.gop_margin_pct) || Number(heroCard.gopMarginPct) || 0;
+    if (gopMargin > 0) metrics.push({ label: 'GOP 마진율', value: `${gopMargin}%` });
+    const annualGopBil = Number(hotel.annual_gop_krw) > 0
+      ? Math.round(Number(hotel.annual_gop_krw) / 1e7) / 10
+      : (Number(heroCard.noiBaseBil) || 0);
+    if (annualGopBil > 0) metrics.push({ label: '연간 실질 GOP', value: `약 ${annualGopBil}억 원` });
+    if (hotel.operator_name) {
+      const modelLabel: Record<string, string> = { management_contract: '위탁운영', direct: '직영', lease: '임대운영' };
+      metrics.push({ label: '운영사', value: String(hotel.operator_name), sub: modelLabel[String(hotel.operating_model)] || BROKER_STATED_TAG });
+    }
     }
 
     if (metrics.length === 0) {

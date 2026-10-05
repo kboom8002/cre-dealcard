@@ -180,7 +180,7 @@ function getSentimentGradient(score: number) {
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
 export default function MorningIntelligence() {
   const router = useRouter();
-  const { addContentBlock, blocks: draftBlocks } = useMagazineDraft("morning-intel-user");
+  const { addContentBlock, blocks: draftBlocks } = useMagazineDraft();
   const [region, setRegion] = useState("seongsu");
   const [data, setData] = useState<IntelligenceData | null>(null);
   const [sharingUrl, setSharingUrl] = useState<string>("");

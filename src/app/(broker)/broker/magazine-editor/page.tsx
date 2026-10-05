@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from "react";
-import { toast } from "sonner";
-import { MagazineView } from "@/app/(public)/magazine/[brokerId]/[date]/magazine-view";
+import { editorToast } from "@/components/magazine-editor/editor-toaster";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import Script from "next/script";
 import { useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, MotionConfig } from "motion/react";
+import { ErrorState } from "@/components/ui/error-state";
+import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
+import { useAsyncState } from "@/lib/magazine/use-async-state";
+import { computeTabCompletion, summarizeCompletion } from "@/lib/magazine/editor-progress";
+import MagazineEditorLoading from "./loading";
 import {
   EditorAiAssistTab,
   EditorOutreachTab,
@@ -19,6 +23,35 @@ import {
   MagazineShareModal,
   EditorAnalyticsTab,
 } from "@/components/magazine-editor";
+import { SlugSetupGate } from "@/components/magazine-editor/SlugSetupGate";
+import { EditorPublishTab } from "@/components/magazine-editor/EditorPublishTab";
+import { PublishConfirmModal } from "@/components/magazine-editor/PublishConfirmModal";
+import { SaveStatusBadge } from "@/components/magazine-editor/SaveStatusBadge";
+import { useEditionAutosave } from "@/components/magazine-editor/useEditionAutosave";
+import { buildOgImageUrl } from "@/lib/magazine/view-helpers";
+import { todayKst, formatKoreanDate, toKstDate } from "@/lib/magazine/kst";
+import { MAGAZINE_SEND_DAY_LABEL } from "@/lib/magazine/schedule-labels";
+import {
+  DEFAULT_SECTION_ORDER,
+  MAX_NEWS_SELECTION,
+  buildContentFromForm,
+  buildPatchPayload,
+  describeDistributeOutcome,
+  formFromEdition,
+  formSignature,
+  toggleNewsSelection,
+  type EditionRow,
+  type EditorForm,
+  type PollOptionForm,
+  type TargetSegment,
+} from "@/lib/magazine/edition-save";
+import {
+  extractApiErrorMessage,
+  readJsonSafe,
+  parseEditorIdentity,
+  buildPreviewBroker,
+  type EditorIdentity,
+} from "@/lib/magazine/editor-helpers";
 import {
   Save,
   Eye,
@@ -129,6 +162,13 @@ const FIELD_NOTE_FIELDS: {
   },
 ];
 
+// 설문 선택지 입력칸은 최소 3칸을 보여준다 (비어 있으면 저장 시 제거됨)
+function padPollOptions(options: PollOptionForm[]): PollOptionForm[] {
+  const next = options.slice(0, 4);
+  while (next.length < 3) next.push({ label: "" });
+  return next;
+}
+
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────
 function MagazineEditorInner() {
   const searchParams = useSearchParams();
@@ -137,10 +177,24 @@ function MagazineEditorInner() {
   const initialTab = (searchParams.get("tab") as TabKey) || "cover";
   const [activeTab, setActiveTab] = useState<TabKey>(TABS.some(t => t.key === initialTab) ? initialTab : "cover");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [editionReady, setEditionReady] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [needsQualityAck, setNeedsQualityAck] = useState(false);
+  const [sendAfterPublish, setSendAfterPublish] = useState(true);
+  /** 서버 env(MAGAZINE_SEND_ENABLED)는 클라이언트에서 못 읽으므로 draft 응답 meta 로 받는다 (null = 확인 전) */
+  const [sendEnabled, setSendEnabled] = useState<boolean | null>(null);
+  const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [editionUpdatedAt, setEditionUpdatedAt] = useState<string | null>(null);
+  const [savedTopNews, setSavedTopNews] = useState<Array<Record<string, unknown>>>([]);
+  const [savedDealHighlights, setSavedDealHighlights] = useState<Array<Record<string, unknown>>>([]);
+  // 최신 값 ref (타이머·핸들러의 stale closure 방지)
+  const formRef = useRef({} as EditorForm);
+  const baseContentRef = useRef<Record<string, unknown> | null>(null);
+  const selectedNewsIdsRef = useRef<string[]>([]);
+  const defaultsPendingRef = useRef({ news: false, deals: false });
+  const profileSavedRef = useRef({ title: "", color: "" });
 
   // Edition state
   const [editionId, setEditionId] = useState<string | null>(null);
@@ -162,11 +216,10 @@ function MagazineEditorInner() {
   const [themeTitle, setThemeTitle] = useState("");
   const [themeBodyMd, setThemeBodyMd] = useState("");
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set());
-  const [allDeals, setAllDeals] = useState<any[]>([]);
+  // allDeals / allNews 는 newsState·dealsState(useAsyncState)에서 파생된다 (아래)
 
   // News
   const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
-  const [allNews, setAllNews] = useState<any[]>([]);
 
   // Settings
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -175,21 +228,23 @@ function MagazineEditorInner() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [distributionResult, setDistributionResult] = useState<any>(null);
   const [isPaidTier, setIsPaidTier] = useState<boolean>(false);
+  const [identity, setIdentity] = useState<EditorIdentity | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [magazineData, setMagazineData] = useState<any>(null);
-  const [targetSegments, setTargetSegments] = useState<string[]>(["all"]);
+  const [targetSegment, setTargetSegment] = useState<TargetSegment>("all");
 
   // Poll
   const [pollQuestion, setPollQuestion] = useState("");
-  const [pollChoices, setPollChoices] = useState<string[]>(["", "", ""]);
+  const [pollOptions, setPollOptions] = useState<PollOptionForm[]>(padPollOptions([]));
 
   // Tax/Legal Clinic
   const [taxQuestion, setTaxQuestion] = useState("");
   const [taxAnswer, setTaxAnswer] = useState("");
   const [taxSource, setTaxSource] = useState("");
 
-  // Section Order
-  const DEFAULT_SECTION_ORDER = ["ai_briefing", "field_note", "theme_of_week", "featured_deals", "poll", "market_data", "news_curation", "tax_clinic", "auction_picks", "sentiment_index", "roi_calculator", "referral"];
-  const [sectionOrder, setSectionOrder] = useState<string[]>(DEFAULT_SECTION_ORDER);
+  // Section Order + on/off
+  const [sectionOrder, setSectionOrder] = useState<string[]>([...DEFAULT_SECTION_ORDER]);
+  const [sectionsEnabled, setSectionsEnabled] = useState<Record<string, boolean>>({});
 
   // Analytics
   const [topLeads, setTopLeads] = useState<any[]>([]);
@@ -203,7 +258,81 @@ function MagazineEditorInner() {
   // Tooltip
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => todayKst(), []);
+
+  // ── 뉴스 후보 (U-04: loading / error+retry / empty) ──
+  const newsState = useAsyncState<any[]>(
+    async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("external_news")
+        .select("id, title, summary, source, sentiment, importance_score, topic")
+        .order("importance_score", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw new Error("뉴스 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      return (data ?? []) as any[];
+    },
+    [],
+    { auto: editionReady }
+  );
+
+  // ── 딜카드 후보 + IM 브릿지 추천 매물 ──
+  const dealsState = useAsyncState<any[]>(
+    async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("로그인이 필요합니다. 다시 로그인해 주세요.");
+      const { data: dealsData, error } = await supabase
+        .from("building_ssot_lite")
+        .select(
+          "id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers"
+        )
+        .eq("owner_id", user.id)
+        .in("status", ["public_signal_ready", "active"])
+        .order("updated_at", { ascending: false })
+        .limit(10);
+      if (error) throw new Error("매물 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+
+      const mappedDeals = (dealsData || []).map((b: any) => ({
+        id: b.id,
+        address: b.raw_address,
+        areaSignal: b.area_signal,
+        assetType: b.asset_type,
+        price: b.price_band,
+        photoUrl: ((b.layers as any)?.photos?.urls as string[] | undefined)?.[0] ?? null,
+        buyerInterestCount: b.matched_buyer_count || 0,
+      }));
+
+      // IM 브릿지 추천 매물 (실패해도 기본 매물 목록은 유지)
+      const { data: profileDeals } = await supabase
+        .from("broker_profiles")
+        .select("pending_magazine_deals")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const pendingDeals = (profileDeals?.pending_magazine_deals || []) as any[];
+      pendingDeals.forEach((pd: any) => {
+        if (!mappedDeals.some((md) => md.id === pd.buildingId)) {
+          mappedDeals.push({
+            id: pd.buildingId,
+            address: pd.blindName || "미공개 매물",
+            areaSignal: pd.blindName || "추천 매물",
+            assetType: pd.assetType || "매물",
+            price: pd.priceBand || "",
+            photoUrl: pd.photoUrl,
+            buyerInterestCount: 0,
+          });
+        }
+      });
+      return mappedDeals;
+    },
+    [],
+    { auto: editionReady }
+  );
+  const allNews = useMemo(() => newsState.data ?? [], [newsState.data]);
+  const allDeals = useMemo(() => dealsState.data ?? [], [dealsState.data]);
 
   // ── 데이터 로딩 ──
   useEffect(() => {
@@ -213,169 +342,99 @@ function MagazineEditorInner() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setLoadError("로그인이 필요합니다. 다시 로그인해 주세요.");
+          return;
+        }
 
-        const { data: profile } = await supabase
-          .from("broker_profiles")
-          .select("slug, magazine_title, magazine_theme_color")
-          .eq("user_id", user.id)
-          .single();
-
-        const slug = profile?.slug || "demo";
-        setBrokerSlug(slug);
-        setMagazineTitle(profile?.magazine_title || "");
-        if (profile?.magazine_theme_color) setThemeColor(profile.magazine_theme_color);
-
-        // 브로커 구독 티어 확인
+        // 정체성/slug는 서버 프로필 API가 단일 출처 (slug 자동 생성 포함). "demo" 폴백 없음.
+        let ident: EditorIdentity | null = null;
         try {
           const profileApiRes = await fetch("/api/broker/profile");
           if (profileApiRes.ok) {
-            const profileApiJson = await profileApiRes.json();
-            if (profileApiJson?.data?.subscription) {
-              setIsPaidTier(!!profileApiJson.data.subscription.isPaid);
-            }
+            ident = parseEditorIdentity(await readJsonSafe(profileApiRes));
           }
         } catch {
-          // ignore
+          ident = null;
+        }
+        if (!ident) {
+          setLoadError("프로필을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+          return;
         }
 
-        // 1. 최신 에디션 가져오기
-        const edRes = await fetch(
-          `/api/magazine/editions?broker_id=${slug}&type=weekly&limit=1`
-        );
-        if (edRes.ok) {
-          const edJson = await edRes.json();
-          if (edJson.editions && edJson.editions.length > 0) {
-            const ed: MagazineEdition = edJson.editions[0];
-            setEditionId(ed.id);
-            setEditionLabel(ed.edition_label);
-            setEditionType(ed.edition_type);
-            setEditionStatus(ed.status);
-            setHeadline(ed.title || "");
-            setMarketTemp(ed.market_temp);
-            setCoverKeywords(
-              ed.cover_keywords?.length
-                ? [...ed.cover_keywords, "", "", ""].slice(0, 3)
-                : ["", "", ""]
-            );
-            setCoverImageUrl(ed.cover_image_url);
-            if (ed.field_note && Object.keys(ed.field_note).length > 0) {
-              setFieldNote(ed.field_note as BrokerFieldNote);
-            }
-            setThemeTitle(ed.theme_title || "");
-            setThemeBodyMd(ed.theme_body_md || "");
-            if (ed.featured_deal_ids?.length) {
-              setSelectedDealIds(new Set(ed.featured_deal_ids));
-            }
-            if (ed.theme_color) setThemeColor(ed.theme_color);
-            // Store content for preview
-            if (ed.content) {
-              const c = ed.content as any;
-              setMagazineData({ ...ed.content, themeColor: ed.theme_color });
-              if (c.briefing) setBriefing(c.briefing);
+        setIdentity(ident);
+        setIsPaidTier(ident.isPaid);
+        setMagazineTitle(ident.magazineTitle);
+        if (ident.magazineThemeColor) setThemeColor(ident.magazineThemeColor);
 
-              // Hydrate Poll
-              if (c.poll?.question) {
-                setPollQuestion(c.poll.question);
-                if (Array.isArray(c.poll.choices)) {
-                  setPollChoices([...c.poll.choices, "", "", ""].slice(0, 3));
-                }
-              }
+        // slug가 없으면 편집 UI를 차단하고 설정 화면(SlugSetupGate)을 보여준다
+        if (!ident.slug) return;
+        const slug = ident.slug;
+        setBrokerSlug(slug);
 
-              // Hydrate Tax Clinic
-              if (c.tax_clinic?.question) {
-                setTaxQuestion(c.tax_clinic.question);
-                setTaxAnswer(c.tax_clinic.answer || "");
-                setTaxSource(c.tax_clinic.source || "");
-              }
-
-              // Hydrate Section Order
-              if (Array.isArray(c.section_order) && c.section_order.length > 0) {
-                setSectionOrder(c.section_order);
-              }
-            }
-          }
-        }
-
-        // 2. 기존 매거진 데이터도 불러오기 (backward compat)
-        const res = await fetch(`/api/magazine/${slug}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data) {
-            if (!magazineData) setMagazineData(json.data);
-            if (!headline && json.data.headline) setHeadline(json.data.headline);
-            if (!briefing && json.data.briefing) setBriefing(json.data.briefing);
-          }
-        }
-
-        // 3. 뉴스 목록
-        const { data: externalNews } = await supabase
-          .from("external_news")
-          .select("id, title, summary, source, sentiment, importance_score, topic")
-          .order("importance_score", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(20);
-
-        if (externalNews && externalNews.length > 0) {
-          setAllNews(externalNews);
-        }
-
-        // 4. 딜카드 목록
-        const { data: dealsData } = await supabase
-          .from("building_ssot_lite")
-          .select(
-            "id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers"
-          )
-          .eq("owner_id", user.id)
-          .in("status", ["public_signal_ready", "active"])
-          .order("updated_at", { ascending: false })
-          .limit(10);
-          
-        const deals = (dealsData || []).map((b: any) => ({
-          ...b,
-          address: b.raw_address,
-          price: b.price_band,
-          photo_urls: (b.layers as any)?.photos?.urls || [],
-          buyer_interest_count: b.matched_buyer_count || 0,
-        }));
-
-        // 4.5. IM 브릿지 추천 매물 조회
-        const { data: profileDeals } = await supabase
-          .from("broker_profiles")
-          .select("pending_magazine_deals")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        const pendingDeals = (profileDeals?.pending_magazine_deals || []) as any[];
-
-        const mappedDeals = (deals || []).map((d: any) => ({
-          id: d.id,
-          address: d.address,
-          areaSignal: d.area_signal,
-          assetType: d.asset_type,
-          price: d.price,
-          photoUrl: (d.photo_urls as string[] | null)?.[0] ?? null,
-          buyerInterestCount: d.buyer_interest_count ?? 0,
-        }));
-
-        // pendingDeals를 mappedDeals에 병합 (중복 제거)
-        pendingDeals.forEach((pd: any) => {
-          if (!mappedDeals.some(md => md.id === pd.buildingId)) {
-            mappedDeals.push({
-              id: pd.buildingId,
-              address: pd.blindName || "미공개 매물",
-              areaSignal: pd.blindName || "추천 매물",
-              assetType: pd.assetType || "매물",
-              price: pd.priceBand || "",
-              photoUrl: pd.photoUrl,
-              buyerInterestCount: 0,
-            });
-          }
+        // 1. 이번 호 초안 (없으면 서버가 빈 초안을 만들고, 이미 발행했다면 발행본을 돌려준다)
+        const draftRes = await fetch("/api/magazine/editions/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ edition_type: "weekly" }),
         });
-
-        if (mappedDeals.length > 0) {
-          setAllDeals(mappedDeals);
+        const draftJson = (await readJsonSafe(draftRes)) as {
+          edition?: EditionRow;
+          created?: boolean;
+          meta?: { sendEnabled?: boolean; subscriberCount?: number | null };
+        } | null;
+        if (!draftRes.ok || !draftJson?.edition) {
+          setLoadError(extractApiErrorMessage(draftJson, "이번 호 초안을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
+          return;
         }
+        const ed = draftJson.edition;
+        const f = formFromEdition(ed);
+        const edContent: Record<string, unknown> =
+          ed.content && typeof ed.content === "object" ? (ed.content as Record<string, unknown>) : {};
+
+        setEditionId(ed.id);
+        if (ed.edition_label) setEditionLabel(ed.edition_label);
+        if (ed.edition_type) setEditionType(ed.edition_type as EditionType);
+        setEditionStatus((ed.status as EditionStatus) || "draft");
+        setPublishedAt(ed.published_at ?? null);
+        setEditionUpdatedAt(ed.updated_at ?? null);
+        setMagazineData(edContent);
+        setHeadline(f.headline);
+        setBriefing(f.briefing);
+        setMarketTemp(f.marketTemp as MarketTemperature | null);
+        setCoverKeywords(f.coverKeywords);
+        setCoverImageUrl(f.coverImageUrl);
+        setFieldNote(f.fieldNote);
+        setThemeTitle(f.themeTitle);
+        setThemeBodyMd(f.themeBodyMd);
+        setThemeColor(draftJson.created && ident.magazineThemeColor ? ident.magazineThemeColor : f.themeColor);
+        // URL ?deals= / ?news= 로 들어온 선택이 있으면 그것을 우선
+        if (!searchParams.get("deals")) setSelectedDealIds(new Set(f.selectedDealIds));
+        if (!searchParams.get("news")) setSelectedNewsIds(new Set(f.selectedNewsIds.slice(0, MAX_NEWS_SELECTION)));
+        setSavedTopNews(f.topNews);
+        setSavedDealHighlights(f.dealHighlights);
+        setPollQuestion(f.pollQuestion);
+        setPollOptions(padPollOptions(f.pollOptions));
+        setTaxQuestion(f.taxQuestion);
+        setTaxAnswer(f.taxAnswer);
+        setTaxSource(f.taxSource);
+        setSectionOrder(f.sectionOrder);
+        setSectionsEnabled(f.sectionsEnabled);
+        setTargetSegment(f.targetSegment);
+        // 저장된 적 없는 새 초안일 때만 기본 선택을 채운다
+        defaultsPendingRef.current = {
+          news: !Array.isArray(edContent.selected_news_ids),
+          deals: !Array.isArray(edContent.featured_deal_ids),
+        };
+        profileSavedRef.current = { title: ident.magazineTitle, color: ident.magazineThemeColor ?? "" };
+        setSendEnabled(typeof draftJson.meta?.sendEnabled === "boolean" ? draftJson.meta.sendEnabled : null);
+        setSubscriberCount(
+          typeof draftJson.meta?.subscriberCount === "number" ? draftJson.meta.subscriberCount : null
+        );
+        setEditionReady(true);
+
+        // 3·4. 뉴스·매물 목록은 useAsyncState(newsState/dealsState)가 에디션 준비 후 따로 불러온다
+        //      (실패해도 에디터는 열리고, 해당 탭에서 오류 안내 + 다시 시도를 보여준다)
 
         // 5. 매거진 성과 데이터 로드
         try {
@@ -409,6 +468,7 @@ function MagazineEditorInner() {
         }
       } catch (err) {
         console.error("Failed to load magazine data", err);
+        setLoadError("매거진 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
       } finally {
         setLoading(false);
       }
@@ -417,98 +477,146 @@ function MagazineEditorInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const previewData = useMemo(() => {
-    const base = magazineData || {};
+  const isPublished = editionStatus === "published";
+  // 발행본은 최초 발행일(KST)의 공개 주소를 쓴다
+  const publishedIssueDate = useMemo(
+    () => (publishedAt ? toKstDate(new Date(publishedAt)) : today),
+    [publishedAt, today]
+  );
 
-    const filteredNews = allNews.filter((n: any) =>
-      selectedNewsIds.has(n.id ?? n.title)
-    );
-    const filteredDeals = allDeals.filter((d: any) =>
-      selectedDealIds.has(d.id)
-    );
-
-    return {
-      ...base,
-      headline,
-      briefing,
-      themeColor,
-      market_temp: marketTemp,
-      cover_keywords: coverKeywords.filter(Boolean),
-      cover_image_url: coverImageUrl,
-      field_note: fieldNote,
-      theme_title: themeTitle,
-      theme_body_md: themeBodyMd,
-      featured_deal_ids: Array.from(selectedDealIds),
-      topNews: filteredNews.map((n: any) => ({
+  // 저장된 선택(스냅샷)을 후보 목록과 합쳐, 후보에서 빠진 뉴스/매물도 계속 보이게 한다
+  const newsPool = useMemo(() => {
+    const seen = new Set(allNews.map((n: any) => String(n.id ?? n.title)));
+    const extra = savedTopNews
+      .map((n) => ({
+        id: String(n.id ?? n.title ?? ""),
         title: n.title,
         summary: n.summary,
         source: n.source,
         sentiment: n.sentiment,
         topic: n.topic,
-      })),
-      dealHighlights: filteredDeals,
-      poll: pollQuestion ? { question: pollQuestion, choices: pollChoices.filter(Boolean) } : null,
-      tax_clinic: taxQuestion ? { question: taxQuestion, answer: taxAnswer, source: taxSource } : null,
-      section_order: sectionOrder,
-    };
-  }, [
-    magazineData,
-    headline,
-    briefing,
-    themeColor,
-    marketTemp,
-    coverKeywords,
-    coverImageUrl,
-    fieldNote,
-    themeTitle,
-    themeBodyMd,
-    allNews,
-    allDeals,
-    selectedNewsIds,
-    selectedDealIds,
-    pollQuestion,
-    pollChoices,
-    taxQuestion,
-    taxAnswer,
-    taxSource,
-    sectionOrder,
-  ]);
-  // ── 30초 자동 저장 ──
+      }))
+      .filter((n) => n.id && !seen.has(n.id));
+    return [...allNews, ...extra] as any[];
+  }, [allNews, savedTopNews]);
+
+  const dealPool = useMemo(() => {
+    const seen = new Set(allDeals.map((d: any) => String(d.id)));
+    const extra = savedDealHighlights.filter((d) => d.id != null && !seen.has(String(d.id)));
+    return [...allDeals, ...extra] as any[];
+  }, [allDeals, savedDealHighlights]);
+
+  const topNewsSnapshot = useMemo(() => {
+    const byId = new Map(newsPool.map((n: any) => [String(n.id ?? n.title), n]));
+    return Array.from(selectedNewsIds)
+      .map((id) => byId.get(id))
+      .filter((n): n is any => !!n)
+      .map((n: any) => ({
+        id: String(n.id ?? n.title),
+        title: n.title,
+        summary: n.summary,
+        source: n.source,
+        sentiment: n.sentiment,
+        topic: n.topic,
+      }));
+  }, [newsPool, selectedNewsIds]);
+
+  const dealSnapshot = useMemo(() => {
+    const byId = new Map(dealPool.map((d: any) => [String(d.id), d]));
+    return Array.from(selectedDealIds)
+      .map((id) => byId.get(id))
+      .filter((d): d is any => !!d) as Array<Record<string, unknown>>;
+  }, [dealPool, selectedDealIds]);
+
+  // ── 에디터 폼 (저장·미리보기·변경 감지의 단일 출처) ──
+  const form: EditorForm = useMemo(
+    () => ({
+      headline,
+      briefing,
+      marketTemp,
+      coverKeywords,
+      coverImageUrl,
+      fieldNote,
+      themeTitle,
+      themeBodyMd,
+      themeColor,
+      selectedDealIds: Array.from(selectedDealIds),
+      selectedNewsIds: Array.from(selectedNewsIds),
+      topNews: topNewsSnapshot,
+      dealHighlights: dealSnapshot,
+      pollQuestion,
+      pollOptions,
+      taxQuestion,
+      taxAnswer,
+      taxSource,
+      sectionOrder,
+      sectionsEnabled,
+      targetSegment,
+    }),
+    [
+      headline,
+      briefing,
+      marketTemp,
+      coverKeywords,
+      coverImageUrl,
+      fieldNote,
+      themeTitle,
+      themeBodyMd,
+      themeColor,
+      selectedDealIds,
+      selectedNewsIds,
+      topNewsSnapshot,
+      dealSnapshot,
+      pollQuestion,
+      pollOptions,
+      taxQuestion,
+      taxAnswer,
+      taxSource,
+      sectionOrder,
+      sectionsEnabled,
+      targetSegment,
+    ]
+  );
+  const signature = useMemo(() => formSignature(form), [form]);
+
+  // 탭 작성 완료 ✓ (T1-UX-2)
+  const completion = useMemo(() => computeTabCompletion(form, isPublished), [form, isPublished]);
+  const progress = useMemo(() => summarizeCompletion(completion), [completion]);
+
+  // 타이머/핸들러는 항상 최신 값을 ref 로 읽는다 (stale closure 방지)
   useEffect(() => {
-    if (editionStatus === 'published') return; // 발행 완료 시 자동 저장 비활성
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    
-    autoSaveTimerRef.current = setTimeout(async () => {
-      if (!editionId || !brokerSlug) return;
-      setSaveStatus('saving');
-      try {
-        await fetch("/api/magazine/editions", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: editionId,
-            title: headline,
-            market_temp: marketTemp,
-            cover_keywords: coverKeywords.filter(Boolean),
-            field_note: fieldNote,
-            theme_title: themeTitle,
-            theme_body_md: themeBodyMd,
-            featured_deal_ids: Array.from(selectedDealIds),
-            theme_color: themeColor,
-            content: previewData,
-            status: editionStatus === 'draft' ? 'editing' : editionStatus,
-          }),
-        });
-        setSaveStatus('saved');
-        setLastSavedAt(new Date());
-        setTimeout(() => setSaveStatus('idle'), 3000);
-      } catch {
-        setSaveStatus('error');
-      }
-    }, 30_000);
-    
-    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [headline, briefing, marketTemp, coverKeywords, fieldNote, themeTitle, themeBodyMd, selectedDealIds, themeColor, selectedNewsIds, editionId, brokerSlug, editionStatus, previewData]);
+    formRef.current = form;
+    baseContentRef.current = magazineData;
+    selectedNewsIdsRef.current = Array.from(selectedNewsIds);
+  });
+  const getPayload = useCallback(
+    () => buildPatchPayload(baseContentRef.current, formRef.current),
+    []
+  );
+
+  // ── 단일 저장 경로: 3초 debounce + 30초 주기, 변경분만, updated_at 낙관적 동시성 ──
+  const autosave = useEditionAutosave({
+    editionId,
+    ready: editionReady,
+    enabled: !isPublished,
+    signature,
+    getPayload,
+    initialUpdatedAt: editionUpdatedAt,
+  });
+  const { saveNow, syncUpdatedAt } = autosave;
+
+  // 미리보기 = 저장될 content 와 같은 변환 결과 (비어 있는 설문/세무는 섹션 자체가 사라진다)
+  const previewData = useMemo<any>(
+    () => ({ ...buildContentFromForm(magazineData, form), themeColor }),
+    [magazineData, form, themeColor]
+  );
+
+  // 미리보기 전용: 항상 로그인한 본인 프로필로 표시 (저장되는 content에는 섞지 않는다)
+  const previewViewData = useMemo(() => {
+    const ownBroker = buildPreviewBroker(identity);
+    if (!ownBroker) return previewData;
+    return { ...previewData, broker: ownBroker };
+  }, [previewData, identity]);
 
   // ── 드래프트 블록에서 브리핑 데이터 자동 로드 ──
   useEffect(() => {
@@ -522,45 +630,49 @@ function MagazineEditorInner() {
     }
   }, [editionId, previewData, briefing]);
 
-  // ── URL 쿼리 파라미터에서 선택 항목 초기화 ──
+  // ── URL 쿼리 파라미터에서 선택 항목 초기화 (뉴스는 최대 6개) ──
   useEffect(() => {
     const dealsParam = searchParams.get("deals");
     const newsParam = searchParams.get("news");
 
     if (dealsParam) {
-      setSelectedDealIds(new Set(dealsParam.split(",")));
+      setSelectedDealIds(new Set(dealsParam.split(",").filter(Boolean)));
     }
     if (newsParam) {
-      setSelectedNewsIds(new Set(newsParam.split(",")));
+      setSelectedNewsIds(new Set(newsParam.split(",").filter(Boolean).slice(0, MAX_NEWS_SELECTION)));
     }
   }, [searchParams]);
 
-  // ── 선택된 뉴스/딜이 없으면 기본 선택 ──
+  // ── 새 초안일 때만 기본 선택 (저장된 선택을 사용자가 비웠다면 다시 채우지 않는다) ──
   useEffect(() => {
-    if (allNews.length > 0 && selectedNewsIds.size === 0 && !searchParams.get("news")) {
-      setSelectedNewsIds(new Set(allNews.slice(0, 4).map((n: any) => n.id ?? n.title)));
+    if (!defaultsPendingRef.current.news) return;
+    if (newsPool.length === 0) return;
+    defaultsPendingRef.current.news = false;
+    if (selectedNewsIds.size === 0 && !searchParams.get("news")) {
+      setSelectedNewsIds(new Set(newsPool.slice(0, 4).map((n: any) => n.id ?? n.title)));
     }
-  }, [allNews, searchParams, selectedNewsIds.size]);
+  }, [newsPool, searchParams, selectedNewsIds.size]);
 
   useEffect(() => {
-    if (allDeals.length > 0 && selectedDealIds.size === 0 && !searchParams.get("deals")) {
+    if (!defaultsPendingRef.current.deals) return;
+    if (allDeals.length === 0) return;
+    defaultsPendingRef.current.deals = false;
+    if (selectedDealIds.size === 0 && !searchParams.get("deals")) {
       setSelectedDealIds(new Set(allDeals.slice(0, 3).map((d: any) => d.id)));
     }
   }, [allDeals, searchParams, selectedDealIds.size]);
 
   // ── 실시간 미리보기 데이터 ──
 
-  // ── 뉴스 토글 ──
+  // ── 뉴스 토글 (최대 6개) ──
   const toggleNews = useCallback((newsId: string) => {
-    setSelectedNewsIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(newsId)) {
-        next.delete(newsId);
-      } else {
-        next.add(newsId);
-      }
-      return next;
-    });
+    const { next, rejected } = toggleNewsSelection(selectedNewsIdsRef.current, newsId);
+    if (rejected) {
+      editorToast.warning(`뉴스는 최대 ${MAX_NEWS_SELECTION}개까지 선택할 수 있습니다. 다른 뉴스를 먼저 해제해 주세요.`);
+      return;
+    }
+    selectedNewsIdsRef.current = next;
+    setSelectedNewsIds(new Set(next));
   }, []);
 
   // ── 딜카드 토글 ──
@@ -590,192 +702,184 @@ function MagazineEditorInner() {
     });
   }, []);
 
-  // ── 임시 저장 ──
-  const handleDraftSave = useCallback(async () => {
-    if (!brokerSlug || !previewData) return;
-    setSaving(true);
-    try {
-      if (editionId) {
-        const patchRes = await fetch("/api/magazine/editions", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: editionId,
-            title: headline,
-            market_temp: marketTemp,
-            cover_keywords: coverKeywords.filter(Boolean),
-            cover_image_url: coverImageUrl,
-            field_note: fieldNote,
-            theme_title: themeTitle,
-            theme_body_md: themeBodyMd,
-            featured_deal_ids: Array.from(selectedDealIds),
-            theme_color: themeColor,
-            content: previewData,
-            status: "draft",
-          }),
-        });
-        if (!patchRes.ok) {
-          console.error("Edition PATCH failed");
-        }
+  // ── 단일 저장 경로: 수동 저장 = 자동 저장과 같은 PATCH (E-01) ──
+  const handleManualSave = useCallback(async () => {
+    if (!editionReady || isPublished) return;
+    const ok = await saveNow();
+    if (ok) editorToast.success("저장되었습니다");
+    else editorToast.error("저장하지 못했습니다. 상단의 저장 상태를 확인해 주세요.");
+  }, [editionReady, isPublished, saveNow]);
+
+  // ── 서버가 돌려준 에디션 행을 화면 상태에 반영 (발행 직후) ──
+  const applyEditionRow = useCallback(
+    (row: EditionRow) => {
+      setEditionId(row.id);
+      if (row.edition_label) setEditionLabel(row.edition_label);
+      if (row.edition_type) setEditionType(row.edition_type as EditionType);
+      setEditionStatus((row.status as EditionStatus) || "draft");
+      setPublishedAt(row.published_at ?? null);
+      setEditionUpdatedAt(row.updated_at ?? null);
+      syncUpdatedAt(row.updated_at ?? null);
+      if (row.content && typeof row.content === "object") {
+        setMagazineData(row.content as Record<string, unknown>);
       }
+    },
+    [syncUpdatedAt]
+  );
 
-      const res = await fetch(`/api/magazine/${brokerSlug}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(previewData),
-      });
-
+  // ── 프로필의 매거진 제목/컬러 (발행 때만 함께 저장, 실패해도 발행은 막지 않음) ──
+  const saveProfileSettings = useCallback(async () => {
+    const last = profileSavedRef.current;
+    if (last.title === magazineTitle && last.color === themeColor) return;
+    try {
       const profileRes = await fetch("/api/broker/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug: brokerSlug,
-          magazine_title: magazineTitle,
-          magazine_theme_color: themeColor,
-        }),
+        body: JSON.stringify({ magazine_title: magazineTitle, magazine_theme_color: themeColor }),
       });
-
-      if (res.ok && profileRes.ok) {
-        setMagazineData(previewData);
-        setEditionStatus("draft");
-        toast.success("임시 저장되었습니다");
+      if (profileRes.ok) {
+        profileSavedRef.current = { title: magazineTitle, color: themeColor };
       } else {
-        toast.error("저장에 실패했습니다");
+        editorToast.warning("매거진 제목·컬러를 프로필에 저장하지 못했습니다. 발행은 계속 진행합니다.");
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("오류가 발생했습니다");
-    } finally {
-      setSaving(false);
+    } catch {
+      editorToast.warning("매거진 제목·컬러를 프로필에 저장하지 못했습니다. 발행은 계속 진행합니다.");
     }
-  }, [
-    brokerSlug,
-    previewData,
-    magazineTitle,
-    themeColor,
-    editionId,
-    headline,
-    marketTemp,
-    coverKeywords,
-    coverImageUrl,
-    fieldNote,
-    themeTitle,
-    themeBodyMd,
-    selectedDealIds,
-  ]);
+  }, [magazineTitle, themeColor]);
 
-  // ── 저장 및 공유 모달 열기 ──
-  const handlePublishAndShare = useCallback(async () => {
-    if (!brokerSlug || !previewData) return;
-    setSaving(true);
-    try {
-      // 1. 에디션 PATCH (editions API)
-      if (editionId) {
-        const patchRes = await fetch("/api/magazine/editions", {
-          method: "PATCH",
+  // ── 발행(정정 발행) 버튼: 먼저 저장 → 사전 점검 → 확인 모달 ──
+  const handleOpenPublish = useCallback(async () => {
+    if (!editionId || !editionReady) return;
+    if (!headline.trim()) {
+      editorToast.error("헤드라인을 입력해 주세요.");
+      setActiveTab("cover");
+      return;
+    }
+    if (!isPublished) {
+      const ok = await saveNow();
+      if (!ok) {
+        editorToast.error("저장하지 못해 발행을 멈췄습니다. 저장 상태를 확인한 뒤 다시 시도해 주세요.");
+        return;
+      }
+    }
+    setNeedsQualityAck(false);
+    setShowPublishConfirm(true);
+  }, [editionId, editionReady, headline, isPublished, saveNow]);
+
+  // ── 확인 모달의 최종 발행: 서버 원자 발행 → (선택) 발송 요청 → 정직한 결과 안내 ──
+  const handleConfirmPublish = useCallback(
+    async (opts: { acknowledgeQualityGate: boolean }) => {
+      if (!editionId) return;
+      const correction = isPublished;
+      setPublishing(true);
+      try {
+        await saveProfileSettings();
+
+        const res = await fetch(`/api/magazine/editions/${editionId}/publish`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            id: editionId,
-            title: headline,
-            market_temp: marketTemp,
-            cover_keywords: coverKeywords.filter(Boolean),
-            cover_image_url: coverImageUrl,
-            field_note: fieldNote,
-            theme_title: themeTitle,
-            theme_body_md: themeBodyMd,
-            featured_deal_ids: Array.from(selectedDealIds),
-            theme_color: themeColor,
-            content: previewData,
-            status: "published",
+            correction,
+            acknowledgeQualityGate: opts.acknowledgeQualityGate,
+            payload: buildPatchPayload(baseContentRef.current, formRef.current),
           }),
         });
-        if (!patchRes.ok) {
-          const err = await patchRes.json();
-          console.error("Edition PATCH failed", err);
-        }
-      }
+        const json = (await readJsonSafe(res)) as {
+          edition?: EditionRow;
+          issueDate?: string;
+          error?: { code?: string };
+        } | null;
 
-      // 2. 기존 daily API에도 저장 (backward compat)
-      const res = await fetch(`/api/magazine/${brokerSlug}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(previewData),
-      });
-
-      // 3. 프로필 저장
-      const profileRes = await fetch("/api/broker/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug: brokerSlug,
-          magazine_title: magazineTitle,
-          magazine_theme_color: themeColor,
-        }),
-      });
-
-      if (res.ok && profileRes.ok) {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('activity_events').insert({
-            user_id: user.id,
-            event_type: 'magazine_distributed',
-            entity_type: 'magazine_edition',
-            entity_id: editionId,
-            metadata: { date: new Date().toISOString().slice(0, 10) },
-          });
-        }
-
-        // 4. 구독자 배포 파이프라인 호출 (Free: 이메일 우선, Pro: 알림톡 + 이메일)
-        try {
-          const distRes = await fetch("/api/broker/magazine/distribute", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              editionId,
-              title: headline,
-              headline,
-              market_temp: marketTemp,
-              date: new Date().toISOString().slice(0, 10),
-            }),
-          });
-          if (distRes.ok) {
-            const distJson = await distRes.json();
-            if (distJson?.result) {
-              setDistributionResult(distJson.result);
-            }
+        if (!res.ok || !json?.edition) {
+          const code = json?.error?.code;
+          if (code === "QUALITY_GATE_REVIEW") {
+            setNeedsQualityAck(true);
+            editorToast.warning(extractApiErrorMessage(json, "품질 점검을 통과하지 못했습니다. 확인 후 다시 발행해 주세요."));
+            return;
           }
-        } catch (distErr) {
-          console.warn("[handlePublishAndShare] Distribute call failed:", distErr);
+          if (code === "EMPTY_HEADLINE" || code === "EMPTY_BODY") {
+            setShowPublishConfirm(false);
+            setActiveTab("cover");
+          }
+          editorToast.error(extractApiErrorMessage(json, "발행에 실패했습니다. 잠시 후 다시 시도해 주세요."));
+          return;
         }
 
-        setMagazineData(previewData);
-        setEditionStatus("published");
+        applyEditionRow(json.edition);
+        setShowPublishConfirm(false);
+        const issueDate = json.issueDate || todayKst();
+
+        // 활동 기록 (실패해도 발행에는 영향 없음)
+        try {
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { error: activityErr } = await supabase.from("activity_events").insert({
+              user_id: user.id,
+              event_type: "magazine_distributed",
+              entity_type: "magazine_edition",
+              entity_id: editionId,
+              metadata: { date: issueDate, correction },
+            });
+            if (activityErr) console.warn("[publish] activity insert failed:", activityErr.message);
+          }
+        } catch (activityErr) {
+          console.warn("[publish] activity insert failed:", activityErr);
+        }
+
+        if (correction) {
+          editorToast.success("정정 발행이 완료되었습니다. 공개 페이지가 갱신되었습니다.");
+        } else if (!sendAfterPublish) {
+          editorToast.success("발행되었습니다. 발송은 요청하지 않았습니다.");
+        } else {
+          // 발송 요청 — 발행은 이미 완료. 발송 중지(SEND_DISABLED)도 정직하게 안내한다.
+          let distJson: unknown = null;
+          try {
+            const distRes = await fetch("/api/broker/magazine/distribute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                editionId,
+                title: headline,
+                headline,
+                market_temp: marketTemp,
+                date: issueDate,
+                target: targetSegment,
+              }),
+            });
+            distJson = distRes.ok ? await readJsonSafe(distRes) : { success: false };
+          } catch (distErr) {
+            console.warn("[publish] Distribute call failed:", distErr);
+            distJson = { success: false };
+          }
+          const outcome = describeDistributeOutcome(distJson);
+          const resultObj = (distJson as { result?: unknown } | null)?.result;
+          if (resultObj && typeof resultObj === "object") setDistributionResult(resultObj);
+          if (outcome.kind === "sent") editorToast.success(outcome.message);
+          else editorToast.warning(outcome.message);
+          if (distJson && typeof distJson === "object" && (distJson as { blocked?: unknown }).blocked === "SEND_DISABLED") {
+            setSendEnabled(false);
+          }
+        }
         setShowShareModal(true);
-      } else {
-        toast.error("저장에 실패했습니다.");
+      } catch (err) {
+        console.error(err);
+        editorToast.error("발행 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+      } finally {
+        setPublishing(false);
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("오류가 발생했습니다.");
-    } finally {
-      setSaving(false);
-    }
-  }, [
-    brokerSlug,
-    previewData,
-    magazineTitle,
-    themeColor,
-    editionId,
-    headline,
-    marketTemp,
-    coverKeywords,
-    coverImageUrl,
-    fieldNote,
-    themeTitle,
-    themeBodyMd,
-    selectedDealIds,
-  ]);
+    },
+    [
+      editionId,
+      isPublished,
+      saveProfileSettings,
+      applyEditionRow,
+      sendAfterPublish,
+      headline,
+      marketTemp,
+      targetSegment,
+    ]
+  );
 
   // ── 카카오 공유 ──
   const handleMagazineKakaoShare = () => {
@@ -788,8 +892,8 @@ function MagazineEditorInner() {
         ? window.location.origin
         : "https://www.credeal.net";
 
-    const magazineUrl = `${baseUrl}/magazine/${brokerSlug}/${today}`;
-    const ogImageUrl = `${baseUrl}/api/og/magazine?brokerId=${brokerSlug}&date=${today}`;
+    const magazineUrl = `${baseUrl}/magazine/${brokerSlug}/${publishedIssueDate}`;
+    const ogImageUrl = buildOgImageUrl(baseUrl, brokerSlug, publishedIssueDate);
 
     if (typeof window !== "undefined" && (window as any).Kakao) {
       const Kakao = (window as any).Kakao;
@@ -824,16 +928,16 @@ function MagazineEditorInner() {
 
     // fallback
     navigator.clipboard.writeText(magazineUrl);
-    toast.success("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
+    editorToast.success("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
   };
 
   const handleCopyLink = () => {
     if (!brokerSlug) return;
     const origin =
       typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
-    const magazineUrl = `${origin}/magazine/${brokerSlug}/${today}`;
+    const magazineUrl = `${origin}/magazine/${brokerSlug}/${publishedIssueDate}`;
     navigator.clipboard.writeText(magazineUrl);
-    toast.success("링크가 복사되었습니다.");
+    editorToast.success("링크가 복사되었습니다.");
   };
 
   // ── 가격 포맷 ──
@@ -853,12 +957,12 @@ function MagazineEditorInner() {
       needs_review: { label: "검토필요", cls: "text-orange-300 bg-orange-500/12 border-orange-500/20" },
       scheduled: { label: "예약", cls: "text-purple-300 bg-purple-500/12 border-purple-500/20" },
       published: { label: "발행됨", cls: "text-emerald-300 bg-emerald-500/12 border-emerald-500/20" },
-      archived: { label: "보관", cls: "text-slate-500 bg-slate-600/12 border-slate-600/20" },
+      archived: { label: "보관", cls: "text-ink-subtle bg-slate-600/12 border-slate-600/20" },
     };
     const s = map[status] || map.draft;
     return (
       <span
-        className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}
+        className={`text-caption font-bold px-2 py-0.5 rounded-full border ${s.cls}`}
       >
         {s.label}
       </span>
@@ -867,11 +971,25 @@ function MagazineEditorInner() {
 
   // ── 로딩 ──
   if (loading) {
+    return <MagazineEditorLoading />;
+  }
+
+  if (loadError) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0B1120]">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      <div className="flex h-screen items-center justify-center bg-[#0B1120] p-6">
+        <ErrorState
+          className="w-full max-w-sm"
+          title="콘텐츠 스튜디오를 불러오지 못했습니다"
+          description={loadError}
+          onRetry={() => window.location.reload()}
+          retryLabel="다시 불러오기"
+        />
       </div>
     );
+  }
+
+  if (!brokerSlug) {
+    return <SlugSetupGate onConfirmed={() => window.location.reload()} />;
   }
 
   // ─── 탭 콘텐츠 렌더링 ───────────────────────────────────────────────
@@ -908,419 +1026,118 @@ function MagazineEditorInner() {
       // ━━━ 테마&매물 탭 ━━━
       case "theme_deals":
         return (
-          <EditorThemeDealsTab
-            themeTitle={themeTitle}
-            setThemeTitle={setThemeTitle}
-            themeBodyMd={themeBodyMd}
-            setThemeBodyMd={setThemeBodyMd}
-            allDeals={allDeals}
-            selectedDealIds={selectedDealIds}
-            toggleDeal={toggleDeal}
-            fmt={fmt}
-          />
+          <div className="space-y-4">
+            {dealsState.status === "error" && (
+              <ErrorState
+                title="매물 목록을 불러오지 못했습니다"
+                description={dealsState.error ?? undefined}
+                onRetry={dealsState.retry}
+              />
+            )}
+            {dealsState.status === "loading" && dealPool.length === 0 && (
+              <SkeletonGroup label="매물 목록을 불러오는 중" className="space-y-2">
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+              </SkeletonGroup>
+            )}
+            <EditorThemeDealsTab
+              themeTitle={themeTitle}
+              setThemeTitle={setThemeTitle}
+              themeBodyMd={themeBodyMd}
+              setThemeBodyMd={setThemeBodyMd}
+              allDeals={dealPool}
+              selectedDealIds={selectedDealIds}
+              toggleDeal={toggleDeal}
+              fmt={fmt}
+            />
+          </div>
         );
 
 
       // ━━━ 뉴스큐레이션 탭 ━━━
       case "news":
         return (
-          <NewsCurationPanel
-            allNews={allNews}
-            selectedNewsIds={selectedNewsIds}
-            toggleNews={toggleNews}
-          />
+          <div className="space-y-4">
+            {newsState.status === "error" && (
+              <ErrorState
+                title="뉴스 목록을 불러오지 못했습니다"
+                description={newsState.error ?? undefined}
+                onRetry={newsState.retry}
+              />
+            )}
+            {newsState.status === "loading" && newsPool.length === 0 ? (
+              <SkeletonGroup label="뉴스 목록을 불러오는 중" className="space-y-2">
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+              </SkeletonGroup>
+            ) : newsState.status === "error" && newsPool.length === 0 ? null : (
+              <NewsCurationPanel
+                allNews={newsPool}
+                selectedNewsIds={selectedNewsIds}
+                toggleNews={toggleNews}
+              />
+            )}
+          </div>
         );
         
       // ━━━ AI 비서 탭 ━━━
       case "ai_assist":
-        return <EditorAiAssistTab />;
+        return (
+          <EditorAiAssistTab
+            onApply={(text) => {
+              updateFieldNote("comment", text);
+              setActiveTab("field_note");
+              editorToast.success("필드노트 '독자에게 한마디'에 넣었습니다");
+            }}
+          />
+        );
         
       // ━━━ 아웃리치 탭 ━━━
       case "outreach":
-        return <EditorOutreachTab />;
+        return (
+          <EditorOutreachTab
+            brokerSlug={brokerSlug}
+            brokerName={identity?.displayName || brokerSlug}
+            baseUrl={typeof window !== "undefined" ? window.location.origin : ""}
+            sendDayLabel={MAGAZINE_SEND_DAY_LABEL}
+            sendDisabled={sendEnabled === false}
+            editionDate={isPublished ? publishedIssueDate : today}
+            shareTitle={magazineTitle || headline || undefined}
+          />
+        );
 
       // ━━━ 발행설정 탭 ━━━
       case "publish":
         return (
-          <div className="space-y-5">
-            {/* 에디션 정보 */}
-            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Info className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs font-bold text-slate-200">에디션 정보</span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">에디션 타입</span>
-                  <div className="flex gap-1.5">
-                    {(["daily", "weekly"] as EditionType[]).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setEditionType(t)}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all ${
-                          editionType === t
-                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 hover:text-slate-300"
-                        }`}
-                      >
-                        {t === "daily" ? "데일리" : "위클리"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">에디션 라벨</span>
-                  <span className="text-[11px] text-white font-mono bg-slate-800 px-2 py-0.5 rounded">
-                    {editionLabel}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">상태</span>
-                  <div className="flex items-center gap-2">
-                    {statusBadge(editionStatus)}
-                    <select
-                      value={editionStatus}
-                      onChange={(e) => setEditionStatus(e.target.value as EditionStatus)}
-                      className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="draft">초안</option>
-                      <option value="editing">편집중</option>
-                      <option value="review">검토</option>
-                      <option value="published">발행</option>
-                      <option value="needs_review">검토 필요</option>
-                      <option value="archived">보관</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 테마 컬러 */}
-            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Palette className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-xs font-bold text-slate-200">테마 컬러</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={themeColor}
-                  onChange={(e) => setThemeColor(e.target.value)}
-                  className="w-10 h-10 rounded-lg border border-slate-600 cursor-pointer bg-transparent"
-                />
-                <div>
-                  <p className="text-[11px] text-white font-mono">{themeColor}</p>
-                  <p className="text-[10px] text-slate-500">
-                    매거진 강조 컬러를 설정합니다
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {["#6366f1", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"].map(
-                  (color) => (
-                    <button
-                      key={color}
-                      onClick={() => setThemeColor(color)}
-                      className={`w-7 h-7 rounded-full border-2 transition-all ${
-                        themeColor === color
-                          ? "border-white scale-110"
-                          : "border-transparent hover:border-slate-500"
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* 화이트라벨 매거진 설정 */}
-            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Link2 className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-xs font-bold text-slate-200">화이트라벨 매거진 설정</span>
-              </div>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 block">매거진 주소 (Slug)</label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-slate-500">credeal.net/magazine/</span>
-                    <input
-                      type="text"
-                      value={brokerSlug || ""}
-                      onChange={(e) => setBrokerSlug(e.target.value)}
-                      placeholder="slug"
-                      className="flex-1 bg-slate-900 border border-slate-700 text-xs text-white p-1.5 rounded focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 block">매거진 제목</label>
-                  <input
-                    type="text"
-                    value={magazineTitle}
-                    onChange={(e) => setMagazineTitle(e.target.value)}
-                    placeholder="예: 김성공 중개사의 부동산 인사이트"
-                    className="w-full bg-slate-900 border border-slate-700 text-xs text-white p-1.5 rounded focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 타깃 세그먼트 설정 */}
-            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-xs font-bold text-slate-200">배포 타깃 세그먼트</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {["all", "꼬마빌딩", "오피스", "리테일", "개발"].map((seg) => {
-                  const active = targetSegments.includes(seg);
-                  return (
-                    <button
-                      key={seg}
-                      onClick={() =>
-                        setTargetSegments((prev) => {
-                          if (seg === "all") return ["all"];
-                          const next = prev.filter((s) => s !== "all");
-                          return next.includes(seg) ? (next.filter((s) => s !== seg).length ? next.filter((s) => s !== seg) : ["all"]) : [...next, seg];
-                        })
-                      }
-                      className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
-                        active
-                          ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-sm shadow-indigo-500/20"
-                          : "bg-slate-900/60 text-slate-400 border-slate-700 hover:text-slate-200"
-                      }`}
-                    >
-                      {seg === "all" ? "전체 구독자" : seg}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-slate-500">
-                선택한 관심 분야를 보유한 구독자에게 맞춤 발송됩니다.
-              </p>
-            </div>
-
-            {/* ── 이번 주 투표 질문 ── */}
-            <div className="space-y-3 p-4 bg-violet-950/20 border border-violet-500/20 rounded-xl">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-3.5 h-3.5 text-violet-400" />
-                <span className="text-xs font-bold text-violet-300">1-Click 투표 (선택)</span>
-              </div>
-              <p className="text-[10px] text-violet-200/60">
-                매거진에 투표 질문을 추가하면 구독자 참여를 유도하고 매수 성향을 파악할 수 있습니다.
-              </p>
-              <input
-                type="text"
-                value={pollQuestion}
-                onChange={(e) => setPollQuestion(e.target.value)}
-                placeholder="예: 현재 강남 꼬마빌딩 평당 1.2억, 적정하다고 보십니까?"
-                className="w-full bg-violet-950/30 border border-violet-500/20 rounded-lg px-3 py-2 text-xs text-white placeholder-violet-300/30 focus:outline-none focus:border-violet-500/40"
-              />
-              {pollQuestion && (
-                <div className="space-y-1.5">
-                  {pollChoices.map((choice, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="text-[10px] text-violet-300/60 w-4">{idx + 1}.</span>
-                      <input
-                        type="text"
-                        value={choice}
-                        onChange={(e) => {
-                          const next = [...pollChoices];
-                          next[idx] = e.target.value;
-                          setPollChoices(next);
-                        }}
-                        placeholder={["🟢 저평가 — 매수 타이밍", "🟡 적정가 — 관망", "🔴 고평가 — 조정 필요"][idx]}
-                        className="flex-1 bg-violet-950/20 border border-violet-500/15 rounded px-2.5 py-1.5 text-[11px] text-white placeholder-violet-300/25 focus:outline-none focus:border-violet-500/30"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ── 세무/법률 클리닉 ── */}
-            <div className="space-y-3 p-4 bg-amber-950/15 border border-amber-500/15 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-xs font-bold text-amber-300">💰 세무·법률 클리닉 (선택)</span>
-              </div>
-              <p className="text-[10px] text-amber-200/50">
-                매수자가 가장 궁금해하는 절세/법인활용 1문1답을 매거진에 추가합니다.
-              </p>
-              <input
-                type="text"
-                value={taxQuestion}
-                onChange={(e) => setTaxQuestion(e.target.value)}
-                placeholder="Q. 법인 취득세 중과 범위는 어디까지인가요?"
-                className="w-full bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-xs text-white placeholder-amber-300/25 focus:outline-none focus:border-amber-500/30"
-              />
-              {taxQuestion && (
-                <>
-                  <textarea
-                    value={taxAnswer}
-                    onChange={(e) => setTaxAnswer(e.target.value)}
-                    placeholder="A. 수도권 과밀억제권역 내 법인 취득 시 표준세율(4.6%) 대신 중과세율(9.4%)이 적용됩니다..."
-                    rows={3}
-                    className="w-full bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-xs text-white placeholder-amber-300/25 focus:outline-none focus:border-amber-500/30"
-                  />
-                  <input
-                    type="text"
-                    value={taxSource}
-                    onChange={(e) => setTaxSource(e.target.value)}
-                    placeholder="출처: 지방세법 제13조의2 (선택)"
-                    className="w-full bg-amber-950/10 border border-amber-500/10 rounded px-3 py-1.5 text-[10px] text-slate-400 placeholder-amber-300/20 focus:outline-none"
-                  />
-                </>
-              )}
-            </div>
-
-            {/* ── 섹션 순서 커스터마이저 ── */}
-            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-xs font-bold text-slate-200">섹션 순서 편집</span>
-              </div>
-              <p className="text-[10px] text-slate-500">
-                매거진 섹션의 노출 순서를 조절합니다. 이번 주 핵심 콘텐츠를 상단에 배치하세요.
-              </p>
-              <div className="space-y-1">
-                {sectionOrder.map((sec, idx) => {
-                  const LABELS: Record<string, string> = {
-                    ai_briefing: "🤖 AI 브리핑",
-                    field_note: "🏗️ 필드노트",
-                    theme_of_week: "🎯 주간 테마",
-                    featured_deals: "🏢 추천 매물",
-                    poll: "📊 투표",
-                    market_data: "📈 시장 데이터",
-                    news_curation: "📰 뉴스",
-                    tax_clinic: "💰 세무 클리닉",
-                    auction_picks: "⚖️ 경매",
-                    sentiment_index: "🌡️ 심리지수",
-                    roi_calculator: "🧮 수지분석 계산기",
-                    referral: "🎁 추천 레퍼럴",
-                  };
-                  return (
-                    <div key={sec} className="flex items-center gap-2 bg-slate-900/50 rounded-lg px-3 py-1.5">
-                      <span className="text-[10px] text-slate-600 w-4">{idx + 1}</span>
-                      <span className="text-[11px] text-slate-300 flex-1">{LABELS[sec] || sec}</span>
-                      <button
-                        onClick={() => {
-                          if (idx === 0) return;
-                          const next = [...sectionOrder];
-                          [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-                          setSectionOrder(next);
-                        }}
-                        disabled={idx === 0}
-                        className="text-[10px] text-slate-500 hover:text-white disabled:opacity-20 px-1"
-                      >▲</button>
-                      <button
-                        onClick={() => {
-                          if (idx === sectionOrder.length - 1) return;
-                          const next = [...sectionOrder];
-                          [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-                          setSectionOrder(next);
-                        }}
-                        disabled={idx === sectionOrder.length - 1}
-                        className="text-[10px] text-slate-500 hover:text-white disabled:opacity-20 px-1"
-                      >▼</button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 원페이지 이미지 내보내기 & 미리보기 */}
-            {brokerSlug && (
-              <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Newspaper className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-bold text-slate-200">원페이지 이미지 (1080x1920)</span>
-                  </div>
-                  <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold">
-                    카톡/스토리 최적화
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  링크 클릭 없이 메신저에서 즉시 읽을 수 있는 고해상도 요약 이미지입니다.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      const todayStr = new Date().toISOString().slice(0, 10);
-                      const imgUrl = `/api/magazine/${brokerSlug}/${todayStr}/image?format=story`;
-                      try {
-                        toast.info("이미지 생성 및 다운로드 중...");
-                        const res = await fetch(imgUrl);
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `CRE-Magazine-${brokerSlug}-${todayStr}.png`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        toast.success("원페이지 이미지가 다운로드되었습니다!");
-                      } catch {
-                        toast.error("이미지 다운로드에 실패했습니다.");
-                      }
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all"
-                  >
-                    ⬇️ 이미지 다운로드
-                  </button>
-                  <button
-                    onClick={() => {
-                      const todayStr = new Date().toISOString().slice(0, 10);
-                      const imgUrl = `https://www.credeal.net/api/magazine/${brokerSlug}/${todayStr}/image?format=story`;
-                      navigator.clipboard.writeText(imgUrl);
-                      toast.success("이미지 URL이 복사되었습니다.");
-                    }}
-                    className="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 text-xs font-bold transition-all"
-                  >
-                    🔗 URL 복사
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* 에디션 아카이브 링크 */}
-            {brokerSlug && (
-              <Link
-                href={`/magazine/${brokerSlug}`}
-                className="flex items-center justify-center gap-2 text-[11px] font-semibold px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                지난 에디션 보기
-                <ChevronRight className="w-3 h-3 opacity-50" />
-              </Link>
-            )}
-
-            {/* 매거진 발행 */}
-            <div className="flex gap-2">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleDraftSave}
-                disabled={saving}
-                className="flex-1 flex items-center justify-center gap-2 text-sm font-bold px-4 py-3.5 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50 transition-all border border-slate-700"
-              >
-                💾 임시저장
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handlePublishAndShare}
-                disabled={saving}
-                className="flex-[2] flex items-center justify-center gap-2 text-sm font-bold px-4 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/25"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                🚀 발행 및 공유
-              </motion.button>
-            </div>
-          </div>
+          <EditorPublishTab
+            editionLabel={editionLabel}
+            editionTypeLabel={editionType === "weekly" ? "위클리" : editionType === "special" ? "스페셜" : "데일리"}
+            statusBadge={statusBadge(editionStatus)}
+            brokerSlug={brokerSlug}
+            isPublished={isPublished}
+            issueDate={isPublished ? publishedIssueDate : today}
+            themeColor={themeColor}
+            setThemeColor={setThemeColor}
+            magazineTitle={magazineTitle}
+            setMagazineTitle={setMagazineTitle}
+            targetSegment={targetSegment}
+            setTargetSegment={setTargetSegment}
+            pollQuestion={pollQuestion}
+            setPollQuestion={setPollQuestion}
+            pollOptions={pollOptions}
+            setPollOptions={setPollOptions}
+            taxQuestion={taxQuestion}
+            setTaxQuestion={setTaxQuestion}
+            taxAnswer={taxAnswer}
+            setTaxAnswer={setTaxAnswer}
+            taxSource={taxSource}
+            setTaxSource={setTaxSource}
+            sectionOrder={sectionOrder}
+            setSectionOrder={setSectionOrder}
+            sectionsEnabled={sectionsEnabled}
+            setSectionsEnabled={setSectionsEnabled}
+          />
         );
 
       // ━━━ 성과 탭 ━━━
@@ -1347,60 +1164,112 @@ function MagazineEditorInner() {
           <div className="flex items-center gap-3">
             <Link
               href="/broker"
-              className="p-2 -ml-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors"
+              aria-label="대시보드로 돌아가기"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-2 rounded-lg hover:bg-slate-800 text-ink-subtle transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             </Link>
             <div>
-              <h1 className="text-sm font-bold text-slate-200">Content Studio</h1>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-[10px] text-slate-500">
-                  {editionLabel} · {editionType === "weekly" ? "위클리" : "데일리"}
+              <h1 className="text-body font-bold text-slate-200">Content Studio</h1>
+              {brokerSlug && (
+                <div className="mt-0.5 flex items-center gap-1.5" data-testid="my-magazine-badge">
+                  <span className="text-caption font-semibold text-indigo-300">내 매거진: {brokerSlug}</span>
+                  <button
+                    type="button"
+                    aria-label="공개 매거진 주소 복사"
+                    onClick={() => {
+                      const url = `${window.location.origin}/magazine/${brokerSlug}`;
+                      navigator.clipboard.writeText(url).then(
+                        () => editorToast.success("공개 주소가 복사되었습니다."),
+                        () => editorToast.error("복사하지 못했습니다. 주소를 직접 선택해 주세요.")
+                      );
+                    }}
+                    className="inline-flex min-h-11 items-center rounded px-2 text-caption text-ink-subtle hover:bg-slate-800 hover:text-slate-200"
+                  >
+                    주소 복사
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                <p className="text-caption text-ink-subtle">
+                  {editionLabel} · {editionType === "weekly" ? "위클리" : editionType === "special" ? "스페셜" : "데일리"}
                 </p>
                 {statusBadge(editionStatus)}
-                {saveStatus === 'saving' && (
-                  <span className="flex items-center gap-1 text-[9px] text-amber-400">
-                    <Loader2 className="w-2.5 h-2.5 animate-spin" /> 저장 중...
-                  </span>
-                )}
-                {saveStatus === 'saved' && (
-                  <span className="flex items-center gap-1 text-[9px] text-emerald-400">
-                    <Check className="w-2.5 h-2.5" /> 저장됨
-                  </span>
-                )}
+                <p className="text-caption text-ink-subtle" data-testid="editor-progress">
+                  작성 {progress.done}/{progress.total} 완료
+                </p>
               </div>
+              {!isPublished && (
+                <div className="mt-1">
+                  <SaveStatusBadge
+                    status={autosave.status}
+                    lastSavedAt={autosave.lastSavedAt}
+                    errorMessage={autosave.errorMessage}
+                    onRetry={() => void autosave.saveNow()}
+                    onOverwrite={() => void autosave.overwrite()}
+                    onReload={() => window.location.reload()}
+                  />
+                </div>
+              )}
             </div>
           </div>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handleDraftSave}
-            disabled={saving}
-            className="flex items-center gap-1.5 text-[11px] font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
-          >
-            {saving ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            저장
-          </motion.button>
+          {!isPublished && (
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => void handleManualSave()}
+              disabled={autosave.status === "saving" || !editionReady}
+              className="flex min-h-11 items-center gap-1.5 text-label font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+            >
+              {autosave.status === "saving" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Save className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
+              저장
+            </motion.button>
+          )}
+
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="flex border-b border-slate-800 flex-shrink-0 bg-[#111827] overflow-x-auto scrollbar-hide">
+        <div
+          role="tablist"
+          aria-label="콘텐츠 편집 단계"
+          className="flex border-b border-slate-800 flex-shrink-0 bg-[#111827] overflow-x-auto scrollbar-hide"
+        >
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
+            const done = completion[tab.key] === "done";
             return (
               <button
                 key={tab.key}
+                id={`editor-tab-${tab.key}`}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls="editor-tabpanel"
+                aria-label={done ? `${tab.label}, 작성 완료` : tab.label}
+                data-complete={done ? "true" : undefined}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-semibold transition-all relative ${
-                  isActive ? "text-indigo-400" : "text-slate-500 hover:text-slate-300"
+                className={`flex-1 min-w-[56px] min-h-[44px] flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 px-1 py-2.5 text-caption font-semibold transition-all relative ${
+                  isActive ? "text-indigo-400" : "text-ink-subtle hover:text-ink-muted"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{tab.label}</span>
+                <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span
+                  className={`${isActive ? "inline" : "hidden sm:inline"} text-center leading-tight break-keep sm:whitespace-nowrap`}
+                >
+                  {tab.label}
+                </span>
+                {done && (
+                  <Check
+                    className="absolute top-1 right-1 w-3 h-3 text-emerald-400"
+                    aria-hidden="true"
+                    data-testid={`tab-done-${tab.key}`}
+                  />
+                )}
                 {isActive && (
                   <motion.div
                     layoutId="activeTab"
@@ -1413,7 +1282,12 @@ function MagazineEditorInner() {
         </div>
 
         {/* 탭 콘텐츠 */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div
+          role="tabpanel"
+          id="editor-tabpanel"
+          aria-labelledby={`editor-tab-${activeTab}`}
+          className="flex-1 overflow-y-auto p-4"
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -1427,48 +1301,66 @@ function MagazineEditorInner() {
           </AnimatePresence>
         </div>
 
-        {/* 하단 액션 */}
+        {/* 하단 액션 — 발행 단일 버튼 세트 (저장은 헤더, 발행은 여기 하나) */}
         <div className="p-4 border-t border-slate-800 space-y-2 flex-shrink-0 bg-[#111827]">
           <Link
-            href={`/magazine/${brokerSlug}/${today}`}
+            href={`/magazine/${brokerSlug}/${publishedIssueDate}`}
             target="_blank"
-            className="w-full flex items-center justify-center gap-2 text-[11px] font-semibold px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
+            className="w-full flex min-h-11 items-center justify-center gap-2 text-label font-semibold px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
           >
-            <Eye className="w-3.5 h-3.5" />
+            <Eye className="w-3.5 h-3.5" aria-hidden="true" />
             📱 실제 화면으로 보기
-            <ExternalLink className="w-3 h-3 ml-1 opacity-50" />
+            <ExternalLink className="w-3 h-3 ml-1 opacity-50" aria-hidden="true" />
           </Link>
+          {isPublished && (
+            <p className="text-caption leading-relaxed text-amber-300/90" role="note">
+              이미 발행된 호수입니다. 내용을 고친 뒤 &quot;정정 발행&quot;을 누르면 공개 페이지가 갱신됩니다. 초안으로 되돌릴 수 없습니다.
+            </p>
+          )}
           <div className="flex gap-2">
             <motion.button
+              type="button"
               whileTap={{ scale: 0.95 }}
-              onClick={handleDraftSave}
-              disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 text-[11px] font-bold px-4 py-2.5 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50 transition-colors border border-slate-700"
+              onClick={handleOpenPublish}
+              disabled={publishing || autosave.status === "saving"}
+              className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-bold px-4 py-2.5 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
             >
-              💾 임시저장
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={handlePublishAndShare}
-              disabled={saving}
-              className="flex-[2] flex items-center justify-center gap-2 text-[11px] font-bold px-4 py-2.5 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
-            >
-              {saving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {publishing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               ) : (
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-3.5 h-3.5" aria-hidden="true" />
               )}
-              🚀 발행 및 공유
+              {isPublished ? "정정 발행" : "발행하기"}
             </motion.button>
           </div>
+
         </div>
       </div>
 
       {/* ━━━ 우측 패널: 미리보기 ━━━ */}
       <MagazinePhonePreview
-        previewData={previewData}
+        previewData={previewViewData}
         brokerSlug={brokerSlug}
         today={today}
+        dateLabel={formatKoreanDate(today)}
+        editionId={editionId}
+      />
+
+
+      {/* ── 발행 확인 모달 ── */}
+      <PublishConfirmModal
+        open={showPublishConfirm}
+        onOpenChange={setShowPublishConfirm}
+        issueDate={isPublished ? publishedIssueDate : today}
+        targetSegment={targetSegment}
+        subscriberCount={subscriberCount}
+        sendEnabled={sendEnabled}
+        correction={isPublished}
+        busy={publishing}
+        needsQualityAck={needsQualityAck}
+        sendAfterPublish={sendAfterPublish}
+        onSendAfterPublishChange={setSendAfterPublish}
+        onConfirm={handleConfirmPublish}
       />
 
       {/* ── 공유 모달 ── */}
@@ -1479,7 +1371,14 @@ function MagazineEditorInner() {
         handleCopyLink={handleCopyLink}
         distributionResult={distributionResult}
         isPaidTier={isPaidTier}
+        brokerSlug={brokerSlug}
+        baseUrl={typeof window !== "undefined" ? window.location.origin : undefined}
+        editionDate={isPublished ? publishedIssueDate : today}
+        shareTitle={magazineTitle || headline || undefined}
+        shareDescription={briefing ? briefing.slice(0, 80) : undefined}
+        sendDisabled={sendEnabled === false}
       />
+
 
     </div>
   );
@@ -1503,15 +1402,17 @@ export default function MagazineEditorPage() {
           }
         }}
       />
-      <Suspense
-        fallback={
-          <div className="flex h-screen items-center justify-center bg-[#0B1120]">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-          </div>
-        }
-      >
-        <MagazineEditorInner />
-      </Suspense>
+      <MotionConfig reducedMotion="user">
+        <Suspense
+          fallback={
+            <div className="flex h-screen items-center justify-center bg-[#0B1120]">
+              <Loader2 className="w-8 h-8 animate-spin motion-reduce:animate-none text-indigo-500" aria-label="불러오는 중" />
+            </div>
+          }
+        >
+          <MagazineEditorInner />
+        </Suspense>
+      </MotionConfig>
     </>
   );
 }

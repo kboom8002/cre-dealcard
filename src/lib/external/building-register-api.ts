@@ -26,7 +26,14 @@ export interface BuildingRegisterData {
   mechanicalParkingCount?: number; // 기계식 주차 대수
   hasViolation?: boolean;     // 위반건축물 표시 여부
   heatMethod?: string;        // 난방 방식
+  mainPnu?: string;           // 대표지번(표제부가 존재하는 필지) PNU — resolveMainLotPnu 결과 (프롬프트 제외 대상)
+  attachedLots?: string[];    // 대표지번에 딸린 부속지번 PNU 목록 (getBrAtchJibunInfo)
   _isFallback?: boolean;
+}
+
+/** 0/NaN/Infinity 는 undefined (0을 사실처럼 노출하지 않는다 — Rule 37) */
+function posOrUndef(n: number): number | undefined {
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -115,6 +122,13 @@ export async function fetchBuildingRegister(
           if (donor) platArea = parseFloat(String(donor.platArea || '0'));
         }
 
+        // 표제부 부가 제원 (0/NaN → undefined: 0을 사실처럼 내보내지 않는다)
+        const archArea = posOrUndef(parseFloat(String(targetItem.archArea || "0")));
+        const rideElvt = parseInt(String(targetItem.rideUseElvtCnt || "0"), 10) || 0;
+        const emgenElvt = parseInt(String(targetItem.emgenUseElvtCnt || "0"), 10) || 0;
+        const selfParking = (parseInt(String(targetItem.indrAutoUtcnt || "0"), 10) || 0) + (parseInt(String(targetItem.oudrAutoUtcnt || "0"), 10) || 0);
+        const mechParking = (parseInt(String(targetItem.indrMechUtcnt || "0"), 10) || 0) + (parseInt(String(targetItem.oudrMechUtcnt || "0"), 10) || 0);
+
         return {
           totalArea: parseFloat(String(targetItem.totArea || "0")),
           platArea: platArea,
@@ -126,6 +140,13 @@ export async function fetchBuildingRegister(
           bcRat: parseFloat(String(targetItem.bcRat || "0")),
           vlRat: parseFloat(String(targetItem.vlRat || "0")),
           buildingName: String(targetItem.bldNm || ""),
+          ...(archArea !== undefined ? { archArea } : {}),
+          ...(rideElvt + emgenElvt > 0
+            ? { elevatorCount: rideElvt + emgenElvt, ...(rideElvt > 0 ? { passengerElevatorCount: rideElvt } : {}), ...(emgenElvt > 0 ? { emergencyElevatorCount: emgenElvt } : {}) }
+            : {}),
+          ...(selfParking + mechParking > 0
+            ? { parkingCount: selfParking + mechParking, ...(selfParking > 0 ? { selfParkingCount: selfParking } : {}), ...(mechParking > 0 ? { mechanicalParkingCount: mechParking } : {}) }
+            : {}),
         };
       } catch (err) {
         logger.warn("endpoint failed, trying next:", err);
@@ -134,6 +155,45 @@ export async function fetchBuildingRegister(
   }
 
   return null;
+}
+
+/**
+ * 부속지번 조회 (getBrAtchJibunInfo) — 대표지번(표제부가 있는 필지)의 PNU 로 호출하면 딸린 필지 목록을 준다.
+ * 부속지번 PNU 로 호출하면 0건이므로 역방향(부속→대표) 조회는 불가하다 (실측: p5 134/125-2 → total=0).
+ * @returns 19자리 PNU 배열. 키 없음/실패/0건이면 빈 배열 (호출부는 '없음'으로만 취급, 날조 금지)
+ */
+export async function fetchBuildingAttachedLots(
+  sigunguCd: string,
+  bjdongCd: string,
+  bun: string,
+  ji: string,
+  platGbCd?: string
+): Promise<string[]> {
+  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  if (!apiKey) return [];
+  const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrAtchJibunInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=${platGbCd || '0'}&bun=${bun}&ji=${ji}&numOfRows=50&pageNo=1&_type=json`;
+  try {
+    const res = await fetchWithRetry(url, { timeoutMs: 15_000, maxRetries: 1 });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const item = data?.response?.body?.items?.item;
+    const items: Record<string, unknown>[] = Array.isArray(item) ? item : item ? [item] : [];
+    const out: string[] = [];
+    for (const it of items) {
+      const sgg = String(it.atchSigunguCd || '');
+      const bjd = String(it.atchBjdongCd || '');
+      const atchBun = String(it.atchBun || '').padStart(4, '0');
+      const atchJi = String(it.atchJi || '').padStart(4, '0');
+      if (sgg.length !== 5 || bjd.length !== 5 || !/^\d{4}$/.test(atchBun) || !/^\d{4}$/.test(atchJi)) continue;
+      // 건축HUB 대지구분(0:대지, 1:산, 2:블록) → PNU 대지구분(1:일반, 2:산)
+      const pnu = `${sgg}${bjd}${String(it.atchPlatGbCd) === '1' ? '2' : '1'}${atchBun}${atchJi}`;
+      if (!out.includes(pnu)) out.push(pnu);
+    }
+    return out;
+  } catch (err) {
+    logger.warn("attached-lots lookup failed", err);
+    return [];
+  }
 }
 
 export interface BuildingRecapData {

@@ -38,6 +38,7 @@ CardHeader.displayName = "CardHeader";
 const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => {
     return (
+      // eslint-disable-next-line jsx-a11y/heading-has-content -- children 은 {...props} 로 전달됨
       <h3
         ref={ref}
         className={cn("text-lg font-semibold leading-none tracking-tight", className)}

@@ -46,12 +46,28 @@ export interface CallLLMOptions {
   timeoutMs?: number;              // 개별 호출 제한 시간
   signal?: AbortSignal;            // 외부 취소 신호
   deadlineMs?: number;             // 전체 완료 데드라인 타임스탬프
+  /**
+   * 기본 true(기존 동작 불변). false이면 MockOpenAIProvider 응답(키 없음/쿼터 고갈/테스트 폴백)을
+   * 정상 응답으로 돌려주지 않고 `LLMMockNotAllowedError`를 던진다. (매거진 공개 콘텐츠용, DC-8)
+   */
+  allowMock?: boolean;
 }
+
+/** allowMock:false 인데 Mock 경로로 떨어졌을 때 던지는 오류. */
+export class LLMMockNotAllowedError extends Error {
+  constructor(reason: string) {
+    super(`[callLLM] Mock 응답이 허용되지 않습니다 (allowMock:false): ${reason}`);
+    this.name = "LLMMockNotAllowedError";
+  }
+}
+
+export type CallLLMResult = LLMChatResult & { isFromCache?: boolean; isMock?: boolean };
 
 export async function callLLM(
   params: LLMChatParams,
   options: CallLLMOptions = {},
-): Promise<LLMChatResult & { isFromCache?: boolean }> {
+): Promise<CallLLMResult> {
+  const allowMock = options.allowMock !== false;
   // 기본 폴백 순서 설정
   const chain = options.providers ?? ["openai"];
   
@@ -63,6 +79,9 @@ export async function callLLM(
   for (const providerName of chain) {
     const provider = providerRegistry.get(providerName);
     if (!provider) continue;
+    if (!allowMock && provider instanceof MockOpenAIProvider) {
+      throw new LLMMockNotAllowedError(`provider '${providerName}' 가 Mock 입니다 (OPENAI_API_KEY 미설정 또는 테스트 환경)`);
+    }
     
     const maxAttempts = 5; // 1 initial + 4 retries (exponential backoff: 1s, 2s, 4s, 8s)
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -101,7 +120,7 @@ export async function callLLM(
           inMemoryLlmCache.set(options.cacheKey, result);
         }
         
-        return result;
+        return provider instanceof MockOpenAIProvider ? { ...result, isMock: true } : result;
       } catch (err: any) {
         lastError = err;
 
@@ -190,9 +209,12 @@ export async function callLLM(
     lastError?.status === 429;
 
   if (isQuotaExhausted || isTestEnv) {
+    if (!allowMock) {
+      throw new LLMMockNotAllowedError(`모든 제공자 실패 후 Mock 폴백 차단 (quota/network/test): ${lastError?.message ?? lastError}`);
+    }
     log.warn(`[callLLM] All providers failed due to quota/network. Falling back to MockOpenAIProvider: ${lastError?.message}`);
     const mockProvider = new MockOpenAIProvider();
-    return await mockProvider.chat(params);
+    return { ...(await mockProvider.chat(params)), isMock: true };
   }
 
   throw new Error(

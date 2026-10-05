@@ -174,7 +174,9 @@ describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
     });
 
     expect(ownFin.occupancyCostPerPyeongMonthly).toBeGreaterThan(0);
-    expect(ownFin.ownVsLeaseSavingsBil).toBeGreaterThan(0);
+    // Rule 34: 현 임차료·시장임대료·중개인 절감액 미입력 → 가정 시장임대료(구 7만원/평)로 절감액을 만들지 않는다
+    expect(ownFin.ownVsLeaseSavingsBil).toBeNull();
+    expect(ownFin.breakevenYears).toBeNull();
     expect(ownFin.totalAcquisitionCostBil).toBeCloseTo(126.6, 1); // 120억 + 취득세(4.6%) + 중개보수(0.9%) = 126.6억
   });
 

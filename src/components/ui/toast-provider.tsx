@@ -6,6 +6,8 @@ export function ToastProvider() {
     <Toaster
       position="top-center"
       richColors
+      closeButton
+      visibleToasts={3}
       toastOptions={{
         style: {
           background: '#1a2332',

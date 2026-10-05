@@ -10,6 +10,7 @@
 import type PptxGenJS from 'pptxgenjs';
 import type { PptxThemeTokens } from './pptx-theme';
 import { textH as computeTextH, fitTextToBox, fitTableCell, getCharWidthInches, simulateTextWrap } from './layout-physics';
+import { shortenWithoutEllipsis } from './text-budget';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 // ════════════════════════════════════════
@@ -1402,12 +1403,17 @@ export function rows(
       });
 
       // 값 — Dynamic font fitting (D7: 2줄 허용 후에도 넘칠 때만 '…')
-      const valFit = fitTextToBox(value, valW - 0.05, rh, {
-        minFontSize: 8.5,
-        maxFontSize: fs,
-        targetLines: 2,
-        allowTruncate: true,
-      });
+      const valOpts = { minFontSize: 8.5, maxFontSize: fs, targetLines: 2 };
+      let valFit = fitTextToBox(value, valW - 0.05, rh, { ...valOpts, allowTruncate: true });
+      if (valFit.wasTruncated) {
+        // 본문 말줄임('…') 금지(골든 오라클): 문장/절/단어 경계로 줄여 최소 글꼴 2줄에 들어가는 가장 긴 후보를 채택
+        for (let budget = value.length - 1; budget >= 8; budget -= 4) {
+          const cand = shortenWithoutEllipsis(value, budget);
+          if (!cand) continue;
+          const f = fitTextToBox(cand, valW - 0.05, rh, { ...valOpts, allowTruncate: false });
+          if (f.lines.length <= 2 && f.requiredHeight <= rh + 0.01) { valFit = f; break; }
+        }
+      }
       s.addText(valFit.displayText, {
         x: x + labW, y: ry, w: valW, h: rh,
         fontSize: valFit.fontSize, bold: true, color: valCol ?? valColor, fontFace: KR,

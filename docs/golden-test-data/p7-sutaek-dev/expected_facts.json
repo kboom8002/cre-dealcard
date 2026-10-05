@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "golden": "development-sutaek-r2",
+  "fixture": "docs/golden-test-data/p7-sutaek-dev/r2-standard",
+  "notes": [
+    "건물 없음(나대지): 대장 null, 연면적 사실 없음. 정답은 픽스처(bottom_sheet/memo) + 필지 합계. rca-evidence.md: total_area_sqm=0 이 게이트를 막았음."
+  ],
+  "must_contain": [
+    {
+      "id": "asking-price",
+      "label": "매각 희망가",
+      "anyOf": [
+        "re:(?<![\\d.])89(?:\\.\\d+)?\\s*억",
+        "re:(?<![\\d,.])890,,?000(?:\\.0+)?(?![\\d,])"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "bottom_sheet.askingPriceManwon=890000"
+    },
+    {
+      "id": "land-area",
+      "label": "대지면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])651\\.2(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "bottom_sheet.landAreaM2=651.2 = 3필지 합계 432.6+107.4+111.2(API)"
+    },
+    {
+      "id": "parcel-count",
+      "label": "필지 수",
+      "anyOf": [
+        "re:3\\s*필지"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "station",
+      "label": "최근접 역",
+      "anyOf": [
+        "구리역"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "locationPoi.nearestStation (API) = 구리역 8호선"
+    },
+    {
+      "id": "max-far",
+      "label": "허가 용적률 1,260%",
+      "anyOf": [
+        "re:1,?260\\s*%"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "note": "developmentSpec.maxFAR / memo"
+    },
+    {
+      "id": "zoning",
+      "label": "일반상업지역",
+      "anyOf": [
+        "일반상업지역"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "price-per-pyeong",
+      "label": "토지평당 4,500만원",
+      "anyOf": [
+        "re:4,?500\\s*만"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "target-scale",
+      "label": "신축 가능 연면적 약 2,500평",
+      "anyOf": [
+        "re:2,?500\\s*평"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "note": "developmentSpec.targetScalePyeong"
+    },
+    {
+      "id": "land-pyeong",
+      "label": "대지 197.0평",
+      "anyOf": [
+        "re:197(?:\\.0)?\\s*평"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "note": "memo"
+    }
+  ],
+  "must_not_contain": [
+    {
+      "label": "'0㎡' 표기 (0 면적)",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*㎡"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "0 클레임이 면적으로 렌더됨 — Rule 34/37 (결측은 -) — hotel: claims.land_area_sqm=0 (W1)"
+    },
+    {
+      "label": "'0.0평' 표기",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*평"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": " — hotel: claims.land_area_sqm=0 (W1)"
+    },
+    {
+      "label": "비정상 수치 토큰 (Infinity/NaN/undefined)",
+      "anyOf": [
+        "Infinity",
+        "NaN",
+        "undefined"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 마스킹 잔여 '[임차인'",
+      "anyOf": [
+        "[임차인"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "뷰어 렌트롤/본문에 마스킹 라벨 잔존 — 실명 사용 결정(W3)"
+    },
+    {
+      "label": "TARGET 플레이스홀더 노출",
+      "anyOf": [
+        "TARGET"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "본문 말줄임표 '…' (잘린 문장)",
+      "anyOf": [
+        "…"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 익명 라벨 ('임차인 A' 등) — 실명 사용 결정",
+      "anyOf": [
+        "re:임차인\\s*[A-Z](?![A-Za-z])"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "오너 결정: IM 전 구간 실제 임차인명 사용"
+    }
+  ],
+  "must_not_be_dash": [
+    {
+      "label": "대지면적",
+      "labelRegex": "대지면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])651\\.2(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "fixture"
+    }
+  ],
+  "landmarks": [
+    {
+      "where": "pptx",
+      "source": "derived",
+      "label": "롯데백화점 구리점",
+      "anyOf": [
+        "롯데백화점"
+      ],
+      "note": "candidateSpots: 롯데백화점 구리점 519m"
+    },
+    {
+      "where": "pptx",
+      "source": "derived",
+      "label": "한양대학교 구리병원",
+      "anyOf": [
+        "한양대학교 구리병원",
+        "한양대구리병원",
+        "한양대학교구리병원"
+      ],
+      "note": "candidateSpots 787m"
+    }
+  ],
+  "numeric": [
+    {
+      "id": "land-all-occurrences",
+      "label": "대지면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "대지면적",
+      "value": 651.2,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "fixture",
+      "note": "bottom_sheet.landAreaM2=651.2 = 3필지 합계 432.6+107.4+111.2(API)"
+    }
+  ],
+  "duplicate_sentences": {
+    "label": "슬라이드 간 동일 문장 중복",
+    "min_len": 28,
+    "ignore": [
+      "^(CREDEAL|CRE DEAL|본 자료|©|※)",
+      "^E2E ",
+      "^[✓★▲●◇]",
+      "^(01|02|03)$"
+    ]
+  }
+}

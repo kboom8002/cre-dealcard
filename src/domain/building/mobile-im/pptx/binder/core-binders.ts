@@ -16,6 +16,7 @@ import { pairOrDash } from "@/lib/format/safe-number";
 import { resolvePhysicalSpecs } from "../../resolve-physical-specs";
 import { summarizeParcels } from "../../parcel-input";
 import { resolveTenantAndUse, resolveLeaseNote, formatAreaSqm, formatAreaWithPyeong } from "./rent-roll-table-builder";
+import { normalizeBuildingRegister } from "@/lib/external/building-register-normalize";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -512,21 +513,22 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
 
     const br = enrichment.buildingRegister;
     if (br && lup) {
+    const nbr = normalizeBuildingRegister(br); // 대장 키 별칭(grndFlrCnt/groundFloors/approvalDate…) 단일 흡수
     const brRows: string[][] = [];
-    if (br.buildingName) brRows.push(['건물명', br.buildingName]);
-    if (br.mainPurpose) brRows.push(['주용도', br.mainPurpose]);
-    if (br.structure) brRows.push(['구조', br.structure]);
+    if (nbr.buildingName) brRows.push(['건물명', nbr.buildingName]);
+    if (nbr.mainPurpose) brRows.push(['주용도', nbr.mainPurpose]);
+    if (nbr.structure) brRows.push(['구조', nbr.structure]);
     if (br.roofType) brRows.push(['지붕', br.roofType]);
-    if (br.groundFloors != null) brRows.push(['지상 층수', `${br.groundFloors}층`]);
-    if (br.undergroundFloors != null) brRows.push(['지하 층수', `${br.undergroundFloors}층`]);
-    if (br.totalArea != null) brRows.push(['연면적', `${Number(br.totalArea).toLocaleString()}㎡ (${(sqmToPyeong(Number(br.totalArea))).toFixed(1)}평)`]);
-    if (br.archArea != null) brRows.push(['건축면적', `${Number(br.archArea).toLocaleString()}㎡`]);
-    if (br.approvalDate) brRows.push(['사용승인일', br.approvalDate]);
-    if (br.elevatorCount != null) brRows.push(['승강기', `${br.elevatorCount}대`]);
-    if (br.parkingCount != null) {
-      const selfP = br.selfParkingCount ?? 0;
-      const mechP = br.mechanicalParkingCount ?? 0;
-      brRows.push(['주차', `${br.parkingCount}대 (자주식 ${selfP} / 기계식 ${mechP})`]);
+    if (nbr.floorsAbove != null) brRows.push(['지상 층수', `${nbr.floorsAbove}층`]);
+    if (nbr.floorsBelow != null) brRows.push(['지하 층수', `${nbr.floorsBelow}층`]);
+    if (nbr.totalArea != null) brRows.push(['연면적', `${Number(nbr.totalArea).toLocaleString()}㎡ (${(sqmToPyeong(Number(nbr.totalArea))).toFixed(1)}평)`]);
+    if (nbr.archArea != null) brRows.push(['건축면적', `${Number(nbr.archArea).toLocaleString()}㎡`]);
+    if (nbr.useAprDay) brRows.push(['사용승인일', /^\d{8}$/.test(nbr.useAprDay) ? nbr.useAprDay.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1.$2.$3') : nbr.useAprDay]);
+    if (nbr.elevatorCount != null) brRows.push(['승강기', `${nbr.elevatorCount}대`]);
+    if (nbr.parkingCount != null) {
+      const selfP = nbr.selfParkingCount ?? 0;
+      const mechP = nbr.mechanicalParkingCount ?? 0;
+      brRows.push(['주차', `${nbr.parkingCount}대 (자주식 ${selfP} / 기계식 ${mechP})`]);
     }
 
     const lupRows: string[][] = [];

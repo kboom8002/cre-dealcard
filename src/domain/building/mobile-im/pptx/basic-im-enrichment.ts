@@ -10,11 +10,17 @@ import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('basic-im-enrichment');
 
 import type { LandPriceHistoryResult } from '@/lib/external/land-price-api';
+import type { LandmarkPool } from '@/lib/external/landmark-pool';
 
 export interface EnrichmentResult {
   cadastralMapImage?: string | null;
   hasCadastralMap: boolean;
   locationPoi?: Record<string, unknown> | null;
+  /**
+   * 입지 지도 렌더 전용 랜드마크 후보 풀 (Kakao 다중 쿼리 + V-World 건축물대장 조인).
+   * ⚠ LLM 프롬프트에 직렬화되는 locationPoi(keySpots/nearestStation/poiCounts)와 별개 필드 — externalData 에 부착하지 않는다.
+   */
+  landmarkPool?: LandmarkPool | null;
   /** 공시지가 10년 추이 (수익률 슬라이드용) */
   landPriceHistory?: LandPriceHistoryResult | null;
   /** 토지이용계획 (F-07) */
@@ -29,6 +35,12 @@ export interface EnrichmentResult {
 /** 다필지 필지별 용도지역 조회 상한 (외부 API 호출 폭주 방지) */
 const MAX_PARCEL_LANDUSE_LOOKUPS = 10;
 
+/** OFFLINE_RENDER=1 일 때 enrichForBasicIm 이 대신 반환할 스냅샷 enrichment (scripts/golden-snapshot 전용) */
+let _offlineEnrichment: Partial<EnrichmentResult> | null = null;
+export function setOfflineEnrichment(e: Partial<EnrichmentResult> | null): void {
+  _offlineEnrichment = e;
+}
+
 /**
  * Basic IM enrichment: 좌표 기반으로 카카오맵/V-World 지적도 데이터를 자동 수집.
  * 프로덕션과 테스트 모두 이 함수를 호출하여 데이터 차이를 제거합니다.
@@ -39,7 +51,17 @@ const MAX_PARCEL_LANDUSE_LOOKUPS = 10;
  */
 export async function enrichForBasicIm(
   coordinates: { lat: number; lng: number },
-  options?: { pnu?: string; pnus?: string[]; address?: string; landAreaSqm?: number },
+  options?: {
+    pnu?: string;
+    pnus?: string[];
+    address?: string;
+    landAreaSqm?: number;
+    /** 랜드마크 풀 추가 쿼리군 결정용 (development/owner → IC, operating → 관광/호텔) */
+    posture?: string | null;
+    assetType?: string | null;
+    /** 오프라인/골든: 주입 시 네트워크·캐시 없이 이 풀을 사용 */
+    landmarkPoolFixture?: LandmarkPool | null;
+  },
 ): Promise<EnrichmentResult> {
   const result: EnrichmentResult = {
     cadastralMapImage: null,
@@ -47,6 +69,9 @@ export async function enrichForBasicIm(
     locationPoi: null,
     landPriceHistory: null,
   };
+
+  // 오프라인 재렌더(scripts/golden-snapshot): 외부 API 호출 없이 스냅샷에 저장된 enrichment 만 사용 (기본 동작 불변)
+  if (process.env.OFFLINE_RENDER === '1') return { ...result, ...(_offlineEnrichment ?? {}) };
 
   if (!coordinates?.lat || !coordinates?.lng) {
     log.warn('[enrichForBasicIm] 좌표 미제공 — enrichment 생략');
@@ -108,6 +133,20 @@ export async function enrichForBasicIm(
     }
   } catch {
     // POI는 선택적 — 실패 시 무시
+  }
+
+  // 2.1 입지 지도 렌더 전용 랜드마크 후보 풀 (결정론적 다중 소스, 30일 캐시) — 실패 시 레거시 후보로 폴백
+  // 포스처/픽스처 없는 호출(writer 단계, 결과 미사용)에서는 불필요한 외부 호출을 하지 않는다.
+  if (options?.posture || options?.landmarkPoolFixture) try {
+    const { resolveLandmarkPool } = await import('@/lib/external/landmark-pool');
+    const pool = await resolveLandmarkPool(coordinates, {
+      posture: options?.posture,
+      assetType: options?.assetType,
+      fixture: options?.landmarkPoolFixture ?? null,
+    });
+    if (pool) result.landmarkPool = pool;
+  } catch (err) {
+    log.warn('[enrichForBasicIm] 랜드마크 후보 풀 실패 (레거시 후보 폴백):', err);
   }
 
   // 2.5 토지이용계획 (F-07)

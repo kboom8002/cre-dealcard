@@ -66,12 +66,16 @@ export interface FinancialInputs {
   targetGrossAreaPyeong?: number;
   expectedSalesPricePerPyeong?: number;
   devHoldMonthlyRentManwon?: number;
+  /** 중개인 제시 토지평당가 (만원/평) — 있으면 매매가/대지면적 역산값보다 우선 */
+  brokerLandPricePerPyeongManwon?: number;
 
   // ── Operating 전용 파라미터 ──
   annualRevenueKrw?: number;
   gopMarginPct?: number;
   adrKrw?: number;
   occPct?: number;
+  /** 중개인 제시 RevPAR (원) — 있으면 ADR×OCC 파생보다 우선 */
+  revparKrw?: number;
 
   // ── OwnerOccupied 전용 파라미터 ──
   marketRentPerPyeongKrw?: number;
@@ -79,6 +83,10 @@ export interface FinancialInputs {
   currentRentManwon?: number;
   currentRentMonthlyManwon?: number;
   occupancySpec?: OccupancySpec;
+  /** 중개인 제시 연 임대료 절감액 (억원) — 있으면 계산값보다 우선 */
+  brokerAnnualSavingsBil?: number;
+  /** 중개인 제시 자가전환 손익분기 (년) — 있으면 계산값보다 우선 */
+  brokerBreakevenYears?: number;
 
   // ── Trading 전용 파라미터 ──
   comparablePricePerPyeongKrw?: number;
@@ -501,9 +509,11 @@ function calculateDevelopmentPosture(inputs: FinancialInputs): FinancialOutputs 
   const platArea = inputs.platAreaSqm || 0;
   const platPyeong = sqmToPyeong(platArea);
 
-  const landPricePerPyeong = (purchasePrice > 0 && platPyeong > 0)
+  // 중개인 제시 토지평당가(만원/평)가 있으면 매매가/대지면적 역산값보다 우선 (Rule 34)
+  const brokerLandPrice = Number(inputs.brokerLandPricePerPyeongManwon) > 0 ? Math.round(Number(inputs.brokerLandPricePerPyeongManwon)) : null;
+  const landPricePerPyeong = brokerLandPrice ?? ((purchasePrice > 0 && platPyeong > 0)
     ? Math.round((purchasePrice / 10000) / platPyeong)
-    : null;
+    : null);
 
   const constCostPerPyeong = inputs.constructionCostPerPyeong
     ?? (12_000_000 / 10000); 
@@ -514,18 +524,23 @@ function calculateDevelopmentPosture(inputs: FinancialInputs): FinancialOutputs 
   const totalProjectCostKrw = purchasePrice + estConstructionCostKrw + otherProjectCostKrw;
   const totalProjectCostBil = totalProjectCostKrw > 0 ? parseFloat((totalProjectCostKrw / 1e8).toFixed(1)) : null;
 
-  const salesPricePerPyeong = inputs.expectedSalesPricePerPyeong ?? (landPricePerPyeong ? landPricePerPyeong * 1.4 : 3500);
-  const expectedSalesRevenueKrw = targetGrossPyeong * salesPricePerPyeong * 10000;
+  // D2(Rule 34): 분양가·공사비는 중개인 입력값만으로 수익률을 산출한다.
+  // 구 기본값(분양가 = 토지평단가×1.4 또는 3,500만/평, 공사비 1,200만/평)으로 만든 개발이익률은 날조 수치(예: 201.4%)였다.
+  const brokerSalesPricePerPyeong = Number(inputs.expectedSalesPricePerPyeong) > 0 ? Number(inputs.expectedSalesPricePerPyeong) : null;
+  const brokerConstCostPerPyeong = Number(inputs.constructionCostPerPyeong) > 0 ? Number(inputs.constructionCostPerPyeong) : null;
+  const expectedSalesRevenueKrw = brokerSalesPricePerPyeong != null ? targetGrossPyeong * brokerSalesPricePerPyeong * 10000 : 0;
   const expectedSalesRevenueBil = expectedSalesRevenueKrw > 0 ? parseFloat((expectedSalesRevenueKrw / 1e8).toFixed(1)) : null;
 
   const holdMonthlyRentManwon = inputs.devHoldMonthlyRentManwon ?? 0;
   const holdAnnualRentKrw = holdMonthlyRentManwon * 12 * 10000;
-  const devHoldYieldPct = (holdAnnualRentKrw > 0 && totalProjectCostKrw > 0)
+  // 보유형 수익률은 총사업비(공사비 포함) 분모 — 공사비 미입력이면 기본 단가 추정으로 수익률을 만들지 않는다 (D2)
+  const devHoldYieldPct = (brokerConstCostPerPyeong != null && holdAnnualRentKrw > 0 && totalProjectCostKrw > 0)
     ? parseFloat(((holdAnnualRentKrw / totalProjectCostKrw) * 100).toFixed(2))
     : null;
 
+  // 개발수익률(총사업비 대비) — 분양가·공사비가 모두 입력된 경우에만 산출 (D2)
   const devProfitKrw = expectedSalesRevenueKrw - totalProjectCostKrw;
-  const devProfitMarginPct = totalProjectCostKrw > 0
+  const devProfitMarginPct = (brokerSalesPricePerPyeong != null && brokerConstCostPerPyeong != null && totalProjectCostKrw > 0)
     ? parseFloat(((devProfitKrw / totalProjectCostKrw) * 100).toFixed(1))
     : null;
 
@@ -549,7 +564,9 @@ function calculateDevelopmentPosture(inputs: FinancialInputs): FinancialOutputs 
     pricePerPyeong: landPricePerPyeong ? landPricePerPyeong * 10000 : null,
     landValueRatio: 100,
     landValueRatioNote: "신축/개발 부지 — 토지 매입가 100% 반영",
-    yieldOnCost: devProfitMarginPct,
+    // D2: 개발 posture 에 임대 '총수익률(yieldOnCost)' 은 해당 없음 — 구 구현은 devProfitMarginPct 를 이 키에 오기재했다.
+    //     개발수익률(총사업비 대비)은 devProfitMarginPct 로만 노출한다 (소비처: heroCard·PPTX A17·뷰어).
+    yieldOnCost: null,
     totalDepositBil: null,
     loanAmountBil: null,
     equityRequired,
@@ -576,11 +593,14 @@ function calculateDevelopmentPosture(inputs: FinancialInputs): FinancialOutputs 
 function calculateOperatingPosture(inputs: FinancialInputs): FinancialOutputs {
   const purchasePrice = inputs.purchasePriceKrw || 0;
   const annualRevenue = inputs.annualRevenueKrw ?? ((inputs.monthlyRentKrw ?? 0) * 12);
-  const gopMargin = (inputs.gopMarginPct ?? 35) / 100;
-
-  const annualGopKrw = annualRevenue * gopMargin;
+  // Rule 34: GOP 마진·GOP 는 중개인 제시값(gopMarginPct / gopKrw)만 사용한다.
+  // 구 기본 마진 35% 가정은 중개인 38% 와 충돌해 히어로카드에 영속되었다 → 제거 (미입력이면 null → 호출부 '-' 또는 행 생략).
+  const brokerGopMarginPct = Number(inputs.gopMarginPct) > 0 ? Number(inputs.gopMarginPct) : null;
+  const brokerGopKrw = Number(inputs.gopKrw) > 0 ? Number(inputs.gopKrw) : null;
+  const annualGopKrw = brokerGopKrw ?? (brokerGopMarginPct != null && annualRevenue > 0 ? annualRevenue * brokerGopMarginPct / 100 : 0);
   const annualGopBil = annualGopKrw > 0 ? parseFloat((annualGopKrw / 1e8).toFixed(1)) : null;
-  const gopMarginPct = inputs.gopMarginPct ?? 35;
+  const gopMarginPct = brokerGopMarginPct
+    ?? (brokerGopKrw != null && annualRevenue > 0 ? parseFloat(((brokerGopKrw / annualRevenue) * 100).toFixed(1)) : null);
 
   const gopCapRatePct = (purchasePrice > 0 && annualGopKrw > 0)
     ? parseFloat(((annualGopKrw / purchasePrice) * 100).toFixed(2))
@@ -588,7 +608,10 @@ function calculateOperatingPosture(inputs: FinancialInputs): FinancialOutputs {
 
   const adrKrw = inputs.adrKrw ?? null;
   const occPct = inputs.occPct ?? null;
-  const revparKrw = (adrKrw && occPct) ? Math.round(adrKrw * (occPct / 100)) : null;
+  // RevPAR: 중개인 제시값 우선(충돌하는 두 숫자 동시 표기 금지), 없으면 ADR×OCC 결정론 파생
+  const revparKrw = Number(inputs.revparKrw) > 0
+    ? Math.round(Number(inputs.revparKrw))
+    : ((adrKrw && occPct) ? Math.round(adrKrw * (occPct / 100)) : null);
 
   const pricePerSqm = (purchasePrice > 0 && inputs.totalAreaSqm && inputs.totalAreaSqm > 0)
     ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
@@ -639,23 +662,32 @@ function calculateOwnerOccupiedPosture(inputs: FinancialInputs): FinancialOutput
     ?? inputs.occupancySpec?.currentRentMonthlyManwon;
   const currentRentMonthlyKrw = currentRentManwon ? currentRentManwon * 10000 : null;
 
-  const marketRentPerPyeong = inputs.marketRentPerPyeongKrw ?? 70000;
-  const virtualAnnualRentKrw = currentRentMonthlyKrw
+  // Rule 34: 임차 대비 절감은 현 임차료(중개인) 또는 입력된 시장임대료로만 산출한다.
+  // 구 기본 시장임대료 7만원/평 가정(절감 5.3억·손익분기 43년)은 중개인 값(7.5억/4.2년)과 충돌했다 → 제거.
+  const marketRentPerPyeong = Number(inputs.marketRentPerPyeongKrw) > 0 ? Number(inputs.marketRentPerPyeongKrw) : null;
+  const virtualAnnualRentKrw: number | null = currentRentMonthlyKrw
     ? currentRentMonthlyKrw * 12
-    : marketRentPerPyeong * selfUseAreaPyeong * 12;
+    : (marketRentPerPyeong != null ? marketRentPerPyeong * selfUseAreaPyeong * 12 : null);
   const annualRentalIncomeKrw = (inputs.monthlyRentKrw ?? 0) * 12;
 
   const loanKrw = inputs.loanAmountManwon ? inputs.loanAmountManwon * 10000 : 0;
   const loanRate = 0.045;
   const annualDebtServiceKrw = loanKrw * loanRate;
-  const ownVsLeaseSavingsKrw = (virtualAnnualRentKrw + annualRentalIncomeKrw) - annualDebtServiceKrw;
-  const ownVsLeaseSavingsBil = parseFloat((ownVsLeaseSavingsKrw / 1e8).toFixed(1));
+  // 중개인 제시 절감액이 있으면 그 값을 우선 (구조화/원문 메모 명시값)
+  const brokerSavingsBil = Number(inputs.brokerAnnualSavingsBil) > 0 ? Number(inputs.brokerAnnualSavingsBil) : null;
+  const computedSavingsKrw: number | null = virtualAnnualRentKrw != null
+    ? (virtualAnnualRentKrw + annualRentalIncomeKrw) - annualDebtServiceKrw
+    : null;
+  const ownVsLeaseSavingsKrw: number | null = brokerSavingsBil != null ? brokerSavingsBil * 1e8 : computedSavingsKrw;
+  const ownVsLeaseSavingsBil = ownVsLeaseSavingsKrw != null ? parseFloat((ownVsLeaseSavingsKrw / 1e8).toFixed(1)) : null;
 
   const equityKrw = purchasePrice - loanKrw;
   const equityRequired = equityKrw > 0 ? parseFloat((equityKrw / 1e8).toFixed(1)) : null;
-  const breakevenYears = (equityKrw > 0 && ownVsLeaseSavingsKrw > 0)
-    ? parseFloat((equityKrw / ownVsLeaseSavingsKrw).toFixed(1))
-    : null;
+  const brokerBreakevenYears = Number(inputs.brokerBreakevenYears) > 0 ? Number(inputs.brokerBreakevenYears) : null;
+  const breakevenYears = brokerBreakevenYears
+    ?? ((equityKrw > 0 && ownVsLeaseSavingsKrw != null && ownVsLeaseSavingsKrw > 0)
+      ? parseFloat((equityKrw / ownVsLeaseSavingsKrw).toFixed(1))
+      : null);
 
   const monthlyMgmtFeeKrw = (inputs.mgmtFeeTotalManwon ?? 0) * 10000;
   const occupancyCostPerPyeongMonthly = selfUseAreaPyeong > 0
@@ -979,8 +1011,10 @@ export class FinancialCalculator {
   /** 입력값을 Claim으로 등록 — 역추적 기반 */
   private registerInputClaims(inputs: FinancialInputs): Claim[] {
     const claims: Claim[] = [];
-    const register = (subject: string, value: number | null, unit: string, provenance: 'broker' | 'public_api' | 'assumed') => {
+    // positiveOnly: 면적/금액 클레임은 유한 & > 0 일 때만 등록 (0 은 "값"이 아니라 "없음" — 미등록 후 승인 게이트가 누락 처리)
+    const register = (subject: string, value: number | null, unit: string, provenance: 'broker' | 'public_api' | 'assumed', positiveOnly = false) => {
       if (value === null || value === undefined) return;
+      if (positiveOnly && !(Number.isFinite(value) && value > 0)) return;
       const { claim } = this.registry.register({
         subject,
         value,
@@ -993,14 +1027,14 @@ export class FinancialCalculator {
       claims.push(claim);
     };
 
-    register('asking_price', inputs.purchasePriceKrw, '원', 'broker');
-    register('monthly_rent_total', inputs.monthlyRentKrw ?? null, '원/월', 'broker');
-    register('total_area_sqm', inputs.totalAreaSqm ?? null, '㎡', 'public_api');
-    register('land_area_sqm', inputs.platAreaSqm ?? null, '㎡', 'public_api');
+    register('asking_price', inputs.purchasePriceKrw, '원', 'broker', true);
+    register('monthly_rent_total', inputs.monthlyRentKrw ?? null, '원/월', 'broker', true);
+    register('total_area_sqm', inputs.totalAreaSqm ?? null, '㎡', 'public_api', true);
+    register('land_area_sqm', inputs.platAreaSqm ?? null, '㎡', 'public_api', true);
     register('opex_ratio_pct', inputs.opexRatioPct ?? null, '%', inputs.opexRatioPct != null ? 'broker' : 'assumed');
     register('vacancy_rate_pct', inputs.vacancyRatePct ?? null, '%', 'assumed');
-    register('total_deposit', inputs.totalDepositManwon ? inputs.totalDepositManwon * 10000 : null, '원', 'broker');
-    register('loan_amount', inputs.loanAmountManwon ? inputs.loanAmountManwon * 10000 : null, '원', 'broker');
+    register('total_deposit', inputs.totalDepositManwon ? inputs.totalDepositManwon * 10000 : null, '원', 'broker', true);
+    register('loan_amount', inputs.loanAmountManwon ? inputs.loanAmountManwon * 10000 : null, '원', 'broker', true);
 
     return claims;
   }

@@ -20,6 +20,7 @@ import { parseBrokerExtras } from "@/domain/building/mobile-im/broker-extras";
 
 import { createModuleLogger } from '@/lib/logger';
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
+import { resolveLeaseOccupancy } from "@/domain/building/mobile-im/lease-vacancy";
 const log = createModuleLogger('route');
 
 
@@ -226,7 +227,8 @@ export async function POST(req: NextRequest) {
               first_contract_date: fl?.first_contract_date || undefined,
               renewal_exercised: fl?.renewal_exercised || undefined,
               opposing_power: fl?.opposing_power || undefined,
-              lease_state: fl?.lease_state || (fl?.is_vacant ? '공실' : undefined),
+              // 점유 상태 SSOT: is_vacant 플래그(월세 0 추정 오염 가능)를 그대로 '공실' 로 영속하지 않는다
+              lease_state: fl?.lease_state || (resolveLeaseOccupancy(fl) !== '임대중' ? resolveLeaseOccupancy(fl) : undefined),
               note: fl?.note || undefined,
               lease_start: fl?.lease_start || undefined,
               lease_end: fl?.lease_end || undefined,

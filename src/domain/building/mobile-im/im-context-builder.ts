@@ -16,6 +16,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import type { MobileIMWriterInput } from './types';
 import { getSectionPlan } from './section-catalog';
 import { suggestArchetype } from './archetype-registry';
+import { positiveOrZero, pyeongToSqmPure, readSsotLayerAreas } from './resolve-total-area';
 
 // ─── Flat 구조 → 중첩 구조 정규화 ──────────────────────────────────────────
 /**
@@ -202,10 +203,17 @@ export async function buildIMContext(
     Number(assetIdentity.price_band_krw ?? 0);
 
   // 면적 추출: 공공데이터가 사용자 입력/메모와 2.5배 이상 괴리되면 사용자 실물 면적 우선 (단독사옥 블라인드 지번 대응)
-  const userTotalArea = supplemental.total_gross_area_m2 ||
-    (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
-      ? supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.area_sqm) || 0), 0)
-      : null);
+  // B3: 렌트롤 임대면적 합은 연면적이 아니다(공실·공용부·자가사용 누락) — 후보에서 제외.
+  //     handler 가 해석한 값(flat.total_area_sqm = 명시 > 메모 SSoT > 대장)을 최우선, 그다음 명시 입력, 마지막으로 메모 SSoT 직접 판독.
+  const memoSsotArea = readSsotLayerAreas((flat as any).layers, {
+    memoText: (flat as any).raw_input,
+    development: ((input as any).identity?.investmentPosture || (input.supplemental as any)?.investmentPosture) === 'development',
+  }).totalSqm;
+  const userTotalArea = positiveOrZero(physicalFact.total_area_sqm)
+    || positiveOrZero(supplemental.total_gross_area_m2)
+    || pyeongToSqmPure((supplemental as any).total_gross_area_pyeong)
+    || memoSsotArea
+    || null;
   const parsedPhysicalArea = Number(physicalFact.total_area_sqm ?? 0);
   const publicArea = Number(external_data?.buildingRegister?.totalArea || 0);
 
@@ -214,9 +222,9 @@ export async function buildIMContext(
     (parsedPhysicalArea > 0 && (publicArea > parsedPhysicalArea * 2.5 || publicArea < parsedPhysicalArea / 2.5))
   );
 
-  const totalAreaForGuard = isSevereMismatch
-    ? (userTotalArea || parsedPhysicalArea || publicArea)
-    : (publicArea || userTotalArea || parsedPhysicalArea);
+  // 사용자/핸들러 해석값이 항상 우선 (대장은 마지막 후보). 2.5배 이상 괴리는 로그로만 남긴다.
+  if (isSevereMismatch) log.warn('[im-context-builder] 공공 건축물대장 연면적이 사용자/메모 면적과 2.5배 이상 괴리 — 사용자 면적 우선');
+  const totalAreaForGuard = userTotalArea || parsedPhysicalArea || publicArea;
 
   // ── 포스처 해석 (RAG 및 시스템 프롬프트 조립 전에 필요) ────────────────────────
   const posture = (

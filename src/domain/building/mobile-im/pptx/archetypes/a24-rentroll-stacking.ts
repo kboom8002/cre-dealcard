@@ -190,8 +190,13 @@ export function chooseStackLabel(
       if (textWidthIn(c, pt, bold) <= widthIn) return { text: c, fontSize: pt };
     }
   }
-  const f = fitSingleLine(short, widthIn, minPt, minPt, bold);
-  return f.text === '…' ? null : { text: f.text, fontSize: f.fontSize };
+  // 본문 말줄임('…') 금지(골든 오라클): 최소 글꼴에서도 들어가지 않으면 단어 경계로 축약, 그래도 안 되면 라벨 생략 (표에는 전체 상호가 남는다)
+  const words = short.split(/\s+/).filter(Boolean);
+  for (let n = words.length - 1; n >= 1; n--) {
+    const c = words.slice(0, n).join(' ');
+    if (c.length >= 2 && textWidthIn(c, minPt, bold) <= widthIn) return { text: c, fontSize: minPt };
+  }
+  return null;
 }
 
 /** 숫자 셀 천 단위 구분 정규화 ('2490.3' → '2,490.3', '7600' → '7,600'), 숫자가 아니면 그대로 */

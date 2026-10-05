@@ -173,7 +173,12 @@ export async function approveDocument(
     } else {
       const errBody = await approveRes.json().catch(() => ({}));
       console.log(`  ⚠️ 승인 API 에러 (${approveRes.status()}):`, errBody);
-      console.log('  ⚠️ DB service role 직접 패치 폴백');
+      // 2026-10 RCA: DB 직접 패치 폴백이 승인 게이트 결함(연면적/대지 0)을 가려 왔다.
+      // 기본값 OFF — 승인 API 가 200 을 반환하지 못하면 골든은 실패해야 한다. (진단용 우회만 GOLDEN_APPROVE_DB_PATCH=1 로 허용)
+      if (process.env.GOLDEN_APPROVE_DB_PATCH !== '1') {
+        throw new Error(`승인 API 실패 (${approveRes.status()}): ${JSON.stringify(errBody).slice(0, 600)} — 골든은 DB 패치 폴백 없이 승인 게이트를 통과해야 합니다 (진단용: GOLDEN_APPROVE_DB_PATCH=1)`);
+      }
+      console.log('  ⚠️ DB service role 직접 패치 폴백 (GOLDEN_APPROVE_DB_PATCH=1)');
       const { createClient } = require('@supabase/supabase-js');
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';

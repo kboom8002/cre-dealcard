@@ -1,0 +1,2236 @@
+{
+ "schemaVersion": 1,
+ "name": "income-ig2-corrected",
+ "fixtureDir": "docs/income-golden-data/ig2-ssangnim-114/corrected",
+ "capturedAt": "2026-10-05T13:19:38.455Z",
+ "docId": "cdccab9f-789d-435b-b7d3-0477d7b73659",
+ "buildingId": "50892efd-a97f-496c-98a2-723ea0f71453",
+ "doc": {
+  "id": "cdccab9f-789d-435b-b7d3-0477d7b73659",
+  "title": "쌍림권역 근생빌딩 매각",
+  "document_type": "mobile_im",
+  "created_at": "2026-10-05T12:31:09.252856+00:00",
+  "body": {
+   "tier": "basic",
+   "claims": [
+    {
+     "id": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+     "asOf": "2026-10-05",
+     "unit": "원",
+     "value": 9500000000,
+     "status": "reconciled",
+     "subject": "asking_price",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc",
+     "asOf": "2026-10-05",
+     "unit": "원/월",
+     "value": 23570000,
+     "status": "reconciled",
+     "subject": "monthly_rent_total",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+     "asOf": "2026-10-05",
+     "unit": "㎡",
+     "value": 1687.51,
+     "status": "reconciled",
+     "subject": "total_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    },
+    {
+     "id": "b7713654-eb04-4704-b3ce-c31a6a701430",
+     "asOf": "2026-10-05",
+     "unit": "㎡",
+     "value": 420.6,
+     "status": "reconciled",
+     "subject": "land_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    },
+    {
+     "id": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 20,
+     "status": "unverified",
+     "subject": "vacancy_rate_pct",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "assumed"
+      }
+     ],
+     "provenance": "assumed",
+     "displayLabel": "◇ 분석가정",
+     "expertRequired": false
+    },
+    {
+     "id": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+     "asOf": "2026-10-05",
+     "unit": "원",
+     "value": 240000000,
+     "status": "reconciled",
+     "subject": "total_deposit",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "b3ec1ee7-9344-4271-aee5-d227114c41f2",
+     "asOf": "2026-10-05",
+     "unit": "원",
+     "value": 175360800,
+     "status": "reconciled",
+     "subject": "noi_base",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "annual_gross * (1 - vacancy) - opex = 175360800",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "7d01959c-78d1-43a9-8622-03d98fe43d13",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 175360800,
+      "formula": "annual_gross * (1 - vacancy) - opex",
+      "deductions": [],
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "645ed7f4-61f2-4f8c-a194-803ec4fdb893",
+     "asOf": "2026-10-05",
+     "unit": "원",
+     "value": 237585600,
+     "status": "reconciled",
+     "subject": "noi_best",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "annual_gross - opex_low = 237585600",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "06b84b7d-84f4-4ee0-92a8-0a45dbd4270d",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 237585600,
+      "formula": "annual_gross - opex_low",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "350c1f7e-851f-4d6d-b6d6-6ef10ea69a02",
+     "asOf": "2026-10-05",
+     "unit": "원",
+     "value": 166875600,
+     "status": "reconciled",
+     "subject": "noi_worst",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "annual_gross * (1 - vacancy_high) - opex_high = 166875600",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "ae375151-dec7-4bc9-ae43-7b62445bc448",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 166875600,
+      "formula": "annual_gross * (1 - vacancy_high) - opex_high",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "6659b1e1-3e50-404d-bf4c-e0699dd2e80d",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 1.85,
+     "status": "unverified",
+     "subject": "cap_rate_base",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "운영비 미입력 — 실질 NOI 산출 불가",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "aaa8fbe9-55e3-4542-828c-5709cf7d8df8",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 1.85,
+      "formula": "noi_base / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "1af4829c-fcd8-433d-bcc6-7a75b11384b6",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 2.5,
+     "status": "unverified",
+     "subject": "cap_rate_best",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "운영비 미입력 — 실질 NOI 산출 불가",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "1237f4aa-2c79-4021-abce-47e4818c72b2",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 2.5,
+      "formula": "noi_best / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "0ecc5f6d-eb19-4b36-8263-14d98b18698c",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 1.76,
+     "status": "unverified",
+     "subject": "cap_rate_worst",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "운영비 미입력 — 실질 NOI 산출 불가",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "636bf327-a34a-4018-ba27-b68f76982a3e",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 1.76,
+      "formula": "noi_worst / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "967e9204-6deb-4e64-933b-52002d0aca1d",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": -1.1,
+     "status": "reconciled",
+     "subject": "irr_5y_base",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "irr(cfs, hold=5) = -1.1",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "de66f598-5777-4376-b024-3bc70f595cf8",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": -1.1,
+      "formula": "irr(cfs, hold=5)",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "f3d21ff4-de1c-4552-9876-78893ea04b21",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 8.4,
+     "status": "reconciled",
+     "subject": "irr_5y_best",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "irr(cfs_best, hold=5) = 8.4",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "5d82a6e0-e372-412a-9563-7e7e2dfe28a3",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 8.4,
+      "formula": "irr(cfs_best, hold=5)",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "a3434230-5385-4cf0-b982-63c3166d50dd",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": -6.3,
+     "status": "reconciled",
+     "subject": "irr_5y_worst",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "irr(cfs_worst, hold=5) = -6.3",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "53c3815c-2949-4159-82ed-07c9647d62c2",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": -6.3,
+      "formula": "irr(cfs_worst, hold=5)",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "276415ec-0840-49df-af06-556e512040b5",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 2.98,
+     "status": "reconciled",
+     "subject": "yield_on_cost",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "annual_gross / asking_price * 100 = 2.98",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "6db529a1-2d7c-465e-a0fe-8d6dedf71362",
+      "basis": "GPI",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 2.98,
+      "formula": "annual_gross / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "fb1290a8-758a-4b13-8498-fcf1cb08401f",
+     "asOf": "2026-10-05",
+     "unit": "원/㎡",
+     "value": 5629596,
+     "status": "reconciled",
+     "subject": "price_per_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "asking_price / total_area = 5629596",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "52a2bab4-267f-4cae-809a-cd9d2780e5c4",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 5629596,
+      "formula": "asking_price / total_area",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "0ff7edfc-8862-4493-b794-bd27deb9ed9d",
+     "asOf": "2026-10-05",
+     "unit": "원/평",
+     "value": 18610234,
+     "status": "reconciled",
+     "subject": "price_per_pyeong",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "price_per_sqm * 3.30578 = 18610234",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "cc19450d-8b80-471e-bff1-1ee3dccc5f48",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 18610234,
+      "formula": "price_per_sqm * 3.30578",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "20ddee59-a41a-4a9b-85fe-aee1588a827f",
+     "asOf": "2026-10-05",
+     "unit": "억원",
+     "value": 97.8,
+     "status": "reconciled",
+     "subject": "equity_required",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "total_cost - deposit - loan = 97.8",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "11112f9d-e0d2-4cc3-a362-dd52f8eb9a5c",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 97.8,
+      "formula": "total_cost - deposit - loan",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "e33f870a-9dd8-4d07-82b4-28ad4c88892c",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 1.89,
+     "status": "reconciled",
+     "subject": "leveraged_yield",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "(noi - interest) / equity * 100 = 1.89",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "fefef5d1-7bab-4f7a-9c03-2b8941b632f4",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 1.89,
+      "formula": "(noi - interest) / equity * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "6c30d694-7e31-4502-ad6e-f28730e6bc4f",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 30.9,
+     "status": "reconciled",
+     "subject": "land_value_ratio",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "land_price_total / asking_price * 100 = 30.9",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "c5be3def-bd15-4e53-bba6-2b48076064a1",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 30.9,
+      "formula": "land_price_total / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "490e4651-8d43-4736-a7da-8801e3164443",
+     "asOf": "2026-10-05",
+     "unit": "억원",
+     "value": 100.2,
+     "status": "reconciled",
+     "subject": "total_acquisition_cost",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "asking + tax + broker_fee = 100.2",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "4c1bf0f9-318a-4cf2-92af-3551ca936780",
+      "inputs": {
+       "asking_price": "768a72e1-ceb7-47fb-9ada-c68a30c0b192",
+       "land_area_sqm": "b7713654-eb04-4704-b3ce-c31a6a701430",
+       "total_deposit": "4a94a2ee-d2a6-4c9f-8eef-5ba0e0e27a11",
+       "total_area_sqm": "e061fdde-bf39-4efb-b6f1-f28fb6e4fe0b",
+       "vacancy_rate_pct": "c4bfd058-3125-4956-861e-5ed490bc19f0",
+       "monthly_rent_total": "e3778ee2-d41f-4cb9-8a26-dacc69eadfdc"
+      },
+      "result": 100.2,
+      "formula": "asking + tax + broker_fee",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "74e77b29-b4a8-4ebc-812a-d02481f1edb3",
+     "asOf": "2026-10-05",
+     "unit": "",
+     "value": 1,
+     "status": "reconciled",
+     "subject": "negative_leverage",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "negative_leverage = 1",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "515631d9-72dc-4e04-9372-1ae6b9f2676a",
+     "asOf": "2026-10-05",
+     "unit": "%",
+     "value": 3.72,
+     "status": "reconciled",
+     "subject": "pro_forma_cap_rate",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "만실 정상화 시 연 순수익률 예상",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "7804f746-057d-498e-9d17-7f6f0cf046ad",
+      "basis": "NOI",
+      "inputs": {},
+      "result": 3.72,
+      "formula": "full_occupancy_annual_rent / purchase_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "b2fb8290-dc24-41cc-b948-21f245ed2409",
+     "asOf": "2026-10-05",
+     "unit": "%p",
+     "value": 0.74,
+     "status": "reconciled",
+     "subject": "pro_forma_upside_cap_rate_pp",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "excerpt": "공실 해소 시 연 순수익률 +0.74%p 개선",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    }
+   ],
+   "photos": [
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-01.jpg",
+     "role": "cover",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 0,
+     "isHero": true,
+     "caption": "건물 외관",
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-02.jpg",
+     "role": "general",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 1,
+     "isHero": false,
+     "caption": "측면/경사로",
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-03.jpg",
+     "role": "general",
+     "type": "entrance",
+     "label": "주 출입구",
+     "order": 2,
+     "isHero": false,
+     "caption": "1층 전면",
+     "category": "entrance"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-04.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 3,
+     "isHero": false,
+     "caption": "B1층 공실",
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-05.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 4,
+     "isHero": false,
+     "caption": "B1층 공실",
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-06.jpg",
+     "role": "general",
+     "type": "parking",
+     "label": "주차장",
+     "order": 5,
+     "isHero": false,
+     "caption": "주차장",
+     "category": "parking"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-07.jpg",
+     "role": "general",
+     "type": "parking",
+     "label": "주차장",
+     "order": 6,
+     "isHero": false,
+     "caption": "주차장",
+     "category": "parking"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-08.jpg",
+     "role": "general",
+     "type": "floor_plan",
+     "label": "층별 도면",
+     "order": 7,
+     "isHero": false,
+     "caption": "B1 도면",
+     "category": "floor_plan"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-09.jpg",
+     "role": "general",
+     "type": "floor_plan",
+     "label": "층별 도면",
+     "order": 8,
+     "isHero": false,
+     "caption": "1F 도면",
+     "category": "floor_plan"
+    }
+   ],
+   "preset": "credeal_basic",
+   "ai_used": true,
+   "im_type": "mobile_im_lite",
+   "ogTitle": "쌍림권역 근생빌딩 매각",
+   "heroCard": {
+    "adr": null,
+    "occPct": null,
+    "revpar": null,
+    "zoning": "제3종일반주거지역",
+    "hasLoan": false,
+    "keyRisk": "등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
+    "opexPct": 18,
+    "posture": "income",
+    "assetType": "근생빌딩",
+    "keyPoints": [
+     "토지·입지: 2026년 공시지가 ㎡당 698.8만원과 대지 436.6㎡ 기준 토지 평가액은 약 30.5억원으로, 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선까지 313m, 도보 4분 거리이며 소로 한 면에 접합니다.",
+     "임대 현황: 월 임대료는 2,357만원, 보증금은 2억4,000만원이며 공실률은 20%입니다. 지하 1층 [임차인B] 78평(약 257.9㎡)이 공실이고, 그 외 임대 대상 면적은 실질적 공실 없이 운영 중입니다.",
+     "수익 구조: 매도 희망가 95억원에서 임대 수익 존재 (NDA)을 차감한 순투자금은 92억6,000만원이며, 연 임대료 2억8,284만원 기준 임대수익률은 3.0%입니다."
+    ],
+    "areaSignal": "쌍림권역",
+    "landAreaM2": 420.6,
+    "noiBaseBil": 2.2,
+    "opexSource": "assumed",
+    "yieldBasis": "NOI",
+    "capRateBase": 2.29,
+    "gopMarginPct": null,
+    "targetHprPct": null,
+    "noiDeductions": [
+     {
+      "name": "공실·운영비",
+      "amount": 65053200
+     }
+    ],
+    "breakevenYears": null,
+    "pricePerPyeong": 18610234,
+    "readinessScore": 80,
+    "dcf10YearNpvBil": null,
+    "devHoldYieldPct": null,
+    "totalGrossAreaM2": 1687.51,
+    "equityRequiredBil": 97.8,
+    "leveragedYieldPct": 2.35,
+    "marketDiscountPct": null,
+    "vacancyReservePct": 5,
+    "askingPriceDisplay": "95억 원",
+    "devProfitMarginPct": null,
+    "keyInvestmentPoint": "토지·입지: 2026년 공시지가 ㎡당 698.8만원과 대지 436.6㎡ 기준 토지 평가액은 약 30.5억원으로, 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선까지 313m, 도보 4분 거리이며 소로 한 면에 접합니다.",
+    "landPricePerPyeong": null,
+    "ownVsLeaseSavingsBil": null
+   },
+   "sections": [
+    {
+     "title": "이 건물, 어떤 자산인가",
+     "markdown": "쌍림권역 3개 역 도보권, 2003년 준공의 지하 1층~지상 7층 근생빌딩으로 월 임대료 및 공실 현황을 기준으로 임대 운영 현황을 검토할 수 있는 자산입니다. 서울 중구 장충단로7길 56에 위치하며, 철근콘크리트 구조의 제1종근린생활시설로 연면적 1,687.51㎡ (510.5평), 대지면적 436.6㎡, 승강기 1대 및 주차 6대 규모입니다. 월 임대료는 약 2,357만원이며 지하 1층 [임차인B] 약 78평(약 257.9㎡)을 제외하면 실질적 공실이 없는 상태로, 지하층 임차 유치 시 추가 현금흐름 개선 가능성을 검토할 수 있습니다. > **자산 하이라이트**: • 동대문역사문화공원역·동대입구역·충무로역 도보권 입지 • 지하 1층을 제외한 층의 임대 현황이 제시된 자산 • 약 510.5평(약 1687.6㎡) 규모의 7개층 근생빌딩",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": 1687.51,
+       "source": "public_data",
+       "fieldKey": "total_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T12:28:54.297Z"
+      },
+      {
+       "value": 420.6,
+       "source": "public_data",
+       "fieldKey": "plat_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T12:28:54.297Z"
+      },
+      {
+       "value": "20030624",
+       "source": "public_data",
+       "fieldKey": "use_approval_date",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T12:28:54.297Z"
+      }
+     ],
+     "section_type": "property_overview",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 1
+    },
+    {
+     "title": "왜 지금 이 건물을 사야 하는가",
+     "markdown": "**3대 핵심 투자 포인트** • **토지·입지**: 2026년 공시지가 ㎡당 698.8만원과 대지 436.6㎡ 기준 토지 평가액은 약 30.5억원으로, 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선까지 313m, 도보 4분 거리이며 소로 한 면에 접합니다. • **임대 현황**: 월 임대료는 2,357만원, 보증금은 2억4,000만원이며 공실률은 20%입니다. 지하 1층 [임차인B] 78평(약 257.9㎡)이 공실이고, 그 외 임대 대상 면적은 실질적 공실 없이 운영 중입니다. • **수익 구조**: 매도 희망가 95억원에서 임대 수익 존재 (NDA)을 차감한 순투자금은 92억6,000만원이며, 연 임대료 2억8,284만원 기준 임대수익률은 3.0%입니다. > **종합 가치 제안**: 연면적 1,687.51㎡의 7층 규모 근린생활시설로서, 역 도보권 접근성과 운영 임대수익, 공실 면적 78평(약 257.9㎡)으로 구성된 자산입니다. **가치개선(Value-add) 시나리오 (AI 추정)**\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\n|---------|---------|-------------|--------|\n| ① 공실 해소 | +약 0.60억 원 (+25%) | 3.16% | 불필요 |\n| ② 임대료 현실화 (+5%) | +약 0.12억 원 (+5%) | 2.66% | 불필요 |\n| ③ 리모델링 후 임대료 상승 | +약 0.19억 원 (+8%) | 2.73% | 약 5.06억 원 | > 가치개선(Value-add) 시나리오는 AI 추정이며 실제 시장 조건에 따라 다를 수 있습니다. > **전문가 한줄 의견**: \"3개 역 도보권 · 지하 외 실공실 없음 · 토지평당 7,470만원\"\n\n### 투자 포인트 (중개인 입력)\n\n- 3개 역 도보 10분 이내, 장충체육관·신라호텔·동국대 인접\n- 지하층 외 실질적인 공실 없음\n- 사무소·인쇄 관련 업종 수요 풍부",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "investment_thesis",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 2
+    },
+    {
+     "title": "이 입지, 투자할 만한 곳인가",
+     "markdown": "**3개 역 도보 10분권과 동대문역사문화공원역 도보 4분을 갖춘 쌍림권역 핵심 생활·상업 입지**입니다. 동대입구역(3호선)도 도보 약 6분 거리이며, 동대문역사문화공원역·동대입구역·충무로역을 통한 도심 주요 권역 접근성이 우수해 [임차인D] 및 인쇄 특화 업종의 임차 수요를 뒷받침합니다. 인근 장충체육관·신라호텔·동국대와 약 500개 점포가 형성된 상권의 일일 유동인구는 약 6.5만 명으로 집계되어, 음식·소매·서비스 업종의 안정적인 배후수요와 공실 해소를 통한 임대수익 최적화 가능성을 제공합니다.\n\n### 입지 설명 (중개인 입력)\n\n동대문역사문화공원역·동대입구역·충무로역 도보 10분 이내. 서울 지리적 중심부, 인쇄 등 특화 업종 상권 형성",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "judge_score": 4.25,
+     "section_type": "location_access",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 3
+    },
+    {
+     "title": "등기사항증명서 권리관계와 소유 구조",
+     "markdown": "## 권리관계 요약 ### 소유 현황\n> 소유자 정보가 등록되지 않았습니다. ### 설정 권리\n- 설정 권리 없음 ✅",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "title_rights",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 4
+    },
+    {
+     "title": "토지 현황과 이용 조건은 어떠한가",
+     "markdown": "## 토지 현황 - **지목**: 대\n- **대지면적**: 420.6㎡ (127.2평)\n- **공시지가**: 6,988,000원/㎡ ### 이용 규제\n- **용도지역**: 제3종일반주거지역\n- **건폐율**: 59.71%\n- **용적률**: 295.68% (법정 상한 250%, 여유 -45.7%p)\n- **필지 형상**: 사다리형\n- **지형**: 평지\n- **도로접면**: 소로한면\n\n### 규제·계획 (중개인 입력)\n\n- **지구단위계획**: 불허용도 제조(인쇄·고무류)·정신병원·창고·위험물저장 등 / 1층 지정용도 소매·휴게·음식·사무소·서점·사진·관공·노유자\n- **지구단위계획**: 건폐율 50% 이하, 용적률 250% 이하, 높이 20m 이하 (16m 이하 시 부설주차장 100% 완화)",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "land_detail",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 5
+    },
+    {
+     "title": "임대차 현황과 공실은 실제로 어떠한가",
+     "markdown": "현재 **공실률 20%**로, 지하 1층 [임차인B] 약 78평(약 257.9㎡) 공실을 제외한 임대 대상 면적은 실질적으로 임대 완료된 상태입니다. 1~6층은 소매·제조·[임차인D]·[임차인E] 등으로 분산 임차되어 보증금 합계 **2억 4,000만 원**, 월 임대료 합계 **2,357만 원**의 안정적 현금흐름을 확보하고 있으며, 주요 계약은 2027~2028년까지 잔존합니다. 지하 1층은 희망 조건 보증금 4,000만 원·월 400만 원(관리비 별도)으로 임차 유치 시 추가 수익 개선 여지가 있으나, 실제 임대조건 및 흡수 가능성은 별도 검증이 필요합니다. **층별 임대 현황**\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|\n| B1 | 🚫 공실 | 78평(약 257.9㎡) | - | - | - | 미정 |\n| 1F | [임차인B] | 76평(약 251.2㎡) | 8,000만 | 700만 | - | 2027-03-31 |\n| 2F | [임차인C] | 27평(약 89.3㎡) | 2,000만 | 175만 | - | 2027-08-31 |\n| 3F | [임차인B] | 74평(약 244.6㎡) | 5,000만 | 460만 | - | 2028-02-29 |\n| 4F | [임차인D] | 70평(약 231.4㎡) | 2,000만 | 442만 | - | 2027-11-30 |\n| 5F | [임차인D] | 62평(약 205㎡) | 4,000만 | 300만 | - | 2028-05-31 |\n| 6F | [임차인E] | 45평(약 148.8㎡) | 3,000만 | 280만 | - | 2027-06-30 |\n| 7F | [임차인A] | 15평(약 49.6㎡) | - | - | - | 미정 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 14.3% (임대중 6 · 자가사용 1 · 공실 1) | 공실 1실 |\n| **월 임대료 합계** | 2,357만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.8억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.4억 원 | 임차인 보증금 합계 |\n| **임차인 정보** | 실사 및 NDA 체결 후 상세 제공 | 개인정보 보호 처리 |",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": 23570000,
+       "source": "broker_input",
+       "fieldKey": "monthly_rent_total",
+       "confidence": "confirmed",
+       "sourceDetail": "브로커 제공 실제 임대 정보",
+       "lastVerifiedAt": "2026-10-05T12:29:03.107Z"
+      },
+      {
+       "value": "지하 1층 소매점 78평(약 257.9㎡) 공실이며, 그 외 임대 대상 면적은 실질적 공실 없음",
+       "source": "broker_input",
+       "fieldKey": "vacancy_rate",
+       "confidence": "confirmed",
+       "sourceDetail": "브로커 제공 실시간 수치",
+       "lastVerifiedAt": "2026-10-05T12:29:03.107Z"
+      }
+     ],
+     "judge_score": 4.7,
+     "section_type": "lease_status",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 6
+    },
+    {
+     "title": "투자 구조 및 현금흐름 분석",
+     "markdown": "**수익 분석** 실투자금(취득비용 포함) **약 97.8억 원**(총취득원가 약 100.2억 원 − 보증금 2.4억 원 − 대출 0원; 시스템 산출값) 기준, 현재 월 임대수입(운영비 차감 전)은 **약 2,357만 원**(월 임대료 합계 2,357만 원 − 월 대출이자 0원)이며, 순투자금은 **약 92.6억 원**(매도 희망가 95억 원 − 보증금 2.4억 원 − 대출 0원; 취득세·중개보수 제외)이다. 현재 임대료 기준 연 임대수입은 약 **2.83억 원**이며, 임대수익률은 **연 3.05%**(연 임대수입 ÷ 순투자금 × 100; 운영비 차감 전)로 산출된다. 운영비 세부 실적이 제공되지 않아 연 순영업소득(NOI)은 **약 2.0억~2.4억 원**, Cap Rate는 **2.0%~2.5%**(NOI ÷ 매도 희망가 95억 원 × 100; AI 추정) 범위로 제시하며, 지하 1층 [임차인B] 78평(약 257.9㎡)이 공실 상태이므로 해당 수치는 공실 해소 전 현황을 기준으로 해석할 필요가 있다. 토지 평가액 비중은 **30.9%**(공시지가 기준 토지 평가액 ÷ 매도 희망가; 시스템 산출값)로 제시되어, 토지 평가액 비중은 자산 구성 참고자료이며 실제 회수 가능성은 감정평가·매각시장·권리관계 등에 따라 달라질 수 있어 해당 비중만으로 원금 하방 안정성을 판단할 수 없다. **층별 임대 현황**\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|\n| B1 | 🚫 공실 | 78평(약 257.9㎡) | - | - | - | 미정 |\n| 1F | [임차인B] | 76평(약 251.2㎡) | 8,000만 | 700만 | - | 2027-03-31 |\n| 2F | [임차인C] | 27평(약 89.3㎡) | 2,000만 | 175만 | - | 2027-08-31 |\n| 3F | [임차인B] | 74평(약 244.6㎡) | 5,000만 | 460만 | - | 2028-02-29 |\n| 4F | [임차인D] | 70평(약 231.4㎡) | 2,000만 | 442만 | - | 2027-11-30 |\n| 5F | [임차인D] | 62평(약 205㎡) | 4,000만 | 300만 | - | 2028-05-31 |\n| 6F | [임차인E] | 45평(약 148.8㎡) | 3,000만 | 280만 | - | 2027-06-30 |\n| 7F | [임차인A] | 15평(약 49.6㎡) | - | - | - | 미정 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 14.3% (임대중 6 · 자가사용 1 · 공실 1) | 공실 1실 |\n| **월 임대료 합계** | 2,357만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.8억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.4억 원 | 임차인 보증금 합계 |\n| **임차인 정보** | 실사 및 NDA 체결 후 상세 제공 | 개인정보 보호 처리 |",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": 6988000,
+       "source": "public_data",
+       "fieldKey": "official_land_price",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 개별공시지가 API (2026)",
+       "lastVerifiedAt": "2026-10-05T12:28:54.297Z"
+      }
+     ],
+     "section_type": "income_analysis",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 7
+    },
+    {
+     "title": "위험요인 및 대응 방안",
+     "markdown": "**리스크 체크** 지하 1층 [임차인B] 78평(약 257.9㎡)(257.9㎡) 공실로 전체 공실률이 약 20% 수준인 점은 단기 임대수익 저하 요인이나, 역세권(도보 5분 이내)·인쇄 및 사무 관련 수요를 바탕으로 보증금·렌트프리 등 조건을 탄력적으로 설계하고 소매·서비스 등 허용 업종 중심의 분할 또는 단일 임차 유치를 병행하면 현금흐름 회복 가능성을 높일 수 있습니다. 대상지는 제3종일반주거지역 및 지구단위계획상 일부 [임차인C]·창고·위험물저장시설 주요 임차인이 제한되고 1층 지정용도 기준이 적용될 수 있으므로, 신규 임차 업종 및 용도변경 전 관할 구청 확인을 선행하여 공실 장기화와 인허가 비용을 예방할 필요가 있습니다. 건축물대장상 용적률 295.68%가 제공된 용적률 상한 250% 및 높이 기준과 상이하게 보이는 부분은 기존 적법 건축 여부, 증축·대수선 및 재건축 시 적용 가능한 규모를 확인해야 하며, 현황 유지형 임대운영과 함께 건축사·관할 행정청 검토를 통해 향후 CAPEX 및 개발 제한을 사전에 관리하는 것이 바람직합니다. 등기사항증명서가 미연동 상태이므로 근저당권·압류·임차보증금 및 대항력, 위반건축물 표기, 주차·소방·승강기 설비 상태는 계약 전 등기·임대차·시설 실사로 확인하고, 잔금 조건 및 매도인 진술·보증 조항에 반영해야 하며, 본 내용은 제한된 자료에 따른 예비 검토로 법률·세무·수익을 보장하지 않습니다.",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": "제3종일반주거지역",
+       "source": "public_data",
+       "fieldKey": "zoning",
+       "confidence": "confirmed",
+       "sourceDetail": "토지이용규제정보서비스(LURIS) API",
+       "lastVerifiedAt": "2026-10-05T12:28:54.297Z"
+      }
+     ],
+     "judge_score": 4.65,
+     "section_type": "risk_check",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 8
+    },
+    {
+     "title": "실사 안내 및 면책 조항",
+     "markdown": "🔒 **NDA 체결 후** 임대차계약, 임차인별 조건, 보증금·차임 수납 내역 및 권리관계 확인에 필요한 비공개 자료를 제공해 드립니다. 👀 이후 **현장 실사**를 통해 임대면적별 운영 현황, 공실 공간의 임대차 전환 가능성, 시설 상태 및 향후 임대수익 최적화에 필요한 사항을 확인합니다. ✍️ 검토를 마친 투자자께서는 **LOI(매입의향서(LOI))**를 제출하여 희망 매수가와 주요 거래조건 협의를 개시할 수 있으며, 필요 시 **1:1 비밀 상담**을 통해 자금계획, 임대운영 방향 및 안정적 현금흐름 확보 방안을 개별적으로 논의하실 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "next_steps",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 9
+    },
+    {
+     "title": "실사 체크리스트 및 확인사항",
+     "markdown": "월 임대수익 2,357만원(연 환산 약 2억 8,284만원)을 기반으로, 매도 희망가 95억원 대비 단순 환산 약 3.0% 수준의 현금흐름을 확보하고 있습니다. 제공된 임대현황 기준, 지하 1층 [임차인B] 78평(약 257.9㎡)을 제외한 임대 대상 면적에 공실이 없는 것으로 제시되어 있습니다. 향후 주요 임차인 유치와 임대조건 재정비를 통해 추가 임대수익 개선 여지가 있으며, 3개 역 도보권 내 인쇄·[임차인D] 관련 업종의 입지 적합성은 별도 시장자료와 실제 임차 문의 등을 통해 확인할 필요가 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "checklist",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 10
+    },
+    {
+     "title": "면책 조항",
+     "markdown": "⚠️ 본 문서의 일부 내용은 AI가 자동 생성한 정보를 포함하고 있으며, 투자 조언이 아닙니다. 실제 투자 의사결정 시 독립적인 전문가 검토를 반드시 받으시기 바랍니다.\n\n본 자료는 정보 제공 목적으로만 작성되었으며, 특정 부동산의 매수 또는 매도를 권유하지 않습니다. 부동산 투자는 원금 손실의 위험이 있으며, 과거 수익률이 미래 수익을 보장하지 않습니다.\n\n본 모바일 투자설명서(IM)는 보안을 위해 자산의 핵심 개요를 블라인드 형태로 제공합니다. 상세 지번 및 임대차 계약 원본은 담당 중개사를 통해 확인하실 수 있습니다.\n\n본 문서의 데이터는 다음 출처에서 수집되었습니다: 건축물대장(국토교통부), 토지이용계획(토지이음), 개별공시지가(국토교통부), 실거래가(국토교통부). 일부 데이터는 중개인이 직접 입력한 정보이며, 정확성을 보장하지 않습니다.\n\n예비 검토용 자료이며 현장 확인이 필요합니다. 본 자료의 수치와 분석은 참고용이며, 실제 거래 시 별도의 실사가 반드시 필요합니다.",
+     "section_type": "disclaimer"
+    }
+   ],
+   "dataGrade": "B",
+   "heroTitle": "쌍림권역 근생빌딩 매각",
+   "photos_v2": [
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-01.jpg",
+     "role": "cover",
+     "order": 0,
+     "isHero": true,
+     "caption": "건물 외관",
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-02.jpg",
+     "role": "general",
+     "order": 1,
+     "isHero": false,
+     "caption": "측면/경사로",
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-03.jpg",
+     "role": "general",
+     "order": 2,
+     "isHero": false,
+     "caption": "1층 전면",
+     "category": "entrance"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-04.jpg",
+     "role": "general",
+     "order": 3,
+     "isHero": false,
+     "caption": "B1층 공실",
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-05.jpg",
+     "role": "general",
+     "order": 4,
+     "isHero": false,
+     "caption": "B1층 공실",
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-06.jpg",
+     "role": "general",
+     "order": 5,
+     "isHero": false,
+     "caption": "주차장",
+     "category": "parking"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-07.jpg",
+     "role": "general",
+     "order": 6,
+     "isHero": false,
+     "caption": "주차장",
+     "category": "parking"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-08.jpg",
+     "role": "general",
+     "order": 7,
+     "isHero": false,
+     "caption": "B1 도면",
+     "category": "floor_plan"
+    },
+    {
+     "url": "$asset-path:income-ig2-corrected/asset-09.jpg",
+     "role": "general",
+     "order": 8,
+     "isHero": false,
+     "caption": "1F 도면",
+     "category": "floor_plan"
+    }
+   ],
+   "enrichment": {
+    "landPrice": {
+     "_source": "vworld",
+     "baseYear": "2026",
+     "landArea": 436.6,
+     "pricePerSqm": 6988000,
+     "landCategory": "대"
+    },
+    "landUsePlan": {
+     "_source": "vworld",
+     "terrain": "평지",
+     "landArea": 436.6,
+     "landShape": "사다리형",
+     "roadAccess": "소로한면",
+     "zoningOverlap": [],
+     "zoningDistrict": "제3종일반주거지역",
+     "landUseSituation": "상업용",
+     "floorAreaRatioMax": 250,
+     "buildingCoverageMax": 50
+    },
+    "locationPoi": {
+     "keySpots": [
+      {
+       "lat": 37.56462215427451,
+       "lng": 127.00579179092047,
+       "name": "동대문역사문화공원역 5호선",
+       "category": "subway",
+       "distanceM": 313
+      },
+      {
+       "lat": 37.55905581925076,
+       "lng": 127.00531600900922,
+       "name": "동대입구역 3호선",
+       "category": "subway",
+       "distanceM": 428
+      },
+      {
+       "lat": 37.5631013601732,
+       "lng": 127.003581171383,
+       "name": "주한튀니지 명예영사관",
+       "category": "public",
+       "distanceM": 61
+      },
+      {
+       "lat": 37.5631644371463,
+       "lng": 127.003334431033,
+       "name": "이호",
+       "category": "landmark",
+       "distanceM": 65
+      },
+      {
+       "lat": 37.5626472901957,
+       "lng": 127.002281794466,
+       "name": "라이더",
+       "category": "landmark",
+       "distanceM": 93
+      }
+     ],
+     "poiCounts": {
+      "cafe": 92,
+      "subway": 8,
+      "busStop": 0,
+      "parking": 51,
+      "restaurant": 373,
+      "convenience": 36
+     },
+     "candidateSpots": [
+      {
+       "lat": 37.562789612392876,
+       "lng": 127.00367849509992,
+       "name": "쓰레기연구소 새롬",
+       "category": "landmark",
+       "distanceM": 38,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.56307614344,
+       "lng": 127.003191814126,
+       "name": "레이킴치과의원",
+       "category": "hospital",
+       "distanceM": 56,
+       "categoryName": "의료,건강 > 병원 > 치과"
+      },
+      {
+       "lat": 37.56307973584512,
+       "lng": 127.0035947525361,
+       "name": "서울몰",
+       "category": "landmark",
+       "distanceM": 60,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.5631013601732,
+       "lng": 127.003581171383,
+       "name": "주한튀니지 명예영사관",
+       "category": "public",
+       "distanceM": 61,
+       "categoryName": "사회,공공기관 > 외국기관 > 대사관,영사관,외국공관"
+      },
+      {
+       "lat": 37.5631644371463,
+       "lng": 127.003334431033,
+       "name": "이호",
+       "category": "landmark",
+       "distanceM": 65,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.5631013463438,
+       "lng": 127.00401127414,
+       "name": "사랑 게스트하우스 동대문",
+       "category": "landmark",
+       "distanceM": 83,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5626472901957,
+       "lng": 127.002281794466,
+       "name": "라이더",
+       "category": "landmark",
+       "distanceM": 93,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.56391316474929,
+       "lng": 127.00334917860535,
+       "name": "씨제이부속의원",
+       "category": "hospital",
+       "distanceM": 148,
+       "categoryName": "의료,건강 > 병원 > 일반의원"
+      },
+      {
+       "lat": 37.56376988261009,
+       "lng": 127.00410072688304,
+       "name": "호텔더디자이너스 DDP",
+       "category": "landmark",
+       "distanceM": 148,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5618291923053,
+       "lng": 127.001883365315,
+       "name": "서울충무초등학교",
+       "category": "university",
+       "distanceM": 152,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      },
+      {
+       "lat": 37.5628706497166,
+       "lng": 127.00508877904,
+       "name": "이학여관",
+       "category": "landmark",
+       "distanceM": 158,
+       "categoryName": "여행 > 숙박"
+      },
+      {
+       "lat": 37.5631374450059,
+       "lng": 127.00148498708,
+       "name": "우신 오토바이악세사리백화점",
+       "category": "landmark",
+       "distanceM": 174,
+       "categoryName": "교통,수송 > 오토바이"
+      },
+      {
+       "lat": 37.5610146633847,
+       "lng": 127.00318267164,
+       "name": "GOKOREA",
+       "category": "landmark",
+       "distanceM": 174,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5613569927879,
+       "lng": 127.004667637943,
+       "name": "동림여관",
+       "category": "landmark",
+       "distanceM": 179,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.5609245562024,
+       "lng": 127.003449776485,
+       "name": "고코리아",
+       "category": "landmark",
+       "distanceM": 183,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5616894392351,
+       "lng": 127.005179244939,
+       "name": "아르뎁",
+       "category": "landmark",
+       "distanceM": 190,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5630075824964,
+       "lng": 127.005505308397,
+       "name": "영빈호텔",
+       "category": "landmark",
+       "distanceM": 197,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5642222345717,
+       "lng": 127.002141491078,
+       "name": "호텔스카이파크 동대문1호점",
+       "category": "landmark",
+       "distanceM": 210,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5617146536627,
+       "lng": 127.005478049378,
+       "name": "조이게스트하우스",
+       "category": "landmark",
+       "distanceM": 212,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5645213452054,
+       "lng": 127.003056051284,
+       "name": "소중한이들을위한치과의원",
+       "category": "hospital",
+       "distanceM": 217,
+       "categoryName": "의료,건강 > 병원 > 치과"
+      },
+      {
+       "lat": 37.5643329929892,
+       "lng": 127.004441450016,
+       "name": "디하우스호스텔 동대문",
+       "category": "landmark",
+       "distanceM": 217,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5638113913434,
+       "lng": 127.00140124281,
+       "name": "구도레지던스 충무로",
+       "category": "landmark",
+       "distanceM": 218,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5610218137619,
+       "lng": 127.004871344255,
+       "name": "용궁여관",
+       "category": "landmark",
+       "distanceM": 219,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.5616182411684,
+       "lng": 127.00560254328,
+       "name": "장충남소영길 골목형상점가",
+       "category": "landmark",
+       "distanceM": 226,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.5625391905737,
+       "lng": 127.000701741332,
+       "name": "봄치과의원",
+       "category": "hospital",
+       "distanceM": 232,
+       "categoryName": "의료,건강 > 병원 > 치과"
+      },
+      {
+       "lat": 37.5607552018563,
+       "lng": 127.0020236832,
+       "name": "대학문화원",
+       "category": "landmark",
+       "distanceM": 233,
+       "categoryName": "문화,예술 > 문화시설 > 문화원"
+      },
+      {
+       "lat": 37.56440964487026,
+       "lng": 127.00196492485456,
+       "name": "이지마루오장아파트",
+       "category": "landmark",
+       "distanceM": 236,
+       "categoryName": "부동산 > 주거시설 > 아파트"
+      },
+      {
+       "lat": 37.564431177014,
+       "lng": 127.005052665365,
+       "name": "광희동주민센터",
+       "category": "public",
+       "distanceM": 255,
+       "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+      },
+      {
+       "lat": 37.5624202605212,
+       "lng": 127.000373506889,
+       "name": "와이피씨스페이스",
+       "category": "landmark",
+       "distanceM": 262,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5624381104218,
+       "lng": 127.006347354952,
+       "name": "수내과의원",
+       "category": "hospital",
+       "distanceM": 266,
+       "categoryName": "의료,건강 > 병원 > 내과"
+      },
+      {
+       "lat": 37.5622795352666,
+       "lng": 127.006342814151,
+       "name": "연세드림비뇨기과",
+       "category": "hospital",
+       "distanceM": 267,
+       "categoryName": "의료,건강 > 병원 > 비뇨기과"
+      },
+      {
+       "lat": 37.560359594301055,
+       "lng": 127.00453968143005,
+       "name": "파크원빌",
+       "category": "landmark",
+       "distanceM": 268,
+       "categoryName": "부동산 > 주거시설 > 도시형생활주택"
+      },
+      {
+       "lat": 37.5626581239414,
+       "lng": 127.000249005385,
+       "name": "오토바이거리",
+       "category": "landmark",
+       "distanceM": 272,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.5627480456049,
+       "lng": 127.006487729905,
+       "name": "한사랑의원",
+       "category": "hospital",
+       "distanceM": 279,
+       "categoryName": "의료,건강 > 병원 > 일반의원"
+      },
+      {
+       "lat": 37.56355731791734,
+       "lng": 127.00042557795405,
+       "name": "기프트인포",
+       "category": "landmark",
+       "distanceM": 279,
+       "categoryName": "서비스,산업 > 마케팅 > 판촉,기념물"
+      },
+      {
+       "lat": 37.5628347194555,
+       "lng": 127.000126766677,
+       "name": "극동대학교 비행교육원",
+       "category": "landmark",
+       "distanceM": 285,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.56306267154579,
+       "lng": 127.00014714034107,
+       "name": "을지지구대",
+       "category": "public",
+       "distanceM": 286,
+       "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 지구대"
+      },
+      {
+       "lat": 37.5623662013167,
+       "lng": 127.000009054706,
+       "name": "황동물병원",
+       "category": "hospital",
+       "distanceM": 294,
+       "categoryName": "가정,생활 > 반려동물 > 동물병원"
+      },
+      {
+       "lat": 37.5607299881876,
+       "lng": 127.000855650998,
+       "name": "충무아파트 상가",
+       "category": "landmark",
+       "distanceM": 300,
+       "categoryName": "가정,생활 > 상가,아케이드 > 아파트상가"
+      },
+      {
+       "lat": 37.56462215427451,
+       "lng": 127.00579179092047,
+       "name": "동대문역사문화공원역 5호선",
+       "category": "subway",
+       "distanceM": 313,
+       "categoryName": "교통,수송 > 지하철,전철 > 수도권5호선"
+      },
+      {
+       "lat": 37.5601000746319,
+       "lng": 127.005319478612,
+       "name": "장충단길",
+       "category": "landmark",
+       "distanceM": 326,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.5602866978506,
+       "lng": 127.00083753702,
+       "name": "동국대학교 서울캠퍼스 명심관",
+       "category": "landmark",
+       "distanceM": 336,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.5649140739777,
+       "lng": 127.005854066744,
+       "name": "동대문러시아거리",
+       "category": "landmark",
+       "distanceM": 341,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.5604739398753,
+       "lng": 127.006304179557,
+       "name": "신세계 남산 트리니티홀",
+       "category": "landmark",
+       "distanceM": 351,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5602000538893,
+       "lng": 127.005975932894,
+       "name": "장충동족발거리",
+       "category": "landmark",
+       "distanceM": 352,
+       "categoryName": "여행 > 관광,명소 > 테마거리 > 먹자골목"
+      },
+      {
+       "lat": 37.5602506594843,
+       "lng": 127.000588539244,
+       "name": "동국대학교 듀이카",
+       "category": "landmark",
+       "distanceM": 354,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.5600776671212,
+       "lng": 127.000756044819,
+       "name": "동국대학교 반야관",
+       "category": "landmark",
+       "distanceM": 359,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.5595803064798,
+       "lng": 127.001733911623,
+       "name": "앰배서더박물관 의종관",
+       "category": "landmark",
+       "distanceM": 361,
+       "categoryName": "문화,예술 > 문화시설 > 박물관"
+      },
+      {
+       "lat": 37.5627986758347,
+       "lng": 126.999049250382,
+       "name": "공간서울",
+       "category": "landmark",
+       "distanceM": 379,
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
+      },
+      {
+       "lat": 37.55978469674459,
+       "lng": 127.0059272323552,
+       "name": "브라운즈",
+       "category": "landmark",
+       "distanceM": 385,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.56023083901291,
+       "lng": 127.00000000000001,
+       "name": "동국대학교 교육대학원",
+       "category": "landmark",
+       "distanceM": 393,
+       "categoryName": "교육,학문 > 학교 > 대학원"
+      },
+      {
+       "lat": 37.5602867006816,
+       "lng": 126.999814383688,
+       "name": "동국대학교 학림관",
+       "category": "landmark",
+       "distanceM": 401,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.5627265936127,
+       "lng": 126.998777608812,
+       "name": "갤러리어스",
+       "category": "landmark",
+       "distanceM": 403,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5619118374246,
+       "lng": 127.007859437008,
+       "name": "장충동주민센터",
+       "category": "public",
+       "distanceM": 406,
+       "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+      },
+      {
+       "lat": 37.5598362020242,
+       "lng": 127.000280686392,
+       "name": "동국대학교 체육관",
+       "category": "landmark",
+       "distanceM": 406,
+       "categoryName": "스포츠,레저 > 스포츠시설 > 체육관"
+      },
+      {
+       "lat": 37.56071287063473,
+       "lng": 126.99936392096474,
+       "name": "동국대학교 서울캠퍼스 후문",
+       "category": "landmark",
+       "distanceM": 407,
+       "categoryName": "교통,수송 > 입출구"
+      },
+      {
+       "lat": 37.560221627854375,
+       "lng": 127.00689269731264,
+       "name": "주한튀르키예공화국대사관",
+       "category": "public",
+       "distanceM": 409,
+       "categoryName": "사회,공공기관 > 외국기관 > 대사관,영사관,외국공관"
+      },
+      {
+       "lat": 37.5596558395786,
+       "lng": 127.006211303255,
+       "name": "종이나라박물관",
+       "category": "landmark",
+       "distanceM": 412,
+       "categoryName": "문화,예술 > 문화시설 > 박물관"
+      },
+      {
+       "lat": 37.5662692370658,
+       "lng": 127.004350900001,
+       "name": "노보텔앰배서더 서울동대문호텔&레지던스 그랜드볼룸라온",
+       "category": "landmark",
+       "distanceM": 419,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.55905581925076,
+       "lng": 127.00531600900922,
+       "name": "동대입구역 3호선",
+       "category": "subway",
+       "distanceM": 428,
+       "categoryName": "교통,수송 > 지하철,전철 > 수도권3호선"
+      }
+     ],
+     "nearestStation": {
+      "lat": 37.56462215427451,
+      "lng": 127.00579179092047,
+      "name": "동대문역사문화공원역 5호선",
+      "distanceM": 313,
+      "walkMinutes": 4
+     }
+    },
+    "registryData": {
+     "source": "fallback_mock",
+     "checked": false,
+     "fetchedAt": "2026-10-05T12:28:52.266Z",
+     "mortgages": [],
+     "attachments": [],
+     "rawResponse": null,
+     "displayMessage": "등기부 조회 미연동 (외부 API 미연결 또는 모의 데이터)",
+     "encumbranceRisk": "check_required"
+    },
+    "buildingRegister": {
+     "bcRat": 59.71,
+     "vlRat": 295.68,
+     "platArea": 420.6,
+     "structure": "철근콘크리트구조",
+     "totalArea": 1687.51,
+     "useAprDay": "20030624",
+     "floorsAbove": 7,
+     "floorsBelow": 1,
+     "mainPurpose": "제1종근린생활시설",
+     "buildingName": " "
+    },
+    "locationMapImage": null,
+    "cadastralMapImage": "$asset-data:income-ig2-corrected/asset-10.png",
+    "commercialDistrict": {
+     "salesIndex": 80,
+     "storeCount": 500,
+     "closingRate": 7,
+     "growthTrend": "up",
+     "districtCode": "1114014700",
+     "districtName": "해당 상권",
+     "footfallDaily": 65000,
+     "topCategories": [
+      {
+       "name": "음식",
+       "count": 200,
+       "share": 40
+      },
+      {
+       "name": "소매",
+       "count": 150,
+       "share": 30
+      },
+      {
+       "name": "서비스",
+       "count": 50,
+       "share": 10
+      }
+     ],
+     "footfallByTime": [
+      {
+       "hour": "08-11",
+       "count": 20
+      },
+      {
+       "hour": "11-14",
+       "count": 35
+      },
+      {
+       "hour": "14-17",
+       "count": 15
+      },
+      {
+       "hour": "17-21",
+       "count": 30
+      }
+     ],
+     "competitionIndex": 100,
+     "avgMonthlyRevenue": 11000
+    },
+    "comparableTransactions": [
+     {
+      "area": 66.64,
+      "floors": 0,
+      "address": "중구 순화동 151",
+      "dealDay": 1,
+      "dealYear": 2026,
+      "dealMonth": 10,
+      "dealAmount": 450000000,
+      "_isFallback": false,
+      "buildingUse": "숙박",
+      "pricePerSqm": 6752701,
+      "pricePerPyeong": 22322978
+     },
+     {
+      "area": 709.43,
+      "floors": 0,
+      "address": "중구 충무로5가 2*",
+      "dealDay": 10,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 5130000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 7231157,
+      "pricePerPyeong": 23904652
+     },
+     {
+      "area": 3.5,
+      "floors": 0,
+      "address": "중구 을지로6가 18-21",
+      "dealDay": 28,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 7000000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 2000000,
+      "pricePerPyeong": 6611570
+     },
+     {
+      "area": 3.55,
+      "floors": 0,
+      "address": "중구 을지로6가 18-21",
+      "dealDay": 28,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 25000000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 7042254,
+      "pricePerPyeong": 23280176
+     },
+     {
+      "area": 349.59,
+      "floors": 0,
+      "address": "중구 흥인동 91",
+      "dealDay": 28,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 1600000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 4576790,
+      "pricePerPyeong": 15129884
+     },
+     {
+      "area": 178.63,
+      "floors": 0,
+      "address": "중구 황학동 1***",
+      "dealDay": 14,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 1450000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 8117338,
+      "pricePerPyeong": 26834173
+     },
+     {
+      "area": 32.23,
+      "floors": 0,
+      "address": "중구 충무로5가 82-6",
+      "dealDay": 23,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 510000000,
+      "_isFallback": false,
+      "buildingUse": "제1종근린생활",
+      "pricePerSqm": 15823767,
+      "pricePerPyeong": 52309971
+     },
+     {
+      "area": 269.33,
+      "floors": 0,
+      "address": "중구 을지로2가 203",
+      "dealDay": 11,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 9664720000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 35884305,
+      "pricePerPyeong": 118625799
+     },
+     {
+      "area": 655.56,
+      "floors": 0,
+      "address": "중구 을지로2가 203",
+      "dealDay": 11,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 12938400000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 19736409,
+      "pricePerPyeong": 65244323
+     },
+     {
+      "area": 1551.42,
+      "floors": 0,
+      "address": "중구 을지로2가 203",
+      "dealDay": 11,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 30619450000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 19736403,
+      "pricePerPyeong": 65244304
+     }
+    ]
+   },
+   "financials": {
+    "wacc": 0.07896421052631579,
+    "capRate": {
+     "base": 2.29,
+     "best": 2.5,
+     "worst": 2.05
+    },
+    "opexPct": 18,
+    "posture": "income",
+    "irr5Year": {
+     "base": 0.2,
+     "best": 4.6,
+     "worst": -5.8
+    },
+    "annualNoi": {
+     "base": 217786800,
+     "best": 237585600,
+     "worst": 195159600
+    },
+    "depositKrw": 240000000,
+    "disclaimer": "AI 추정값 (참고용). 실제 수익은 임대차 조건·공실률·세금에 따라 상이합니다.",
+    "noiBaseKrw": 217786800,
+    "opexSource": "assumed",
+    "isBasicMode": true,
+    "pricePerSqm": 5629596,
+    "yieldOnCost": 2.98,
+    "brokerFeeBil": 0.85,
+    "annualRentBil": 2.8284,
+    "loanAmountBil": null,
+    "equityRequired": 97.8,
+    "landValueRatio": 30.9,
+    "leveragedYield": 2.35,
+    "pricePerPyeong": 18610234,
+    "totalDepositBil": 2.4,
+    "negativeLeverage": true,
+    "acquisitionTaxBil": 4.37,
+    "vacancyReservePct": 5,
+    "grossYieldOnEquity": 3.05,
+    "landValueRatioNote": null,
+    "grossYieldStabilized": 3.22,
+    "negativeLeverageWarning": "총수익률(2.98%)이 통상 대출금리(연 4.5%)보다 낮아, 대출 활용 시 역레버리지가 발생합니다. 무차입 기준 수익률을 표기합니다.",
+    "totalAcquisitionCostBil": 100.2
+   },
+   "photo_urls": [
+    "$asset-path:income-ig2-corrected/asset-01.jpg",
+    "$asset-path:income-ig2-corrected/asset-02.jpg",
+    "$asset-path:income-ig2-corrected/asset-03.jpg",
+    "$asset-path:income-ig2-corrected/asset-04.jpg",
+    "$asset-path:income-ig2-corrected/asset-05.jpg",
+    "$asset-path:income-ig2-corrected/asset-06.jpg",
+    "$asset-path:income-ig2-corrected/asset-07.jpg",
+    "$asset-path:income-ig2-corrected/asset-08.jpg",
+    "$asset-path:income-ig2-corrected/asset-09.jpg"
+   ],
+   "approved_at": "2026-10-05T12:31:16.842Z",
+   "askingPrice": 9500000000,
+   "coordinates": {
+    "lat": 37.5625772577028,
+    "lng": 127.003335083968
+   },
+   "dcfEligible": false,
+   "mapImageUrl": "/api/public/map/static?lat=37.5625772577028&lng=127.003335083968&w=640&h=360&level=3",
+   "releaseTier": "fact_om",
+   "floor_leases": [
+    {
+     "note": "공실. 희망 임대료 보증 4,000만/월 400만(관리비 별도)",
+     "floor": "B1",
+     "area_sqm": 259.25,
+     "is_vacant": true,
+     "lease_state": "공실",
+     "legal_basis": "상가",
+     "rent_manwon": 0,
+     "tenant_name": "소매점",
+     "tenant_type": "소매점",
+     "deposit_manwon": 0
+    },
+    {
+     "floor": "1F",
+     "area_sqm": 251.16,
+     "is_vacant": false,
+     "lease_end": "2027-03-31",
+     "lease_start": "2025-04-01",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 700,
+     "tenant_name": "소매점",
+     "tenant_type": "소매점",
+     "deposit_manwon": 8000,
+     "renewal_exercised": "모름"
+    },
+    {
+     "note": "2F 나머지 153.87㎡는 주차장(임대 대상 아님)",
+     "floor": "2F",
+     "area_sqm": 89.73,
+     "is_vacant": false,
+     "lease_end": "2027-08-31",
+     "lease_start": "2025-09-01",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 175,
+     "tenant_name": "제조업",
+     "tenant_type": "제조업",
+     "deposit_manwon": 2000,
+     "renewal_exercised": "모름"
+    },
+    {
+     "floor": "3F",
+     "area_sqm": 243.6,
+     "is_vacant": false,
+     "lease_end": "2028-02-29",
+     "lease_start": "2026-03-01",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 460,
+     "tenant_name": "소매점",
+     "tenant_type": "소매점",
+     "deposit_manwon": 5000,
+     "renewal_exercised": "모름"
+    },
+    {
+     "floor": "4F",
+     "area_sqm": 230.6,
+     "is_vacant": false,
+     "lease_end": "2027-11-30",
+     "lease_start": "2025-12-01",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 442,
+     "tenant_name": "사무소",
+     "tenant_type": "사무소",
+     "deposit_manwon": 2000,
+     "renewal_exercised": "모름"
+    },
+    {
+     "floor": "5F",
+     "area_sqm": 206.08,
+     "is_vacant": false,
+     "lease_end": "2028-05-31",
+     "lease_start": "2026-06-01",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 300,
+     "tenant_name": "사무소",
+     "tenant_type": "사무소",
+     "deposit_manwon": 4000,
+     "renewal_exercised": "모름"
+    },
+    {
+     "floor": "6F",
+     "area_sqm": 148.42,
+     "is_vacant": false,
+     "lease_end": "2027-06-30",
+     "lease_start": "2025-07-01",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 280,
+     "tenant_name": "기원",
+     "tenant_type": "기원",
+     "deposit_manwon": 3000,
+     "renewal_exercised": "모름"
+    },
+    {
+     "note": "자가사용(환산 보증 2,000만/월 100만). 연와조 증축분",
+     "floor": "7F",
+     "area_sqm": 50.6,
+     "is_vacant": false,
+     "lease_state": "자가사용",
+     "rent_manwon": 0,
+     "tenant_name": "사무소(자가)",
+     "tenant_type": "사무소(자가)",
+     "deposit_manwon": 0
+    }
+   ],
+   "generated_at": "2026-10-05T12:31:07.065Z",
+   "heroSubtitle": "쌍림권역 소재, 근생빌딩, 매각 희망가 95억 원대",
+   "ssot_summary": {
+    "pnu": "1114014700101140000",
+    "zoning": "제3종일반주거지역",
+    "address": "서울 중구 장충단로7길 56",
+    "bcr_pct": 59.71,
+    "far_pct": 295.68,
+    "asset_type": "근생빌딩",
+    "max_bcr_pct": 50,
+    "max_far_pct": 250,
+    "size_signal": "510.5평",
+    "vacancy_pct": 20,
+    "floors_above": 7,
+    "floors_below": 1,
+    "vacancy_signal": "지하 1층 소매점 78평 공실이며, 그 외 임대 대상 면적은 실질적 공실 없음",
+    "vacancy_status": "지하 1층 소매점 78평 공실이며, 그 외 임대 대상 면적은 실질적 공실 없음",
+    "completion_year": 2003,
+    "investment_posture": "income",
+    "asking_price_manwon": 950000,
+    "total_deposit_manwon": 24000,
+    "total_gross_area_sqm": 1687.51,
+    "monthly_rent_total_krw": 23570000
+   },
+   "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
+   "broker_extras": {
+    "market_comps": [
+     {
+      "kind": "transaction",
+      "location": "쌍림동 258",
+      "price_eok": 30,
+      "land_price_per_pyeong_manwon": 6000
+     },
+     {
+      "kind": "transaction",
+      "location": "묵정동 27-4",
+      "price_eok": 18.3,
+      "land_price_per_pyeong_manwon": 6500
+     },
+     {
+      "kind": "listing",
+      "location": "묵정동 29-6",
+      "price_eok": 56,
+      "land_price_per_pyeong_manwon": 7000
+     },
+     {
+      "kind": "listing",
+      "location": "묵정동 24-13",
+      "price_eok": 95,
+      "land_price_per_pyeong_manwon": 8100
+     },
+     {
+      "kind": "listing",
+      "location": "묵정동 28-6",
+      "price_eok": 65,
+      "land_price_per_pyeong_manwon": 6100
+     }
+    ],
+    "location_note": "동대문역사문화공원역·동대입구역·충무로역 도보 10분 이내. 서울 지리적 중심부, 인쇄 등 특화 업종 상권 형성",
+    "regulatory_notes": [
+     {
+      "kind": "district_plan",
+      "detail": "불허용도 제조(인쇄·고무류)·정신병원·창고·위험물저장 등 / 1층 지정용도 소매·휴게·음식·사무소·서점·사진·관공·노유자"
+     },
+     {
+      "kind": "district_plan",
+      "detail": "건폐율 50% 이하, 용적률 250% 이하, 높이 20m 이하 (16m 이하 시 부설주차장 100% 완화)"
+     }
+    ],
+    "investment_points": [
+     "3개 역 도보 10분 이내, 장충체육관·신라호텔·동국대 인접",
+     "지하층 외 실질적인 공실 없음",
+     "사무소·인쇄 관련 업종 수요 풍부"
+    ],
+    "target_rent_per_pyeong_manwon": 5.1
+   },
+   "external_data": {
+    "errors": [],
+    "address": "서울 중구 장충단로7길 56",
+    "enrichedAt": "2026-10-05T12:28:54.297Z",
+    "hasPublicData": true,
+    "fallbackStatus": {
+     "landPrice": null,
+     "landUsePlan": null,
+     "locationPoi": null,
+     "buildingRegister": null
+    }
+   },
+   "ogDescription": "쌍림권역 · 근생빌딩 · 95억 원대 · 쌍림권역 3개 역 도보권, 2003년 준공의 지하 1층~지상 7층 근생빌",
+   "readiness_score": 80,
+   "broker_highlight": "3개 역 도보권 · 지하 외 실공실 없음 · 토지평당 7,470만원",
+   "dataCompleteness": {
+    "generatedAt": "2026-10-05T12:31:07.071Z",
+    "qualityGrade": "B",
+    "buildingRegister": true,
+    "pptxExportAllowed": true,
+    "buildingRegisterSource": "loaded"
+   },
+   "resolved_address": "서울 중구 장충단로7길 56",
+   "financialWarnings": [],
+   "investmentPosture": "income",
+   "investment_posture": "income",
+   "keyInvestmentPoint": "쌍림권역 소재, 근생빌딩, 매각 희망가 95억 원대",
+   "asking_price_manwon": 950000,
+   "approval_target_hash": "sha256:f211a3800a7c0c029424b111022a120e7fe5a8df7775028012f6a7b0daf26908",
+   "broker_physical_inputs": {
+    "parking_count": 6,
+    "elevator_count": 1
+   }
+  }
+ },
+ "building": {
+  "id": "50892efd-a97f-496c-98a2-723ea0f71453",
+  "created_by_role": "broker",
+  "input_type": "broker_memo",
+  "raw_input": "중구 쌍림동 114 운남빌딩 근생 매각\n매각가 95억 (토지평당 약 7,470만원, 건물평당 약 1,860만원)\n대지 420.6㎡(127.2평), 연면적 1,687.51㎡(510.5평), 제3종일반주거지역\n2003년 준공, B1~7F, 주차 6대, EV 1대\n동대문역사문화공원역·동대입구역·충무로역 3개 역 도보 10분 이내, 장충체육관·신라호텔·동국대 인접\n서울 지리적 중심부, 오피스 수요 많고 인쇄 등 특화 업종 상권 형성\n\n임대현황 (보증금/월세, 만원)\nB1 소매점 78평 공실 (희망 4,000/400)\n1F 소매점 8,000/700\n2F 제조업 2,000/175 (2F 나머지는 주차장)\n3F 소매점 5,000/460\n4F 사무소 2,000/442\n5F 사무소 4,000/300\n6F 기원 3,000/280\n7F 사무소 15평 자가사용\n합계(공실·자가 제외) 보증금 24,000 / 월세 2,357, 관리비 별도\n\n특이사항\n- 지하층 외 실질적인 공실 없음, 입지 양호하여 사무소·인쇄 관련 업종 수요 풍부\n- 지구단위계획(용도): 불허용도 제조(인쇄, 고무류)·정신병원·창고·위험물저장 등 / 1층 지정용도 소매·휴게·음식·사무소·서점·사진·관공/노유자 시설\n- 지구단위계획(규모): 건폐율 50% 이하, 기준/허용 용적률 250% 이하, 높이 20m 이하 / 높이 16m 이하 시 부설주차장 설치 100% 완화\n- 7F는 연와조(벽돌구조)로 이후 증축, 건축물대장 등재\n\n인근 시세: 거래 쌍림동 258 30억(토지평당 약 6,000만), 묵정동 27-4 18.3억(약 6,500만) / 매물 묵정동 29-6 56억(약 7,000만), 묵정동 24-13 95억(약 8,100만), 묵정동 28-6 65억(약 6,100만)",
+  "area_signal": "쌍림권역",
+  "asset_type": "근생빌딩",
+  "price_band": "90억대",
+  "size_signal": "대지 420.6㎡(127.2평), 연면적 1,687.51㎡(510.5평), 지하 1층~지상 7층",
+  "current_use_signal": "소매점·제조업·사무소·기원·주차장으로 사용 중이며 7층 일부는 자가사용",
+  "vacancy_signal": "지하 1층 소매점 78평 공실이며, 그 외 임대 대상 면적은 실질적 공실 없음",
+  "fit_summary": "토지·입지: 2026년 공시지가 ㎡당 698.8만원과 대지 436.6㎡ 기준 토지 평가액은 약 30.5억원으로, 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선까지 313m, 도보 4분 거리이며 소로 한 면에 접합니다.",
+  "caution_summary": "임대차계약서와 임대료 입금 내역, 7층 증축 관련 건축물대장 및 인허가 서류 확인이 필요합니다. 지구단위계획과 주차 완화 적용 내용은 관할 행정기관 자료로 확인해야 합니다.",
+  "hidden_fields": [
+   "exact_address",
+   "unit_rent"
+  ],
+  "layers": {
+   "finance": {
+    "vacancy_pct": 0,
+    "loan_amount_krw": null,
+    "asking_price_krw": 9500000000,
+    "monthly_rent_krw": null,
+    "total_deposit_krw": null,
+    "loan_amount_manwon": null,
+    "asking_price_manwon": 950000,
+    "monthly_rent_manwon": null,
+    "total_deposit_manwon": null
+   },
+   "location": {
+    "pnu": null,
+    "address": "중구 쌍림동권역",
+    "raw_address": null
+   },
+   "lease_summary": {
+    "vacancy_pct": 0,
+    "monthly_rent_krw": null,
+    "total_deposit_krw": null,
+    "monthly_rent_manwon": null,
+    "total_deposit_manwon": null
+   },
+   "land_area_pyung": 127.23,
+   "total_floor_area_pyung": 510.47
+  },
+  "confidence": {
+   "assetType": "user_provided",
+   "priceBand": "user_provided",
+   "areaSignal": "user_provided",
+   "fitSummary": "ai_hypothesis"
+  },
+  "disclosure": {
+   "guard_checked": true
+  },
+  "status": "public_signal_ready",
+  "created_at": "2026-10-05T12:27:05.416691+00:00",
+  "updated_at": "2026-10-05T12:31:22.143226+00:00",
+  "promotion_score": 0.345,
+  "promotion_updated_at": "2026-10-05T12:27:08.746+00:00",
+  "matched_buyer_count": 0,
+  "vacancy_inquiry_count": 0,
+  "vacancy_avg_fit_score": null,
+  "vacancy_demand_verified": false,
+  "iot_daily_footfall": null,
+  "iot_avg_dwell_minutes": null,
+  "iot_peak_hour": null,
+  "iot_footfall_trend": null,
+  "iot_monthly_energy_kwh": null,
+  "iot_energy_efficiency": null,
+  "iot_floor_occupancy": null,
+  "iot_device_id": null,
+  "iot_last_synced_at": null,
+  "verification_status": "skipped",
+  "verification_details": {
+   "checks": {
+    "purposeMatch": null,
+    "buildingExists": null,
+    "areaWithinRange": null
+   },
+   "status": "skipped",
+   "details": {
+    "aiAddress": "쌍림권역",
+    "aiAssetType": "근생빌딩",
+    "errorReason": "주소 파싱 실패 (시군구/법정동 분리 불가)",
+    "aiSizeSignal": "대지 420.6㎡(127.2평), 연면적 1,687.51㎡(510.5평), 지하 1층~지상 7층"
+   },
+   "resolvedComponents": null
+  },
+  "verified_at": null,
+  "raw_address": null,
+  "canonical_property_id": null,
+  "address": "서울 중구 장충단로7길 56",
+  "pnu": "1114014700101140000",
+  "lat": 37.5625772577028,
+  "lng": 127.003335083968,
+  "investment_posture": "income"
+ },
+ "broker": {
+  "display_name": "E2E 테스트 브로커",
+  "company_name": "E2E 테스트 부동산중개법인",
+  "phone": "010-0000-0000",
+  "email": "broker@example.test",
+  "registration_no": "11560-2026-00001"
+ },
+ "liveEnrichment": null,
+ "urlTier": "basic"
+}

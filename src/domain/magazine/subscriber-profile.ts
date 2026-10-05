@@ -35,13 +35,19 @@ export interface AutoIntent {
   source: 'reading_pattern' | 'click_behavior' | 'slider_interaction';
 }
 
+/** 유한한 0 이상의 수로 clamp (NaN/음수/문자열 → 0). */
+function clampNonNegative(n: unknown): number {
+  const v = typeof n === 'number' ? n : Number(n);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
 /**
- * Computes an engagement score from subscriber activity.
+ * Computes an engagement score from subscriber activity. 결과는 항상 0~100 정수.
  */
 export function computeEngagementScore(profile: Partial<InterestProfile>): number {
   if (!profile || typeof profile !== 'object') return 0;
   let score = 0;
-  const readCount = profile.readArticleCount || 0;
+  const readCount = clampNonNegative(profile.readArticleCount);
   const assetTypes = Array.isArray(profile.assetTypes) ? profile.assetTypes : [];
   const regions = Array.isArray(profile.regions) ? profile.regions : [];
 
@@ -49,24 +55,39 @@ export function computeEngagementScore(profile: Partial<InterestProfile>): numbe
   score += assetTypes.length * 10;
   score += regions.length * 5;
 
-  const daysSinceLastEngagement = profile.lastEngagedAt
-    ? Math.max(0, (Date.now() - new Date(profile.lastEngagedAt).getTime()) / 86400000)
-    : 999;
-  if (daysSinceLastEngagement < 7) score += 30;
-  else if (daysSinceLastEngagement < 30) score += 15;
+  const lastMs = profile.lastEngagedAt ? new Date(profile.lastEngagedAt).getTime() : NaN;
+  if (Number.isFinite(lastMs)) {
+    const daysSinceLastEngagement = Math.max(0, (Date.now() - lastMs) / 86400000);
+    if (daysSinceLastEngagement < 7) score += 30;
+    else if (daysSinceLastEngagement < 30) score += 15;
+  }
 
-  return Math.min(score, 100);
+  return Math.max(0, Math.min(Math.round(score), 100));
+}
+
+/** 유효한 예산 범위인지 (둘 다 양의 유한수, min ≤ max). */
+function validBudgetRange(r: unknown): r is { min: number; max: number } {
+  if (!r || typeof r !== 'object') return false;
+  const { min, max } = r as { min?: unknown; max?: unknown };
+  return (
+    typeof min === 'number' && typeof max === 'number' &&
+    Number.isFinite(min) && Number.isFinite(max) && min > 0 && max >= min
+  );
 }
 
 /**
  * Generates automatic buyer intent drafts from reading patterns.
+ *
+ * 예산 정보(budgetRange)가 없거나 유효하지 않으면 **의향을 생성하지 않는다**.
+ * (이전: 30억~100억 기본값으로 65억 의향을 임의 생성 — Rule 41 데이터 독소, M2-23)
  */
 export function generateAutoIntents(profile: Partial<InterestProfile>): AutoIntent[] {
   const intents: AutoIntent[] = [];
   const assetTypes = Array.isArray(profile?.assetTypes) ? profile.assetTypes : [];
   const regions = Array.isArray(profile?.regions) ? profile.regions : [];
-  const budgetRange = profile?.budgetRange || { min: 3000000000, max: 10000000000 };
-  const readArticleCount = profile?.readArticleCount || 0;
+  const budgetRange = profile?.budgetRange;
+  if (!validBudgetRange(budgetRange)) return intents;
+  const readArticleCount = clampNonNegative(profile?.readArticleCount);
 
   for (const assetType of assetTypes) {
     for (const region of regions.slice(0, 2)) {
@@ -82,3 +103,4 @@ export function generateAutoIntents(profile: Partial<InterestProfile>): AutoInte
 
   return intents;
 }
+

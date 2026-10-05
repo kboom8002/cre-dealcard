@@ -53,7 +53,10 @@ import { StageTimer } from "./stage-timer";
 import { NumericalAnchors } from "./numerical-anchors";
 import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
 import { calculateFinancials } from "./financials";
+import { brokerFinancialExtras } from "./broker-financial-inputs";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
+import { resolveLandAreaWithSource, readSsotLayerAreas, readVworldLandAreaSqm, positiveOrNull, positiveOrZero } from "./resolve-total-area";
+import { summarizeParcels } from "./parcel-input";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('writer');
@@ -81,11 +84,22 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── 1. 컨텍스트 빌드 (전처리) ──
   const ctx = await buildIMContext(input);
 
+  // ── 1b. 대지면적 단일 해석 (A3): 명시 입력 > 필지 합 > 메모 SSoT(평→㎡) > 건축물대장 platArea(>0) > V-World > 없음
+  // 클레임·수치 앵커·히어로카드가 모두 같은 값을 쓴다 (대장 platArea 하나만 읽어 0/누락이던 결함 — RCA R5)
+  const resolvedLand = resolveLandAreaWithSource({
+    explicitSqm: Number(input.supplemental?.land_area_m2 || 0),
+    explicitPyeong: Number((input.supplemental as any)?.land_area_pyeong || 0),
+    parcelSumSqm: summarizeParcels(input.supplemental?.parcels).totalAreaM2 ?? 0,
+    memoSqm: readSsotLayerAreas((building_ssot_lite as any)?.layers, { memoText: (building_ssot_lite as any)?.raw_input }).landSqm,
+    registerPlatSqm: external_data?.buildingRegister?.platArea,
+    vworldSqm: readVworldLandAreaSqm(external_data),
+  });
+
   // ── 2. 수치 앵커 초기화 (GENERATION_PERF_SPEC.md §5, L3-04) ──
   const authoritativeAnchors: Record<string, number> = {
     askingPriceKrw: ctx.purchasePriceKrw,
     totalAreaSqm: ctx.totalAreaSqm,
-    landAreaSqm: input.external_data?.buildingRegister?.platArea ?? 0,
+    landAreaSqm: resolvedLand.value,
     monthlyRentTotalKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : (input.supplemental?.monthly_rent_total_krw ?? 0),
     totalDepositKrw: ctx.cachedFinancials?.totalDepositBil ? ctx.cachedFinancials.totalDepositBil * 1e8 : (input.supplemental?.total_deposit_manwon ? input.supplemental.total_deposit_manwon * 10000 : 0),
     vacancyPct: input.supplemental?.vacancy_pct ?? 0,
@@ -128,7 +142,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     purchasePriceKrw: ctx.purchasePriceKrw,
     monthlyRentKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : (input.supplemental?.monthly_rent_total_krw ?? 0),
     totalAreaSqm: ctx.totalAreaSqm,
-    platAreaSqm: input.external_data?.buildingRegister?.platArea ?? undefined,
+    platAreaSqm: resolvedLand.value > 0 ? resolvedLand.value : undefined,
     vacancyRatePct: input.supplemental?.vacancy_pct ?? undefined,
     totalDepositManwon: input.supplemental?.total_deposit_manwon ?? undefined,
     loanAmountManwon: input.supplemental?.loan_amount_manwon ?? undefined,
@@ -139,6 +153,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     currentRentManwon,
     currentRentMonthlyManwon: currentRentManwon,
     selfUseAreaPyeong,
+    // 중개인 제시값(구조화 + 원문 메모 명시값) — 가정 기본값 대신 사용 (Rule 34)
+    ...brokerFinancialExtras(input.supplemental as any, ctx.sectionPlan.posture),
   });
   if (financialClaimResult.violations.length > 0) {
     log.warn({ violations: financialClaimResult.violations }, '[writer] Claim violations:');
@@ -161,7 +177,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         purchasePriceKrw: ctx.purchasePriceKrw,
         monthlyRentKrw: input.supplemental?.monthly_rent_total_krw ?? 0,
         totalAreaSqm: ctx.totalAreaSqm,
-        platAreaSqm: input.external_data?.buildingRegister?.platArea ?? undefined,
+        platAreaSqm: resolvedLand.value > 0 ? resolvedLand.value : undefined,
         vacancyRatePct: input.supplemental?.vacancy_pct ?? undefined,
         totalDepositManwon: input.supplemental?.total_deposit_manwon ?? undefined,
         loanAmountManwon: input.supplemental?.loan_amount_manwon ?? undefined,
@@ -172,6 +188,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         currentRentManwon,
         currentRentMonthlyManwon: currentRentManwon,
         selfUseAreaPyeong,
+        ...brokerFinancialExtras(input.supplemental as any, ctx.sectionPlan.posture),
         // 개발형 전용 파라미터: developmentSpec에서 추출
         constructionCostPerPyeong: (input.supplemental?.developmentSpec as any)?.constructionCostPerPyung
           ?? (input.supplemental?.developmentSpec as any)?.constructionCostPerPyeong
@@ -602,8 +619,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     hasLoan: Number((cachedFinancials as any)?.loanAmountBil ?? 0) > 0,
     readinessScore: input.readiness.score,
     dcf10YearNpvBil: cachedFinancials?.dcf10Year?.npvBase ? parseFloat((cachedFinancials.dcf10Year.npvBase / 1e8).toFixed(1)) : null,
-    landAreaM2: input.external_data?.buildingRegister?.platArea ?? null,
-    totalGrossAreaM2: input.external_data?.buildingRegister?.totalArea ?? ctx.totalAreaSqm ?? null,
+    // A5: 0/NaN/음수는 "값"이 아니라 누락 → null (히어로카드가 0㎡ 를 그리지 않도록)
+    landAreaM2: positiveOrNull(resolvedLand.value),
+    totalGrossAreaM2: positiveOrNull(ctx.totalAreaSqm) ?? positiveOrNull(input.external_data?.buildingRegister?.totalArea),
     zoning: input.external_data?.landUsePlan?.zoningDistrict ?? null,
     // 포스처 확장 지표
     landPricePerPyeong: cachedFinancials?.landPricePerPyeong ?? null,
@@ -740,7 +758,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           pnu: String(pnu || ''), 
           pnus: Array.isArray(pnus) ? pnus : undefined, 
           address: targetAddress,
-          landAreaSqm: Number(input.building_ssot_lite?.land_area_sqm ?? input.external_data?.buildingRegister?.platArea ?? 0),
+          landAreaSqm: positiveOrZero(input.building_ssot_lite?.land_area_sqm) || resolvedLand.value,
         }
       );
       if (enrichmentResult.cadastralMapImage) {

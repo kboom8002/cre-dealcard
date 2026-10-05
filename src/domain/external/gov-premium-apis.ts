@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { xmlText, xmlAll } from "@/lib/utils/xml-parser";
 import { fetchLandPrice } from "@/lib/external/land-price-api";
+import { todayKst, parseIssueDate } from "@/lib/magazine/kst";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('gov-premium-apis');
@@ -18,6 +19,12 @@ const REGION_LAWD: Record<string, string[]> = {
   ybd:     ["11560"], // 영등포구
 };
 
+const DISTRICT_NAME_BY_LAWD: Record<string, string> = {
+  "11680": "강남구",
+  "11200": "성동구",
+  "11560": "영등포구",
+};
+
 // ─── A1: MOLIT 상업·업무용 부동산 실거래가 API ─────────────────────────────────
 // https://apis.data.go.kr/1613000/RTMSDataSvcSh/getRTMSDataSvcSh
 export async function fetchCommercialTransactions(
@@ -29,8 +36,7 @@ export async function fetchCommercialTransactions(
     return [];
   }
 
-  const today = new Date();
-  const ym = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const ym = todayKst().slice(0, 7).replace("-", "");
   const lawdCodes = REGION_LAWD[region] || ["11680"];
   const results: any[] = [];
 
@@ -54,11 +60,14 @@ export async function fetchCommercialTransactions(
         const dealDay = xmlText(item, "일");
         const txDate = `${dealYear}-${String(dealMonth).padStart(2, "0")}-${String(dealDay).padStart(2, "0")}`;
 
+        // 가격/거래일을 해석할 수 없는 행은 저장하지 않는다 (NaN·가짜 날짜 적재 금지)
+        if (!Number.isFinite(price) || price <= 0 || !parseIssueDate(txDate)) continue;
+
         const key = `${address}_${txDate}_${price}`;
         txMap.set(key, {
           address,
           dong,
-          district: lawdCodes.includes("11680") ? "강남구" : lawdCodes.includes("11200") ? "성동구" : "영등포구",
+          district: DISTRICT_NAME_BY_LAWD[lawd] ?? region,
           usage_type: usageType || "상업용",
           transaction_price: price,
           building_area: area,
@@ -76,7 +85,11 @@ export async function fetchCommercialTransactions(
           })
           .select();
 
-        if (!error && data) results.push(...data);
+        if (error) {
+          log.error(`[MOLIT] external_transactions upsert failed for ${region}/${lawd}:`, error);
+        } else if (data) {
+          results.push(...data);
+        }
       }
     } catch (err) {
       log.warn(`[MOLIT] Region ${region}/${lawd} failed:`, err);
@@ -100,11 +113,19 @@ export async function fetchRentalTrend(supabase: SupabaseClient, region: string)
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (res.ok) {
       const xml = await res.text();
-      const vacancyRate = parseFloat(xmlText(xml, "vacancyRate") || "0");
-      const rentalIndex = parseFloat(xmlText(xml, "rentalIndex") || "100");
-      const quarter = xmlText(xml, "quarter") || "2026 Q1";
-      const trend = { region, quarter, vacancy_rate: vacancyRate || 2.5, rental_index: rentalIndex || 100 };
-      await supabase.from("rental_trend_data").delete().eq("region", region).eq("quarter", trend.quarter);
+      const vacancyRaw = xmlText(xml, "vacancyRate");
+      const indexRaw = xmlText(xml, "rentalIndex");
+      const quarter = xmlText(xml, "quarter");
+      const vacancyRate = parseFloat(vacancyRaw);
+      const rentalIndex = parseFloat(indexRaw);
+      // 응답에 분기·공실률·임대지수가 모두 있어야 저장한다 (가짜 기본값 금지)
+      if (!quarter || !Number.isFinite(vacancyRate) || !Number.isFinite(rentalIndex)) {
+        log.warn(`[RentalTrend] ${region} — response missing quarter/vacancyRate/rentalIndex; nothing stored`);
+        return null;
+      }
+      const trend = { region, quarter, vacancy_rate: vacancyRate, rental_index: rentalIndex };
+      const { error: delErr } = await supabase.from("rental_trend_data").delete().eq("region", region).eq("quarter", trend.quarter);
+      if (delErr) throw delErr;
       const { data, error } = await supabase.from("rental_trend_data").insert(trend).select().single();
       if (error) throw error;
       return data;
@@ -119,29 +140,20 @@ export async function fetchRentalTrend(supabase: SupabaseClient, region: string)
 }
 
 // ─── A2: 토지이음 용도지역 (공간정보 플랫폼) ──────────────────────────────────────
-export async function fetchLandUsePlan(supabase: SupabaseClient, pnu: string): Promise<any> {
-  const dummyPlans: Record<string, any> = {
-    "1168010100101230045": { pnu: "1168010100101230045", zoning: "일반상업지역, 지구단위계획구역", restrictions: "용적률 800% 이하" },
-    "1120011400100450012": { pnu: "1120011400100450012", zoning: "준공업지역, 역사문화환경보존지역", restrictions: "용적률 400% 이하" },
-    "1156011000100340001": { pnu: "1156011000100340001", zoning: "일반상업지역", restrictions: "용적률 600% 이하" },
-  };
-  const plan = dummyPlans[pnu] || { pnu, zoning: "제2종일반주거지역", restrictions: "용적률 200% 이하" };
-  const { data, error } = await supabase.from("land_use_plans").upsert(plan, { onConflict: "pnu" }).select().single();
-  if (error) throw error;
-  return data;
+// 실제 연동 API 가 없다. 과거에는 하드코딩 용도지역을 land_use_plans 에 upsert 했으나(M2-05 동류의 가짜 적재),
+// 정직하게 null 을 반환한다. 실제 용도지역 조회는 `@/lib/external/land-use-api` 의 fetchLandUsePlan(pnu) 사용.
+export async function fetchLandUsePlan(_supabase: SupabaseClient, pnu: string): Promise<any> {
+  log.warn(`[LandUsePlan] No real integration here — returning null for PNU ${pnu} (use lib/external/land-use-api)`);
+  return null;
 }
 
-// ─── A3: 등기부등본 스텁 ───────────────────────────────────────────────────────
+// ─── A3: 등기부등본 (미연동) ───────────────────────────────────────────────────────
+// 과거 스텁은 가짜 소유자·근저당·청결점수를 반환했다. 연동 전에는 "사용 불가"를 명시한다.
 export async function fetchRegisterSummary(buildingId: string): Promise<any> {
   return {
-    ok: true, buildingId, status: "ready",
-    lastUpdated: new Date().toISOString(),
-    message: "등기부등본 자동 연동 API 준비 중 (PoC 후속 버전 탑재 예정)",
-    summary: {
-      ownerships: ["소유자: 김*수 (지분 100%)"],
-      collaterals: ["을구 근저당설정: 신한은행 48억원 (채권최고액 57.6억원)"],
-      cleannessScore: 92,
-    },
+    ok: false, buildingId, status: "unavailable",
+    message: "등기부등본 자동 연동 API 미연동 — 제공 가능한 데이터 없음",
+    summary: null,
   };
 }
 
@@ -188,43 +200,55 @@ const SEMAS_DISTRICT_CODES: Record<string, { dongCode: string; name: string }> =
   "D003": { dongCode: "1156011000", name: "여의도 IFC몰 상권" }, // 영등포구 여의도동
 };
 
+/**
+ * 상권 지수. SEMAS 키가 없거나 API 호출/해석에 실패하면 **아무것도 저장하지 않고 null** 을 반환한다.
+ * (과거: 하드코딩 지수 D001~D003 을 commercial_district 에 upsert → 운영 DB 오염, M2-05/함정 15)
+ * 호출 크론이 Promise.all 이므로 DB 오류도 throw 하지 않고 로그 후 null.
+ */
 export async function fetchCommercialDistrict(supabase: SupabaseClient, districtCode: string): Promise<any> {
   const dcInfo = SEMAS_DISTRICT_CODES[districtCode];
-  const fallback = {
-    "D001": { district_code: "D001", district_name: "성수역 카페거리", sales_volume_index: 8.5, footfall_index: 9.2 },
-    "D002": { district_code: "D002", district_name: "강남역 테헤란로", sales_volume_index: 9.4, footfall_index: 9.8 },
-    "D003": { district_code: "D003", district_name: "여의도 IFC몰 상권", sales_volume_index: 7.8, footfall_index: 8.1 },
-  };
 
-  if (SEMAS_API_KEY && dcInfo) {
-    try {
-      const url = `https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInDong?serviceKey=${encodeURIComponent(SEMAS_API_KEY)}&divId=adongCd&key=${dcInfo.dongCode}&pageIndex=1&pageSize=1&type=json`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (res.ok) {
-        const json = await res.json();
-        const totalStores = json?.body?.totalCount || 0;
-        // 점포수 기반 상권 인덱스 간이 계산
-        const salesIdx = Math.min(10, totalStores / 500);
-        const footfallIdx = Math.min(10, totalStores / 400);
-        const district = {
-          district_code: districtCode,
-          district_name: dcInfo.name,
-          sales_volume_index: parseFloat(salesIdx.toFixed(1)) || (fallback as any)[districtCode]?.sales_volume_index || 5.0,
-          footfall_index: parseFloat(footfallIdx.toFixed(1)) || (fallback as any)[districtCode]?.footfall_index || 5.0,
-        };
-        const { data, error } = await supabase.from("commercial_district").upsert(district, { onConflict: "district_code" }).select().single();
-        if (!error && data) return data;
-      }
-    } catch (err) {
-      log.warn(`[SEMAS] District ${districtCode} failed:`, err);
-    }
+  if (!SEMAS_API_KEY) {
+    log.warn(`[SEMAS] API key missing — district ${districtCode} skipped (no fallback upsert)`);
+    return null;
+  }
+  if (!dcInfo) {
+    log.warn(`[SEMAS] Unknown district code ${districtCode} — skipped`);
+    return null;
   }
 
-  // 폴백
-  const district = (fallback as any)[districtCode] || { district_code: districtCode, district_name: "신규 상권", sales_volume_index: 5.0, footfall_index: 5.0 };
-  const { data, error } = await supabase.from("commercial_district").upsert(district, { onConflict: "district_code" }).select().single();
-  if (error) throw error;
-  return data;
+  try {
+    const url = `https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInDong?serviceKey=${encodeURIComponent(SEMAS_API_KEY)}&divId=adongCd&key=${dcInfo.dongCode}&pageIndex=1&pageSize=1&type=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) {
+      log.warn(`[SEMAS] District ${districtCode} HTTP ${res.status} — nothing stored`);
+      return null;
+    }
+    const json = await res.json();
+    const totalStores = Number(json?.body?.totalCount);
+    if (!Number.isFinite(totalStores) || totalStores <= 0) {
+      log.warn(`[SEMAS] District ${districtCode} — no store count in response; nothing stored`);
+      return null;
+    }
+    // 점포수 기반 상권 인덱스 간이 계산 (실측 점포수에서만 파생)
+    const salesIdx = Math.min(10, totalStores / 500);
+    const footfallIdx = Math.min(10, totalStores / 400);
+    const district = {
+      district_code: districtCode,
+      district_name: dcInfo.name,
+      sales_volume_index: parseFloat(salesIdx.toFixed(1)),
+      footfall_index: parseFloat(footfallIdx.toFixed(1)),
+    };
+    const { data, error } = await supabase.from("commercial_district").upsert(district, { onConflict: "district_code" }).select().single();
+    if (error) {
+      log.error(`[SEMAS] commercial_district upsert failed for ${districtCode}:`, error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    log.warn(`[SEMAS] District ${districtCode} failed:`, err);
+    return null;
+  }
 }
 
 // ─── A6: 개별공시지가 API (국토부) ─────────────────────────────────────────────

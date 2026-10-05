@@ -1,6 +1,7 @@
 # 05. 데이터 플로우 & 통합 아키텍처 (Data Flow & Integration)
 
 > **감사 일시**: 2026-08-28 | **감사 범위**: 전체 파이프라인 흐름, 크로스채널 분석, 피드백 루프
+> **2026-10-06 D-02 동기화**: 현행 흐름은 **[§9](#9-d-02-동기화-2026-10-06--현행-흐름)** 참조 — §1 Phase 4(배포)·§3.4(방문자 식별)·§5(구독자)·§6(에디션 상태)는 §9 가 우선합니다.
 
 ---
 
@@ -361,3 +362,68 @@ stateDiagram-v2
 | Solapi | REST API (HMAC-SHA256) | 카카오 알림톡 발송 | `notification-service.ts` |
 | KakaoTalk | JS SDK | 피드 카드 공유 | `MorningIntelligence.tsx` |
 | Vercel | Cron, OG Image | 스케줄링, 동적 OG 이미지 | `vercel.json`, `og/magazine` |
+
+---
+
+## 9. D-02 동기화 (2026-10-06) — 현행 흐름
+
+> §1~8 은 2026-08-28 기준입니다. 아래 내용과 충돌하면 **이 절이 우선**합니다(특히 §1 Phase 4 배포, §3.4 방문자 식별, §5 구독자 생명주기, §6 에디션 상태 머신).
+> 신규 마이그레이션(000005~000016)은 **SQL 파일만 있고 운영 미적용**입니다 — 적용 전에는 발송 원장 부재로 모든 실발송이 차단됩니다(안전 방향). 상세: `supabase/MIGRATIONS.md`.
+
+### 9.1 생성 → 발행 → 발송 (분리된 3단계)
+
+```mermaid
+graph LR
+    CRON["/api/cron/weekly-magazine<br/>(월 10:00 KST, 생성만)"] --> GEN["weekly-generator + quality-gate"]
+    GEN --> NR["magazine_editions<br/>status=needs_review"]
+    NR --> PUB["브로커 검토 후<br/>POST /editions/[id]/publish"]
+    PUB --> PUBLISHED["status=published<br/>(공개 뷰어 노출)"]
+    PUBLISHED --> SEND["브로커가 에디터에서<br/>POST /broker/magazine/distribute"]
+    SEND --> GATE["sendGate<br/>(동의·수신거부·야간·표기·allowlist)"]
+    GATE -->|"통과"| LEDGER["magazine_dispatch_logs<br/>(idempotency_key)"]
+    LEDGER --> PROV["Resend(email) / Solapi(알림톡)"]
+    GATE -->|"차단"| BLK["blocked_reason 기록"]
+```
+
+- **cron 은 발송하지 않습니다.** 자동 발송은 `MAGAZINE_AUTO_SEND_ALLOWED=false` + 브로커 명시 동의(구현 전)로 막혀 있습니다.
+- **발행 ≠ 발송.** `MAGAZINE_SEND_ENABLED=false`(기본)이면 발행은 되고 발송은 `SEND_DISABLED` 로 중지됩니다.
+- 구버전 문서의 `distribute-magazine.ts → Solapi` 직결 경로는 없습니다. 모든 발송은 sendGate → 원장 → provider 순서입니다. 공유 STUB(항상 true 반환) provider 는 매거진 경로에서 쓰지 않습니다(`NO_PROVIDER` 로 차단).
+- 주간 Pulse 는 `/api/pulse/generate`(일 22:00 KST)가 먼저 생성하고, 같은 주 라벨이 이미 있으면 skip 합니다(주기 중복 방지).
+
+### 9.2 에디션이 SSoT
+
+- 공개 뷰어·분석·발송은 `magazine_editions` 를 기준으로 합니다. 레거시 `magazine_issues` 는 호환 조회용이며, §4 ER 도의 "dual-write" 는 점진 폐기 대상입니다.
+- 식별자: URL = slug, 내부 키 = `broker_user_id` (uuid). 백필(000015)은 수정 후 적용(MIGRATIONS.md §6).
+
+### 9.3 구독자 생명주기 (동의 게이트 반영)
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: 공개 구독 신청 (동의 3종 + 14세)
+    pending --> active: 이중 확인(confirm) 완료
+    active --> paused: 일시 중지
+    paused --> active: 재활성화
+    active --> unsubscribed: 수신거부 (링크·원클릭)
+    paused --> unsubscribed
+    unsubscribed --> purged: 30일 경과 시 익명화(retention-purge)
+    unsubscribed --> pending: 재구독은 본인 확인으로만
+    purged --> [*]
+```
+
+- 발송 가능 조건: `status='active'` ∧ `marketing_consent_at IS NOT NULL` ∧ `confirm_status='confirmed'` ∧ 채널 동의 일치. 21~08시 KST 는 `night_consent` 필요.
+- 운영 현황(2026-10-06): 구독자 6건 **전원 테스트 계정**, 동의 컬럼 자체가 아직 없음(000006 미적용). 기존 구독자는 백필 없이 `NO_CONSENT` 로 취급합니다.
+- 구독자 등록 경로 중 `manual`(브로커 직접 입력)은 동의 증빙이 없으므로 발송 대상이 되려면 구독자 본인의 확인(confirm)을 거쳐야 합니다.
+
+### 9.4 에디션 상태 (실제 사용)
+
+`draft` / `needs_review`(생성 cron·품질 게이트 불합격) → `published` → `archived`. 그 외 표준 값은 000002 CHECK 참조. §6 다이어그램의 `editing`/`review`/`scheduled` 는 UI 단계 개념이며 DB `status` 값이 아닙니다(확인 필요 시 `edition-save.ts`).
+
+### 9.5 분석 · 방문자 식별 (갱신)
+
+- 방문자 식별은 `btoa(UA+screen)` 지문이 **아닙니다**. 브라우저가 `crypto.randomUUID()` 로 만든 1st-party 랜덤 ID 를 localStorage 에 13개월 보관하고(지문 폴백 금지 — 사용 불가면 추적 안 함), 서버가 `MAGAZINE_SID_SECRET` 기반 HMAC-SHA256 해시(`v2_…`)만 저장합니다.
+- 레거시 방식은 같은 기종 브라우저가 같은 ID 가 되는 충돌이 있었고(운영 이벤트 2,334건이 단 3개 visitor_id), 분석 수치는 정리 전까지 신뢰하지 않습니다(`scripts/cleanup/18_visitor_id_conflict_mark.sql`).
+- `MAGAZINE_TRACKING_ENABLED=false` 로 수집을 중지할 수 있습니다.
+
+### 9.6 폐기된 흐름
+
+소유자/매도자 리포트(`owner-reports` cron, `/api/broker/reports/owner`), rail dispatcher, `owner_reports` 테이블 — 삭제/폐기. §1 다이어그램에는 원래 나타나지 않으므로 별도 수정 없음.

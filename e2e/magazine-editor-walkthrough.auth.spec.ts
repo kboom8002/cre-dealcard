@@ -7,7 +7,10 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const SCREENSHOT_DIR = path.resolve(__dirname, 'screenshots/magazine');
 
-test.describe('Part 1 Magazine Editor Full Walkthrough & Audit', () => {
+// [무효화 — T-01/T3-TEST-1] 이 spec 은 `if (isVisible)` soft 패턴이라 요소가 없어도 통과하고,
+// 실데이터(전화번호 POST 등)를 쓴다. 골든 spec(magazine-tutorial-part*-golden.auth.spec.ts)으로 대체되었다.
+// 삭제하지 않고 describe.skip 으로 격리한다.
+test.describe.skip('Part 1 Magazine Editor Full Walkthrough & Audit', () => {
   test.beforeAll(async () => {
     if (!fs.existsSync(SCREENSHOT_DIR)) {
       fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });

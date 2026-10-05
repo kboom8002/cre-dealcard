@@ -46,16 +46,18 @@ export function useMagazineDraft(brokerSlug?: string): UseMagazineDraftReturn {
 
         let slugToUse = brokerSlug;
         if (!slugToUse) {
-          const { data: profile } = await supabase
-            .from('broker_profiles')
-            .select('slug')
-            .eq('user_id', user.id)
-            .single();
-          slugToUse = profile?.slug || 'demo';
+          // 정체성은 서버 프로필 API가 단일 출처. 가짜 slug("demo")로 대체하지 않는다.
+          const profRes = await fetch('/api/broker/profile');
+          if (profRes.ok) {
+            const profJson = await profRes.json();
+            const d = profJson?.data;
+            slugToUse = (typeof d?.slug === 'string' && d.slug) || (typeof d?.broker?.slug === 'string' && d.broker.slug) || undefined;
+          }
         }
+        if (!slugToUse) return; // slug 미설정 → 편집기가 설정 화면을 보여준다
 
         // Find the latest weekly draft
-        const res = await fetch(`/api/magazine/editions?broker_id=${slugToUse}&type=weekly&limit=1`);
+        const res = await fetch(`/api/magazine/editions?broker_id=${encodeURIComponent(slugToUse)}&type=weekly&limit=1`);
         if (res.ok) {
           const json = await res.json();
           if (json.editions && json.editions.length > 0) {

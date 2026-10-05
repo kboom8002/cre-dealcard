@@ -95,6 +95,38 @@ export function enforceTextBudget(text: string, maxLen: number): string {
   return result;
 }
 
+/**
+ * 본문 말줄임('…') 없이 예산 내로 줄인다 (골든 오라클: 본문 '…' 금지).
+ * 문장 경계 → 절 경계 → 단어 경계 → (최후) 최대 길이 절단 순. 목록 번호("2.")·소수점은 문장 종결로 보지 않는다.
+ * enforceTextBudget 의 기존 계약('…' 최후 수단)은 유지하고, 본문 행/콜아웃 값에만 이 함수를 쓴다.
+ */
+export function shortenWithoutEllipsis(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text;
+  const head = text.slice(0, maxLen + 1);
+  let sentenceEnd = -1;
+  const re = /[.!?](?=\s|$)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(head)) !== null) {
+    if (m.index > maxLen - 1) break;
+    if (head[m.index] === '.' && /\d/.test(head[m.index - 1] ?? '')) continue; // '2.' 목록 번호 / 소수점
+    sentenceEnd = m.index;
+  }
+  let result: string;
+  if (sentenceEnd >= maxLen * 0.3) {
+    result = head.slice(0, sentenceEnd + 1).trim();
+  } else {
+    const cut = head.slice(0, maxLen);
+    const clauseEnd = Math.max(cut.lastIndexOf(', '), cut.lastIndexOf(' · '), cut.lastIndexOf('; '), cut.lastIndexOf(' / '), cut.lastIndexOf('·'));
+    if (clauseEnd >= maxLen * 0.4) {
+      result = cut.slice(0, clauseEnd).replace(/[\s·,;/]+$/, '');
+    } else {
+      const lastSpace = cut.lastIndexOf(' ');
+      result = (lastSpace >= maxLen * 0.4 ? cut.slice(0, lastSpace) : cut).replace(/[\s·,;/:]+$/, '');
+    }
+  }
+  return repairBracketBalance(result);
+}
+
 /** D7: '9.6%' 같은 소수점은 문장 종결로 보지 않는다 */
 function isDecimalPoint(text: string, idx: number): boolean {
   return text[idx] === '.' && /\d/.test(text[idx - 1] ?? '') && /\d/.test(text[idx + 1] ?? '');

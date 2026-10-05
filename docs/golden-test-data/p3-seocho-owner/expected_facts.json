@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "golden": "owner-seocho-r3",
+  "fixture": "docs/golden-test-data/p3-seocho-owner/r3-verified",
+  "notes": [
+    "CONFLICT(오너 확인 필요): 층수 — 대장 지상 6/지하 1(메모도 지상 6) vs 픽스처 bottom_sheet 지상 7. 준공 — 대장 1991 vs 픽스처 2005. 둘 다 허용."
+  ],
+  "must_contain": [
+    {
+      "id": "asking-price",
+      "label": "매각 희망가",
+      "anyOf": [
+        "re:(?<![\\d.])230(?:\\.\\d+)?\\s*억",
+        "re:(?<![\\d,.])2,300,,?000(?:\\.0+)?(?![\\d,])"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "bottom_sheet.askingPriceManwon=2300000"
+    },
+    {
+      "id": "gfa",
+      "label": "연면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])2,?104\\.88(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "register totalArea=2104.88 = fixture"
+    },
+    {
+      "id": "land-area",
+      "label": "대지면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])596(?:\\.0+)?(?![\\d,])\\s*㎡"
+      ],
+      "where": "both",
+      "source": "register",
+      "note": "register.platArea=596 = fixture landAreaM2"
+    },
+    {
+      "id": "floors-above",
+      "label": "지상 층수",
+      "anyOf": [
+        "re:지상\\s*6\\s*층|지상\\s*7\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register 6/1 | fixture 7 (CONFLICT)"
+    },
+    {
+      "id": "floors-below",
+      "label": "지하 층수",
+      "anyOf": [
+        "re:지하\\s*1\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "completion-year",
+      "label": "준공/사용승인 연도",
+      "anyOf": [
+        "re:(준공|사용승인)[\\s\\S]{0,24}?(?:1991|2005)",
+        "re:(?:1991|2005)\\s*[년.][^\\n]{0,12}(준공|사용승인|신축)"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register 19910131 | fixture 2005 (CONFLICT)"
+    },
+    {
+      "id": "bcr",
+      "label": "현황 건폐율",
+      "anyOf": [
+        "re:49\\.(?:69|7)\\s*%"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register bcRat=49.69"
+    },
+    {
+      "id": "far",
+      "label": "현황 용적률",
+      "anyOf": [
+        "re:276\\.(?:48|5)\\s*%"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register vlRat=276.48"
+    },
+    {
+      "id": "parking-elevator",
+      "label": "주차/승강기",
+      "anyOf": [
+        "re:주차[^\\d]{0,12}20\\s*대\\s*/\\s*1\\s*대",
+        "re:주차[^\\d]{0,12}16\\s*대\\s*/\\s*1\\s*대"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "station",
+      "label": "최근접 역",
+      "anyOf": [
+        "양재역"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "locationPoi.nearestStation (API) = 양재역 3호선"
+    },
+    {
+      "id": "own-vs-lease-savings",
+      "label": "연 임대료 절감 약 7.5억 (메모)",
+      "anyOf": [
+        "re:7\\.5\\s*억"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "note": "memo.txt \"연 임대료 절감액 약 7.5억원\" — ssot_summary.own_vs_lease_savings_bil=5.3 과 불일치"
+    },
+    {
+      "id": "breakeven",
+      "label": "자가전환 손익분기 약 4.2년 (메모)",
+      "anyOf": [
+        "re:4\\.2\\s*년"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    }
+  ],
+  "must_not_contain": [
+    {
+      "label": "'0㎡' 표기 (0 면적)",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*㎡"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "0 클레임이 면적으로 렌더됨 — Rule 34/37 (결측은 -)"
+    },
+    {
+      "label": "'0.0평' 표기",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*평"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "비정상 수치 토큰 (Infinity/NaN/undefined)",
+      "anyOf": [
+        "Infinity",
+        "NaN",
+        "undefined"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 마스킹 잔여 '[임차인'",
+      "anyOf": [
+        "[임차인"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "뷰어 렌트롤/본문에 마스킹 라벨 잔존 — 실명 사용 결정(W3)"
+    },
+    {
+      "label": "TARGET 플레이스홀더 노출",
+      "anyOf": [
+        "TARGET"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "본문 말줄임표 '…' (잘린 문장)",
+      "anyOf": [
+        "…"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 익명 라벨 ('임차인 A' 등) — 실명 사용 결정",
+      "anyOf": [
+        "re:임차인\\s*[A-Z](?![A-Za-z])"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "오너 결정: IM 전 구간 실제 임차인명 사용"
+    }
+  ],
+  "must_not_be_dash": [
+    {
+      "label": "연면적",
+      "labelRegex": "연면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])2,?104\\.88(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "fixture",
+      "note": "원천에 값이 있는데 PPTX 가 다른 값/대시/행 누락"
+    },
+    {
+      "label": "대지면적",
+      "labelRegex": "대지면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])596(?:\\.0+)?(?![\\d,])",
+      "window": 22,
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "label": "층수",
+      "labelRegex": "층수",
+      "regexNearLabel": "^\\s*(지하|지상|B\\d)[^\\n]{0,12}지상\\s*6|지상\\s*7",
+      "window": 30,
+      "where": "pptx",
+      "source": "register",
+      "note": "층수 행이 대시이거나 누락"
+    },
+    {
+      "label": "사용승인일/준공시점",
+      "labelRegex": "(사용승인일|준공시점)",
+      "regexNearLabel": "^\\s*(?:1991|2005)",
+      "window": 14,
+      "where": "pptx",
+      "source": "register",
+      "note": "준공 연도 행이 대시이거나 누락"
+    },
+    {
+      "label": "건폐율 / 용적률 (현황)",
+      "labelRegex": "건폐율\\s*/\\s*용적률(?!\\s*\\(법정\\))",
+      "regexNearLabel": "49\\.(?:69|7)",
+      "window": 30,
+      "where": "pptx",
+      "source": "register",
+      "note": "대장에 값이 있는데 개요 행이 대시/누락"
+    }
+  ],
+  "landmarks": [
+    {
+      "where": "pptx",
+      "source": "derived",
+      "label": "한전아트센터",
+      "anyOf": [
+        "한전아트센터"
+      ],
+      "note": "candidateSpots: 한전아트센터 166m"
+    }
+  ],
+  "numeric": [
+    {
+      "id": "gfa-all-occurrences",
+      "label": "연면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "연면적",
+      "value": 2104.88,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "fixture",
+      "note": "register totalArea=2104.88 = fixture — 다른 건물 값(예: 231.4㎡)이 한 곳이라도 섞이면 실패"
+    },
+    {
+      "id": "land-all-occurrences",
+      "label": "대지면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "대지면적",
+      "value": 596,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "register",
+      "note": "register.platArea=596 = fixture landAreaM2"
+    }
+  ],
+  "duplicate_sentences": {
+    "label": "슬라이드 간 동일 문장 중복",
+    "min_len": 28,
+    "ignore": [
+      "^(CREDEAL|CRE DEAL|본 자료|©|※)",
+      "^E2E ",
+      "^[✓★▲●◇]",
+      "^(01|02|03)$"
+    ]
+  }
+}

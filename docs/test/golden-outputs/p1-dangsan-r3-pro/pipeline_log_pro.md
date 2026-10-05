@@ -1,7 +1,7 @@
 # P1 당산 수익형 — R3-Verified PRO IM 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-10-02T04:23:50.694Z
-> **총 소요시간**: 29598ms
+> **생성 시각**: 2026-10-05T15:08:57.458Z
+> **총 소요시간**: 86809ms
 > **결과**: 5 PASS / 0 FAIL / 0 WARN
 
 ---
@@ -21,11 +21,11 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 2ms | bottom_sheet 로드 (R3-Verified) |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 111ms | bottom_sheet 로드 (R3-Verified) |
 | 2 | S2 — Writer Input 구성 | ✅ PASS | 0ms | MobileIMWriterInput 생성 완료 |
-| 3 | S3 — AI 생성 엔진 (LLM) | ✅ PASS | 13608ms | 11개 섹션 생성, AI 사용 여부: true |
-| 4 | S4 — PRO PPTX 렌더링 | ✅ PASS | 11267ms | 34개 슬라이드, 1670KB, 저장 완료 |
-| 5 | S5 — 바이너리 품질 게이트 | ✅ PASS | 4685ms | PoisonTokens: OK, EvasivePhrases: OK, MockLeaks: OK, PhysicalGates: OK |
+| 3 | S3 — AI 생성 엔진 (LLM) | ✅ PASS | 61365ms | 11개 섹션 생성, AI 사용 여부: true |
+| 4 | S4 — PRO PPTX 렌더링 | ✅ PASS | 19535ms | 34개 슬라이드, 4622KB, 저장 완료 |
+| 5 | S5 — 바이너리 품질 게이트 | ✅ PASS | 5537ms | PoisonTokens: OK, EvasivePhrases: OK, MockLeaks: OK, PhysicalGates: OK |
 
 ---
 
@@ -47,8 +47,84 @@
   "zoning": "준공업지역",
   "photos_v2": [
     {
-      "url": "/test/dangsan-exterior.jpg",
-      "caption": "건물 정면"
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_01.jpeg",
+      "category": "exterior",
+      "caption": "건물 외관 전경",
+      "isHero": true,
+      "role": "cover",
+      "order": 0
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_02.jpeg",
+      "category": "surroundings",
+      "caption": "주변 도로 및 접근로",
+      "isHero": false,
+      "role": "exterior",
+      "order": 1
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_03.jpeg",
+      "category": "lobby",
+      "caption": "1층 로비 및 공용부",
+      "isHero": false,
+      "role": "general",
+      "order": 2
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_04.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 3
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_05.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 4
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_06.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 5
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_07.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 6
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_08.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 7
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_09.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 8
+    },
+    {
+      "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_10.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 9
     }
   ],
   "floor_leases": [
@@ -151,7 +227,19 @@
   "expectedGates": {
     "blocking": [],
     "warning": []
-  }
+  },
+  "photo_urls": [
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_01.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_02.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_03.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_04.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_05.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_06.png",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_07.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_08.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_09.jpeg",
+    "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_10.png"
+  ]
 }
 ```
 
@@ -278,8 +366,84 @@
     ],
     "photos_v2": [
       {
-        "url": "/test/dangsan-exterior.jpg",
-        "caption": "건물 정면"
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_01.jpeg",
+        "category": "exterior",
+        "caption": "건물 외관 전경",
+        "isHero": true,
+        "role": "cover",
+        "order": 0
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_02.jpeg",
+        "category": "surroundings",
+        "caption": "주변 도로 및 접근로",
+        "isHero": false,
+        "role": "exterior",
+        "order": 1
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_03.jpeg",
+        "category": "lobby",
+        "caption": "1층 로비 및 공용부",
+        "isHero": false,
+        "role": "general",
+        "order": 2
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_04.jpeg",
+        "category": "interior",
+        "caption": "실내 전용 공간",
+        "isHero": false,
+        "role": "general",
+        "order": 3
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_05.jpeg",
+        "category": "interior",
+        "caption": "실내 전용 공간",
+        "isHero": false,
+        "role": "general",
+        "order": 4
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_06.png",
+        "category": "interior",
+        "caption": "실내 전용 공간",
+        "isHero": false,
+        "role": "general",
+        "order": 5
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_07.jpeg",
+        "category": "interior",
+        "caption": "실내 전용 공간",
+        "isHero": false,
+        "role": "general",
+        "order": 6
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_08.jpeg",
+        "category": "interior",
+        "caption": "실내 전용 공간",
+        "isHero": false,
+        "role": "general",
+        "order": 7
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_09.jpeg",
+        "category": "interior",
+        "caption": "실내 전용 공간",
+        "isHero": false,
+        "role": "general",
+        "order": 8
+      },
+      {
+        "url": "docs/golden-test-data/p1-dangsan-income/r3-verified/images/image_10.png",
+        "category": "interior",
+        "caption": "실내 전용 공간",
+        "isHero": false,
+        "role": "general",
+        "order": 9
       }
     ],
     "resolved_address": "서울특별시 영등포구 당산동5가 11-47"
@@ -315,13 +479,26 @@
     "askingPriceDisplay": "115억 원",
     "capRateBase": 1.56,
     "noiBaseBil": 1.8,
-    "keyInvestmentPoint": "핵심 투자 포인트 및 자산 개요",
-    "keyPoints": [
-      "핵심 투자 포인트 및 자산 개요"
+    "yieldBasis": "NOI",
+    "noiDeductions": [
+      {
+        "name": "공실·운영비",
+        "amount": 53709600
+      }
     ],
-    "keyRisk": "공실률 미확인, 등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
+    "opexPct": 18,
+    "opexSource": "assumed",
+    "vacancyReservePct": 5,
+    "keyInvestmentPoint": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+    "keyPoints": [
+      "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+      "안정적인 자산 가치: 115억 수준의 합리적인 매각가와 30평(약 99.2㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.",
+      "향후 가치개선(Value-add) 잠재력: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다."
+    ],
+    "keyRisk": "등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
     "equityRequiredBil": 118.4,
     "leveragedYieldPct": 1.6,
+    "hasLoan": false,
     "readinessScore": 100,
     "dcf10YearNpvBil": -53.1,
     "landAreaM2": 506.8,
@@ -405,22 +582,21 @@
 ```json
 {
   "slideCount": 34,
-  "fileSizeBytes": 1709850,
+  "fileSizeBytes": 4732587,
   "warnings": [
+    "표지 사진 크로핑률 52% — 25% 초과 주의",
     "[BL-2] 지도 좌표와 이미지 URL 모두 없음",
     "[A23] 공시지가 미제공 — 토지 가치 평가 대체 카드 삽입",
     "[Graceful Degradation] 상세 임대차 현황 (상층부 및 만기 스케줄) 슬라이드 억제: 바인딩할 데이터(dataKey: rentRollPart2)가 충분하지 않습니다.",
-    "갤러리 사진 로딩 실패 — 건축물 현황 실사 대체 카드 삽입",
     "[A23] 공시지가 미제공 — 토지 가치 평가 대체 카드 삽입",
     "[Graceful Degradation] 인근 실거래 비교 사례 (Sales Comps) 슬라이드 억제: 바인딩할 데이터(dataKey: comps)가 충분하지 않습니다.",
     "[BL-2] 지적도 API 연동 실패로 대체 실사 카드 삽입됨",
     "[BL-2] 지도 좌표와 이미지 URL 모두 없음",
-    "[AUDIT] G33: 텍스트 넘침 126건",
+    "[AUDIT] G33: 텍스트 넘침 128건",
     "[AUDIT] G34: 겹침 11.813in > 0.015in",
-    "[AUDIT] G36: 왜곡 6.7% > 5%",
+    "[AUDIT] G36: 왜곡 51.7% > 5%",
     "[AUDIT] G41: 만실↔공실 서술어 모순",
-    "[AUDIT] G42: 폴백 중복 18건",
-    "[AUDIT] G44: 열린 괄호 2건"
+    "[AUDIT] G42: 폴백 중복 18건"
   ]
 }
 ```

@@ -52,6 +52,7 @@ import { detectDuplicateBuilding, type DedupResult } from "./building-dedup";
 import { linkBuildingToCanonicalProperty } from "./canonical-property";
 import { extractSlotsFromMemo, extractPostureProposal } from "./memo-slot-mapper";
 import { reconcileAskingPrice } from "./price-reconcile";
+import { isPlannedFloorAreaInMemo } from "./mobile-im/resolve-total-area";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('broker-deal-card');
@@ -179,7 +180,12 @@ export async function brokerDealCardFromMemo(
   const exactTotalDepositKrw = Number(slotMap.get('totalDepositKrw')) || null;
   const exactLoanAmountKrw = Number(slotMap.get('loanAmountKrw')) || null;
   const exactLandAreaPyung = Number(slotMap.get('landAreaPyung')) || null;
-  const exactFloorAreaPyung = Number(slotMap.get('totalFloorAreaPyung')) || null;
+  // 메모의 "신축 가능/계획/예정 연면적"은 기존(현황) 연면적이 아니라 계획 GFA → total_floor_area_pyung 슬롯에 넣지 않고 planned_floor_area_pyung 로 분리 (2026-10 RCA R6)
+  const floorAreaSlotPyung = Number(slotMap.get('totalFloorAreaPyung')) || null;
+  const floorAreaIsPlanned = !!floorAreaSlotPyung
+    && isPlannedFloorAreaInMemo(input.memo || '', floorAreaSlotPyung, { development: postureProposal.value === 'development' });
+  const exactFloorAreaPyung = floorAreaIsPlanned ? null : floorAreaSlotPyung;
+  const plannedFloorAreaPyung = floorAreaIsPlanned ? floorAreaSlotPyung : null;
   const exactVacancyPct = slotMap.has('vacancyRatePct') ? Number(slotMap.get('vacancyRatePct')) : null;
 
   // W-3: syncLeaseData ensures finance & lease_summary are always consistent
@@ -201,6 +207,7 @@ export async function brokerDealCardFromMemo(
 
   if (exactLandAreaPyung) layersData.land_area_pyung = exactLandAreaPyung;
   if (exactFloorAreaPyung) layersData.total_floor_area_pyung = exactFloorAreaPyung;
+  if (plannedFloorAreaPyung) layersData.planned_floor_area_pyung = plannedFloorAreaPyung;
 
   // 2. Create or update building_ssot_lite (via Repository Pattern)
   const buildingRepo = new SupabaseBuildingRepository(supabase);

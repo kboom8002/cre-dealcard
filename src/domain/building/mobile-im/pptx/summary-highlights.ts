@@ -15,6 +15,8 @@
  */
 
 import { parseStationName } from './binder/station-name';
+import { normalizeBuildingRegister } from '@/lib/external/building-register-normalize';
+import { isVacantLeaseRow } from '../lease-vacancy';
 
 export interface SummaryLeaseFacts {
   totalUnits: number;
@@ -301,9 +303,8 @@ const pos = (v: unknown): number | undefined => {
 
 function isVacantLease(l: Record<string, any>): boolean {
   if (!l) return false;
-  if (l.is_vacant === true || l.isVacant === true) return true;
-  const label = String(l.tenant_name ?? l.tenant ?? l.tenant_type ?? l.tenant_sector ?? '');
-  return /공실/.test(label);
+  // 점유 상태 SSOT: 자가사용·통합계약 후행(월세 0)은 공실이 아니다 (oracle income-dangsan-r3 '공실 B1·2F·4F' 오표기 수정)
+  return isVacantLeaseRow(l);
 }
 
 export function extractLeaseFacts(leases: unknown, ssot?: Record<string, any>): SummaryLeaseFacts | undefined {
@@ -360,13 +361,14 @@ export function extractSummaryFacts(input: ExtractFactsInput): SummaryFacts {
   const bldg: Record<string, any> = input.building ?? {};
   const enr: Record<string, any> = input.enrichment ?? body.enrichment ?? {};
   const br: Record<string, any> = enr.buildingRegister ?? {};
+  const nbr = normalizeBuildingRegister(br); // 대장 키 별칭 단일 흡수 (grndFlrCnt/farPct/… → canonical)
   const lup: Record<string, any> = enr.landUsePlan ?? body.enrichment?.landUsePlan ?? {};
   const phys: Record<string, any> = input.core?.physical ?? {};
   const poi = enr.locationPoi ?? body.external_data?.locationPoi;
   const nearest = poi && !poi._isFallback ? poi.nearestStation : undefined;
 
   const st = parseStation(nearest?.name ?? ssot.station_name, nearest?.line ?? nearest?.lineName);
-  const yrRaw = ssot.completion_year ?? hero.completionYear ?? bldg.built_year ?? phys.completionYear ?? br.useAprDay;
+  const yrRaw = ssot.completion_year ?? hero.completionYear ?? bldg.built_year ?? phys.completionYear ?? nbr.useAprDay;
   const yr = yrRaw ? parseInt(String(yrRaw).slice(0, 4), 10) : NaN;
   const lph = enr.landPriceHistory ?? body.enrichment?.landPriceHistory;
   const parcels = Array.isArray(body.parcels) ? body.parcels : [];
@@ -387,12 +389,12 @@ export function extractSummaryFacts(input: ExtractFactsInput): SummaryFacts {
     roadCondition: str(ssot.road_condition) ?? str(bldg.road_condition) ?? str(lup.roadAccess) ?? str(phys.roadAccess),
     zoning: str(ssot.zoning) ?? str(ssot.zone_type) ?? str(lup.zoningDistrict) ?? str(phys.zoning) ?? str(br.useZone) ?? str(bldg.use_zone) ?? spec.zoning,
     completionYear: Number.isFinite(yr) && yr > 1900 ? yr : undefined,
-    floorsAbove: pos(ssot.floors_above ?? hero.floorsAbove ?? bldg.floors_above ?? phys.floorsAbove ?? br.floorsAbove ?? br.grndFlrCnt ?? spec.above),
-    floorsBelow: pos(ssot.floors_below ?? hero.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow ?? br.floorsBelow ?? br.ugrndFlrCnt ?? spec.below),
-    gfaSqm: pos(ssot.total_gross_area_sqm ?? hero.totalGrossAreaSqm ?? bldg.total_area_sqm ?? br.totalArea),
-    landSqm: pos(ssot.land_area_sqm ?? br.platArea ?? hero.landAreaM2 ?? bldg.land_area_sqm),
+    floorsAbove: pos(ssot.floors_above ?? hero.floorsAbove ?? bldg.floors_above ?? phys.floorsAbove ?? nbr.floorsAbove ?? spec.above),
+    floorsBelow: pos(ssot.floors_below ?? hero.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow ?? nbr.floorsBelow ?? spec.below),
+    gfaSqm: pos(ssot.total_gross_area_sqm ?? hero.totalGrossAreaSqm ?? bldg.total_area_sqm ?? nbr.totalArea),
+    landSqm: pos(ssot.land_area_sqm ?? nbr.platArea ?? hero.landAreaM2 ?? bldg.land_area_sqm),
     parcelCount: pos(ssot.parcel_count) ?? (parcels.length > 0 ? parcels.length : undefined),
-    farPct: pos(ssot.far_pct ?? br.vlRat ?? br.farPct),
+    farPct: pos(ssot.far_pct ?? nbr.vlRat),
     maxFarPct: pos(ssot.max_far_pct),
     lease: input.posture === 'owner_occupied' ? undefined : extractLeaseFacts(body.floor_leases, ssot),
     landPriceCagrPct: num(lph?.cagrPct),

@@ -1,0 +1,9 @@
+{
+  "src/app/(broker)/broker/magazine-editor/page.tsx::demo-slug-fallback": 1,
+  "src/app/(broker)/broker/magazine-editor/page.tsx::utc-date-slice": 5,
+  "src/app/api/broker/magazine/analytics/route.ts::utc-date-slice": 1,
+  "src/app/api/magazine/[brokerId]/route.ts::utc-date-slice": 2,
+  "src/components/magazine-editor/MagazinePhonePreview.tsx::demo-slug-fallback": 1,
+  "src/components/magazine/SubscribeCard.tsx::dummy-phone": 1,
+  "src/domain/magazine/special-edition-generator.ts::utc-date-slice": 2
+}

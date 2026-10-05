@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
@@ -19,6 +19,46 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showSpecialModal, setShowSpecialModal] = useState(false);
   const router = useRouter();
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  /** 메뉴를 닫는다. restoreFocus 면 ⋮ 버튼으로 포커스를 돌려준다(키보드 사용자). */
+  const closeMenu = useCallback((restoreFocus = true) => {
+    setIsOpen(false);
+    if (restoreFocus) triggerRef.current?.focus();
+  }, []);
+
+  // 열릴 때 첫 메뉴 항목으로 포커스 이동
+  useEffect(() => {
+    if (!isOpen) return;
+    const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]');
+    first?.focus();
+  }, [isOpen]);
+
+  function handleMenuKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMenu(true);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      items[(idx + 1) % items.length].focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(idx - 1 + items.length) % items.length].focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      items[0].focus();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      items[items.length - 1].focus();
+    } else if (e.key === "Tab") {
+      // 메뉴 밖으로 Tab 이동 시 메뉴를 닫는다(포커스는 브라우저 기본 이동 유지)
+      closeMenu(false);
+    }
+  }
 
   async function handleDelete() {
     setIsDeleting(true);
@@ -31,8 +71,9 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
       toast.success("딜카드가 삭제되었습니다.");
       router.push("/broker/buildings");
       router.refresh();
-    } catch (err: any) {
-      toast.error(`삭제 중 오류가 발생했습니다: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "알 수 없는 오류";
+      toast.error(`삭제 중 오류가 발생했습니다: ${msg}`);
       setIsDeleting(false);
       setShowConfirm(false);
     }
@@ -43,11 +84,16 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
       {/* ⋮ 버튼 */}
       <div className="relative">
         <button
+          ref={triggerRef}
+          type="button"
           onClick={() => setIsOpen((v) => !v)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="w-11 h-11 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="더 보기"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? `deal-card-menu-${buildingId}` : undefined}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <circle cx="12" cy="5" r="1.5" />
             <circle cx="12" cy="12" r="1.5" />
             <circle cx="12" cy="19" r="1.5" />
@@ -59,36 +105,51 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
             {/* Backdrop */}
             <div
               className="fixed inset-0 z-40"
-              onClick={() => setIsOpen(false)}
+              aria-hidden="true"
+              onClick={() => closeMenu(true)}
             />
             {/* Dropdown */}
-            <div className="absolute right-0 top-9 z-50 w-48 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+            <div
+              ref={menuRef}
+              id={`deal-card-menu-${buildingId}`}
+              role="menu"
+              aria-label="딜카드 메뉴"
+              tabIndex={-1}
+              onKeyDown={handleMenuKeyDown}
+              className="absolute right-0 top-12 z-50 w-48 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+            >
               <button
+                type="button"
+                role="menuitem"
                 onClick={() => {
-                  setIsOpen(false);
+                  closeMenu(true);
                   setShowSpecialModal(true);
                 }}
-                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-rose-400 font-bold hover:bg-rose-500/10 transition-colors text-left border-b border-border/50"
+                className="w-full flex items-center gap-2 px-4 py-3 min-h-11 text-sm text-rose-400 font-bold hover:bg-rose-500/10 focus:bg-rose-500/10 focus:outline-none transition-colors text-left border-b border-border/50"
               >
                 ⚡ 속보 매거진 발행
               </button>
               <button
+                type="button"
+                role="menuitem"
                 onClick={() => {
-                  setIsOpen(false);
+                  closeMenu(true);
                   setShowShareSheet(true);
                 }}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-amber-400 font-bold hover:bg-amber-500/10 transition-colors text-left border-b border-border/50"
+                className="w-full flex items-center gap-2.5 px-4 py-3 min-h-11 text-sm text-amber-400 font-bold hover:bg-amber-500/10 focus:bg-amber-500/10 focus:outline-none transition-colors text-left border-b border-border/50"
               >
                 🤝 서클에 공유
               </button>
               <button
+                type="button"
+                role="menuitem"
                 onClick={() => {
-                  setIsOpen(false);
+                  closeMenu(true);
                   setShowConfirm(true);
                 }}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-rose-500 hover:bg-rose-500/10 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-4 py-3 min-h-11 text-sm text-rose-500 hover:bg-rose-500/10 focus:bg-rose-500/10 focus:outline-none transition-colors text-left"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polyline points="3 6 5 6 21 6" />
                   <path d="M19 6l-1 14H6L5 6" />
                   <path d="M10 11v6M14 11v6" />

@@ -1,203 +1,232 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import {
-  QrCode, Download, Copy, Check, ExternalLink, X,
-  Sparkles, Printer, Smartphone, Share2
-} from 'lucide-react';
+import { QrCode, Download, Copy, Check, ExternalLink, Printer, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
+import { Modal } from '@/components/ui/modal';
+import { ErrorState } from '@/components/ui/error-state';
+import { injectPngDpi } from '@/lib/magazine/png-dpi';
+import { buildPrintCopy, buildSubscribeUrl, resolvePublicBaseUrl } from '@/lib/magazine/share-urls';
+
+/** 인쇄용 QR: 8cm @ 300DPI = 945px 이상이 필요 → 2400px 로 여유 확보 (C-04, T1-18a) */
+export const QR_PRINT_PX = 2400;
+export const QR_PRINT_DPI = 300;
+export const QR_PRINT_CM = 8;
+
+/**
+ * 발송 요일 기본 라벨. 설정값(`src/lib/magazine/schedule-labels.ts`)이 확정되면
+ * 에디터(C)가 `sendDayLabel` prop 으로 내려준다. (DC-7: 기본 화요일)
+ */
+const DEFAULT_SEND_DAY_LABEL = '화요일';
 
 interface MagazineQrModalProps {
   brokerSlug: string;
   brokerName?: string;
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * 서버가 정한 절대 base URL (APP_BASE_URL). 없으면 NEXT_PUBLIC_APP_BASE_URL /
+   * NEXT_PUBLIC_SITE_URL 를 쓰고, 그것도 없으면 QR 을 만들지 않고 오류를 표시한다
+   * (`window.location.origin` 으로 폴백하지 않음 — T2-25a).
+   */
+  baseUrl?: string;
+  /** 발송 요일 라벨 (예: '화요일'). schedule-labels 상수를 에디터가 주입. */
+  sendDayLabel?: string;
+  /** 인쇄 문구에 표기할 수신 채널 (예: '이메일·카카오톡'). 없으면 생략. */
+  channelLabel?: string;
 }
 
 export function MagazineQrModal({
   brokerSlug,
-  brokerName = '중개사',
+  brokerName,
   isOpen,
   onClose,
+  baseUrl,
+  sendDayLabel = DEFAULT_SEND_DAY_LABEL,
+  channelLabel,
 }: MagazineQrModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const subscribeUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/magazine/${brokerSlug}/subscribe?source=qr_card`
-    : `https://www.credeal.net/magazine/${brokerSlug}/subscribe?source=qr_card`;
+  const resolvedBase = resolvePublicBaseUrl(baseUrl);
+  const subscribeUrl = resolvedBase
+    ? buildSubscribeUrl({ baseUrl: resolvedBase, slug: brokerSlug, source: 'qr_card' })
+    : null;
+  const printCopy = buildPrintCopy({ weekdayLabel: sendDayLabel, brokerName, channelLabel });
 
   useEffect(() => {
-    if (!isOpen || !canvasRef.current) return;
-
-    QRCode.toCanvas(
-      canvasRef.current,
-      subscribeUrl,
-      {
+    if (!isOpen || !subscribeUrl) return;
+    let cancelled = false;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        raf = window.requestAnimationFrame(draw);
+        return;
+      }
+      QRCode.toCanvas(canvas, subscribeUrl, {
         width: 260,
         margin: 2,
-        color: {
-          dark: '#0f172a', // Slate-900
-          light: '#ffffff',
-        },
+        color: { dark: '#0f172a', light: '#ffffff' },
         errorCorrectionLevel: 'H',
-      },
-      (err) => {
-        if (err) {
-          console.error('[MagazineQrModal] QR generation failed:', err);
-          toast.error('QR 코드를 생성하지 못했습니다.');
-        }
-      }
-    );
+      }).catch((err: unknown) => {
+        if (cancelled) return;
+        console.error('[MagazineQrModal] QR generation failed:', err);
+        toast.error('QR 코드를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+      });
+    };
+    let raf = window.requestAnimationFrame(draw);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+    };
   }, [isOpen, subscribeUrl]);
 
-  if (!isOpen) return null;
+  const handleCopy = useCallback(async () => {
+    if (!subscribeUrl) return;
+    try {
+      await navigator.clipboard.writeText(subscribeUrl);
+      setCopied(true);
+      toast.success('구독 링크를 복사했어요.');
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('링크를 복사하지 못했어요. 아래 주소를 직접 선택해 복사해 주세요.');
+    }
+  }, [subscribeUrl]);
 
-  function handleCopy() {
-    navigator.clipboard.writeText(subscribeUrl);
-    setCopied(true);
-    toast.success('구독 랜딩 URL이 복사되었습니다.');
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  function handleDownloadPng() {
-    if (!canvasRef.current) return;
-
+  const handleDownloadPng = useCallback(async () => {
+    if (!subscribeUrl) return;
     setDownloading(true);
     try {
-      // 300DPI 명함 인쇄용 고해상도 캔버스 생성
-      const highResCanvas = document.createElement('canvas');
-      QRCode.toCanvas(
-        highResCanvas,
-        subscribeUrl,
-        {
-          width: 800,
-          margin: 3,
-          color: {
-            dark: '#000000',
-            light: '#ffffff',
-          },
-          errorCorrectionLevel: 'H',
-        },
-        (err) => {
-          if (err) throw err;
-
-          const link = document.createElement('a');
-          link.download = `CREDEAL_매거진구독_QR_${brokerSlug}.png`;
-          link.href = highResCanvas.toDataURL('image/png');
-          link.click();
-          toast.success('인쇄용 고해상도 QR 이미지가 다운로드되었습니다.');
-        }
-      );
+      // 인쇄용 고해상도 캔버스 (2400×2400 = 8cm@300DPI) + PNG pHYs 300DPI 메타
+      const hi = document.createElement('canvas');
+      await QRCode.toCanvas(hi, subscribeUrl, {
+        width: QR_PRINT_PX,
+        margin: 4,
+        color: { dark: '#000000', light: '#ffffff' },
+        errorCorrectionLevel: 'H',
+      });
+      const blob: Blob | null = await new Promise((resolve) => hi.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('toBlob returned null');
+      const bytes = injectPngDpi(new Uint8Array(await blob.arrayBuffer()), QR_PRINT_DPI);
+      const out = new Blob([bytes as BlobPart], { type: 'image/png' });
+      const objectUrl = URL.createObjectURL(out);
+      const a = document.createElement('a');
+      a.download = `CREDEAL_매거진구독_QR_${brokerSlug}_${QR_PRINT_CM}cm_${QR_PRINT_DPI}dpi.png`;
+      a.href = objectUrl;
+      a.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+      toast.success(`인쇄용 QR(${QR_PRINT_CM}cm · ${QR_PRINT_DPI}DPI)을 내려받았어요.`);
     } catch (err) {
       console.error('[MagazineQrModal] Download error:', err);
-      toast.error('이미지 다운로드에 실패했습니다.');
+      toast.error('이미지를 내려받지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setDownloading(false);
     }
-  }
+  }, [subscribeUrl, brokerSlug]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl space-y-4 p-5 text-slate-200">
-        {/* 헤더 */}
-        <div className="flex items-start justify-between border-b border-slate-800 pb-3">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="p-1 rounded-md bg-indigo-500/20 text-indigo-400">
-                <QrCode className="w-4 h-4" />
-              </span>
-              <h3 className="text-base font-bold text-white">오프라인 구독 QR 코드</h3>
+    <Modal
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title="오프라인 구독 QR 코드"
+      description="명함, 세미나 자료, 임장 팸플릿에 넣어 오프라인 구독자를 모으세요."
+      size="md"
+    >
+      {!subscribeUrl ? (
+        <ErrorState
+          title="QR 주소를 만들 수 없어요"
+          description="서비스 주소(APP_BASE_URL) 설정이 필요해요. 관리자에게 문의해 주세요."
+        />
+      ) : (
+        <div className="space-y-4">
+          {/* QR 코드 캔버스 카드 */}
+          <div className="flex flex-col items-center justify-center space-y-3 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
+            <div className="rounded-xl bg-white p-3 shadow-xl">
+              <canvas
+                ref={canvasRef}
+                className="block"
+                role="img"
+                aria-label={`구독 페이지로 연결되는 QR 코드: ${subscribeUrl}`}
+              />
             </div>
-            <p className="text-xs text-slate-400">
-              명함, 세미나 자료, 임장 팸플릿에 삽입하여 오프라인 구독자를 확보하세요.
+            <div className="w-full space-y-1 text-center">
+              <p className="flex items-center justify-center gap-1 text-label font-bold text-white">
+                <Smartphone className="h-4 w-4 text-indigo-400" aria-hidden="true" />
+                카메라로 스캔하면 바로 구독 페이지로 이동해요
+              </p>
+              {/* T2-UX-5: 실제 URL 을 큰 글씨로 표시 (QR 이 안 읽힐 때 직접 입력) */}
+              <p className="break-all font-mono text-body font-bold text-indigo-200">{subscribeUrl}</p>
+            </div>
+          </div>
+
+          {/* 액션 버튼군 */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadPng}
+              disabled={downloading}
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-label font-bold text-white shadow-lg shadow-indigo-900/30 transition-colors hover:bg-indigo-500 disabled:opacity-60"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              <span>
+                {downloading
+                  ? '만드는 중…'
+                  : `인쇄용 QR (${QR_PRINT_CM}cm · ${QR_PRINT_DPI}DPI)`}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-label font-bold text-slate-200 transition-colors hover:bg-slate-700"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+                  <span className="text-emerald-400">복사 완료!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                  <span>구독 링크 복사</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* 명함 인쇄 가이드 */}
+          <div className="space-y-1 rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3">
+            <div className="flex items-center gap-1.5 text-label font-bold text-indigo-300">
+              <Printer className="h-4 w-4" aria-hidden="true" />
+              <span>명함 뒷면 인쇄 추천 문구</span>
+            </div>
+            <p className="rounded border border-white/5 bg-black/30 p-2 text-label leading-relaxed text-slate-200">
+              &ldquo;{printCopy}&rdquo;
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* QR 코드 캔버스 카드 */}
-        <div className="flex flex-col items-center justify-center p-5 bg-slate-950/80 border border-slate-800 rounded-2xl space-y-3">
-          <div className="p-3 bg-white rounded-xl shadow-xl">
-            <canvas ref={canvasRef} className="block" />
-          </div>
-          <div className="text-center space-y-0.5">
-            <p className="text-xs font-bold text-white flex items-center justify-center gap-1">
-              <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
-              카메라로 스캔 시 즉시 모바일 구독 랜딩
-            </p>
-            <p className="text-[10px] text-slate-500 font-mono truncate max-w-[300px]">
-              {subscribeUrl}
-            </p>
+          <div className="flex items-center justify-between border-t border-slate-800 pt-3">
+            <a
+              href={subscribeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-1 text-label text-ink-muted transition-colors hover:text-indigo-300"
+            >
+              <span>구독 페이지 열어보기</span>
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">(새 탭)</span>
+            </a>
+            <span className="inline-flex items-center gap-1 text-caption text-ink-subtle">
+              <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
+              {QR_PRINT_PX}px · 8cm 인쇄용
+            </span>
           </div>
         </div>
-
-        {/* 액션 버튼군 */}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={handleDownloadPng}
-            disabled={downloading}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors shadow-lg shadow-indigo-900/30"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>고해상도 QR 다운로드</span>
-          </button>
-
-          <button
-            onClick={handleCopy}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">복사 완료!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                <span>구독 링크 복사</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* 명함 인쇄 가이드 팁 */}
-        <div className="p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-xl space-y-1 text-xs">
-          <div className="flex items-center gap-1.5 font-bold text-indigo-300">
-            <Printer className="w-3.5 h-3.5" />
-            <span>명함 뒷면 인쇄 추천 문구</span>
-          </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed bg-black/30 p-2 rounded border border-white/5">
-            &ldquo;스마트폰 카메라로 비추시면, 매주 화요일 {brokerName} 중개사의 단독 급매 리포트를 카카오톡으로 받아보실 수 있습니다.&rdquo;
-          </p>
-        </div>
-
-        {/* 모달 닫기 & 바로가기 */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
-          <a
-            href={subscribeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-slate-400 hover:text-indigo-300 flex items-center gap-1 text-[11px] transition-colors"
-          >
-            <span>랜딩 페이지 직접 열어보기</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors"
-          >
-            닫기
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }

@@ -268,12 +268,22 @@ export interface DisclosureGuardResult {
   redacted_fields: string[];
 }
 
-export function runDisclosureGuard(text: string): DisclosureGuardResult {
+export interface DisclosureGuardOptions {
+  /**
+   * 마스킹을 건너뛸 보호 필드. IM(뷰어·PPTX) 경로는 오너 결정(D1)에 따라 실제 임차인명을 표기하므로
+   * `['tenant_name']` 을 넘긴다. 공개 티저/매거진(NDA 이전) 경로는 옵션 없이 호출해 기존 마스킹을 유지한다.
+   */
+  allowFields?: ReadonlyArray<string>;
+}
+
+export function runDisclosureGuard(text: string, options: DisclosureGuardOptions = {}): DisclosureGuardResult {
   const redactedFields: string[] = [];
   let safeText = text;
   let hasViolation = false;
+  const allow = new Set(options.allowFields ?? []);
 
   for (const detector of PROTECTED_FIELD_DETECTORS) {
+    if (allow.has(detector.field)) continue;
     for (const pattern of detector.patterns) {
       if (pattern.test(safeText)) {
         hasViolation = true;

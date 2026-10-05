@@ -17,6 +17,7 @@
  * 금융 문구 원칙: 근거 없는 시장 비교·평가 문구는 만들지 않는다 (시장 벤치마크 표 없음).
  */
 import { sqmToPyeong } from '@/lib/utils/area-conversion';
+import { resolveLeaseOccupancy } from './lease-vacancy';
 
 export type OpexSource = 'user' | 'assumed';
 export type StabilizedKind = 'target_rent' | 'reserve_excluded';
@@ -124,8 +125,11 @@ export function summarizeVacantOwnerUseArea(floorLeases: unknown): VacantAreaSum
   let areaKnown = true;
   for (const l of leases) {
     const text = leaseText(l);
-    const isOwnerUse = l.lease_state === '자가사용' || OWNER_USE_RE.test(text);
-    const isVacant = !isOwnerUse && (l.is_vacant === true || l.lease_state === '공실' || VACANT_RE.test(text));
+    // 점유 상태 SSOT(lease-vacancy) 우선 — 월세 0 추정으로 오염된 is_vacant(자가사용·통합계약 후행)를 공실 면적으로 합산하지 않는다.
+    // 기존 텍스트 판정(OWNER_USE_RE/VACANT_RE)은 SSOT 가 '임대중' 으로 본 행에 한해 보조로 유지한다.
+    const occ = resolveLeaseOccupancy(l);
+    const isOwnerUse = occ === '자가사용' || l.lease_state === '자가사용' || OWNER_USE_RE.test(text);
+    const isVacant = !isOwnerUse && (occ === '공실' || l.lease_state === '공실' || VACANT_RE.test(text));
     if (!isOwnerUse && !isVacant) continue;
     count += 1;
     const py = leaseAreaPyeong(l);

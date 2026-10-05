@@ -1,0 +1,2034 @@
+{
+ "schemaVersion": 1,
+ "name": "development-jamwon-r3",
+ "fixtureDir": "docs/golden-test-data/p4-jamwon-dev/r3-verified",
+ "capturedAt": "2026-10-05T16:29:09.371Z",
+ "docId": "0f78a8e9-cb5d-4042-b7d8-b506a6a7ea67",
+ "buildingId": "2e96c096-d24f-405e-8a52-e6e47c05f784",
+ "doc": {
+  "id": "0f78a8e9-cb5d-4042-b7d8-b506a6a7ea67",
+  "title": "잠원 오피스빌딩 매각",
+  "document_type": "mobile_im",
+  "created_at": "2026-10-05T16:07:01.279561+00:00",
+  "body": {
+   "pnus": [
+    "1165010600100260014",
+    "1165010600100260016"
+   ],
+   "tier": "basic",
+   "claims": [
+    {
+     "id": "69ac97b3-8b8e-43b2-9a92-d3a771a6efab",
+     "asOf": "2026-10-05",
+     "unit": "원",
+     "value": 24200000000,
+     "status": "reconciled",
+     "subject": "asking_price",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "8fb60c00-3a11-439d-8a1b-27e4a824b9c5",
+     "asOf": "2026-10-05",
+     "unit": "㎡",
+     "value": 2032.59,
+     "status": "reconciled",
+     "subject": "total_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    },
+    {
+     "id": "43194e65-c5cf-45f9-8490-458386234676",
+     "asOf": "2026-10-05",
+     "unit": "㎡",
+     "value": 616.1,
+     "status": "reconciled",
+     "subject": "land_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    }
+   ],
+   "photos": [
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_01.png",
+     "role": "cover",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 0,
+     "isHero": true,
+     "caption": "건물 외관 전경",
+     "category": "exterior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_02.png",
+     "role": "exterior",
+     "type": "surroundings",
+     "label": "주변 도로/환경",
+     "order": 1,
+     "isHero": false,
+     "caption": "주변 도로 및 접근로",
+     "category": "surroundings"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_03.png",
+     "role": "general",
+     "type": "lobby",
+     "label": "1층 로비",
+     "order": 2,
+     "isHero": false,
+     "caption": "1층 로비 및 공용부",
+     "category": "lobby"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_04.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 3,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_05.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 4,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_06.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 5,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_07.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 6,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_08.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 7,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_09.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 8,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_10.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 9,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    }
+   ],
+   "preset": "credeal_basic",
+   "ai_used": true,
+   "im_type": "mobile_im_lite",
+   "ogTitle": "잠원 오피스빌딩 매각",
+   "parcels": [
+    {
+     "pnu": "1165010600100260014",
+     "areaM2": 511.7,
+     "landCategory": "대",
+     "officialPricePerM2": 15650000
+    },
+    {
+     "pnu": "1165010600100260016",
+     "areaM2": 104.4,
+     "landCategory": "대",
+     "officialPricePerM2": 15650000
+    }
+   ],
+   "heroCard": {
+    "adr": null,
+    "occPct": null,
+    "revpar": null,
+    "zoning": "제2종일반주거지역",
+    "hasLoan": false,
+    "keyRisk": "등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
+    "posture": "development",
+    "assetType": "오피스빌딩",
+    "keyPoints": [
+     "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+     "안정적인 자산 가치: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.",
+     "향후 가치개선(Value-add) 잠재력: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다."
+    ],
+    "areaSignal": "잠원",
+    "landAreaM2": 616.1,
+    "noiBaseBil": null,
+    "capRateBase": null,
+    "gopMarginPct": null,
+    "targetHprPct": null,
+    "breakevenYears": null,
+    "pricePerPyeong": 129850000,
+    "readinessScore": 55,
+    "dcf10YearNpvBil": null,
+    "devHoldYieldPct": null,
+    "totalGrossAreaM2": 2032.59,
+    "equityRequiredBil": 242,
+    "leveragedYieldPct": null,
+    "marketDiscountPct": null,
+    "askingPriceDisplay": "242억 원",
+    "devProfitMarginPct": null,
+    "keyInvestmentPoint": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+    "landPricePerPyeong": 12985,
+    "ownVsLeaseSavingsBil": null
+   },
+   "sections": [
+    {
+     "title": "이 오피스, 어떤 자산인가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": 2032.59,
+       "source": "public_data",
+       "fieldKey": "total_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+      },
+      {
+       "value": 616.1,
+       "source": "public_data",
+       "fieldKey": "plat_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+      },
+      {
+       "value": "19901108",
+       "source": "public_data",
+       "fieldKey": "use_approval_date",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+      }
+     ],
+     "section_type": "property_overview",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 1
+    },
+    {
+     "title": "왜 지금 이 오피스을 사야 하는가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "investment_thesis",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 2
+    },
+    {
+     "title": "이 입지, 투자할 만한 곳인가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "location_access",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 3
+    },
+    {
+     "title": "등기사항증명서 권리관계와 소유 구조",
+     "markdown": "## 권리관계 요약 ### 소유 현황\n> 소유자 정보가 등록되지 않았습니다. ### 설정 권리\n- 설정 권리 없음 ✅",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "title_rights",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 4
+    },
+    {
+     "title": "토지 현황과 이용 조건은 어떠한가",
+     "markdown": "## 토지 현황 ### 필지 구성 (2필지)\n| PNU | 지목 | 면적(㎡) | 지분율 | 공시지가(원/㎡) |\n|-----|------|---------|--------|----------------|\n| 1165010600100260014 | 대 | 511.7 | 100% | 15,650,000 |\n| 1165010600100260016 | 대 | 104.4 | 100% | 15,650,000 | > **유효 대지면적 합계: 616.1㎡ (186.4평)** ### 이용 규제\n- **용도지역**: 제2종일반주거지역\n- **건폐율**: 49.76%\n- **용적률**: 325.63% (법정 상한 200%, 여유 -125.6%p)\n- **필지 형상**: 사다리형\n- **지형**: 평지\n- **도로접면**: 소로각지",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "land_detail",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 5
+    },
+    {
+     "title": "위험요인 및 대응 방안",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": "제2종일반주거지역",
+       "source": "public_data",
+       "fieldKey": "zoning",
+       "confidence": "confirmed",
+       "sourceDetail": "토지이용규제정보서비스(LURIS) API",
+       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+      }
+     ],
+     "section_type": "risk_check",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 6
+    },
+    {
+     "title": "실사 안내 및 면책 조항",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "next_steps",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 7
+    },
+    {
+     "title": "실사 체크리스트 및 확인사항",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "checklist",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 8
+    },
+    {
+     "title": "개발 부지로서 대지 조건은 어떠한가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "site_analysis",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 9
+    },
+    {
+     "title": "신축/개발 사업수지와 수익성은 어떠한가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "development_feasibility",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 10
+    },
+    {
+     "title": "면책 조항",
+     "markdown": "⚠️ 본 문서의 일부 내용은 AI가 자동 생성한 정보를 포함하고 있으며, 투자 조언이 아닙니다. 실제 투자 의사결정 시 독립적인 전문가 검토를 반드시 받으시기 바랍니다.\n\n본 자료는 정보 제공 목적으로만 작성되었으며, 특정 부동산의 매수 또는 매도를 권유하지 않습니다. 부동산 투자는 원금 손실의 위험이 있으며, 과거 수익률이 미래 수익을 보장하지 않습니다.\n\n본 모바일 투자설명서(IM)는 보안을 위해 자산의 핵심 개요를 블라인드 형태로 제공합니다. 상세 지번 및 임대차 계약 원본은 담당 중개사를 통해 확인하실 수 있습니다.\n\n본 문서의 데이터는 다음 출처에서 수집되었습니다: 건축물대장(국토교통부), 토지이용계획(토지이음), 개별공시지가(국토교통부), 실거래가(국토교통부). 일부 데이터는 중개인이 직접 입력한 정보이며, 정확성을 보장하지 않습니다.\n\n예비 검토용 자료이며 현장 확인이 필요합니다. 본 자료의 수치와 분석은 참고용이며, 실제 거래 시 별도의 실사가 반드시 필요합니다.",
+     "section_type": "disclaimer"
+    }
+   ],
+   "dataGrade": "B",
+   "heroTitle": "잠원 오피스빌딩 매각",
+   "photos_v2": [
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_01.png",
+     "role": "cover",
+     "order": 0,
+     "isHero": true,
+     "caption": "건물 외관 전경",
+     "category": "exterior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_02.png",
+     "role": "exterior",
+     "order": 1,
+     "isHero": false,
+     "caption": "주변 도로 및 접근로",
+     "category": "surroundings"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_03.png",
+     "role": "general",
+     "order": 2,
+     "isHero": false,
+     "caption": "1층 로비 및 공용부",
+     "category": "lobby"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_04.png",
+     "role": "general",
+     "order": 3,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_05.png",
+     "role": "general",
+     "order": 4,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_06.png",
+     "role": "general",
+     "order": 5,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_07.png",
+     "role": "general",
+     "order": 6,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_08.png",
+     "role": "general",
+     "order": 7,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_09.png",
+     "role": "general",
+     "order": 8,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_10.png",
+     "role": "general",
+     "order": 9,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    }
+   ],
+   "enrichment": {
+    "landPrice": {
+     "_source": "vworld",
+     "baseYear": "2026",
+     "landArea": 511.7,
+     "pricePerSqm": 15650000,
+     "landCategory": "대"
+    },
+    "landUsePlan": {
+     "_source": "vworld",
+     "terrain": "평지",
+     "landArea": 511.7,
+     "landShape": "사다리형",
+     "roadAccess": "소로각지",
+     "zoningOverlap": [],
+     "zoningDistrict": "제2종일반주거지역",
+     "landUseSituation": "상업용",
+     "floorAreaRatioMax": 200,
+     "buildingCoverageMax": 60
+    },
+    "locationPoi": {
+     "keySpots": [
+      {
+       "lat": 37.5160820085929,
+       "lng": 127.019551734927,
+       "name": "신사역 신분당선",
+       "category": "subway",
+       "distanceM": 267
+      },
+      {
+       "lat": 37.51643597531432,
+       "lng": 127.02030856272764,
+       "name": "신사역 3호선",
+       "category": "subway",
+       "distanceM": 331
+      },
+      {
+       "lat": 37.5135737440153,
+       "lng": 127.018749129993,
+       "name": "더쿠커스",
+       "category": "landmark",
+       "distanceM": 36
+      },
+      {
+       "lat": 37.5130043223574,
+       "lng": 127.018667548898,
+       "name": "눌스",
+       "category": "landmark",
+       "distanceM": 92
+      },
+      {
+       "lat": 37.514784774017926,
+       "lng": 127.01823364257002,
+       "name": "오너클랜 본사",
+       "category": "landmark",
+       "distanceM": 108
+      }
+     ],
+     "poiCounts": {
+      "cafe": 118,
+      "subway": 8,
+      "busStop": 0,
+      "parking": 70,
+      "restaurant": 392,
+      "convenience": 31
+     },
+     "candidateSpots": [
+      {
+       "lat": 37.5135737440153,
+       "lng": 127.018749129993,
+       "name": "더쿠커스",
+       "category": "landmark",
+       "distanceM": 36,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.51349458744393,
+       "lng": 127.01789965425297,
+       "name": "미즈러브여성비뇨의학과의원",
+       "category": "hospital",
+       "distanceM": 63,
+       "categoryName": "의료,건강 > 병원 > 비뇨기과"
+      },
+      {
+       "lat": 37.51321068357726,
+       "lng": 127.01846852748712,
+       "name": "바람부는날에도 성형외과의원",
+       "category": "hospital",
+       "distanceM": 68,
+       "categoryName": "의료,건강 > 병원 > 성형외과"
+      },
+      {
+       "lat": 37.51340901169482,
+       "lng": 127.01776955748863,
+       "name": "모바른의원",
+       "category": "hospital",
+       "distanceM": 77,
+       "categoryName": "의료,건강 > 병원 > 일반의원"
+      },
+      {
+       "lat": 37.5130043223574,
+       "lng": 127.018667548898,
+       "name": "눌스",
+       "category": "landmark",
+       "distanceM": 92,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.51431786434004,
+       "lng": 127.01942345901976,
+       "name": "레그웰의원",
+       "category": "hospital",
+       "distanceM": 99,
+       "categoryName": "의료,건강 > 병원 > 신경외과"
+      },
+      {
+       "lat": 37.51443860479899,
+       "lng": 127.01938729466214,
+       "name": "닥터황성장의원",
+       "category": "hospital",
+       "distanceM": 105,
+       "categoryName": "의료,건강 > 병원 > 소아청소년과"
+      },
+      {
+       "lat": 37.5128611142653,
+       "lng": 127.018338365975,
+       "name": "린",
+       "category": "landmark",
+       "distanceM": 107,
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
+      },
+      {
+       "lat": 37.514784774017926,
+       "lng": 127.01823364257002,
+       "name": "오너클랜 본사",
+       "category": "landmark",
+       "distanceM": 108,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.5150730777176,
+       "lng": 127.018346825073,
+       "name": "신사동간장게장골목",
+       "category": "landmark",
+       "distanceM": 138,
+       "categoryName": "여행 > 관광,명소 > 테마거리 > 먹자골목"
+      },
+      {
+       "lat": 37.5131883876893,
+       "lng": 127.016939281331,
+       "name": "Ih대주피오레아파트 주차장",
+       "category": "landmark",
+       "distanceM": 153,
+       "categoryName": "교통,수송 > 교통시설 > 주차장"
+      },
+      {
+       "lat": 37.5152172893339,
+       "lng": 127.018015440522,
+       "name": "새서울아파트",
+       "category": "landmark",
+       "distanceM": 159,
+       "categoryName": "부동산 > 주거시설 > 아파트"
+      },
+      {
+       "lat": 37.51293610881426,
+       "lng": 127.01692338903536,
+       "name": "대주피오레아파트",
+       "category": "landmark",
+       "distanceM": 169,
+       "categoryName": "부동산 > 주거시설 > 아파트"
+      },
+      {
+       "lat": 37.514341112382,
+       "lng": 127.020477661948,
+       "name": "렉스관광호텔",
+       "category": "landmark",
+       "distanceM": 185,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.515044449282925,
+       "lng": 127.01698494576037,
+       "name": "티롤관광호텔",
+       "category": "landmark",
+       "distanceM": 188,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5142005329557,
+       "lng": 127.020608832348,
+       "name": "단국대학교 AGMP총교우회",
+       "category": "landmark",
+       "distanceM": 192,
+       "categoryName": "가정,생활 > 친목 > 동창회,동문회"
+      },
+      {
+       "lat": 37.5145303023385,
+       "lng": 127.020597611874,
+       "name": "에스티르 신사",
+       "category": "landmark",
+       "distanceM": 203,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5154372927689,
+       "lng": 127.016944314144,
+       "name": "갤러리 도큐먼트",
+       "category": "landmark",
+       "distanceM": 224,
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
+      },
+      {
+       "lat": 37.5158659812943,
+       "lng": 127.01821580745566,
+       "name": "라트리호텔 신사역점",
+       "category": "landmark",
+       "distanceM": 227,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.5120468006102,
+       "lng": 127.017041951424,
+       "name": "오스텔로마레",
+       "category": "landmark",
+       "distanceM": 234,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.5155490269464,
+       "lng": 127.016876471559,
+       "name": "더그레잇컬렉션",
+       "category": "landmark",
+       "distanceM": 237,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5147284262415,
+       "lng": 127.021146258749,
+       "name": "하로스테이 신사",
+       "category": "landmark",
+       "distanceM": 256,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.5142832967886,
+       "lng": 127.021332766584,
+       "name": "에이루트",
+       "category": "landmark",
+       "distanceM": 257,
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
+      },
+      {
+       "lat": 37.5160820085929,
+       "lng": 127.019551734927,
+       "name": "신사역 신분당선",
+       "category": "subway",
+       "distanceM": 267,
+       "categoryName": "교통,수송 > 지하철,전철 > 신분당선"
+      },
+      {
+       "lat": 37.5156493089486,
+       "lng": 127.020826408145,
+       "name": "썬시티게스트하우스",
+       "category": "landmark",
+       "distanceM": 289,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.51643597531432,
+       "lng": 127.02030856272764,
+       "name": "신사역 3호선",
+       "category": "subway",
+       "distanceM": 331,
+       "categoryName": "교통,수송 > 지하철,전철 > 수도권3호선"
+      },
+      {
+       "lat": 37.5171273405512,
+       "lng": 127.018510214254,
+       "name": "라온하우스",
+       "category": "landmark",
+       "distanceM": 366,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.517145168894,
+       "lng": 127.019695668973,
+       "name": "어바웃스테이 신사점",
+       "category": "landmark",
+       "distanceM": 383,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.516359146752,
+       "lng": 127.021677224954,
+       "name": "무인 신사동지점",
+       "category": "landmark",
+       "distanceM": 398,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.51728753591448,
+       "lng": 127.01964480432345,
+       "name": "짝호텔",
+       "category": "landmark",
+       "distanceM": 398,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.51120000205266,
+       "lng": 127.02165424259898,
+       "name": "논현역 7호선",
+       "category": "subway",
+       "distanceM": 404,
+       "categoryName": "교통,수송 > 지하철,전철 > 수도권7호선"
+      },
+      {
+       "lat": 37.514918688029,
+       "lng": 127.014102820234,
+       "name": "잠원동주민센터",
+       "category": "public",
+       "distanceM": 405,
+       "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+      },
+      {
+       "lat": 37.517394192725,
+       "lng": 127.01749223739,
+       "name": "신사 레지던스앤게스트하우스",
+       "category": "landmark",
+       "distanceM": 405,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.511626977739134,
+       "lng": 127.022195018173,
+       "name": "스페이스학동",
+       "category": "landmark",
+       "distanceM": 409,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5103262549586,
+       "lng": 127.020377032511,
+       "name": "에쿠스",
+       "category": "landmark",
+       "distanceM": 423,
+       "categoryName": "여행 > 숙박"
+      },
+      {
+       "lat": 37.5149943996747,
+       "lng": 127.013872085506,
+       "name": "잠원치안센터",
+       "category": "public",
+       "distanceM": 427,
+       "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 치안센터"
+      },
+      {
+       "lat": 37.517711219691,
+       "lng": 127.018324847673,
+       "name": "스테이강남",
+       "category": "landmark",
+       "distanceM": 431,
+       "categoryName": "여행 > 숙박"
+      },
+      {
+       "lat": 37.5173322781761,
+       "lng": 127.02141620901475,
+       "name": "해월동NFT아트갤러리",
+       "category": "landmark",
+       "distanceM": 467,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5104125196351,
+       "lng": 127.021678898276,
+       "name": "논현역 신분당선",
+       "category": "subway",
+       "distanceM": 472,
+       "categoryName": "교통,수송 > 지하철,전철 > 신분당선"
+      },
+      {
+       "lat": 37.5095624935848,
+       "lng": 127.018616925954,
+       "name": "리코디아 아트홀",
+       "category": "landmark",
+       "distanceM": 473,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.50942001391682,
+       "lng": 127.0193690310367,
+       "name": "비빅",
+       "category": "landmark",
+       "distanceM": 495,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5097538823881,
+       "lng": 127.016056291369,
+       "name": "잠원IC",
+       "category": "landmark",
+       "distanceM": 500,
+       "categoryName": "교통,수송 > 도로시설 > IC > 고속도로IC"
+      },
+      {
+       "lat": 37.518266055894,
+       "lng": 127.019461811011,
+       "name": "디에이치갤러리",
+       "category": "landmark",
+       "distanceM": 500,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5093174341954,
+       "lng": 127.018528644226,
+       "name": "갤러리라보",
+       "category": "landmark",
+       "distanceM": 500,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.518154121692,
+       "lng": 127.020695888529,
+       "name": "아이피티",
+       "category": "landmark",
+       "distanceM": 518,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.51856901180077,
+       "lng": 127.01808524804517,
+       "name": "더 리버사이드호텔",
+       "category": "landmark",
+       "distanceM": 527,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.5180170284039,
+       "lng": 127.02148427479,
+       "name": "신사 세로수길 골목형상점가",
+       "category": "landmark",
+       "distanceM": 535,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.516569415617,
+       "lng": 127.013338476041,
+       "name": "신동중학교",
+       "category": "university",
+       "distanceM": 546,
+       "categoryName": "교육,학문 > 학교 > 중학교"
+      },
+      {
+       "lat": 37.5112590399852,
+       "lng": 127.023876804424,
+       "name": "주한부탄왕국명예총영사관",
+       "category": "public",
+       "distanceM": 556,
+       "categoryName": "사회,공공기관 > 외국기관 > 대사관,영사관,외국공관"
+      },
+      {
+       "lat": 37.5124049314709,
+       "lng": 127.024779773951,
+       "name": "논현가구거리",
+       "category": "landmark",
+       "distanceM": 579,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.5127781367296,
+       "lng": 127.011981625622,
+       "name": "이마트에브리데이 잠원메이플자이점",
+       "category": "shopping",
+       "distanceM": 586,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 이마트에브리데이"
+      },
+      {
+       "lat": 37.5127745330571,
+       "lng": 127.011978231779,
+       "name": "헤라스아트갤러리",
+       "category": "landmark",
+       "distanceM": 586,
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
+      },
+      {
+       "lat": 37.51897944183764,
+       "lng": 127.02068932937416,
+       "name": "이마트에브리데이 강남시장점",
+       "category": "shopping",
+       "distanceM": 604,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 이마트에브리데이"
+      },
+      {
+       "lat": 37.5143855673095,
+       "lng": 127.011587124073,
+       "name": "GS더프레시 잠원점",
+       "category": "shopping",
+       "distanceM": 612,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+      },
+      {
+       "lat": 37.5189541413105,
+       "lng": 127.021098810339,
+       "name": "아트스페이스남케이",
+       "category": "landmark",
+       "distanceM": 614,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5188243093765,
+       "lng": 127.021582918919,
+       "name": "브로드웨이 뮤지컬씨어터",
+       "category": "landmark",
+       "distanceM": 618,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5100084909034,
+       "lng": 127.023652458739,
+       "name": "GS더프레시 강남영동점",
+       "category": "shopping",
+       "distanceM": 623,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+      },
+      {
+       "lat": 37.5128899169357,
+       "lng": 127.011419491429,
+       "name": "잠원역 3호선",
+       "category": "subway",
+       "distanceM": 632,
+       "categoryName": "교통,수송 > 지하철,전철 > 수도권3호선"
+      },
+      {
+       "lat": 37.5087221661252,
+       "lng": 127.022050517555,
+       "name": "w호스텔",
+       "category": "landmark",
+       "distanceM": 648,
+       "categoryName": "여행 > 숙박"
+      },
+      {
+       "lat": 37.5169011128429,
+       "lng": 127.012153088615,
+       "name": "서울신동초등학교",
+       "category": "university",
+       "distanceM": 655,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      }
+     ],
+     "nearestStation": {
+      "lat": 37.5160820085929,
+      "lng": 127.019551734927,
+      "name": "신사역 신분당선",
+      "distanceM": 267,
+      "walkMinutes": 3
+     }
+    },
+    "registryData": {
+     "source": "fallback_mock",
+     "checked": false,
+     "fetchedAt": "2026-10-05T16:06:50.673Z",
+     "mortgages": [],
+     "attachments": [],
+     "rawResponse": null,
+     "displayMessage": "등기부 조회 미연동 (외부 API 미연결 또는 모의 데이터)",
+     "encumbranceRisk": "check_required"
+    },
+    "buildingRegister": {
+     "bcRat": 49.76,
+     "vlRat": 325.63,
+     "mainPnu": "1165010600100260014",
+     "archArea": 306.58,
+     "platArea": 616.1,
+     "structure": "철근콘크리트구조",
+     "totalArea": 2032.59,
+     "useAprDay": "19901108",
+     "floorsAbove": 5,
+     "floorsBelow": 1,
+     "mainPurpose": "제2종근린생활시설",
+     "attachedLots": [
+      "1165010600100260016"
+     ],
+     "buildingName": " ",
+     "parkingCount": 12,
+     "selfParkingCount": 12
+    },
+    "locationMapImage": null,
+    "cadastralMapImage": "$asset-data:development-jamwon-r3/asset-01.png",
+    "commercialDistrict": null,
+    "comparableTransactions": [
+     {
+      "area": 17.74,
+      "floors": 0,
+      "address": "서초구 반포동 1313",
+      "dealDay": 1,
+      "dealYear": 2026,
+      "dealMonth": 10,
+      "dealAmount": 375000000,
+      "_isFallback": false,
+      "buildingUse": "교육연구",
+      "pricePerSqm": 21138670,
+      "pricePerPyeong": 69879897
+     },
+     {
+      "area": 183.66,
+      "floors": 4,
+      "address": "서초구 방배동 2525",
+      "dealDay": 17,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 1950000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 10617445,
+      "pricePerPyeong": 35098991
+     },
+     {
+      "area": 349.79,
+      "floors": 0,
+      "address": "서초구 잠원동 50-5",
+      "dealDay": 29,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 9714000000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 27770948,
+      "pricePerPyeong": 91804784
+     },
+     {
+      "area": 2479.1,
+      "floors": 0,
+      "address": "서초구 서초동 1***",
+      "dealDay": 28,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 28000000000,
+      "_isFallback": false,
+      "buildingUse": "업무",
+      "pricePerSqm": 11294421,
+      "pricePerPyeong": 37336929
+     },
+     {
+      "area": 60.14,
+      "floors": 1,
+      "address": "서초구 서초동 1303-10",
+      "dealDay": 2,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 1350000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 22447622,
+      "pricePerPyeong": 74207013
+     },
+     {
+      "area": 75.46,
+      "floors": 0,
+      "address": "서초구 방배동 1024-6",
+      "dealDay": 14,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 550000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 7288630,
+      "pricePerPyeong": 24094643
+     },
+     {
+      "area": 23.37,
+      "floors": 15,
+      "address": "서초구 서초동 1337-3",
+      "dealDay": 17,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 170000000,
+      "_isFallback": false,
+      "buildingUse": "숙박",
+      "pricePerSqm": 7274283,
+      "pricePerPyeong": 24047217
+     },
+     {
+      "area": 10.11,
+      "floors": 0,
+      "address": "서초구 반포동 2-8",
+      "dealDay": 16,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 270000000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 26706231,
+      "pricePerPyeong": 88285059
+     },
+     {
+      "area": 23.38,
+      "floors": 9,
+      "address": "서초구 서초동 1337-3",
+      "dealDay": 15,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 169000000,
+      "_isFallback": false,
+      "buildingUse": "숙박",
+      "pricePerSqm": 7228400,
+      "pricePerPyeong": 23895537
+     },
+     {
+      "area": 33.28,
+      "floors": 0,
+      "address": "서초구 서초동 1641-13",
+      "dealDay": 19,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 679000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 20402644,
+      "pricePerPyeong": 67446755
+     }
+    ]
+   },
+   "financials": {
+    "wacc": null,
+    "capRate": null,
+    "posture": "development",
+    "irr5Year": null,
+    "annualNoi": {
+     "base": 0,
+     "best": 0,
+     "worst": 0
+    },
+    "disclaimer": "AI 건축 규모 검토 및 사업수지 추정값 (참고용). 인허가 및 시공 조건에 따라 변동될 수 있습니다.",
+    "pricePerSqm": 39279338,
+    "yieldOnCost": null,
+    "annualRentBil": null,
+    "loanAmountBil": null,
+    "equityRequired": 242,
+    "landValueRatio": 100,
+    "leveragedYield": null,
+    "pricePerPyeong": 129850000,
+    "devHoldYieldPct": null,
+    "totalDepositBil": null,
+    "landCostRatioPct": 83.3,
+    "regulationExpiry": "2028-05-18",
+    "devProfitMarginPct": null,
+    "grossYieldOnEquity": null,
+    "landPricePerPyeong": 12985,
+    "landValueRatioNote": "신축/개발 부지 — 토지 매입가 100% 반영",
+    "regulationDaysLeft": 591,
+    "constructionCostBil": 34.8,
+    "totalProjectCostBil": 290.6,
+    "grossYieldStabilized": null,
+    "estConstructionCostBil": 34.8,
+    "expectedSalesRevenueBil": null
+   },
+   "permitSpec": {
+    "status": "in_progress",
+    "permitKinds": []
+   },
+   "photo_urls": [
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_01.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_02.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_03.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_04.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_05.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_06.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_07.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_08.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_09.png",
+    "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_10.png"
+   ],
+   "vacateSpec": {
+    "responsibility": "seller"
+   },
+   "approved_at": "2026-10-05T16:07:14.000Z",
+   "askingPrice": 24200000000,
+   "coordinates": {
+    "lat": 37.5138266988703,
+    "lng": 127.018476031463
+   },
+   "dcfEligible": false,
+   "mapImageUrl": "/api/public/map/static?lat=37.5138266988703&lng=127.018476031463&w=640&h=360&level=3",
+   "releaseTier": "fact_om",
+   "generated_at": "2026-10-05T16:06:58.993Z",
+   "heroSubtitle": "잠원 소재, 오피스빌딩, 매각 희망가 242억 원대",
+   "ssot_summary": {
+    "pnu": "1165010600100260014",
+    "pnus": [
+     "1165010600100260014",
+     "1165010600100260016"
+    ],
+    "zoning": "제2종일반주거지역",
+    "address": "서울 서초구 신반포로47길 77",
+    "bcr_pct": 49.76,
+    "far_pct": 325.63,
+    "asset_type": "오피스빌딩",
+    "area_source": {
+     "land": "parcel_sum",
+     "total": "public_register"
+    },
+    "max_bcr_pct": 60,
+    "max_far_pct": 200,
+    "size_signal": "614.9평",
+    "floors_above": 5,
+    "floors_below": 1,
+    "parcel_count": 2,
+    "land_area_sqm": 616.1,
+    "land_category": "대",
+    "vacancy_signal": "공실 발생",
+    "vacancy_status": "공실 발생",
+    "completion_year": 1990,
+    "register_main_pnu": "1165010600100260014",
+    "investment_posture": "development",
+    "asking_price_manwon": 2420000,
+    "total_gross_area_sqm": 2032.59,
+    "register_attached_pnus": [
+     "1165010600100260016"
+    ]
+   },
+   "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
+   "external_data": {
+    "errors": [],
+    "address": "서울 서초구 신반포로47길 77",
+    "enrichedAt": "2026-10-05T16:06:51.246Z",
+    "hasPublicData": true,
+    "fallbackStatus": {
+     "landPrice": null,
+     "landUsePlan": null,
+     "locationPoi": null,
+     "buildingRegister": null
+    }
+   },
+   "ogDescription": "잠원 · 오피스빌딩 · 242억 원대 · 핵심 투자 포인트 및 자산 개요",
+   "developmentSpec": {
+    "targetUse": "office",
+    "contractorStatus": "undecided",
+    "targetScalePyung": 464,
+    "constructionCostPerPyung": 750
+   },
+   "readiness_score": 55,
+   "dataCompleteness": {
+    "generatedAt": "2026-10-05T16:06:58.999Z",
+    "qualityGrade": "B",
+    "buildingRegister": true,
+    "pptxExportAllowed": true,
+    "buildingRegisterSource": "loaded"
+   },
+   "resolved_address": "서울 서초구 신반포로47길 77",
+   "financialWarnings": [],
+   "investmentPosture": "development",
+   "investment_posture": "development",
+   "keyInvestmentPoint": "잠원 소재, 오피스빌딩, 매각 희망가 242억 원대",
+   "asking_price_manwon": 2420000,
+   "approval_target_hash": "sha256:a8163a66e8a1458709e8e50516316355e05a63b787f6891056128bda57e606b4",
+   "broker_physical_inputs": {
+    "parking_count": 12,
+    "elevator_count": 1
+   }
+  }
+ },
+ "building": {
+  "id": "2e96c096-d24f-405e-8a52-e6e47c05f784",
+  "created_by_role": "broker",
+  "input_type": "broker_memo",
+  "raw_input": "잠원동 26-14, 16번지 두원빌딩 매각\n매각가 약 242억 (토지평당 1.3억)\n2종일반주거, 1990년 준공\nB1~5F, 주차 12대\n강남대로 이면, 트리플 역세권\n신사역 도보 4분, 논현역 도보 7분\n매도인 명도 조건 - 현재 임차인 명도 협의 중 및 완료 상태\n다필지 (26-14, 26-16)\n신축 후 임대 예상 스태킹 플랜 포함",
+  "area_signal": "잠원",
+  "asset_type": "오피스빌딩",
+  "price_band": "242억",
+  "size_signal": "580평",
+  "current_use_signal": "근린생활시설",
+  "vacancy_signal": "공실 발생",
+  "fit_summary": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+  "caution_summary": "권리관계 및 공부 서류 검토 필요",
+  "hidden_fields": [
+   "exact_address",
+   "seller_motivation"
+  ],
+  "layers": {
+   "pnu": "1168010100107420001",
+   "finance": {
+    "vacancy_pct": null,
+    "loan_amount_krw": null,
+    "asking_price_krw": 24200000000,
+    "monthly_rent_krw": null,
+    "total_deposit_krw": null,
+    "loan_amount_manwon": null,
+    "asking_price_manwon": 2420000,
+    "monthly_rent_manwon": null,
+    "total_deposit_manwon": null
+   },
+   "location": {
+    "pnu": "1168010100107420001",
+    "address": "역삼동 742-1",
+    "raw_address": "역삼동 742-1"
+   },
+   "coordinates": {
+    "lat": 37.4966382941162,
+    "lng": 127.035204690522
+   },
+   "lease_summary": {
+    "vacancy_pct": null,
+    "monthly_rent_krw": null,
+    "total_deposit_krw": null,
+    "monthly_rent_manwon": null,
+    "total_deposit_manwon": null
+   }
+  },
+  "confidence": {
+   "assetType": "confirmed",
+   "priceBand": "confirmed",
+   "areaSignal": "confirmed",
+   "fitSummary": "ai_hypothesis"
+  },
+  "disclosure": {
+   "guard_checked": true
+  },
+  "status": "public_signal_ready",
+  "created_at": "2026-09-08T00:53:31.667467+00:00",
+  "updated_at": "2026-10-05T16:07:18.993918+00:00",
+  "promotion_score": 0.3259,
+  "promotion_updated_at": "2026-10-02T05:15:25.851+00:00",
+  "matched_buyer_count": 0,
+  "vacancy_inquiry_count": 0,
+  "vacancy_avg_fit_score": null,
+  "vacancy_demand_verified": false,
+  "iot_daily_footfall": null,
+  "iot_avg_dwell_minutes": null,
+  "iot_peak_hour": null,
+  "iot_footfall_trend": null,
+  "iot_monthly_energy_kwh": null,
+  "iot_energy_efficiency": null,
+  "iot_floor_occupancy": null,
+  "iot_device_id": null,
+  "iot_last_synced_at": null,
+  "verification_status": "not_found",
+  "verification_details": {
+   "checks": {
+    "purposeMatch": null,
+    "buildingExists": false,
+    "areaWithinRange": null
+   },
+   "status": "not_found",
+   "details": {
+    "aiAddress": "잠원",
+    "aiAssetType": "오피스빌딩",
+    "errorReason": "국토부 건축물대장에 해당 건물 정보 없음",
+    "aiSizeSignal": "580평"
+   },
+   "resolvedComponents": {
+    "ji": "0",
+    "bun": "0",
+    "bjdongCd": "10600",
+    "sigunguCd": "11650"
+   }
+  },
+  "verified_at": null,
+  "raw_address": "역삼동 742-1",
+  "canonical_property_id": "855ede22-5d60-45d1-a30c-fa9e9c212cfa",
+  "address": "서울 서초구 신반포로47길 77",
+  "pnu": "1165010600100260014",
+  "lat": 37.5138266988703,
+  "lng": 127.018476031463,
+  "investment_posture": "development"
+ },
+ "broker": {
+  "display_name": "E2E 테스트 브로커",
+  "company_name": "E2E 테스트 부동산중개법인",
+  "phone": "010-0000-0000",
+  "email": "broker@example.test",
+  "registration_no": "11560-2026-00001"
+ },
+ "liveEnrichment": {
+  "cadastralMapImage": "$asset-data:development-jamwon-r3/asset-02.png",
+  "hasCadastralMap": true,
+  "locationPoi": {
+   "nearestStation": {
+    "name": "신사역 신분당선",
+    "lat": 37.5160820085929,
+    "lng": 127.019551734927,
+    "distanceM": 267,
+    "walkMinutes": 3
+   },
+   "poiCounts": {
+    "subway": 8,
+    "busStop": 0,
+    "cafe": 118,
+    "parking": 70,
+    "restaurant": 392,
+    "convenience": 31
+   },
+   "keySpots": [
+    {
+     "name": "신사역 신분당선",
+     "lat": 37.5160820085929,
+     "lng": 127.019551734927,
+     "distanceM": 267,
+     "category": "subway"
+    },
+    {
+     "name": "신사역 3호선",
+     "lat": 37.51643597531432,
+     "lng": 127.02030856272764,
+     "distanceM": 331,
+     "category": "subway"
+    },
+    {
+     "name": "더쿠커스",
+     "lat": 37.5135737440153,
+     "lng": 127.018749129993,
+     "distanceM": 36,
+     "category": "landmark"
+    },
+    {
+     "name": "눌스",
+     "lat": 37.5130043223574,
+     "lng": 127.018667548898,
+     "distanceM": 92,
+     "category": "landmark"
+    },
+    {
+     "name": "오너클랜 본사",
+     "lat": 37.514784774017926,
+     "lng": 127.01823364257002,
+     "distanceM": 108,
+     "category": "landmark"
+    }
+   ],
+   "candidateSpots": [
+    {
+     "name": "더쿠커스",
+     "lat": 37.5135737440153,
+     "lng": 127.018749129993,
+     "distanceM": 36,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "미즈러브여성비뇨의학과의원",
+     "lat": 37.51349458744393,
+     "lng": 127.01789965425297,
+     "distanceM": 63,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 비뇨기과"
+    },
+    {
+     "name": "바람부는날에도 성형외과의원",
+     "lat": 37.51321068357726,
+     "lng": 127.01846852748712,
+     "distanceM": 68,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 성형외과"
+    },
+    {
+     "name": "모바른의원",
+     "lat": 37.51340901169482,
+     "lng": 127.01776955748863,
+     "distanceM": 77,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 일반의원"
+    },
+    {
+     "name": "눌스",
+     "lat": 37.5130043223574,
+     "lng": 127.018667548898,
+     "distanceM": 92,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "레그웰의원",
+     "lat": 37.51431786434004,
+     "lng": 127.01942345901976,
+     "distanceM": 99,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 신경외과"
+    },
+    {
+     "name": "닥터황성장의원",
+     "lat": 37.51443860479899,
+     "lng": 127.01938729466214,
+     "distanceM": 105,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 소아청소년과"
+    },
+    {
+     "name": "린",
+     "lat": 37.5128611142653,
+     "lng": 127.018338365975,
+     "distanceM": 107,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 미술관"
+    },
+    {
+     "name": "오너클랜 본사",
+     "lat": 37.514784774017926,
+     "lng": 127.01823364257002,
+     "distanceM": 108,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "신사동간장게장골목",
+     "lat": 37.5150730777176,
+     "lng": 127.018346825073,
+     "distanceM": 138,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리 > 먹자골목"
+    },
+    {
+     "name": "Ih대주피오레아파트 주차장",
+     "lat": 37.5131883876893,
+     "lng": 127.016939281331,
+     "distanceM": 153,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 교통시설 > 주차장"
+    },
+    {
+     "name": "새서울아파트",
+     "lat": 37.5152172893339,
+     "lng": 127.018015440522,
+     "distanceM": 159,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트"
+    },
+    {
+     "name": "대주피오레아파트",
+     "lat": 37.51293610881426,
+     "lng": 127.01692338903536,
+     "distanceM": 169,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트"
+    },
+    {
+     "name": "렉스관광호텔",
+     "lat": 37.514341112382,
+     "lng": 127.020477661948,
+     "distanceM": 185,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 호텔"
+    },
+    {
+     "name": "티롤관광호텔",
+     "lat": 37.515044449282925,
+     "lng": 127.01698494576037,
+     "distanceM": 188,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 호텔"
+    },
+    {
+     "name": "단국대학교 AGMP총교우회",
+     "lat": 37.5142005329557,
+     "lng": 127.020608832348,
+     "distanceM": 192,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 친목 > 동창회,동문회"
+    },
+    {
+     "name": "에스티르 신사",
+     "lat": 37.5145303023385,
+     "lng": 127.020597611874,
+     "distanceM": 203,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 호텔"
+    },
+    {
+     "name": "갤러리 도큐먼트",
+     "lat": 37.5154372927689,
+     "lng": 127.016944314144,
+     "distanceM": 224,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 미술관"
+    },
+    {
+     "name": "라트리호텔 신사역점",
+     "lat": 37.5158659812943,
+     "lng": 127.01821580745566,
+     "distanceM": 227,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "오스텔로마레",
+     "lat": 37.5120468006102,
+     "lng": 127.017041951424,
+     "distanceM": 234,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "더그레잇컬렉션",
+     "lat": 37.5155490269464,
+     "lng": 127.016876471559,
+     "distanceM": 237,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "하로스테이 신사",
+     "lat": 37.5147284262415,
+     "lng": 127.021146258749,
+     "distanceM": 256,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "에이루트",
+     "lat": 37.5142832967886,
+     "lng": 127.021332766584,
+     "distanceM": 257,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 미술관"
+    },
+    {
+     "name": "신사역 신분당선",
+     "lat": 37.5160820085929,
+     "lng": 127.019551734927,
+     "distanceM": 267,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 신분당선"
+    },
+    {
+     "name": "썬시티게스트하우스",
+     "lat": 37.5156493089486,
+     "lng": 127.020826408145,
+     "distanceM": 289,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "신사역 3호선",
+     "lat": 37.51643597531432,
+     "lng": 127.02030856272764,
+     "distanceM": 331,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권3호선"
+    },
+    {
+     "name": "라온하우스",
+     "lat": 37.5171273405512,
+     "lng": 127.018510214254,
+     "distanceM": 366,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "어바웃스테이 신사점",
+     "lat": 37.517145168894,
+     "lng": 127.019695668973,
+     "distanceM": 383,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "무인 신사동지점",
+     "lat": 37.516359146752,
+     "lng": 127.021677224954,
+     "distanceM": 398,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "짝호텔",
+     "lat": 37.51728753591448,
+     "lng": 127.01964480432345,
+     "distanceM": 398,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "논현역 7호선",
+     "lat": 37.51120000205266,
+     "lng": 127.02165424259898,
+     "distanceM": 404,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권7호선"
+    },
+    {
+     "name": "잠원동주민센터",
+     "lat": 37.514918688029,
+     "lng": 127.014102820234,
+     "distanceM": 405,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+    },
+    {
+     "name": "신사 레지던스앤게스트하우스",
+     "lat": 37.517394192725,
+     "lng": 127.01749223739,
+     "distanceM": 405,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "스페이스학동",
+     "lat": 37.511626977739134,
+     "lng": 127.022195018173,
+     "distanceM": 409,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "에쿠스",
+     "lat": 37.5103262549586,
+     "lng": 127.020377032511,
+     "distanceM": 423,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박"
+    },
+    {
+     "name": "잠원치안센터",
+     "lat": 37.5149943996747,
+     "lng": 127.013872085506,
+     "distanceM": 427,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 치안센터"
+    },
+    {
+     "name": "스테이강남",
+     "lat": 37.517711219691,
+     "lng": 127.018324847673,
+     "distanceM": 431,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박"
+    },
+    {
+     "name": "해월동NFT아트갤러리",
+     "lat": 37.5173322781761,
+     "lng": 127.02141620901475,
+     "distanceM": 467,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "논현역 신분당선",
+     "lat": 37.5104125196351,
+     "lng": 127.021678898276,
+     "distanceM": 472,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 신분당선"
+    },
+    {
+     "name": "리코디아 아트홀",
+     "lat": 37.5095624935848,
+     "lng": 127.018616925954,
+     "distanceM": 473,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "비빅",
+     "lat": 37.50942001391682,
+     "lng": 127.0193690310367,
+     "distanceM": 495,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "잠원IC",
+     "lat": 37.5097538823881,
+     "lng": 127.016056291369,
+     "distanceM": 500,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 도로시설 > IC > 고속도로IC"
+    },
+    {
+     "name": "디에이치갤러리",
+     "lat": 37.518266055894,
+     "lng": 127.019461811011,
+     "distanceM": 500,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "갤러리라보",
+     "lat": 37.5093174341954,
+     "lng": 127.018528644226,
+     "distanceM": 500,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "아이피티",
+     "lat": 37.518154121692,
+     "lng": 127.020695888529,
+     "distanceM": 518,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "더 리버사이드호텔",
+     "lat": 37.51856901180077,
+     "lng": 127.01808524804517,
+     "distanceM": 527,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 호텔"
+    },
+    {
+     "name": "신사 세로수길 골목형상점가",
+     "lat": 37.5180170284039,
+     "lng": 127.02148427479,
+     "distanceM": 535,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리"
+    },
+    {
+     "name": "신동중학교",
+     "lat": 37.516569415617,
+     "lng": 127.013338476041,
+     "distanceM": 546,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 중학교"
+    },
+    {
+     "name": "주한부탄왕국명예총영사관",
+     "lat": 37.5112590399852,
+     "lng": 127.023876804424,
+     "distanceM": 556,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 외국기관 > 대사관,영사관,외국공관"
+    },
+    {
+     "name": "논현가구거리",
+     "lat": 37.5124049314709,
+     "lng": 127.024779773951,
+     "distanceM": 579,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리"
+    },
+    {
+     "name": "이마트에브리데이 잠원메이플자이점",
+     "lat": 37.5127781367296,
+     "lng": 127.011981625622,
+     "distanceM": 586,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 이마트에브리데이"
+    },
+    {
+     "name": "헤라스아트갤러리",
+     "lat": 37.5127745330571,
+     "lng": 127.011978231779,
+     "distanceM": 586,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 미술관"
+    },
+    {
+     "name": "이마트에브리데이 강남시장점",
+     "lat": 37.51897944183764,
+     "lng": 127.02068932937416,
+     "distanceM": 604,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 이마트에브리데이"
+    },
+    {
+     "name": "GS더프레시 잠원점",
+     "lat": 37.5143855673095,
+     "lng": 127.011587124073,
+     "distanceM": 612,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+    },
+    {
+     "name": "아트스페이스남케이",
+     "lat": 37.5189541413105,
+     "lng": 127.021098810339,
+     "distanceM": 614,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "브로드웨이 뮤지컬씨어터",
+     "lat": 37.5188243093765,
+     "lng": 127.021582918919,
+     "distanceM": 618,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "GS더프레시 강남영동점",
+     "lat": 37.5100084909034,
+     "lng": 127.023652458739,
+     "distanceM": 623,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+    },
+    {
+     "name": "잠원역 3호선",
+     "lat": 37.5128899169357,
+     "lng": 127.011419491429,
+     "distanceM": 632,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권3호선"
+    },
+    {
+     "name": "w호스텔",
+     "lat": 37.5087221661252,
+     "lng": 127.022050517555,
+     "distanceM": 648,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박"
+    },
+    {
+     "name": "서울신동초등학교",
+     "lat": 37.5169011128429,
+     "lng": 127.012153088615,
+     "distanceM": 655,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    }
+   ]
+  },
+  "landPriceHistory": {
+   "history": [
+    {
+     "year": "2017",
+     "pricePerSqm": 7640000
+    },
+    {
+     "year": "2018",
+     "pricePerSqm": 8250000
+    },
+    {
+     "year": "2019",
+     "pricePerSqm": 9160000
+    },
+    {
+     "year": "2020",
+     "pricePerSqm": 9900000
+    },
+    {
+     "year": "2021",
+     "pricePerSqm": 12350000
+    },
+    {
+     "year": "2022",
+     "pricePerSqm": 14650000
+    },
+    {
+     "year": "2023",
+     "pricePerSqm": 13810000
+    },
+    {
+     "year": "2024",
+     "pricePerSqm": 14030000
+    },
+    {
+     "year": "2025",
+     "pricePerSqm": 14690000
+    },
+    {
+     "year": "2026",
+     "pricePerSqm": 15650000
+    }
+   ],
+   "cagrPct": 8.3,
+   "totalGrowthPct": 104.8,
+   "latestPricePerSqm": 15650000,
+   "oldestPricePerSqm": 7640000
+  },
+  "landUsePlan": {
+   "zoningDistrict": "제2종일반주거지역",
+   "zoningOverlap": [],
+   "buildingCoverageMax": 60,
+   "floorAreaRatioMax": 200,
+   "landArea": 511.7,
+   "landShape": "사다리형",
+   "terrain": "평지",
+   "roadAccess": "소로각지",
+   "landUseSituation": "상업용",
+   "_source": "vworld"
+  },
+  "landUseByParcel": [
+   {
+    "pnu": "1165010600100260014",
+    "zoningDistrict": "제2종일반주거지역"
+   },
+   {
+    "pnu": "1165010600100260016",
+    "zoningDistrict": "제2종일반주거지역"
+   }
+  ]
+ },
+ "urlTier": "basic"
+}

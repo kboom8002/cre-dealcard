@@ -1,0 +1,1890 @@
+{
+ "schemaVersion": 1,
+ "name": "operating-hotel-r2",
+ "fixtureDir": "docs/golden-test-data/p6-hotel-operating/r2-standard",
+ "capturedAt": "2026-10-05T21:21:08.610Z",
+ "docId": "8aa6e6b6-0fc3-4656-aab4-e2f0b21298ba",
+ "buildingId": "ffefa1f7-71c8-4b72-ab1c-75272f057d05",
+ "doc": {
+  "id": "8aa6e6b6-0fc3-4656-aab4-e2f0b21298ba",
+  "title": "대현 오피스빌딩 매각",
+  "document_type": "mobile_im",
+  "created_at": "2026-10-05T21:20:02.618494+00:00",
+  "body": {
+   "tier": "basic",
+   "claims": [
+    {
+     "id": "eb30bf31-c2ea-4c64-9db5-fcbbd6c57cbf",
+     "asOf": "2026-10-05",
+     "unit": "원",
+     "value": 30000000000,
+     "status": "reconciled",
+     "subject": "asking_price",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "6f838264-0afe-4da2-bf8f-c16856213f4e",
+     "asOf": "2026-10-05",
+     "unit": "㎡",
+     "value": 3842.6444840000004,
+     "status": "reconciled",
+     "subject": "total_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    },
+    {
+     "id": "ff607287-41a7-409a-9dfb-2cb3fc88035f",
+     "asOf": "2026-10-05",
+     "unit": "㎡",
+     "value": 486.2809735,
+     "status": "reconciled",
+     "subject": "land_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-05",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    }
+   ],
+   "photos": [
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_01.png",
+     "role": "cover",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 0,
+     "isHero": true,
+     "caption": "건물 외관 전경",
+     "category": "exterior"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_02.png",
+     "role": "exterior",
+     "type": "surroundings",
+     "label": "주변 도로/환경",
+     "order": 1,
+     "isHero": false,
+     "caption": "주변 도로 및 접근로",
+     "category": "surroundings"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_03.jpeg",
+     "role": "general",
+     "type": "lobby",
+     "label": "1층 로비",
+     "order": 2,
+     "isHero": false,
+     "caption": "1층 로비 및 공용부",
+     "category": "lobby"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_04.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 3,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_05.png",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 4,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    }
+   ],
+   "preset": "credeal_basic",
+   "ai_used": true,
+   "im_type": "mobile_im_lite",
+   "ogTitle": "대현 오피스빌딩 매각",
+   "heroCard": {
+    "adr": 95000,
+    "occPct": 78,
+    "revpar": 74100,
+    "zoning": "일반상업지역",
+    "hasLoan": false,
+    "keyRisk": "권리관계 및 공부 서류 검토 필요",
+    "opexPct": null,
+    "posture": "operating",
+    "assetType": "오피스빌딩",
+    "keyPoints": [
+     "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+     "안정적인 자산 가치: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.",
+     "향후 가치개선(Value-add) 잠재력: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다."
+    ],
+    "areaSignal": "대현",
+    "landAreaM2": 486.2809735,
+    "noiBaseBil": 10.7,
+    "capRateBase": 3.57,
+    "gopMarginPct": 38,
+    "targetHprPct": null,
+    "breakevenYears": null,
+    "pricePerPyeong": 25808670,
+    "readinessScore": 70,
+    "dcf10YearNpvBil": null,
+    "devHoldYieldPct": null,
+    "totalGrossAreaM2": 3842.6444840000004,
+    "equityRequiredBil": 300,
+    "leveragedYieldPct": null,
+    "marketDiscountPct": null,
+    "vacancyReservePct": null,
+    "askingPriceDisplay": "300억 원",
+    "devProfitMarginPct": null,
+    "keyInvestmentPoint": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+    "landPricePerPyeong": null,
+    "ownVsLeaseSavingsBil": null
+   },
+   "sections": [
+    {
+     "title": "이 오피스, 어떤 자산인가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": 3842.6444840000004,
+       "source": "public_data",
+       "fieldKey": "total_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T21:19:32.247Z"
+      },
+      {
+       "value": 486.2809735,
+       "source": "public_data",
+       "fieldKey": "plat_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-05T21:19:32.247Z"
+      }
+     ],
+     "section_type": "property_overview",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 1
+    },
+    {
+     "title": "왜 지금 이 오피스을 사야 하는가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "investment_thesis",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 2
+    },
+    {
+     "title": "이 입지, 투자할 만한 곳인가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "location_access",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 3
+    },
+    {
+     "title": "등기사항증명서 권리관계와 소유 구조",
+     "markdown": "## 권리관계 요약 ### 소유 현황\n> 소유자 정보가 등록되지 않았습니다. ### 설정 권리\n- 설정 권리 없음 ✅",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "title_rights",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 4
+    },
+    {
+     "title": "토지 현황과 이용 조건은 어떠한가",
+     "markdown": "## 토지 현황 - **지목**: 대\n- **대지면적**: 486.281㎡ (147.1평)\n- **공시지가**: 29,970,000원/㎡ ### 이용 규제\n- **용도지역**: 일반상업지역\n- **건폐율**: 60%\n- **필지 형상**: 가로장방\n- **지형**: 평지\n- **도로접면**: 중로각지",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "land_detail",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 5
+    },
+    {
+     "title": "위험요인 및 대응 방안",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": "일반상업지역",
+       "source": "public_data",
+       "fieldKey": "zoning",
+       "confidence": "confirmed",
+       "sourceDetail": "토지이용규제정보서비스(LURIS) API",
+       "lastVerifiedAt": "2026-10-05T21:19:32.247Z"
+      }
+     ],
+     "section_type": "risk_check",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 6
+    },
+    {
+     "title": "실사 안내 및 면책 조항",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "next_steps",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 7
+    },
+    {
+     "title": "실사 체크리스트 및 확인사항",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "checklist",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 8
+    },
+    {
+     "title": "운영 자산으로서 현황과 실적은 어떠한가",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "operation_overview",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 9
+    },
+    {
+     "title": "실질 영업이익(GOP) 및 손익 구조 분석",
+     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "gop_analysis",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 10
+    },
+    {
+     "title": "면책 조항",
+     "markdown": "⚠️ 본 문서의 일부 내용은 AI가 자동 생성한 정보를 포함하고 있으며, 투자 조언이 아닙니다. 실제 투자 의사결정 시 독립적인 전문가 검토를 반드시 받으시기 바랍니다.\n\n본 자료는 정보 제공 목적으로만 작성되었으며, 특정 부동산의 매수 또는 매도를 권유하지 않습니다. 부동산 투자는 원금 손실의 위험이 있으며, 과거 수익률이 미래 수익을 보장하지 않습니다.\n\n본 모바일 투자설명서(IM)는 보안을 위해 자산의 핵심 개요를 블라인드 형태로 제공합니다. 상세 지번 및 임대차 계약 원본은 담당 중개사를 통해 확인하실 수 있습니다.\n\n본 문서의 데이터는 다음 출처에서 수집되었습니다: 건축물대장(국토교통부), 토지이용계획(토지이음), 개별공시지가(국토교통부), 실거래가(국토교통부). 일부 데이터는 중개인이 직접 입력한 정보이며, 정확성을 보장하지 않습니다.\n\n예비 검토용 자료이며 현장 확인이 필요합니다. 본 자료의 수치와 분석은 참고용이며, 실제 거래 시 별도의 실사가 반드시 필요합니다.",
+     "section_type": "disclaimer"
+    }
+   ],
+   "dataGrade": "B",
+   "heroTitle": "대현 오피스빌딩 매각",
+   "photos_v2": [
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_01.png",
+     "role": "cover",
+     "order": 0,
+     "isHero": true,
+     "caption": "건물 외관 전경",
+     "category": "exterior"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_02.png",
+     "role": "exterior",
+     "order": 1,
+     "isHero": false,
+     "caption": "주변 도로 및 접근로",
+     "category": "surroundings"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_03.jpeg",
+     "role": "general",
+     "order": 2,
+     "isHero": false,
+     "caption": "1층 로비 및 공용부",
+     "category": "lobby"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_04.png",
+     "role": "general",
+     "order": 3,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    },
+    {
+     "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_05.png",
+     "role": "general",
+     "order": 4,
+     "isHero": false,
+     "caption": "실내 전용 공간",
+     "category": "interior"
+    }
+   ],
+   "enrichment": {
+    "landPrice": {
+     "_source": "vworld",
+     "baseYear": "2026",
+     "landArea": 102.5,
+     "pricePerSqm": 29970000,
+     "landCategory": "대"
+    },
+    "landUsePlan": {
+     "_source": "vworld",
+     "terrain": "평지",
+     "landArea": 102.5,
+     "landShape": "가로장방",
+     "roadAccess": "중로각지",
+     "zoningOverlap": [],
+     "zoningDistrict": "일반상업지역",
+     "landUseSituation": "상업용",
+     "floorAreaRatioMax": 800,
+     "buildingCoverageMax": 60
+    },
+    "locationPoi": {
+     "keySpots": [
+      {
+       "lat": 37.556814718869,
+       "lng": 126.94642954546576,
+       "name": "이대역 2호선",
+       "category": "subway",
+       "distanceM": 259
+      },
+      {
+       "lat": 37.55967513765615,
+       "lng": 126.94208931819857,
+       "name": "신촌역 경의중앙선",
+       "category": "subway",
+       "distanceM": 313
+      },
+      {
+       "lat": 37.5589765283591,
+       "lng": 126.945158132962,
+       "name": "피기유통",
+       "category": "landmark",
+       "distanceM": 35
+      },
+      {
+       "lat": 37.55868046110819,
+       "lng": 126.94594041156329,
+       "name": "무궁화아파트",
+       "category": "landmark",
+       "distanceM": 53
+      },
+      {
+       "lat": 37.559463696261936,
+       "lng": 126.94653064226853,
+       "name": "신촌럭키아파트 101동",
+       "category": "landmark",
+       "distanceM": 98
+      }
+     ],
+     "poiCounts": {
+      "cafe": 124,
+      "subway": 8,
+      "busStop": 0,
+      "parking": 31,
+      "restaurant": 306,
+      "convenience": 44
+     },
+     "candidateSpots": [
+      {
+       "lat": 37.5588288279059,
+       "lng": 126.945294055367,
+       "name": "필스테이 이화부띠끄",
+       "category": "landmark",
+       "distanceM": 33,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5589765283591,
+       "lng": 126.945158132962,
+       "name": "피기유통",
+       "category": "landmark",
+       "distanceM": 35,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.5594236592153,
+       "lng": 126.94566937595,
+       "name": "이화여자대학교 정문",
+       "category": "landmark",
+       "distanceM": 43,
+       "categoryName": "교통,수송 > 입출구"
+      },
+      {
+       "lat": 37.55868046110819,
+       "lng": 126.94594041156329,
+       "name": "무궁화아파트",
+       "category": "landmark",
+       "distanceM": 53,
+       "categoryName": "부동산 > 주거시설 > 아파트"
+      },
+      {
+       "lat": 37.559466664229525,
+       "lng": 126.94514419219361,
+       "name": "청년밥상문간 이화여자대학교점",
+       "category": "landmark",
+       "distanceM": 59,
+       "categoryName": "음식점 > 한식 > 찌개,전골"
+      },
+      {
+       "lat": 37.558429910306984,
+       "lng": 126.94577988001983,
+       "name": "신촌이대거리",
+       "category": "landmark",
+       "distanceM": 71,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.5593872415555,
+       "lng": 126.944854511401,
+       "name": "이화52번가",
+       "category": "landmark",
+       "distanceM": 72,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.559697526744216,
+       "lng": 126.94559221484572,
+       "name": "신촌대학탐방나들길",
+       "category": "landmark",
+       "distanceM": 72,
+       "categoryName": "여행 > 관광,명소 > 도보여행"
+      },
+      {
+       "lat": 37.55844363590013,
+       "lng": 126.94624050403536,
+       "name": "히든플레이스",
+       "category": "landmark",
+       "distanceM": 90,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5582053633034,
+       "lng": 126.945348836386,
+       "name": "삼거리꽃길",
+       "category": "landmark",
+       "distanceM": 94,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.559463696261936,
+       "lng": 126.94653064226853,
+       "name": "신촌럭키아파트 101동",
+       "category": "landmark",
+       "distanceM": 98,
+       "categoryName": "부동산 > 주거시설 > 아파트 > 아파트 동"
+      },
+      {
+       "lat": 37.5595114391476,
+       "lng": 126.94455562601,
+       "name": "더스퀘어즈갤러리",
+       "category": "landmark",
+       "distanceM": 102,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5580735798658,
+       "lng": 126.944837371161,
+       "name": "레드클라우드박스",
+       "category": "landmark",
+       "distanceM": 124,
+       "categoryName": "여행 > 숙박"
+      },
+      {
+       "lat": 37.557975037547,
+       "lng": 126.946065416083,
+       "name": "갤러리GRAA",
+       "category": "landmark",
+       "distanceM": 127,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.5578523000415,
+       "lng": 126.945625246085,
+       "name": "이대앞사주카페거리",
+       "category": "landmark",
+       "distanceM": 132,
+       "categoryName": "여행 > 관광,명소 > 테마거리 > 카페거리"
+      },
+      {
+       "lat": 37.5603170022437,
+       "lng": 126.944708954847,
+       "name": "이화여자대학교 100주년기념박물관",
+       "category": "landmark",
+       "distanceM": 159,
+       "categoryName": "문화,예술 > 문화시설 > 박물관"
+      },
+      {
+       "lat": 37.5576465422299,
+       "lng": 126.944912382568,
+       "name": "예스에이피엠",
+       "category": "landmark",
+       "distanceM": 165,
+       "categoryName": "가정,생활 > 복합쇼핑몰"
+      },
+      {
+       "lat": 37.5602446572269,
+       "lng": 126.944145368915,
+       "name": "카페ING 이화여자대학교 국제관점",
+       "category": "landmark",
+       "distanceM": 181,
+       "categoryName": "음식점 > 카페 > 커피전문점 > 카페ING"
+      },
+      {
+       "lat": 37.5602374246138,
+       "lng": 126.944093311243,
+       "name": "이화여자대학교 색채디자인연구소",
+       "category": "landmark",
+       "distanceM": 184,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.5578443452978,
+       "lng": 126.944027193041,
+       "name": "연세게스트하우스",
+       "category": "landmark",
+       "distanceM": 189,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5578406531733,
+       "lng": 126.943841585581,
+       "name": "참호텔",
+       "category": "landmark",
+       "distanceM": 201,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.5575453192876,
+       "lng": 126.944249242689,
+       "name": "디케이하우스",
+       "category": "landmark",
+       "distanceM": 202,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.55712071970736,
+       "lng": 126.94568915617135,
+       "name": "학교앞작은의원",
+       "category": "hospital",
+       "distanceM": 213,
+       "categoryName": "의료,건강 > 병원 > 가정의학과"
+      },
+      {
+       "lat": 37.5585647100232,
+       "lng": 126.943121229717,
+       "name": "코지박스",
+       "category": "landmark",
+       "distanceM": 221,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.55836559573451,
+       "lng": 126.94313383062362,
+       "name": "서울바램의원",
+       "category": "hospital",
+       "distanceM": 226,
+       "categoryName": "의료,건강 > 병원 > 정형외과"
+      },
+      {
+       "lat": 37.5570542858013,
+       "lng": 126.946213208231,
+       "name": "서울대항유외과의원",
+       "category": "hospital",
+       "distanceM": 228,
+       "categoryName": "의료,건강 > 병원 > 외과"
+      },
+      {
+       "lat": 37.55707416180402,
+       "lng": 126.9463320285418,
+       "name": "서울올바른정형외과의원",
+       "category": "hospital",
+       "distanceM": 229,
+       "categoryName": "의료,건강 > 병원 > 정형외과"
+      },
+      {
+       "lat": 37.558550241684,
+       "lng": 126.943012589799,
+       "name": "신촌지구대",
+       "category": "public",
+       "distanceM": 230,
+       "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 지구대"
+      },
+      {
+       "lat": 37.5570778058909,
+       "lng": 126.946420303061,
+       "name": "연세아름다운산부인과의원",
+       "category": "hospital",
+       "distanceM": 231,
+       "categoryName": "의료,건강 > 병원 > 산부인과"
+      },
+      {
+       "lat": 37.5569654886771,
+       "lng": 126.945127917652,
+       "name": "파루스셀라 이화",
+       "category": "landmark",
+       "distanceM": 233,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.55805476547647,
+       "lng": 126.94316236116282,
+       "name": "함종욱치과의원",
+       "category": "hospital",
+       "distanceM": 237,
+       "categoryName": "의료,건강 > 병원 > 치과"
+      },
+      {
+       "lat": 37.5569438078811,
+       "lng": 126.945005703893,
+       "name": "에이원 치과교정과 치과의원",
+       "category": "hospital",
+       "distanceM": 238,
+       "categoryName": "의료,건강 > 병원 > 치과"
+      },
+      {
+       "lat": 37.56121873625399,
+       "lng": 126.94630641938139,
+       "name": "이화여자대학교 ECC 영산극장",
+       "category": "landmark",
+       "distanceM": 250,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5579651321345,
+       "lng": 126.948087898969,
+       "name": "서울대신초등학교",
+       "category": "university",
+       "distanceM": 254,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      },
+      {
+       "lat": 37.556814718869,
+       "lng": 126.94642954546576,
+       "name": "이대역 2호선",
+       "category": "subway",
+       "distanceM": 259,
+       "categoryName": "교통,수송 > 지하철,전철 > 수도권2호선"
+      },
+      {
+       "lat": 37.561380317548,
+       "lng": 126.945006970396,
+       "name": "이화여자대학교 대강당",
+       "category": "landmark",
+       "distanceM": 263,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5573484910586,
+       "lng": 126.943385854773,
+       "name": "비욘드스위트",
+       "category": "landmark",
+       "distanceM": 268,
+       "categoryName": "여행 > 숙박 > 호텔"
+      },
+      {
+       "lat": 37.56073742314097,
+       "lng": 126.947913939922,
+       "name": "이화아트센터",
+       "category": "landmark",
+       "distanceM": 280,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.561510765904394,
+       "lng": 126.9465416294436,
+       "name": "아트하우스모모",
+       "category": "landmark",
+       "distanceM": 287,
+       "categoryName": "문화,예술 > 영화,영상 > 영화관"
+      },
+      {
+       "lat": 37.557111514209595,
+       "lng": 126.94335547657839,
+       "name": "소라모텔",
+       "category": "landmark",
+       "distanceM": 289,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.5572226508612,
+       "lng": 126.947952602815,
+       "name": "한예진아트홀",
+       "category": "landmark",
+       "distanceM": 293,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5588634090248,
+       "lng": 126.942231419568,
+       "name": "자미갤러리",
+       "category": "landmark",
+       "distanceM": 293,
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
+      },
+      {
+       "lat": 37.5578166147841,
+       "lng": 126.942568363185,
+       "name": "아지토 라이브 홀",
+       "category": "landmark",
+       "distanceM": 296,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.561565788092366,
+       "lng": 126.94667740925101,
+       "name": "이화여자대학교 삼성홀",
+       "category": "landmark",
+       "distanceM": 296,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5580020860377,
+       "lng": 126.942293200219,
+       "name": "호텔엘리",
+       "category": "landmark",
+       "distanceM": 310,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.557617464193214,
+       "lng": 126.94250626888852,
+       "name": "신촌월호텔",
+       "category": "landmark",
+       "distanceM": 312,
+       "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.55967513765615,
+       "lng": 126.94208931819857,
+       "name": "신촌역 경의중앙선",
+       "category": "subway",
+       "distanceM": 313,
+       "categoryName": "교통,수송 > 지하철,전철 > 경의중앙선"
+      },
+      {
+       "lat": 37.55690240407069,
+       "lng": 126.94319153032649,
+       "name": "서울그랜드호스텔 이대",
+       "category": "landmark",
+       "distanceM": 316,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5573742802628,
+       "lng": 126.94855006801,
+       "name": "서울과학종합대학교",
+       "category": "university",
+       "distanceM": 323,
+       "categoryName": "교육,학문 > 학교 > 대학교"
+      },
+      {
+       "lat": 37.5598369984884,
+       "lng": 126.949227454571,
+       "name": "GS더프레시 신촌이대역점",
+       "category": "shopping",
+       "distanceM": 336,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+      },
+      {
+       "lat": 37.5587297905453,
+       "lng": 126.941680344365,
+       "name": "아하우스",
+       "category": "landmark",
+       "distanceM": 343,
+       "categoryName": "여행 > 숙박"
+      },
+      {
+       "lat": 37.5613035555988,
+       "lng": 126.94273885548,
+       "name": "이화여자대학교 사범대학부속 초등학교",
+       "category": "university",
+       "distanceM": 352,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      },
+      {
+       "lat": 37.55602383214839,
+       "lng": 126.9468477244978,
+       "name": "서울큐브이화",
+       "category": "landmark",
+       "distanceM": 354,
+       "categoryName": "여행 > 숙박 > 게스트하우스"
+      },
+      {
+       "lat": 37.5625009004279,
+       "lng": 126.944458336105,
+       "name": "이화여자대학교 사범대학부속 이화금란중학교",
+       "category": "university",
+       "distanceM": 395,
+       "categoryName": "교육,학문 > 학교 > 중학교"
+      },
+      {
+       "lat": 37.5610740764488,
+       "lng": 126.949249251481,
+       "name": "이화여자대학교 김영의홀",
+       "category": "landmark",
+       "distanceM": 396,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+      },
+      {
+       "lat": 37.5608831436842,
+       "lng": 126.941620943359,
+       "name": "서울경찰청 성산로별관",
+       "category": "public",
+       "distanceM": 402,
+       "categoryName": "사회,공공기관 > 행정기관 > 경찰청 > 시도경찰청"
+      },
+      {
+       "lat": 37.5553553761251,
+       "lng": 126.947034935066,
+       "name": "소금길",
+       "category": "landmark",
+       "distanceM": 429,
+       "categoryName": "여행 > 관광,명소 > 테마거리"
+      },
+      {
+       "lat": 37.562544705628845,
+       "lng": 126.94765009467245,
+       "name": "이화여자대학교",
+       "category": "university",
+       "distanceM": 430,
+       "categoryName": "교육,학문 > 학교 > 대학교"
+      },
+      {
+       "lat": 37.5558469433118,
+       "lng": 126.942380874348,
+       "name": "대흥동주민센터",
+       "category": "public",
+       "distanceM": 452,
+       "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+      },
+      {
+       "lat": 37.56225233153921,
+       "lng": 126.94096340991969,
+       "name": "세브란스병원",
+       "category": "landmark",
+       "distanceM": 539,
+       "categoryName": "의료,건강 > 병원 > 대학병원"
+      }
+     ],
+     "nearestStation": {
+      "lat": 37.556814718869,
+      "lng": 126.94642954546576,
+      "name": "이대역 2호선",
+      "distanceM": 259,
+      "walkMinutes": 3
+     }
+    },
+    "registryData": {
+     "source": "fallback_mock",
+     "checked": false,
+     "fetchedAt": "2026-10-05T21:19:31.851Z",
+     "mortgages": [],
+     "attachments": [],
+     "rawResponse": null,
+     "displayMessage": "등기부 조회 미연동 (외부 API 미연결 또는 모의 데이터)",
+     "encumbranceRisk": "check_required"
+    },
+    "buildingRegister": {
+     "mainPnu": "1141011200100560001",
+     "platArea": 486.2809735,
+     "totalArea": 3842.6444840000004,
+     "_areaConflictInvalidated": [
+      "useAprDay",
+      "mainPurpose",
+      "structure",
+      "floorsAbove",
+      "floorsBelow",
+      "bcRat",
+      "vlRat",
+      "buildingName"
+     ]
+    },
+    "locationMapImage": null,
+    "cadastralMapImage": "$asset-data:operating-hotel-r2/asset-01.png",
+    "commercialDistrict": null,
+    "comparableTransactions": [
+     {
+      "area": 169.56,
+      "floors": 2,
+      "address": "서대문구 연희동 702-13",
+      "dealDay": 8,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 320000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 1887238,
+      "pricePerPyeong": 6238802
+     },
+     {
+      "area": 36.37,
+      "floors": 0,
+      "address": "서대문구 북아현동 1**",
+      "dealDay": 13,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 2000000000,
+      "_isFallback": false,
+      "buildingUse": "제1종근린생활",
+      "pricePerSqm": 54990377,
+      "pricePerPyeong": 181786362
+     },
+     {
+      "area": 25.92,
+      "floors": 1,
+      "address": "서대문구 영천동 100",
+      "dealDay": 29,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 230000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 8873457,
+      "pricePerPyeong": 29333740
+     },
+     {
+      "area": 33.25,
+      "floors": 2,
+      "address": "서대문구 홍제동 459",
+      "dealDay": 3,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 120000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 3609023,
+      "pricePerPyeong": 11930653
+     },
+     {
+      "area": 48.11,
+      "floors": 0,
+      "address": "서대문구 남가좌동 384",
+      "dealDay": 1,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 410000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 8522137,
+      "pricePerPyeong": 28172352
+     },
+     {
+      "area": 80.78,
+      "floors": 0,
+      "address": "서대문구 홍은동 265-77",
+      "dealDay": 19,
+      "dealYear": 2026,
+      "dealMonth": 8,
+      "dealAmount": 170000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 2104481,
+      "pricePerPyeong": 6956963
+     },
+     {
+      "area": 1921.48,
+      "floors": 0,
+      "address": "서대문구 홍제동 2**",
+      "dealDay": 5,
+      "dealYear": 2026,
+      "dealMonth": 8,
+      "dealAmount": 15000000000,
+      "_isFallback": false,
+      "buildingUse": "제1종근린생활",
+      "pricePerSqm": 7806483,
+      "pricePerPyeong": 25806553
+     },
+     {
+      "area": 214.42,
+      "floors": 0,
+      "address": "서대문구 홍제동 2**",
+      "dealDay": 5,
+      "dealYear": 2026,
+      "dealMonth": 8,
+      "dealAmount": 2000000000,
+      "_isFallback": false,
+      "buildingUse": "제1종근린생활",
+      "pricePerSqm": 9327488,
+      "pricePerPyeong": 30834670
+     },
+     {
+      "area": 3.8,
+      "floors": 0,
+      "address": "서대문구 대현동 145",
+      "dealDay": 31,
+      "dealYear": 2026,
+      "dealMonth": 8,
+      "dealAmount": 5000000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 1315789,
+      "pricePerPyeong": 4349717
+     },
+     {
+      "area": 3.8,
+      "floors": 0,
+      "address": "서대문구 대현동 145",
+      "dealDay": 31,
+      "dealYear": 2026,
+      "dealMonth": 8,
+      "dealAmount": 5000000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 1315789,
+      "pricePerPyeong": 4349717
+     }
+    ]
+   },
+   "financials": {
+    "wacc": null,
+    "adrKrw": 95000,
+    "occPct": 78,
+    "capRate": {
+     "base": 3.57,
+     "best": 3.927,
+     "worst": 3.213
+    },
+    "posture": "operating",
+    "irr5Year": null,
+    "annualNoi": {
+     "base": 1070000000,
+     "best": 1177000000,
+     "worst": 963000000
+    },
+    "revparKrw": 74100,
+    "disclaimer": "AI 직영 운영 지표 추정값 (참고용). 매출·가동률·운영비에 따라 변동될 수 있습니다.",
+    "pricePerSqm": 7807123,
+    "yieldOnCost": null,
+    "annualGopBil": 10.7,
+    "gopMarginPct": 38,
+    "annualRentBil": null,
+    "gopCapRatePct": 3.57,
+    "loanAmountBil": null,
+    "equityRequired": 300,
+    "landValueRatio": null,
+    "leveragedYield": null,
+    "pricePerPyeong": 25808670,
+    "totalDepositBil": null,
+    "grossYieldOnEquity": null,
+    "landValueRatioNote": "운영형 자산 — GOP 및 객단가/가동률 분석 적용",
+    "grossYieldStabilized": null
+   },
+   "photo_urls": [
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_01.png",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_02.png",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_03.jpeg",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_04.png",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_05.png"
+   ],
+   "approved_at": "2026-10-05T21:20:16.724Z",
+   "askingPrice": 30000000000,
+   "coordinates": {
+    "lat": 37.5590467181363,
+    "lng": 126.945552056884
+   },
+   "dcfEligible": false,
+   "mapImageUrl": "/api/public/map/static?lat=37.5590467181363&lng=126.945552056884&w=640&h=360&level=3",
+   "releaseTier": "fact_om",
+   "generated_at": "2026-10-05T21:20:02.242Z",
+   "heroSubtitle": "대현 소재, 오피스빌딩, 매각 희망가 300억",
+   "ssot_summary": {
+    "pnu": "1141011200100560001",
+    "zoning": "일반상업지역",
+    "address": "서울 서대문구 이화여대길 51",
+    "asset_type": "오피스빌딩",
+    "price_band": "300억",
+    "area_signal": "대현",
+    "area_source": {
+     "land": "broker_memo",
+     "total": "broker_memo",
+     "register_conflict": {
+      "broker_sqm": 3842.6444840000004,
+      "register_sqm": 231.4
+     }
+    },
+    "fit_summary": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+    "max_bcr_pct": 60,
+    "max_far_pct": 800,
+    "size_signal": "1162.4평",
+    "land_area_sqm": 486.2809735,
+    "vacancy_signal": "공실 발생",
+    "vacancy_status": "공실 발생",
+    "caution_summary": "권리관계 및 공부 서류 검토 필요",
+    "register_main_pnu": "1141011200100560001",
+    "investment_posture": "operating",
+    "asking_price_manwon": 3000000,
+    "total_gross_area_sqm": 3842.6444840000004
+   },
+   "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
+   "external_data": {
+    "errors": [],
+    "address": "서울 서대문구 이화여대길 51",
+    "enrichedAt": "2026-10-05T21:19:32.247Z",
+    "hasPublicData": true,
+    "fallbackStatus": {
+     "landPrice": null,
+     "landUsePlan": null,
+     "locationPoi": null,
+     "buildingRegister": null
+    }
+   },
+   "ogDescription": "대현 · 오피스빌딩 · 300억 · 핵심 투자 포인트 및 자산 개요",
+   "hotel_operating": {
+    "adr_krw": 95000,
+    "revpar_krw": 74100,
+    "total_rooms": 94,
+    "operator_name": "에이치 에비뉴",
+    "annual_gop_krw": 1070000000,
+    "gop_margin_pct": 38,
+    "operating_model": "management_contract",
+    "annual_revenue_krw": 2820000000,
+    "occupancy_rate_pct": 78
+   },
+   "readiness_score": 70,
+   "dataCompleteness": {
+    "generatedAt": "2026-10-05T21:20:02.246Z",
+    "qualityGrade": "B",
+    "buildingRegister": true,
+    "pptxExportAllowed": true,
+    "buildingRegisterSource": "loaded"
+   },
+   "resolved_address": "서울 서대문구 이화여대길 51",
+   "financialWarnings": [],
+   "investmentPosture": "operating",
+   "investment_posture": "operating",
+   "keyInvestmentPoint": "대현 소재, 오피스빌딩, 매각 희망가 300억",
+   "asking_price_manwon": 3000000,
+   "approval_target_hash": "sha256:cf979655c76c4d5f9a719202bb6571ef2bcfc6d922f3f6e1a2aeefb2e5c29849",
+   "broker_physical_inputs": {
+    "parking_count": 18,
+    "elevator_count": 2
+   }
+  }
+ },
+ "building": {
+  "id": "ffefa1f7-71c8-4b72-ab1c-75272f057d05",
+  "created_by_role": "broker",
+  "input_type": "broker_memo",
+  "raw_input": "에이치에비뉴호텔 이대점 매각\n매각가 300억\n소재지: 서울 서대문구 대현동 (이대역 도보 3분)\n대지 147.1평 (486.2㎡), 연면적 1,162.4평 (3,842.6㎡)\n지하 2층 ~ 지상 12층, 준공 2016년, 주차 18대, 승강기 2대\n일반상업지역, 관광호텔업 3급\n총 객실 94실 (스탠다드 더블 46, 트윈 28, 디럭스 14, 스위트 6)\n운영: 에이치 에비뉴 위탁운영 (2029년 만료)\nADR 95,000원, OCC 78%, RevPAR 74,100원\n연간 총매출 약 28.2억, GOP 약 10.7억 (GOP 마진 38%)\nCap Rate (GOP 기준) 약 3.57%",
+  "area_signal": "대현",
+  "asset_type": "오피스빌딩",
+  "price_band": "300억",
+  "size_signal": "147.1평",
+  "current_use_signal": "근린생활시설",
+  "vacancy_signal": "공실 발생",
+  "fit_summary": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+  "caution_summary": "권리관계 및 공부 서류 검토 필요",
+  "hidden_fields": [
+   "exact_address",
+   "seller_motivation"
+  ],
+  "layers": {
+   "finance": {
+    "vacancy_pct": null,
+    "loan_amount_krw": null,
+    "asking_price_krw": 30000000000,
+    "monthly_rent_krw": null,
+    "total_deposit_krw": null,
+    "loan_amount_manwon": null,
+    "asking_price_manwon": 3000000,
+    "monthly_rent_manwon": null,
+    "total_deposit_manwon": null
+   },
+   "location": {
+    "pnu": null,
+    "address": "매각가 300",
+    "raw_address": "매각가 300"
+   },
+   "lease_summary": {
+    "vacancy_pct": null,
+    "monthly_rent_krw": null,
+    "total_deposit_krw": null,
+    "monthly_rent_manwon": null,
+    "total_deposit_manwon": null
+   },
+   "land_area_pyung": 147.1,
+   "total_floor_area_pyung": 1162.4
+  },
+  "confidence": {
+   "assetType": "confirmed",
+   "priceBand": "confirmed",
+   "areaSignal": "confirmed",
+   "fitSummary": "ai_hypothesis"
+  },
+  "disclosure": {
+   "guard_checked": true
+  },
+  "status": "public_signal_ready",
+  "created_at": "2026-10-02T05:22:06.283408+00:00",
+  "updated_at": "2026-10-05T21:20:19.709749+00:00",
+  "promotion_score": 0.345,
+  "promotion_updated_at": "2026-10-02T05:22:09.605+00:00",
+  "matched_buyer_count": 0,
+  "vacancy_inquiry_count": 0,
+  "vacancy_avg_fit_score": null,
+  "vacancy_demand_verified": false,
+  "iot_daily_footfall": null,
+  "iot_avg_dwell_minutes": null,
+  "iot_peak_hour": null,
+  "iot_footfall_trend": null,
+  "iot_monthly_energy_kwh": null,
+  "iot_energy_efficiency": null,
+  "iot_floor_occupancy": null,
+  "iot_device_id": null,
+  "iot_last_synced_at": null,
+  "verification_status": "not_found",
+  "verification_details": {
+   "checks": {
+    "purposeMatch": null,
+    "buildingExists": false,
+    "areaWithinRange": null
+   },
+   "status": "not_found",
+   "details": {
+    "aiAddress": "대현",
+    "aiAssetType": "오피스빌딩",
+    "errorReason": "국토부 건축물대장에 해당 건물 정보 없음",
+    "aiSizeSignal": "147.1평"
+   },
+   "resolvedComponents": {
+    "ji": "0",
+    "bun": "0",
+    "bjdongCd": "11200",
+    "sigunguCd": "11410"
+   }
+  },
+  "verified_at": null,
+  "raw_address": "매각가 300",
+  "canonical_property_id": null,
+  "address": "서울 서대문구 이화여대길 51",
+  "pnu": "1141011200100560001",
+  "lat": 37.5590467181363,
+  "lng": 126.945552056884,
+  "investment_posture": "operating"
+ },
+ "broker": {
+  "display_name": "E2E 테스트 브로커",
+  "company_name": "E2E 테스트 부동산중개법인",
+  "phone": "010-0000-0000",
+  "email": "broker@example.test",
+  "registration_no": "11560-2026-00001"
+ },
+ "liveEnrichment": {
+  "cadastralMapImage": "$asset-data:operating-hotel-r2/asset-02.png",
+  "hasCadastralMap": true,
+  "locationPoi": {
+   "nearestStation": {
+    "name": "이대역 2호선",
+    "lat": 37.556814718869,
+    "lng": 126.94642954546576,
+    "distanceM": 259,
+    "walkMinutes": 3
+   },
+   "poiCounts": {
+    "subway": 8,
+    "busStop": 0,
+    "cafe": 124,
+    "parking": 31,
+    "restaurant": 306,
+    "convenience": 44
+   },
+   "keySpots": [
+    {
+     "name": "이대역 2호선",
+     "lat": 37.556814718869,
+     "lng": 126.94642954546576,
+     "distanceM": 259,
+     "category": "subway"
+    },
+    {
+     "name": "신촌역 경의중앙선",
+     "lat": 37.55967513765615,
+     "lng": 126.94208931819857,
+     "distanceM": 313,
+     "category": "subway"
+    },
+    {
+     "name": "피기유통",
+     "lat": 37.5589765283591,
+     "lng": 126.945158132962,
+     "distanceM": 35,
+     "category": "landmark"
+    },
+    {
+     "name": "무궁화아파트",
+     "lat": 37.55868046110819,
+     "lng": 126.94594041156329,
+     "distanceM": 53,
+     "category": "landmark"
+    },
+    {
+     "name": "신촌럭키아파트 101동",
+     "lat": 37.559463696261936,
+     "lng": 126.94653064226853,
+     "distanceM": 98,
+     "category": "landmark"
+    }
+   ],
+   "candidateSpots": [
+    {
+     "name": "필스테이 이화부띠끄",
+     "lat": 37.5588288279059,
+     "lng": 126.945294055367,
+     "distanceM": 33,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "피기유통",
+     "lat": 37.5589765283591,
+     "lng": 126.945158132962,
+     "distanceM": 35,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "이화여자대학교 정문",
+     "lat": 37.5594236592153,
+     "lng": 126.94566937595,
+     "distanceM": 43,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 입출구"
+    },
+    {
+     "name": "무궁화아파트",
+     "lat": 37.55868046110819,
+     "lng": 126.94594041156329,
+     "distanceM": 53,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트"
+    },
+    {
+     "name": "청년밥상문간 이화여자대학교점",
+     "lat": 37.559466664229525,
+     "lng": 126.94514419219361,
+     "distanceM": 59,
+     "category": "landmark",
+     "categoryName": "음식점 > 한식 > 찌개,전골"
+    },
+    {
+     "name": "신촌이대거리",
+     "lat": 37.558429910306984,
+     "lng": 126.94577988001983,
+     "distanceM": 71,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리"
+    },
+    {
+     "name": "이화52번가",
+     "lat": 37.5593872415555,
+     "lng": 126.944854511401,
+     "distanceM": 72,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리"
+    },
+    {
+     "name": "신촌대학탐방나들길",
+     "lat": 37.559697526744216,
+     "lng": 126.94559221484572,
+     "distanceM": 72,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 도보여행"
+    },
+    {
+     "name": "히든플레이스",
+     "lat": 37.55844363590013,
+     "lng": 126.94624050403536,
+     "distanceM": 90,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "삼거리꽃길",
+     "lat": 37.5582053633034,
+     "lng": 126.945348836386,
+     "distanceM": 94,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리"
+    },
+    {
+     "name": "신촌럭키아파트 101동",
+     "lat": 37.559463696261936,
+     "lng": 126.94653064226853,
+     "distanceM": 98,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트 > 아파트 동"
+    },
+    {
+     "name": "더스퀘어즈갤러리",
+     "lat": 37.5595114391476,
+     "lng": 126.94455562601,
+     "distanceM": 102,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "레드클라우드박스",
+     "lat": 37.5580735798658,
+     "lng": 126.944837371161,
+     "distanceM": 124,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박"
+    },
+    {
+     "name": "갤러리GRAA",
+     "lat": 37.557975037547,
+     "lng": 126.946065416083,
+     "distanceM": 127,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "이대앞사주카페거리",
+     "lat": 37.5578523000415,
+     "lng": 126.945625246085,
+     "distanceM": 132,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리 > 카페거리"
+    },
+    {
+     "name": "이화여자대학교 100주년기념박물관",
+     "lat": 37.5603170022437,
+     "lng": 126.944708954847,
+     "distanceM": 159,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 박물관"
+    },
+    {
+     "name": "예스에이피엠",
+     "lat": 37.5576465422299,
+     "lng": 126.944912382568,
+     "distanceM": 165,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 복합쇼핑몰"
+    },
+    {
+     "name": "카페ING 이화여자대학교 국제관점",
+     "lat": 37.5602446572269,
+     "lng": 126.944145368915,
+     "distanceM": 181,
+     "category": "landmark",
+     "categoryName": "음식점 > 카페 > 커피전문점 > 카페ING"
+    },
+    {
+     "name": "이화여자대학교 색채디자인연구소",
+     "lat": 37.5602374246138,
+     "lng": 126.944093311243,
+     "distanceM": 184,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학교부속시설"
+    },
+    {
+     "name": "연세게스트하우스",
+     "lat": 37.5578443452978,
+     "lng": 126.944027193041,
+     "distanceM": 189,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "참호텔",
+     "lat": 37.5578406531733,
+     "lng": 126.943841585581,
+     "distanceM": 201,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "디케이하우스",
+     "lat": 37.5575453192876,
+     "lng": 126.944249242689,
+     "distanceM": 202,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "학교앞작은의원",
+     "lat": 37.55712071970736,
+     "lng": 126.94568915617135,
+     "distanceM": 213,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 가정의학과"
+    },
+    {
+     "name": "코지박스",
+     "lat": 37.5585647100232,
+     "lng": 126.943121229717,
+     "distanceM": 221,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "서울바램의원",
+     "lat": 37.55836559573451,
+     "lng": 126.94313383062362,
+     "distanceM": 226,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 정형외과"
+    },
+    {
+     "name": "서울대항유외과의원",
+     "lat": 37.5570542858013,
+     "lng": 126.946213208231,
+     "distanceM": 228,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 외과"
+    },
+    {
+     "name": "서울올바른정형외과의원",
+     "lat": 37.55707416180402,
+     "lng": 126.9463320285418,
+     "distanceM": 229,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 정형외과"
+    },
+    {
+     "name": "신촌지구대",
+     "lat": 37.558550241684,
+     "lng": 126.943012589799,
+     "distanceM": 230,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 지구대"
+    },
+    {
+     "name": "연세아름다운산부인과의원",
+     "lat": 37.5570778058909,
+     "lng": 126.946420303061,
+     "distanceM": 231,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 산부인과"
+    },
+    {
+     "name": "파루스셀라 이화",
+     "lat": 37.5569654886771,
+     "lng": 126.945127917652,
+     "distanceM": 233,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "함종욱치과의원",
+     "lat": 37.55805476547647,
+     "lng": 126.94316236116282,
+     "distanceM": 237,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 치과"
+    },
+    {
+     "name": "에이원 치과교정과 치과의원",
+     "lat": 37.5569438078811,
+     "lng": 126.945005703893,
+     "distanceM": 238,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 치과"
+    },
+    {
+     "name": "이화여자대학교 ECC 영산극장",
+     "lat": 37.56121873625399,
+     "lng": 126.94630641938139,
+     "distanceM": 250,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "서울대신초등학교",
+     "lat": 37.5579651321345,
+     "lng": 126.948087898969,
+     "distanceM": 254,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "이대역 2호선",
+     "lat": 37.556814718869,
+     "lng": 126.94642954546576,
+     "distanceM": 259,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권2호선"
+    },
+    {
+     "name": "이화여자대학교 대강당",
+     "lat": 37.561380317548,
+     "lng": 126.945006970396,
+     "distanceM": 263,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "비욘드스위트",
+     "lat": 37.5573484910586,
+     "lng": 126.943385854773,
+     "distanceM": 268,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 호텔"
+    },
+    {
+     "name": "이화아트센터",
+     "lat": 37.56073742314097,
+     "lng": 126.947913939922,
+     "distanceM": 280,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "아트하우스모모",
+     "lat": 37.561510765904394,
+     "lng": 126.9465416294436,
+     "distanceM": 287,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 영화,영상 > 영화관"
+    },
+    {
+     "name": "소라모텔",
+     "lat": 37.557111514209595,
+     "lng": 126.94335547657839,
+     "distanceM": 289,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "한예진아트홀",
+     "lat": 37.5572226508612,
+     "lng": 126.947952602815,
+     "distanceM": 293,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "자미갤러리",
+     "lat": 37.5588634090248,
+     "lng": 126.942231419568,
+     "distanceM": 293,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 미술관"
+    },
+    {
+     "name": "아지토 라이브 홀",
+     "lat": 37.5578166147841,
+     "lng": 126.942568363185,
+     "distanceM": 296,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "이화여자대학교 삼성홀",
+     "lat": 37.561565788092366,
+     "lng": 126.94667740925101,
+     "distanceM": 296,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "호텔엘리",
+     "lat": 37.5580020860377,
+     "lng": 126.942293200219,
+     "distanceM": 310,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "신촌월호텔",
+     "lat": 37.557617464193214,
+     "lng": 126.94250626888852,
+     "distanceM": 312,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "신촌역 경의중앙선",
+     "lat": 37.55967513765615,
+     "lng": 126.94208931819857,
+     "distanceM": 313,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 경의중앙선"
+    },
+    {
+     "name": "서울그랜드호스텔 이대",
+     "lat": 37.55690240407069,
+     "lng": 126.94319153032649,
+     "distanceM": 316,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "서울과학종합대학교",
+     "lat": 37.5573742802628,
+     "lng": 126.94855006801,
+     "distanceM": 323,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 대학교"
+    },
+    {
+     "name": "GS더프레시 신촌이대역점",
+     "lat": 37.5598369984884,
+     "lng": 126.949227454571,
+     "distanceM": 336,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+    },
+    {
+     "name": "아하우스",
+     "lat": 37.5587297905453,
+     "lng": 126.941680344365,
+     "distanceM": 343,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박"
+    },
+    {
+     "name": "이화여자대학교 사범대학부속 초등학교",
+     "lat": 37.5613035555988,
+     "lng": 126.94273885548,
+     "distanceM": 352,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "서울큐브이화",
+     "lat": 37.55602383214839,
+     "lng": 126.9468477244978,
+     "distanceM": 354,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "이화여자대학교 사범대학부속 이화금란중학교",
+     "lat": 37.5625009004279,
+     "lng": 126.944458336105,
+     "distanceM": 395,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 중학교"
+    },
+    {
+     "name": "이화여자대학교 김영의홀",
+     "lat": 37.5610740764488,
+     "lng": 126.949249251481,
+     "distanceM": 396,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "서울경찰청 성산로별관",
+     "lat": 37.5608831436842,
+     "lng": 126.941620943359,
+     "distanceM": 402,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰청 > 시도경찰청"
+    },
+    {
+     "name": "소금길",
+     "lat": 37.5553553761251,
+     "lng": 126.947034935066,
+     "distanceM": 429,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리"
+    },
+    {
+     "name": "이화여자대학교",
+     "lat": 37.562544705628845,
+     "lng": 126.94765009467245,
+     "distanceM": 430,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 대학교"
+    },
+    {
+     "name": "대흥동주민센터",
+     "lat": 37.5558469433118,
+     "lng": 126.942380874348,
+     "distanceM": 452,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+    },
+    {
+     "name": "세브란스병원",
+     "lat": 37.56225233153921,
+     "lng": 126.94096340991969,
+     "distanceM": 539,
+     "category": "landmark",
+     "categoryName": "의료,건강 > 병원 > 대학병원"
+    }
+   ]
+  },
+  "landPriceHistory": {
+   "history": [
+    {
+     "year": "2017",
+     "pricePerSqm": 25250000
+    },
+    {
+     "year": "2018",
+     "pricePerSqm": 25250000
+    },
+    {
+     "year": "2019",
+     "pricePerSqm": 25250000
+    },
+    {
+     "year": "2020",
+     "pricePerSqm": 26420000
+    },
+    {
+     "year": "2021",
+     "pricePerSqm": 29420000
+    },
+    {
+     "year": "2022",
+     "pricePerSqm": 32420000
+    },
+    {
+     "year": "2023",
+     "pricePerSqm": 29690000
+    },
+    {
+     "year": "2024",
+     "pricePerSqm": 29730000
+    },
+    {
+     "year": "2025",
+     "pricePerSqm": 29920000
+    },
+    {
+     "year": "2026",
+     "pricePerSqm": 29970000
+    }
+   ],
+   "cagrPct": 1.9,
+   "totalGrowthPct": 18.7,
+   "latestPricePerSqm": 29970000,
+   "oldestPricePerSqm": 25250000
+  },
+  "landUsePlan": {
+   "zoningDistrict": "일반상업지역",
+   "zoningOverlap": [],
+   "buildingCoverageMax": 60,
+   "floorAreaRatioMax": 800,
+   "landArea": 102.5,
+   "landShape": "가로장방",
+   "terrain": "평지",
+   "roadAccess": "중로각지",
+   "landUseSituation": "상업용",
+   "_source": "vworld"
+  }
+ },
+ "urlTier": "basic"
+}

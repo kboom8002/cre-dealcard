@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "golden": "development-jamwon-r3",
+  "fixture": "docs/golden-test-data/p4-jamwon-dev/r3-verified",
+  "notes": [
+    "CONFLICT(오너 확인 필요): 용적률 — 대장 325.63% vs 픽스처 floorAreaRatio=247. 둘 다 허용.",
+    "랜드마크 그룹 없음: candidateSpots 에 뚜렷한 대형 랜드마크가 없어(역·주민센터·마트뿐) 역 이름만 기대한다."
+  ],
+  "must_contain": [
+    {
+      "id": "asking-price",
+      "label": "매각 희망가",
+      "anyOf": [
+        "re:(?<![\\d.])242(?:\\.\\d+)?\\s*억",
+        "re:(?<![\\d,.])2,422,,?680(?:\\.0+)?(?![\\d,])"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "bottom_sheet.askingPriceManwon=2422680"
+    },
+    {
+      "id": "gfa",
+      "label": "연면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])2,?032\\.59(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "register totalArea=2032.59 = fixture"
+    },
+    {
+      "id": "land-area",
+      "label": "대지면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])616\\.1(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "2필지 합계 511.7+104.4 (fixture parcels) = register.platArea 616.1"
+    },
+    {
+      "id": "floors-above",
+      "label": "지상 층수",
+      "anyOf": [
+        "re:지상\\s*5\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register 5/1 = fixture B1~5F"
+    },
+    {
+      "id": "floors-below",
+      "label": "지하 층수",
+      "anyOf": [
+        "re:지하\\s*1\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "completion-year",
+      "label": "준공/사용승인 연도",
+      "anyOf": [
+        "re:(준공|사용승인)[\\s\\S]{0,24}?1990",
+        "re:1990\\s*[년.][^\\n]{0,12}(준공|사용승인|신축)"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register useAprDay=19901108"
+    },
+    {
+      "id": "bcr",
+      "label": "현황 건폐율",
+      "anyOf": [
+        "re:49\\.76\\s*%"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register bcRat=49.76 = fixture"
+    },
+    {
+      "id": "far",
+      "label": "현황 용적률",
+      "anyOf": [
+        "re:(?:325\\.6\\d?|247(?:\\.0)?)\\s*%"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register 325.63 | fixture 247 (CONFLICT)"
+    },
+    {
+      "id": "parking-elevator",
+      "label": "주차/승강기",
+      "anyOf": [
+        "re:주차[^\\d]{0,12}12\\s*대\\s*/\\s*1\\s*대"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "parcel-count",
+      "label": "필지 수",
+      "anyOf": [
+        "re:2\\s*필지"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "station",
+      "label": "최근접 역",
+      "anyOf": [
+        "신사역"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "locationPoi.nearestStation (API) = 신사역 신분당선"
+    },
+    {
+      "id": "target-scale",
+      "label": "신축 목표 규모 464평",
+      "anyOf": [
+        "re:464(?:\\.\\d+)?\\s*평"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "note": "developmentSpec.targetScalePyeong"
+    },
+    {
+      "id": "station-nonhyeon",
+      "label": "논현역 (메모: 도보 7분)",
+      "anyOf": [
+        "논현역"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    }
+  ],
+  "must_not_contain": [
+    {
+      "label": "'0㎡' 표기 (0 면적)",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*㎡"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "0 클레임이 면적으로 렌더됨 — Rule 34/37 (결측은 -)"
+    },
+    {
+      "label": "'0.0평' 표기",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*평"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "비정상 수치 토큰 (Infinity/NaN/undefined)",
+      "anyOf": [
+        "Infinity",
+        "NaN",
+        "undefined"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 마스킹 잔여 '[임차인'",
+      "anyOf": [
+        "[임차인"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "뷰어 렌트롤/본문에 마스킹 라벨 잔존 — 실명 사용 결정(W3)"
+    },
+    {
+      "label": "TARGET 플레이스홀더 노출",
+      "anyOf": [
+        "TARGET"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "본문 말줄임표 '…' (잘린 문장)",
+      "anyOf": [
+        "…"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 익명 라벨 ('임차인 A' 등) — 실명 사용 결정",
+      "anyOf": [
+        "re:임차인\\s*[A-Z](?![A-Za-z])"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "오너 결정: IM 전 구간 실제 임차인명 사용"
+    }
+  ],
+  "must_not_be_dash": [
+    {
+      "label": "연면적",
+      "labelRegex": "연면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])2,?032\\.59(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "fixture",
+      "note": "원천에 값이 있는데 PPTX 가 다른 값/대시/행 누락"
+    },
+    {
+      "label": "대지면적",
+      "labelRegex": "대지면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])616\\.1(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "label": "층수",
+      "labelRegex": "층수",
+      "regexNearLabel": "^\\s*(지하|지상|B\\d)[^\\n]{0,12}지상\\s*5",
+      "window": 30,
+      "where": "pptx",
+      "source": "register",
+      "note": "층수 행이 대시이거나 누락"
+    },
+    {
+      "label": "사용승인일/준공시점",
+      "labelRegex": "(사용승인일|준공시점)",
+      "regexNearLabel": "^\\s*1990",
+      "window": 14,
+      "where": "pptx",
+      "source": "register",
+      "note": "준공 연도 행이 대시이거나 누락"
+    },
+    {
+      "label": "건폐율 / 용적률 (현황)",
+      "labelRegex": "건폐율\\s*/\\s*용적률(?!\\s*\\(법정\\))",
+      "regexNearLabel": "49\\.76",
+      "window": 30,
+      "where": "pptx",
+      "source": "register",
+      "note": "대장에 값이 있는데 개요 행이 대시/누락"
+    }
+  ],
+  "landmarks": [],
+  "numeric": [
+    {
+      "id": "gfa-all-occurrences",
+      "label": "연면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "연면적",
+      "value": 2032.59,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "fixture",
+      "note": "register totalArea=2032.59 = fixture — 다른 건물 값(예: 231.4㎡)이 한 곳이라도 섞이면 실패"
+    },
+    {
+      "id": "land-all-occurrences",
+      "label": "대지면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "대지면적",
+      "value": 616.1,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "derived",
+      "note": "2필지 합계 511.7+104.4 (fixture parcels) = register.platArea 616.1"
+    }
+  ],
+  "duplicate_sentences": {
+    "label": "슬라이드 간 동일 문장 중복",
+    "min_len": 28,
+    "ignore": [
+      "^(CREDEAL|CRE DEAL|본 자료|©|※)",
+      "^E2E ",
+      "^[✓★▲●◇]",
+      "^(01|02|03)$"
+    ]
+  }
+}

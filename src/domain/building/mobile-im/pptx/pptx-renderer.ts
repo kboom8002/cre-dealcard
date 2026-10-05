@@ -30,10 +30,13 @@ import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 import { validateLayout } from './layout-validator';
 import { validateYield, type Yield } from './yield-object';
 import { buildYieldSetFromBody } from '../yield-set';
+import { summarizeLeaseOccupancy } from '../lease-vacancy';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
+import { collectBrokerMentionTexts } from './utils/broker-mention-texts';
 import { resolvePhysicalSpecs } from '../resolve-physical-specs';
 import { summarizeParcels, withParcelCountSuffix } from '../parcel-input';
+import { resolveBrokerMemoFacts } from './binder/broker-memo-facts';
 import { buildSummaryHighlights, extractSummaryFacts, isBoilerplateHighlight } from './summary-highlights';
 import { resolveOverviewSpecs, buildOverviewSpecRows, isMissingSpecValue } from './spec-resolver';
 
@@ -95,6 +98,8 @@ export interface MobileImPptxInput {
   /** Pro IM 발행 모드 (30+ 슬라이드, 5대 핵심 챕터) */
   isPro?: boolean;
   proMode?: boolean;
+  /** 입지도 랜드마크 풀 오프라인 픽스처 (렌더 경로 전용, LLM 프롬프트와 무관) */
+  landmarkPoolFixture?: import('@/lib/external/landmark-pool').LandmarkPool | null;
 }
 
 export interface MobileImPptxOutput {
@@ -186,6 +191,9 @@ export class MobileImPptxRenderer {
             pnus,
             address: input.doc.body?.ssot_summary?.address ?? input.building?.address,
             landAreaSqm: Number(input.doc.body?.ssot_summary?.land_area_sqm ?? input.building?.land_area_sqm ?? 0),
+            posture,
+            assetType: input.building?.asset_type ?? input.doc.body?.ssot_summary?.asset_type,
+            landmarkPoolFixture: input.landmarkPoolFixture ?? null,
           });
           enrichment = {
             ...enrichment,
@@ -542,7 +550,14 @@ export class MobileImPptxRenderer {
             : (Number.isFinite(rawLandSqm) && rawLandSqm > 0 ? sqmToPyeong(rawLandSqm) : 0);
           if (Number.isFinite(landPy) && landPy > 0 && Number.isFinite(askManwon) && askManwon > 0) {
             const unitPrice = Math.round(askManwon / landPy);
-            if (Number.isFinite(unitPrice) && unitPrice > 0) {
+            // Rule 34: 중개인이 메모에 명시한 토지평당가가 있으면 계산값보다 우선(두 숫자 동시 표기 금지) — 출처 라벨 병기
+            const statedLandPrice = resolveBrokerMemoFacts(input.doc.body, input.building).development.landPricePerPyeongManwon;
+            if (statedLandPrice) {
+              dataMap['building'].priceTable2 = {
+                label: '토지평당가',
+                value: `약 ${statedLandPrice.toLocaleString()}만 원/평 (중개인 제시)`,
+              };
+            } else if (Number.isFinite(unitPrice) && unitPrice > 0) {
               dataMap['building'].priceTable2 = {
                 label: '토지평당가',
                 value: `약 ${unitPrice.toLocaleString()}만 원/평`,
@@ -622,8 +637,31 @@ export class MobileImPptxRenderer {
         dataMap['location'].poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
         // 입지 POI 정밀 선별(location-poi-selector)용: 실조회 후보 풀 + 포스처/자산유형
         dataMap['location'].poiCandidates = externalPoi?.candidateSpots ?? null;
+        // 랜드마크 풀(렌더 경로 전용): enrichment 가 이미 풀을 갖고 있으면 재사용, 없으면 해석(캐시/픽스처/라이브). 실패 시 레거시 후보로 폴백.
+        try {
+          const locCoords = input.doc.body?.coordinates ?? input.doc.body?.ssot_summary?.coordinates;
+          let lmPool = (enrichment as any)?.landmarkPool ?? null;
+          if (!lmPool && locCoords?.lat && locCoords?.lng) {
+            const { resolveLandmarkPool } = await import('@/lib/external/landmark-pool');
+            lmPool = await resolveLandmarkPool(
+              { lat: Number(locCoords.lat), lng: Number(locCoords.lng) },
+              {
+                posture,
+                assetType: input.building?.asset_type ?? input.doc.body?.ssot_summary?.asset_type ?? null,
+                fixture: input.landmarkPoolFixture ?? null,
+              },
+            );
+          }
+          if (lmPool?.candidates?.length) {
+            dataMap['location'].poiCandidates = lmPool.candidates;
+          }
+        } catch (err) {
+          log.warn('[pptx-renderer] landmark pool skipped (graceful)', err);
+        }
         dataMap['location'].posture = posture;
         dataMap['location'].assetType = input.building?.asset_type ?? input.doc.body?.ssot_summary?.asset_type ?? null;
+        // 중개인 실입력 원문(메모·입지 설명·소재지)에 언급된 대형 기관은 지도에서 누락하지 않는다 (렌더 전용 — LLM 프롬프트 무관)
+        dataMap['location'].mentionTexts = collectBrokerMentionTexts(input.building, input.doc.body);
 
         // D8: 우측 입지 조건 구조화 행 — ssot/POI 데이터에서 동적 생성 (하드코딩 금지)
         const ssot = input.doc.body?.ssot_summary ?? {};
@@ -877,18 +915,10 @@ export class MobileImPptxRenderer {
         // floor_leases에서 공실률 직접 산출 (ssot_summary.vacancy_pct 미설정 방어)
         if (vacPct === 0 && input.doc.body?.floor_leases?.length) {
           const leases = ((input.doc.body.floor_leases || []) as Record<string, any>[]).filter(Boolean);
-          const totalUnits = leases.length;
-          const vacantUnits = leases.filter((l: any) => 
-            l && (
-              l.is_vacant === true 
-              || l.tenant === '공실' || l.tenant_name === '공실'
-              || l.tenant_type === '공실' || l.tenant_sector === '공실'
-              || (l.tenant_type?.includes?.('공실'))
-              || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type)
-            )
-          ).length;
-          if (vacantUnits > 0 && totalUnits > 0) {
-            vacPct = Math.round((vacantUnits / totalUnits) * 1000) / 10;
+          // 점유 상태 SSOT(lease-vacancy): 자가사용은 공실·분모에서 제외, 월세 0 추정 공실 오판 방지
+          const occ = summarizeLeaseOccupancy(leases);
+          if (occ.vacant > 0 && occ.vacancyPct != null) {
+            vacPct = occ.vacancyPct;
           }
         }
         const askKrw = askManwon * 10000;

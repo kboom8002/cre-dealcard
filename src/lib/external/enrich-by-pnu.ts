@@ -14,6 +14,10 @@ import { geocodeAddress } from "@/domain/verification/address-resolver";
 import { fetchCommercialDistrictFull, type CommercialDistrictAnalysis } from "./semas-commercial-api";
 import { fetchCadastralMapImage, type CadastralMapResult } from "./vworld-wms-cadastral";
 import { createModuleLogger } from "@/lib/logger";
+import { resolveMainLotPnu, type MainLotResolution } from "./main-lot-resolver";
+
+export { resolveMainLotPnu } from "./main-lot-resolver";
+export type { MainLotResolution } from "./main-lot-resolver";
 
 const logger = createModuleLogger("enrich-by-pnu");
 const CACHE_TTL_DAYS = 30;
@@ -33,7 +37,8 @@ export async function enrichBuildingDataCore(
   rawAddress: string,
   buildingSsotLiteId: string,
   cachedData?: any,
-  staleSources?: string[]
+  staleSources?: string[],
+  mainLot?: MainLotResolution | null
 ): Promise<ExternalDataEnrichmentResult> {
   const errors: { api: string; message: string }[] = [];
   const { sigunguCd, bjdongCd, bun, ji, pnu, lat, lng } = resolvedAddress;
@@ -52,6 +57,8 @@ export async function enrichBuildingDataCore(
   await Promise.all([
     (async () => {
       if (cachedData && !isSourceStale(staleSources, 'building_register', 'buildingRegister')) { buildingRegister = cachedData.building_register; return; }
+      // 대표지번 해석 단계에서 이미 조회한 대장이면 재호출하지 않는다 (동일 인자: hint 없음, platGbCd)
+      if (mainLot && mainLot.mainPnu === pnu) { buildingRegister = { ...mainLot.register }; return; }
       try { 
         const platGbCd = pnu.charAt(10) === '2' ? '1' : '0';
         buildingRegister = await fetchBuildingRegister(sigunguCd, bjdongCd, bun, ji, undefined, platGbCd); 
@@ -130,6 +137,12 @@ export async function enrichBuildingDataCore(
     if (rc.heatMethodNm) br.heatMethod = rc.heatMethodNm;
   }
 
+  // 대표지번 provenance (register_main_pnu / 부속지번) — 프롬프트에는 stripRenderOnlyExternal 로 제외됨
+  if (br && mainLot && mainLot.mainPnu === pnu) {
+    br.mainPnu = mainLot.mainPnu;
+    if (mainLot.attachedLots.length > 0) br.attachedLots = [...mainLot.attachedLots];
+  }
+
   // Multi-PNU secondary parcels
   let secondaryParcels: { pnu: string; platArea: number }[] | undefined = undefined;
   if (resolvedAddress.allPnus && resolvedAddress.allPnus.length > 1) {
@@ -167,8 +180,14 @@ export async function enrichBuildingDataCore(
       const brData = buildingRegister as BuildingRegisterData | null;
       if (brData) {
         const additionalArea = secondaryParcels.reduce((sum, sp) => sum + sp.platArea, 0);
-        brData.platArea += additionalArea;
-        logger.info(`Added ${additionalArea}㎡ from ${secondaryParcels.length} secondary parcels. New total platArea: ${brData.platArea}㎡`);
+        if (brData.platArea > 0) {
+          // 대장 platArea 는 대표지번+부속지번 합산 면적이다 (p5: 518.7). 보조필지 면적을 다시 더하면 이중계상 (→ 783.5).
+          // 보조필지 개별 면적은 secondaryParcels 로만 노출한다.
+          logger.info(`Register platArea ${brData.platArea}㎡ already covers the lot; skip adding ${additionalArea}㎡ from ${secondaryParcels.length} secondary parcels`);
+        } else {
+          brData.platArea = (Number.isFinite(brData.platArea) ? brData.platArea : 0) + additionalArea;
+          logger.info(`Added ${additionalArea}㎡ from ${secondaryParcels.length} secondary parcels. New total platArea: ${brData.platArea}㎡`);
+        }
       }
     }
   }
@@ -276,6 +295,16 @@ export async function enrichBuildingDataByPNU(
     logger.info(`Multi-PNU detected: ${valid19Pnus.length} parcels. Primary: ${primaryPnu}, others: ${valid19Pnus.slice(1).join(', ')}`);
   }
 
+  // 대표지번 해석 (실패/미발견 → null: 입력 첫 필지로 기존 동작 유지)
+  const resolveLotsSafe = async (): Promise<MainLotResolution | null> => {
+    try {
+      return await resolveMainLotPnu(valid19Pnus.length > 0 ? valid19Pnus : [primaryPnu], rawAddress);
+    } catch (e) {
+      logger.warn("resolveMainLotPnu failed", { err: e });
+      return null;
+    }
+  };
+
   // ─── 캐시 확인
   try {
     const supabase = createServiceClient();
@@ -291,21 +320,28 @@ export async function enrichBuildingDataByPNU(
       const staleSourcesInfo = Object.entries(CACHE_TTL_BY_SOURCE)
         .filter(([_, ttlDays]) => cacheAge > (ttlDays as number) * 86400000)
         .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
+      // 과거 조회 실패로 빈 대장({})이 캐시된 경우: TTL(90일) 동안 '조회 실패'가 굳지 않도록 대장만 재조회
+      const registerMissing = !(Number((cached.building_register as any)?.totalArea) > 0);
 
-      if (staleSourcesInfo.length > 0) {
-        logger.info(`${staleSourcesInfo.length} sources stale: ${staleSourcesInfo.map(s => s.source).join(', ')}`);
+      if (staleSourcesInfo.length > 0 || registerMissing) {
+        logger.info(`${staleSourcesInfo.length} sources stale: ${staleSourcesInfo.map(s => s.source).join(', ')}${registerMissing ? ' (+building_register empty)' : ''}`);
         const staleSources = staleSourcesInfo.map(s => s.source);
+        if (registerMissing && !staleSources.includes('building_register')) staleSources.push('building_register');
+        const needRegister = isSourceStale(staleSources, 'building_register', 'buildingRegister');
+        const mainLot = needRegister ? await resolveLotsSafe() : null;
+        const staleLotPnu = mainLot?.mainPnu ?? primaryPnu;
         return await enrichBuildingDataCore(
           {
-            pnu: primaryPnu, legalDongCode: primaryPnu.substring(0, 10), sigunguCd: primaryPnu.substring(0, 5), bjdongCd: primaryPnu.substring(5, 10),
-            bun: primaryPnu.substring(11, 15) || "0000", ji: primaryPnu.substring(15, 19) || "0000",
-            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || null, lng: cached.longitude || null, buildingMgtNo: primaryPnu + "000000",
-            allPnus: valid19Pnus
+            pnu: staleLotPnu, legalDongCode: staleLotPnu.substring(0, 10), sigunguCd: staleLotPnu.substring(0, 5), bjdongCd: staleLotPnu.substring(5, 10),
+            bun: staleLotPnu.substring(11, 15) || "0000", ji: staleLotPnu.substring(15, 19) || "0000",
+            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || null, lng: cached.longitude || null, buildingMgtNo: staleLotPnu + "000000",
+            allPnus: mainLot?.orderedPnus ?? valid19Pnus
           },
           rawAddress,
           buildingSsotLiteId,
           cached,
-          staleSources
+          staleSources,
+          mainLot
         );
       } else {
         logger.info(`Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
@@ -323,12 +359,16 @@ export async function enrichBuildingDataByPNU(
     }
   } catch { /* 캐시 조회 실패 시 정상 진행 */ }
 
+  // 대표지번 해석: 입력 순서와 무관하게 표제부가 있는 필지를 primary 로 (실패 시 입력 첫 필지 유지)
+  const mainLot = await resolveLotsSafe();
+  const lotPnu = mainLot?.mainPnu ?? primaryPnu;
+
   // PNU에서 주소 코드 파싱
-  const legalDongCode = primaryPnu.substring(0, 10);
-  const sigunguCd = primaryPnu.substring(0, 5);
-  const bjdongCd = primaryPnu.substring(5, 10);
-  const bun = primaryPnu.substring(11, 15) || "0000";
-  const ji = primaryPnu.substring(15, 19) || "0000";
+  const legalDongCode = lotPnu.substring(0, 10);
+  const sigunguCd = lotPnu.substring(0, 5);
+  const bjdongCd = lotPnu.substring(5, 10);
+  const bun = lotPnu.substring(11, 15) || "0000";
+  const ji = lotPnu.substring(15, 19) || "0000";
 
   // 좌표 해석
   let lat: number | null = null;
@@ -351,7 +391,7 @@ export async function enrichBuildingDataByPNU(
   }
 
   const resolvedAddress: ResolvedAddress = {
-    pnu: primaryPnu,
+    pnu: lotPnu,
     legalDongCode,
     sigunguCd,
     bjdongCd,
@@ -361,11 +401,11 @@ export async function enrichBuildingDataByPNU(
     jibunAddress: rawAddress,
     lat,
     lng,
-    buildingMgtNo: primaryPnu + "000000",
-    allPnus: valid19Pnus,
+    buildingMgtNo: lotPnu + "000000",
+    allPnus: mainLot?.orderedPnus ?? valid19Pnus,
   };
 
-  return enrichBuildingDataCore(resolvedAddress, rawAddress, buildingSsotLiteId);
+  return enrichBuildingDataCore(resolvedAddress, rawAddress, buildingSsotLiteId, undefined, undefined, mainLot);
 }
 
 export function reconstructFromCache(cached: any): ExternalDataEnrichmentResult {

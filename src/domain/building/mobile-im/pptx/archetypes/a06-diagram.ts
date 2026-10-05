@@ -255,6 +255,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
             posture: input.data?.posture ?? null,
             assetType: input.data?.assetType ?? null,
             candidates: Array.isArray(input.data?.poiCandidates) ? input.data.poiCandidates : null,
+            mentionTexts: Array.isArray(input.data?.mentionTexts) ? input.data.mentionTexts : null,
           },
         );
       } catch (err) {

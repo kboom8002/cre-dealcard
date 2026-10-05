@@ -1,29 +1,82 @@
 /**
- * POST /api/cron/retention-purge
+ * POST|GET /api/cron/retention-purge
  * 
  * §9 보유기간 만료 데이터 자동 파기 배치
  * - party: 마지막 활동 24개월 후
  * - buyer_condition: observed_at 24개월 후
  * - track_event: 12개월 후 집계 → 원본 파기
+ * - magazine (G-01/S2-18): 해지 후 30일 경과 구독자 PII 파기 + 365일 초과 분석 이벤트 삭제 (RPC)
  * 
- * Vercel Cron에서 주 1회 실행 권장.
+ * Vercel Cron은 GET으로 호출한다(vercel.json에서 일 1회 등록). 수동 호출은 POST도 허용.
+ * 두 방식 모두 CRON_SECRET(Bearer) 필수.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/service';
 
 export const maxDuration = 60;
 
+/** CRON_SECRET timing-safe 비교. secret이 없으면 항상 거부 */
+function isCronAuthorized(req: NextRequest): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return false;
+  const expected = Buffer.from(`Bearer ${cronSecret}`);
+  const actual = Buffer.from(req.headers.get('authorization') ?? '');
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+interface MagazinePurgeEntry {
+  ok: boolean;
+  /** RPC 반환값(건수 등) */
+  result?: unknown;
+  error?: string;
+}
+
+/**
+ * 매거진 파기 RPC. 함수가 아직 없으면(마이그레이션 20261004000014 미적용) 성공으로 위장하지 않고 정직한 에러를 기록한다.
+ * 한 RPC 실패가 다른 파기를 막지 않도록 개별 try/catch.
+ */
+async function purgeMagazine(supabase: ReturnType<typeof createServiceClient>): Promise<Record<string, MagazinePurgeEntry>> {
+  const steps: Array<[string, string, Record<string, number>]> = [
+    ['unsubscribed', 'magazine_purge_unsubscribed', { p_days: 30 }],
+    ['oldEvents', 'magazine_purge_old_events', { p_days: 365 }],
+  ];
+  const out: Record<string, MagazinePurgeEntry> = {};
+  for (const [key, fn, args] of steps) {
+    try {
+      const { data, error } = await supabase.rpc(fn, args);
+      if (error) {
+        const missing = error.code === 'PGRST202' || error.code === '42883' || /could not find the function|does not exist/i.test(error.message ?? '');
+        out[key] = {
+          ok: false,
+          error: missing ? `RPC ${fn} 없음 — 마이그레이션 20261004000014 미적용` : error.message,
+        };
+      } else {
+        out[key] = { ok: true, result: data };
+      }
+    } catch (e) {
+      out[key] = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  return out;
+}
+
+export async function GET(req: NextRequest) {
+  return POST(req);
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Cron 인증 확인
-    const authHeader = req.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (!isCronAuthorized(req)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = createServiceClient();
     const results: Record<string, number> = {};
+
+    // 0. 매거진 PII·이벤트 파기 (실패해도 이후 기존 파기는 계속 진행하되 결과에 정직하게 노출)
+    const magazine = await purgeMagazine(supabase);
 
     // 1. 보유기간 만료 Party 파기
     const { data: expiredParties } = await supabase
@@ -69,8 +122,9 @@ export async function POST(req: NextRequest) {
     results.eventsPurged = eventsPurged || 0;
 
     return NextResponse.json({
-      ok: true,
+      ok: Object.values(magazine).every((m) => m.ok),
       results,
+      magazine,
       purgedAt: new Date().toISOString(),
     });
   } catch (err: any) {

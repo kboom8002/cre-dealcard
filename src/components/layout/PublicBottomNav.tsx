@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useEffect, useRef, useState } from "react";
 import { PublicMoreMenu } from "@/components/layout/PublicMoreMenu";
+import { useHasBottomBar } from "@/components/ui/use-bottom-slot";
+import { shouldShowPublicNav } from "@/components/ui/bottom-bar-logic";
 
 const NAV_ITEMS = [
   {
@@ -55,6 +57,9 @@ export function PublicBottomNav() {
   const [visible, setVisible] = useState(true);
   const [moreOpen, setMoreOpen] = useState(false);
   const lastScrollY = useRef(0);
+  // 매거진 BottomBar 가 떠 있으면 하단 탐색을 숨겨 하단 바 중복을 막는다 (매거진 외 페이지는 count=0 이라 불변)
+  const hasBottomBar = useHasBottomBar();
+  const showNav = shouldShowPublicNav({ scrollVisible: visible, hasBottomBar });
 
   // Hide on scroll down, reveal on scroll up
   useEffect(() => {
@@ -78,7 +83,7 @@ export function PublicBottomNav() {
       <PublicMoreMenu open={moreOpen} onClose={() => setMoreOpen(false)} />
 
       <AnimatePresence>
-        {visible && (
+        {showNav && (
           <motion.nav
             role="navigation"
             aria-label="주요 탐색"
@@ -144,7 +149,7 @@ export function PublicBottomNav() {
 
                     <span
                       className={cn(
-                        "text-[10px] font-medium leading-none transition-all duration-200",
+                        "text-caption font-medium leading-none transition-all duration-200",
                         active ? "font-semibold" : ""
                       )}
                     >
@@ -183,7 +188,7 @@ export function PublicBottomNav() {
                     moreOpen ? "w-5 h-5 stroke-[2.2]" : "w-5 h-5 stroke-[1.8]"
                   )}
                 />
-                <span className="text-[10px] font-medium leading-none">더보기</span>
+                <span className="text-caption font-medium leading-none">더보기</span>
               </button>
             </div>
           </motion.nav>

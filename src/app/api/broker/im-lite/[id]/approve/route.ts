@@ -113,7 +113,10 @@ export async function POST(
     const registry = new ClaimRegistry();
 
     if (Array.isArray(fullDocForGate.body.claims) && fullDocForGate.body.claims.length > 0) {
+      // 면적/금액 클레임은 유한 & > 0 만 재수화 (과거 문서의 0 값 클레임은 "누락"으로 취급 → 게이트가 포스처별로 판정)
+      const POSITIVE_ONLY = new Set(['asking_price', 'total_area', 'total_area_sqm', 'land_area', 'land_area_sqm', 'plat_area_sqm', 'site_area_sqm']);
       for (const rawClaim of fullDocForGate.body.claims) {
+        if (POSITIVE_ONLY.has(rawClaim?.subject) && typeof rawClaim?.value === 'number' && !(Number.isFinite(rawClaim.value) && rawClaim.value > 0)) continue;
         registry.register(rawClaim);
       }
     } else if (fullDocForGate.body.ssot_summary || fullDocForGate.body.sections) {
@@ -129,10 +132,11 @@ export async function POST(
           status: 'reconciled',
         });
       }
-      if (ssot.total_area || ssot.total_gross_area_sqm || ssot.gross_area) {
+      const legacyTotalArea = [ssot.total_area, ssot.total_gross_area_sqm, ssot.gross_area].map(Number).find(v => Number.isFinite(v) && v > 0);
+      if (legacyTotalArea) {
         registry.register({
           subject: 'total_area',
-          value: ssot.total_area || ssot.total_gross_area_sqm || ssot.gross_area,
+          value: legacyTotalArea,
           evidence: [],
           provenance: 'public_api',
           asOf: new Date().toISOString(),
@@ -156,11 +160,25 @@ export async function POST(
     
     // gross_floor_area fallback for total_area
     if (!allClaims.some(c => ['total_area', 'total_area_sqm'].includes(c.subject))) {
-      const area = ssot.total_gross_area_sqm || ssot.gross_floor_area_sqm || ssot.gross_floor_area_m2;
+      const area = [ssot.total_gross_area_sqm, ssot.gross_floor_area_sqm, ssot.gross_floor_area_m2].map(Number).find(v => Number.isFinite(v) && v > 0);
       if (area) {
         registry.register({
           subject: 'total_area',
           value: area,
+          evidence: [],
+          provenance: 'broker',
+          asOf: new Date().toISOString(),
+          status: 'reconciled',
+        });
+      }
+    }
+    // land_area fallback (개발 포스처 필수 / 그 외 선택) — ssot_summary 의 해석된 대지면적(>0)만 사용
+    if (!allClaims.some(c => ['land_area', 'land_area_sqm', 'plat_area_sqm', 'site_area_sqm'].includes(c.subject))) {
+      const land = [ssot.land_area_sqm, ssot.plat_area_sqm, ssot.site_area_sqm].map(Number).find(v => Number.isFinite(v) && v > 0);
+      if (land) {
+        registry.register({
+          subject: 'land_area_sqm',
+          value: land,
           evidence: [],
           provenance: 'broker',
           asOf: new Date().toISOString(),

@@ -236,6 +236,10 @@ export interface HospitalitySpec {
 
 export interface DevelopmentSpec {
   monthly_revenue_manwon?: number;
+  /** 중개인 원문 메모 제시 토지평당가 (만원/평) */
+  landPricePerPyeongManwon?: number;
+  /** 중개인 원문 메모 제시 허가(인허가) 용적률 % */
+  maxFarPct?: number;
 }
 
 export interface VacateSpec {
@@ -254,6 +258,10 @@ export interface OccupancySpec {
   currentRentManwon?: number;
   currentRentMonthlyManwon?: number;
   monthly_revenue_manwon?: number;
+  /** 중개인 제시 연 임대료 절감액 (억원) — 원문 메모 명시값 */
+  annualSavingsBil?: number;
+  /** 중개인 제시 자가전환 손익분기 (년) — 원문 메모 명시값 */
+  breakevenYears?: number;
 }
 
 export interface SectionalSpec {

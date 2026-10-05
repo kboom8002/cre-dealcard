@@ -36,7 +36,7 @@ const DONG_NAMES: Record<string, string> = {
 };
 
 export async function fetchCommercialDistrictFull(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   pnu: string
 ): Promise<CommercialDistrictAnalysis | null> {
   const ldongCd = pnuToLegalDongCode(pnu);
@@ -69,17 +69,26 @@ export async function fetchCommercialDistrictFull(
     const fetchPromises = endpoints.map(url => fetch(url, { signal: AbortSignal.timeout(8000) }));
     const results = await Promise.allSettled(fetchPromises);
 
-    let storeCount = 500;
+    let storeCount: number | null = null;
     let items: any[] = [];
     
     // 첫번째 엔드포인트 (storeListInDong) 결과 파싱
     const listRes = results[0];
     if (listRes.status === "fulfilled" && listRes.value.ok) {
       const json = await listRes.value.json();
-      storeCount = json?.body?.totalCount || storeCount;
+      const total = Number(json?.body?.totalCount);
+      storeCount = Number.isFinite(total) && total > 0 ? total : null;
       // 실제 items 구조 확인 (json?.body?.items?.item 등 다양할 수 있음)
       items = Array.isArray(json?.body?.items) ? json.body.items : (json?.body?.items?.item || []);
     }
+
+    // 실측 점포수가 없으면 분석을 만들지 않는다 (과거: 500 기본값 + 가짜 업종비중으로 지어냄 — M2-05 동류)
+    if (storeCount === null) {
+      logger.warn(`SEMAS storeListInDong returned no store count for ${ldongCd}; analysis skipped`);
+      return null;
+    }
+
+    const totalStores: number = storeCount;
 
     // Process top categories from the retrieved items
     const catCounts: Record<string, number> = {};
@@ -88,18 +97,11 @@ export async function fetchCommercialDistrictFull(
       catCounts[cat] = (catCounts[cat] || 0) + 1;
     }
     
-    let topCategories = Object.entries(catCounts)
-      .map(([name, count]) => ({ name, count, share: Math.round((count / storeCount) * 100) }))
+    // 실측 items 가 없으면 빈 배열 (가짜 업종비중 금지)
+    const topCategories = Object.entries(catCounts)
+      .map(([name, count]) => ({ name, count, share: Math.round((count / totalStores) * 100) }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 3);
-      
-    if (topCategories.length === 0) {
-      topCategories = [
-        { name: "음식", count: Math.floor(storeCount * 0.4), share: 40 },
-        { name: "소매", count: Math.floor(storeCount * 0.3), share: 30 },
-        { name: "서비스", count: Math.floor(storeCount * 0.1), share: 10 },
-      ];
-    }
 
     // 나머지 4개 엔드포인트의 결과를 시뮬레이션 (API 한계상)
     // 실제 응답이 있는 경우 파싱 로직을 여기에 추가합니다.
@@ -127,20 +129,8 @@ export async function fetchCommercialDistrictFull(
       growthTrend: salesIdx > 70 ? "up" : salesIdx > 40 ? "stable" : "down",
     };
 
-    // Upsert into Supabase for caching (wrapped in try/catch so DB write failure does not crash analysis)
-    try {
-      const legacyPayload = {
-        district_code: analysis.districtCode,
-        district_name: analysis.districtName,
-        sales_volume_index: (analysis.salesIndex / 10).toFixed(1), // Scale to 1-10 for legacy
-        footfall_index: (analysis.footfallDaily / 10000).toFixed(1),
-        full_analysis: analysis
-      };
-      await supabase.from("commercial_district").upsert(legacyPayload, { onConflict: "district_code" });
-    } catch (cacheErr) {
-      logger.warn(`Failed to cache commercial district to Supabase for ${ldongCd}`, { err: cacheErr });
-    }
-
+    // NOTE: 과거에는 이 (일부 시뮬레이션 값이 포함된) 분석을 commercial_district 에 upsert(캐시) 했으나,
+    // 매거진 생성기가 같은 테이블을 읽어 가짜 지수가 노출되므로(M2-05/함정 15) 저장하지 않는다.
     return analysis;
   } catch (err) {
     logger.warn(`Commercial analysis failed for ${ldongCd}`, { err });

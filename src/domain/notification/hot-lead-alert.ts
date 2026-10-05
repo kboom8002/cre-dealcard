@@ -1,6 +1,10 @@
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 import type { LeadScoreResult } from '../analytics/cross-channel-score';
 import type { NotificationDbClient } from './im-view-alert';
+import { getMagazineSendAllowlist, isMagazineSendDryRun, isMagazineSendEnabled } from '@/lib/magazine/send-flags';
+import { hasKakaoProvider, normalizeRecipient } from '@/domain/magazine/send-gate';
+
+const resolveBaseUrl = (): string => (process.env.APP_BASE_URL ?? '').trim().replace(/\/+$/, '');
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('hot-lead-alert');
@@ -36,27 +40,57 @@ export async function checkAndSendHotLeadAlert(
       return false;
     }
 
-    // 2. 브로커 정보 조회
+    // 1-b. 발송 킬스위치 / dry-run / allowlist (매거진 발송 정책과 동일 플래그 — G-03)
+    if (!isMagazineSendEnabled()) {
+      log.info('[Hot Lead Alert] SEND_DISABLED — 알림 생략');
+      return false;
+    }
+    if (isMagazineSendDryRun()) {
+      log.info('[Hot Lead Alert] dry-run — 알림 미발송');
+      return false;
+    }
+
+    // 2. 브로커 정보 조회 (broker_profiles에는 name 컬럼이 없다 → 표시명은 profiles.display_name)
     const { data: bp, error: bpError } = await supabase
       .from('broker_profiles')
-      .select('user_id, name')
+      .select('user_id')
       .eq('slug', brokerId)
       .maybeSingle();
 
-    if (bpError || !bp) {
+    if (bpError) {
+      log.error('[Hot Lead Alert] Broker lookup failed:', bpError.message);
+      return false;
+    }
+    if (!bp) {
       log.warn(`[Hot Lead Alert] Broker ${brokerId} not found`);
       return false;
     }
 
-    // 3. 브로커 연락처 조회
+    // 3. 브로커 연락처·표시명 조회
     const { data: profile, error: pError } = await supabase
       .from('profiles')
-      .select('phone')
+      .select('phone, display_name')
       .eq('id', bp.user_id)
-      .single();
+      .maybeSingle();
 
     if (pError || !profile?.phone) {
       log.warn(`[Hot Lead Alert] Broker profile ${bp.user_id} has no phone`);
+      return false;
+    }
+
+    const allowlist = getMagazineSendAllowlist();
+    if (allowlist.size > 0 && !allowlist.has(normalizeRecipient(profile.phone))) {
+      log.info('[Hot Lead Alert] NOT_ALLOWLISTED — 알림 생략');
+      return false;
+    }
+    // 키 미설정 시 notification-service가 STUB로 true를 반환 → 실제 발송이 아닌데 발송 기록이 남는 것을 막는다
+    if (!hasKakaoProvider()) {
+      log.warn('[Hot Lead Alert] 알림톡 provider 키 미설정 — 알림 생략');
+      return false;
+    }
+    const baseUrl = resolveBaseUrl();
+    if (!baseUrl) {
+      log.warn('[Hot Lead Alert] APP_BASE_URL 미설정 — 대시보드 링크를 만들 수 없어 알림 생략');
       return false;
     }
 
@@ -78,22 +112,24 @@ export async function checkAndSendHotLeadAlert(
     
     const uniqueChannels = [...new Set(touchpointsList)].map(c => channelNames[c] || c);
     const channelLabel = uniqueChannels.join(', ');
+    const dashboardUrl = `${baseUrl}/broker/funnel`;
 
     // 5. 알림톡 전송
-    const smsMessage = `[CRE Deal] 🔥 Hot Lead 감지! 리드 스코어 ${lead.score}점 고객이 발견되었습니다. 접촉 채널: ${channelLabel}, 조회 매물수: ${lead.buildingsViewed.length}건. 대시보드에서 매칭 현황을 확인하세요.`;
+    const smsMessage = `[CRE Deal] 🔥 Hot Lead 감지! 리드 스코어 ${lead.score}점 고객이 발견되었습니다. 접촉 채널: ${channelLabel}, 조회 매물수: ${lead.buildingsViewed.length}건. 대시보드에서 매칭 현황을 확인하세요. ${dashboardUrl}`;
 
     const sent = await sendKakaoAlimtalk({
       recipientPhone: profile.phone,
       templateId: 'TPL_HOT_LEAD', // Solapi에 사전 등록 필요
       variables: {
-        '#{brokerName}': bp.name || '브로커',
+        '#{brokerName}': (profile.display_name as string | null)?.trim() || '브로커',
         '#{leadScore}': `${lead.score}점`,
         '#{channels}': channelLabel || '다양한 채널',
         '#{buildingCount}': `${lead.buildingsViewed.length}건`,
-        '#{dashboardUrl}': 'https://www.credeal.net/broker/funnel',
+        '#{dashboardUrl}': dashboardUrl,
       },
       fallbackSms: smsMessage,
     });
+
 
     // 6. 알림 발송 기록 적재
     if (sent) {

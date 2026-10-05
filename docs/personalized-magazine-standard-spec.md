@@ -1,5 +1,7 @@
 # 📰 개인 맞춤 매거진 (통합 에디터) 표준 스펙 및 작성 방법론
 
+> **2026-10-06 D-02 동기화**: 식별자(slug/`broker_user_id`)·에디션 SSoT·발송 게이트·동의·콘텐츠 정직성 등 **현행 표준은 [§7](#7-현행-표준-규칙-d-02-동기화-2026-10-06)** 에 있으며, §1~6 과 충돌 시 §7 이 우선합니다.
+
 ## 1. 시스템 개요 및 목적
 
 **개인 맞춤 매거진(Personalized Magazine)**은 CRE(상업용 부동산) 중개인이 자신의 고객(건물주, 매수자, 임차인)에게 매일/매주 발송할 수 있는 **초개인화된 시장 분석 및 매물 큐레이션 웹 리포트**입니다. 기존 스튜디오 기능이 "매거진 통합 에디터"로 흡수되어, 브로커는 **1분 이내에 자신만의 프리미엄 브랜드가 입혀진 전문 뉴스레터를 발행 및 카카오톡으로 공유**할 수 있습니다.
@@ -99,3 +101,45 @@ graph TD
 ## 6. 결론 및 향후 목표
 
 본 "개인 맞춤 매거진" 시스템은 정보의 비대칭성을 해소하는 수단을 넘어, **중개인을 지역 내 최고의 '시장 전문가'로 포지셔닝 해주는 핵심 마케팅 무기**입니다. 현재의 11개 스태틱 섹션 구조에서 나아가, 장기적으로는 고객의 클릭 데이터를 수집하여 "고객이 가장 오래 머문 섹션"을 분석해 다음 호 발행 시 섹션의 우선순위를 재배치하는 **초개인화 자동 편성 아키텍처**로 진화해야 합니다.
+
+---
+
+## 7. 현행 표준 규칙 (D-02 동기화, 2026-10-06)
+
+> 위 §1~6 은 초기 기획 기준입니다. 아래 규칙이 **현행 표준**이며 충돌 시 우선합니다. 근거 문서: [`docs/magazine/audit-2026-10-04/remediation_plan.md`](./magazine/audit-2026-10-04/remediation_plan.md), [`docs/magazine/03-api-reference.md`](./magazine/03-api-reference.md), [`docs/magazine/04-database-schema.md`](./magazine/04-database-schema.md).
+
+### 7.1 식별자·URL
+
+- 퍼블릭 URL 의 `[brokerId]` 자리에는 **slug** 를 씁니다(`/magazine/{slug}/{date}`). slug 는 브로커가 직접 설정하며 자동 발급하지 않습니다.
+- 내부 저장·조인·권한 비교는 **`broker_user_id`(uuid)** 입니다. 레거시 `broker_id`(text)는 호환용이며 신규 로직의 조인 키로 쓰지 않습니다.
+
+### 7.2 에디션이 SSoT
+
+- 발행·열람·분석·발송의 기준은 `magazine_editions` 입니다. §5 의 "`magazine_issues` 에 `issue_date` 기준 캐시"는 레거시 호환 경로이며 신규 기능의 원천이 아닙니다.
+- 에디션 유형: `daily` · `weekly` · `monthly` · `special` · `flash` (`owner_report` 폐기). 유일 키 = (`broker_id`, `edition_type`, `edition_label`).
+- 자동 생성물은 `needs_review` 로 저장되고, 브로커가 검토·발행합니다. **발행과 발송은 별개 단계**입니다.
+
+### 7.3 발송 표준 (sendGate)
+
+- 모든 이메일/알림톡 발송은 `send-gate` 를 통과해야 하며 `magazine_dispatch_logs`(멱등 키)에 기록됩니다.
+- 기본값은 **발송 OFF**(`MAGAZINE_SEND_ENABLED=false`), **dry-run ON**(`MAGAZINE_SEND_DRY_RUN=true`). 자동(무인) 발송은 브로커 명시 동의 구현 전까지 금지입니다.
+- 필수 차단 조건: 광고성 정보 사전 동의(`NO_CONSENT`/`PENDING_CONFIRM`), 해지(`UNSUBSCRIBED`), 채널 동의 범위(`CHANNEL_NOT_CONSENTED`), 야간 21~08시 별도 동의(`QUIET_HOURS`), `(광고)` 표기·전송자 명칭/연락처·수신거부 링크 누락, allowlist(`NOT_ALLOWLISTED`).
+- 활성화 절차: [`send-activation-checklist.md`](./magazine/audit-2026-10-04/send-activation-checklist.md) — **allowlist → dry-run → canary → 소규모 → 전체**, 사용자 서명 후에만 진행.
+
+### 7.4 콘텐츠 정직성
+
+- 목업·고정 수치(예: 고정 심리 지수 62, `news.cre-dealcard`/`cre-dummy` 더미 뉴스, 경매 시드)는 노출하지 않습니다. 운영 DB 정리는 `scripts/cleanup/` 로 항목별 승인 후 수행합니다.
+- 정확한 지번(lot)은 공개 화면에 노출하지 않습니다(동 단위 마스킹).
+- 세무 규칙(`tax-rules-2026`)은 **UNREVIEWED** — "세무사 감수 완료" 등 감수·자문 표현을 쓰지 않으며, 세무 자문으로 오인될 수 있는 문구에는 면책을 붙입니다.
+- 가짜 소셜프루프·설문 고정값은 금지하고, 설문은 실제 응답(`magazine_poll_responses`)만 집계합니다.
+
+### 7.5 동의·개인정보
+
+- 구독 시 필수: 개인정보 수집·이용 동의, 광고성 정보 수신 동의(기본 미체크), 14세 이상 확인, 이중 확인(confirm). 야간 수신은 별도 동의(`night_consent`).
+- 동의 증빙: 시각(`marketing_consent_at`), 문구 버전(`consent_version`), IP 해시(`consent_ip_hash`) — IP 원문은 저장하지 않습니다.
+- 해지 후 30일이 지나면 식별정보를 익명화합니다(`magazine_purge_unsubscribed`). 재구독은 본인 확인으로만 가능합니다.
+- 기존(동의 컬럼 이전) 구독자에 대한 동의 백필은 금지입니다.
+
+### 7.6 폐기된 기능
+
+소유자/매도자 리포트(`owner-report-generator`, `rail/*`, `/api/cron/owner-reports`, `/api/broker/reports/owner`)와 `owner_reports` 테이블은 폐기되었습니다. 레퍼럴 보상 기능은 축소(전달/공유 버튼만)되었습니다.

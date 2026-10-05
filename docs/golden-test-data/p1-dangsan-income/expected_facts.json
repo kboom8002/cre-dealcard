@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "golden": "income-dangsan-r3",
+  "fixture": "docs/golden-test-data/p1-dangsan-income/r3-verified",
+  "notes": [
+    "CONFLICT(오너 확인 필요): 연면적 — 대장 totalArea=1441.15㎡ vs 픽스처 bottom_sheet.grossFloorAreaM2=1141.15㎡ (메모의 307.9평≈1,017.8㎡ 로 픽스처 내부도 불일치). 둘 다 허용하고 numeric 단언은 생략.",
+    "자가사용(B1·4F)·통합계약(2F)은 공실이 아님: 픽스처 floor_leases 전 호실 is_vacant=false."
+  ],
+  "must_contain": [
+    {
+      "id": "asking-price",
+      "label": "매각 희망가",
+      "anyOf": [
+        "re:(?<![\\d.])115(?:\\.\\d+)?\\s*억",
+        "re:(?<![\\d,.])1,150,,?000(?:\\.0+)?(?![\\d,])"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "bottom_sheet.askingPriceManwon=1150000"
+    },
+    {
+      "id": "gfa",
+      "label": "연면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])1,?441\\.15(?!\\d)\\s*㎡",
+        "re:(?<![\\d,.])1,?141\\.15(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "register 1441.15 | fixture 1141.15 (CONFLICT)"
+    },
+    {
+      "id": "land-area",
+      "label": "대지면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])506\\.8(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "register",
+      "note": "register.platArea=506.8 = fixture landAreaM2"
+    },
+    {
+      "id": "floors-above",
+      "label": "지상 층수",
+      "anyOf": [
+        "re:지상\\s*5\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register floorsAbove=5/floorsBelow=1 = fixture B1~5F"
+    },
+    {
+      "id": "floors-below",
+      "label": "지하 층수",
+      "anyOf": [
+        "re:지하\\s*1\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "completion-year",
+      "label": "준공/사용승인 연도",
+      "anyOf": [
+        "re:(준공|사용승인)[\\s\\S]{0,24}?2002",
+        "re:2002\\s*[년.][^\\n]{0,12}(준공|사용승인|신축)"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register.useAprDay=20021212 = fixture completionYear"
+    },
+    {
+      "id": "bcr",
+      "label": "현황 건폐율",
+      "anyOf": [
+        "re:51\\.(?:89|9)\\s*%"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register bcRat=51.89"
+    },
+    {
+      "id": "far",
+      "label": "현황 용적률",
+      "anyOf": [
+        "re:221\\.(?:76|8)\\s*%"
+      ],
+      "where": "pptx",
+      "source": "register",
+      "note": "register vlRat=221.76"
+    },
+    {
+      "id": "parking-elevator",
+      "label": "주차/승강기",
+      "anyOf": [
+        "re:주차[^\\d]{0,12}8\\s*대\\s*/\\s*1\\s*대"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "station",
+      "label": "최근접 역",
+      "anyOf": [
+        "당산역"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "locationPoi.nearestStation (API) = 당산역 9호선"
+    },
+    {
+      "id": "rent-total",
+      "label": "월 임대료 합계 1,946만원",
+      "anyOf": [
+        "re:(?<![\\d,])1,?946(?!\\d)"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "floor_leases rent_manwon 합 (임대중 호실)"
+    },
+    {
+      "id": "deposit-total",
+      "label": "보증금 합계 2.9억",
+      "anyOf": [
+        "re:(?<![\\d,])29,?000(?!\\d)",
+        "re:2억\\s*9,?000"
+      ],
+      "where": "both",
+      "source": "fixture"
+    }
+  ],
+  "must_not_contain": [
+    {
+      "label": "'0㎡' 표기 (0 면적)",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*㎡"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "0 클레임이 면적으로 렌더됨 — Rule 34/37 (결측은 -)"
+    },
+    {
+      "label": "'0.0평' 표기",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*평"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "비정상 수치 토큰 (Infinity/NaN/undefined)",
+      "anyOf": [
+        "Infinity",
+        "NaN",
+        "undefined"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 마스킹 잔여 '[임차인'",
+      "anyOf": [
+        "[임차인"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "뷰어 렌트롤/본문에 마스킹 라벨 잔존 — 실명 사용 결정(W3)"
+    },
+    {
+      "label": "TARGET 플레이스홀더 노출",
+      "anyOf": [
+        "TARGET"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "본문 말줄임표 '…' (잘린 문장)",
+      "anyOf": [
+        "…"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 익명 라벨 ('임차인 A' 등) — 실명 사용 결정",
+      "anyOf": [
+        "re:임차인\\s*[A-Z](?![A-Za-z])"
+      ],
+      "where": "both",
+      "source": "derived",
+      "pending": "W3",
+      "note": "오너 결정: IM 전 구간 실제 임차인명 사용"
+    },
+    {
+      "label": "자가사용/통합계약 호실을 공실로 표기 (B1·2F·4F 공실)",
+      "anyOf": [
+        "re:공실[^\\n]{0,10}B1",
+        "re:B1[^\\n]{0,6}2F[^\\n]{0,6}4F[^\\n]{0,10}공실"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "floor_leases is_vacant=false"
+    },
+    {
+      "label": "공실률 33% (자가사용을 공실로 계산)",
+      "anyOf": [
+        "re:공실률?[^\\n]{0,8}33(?:\\.\\d+)?\\s*%"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "pending": "W3-rerecord",
+      "note": "PPTX는 lease-vacancy SSOT 로 통과. 뷰어 본문은 LLM 생성물(구 스냅샷에 33.33% 저장) — 재녹화 후 pending 해제"
+    }
+  ],
+  "must_not_be_dash": [
+    {
+      "label": "연면적",
+      "labelRegex": "연면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])1,?441\\.15(?!\\d)|^\\s*(?<![\\d,.])1,?141\\.15(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "fixture",
+      "note": "원천에 값이 있는데 PPTX 가 다른 값/대시/행 누락"
+    },
+    {
+      "label": "대지면적",
+      "labelRegex": "대지면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])506\\.8(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "label": "층수",
+      "labelRegex": "층수",
+      "regexNearLabel": "^\\s*(지하|지상|B\\d)[^\\n]{0,12}지상\\s*5",
+      "window": 30,
+      "where": "pptx",
+      "source": "register",
+      "note": "층수 행이 대시이거나 누락"
+    },
+    {
+      "label": "사용승인일/준공시점",
+      "labelRegex": "(사용승인일|준공시점)",
+      "regexNearLabel": "^\\s*2002",
+      "window": 14,
+      "where": "pptx",
+      "source": "register",
+      "note": "준공 연도 행이 대시이거나 누락"
+    },
+    {
+      "label": "건폐율 / 용적률 (현황)",
+      "labelRegex": "건폐율\\s*/\\s*용적률(?!\\s*\\(법정\\))",
+      "regexNearLabel": "51\\.(?:89|9)",
+      "window": 30,
+      "where": "pptx",
+      "source": "register",
+      "note": "대장에 값이 있는데 개요 행이 대시/누락"
+    }
+  ],
+  "landmarks": [
+    {
+      "where": "pptx",
+      "source": "derived",
+      "label": "대형 마트·의료 랜드마크 (롯데마트/홈플러스/한림대)",
+      "anyOf": [
+        "롯데마트",
+        "홈플러스",
+        "한림대",
+        "한강성심병원"
+      ],
+      "note": "candidateSpots: 롯데마트 맥스 영등포점 308m, 한림대학교의료원 219m"
+    }
+  ],
+  "numeric": [
+    {
+      "id": "land-all-occurrences",
+      "label": "대지면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "대지면적",
+      "value": 506.8,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "register",
+      "note": "register.platArea=506.8 = fixture landAreaM2"
+    }
+  ],
+  "duplicate_sentences": {
+    "label": "슬라이드 간 동일 문장 중복",
+    "min_len": 28,
+    "ignore": [
+      "^(CREDEAL|CRE DEAL|본 자료|©|※)",
+      "^E2E ",
+      "^[✓★▲●◇]",
+      "^(01|02|03)$"
+    ]
+  },
+  "tenants": {
+    "label": "임차인 실명 (렌트롤 상호 그대로)",
+    "where": "both",
+    "source": "fixture",
+    "pending": "W3",
+    "note": "memo.txt 임대현황(Verified) 상호",
+    "names": [
+      "고은약국",
+      "로뎀나무내과",
+      "헬쓰장",
+      "국제와인"
+    ]
+  }
+}

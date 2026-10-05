@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { PenLine, Info } from "lucide-react";
 import type { BrokerFieldNote } from "@/domain/magazine/types";
@@ -56,53 +56,62 @@ export function EditorFieldNoteTab({
   activeTooltip,
   setActiveTooltip,
 }: EditorFieldNoteTabProps) {
+  const uid = useId();
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/15 rounded-xl">
-        <PenLine className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-200/80 leading-relaxed">
+        <PenLine className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="text-caption text-amber-200/90 leading-relaxed">
           현장 전문가로서 이번 주 시장에 대한 직접 분석을 작성하세요.
           독자들이 가장 신뢰하는 섹션입니다.
         </p>
       </div>
 
-      {FIELD_NOTE_FIELDS.map((field) => (
-        <div key={field.key} className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-slate-300">
-              {field.label}
-            </label>
-            <button
-              onClick={() =>
-                setActiveTooltip(
-                  activeTooltip === field.key ? null : field.key
-                )
-              }
-              className="text-slate-500 hover:text-slate-300 transition-colors"
-            >
-              <Info className="w-3 h-3" />
-            </button>
-          </div>
-          <AnimatePresence>
-            {activeTooltip === field.key && (
-              <motion.p
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="text-[10px] text-slate-500 leading-relaxed pl-1 overflow-hidden"
+      {FIELD_NOTE_FIELDS.map((field) => {
+        const inputId = `${uid}-${field.key}`;
+        const tipId = `${uid}-${field.key}-tip`;
+        const tipOpen = activeTooltip === field.key;
+        return (
+          <div key={field.key} className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <label htmlFor={inputId} className="text-label font-semibold text-slate-300">
+                {field.label}
+              </label>
+              <button
+                type="button"
+                aria-label={`${field.label} 작성 도움말`}
+                aria-expanded={tipOpen}
+                aria-controls={tipId}
+                onClick={() => setActiveTooltip(tipOpen ? null : field.key)}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center text-ink-subtle hover:text-slate-300 transition-colors"
               >
-                {field.tooltip}
-              </motion.p>
-            )}
-          </AnimatePresence>
-          <textarea
-            value={fieldNote[field.key]}
-            onChange={(e) => updateFieldNote(field.key, e.target.value)}
-            className="w-full h-20 bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-[12px] text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-slate-600"
-            placeholder={field.placeholder}
-          />
-        </div>
-      ))}
+                <Info className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </div>
+            <AnimatePresence>
+              {tipOpen && (
+                <motion.p
+                  id={tipId}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="text-caption text-ink-subtle leading-relaxed pl-1 overflow-hidden"
+                >
+                  {field.tooltip}
+                </motion.p>
+              )}
+            </AnimatePresence>
+            <textarea
+              id={inputId}
+              value={fieldNote[field.key]}
+              onChange={(e) => updateFieldNote(field.key, e.target.value)}
+              aria-describedby={tipOpen ? tipId : undefined}
+              className="w-full h-20 bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-label text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-ink-subtle"
+              placeholder={field.placeholder}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

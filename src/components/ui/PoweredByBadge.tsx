@@ -29,7 +29,7 @@ export function PoweredByBadge({
       <div className={`flex items-center justify-center py-2 ${className}`}>
         <Link
           href={href}
-          className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-300 transition-colors group"
+          className="inline-flex min-h-11 items-center gap-1.5 text-caption text-slate-500 hover:text-slate-300 transition-colors group"
         >
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500/80 group-hover:text-emerald-400" />
           <span>Data Verified by</span>
@@ -52,14 +52,14 @@ export function PoweredByBadge({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                <span className="text-caption font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                   공적장부 교차검증
                 </span>
-                <span className="text-[11px] font-bold text-slate-200">
+                <span className="text-caption font-bold text-slate-200">
                   Data Verified by <span className="text-white font-extrabold">CREDEAL</span>
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 truncate mt-0.5">
+              <p className="text-caption text-slate-400 truncate mt-0.5">
                 나도 60초 만에 기관급 딜카드·매거진 만들기
               </p>
             </div>

@@ -34,7 +34,8 @@ export function HeroCard({ data }: HeroCardProps) {
       return data.landPricePerPyeong != null || data.zoning != null || !!data.askingPriceDisplay || data.devProfitMarginPct != null;
     }
     if (data.posture === "owner_occupied") {
-      return data.totalGrossAreaM2 != null || !!data.askingPriceDisplay || data.equityRequiredBil !== null || data.ownVsLeaseSavingsBil !== null;
+      // 0/NaN 은 "값 없음" — 양수만 존재로 취급 (0㎡ 히어로 노출 방지)
+      return (typeof data.totalGrossAreaM2 === "number" && Number.isFinite(data.totalGrossAreaM2) && data.totalGrossAreaM2 > 0) || !!data.askingPriceDisplay || data.equityRequiredBil !== null || data.ownVsLeaseSavingsBil !== null;
     }
     if (data.posture === "operating") {
       return data.gopMarginPct != null || data.adr != null || data.occPct != null || data.revpar != null || data.capRateBase !== null;

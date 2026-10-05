@@ -1,150 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
-
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
-
-
 /**
- * POST /api/public/magazine/referral
- * Records a referral when someone subscribes via a referral link
+ * /api/public/magazine/referral — 레퍼럴(DC-11=b: 전달 버튼만 남기는 축소)
+ *
+ * 이전 구현은 존재하지 않는 `magazine_referrals` 테이블이 없을 때 가짜 성공·가짜 카운터(`totalReferrals:1`,
+ * 보상 마일스톤)를 반환했다(T2-08). 정직하게 바꾼다:
+ *   - DB를 전혀 건드리지 않는다. 귀속·마일스톤·보상은 **차기 범위**(독자 토큰 ref + magazine_referrals 적용 후 구현).
+ *   - GET  → { ok:true, enabled:false, count:null }   (카운터를 만들어 내지 않음)
+ *   - POST → { ok:true, tracked:false }               (입력 검증만, 기록하지 않음)
+ * 공개 엔드포인트이므로 레이트리밋·본문 크기 제한 가드를 적용한다. 전화번호 등 PII는 받지도, 반환하지도 않는다.
  */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { brokerId, referrerPhone, referredPhone } = body;
+import { z } from 'zod';
+import { NextResponse } from 'next/server';
+import { withPublicGuard } from '@/lib/magazine/public-guard';
 
-    if (!brokerId || !referrerPhone || !referredPhone) {
-      return NextResponse.json(
-        { error: "brokerId, referrerPhone, referredPhone가 필요합니다." },
-        { status: 400 }
-      );
-    }
+export const dynamic = 'force-dynamic';
 
-    if (referrerPhone === referredPhone) {
-      return NextResponse.json(
-        { error: "자기 자신을 추천할 수 없습니다." },
-        { status: 400 }
-      );
-    }
+const BROKER_PARAM = /^[A-Za-z0-9가-힣_-]{1,80}$/;
 
-    const supabase = createServiceClient();
+const postSchema = z.object({
+  brokerId: z
+    .string({ error: '중개사 정보가 올바르지 않습니다.' })
+    .regex(BROKER_PARAM, '중개사 정보가 올바르지 않습니다.'),
+  /** 독자 식별 토큰(차기 범위). 현재는 형식만 확인하고 저장하지 않는다. */
+  ref: z.string().max(100, '요청 형식이 올바르지 않습니다.').optional(),
+});
 
-    // Insert referral (unique constraint prevents duplicates)
-    const { error: insertErr } = await supabase
-      .from("magazine_referrals")
-      .insert({
-        broker_id: brokerId,
-        referrer_phone: referrerPhone,
-        referred_phone: referredPhone,
-      });
+export const POST = withPublicGuard({
+  name: 'magazine-referral',
+  schema: postSchema,
+  maxBodyBytes: 2 * 1024,
+  rateLimit: { ip: { max: 30, windowSec: 3600 } },
+})(async () => {
+  // 귀속·마일스톤은 차기 범위: 기록하지 않았음을 명시적으로 알린다(가짜 성공 금지)
+  return NextResponse.json({ ok: true, tracked: false });
+});
 
-    if (insertErr && insertErr.code !== "23505") {
-      if (insertErr.code === "PGRST205") {
-        log.warn("[magazine_referrals] table not found in schema cache, returning fallback success");
-        return NextResponse.json({
-          ok: true,
-          totalReferrals: 1,
-          currentMilestone: { count: 1, reward: "비공개 시장 분석 리포트" },
-          nextMilestone: { count: 3, reward: "엑셀 수지분석기 다운로드" },
-        });
-      }
-      // 23505 = unique violation (already referred)
-      throw insertErr;
-    }
-
-    // Count total referrals for this referrer
-    const { count } = await supabase
-      .from("magazine_referrals")
-      .select("id", { count: "exact", head: true })
-      .eq("broker_id", brokerId)
-      .eq("referrer_phone", referrerPhone);
-
-    const totalReferrals = count || 0;
-
-    // Determine milestone
-    const milestones = [
-      { count: 1, reward: "비공개 시장 분석 리포트" },
-      { count: 3, reward: "엑셀 수지분석기 다운로드" },
-      { count: 5, reward: "비공개 딜 시트 열람권" },
-      { count: 10, reward: "브로커 1:1 전화 자문 30분" },
-    ];
-
-    const currentMilestone = milestones.filter(m => totalReferrals >= m.count).pop();
-    const nextMilestone = milestones.find(m => totalReferrals < m.count);
-
-    return NextResponse.json({
-      ok: true,
-      totalReferrals,
-      currentMilestone: currentMilestone || null,
-      nextMilestone: nextMilestone || null,
-    });
-  } catch (err: unknown) {
-    log.error("[api/public/magazine/referral] POST Error:", err);
+export const GET = withPublicGuard({
+  name: 'magazine-referral-get',
+  rateLimit: { ip: { max: 60, windowSec: 3600 } },
+})(async (req) => {
+  const brokerId = req.nextUrl.searchParams.get('brokerId');
+  if (!brokerId || !BROKER_PARAM.test(brokerId)) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "서버 오류" },
-      { status: 500 }
+      { ok: false, error: { code: 'INVALID_INPUT', message: '중개사 정보가 올바르지 않습니다.' } },
+      { status: 400 },
     );
   }
-}
-
-/**
- * GET /api/public/magazine/referral?brokerId=xxx&phone=yyy
- * Returns referral stats for a subscriber
- */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const brokerId = searchParams.get("brokerId");
-    const phone = searchParams.get("phone");
-
-    if (!brokerId) {
-      return NextResponse.json(
-        { error: "brokerId가 필요합니다." },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createServiceClient();
-
-    // 1. 브로커의 전체 추천 구독 누적 건수
-    const { count: brokerTotalCount } = await supabase
-      .from("magazine_referrals")
-      .select("id", { count: "exact", head: true })
-      .eq("broker_id", brokerId);
-
-    const totalForwardedSubscribers = brokerTotalCount || 0;
-
-    // 2. 특정 구독자(phone) 기준 통계 (선택 사항)
-    let totalReferrals = 0;
-    if (phone) {
-      const { count } = await supabase
-        .from("magazine_referrals")
-        .select("id", { count: "exact", head: true })
-        .eq("broker_id", brokerId)
-        .eq("referrer_phone", phone);
-      totalReferrals = count || 0;
-    }
-
-    const milestones = [
-      { count: 1, reward: "비공개 시장 분석 리포트", emoji: "📊" },
-      { count: 3, reward: "엑셀 수지분석기 다운로드", emoji: "📈" },
-      { count: 5, reward: "비공개 딜 시트 열람권", emoji: "🏢" },
-      { count: 10, reward: "브로커 1:1 전화 자문 30분", emoji: "📞" },
-    ];
-
-    return NextResponse.json({
-      ok: true,
-      totalReferrals,
-      totalForwardedSubscribers,
-      milestones,
-      currentMilestoneIdx: milestones.filter(m => totalReferrals >= m.count).length - 1,
-    });
-  } catch (err: unknown) {
-    log.error("[api/public/magazine/referral] GET Error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "서버 오류" },
-      { status: 500 }
-    );
-  }
-}
+  // 카운터 기능 비활성: count:null 은 "집계하지 않음"이며 0명이 아니다
+  return NextResponse.json({ ok: true, enabled: false, count: null });
+});

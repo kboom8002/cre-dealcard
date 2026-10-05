@@ -38,10 +38,14 @@ import { normalizeTerminologyAsync } from "./terminology-normalizer";
 import { CrePromptRegistry } from "./cre-prompt-registry";
 import { generatePremiumTemplate, formatBasicIncomeMarkdown, getSectionTitle } from "./premium-template-engine";
 import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary } from "./lease-adapter";
+import { brokerFinancialExtras } from './broker-financial-inputs';
+import { maskFabricatedBrands } from "./tenant-name-policy";
+import { alignPlatAreaForPrompt } from "./prompt-land-area";
 import type { IMGenerationContext } from "./im-context-builder";
 import { getPosturePromptOverlay } from "./posture-prompts";
 import { getModel } from "@/ai/model-selector";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
+import { resolveLandAreaWithSource, readSsotLayerAreas, readVworldLandAreaSqm } from "./resolve-total-area";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('im-section-generator');
@@ -180,6 +184,12 @@ export async function generateSingleSection(
 
   const sectionProvenance = getSectionProvenance(sectionType, ctx.provenanceMap);
 
+  // 다필지: 대장 platArea 는 대표 필지 면적 — 해석된 대지면적(필지 합/중개인 입력)과 충돌하면 프롬프트에는 해석값만 노출 (oracle trading-sinsa-r3)
+  externalData = alignPlatAreaForPrompt(
+    externalData as Record<string, any> | null,
+    Number((ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || (supplemental as any)?.land_area_m2 || 0),
+  ) as ExternalDataSnapshot | null;
+
   // Backfill monthly_rent_total_krw from floor_leases if empty
   if (!supplemental.monthly_rent_total_krw && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
     const floorSum = supplemental.floor_leases.reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0) * 10000, 0);
@@ -250,6 +260,8 @@ export async function generateSingleSection(
           devHoldMonthlyRentManwon: Array.isArray(supplemental.floor_leases)
             ? (supplemental.floor_leases as any[]).reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0), 0)
             : undefined,
+          // 중개인 제시값(구조화 + 원문 메모 명시값) — 가정 기본값 대신 사용 (Rule 34)
+          ...brokerFinancialExtras(supplemental as any, posture),
         });
         sectionFinancials = fin;
         if (!input.dcfEligible && fin.dcf10Year) {
@@ -420,7 +432,15 @@ export async function generateSingleSection(
       officialLandPricePerM2?: number;
     }> = [];
 
-    const siteAreaM2 = Number((ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || br?.platArea || 0);
+    // 대지면적 단일 해석기: 명시 입력 > (필지 합은 아래 다필지 분기) > 메모 SSoT(평→㎡) > 건축물대장 platArea(>0) > V-World > 없음
+    const resolvedSiteArea = resolveLandAreaWithSource({
+      explicitSqm: Number((ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || supplemental.land_area_m2 || 0),
+      explicitPyeong: Number((supplemental as any).land_area_pyeong || 0),
+      memoSqm: readSsotLayerAreas((buildingSsotLite as any)?.layers, { memoText: (buildingSsotLite as any)?.raw_input }).landSqm,
+      registerPlatSqm: br?.platArea,
+      vworldSqm: readVworldLandAreaSqm(externalData),
+    }).value;
+    const siteAreaM2 = resolvedSiteArea;
     let registerLandAreaM2: number | undefined;
     if (Array.isArray(supplemental.parcels) && supplemental.parcels.length > 0) {
       // 다필지: 건물 전체 대지면적·대표 필지 공시지가를 필지별 값으로 복제하면 합계가 N배로 부풀려진다
@@ -438,7 +458,7 @@ export async function generateSingleSection(
       }
       if (isMulti && siteAreaM2 > 0) registerLandAreaM2 = siteAreaM2;
     } else {
-      const areaM2 = (ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || br?.platArea || (supplemental.land_area_m2 ?? 0);
+      const areaM2 = resolvedSiteArea;
       const pnu = supplemental.resolved_pnu || externalData?.resolvedAddress?.pnu || '';
       if (areaM2 > 0 || pnu) {
         parcels.push({
@@ -741,31 +761,15 @@ export async function generateSingleSection(
     markdown = markdown.replace(/갱신권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '갱신권(최초계약일 확인 필요)');
   }
 
-  // D30 BL-9: 임차인 상호 전량 마스킹 + 업종 보존 (불변조건 14·23, G29)
-  // 정본: "물건명·법인명·임차인명은 대외 문서에 표기하지 않는다"
-  // 마스킹은 상호를 가리되 업종을 지우지 않는다
-  if (supplemental.floor_leases && supplemental.floor_leases.length > 0) {
-    const tenantNames: string[] = [];
-    for (const lease of supplemental.floor_leases) {
-      const l = lease as any;
-      // note(자유 메모, 예: '기존 자가사용')는 상호가 아니므로 폴백으로 쓰지 않는다 — 본문 일부가 [임차인X]로 오염됨
-      const name = String(l.tenant_name || l.tenantName || '').trim();
-      if (name && name.length >= 2) tenantNames.push(name);
-    }
-    // 긴 이름부터 치환 (부분 매칭 방지)
-    const sorted = [...new Set(tenantNames)].sort((a, b) => b.length - a.length);
-    sorted.forEach((name, idx) => {
-      const label = `[임차인${String.fromCharCode(65 + (idx % 26))}]`; // [임차인A], [임차인B]...
-      // 상호만 마스킹 — 업종·위치 정보는 보존
-      const escaped = name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-      markdown = markdown.replaceAll(name, label);
-    });
-  }
-  // 유명 브랜드 환각 방지 (LLM이 날조한 브랜드명도 마스킹)
-  const famousBrands = ['스타벅스', '맥도날드', '투썸플레이스', '올리브영', '다이소', '버거킹', '파리바게뜨', 'CU', 'GS25', '이마트'];
-  for (const brand of famousBrands) {
-    if (markdown.includes(brand)) {
-      markdown = markdown.replace(new RegExp(brand + '\\s*(?:[가-힣]*점)?', 'g'), '[임차인]');
+  // D1(오너 결정): IM 은 실제 임차인명(렌트롤 상호)을 그대로 표기한다 — 구 '[임차인A]' 전량 마스킹 폐지.
+  // 공개 티저/매거진(NDA 이전)만 업종 대체 마스킹 유지 (guardrails publicBlocked 경로).
+  // 대신 날조 검증: 유명 브랜드가 본문에 있는데 렌트롤(floor_leases)에는 없으면 LLM 이 만든 상호 → 그 브랜드만 치환.
+  // 입지(location_access) 섹션의 주변 상권 언급은 건물 임차인 주장이 아니므로 검증 대상에서 제외한다.
+  if (sectionType !== "location_access") {
+    const brandCheck = maskFabricatedBrands(markdown, supplemental.floor_leases as any[] | undefined);
+    if (brandCheck.flagged.length > 0) {
+      log.warn({ flagged: brandCheck.flagged }, `[im-section-generator] ${sectionType} 렌트롤에 없는 유명 브랜드 날조 의심 — 치환`);
+      markdown = brandCheck.text;
     }
   }
 
@@ -835,7 +839,8 @@ export async function generateSingleSection(
   }
 
   // Disclosure Guard
-  const disclosureCheck = runDisclosureGuard(markdown);
+  // D1: IM 경로는 실제 임차인명 표기 → tenant_name 마스커만 제외 (주소·연락처·인명·호실별 임대료 등은 기존대로 가드)
+  const disclosureCheck = runDisclosureGuard(markdown, { allowFields: ['tenant_name'] });
   if (disclosureCheck.status !== "pass") markdown = disclosureCheck.safe_text;
 
   // Sanitize markdown headings that may leak from AI or templates

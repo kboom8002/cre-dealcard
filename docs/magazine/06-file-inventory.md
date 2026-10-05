@@ -1,6 +1,7 @@
 # 06. 파일 인벤토리 (File Inventory)
 
 > **감사 일시**: 2026-08-28 | **감사 범위**: 모닝 인텔리전스 & 매거진 관련 전체 파일
+> **2026-10-06 D-02 동기화**: 폐기·삭제 파일은 취소선으로 표시했고, 신규 파일(발송 게이트·동의·분석 등)은 **[§11](#11-d-02-동기화-2026-10-06--신규현행-파일)** 에 정리했습니다. 줄 수는 2026-08 기준입니다.
 
 ---
 
@@ -20,13 +21,13 @@
 | [types.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/types.ts) | 265 lines | 시장온도, 에디션상태, 섹션ID, BrokerFieldNote, MagazineEdition 인터페이스, 헬퍼 |
 | [weekly-generator.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/weekly-generator.ts) | 610 lines | 주간 매거진 오케스트레이터 (컨텍스트→LLM→품질검증→저장) |
 | [quality-gate.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/quality-gate.ts) | 326 lines | 수치 할루시네이션 검증 (한국 부동산 단위 파싱, 원천 대비 검증) |
-| [distribute-magazine.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/distribute-magazine.ts) | 130 lines | 카카오 알림톡 배포 (5건 배치 + 로깅) |
+| [distribute-magazine.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/distribute-magazine.ts) | 130 lines (2026-08 기준) | **현행: sendGate 경유 발송**(원장 기록·동의·수신거부·야간·표기 검사). 아래 §11 참조 |
 | [subscriber-profile.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/subscriber-profile.ts) | 73 lines | 참여 점수 + 자동 매수의향 생성 |
 | [magazine-teaser-cards.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/magazine-teaser-cards.ts) | 34 lines | 딜 속성 → TeaserView 보안 투영 |
 | [im-to-magazine-bridge.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/im-to-magazine-bridge.ts) | ~50 lines | IM 투자논거 → 매거진 스니펫 추출 |
-| [owner-report-generator.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/owner-report-generator.ts) | 87 lines | 분기별 소유자 리포트 (호가 vs 유사거래) |
-| [rail/dispatcher.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/rail/dispatcher.ts) | 67 lines | 유니버설 멀티에디션 디스패처 |
-| [rail/seller-report-generator.ts](file:///c:/Users/User/cre-dealcard/src/domain/magazine/rail/seller-report-generator.ts) | 52 lines | 매도자 HTML 성과 보고서 |
+| ~~owner-report-generator.ts~~ | — | **삭제됨(폐기)** — 소유자 리포트 기능 제거 |
+| ~~rail/dispatcher.ts~~ | — | **삭제됨(폐기)** — 유니버설 멀티에디션 디스패처 |
+| ~~rail/seller-report-generator.ts~~ | — | **삭제됨(폐기)** — 매도자 성과 보고서 |
 
 ### 1.3 분석/알림 도메인
 
@@ -71,10 +72,21 @@
 | [public/magazine/subscribe/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/public/magazine/subscribe/route.ts) | `POST /api/public/magazine/subscribe` |
 | [public/magazine/unsubscribe/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/public/magazine/unsubscribe/route.ts) | `GET/POST /api/public/magazine/unsubscribe` |
 | [public/magazine/analytics/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/public/magazine/analytics/route.ts) | `POST /api/public/magazine/analytics` |
-| [cron/weekly-magazine/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/cron/weekly-magazine/route.ts) | `GET /api/cron/weekly-magazine` |
-| [cron/owner-reports/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/cron/owner-reports/route.ts) | `GET /api/cron/owner-reports` |
+| [cron/weekly-magazine/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/cron/weekly-magazine/route.ts) | `GET /api/cron/weekly-magazine` (생성만, 발송 없음) |
+| [cron/retention-purge/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/cron/retention-purge/route.ts) | `GET/POST /api/cron/retention-purge` |
+| [pulse/generate/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/pulse/generate/route.ts) | `GET/POST /api/pulse/generate` (cron GET → POST 위임) |
+| [magazine/editions/draft/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/magazine/editions/draft/route.ts) | `POST /api/magazine/editions/draft` |
+| [magazine/editions/[id]/publish/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/magazine/editions/[id]/publish/route.ts) | `POST /api/magazine/editions/[id]/publish` |
+| [magazine/[brokerId]/[date]/image/route.tsx](file:///c:/Users/User/cre-dealcard/src/app/api/magazine/[brokerId]/[date]/image/route.tsx) | `GET /api/magazine/[brokerId]/[date]/image` |
+| [broker/magazine/subscribers/[id]/intent/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/broker/magazine/subscribers/[id]/intent/route.ts) | `POST …/subscribers/[id]/intent` |
+| [broker/magazine/distribute/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/broker/magazine/distribute/route.ts) | `POST /api/broker/magazine/distribute` (sendGate) |
+| [broker/magazine/special/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/broker/magazine/special/route.ts) | `GET/POST /api/broker/magazine/special` (sendGate) |
+| [public/magazine/confirm/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/public/magazine/confirm/route.ts) | `GET/POST /api/public/magazine/confirm` |
+| [public/magazine/poll/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/public/magazine/poll/route.ts) | `GET/POST /api/public/magazine/poll` |
+| [public/magazine/referral/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/public/magazine/referral/route.ts) | `GET/POST /api/public/magazine/referral` |
 | [og/magazine/route.tsx](file:///c:/Users/User/cre-dealcard/src/app/api/og/magazine/route.tsx) | `GET /api/og/magazine` |
-| [broker/reports/owner/route.ts](file:///c:/Users/User/cre-dealcard/src/app/api/broker/reports/owner/route.ts) | `POST /api/broker/reports/owner` |
+| ~~cron/owner-reports/route.ts~~ | **삭제됨(폐기)** `GET /api/cron/owner-reports` |
+| ~~broker/reports/owner/route.ts~~ | **삭제됨(폐기)** `POST /api/broker/reports/owner` |
 
 ---
 
@@ -176,7 +188,7 @@
 
 | 파일 | 관련 설정 |
 |------|----------|
-| [vercel.json](file:///c:/Users/User/cre-dealcard/vercel.json) | Cron 스케줄 (morning-briefing, weekly-magazine, owner-reports) |
+| [vercel.json](file:///c:/Users/User/cre-dealcard/vercel.json) | Cron 스케줄 (morning-briefing, weekly-magazine, pulse/generate, hold-expiry, retention-purge, circle-approval-timeout) — owner-reports 는 제거됨 |
 | [package.json](file:///c:/Users/User/cre-dealcard/package.json) | 의존성 (ai-sdk, openai, supabase, solapi 등) |
 
 ---
@@ -195,3 +207,41 @@
 | 기존 문서 | 7 |
 | 인프라 설정 | 2 |
 | **합계** | **68** |
+
+---
+
+## 11. D-02 동기화 (2026-10-06) — 신규·현행 파일
+
+> 위 §1~10 의 줄 수·수량 통계는 2026-08 기준입니다. 현행 구조는 아래를 기준으로 합니다.
+
+### 11.1 도메인 (`src/domain/magazine/`, 테스트 제외)
+
+| 영역 | 파일 |
+|:--|:--|
+| 발송 | `send-gate.ts`(관문), `send-batch.ts`, `send-providers.ts`(Resend/Solapi), `distribute-magazine.ts`, `distribute-special-edition.ts` |
+| 동의·해지 | `consent-service.ts`, `subscriber-consent-types.ts`, `unsub-token.ts`(HMAC 해지 토큰), `sid-token.ts`, `templates/opt-in-confirm.ts` |
+| 생성·검수 | `weekly-generator.ts`, `special-edition-generator.ts`, `tax-clinic-generator.ts`, `quality-gate.ts`, `edition-content.schema.ts`, `tax-rules-2026.ts`(**UNREVIEWED**) |
+| 분석 | `analytics-aggregate.ts`, `buyer-temperature.ts`, `subscriber-profile.ts` |
+| 템플릿 | `email-template.tsx`, `templates/{format,kakao-text,kakao-template-codes,types,url-guard}.ts`, `templates/{flash,weekly}-issue.kakao.md`(알림톡 문안 원본, 심사 이력 기록) |
+| IM 연계 | `im-to-magazine-bridge.ts`, `magazine-teaser-cards.ts` |
+
+### 11.2 공용 라이브러리 (`src/lib/magazine/`)
+
+`authz.ts`(요청 인증·소유권), `public-guard.ts`(공개 API 가드·레이트리밋), `resolve-broker.ts`, `slug.ts`, `send-flags.ts`(발송 플래그), `kst.ts`, `escape.ts`, `pii.ts`(전화 정규화·IP 해시), `visitor-id.ts` / `visitor-hash.ts`(방문자 ID), `analytics-event.ts`, `edition-draft.ts` / `edition-save.ts` / `editor-helpers.ts`, `get-published-issue.ts`, `public-page-data.ts`, `llm-guard.ts`, `og-*.ts(x)`, `share-urls.ts`, `kakao-share.ts`, `period-label.ts`, `poll-helpers.ts`, `subscriber-view.ts`, `subscriber-temperature.ts`, `tags.ts`, `user-message.ts` 등.
+
+### 11.3 운영·검증 자산
+
+| 경로 | 용도 |
+|:--|:--|
+| `supabase/migrations/20261004000001~16_*.sql` + `supabase/migrations/_rollback/` | 신규 마이그레이션(수동 적용) / 롤백. 적용 순서는 `supabase/MIGRATIONS.md` |
+| `scripts/cleanup/` (00~21 + README) | C-03 데이터 정리 SQL(기본 dry-run, 사전 백업 포함). **운영 실행은 항목별 사용자 승인 후** |
+| `scripts/magazine-health.sql` | 읽기 전용 운영 헬스 점검(O-01) |
+| `scripts/magazine-poison-scan.mjs` + `magazine-poison-baseline.json` | 오염 토큰 스캔(CI 게이트) |
+| `scripts/check-schema-drift.ts`, `scripts/check-dead-buttons.mjs` | 스키마 드리프트 / 죽은 버튼 검사(CI) |
+| `.github/workflows/magazine-gates.yml` | 매거진 릴리즈 게이트(tsc·vitest·poison·drift·policy·env 동기화 등) |
+| `src/tests/unit/magazine/` | 매거진 단위 테스트(54개 파일) |
+| `docs/magazine/audit-2026-10-04/` | 감사·개선 계획·활성화 체크리스트 |
+
+### 11.4 폐기·삭제
+
+`owner-report-generator.ts`, `rail/dispatcher.ts`, `rail/seller-report-generator.ts`, `/api/cron/owner-reports`, `/api/broker/reports/owner`(코드 삭제 확인). `owner_reports` 테이블은 미사용.

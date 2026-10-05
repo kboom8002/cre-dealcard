@@ -184,6 +184,7 @@ import type { PermitZoneResult } from '@/domain/building/im-core/permit-zone';
 import type { ConvertedDepositResult, EffectiveRentResult } from '@/domain/building/im-core/lease-calc';
 import type { KoreanLegalFields } from '@/domain/building/im-core/korean-legal';
 import { calculateWALE, type LeaseUnit, type WaleResult } from '../wale-calculator';
+import { isVacantLeaseRow, isOwnerUseLeaseRow } from '../lease-vacancy';
 import { PRIME_TEMPLATE_ALIASES } from './pptx-theme';
 import { calculateSetbackRatio, inferTenantCategory } from './archetypes/a22-stacking-plan';
 import type { StackingPlanFloor, StackingPlanSummary } from '../types';
@@ -343,7 +344,7 @@ export function bindSectionData(
     if (sectionType === 'property_overview') {
       const enrichedBody = { ...doc.body, preset: templateId ?? doc.body?.preset };
       if (!result['summary']) {
-        const summaryProps = buildSummaryFromOverview(cleanMarkdown, tables, enrichedBody);
+        const summaryProps = buildSummaryFromOverview(cleanMarkdown, tables, enrichedBody, building);
         result['summary'] = { title: '핵심요약', content: '', tables: [], metrics: {}, _derived: true, ...summaryProps };
         // D33 BL-C: Yield 단일 객체를 dataMap 최상위에 주입 — 전 슬라이드 공유
         if (summaryProps._yield) {
@@ -376,8 +377,9 @@ export function bindSectionData(
       // D41 A4: floor_leases 기반 공실률/임대료 직접 계산
       const leases: any[] = (doc.body?.floor_leases ?? []).filter(Boolean);
       if (leases.length > 0) {
-        const totalSpaces = leases.length;
-        const vacantSpaces = leases.filter((l: any) => l && l.is_vacant === true).length;
+        // 점유 상태 SSOT(lease-vacancy): 자가사용은 공실 아님 + 공실률 분모 제외, 통합계약 후행(월세 0)은 공실 아님
+        const totalSpaces = leases.length - leases.filter((l: any) => isOwnerUseLeaseRow(l)).length;
+        const vacantSpaces = leases.filter((l: any) => l && isVacantLeaseRow(l)).length;
         const occupiedSpaces = totalSpaces - vacantSpaces;
         const vacancyRate = totalSpaces > 0 ? ((vacantSpaces / totalSpaces) * 100).toFixed(1) : '0.0';
         const monthlyRent = leases.reduce((sum: number, l: any) => sum + (l?.rent_manwon ?? 0), 0);

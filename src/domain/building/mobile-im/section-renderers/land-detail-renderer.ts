@@ -42,7 +42,12 @@ export function renderLandDetail(input: LandDetailInput): SectionOutput {
   if (input.parcels.length === 1) {
     const p = input.parcels[0];
     lines.push(`- **지목**: ${p.jimok}`);
-    lines.push(`- **대지면적**: ${p.areaM2.toLocaleString()}㎡ (${formatPyeong(p.areaM2, 1)}평)`);
+    // 대지면적 미확인(0/NaN/음수) 은 '0㎡ (0.0평)' 이 아니라 '-' (Rule 34/37)
+    lines.push(
+      Number.isFinite(p.areaM2) && p.areaM2 > 0
+        ? `- **대지면적**: ${p.areaM2.toLocaleString()}㎡ (${formatPyeong(p.areaM2, 1)}평)`
+        : `- **대지면적**: -`,
+    );
     if (p.officialLandPricePerM2) {
       lines.push(`- **공시지가**: ${p.officialLandPricePerM2.toLocaleString()}원/㎡`);
     }

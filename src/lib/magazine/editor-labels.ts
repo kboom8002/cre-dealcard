@@ -1,0 +1,68 @@
+/**
+ * 에디터 표시 라벨 단일 출처 (U-05).
+ *  - 시장 온도 아이콘 ↔ 구독자(매수자) 온도 이모지 분리 (U2-24)
+ *  - 뉴스 topic 한글 라벨 (T1-UX-3)
+ *
+ * 시장 온도는 도메인(`MARKET_TEMP_CONFIG`)·뷰어(`MARKET_TEMP_VIEW`)·에디터가 모두 색 사각형(🟩🟨🟦🟧🟥)으로 일치하고,
+ * 구독자 온도(`buyer-temperature.ts`)는 🔥/📈/⏸️/❄️/⚪ 를 써서 두 개념이 섞이지 않게 한다 (일치·비중복은 테스트로 보장).
+ */
+
+/** 시장 온도(중개사가 고르는 시장 분위기) → 에디터 전용 아이콘. 구독자 온도 이모지(🔥📈⏸️❄️⚪)와 겹치지 않는다. */
+export const EDITOR_MARKET_TEMP_ICON: Record<string, string> = {
+  "적극 매수": "🟩",
+  "선별 매수": "🟨",
+  "관망": "🟦",
+  "조정 대기": "🟧",
+  "위기 경계": "🟥",
+};
+
+export function marketTempIcon(temp: string | null | undefined): string {
+  if (!temp) return "⬜";
+  return EDITOR_MARKET_TEMP_ICON[temp] ?? "⬜";
+}
+
+/** 구독자(매수자) 온도 이모지 — 시장 온도 아이콘과 겹치면 안 된다 (테스트로 보장). */
+export const BUYER_TEMP_EMOJIS: readonly string[] = ["🔥", "📈", "⏸️", "❄️", "⚪"];
+
+/** 뉴스 topic 키(영문 슬러그) → 한글 */
+const TOPIC_LABELS: Record<string, string> = {
+  policy: "정책",
+  regulation: "규제",
+  rate: "금리",
+  rates: "금리",
+  interest_rate: "금리",
+  loan: "대출",
+  finance: "금융",
+  tax: "세제",
+  market: "시장 동향",
+  trend: "시장 동향",
+  deal: "거래·매물",
+  transaction: "거래·매물",
+  price: "가격",
+  supply: "공급",
+  redevelopment: "재개발·재건축",
+  development: "개발",
+  office: "오피스",
+  retail: "상가·리테일",
+  logistics: "물류",
+  hotel: "숙박",
+  residential: "주거",
+  apartment: "아파트",
+  land: "토지",
+  investment: "투자",
+  economy: "경제",
+  macro: "거시경제",
+  general: "일반",
+  other: "기타",
+};
+
+const HANGUL_RE = /[\uAC00-\uD7A3]/;
+
+/** topic 한글 라벨. 이미 한글이면 그대로, 모르는 영문 키는 '기타'. 비어 있으면 빈 문자열. */
+export function topicLabel(topic: string | null | undefined): string {
+  const raw = (topic ?? "").trim();
+  if (!raw) return "";
+  if (HANGUL_RE.test(raw)) return raw;
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  return TOPIC_LABELS[key] ?? "기타";
+}

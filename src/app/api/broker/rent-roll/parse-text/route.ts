@@ -3,6 +3,7 @@ import { requireBroker } from "@/lib/auth-guard";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 import { z } from "zod/v4";
+import { normalizeTextParsedRentRoll } from "@/lib/rentroll/text-parse-normalize";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -16,6 +17,8 @@ const FloorLeaseSchema = z.object({
   rent_manwon: z.number().optional(),
   mgmt_fee_manwon: z.number().nullish().transform((v) => v ?? undefined),
   is_vacant: z.boolean().optional(),
+  lease_state: z.string().nullish().transform((v) => v ?? undefined),
+  note: z.string().nullish().transform((v) => v ?? undefined),
   area_sqm: z.number().nullish().transform((v) => v ?? undefined),
   lease_start: z.string().nullish().transform((v) => v ?? undefined),
   lease_end: z.string().nullish().transform((v) => v ?? undefined),
@@ -44,8 +47,16 @@ const SYSTEM_PROMPT = `당신은 상업용 부동산 렌트롤(임대차 현황)
 - "보증금/월세" 형식: 괄호 안 (보증금/월세)
 - 관리비가 명시되지 않으면 mgmt_fee_manwon 필드를 생략 (0 으로 채우지 말 것 — 명시적 "관리비 0/없음"만 0)
 
-## 공실 판별
-- "공실", "비어있음", "vacant", 월세 0원 → is_vacant: true
+## 공실 판별 (중요)
+- 입력에 "공실", "비어있음", "vacant" 이 **명시된** 호실만 is_vacant: true, lease_state: "공실"
+- 월세 0원/금액 미기재만으로 공실로 판단하지 말 것. 아래는 공실이 **아니다**:
+  - 자가사용: "자가", "사옥", "직영", "본사", "오너" 표기 호실 → lease_state: "자가사용", is_vacant: false
+  - 통합계약: "○○(통합계약)" 처럼 같은 임차인이 여러 호실/층을 하나의 계약으로 쓰고 금액은 대표 행에만 적힌 후행 호실 → is_vacant: false, lease_state: "임대중", 임차인 상호는 대표 행과 동일하게 tenant_name 에 기재
+- 그 외 임차 중인 호실은 lease_state: "임대중"
+
+## 임차인 상호
+- 입력에 상호(예: 고은약국, 로뎀나무내과, 국제와인)가 있으면 반드시 tenant_name 에 **그대로** 보존하고, 업종은 tenant_type 에 기재 (상호를 업종으로 바꾸거나 생략하지 말 것)
+- 상호가 없고 업종만 있으면 tenant_name 은 생략
 
 반드시 아래 JSON 형식으로만 응답하세요. 설명이나 마크다운 없이 순수 JSON만 출력하세요:
 {
@@ -58,6 +69,7 @@ const SYSTEM_PROMPT = `당신은 상업용 부동산 렌트롤(임대차 현황)
       "rent_manwon": 월세(만원),
       "mgmt_fee_manwon": 관리비(만원, 미기재 시 생략),
       "is_vacant": true/false,
+      "lease_state": "임대중" | "공실" | "자가사용",
       "area_sqm": 면적(㎡, 미기재 시 생략),
       "lease_start": "계약시작일 (YYYY-MM-DD, 미기재 시 생략)",
       "lease_end": "계약종료일 (YYYY-MM-DD, 미기재 시 생략)"
@@ -98,7 +110,8 @@ export async function POST(req: NextRequest) {
     const parsed = JSON.parse(jsonStr);
     const validated = ParseResultSchema.parse(parsed);
 
-    return NextResponse.json(validated);
+    // 점유 상태·합계·공실률은 LLM 산술/추정을 믿지 않고 렌트롤 행에서 결정론적으로 재산출 (자가사용·통합계약 후행 ≠ 공실)
+    return NextResponse.json(normalizeTextParsedRentRoll(validated));
   } catch (err: any) {
     log.error("[rent-roll/parse-text] Error:", err);
     return NextResponse.json(

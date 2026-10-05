@@ -120,6 +120,23 @@
   --shadow-elevation-4: var(--shadow-elevation-4);
 }
 
+/* ── 매거진 U-01 토큰 (추가 전용 — 기존 값 변경 금지, IM 공유 파일) ──
+ * text-[7~11px] 임의값을 대체하는 rem 기반 텍스트 토큰과 다크 배경 위 잉크 색.
+ * 사용: text-caption / text-label / text-body / text-reader / text-title / text-display,
+ *       text-ink-muted / text-ink-subtle */
+@theme {
+  --text-caption: 0.75rem;   /* 12px */
+  --text-label: 0.8125rem;   /* 13px */
+  --text-body: 0.9375rem;    /* 15px */
+  --text-reader: 1rem;       /* 16px — 독자 본문 */
+  --text-reader--line-height: 1.7;
+  --text-title: 1.125rem;    /* 18px */
+  --text-display: 1.625rem;  /* 26px */
+
+  --color-ink-muted: #cbd5e1;   /* slate-300 — 다크 배경 위 보조 텍스트 (AA 이상) */
+  --color-ink-subtle: #94a3b8;  /* slate-400 — 다크 배경 위 3차 텍스트 */
+}
+
 .dark {
   --background: #09090b;
   --foreground: #fafafa;

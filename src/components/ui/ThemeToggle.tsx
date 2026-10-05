@@ -2,7 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
@@ -12,10 +12,12 @@ interface ThemeToggleProps {
 
 export function ThemeToggle({ className, size = "md" }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Prevent hydration mismatch
-  useEffect(() => setMounted(true), []);
+  // Prevent hydration mismatch (서버/첫 하이드레이션은 false, 클라이언트 이후 true)
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   if (!mounted) {
     return (

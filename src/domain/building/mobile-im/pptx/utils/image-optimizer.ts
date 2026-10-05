@@ -4,7 +4,7 @@
  * Vercel Pro (3GB 메모리) 환경 최적화
  */
 import sharp from 'sharp';
-import { selectLocationPois, classifyPoi, type PoiCandidate, type SelectedPoi } from '../location-poi-selector';
+import { selectLocationPois, classifyPoi, bearingDeg, directionKo, formatOffViewLabel, type PoiCandidate, type SelectedPoi } from '../location-poi-selector';
 import {
   TARGET_PIN,
   POI_MARKER_R,
@@ -13,8 +13,12 @@ import {
   buildWalkCircleSvg,
   chooseWalkCircle,
   chooseLocationZoom,
+  placeEdgeMarkers,
+  ANCHOR_LANDMARK_MAX_M,
   type PlacedPoi,
+  type ViewRect,
 } from './location-map-overlay';
+import { scrubKakaoExitMarkers } from './kakao-basemap-scrub';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('image-optimizer');
@@ -223,24 +227,43 @@ function latlngToPixel(
   return { px, py };
 }
 
+/** 선택 POI 간 최소 이격 (m) — 줌과 무관한 고정값 (줌 ≥1.0 에서 마커 지름 36px 이상 확보). 선별 결과가 줌에 의존하지 않도록 한다 */
+const POI_MIN_SEPARATION_M = 40;
+
+/** 뷰 밖 POI 표기 변환: 가장자리 마커 + 방위/거리 범례 (방위는 실제 좌표로 계산한 8방위) */
+function asOffViewPoi(poi: SelectedPoi, center: { lat: number; lng: number }): SelectedPoi {
+  const bearing = poi.bearingDeg ?? bearingDeg(center.lat, center.lng, poi.lat, poi.lng);
+  const direction = poi.direction ?? directionKo(bearing);
+  return {
+    ...poi,
+    bearingDeg: Math.round(bearing * 10) / 10,
+    direction,
+    offView: true,
+    label: formatOffViewLabel(poi.displayName, direction, poi.distanceM),
+  };
+}
+
 /**
  * POI 정밀 선별(location-poi-selector) 후 지도 픽셀 좌표에 배치.
- * 뷰(크롭 영역) 밖, 본건 핀 영역과 겹치는 후보는 선별 단계에서 제외하여 마커 번호 = 범례 번호를 보장한다.
- * (기존 buildPoiOverlays: 이름 없는 S/회색 점 마커를 keySpots 전부에 찍던 방식 → 번호 마커 3~5건으로 대체)
+ * 선별은 줌/뷰와 무관하게 결정된다 (본건 핀 영역과 겹치는 후보만 제외). 뷰 밖 후보는 버리지 않고
+ * 프레임 가장자리에 방향 마커(번호 + 화살표)로 배치하며, 범례(네이티브 텍스트)에는 "이름 방위 거리"가 표기된다.
+ * 마커 번호 = 범례 번호 (뷰 안/밖 동일).
  */
 function selectAndPlacePois(
   pool: PoiCandidate[],
   toPx: (lat: number, lng: number) => { px: number; py: number },
-  view: { x0: number; y0: number; x1: number; y1: number },
+  view: ViewRect,
   target: { cx: number; cy: number },
   metersPerPx: number,
+  center: { lat: number; lng: number },
   options?: LocationMapOptions,
 ): PlacedPoi[] {
   const margin = POI_MARKER_R + 8;
-  const isInView = (c: PoiCandidate): boolean => {
+  const inViewPx = (px: number, py: number): boolean =>
+    px >= view.x0 + margin && px <= view.x1 - margin && py >= view.y0 + margin && py <= view.y1 - margin;
+  const isPlaceable = (c: PoiCandidate): boolean => {
     const { px, py } = toPx(Number(c.lat), Number(c.lng));
     if (!Number.isFinite(px) || !Number.isFinite(py)) return false;
-    if (px < view.x0 + margin || px > view.x1 - margin || py < view.y0 + margin || py > view.y1 - margin) return false;
     // 본건 핀(끝=좌표, 높이 72px) 영역과 겹치는 후보 제외
     if (Math.abs(px - target.cx) < 34 && py > target.cy - TARGET_PIN.tipY - POI_MARKER_R && py < target.cy + POI_MARKER_R + 4) return false;
     return true;
@@ -248,10 +271,31 @@ function selectAndPlacePois(
   const selected = selectLocationPois(pool, {
     posture: options?.posture,
     assetType: options?.assetType,
-    isInView,
-    minSeparationM: (POI_MARKER_R * 2 + 4) * metersPerPx,
+    center,
+    isPlaceable,
+    minSeparationM: Math.max(POI_MIN_SEPARATION_M, (POI_MARKER_R * 2 + 4) * metersPerPx),
+    mentionTexts: options?.mentionTexts,
+    guaranteeMajorInstitutions: true,
   });
-  return selected.map(poi => ({ poi, ...toPx(poi.lat, poi.lng) }));
+  const raw = selected.map(poi => ({ poi, ...toPx(poi.lat, poi.lng) }));
+  const inside = raw.filter(r => inViewPx(r.px, r.py));
+  const outside = raw.filter(r => !inViewPx(r.px, r.py));
+  const edgePos = placeEdgeMarkers(
+    outside.map(r => ({ index: r.poi.index, angle: Math.atan2(r.py - target.cy, r.px - target.cx) })),
+    view,
+    target,
+    [...inside.map(r => ({ px: r.px, py: r.py })), { px: target.cx, py: target.cy - Math.round(TARGET_PIN.tipY / 2) }],
+  );
+  return raw.map((r): PlacedPoi => {
+    if (inViewPx(r.px, r.py)) return { poi: r.poi, px: r.px, py: r.py };
+    const p = edgePos.get(r.poi.index) ?? { px: r.px, py: r.py };
+    return {
+      poi: asOffViewPoi(r.poi, center),
+      px: p.px,
+      py: p.py,
+      edgeAngle: Math.atan2(r.py - target.cy, r.px - target.cx),
+    };
+  });
 }
 
 /** 후보 풀에서 최근접 지하철역의 본건 기준 동/북 변위 (m) — 확대 배율 결정용 */
@@ -268,6 +312,32 @@ function nearestStationOffset(pool: PoiCandidate[], lat: number, lng: number): {
     dxM: (Number(best.lng) - lng) * 111320 * Math.cos(lat * Math.PI / 180),
     dyM: (Number(best.lat) - lat) * 111320,
   };
+}
+
+/**
+ * 뷰 정책용: 선별된 랜드마크(역 제외) 중 본건 1km 이내 앵커의 동/북 변위 (m).
+ * 줌을 1.0 하한까지 낮춰서라도 뷰 안에 들어오는 경우에만 chooseLocationZoom 이 줌을 낮춘다.
+ */
+function anchorLandmarkOffsets(
+  pool: PoiCandidate[],
+  lat: number,
+  lng: number,
+  options?: LocationMapOptions,
+): Array<{ dxM: number; dyM: number }> {
+  const sel = selectLocationPois(pool, {
+    posture: options?.posture,
+    assetType: options?.assetType,
+    center: { lat, lng },
+    minSeparationM: POI_MIN_SEPARATION_M,
+    mentionTexts: options?.mentionTexts,
+    guaranteeMajorInstitutions: true,
+  });
+  return sel
+    .filter(p => p.kind !== 'station' && p.distanceM <= ANCHOR_LANDMARK_MAX_M)
+    .map(p => ({
+      dxM: (p.lng - lng) * 111320 * Math.cos(lat * Math.PI / 180),
+      dyM: (p.lat - lat) * 111320,
+    }));
 }
 
 /** 선택된 역까지 점선 (본건 → 역) */
@@ -302,6 +372,8 @@ export interface LocationMapOptions {
   assetType?: string | null;
   /** 정밀 선별용 실조회 후보 풀 (kakao candidateSpots). 없으면 poiSpots 사용 */
   candidates?: PoiCandidate[] | null;
+  /** 중개인 실입력 원문(메모/입지 설명/소재지) — 원문에 언급된 대형 기관을 지도에서 누락하지 않기 위한 선별 힌트 (렌더 경로 전용) */
+  mentionTexts?: string[] | null;
   /** 확대 배율 — Kakao Static Map 기본(요청 1px≈1m) 대비, 기본 1.5 */
   zoom?: number;
 }
@@ -340,7 +412,12 @@ export async function generateStaticMapPlaceholder(
         // (기존 level→m/px 매핑(level4=2m/px)은 실제와 2배 어긋나 POI 마커가 본건 쪽으로 당겨져 그려졌음)
         const kakaoW = Math.min(safeW, 1800);
         const kakaoH = Math.min(safeH, 960);
-        const zoom = chooseLocationZoom(options?.zoom ?? 1.5, kakaoW, kakaoH, nearestStationOffset(candidatePool, coordLat, coordLng));
+        const zoom = chooseLocationZoom(
+          options?.zoom ?? 1.5, kakaoW, kakaoH,
+          nearestStationOffset(candidatePool, coordLat, coordLng),
+          48,
+          anchorLandmarkOffsets(candidatePool, coordLat, coordLng, options),
+        );
         const metersPerPx = 1 / zoom;
         const reqW = Math.max(100, Math.round(kakaoW * metersPerPx));
         const reqH = Math.max(100, Math.round(kakaoH * metersPerPx));
@@ -353,7 +430,8 @@ export async function generateStaticMapPlaceholder(
         });
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
-          const inputBuffer = Buffer.from(arrayBuffer);
+          // Kakao 베이스 타일에 구워진 지하철 출구 번호(노란 원 1~8 + 연결선)는 우리 번호 마커/범례와 혼동되므로 제거 (실패 시 원본)
+          const { buffer: inputBuffer } = await scrubKakaoExitMarkers(Buffer.from(arrayBuffer));
           
           // 카카오 지도 위에 도보권 원 + 번호 POI 마커 + 건물 골드 핀 오버레이 (Sharp composite, 전부 left/top=정수)
           let resized = sharp(inputBuffer).resize({ width: kakaoW, height: kakaoH, fit: 'fill' });
@@ -370,7 +448,7 @@ export async function generateStaticMapPlaceholder(
 
           // 2. POI 정밀 선별 (포스처/자산유형 맞춤 3~5건) → 번호 마커
           const toPx = (lat: number, lng: number) => latlngToPixel(lat, lng, coordLat, coordLng, metersPerPx, kakaoW, kakaoH);
-          const placed = selectAndPlacePois(candidatePool, toPx, { x0: 0, y0: 0, x1: kakaoW, y1: kakaoH }, { cx, cy }, metersPerPx, options);
+          const placed = selectAndPlacePois(candidatePool, toPx, { x0: 0, y0: 0, x1: kakaoW, y1: kakaoH }, { cx, cy }, metersPerPx, { lat: coordLat, lng: coordLng }, options);
           const lineSvg = buildStationLineSvg(placed, kakaoW, kakaoH, cx, cy);
           if (lineSvg) overlays.push({ input: lineSvg, left: 0, top: 0 });
           const markerLayer = buildNumberedPoiLayer(placed, kakaoW, kakaoH);
@@ -510,6 +588,7 @@ export async function generateStaticMapPlaceholder(
           { x0: cropL, y0: cropT, x1: cropL + cropW, y1: cropT + cropH },
           { cx: targetPx, cy: targetPy },
           osmMeterPerPx,
+          { lat: coordLat, lng: coordLng },
           options,
         );
         const lineOsm = buildStationLineSvg(placedOsm, compositeWidth, compositeHeight, targetPx, targetPy);

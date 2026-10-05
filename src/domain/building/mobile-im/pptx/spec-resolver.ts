@@ -12,6 +12,8 @@
  * 알 수 없는 값은 `undefined` 로 두고(날조/더미 금지, Rule 34/63), 행 빌더는 해당 행을 생략한다.
  */
 
+import { normalizeBuildingRegister, registerReportsNoBasement } from '@/lib/external/building-register-normalize';
+
 type Rec = Record<string, any>;
 
 export interface OverviewSpecs {
@@ -141,6 +143,7 @@ export function resolveOverviewSpecs(
   const s: Rec = ssot ?? {};
   const h: Rec = hero ?? {};
   const br: Rec = enr.buildingRegister ?? {};
+  const nbr = normalizeBuildingRegister(enr.buildingRegister); // 대장 키 별칭(grndFlrCnt/bcrPct/approvalDate…) 단일 흡수
   const lup: Rec = enr.landUsePlan ?? {};
   const bldg: Rec = fallback.building ?? {};
   const phys: Rec = fallback.core ?? {};
@@ -157,23 +160,25 @@ export function resolveOverviewSpecs(
   const zoningOverlap = overlapList.length > 0 ? overlapList.join(', ') : undefined;
 
   // ── 건폐율/용적률: 현황(대장) > ssot > hero > building ──
-  const bcrNow = firstPos(br.bcRat, br.bcrPct, s.bcr_pct, h.bcrPct, bldg.bcr_pct);
-  const farNow = firstPos(br.vlRat, br.farPct, s.far_pct, h.farPct, bldg.far_pct);
+  const bcrNow = firstPos(nbr.bcRat, s.bcr_pct, h.bcrPct, bldg.bcr_pct);
+  const farNow = firstPos(nbr.vlRat, s.far_pct, h.farPct, bldg.far_pct);
   // 법정 상한: 토지이용계획 > ssot. 필지별 용도지역이 서로 다르면 단일 상한이 성립하지 않으므로 생략
   const bcrMax = multi.length > 1 ? undefined : firstPos(lup.buildingCoverageMax, s.max_bcr_pct, bldg.max_bcr_pct);
   const farMax = multi.length > 1 ? undefined : firstPos(lup.floorAreaRatioMax, s.max_far_pct, bldg.max_far_pct);
 
   // ── 사용승인일 ──
-  const aprRaw = [br.useAprDay, s.use_apr_day, s.completion_year, h.completionYear, bldg.built_year, phys.completionYear]
+  const aprRaw = [nbr.useAprDay, s.use_apr_day, s.completion_year, h.completionYear, bldg.built_year, phys.completionYear]
     .map(parseUseAprDay)
     .find(Boolean);
   const nowYear = fallback.nowYear ?? new Date().getFullYear();
   const useAprAge = aprRaw && nowYear >= aprRaw.year ? nowYear - aprRaw.year : undefined;
 
   // ── 층수 ──
-  const floorsAbove = firstPos(br.floorsAbove, br.grndFlrCnt, s.floors_above, h.floorsAbove, bldg.floors_above, phys.floorsAbove);
-  const floorsBelowRaw = br.floorsBelow ?? br.ugrndFlrCnt ?? s.floors_below ?? h.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow;
-  const floorsBelow = pos(floorsBelowRaw);
+  const floorsAbove = firstPos(nbr.floorsAbove, s.floors_above, h.floorsAbove, bldg.floors_above, phys.floorsAbove);
+  // 대장이 지하 0층으로 확정한 경우(키는 있으나 0)는 다른 소스로 덮지 않는다 (기존 `??` 체인 의미 유지)
+  const registerSaysNoBasement = registerReportsNoBasement(enr.buildingRegister);
+  const floorsBelow = nbr.floorsBelow
+    ?? (registerSaysNoBasement ? undefined : pos(s.floors_below ?? h.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow));
 
   return {
     zoning,
@@ -187,9 +192,9 @@ export function resolveOverviewSpecs(
     useAprAge,
     floorsAbove,
     floorsBelow,
-    mainPurpose: firstStr(br.mainPurpose, s.main_purpose, h.mainPurpose, bldg.main_purpose),
-    structure: firstStr(br.structure, s.structure, h.structure, bldg.structure),
-    archArea: firstPos(br.archArea, s.arch_area_sqm, s.building_area_sqm, h.archAreaM2, bldg.arch_area_sqm),
+    mainPurpose: firstStr(nbr.mainPurpose, s.main_purpose, h.mainPurpose, bldg.main_purpose),
+    structure: firstStr(nbr.structure, s.structure, h.structure, bldg.structure),
+    archArea: firstPos(nbr.archArea, s.arch_area_sqm, s.building_area_sqm, h.archAreaM2, bldg.arch_area_sqm),
   };
 }
 

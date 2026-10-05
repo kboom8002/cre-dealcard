@@ -18,13 +18,21 @@ import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration 
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
 import { validateCombination } from '@/domain/ontology';
 import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
-import { resolveTotalGrossAreaSqm } from '@/domain/building/mobile-im/resolve-total-area';
+import {
+  resolveTotalAreaWithSource,
+  resolveLandAreaWithSource,
+  readSsotLayerAreas,
+  readVworldLandAreaSqm,
+  invalidateForeignRegisterFacts,
+} from '@/domain/building/mobile-im/resolve-total-area';
 import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
 import { resolvePhysicalSpecs } from '@/domain/building/mobile-im/resolve-physical-specs';
 import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
 import { resolveOverviewSpecs } from '@/domain/building/mobile-im/pptx/spec-resolver';
 import { applyBrokerExtrasToSections, mapBrokerExtrasStrings } from '@/domain/building/mobile-im/broker-extras';
 import { sqmToPyeong, pyeongToSqm, formatPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
+import { summarizeLeaseOccupancy, isOwnerUseLeaseRow, normalizeLeaseOccupancyFields } from '@/domain/building/mobile-im/lease-vacancy';
+import { supplementBrokerMemoFacts } from '@/domain/building/mobile-im/broker-financial-inputs';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('handler');
@@ -145,7 +153,25 @@ export async function generateMobileIMHandler(
 
   // ─── SSoT Lite 로드 (PK = id)
   const result = await readWithMigration(buildingId);
-  const ssotRow = result.data as any;
+  let ssotRow = result.data as any;
+  // readWithMigration 은 assets 행이 이미 있으면(=재생성) layers/raw_input/raw_address/area_signal 등 레거시 SSoT 컬럼이 없는
+  // assets 행만 돌려준다 → 첫 생성(레거시 경로)과 달리 메모 면적·재무·임대 정보가 통째로 사라진다.
+  // 레거시 행이 있으면 그 컬럼을 병합해 첫 생성과 동일한 입력을 보장한다 (null 값은 assets 값을 덮어쓰지 않음).
+  if (result.source === 'assets' && ssotRow && Object.keys(ssotRow).length > 0 && !ssotRow.layers) {
+    try {
+      const { data: legacyRow } = await supabase.from('building_ssot_lite').select('*').eq('id', buildingId).maybeSingle();
+      if (legacyRow) {
+        const merged: Record<string, unknown> = { ...ssotRow };
+        for (const [k, v] of Object.entries(legacyRow as Record<string, unknown>)) {
+          if (v !== null && v !== undefined) merged[k] = v;
+          else if (!(k in merged)) merged[k] = v;
+        }
+        ssotRow = merged;
+      }
+    } catch (err) {
+      log.warn({ err }, '[im-handler] 레거시 SSoT 병합 실패 — assets 행만 사용');
+    }
+  }
 
   if (!ssotRow || Object.keys(ssotRow).length === 0) {
     log.error("[im-handler] SSoT Error: Not found");
@@ -184,6 +210,19 @@ export async function generateMobileIMHandler(
     (ssotRow.raw_address && hasValidBuildingNumber(ssotRow.raw_address))
   );
   const hasRentRoll = Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0;
+
+  // 점유 상태 정규화 (lease-vacancy SSOT) — LLM 입력·영속 이전에 1회:
+  // 텍스트 렌트롤 LLM 파서가 '월세 0 → is_vacant:true' 로 추정한 자가사용·통합계약 후행 행을 공실로 두면
+  // 뷰어 본문이 '공실률 33%' 를 서술하고 PPTX 가 '공실 B1·2F·4F' 를 표기한다 (oracle income-dangsan-r3).
+  if (hasRentRoll) {
+    const rawLeases = supplemental.floor_leases as any[];
+    supplemental.floor_leases = rawLeases.map((l: any) => normalizeLeaseOccupancyFields(l));
+    const occ = summarizeLeaseOccupancy(supplemental.floor_leases);
+    if (occ.vacancyPct != null) supplemental.vacancy_pct = occ.vacancyPct;
+    if (occ.vacant === 0 && /공실/.test(String(supplemental.vacancy_status ?? ''))) {
+      supplemental.vacancy_status = occ.ownerUse > 0 ? `공실 없음 (자가사용 ${occ.ownerUse}호실 제외)` : '공실 없음';
+    }
+  }
 
   // IM 작성을 위해 정확한 주소(공적장부 조회) 또는 렌트롤이 최소 하나는 필수 (P0-6 할루시네이션 방지)
   if (!hasExactAddr && !hasRentRoll) {
@@ -423,12 +462,18 @@ export async function generateMobileIMHandler(
   const leaseAreaSum = Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
     ? supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.area_sqm) || 0), 0)
     : 0;
-  const userSpecifiedTotalArea = resolveTotalGrossAreaSqm({
-    explicitSqm: Number(supplemental.total_gross_area_m2 || 0)
-      || (supplemental.total_gross_area_pyeong ? pyeongToSqm(Number(supplemental.total_gross_area_pyeong)) : 0),
-    ssotSqm: Number((ssotRow.layers as any)?.physical?.total_area_sqm || 0),
-    publicRegisterSqm: Number((externalData?.buildingRegister as any)?.totalArea || 0),
+  // B1: 메모 SSoT 키 불일치 흡수 — layers.total_floor_area_pyung/land_area_pyung(평, flat) + layers.physical.*(㎡) 모두 읽는다.
+  //     개발 포스처 등에서 "신축/계획/가능 연면적" 라벨의 메모 값은 기존 연면적이 아니라 계획 GFA 로 분류된다.
+  const areaPosture = String(identity?.investmentPosture || ssotRow.investment_posture || (supplemental as any).investmentPosture || 'income');
+  const ssotAreas = readSsotLayerAreas(ssotRow.layers, { memoText: ssotRow.raw_input, development: areaPosture === 'development' });
+  // B2: 중개인(명시/메모) 값과 공공 대장 값은 서로 다른 슬롯으로 비교한다 (대장 값을 중개인 슬롯에 섞지 않는다).
+  const totalAreaRes = resolveTotalAreaWithSource({
+    explicitSqm: Number(supplemental.total_gross_area_m2 || 0),
+    explicitPyeong: Number(supplemental.total_gross_area_pyeong || 0),
+    memoSqm: ssotAreas.totalSqm,
+    registerSqm: Number((externalData?.buildingRegister as any)?.totalArea || 0),
   });
+  const userSpecifiedTotalArea = totalAreaRes.value;
 
   // 다필지: 브로커가 입력한 필지 면적 합계(모든 필지에 면적이 있을 때만)를 SSoT 대지면적으로 사용.
   //   우선순위: 명시 대지면적 입력 > 필지 면적 합계 > 기존 SSoT. (V-World/대장의 단일 필지 면적으로 과소 표기되는 것 방지)
@@ -452,26 +497,41 @@ export async function generateMobileIMHandler(
     }
   }
   const parcelSummary = summarizeParcels(supplemental.parcels);
-  const userSpecifiedLandArea = Number(supplemental.land_area_m2 || 0)
-    || (supplemental.land_area_pyeong ? pyeongToSqm(Number(supplemental.land_area_pyeong)) : 0)
-    || (parcelSummary.totalAreaM2 ?? 0)
-    || Number((ssotRow.layers as any)?.physical?.land_area_sqm || 0);
+  // 대지면적: 명시 입력 > 필지 합 > 메모 SSoT(평→㎡) > 건축물대장 platArea(>0) > V-World > 없음 (대장이 다른 건물이면 대장 대지면적도 배제)
+  const landAreaRes = resolveLandAreaWithSource({
+    explicitSqm: Number(supplemental.land_area_m2 || 0),
+    explicitPyeong: Number(supplemental.land_area_pyeong || 0),
+    parcelSumSqm: parcelSummary.totalAreaM2 ?? 0,
+    memoSqm: ssotAreas.landSqm,
+    registerPlatSqm: totalAreaRes.registerConflict ? 0 : Number((externalData?.buildingRegister as any)?.platArea || 0),
+    vworldSqm: readVworldLandAreaSqm(externalData),
+  });
+  const userSpecifiedLandArea = landAreaRes.value;
 
-  if (externalData?.buildingRegister && userSpecifiedTotalArea > 0) {
-    const regArea = Number(externalData.buildingRegister.totalArea || 0);
-    if (regArea > 0 && (regArea > userSpecifiedTotalArea * 2.0 || regArea < userSpecifiedTotalArea / 2.0)) {
-      log.warn(`[im-handler] 공공데이터 건축물대장 면적(${regArea}㎡)이 실물 사용자 입력 면적(${userSpecifiedTotalArea}㎡)과 2배 이상 괴리 — 사용자 정본 데이터로 교정`);
-      externalData.buildingRegister.totalArea = userSpecifiedTotalArea;
-      if (userSpecifiedLandArea > 0) {
-        externalData.buildingRegister.platArea = userSpecifiedLandArea;
-      }
-      if (supplemental.building_name) {
-        externalData.buildingRegister.buildingName = supplemental.building_name;
-      } else if (externalData.buildingRegister.buildingName?.includes('현대벤쳐텔')) {
-        externalData.buildingRegister.buildingName = '사옥용 빌딩';
-      }
-      if (supplemental.floors_above) externalData.buildingRegister.groundFloors = supplemental.floors_above;
-      if (supplemental.floors_below) externalData.buildingRegister.undergroundFloors = supplemental.floors_below;
+  // B2: 2배 괴리 가드 복구 — 중개인 값(명시/메모)과 대장이 2배 이상(양방향) 괴리하면 대장은 "다른 건물".
+  //     중개인 값을 채택하고, 그 다른 건물에 속한 사실(준공연도·주용도·층수·건물명·건폐/용적률 등)은 발행하지 않고 무효화한다.
+  if (externalData?.buildingRegister && totalAreaRes.registerConflict) {
+    const reg = externalData.buildingRegister as any;
+    const prevBuildingName: string | undefined = reg.buildingName;
+    log.warn(`[im-handler] 공공데이터 건축물대장 면적(${totalAreaRes.registerSqm}㎡)이 중개인 면적(${totalAreaRes.brokerSqm}㎡, ${totalAreaRes.source})과 2배 이상 괴리 — 중개인 값 채택, 대장의 다른 건물 사실 무효화`);
+    const removedKeys = invalidateForeignRegisterFacts(reg);
+    reg.totalArea = totalAreaRes.brokerSqm;
+    if (userSpecifiedLandArea > 0) reg.platArea = userSpecifiedLandArea; else delete reg.platArea;
+    reg._areaConflictInvalidated = removedKeys;
+    if (supplemental.building_name) {
+      reg.buildingName = supplemental.building_name;
+    } else if (prevBuildingName?.includes('현대벤쳐텔')) {
+      reg.buildingName = '사옥용 빌딩';
+    }
+    if (supplemental.floors_above) reg.groundFloors = supplemental.floors_above;
+    if (supplemental.floors_below) reg.undergroundFloors = supplemental.floors_below;
+  }
+
+  // 개발 포스처: 메모의 "신축/계획/가능 연면적"은 계획 GFA — 개발 스펙에 목표 규모가 없을 때만 채운다 (기존 연면적 슬롯과 혼용 금지)
+  if (areaPosture === 'development' && ssotAreas.plannedGfaSqm > 0) {
+    const ds = ((supplemental as any).developmentSpec ?? {}) as Record<string, any>;
+    if (!(Number(ds.targetScalePyung) > 0) && !(Number(ds.targetScalePyeong) > 0)) {
+      (supplemental as any).developmentSpec = { ...ds, targetScalePyung: Math.round(sqmToPyeong(ssotAreas.plannedGfaSqm) * 10) / 10 };
     }
   }
 
@@ -494,6 +554,14 @@ export async function generateMobileIMHandler(
   );
   if (uploadedPhotos.length > 0) {
     supplemental.photos_v2 = uploadedPhotos;
+  }
+
+  // ─── 중개인 원문 메모 명시값 → 운영/개발/자가사용 재무 입력 보충 (구조화 입력 우선, 빈 값만 보충; LLM 미관여)
+  try {
+    const memoFilled = supplementBrokerMemoFacts(supplemental as any, ssotRow.raw_input, areaPosture);
+    if (memoFilled.length > 0) log.info(`[im-handler] 원문 메모 명시값 재무 입력 보충: ${memoFilled.join(', ')}`);
+  } catch (err) {
+    log.warn('[im-handler] 원문 메모 명시값 보충 실패 (무시)', err);
   }
 
   // ─── 7섹션 AI 생성
@@ -627,27 +695,19 @@ export async function generateMobileIMHandler(
   // floor_leases에서 공실률 직접 산출 → ssot_summary.vacancy_pct에 영속
   // 자가사용(사옥, 카페 자가 등)은 만실로 처리 — 실제 사용 중이므로 공실이 아님
   const floorLeases = supplemental.floor_leases ?? [];
-  if (floorLeases.length > 0 && supplemental.vacancy_pct == null) {
-    const ownerUseKeywords = ['자가', '사옥', '자사', '본사', '직영', 'owner'];
-    const isOwnerUse = (l: any): boolean => {
-      const note = String(l.note || '').toLowerCase();
-      const tenant = String(l.tenant_type || l.tenant || '').toLowerCase();
-      return ownerUseKeywords.some(k => note.includes(k) || tenant.includes(k));
-    };
-    
-    // 자가사용 호실은 공실 계산에서 제외 (만실 처리)
-    const leasableUnits = floorLeases.filter((l: any) => !isOwnerUse(l));
-    const vacantCount = leasableUnits.filter((l: any) => 
-      l.is_vacant === true 
-      || l.tenant === '공실' || l.tenant_name === '공실'
-      || l.tenant_type === '공실' || l.tenant_sector === '공실'
-      || (l.tenant_type?.includes?.('공실'))
-      || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type && !l.tenant)
-    ).length;
-    
-    const denominator = leasableUnits.length || 1;
-    supplemental.vacancy_pct = Math.round((vacantCount / denominator) * 1000) / 10;
-    
+  if (floorLeases.length > 0) {
+    // 점유 상태 SSOT(lease-vacancy): 렌트롤 행이 입력된 이상 공실률은 행에서 결정론적으로 산출한다.
+    // 텍스트 렌트롤 LLM 파서가 '월세 0 → is_vacant:true' 로 추정해 영속한 값(자가사용·통합계약 후행을 공실로 오표기,
+    // oracle income-dangsan-r3 vacancy 33.33%)이 공실률로 흘러들지 않도록, 기존 입력값이 있어도 렌트롤 행 기준으로 덮어쓴다.
+    const isOwnerUse = (l: any): boolean => isOwnerUseLeaseRow(l);
+    const occupancy = summarizeLeaseOccupancy(floorLeases);
+    if (occupancy.vacancyPct != null) {
+      if (supplemental.vacancy_pct != null && supplemental.vacancy_pct !== occupancy.vacancyPct) {
+        log.warn({ provided: supplemental.vacancy_pct, derived: occupancy.vacancyPct }, '[im-lite/generate] 입력 공실률이 렌트롤 행과 달라 렌트롤 기준으로 재산출');
+      }
+      supplemental.vacancy_pct = occupancy.vacancyPct;
+    }
+
     // 자가사용 공간 정보 기록 (수익 여력 표시용)
     const ownerUseUnits = floorLeases.filter((l: any) => isOwnerUse(l));
     if (ownerUseUnits.length > 0) {
@@ -704,6 +764,8 @@ export async function generateMobileIMHandler(
       })(),
       investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
       occupancySpec: supplemental.occupancySpec ?? undefined,
+      // 운영형 KPI(구조화 + 원문 메모 보충) — PPTX 바인더 resolveHotelOperating 이 body.hotel_operating 을 우선 읽는다
+      hotel_operating: (supplemental as any).hotel_operating ?? undefined,
       // 개발형 전용 필드 → PPTX data-binder 바인딩용 영속화
       developmentSpec: supplemental.developmentSpec ?? undefined,
       vacateSpec: supplemental.vacateSpec ?? undefined,
@@ -742,6 +804,13 @@ export async function generateMobileIMHandler(
         size_signal: userSpecifiedTotalArea > 0 ? `${formatPyeong(userSpecifiedTotalArea, 1)}평` : ssotRow.size_signal,
         total_gross_area_sqm: userSpecifiedTotalArea > 0 ? userSpecifiedTotalArea : undefined,
         land_area_sqm: userSpecifiedLandArea > 0 ? userSpecifiedLandArea : undefined,
+        // B2: 면적 출처(provenance) — 2배 괴리 시 대장 값을 폐기했음을 기록
+        area_source: {
+          ...(userSpecifiedTotalArea > 0 ? { total: totalAreaRes.source } : {}),
+          ...(userSpecifiedLandArea > 0 ? { land: landAreaRes.source } : {}),
+          ...(totalAreaRes.registerConflict ? { register_conflict: { broker_sqm: totalAreaRes.brokerSqm, register_sqm: totalAreaRes.registerSqm } } : {}),
+          ...(ssotAreas.plannedGfaSqm > 0 ? { planned_gfa_sqm: ssotAreas.plannedGfaSqm } : {}),
+        },
         parcel_count: parcelSummary.count > 0 ? parcelSummary.count : undefined,
         pnus: parcelSummary.pnus.length > 0 ? parcelSummary.pnus : undefined,
         ...(parcelSummary.landCategoryLabel ? { land_category: parcelSummary.landCategoryLabel } : {}),
@@ -758,6 +827,10 @@ export async function generateMobileIMHandler(
         address: supplemental.resolved_address || ssotRow.raw_address || (ssotRow.layers as any)?.location?.raw_address || (ssotRow.layers as any)?.location?.address || null,
         pnu: supplemental.resolved_pnu || ssotRow.pnu || (ssotRow.layers as any)?.location?.pnu || (ssotRow.layers as any)?.pnu || null,
         own_vs_lease_savings_bil: (writerResult.financials as any)?.ownVsLeaseSavingsBil ?? undefined,
+        // 건축물대장 대표지번/부속지번 provenance (다필지 조회 추적) — 값 없으면 키 생략
+        ...((externalData?.buildingRegister as any)?.mainPnu ? { register_main_pnu: (externalData?.buildingRegister as any).mainPnu } : {}),
+        ...(Array.isArray((externalData?.buildingRegister as any)?.attachedLots) && (externalData?.buildingRegister as any).attachedLots.length > 0
+          ? { register_attached_pnus: (externalData?.buildingRegister as any).attachedLots } : {}),
         // D5: 건축물대장/토지이용계획 → ssot_summary (요약·토지·개요 슬라이드 공통 정본). 알 수 없으면 키 자체 생략(날조 금지)
         ...(() => {
           const sp = resolveOverviewSpecs(

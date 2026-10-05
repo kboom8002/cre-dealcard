@@ -1,34 +1,64 @@
 /**
  * @module distributeMagazine
- * @description 매거진 발행 시 카카오 알림톡 + 이메일 + 원페이지 이미지 3채널 일괄 배포.
- * weekly-magazine 크론 또는 에디터의 "발행" 버튼에서 호출됩니다.
+ * @description 매거진 발행 시 카카오 알림톡 + 이메일 일괄 배포. **모든 발송은 sendGate를 경유**한다.
+ *
+ * - P0-04: `MAGAZINE_SEND_ENABLED`가 false면 어떤 DB·provider 호출도 없이 즉시 `SEND_DISABLED` 반환.
+ * - T2-02: 구독자 컬럼은 운영 스키마(`subscriber_email`, `interest_profile`)를 사용한다. select 에러는 throw.
+ * - D2-12/M2-01: STUB 성공 집계를 제거하고 `{sent, blocked, failed, recorded, dryRun, total}`로 정직 보고한다.
+ *   dry-run에서는 `sent`가 항상 0이며 원장에 기록된 건수는 `recorded`다.
  */
-import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
-import { sendMagazineEmail } from '@/lib/notification/email-service';
-import { dispatchEdition, type DispatchTarget } from './rail/dispatcher';
-import { generatePersonalizedInsert } from './weekly-generator';
 import { getBrokerSubscriptionTier, type SubscriptionTier } from '@/domain/subscription/tier-gate';
-import type { MagazineDbClient } from './types';
-
+import { isMagazineSendDryRun, isMagazineSendEnabled, SEND_DISABLED_MESSAGE } from '@/lib/magazine/send-flags';
+import { todayKst } from '@/lib/magazine/kst';
 import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('distribute-magazine');
+import type { MagazineDbClient } from './types';
+import { KAKAO_TEMPLATE_WEEKLY_ISSUE } from './templates/kakao-template-codes';
+import type { GateDeps } from './send-gate';
+import {
+  emptyTally,
+  loadActiveSubscribers,
+  loadBrokerIdentity,
+  planTargets,
+  resolveBaseUrl,
+  runTargets,
+  segmentMatches,
+  type TargetSegment,
+} from './send-batch';
 
+const log = createModuleLogger('distribute-magazine');
 
 export interface DistributeMagazineEditionInput {
   id?: string;
   title: string;
-  date: string;
+  /** 발행일 YYYY-MM-DD (KST). 없으면 todayKst() */
+  date?: string;
   headline?: string;
   market_temp?: string;
-  target_segments?: string[];
-  content?: Record<string, unknown>;
+  /** DC-9: 구독자 segment 타깃. 기본 'all' */
+  target?: TargetSegment;
 }
 
 export interface DistributeMagazineResult {
+  /** false = 전체 발송 중지(blockedReason 참조). 개별 수신자 차단은 ok:true + blocked 집계 */
+  ok: boolean;
+  blockedReason?: 'SEND_DISABLED';
+  message?: string;
+  dryRun: boolean;
+  /** 판정 대상 (구독자×채널) 수 */
+  total: number;
+  /** 실제 provider 발송 성공 수 (dry-run이면 0) */
   sent: number;
   failed: number;
+  /** dry-run으로 원장에 기록된 수 */
+  recorded: number;
+  /** 차단 사유별 건수 */
+  blocked: Record<string, number>;
+  /** target 세그먼트 불일치로 제외된 구독자 수 */
+  segmentExcluded: number;
+  // 하위 호환 필드
   kakaoSent: number;
   kakaoFailed: number;
+  /** 카카오 채널 미지원(CHANNEL_NOT_AVAILABLE) 건수 */
   kakaoSkipped: number;
   emailSent: number;
   emailFailed: number;
@@ -36,275 +66,119 @@ export interface DistributeMagazineResult {
   tier: SubscriptionTier;
 }
 
+function disabledResult(): DistributeMagazineResult {
+  return {
+    ok: false,
+    blockedReason: 'SEND_DISABLED',
+    message: SEND_DISABLED_MESSAGE,
+    dryRun: isMagazineSendDryRun(),
+    total: 0,
+    sent: 0,
+    failed: 0,
+    recorded: 0,
+    blocked: {},
+    segmentExcluded: 0,
+    kakaoSent: 0,
+    kakaoFailed: 0,
+    kakaoSkipped: 0,
+    emailSent: 0,
+    emailFailed: 0,
+    isPaidTier: false,
+    tier: 'free',
+  };
+}
+
 export async function distributeMagazine(
   supabase: MagazineDbClient,
   brokerId: string,
-  edition: DistributeMagazineEditionInput
+  edition: DistributeMagazineEditionInput,
+  deps: GateDeps = {},
 ): Promise<DistributeMagazineResult> {
-  try {
-    // 1. 활성 구독자 조회 (전체 채널)
-    const { data: rawSubscribers, error: subError } = await supabase
-      .from('magazine_subscribers')
-      .select('id, subscriber_phone, subscriber_name, subscriber_email, email, segment, channel, interest_tags, client_id')
-      .eq('broker_id', brokerId)
-      .eq('status', 'active');
+  // 0. 킬스위치 — DB·provider 어느 것도 건드리기 전에 차단
+  if (!isMagazineSendEnabled()) return disabledResult();
 
-    if (subError) {
-      log.error('[Magazine Distribution] Failed to query subscribers:', subError.message);
-      return { sent: 0, failed: 0, kakaoSent: 0, kakaoFailed: 0, kakaoSkipped: 0, emailSent: 0, emailFailed: 0, isPaidTier: false, tier: 'free' };
-    }
+  const issueDate = edition.date || todayKst(deps.now);
 
-    if (!rawSubscribers || rawSubscribers.length === 0) {
-      log.info(`[Magazine Distribution] No active subscribers found for broker ${brokerId}`);
-      return { sent: 0, failed: 0, kakaoSent: 0, kakaoFailed: 0, kakaoSkipped: 0, emailSent: 0, emailFailed: 0, isPaidTier: false, tier: 'free' };
-    }
+  // 1. 브로커·구독자 (에러는 throw — T2-02b)
+  const broker = await loadBrokerIdentity(supabase, brokerId);
+  if (!broker) throw new Error(`브로커 프로필을 찾을 수 없습니다: ${brokerId}`);
+  const brokerKeys = [broker.slug, broker.userId].filter((k): k is string => !!k);
+  const rawSubscribers = await loadActiveSubscribers(supabase, brokerKeys);
 
-    // 2. 세그먼트 필터링 (target_segments가 'all'이 아니면 해당 자산유형 관심 구독자만 필터)
-    let subscribers = rawSubscribers;
-    const targetSegments = edition.target_segments || ['all'];
-    if (!targetSegments.includes('all')) {
-      subscribers = rawSubscribers.filter((s: any) => {
-        const subAssetTypes = s.interest_tags?.assetTypes || [];
-        return targetSegments.some((seg) => subAssetTypes.includes(seg) || seg === 'all');
-      });
-    }
+  // 2. 타깃 세그먼트 (DC-9)
+  const target = edition.target ?? 'all';
+  const subscribers = rawSubscribers.filter((s) => segmentMatches(target, s.segment));
 
-    // 3. 브로커 정보 조회
-    const { data: bp, error: bpError } = await supabase
-      .from('broker_profiles')
-      .select('name, user_id')
-      .eq('slug', brokerId)
-      .maybeSingle();
+  // 3. 구독 티어 (Free는 이메일만)
+  const { tier, isPaid } = await getBrokerSubscriptionTier(supabase, broker.userId ?? '');
 
-    if (bpError) {
-      log.warn('[Magazine Distribution] Failed to query broker profile name:', bpError.message);
-    }
+  const tally = emptyTally();
+  const baseUrl = resolveBaseUrl();
+  const targets = planTargets(subscribers, { allowKakao: isPaid }, tally);
 
-    const brokerName = bp?.name || brokerId;
-    const magazineUrl = `https://www.credeal.net/magazine/${brokerId}/${edition.date}`;
-    const onePageImageUrl = `https://www.credeal.net/api/magazine/${brokerId}/${edition.date}/image?format=story`;
-
-    // 3-1. 브로커 구독 티어 확인 (Free vs Pro/Premium)
-    const { tier: subscriptionTier, isPaid: isPaidTier } = await getBrokerSubscriptionTier(
+  await runTargets(
+    {
       supabase,
-      bp?.user_id || ''
-    );
+      broker,
+      kind: 'weekly',
+      editionKey: `${broker.slug}:${issueDate}:weekly`,
+      editionId: edition.id ?? null,
+      baseUrl,
+      edition: {
+        title: edition.title,
+        headline: edition.headline ?? '',
+        marketTemp: edition.market_temp ?? '',
+        date: issueDate,
+        url: `${baseUrl}/magazine/${broker.slug}/${issueDate}`,
+      },
+      kakaoTemplateId: KAKAO_TEMPLATE_WEEKLY_ISSUE,
+      gateDeps: deps,
+    },
+    targets,
+    tally,
+  );
 
-    let kakaoSent = 0;
-    let kakaoFailed = 0;
-    let kakaoSkipped = 0;
-    let emailSent = 0;
-    let emailFailed = 0;
-
-    // 4. 채널별 타겟 분류
-    const kakaoTargets = subscribers.filter(
-      (s: any) => (s.channel === 'kakao' || s.channel === 'both') && s.subscriber_phone
-    );
-    const emailTargets = subscribers.filter(
-      (s: any) => (s.channel === 'email' || s.channel === 'both') && (s.subscriber_email || s.email)
-    );
-
-    // Track 1: 카카오 알림톡 발송 (유료 Pro/Premium 가입 중개인만 활성화)
-    if (!isPaidTier) {
-      kakaoSkipped = kakaoTargets.length;
-      log.info(
-        `[Magazine Distribution] Broker ${brokerId} is on ${subscriptionTier} tier. Kakao Alimtalk batch skipped for ${kakaoSkipped} recipients (Pro required). Email distribution proceeded.`
-      );
-    } else {
-      // Pro/Premium 티어: 알림톡 일괄 배포 발송 (병렬 5건씩 처리)
-      for (let i = 0; i < kakaoTargets.length; i += 5) {
-        const batch = kakaoTargets.slice(i, i + 5);
-        const results = await Promise.allSettled(
-          batch.map((sub: any) => {
-            const smsText = `[${brokerName}] 주간 부동산 매거진이 발행되었습니다.\n주제: ${edition.title}\n링크: ${magazineUrl}`;
-            return sendKakaoAlimtalk({
-              recipientPhone: sub.subscriber_phone!,
-              templateId: 'TPL_MAGAZINE_NEW_ISSUE',
-              variables: {
-                '#{subscriberName}': sub.subscriber_name || '투자자',
-                '#{brokerName}': brokerName,
-                '#{magazineTitle}': edition.title || `${edition.date} 주간 리포트`,
-                '#{headline}': edition.headline || '이번 주 시장 동향과 분석을 확인해보세요.',
-                '#{magazineUrl}': magazineUrl,
-              },
-              fallbackSms: smsText,
-            });
-          })
-        );
-
-        for (const r of results) {
-          if (r.status === 'fulfilled' && r.value) {
-            kakaoSent++;
-          } else {
-            kakaoFailed++;
-          }
-        }
-      }
-    }
-
-    // Track 2: 이메일 일괄 발송 (Resend / Safe Fallback)
-    for (let i = 0; i < emailTargets.length; i += 5) {
-      const batch = emailTargets.slice(i, i + 5);
-      const results = await Promise.allSettled(
-        batch.map(async (sub: any) => {
-          const emailAddr = sub.subscriber_email || sub.email;
-          let customInsert = '';
-          const matchedDeals = await fetchSubscriberTopMatches(supabase, sub.client_id);
-          if ((sub.interest_tags && Object.keys(sub.interest_tags).length > 0) || matchedDeals.length > 0) {
-            customInsert = await generatePersonalizedInsert(
-              sub.interest_tags || {},
-              { theme_title: edition.title, ai_briefing: edition.headline },
-              [],
-              matchedDeals
-            );
-          }
-
-          return sendMagazineEmail({
-            to: emailAddr!,
-            brokerName,
-            subscriberName: sub.subscriber_name || '투자자',
-            magazineTitle: edition.title || `${edition.date} CRE 주간 리포트`,
-            headline: edition.headline || '이번 주 상업용 부동산 시장 핵심 분석 리포트입니다.',
-            magazineUrl,
-            imageUrl: onePageImageUrl,
-            marketTemp: edition.market_temp || '관망',
-            customInsert: customInsert || undefined,
-            // Extended email sections
-            fieldNote: (edition as any).content?.field_note || null,
-            featuredDeals: ((edition as any).content?.dealHighlights || (edition as any).content?.featured_deals || []).slice(0, 3),
-            topNews: ((edition as any).content?.topNews || []).slice(0, 3),
-            recentTransactions: ((edition as any).content?.recentTransactions || []).slice(0, 3),
-            poll: (edition as any).content?.poll || null,
-            taxClinic: (edition as any).content?.tax_clinic || null,
-          });
-        })
-      );
-
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) {
-          emailSent++;
-        } else {
-          emailFailed++;
-        }
-      }
-    }
-
-    const totalSent = kakaoSent + emailSent;
-    const totalFailed = kakaoFailed + emailFailed;
-
-    // 5. 배포 이력 기록
+  // 4. 배포 이력(관측용). 원장(magazine_dispatch_logs)이 진실의 원천이며 이 기록의 실패는 발송 결과에 영향 없음
+  if (broker.userId) {
     const { error: logError } = await supabase.from('activity_events').insert({
-      actor_id: brokerId,
-      actor_role: 'system',
+      actor_id: broker.userId,
+      actor_role: 'broker',
       event_type: 'magazine_distributed',
       entity_type: 'magazine_editions',
       metadata: {
-        broker_id: brokerId,
-        sent_count: totalSent,
-        failed_count: totalFailed,
-        kakao_sent: kakaoSent,
-        email_sent: emailSent,
-        total_subscribers: subscribers.length,
-        issue_date: edition.date,
-        image_url: onePageImageUrl,
+        broker_id: broker.slug,
+        issue_date: issueDate,
+        dry_run: deps.dryRun ?? isMagazineSendDryRun(),
+        total: tally.total,
+        sent_count: tally.sent,
+        recorded_count: tally.recorded,
+        failed_count: tally.failed,
+        blocked: tally.blocked,
       },
-      created_at: new Date().toISOString(),
     });
-
-    if (logError) {
-      log.error('[Magazine Distribution] Log event failed:', logError.message);
-    }
-
-    // 6. Universal Dispatch Rail 로깅 연동
-    const railTargets: DispatchTarget[] = subscribers.map((s: any) => ({
-      subscriberId: s.id || '',
-      email: s.subscriber_email || s.email || '',
-      segment: s.segment || 'investor',
-      preferences: s.interest_tags || {},
-    }));
-
-    try {
-      const editionId = edition.id || `${brokerId}_${edition.date}`;
-      await dispatchEdition('weekly', editionId, railTargets, '');
-    } catch (railErr) {
-      log.warn('[Magazine Distribution] Dispatch rail recording error:', railErr);
-    }
-
-    log.info(
-      `[Magazine Distribution] Finished for ${brokerId}: totalSent=${totalSent} (kakao=${kakaoSent}, email=${emailSent}), failed=${totalFailed}`
-    );
-
-    return {
-      sent: totalSent,
-      failed: totalFailed,
-      kakaoSent,
-      kakaoFailed,
-      kakaoSkipped,
-      emailSent,
-      emailFailed,
-      isPaidTier,
-      tier: subscriptionTier,
-    };
-  } catch (err: any) {
-    log.error('[Magazine Distribution] Unexpected error occurred:', err.message);
-    return {
-      sent: 0,
-      failed: 0,
-      kakaoSent: 0,
-      kakaoFailed: 0,
-      kakaoSkipped: 0,
-      emailSent: 0,
-      emailFailed: 0,
-      isPaidTier: false,
-      tier: 'free',
-    };
+    if (logError) log.warn('[Magazine Distribution] activity_events insert failed', logError.message);
   }
-}
 
-async function fetchSubscriberTopMatches(
-  supabase: MagazineDbClient,
-  clientId?: string | null,
-): Promise<Array<{ blindName: string; grade: string; score: number }>> {
-  if (!clientId) return [];
-  try {
-    const { data: client } = await supabase
-      .from('broker_clients')
-      .select('linked_buyer_intent_ids')
-      .eq('id', clientId)
-      .maybeSingle();
+  log.info(
+    `[Magazine Distribution] ${broker.slug} ${issueDate}: total=${tally.total} sent=${tally.sent} recorded=${tally.recorded} failed=${tally.failed}`,
+    { blocked: tally.blocked },
+  );
 
-    const intentIds = (client?.linked_buyer_intent_ids || []) as string[];
-    if (!intentIds || intentIds.length === 0) return [];
-
-    const { data: matches } = await supabase
-      .from('match_results')
-      .select('building_ssot_lite_id, grade, score')
-      .in('buyer_intent_lite_id', intentIds)
-      .in('grade', ['S', 'A'])
-      .order('score', { ascending: false })
-      .limit(3);
-
-    if (!matches || matches.length === 0) return [];
-
-    const buildingIds = matches.map((m: any) => m.building_ssot_lite_id);
-    const { data: buildings } = await supabase
-      .from('building_ssot_lite')
-      .select('id, area_signal, asset_type')
-      .in('id', buildingIds);
-
-    const buildingMap = new Map((buildings || []).map((b: any) => [b.id, b]));
-
-    return matches.map((m: any) => {
-      const b: any = buildingMap.get(m.building_ssot_lite_id);
-      const blindName = b ? [b.area_signal, b.asset_type].filter(Boolean).join(' · ') : '추천 매물';
-      return {
-        blindName,
-        grade: m.grade,
-        score: m.score,
-      };
-    });
-  } catch (err) {
-    log.warn('[fetchSubscriberTopMatches] Failed:', err);
-    return [];
-  }
+  return {
+    ok: true,
+    dryRun: deps.dryRun ?? isMagazineSendDryRun(),
+    total: tally.total,
+    sent: tally.sent,
+    failed: tally.failed,
+    recorded: tally.recorded,
+    blocked: tally.blocked,
+    segmentExcluded: rawSubscribers.length - subscribers.length,
+    kakaoSent: tally.kakao.sent,
+    kakaoFailed: tally.kakao.failed,
+    kakaoSkipped: tally.blocked.CHANNEL_NOT_AVAILABLE ?? 0,
+    emailSent: tally.email.sent,
+    emailFailed: tally.email.failed,
+    isPaidTier: isPaid,
+    tier,
+  };
 }

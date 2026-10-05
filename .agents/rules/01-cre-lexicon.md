@@ -32,4 +32,10 @@
 
 - **원칙**: URL/DB 스키마에는 `im-lite` / `mobile_im`을 유지합니다. 사용자 대면 텍스트·파일명에는 `Basic IM` / `Pro IM`을 사용합니다. 코드 주석에서는 둘의 관계를 명시합니다.
 
+### 임차인명 표기 정책 (오너 결정 D1)
+- **IM(모바일 뷰어·PPTX)은 렌트롤의 실제 임차인명(상호)을 그대로 표기**합니다. `[임차인A]` 류 익명 라벨·유명 브랜드 일괄 마스킹은 폐지되었습니다.
+- **공개 티저·매거진(NDA 이전)** 만 업종 대체 마스킹(`runDisclosureGuard` 기본 호출, `publicBlocked`)을 유지합니다. IM 경로는 `runDisclosureGuard(md, { allowFields: ['tenant_name'] })`.
+- 대신 **날조 검증**: 유명 브랜드가 본문에 있는데 렌트롤(floor_leases)에 없으면 LLM 날조로 보고 해당 브랜드만 치환합니다 (`tenant-name-policy.ts`).
+- 렌트롤에 상호가 없는 호실은 업종만 표기하며 상호를 지어내지 않습니다 (Rule 34).
+
 <!-- END:cre-im-rules -->

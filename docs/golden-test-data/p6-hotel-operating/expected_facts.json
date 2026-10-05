@@ -1,0 +1,326 @@
+{
+  "schemaVersion": 1,
+  "golden": "operating-hotel-r2",
+  "fixture": "docs/golden-test-data/p6-hotel-operating/r2-standard",
+  "notes": [
+    "대장(enrichment.buildingRegister)은 이 건물의 값이 아님: totalArea 231.4㎡ · 1971 준공 · 지상 3층 이고 bcRat/vlRat/platArea=0 (비정상) → 픽스처(bottom_sheet/memo)를 정답으로 사용. rca-evidence.md 참조."
+  ],
+  "must_contain": [
+    {
+      "id": "asking-price",
+      "label": "매각 희망가",
+      "anyOf": [
+        "re:(?<![\\d.])300(?:\\.\\d+)?\\s*억",
+        "re:(?<![\\d,.])3,000,,?000(?:\\.0+)?(?![\\d,])"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "note": "bottom_sheet.askingPriceManwon=3000000"
+    },
+    {
+      "id": "gfa",
+      "label": "연면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])3,?842\\.6(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "fixture grossFloorAreaM2=3842.6 (memo 1,162.4평); 대장 231.4 는 타 건물"
+    },
+    {
+      "id": "land-area",
+      "label": "대지면적(㎡)",
+      "anyOf": [
+        "re:(?<![\\d,.])486\\.2(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "fixture landAreaM2=486.2 (memo 147.1평) — claims.land_area_sqm=0 이 게이트를 막음"
+    },
+    {
+      "id": "floors-above",
+      "label": "지상 층수",
+      "anyOf": [
+        "re:지상\\s*12\\s*층"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "fixture B2~12F (memo 지하 2층~지상 12층)"
+    },
+    {
+      "id": "floors-below",
+      "label": "지하 층수",
+      "anyOf": [
+        "re:지하\\s*2\\s*층"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1"
+    },
+    {
+      "id": "completion-year",
+      "label": "준공/사용승인 연도",
+      "anyOf": [
+        "re:(준공|사용승인)[\\s\\S]{0,24}?2016",
+        "re:2016\\s*[년.][^\\n]{0,12}(준공|사용승인|신축)"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "fixture completionYear=2016 (대장 1971 은 타 건물)"
+    },
+    {
+      "id": "parking-elevator",
+      "label": "주차/승강기",
+      "anyOf": [
+        "re:주차[^\\d]{0,12}18\\s*대\\s*/\\s*2\\s*대"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "station",
+      "label": "최근접 역",
+      "anyOf": [
+        "이대역"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "locationPoi.nearestStation (API) = 이대역 2호선"
+    },
+    {
+      "id": "rooms",
+      "label": "총 객실 94실",
+      "anyOf": [
+        "re:94\\s*실"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "note": "hotel_operating.total_rooms"
+    },
+    {
+      "id": "adr",
+      "label": "ADR 95,000원",
+      "anyOf": [
+        "re:95,?000"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "occ",
+      "label": "OCC 78%",
+      "anyOf": [
+        "re:(?<![\\d.])78(?:\\.0)?\\s*%"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "revpar",
+      "label": "RevPAR 74,100원",
+      "anyOf": [
+        "re:74,?100"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    },
+    {
+      "id": "gop-margin",
+      "label": "GOP 마진 38%",
+      "anyOf": [
+        "re:GOP[^\\n]{0,12}\\n?\\s*38(?:\\.0)?\\s*%"
+      ],
+      "where": "pptx",
+      "source": "fixture",
+      "note": "hotel_operating.gop_margin_pct=38 (현재 35% 로 표기됨)"
+    },
+    {
+      "id": "operator",
+      "label": "운영사 에이치 에비뉴",
+      "anyOf": [
+        "re:에이치\\s*에비뉴"
+      ],
+      "where": "pptx",
+      "source": "fixture"
+    }
+  ],
+  "must_not_contain": [
+    {
+      "label": "'0㎡' 표기 (0 면적)",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*㎡"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "0 클레임이 면적으로 렌더됨 — Rule 34/37 (결측은 -) — hotel: claims.land_area_sqm=0 (W1)",
+      "pending": "W1"
+    },
+    {
+      "label": "'0.0평' 표기",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*평"
+      ],
+      "where": "both",
+      "source": "derived",
+      "pending": "W1",
+      "note": " — hotel: claims.land_area_sqm=0 (W1)"
+    },
+    {
+      "label": "비정상 수치 토큰 (Infinity/NaN/undefined)",
+      "anyOf": [
+        "Infinity",
+        "NaN",
+        "undefined"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 마스킹 잔여 '[임차인'",
+      "anyOf": [
+        "[임차인"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "뷰어 렌트롤/본문에 마스킹 라벨 잔존 — 실명 사용 결정(W3)"
+    },
+    {
+      "label": "TARGET 플레이스홀더 노출",
+      "anyOf": [
+        "TARGET"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "본문 말줄임표 '…' (잘린 문장)",
+      "anyOf": [
+        "…"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 익명 라벨 ('임차인 A' 등) — 실명 사용 결정",
+      "anyOf": [
+        "re:임차인\\s*[A-Z](?![A-Za-z])"
+      ],
+      "where": "both",
+      "source": "derived",
+      "note": "오너 결정: IM 전 구간 실제 임차인명 사용"
+    },
+    {
+      "label": "타 건물 대장값 연면적 231.4㎡",
+      "anyOf": [
+        "231.4"
+      ],
+      "where": "both",
+      "source": "derived",
+      "pending": "W1",
+      "note": "대장 PNU 불일치/비정상 — RCA"
+    },
+    {
+      "label": "타 건물 대장값 준공 1971",
+      "anyOf": [
+        "1971"
+      ],
+      "where": "both",
+      "source": "derived",
+      "pending": "W1"
+    }
+  ],
+  "must_not_be_dash": [
+    {
+      "label": "연면적",
+      "labelRegex": "연면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])3,?842\\.6(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "원천에 값이 있는데 PPTX 가 다른 값/대시/행 누락"
+    },
+    {
+      "label": "대지면적",
+      "labelRegex": "대지면적",
+      "regexNearLabel": "^\\s*(?<![\\d,.])486\\.2(?!\\d)",
+      "window": 22,
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1"
+    },
+    {
+      "label": "층수",
+      "labelRegex": "층수",
+      "regexNearLabel": "^\\s*(지하|지상|B\\d)[^\\n]{0,12}지상\\s*12",
+      "window": 30,
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "층수 행이 대시이거나 누락"
+    },
+    {
+      "label": "사용승인일/준공시점",
+      "labelRegex": "(사용승인일|준공시점)",
+      "regexNearLabel": "^\\s*2016",
+      "window": 14,
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "준공 연도 행이 대시이거나 누락"
+    }
+  ],
+  "landmarks": [
+    {
+      "where": "pptx",
+      "source": "derived",
+      "label": "이화여자대학교",
+      "anyOf": [
+        "이화여자대학교",
+        "이화여대 정문",
+        "이대 정문"
+      ],
+      "note": "candidateSpots: 이화여자대학교 정문 43m"
+    }
+  ],
+  "numeric": [
+    {
+      "id": "gfa-all-occurrences",
+      "label": "연면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "연면적",
+      "value": 3842.6,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "fixture grossFloorAreaM2=3842.6 (memo 1,162.4평); 대장 231.4 는 타 건물 — 다른 건물 값(예: 231.4㎡)이 한 곳이라도 섞이면 실패"
+    },
+    {
+      "id": "land-all-occurrences",
+      "label": "대지면적 (모든 언급이 기대값과 일치)",
+      "labelRegex": "대지면적",
+      "value": 486.2,
+      "unit": "㎡",
+      "tolerancePct": 0.5,
+      "where": "pptx",
+      "source": "fixture",
+      "pending": "W1",
+      "note": "fixture landAreaM2=486.2 (memo 147.1평) — claims.land_area_sqm=0 이 게이트를 막음"
+    }
+  ],
+  "duplicate_sentences": {
+    "label": "슬라이드 간 동일 문장 중복",
+    "min_len": 28,
+    "ignore": [
+      "^(CREDEAL|CRE DEAL|본 자료|©|※)",
+      "^E2E ",
+      "^[✓★▲●◇]",
+      "^(01|02|03)$"
+    ]
+  }
+}

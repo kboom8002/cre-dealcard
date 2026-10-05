@@ -10,7 +10,10 @@ const SCREENSHOT_DIR = path.resolve(__dirname, 'screenshots/magazine_part2');
 const BROKER_SLUG = 'test-broker-kim';
 const BROKER_USER_ID = '204246a5-7c52-4549-9570-f089fbbf789c';
 
-test.describe('Part 2 Magazine Subscription, Distribution & Referral Audit', () => {
+// [무효화 — T-01/T3-TEST-1] 이 spec 은 `if (isVisible)` soft 패턴이라 요소가 없어도 통과하고,
+// 실데이터(구독/레퍼럴/폴 POST, cron GET)를 쓴다. 골든 spec(magazine-tutorial-part*-golden.auth.spec.ts)으로 대체되었다.
+// 삭제하지 않고 describe.skip 으로 격리한다.
+test.describe.skip('Part 2 Magazine Subscription, Distribution & Referral Audit', () => {
   test.beforeAll(async () => {
     if (!fs.existsSync(SCREENSHOT_DIR)) {
       fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });

@@ -1,41 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM } from "@/ai/llm-client";
+import { callLLM, LLMMockNotAllowedError } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 import { requireBroker } from "@/lib/auth-guard";
+import {
+  AI_COMMENT_SYSTEM_PROMPT,
+  AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
+  aiCommentRequestSchema,
+  findNumbersNotInContext,
+  type AiCommentResponse,
+} from "@/lib/magazine/ai-comment-schema";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+function fail(status: number, code: string, message: string) {
+  return NextResponse.json({ ok: false, error: { code, message } }, { status });
+}
 
+/**
+ * POST /api/broker/studio/ai-comment
+ * 요청 { comment } (구 { context } 도 허용) → 응답 { ok:true, result:{ comment }, warnings? }
+ * Mock 응답은 공개 콘텐츠 품질 보장을 위해 502로 거부한다 (DC-8).
+ */
 export async function POST(req: NextRequest) {
   // Auth guard — 미인증 요청 차단
   const auth = await requireBroker(req);
   if (auth.error) return auth.error;
 
+  let raw: unknown;
   try {
-    const { comment } = await req.json();
-    if (!comment) {
-      return NextResponse.json({ error: "코멘트 내용이 필요합니다." }, { status: 400 });
+    raw = await req.json();
+  } catch {
+    return fail(400, "BAD_REQUEST", "요청 형식이 올바르지 않습니다.");
+  }
+
+  const parsed = aiCommentRequestSchema.safeParse(raw);
+  if (!parsed.success) {
+    return fail(400, "BAD_REQUEST", parsed.error.issues[0]?.message ?? "코멘트 내용이 필요합니다.");
+  }
+  const { comment } = parsed.data;
+
+  try {
+    const result = await callLLM(
+      {
+        systemPrompt: AI_COMMENT_SYSTEM_PROMPT,
+        userPrompt: `입력 내용: ${JSON.stringify(comment)}`,
+        model: getModel("luna"),
+        temperature: 0.4,
+      },
+      { allowMock: false },
+    );
+
+    // 방어: llm-client 가 allowMock 을 지원하지 않거나 우회되어도 Mock 응답은 거부
+    if ((result as { isMock?: boolean }).isMock) {
+      return fail(502, "LLM_UNAVAILABLE", "AI 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
 
-    const systemPrompt = `당신은 상업용 부동산 전문 브로커를 위한 AI 화법 비서입니다.
-사용자가 입력한 짧고 거친 메모나 핵심 아이디어를 바탕으로,
-고객(김대표님 등)에게 보낼 수 있도록 전문적이고 설득력 있는 브로커 화법의 긴 코멘트 메시지를 작성해 주세요.
-출력 텍스트는 친근하면서도 전문적인 존댓말이어야 하며, 적절한 시장 인사이트(예: 성수동 지산 권역의 거래량 상승, 밸류애드 리모델링 수요, 최고가 갱신 등)를 지어내거나 인용하여 신뢰감을 더해야 합니다.
-반드시 한국어로 작성하고, 마크다운 기호 없이 가독성 좋은 줄바꿈으로만 출력해 주세요.`;
+    const text = typeof result.content === "string" ? result.content.trim() : "";
+    if (!text) {
+      return fail(502, "LLM_EMPTY", "AI가 응답을 생성하지 못했습니다. 다시 시도해주세요.");
+    }
 
-    const userPrompt = `입력 내용: "${comment}"`;
+    const warnings: string[] = [];
+    if (findNumbersNotInContext(text, comment).length > 0) {
+      warnings.push(AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT);
+    }
 
-    const result = await callLLM({
-      systemPrompt,
-      userPrompt,
-      model: getModel("luna"),
-      temperature: 0.7,
-    });
-
-    return NextResponse.json({ ok: true, data: result.content });
-  } catch (error: any) {
+    const body: AiCommentResponse = {
+      ok: true,
+      result: { comment: text },
+      ...(warnings.length > 0 ? { warnings } : {}),
+    };
+    return NextResponse.json(body);
+  } catch (error: unknown) {
+    if (error instanceof LLMMockNotAllowedError) {
+      log.warn("[studio/ai-comment] Mock 응답 거부:", error.message);
+      return fail(502, "LLM_UNAVAILABLE", "AI 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
     log.error("[studio/ai-comment] Error:", error);
-    return NextResponse.json({ error: error.message || "AI 생성 중 오류가 발생했습니다." }, { status: 500 });
+    return fail(500, "SERVER_ERROR", "AI 생성 중 오류가 발생했습니다.");
   }
 }

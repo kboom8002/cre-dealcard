@@ -1,12 +1,21 @@
 /**
- * GET  /api/broker/profile  — 내 브로커 프로필 조회
+ * GET  /api/broker/profile  — 내 브로커 프로필 조회 (+ 매거진 설정 조인)
  * PUT  /api/broker/profile  — 내 브로커 프로필 수정
+ *
+ * I-02/S2-06: slug는 validateSlug(형식·예약어) + 중복 409.
+ * DC-5: `magazine_title`/`magazine_theme_color`는 broker_profiles 컬럼이 아니다(존재하지 않음).
+ *       `magazine_settings`(title, theme_color) 테이블에 upsert하고, 테이블이 아직 없으면 해당 필드만 건너뛴 뒤
+ *       응답에 `settingsSaved:false`를 알린다(500 아님).
+ * 프로필 PUT 500의 원인: 에디터가 slug 폴백 "demo"를 보내 → 타 브로커 소유 slug와 충돌(23505) → 500.
+ *       (magazine_* 키는 zod가 이미 제거하고 있었음) → 예약어/중복 검증으로 400/409 처리.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
 import { requireBroker } from '@/lib/auth-guard';
+import { createServiceClient } from '@/lib/supabase/service';
 import { getBrokerSubscriptionTier } from '@/domain/subscription/tier-gate';
+import { validateSlug } from '@/lib/magazine/slug';
+import { jsonError } from '@/lib/magazine/authz';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -57,6 +66,14 @@ const ProfileUpdateSchema = z.object({
 
   // Avatar / Photo
   avatar_url: z.string().max(2000).nullable().optional(),
+
+  // 매거진 설정 → magazine_settings 테이블 (broker_profiles 컬럼 아님)
+  magazine_title: z.string().trim().max(60).nullable().optional(),
+  magazine_theme_color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
 });
 
 /** broker_profiles 테이블에 실제로 존재하는 컬럼 화이트리스트 */
@@ -71,16 +88,34 @@ const VALID_BROKER_COLUMNS = new Set([
   'office_address', 'office_district', 'office_dong',
 ]);
 
+/** 테이블/컬럼이 아직 없는 오류(마이그레이션 미적용) */
+function isNotMigrated(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === '42P01' || err.code === '42703' || err.code === 'PGRST205' || err.code === 'PGRST204') return true;
+  const m = (err.message ?? '').toLowerCase();
+  return m.includes('does not exist') || m.includes('schema cache');
+}
+
+/** 자동 slug: 형식 규칙(SLUG_RE: 영문 소문자·숫자·하이픈 3~30자)을 만족하는 ASCII만 사용 (한글 이름 → 접두 생략). */
+function buildAutoSlug(displayName: string | null | undefined, userId: string): string {
+  const suffix = userId.replace(/-/g, '').substring(0, 6).toLowerCase();
+  const base = (displayName ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 20)
+    .replace(/-+$/g, '');
+  const candidate = base ? `${base}-${suffix}` : `broker-${suffix}`;
+  const v = validateSlug(candidate);
+  return v.ok ? v.slug : `broker-${suffix}`;
+}
+
 export async function GET(req: NextRequest) {
   const guard = await requireBroker(req);
   if (guard.error) return guard.error;
   const { user } = guard;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
+  const supabase = createServiceClient();
 
   let { data: profile } = await supabase
     .from('profiles')
@@ -130,11 +165,9 @@ export async function GET(req: NextRequest) {
 
   // broker_profiles row가 없으면 자동 생성
   if (!brokerProfile) {
-    const baseName = (profile?.display_name || user!.id.substring(0, 8)) as string;
-    const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'broker';
-    const autoSlug = `${slugBase}-${user!.id.substring(0, 6)}`;
+    const autoSlug = buildAutoSlug(profile?.display_name as string | undefined, user!.id);
 
-    const { data: newBrokerProfile } = await supabase
+    const { data: newBrokerProfile, error: createErr } = await supabase
       .from('broker_profiles')
       .upsert({
         user_id: user!.id,
@@ -142,19 +175,44 @@ export async function GET(req: NextRequest) {
       }, { onConflict: 'user_id' })
       .select()
       .maybeSingle();
+    if (createErr) {
+      log.error('[Profile GET] broker_profiles create error:', createErr.message);
+      return jsonError('INTERNAL_ERROR', '프로필을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);
+    }
 
     brokerProfile = newBrokerProfile;
   } else if (!brokerProfile.slug) {
-    const baseName = (profile?.display_name || user!.id.substring(0, 8)) as string;
-    const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'broker';
-    const autoSlug = `${slugBase}-${user!.id.substring(0, 6)}`;
-    
-    await supabase
+    const autoSlug = buildAutoSlug(profile?.display_name as string | undefined, user!.id);
+
+    const { error: slugErr } = await supabase
       .from('broker_profiles')
       .update({ slug: autoSlug })
       .eq('user_id', user!.id);
-    
+    if (slugErr) {
+      log.error('[Profile GET] slug backfill error:', slugErr.message);
+      return jsonError('INTERNAL_ERROR', '프로필을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);
+    }
+
     brokerProfile.slug = autoSlug;
+  }
+
+  // 매거진 설정 조인 (magazine_settings: title, theme_color). 없으면 null — 가짜 기본값 없음.
+  let magazineTitle: string | null = null;
+  let magazineThemeColor: string | null = null;
+  let settingsAvailable = true;
+  {
+    const { data: settings, error: settingsErr } = await supabase
+      .from('magazine_settings')
+      .select('title, theme_color')
+      .eq('broker_user_id', user!.id)
+      .maybeSingle();
+    if (settingsErr) {
+      settingsAvailable = false;
+      if (!isNotMigrated(settingsErr)) log.error('[Profile GET] magazine_settings error:', settingsErr.message);
+    } else if (settings) {
+      magazineTitle = (settings as { title?: string | null }).title ?? null;
+      magazineThemeColor = (settings as { theme_color?: string | null }).theme_color ?? null;
+    }
   }
 
   const { tier: subscriptionTier, isPaid: isPaidTier } = await getBrokerSubscriptionTier(
@@ -168,6 +226,9 @@ export async function GET(req: NextRequest) {
       ...profile,
       broker: brokerProfile ?? null,
       email: user!.email,
+      magazine_title: magazineTitle,
+      magazine_theme_color: magazineThemeColor,
+      settingsAvailable,
       subscription: {
         tier: subscriptionTier,
         isPaid: isPaidTier,
@@ -182,18 +243,55 @@ export async function PUT(req: NextRequest) {
     if (guard.error) return guard.error;
     const { user } = guard;
   
-    const json = await req.json();
+    let json: unknown;
+    try {
+      json = await req.json();
+    } catch {
+      return jsonError('INVALID_JSON', '요청 형식이 올바르지 않습니다.', 400);
+    }
     const parsed = ProfileUpdateSchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: z.flattenError(parsed.error) }, { status: 400 });
     }
   
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-  
+    const supabase = createServiceClient();
+
+    // 0. 검증 선행: slug 형식·예약어·중복 (쓰기 전에 모두 확인)
+    let nextSlug: string | undefined;
+    let currentSlug: string | null = null;
+    {
+      const { data: cur, error: curErr } = await supabase
+        .from('broker_profiles')
+        .select('slug')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      if (curErr) {
+        log.error('[Profile PUT] current slug lookup error:', curErr.message);
+        return jsonError('INTERNAL_ERROR', '프로필을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);
+      }
+      currentSlug = (cur as { slug?: string | null } | null)?.slug ?? null;
+    }
+    if (parsed.data.slug !== undefined) {
+      const v = validateSlug(parsed.data.slug);
+      if (!v.ok) return jsonError(v.code === 'RESERVED' ? 'SLUG_RESERVED' : 'SLUG_INVALID', v.message, 400);
+      if (v.slug !== currentSlug) {
+        const { data: taken, error: takenErr } = await supabase
+          .from('broker_profiles')
+          .select('user_id')
+          .eq('slug', v.slug)
+          .neq('user_id', user!.id)
+          .limit(1);
+        if (takenErr) {
+          log.error('[Profile PUT] slug duplicate check error:', takenErr.message);
+          return jsonError('INTERNAL_ERROR', '주소를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);
+        }
+        if ((taken ?? []).length > 0) {
+          return jsonError('SLUG_TAKEN', '이미 사용 중인 주소입니다. 다른 주소를 선택해 주세요.', 409);
+        }
+      }
+      nextSlug = v.slug;
+    }
+
     // 1. Update profiles table
     const profileUpdate: Record<string, unknown> = {};
     if (parsed.data.display_name !== undefined) profileUpdate.display_name = parsed.data.display_name;
@@ -216,13 +314,16 @@ export async function PUT(req: NextRequest) {
       }
     }
   
-    // 2. Upsert broker_profiles table (화이트리스트 컬럼만 전달)
+    // 2. Upsert broker_profiles table (화이트리스트 컬럼만 전달 — magazine_title/magazine_theme_color 제외)
     const brokerUpdate: Record<string, unknown> = { user_id: user!.id };
     for (const [key, value] of Object.entries(parsed.data)) {
       if (VALID_BROKER_COLUMNS.has(key) && value !== undefined) {
         brokerUpdate[key] = value;
       }
     }
+    if (nextSlug !== undefined) brokerUpdate.slug = nextSlug;
+    // 현재 slug와 동일하면 쓰기에서 제외(불필요한 unique 충돌 경로 제거)
+    if (nextSlug !== undefined && nextSlug === currentSlug) delete brokerUpdate.slug;
   
     if (Object.keys(brokerUpdate).length > 1) {
       const { data: existing } = await supabase
@@ -237,6 +338,7 @@ export async function PUT(req: NextRequest) {
           .update(brokerUpdate)
           .eq('user_id', user!.id);
         if (error) {
+          if (error.code === '23505') return jsonError('SLUG_TAKEN', '이미 사용 중인 주소입니다. 다른 주소를 선택해 주세요.', 409);
           log.error('[Profile PUT] broker_profiles update error:', error);
           return NextResponse.json({ error: `전문 프로필 저장 오류: ${error.message}` }, { status: 500 });
         }
@@ -245,15 +347,43 @@ export async function PUT(req: NextRequest) {
           .from('broker_profiles')
           .insert(brokerUpdate);
         if (error) {
+          if (error.code === '23505') return jsonError('SLUG_TAKEN', '이미 사용 중인 주소입니다. 다른 주소를 선택해 주세요.', 409);
           log.error('[Profile PUT] broker_profiles insert error:', error);
           return NextResponse.json({ error: `전문 프로필 생성 오류: ${error.message}` }, { status: 500 });
         }
       }
     }
+
+    // 3. 매거진 설정 → magazine_settings upsert (테이블 미존재 시 해당 필드만 건너뛰고 settingsSaved:false)
+    const settingsRequested =
+      parsed.data.magazine_title !== undefined || parsed.data.magazine_theme_color !== undefined;
+    if (settingsRequested) {
+      const settingsRow: Record<string, unknown> = {
+        broker_user_id: user!.id,
+        broker_slug: nextSlug ?? currentSlug,
+        updated_at: new Date().toISOString(),
+      };
+      if (parsed.data.magazine_title !== undefined) settingsRow.title = parsed.data.magazine_title;
+      if (parsed.data.magazine_theme_color !== undefined) settingsRow.theme_color = parsed.data.magazine_theme_color;
+
+      const { error: settingsErr } = await supabase
+        .from('magazine_settings')
+        .upsert(settingsRow, { onConflict: 'broker_user_id' });
+      if (settingsErr) {
+        const notMigrated = isNotMigrated(settingsErr);
+        if (!notMigrated) log.error('[Profile PUT] magazine_settings upsert error:', settingsErr.message);
+        return NextResponse.json({
+          ok: true,
+          settingsSaved: false,
+          settingsReason: notMigrated ? 'NOT_MIGRATED' : 'FAILED',
+        });
+      }
+      return NextResponse.json({ ok: true, settingsSaved: true });
+    }
   
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[profile-put] Error:', err);
+    log.error('[profile-put] Error:', err instanceof Error ? err.message : String(err));
     return NextResponse.json(
       { error: '요청 처리에 실패했습니다.' },
       { status: 500 }
@@ -264,9 +394,9 @@ export async function PUT(req: NextRequest) {
 // PATCH is an alias for PUT (for partial updates like FAQ)
 export async function PATCH(req: NextRequest) {
   try {
-    return PUT(req);
+    return await PUT(req);
   } catch (err) {
-    console.error('[profile-patch] Error:', err);
+    log.error('[profile-patch] Error:', err instanceof Error ? err.message : String(err));
     return NextResponse.json(
       { error: '요청 처리에 실패했습니다.' },
       { status: 500 }

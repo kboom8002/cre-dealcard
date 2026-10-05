@@ -83,3 +83,23 @@ dump.log
 
 # 중개사 원본 IM(pptx 약 117MB) - 골든 데이터 추출 원본, 저장소에 커밋하지 않음
 /docs/income-im/
+# landmark-pool 30일 파일 캐시
+/.cache/
+
+# Test results & binary docs
+/test-results/
+/docs/real-broker-im/*.pptx
+/docs/CREDEAL_rentroll_template_v1.4.xlsx
+/docs/test/
+/docs/income-golden-data/
+/docs/magazine/audit-2026-10-04/
+
+
+/scripts/_archive/
+/scripts/cleanup/
+/docs/*���.md
+
+
+# GitHub Actions workflow (requires workflow PAT scope)
+/.github/workflows/magazine-gates.yml
+

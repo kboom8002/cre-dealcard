@@ -1,0 +1,3218 @@
+{
+ "$comment": "운영 PostgREST OpenAPI 스키마 스냅샷(F-01). 스키마 메타데이터만 포함(PII 없음). scripts/schema-snapshot.ts 로 재생성.",
+ "generatedAt": "2026-10-05T14:33:18.130Z",
+ "source": "PostgREST OpenAPI /rest/v1/ (service role, read-only)",
+ "appliedMigrations": [],
+ "tables": {
+  "activity_events": {
+   "columns": {
+    "actor_id": "uuid",
+    "actor_role": "text",
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "entity_id": "uuid",
+    "entity_type": "text",
+    "event_type": "text",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "source_app": "text"
+   },
+   "required": [
+    "created_at",
+    "event_type",
+    "id",
+    "metadata"
+   ]
+  },
+  "agora_replies": {
+   "columns": {
+    "author_id": "uuid",
+    "author_name": "text",
+    "author_role": "text",
+    "content": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "is_ai": "boolean",
+    "thread_id": "uuid",
+    "upvotes": "integer"
+   },
+   "required": [
+    "author_name",
+    "author_role",
+    "content",
+    "created_at",
+    "id",
+    "is_ai",
+    "thread_id",
+    "upvotes"
+   ]
+  },
+  "agora_threads": {
+   "columns": {
+    "ai_answer": "text",
+    "author_id": "uuid",
+    "author_name": "text",
+    "category": "text",
+    "content": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "is_hot": "boolean",
+    "is_seed": "boolean",
+    "market_report_region": "text",
+    "matched_deal_ids": "uuid[]",
+    "region": "text",
+    "related_thread_ids": "uuid[]",
+    "reply_count": "integer",
+    "seo_description": "text",
+    "seo_title": "text",
+    "status": "text",
+    "tags": "text[]",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "views": "integer"
+   },
+   "required": [
+    "author_name",
+    "category",
+    "content",
+    "created_at",
+    "id",
+    "is_hot",
+    "is_seed",
+    "matched_deal_ids",
+    "related_thread_ids",
+    "reply_count",
+    "status",
+    "tags",
+    "title",
+    "updated_at",
+    "views"
+   ]
+  },
+  "ai_runs": {
+   "columns": {
+    "agent_name": "text",
+    "anomaly_flags": "jsonb",
+    "completed_at": "timestamp with time zone",
+    "created_at": "timestamp with time zone",
+    "entity_id": "uuid",
+    "entity_type": "text",
+    "error": "text",
+    "id": "uuid",
+    "input_ref": "jsonb",
+    "input_summary": "jsonb",
+    "latency_ms": "integer",
+    "model": "text",
+    "output_ref": "jsonb",
+    "output_summary": "jsonb",
+    "prompt_version": "text",
+    "run_type": "text",
+    "space_id": "uuid",
+    "status": "text",
+    "token_usage": "jsonb",
+    "user_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "input_ref",
+    "output_ref",
+    "run_type",
+    "status",
+    "token_usage"
+   ]
+  },
+  "api_clients": {
+   "columns": {
+    "allowed_fields": "text[]",
+    "api_key": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "name": "text",
+    "plan": "text"
+   },
+   "required": [
+    "allowed_fields",
+    "api_key",
+    "id",
+    "name",
+    "plan"
+   ]
+  },
+  "api_usage_events": {
+   "columns": {
+    "billed_amount_krw": "integer",
+    "client_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "endpoint": "text",
+    "id": "uuid"
+   },
+   "required": [
+    "billed_amount_krw",
+    "endpoint",
+    "id"
+   ]
+  },
+  "assets": {
+   "columns": {
+    "asset_type": "character varying",
+    "attrs": "jsonb",
+    "canonical_property_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "data_grade": "character varying",
+    "id": "uuid",
+    "investment_posture": "text",
+    "pnu": "character varying",
+    "provenance": "jsonb",
+    "region_code": "text",
+    "updated_at": "timestamp with time zone",
+    "zoning_region": "text"
+   },
+   "required": [
+    "asset_type",
+    "attrs",
+    "created_at",
+    "data_grade",
+    "id",
+    "pnu",
+    "provenance",
+    "updated_at"
+   ]
+  },
+  "auction_listings": {
+   "columns": {
+    "address": "text",
+    "appraised_value": "bigint",
+    "auction_date": "date",
+    "case_number": "text",
+    "court": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "minimum_bid": "bigint",
+    "status": "text"
+   },
+   "required": [
+    "case_number",
+    "id"
+   ]
+  },
+  "broker_circle_members": {
+   "columns": {
+    "broker_id": "uuid",
+    "circle_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "invited_by": "uuid",
+    "joined_at": "timestamp with time zone",
+    "role": "text",
+    "status": "text"
+   },
+   "required": [
+    "broker_id",
+    "circle_id",
+    "created_at",
+    "id",
+    "role",
+    "status"
+   ]
+  },
+  "broker_circles": {
+   "columns": {
+    "avatar_emoji": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "description": "text",
+    "id": "uuid",
+    "invite_code": "text",
+    "is_active": "boolean",
+    "max_members": "integer",
+    "name": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "created_by",
+    "id",
+    "is_active",
+    "max_members",
+    "name",
+    "updated_at"
+   ]
+  },
+  "broker_clients": {
+   "columns": {
+    "broker_id": "uuid",
+    "client_type": "text",
+    "company": "text",
+    "created_at": "timestamp with time zone",
+    "display_name": "text",
+    "email": "text",
+    "id": "uuid",
+    "linked_building_ids": "uuid[]",
+    "linked_buyer_intent_ids": "uuid[]",
+    "notes": "text",
+    "phone": "text",
+    "tags": "text[]",
+    "tier": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_id",
+    "client_type",
+    "created_at",
+    "display_name",
+    "id",
+    "linked_building_ids",
+    "linked_buyer_intent_ids",
+    "tags",
+    "tier",
+    "updated_at"
+   ]
+  },
+  "broker_memos": {
+   "columns": {
+    "converted_to": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "is_pinned": "boolean",
+    "memo_text": "text",
+    "routing_summary": "text",
+    "routing_type": "text",
+    "status": "text",
+    "tags": "text[]",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "memo_text",
+    "status",
+    "user_id"
+   ]
+  },
+  "broker_profiles": {
+   "columns": {
+    "association": "text",
+    "avatar_url": "text",
+    "bio": "text",
+    "buyer_types": "text[]",
+    "card_name": "text",
+    "card_title": "text",
+    "career_start_year": "integer",
+    "consult_methods": "text[]",
+    "contact_email": "text",
+    "created_at": "timestamp with time zone",
+    "deal_size_range": "text",
+    "deal_specialty": "text[]",
+    "deal_types_ratio": "jsonb",
+    "faq_items": "jsonb",
+    "fee_policy": "text",
+    "id": "uuid",
+    "is_public": "boolean",
+    "is_verified": "boolean",
+    "kakao_channel": "text",
+    "languages": "text[]",
+    "license_number": "text",
+    "linkedin_url": "text",
+    "logo_company_url": "text",
+    "logo_partner_url": "text",
+    "magazine_cover_image": "text",
+    "name": "text",
+    "naver_blog_url": "text",
+    "office_address": "text",
+    "office_district": "text",
+    "office_dong": "text[]",
+    "office_reg_number": "text",
+    "pending_magazine_deals": "jsonb",
+    "photo_url": "text",
+    "preferred_price_range": "text",
+    "response_time_hours": "integer",
+    "seo_summary": "text",
+    "slug": "text",
+    "specialty_assets": "text[]",
+    "specialty_regions": "text[]",
+    "total_deal_count_self": "integer",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid",
+    "vibe_analyzed_at": "timestamp with time zone",
+    "vibe_complement": "jsonb",
+    "vibe_template_id": "text",
+    "vibe_trust": "numeric",
+    "vibe_valence": "numeric",
+    "vibe_vector": "jsonb",
+    "vibe_vti": "text",
+    "youtube_url": "text"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "is_verified",
+    "specialty_assets",
+    "specialty_regions",
+    "updated_at",
+    "user_id"
+   ]
+  },
+  "broker_sentiment_stats": {
+   "columns": {
+    "avg_lease": "numeric",
+    "avg_outlook": "numeric",
+    "avg_transaction": "numeric",
+    "period_label": "text",
+    "region": "text",
+    "sentiment_index": "integer",
+    "statistically_significant": "boolean",
+    "std_outlook": "numeric",
+    "std_transaction": "numeric",
+    "vote_count": "integer"
+   }
+  },
+  "broker_sentiment_votes": {
+   "columns": {
+    "comment": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "period_label": "text",
+    "q_lease": "integer",
+    "q_outlook": "integer",
+    "q_transaction": "integer",
+    "region": "text",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "period_label",
+    "q_lease",
+    "q_outlook",
+    "q_transaction",
+    "region",
+    "updated_at",
+    "user_id"
+   ]
+  },
+  "building_financial_assumptions": {
+   "columns": {
+    "asset_id": "uuid",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "opex_ratio_pct": "numeric",
+    "remodeling_cost_per_pyung": "numeric",
+    "updated_at": "timestamp with time zone",
+    "vacancy_reserve_pct": "numeric",
+    "wacc_pct": "numeric"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "opex_ratio_pct",
+    "remodeling_cost_per_pyung",
+    "updated_at",
+    "vacancy_reserve_pct",
+    "wacc_pct"
+   ]
+  },
+  "building_signal_cards": {
+   "columns": {
+    "area_signal": "text",
+    "asset_type": "text",
+    "body": "jsonb",
+    "building_id": "uuid",
+    "buyer_fit_types": "text[]",
+    "caution_points": "text[]",
+    "created_at": "timestamp with time zone",
+    "deal_curiosity_score": "numeric",
+    "deal_points": "text[]",
+    "id": "uuid",
+    "owner_id": "uuid",
+    "price_band": "text",
+    "status": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "visibility": "text"
+   },
+   "required": [
+    "body",
+    "building_id",
+    "buyer_fit_types",
+    "caution_points",
+    "created_at",
+    "deal_points",
+    "id",
+    "status",
+    "title",
+    "updated_at",
+    "visibility"
+   ]
+  },
+  "building_ssot_full": {
+   "columns": {
+    "ai_answer_document_contract": "jsonb",
+    "asset_identity": "jsonb",
+    "b2c_consumer_demand": "jsonb",
+    "buyer_fit": "jsonb",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "disclosure_gate": "jsonb",
+    "evidence_source": "jsonb",
+    "id": "uuid",
+    "lease_income": "jsonb",
+    "legal_registry": "jsonb",
+    "market_location": "jsonb",
+    "physical_fact": "jsonb",
+    "readiness_status": "text",
+    "risk_unknown": "jsonb",
+    "source_building_ssot_lite_id": "uuid",
+    "space_environmental": "jsonb",
+    "tenant_operator_management": "jsonb",
+    "updated_at": "timestamp with time zone",
+    "value_up_hypothesis": "jsonb"
+   },
+   "required": [
+    "ai_answer_document_contract",
+    "asset_identity",
+    "b2c_consumer_demand",
+    "buyer_fit",
+    "created_at",
+    "disclosure_gate",
+    "evidence_source",
+    "id",
+    "lease_income",
+    "legal_registry",
+    "market_location",
+    "physical_fact",
+    "readiness_status",
+    "risk_unknown",
+    "space_environmental",
+    "tenant_operator_management",
+    "updated_at",
+    "value_up_hypothesis"
+   ]
+  },
+  "building_ssot_lite": {
+   "columns": {
+    "area_signal": "text",
+    "asset_type": "text",
+    "canonical_property_id": "uuid",
+    "caution_summary": "text",
+    "confidence": "jsonb",
+    "created_at": "timestamp with time zone",
+    "created_by_role": "text",
+    "current_use_signal": "text",
+    "disclosure": "jsonb",
+    "fit_summary": "text",
+    "hidden_fields": "text[]",
+    "id": "uuid",
+    "input_type": "text",
+    "iot_avg_dwell_minutes": "numeric",
+    "iot_daily_footfall": "integer",
+    "iot_device_id": "text",
+    "iot_energy_efficiency": "numeric",
+    "iot_floor_occupancy": "jsonb",
+    "iot_footfall_trend": "text",
+    "iot_last_synced_at": "timestamp with time zone",
+    "iot_monthly_energy_kwh": "numeric",
+    "iot_peak_hour": "text",
+    "layers": "jsonb",
+    "matched_buyer_count": "integer",
+    "owner_id": "uuid",
+    "price_band": "text",
+    "promotion_score": "numeric",
+    "promotion_updated_at": "timestamp with time zone",
+    "raw_address": "text",
+    "raw_input": "text",
+    "size_signal": "text",
+    "status": "text",
+    "updated_at": "timestamp with time zone",
+    "vacancy_avg_fit_score": "numeric",
+    "vacancy_demand_verified": "boolean",
+    "vacancy_inquiry_count": "integer",
+    "vacancy_signal": "text",
+    "verification_details": "jsonb",
+    "verification_status": "text",
+    "verified_at": "timestamp with time zone"
+   },
+   "required": [
+    "confidence",
+    "created_at",
+    "created_by_role",
+    "disclosure",
+    "hidden_fields",
+    "id",
+    "input_type",
+    "layers",
+    "matched_buyer_count",
+    "promotion_score",
+    "raw_input",
+    "status",
+    "updated_at",
+    "vacancy_demand_verified",
+    "vacancy_inquiry_count"
+   ]
+  },
+  "buildings": {
+   "columns": {
+    "address_public_level": "text",
+    "area_signal": "text",
+    "blind_name": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "display_name": "text",
+    "external_building_ssot_id": "text",
+    "id": "uuid",
+    "organization_id": "uuid",
+    "public_summary": "text",
+    "source_app": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "buyer_clusters": {
+   "columns": {
+    "avg_budget_max": "bigint",
+    "avg_budget_min": "bigint",
+    "centroid": "jsonb",
+    "created_at": "timestamp with time zone",
+    "id": "integer",
+    "label": "text",
+    "member_count": "integer",
+    "top_purposes": "text[]",
+    "top_regions": "text[]",
+    "updated_at": "timestamp with time zone",
+    "weight_profile": "text"
+   },
+   "required": [
+    "centroid",
+    "created_at",
+    "id",
+    "label",
+    "member_count",
+    "updated_at",
+    "weight_profile"
+   ]
+  },
+  "buyer_intent_lite": {
+   "columns": {
+    "asset_types": "text[]",
+    "budget_display": "text",
+    "budget_max": "numeric",
+    "budget_min": "numeric",
+    "buyer_type": "text",
+    "cluster_id": "integer",
+    "cluster_label": "text",
+    "cluster_updated_at": "timestamp with time zone",
+    "created_at": "timestamp with time zone",
+    "financing_note": "text",
+    "id": "uuid",
+    "must_have": "text[]",
+    "nice_to_have": "text[]",
+    "normalized": "jsonb",
+    "owner_id": "uuid",
+    "preferred_regions": "text[]",
+    "purchase_purpose": "text",
+    "raw_input": "text",
+    "risk_tolerance": "text",
+    "updated_at": "timestamp with time zone",
+    "visibility": "text"
+   },
+   "required": [
+    "asset_types",
+    "created_at",
+    "id",
+    "must_have",
+    "nice_to_have",
+    "normalized",
+    "preferred_regions",
+    "raw_input",
+    "updated_at",
+    "visibility"
+   ]
+  },
+  "buyer_wishlists": {
+   "columns": {
+    "budget_max": "bigint",
+    "buyer_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "preferred_purposes": "text[]",
+    "regions": "text[]"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "campaign_copies": {
+   "columns": {
+    "ai_generated": "boolean",
+    "body": "text",
+    "boundary_note": "text",
+    "copy_type": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "id": "uuid",
+    "leasing_page_id": "uuid",
+    "model": "text",
+    "prompt_version": "text",
+    "space_id": "uuid",
+    "status": "text",
+    "target_tenant_type": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "body",
+    "copy_type",
+    "id"
+   ]
+  },
+  "canonical_properties": {
+   "columns": {
+    "bjdong_cd": "character varying",
+    "bun": "character varying",
+    "coordinates": "jsonb",
+    "created_at": "timestamp with time zone",
+    "dong_name": "text",
+    "id": "uuid",
+    "ji": "character varying",
+    "jibun_address": "text",
+    "pnu": "character varying",
+    "road_address": "text",
+    "sigungu_cd": "character varying",
+    "updated_at": "timestamp with time zone",
+    "verified": "boolean"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "updated_at",
+    "verified"
+   ]
+  },
+  "circle_match_results": {
+   "columns": {
+    "building_broker_approved": "boolean",
+    "building_broker_approved_at": "timestamp with time zone",
+    "building_broker_id": "uuid",
+    "building_id": "uuid",
+    "buyer_broker_approved": "boolean",
+    "buyer_broker_approved_at": "timestamp with time zone",
+    "buyer_broker_id": "uuid",
+    "buyer_intent_id": "uuid",
+    "circle_id": "uuid",
+    "co_brokerage_deal_id": "uuid",
+    "co_brokerage_note": "text",
+    "created_at": "timestamp with time zone",
+    "expired_at": "timestamp with time zone",
+    "fee_split_ratio": "text",
+    "grade": "text",
+    "id": "uuid",
+    "identity_revealed_at": "timestamp with time zone",
+    "purpose_weight_profile": "text",
+    "reasoning": "text",
+    "score": "numeric",
+    "stage1_passed": "boolean",
+    "stage2_similarity": "numeric",
+    "stage3_score": "numeric"
+   },
+   "required": [
+    "building_broker_id",
+    "building_id",
+    "buyer_broker_id",
+    "buyer_intent_id",
+    "circle_id",
+    "created_at",
+    "grade",
+    "id",
+    "score"
+   ]
+  },
+  "circle_shared_assets": {
+   "columns": {
+    "asset_id": "uuid",
+    "asset_type": "text",
+    "broker_id": "uuid",
+    "circle_id": "uuid",
+    "id": "uuid",
+    "shared_at": "timestamp with time zone",
+    "visibility": "text"
+   },
+   "required": [
+    "asset_id",
+    "asset_type",
+    "broker_id",
+    "circle_id",
+    "id",
+    "shared_at",
+    "visibility"
+   ]
+  },
+  "co_brokerage_requests": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_id": "uuid",
+    "commission_split": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "message": "text",
+    "status": "text"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "commercial_district": {
+   "columns": {
+    "district_code": "text",
+    "district_name": "text",
+    "footfall_index": "numeric",
+    "id": "uuid",
+    "sales_volume_index": "numeric",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "district_code",
+    "id"
+   ]
+  },
+  "contact_history": {
+   "columns": {
+    "broker_id": "uuid",
+    "client_id": "uuid",
+    "completed_at": "timestamp with time zone",
+    "contact_type": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "scheduled_at": "timestamp with time zone",
+    "summary": "text"
+   },
+   "required": [
+    "broker_id",
+    "client_id",
+    "contact_type",
+    "created_at",
+    "id",
+    "metadata",
+    "summary"
+   ]
+  },
+  "content_ab_tests": {
+   "columns": {
+    "clicks": "integer",
+    "curation_id": "uuid",
+    "description": "text",
+    "id": "uuid",
+    "title": "text",
+    "variant": "text",
+    "views": "integer"
+   },
+   "required": [
+    "id",
+    "variant"
+   ]
+  },
+  "content_curations": {
+   "columns": {
+    "broker_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "description": "text",
+    "id": "uuid",
+    "title": "text"
+   },
+   "required": [
+    "id",
+    "title"
+   ]
+  },
+  "content_share_events": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "event_type": "text",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "share_id": "uuid",
+    "viewer_id": "uuid"
+   },
+   "required": [
+    "event_type",
+    "id",
+    "metadata",
+    "share_id"
+   ]
+  },
+  "cre_oiticles": {
+   "columns": {
+    "asset_types": "text[]",
+    "author_id": "uuid",
+    "author_name": "text",
+    "author_type": "text",
+    "body_md": "text",
+    "cover_image": "text",
+    "created_at": "timestamp with time zone",
+    "data_snapshot": "jsonb",
+    "excerpt": "text",
+    "id": "uuid",
+    "likes": "integer",
+    "oiticle_type": "text",
+    "published_at": "timestamp with time zone",
+    "regions": "text[]",
+    "related_deal_ids": "uuid[]",
+    "related_service_ids": "uuid[]",
+    "related_thread_ids": "uuid[]",
+    "seo_description": "text",
+    "seo_title": "text",
+    "share_count": "integer",
+    "slug": "text",
+    "source_pulse_id": "uuid",
+    "status": "text",
+    "tags": "text[]",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "views": "integer"
+   },
+   "required": [
+    "author_name",
+    "author_type",
+    "body_md",
+    "created_at",
+    "excerpt",
+    "id",
+    "likes",
+    "oiticle_type",
+    "regions",
+    "share_count",
+    "slug",
+    "status",
+    "tags",
+    "title",
+    "updated_at",
+    "views"
+   ]
+  },
+  "cre_pulses": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "key_findings": "text[]",
+    "period_label": "text",
+    "period_type": "text",
+    "pulse_score": "numeric",
+    "region": "text",
+    "related_deal_ids": "uuid[]",
+    "related_service_ids": "uuid[]",
+    "related_thread_ids": "uuid[]",
+    "seo_slug": "text",
+    "seo_title": "text",
+    "signals": "jsonb",
+    "status": "text",
+    "summary_ko": "text",
+    "trend": "text"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "key_findings",
+    "period_label",
+    "period_type",
+    "pulse_score",
+    "region",
+    "signals",
+    "status",
+    "summary_ko",
+    "trend"
+   ]
+  },
+  "curation_items": {
+   "columns": {
+    "curation_id": "uuid",
+    "custom_content": "jsonb",
+    "id": "uuid",
+    "item_id": "uuid",
+    "item_type": "text",
+    "sort_order": "integer"
+   },
+   "required": [
+    "id",
+    "item_type",
+    "sort_order"
+   ]
+  },
+  "deal_card_personas": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "personas_data": "jsonb",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_id",
+    "building_ssot_lite_id",
+    "created_at",
+    "id",
+    "personas_data",
+    "updated_at"
+   ]
+  },
+  "deal_casepacks": {
+   "columns": {
+    "audience": "text",
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "embedding": "public.vector(1536)",
+    "embedding_updated_at": "timestamp with time zone",
+    "format": "text",
+    "id": "uuid",
+    "knowledge": "text",
+    "logic": "text",
+    "output": "text",
+    "situation": "text",
+    "source_event_type": "text",
+    "task": "text",
+    "warning": "text"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "source_event_type",
+    "task"
+   ]
+  },
+  "deal_conversion_features": {
+   "columns": {
+    "avg_match_score": "numeric",
+    "avg_stage_velocity": "numeric",
+    "best_match_grade": "integer",
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "buyer_cluster_id": "integer",
+    "buyer_memo_count": "integer",
+    "casepacks_count": "integer",
+    "converted": "boolean",
+    "curiosity_score": "numeric",
+    "current_stage_ord": "integer",
+    "days_since_creation": "integer",
+    "event_count_30d": "integer",
+    "event_count_7d": "integer",
+    "gate_request_count": "integer",
+    "has_im": "boolean",
+    "has_space_ai": "boolean",
+    "hidden_fields_count": "integer",
+    "id": "uuid",
+    "matched_buyer_count": "integer",
+    "missing_data_count": "integer",
+    "promotion_score": "numeric",
+    "s_grade_count": "integer",
+    "snapshot_at": "timestamp with time zone",
+    "total_hold_days": "integer",
+    "vacancy_demand_verified": "boolean",
+    "vacancy_inquiry_count": "integer"
+   },
+   "required": [
+    "id",
+    "snapshot_at"
+   ]
+  },
+  "deal_parties": {
+   "columns": {
+    "client_id": "uuid",
+    "contact_email": "character varying",
+    "contact_phone": "character varying",
+    "created_at": "timestamp with time zone",
+    "deal_id": "uuid",
+    "id": "uuid",
+    "name": "character varying",
+    "nda_signed_at": "timestamp with time zone",
+    "permissions": "jsonb",
+    "profession": "text",
+    "role": "character varying",
+    "user_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "name",
+    "role"
+   ]
+  },
+  "deal_pipeline_states": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "entered_at": "timestamp with time zone",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "stage": "public.deal_stage",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "entered_at",
+    "id",
+    "metadata",
+    "stage",
+    "updated_at"
+   ]
+  },
+  "deal_pipeline_with_hold": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "entered_at": "timestamp with time zone",
+    "hold_days": "integer",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "stage": "public.deal_stage",
+    "updated_at": "timestamp with time zone"
+   }
+  },
+  "deals": {
+   "columns": {
+    "archetypes": "text[]",
+    "asking_price_krw": "numeric",
+    "asset_id": "uuid",
+    "broker_id": "uuid",
+    "closed_at": "timestamp with time zone",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "lost_reason": "character varying",
+    "lost_reason_note": "text",
+    "mandate_type": "character varying",
+    "outcome_price_krw": "bigint",
+    "pipeline_stage": "character varying",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_id",
+    "created_at",
+    "id",
+    "pipeline_stage",
+    "updated_at"
+   ]
+  },
+  "document_objects": {
+   "columns": {
+    "body": "jsonb",
+    "broker_id": "uuid",
+    "building_id": "uuid",
+    "content": "jsonb",
+    "created_at": "timestamp with time zone",
+    "document_type": "text",
+    "id": "uuid",
+    "markdown": "text",
+    "model_version": "text",
+    "owner_id": "uuid",
+    "prompt_version": "text",
+    "slug": "text",
+    "source_id": "uuid",
+    "source_refs": "jsonb",
+    "source_type": "text",
+    "status": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "visibility": "text"
+   },
+   "required": [
+    "body",
+    "created_at",
+    "document_type",
+    "id",
+    "source_refs",
+    "source_type",
+    "status",
+    "updated_at",
+    "visibility"
+   ]
+  },
+  "energy_ratings": {
+   "columns": {
+    "annual_energy_consumption": "numeric",
+    "building_id": "uuid",
+    "id": "uuid",
+    "rating": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "evidence_files": {
+   "columns": {
+    "building_id": "uuid",
+    "contains_sensitive_data": "boolean",
+    "created_at": "timestamp with time zone",
+    "file_type": "text",
+    "id": "uuid",
+    "owner_id": "uuid",
+    "storage_bucket": "text",
+    "storage_path": "text",
+    "training_allowed": "boolean",
+    "visibility": "text"
+   },
+   "required": [
+    "contains_sensitive_data",
+    "created_at",
+    "id",
+    "storage_bucket",
+    "storage_path",
+    "training_allowed",
+    "visibility"
+   ]
+  },
+  "expert_note_requests": {
+   "columns": {
+    "ai_report_id": "uuid",
+    "building_id": "uuid",
+    "completed_at": "timestamp with time zone",
+    "contact": "jsonb",
+    "created_at": "timestamp with time zone",
+    "expert_note": "text",
+    "id": "uuid",
+    "next_recommendation": "text",
+    "request_type": "text",
+    "status": "text",
+    "user_goal": "text",
+    "user_id": "uuid"
+   },
+   "required": [
+    "contact",
+    "created_at",
+    "id",
+    "request_type",
+    "status"
+   ]
+  },
+  "external_data_cache": {
+   "columns": {
+    "building_register": "jsonb",
+    "building_register_fetched_at": "timestamp with time zone",
+    "building_ssot_lite_id": "uuid",
+    "comparable_transactions": "jsonb",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "jibun_address": "text",
+    "land_price_fetched_at": "timestamp with time zone",
+    "land_use_fetched_at": "timestamp with time zone",
+    "land_use_plan": "jsonb",
+    "latitude": "double precision",
+    "legal_dong_code": "text",
+    "location_fetched_at": "timestamp with time zone",
+    "location_poi": "jsonb",
+    "longitude": "double precision",
+    "official_land_price": "jsonb",
+    "pnu": "text",
+    "road_address": "text",
+    "transactions_fetched_at": "timestamp with time zone",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "building_ssot_lite_id",
+    "id"
+   ]
+  },
+  "external_news": {
+   "columns": {
+    "content": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "importance_score": "integer",
+    "regions": "text[]",
+    "sentiment": "text",
+    "source": "text",
+    "summary": "text",
+    "title": "text",
+    "topic": "character varying",
+    "url": "text"
+   },
+   "required": [
+    "id",
+    "source",
+    "title",
+    "url"
+   ]
+  },
+  "external_reports": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "institution": "text",
+    "published_date": "date",
+    "structured_data": "jsonb",
+    "summary": "text",
+    "title": "text",
+    "url": "text"
+   },
+   "required": [
+    "id",
+    "institution",
+    "title"
+   ]
+  },
+  "external_transactions": {
+   "columns": {
+    "address": "text",
+    "building_area": "numeric",
+    "built_year": "integer",
+    "district": "text",
+    "dong": "text",
+    "fetched_at": "timestamp with time zone",
+    "floors": "integer",
+    "id": "uuid",
+    "land_area": "numeric",
+    "land_price": "bigint",
+    "latitude": "numeric",
+    "longitude": "numeric",
+    "parking_count": "integer",
+    "raw_data": "jsonb",
+    "source": "text",
+    "transaction_date": "date",
+    "transaction_price": "bigint",
+    "usage_type": "text",
+    "zoning": "text"
+   },
+   "required": [
+    "address",
+    "fetched_at",
+    "id",
+    "source",
+    "transaction_date",
+    "transaction_price"
+   ]
+  },
+  "full_im_handoffs": {
+   "columns": {
+    "actor_role": "text",
+    "allowed_import_scope": "text[]",
+    "contracts_version": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "expires_at": "timestamp with time zone",
+    "handoff_token": "text",
+    "id": "uuid",
+    "imported_at": "timestamp with time zone",
+    "package_intent": "text",
+    "payload_version": "text",
+    "requested_output": "text",
+    "revoked_at": "timestamp with time zone",
+    "source_building_ssot_lite_id": "uuid",
+    "source_buyer_intent_id": "uuid",
+    "source_document_ids": "uuid[]",
+    "source_expert_note_request_id": "uuid",
+    "source_owner_readiness_id": "uuid",
+    "source_visibility_level": "text",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "actor_role",
+    "allowed_import_scope",
+    "contracts_version",
+    "created_at",
+    "expires_at",
+    "handoff_token",
+    "id",
+    "package_intent",
+    "payload_version",
+    "requested_output",
+    "source_document_ids",
+    "source_visibility_level",
+    "status",
+    "updated_at"
+   ]
+  },
+  "funding_failure_logs": {
+   "columns": {
+    "achievement_pct": "numeric",
+    "created_at": "timestamp with time zone",
+    "failure_factors": "jsonb",
+    "funding_project_id": "uuid",
+    "high_fit_count": "integer",
+    "id": "uuid",
+    "marketing_reach_score": "numeric",
+    "matched_investor_count": "integer",
+    "price_sensitivity_score": "numeric"
+   },
+   "required": [
+    "achievement_pct",
+    "created_at",
+    "failure_factors",
+    "funding_project_id",
+    "high_fit_count",
+    "id",
+    "marketing_reach_score",
+    "matched_investor_count",
+    "price_sensitivity_score"
+   ]
+  },
+  "funding_match_results": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "funding_project_id": "uuid",
+    "grade": "text",
+    "investor_profile_id": "uuid",
+    "reasoning": "text",
+    "score": "numeric"
+   },
+   "required": [
+    "created_at",
+    "funding_project_id",
+    "grade",
+    "investor_profile_id",
+    "score"
+   ]
+  },
+  "funding_pipeline_states": {
+   "columns": {
+    "entered_at": "timestamp with time zone",
+    "funding_project_id": "uuid",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "stage": "text"
+   },
+   "required": [
+    "entered_at",
+    "funding_project_id",
+    "id",
+    "metadata",
+    "stage"
+   ]
+  },
+  "funding_projects": {
+   "columns": {
+    "asset_type": "text",
+    "created_at": "timestamp with time zone",
+    "current_amount": "numeric",
+    "description_memo": "text",
+    "expected_return_pct": "numeric",
+    "gate_level": "integer",
+    "hidden_fields": "text[]",
+    "id": "uuid",
+    "investment_period_months": "integer",
+    "investor_count": "integer",
+    "is_public": "boolean",
+    "min_investment": "numeric",
+    "operator_id": "uuid",
+    "project_name": "text",
+    "regulatory_status": "text",
+    "risk_level": "integer",
+    "ssot_data": "jsonb",
+    "status": "text",
+    "target_amount": "numeric",
+    "token_type": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "asset_type",
+    "created_at",
+    "current_amount",
+    "expected_return_pct",
+    "gate_level",
+    "hidden_fields",
+    "id",
+    "investment_period_months",
+    "investor_count",
+    "is_public",
+    "min_investment",
+    "operator_id",
+    "project_name",
+    "risk_level",
+    "ssot_data",
+    "status",
+    "target_amount",
+    "token_type",
+    "updated_at"
+   ]
+  },
+  "gate_access_log": {
+   "columns": {
+    "access_type": "text",
+    "accessed_fields": "text[]",
+    "accessor_id": "uuid",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "gate_request_id": "uuid",
+    "id": "uuid",
+    "ip_hash": "text",
+    "user_agent": "text"
+   },
+   "required": [
+    "access_type",
+    "accessed_fields",
+    "created_at",
+    "id"
+   ]
+  },
+  "gate_requests": {
+   "columns": {
+    "auto_expired": "boolean",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "expires_at": "timestamp with time zone",
+    "id": "uuid",
+    "reason": "text",
+    "requested_fields": "text[]",
+    "requested_level": "text",
+    "requester_id": "uuid",
+    "reviewed_at": "timestamp with time zone",
+    "reviewer_id": "uuid",
+    "status": "text",
+    "target_broker_id": "uuid",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "building_id",
+    "created_at",
+    "id",
+    "requested_fields",
+    "requested_level",
+    "status",
+    "updated_at"
+   ]
+  },
+  "handoff_source_snapshots": {
+   "columns": {
+    "contracts_version": "text",
+    "handoff_id": "uuid",
+    "id": "uuid",
+    "import_status": "text",
+    "imported_at": "timestamp with time zone",
+    "imported_by": "uuid",
+    "payload_version": "text",
+    "source_app": "text",
+    "source_building_ssot_lite_id": "uuid",
+    "source_objects": "jsonb",
+    "warnings": "text[]"
+   },
+   "required": [
+    "contracts_version",
+    "handoff_id",
+    "id",
+    "import_status",
+    "imported_at",
+    "payload_version",
+    "source_app",
+    "source_building_ssot_lite_id",
+    "source_objects",
+    "warnings"
+   ]
+  },
+  "im_edit_diffs": {
+   "columns": {
+    "broker_id": "uuid",
+    "char_diff_count": "integer",
+    "consented": "boolean",
+    "created_at": "timestamp with time zone",
+    "deal_id": "uuid",
+    "doc_id": "uuid",
+    "edited_broker_content": "text",
+    "id": "uuid",
+    "judge_score": "real",
+    "original_ai_content": "text",
+    "section_key": "character varying",
+    "section_type": "text"
+   },
+   "required": [
+    "char_diff_count",
+    "created_at",
+    "edited_broker_content",
+    "id",
+    "original_ai_content",
+    "section_key"
+   ]
+  },
+  "im_fewshot_usage_log": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "generation_id": "text",
+    "golden_ids_used": "text[]",
+    "hardcoded_used": "boolean",
+    "id": "uuid",
+    "result_score": "numeric",
+    "section_type": "text"
+   },
+   "required": [
+    "generation_id",
+    "id",
+    "section_type"
+   ]
+  },
+  "im_generation_jobs": {
+   "columns": {
+    "building_id": "text",
+    "completed_at": "timestamp with time zone",
+    "created_at": "timestamp with time zone",
+    "id": "text",
+    "input_payload": "jsonb",
+    "result": "jsonb",
+    "status": "text",
+    "user_id": "uuid"
+   },
+   "required": [
+    "building_id",
+    "id",
+    "status",
+    "user_id"
+   ]
+  },
+  "im_golden_sets": {
+   "columns": {
+    "approved_at": "timestamp with time zone",
+    "asset_type": "text",
+    "building_id": "text",
+    "created_at": "timestamp with time zone",
+    "document_id": "text",
+    "id": "uuid",
+    "is_active": "boolean",
+    "judge_score": "numeric",
+    "last_used_at": "timestamp with time zone",
+    "markdown": "text",
+    "parent_id": "uuid",
+    "posture": "text",
+    "price_band": "text",
+    "section_alias": "text",
+    "section_type": "text",
+    "source_file_name": "text",
+    "source_file_url": "text",
+    "source_type": "text",
+    "tags": "text[]",
+    "usage_count": "integer",
+    "version": "integer",
+    "was_edited": "boolean"
+   },
+   "required": [
+    "asset_type",
+    "building_id",
+    "document_id",
+    "id",
+    "markdown",
+    "price_band",
+    "section_type",
+    "source_type"
+   ]
+  },
+  "im_inquiry_requests": {
+   "columns": {
+    "broker_user_id": "text",
+    "building_id": "text",
+    "created_at": "timestamp with time zone",
+    "doc_id": "text",
+    "id": "uuid",
+    "message": "text",
+    "requester_email": "text",
+    "requester_name": "text",
+    "requester_phone": "text",
+    "sms_sent": "boolean",
+    "source": "text",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_user_id",
+    "building_id",
+    "id",
+    "requester_name",
+    "requester_phone"
+   ]
+  },
+  "im_pro_grants": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "deal_id": "uuid",
+    "expires_at": "timestamp with time zone",
+    "id": "uuid",
+    "nda_signed_at": "timestamp with time zone",
+    "requester_email": "character varying",
+    "requester_name": "character varying",
+    "requester_phone": "character varying",
+    "status": "character varying",
+    "watermark_seed": "character varying"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "requester_name",
+    "requester_phone",
+    "status"
+   ]
+  },
+  "im_projects": {
+   "columns": {
+    "building_ssot_full_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "embedding": "public.vector(1536)",
+    "embedding_updated_at": "timestamp with time zone",
+    "handoff_id": "uuid",
+    "id": "uuid",
+    "project_owner_id": "uuid",
+    "project_type": "text",
+    "readiness_score": "integer",
+    "required_expert_patches": "text[]",
+    "source_app": "text",
+    "source_building_ssot_lite_id": "uuid",
+    "source_document_ids": "uuid[]",
+    "status": "text",
+    "target_output": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "project_type",
+    "required_expert_patches",
+    "source_app",
+    "source_document_ids",
+    "status",
+    "target_output",
+    "updated_at"
+   ]
+  },
+  "im_terminology_rules": {
+   "columns": {
+    "category": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "text",
+    "hit_count": "integer",
+    "id": "uuid",
+    "is_active": "boolean",
+    "is_regex": "boolean",
+    "last_hit_at": "timestamp with time zone",
+    "note": "text",
+    "pattern": "text",
+    "priority": "integer",
+    "replacement": "text"
+   },
+   "required": [
+    "category",
+    "id",
+    "pattern",
+    "replacement"
+   ]
+  },
+  "inquiry_qualifications": {
+   "columns": {
+    "ai_generated": "boolean",
+    "budget_fit": "text",
+    "created_at": "timestamp with time zone",
+    "facility_fit": "text",
+    "fit_estimate": "text",
+    "id": "uuid",
+    "inquiry_id": "uuid",
+    "kakao_reply_draft": "text",
+    "key_concerns": "jsonb",
+    "missing_info_to_ask": "jsonb",
+    "model": "text",
+    "prompt_version": "text",
+    "recommended_next_action": "text",
+    "space_id": "uuid",
+    "summary": "text",
+    "timing_fit": "text"
+   },
+   "required": [
+    "id",
+    "recommended_next_action",
+    "summary"
+   ]
+  },
+  "investor_profiles": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "expected_return_min": "numeric",
+    "id": "uuid",
+    "investment_horizon_months": "integer",
+    "investment_max": "numeric",
+    "investment_min": "numeric",
+    "investment_preference": "text[]",
+    "investor_type": "text",
+    "kyc_verified": "boolean",
+    "kyc_verified_at": "timestamp with time zone",
+    "max_risk_tolerance": "integer",
+    "must_have_criteria": "text[]",
+    "nice_to_have_criteria": "text[]",
+    "preferred_sectors": "text[]",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "investment_preference",
+    "investor_type",
+    "kyc_verified",
+    "must_have_criteria",
+    "nice_to_have_criteria",
+    "preferred_sectors",
+    "updated_at",
+    "user_id"
+   ]
+  },
+  "iot_data_stream": {
+   "columns": {
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "device_id": "text",
+    "floor": "text",
+    "id": "uuid",
+    "metric_type": "text",
+    "recorded_at": "timestamp with time zone",
+    "value": "numeric"
+   },
+   "required": [
+    "device_id",
+    "id",
+    "metric_type",
+    "recorded_at",
+    "value"
+   ]
+  },
+  "knowledge_edges": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "edge_type": "text",
+    "from_id": "uuid",
+    "from_type": "text",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "to_id": "uuid",
+    "to_type": "text",
+    "weight": "numeric"
+   },
+   "required": [
+    "created_at",
+    "edge_type",
+    "from_id",
+    "from_type",
+    "id",
+    "metadata",
+    "to_id",
+    "to_type",
+    "weight"
+   ]
+  },
+  "land_use_plans": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "pnu": "text",
+    "restrictions": "text",
+    "zoning": "text"
+   },
+   "required": [
+    "id",
+    "pnu"
+   ]
+  },
+  "lead_scores": {
+   "columns": {
+    "broker_id": "uuid",
+    "engagement_count": "integer",
+    "id": "uuid",
+    "last_active_at": "timestamp with time zone",
+    "lead_name": "text",
+    "metadata": "jsonb",
+    "score": "numeric"
+   },
+   "required": [
+    "engagement_count",
+    "id",
+    "metadata",
+    "score"
+   ]
+  },
+  "lease_ledger": {
+   "columns": {
+    "asset_id": "text",
+    "building_id": "uuid",
+    "contract_group": "text",
+    "created_at": "timestamp with time zone",
+    "current_expiry_date": "date",
+    "current_start_date": "date",
+    "deposit_krw": "bigint",
+    "exclusive_area_sqm": "numeric",
+    "first_contract_date": "date",
+    "id": "uuid",
+    "lease_area_sqm": "numeric",
+    "lease_state": "character varying",
+    "legal_basis": "character varying",
+    "mgmt_fee_krw": "bigint",
+    "monthly_rent_krw": "bigint",
+    "note": "text",
+    "opposing_power": "character varying",
+    "renewal_exercised": "character varying",
+    "source_tier": "character varying",
+    "tenant_business": "text",
+    "unit_label": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "lease_state",
+    "unit_label",
+    "updated_at"
+   ]
+  },
+  "lease_match_results": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "grade": "text",
+    "lease_space_id": "uuid",
+    "reasoning": "text",
+    "score": "numeric",
+    "tenant_intent_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "grade",
+    "lease_space_id",
+    "score",
+    "tenant_intent_id"
+   ]
+  },
+  "lease_spaces": {
+   "columns": {
+    "aipage_space_id": "uuid",
+    "area_sqm": "numeric",
+    "available_from": "date",
+    "broker_id": "uuid",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "deal_type": "text",
+    "deposit": "numeric",
+    "floor": "text",
+    "hidden_fields": "text[]",
+    "id": "uuid",
+    "incentives": "jsonb",
+    "is_marketplace_listed": "boolean",
+    "lease_term_months": "integer",
+    "maintenance_fee": "numeric",
+    "monthly_rent": "numeric",
+    "restrictions": "text[]",
+    "space_type": "text",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_id",
+    "created_at",
+    "deal_type",
+    "hidden_fields",
+    "id",
+    "incentives",
+    "is_marketplace_listed",
+    "restrictions",
+    "space_type",
+    "status",
+    "updated_at"
+   ]
+  },
+  "lease_units": {
+   "columns": {
+    "area_pyung": "numeric",
+    "asset_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "deposit_krw": "numeric",
+    "floor": "character varying",
+    "id": "uuid",
+    "is_vacant": "boolean",
+    "lease_end_date": "date",
+    "lease_start": "date",
+    "mgmt_fee_krw": "bigint",
+    "monthly_rent_krw": "numeric",
+    "opposing_power": "boolean",
+    "source_tier": "text",
+    "tenant_sector": "character varying",
+    "unit_number": "character varying"
+   },
+   "required": [
+    "created_at",
+    "floor",
+    "id"
+   ]
+  },
+  "leasing_inquiries": {
+   "columns": {
+    "building_id": "uuid",
+    "consent": "jsonb",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "leasing_page_id": "uuid",
+    "prospect": "jsonb",
+    "question_text": "text",
+    "requirement": "jsonb",
+    "source_channel": "text",
+    "space_id": "uuid",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "leasing_page_sections": {
+   "columns": {
+    "content_json": "jsonb",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "linked_album_ids": "jsonb",
+    "linked_visual_asset_ids": "jsonb",
+    "markdown": "text",
+    "page_id": "uuid",
+    "section_type": "text",
+    "sort_order": "integer",
+    "status": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "visibility": "text"
+   },
+   "required": [
+    "id",
+    "section_type",
+    "sort_order",
+    "title"
+   ]
+  },
+  "leasing_pages": {
+   "columns": {
+    "answer_hero": "text",
+    "boundary_note": "text",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "id": "uuid",
+    "inquiry_form_enabled": "boolean",
+    "organization_id": "uuid",
+    "published_at": "timestamp with time zone",
+    "seo": "jsonb",
+    "slug": "text",
+    "space_id": "uuid",
+    "status": "text",
+    "subtitle": "text",
+    "target_tenant_types": "jsonb",
+    "tenant_fit_result_ids": "jsonb",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "vibe_fit_result_id": "uuid",
+    "visibility": "text",
+    "visual_album_ids": "jsonb"
+   },
+   "required": [
+    "answer_hero",
+    "boundary_note",
+    "id",
+    "slug",
+    "title"
+   ]
+  },
+  "location_hierarchy": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "eupmyeondong": "text",
+    "id": "uuid",
+    "level": "integer",
+    "parent_code": "text",
+    "region_code": "text",
+    "ri": "text",
+    "sido": "text",
+    "sigungu": "text"
+   },
+   "required": [
+    "id",
+    "level",
+    "region_code",
+    "sido",
+    "sigungu"
+   ]
+  },
+  "magazine_analytics_events": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "dwell_seconds": "integer",
+    "edition_id": "uuid",
+    "event_type": "text",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "scroll_pct": "integer",
+    "section_id": "text",
+    "target_param": "text",
+    "target_url": "text",
+    "visitor_fp": "text",
+    "visitor_id": "text"
+   },
+   "required": [
+    "created_at",
+    "event_type",
+    "id",
+    "visitor_id"
+   ]
+  },
+  "magazine_editions": {
+   "columns": {
+    "asset_id": "uuid",
+    "broker_id": "text",
+    "content": "jsonb",
+    "cover_image_url": "text",
+    "cover_keywords": "text[]",
+    "created_at": "timestamp with time zone",
+    "deal_id": "uuid",
+    "edition_label": "text",
+    "edition_type": "text",
+    "featured_deal_ids": "uuid[]",
+    "featured_teaser_ids": "uuid[]",
+    "field_note": "jsonb",
+    "id": "uuid",
+    "market_temp": "text",
+    "oiticle_ids": "uuid[]",
+    "published_at": "timestamp with time zone",
+    "scheduled_at": "timestamp with time zone",
+    "share_count": "integer",
+    "status": "text",
+    "target_segments": "text[]",
+    "theme_asset_types": "text[]",
+    "theme_body_md": "text",
+    "theme_color": "text",
+    "theme_title": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "version": "integer",
+    "view_count": "integer"
+   },
+   "required": [
+    "broker_id",
+    "content",
+    "created_at",
+    "edition_label",
+    "edition_type",
+    "id",
+    "status",
+    "title",
+    "updated_at"
+   ]
+  },
+  "magazine_issues": {
+   "columns": {
+    "broker_id": "text",
+    "content": "jsonb",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "issue_date": "date",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_id",
+    "content",
+    "created_at",
+    "id",
+    "issue_date",
+    "updated_at"
+   ]
+  },
+  "magazine_subscribers": {
+   "columns": {
+    "broker_id": "text",
+    "channel": "text",
+    "client_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "interest_profile": "jsonb",
+    "metadata": "jsonb",
+    "segment": "text",
+    "source": "text",
+    "status": "text",
+    "subscribed_at": "timestamp with time zone",
+    "subscriber_email": "text",
+    "subscriber_name": "text",
+    "subscriber_phone": "text",
+    "unsubscribed_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_id",
+    "channel",
+    "created_at",
+    "id",
+    "status"
+   ]
+  },
+  "market_leading_indicators": {
+   "columns": {
+    "absorption_rate": "numeric",
+    "asset_type": "text",
+    "avg_hold_days": "numeric",
+    "computed_at": "timestamp with time zone",
+    "conversion_rate": "numeric",
+    "demand_score": "numeric",
+    "id": "uuid",
+    "period_end": "date",
+    "period_start": "date",
+    "price_resistance_band": "jsonb",
+    "region": "text",
+    "supply_score": "numeric",
+    "trend_direction": "text"
+   },
+   "required": [
+    "absorption_rate",
+    "asset_type",
+    "avg_hold_days",
+    "computed_at",
+    "conversion_rate",
+    "demand_score",
+    "id",
+    "period_end",
+    "period_start",
+    "price_resistance_band",
+    "region",
+    "supply_score",
+    "trend_direction"
+   ]
+  },
+  "market_sentiment_polls": {
+   "columns": {
+    "broker_id": "uuid",
+    "comment": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "score": "integer",
+    "sentiment": "text"
+   },
+   "required": [
+    "id",
+    "score"
+   ]
+  },
+  "match_failure_logs": {
+   "columns": {
+    "broker_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "entity_type": "text",
+    "failure_reason": "text",
+    "id": "uuid",
+    "lease_space_id": "uuid",
+    "match_result_id": "uuid",
+    "price_gap_pct": "numeric",
+    "rejected_by": "text",
+    "rejection_detail": "text",
+    "tenant_intent_id": "uuid"
+   },
+   "required": [
+    "broker_id",
+    "created_at",
+    "entity_type",
+    "failure_reason",
+    "id",
+    "rejected_by"
+   ]
+  },
+  "match_results": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "buyer_intent_lite_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "grade": "text",
+    "id": "uuid",
+    "purpose_weight_profile": "text",
+    "reasoning": "text",
+    "score": "numeric",
+    "stage1_details": "jsonb",
+    "stage1_passed": "boolean",
+    "stage2_similarity": "numeric",
+    "stage3_score": "numeric",
+    "stage3_weights": "jsonb"
+   },
+   "required": [
+    "created_at",
+    "grade",
+    "id",
+    "score",
+    "stage1_passed"
+   ]
+  },
+  "missing_shot_requests": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "priority": "text",
+    "reason": "text",
+    "request_type": "text",
+    "space_id": "uuid",
+    "status": "text",
+    "target_question": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "id",
+    "reason",
+    "request_type",
+    "target_question"
+   ]
+  },
+  "mvp_handoffs": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "expires_at": "timestamp with time zone",
+    "id": "uuid",
+    "payload_json": "jsonb",
+    "payload_version": "text",
+    "source_app": "text",
+    "status": "text",
+    "target_app": "text"
+   },
+   "required": [
+    "id",
+    "payload_json",
+    "payload_version"
+   ]
+  },
+  "mvp_return_handoffs": {
+   "columns": {
+    "broker_id": "uuid",
+    "consumed_at": "timestamp with time zone",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "leasing_page_id": "uuid",
+    "payload": "jsonb",
+    "return_token": "uuid",
+    "space_id": "uuid",
+    "status": "text"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "payload",
+    "return_token",
+    "space_id",
+    "status"
+   ]
+  },
+  "official_land_prices": {
+   "columns": {
+    "pnu": "text",
+    "price_per_sqm": "bigint",
+    "year": "integer"
+   },
+   "required": [
+    "pnu",
+    "price_per_sqm",
+    "year"
+   ]
+  },
+  "onboarding_events": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "event_data": "jsonb",
+    "event_name": "text",
+    "id": "bigint",
+    "session_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "event_name",
+    "id"
+   ]
+  },
+  "onboarding_sessions": {
+   "columns": {
+    "after_scores": "jsonb",
+    "before_scores": "jsonb",
+    "complement_vector": "jsonb",
+    "completed_at": "timestamp with time zone",
+    "created_at": "timestamp with time zone",
+    "current_stage": "text",
+    "first_deal_card_id": "uuid",
+    "id": "uuid",
+    "matched_template_id": "text",
+    "photo_url": "text",
+    "radar_address": "text",
+    "region": "text",
+    "role": "text",
+    "session_token": "text",
+    "specialty": "text",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid",
+    "vibe_vector": "jsonb",
+    "vti_description": "text",
+    "vti_type": "text"
+   },
+   "required": [
+    "created_at",
+    "current_stage",
+    "id",
+    "session_token",
+    "updated_at"
+   ]
+  },
+  "organizations": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "name": "text",
+    "org_type": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "id",
+    "name"
+   ]
+  },
+  "owner_readiness_checks": {
+   "columns": {
+    "available_outputs": "text[]",
+    "building_id": "uuid",
+    "checklist": "jsonb",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "missing_data": "text[]",
+    "next_recommended_action": "text",
+    "owner_id": "uuid",
+    "readiness_score": "integer",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "available_outputs",
+    "checklist",
+    "created_at",
+    "id",
+    "missing_data",
+    "readiness_score",
+    "updated_at"
+   ]
+  },
+  "owner_report_history": {
+   "columns": {
+    "building_id": "uuid",
+    "has_retrofit_cta": "boolean",
+    "id": "uuid",
+    "sent_at": "timestamp with time zone",
+    "space_id": "uuid"
+   },
+   "required": [
+    "id",
+    "space_id"
+   ]
+  },
+  "pipeline_stage_transitions": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "from_stage": "text",
+    "hold_days": "numeric",
+    "id": "uuid",
+    "lease_space_id": "uuid",
+    "metadata": "jsonb",
+    "to_stage": "text",
+    "transition_reason": "text"
+   },
+   "required": [
+    "broker_id",
+    "created_at",
+    "from_stage",
+    "hold_days",
+    "id",
+    "metadata",
+    "to_stage"
+   ]
+  },
+  "poc_surveys": {
+   "columns": {
+    "answers": "jsonb",
+    "completed_at": "timestamp with time zone",
+    "id": "uuid",
+    "step_index": "integer",
+    "user_id": "uuid"
+   },
+   "required": [
+    "answers",
+    "id",
+    "step_index"
+   ]
+  },
+  "pptx_custom_presets": {
+   "columns": {
+    "base_preset_id": "text",
+    "company_id": "text",
+    "company_name": "text",
+    "company_tagline": "text",
+    "cover_style": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "is_company_default": "boolean",
+    "is_public": "boolean",
+    "layout_style": "text",
+    "logo_url": "text",
+    "preset_desc": "text",
+    "preset_name": "text",
+    "tokens": "jsonb",
+    "updated_at": "timestamp with time zone",
+    "use_count": "integer",
+    "user_id": "uuid"
+   },
+   "required": [
+    "cover_style",
+    "id",
+    "layout_style",
+    "preset_name",
+    "tokens",
+    "user_id"
+   ]
+  },
+  "price_features": {
+   "columns": {
+    "building_age": "integer",
+    "building_area": "numeric",
+    "building_ssot_lite_id": "uuid",
+    "built_year": "integer",
+    "created_at": "timestamp with time zone",
+    "district_avg_price_3m": "bigint",
+    "district_encoded": "integer",
+    "district_price_trend": "numeric",
+    "district_tx_count_3m": "integer",
+    "dong_encoded": "integer",
+    "floors": "integer",
+    "id": "uuid",
+    "land_area": "numeric",
+    "parking_count": "integer",
+    "source_transaction_id": "uuid",
+    "transaction_price": "bigint",
+    "usage_type_encoded": "integer",
+    "zoning_encoded": "integer"
+   },
+   "required": [
+    "id",
+    "transaction_price"
+   ]
+  },
+  "price_negotiation_history": {
+   "columns": {
+    "adjusted_by": "text",
+    "adjusted_price": "numeric",
+    "adjustment_pct": "numeric",
+    "adjustment_reason": "text",
+    "broker_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "entity_id": "uuid",
+    "entity_type": "text",
+    "id": "uuid",
+    "original_price": "numeric"
+   },
+   "required": [
+    "adjusted_by",
+    "adjusted_price",
+    "adjustment_pct",
+    "broker_id",
+    "created_at",
+    "entity_id",
+    "entity_type",
+    "id",
+    "original_price"
+   ]
+  },
+  "processing_jobs": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "entity_id": "uuid",
+    "entity_type": "text",
+    "error_message": "text",
+    "id": "uuid",
+    "job_type": "text",
+    "payload_json": "jsonb",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "entity_type",
+    "id",
+    "job_type"
+   ]
+  },
+  "profiles": {
+   "columns": {
+    "company": "text",
+    "created_at": "timestamp with time zone",
+    "display_name": "text",
+    "id": "uuid",
+    "organization_id": "uuid",
+    "phone": "text",
+    "photo_url": "text",
+    "role": "text",
+    "tagline": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "role",
+    "updated_at"
+   ]
+  },
+  "rental_market_data": {
+   "columns": {
+    "building_type": "text",
+    "deposit_avg": "bigint",
+    "id": "uuid",
+    "monthly_rent_avg": "bigint",
+    "region": "text",
+    "source": "text",
+    "updated_at": "timestamp with time zone",
+    "vacancy_rate": "numeric"
+   },
+   "required": [
+    "id",
+    "region"
+   ]
+  },
+  "rental_trend_data": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "quarter": "text",
+    "region": "text",
+    "rental_index": "numeric",
+    "vacancy_rate": "numeric"
+   },
+   "required": [
+    "id",
+    "quarter",
+    "region"
+   ]
+  },
+  "retrofit_inquiries": {
+   "columns": {
+    "broker_id": "uuid",
+    "broker_incentive_krw": "integer",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "installed_at": "timestamp with time zone",
+    "product_id": "uuid",
+    "space_id": "uuid",
+    "status": "text",
+    "trigger_source": "text"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "retrofit_products": {
+   "columns": {
+    "category": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "install_fee_krw": "integer",
+    "monthly_fee_krw": "integer",
+    "name": "text",
+    "noi_impact_pct": "numeric",
+    "payback_months": "integer",
+    "slug": "text"
+   },
+   "required": [
+    "category",
+    "id",
+    "install_fee_krw",
+    "monthly_fee_krw",
+    "name",
+    "slug"
+   ]
+  },
+  "service_cards": {
+   "columns": {
+    "avg_rating": "numeric",
+    "completion_count": "integer",
+    "created_at": "timestamp with time zone",
+    "description": "text",
+    "id": "uuid",
+    "match_conditions": "jsonb",
+    "portfolio_summary": "text",
+    "price_range": "text",
+    "price_unit": "text",
+    "seo_description": "text",
+    "seo_title": "text",
+    "service_category": "text",
+    "service_regions": "text[]",
+    "status": "text",
+    "target_assets": "text[]",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "vendor_id": "uuid",
+    "visibility": "text"
+   },
+   "required": [
+    "completion_count",
+    "created_at",
+    "description",
+    "id",
+    "match_conditions",
+    "service_category",
+    "service_regions",
+    "status",
+    "title",
+    "updated_at",
+    "vendor_id",
+    "visibility"
+   ]
+  },
+  "service_matches": {
+   "columns": {
+    "agora_thread_id": "uuid",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "lead_fee_amount": "numeric",
+    "lead_fee_charged": "boolean",
+    "match_score": "numeric",
+    "match_trigger": "text",
+    "service_card_id": "uuid",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "lead_fee_charged",
+    "match_trigger",
+    "service_card_id",
+    "status",
+    "updated_at"
+   ]
+  },
+  "share_pages": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "curation_id": "uuid",
+    "custom_subdomain": "text",
+    "id": "uuid",
+    "logo_url": "text",
+    "theme_color": "text"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "social_sentiment": {
+   "columns": {
+    "analysis_date": "date",
+    "id": "uuid",
+    "keyword": "text",
+    "mention_count": "integer",
+    "sentiment_score": "numeric",
+    "source": "text"
+   },
+   "required": [
+    "id",
+    "keyword",
+    "source"
+   ]
+  },
+  "space_ai_handoffs": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "error": "text",
+    "expires_at": "timestamp with time zone",
+    "id": "uuid",
+    "memo_text": "text",
+    "source_app": "text",
+    "space_ai_handoff_id": "uuid",
+    "space_ai_space_id": "uuid",
+    "space_basics": "jsonb",
+    "status": "text",
+    "target_app": "text",
+    "target_tenant_types": "text[]",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "memo_text",
+    "source_app",
+    "space_basics",
+    "status",
+    "target_app",
+    "target_tenant_types",
+    "updated_at"
+   ]
+  },
+  "space_ssot_snapshots": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "id": "uuid",
+    "snapshot_json": "jsonb",
+    "snapshot_type": "text",
+    "space_id": "uuid"
+   },
+   "required": [
+    "id",
+    "snapshot_json"
+   ]
+  },
+  "spaces": {
+   "columns": {
+    "access_flow": "jsonb",
+    "area_private_py": "numeric",
+    "area_supply_py": "numeric",
+    "available_from": "text",
+    "blind_name": "text",
+    "building_id": "uuid",
+    "building_ssot_lite_id": "uuid",
+    "confidence": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "deposit_krw": "bigint",
+    "disclosure": "jsonb",
+    "display_name": "text",
+    "facility": "jsonb",
+    "floor": "text",
+    "id": "uuid",
+    "identity": "jsonb",
+    "lease_terms": "jsonb",
+    "maintenance_fee_krw": "bigint",
+    "marketing": "jsonb",
+    "missing_data": "jsonb",
+    "monthly_rent_krw": "bigint",
+    "organization_id": "uuid",
+    "physical": "jsonb",
+    "premium_krw": "bigint",
+    "risk_notes": "jsonb",
+    "source_app": "text",
+    "source_full_im_project_id": "uuid",
+    "source_object_id": "text",
+    "space_type": "text",
+    "status": "text",
+    "tenant_constraints": "jsonb",
+    "terms_public_allowed": "boolean",
+    "unit_name": "text",
+    "updated_at": "timestamp with time zone",
+    "visual_summary": "jsonb"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "tacit_labels": {
+   "columns": {
+    "asset_id": "uuid",
+    "broker_id": "uuid",
+    "buyer_id": "uuid",
+    "context": "jsonb",
+    "created_at": "timestamp with time zone",
+    "deal_id": "uuid",
+    "id": "uuid",
+    "label_category": "character varying",
+    "label_kind": "text",
+    "label_value": "text",
+    "match_id": "uuid",
+    "memo": "text",
+    "reason_code": "character varying"
+   },
+   "required": [
+    "broker_id",
+    "created_at",
+    "id",
+    "label_category",
+    "reason_code"
+   ]
+  },
+  "teaser_configs": {
+   "columns": {
+    "asset_id": "uuid",
+    "banding_overrides": "jsonb",
+    "created_at": "timestamp with time zone",
+    "curiosity_slot": "text",
+    "deal_id": "uuid",
+    "hook_copy": "text",
+    "id": "uuid",
+    "is_active": "boolean",
+    "photo_policy": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "teaser_events": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "event_data": "jsonb",
+    "event_type": "text",
+    "id": "uuid",
+    "teaser_config_id": "uuid",
+    "visitor_fp": "text"
+   },
+   "required": [
+    "event_type",
+    "id",
+    "visitor_fp"
+   ]
+  },
+  "tenant_fit_results": {
+   "columns": {
+    "ai_generated": "boolean",
+    "boundary_note": "text",
+    "check_needed": "jsonb",
+    "confidence": "text",
+    "created_at": "timestamp with time zone",
+    "fit_level": "text",
+    "fit_score": "integer",
+    "id": "uuid",
+    "legal_or_permit_checks": "jsonb",
+    "model": "text",
+    "prompt_version": "text",
+    "required_facility_checks": "jsonb",
+    "safe_summary": "text",
+    "source_refs": "jsonb",
+    "space_id": "uuid",
+    "strengths": "jsonb",
+    "suggested_visual_album_ids": "jsonb",
+    "target_tenant_type": "text",
+    "updated_at": "timestamp with time zone",
+    "weaker_points": "jsonb"
+   },
+   "required": [
+    "boundary_note",
+    "fit_level",
+    "id",
+    "safe_summary",
+    "target_tenant_type"
+   ]
+  },
+  "tenant_intent": {
+   "columns": {
+    "area_max": "numeric",
+    "area_min": "numeric",
+    "broker_id": "uuid",
+    "budget_deposit_max": "numeric",
+    "budget_monthly_max": "numeric",
+    "business_type": "text",
+    "client_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "move_in_target": "date",
+    "must_have": "text[]",
+    "nice_to_have": "text[]",
+    "preferred_floors": "text[]",
+    "preferred_regions": "text[]",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "broker_id",
+    "created_at",
+    "id",
+    "must_have",
+    "nice_to_have",
+    "preferred_floors",
+    "preferred_regions",
+    "updated_at"
+   ]
+  },
+  "usage_counters": {
+   "columns": {
+    "billing_month": "text",
+    "created_at": "timestamp with time zone",
+    "current_count": "integer",
+    "feature_name": "text",
+    "id": "uuid",
+    "max_limit": "integer",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid"
+   },
+   "required": [
+    "billing_month",
+    "created_at",
+    "current_count",
+    "feature_name",
+    "id",
+    "updated_at"
+   ]
+  },
+  "user_subscriptions": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "current_period_end": "timestamp with time zone",
+    "current_period_start": "timestamp with time zone",
+    "id": "uuid",
+    "status": "text",
+    "tier": "text",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "current_period_end",
+    "current_period_start",
+    "id",
+    "status",
+    "tier",
+    "updated_at"
+   ]
+  },
+  "vendor_profiles": {
+   "columns": {
+    "company_desc": "text",
+    "company_name": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "is_verified": "boolean",
+    "license_info": "text",
+    "license_number": "text",
+    "license_verified": "boolean",
+    "portfolio_urls": "text[]",
+    "specialty_regions": "text[]",
+    "updated_at": "timestamp with time zone",
+    "user_id": "uuid",
+    "vendor_category": "text",
+    "vendor_tier": "text",
+    "verification_note": "text",
+    "verified_at": "timestamp with time zone",
+    "verified_by": "uuid"
+   },
+   "required": [
+    "company_name",
+    "created_at",
+    "id",
+    "is_verified",
+    "license_verified",
+    "specialty_regions",
+    "updated_at",
+    "user_id",
+    "vendor_category",
+    "vendor_tier"
+   ]
+  },
+  "vendor_reviews": {
+   "columns": {
+    "broker_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "rating": "integer",
+    "review_text": "text",
+    "vendor_id": "uuid"
+   },
+   "required": [
+    "id",
+    "vendor_id"
+   ]
+  },
+  "vendor_subscriptions": {
+   "columns": {
+    "agora_expert_badge": "boolean",
+    "created_at": "timestamp with time zone",
+    "current_period_end": "timestamp with time zone",
+    "current_period_start": "timestamp with time zone",
+    "featured_placement": "boolean",
+    "id": "uuid",
+    "lead_fee_per_contact": "numeric",
+    "max_monthly_leads": "integer",
+    "max_service_cards": "integer",
+    "status": "text",
+    "tier": "text",
+    "updated_at": "timestamp with time zone",
+    "vendor_id": "uuid"
+   },
+   "required": [
+    "agora_expert_badge",
+    "created_at",
+    "current_period_end",
+    "current_period_start",
+    "featured_placement",
+    "id",
+    "lead_fee_per_contact",
+    "max_service_cards",
+    "status",
+    "tier",
+    "updated_at",
+    "vendor_id"
+   ]
+  },
+  "vibe_fit_results": {
+   "columns": {
+    "ai_generated": "boolean",
+    "boundary_note": "text",
+    "confidence": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "missing_evidence": "jsonb",
+    "mixed_signal_risks": "jsonb",
+    "model": "text",
+    "prompt_version": "text",
+    "retrofit_vibe_opportunities": "jsonb",
+    "space_id": "uuid",
+    "tenant_vibe_alignment": "jsonb",
+    "updated_at": "timestamp with time zone",
+    "vad": "jsonb",
+    "vibe_summary": "text",
+    "vibe_tags": "jsonb"
+   },
+   "required": [
+    "boundary_note",
+    "id",
+    "vibe_summary"
+   ]
+  },
+  "visual_album_items": {
+   "columns": {
+    "album_id": "uuid",
+    "caption": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "sort_order": "integer",
+    "visual_asset_id": "uuid"
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "visual_albums": {
+   "columns": {
+    "album_type": "text",
+    "building_id": "uuid",
+    "confidence": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "description": "text",
+    "id": "uuid",
+    "organization_id": "uuid",
+    "source_refs": "jsonb",
+    "space_id": "uuid",
+    "status": "text",
+    "target_question": "text",
+    "target_tenant_type": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "visibility": "text"
+   },
+   "required": [
+    "album_type",
+    "id",
+    "title"
+   ]
+  },
+  "visual_answer_cards": {
+   "columns": {
+    "album_id": "uuid",
+    "boundary_note": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "detailed_answer": "text",
+    "evidence_strength": "text",
+    "id": "uuid",
+    "linked_image_ids": "jsonb",
+    "missing_checks": "jsonb",
+    "organization_id": "uuid",
+    "question": "text",
+    "related_tenant_types": "jsonb",
+    "short_answer": "text",
+    "space_id": "uuid",
+    "status": "text",
+    "updated_at": "timestamp with time zone",
+    "visibility": "text"
+   },
+   "required": [
+    "id",
+    "question",
+    "short_answer"
+   ]
+  },
+  "visual_assets": {
+   "columns": {
+    "ai_generated": "boolean",
+    "answers_questions": "jsonb",
+    "building_id": "uuid",
+    "capture_scope": "text",
+    "capture_subject": "text",
+    "confidence": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "facility_tags": "jsonb",
+    "id": "uuid",
+    "model": "text",
+    "organization_id": "uuid",
+    "prompt_version": "text",
+    "public_url": "text",
+    "quality": "jsonb",
+    "risk_tags": "jsonb",
+    "space_id": "uuid",
+    "status": "text",
+    "storage_bucket": "text",
+    "storage_path": "text",
+    "tags": "jsonb",
+    "tenant_relevance": "jsonb",
+    "thumbnail_url": "text",
+    "updated_at": "timestamp with time zone",
+    "vibe_tags": "jsonb",
+    "visibility": "text"
+   },
+   "required": [
+    "id",
+    "storage_bucket",
+    "storage_path"
+   ]
+  },
+  "youtube_trends": {
+   "columns": {
+    "channel_title": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "like_count": "bigint",
+    "published_at": "timestamp with time zone",
+    "summary": "text",
+    "title": "text",
+    "video_id": "text",
+    "view_count": "bigint"
+   },
+   "required": [
+    "id",
+    "title",
+    "video_id"
+   ]
+  },
+  "zoning_ordinance": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "effective_date": "date",
+    "id": "uuid",
+    "max_bcr_pct": "real",
+    "max_far_pct": "real",
+    "max_height_m": "real",
+    "ordinance_type": "text",
+    "region_code": "text",
+    "source_url": "text"
+   },
+   "required": [
+    "id",
+    "ordinance_type",
+    "region_code"
+   ]
+  }
+ },
+ "rpcs": {
+  "append_magazine_deal_snippet": [
+   "p_snippet",
+   "p_user_id"
+  ],
+  "expire_stale_handoffs": [],
+  "increment_edition_views": [
+   "edition_id"
+  ],
+  "increment_oiticle_views": [
+   "oiticle_id"
+  ],
+  "increment_usage_counter": [
+   "p_billing_month",
+   "p_feature_name",
+   "p_max_limit",
+   "p_user_id"
+  ],
+  "is_admin": [],
+  "my_active_circle_ids": []
+ }
+}

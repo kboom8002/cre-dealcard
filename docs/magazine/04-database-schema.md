@@ -1,6 +1,7 @@
 # 04. 데이터베이스 스키마 (Database Schema)
 
 > **감사 일시**: 2026-08-28 | **감사 범위**: supabase/migrations 중 인텔리전스 & 매거진 관련 테이블
+> **2026-10-06 D-02 동기화**: 현행 스키마 계약·신규 테이블·미적용 현황은 **[§6](#6-d-02-동기화-2026-10-06--현행-스키마-계약-반영)** 참조. §1~5 는 2026-08-28 기준이므로 §6 과 충돌 시 §6 이 우선합니다(예: §3.2 `status` 에 `needs_review` 추가, `edition_type` 에 `flash` 추가·`owner_report` 제거, 구독자 동의 컬럼 13개).
 
 ---
 
@@ -271,3 +272,74 @@ erDiagram
 | `magazine_editions` | `broker_id` + `edition_label` | 브로커별 에디션 조회 |
 | `magazine_subscribers` | `(broker_id, subscriber_phone)` (UNIQUE) | 중복 구독 방지 |
 | `magazine_analytics_events` | `edition_id` + `created_at` | 시계열 분석 쿼리 |
+
+---
+
+## 6. D-02 동기화 (2026-10-06) — 현행 스키마 계약 반영
+
+> 기준: `supabase/migrations/20261004000001~16_*.sql`, [`audit-2026-10-04/db-schema-contract.md`](./audit-2026-10-04/db-schema-contract.md). **신규 마이그레이션은 SQL 파일만 있고 운영 DB 에는 미적용**입니다(2026-10-06 REST 조회: 신규 테이블 PGRST205, 신규 구독자 컬럼 42703). 적용 순서·검증은 [`supabase/MIGRATIONS.md`](../../supabase/MIGRATIONS.md).
+
+### 6.1 식별자 정책
+
+- URL 은 **slug**, 내부 키는 **`broker_user_id` (uuid)**. 기존 `broker_id`(text)는 slug·uuid 문자열이 섞여 있어 조인에 쓰지 않습니다(000011 컬럼 추가, 000015 백필).
+- 운영 실측: `broker_profiles` 49건 중 slug NULL 25건. 구독자 6건 중 4건의 `broker_id` 가 uuid 문자열(전부 테스트 브로커). slug 는 브로커가 직접 설정(자동 발급 안 함).
+- ⚠ 000015 는 `magazine_analytics_events` 에 `broker_id` 컬럼이 없어(운영 실제 스키마) 그대로 실행하면 트랜잭션이 롤백됩니다 — 수정 전 적용 금지(MIGRATIONS.md §6).
+
+### 6.2 신규 테이블 (미적용)
+
+| 테이블 | 마이그레이션 | 용도 | 접근 |
+|:--|:--|:--|:--|
+| `magazine_dispatch_logs` | 000005 | 발송 원장. `idempotency_key` unique, 상태 `dry_run`/`queued`/`sent`/`blocked`/`failed`, `blocked_reason`(sendGate 코드) | service_role 전용 |
+| `magazine_settings` | 000007 | 브로커별 설정(자동 발송 동의 `auto_send` 등) | service_role 전용 |
+| `magazine_cron_runs` | 000012 | cron 실행 기록(`run_id`, `status`, `reason`) | service_role 전용 |
+| `magazine_rate_limits` + RPC `magazine_rl_hit`, `magazine_rl_gc` | 000010 | 공개 API 레이트리밋 카운터(키는 sha256) | RPC execute 는 service_role 만 |
+| `magazine_poll_responses` | 000003 | 설문 응답(subscriber id 기반, phone 컬럼 없음) | service_role 전용 |
+| `magazine_referrals` | 000004 | 레퍼럴 — **적용 보류**(제품 결정 후) | — |
+
+### 6.3 `magazine_subscribers` 확장 (000006, 미적용)
+
+기존 컬럼명 유지: `subscriber_name`, `subscriber_phone`, `subscriber_email` (`name`/`phone` 아님). 신규 13컬럼:
+
+| 컬럼 | 용도 |
+|:--|:--|
+| `privacy_consent_at` | 개인정보 수집·이용 동의 시각 |
+| `marketing_consent_at` | 광고성 정보 수신 동의 시각 (NULL = 동의 없음 → `NO_CONSENT`) |
+| `consent_version` / `consent_channel` | 동의 문구 버전 / 동의한 채널(email·kakao) |
+| `night_consent` | 야간(21~08시) 수신 별도 동의 |
+| `consent_ip_hash` | 동의 시점 IP 해시(원문 미저장) |
+| `confirm_status` / `confirm_token_hash` | 이중 확인 상태 / 토큰 해시 |
+| `unsubscribed_at` | 해지 시각 (30일 후 익명화) |
+| `reconfirm_due_at` | 2년 재확인 기한(통지 발송 경로는 미구현) |
+| `phone_e164` | 정규화 전화(부분 unique `uq_mag_sub_broker_phone_e164`) |
+| `age_confirmed` | 14세 이상 확인 |
+| `broker_user_id` | 소유자 uuid |
+
+- `status` CHECK = 기존 ∪ `purged`; `source` CHECK = 기존 ∪ `qr_card`, `crm_sync`. 이메일 중복이 있으면 마이그레이션이 가드로 중단됩니다.
+- 기존 구독자 동의 **백필 금지**. 운영 구독자 6건은 전원 테스트 계정(실구독자 0).
+
+### 6.4 `magazine_editions` 변경 (000002, 000013)
+
+- `status` ∈ 기존 ∪ {`draft`, `published`, `needs_review`, …}. 위 §3.2 의 `draft → published → archived` 에 **`needs_review`** 가 추가되었습니다(생성 cron 산출물·품질 검수 대기).
+- `edition_type` ∈ {`daily`, `weekly`, `monthly`, `special`, `flash`} (`owner_report` 제거).
+- `issue_date` 컬럼 없음. 유니크 키 = **(`broker_id`, `edition_type`, `edition_label`)**.
+- RLS: `public_read`(published 만 anon/authenticated), `editions_broker_own`(본인 authenticated). 서버 코드는 service client 사용.
+
+### 6.5 분석 · 보존
+
+- `magazine_analytics_events` 운영 실제 컬럼에는 `broker_id` 가 **없습니다**(`metadata` jsonb 에 보관). 000016(미적용): 구독자 귀속 조회 인덱스(`metadata->>'subscriber_id'`), `activity_events (broker_id, event_type, created_at)` 인덱스(핫리드 알림 상한 조회), `increment_edition_views()` 보강(search_path 고정·null 안전·anon/authenticated 실행권한 회수), `visitor_id` `v2_` = 서버 HMAC 해시 주석. 코드는 미적용 상태에서도 동작합니다.
+- 보존/파기(000014): `magazine_purge_unsubscribed(p_days default 30)` — 해지 후 경과 구독자의 `subscriber_name/phone/email`·`consent_ip_hash`·`confirm_token_hash` 파기, `status='purged'`. `magazine_purge_old_events(p_days default 365)`. 둘 다 service_role 만 실행.
+- 운영 실측: 이벤트 2,334건 전량 `edition_id` NULL, 서로 다른 `visitor_id` 3개(UA 해시 2개 + 테스트 1개). 정리: `scripts/cleanup/14_analytics_edition_null_mark.sql`, `18_visitor_id_conflict_mark.sql`.
+
+### 6.6 전역 영향 마이그레이션 (IM 영역과 겹칠 수 있음)
+
+- 000008: `broker_profiles_public_read` anon 정책 drop + `broker_public_profiles` 뷰 — **검토 후 적용**(공개 프로필 화면 영향).
+- 000009: `activity_events_insert_anon` drop(`events_insert_authenticated` 유지) — 검토 후 적용.
+- 000004(레퍼럴)는 보류.
+
+### 6.7 폐기
+
+- `owner_reports` 테이블, `edition_type='owner_report'`: 폐기(소유자/매도자 리포트 기능 삭제). 기존 행은 보관만 하며 코드에서 참조하지 않습니다.
+
+### 6.8 운영 점검
+
+주 1회 `scripts/magazine-health.sql` 실행(읽기 전용; 미적용 객체는 `NOT_MIGRATED` 로 표시). 데이터 정리 절차는 `scripts/cleanup/README.md`.
