@@ -206,7 +206,9 @@ function normalizeOpposingPower(raw: string): RentRollOpposingPower | undefined 
  * - 임대상태(임대중/공실/자가사용) 컬럼 우선, 없으면 업종·임차인 공란으로 공실 추정
  * - 합계/소계 행, '예시 행' 표식 행, 자동계산 열만 채워진 빈 행은 건너뜀
  */
-export function parseRentRollData(data: any[][]): ParseResult {
+export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}): ParseResult {
+  const asOfIso = (options.asOf ?? new Date()).toISOString().slice(0, 10);
+  const expiredLeases: string[] = [];
   const lines = data
     .map((row, rowIndex) => ({ row, rowIndex }))
     .filter(
@@ -342,9 +344,7 @@ export function parseRentRollData(data: any[][]): ParseResult {
     const mgmtC = toManwon(rawMgmt, mgmtUnit);
     if (rentC.won || depC.won || mgmtC.won) unitDetected = "won";
 
-    totalRent += rentC.manwon;
-    totalDeposit += depC.manwon;
-    totalMgmt += mgmtC.manwon;
+    // 합계는 아래 임대상태 판정 후 '임대중' 행만 누적한다 (공실·자가사용 행의 금액은 수입이 아님)
 
     // ── 임대상태 / 공실 판단
     let isVacant = false;
@@ -382,6 +382,31 @@ export function parseRentRollData(data: any[][]): ParseResult {
     // 자가사용은 downstream(im-lite handler isOwnerUse)이 note/업종 키워드로 만실 처리하므로 키워드를 보장한다
     if (leaseState === "자가사용" && !/자가|사옥|자사|본사|직영|owner/i.test(`${noteVal} ${bizVal ?? ""}`)) {
       noteVal = noteVal ? `자가사용 · ${noteVal}` : "자가사용";
+    }
+
+    // ── 실수입 판정: '임대중' 행만 합계·금액에 반영. 공실·자가사용 행에 적힌 금액(희망 임대료·환산금액 등)은
+    //    실제 수입이 아니므로 제외하되, 입력값은 비고에 보존하고 사용자에게 경고한다 (조용히 버리지 않음).
+    let depManwon = depC.manwon;
+    let rentManwon = rentC.manwon;
+    let mgmtManwon = mgmtC.manwon;
+    const excludedFromIncome = isVacant || leaseState === "자가사용";
+    if (!excludedFromIncome) {
+      totalDeposit += depManwon;
+      totalRent += rentManwon;
+      totalMgmt += mgmtManwon;
+    } else if (depManwon || rentManwon || mgmtManwon) {
+      const parts = [
+        depManwon ? `보증금 ${depManwon.toLocaleString()}` : "",
+        rentManwon ? `월세 ${rentManwon.toLocaleString()}` : "",
+        mgmtManwon ? `관리비 ${mgmtManwon.toLocaleString()}` : "",
+      ].filter(Boolean).join(" · ");
+      const label = leaseState === "자가사용" ? "자가사용" : "공실";
+      const keep = `입력 금액(${parts}만원)은 ${label} 행이라 합계에서 제외`;
+      noteVal = noteVal ? `${noteVal} / ${keep}` : keep;
+      warn(`${String(cell(floorIdx >= 0 ? floorIdx : 0) ?? "").trim() || `${rowCount}행`}: ${label} 행에 금액(${parts}만원)이 입력되어 있어 월세·보증금 합계에서 제외했습니다 — 희망 임대료라면 비고에 적어 주세요.`);
+      depManwon = 0;
+      rentManwon = 0;
+      mgmtManwon = 0;
     }
 
     // ── 면적 3종
@@ -440,6 +465,9 @@ export function parseRentRollData(data: any[][]): ParseResult {
 
     const lStart = leaseStartIdx >= 0 ? parseDate(cols[leaseStartIdx]) : undefined;
     const lEnd = leaseEndIdx >= 0 ? parseDate(cols[leaseEndIdx]) : undefined;
+    if (!excludedFromIncome && lEnd && /^\d{4}-\d{2}-\d{2}$/.test(lEnd) && lEnd < asOfIso) {
+      expiredLeases.push(`${floorVal} ${lEnd}`);
+    }
     const firstDateRaw = firstContractIdx >= 0 ? parseDate(cols[firstContractIdx]) : undefined;
     // 최초계약일은 DATE 컬럼으로 영속화되므로 ISO 형식만 허용 (그 외는 버림)
     const firstDate = firstDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(firstDateRaw) ? firstDateRaw : undefined;
@@ -449,9 +477,9 @@ export function parseRentRollData(data: any[][]): ParseResult {
       floor: floorVal,
       tenant_type: bizVal || undefined,
       tenant_name: tName || undefined,
-      deposit_manwon: depC.manwon || undefined,
-      rent_manwon: rentC.manwon || undefined,
-      mgmt_fee_manwon: mgmtC.manwon || undefined,
+      deposit_manwon: depManwon || undefined,
+      rent_manwon: rentManwon || undefined,
+      mgmt_fee_manwon: mgmtManwon || undefined,
       is_vacant: isVacant || undefined,
       area_sqm: areaVal,
       exclusive_area_sqm: exclusiveVal,
@@ -473,6 +501,10 @@ export function parseRentRollData(data: any[][]): ParseResult {
     throw new Error(
       "읽을 수 있는 호실 데이터가 없습니다. 헤더 아래에 실제 호실을 입력했는지 확인해 주세요 (예시 행·합계 행은 자동 제외됩니다).",
     );
+  }
+  if (expiredLeases.length > 0) {
+    const shown = expiredLeases.slice(0, 4).join(", ");
+    warn(`계약 만료일이 기준일(${asOfIso}) 이전인 임대중 호실 ${expiredLeases.length}건 (${shown}${expiredLeases.length > 4 ? " 외" : ""}) — 갱신·재계약 여부를 확인해 주세요.`);
   }
   if (warningOverflow > 0) warnings.push(`그 외 ${warningOverflow}건의 경고가 더 있습니다.`);
 

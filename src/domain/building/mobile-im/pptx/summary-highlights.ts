@@ -14,6 +14,8 @@
  *   - 순수 함수 (LLM 호출 없음) → LLM record/replay 무영향, 결정론적.
  */
 
+import { parseStationName } from './binder/station-name';
+
 export interface SummaryLeaseFacts {
   totalUnits: number;
   leasedUnits: number;
@@ -124,16 +126,20 @@ function floorsLabel(f: SummaryFacts): string {
   return '';
 }
 
-/** '선유도역 9호선' / '선유도역(9호선)' / '선유도' → { name: '선유도역', line: '9호선' } */
+/**
+ * '선유도역 9호선' / '선유도역(9호선)' / '선유도' → { name: '선유도역', line: '9호선' }
+ * '동대문역사문화공원역 5호선' → { name: '동대문역사문화공원역', line: '5호선' }
+ * 다중 노선('(2·4·5호선)')은 line = '2호선·4호선·5호선'.
+ */
 export function parseStation(raw: string | undefined | null, line?: string | null): { name?: string; line?: string } {
-  const s = String(raw || '').trim();
-  if (!s) return {};
-  const m = s.match(/^(.+?역)\s*[\(（]?\s*([^)）]*?)\s*[\)）]?$/);
-  let name = m ? m[1] : s;
-  let ln = (m && m[2]) ? m[2].trim() : '';
-  if (!/역$/.test(name)) name = `${name.replace(/\s+.*$/, '')}역`;
-  if (!ln && line) ln = String(line).trim();
-  return { name, line: ln || undefined };
+  const parsed = parseStationName(raw);
+  if (!parsed.name) return {};
+  let ln = parsed.lines.join('·');
+  if (!ln && line) {
+    const fromParam = parseStationName(`${parsed.name} ${String(line)}`).lines.join('·');
+    ln = fromParam || String(line).trim();
+  }
+  return { name: parsed.name, line: ln || undefined };
 }
 
 // ─── 포인트 생성기 (데이터 없으면 null) ─────────────────────────────────────
@@ -381,12 +387,12 @@ export function extractSummaryFacts(input: ExtractFactsInput): SummaryFacts {
     roadCondition: str(ssot.road_condition) ?? str(bldg.road_condition) ?? str(lup.roadAccess) ?? str(phys.roadAccess),
     zoning: str(ssot.zoning) ?? str(ssot.zone_type) ?? str(lup.zoningDistrict) ?? str(phys.zoning) ?? str(br.useZone) ?? str(bldg.use_zone) ?? spec.zoning,
     completionYear: Number.isFinite(yr) && yr > 1900 ? yr : undefined,
-    floorsAbove: pos(ssot.floors_above ?? hero.floorsAbove ?? bldg.floors_above ?? phys.floorsAbove ?? br.grndFlrCnt ?? spec.above),
-    floorsBelow: pos(ssot.floors_below ?? hero.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow ?? br.ugrndFlrCnt ?? spec.below),
+    floorsAbove: pos(ssot.floors_above ?? hero.floorsAbove ?? bldg.floors_above ?? phys.floorsAbove ?? br.floorsAbove ?? br.grndFlrCnt ?? spec.above),
+    floorsBelow: pos(ssot.floors_below ?? hero.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow ?? br.floorsBelow ?? br.ugrndFlrCnt ?? spec.below),
     gfaSqm: pos(ssot.total_gross_area_sqm ?? hero.totalGrossAreaSqm ?? bldg.total_area_sqm ?? br.totalArea),
     landSqm: pos(ssot.land_area_sqm ?? br.platArea ?? hero.landAreaM2 ?? bldg.land_area_sqm),
     parcelCount: pos(ssot.parcel_count) ?? (parcels.length > 0 ? parcels.length : undefined),
-    farPct: pos(ssot.far_pct ?? br.farPct),
+    farPct: pos(ssot.far_pct ?? br.vlRat ?? br.farPct),
     maxFarPct: pos(ssot.max_far_pct),
     lease: input.posture === 'owner_occupied' ? undefined : extractLeaseFacts(body.floor_leases, ssot),
     landPriceCagrPct: num(lph?.cagrPct),

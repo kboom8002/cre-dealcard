@@ -242,6 +242,10 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
       grossYieldOnEquity,
       grossYieldStabilized,
       annualRentBil,
+      noiBaseKrw: Math.round(noiBase),
+      opexPct: annualGross > 0 ? parseFloat(((effectiveOpex / annualGross) * 100).toFixed(1)) : null,
+      vacancyReservePct: vacancyRatePct,
+      depositKrw,
     };
   }
 

@@ -126,7 +126,7 @@ function bind(floorLeases: any[]) {
 describe("bindRentRollTable — 면적 폴백 제거 · 통합계약", () => {
   it("전용면적이 없으면 '-' (임대면적 값을 전용면적 칸에 복사하지 않는다)", () => {
     const rows = bind([{ floor: "1F", tenant_type: "카페", area_sqm: 100, deposit_manwon: 5000, rent_manwon: 300, lease_end: "2027-03-31" }]);
-    expect(rows[0][3]).toBe("100.0");
+    expect(rows[0][3]).toBe("100.0 (30.3평)");
     expect(rows[0][4]).toBe("-");
   });
 

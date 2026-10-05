@@ -12,6 +12,11 @@ import { derivePriceBand, resolveAreaSignal } from "@/domain/building/cre-area-o
 import {
   MemoParserOutputSchema,
   BlindTeaserOutputSchema,
+  HospitalitySignalsSchema,
+  DevelopmentSignalsSchema,
+  TradingSignalsSchema,
+  OwnerOccupiedSignalsSchema,
+  collectRangeNotes,
   type MemoParserOutput,
   type BlindTeaserOutput,
 } from "@/ai/schemas/broker-deal-card";
@@ -131,10 +136,10 @@ export async function runBrokerDealCard(
         unitRentTexts: Array.isArray(rawFacts.unitRentTexts || rawFacts.unit_rent_texts) ? (rawFacts.unitRentTexts || rawFacts.unit_rent_texts) as string[] : [],
         sellerMotivationText: rawFacts.sellerMotivationText != null ? String(rawFacts.sellerMotivationText) : (rawFacts.seller_motivation_text != null ? String(rawFacts.seller_motivation_text) : null),
         brokerNotes: Array.isArray(rawFacts.brokerNotes || rawFacts.broker_notes) ? (rawFacts.brokerNotes || rawFacts.broker_notes) as string[] : [],
-        hospitalitySignals: (rawFacts.hospitalitySignals || rawFacts.hospitality_signals || { roomCount: null, adr: null, occupancyRate: null, gopMargin: null, operatingModel: null }) as any,
-        developmentSignals: (rawFacts.developmentSignals || rawFacts.development_signals || { landAreaPyung: null, farPct: null, bcrPct: null, constructionCostManwon: null, expectedSalesPriceManwon: null, developmentType: null }) as any,
-        tradingSignals: (rawFacts.tradingSignals || rawFacts.trading_signals || { pricePerPyeongManwon: null, marketPriceManwon: null, holdingPeriodMonths: null }) as any,
-        ownerOccupiedSignals: (rawFacts.ownerOccupiedSignals || rawFacts.owner_occupied_signals || { selfUseIntent: null, currentLeaseCostManwon: null }) as any,
+        hospitalitySignals: HospitalitySignalsSchema.safeParse(rawFacts.hospitalitySignals || rawFacts.hospitality_signals || {}).data ?? HospitalitySignalsSchema.parse({}),
+        developmentSignals: DevelopmentSignalsSchema.safeParse(rawFacts.developmentSignals || rawFacts.development_signals || {}).data ?? DevelopmentSignalsSchema.parse({}),
+        tradingSignals: TradingSignalsSchema.safeParse(rawFacts.tradingSignals || rawFacts.trading_signals || {}).data ?? TradingSignalsSchema.parse({}),
+        ownerOccupiedSignals: OwnerOccupiedSignalsSchema.safeParse(rawFacts.ownerOccupiedSignals || rawFacts.owner_occupied_signals || {}).data ?? OwnerOccupiedSignalsSchema.parse({}),
       },
       investmentPosture: (parsedMemoObj.investmentPosture || parsedMemoObj.investment_posture) as any,
       detectedSensitiveFields: Array.isArray(parsedMemoObj.detectedSensitiveFields || parsedMemoObj.detected_sensitive_fields)
@@ -145,6 +150,20 @@ export async function runBrokerDealCard(
         : [],
       warnings: Array.isArray(parsedMemoObj.warnings) ? parsedMemoObj.warnings as string[] : [],
     };
+  }
+
+  // 범위(배열)로 온 *Signals 숫자는 대표값 1개로 강제되었으므로, 원문 범위는 brokerNotes 문자열로 보존
+  {
+    const rawFactsForNotes = (parsedMemoObj.extractedFacts || parsedMemoObj.extracted_facts || {}) as Record<string, unknown>;
+    const rangeNotes = [
+      rawFactsForNotes.hospitalitySignals ?? rawFactsForNotes.hospitality_signals,
+      rawFactsForNotes.developmentSignals ?? rawFactsForNotes.development_signals,
+      rawFactsForNotes.tradingSignals ?? rawFactsForNotes.trading_signals,
+      rawFactsForNotes.ownerOccupiedSignals ?? rawFactsForNotes.owner_occupied_signals,
+    ].flatMap(collectRangeNotes);
+    if (rangeNotes.length > 0) {
+      parsedMemo.extractedFacts.brokerNotes = [...parsedMemo.extractedFacts.brokerNotes, ...rangeNotes];
+    }
   }
 
   // Step 1.5: Address Resolution (PNU 확보)

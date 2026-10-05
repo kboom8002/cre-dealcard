@@ -20,6 +20,7 @@ import { buildA22StackingPlan } from './a22-stacking-plan';
 import { buildA23YieldFormula } from './a23-yield-formula';
 import { buildA24RentrollStacking } from './a24-rentroll-stacking';
 import { buildA25ChapterDivider } from './a25-chapter-divider';
+import { buildA26BrokerExtras } from './a26-broker-extras';
 
 export * from './a01-cover'; // For Types
 export { buildA15Thesis, type ThesisPillar } from './a15-thesis';
@@ -72,6 +73,7 @@ export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A23: buildA23YieldFormula, // Basic IM 투자수익률 산식
   A24: buildA24RentrollStacking,
   A25: buildA25ChapterDivider,
+  A26: buildA26BrokerExtras, // D4/D8: Basic IM 중개인 제공 정보 면 (투자 포인트 / 규제·계획 / 시세 비교)
 };
 
 /** @deprecated D30 M-17: SLIDE_ARCHETYPE_REGISTRY로 개명됨 */

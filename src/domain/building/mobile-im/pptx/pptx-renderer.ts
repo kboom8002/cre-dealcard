@@ -16,15 +16,26 @@ import type { ProvenanceKind } from './imlib';
 import type { InvestmentPosture } from '@/domain/ontology';
 import { resolvePhotos } from '../photo-url-transformer';
 import { planGallerySlides, GALLERY_EXCLUDE_CATEGORIES, type GallerySlideSpec } from './gallery-planner';
+import {
+  BROKER_IMAGE_CATEGORIES,
+  applyBrokerLocation,
+  applyBrokerRentRollPlan,
+  buildBrokerExtrasDataMap,
+  deriveBrokerAvailability,
+  extractBrokerImages,
+  readBrokerExtras,
+} from './broker-extras-slides';
 
 import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 import { validateLayout } from './layout-validator';
 import { validateYield, type Yield } from './yield-object';
+import { buildYieldSetFromBody } from '../yield-set';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
 import { resolvePhysicalSpecs } from '../resolve-physical-specs';
 import { summarizeParcels, withParcelCountSuffix } from '../parcel-input';
 import { buildSummaryHighlights, extractSummaryFacts, isBoilerplateHighlight } from './summary-highlights';
+import { resolveOverviewSpecs, buildOverviewSpecRows, isMissingSpecValue } from './spec-resolver';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -142,12 +153,14 @@ export class MobileImPptxRenderer {
       const posture = (input.posture ?? 'income') as InvestmentPosture;
       const resolvedPhotos = resolvePhotos(input.doc.body, input.buildingId);
       const gallerySpecs = planGallerySlides(resolvedPhotos, posture, theme.presetId);
+      // D4: 위치도/지구단위계획도/도면은 문서 이미지 — 대표·외관 사진 후보에서 제외 (전용 면으로 렌더)
+      const realPhotos = resolvedPhotos.filter(p => !BROKER_IMAGE_CATEGORIES.has(String(p.category || (p as any).type || '').toLowerCase()));
       // role 기반 이미지 선택 (사용자 지정 → isHero → 첫 번째)
-      const heroPhoto = resolvedPhotos.find(p => p.role === 'cover')
-        || resolvedPhotos.find(p => p.isHero)
-        || resolvedPhotos[0];
-      const exteriorPhoto = resolvedPhotos.find(p => p.role === 'exterior')
-        || resolvedPhotos.find(p => p.category === 'exterior' || p.type === 'exterior')
+      const heroPhoto = realPhotos.find(p => p.role === 'cover')
+        || realPhotos.find(p => p.isHero)
+        || realPhotos[0];
+      const exteriorPhoto = realPhotos.find(p => p.role === 'exterior')
+        || realPhotos.find(p => p.category === 'exterior' || p.type === 'exterior')
         || heroPhoto;
 
       // ── 1. 덱 시퀀스 결정 ──
@@ -197,7 +210,7 @@ export class MobileImPptxRenderer {
         incomeArchetype: input.incomeArchetype,
         hasViolation: input.hasViolation,
         hasJointCollateral: input.hasJointCollateral,
-        hasPhotos: resolvedPhotos.length > 0,
+        hasPhotos: realPhotos.length > 0,
         gallerySpecs,
         dataAvailability: {
           hasLandUsePlan: !!(enrichment.landUsePlan ?? externalData.hasPublicData ?? input.doc.body?.ssot_summary?.land_area_sqm),
@@ -215,6 +228,8 @@ export class MobileImPptxRenderer {
             || input.doc.sections?.some((s: any) => s.section_type === 'lease_status')
           ),
           hasStackingPlan: !!(input.doc.body?.floor_leases?.length || input.doc.body?.stackingPlan?.length),
+          // D4/D8: 중개인 제공 정보 면 (body.broker_extras + photos_v2 문서 이미지) — 입력 없으면 모두 false
+          ...deriveBrokerAvailability(input.doc.body),
         },
         // D37 C-3: ReleaseTier 전달 → tier 기반 면 제어 활성화
         releaseTier: input.releaseTier,
@@ -327,6 +342,15 @@ export class MobileImPptxRenderer {
           return `${v.toLocaleString()}㎡ (${formatPyeong(v, 1)}평)`;
         };
 
+        // D5: 대장(bcRat/vlRat/useAprDay/floorsAbove…) > 토지이용계획(용도지역·법정 상한) > ssot 폴백을 단일 리졸버로 처리
+        const overviewSpecs = resolveOverviewSpecs(
+          enrichment, ssot, heroCard, input.doc.body?.parcels,
+          { building: bldg, core: input.core?.physical },
+        );
+        const overviewSpecRows = buildOverviewSpecRows(overviewSpecs);
+        const specHeadRows = overviewSpecRows.filter(([k]) => k !== '주용도' && k !== '주구조');
+        const specTailRows = overviewSpecRows.filter(([k]) => k === '주용도' || k === '주구조');
+
         const enrichedRows: [string, string][] = [
           ['소재지', (() => {
             const addr = ssot.address || bldg.address || heroCard.address || '-';
@@ -335,25 +359,9 @@ export class MobileImPptxRenderer {
           })()],
           ['대지면적', fmtArea(ssot.land_area_sqm || br.platArea || heroCard.landAreaM2 || bldg.land_area_sqm)],
           ['지목', ssot.land_category || br.jimok || '-'],
-          ['지역/지구', ssot.zoning || br.useZone || bldg.use_zone || enrichment?.landUsePlan?.zoningDistrict || input.core?.physical?.zoning || '-'],
-          ['건축면적', fmtArea(br.archArea || ssot.building_area_sqm)],
-          ['건폐율', ssot.bcr_pct ? `${ssot.bcr_pct}%` : (br.bcrPct ? `${br.bcrPct}%` : '-')],
+          ['건축면적', fmtArea(overviewSpecs.archArea)],
           ['연면적', fmtArea(ssot.total_gross_area_sqm || heroCard.totalGrossAreaSqm || bldg.total_area_sqm)],
-          ['용적률', ssot.far_pct ? `${ssot.far_pct}%` : (br.farPct ? `${br.farPct}%` : '-')],
-          ['준공시점', (() => {
-            const yr = ssot.completion_year || heroCard.completionYear || bldg.built_year || br.useAprDay;
-            if (!yr) return '-';
-            const yrNum = Number(String(yr).slice(0, 4));
-            const age = yrNum ? `(건축 후 약 ${new Date().getFullYear() - yrNum}년)` : '';
-            const ymd = /^\d{8}$/.test(String(yr)) ? `${String(yr).slice(0, 4)}년 ${Number(String(yr).slice(4, 6))}월` : String(yr);
-            return `${ymd} ${age}`;
-          })()],
-          ['층수', (() => {
-            const below = Number(ssot.floors_below || heroCard.floorsBelow || bldg.floors_below || br.ugrndFlrCnt || input.core?.physical?.floorsBelow || 0);
-            const above = Number(ssot.floors_above || heroCard.floorsAbove || bldg.floors_above || br.grndFlrCnt || input.core?.physical?.floorsAbove || 0);
-            if (!below && !above) return '-';
-            return `지하${below}층 ~ 지상${above}층`;
-          })()],
+          ...specHeadRows, // 용도지역 / 건폐율·용적률(현황+법정) / 사용승인일 / 층수 (알 수 없으면 행 생략)
           ['주차 / 승강기', (() => {
             // D4: 건축물대장(br) 값 우선 → 기존 SSoT/hero/bldg 체인 → 중개인 입력(fallback). 전부 없으면 undefined → '-'
             const brokerSpecs = input.doc.body?.broker_physical_inputs;
@@ -369,7 +377,8 @@ export class MobileImPptxRenderer {
             if (!park && !elev) return '-'; // 둘 다 부재 → 행 제거 ('-대 / -대' 방지, Rule 37)
             return `${park ? `${park}대` : '-'} / ${elev ? `${elev}대` : '-'}`;
           })()],
-        ].filter(([, v]) => v !== '-') as [string, string][]; // 값이 없는 행 제거
+          ...specTailRows, // 주용도 / 주구조 (알 수 없으면 행 생략)
+        ].filter(([, v]) => !isMissingSpecValue(v)) as [string, string][]; // 값이 없는 행 제거 ('-' / '확인 필요' 행은 출력하지 않음)
 
         if (!dataMap['building']) {
           // LLM이 building 섹션을 생성하지 않은 경우: 전체 신규 생성
@@ -389,16 +398,44 @@ export class MobileImPptxRenderer {
             const c = String(k).replace(/\s+/g, '');
             if (/준공|사용승인|건축연도/.test(c)) return '#준공';
             if (/용도지역|지역\/지구|지역지구/.test(c)) return '#용도지역';
+            if (/건폐율|용적률/.test(c)) return '#건폐용적';
             if (/층수|건축규모/.test(c)) return '#층수';
             if (/주차|승강기|엘리베이터/.test(c)) return '#주차승강기';
+            if (/^주용도|^주요용도|^용도$/.test(c)) return '#주용도';
+            if (/^주구조|^건물구조|^구조$/.test(c)) return '#주구조';
             return c;
           };
+          // D5: LLM 표의 '-' / 공란 / '확인 필요' 행은 값이 없는 행이므로 제거 (실값 병합을 막거나 '-' 행으로 남지 않도록)
+          dataMap['building'].left.rows = dataMap['building'].left.rows.filter(
+            (r: [string, string]) => !isMissingSpecValue(r?.[1]),
+          );
           // Rule 4: 같은 제원이 다른 라벨(예: 건축연도(사용승인일) vs 준공시점)로 이중 렌더되지 않도록 그룹 단위로 중복 제거
-          const existingKeys = new Set(dataMap['building'].left.rows.map(([k]: [string, string]) => specGroup(k)));
+          // D5: 기존 값이 유효하면 LLM 값 유지, 없으면 공부(리졸버) 값 추가. 건폐율/용적률은 현황치 2개가 모두 있는 경우에만 LLM 행을 유지.
+          const existingGroupRows = (g: string) =>
+            (dataMap['building'].left.rows as [string, string][]).filter(([k]) => specGroup(k) === g);
           for (const [key, val] of enrichedRows) {
-            if (!existingKeys.has(specGroup(key))) {
+            const g = specGroup(key);
+            const existing = existingGroupRows(g);
+            if (g === '#건폐용적' && existing.length > 0) {
+              const joined = existing.map(([k, v]) => `${k}:${v}`).join('|').replace(/\s+/g, '');
+              const llmComplete = (/건폐율/.test(joined) && /용적률/.test(joined)) || (existing.length === 1 && /\d\s*%?\s*\/\s*\d/.test(String(existing[0][1])));
+              if (llmComplete) continue;
+              // 불완전한 LLM 행(한쪽만 있는 경우)은 공부 값으로 교체
+              dataMap['building'].left.rows = (dataMap['building'].left.rows as [string, string][]).filter(([k]) => specGroup(k) !== g);
+            }
+            if (existingGroupRows(g).length === 0) {
               dataMap['building'].left.rows.push([key, val]);
             }
+          }
+          // a04 가 right.rows 를 left 와 통합 렌더하므로, 값 없는 행/이미 left 에 있는 제원 그룹은 right 에서도 제거
+          if (Array.isArray(dataMap['building'].right?.rows)) {
+            const leftGroups = new Set((dataMap['building'].left.rows as [string, string][]).map(([k]) => specGroup(k)));
+            dataMap['building'].right.rows = dataMap['building'].right.rows.filter((r: any) => {
+              if (!Array.isArray(r) || r.length < 2) return true;
+              if (isMissingSpecValue(r[1])) return false;
+              const g = specGroup(String(r[0] ?? ''));
+              return !(g.startsWith('#') && leftGroups.has(g));
+            });
           }
           // Rule 4: 제원 표에는 제원만 — LLM 이 '**자산 하이라이트**: • …' 같은 서술형 항목을 key-value 로 써서
           // 좌측 표에 하이라이트가 한 번 더(말줄임 포함) 렌더되던 문제 제거. 하이라이트는 우측 박스가 정본.
@@ -740,6 +777,18 @@ export class MobileImPptxRenderer {
         }
       }
 
+      // ── D4/D8: 중개인 제공 정보 (body.broker_extras + photos_v2 문서 이미지) — Basic IM 전용, 입력 없으면 no-op ──
+      //   · 신규 면(투자 포인트·규제·계획·도면·시세 비교): 원문 그대로 + 결정론 통계만 (AI·재작성 없음)
+      //   · 기존 면 보강(면 추가 없음): 입지 callout/위치도, 렌트롤 '매입 후 전략'
+      if (isBasicPreset) {
+        const brokerExtras = readBrokerExtras(input.doc.body);
+        const brokerImages = extractBrokerImages(input.doc.body);
+        const brokerMap = buildBrokerExtrasDataMap(input.doc.body, { ssot: input.doc.body?.ssot_summary ?? null, body: input.doc.body ?? null });
+        for (const [k, v] of Object.entries(brokerMap)) dataMap[k] = v as any;
+        applyBrokerLocation(dataMap['location'], brokerExtras, brokerImages);
+        applyBrokerRentRollPlan(dataMap['rentRoll'], brokerExtras);
+      }
+
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)
       // 사용자 입력이 있으면 우선 적용, 없으면 기본값 사용
       const disclaimerText = input.doc.body?.disclaimer
@@ -849,25 +898,12 @@ export class MobileImPptxRenderer {
           : 0;
         const fallbackCapRateAsIs = Number.isFinite(rawCapRateAsIs) && rawCapRateAsIs > 0 ? rawCapRateAsIs : 0;
 
-        // SSoT 우선, Fallback 보존
-        const capRateAsIs = hasSsotYield ? fin!.grossYieldOnEquity : fallbackCapRateAsIs;
-
-        // 안정화: claims에서 pro_forma_cap_rate 우선 참조 (FinancialCalculator 산출값)
-        const docClaims = (input.doc.body?.claims ?? []) as Array<{ subject: string; value: number }>;
-        const proFormaClaim = docClaims.find(c => c.subject === 'pro_forma_cap_rate');
-        // claim이 있으면 사용, 없으면 공실률 기반 fallback 재계산
-        const safeProForma = proFormaClaim?.value != null && Number.isFinite(proFormaClaim.value) && proFormaClaim.value > 0
-          ? proFormaClaim.value
-          : undefined;
-        const calcStabilized = (vacPct > 0 && vacPct < 100 && denominator > 0 && Number.isFinite(denominator) && Number.isFinite(annualRentKrw))
-          ? ((annualRentKrw * (1 + vacPct / (100 - vacPct))) / denominator * 100)
-          : undefined;
-        const fallbackStabilized = safeProForma ?? (calcStabilized && Number.isFinite(calcStabilized) && calcStabilized > 0 ? calcStabilized : undefined);
-
-        // SSoT 우선, Fallback 보존
-        const capRateStabilized = (hasSsotYield && fin?.grossYieldStabilized != null)
-          ? fin.grossYieldStabilized
-          : fallbackStabilized;
+        // D10: 단일 YieldSet — 요약 슬라이드(heroCard.capRateBase)와 같은 body.financials에서 값·가정을 읽는다.
+        //   안정화 수익률 = (a) 실제 공실·자가사용 면적 × 중개인 목표임대료 (입력·면적이 있을 때만), 아니면
+        //   (b) '공실충당 N% 제외 기준 (참고)' — 시세 임대를 가정했다는 문구는 계산이 뒷받침할 때만 표기한다.
+        const yieldSet = buildYieldSetFromBody(input.doc.body as Record<string, any>);
+        const capRateAsIs = yieldSet.grossYieldNetOfDeposit ?? (hasSsotYield ? fin!.grossYieldOnEquity : fallbackCapRateAsIs);
+        const capRateStabilized = yieldSet.stabilized?.value;
 
         dataMap['yieldFormula'] = {
           title: '투자수익률 분석',
@@ -881,7 +917,13 @@ export class MobileImPptxRenderer {
           vacancyPct: vacPct,
           capRateAsIs,
           capRateStabilized,
-          stabilizedAssumption: '공실층을 인근 동일 용도 시세 수준으로 임대 가정',
+          // D10: 목표임대료 계산이 실제로 뒷받침할 때만 캡션 존재 (공실충당 기준(참고)에는 캡션 없음)
+          stabilizedAssumption: yieldSet.stabilized?.caption ?? undefined,
+          yieldSet,
+          // Phase C가 추가하는 중개인 입력(없을 수 있음) — 토지 평당가 서술에만 사용, 수익률 비교 근거로는 쓰지 않는다
+          marketComps: Array.isArray((input.doc.body as any)?.broker_extras?.market_comps)
+            ? (input.doc.body as any).broker_extras.market_comps
+            : undefined,
           // Phase 2: 공시지가 10년 추이 (수익률 슬라이드 고도화)
           ...(() => {
             // 다필지: 대표 필지 단가 × 전체 면적 은 토지 비중을 왜곡하므로 기준을 명시/보정한다.
@@ -1095,7 +1137,7 @@ export class MobileImPptxRenderer {
           // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략 (유령 백지 슬라이드 방지)
           // M4: Basic IM 9면 계약 준수 — A24/rentRoll 및 canonical 기본 슬라이드는 pop/drop 방지
           if (result.suppress) {
-            if (spec.archetype === 'A24' || spec.dataKey === 'rentRoll' || (isBasicPreset && ['A06', 'A14', 'A23', 'A24'].includes(spec.archetype))) {
+            if (spec.archetype === 'A24' || spec.dataKey === 'rentRoll' || (isBasicPreset && ['A06', 'A14', 'A23', 'A24'].includes(spec.archetype) && !archetypeInput.data?.suppressOnEmpty)) {
               log.warn(`[PPTX] [Suppress Prevented] ${spec.archetype}(${spec.dataKey}) — canonical basic slide preserved`);
             } else {
               log.info(`[PPTX] [Suppress] ${spec.archetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${archetypeInput.data?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${archetypeInput.data?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${archetypeInput.data?.stackingPlan?.length ?? 'N/A'}`);

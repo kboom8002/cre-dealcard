@@ -32,8 +32,8 @@ describe('spec-row-priority', () => {
   });
 
   it('우선순위 키 분류', () => {
-    expect(specRowPriority('주차 / 승강기')).toBe(7);
-    expect(specRowPriority('건폐율 / 용적률')).toBe(5);
+    expect(specRowPriority('주차 / 승강기')).toBe(8);
+    expect(specRowPriority('건폐율 / 용적률')).toBe(4);
     expect(specRowPriority('토지평당가')).toBe(50);
   });
 });

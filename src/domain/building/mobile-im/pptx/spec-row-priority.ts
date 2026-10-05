@@ -9,20 +9,20 @@
  * 보존된 행의 원래 순서는 유지한다. 표준 제원이 3개 미만인 표(비-물건개요)는 건드리지 않는다.
  */
 
-/** 낮을수록 우선. 50 = 비표준 행 */
+/** 낮을수록 우선. 50 = 비표준 행 (D5: 용도지역·건폐율/용적률 > 건축면적·층수 > 지목·구조) */
 export function specRowPriority(key: string): number {
   const k = key.replace(/\s+/g, '');
   if (/^소재지|주소/.test(k)) return 1;
   if (/대지면적/.test(k)) return 2;
   if (/연면적/.test(k)) return 3;
-  if (/건축면적/.test(k)) return 4;
-  if (/건폐율|용적률/.test(k)) return 5;
-  if (/층수|건축규모|규모/.test(k)) return 6;
-  if (/주차|승강기|엘리베이터/.test(k)) return 7;
-  if (/준공|사용승인/.test(k)) return 8;
-  if (/용도지역|지역\/지구|지역지구/.test(k)) return 9;
-  if (/주구조|건물구조|^구조/.test(k)) return 10;
-  if (/주용도|^용도$/.test(k)) return 11;
+  if (/건폐율|용적률/.test(k)) return 4;
+  if (/용도지역|지역\/지구|지역지구/.test(k)) return 5;
+  if (/건축면적/.test(k)) return 6;
+  if (/층수|건축규모|규모/.test(k)) return 7;
+  if (/주차|승강기|엘리베이터/.test(k)) return 8;
+  if (/준공|사용승인/.test(k)) return 9;
+  if (/주용도|^용도$/.test(k)) return 10;
+  if (/주구조|건물구조|^구조/.test(k)) return 11;
   if (/지목/.test(k)) return 12;
   return 50;
 }

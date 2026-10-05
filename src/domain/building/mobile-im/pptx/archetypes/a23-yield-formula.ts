@@ -3,6 +3,13 @@ import * as L from '../imlib';
 import { C, M, CW, KR, NUM, SAFE_BOTTOM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { SQM_RATIO } from '@/lib/utils/area-conversion';
+import { fmtFixed } from '@/lib/format/safe-number';
+import {
+  YIELD_LABELS,
+  stabilizedReserveLabel,
+  yieldFootnote,
+  type YieldSet,
+} from '../../yield-set';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -19,15 +26,19 @@ export interface ArchetypeOutput {
   warnings: string[];
 }
 
+/** 하단 각주 높이 (8pt 1~2줄) — 콜아웃/카드는 이 위에서 끝난다 */
+const FOOTNOTE_H = 0.24;
+
 /**
  * A23 — 투자수익률 분석 슬라이드 (Basic IM v2.0)
  *
- * 개선사항:
- * - 산식 제거 → 수익률을 직관적 KPI로 표시
- * - "Cap Rate" → "수익률" (한국 소형부동산 실무 용어)
- * - 공시지가 10년 추이 바 차트 추가 (CAGR 포함)
- * - 순투자금, 토지평당가, 매매가 대비 토지비중 추가
- * - 하단 투자 판단 참고 콜아웃 자동 생성
+ * D10/D9 (2026-10): 수익률 3행을 같은 이름·같은 정의로 표기하고(요약 슬라이드와 동일 YieldSet), 하단에 가정 각주를 둔다.
+ *  1) 임대수익률 (Gross, 매매가−보증금 대비) — 운영비 차감 전
+ *  2) Cap Rate (NOI 기준) — 운영비·공실충당 차감 후 (NOI 값이 있을 때만)
+ *  3) 안정화 수익률 — 실제 공실·자가사용 면적 × 중개인 목표임대료일 때만 '임대 가정' 문구,
+ *     아니면 '공실충당 N% 제외 기준 (참고)' (시세 임대를 가정하지 않음)
+ * 하단 콜아웃은 계산된 사실(수치·공시지가 CAGR·토지 비중)만 중립적으로 서술한다.
+ * 시장 평균 비교 등 출처 없는 평가·권고 문구는 생성하지 않는다.
  */
 export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const slide = L.light(input.pres);
@@ -42,10 +53,15 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const vacancyPct = d.vacancyPct ?? 0;
   const capRateAsIs = d.capRateAsIs ?? 0;
   const capRateStabilized = d.capRateStabilized;
-  const assumption = d.stabilizedAssumption ?? '공실층을 인근 시세 수준으로 임대 가정';
+  const callerAssumption: string | undefined = typeof d.stabilizedAssumption === 'string' && d.stabilizedAssumption.trim()
+    ? d.stabilizedAssumption.trim()
+    : undefined;
+  const yieldSet: YieldSet | undefined = d.yieldSet && typeof d.yieldSet === 'object' ? d.yieldSet : undefined;
   const landPriceHistory = d.landPriceHistory;
   const landAreaSqm = d.landAreaSqm ?? 0;
   const areaSignal = d.areaSignal ?? '';
+  void vacancyPct;
+  void areaSignal;
 
   // ── 금액 포맷터 ──
   const fmtManwon = (v: number) => {
@@ -71,6 +87,33 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const rawCap = typeof capRateAsIs === 'number' ? capRateAsIs : parseFloat(String(capRateAsIs));
   const numCapRate = Number.isFinite(rawCap) && rawCap > 0 ? rawCap : 0;
 
+  // ── 수익률 3행 사전 산출 (이름·정의는 요약 슬라이드와 공유) ──
+  const noiCap = yieldSet?.noiCapRate != null && Number.isFinite(yieldSet.noiCapRate) && yieldSet.noiCapRate > 0
+    ? yieldSet.noiCapRate
+    : null;
+
+  const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
+  if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
+  const rawStab = typeof capRateStabilized === 'number' ? capRateStabilized : parseFloat(String(capRateStabilized));
+  const stabVal = Number.isFinite(rawStab) && rawStab > 0 ? rawStab : 0;
+  // 안정화 행의 종류: YieldSet이 같은 값을 산출했으면 그 종류·라벨, 호출자가 근거 문구를 직접 준 경우는 분석가정,
+  // 둘 다 아니면 시세 임대 가정을 암시하지 않는 '공실충당 제외 기준 (참고)'.
+  const ysStab = yieldSet?.stabilized && Math.abs(yieldSet.stabilized.value - stabVal) < 0.005 ? yieldSet.stabilized : null;
+  let stabLabel = '';
+  let stabCaption: string | null = null;
+  if (hasStabilized) {
+    if (ysStab?.kind === 'target_rent') {
+      stabLabel = ysStab.label;
+      stabCaption = ysStab.caption;
+    } else if (!ysStab && callerAssumption) {
+      stabLabel = YIELD_LABELS.stabilizedTargetRent;
+      stabCaption = callerAssumption;
+    } else {
+      stabLabel = ysStab?.label ?? stabilizedReserveLabel(yieldSet?.assumptions.vacancyReservePct);
+      stabCaption = null;
+    }
+  }
+
   // ── 좌측 KPI 행 사전 산출 (2026-10-05: 레이아웃 높이를 먼저 계산해 하단 콜아웃과의 겹침을 원천 차단) ──
   const kpiRows: Array<[string, string, boolean]> = [
     ['연간 임대수입', fmtManwon(annualRent), false],
@@ -88,65 +131,87 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     kpiRows.push([priceLabel, `${Math.round(pricePerPyeong / 10000).toLocaleString()}만원`, false]);
   }
   // 매매가 대비 토지비중
+  let landRatio: number | null = null;
   if (landPriceHistory?.latestPricePerSqm > 0 && landAreaSqm > 0 && askingPrice > 0) {
     const landTotalValue = landPriceHistory.latestPricePerSqm * landAreaSqm;
-    const landRatio = (landTotalValue / askingPrice) * 100;
-    if (landRatio > 0 && landRatio < 200) {
-      kpiRows.push(['매매가 대비 토지 비중', `${landRatio.toFixed(1)}%`, landRatio >= 50]);
+    const ratio = (landTotalValue / askingPrice) * 100;
+    if (ratio > 0 && ratio < 200) {
+      landRatio = ratio;
+      kpiRows.push(['매매가 대비 토지 비중', `${ratio.toFixed(1)}%`, ratio >= 50]);
     }
   }
 
-  const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
-  if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
-
-  // ── 하단 콜아웃: 투자 판단 참고 (데이터 기반 자동 생성) — 높이 계산을 위해 먼저 산출 ──
+  // ── 하단 콜아웃 (D9): 계산된 사실만 중립 서술 — 근거 없는 시장 비교·평가·권고 문구 없음 ──
+  // 근거(출처)가 있는 비교는 중개인 제공 시세(토지 평당가)뿐이며, 수익률(Cap Rate) 비교 근거는 없으므로 서술하지 않는다.
   const calloutBullets: string[] = [];
 
-  // 수익률 비교 (서울 소형빌딩 평균 4.5~5.5% 기준)
+  // 수익률 사실 (수치 + 산출 기준)
   if (numCapRate > 0) {
-    if (numCapRate >= 6.0) {
-      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균(4.5~5.5%) 대비 양호한 수준`);
-    } else if (numCapRate >= 4.5) {
-      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균 수준`);
-    } else {
-      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 시장 평균 하회 — 토지가치 상승 또는 리모델링 후 임대료 증대 가능성 검토 필요`);
-    }
+    const parts = [`임대수익률 ${fmtFixed(numCapRate, 2, '%')} (운영비 차감 전)`];
+    if (noiCap != null) parts.push(`Cap Rate ${fmtFixed(noiCap, 2, '%')} (운영비·공실충당 차감 후)`);
+    if (hasStabilized && stabCaption) parts.push(`공실·자가사용 면적 임대 가정 시 안정화 수익률 ${fmtFixed(stabVal, 2, '%')}`);
+    calloutBullets.push(`• ${parts.join(', ')}`);
   }
 
-  // 공시지가 CAGR
-  if (hasLandHistory && landPriceHistory.cagrPct != null) {
-    if (landPriceHistory.cagrPct >= 3.0) {
-      calloutBullets.push(`• ${landPriceHistory.history.length}년간 공시지가 연평균 ${landPriceHistory.cagrPct}% 상승 → 토지가치 보존력 확인`);
-    } else if (landPriceHistory.cagrPct > 0) {
-      calloutBullets.push(`• ${landPriceHistory.history.length}년간 공시지가 연평균 ${landPriceHistory.cagrPct}% 상승 (완만한 성장세)`);
-    }
+  // 공시지가 CAGR + 토지 비중 (둘 다 계산값일 때만; 방향은 값의 부호로 서술)
+  const landParts: string[] = [];
+  if (hasLandHistory && landPriceHistory.cagrPct != null && Number.isFinite(Number(landPriceHistory.cagrPct))) {
+    const cagr = Number(landPriceHistory.cagrPct);
+    const dir = cagr > 0 ? `연평균 ${cagr}% 상승` : cagr < 0 ? `연평균 ${Math.abs(cagr)}% 하락` : '연평균 변동 없음';
+    landParts.push(`${landPriceHistory.history.length}년간 개별공시지가 ${dir}`);
+  }
+  if (landRatio != null) landParts.push(`매매가 대비 토지 가치 비중 ${fmtFixed(landRatio, 1, '%')} (공시지가×대지면적 기준)`);
+  if (landParts.length > 0) calloutBullets.push(`• ${landParts.join(', ')}`);
+
+  // 중개인 제공 인근 시세 중 토지 평당가가 있는 건만 (출처 표기). 필드가 없으면 생략.
+  const marketComps: Array<Record<string, any>> = Array.isArray(d.marketComps) ? d.marketComps : [];
+  const landComps = marketComps
+    .filter((c) => c && Number.isFinite(Number(c.land_price_per_pyeong_manwon)) && Number(c.land_price_per_pyeong_manwon) > 0)
+    .slice(0, 2);
+  if (landComps.length > 0) {
+    const txt = landComps
+      .map((c) => `${String(c.location ?? '').trim() || '인근'} 토지 평당 ${Number(c.land_price_per_pyeong_manwon).toLocaleString()}만원(${c.kind === 'transaction' ? '실거래' : '매물'})`)
+      .join(', ');
+    calloutBullets.push(`• 중개인 제공 인근 시세: ${txt}`);
   }
 
-  // 토지 비중
-  if (landPriceHistory?.latestPricePerSqm > 0 && landAreaSqm > 0 && askingPrice > 0) {
-    const landTotalValue = landPriceHistory.latestPricePerSqm * landAreaSqm;
-    const landRatio = (landTotalValue / askingPrice) * 100;
-    if (landRatio >= 60) {
-      calloutBullets.push(`• 매매가 대비 토지비중 ${landRatio.toFixed(0)}% → 감가 리스크 낮은 토지 중심 자산`);
-    }
-  }
+  // ── 하단 각주 (8pt) — 운영비율/공실충당/보증금 승계 가정 ──
+  const footnoteText = yieldSet
+    ? yieldFootnote(yieldSet.assumptions)
+    : '※ 임대수익률은 운영비 차감 전 기준, 보증금 승계 가정.';
+  const footY = SAFE_BOTTOM - FOOTNOTE_H;
+  const contentBottom = footY - 0.06;
 
-  // ── 세로 레이아웃 예산 (SAFE_BOTTOM 6.75 내에서 카드 + 콜아웃이 겹치지 않도록) ──
+  // ── 세로 레이아웃 예산 (SAFE_BOTTOM 6.75 내에서 카드 + 콜아웃 + 각주가 겹치지 않도록) ──
   const cardY = 1.45;
   const calloutGap = 0.15;
-  const calloutH = calloutBullets.length > 0 ? 0.42 + calloutBullets.length * 0.25 : 0;
-  const availCardH = SAFE_BOTTOM - cardY - (calloutH > 0 ? calloutH + calloutGap : 0);
   const padTop = 0.20;
-  const yieldBgH = 1.00;
-  const afterYield = 0.15;
-  const stabBadgeH = 0.55;
-  const stabBlockH = hasStabilized ? 0.12 + stabBadgeH : 0;
-  const padBottom = 0.18;
-  const fixedH = padTop + yieldBgH + afterYield + stabBlockH + padBottom;
+  const afterYield = 0.12;
+  const padBottom = 0.16;
+
+  // 다크 박스: 수익률 3행
+  const boxPad = 0.08;
+  const primaryRowH = 0.46;
+  const secondaryRowH = 0.30;
+  const captionH = stabCaption ? 0.30 : 0;
+  const yieldBgH = boxPad * 2 + primaryRowH + (noiCap != null ? secondaryRowH : 0) + (hasStabilized ? secondaryRowH + captionH : 0);
+
+  const fixedH = padTop + yieldBgH + afterYield + padBottom;
+  const calloutHFor = (n: number) => (n > 0 ? 0.42 + n * 0.25 : 0);
   let rowH = 0.38;
-  if (fixedH + kpiRows.length * rowH > availCardH) {
-    rowH = Math.max(0.28, (availCardH - fixedH) / Math.max(1, kpiRows.length));
+  let availCardH = 0;
+  // 카드 하단이 콜아웃·각주를 침범하면 행 높이를 줄이고, 그래도 부족하면 후순위 콜아웃 불릿부터 제거한다.
+  for (;;) {
+    const calloutH = calloutHFor(calloutBullets.length);
+    availCardH = contentBottom - cardY - (calloutH > 0 ? calloutH + calloutGap : 0);
+    rowH = fixedH + kpiRows.length * 0.38 > availCardH
+      ? (availCardH - fixedH) / Math.max(1, kpiRows.length)
+      : 0.38;
+    if (rowH >= 0.27 || calloutBullets.length <= 1) break;
+    calloutBullets.pop();
   }
+  rowH = Math.max(0.24, Math.min(0.38, rowH));
+  const calloutH = calloutHFor(calloutBullets.length);
   // 카드는 가용 높이를 채워 좌우 패널 하단을 정렬 (최대 4.40)
   const cardH = Math.min(4.40, Math.max(fixedH + kpiRows.length * rowH, availCardH));
 
@@ -161,28 +226,68 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     rectRadius: 0.08,
   });
 
-  // ── 대형 수익률 표시 ──
+  // ── 수익률 3행 (다크 박스) ──
   const yieldBgY = cardY + padTop;
+  const boxX = M + 0.25;
+  const boxW = leftW - 0.50;
   slide.addShape('roundRect', {
-    x: M + 0.25, y: yieldBgY, w: leftW - 0.50, h: yieldBgH,
+    x: boxX, y: yieldBgY, w: boxW, h: yieldBgH,
     fill: { color: C.ink },
     rectRadius: 0.08,
   });
 
-  // Wave 9.3 (b안): 값 = 연 임대수입 ÷ (매매가−보증금) — 요약 슬라이드의 Cap Rate(NOI÷매매가)와 구분되도록 기준 병기.
-  //   모바일 '순투자금'은 대출까지 차감(매매가−보증금−대출)하므로, 대출 유무와 무관하게 정확하도록 A23은 공식으로 표기한다.
-  slide.addText([
-    { text: '임대수익률', options: { fontSize: 16, bold: true, breakLine: true } },
-    { text: '(매매가−보증금) 대비 · 운영비 차감 전', options: { fontSize: 9, bold: false } },
-  ], {
-    x: M + 0.50, y: yieldBgY, w: 3.0, h: yieldBgH,
-    color: 'FFFFFF', fontFace: KR, valign: 'middle',
+  const yLabelX = boxX + 0.20;
+  const yValW = 1.55;
+  const yValX = boxX + boxW - yValW - 0.15;
+  const yLabelW = yValX - yLabelX - 0.05;
+  let yRowY = yieldBgY + boxPad;
+
+  // ① 임대수익률 (Gross, 매매가−보증금 대비) — 운영비 차감 전
+  slide.addText(YIELD_LABELS.grossNetOfDeposit, {
+    x: yLabelX, y: yRowY, w: yLabelW, h: primaryRowH,
+    color: 'FFFFFF', fontFace: KR, fontSize: 10.5, bold: true, valign: 'middle', shrinkText: true, margin: 0,
   });
-  slide.addText(`${numCapRate.toFixed(2)}%`, {
-    x: M + leftW - 3.50, y: yieldBgY, w: 3.00, h: yieldBgH,
-    color: C.brass, fontFace: NUM, fontSize: 28, bold: true,
-    align: 'right', valign: 'middle',
+  slide.addText(fmtFixed(numCapRate, 2, '%'), {
+    x: yValX, y: yRowY, w: yValW, h: primaryRowH,
+    color: C.brass, fontFace: NUM, fontSize: 24, bold: true,
+    align: 'right', valign: 'middle', margin: 0,
   });
+  yRowY += primaryRowH;
+
+  // ② Cap Rate (NOI 기준) — 운영비·공실충당 차감 후 (요약 슬라이드와 같은 값·같은 이름)
+  if (noiCap != null) {
+    slide.addText(YIELD_LABELS.noiCapRate, {
+      x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
+      color: 'FFFFFF', fontFace: KR, fontSize: 10, valign: 'middle', shrinkText: true, margin: 0,
+    });
+    slide.addText(fmtFixed(noiCap, 2, '%'), {
+      x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
+      color: C.brass, fontFace: NUM, fontSize: 15, bold: true,
+      align: 'right', valign: 'middle', margin: 0,
+    });
+    yRowY += secondaryRowH;
+  }
+
+  // ③ 안정화 수익률 / 공실충당 N% 제외 기준 (참고)
+  if (hasStabilized) {
+    slide.addText(stabLabel, {
+      x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
+      color: 'FFFFFF', fontFace: KR, fontSize: 10, valign: 'middle', shrinkText: true, margin: 0,
+    });
+    slide.addText(fmtFixed(stabVal, 2, '%'), {
+      x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
+      color: C.brass, fontFace: NUM, fontSize: 15, bold: true,
+      align: 'right', valign: 'middle', margin: 0,
+    });
+    yRowY += secondaryRowH;
+    if (stabCaption) {
+      // 근거 캡션은 계산이 실제로 뒷받침할 때만 (중개인 목표임대료 × 실제 공실·자가사용 면적)
+      slide.addText(`◇ 분석가정: ${stabCaption}`, {
+        x: yLabelX, y: yRowY, w: boxW - 0.40, h: captionH,
+        color: 'E8E0C8', fontFace: KR, fontSize: 8, valign: 'top', shrinkText: true, margin: 0,
+      });
+    }
+  }
 
   // ── 핵심 재무 지표 행 ──
   let rowY = yieldBgY + yieldBgH + afterYield;
@@ -206,30 +311,6 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       line: { color: 'E8E8E8', width: 0.5 },
     });
     rowY += rowH;
-  }
-
-  // ── 안정화 수익률 하단 배지 (조건부) — 카드 내부 하단에 고정 (카드 밖 이탈 금지) ──
-  if (hasStabilized) {
-    const stabY = Math.max(rowY + 0.12, cardY + cardH - padBottom - stabBadgeH);
-    slide.addShape('roundRect', {
-      x: M + 0.25, y: stabY, w: leftW - 0.50, h: stabBadgeH,
-      fill: { color: 'F6F1E4' },
-      line: { color: C.brass, width: 1.0 },
-      rectRadius: 0.06,
-    });
-    const stabTitle = '◇ 분석가정 · 안정화 임대수익률 (Stabilized)';
-    const stabLabel = assumption ? `${stabTitle}\n${assumption}` : stabTitle;
-    slide.addText(stabLabel, {
-      x: M + 0.40, y: stabY, w: 3.6, h: stabBadgeH,
-      color: C.ink, fontFace: KR, fontSize: assumption ? 8.5 : 10, bold: true, valign: 'middle',
-    });
-    const rawStab = typeof capRateStabilized === 'number' ? capRateStabilized : parseFloat(String(capRateStabilized));
-    const stabVal = Number.isFinite(rawStab) && rawStab > 0 ? rawStab : 0;
-    slide.addText(`${stabVal.toFixed(2)}%`, {
-      x: M + leftW - 3.00, y: stabY, w: 2.50, h: stabBadgeH,
-      color: C.brass, fontFace: NUM, fontSize: 18, bold: true,
-      align: 'right', valign: 'middle',
-    });
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -334,14 +415,20 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 하단 콜아웃: 투자 판단 참고 — 좌·우 카드 하단 아래에 배치 (겹침 없음)
+  // 하단 콜아웃: 계산된 사실 요약 — 좌·우 카드 하단 아래에 배치 (겹침 없음)
   // ══════════════════════════════════════════════════════════════
   if (calloutBullets.length > 0) {
     const calloutY = cardY + cardH + calloutGap;
-    const finalH = Math.max(0.50, Math.min(calloutH, SAFE_BOTTOM - calloutY));
-    L.callout(slide, M, calloutY, CW, finalH, 'info', '투자 판단 참고',
+    const finalH = Math.max(0.50, Math.min(calloutH, contentBottom - calloutY));
+    L.callout(slide, M, calloutY, CW, finalH, 'info', '수익률 산출 요약',
       calloutBullets.join('\n'));
   }
+
+  // ── 각주: 운영비율·공실충당·보증금 승계 가정 (8pt) ──
+  slide.addText(footnoteText, {
+    x: M, y: footY, w: CW, h: FOOTNOTE_H,
+    fontSize: 8, color: '8A8A8A', fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,
+  });
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);

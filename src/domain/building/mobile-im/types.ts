@@ -6,6 +6,7 @@ import type { BuildingUse, AssetType, InvestmentPosture, PhotoCategory } from '@
 import type { ArchetypeCode } from './archetype-registry';
 import type { BuildingSSoTLite } from '../building-ssot-lite.types';
 import type { Claim } from '@/domain/building/im-core/claim';
+import type { BrokerExtras } from './broker-extras';
 
 /** 개별 사진 메타데이터 (v0.6.0) */
 export interface PhotoMeta {
@@ -272,6 +273,7 @@ export interface MobileIMSupplementalInput {
   photo_captions?: Record<number, string>; // 사진별 캡션 (인덱스→설명) (v1 레거시)
   photos_v2?: PhotoMeta[];           // 구조화 사진 메타데이터 (v2 SSoT)
   broker_highlight?: string;         // 브로커 한줄 코멘트
+  broker_extras?: BrokerExtras;      // D4: 중개인 추가 정보 (투자 포인트/규제·계획/시세 비교/입지/매입 후 전략/목표 임대료)
   estimated_yield_pct?: number;      // 예상 수익률
   resolved_address?: string;         // 확정 주소 (지번)
   resolved_pnu?: string;             // 확정 PNU
@@ -456,6 +458,12 @@ export interface HeroCardData {
   yieldBasis?: 'NOI' | 'GPI';
   /** NOI 산출 시 총임대료에서 공제된 항목 (원) */
   noiDeductions?: Array<{ name: string; amount: number }>;
+  /** D10: capRateBase에 적용된 운영비율(연 임대료 대비 %) */
+  opexPct?: number | null;
+  /** D10: 운영비 출처 — 'user'(중개인 제공) | 'assumed'(자산유형별 가정) */
+  opexSource?: 'user' | 'assumed';
+  /** D10: capRateBase에 적용된 공실충당률(%) */
+  vacancyReservePct?: number | null;
   keyInvestmentPoint: string;   // 핵심 투자 포인트 1줄
   keyPoints?: string[];         // 3대 핵심 투자 포인트 불릿 목록
   keyRisk: string;              // 핵심 리스크 1줄
@@ -548,6 +556,12 @@ export interface MobileIMWriterOutput {
     grossYieldOnEquity?: number | null;
     grossYieldStabilized?: number | null;
     annualRentBil?: number | null;
+    // D10 YieldSet 입력
+    noiBaseKrw?: number | null;
+    opexPct?: number | null;
+    opexSource?: 'user' | 'assumed';
+    vacancyReservePct?: number | null;
+    depositKrw?: number | null;
   };
   /** Publish gate 차단 여부 */
   publishBlocked?: boolean;

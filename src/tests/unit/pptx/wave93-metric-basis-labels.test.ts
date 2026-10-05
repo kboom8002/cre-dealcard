@@ -4,25 +4,39 @@ import { buildYieldFromHeroCard, yieldLabel, validateYield } from '@/domain/buil
 import { formatNetCashFlowMarkdown } from '@/domain/building/mobile-im/net-cash-flow-calculator';
 
 // Wave 9.3 (b안): Basic IM 지표 라벨에 산출 기준 병기
-describe('Wave 9.3 — A02 요약 라벨 기준 병기', () => {
-  it('NOI 기반 yieldLabel → "Cap Rate (NOI÷매매가)"', () => {
+describe('Wave 9.3 / D10 — A02 요약 라벨 기준 병기', () => {
+  it('NOI 기반 yieldLabel → "Cap Rate (NOI 기준)"', () => {
     const y = buildYieldFromHeroCard({
       capRateBase: 1.98,
       yieldBasis: 'NOI',
       noiDeductions: [{ name: '공실·운영비', amount: 123_000_000 }],
     })!;
     expect(validateYield(y)).toBe(true); // G38 통과
-    expect(normalizeSummaryLabel(yieldLabel(y))).toBe('Cap Rate (NOI÷매매가)');
+    expect(normalizeSummaryLabel(yieldLabel(y))).toBe('Cap Rate (NOI 기준)');
   });
 
-  it('yieldBasis 미지정(GPI) → "Cap Rate (총임대료÷매매가)" — 닫는 괄호 유실 없음', () => {
+  it('yieldBasis 미지정·NOI 근거 없음(GPI) → Cap Rate로 부르지 않고 "임대수익률 (Gross, 매매가 대비)"', () => {
     const y = buildYieldFromHeroCard({ capRateBase: 4.2 })!;
-    expect(normalizeSummaryLabel(yieldLabel(y))).toBe('Cap Rate (총임대료÷매매가)');
+    expect(normalizeSummaryLabel(yieldLabel(y))).toBe('임대수익률 (Gross, 매매가 대비)');
   });
 
-  it('"연 수익률(Cap Rate, 기준: NOI)" → "Cap Rate (NOI÷매매가)"', () => {
-    expect(normalizeSummaryLabel('연 수익률(Cap Rate, 기준: NOI)')).toBe('Cap Rate (NOI÷매매가)');
+  it('D10: yieldBasis 미기록 레거시 heroCard라도 NOI 근거(noiBaseBil·opexPct)가 있으면 NOI로 판정 (GPI 오라벨 방지)', () => {
+    const y = buildYieldFromHeroCard({ capRateBase: 2.29, noiBaseBil: 1.2, opexPct: 20 })!;
+    expect(y.basis).toBe('NOI');
+    expect(validateYield(y)).toBe(true);
+    expect(normalizeSummaryLabel(yieldLabel(y))).toBe('Cap Rate (NOI 기준)');
   });
+
+  it('D10: 명시적 yieldBasis="GPI"는 NOI 근거가 있어도 GPI 유지, 명시 NOI+공제 없음은 G38 차단 유지', () => {
+    expect(buildYieldFromHeroCard({ capRateBase: 3, yieldBasis: 'GPI', opexPct: 20 })!.basis).toBe('GPI');
+    const y = buildYieldFromHeroCard({ capRateBase: 3, yieldBasis: 'NOI' })!;
+    expect(validateYield(y)).toBe(false);
+  });
+
+  it('"연 수익률(Cap Rate, 기준: NOI)" → "Cap Rate (NOI 기준)"', () => {
+    expect(normalizeSummaryLabel('연 수익률(Cap Rate, 기준: NOI)')).toBe('Cap Rate (NOI 기준)');
+  });
+
 
   it('실투자금 / 필요 실투자금 → "실투자금 (취득비용 포함)"', () => {
     expect(normalizeSummaryLabel('실투자금')).toBe('실투자금 (취득비용 포함)');

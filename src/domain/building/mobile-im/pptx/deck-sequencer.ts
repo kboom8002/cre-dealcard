@@ -23,6 +23,7 @@ import {
   BASIC_IM_OPTIONAL_SLIDES,
   BASIC_IM_EXCLUSION,
   BASIC_IM_BOUNDS,
+  BASIC_IM_BROKER_SLIDE_KEYS,
 } from './basic-im-contract';
 
 
@@ -97,6 +98,28 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // 계약에서 시퀀스 선언적 생성
   const sequence: SlideSpec[] = [];
 
+  // D4/D8: 중개인 제공 정보 면 — 입력(플래그)이 있을 때만 앵커 슬롯 바로 뒤에 삽입 (미입력 시 기본 9면 불변)
+  //  투자 포인트: 요약 뒤 / 규제·계획(+도면): 토지 뒤 / 시세 비교: 수익률 뒤 (수익률 면이 없는 포스처는 토지 뒤)
+  const regOn = da.hasBrokerRegulation === true;
+  const regNotes = regOn && (da.hasBrokerRegulationNotes ?? da.hasBrokerRegulationImages !== true);
+  const regImages = regOn && da.hasBrokerRegulationImages === true;
+  const compsAfterSeq = posture === 'income'
+    ? BASIC_IM_OPTIONAL_SLIDES.brokerComps.afterSeq
+    : BASIC_IM_OPTIONAL_SLIDES.brokerRegulation.afterSeq;
+  const pushBrokerSlides = (seq: number): void => {
+    const o = BASIC_IM_OPTIONAL_SLIDES;
+    if (seq === o.brokerPoints.afterSeq && da.hasBrokerPoints === true) {
+      sequence.push({ archetype: o.brokerPoints.archetype, kicker: 'Investment Points', title: o.brokerPoints.label, dataKey: o.brokerPoints.dataKey });
+    }
+    if (seq === o.brokerRegulation.afterSeq) {
+      if (regNotes) sequence.push({ archetype: o.brokerRegulation.archetype, kicker: 'Regulation & Plan', title: o.brokerRegulation.label, dataKey: o.brokerRegulation.dataKey });
+      if (regImages) sequence.push({ archetype: o.brokerRegulationImages.archetype, kicker: 'Plan Drawings', title: o.brokerRegulationImages.label, dataKey: o.brokerRegulationImages.dataKey });
+    }
+    if (seq === compsAfterSeq && da.hasBrokerComps === true) {
+      sequence.push({ archetype: o.brokerComps.archetype, kicker: 'Market Comps', title: o.brokerComps.label, dataKey: o.brokerComps.dataKey });
+    }
+  };
+
   for (const slot of BASIC_IM_SLIDE_CONTRACT) {
     // 필수 여부 판정: income 전용 슬롯은 income 포스처에서만 포함
     // 단, owner_occupied에서도 렌트롤(A24)은 hasRentRoll이면 공실 현황으로 포함 (D45)
@@ -134,6 +157,7 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
         dataKey: 'land',
       });
       // 지적도가 토지에 단일 슬라이드로 통합되었으므로 중복 A06 슬라이드 미생성
+      pushBrokerSlides(slot.seq);
       continue;
     }
 
@@ -149,14 +173,18 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       const cad = BASIC_IM_OPTIONAL_SLIDES.cadastralMap;
       sequence.push({ archetype: cad.archetype, kicker: 'Cadastral', title: cad.label, dataKey: cad.dataKey });
     }
+
+    pushBrokerSlides(slot.seq);
   }
 
   // B11 Fix: 루프 종료 후 바운드 체크 — BASIC_IM_BOUNDS.maxSlides 초과 시 비필수(갤러리/지적도) 슬라이드 우선 절삭
   // 헌법 보호: cover, summary, building, location, land, rentRoll(A24), yieldFormula(A23), closing(A10)은 절대 pop하지 않음
+  // D4/D8: 중개인이 입력한 면(투자 포인트·규제·도면·시세)도 보호 — 입력한 내용이 조용히 사라지면 안 된다
   let filtered = sequence.filter(s => !s.suppress);
   if (filtered.length > BASIC_IM_BOUNDS.maxSlides) {
-    const requiredDataKeys = new Set([
+    const requiredDataKeys = new Set<string>([
       'cover', 'summary', 'building', 'location', 'land', 'closing',
+      ...BASIC_IM_BROKER_SLIDE_KEYS,
       ...(posture === 'income' ? ['rentRoll', 'yieldFormula'] : []),
     ]);
 

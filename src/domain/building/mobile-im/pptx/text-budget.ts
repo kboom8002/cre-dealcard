@@ -5,10 +5,10 @@ export const TEXT_LIMITS = {
   slideTitle: 32,
   kicker: 32,
   subTitle: 50,
-  leadSentence: 100,
+  leadSentence: 120,
   subHeading: 35,
   statLabel: 22,
-  statValue: 24,
+  statValue: 40,
   statSub: 27,
   calloutTitle: 30,
   tableHeader: 16,
@@ -61,7 +61,7 @@ export function enforceTextBudget(text: string, maxLen: number): string {
     truncated.lastIndexOf("."),
   );
   let result: string;
-  if (lastSentenceEnd > maxLen * 0.5) {
+  if (lastSentenceEnd > maxLen * 0.5 && !isDecimalPoint(truncated, lastSentenceEnd)) {
     let endIdx = lastSentenceEnd + 1;
     if (['다', '요', '음', '함', '임'].includes(truncated[lastSentenceEnd]) && truncated[lastSentenceEnd + 1] === '.') {
       endIdx = lastSentenceEnd + 2;
@@ -69,18 +69,35 @@ export function enforceTextBudget(text: string, maxLen: number): string {
     if (truncated[endIdx] === ' ') endIdx++;
     result = truncated.slice(0, endIdx).trim();
   } else {
-    // 문장 부호가 없다면 공백(단어 경계) 기준으로 안전하게 끊기
-    const lastSpace = truncated.lastIndexOf(" ");
-    if (lastSpace > maxLen * 0.65) {
-      result = truncated.slice(0, lastSpace).trim() + "…";
+    // D7(e): 절(clause) 경계(, · ; / ' · ')에서 끊어 '…' 없이 마무리
+    const clauseEnd = Math.max(
+      truncated.lastIndexOf(", "),
+      truncated.lastIndexOf(" · "),
+      truncated.lastIndexOf("; "),
+      truncated.lastIndexOf(" / "),
+      truncated.lastIndexOf("·"),
+    );
+    if (clauseEnd > maxLen * 0.5) {
+      result = truncated.slice(0, clauseEnd).replace(/[\s·,;/]+$/, '');
     } else {
-      result = truncated.trimEnd() + "…";
+      // 문장 부호가 없다면 공백(단어 경계) 기준으로 안전하게 끊기
+      const lastSpace = truncated.lastIndexOf(" ");
+      if (lastSpace > maxLen * 0.65) {
+        result = truncated.slice(0, lastSpace).trim() + "…";
+      } else {
+        result = truncated.trimEnd() + "…";
+      }
     }
   }
 
   // D33 M-F: 괄호 균형 수리 — 절삭으로 열린 괄호가 닫히지 않은 경우 보정
   result = repairBracketBalance(result);
   return result;
+}
+
+/** D7: '9.6%' 같은 소수점은 문장 종결로 보지 않는다 */
+function isDecimalPoint(text: string, idx: number): boolean {
+  return text[idx] === '.' && /\d/.test(text[idx - 1] ?? '') && /\d/.test(text[idx + 1] ?? '');
 }
 
 /** D33 M-F: 열린 괄호를 닫아 균형을 맞춥니다 */

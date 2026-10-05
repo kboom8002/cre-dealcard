@@ -20,6 +20,13 @@ import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
 import { hasValidBuildingNumber } from "@/domain/verification/address-resolver";
 import { parseBrokerCount } from "@/domain/building/mobile-im/resolve-physical-specs";
+import {
+  parseBrokerExtras,
+  brokerExtrasFormToInput,
+  brokerExtrasToForm,
+  EMPTY_BROKER_EXTRAS_FORM,
+  type BrokerExtrasFormState,
+} from "@/domain/building/mobile-im/broker-extras";
 // W-1: Posture-specific form state sub-hooks
 import {
   useIncomeFormState,
@@ -135,6 +142,8 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
     const [brokerParkingCount, setBrokerParkingCount] = useState("");
     const [brokerElevatorCount, setBrokerElevatorCount] = useState("");
     const [brokerHighlight, setBrokerHighlight] = useState("");
+    // D4: 중개인 추가 정보 (투자 포인트/규제·계획/시세 비교/입지/매입 후 전략/목표 임대료) — 한도·검증은 broker-extras.ts 단일 소스
+    const [brokerExtrasForm, setBrokerExtrasForm] = useState<BrokerExtrasFormState>(EMPTY_BROKER_EXTRAS_FORM);
     // W-1: Logistics form state — delegated to sub-hook
     const {
       ceilingHeight, setCeilingHeight, dockCount, setDockCount,
@@ -358,9 +367,29 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             if (bp.parking_count != null && !brokerParkingCount) setBrokerParkingCount(String(bp.parking_count));
             if (bp.elevator_count != null && !brokerElevatorCount) setBrokerElevatorCount(String(bp.elevator_count));
           }
+          // 전문가 한줄 의견 복원 — Basic/Pro 공통 (이전: Pro 전용 + body 미기록으로 사실상 죽은 코드)
+          if (existingDocBody?.broker_highlight && !brokerHighlight) setBrokerHighlight(String(existingDocBody.broker_highlight));
+          // D4: 중개인 추가 정보 복원 — 이미 입력 중인 값이 있으면 덮어쓰지 않음
+          if (existingDocBody?.broker_extras) {
+            const restored = brokerExtrasToForm(existingDocBody.broker_extras);
+            setBrokerExtrasForm((prev) => (
+              JSON.stringify(prev) === JSON.stringify(EMPTY_BROKER_EXTRAS_FORM) ? restored : prev
+            ));
+          }
+          // D4: 기존 사진 카테고리 복원(URL 매칭) — 위치도/지구단위계획도 등이 재생성 시 '실내 공간'으로 리셋되어 갤러리에 노출되는 것을 방지
+          if (Array.isArray(existingDocBody?.photos_v2) && existingUrls.length > 0) {
+            const savedV2 = existingDocBody.photos_v2 as Array<{ url?: string; category?: string }>;
+            setPhotoCategories((prev) => {
+              const next = { ...prev };
+              existingUrls.forEach((u, i) => {
+                const m = savedV2.find((p) => p?.url === u);
+                if (m?.category) next[i] = m.category;
+              });
+              return next;
+            });
+          }
 
           if (initialStage === 'pro' && existingDocBody) {
-            if (existingDocBody.broker_highlight) setBrokerHighlight(existingDocBody.broker_highlight);
             
             // ── 물류 ──
             if (existingDocBody.logistics) {
@@ -464,6 +493,10 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
         }
 
         try {
+          // D4: 중개인 추가 정보 검증 — 사진 업로드 전에 수행해 한도 초과를 즉시 안내 (parseBrokerCount 와 동일하게 throw → 에러 상태)
+          const extrasParsed = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
+          if (!extrasParsed.ok) throw new Error(extrasParsed.error);
+
           const directData: Record<string, unknown> = {};
           if (areaSignal) directData.area_signal = areaSignal;
           if (assetType) directData.asset_type = assetType;
@@ -630,6 +663,7 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             resolved_address: address || undefined,
             resolved_pnu: pnu || undefined,
             broker_highlight: brokerHighlight || undefined,
+            broker_extras: extrasParsed.value,
             direct_data: Object.keys(directData).length > 0 ? directData : undefined,
             photo_urls: validPhotoUrls.length > 0 ? validPhotoUrls : undefined,
             photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
@@ -1065,6 +1099,8 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
       setTargetIrrPct,
       brokerHighlight,
       setBrokerHighlight,
+      brokerExtrasForm,
+      setBrokerExtrasForm,
       state,
       errorMsg,
       progress,

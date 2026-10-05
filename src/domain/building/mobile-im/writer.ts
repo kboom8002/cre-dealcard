@@ -512,6 +512,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       }
       return {};
     })(),
+    // D10: capRateBase(NOI÷매매가)에 적용된 가정 — 요약 슬라이드 부제('운영비 N% 가정 · 공실충당 5%')용
+    ...(cachedFinancials?.capRate?.base ? {
+      opexPct: cachedFinancials.opexPct ?? null,
+      opexSource: cachedFinancials.opexSource,
+      vacancyReservePct: cachedFinancials.vacancyReservePct ?? null,
+    } : {}),
     keyInvestmentPoint: String(ctx.buyerFit.fit_summary ?? (() => {
       const areaSig = String(ctx.assetIdentity.area_signal || '');
       const area = areaSig || '핵심 권역';

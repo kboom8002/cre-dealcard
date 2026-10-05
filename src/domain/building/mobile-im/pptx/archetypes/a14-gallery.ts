@@ -24,6 +24,26 @@ export interface ArchetypeOutput {
   suppress?: boolean;
 }
 
+/** 비교용 정규화: 숫자·공백·괄호·구두점 제거 ('주변 도로/환경 2' → '주변도로환경') */
+export function normalizeCaptionForCompare(s: string | undefined | null): string {
+  return String(s ?? '').replace(/[\d\s()（）\[\]{}·ㆍ.,:;!?/\\\-_~]+/g, '');
+}
+
+/** 캡션이 칩 라벨과 동일하거나 서로 포함 관계(정규화 기준)이면 중복 */
+export function isCaptionRedundantWithLabel(caption: string | undefined | null, label: string | undefined | null): boolean {
+  const nc = normalizeCaptionForCompare(caption);
+  const nl = normalizeCaptionForCompare(label);
+  if (!nc || !nl) return false;
+  return nc.includes(nl) || nl.includes(nc);
+}
+
+/** 칩과 구분되는 실제 정보를 담은 캡션인지 */
+export function hasRealCaption(caption: string | undefined | null, label: string | undefined | null): boolean {
+  if (!caption || caption.trim().length === 0) return false;
+  return !isCaptionRedundantWithLabel(caption, label);
+}
+
+
 /**
  * A14 — 건물 사진 갤러리 (v0.6.0 고도화)
  * 1~4장의 사진을 최적 레이아웃(FULL_WIDE, DUAL, 1+2, GRID_2X2)으로 정밀 렌더링
@@ -58,6 +78,11 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
 
   const renderFallbackGallery = (): ArchetypeOutput => {
     const slide = L.light(input.pres);
+    // D4: 중개인 도면 면(suppressOnEmpty)은 이미지를 못 불러오면 일반 '현장 실사' 대체 카드 대신 면을 생략한다
+    if (input.data.suppressOnEmpty) {
+      warnings.push('도면 이미지 로딩 실패 — 지구단위계획·도면 면 생략');
+      return { slide, warnings, suppress: true };
+    }
     L.head(slide, input.slideNum, input.data.kicker || 'Gallery', input.data.title || '현장 사진');
     L.fallbackCard(slide, M, 1.50, CW, 5.00, {
       badge: '현장 실사 예정',
@@ -113,6 +138,10 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     count === 4 ? 'GRID_2X2' : 'GRID_2X3'
   );
 
+  // D11a: 2장 이상이면서 전 사진이 같은 분류면 칩은 정보가 없으므로 생략
+  const renderedCats = validPhotos.slice(0, 6).map(p => p.category || '');
+  const allSameCategory = renderedCats.length >= 2 && renderedCats.every(c => c === renderedCats[0]);
+
   /** 사진 카드 렌더링 헬퍼 (이미지 + 카테고리 배지 + 캡션 바) */
   const renderPhotoCard = (
     optImg: OptimizedImage,
@@ -136,8 +165,12 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
 
     const meta = validPhotos[metaIdx] || {};
 
+    // D11a: 실제 캡션이 있으면 캡션만, 캡션이 없을 때만 칩(분류 라벨). 전 사진이 같은 분류면 칩 생략.
+    const realCaption = hasRealCaption(meta.caption, meta.label);
+    const showChip = !!meta.label && !realCaption && !allSameCategory;
+
     // 2. 카테고리 배지 (좌상단)
-    if (meta.label) {
+    if (showChip && meta.label) {
       const badgeW = Math.max(0.9, meta.label.length * 0.14 + 0.25);
       slide.addShape('rect', {
         x: x + 0.08, y: y + 0.08, w: badgeW, h: 0.26,
@@ -150,9 +183,8 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       });
     }
 
-    // 3. 캡션 바 (하단 오버레이) — 라벨과 완전히 동일한 텍스트이면 중복 렌더링 방지
-    const hasDistinctCaption = meta.caption && meta.caption.trim().length > 0 && meta.caption.trim() !== meta.label?.trim();
-    if (hasDistinctCaption) {
+    // 3. 캡션 바 (하단 오버레이) — 라벨과 같거나 라벨을 포함/포함되는 캡션은 칩과 중복이므로 숨김
+    if (realCaption) {
       const captionH = 0.32;
       slide.addShape('rect', {
         x, y: y + h - captionH, w, h: captionH,

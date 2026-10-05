@@ -9,25 +9,58 @@ export function formatAreaSqm(v: number): string {
   return Number(v).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
+/**
+ * 임대면적 셀 SSOT (D6): '209.6 (63.4평)' — ㎡ 우선 + 평 병기. 면적이 없으면 호출부가 '-' 를 쓴다 (날조 금지).
+ * 숫자 파싱은 첫 숫자 토큰(㎡)만 읽도록 `parseLeadingNumber` 를 쓴다 (스태킹 라벨은 ㎡ 만 사용, Rule 70).
+ */
+export function formatAreaWithPyeong(sqm: number): string {
+  return `${formatAreaSqm(sqm)} (${formatPyeong(Number(sqm), 1)}평)`;
+}
+
+/** '1,234.5 (373.4평)' → 1234.5 (첫 숫자 토큰). 숫자가 없으면 0 */
+export function parseLeadingNumber(cell: unknown): number {
+  const m = String(cell ?? '').match(/-?\d[\d,]*(?:\.\d+)?/);
+  if (!m) return 0;
+  const n = parseFloat(m[0].replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 /** '공실', '(공실)', '[공실]' 등 공실 표식 문자열 */
 const VACANT_MARK = /^[\s(（[]*공실[\s)）\]]*$/;
 
+/** 0→A, 1→B … 25→Z, 26→AA */
+export function maskLetter(index: number): string {
+  let n = Math.max(0, Math.floor(index));
+  let out = '';
+  do {
+    out = String.fromCharCode(65 + (n % 26)) + out;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return out;
+}
+
+/** 임차인 마스킹 라벨 판정 ('임차인 A', '임차인 B' …) */
+export const MASKED_TENANT_RE = /^임차인\s*[A-Z]{1,2}$/;
+
 /**
- * 렌트롤 임차인/용도 해석 (Rule 4 비중복 렌더링 · Rule 34 무날조)
- * - 임차인: tenant_name(상호) 우선 → 없으면 업종 문자열(tenant_type)을 임차인 식별자로 사용
- * - 용도: use / tenant_type / business_type 중 임차인 표기와 **다른** 실값이 있을 때만 표시, 아니면 '-'
- *   (임차인명을 용도 칸에 복사하는 중복 렌더링 금지)
+ * 렌트롤 임차인/용도 해석 (Rule 4 비중복 렌더링 · Rule 34 무날조 · D6)
+ * - 용도: use / tenant_type / business_type(업종) 을 **항상** 표시 (공실 제외)
+ * - 임차인: 상호(tenant_name)가 있을 때만 상호. 없으면 마스킹 라벨 '임차인 A/B/C…' (opts.maskSeq 로 행별 번호) —
+ *   업종 문자열을 임차인 칸에 쓰지 않는다. 상호가 업종/용도와 같은 문자열이면 상호가 아니라 업종이므로 마스킹.
  * - 상호 없이 '카페(스타벅스)'처럼 업종(상호) 결합 문자열만 있으면 입력 문자열을 그대로 분해
  * - 공실: 임차인 '공실', 용도는 명시적 use 값이 있을 때만 (공실 표식 반복 금지)
  */
-export function resolveTenantAndUse(l: {
-  tenant_name?: unknown;
-  tenant?: unknown;
-  tenant_type?: unknown;
-  use?: unknown;
-  business_type?: unknown;
-  is_vacant?: unknown;
-}): { tenant: string; use: string; isVacant: boolean } {
+export function resolveTenantAndUse(
+  l: {
+    tenant_name?: unknown;
+    tenant?: unknown;
+    tenant_type?: unknown;
+    use?: unknown;
+    business_type?: unknown;
+    is_vacant?: unknown;
+  },
+  opts: { maskSeq?: number } = {},
+): { tenant: string; use: string; isVacant: boolean; isMasked: boolean } {
   const clean = (v: unknown) => (v == null ? '' : String(v).trim());
   let name = clean(l.tenant_name) || clean(l.tenant);
   const explicitUse = clean(l.use);
@@ -38,7 +71,7 @@ export function resolveTenantAndUse(l: {
 
   if (isVacant) {
     const use = explicitUse && !VACANT_MARK.test(explicitUse) ? explicitUse : '-';
-    return { tenant: '공실', use, isVacant: true };
+    return { tenant: '공실', use, isVacant: true, isMasked: false };
   }
 
   if (!name && biz) {
@@ -49,10 +82,38 @@ export function resolveTenantAndUse(l: {
     }
   }
 
-  const tenant = name || biz || '-';
+  // 상호가 업종/용도와 동일하면 사실상 업종 문자열 → 임차인 칸에는 쓰지 않는다
+  if (name && (name === biz || name === explicitUse)) {
+    if (!biz) biz = name;
+    name = '';
+  }
+
   const useCandidate = explicitUse || biz;
-  const use = useCandidate && useCandidate !== tenant && !VACANT_MARK.test(useCandidate) ? useCandidate : '-';
-  return { tenant, use, isVacant: false };
+  const use = useCandidate && !VACANT_MARK.test(useCandidate) ? useCandidate : '-';
+  if (name) return { tenant: name, use, isVacant: false, isMasked: false };
+  // 자가사용 호실은 임차인이 없으므로 마스킹 라벨 대신 '자가사용' 표기 (용도 칸 중복 방지로 '-')
+  if (/^자가\s*사용?$/.test(useCandidate)) return { tenant: '자가사용', use: '-', isVacant: false, isMasked: false };
+  const tenant = opts.maskSeq != null ? `임차인 ${maskLetter(opts.maskSeq)}` : '임차인';
+  return { tenant, use, isVacant: false, isMasked: true };
+}
+
+/**
+ * 렌트롤 비고 (D6) — 입력 필드(비고/임대상태/갱신요구권)에서만 구성. 입력이 없으면 ''(날조 금지).
+ */
+export function resolveLeaseNote(l: {
+  note?: unknown;
+  lease_state?: unknown;
+  renewal_exercised?: unknown;
+  is_vacant?: unknown;
+}): string {
+  const clean = (v: unknown) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+  const parts: string[] = [];
+  const note = clean(l.note);
+  if (note && note !== '-' && !VACANT_MARK.test(note)) parts.push(note);
+  const state = clean(l.lease_state);
+  if (state === '자가사용' && !parts.some((p) => p.includes('자가'))) parts.push('자가사용');
+  if (clean(l.renewal_exercised) === '있음') parts.push('갱신요구권 행사');
+  return parts.join(' · ');
 }
 
 /**
@@ -69,8 +130,11 @@ export function bindRentRollTable(
   const floorLeases: any[] = (doc.body?.floor_leases ?? []).filter(Boolean);
   if (floorLeases.length > 0 && result['rentRoll']) {
     const isBasicPreset = doc.body?.preset === 'credeal_basic' || doc.body?.tier === 'basic';
+    // D6: 비고 열은 입력(비고/임대상태/갱신요구권)이 하나라도 있을 때만 11번째 열로 추가 (없으면 기존 10열 — 빈 열 금지)
+    const leaseNotes: string[] = floorLeases.map((l: any) => resolveLeaseNote(l));
+    const hasNoteCol = isBasicPreset && leaseNotes.some(Boolean);
     const rrHeaders = isBasicPreset
-      ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일']
+      ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일', ...(hasNoteCol ? ['비고'] : [])]
       : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
     const isFinitePos = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) > 0;
     const isFiniteNonNeg = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
@@ -84,15 +148,17 @@ export function bindRentRollTable(
         .map(groupKey),
     );
 
-    const rrRows = floorLeases.map((l: any) => {
+    let maskSeq = 0; // 상호 미기재 임차인 마스킹 라벨 순번 (임차인 A, B, C …)
+    const rrRows = floorLeases.map((l: any, rowIdx: number) => {
     const floor = l.floor || l.unit_label || '-';
       const areaPyeong = isFinitePos(l.area_sqm)
         ? `${formatPyeong(Number(l.area_sqm), 1)}평`
         : (isFinitePos(l.area_pyeong) ? `${l.area_pyeong}평` : '-');
       // Pro(7열 '업종' 칼럼)은 기존 표기 유지
       const tenant = l.tenant_name || l.tenant || (l.is_vacant ? '공실' : (l.tenant_type || '-'));
-      // Basic(10열): 임차인/용도 비중복 해석 — 용도 칸에 임차인명 복사 금지 (Rule 4)
-      const basicParty = resolveTenantAndUse(l);
+      // Basic(10~11열): 용도(업종)는 항상 표기, 임차인은 상호 또는 마스킹 라벨 (D6)
+      const probeParty = resolveTenantAndUse(l);
+      const basicParty = probeParty.isMasked ? resolveTenantAndUse(l, { maskSeq: maskSeq++ }) : probeParty;
       // 공실 행의 0원은 계약 금액이 아니라 '없음'이므로 '-' (0 날조 표기 방지)
       const amountCell = (v: any) => (isFiniteNonNeg(v) && !(basicParty.isVacant && Number(v) === 0))
         ? `${Number(v).toLocaleString()}`
@@ -113,9 +179,10 @@ export function bindRentRollTable(
       const expiry = l.lease_end || l.contract_end || '-';
 
       // 임대면적: 레거시 단일 '전용면적' 열에서 복사된 대용값(area_sqm_is_proxy)은 임대면적이 아니므로 비운다
+      // D6: ㎡ + 평 병기 ('209.6 (63.4평)'). 면적이 없으면 '-' (날조 금지)
       const areaSqmStr = (!l.area_sqm_is_proxy && isFinitePos(l.area_sqm))
-      ? formatAreaSqm(Number(l.area_sqm))
-      : (isFinitePos(l.area_pyeong) ? formatAreaSqm(Number(l.area_pyeong) / 0.3025) : '-');
+      ? formatAreaWithPyeong(Number(l.area_sqm))
+      : (isFinitePos(l.area_pyeong) ? formatAreaWithPyeong(Number(l.area_pyeong) / 0.3025) : '-');
       // 전용면적: 미기입이면 '-' (임대면적 값을 대신 채우지 않는다). 열 표시 여부는 a24 렌더러가 데이터로 결정.
       const excSqmStr = isFinitePos(l.exclusive_area_sqm)
       ? formatAreaSqm(Number(l.exclusive_area_sqm))
@@ -132,7 +199,8 @@ export function bindRentRollTable(
             rentCell,
             mgmtCell,
             totalMonth,
-            expiry
+            expiry,
+            ...(hasNoteCol ? [leaseNotes[rowIdx] || '-'] : []),
             ]
             : [floor, tenant, areaPyeong, depositCell, rentCell, mgmtCell, expiry];
     });

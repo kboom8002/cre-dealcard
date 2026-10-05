@@ -190,7 +190,11 @@ describe('Basic IM SOTA Render Verification Test', () => {
     console.log('Slide 7 Text:', slideTexts[6].slice(0, 300));
     expect(slideTexts[6]).toContain('수익률');
     expect(slideTexts[6]).toContain('1.66%');
-    expect(slideTexts[6]).toContain('2.87%');
+    // D10: 목표임대료(중개인 입력) 없이는 시세 임대 가정 '안정화 수익률'을 표기하지 않는다 (구 2.87% 폐기)
+    expect(slideTexts[6]).toContain('임대수익률 (Gross, 매매가−보증금 대비)');
+    expect(slideTexts[6]).not.toContain('인근 동일 용도 시세');
+    expect(slideTexts[6]).not.toContain('시장 평균');
+    expect(slideTexts[6]).toContain('임대수익률은 운영비 차감 전');
 
     // ═══════════════════════════════════════════════════
     // Slide 8: Gallery (A14)

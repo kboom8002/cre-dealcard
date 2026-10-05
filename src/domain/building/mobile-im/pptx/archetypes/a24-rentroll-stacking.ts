@@ -5,8 +5,9 @@ import type { ProvenanceKind } from '../imlib';
 import { calculateSetbackRatio, inferTenantCategory } from './a22-stacking-plan';
 import type { StackingPlanFloor } from '../../types';
 import { sqmToPyeong } from '@/lib/utils/area-conversion';
-import { projectBasicRentRollColumns, isNumericRentRollHeader, RENTROLL_SUMMARY_CELL, BASIC_RENTROLL_HEADERS } from '../rentroll-area-columns';
-import { formatAreaSqm } from '../binder/rent-roll-table-builder';
+import { projectBasicRentRollColumns, isNumericRentRollHeader, RENTROLL_SUMMARY_CELL, BASIC_RENTROLL_HEADERS, RENTROLL_NOTE_HEADER } from '../rentroll-area-columns';
+import { formatAreaSqm, formatAreaWithPyeong, parseLeadingNumber, MASKED_TENANT_RE } from '../binder/rent-roll-table-builder';
+import { normalizeMissing } from '../missing-values';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -147,18 +148,49 @@ export function fitSingleLine(
   return { text: chars.join('').trimEnd() + '…', fontSize: minPt, truncated: true };
 }
 
-/** 스태킹 세그먼트 라벨: '임차인 209.6㎡' → (좁으면) '임차인' → (더 좁으면) 말줄임 · 항상 한 줄 */
+/**
+ * 스태킹 라벨 약어 사전 (D7-c) — 말줄임('…') 이전에 적용. 긴 순으로 매칭해 부분 치환 충돌을 막는다.
+ * 의미를 바꾸지 않는 관행적 약어만 (표에는 항상 전체 표기가 남는다).
+ */
+const STACK_LABEL_ABBREVIATIONS: Array<[string, string]> = [
+  ['제1종근린생활시설', '1종근생'],
+  ['제2종근린생활시설', '2종근생'],
+  ['근린생활시설', '근생'],
+  ['휴게음식점', '휴게음식'],
+  ['일반음식점', '음식점'],
+  ['교육연구시설', '교육시설'],
+  ['판매시설', '판매'],
+  ['업무시설', '업무'],
+  ['주식회사', '(주)'],
+  ['사무소', '사무'],
+  ['소매점', '소매'],
+];
+
+export function abbreviateTenantLabel(text: string): string {
+  let out = String(text ?? '');
+  for (const [from, to] of STACK_LABEL_ABBREVIATIONS) {
+    if (out.includes(from)) out = out.split(from).join(to);
+  }
+  return out.replace(/\s{2,}/g, ' ').trim();
+}
+
+/** 스태킹 세그먼트 라벨: '임차인 209.6㎡' → (좁으면) '임차인' → (약어) → (최후) 말줄임 · 항상 한 줄 */
 export function chooseStackLabel(
   tenant: string, areaText: string, widthIn: number, basePt: number, minPt = STACK_MIN_PT, bold = false,
 ): { text: string; fontSize: number } | null {
   if (widthIn < 0.16) return null;
-  const candidates = areaText ? [`${tenant} ${areaText}㎡`, tenant] : [tenant];
+  const short = abbreviateTenantLabel(tenant);
+  const candidates = [
+    ...(areaText ? [`${tenant} ${areaText}㎡`] : []),
+    tenant,
+    ...(short !== tenant ? [...(areaText ? [`${short} ${areaText}㎡`] : []), short] : []),
+  ];
   for (const c of candidates) {
     for (let pt = basePt; pt >= minPt - 1e-6; pt -= 0.5) {
       if (textWidthIn(c, pt, bold) <= widthIn) return { text: c, fontSize: pt };
     }
   }
-  const f = fitSingleLine(tenant, widthIn, minPt, minPt, bold);
+  const f = fitSingleLine(short, widthIn, minPt, minPt, bold);
   return f.text === '…' ? null : { text: f.text, fontSize: f.fontSize };
 }
 
@@ -178,8 +210,9 @@ export function computeRentRollColumnWidths(
   const need = headers.map((h, c) => {
     let w = textWidthIn(h, headerPt, true);
     for (const r of rows) w = Math.max(w, textWidthIn(r[c] ?? '', bodyPt, true));
-    // 한 열(긴 임차인명 등)이 표 폭을 독식하지 않도록 상한 — 넘치는 셀은 한 줄 말줄임
-    return Math.min(totalW * 0.24, Math.max(0.42, w + pad));
+    // 한 열(긴 임차인명 등)이 표 폭을 독식하지 않도록 상한. D7: 텍스트 열(임차인·용도·업종·비고)은 0.30, 숫자 열은 0.24
+    const cap = (h === '임차인' || h === '용도' || h === '업종' || h === RENTROLL_NOTE_HEADER) ? 0.30 : 0.24;
+    return Math.min(totalW * cap, Math.max(0.42, w + pad));
   });
   const sum = need.reduce((a, b) => a + b, 0);
   const raw = sum <= totalW
@@ -192,8 +225,8 @@ export function computeRentRollColumnWidths(
 }
 
 function parseAreaNum(cell: string): number {
-  const n = parseFloat(String(cell ?? '').replace(/[^0-9.]/g, ''));
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  // '209.6 (63.4평)' → 209.6 (㎡ 첫 숫자 토큰만; 평 병기 숫자를 이어붙이지 않는다)
+  return parseLeadingNumber(cell);
 }
 
 export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput {
@@ -243,17 +276,23 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   // 표와 스태킹 도식의 상단(헤더 행)·하단(합계 행)을 정렬한다.
   // Rule 65: 스태킹 플랜 ≤ 2.2", 렌트롤 표 ≥ 9.0"
   const topY = 1.80;
-  const bottomLimit = 6.62; // SAFE_BOTTOM(6.75) 이내
+  // 중개인 입력 '매입 후 전략' (broker-extras-slides.applyBrokerRentRollPlan) — 있으면 하단에 박스 영역을 예약
+  const brokerPlan: string[] = Array.isArray(data.brokerPostAcquisitionPlan)
+    ? data.brokerPostAcquisitionPlan.map((s: any) => String(s ?? '').trim()).filter(Boolean).slice(0, 4)
+    : [];
+  const planBoxH = brokerPlan.length > 0 ? 0.34 + brokerPlan.length * 0.22 + 0.08 : 0;
+  const bottomLimit = 6.62 - (planBoxH > 0 ? planBoxH + 0.10 : 0); // SAFE_BOTTOM(6.75) 이내
   const spX = M;
   const spW = 2.20;
   const gap = 0.25;
   const tbX = M + spW + gap;
   const tbW = CW - spW - gap; // ≈ 9.64"
 
-  // binder(rent-roll-table-builder / core-binders)가 만든 R2 10열 표인지 — 단위(㎡·만원)가 확정된 표
+  // binder(rent-roll-table-builder / core-binders)가 만든 R2 10열(+선택 비고 11열) 표인지 — 단위(㎡·만원)가 확정된 표
   const isR2BinderTable = Array.isArray(data.tableHead)
-    && data.tableHead.length === BASIC_RENTROLL_HEADERS.length
-    && data.tableHead.every((h: any, i: number) => String(h) === BASIC_RENTROLL_HEADERS[i]);
+    && (data.tableHead.length === BASIC_RENTROLL_HEADERS.length
+      || (data.tableHead.length === BASIC_RENTROLL_HEADERS.length + 1 && String(data.tableHead[BASIC_RENTROLL_HEADERS.length]) === RENTROLL_NOTE_HEADER))
+    && BASIC_RENTROLL_HEADERS.every((h, i) => String(data.tableHead[i]) === h);
   const isSummaryRowOf = (r: any[]) => r.some((c: any) => RENTROLL_SUMMARY_CELL.test(String(c || '').trim()));
 
   // --- 표 모델 (그리기 전에 행 수·행 높이를 확정해 스태킹 도식과 정렬) ---
@@ -262,7 +301,9 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   let truncated = false;
   let totalCount = 0;
   // D45: Dynamic row height to fit more rows (up to 18 rows comfortably)
-  const maxRowsToFit = 18;
+  const maxRowsToFit = planBoxH > 0
+    ? Math.max(8, Math.min(18, Math.floor((bottomLimit - topY - 0.22) / 0.22) - 1))
+    : 18;
 
   if (tableRows.length > 0) {
     rawRows = tableRows.map((row: any) => {
@@ -286,7 +327,11 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       // 숫자로 읽힌 셀이 하나라도 있으면 합계를 표기 (행이 '0'이면 합계도 '0' — 행/합계 표기 일관성)
       const sums = { area: 0, exc: 0, deposit: 0, rent: 0, mgmt: 0, month: 0 };
       const seen = { deposit: false, rent: false, mgmt: false, month: false };
-      const num = (c: any) => parseFloat(String(c ?? '').replace(/[^0-9.]/g, ''));
+      const num = (c: any) => {
+        // 첫 숫자 토큰 ('209.6 (63.4평)' → 209.6). 숫자가 없으면 NaN ('-', '〃')
+        const m = String(c ?? '').match(/\d[\d,]*(?:\.\d+)?/);
+        return m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
+      };
       for (const r of rawRows) {
         const a = num(r[3]); if (!isNaN(a)) sums.area += a;
         const e = num(r[4]); if (!isNaN(e)) sums.exc += e;
@@ -302,7 +347,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         '합계',
         `${rawRows.length}개 호실`,
         '-',
-        sums.area > 0 ? formatAreaSqm(sums.area) : '-',
+        sums.area > 0 ? (rawRows.some((r: any[]) => /평\)/.test(String(r[3] ?? ''))) ? formatAreaWithPyeong(sums.area) : formatAreaSqm(sums.area)) : '-',
         sums.exc > 0 ? formatAreaSqm(sums.exc) : '-',
         money(sums.deposit, seen.deposit),
         money(sums.rent, seen.rent),
@@ -352,12 +397,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       // 임대면적 우선, 미기재 시 전용면적 (표에 실제 기입된 값만 사용)
       const areaCell = parseAreaNum(leaseCell) > 0 ? leaseCell : excCell;
       const area = parseAreaNum(areaCell);
+      // '209.6 (63.4평)' → 스태킹 라벨은 표와 같은 ㎡ 숫자 토큰만 사용 (평 환산 라벨 금지, Rule 70)
+      const areaToken = (String(areaCell).match(/\d[\d,]*(?:\.\d+)?/) ?? [''])[0];
       const isVac = tenantRaw.includes('공실') || floor.includes('공실');
+      // D6: 임차인이 '임차인 A' 같은 마스킹 라벨이면 도식에는 용도(업종)를 표기 (익명 라벨은 정보가 없음)
+      const useRaw = String(r[2] || '').trim();
+      const label = !isVac && MASKED_TENANT_RE.test(tenantRaw) && useRaw && useRaw !== '-' ? useRaw : tenantRaw;
       return {
         unitLabel: floor,
-        tenant: isVac ? '공실' : (tenantRaw || '-'),
+        tenant: isVac ? '공실' : (label || '-'),
         areaSqm: area,
-        areaText: area > 0 ? formatNumericCell(areaCell) : '',
+        areaText: area > 0 ? formatNumericCell(areaToken) : '',
         isVacant: isVac,
         expiryYear: parseExpiryYear(expiry) || parseExpiryYear(tenantRaw),
       };
@@ -578,7 +628,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
     // 셀 문자열 확정 (숫자 열은 천 단위 구분 통일: 2490.3 → 2,490.3)
     const cellTexts: string[][] = displayRows.map((row: any[]) => areaProj.keep.map((ci, k) => {
-      const text = String(row[ci] ?? '').replace(/\*\*/g, '').trim();
+      // D7(d): '미기재/미상/확인 필요/N/A' → '-' 를 맞춤(fit) 이전에 적용 (긴 플레이스홀더가 '미기…' 로 잘리는 문제 방지)
+      const text = normalizeMissing(String(row[ci] ?? '').replace(/\*\*/g, ''));
       return isNumericRentRollHeader(HEADERS[k]) ? formatNumericCell(text) : text;
     }));
 
@@ -611,12 +662,22 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       const bold = isSummary || isVacant;
 
       const mappedRow = cellTexts[i].map((text, cIdx) => {
-        const fitted = fitSingleLine(text, usable(colW[cIdx] ?? 0.8), bodyFontSize, Math.min(7, bodyFontSize), bold);
+        let fitted = fitSingleLine(text, usable(colW[cIdx] ?? 0.8), bodyFontSize, Math.min(7, bodyFontSize), bold);
+        const isTextCol = ['임차인', '용도', '업종', RENTROLL_NOTE_HEADER].includes(HEADERS[cIdx]);
+        if (fitted.truncated && isTextCol && rowH >= 0.30) {
+          // D7: 한 줄로 안 들어가는 텍스트 열은 최대 2줄(≤7.5pt)로 전체 표기 — 말줄임은 최후 수단
+          for (let pt = Math.min(bodyFontSize, 7.5); pt >= 7 - 1e-6; pt -= 0.5) {
+            if (L.simulateTextWrap(text, usable(colW[cIdx] ?? 0.8), pt).lines.length <= 2) {
+              fitted = { text, fontSize: pt, truncated: false };
+              break;
+            }
+          }
+        }
         return {
           text: fitted.text,
           options: {
             fill, color, fontSize: fitted.fontSize, bold,
-            align: isNumericRentRollHeader(HEADERS[cIdx]) ? 'right' : (cIdx === 1 ? 'left' : 'center'),
+            align: isNumericRentRollHeader(HEADERS[cIdx]) ? 'right' : ((cIdx === 1 || HEADERS[cIdx] === RENTROLL_NOTE_HEADER) ? 'left' : 'center'),
             fontFace: KR,
             margin: cellMargin,
           }
@@ -635,7 +696,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
     // 단위 표기 (binder가 ㎡·만원으로 확정한 R2 표일 때만) — 헤더 셀은 표준 명칭 유지
     if (isR2BinderTable) {
-      slide.addText('면적 ㎡ · 금액 만원', {
+      slide.addText(cellTexts.some(r => r.some(c => /평\)/.test(c))) ? '면적 ㎡ (평) · 금액 만원' : '면적 ㎡ · 금액 만원', {
         x: tbX, y: topY - 0.26, w: tbW, h: 0.22,
         fontSize: 8, color: '7A8794', align: 'right', valign: 'bottom', fontFace: KR, margin: 0,
       });
@@ -649,8 +710,12 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     }
   }
 
+  if (planBoxH > 0) {
+    L.callout(slide, M, bottomLimit + 0.10, CW, planBoxH, 'brass', '매입 후 전략 · 중개인입력', brokerPlan.join('\n'));
+  }
+
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);
-  
+
   return { slide, warnings };
 }

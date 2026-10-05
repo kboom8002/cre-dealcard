@@ -76,7 +76,7 @@ describe('physicalFloorKey / groupStackingFloors — 같은 물리 층 묶기', 
     expect(groups).toHaveLength(11);
     expect(groups[0].key).toBe('B1'); // 바닥(지하)부터
     const nine = groups.find(g => g.key === '9F')!;
-    expect(nine.units.map(u => u.tenant)).toEqual(['컨설팅', '세무사']);
+    expect(nine.units.map(u => u.tenant)).toEqual(['임차인 H', '임차인 I']); // D6: 상호 미입력 → 마스킹 라벨
     expect(nine.totalArea).toBeCloseTo(105.8 + 103.8, 1);
     expect(groups.some(g => g.key === '9F-A' || g.key === '9F-B')).toBe(false);
   });
@@ -87,15 +87,15 @@ describe('bindRentRollTable — 면적·용도·관리비/만기일 매핑 (p5 �
   const byFloor = (f: string) => rr.tableRows.find(r => r[0] === f)!;
 
   it('POSITIVE: 임대면적은 area_pyeong ㎡ 환산(천 단위 구분), 전용면적 미입력은 "-"', () => {
-    expect(byFloor('2F')[3]).toBe('209.6');
-    expect(byFloor('B1')[3]).toBe('422.1');
+    expect(byFloor('2F')[3]).toBe('209.6 (63.4평)'); // D6: ㎡ + 평 병기
+    expect(byFloor('B1')[3]).toMatch(/^422\.1 \(\d+(\.\d)?평\)$/);
     for (const r of rr.tableRows) expect(r[4]).toBe('-');
   });
 
   it('NEGATIVE: 전용면적 칸에 임대면적 값을 복사하지 않는다 / 입력이 있으면 실제 값', () => {
     for (const r of rr.tableRows) expect(r[4]).not.toBe(r[3]);
     const withExc = bind([{ floor: '1F', tenant_type: '카페', area_sqm: 1234.5, exclusive_area_sqm: 987.6, deposit_manwon: 1, rent_manwon: 1 }]);
-    expect(withExc.tableRows[0][3]).toBe('1,234.5');
+    expect(withExc.tableRows[0][3]).toBe('1,234.5 (373.4평)');
     expect(withExc.tableRows[0][4]).toBe('987.6');
     const withExcPy = bind([{ floor: '1F', tenant_type: '카페', area_pyeong: 30, exclusive_area_pyeong: 20 }]);
     expect(withExcPy.tableRows[0][4]).toBe(formatAreaSqm(20 / 0.3025));
@@ -106,12 +106,15 @@ describe('bindRentRollTable — 면적·용도·관리비/만기일 매핑 (p5 �
     expect(resolveTenantAndUse({ tenant_name: '스타벅스', tenant_type: '카페' })).toMatchObject({ tenant: '스타벅스', use: '카페' });
   });
 
-  it('NEGATIVE: 용도 칸에 임차인명을 복사하지 않는다 (Rule 4)', () => {
+  it('NEGATIVE: 용도 칸에 임차인명을 복사하지 않고, 임차인 칸에 업종을 복사하지 않는다 (D6/Rule 4)', () => {
     for (const r of rr.tableRows) {
       if (r[2] !== '-') expect(r[2]).not.toBe(r[1]);
     }
-    expect(byFloor('2F').slice(1, 3)).toEqual(['디자인 스튜디오', '-']);
-    expect(resolveTenantAndUse({ tenant_name: '세무사', tenant_type: '세무사' }).use).toBe('-');
+    // 상호 미입력 → 임차인은 마스킹 라벨, 용도는 업종 그대로 표시
+    expect(byFloor('2F').slice(1, 3)).toEqual(['임차인 A', '디자인 스튜디오']);
+    const same = resolveTenantAndUse({ tenant_name: '세무사', tenant_type: '세무사' }, { maskSeq: 2 });
+    expect(same.use).toBe('세무사');
+    expect(same.tenant).toBe('임차인 C');
     // 공실: 임차인 '공실', 용도에 공실 표식 반복 금지
     expect(byFloor('B1').slice(1, 3)).toEqual(['공실', '-']);
   });
@@ -140,15 +143,16 @@ describe('A24 슬라이드 렌더 (OpenXML) — p5 렌트롤', () => {
     const r = await renderSlideXml(bind(p5Leases));
     expect(r.nonTableTexts.some(t => /209\.6㎡$/.test(t))).toBe(true);
     expect(r.nonTableTexts.some(t => /422\.1㎡$/.test(t))).toBe(true);
-    expect(r.tableTexts).toContain('2,490.3');
+    // 합계: 천 단위 구분 + 평 병기 (데이터 행이 평 병기일 때)
+    expect(r.tableTexts.some(t => /^2,490\.3 \(\d+(\.\d)?평\)$/.test(t))).toBe(true);
     expect(r.tableTexts).not.toContain('2490.3');
   });
 
-  it('NEGATIVE: 평 단위 라벨·겹치는 각주 없음, 열 수 = 셀 수 (Rule 68)', async () => {
+  it('NEGATIVE: 스태킹 도식에 평 라벨·겹치는 각주 없음 (표는 ㎡ + 평 병기), 열 수 = 셀 수 (Rule 68/70)', async () => {
     const r = await renderSlideXml(bind(p5Leases));
-    expect(r.texts.some(t => /\d평/.test(t))).toBe(false);
+    expect(r.nonTableTexts.some(t => /\d평/.test(t) && !/면적/.test(t))).toBe(false);
     expect(r.texts.some(t => t.includes('렌트롤 현황 기준'))).toBe(false);
-    expect(r.gridCols).toBe(9); // 전용면적 미입력 → 면적 열 투영(임대면적만)
+    expect(r.gridCols).toBe(10); // 전용면적 미입력 → 면적 열 투영(임대면적만) + 비고(분할임대 입력 있음)
     expect(new Set(r.cellCounts)).toEqual(new Set([r.gridCols]));
   });
 

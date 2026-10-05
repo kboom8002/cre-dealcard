@@ -1,4 +1,4 @@
-import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, type Yield } from "../yield-object";
+import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, yieldSummaryMetric, type Yield } from "../yield-object";
 import type { ClaimRegistry } from "@/domain/building/im-core/claim-registry";
 import type { PermitZoneResult } from "@/domain/building/im-core/permit-zone";
 import type { ConvertedDepositResult, EffectiveRentResult } from "@/domain/building/im-core/lease-calc";
@@ -645,15 +645,20 @@ export function buildA06Props(markdown: string, tables: ParsedTable[], lines: st
     }
     }
 
+    const cutLabel = (label: string): string => {
+      if (label.length <= 28) return label;
+      const sp = label.slice(0, 28).lastIndexOf(' ');
+      return (sp > 10 ? label.slice(0, sp) : label.slice(0, 28)).trim();
+    };
     const truncatedRows: [string, string][] = rows.slice(0, 6).map(([label, value]) => 
-            [label.slice(0, 28), enforceTextBudget(value, 160)] as [string, string]
+            [cutLabel(label), enforceTextBudget(value, 200)] as [string, string]
           );
     return {
     left: { sub: stripMarkdown(sub), source: '' },
     right: { 
       sub: '', 
       rows: truncatedRows,
-      callout: calloutItem ? { kind: 'info', title: '', body: enforceTextBudget(stripMarkdown(calloutItem.replace(/^>\s*/, '')), 200) } : undefined,
+      callout: calloutItem ? { kind: 'info', title: '', body: enforceTextBudget(stripMarkdown(calloutItem.replace(/^>\s*/, '')), 240) } : undefined,
     },
     };
 }
@@ -877,6 +882,50 @@ export function buildGenericProps(markdown: string, tables: ParsedTable[], lines
     };
 }
 
+/**
+ * D7(a): 임대차 현황에서 계산한 공실 컴팩트 문자열.
+ * 공실 있음 → '공실 N개 호실 · X평 (P%)', 공실 없음 → '만실 운영 (공실 0%)', 데이터 없음 → null.
+ */
+export function buildVacancyCompact(floorLeases: any): string | null {
+  if (!Array.isArray(floorLeases) || floorLeases.length === 0) return null;
+  const leases = floorLeases.filter((fl: any) => fl && typeof fl === 'object');
+  if (leases.length === 0) return null;
+  const isVacant = (fl: any) => !!fl.is_vacant || String(fl.tenant_type || fl.tenant_name || '').includes('공실');
+  const areaPy = (fl: any): number => {
+    const sqm = Number(fl.area_sqm);
+    if (!fl.area_sqm_is_proxy && Number.isFinite(sqm) && sqm > 0) return sqm * 0.3025;
+    const py = Number(fl.area_pyeong);
+    if (Number.isFinite(py) && py > 0) return py;
+    const exc = Number(fl.exclusive_area_sqm);
+    if (Number.isFinite(exc) && exc > 0) return exc * 0.3025;
+    return 0;
+  };
+  const vacants = leases.filter(isVacant);
+  if (vacants.length === 0) return '만실 운영 (공실 0%)';
+  const vacArea = vacants.reduce((s: number, fl: any) => s + areaPy(fl), 0);
+  const totalArea = leases.reduce((s: number, fl: any) => s + areaPy(fl), 0);
+  let out = `공실 ${vacants.length}개 호실`;
+  if (vacArea > 0) {
+    out += ` · ${Math.round(vacArea).toLocaleString()}평`;
+    if (totalArea > 0) out += ` (${((vacArea / totalArea) * 100).toFixed(1)}%)`;
+  }
+  return out;
+}
+
+/**
+ * D7(a): 공실 문장을 카드 값용 짧은 구절로 축약 — 문장/절 경계 우선, '…' 미사용.
+ */
+export function shortenVacancyText(text: string, max = 18): string {
+  const clean = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const firstClause = clean.split(/[.;,·—–]|\s-\s|\s*\(/)[0].trim();
+  if (firstClause && firstClause.length <= max + 6) return firstClause;
+  const base = firstClause || clean;
+  const cut = base.slice(0, max + 1).lastIndexOf(' ');
+  if (cut >= 6) return base.slice(0, cut).trim();
+  return base;
+}
+
 export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body: Record<string, any>): Record<string, any> {
     const heroCard = body?.heroCard ?? {};
     const posture = heroCard.posture || 'income';
@@ -913,13 +962,23 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const yieldObj = buildYieldFromHeroCard(heroCard);
     if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;
-      metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
+      metrics.push(yieldSummaryMetric(yieldObj, heroCard));
     }
     const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl && (fl.is_vacant || String(fl.tenant_type || '').includes('공실')));
-    const vacInfo = (heroCard.vacancyDisplay && heroCard.vacancyDisplay !== '확인 중')
-      ? heroCard.vacancyDisplay
-      : (ssotB.vacancy_signal ?? (Array.isArray(body?.floor_leases) && !hasAnyVacant ? '만실 운영 (공실 0%)' : '만실 운영'));
-    if (vacInfo) metrics.push({ label: '공실 현황', value: vacInfo });
+    const vacCompact = buildVacancyCompact(body?.floor_leases);
+    const vacDisplayRaw = (heroCard.vacancyDisplay && heroCard.vacancyDisplay !== '확인 중') ? String(heroCard.vacancyDisplay) : '';
+    const vacSignalRaw = ssotB.vacancy_signal ? String(ssotB.vacancy_signal) : '';
+    const vacSentence = vacDisplayRaw || vacSignalRaw;
+    const vacInfo = vacCompact
+      ?? (vacDisplayRaw ? shortenVacancyText(vacDisplayRaw) : null)
+      ?? (vacSignalRaw ? shortenVacancyText(vacSignalRaw) : null)
+      ?? (Array.isArray(body?.floor_leases) && !hasAnyVacant ? '만실 운영 (공실 0%)' : '만실 운영');
+    if (vacInfo) {
+      const vacMetric: { label: string; value: string; unit?: string; sub?: string } = { label: '공실 현황', value: vacInfo };
+      // 원문 문장은 값 대신 sub(보조 문구)로 보존 — 값 칸 '…' 절단 방지
+      if (vacSentence && vacSentence !== vacInfo && vacSentence.length > vacInfo.length) vacMetric.sub = vacSentence;
+      metrics.push(vacMetric);
+    }
     // 보충: 6개 미만이면 실투자금 추가
     if (metrics.length < 6 && heroCard.equityRequiredBil && Number.isFinite(Number(heroCard.equityRequiredBil)) && Number(heroCard.equityRequiredBil) > 0) {
       metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
@@ -934,7 +993,7 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const yieldObj = buildYieldFromHeroCard(heroCard);
     if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;
-      metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
+      metrics.push(yieldSummaryMetric(yieldObj, heroCard));
     }
     // BL-4: 역레버리지 감지 — capRate < 조달금리(4.5% 기본)이면 ROE 단독 표시 금지 (Basic IM은 제외)
     const assumedLoanRate = heroCard.loanRatePct ?? 4.5;

@@ -98,6 +98,7 @@ import {
   buildA16Props
 } from './binder/archetype-builders';
 import { formatPyeong } from '@/lib/utils/area-conversion';
+import { GALLERY_EXCLUDE_CATEGORIES } from './gallery-planner';
 
 export {
   normalizeStationName,
@@ -305,8 +306,12 @@ export function bindSectionData(
         if (typeof p === 'object' && p.path) return String(p.path);
         return null;
       };
-      const firstPhoto = resolvePhotoUrl(doc.body.photos_v2?.[0])
-        ?? resolvePhotoUrl(doc.body.photos?.[0])
+      // D4: 도면·지도 문서 이미지(위치도/지구단위계획도/도면/지적도 등)는 대표 사진 후보에서 제외
+      const isDocPhoto = (p: any): boolean => !!p && typeof p === 'object'
+        && GALLERY_EXCLUDE_CATEGORIES.has(String(p.category || p.type || '').toLowerCase());
+      const photoCandidates = (arr: any): any => (Array.isArray(arr) ? arr.filter((p: any) => !isDocPhoto(p)) : arr);
+      const firstPhoto = resolvePhotoUrl(photoCandidates(doc.body.photos_v2)?.[0])
+        ?? resolvePhotoUrl(photoCandidates(doc.body.photos)?.[0])
         ?? (Array.isArray(doc.body.photo_urls) ? doc.body.photo_urls[0] : null);
       result[dataKey] = {
         title: section.title,
@@ -316,7 +321,7 @@ export function bindSectionData(
         confidence: section.confidence || '확인 중',
         boundaryNote: section.boundary_note,
         photoUrl: firstPhoto,
-        photos: doc.body.photos_v2 || doc.body.photos || doc.body.photo_urls,
+        photos: photoCandidates(doc.body.photos_v2) || photoCandidates(doc.body.photos) || doc.body.photo_urls,
         ...props
       };
     }

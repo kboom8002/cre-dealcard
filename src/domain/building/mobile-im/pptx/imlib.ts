@@ -1258,13 +1258,28 @@ export function stat(
   const safeValue = value != null ? String(value) : '';
   const hasKoreanVal = /[\uAC00-\uD7AF]/.test(safeValue);
   const baseVs = opt.vs ?? 22;
-  const valFit = fitTextToBox(safeValue || '-', labelW, 0.44, {
+  // D7(b): 값은 '…' 절단 금지 — 1줄(min 10pt) → 불가 시 2줄(min 9pt) 폴백
+  let valFit = fitTextToBox(safeValue || '-', labelW, 0.44, {
     minFontSize: 10,
     maxFontSize: baseVs,
     targetLines: 1,
     lineSpacingMultiple: 1.0,
+    allowTruncate: false,
   });
-  const valH = Math.max(0.30, Math.min(0.44, valFit.requiredHeight > 0 ? valFit.requiredHeight : 0.36));
+  let valTwoLine = false;
+  if (valFit.lines.length > 1) {
+    valFit = fitTextToBox(safeValue, labelW, 0.56, {
+      minFontSize: 9,
+      maxFontSize: Math.min(baseVs, 14),
+      targetLines: 2,
+      lineSpacingMultiple: 1.0,
+      allowTruncate: false,
+    });
+    valTwoLine = valFit.lines.length > 1;
+  }
+  const valH = valTwoLine
+    ? 0.56
+    : Math.max(0.30, Math.min(0.44, valFit.requiredHeight > 0 ? valFit.requiredHeight : 0.36));
 
   s.addText(valFit.displayText || '-', {
     x: x + 0.18, y: valY, w: labelW, h: valH,
@@ -1285,13 +1300,33 @@ export function stat(
   if (subText) {
     const subY = Math.max(y + 0.86, valY + valH + 0.02);
     const availableSubH = Math.max(0.24, h - (subY - y) - 0.04);
-    const subFit = fitTextToBox(subText, w - 0.36, availableSubH, {
+    const subOpts = {
       minFontSize: 7.0,
       maxFontSize: 8.8,
       targetLines: 2,
       lineSpacingMultiple: 1.15,
-      allowTruncate: true,
-    });
+    };
+    let subFit = fitTextToBox(subText, w - 0.36, availableSubH, { ...subOpts, allowTruncate: false });
+    const subOverflow = (f: ReturnType<typeof fitTextToBox>) =>
+      f.lines.length > 2 || f.requiredHeight > availableSubH + 0.02;
+    if (subOverflow(subFit)) {
+      // 절/문장 경계(· , ; / 。 .)에서 자른 가장 긴 접두를 우선 사용
+      const cuts: number[] = [];
+      const re = /[·,;/。]\s*|\.(?=\s)|\s+[-–—]\s+/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(subText)) !== null) {
+        const end = m.index;
+        if (end > 0) cuts.push(end);
+      }
+      let picked: ReturnType<typeof fitTextToBox> | null = null;
+      for (let i = cuts.length - 1; i >= 0; i--) {
+        const cand = subText.slice(0, cuts[i]).replace(/[\s·,;/-]+$/, '');
+        if (cand.length < 4) continue;
+        const f = fitTextToBox(cand, w - 0.36, availableSubH, { ...subOpts, allowTruncate: false });
+        if (!subOverflow(f)) { picked = f; break; }
+      }
+      subFit = picked ?? fitTextToBox(subText, w - 0.36, availableSubH, { ...subOpts, allowTruncate: true });
+    }
     s.addText(subFit.displayText, {
       x: x + 0.18, y: subY, w: w - 0.36, h: availableSubH,
       fontSize: subFit.fontSize, color: subCol, fontFace: KR, margin: 0,
@@ -1366,11 +1401,11 @@ export function rows(
         shrinkText: true,
       });
 
-      // 값 — Dynamic font fitting
+      // 값 — Dynamic font fitting (D7: 2줄 허용 후에도 넘칠 때만 '…')
       const valFit = fitTextToBox(value, valW - 0.05, rh, {
-        minFontSize: 8.0,
+        minFontSize: 8.5,
         maxFontSize: fs,
-        targetLines: 1,
+        targetLines: 2,
         allowTruncate: true,
       });
       s.addText(valFit.displayText, {

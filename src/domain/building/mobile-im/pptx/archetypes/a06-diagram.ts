@@ -6,6 +6,7 @@ import { stripMarkdown } from '../data-binder';
 import { fetchKakaoMapImage, generateStaticMapPlaceholder, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot, type LocationMapOverlayMeta } from '../utils/image-optimizer';
 import { poiMarkerFill } from '../utils/location-map-overlay';
 import { readMapMarkerMeta, centerCropToAspect, normToSlot } from '@/lib/external/map-overlay-meta';
+import { addImageFit } from '../utils/image-fit';
 import sharp from 'sharp';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -197,7 +198,28 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     ? (macroTransitRaw.base64 ?? macroTransitRaw.data ?? (Buffer.isBuffer(macroTransitRaw) ? `image/png;base64,${macroTransitRaw.toString('base64')}` : null))
     : (typeof macroTransitRaw === 'string' ? macroTransitRaw : null);
 
-  if (macroTransitImg) {
+  // D4: 중개인 제공 위치도(location_map) — 있으면 자동 생성 지도 대신 좌측 슬롯에 비율 보존 배치 (로딩 실패 시 기존 자동 지도로 폴백)
+  let brokerMapDrawn = false;
+  const brokerMapUrl = typeof input.data?.brokerMapImage === 'string' ? input.data.brokerMapImage : '';
+  if (brokerMapUrl) {
+    const optBroker = await optimizeImageForPptx(brokerMapUrl, 1600, 85);
+    if (optBroker) {
+      const slot = { x: M, y: MAP_Y, w: mapW, h: MAP_H };
+      slide.addShape('rect', { ...slot, fill: { color: 'F3F1EC' }, line: { color: 'E2DED3', width: 0.75 } });
+      addImageFit(slide, optBroker.base64, slot, optBroker.width, optBroker.height, 'contain');
+      slide.addText(String(input.data?.brokerMapCaption || '● 위치도 (중개인 제공)'), {
+        x: M, y: MAP_Y + MAP_H + 0.06, w: mapW, h: 0.22,
+        fontFace: KR, fontSize: 9, color: '5B6B73', margin: 0, valign: 'middle',
+      });
+      brokerMapDrawn = true;
+    } else {
+      warnings.push('[D4] 중개인 위치도 이미지 로딩 실패 — 자동 지도로 대체');
+    }
+  }
+
+  if (brokerMapDrawn) {
+    // 중개인 위치도 배치 완료 — 아래 자동 지도 체인 생략
+  } else if (macroTransitImg) {
     const optimizedMacro = await optimizeImageForPptx(macroTransitImg, 1200, 80);
     slide.addImage({ data: optimizedMacro?.base64 || macroTransitImg, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else if (input.data?.cadastralImage) {
@@ -340,7 +362,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   }
 
   // D33 BL-E: 지도 4조건 경고 (suppress하지 않은 경우에만 도달)
-  if (!coords && !mapImageUrl && !input.data?.cadastralImage && !macroTransitImg) {
+  if (!coords && !mapImageUrl && !input.data?.cadastralImage && !macroTransitImg && !brokerMapDrawn) {
     warnings.push('[BL-2] 지도 좌표와 이미지 URL 모두 없음');
   }
 

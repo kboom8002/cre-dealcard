@@ -69,6 +69,12 @@ export interface GoldenTestConfig {
   uploadXlsx?: boolean;
   /** XLSX 파일명 (uploadXlsx가 true일 때, dataDir 기준) */
   xlsxFileName?: string;
+  /**
+   * 사진을 바텀시트 실제 업로드 UI(setInputFiles + 카테고리/캡션/★/🏢)로 입력.
+   * 기본 false = 기존 방식(generate-async 요청 가로채기로 photos_v2 주입).
+   * 환경변수 GOLDEN_PHOTO_MODE=inject 이면 true 여도 주입 방식으로 강제.
+   */
+  uiPhotoUpload?: boolean;
   /** 다필지 여부 */
   multiParcel?: boolean;
   /** 기대 층 키워드 (R2+ 검증용) */
@@ -136,6 +142,142 @@ async function resolveFixtureParcels(
   return out;
 }
 
+/**
+ * 렌트롤 xlsx 를 RentRollImporter 의 파일 입력(실제 업로드 경로)으로 올린다.
+ * 파서 결과(합계·공실률·경고)는 화면 문구로 확인하고 콘솔에 남긴다.
+ */
+async function uploadRentRollXlsxViaUi(page: Page, absXlsxPath: string): Promise<void> {
+  if (!fs.existsSync(absXlsxPath)) throw new Error(`렌트롤 xlsx 없음: ${absXlsxPath}`);
+  // 엑셀 탭이 기본이지만 텍스트 탭이 열려 있을 수 있어 먼저 전환
+  const input = page.locator('input[type="file"][accept*=".xlsx"]').first();
+  if (await input.count() === 0) {
+    await page.locator('button:has-text("엑셀/CSV")').first().click();
+  }
+  await input.waitFor({ state: 'attached', timeout: 10_000 });
+  await input.setInputFiles(absXlsxPath);
+  const done = page.locator('text=/호실 분석 완료|❌/').first();
+  await done.waitFor({ state: 'visible', timeout: 20_000 });
+  const msg = (await done.innerText()).trim();
+  if (msg.startsWith('❌')) throw new Error(`렌트롤 xlsx 업로드 실패: ${msg}`);
+  console.log(`  📊 렌트롤 xlsx 업로드: ${path.basename(absXlsxPath)} → ${msg.split('\n')[0]}`);
+  // 파서 경고(공실/자가 금액 제외, 만료 계약 등) 노출 문구 기록
+  const warnLines = await page.locator('text=/합계에서 제외|만료일이 기준일/').allInnerTexts().catch(() => []);
+  for (const w of warnLines) console.log(`    ⚠️ 파서 경고: ${w.trim().slice(0, 140)}`);
+}
+
+/**
+ * 바텀시트 합계(월 임대료·보증금)를 중개인이 직접 적은 값으로 덮어쓰고,
+ * 공실률 버튼·한줄 코멘트를 입력한다. (as-is 는 렌트롤 합계와 일부러 다를 수 있음)
+ */
+async function fillIncomeBottomSheetExtras(page: Page, bs: Record<string, any>): Promise<void> {
+  if (typeof bs.monthlyRentTotalManwon === 'number') {
+    const rentInput = page.locator('input[placeholder="예: 1500"]').first();
+    if (await rentInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await rentInput.fill(String(bs.monthlyRentTotalManwon));
+      console.log(`  ✅ 월 임대료 합계 ${bs.monthlyRentTotalManwon}만원 입력`);
+    }
+  }
+  if (typeof bs.totalDepositManwon === 'number') {
+    const depInput = page.locator('input[placeholder="예: 30000"]').first();
+    if (await depInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await depInput.fill(String(bs.totalDepositManwon));
+      console.log(`  ✅ 보증금 합계 ${bs.totalDepositManwon}만원 입력`);
+    }
+  }
+  if (typeof bs.vacancy === 'string' && bs.vacancy) {
+    const label = bs.vacancy === '만실' ? '만실' : bs.vacancy; // '~10%' / '~20%'
+    const btn = page.locator('button[data-vacancy-btn]', { hasText: label }).first();
+    if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // 같은 버튼을 다시 누르면 선택이 해제되므로 미선택일 때만 클릭
+      const cls = (await btn.getAttribute('class')) ?? '';
+      if (!cls.includes('bg-primary')) await btn.click();
+      console.log(`  ✅ 공실률 [${label}] 선택`);
+    }
+  }
+  if (bs.broker_highlight) {
+    const hl = page.locator('input[placeholder^="예: 역세권 1분"]').first();
+    if (await hl.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await hl.fill(String(bs.broker_highlight));
+      console.log('  ✅ 중개인 한줄 코멘트 입력');
+    }
+  }
+}
+
+/**
+ * 바텀시트 '중개인 추가 정보 (선택)' 그룹을 실제 UI 로 입력한다.
+ * bottom_sheet.json 에 broker_extras 가 있는 변형(corrected)에서만 동작 — 없으면 아무 것도 하지 않는다.
+ */
+async function fillBrokerExtras(page: Page, bs: Record<string, any>): Promise<void> {
+  const x = bs.broker_extras as Record<string, any> | undefined;
+  if (!x) return;
+  const tid = (id: string) => page.locator(`[data-testid="${id}"]`).first();
+  const fillIf = async (id: string, value: unknown) => {
+    if (value === undefined || value === null || value === '') return;
+    const el = tid(id);
+    await el.scrollIntoViewIfNeeded().catch(() => {});
+    await el.fill(String(value));
+  };
+
+  const summary = tid('broker-extras-summary');
+  await summary.scrollIntoViewIfNeeded().catch(() => {});
+  const detailsOpen = await tid('broker-extras-section').evaluate((el) => (el as HTMLDetailsElement).open).catch(() => false);
+  if (!detailsOpen) await summary.click();
+
+  await fillIf('broker-extras-investment-points', (x.investment_points ?? []).join('\n'));
+  await fillIf('broker-extras-closing-line', x.closing_line);
+
+  const regs: any[] = x.regulatory_notes ?? [];
+  for (let i = 0; i < regs.length; i++) {
+    await tid('broker-extras-reg-add').click();
+    await tid(`broker-extras-reg-kind-${i}`).selectOption(String(regs[i].kind));
+    await fillIf(`broker-extras-reg-detail-${i}`, regs[i].detail);
+    if (regs[i].kind === 'dev_restriction') {
+      await fillIf(`broker-extras-reg-basis-${i}`, regs[i].basis);
+      await fillIf(`broker-extras-reg-acts-${i}`, regs[i].restricted_acts);
+      await fillIf(`broker-extras-reg-period-${i}`, regs[i].period);
+    }
+  }
+
+  const comps: any[] = x.market_comps ?? [];
+  for (let i = 0; i < comps.length; i++) {
+    await tid('broker-extras-comp-add').click();
+    await tid(`broker-extras-comp-kind-${i}`).selectOption(String(comps[i].kind));
+    await fillIf(`broker-extras-comp-location-${i}`, comps[i].location);
+    await fillIf(`broker-extras-comp-price-${i}`, comps[i].price_eok);
+    await fillIf(`broker-extras-comp-landprice-${i}`, comps[i].land_price_per_pyeong_manwon);
+    await fillIf(`broker-extras-comp-note-${i}`, comps[i].note);
+  }
+
+  await fillIf('broker-extras-location-note', x.location_note);
+  await fillIf('broker-extras-plan', (x.post_acquisition_plan ?? []).join('\n'));
+  await fillIf('broker-extras-target-rent', x.target_rent_per_pyeong_manwon);
+  console.log(`  ✅ 중개인 추가 정보 입력 (투자포인트 ${x.investment_points?.length ?? 0} · 규제 ${regs.length} · 시세 ${comps.length}${x.target_rent_per_pyeong_manwon ? ' · 목표임대료' : ''})`);
+}
+
+/** 사진을 실제 업로드 UI 로 입력: 파일 선택 → 카테고리/캡션 → ★ 대표 / 🏢 외관 */
+async function uploadPhotosViaUi(page: Page, photos: Array<Record<string, any>>): Promise<void> {
+  const files = photos.map((ph) => path.resolve(process.cwd(), String(ph.url)));
+  for (const f of files) if (!fs.existsSync(f)) throw new Error(`사진 파일 없음: ${f}`);
+  const captionInputs = page.locator('input[placeholder="설명 (선택)"]');
+  const before = await captionInputs.count();
+  const fileInput = page.locator('input[type="file"][accept="image/*"]').first();
+  await fileInput.waitFor({ state: 'attached', timeout: 10_000 });
+  await fileInput.setInputFiles(files);
+  await expect(captionInputs).toHaveCount(before + files.length, { timeout: 20_000 });
+  const selects = page.locator('select:has(option[value="floor_plan"])');
+  for (let i = 0; i < photos.length; i++) {
+    const idx = before + i;
+    const ph = photos[i];
+    if (ph.category) await selects.nth(idx).selectOption(String(ph.category));
+    if (ph.caption) await captionInputs.nth(idx).fill(String(ph.caption));
+  }
+  const hero = photos.findIndex((ph) => ph.isHero);
+  if (hero >= 0) await page.locator('button[title="대표 사진으로 지정"]').nth(before + hero).click();
+  const ext = photos.findIndex((ph) => ph.role === 'exterior' || ph.role === 'cover');
+  if (ext >= 0) await page.locator('button[title^="외관 사진으로 지정"]').nth(before + ext).click();
+  console.log(`  🖼️ 사진 ${files.length}장 UI 업로드 (대표=${hero >= 0 ? hero + 1 : '-'}, 외관=${ext >= 0 ? ext + 1 : '-'})`);
+}
+
 export function createGoldenTest(config: GoldenTestConfig) {
   const {
     name,
@@ -147,6 +289,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
     imWaitMs = 300_000,
     uploadXlsx = false,
     xlsxFileName,
+    uiPhotoUpload = false,
     multiParcel = false,
     expectedFloors = [],
     expectedMinSlides,
@@ -284,6 +427,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
 
         // 📸 사진 에셋 자동 주입을 위한 generate-async 요청 가로채기
         const bs = loadBottomSheet();
+        const photoViaUi = uiPhotoUpload && process.env.GOLDEN_PHOTO_MODE !== 'inject';
         // 다필지 골든: 필지별 실제 PNU 를 해소해 요청에 주입 (미해소 시 즉시 실패)
         const injectedParcels = multiParcel ? await resolveFixtureParcels(page, bs) : [];
         await page.route('**/api/broker/im-lite/generate-async', async (route) => {
@@ -294,11 +438,16 @@ export function createGoldenTest(config: GoldenTestConfig) {
               postData.parcels = injectedParcels;
               postData.pnus = injectedParcels.map(p => p.pnu);
             }
-            if (bs.photo_urls && Array.isArray(bs.photo_urls) && bs.photo_urls.length > 0) {
+            if (!photoViaUi && bs.photo_urls && Array.isArray(bs.photo_urls) && bs.photo_urls.length > 0) {
               postData.photo_urls = bs.photo_urls;
             }
-            if (bs.photos_v2 && Array.isArray(bs.photos_v2) && bs.photos_v2.length > 0) {
+            if (!photoViaUi && bs.photos_v2 && Array.isArray(bs.photos_v2) && bs.photos_v2.length > 0) {
               postData.photos_v2 = bs.photos_v2;
+            }
+            if (process.env.GOLDEN_LOG_PAYLOAD === '1') {
+              const dump = { ...postData };
+              ensureDir(screenshotDir);
+              fs.writeFileSync(path.join(screenshotDir, 'generate-async-payload.json'), JSON.stringify(dump, null, 2));
             }
             await route.continue({
               postData: JSON.stringify(postData),
@@ -377,8 +526,9 @@ export function createGoldenTest(config: GoldenTestConfig) {
         }
 
         // ── 포스처별 필수 필드 입력 ──
+        const xlsxMode = uploadXlsx && !!bs.rentRollXlsx;
         if (posture === 'income') {
-          if (bs.floor_leases && bs.floor_leases.length > 0) {
+          if (bs.floor_leases && bs.floor_leases.length > 0 && !xlsxMode) {
             const totalRent = bs.floor_leases.reduce((s: number, l: any) => s + (l.rent_manwon || 0), 0);
             const totalDeposit = bs.floor_leases.reduce((s: number, l: any) => s + (l.deposit_manwon || 0), 0);
 
@@ -464,7 +614,11 @@ export function createGoldenTest(config: GoldenTestConfig) {
         }
 
         // ── 렌트롤 입력 (R2+ income/owner_occupied 지원: RentRollImporter 텍스트 탭) ──
-        if (bs.floor_leases && bs.floor_leases.length > 0 && (posture === 'income' || posture === 'owner_occupied')) {
+        if (xlsxMode && (posture === 'income' || posture === 'owner_occupied')) {
+          await uploadRentRollXlsxViaUi(page, path.join(absDataDir, String(bs.rentRollXlsx)));
+          await shot(page, screenshotDir, 'rentroll-xlsx-imported', stepCounter);
+        }
+        if (!xlsxMode && bs.floor_leases && bs.floor_leases.length > 0 && (posture === 'income' || posture === 'owner_occupied')) {
           try {
             const textTab = page.locator('button:has-text("텍스트"), button:has-text("📝 텍스트")').first();
             if (await textTab.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -495,6 +649,16 @@ export function createGoldenTest(config: GoldenTestConfig) {
           } catch (e) {
             console.log('  ⚠️ 렌트롤 텍스트 입력 스킵:', (e as Error).message);
           }
+        }
+
+        // ── income 골든: 바텀시트 합계·공실률·한줄코멘트·사진을 실제 UI 로 입력 ──
+        if (posture === 'income') {
+          await fillIncomeBottomSheetExtras(page, bs);
+          await fillBrokerExtras(page, bs);
+        }
+        if (photoViaUi && Array.isArray(bs.photos_v2) && bs.photos_v2.length > 0) {
+          await uploadPhotosViaUi(page, bs.photos_v2);
+          await shot(page, screenshotDir, 'photos-uploaded', stepCounter);
         }
 
         await page.waitForTimeout(1000);

@@ -166,6 +166,15 @@ export interface FinancialOutputs {
   grossYieldOnEquity: number | null;
   grossYieldStabilized: number | null;
   annualRentBil: number | null;
+
+  /** D10 YieldSet 입력 (income 포스처): 기본 NOI(원) — capRate.base의 분자 */
+  noiBaseKrw?: number | null;
+  /** D10: 운영비 ÷ 연 임대료 (%) — opexSource='user'면 중개인 제공(운영비율 또는 관리비), 아니면 자산유형별 가정 */
+  opexPct?: number | null;
+  /** D10: 공실충당률 (%) — NOI·'공실충당 제외 기준' 산출에 적용된 값 */
+  vacancyReservePct?: number | null;
+  /** D10: 승계 보증금 (원) — 임대수익률 분모(매매가−보증금)에 사용된 값 */
+  depositKrw?: number | null;
 }
 
 // ── Pure Math / DCF Calculations ──
@@ -479,6 +488,10 @@ function calculateIncomePosture(inputs: FinancialInputs): FinancialOutputs {
     grossYieldOnEquity,
     grossYieldStabilized,
     annualRentBil,
+    noiBaseKrw: Math.round(noiBase),
+    opexPct: annualGross > 0 ? parseFloat(((effectiveOpex / annualGross) * 100).toFixed(1)) : null,
+    vacancyReservePct: vacancyRatePct,
+    depositKrw,
   };
 
 }

@@ -71,7 +71,8 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     });
 
     if (rowEntries.length > 0) {
-      const maxRows = input.data.priceTable ? (input.data.priceTable2 ? 8 : 9) : 11;
+      // D5: 행 상한 11 (매각가 박스 동반 시에도). 11행×0.30" = 3.30" → 1.80+3.30+0.12 = 5.22 → 가격박스(최대 1.10") 하단 6.32" < SAFE_BOTTOM(6.75")
+      const maxRows = 11;
       const count = Math.min(rowEntries.length, maxRows);
       const rowHeight = rowEntries.length <= 6 ? 0.44 : rowEntries.length <= 9 ? 0.36 : 0.30;
       const fontSize = rowEntries.length <= 6 ? 13.5 : rowEntries.length <= 9 ? 12 : 11;

@@ -42,6 +42,9 @@ export const PHOTO_CATEGORY_LABELS: Record<PhotoCategory, string> = {
   storage: '창고/부대시설',
   map: '위치 지도',
   hero: '대표 사진',
+  location_map: '위치도',
+  district_plan_map: '지구단위계획도',
+  cadastral: '지적도',
 };
 
 /** 카테고리 -> 갤러리 그룹 매핑 (4대 그룹) */
@@ -67,6 +70,9 @@ export const CATEGORY_TO_GROUP: Record<PhotoCategory, GalleryGroup | 'special'> 
 
   map: 'special',
   hero: 'special',
+  location_map: 'special',
+  district_plan_map: 'special',
+  cadastral: 'special',
 };
 
 /** 갤러리 그룹별 슬라이드 서브타이틀 맵 */
@@ -195,12 +201,8 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
     }
   }
 
-  // D33 BL-B: 캡션이 없거나 분류와 불일치 시, 분류 라벨로 캡션 자동 연결
-  for (const p of photos) {
-    if (p.category && (!p.caption || p.caption.trim().length === 0)) {
-      p.caption = PHOTO_CATEGORY_LABELS[p.category as keyof typeof PHOTO_CATEGORY_LABELS] ?? p.category;
-    }
-  }
+  // D11a: 분류 라벨을 빈 캡션에 자동 복사하지 않는다 — 칩(라벨)과 캡션이 중복 렌더링되던 원인.
+  //       캡션이 없으면 갤러리(A14)가 칩만 표시한다.
 
   return photos;
 }

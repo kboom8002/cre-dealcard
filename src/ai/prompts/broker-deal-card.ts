@@ -89,6 +89,8 @@ Required output JSON keys:
 - "자가 사용", "사옥", "본사", "사무실 이전" → selfUseIntent (true)
 - "현 임차료", "현재 월세" + 숫자 → currentLeaseCostManwon (만원)
 
+각 *Signals 숫자 필드는 단일 숫자 또는 null. 범위·복수 값이면 대표값 1개만 넣고 나머지는 brokerNotes에 문자열로.
+
 JSON으로 응답해주세요.`;
 
 // ---- Building Mini Truth ----

@@ -17,6 +17,12 @@ export const BASIC_RENTROLL_HEADERS = [
   '층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일',
 ] as const;
 
+/** D6: 입력(비고/임대상태/갱신요구권)이 있을 때만 붙는 11번째 열 */
+export const RENTROLL_NOTE_HEADER = '비고';
+export const NOTE_COL = 10;
+/** 비고 열 기준 폭(in) — 11열 투영 시에만 사용 */
+export const RENTROLL_NOTE_COL_W = 1.0;
+
 /** 10열 기준 열폭(in) — 합계 8.39 ≤ 표 영역 8.393 */
 export const BASIC_RENTROLL_COL_W = [0.48, 1.05, 0.88, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 1.30] as const;
 
@@ -42,10 +48,17 @@ export function isRentRollSummaryRow(row: unknown[]): boolean {
   return row.some((c) => RENTROLL_SUMMARY_CELL.test(String(c ?? '').trim()));
 }
 
-/** '-', '', '〃' 등은 미기입. 양수 숫자가 들어 있으면 기입으로 본다. */
+/** '-', '', '〃' 등은 미기입. 양수 숫자가 들어 있으면 기입으로 본다. ('209.6 (63.4평)' → 첫 숫자 토큰 209.6) */
 function hasAreaValue(cell: unknown): boolean {
-  const n = parseFloat(String(cell ?? '').replace(/[^0-9.]/g, ''));
+  const m = String(cell ?? '').match(/\d[\d,]*(?:\.\d+)?/);
+  const n = m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
   return Number.isFinite(n) && n > 0;
+}
+
+/** 비고 셀에 실제 내용이 있는지 ('-', '', '〃' 제외) */
+function hasNoteValue(cell: unknown): boolean {
+  const s = String(cell ?? '').trim();
+  return s !== '' && s !== '-' && s !== '〃';
 }
 
 export function detectAreaColumnMode(rows: unknown[][]): AreaColumnMode {
@@ -62,9 +75,12 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
   const all = BASIC_RENTROLL_HEADERS.map((_, i) => i);
   const dropIdx = mode === 'both' ? -1 : mode === 'lease' ? EXCLUSIVE_AREA_COL : LEASE_AREA_COL;
   const keep = all.filter((i) => i !== dropIdx);
+  // D6: 비고 열 — 데이터 행 중 하나라도 비고가 있을 때만 (헤더·열폭·셀을 같은 keep 으로 투영해 열 수 = 셀 수 유지)
+  const hasNote = rows.filter((r) => !isRentRollSummaryRow(r)).some((r) => hasNoteValue(r[NOTE_COL]));
+  if (hasNote) keep.push(NOTE_COL);
 
   // 제거한 열의 폭은 텍스트가 긴 열(임차인·용도·만기일)에 되돌려 표 전체 폭을 유지한다
-  const w: number[] = [...BASIC_RENTROLL_COL_W];
+  const w: number[] = [...BASIC_RENTROLL_COL_W, RENTROLL_NOTE_COL_W];
   if (dropIdx >= 0) {
     const freed = w[dropIdx];
     w[1] += freed * 0.46;
@@ -72,11 +88,12 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
     w[9] += freed * 0.26;
   }
   const colW = keep.map((i) => Math.round(w[i] * 100) / 100);
+  const headerAt = (i: number): string => (i === NOTE_COL ? RENTROLL_NOTE_HEADER : BASIC_RENTROLL_HEADERS[i]);
 
   return {
     mode,
     keep,
-    headers: keep.map((i) => BASIC_RENTROLL_HEADERS[i]),
+    headers: keep.map(headerAt),
     colW,
   };
 }

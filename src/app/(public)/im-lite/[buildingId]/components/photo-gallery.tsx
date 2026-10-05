@@ -26,7 +26,7 @@ export function PhotoGallery({
   const sortedItems = useMemo(() => {
     const raw = [...(photos || [])];
     const mapItems = raw.filter((i) => i.type === "map");
-    const nonPhotoTypes = new Set(["floor_plan", "document", "business_card"]);
+    const nonPhotoTypes = new Set(["floor_plan", "document", "business_card", "location_map", "district_plan_map", "cadastral"]);
     const photoItems = raw
       .filter(
         (i) =>

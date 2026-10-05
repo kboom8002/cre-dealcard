@@ -16,6 +16,7 @@ import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/type
 import { persistLeaseUnits } from "@/domain/building/mobile-im/lease-adapter";
 import { parseBrokerCount } from "@/domain/building/mobile-im/resolve-physical-specs";
 import { parseBrokerParcels, normalizePnu } from "@/domain/building/mobile-im/parcel-input";
+import { parseBrokerExtras } from "@/domain/building/mobile-im/broker-extras";
 
 import { createModuleLogger } from '@/lib/logger';
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
         )
       ),
       broker_highlight: body.broker_highlight,
+      // D4: broker_extras 는 아래에서 parseBrokerExtras 검증 후 supplemental.broker_extras 로 설정 (원본 body 값 직접 전달 금지)
       estimated_yield_pct: body.estimated_yield_pct,
       total_deposit_manwon: body.total_deposit_manwon,
       mgmt_fee_total_manwon: body.mgmt_fee_total_manwon,
@@ -119,6 +121,11 @@ export async function POST(req: NextRequest) {
     if (!elevatorParsed.ok) return NextResponse.json({ error: elevatorParsed.error }, { status: 400 });
     if (parkingParsed.value !== undefined) supplemental.parking_count = parkingParsed.value;
     if (elevatorParsed.value !== undefined) supplemental.elevator_count = elevatorParsed.value;
+
+    // D4: 중개인 추가 정보 — 한도/형식 검증 (실패 시 400 + 한국어 메시지), 통과 시에만 supplemental 에 반영
+    const extrasParsed = parseBrokerExtras(body.broker_extras);
+    if (!extrasParsed.ok) return NextResponse.json({ error: extrasParsed.error }, { status: 400 });
+    if (extrasParsed.value) supplemental.broker_extras = extrasParsed.value;
 
     // 다필지: 바텀시트 ParcelSection 입력(parcels/pnus)을 파이프라인으로 전달 (기존에는 여기서 유실됨)
     // pnus 는 parcels 에서 파생한 값 + 클라이언트가 보낸 pnus(19자리 숫자만) 의 합집합
@@ -277,6 +284,13 @@ export async function POST(req: NextRequest) {
                 ...(supplemental.parking_count != null ? { parking_count: supplemental.parking_count } : {}),
                 ...(supplemental.elevator_count != null ? { elevator_count: supplemental.elevator_count } : {}),
               };
+            }
+            // D4: 중개인 추가 정보(구조화, handler에서 sanitize 완료본) — 비우고 재생성하면 stale 값도 제거
+            if (supplemental.broker_extras) {
+              layersPatch.broker_inputs = { ...(layersPatch.broker_inputs ?? existingLayers.broker_inputs ?? {}), extras: supplemental.broker_extras };
+            } else if (existingLayers.broker_inputs?.extras) {
+              const { extras: _staleExtras, ...restInputs } = layersPatch.broker_inputs ?? existingLayers.broker_inputs;
+              layersPatch.broker_inputs = restInputs;
             }
             if (supplemental.photo_urls?.length) layersPatch.photos = supplemental.photo_urls;
             if (supplemental.resolved_address) {

@@ -6,6 +6,9 @@
  * 라벨은 값에서 파생됩니다. 문자열 교정은 하지 않습니다.
  */
 
+import { summaryCapRateSub } from '../yield-set';
+import { fmtFixed } from '@/lib/format/safe-number';
+
 export type YieldBasis = 'GPI' | 'EGI' | 'NOI';
 export type YieldDenominator = 'asking_price' | 'net_of_deposit';
 
@@ -57,17 +60,48 @@ export function buildYieldFromHeroCard(heroCard: {
   capRateBase?: number;
   noiDeductions?: Array<{ name: string; amount: number }>;
   denominator?: string;
+  /** D10: NOI 근거 (있으면 yieldBasis 미기록 레거시 heroCard도 NOI로 판정) */
+  noiBaseBil?: number | null;
+  opexPct?: number | null;
+  vacancyReservePct?: number | null;
 }): Yield | null {
   if (!heroCard.capRateBase) return null;
 
-  const isNoi = heroCard.yieldBasis === 'NOI';
+  // D10: capRateBase = NOI(base) ÷ 매매가 (FinancialCalculator). 명시적 'GPI'가 아니고 NOI 근거(NOI 금액·운영비율)가
+  // 있으면 NOI로 본다 — 값은 NOI인데 '총임대료' 라벨이 붙는 오라벨 방지.
+  const hasNoiEvidence = (heroCard.noiBaseBil != null && Number(heroCard.noiBaseBil) > 0)
+    || (heroCard.opexPct != null && Number.isFinite(Number(heroCard.opexPct)));
+  const isNoi = heroCard.yieldBasis === 'NOI' || (heroCard.yieldBasis !== 'GPI' && hasNoiEvidence);
+  // 공제 금액을 기록하지 않은 레거시 heroCard: 항목명만 남기고 금액은 0(미기록)으로 둔다 — G38은 공제 '항목' 존재를 요구.
+  const deductions = isNoi
+    ? (heroCard.noiDeductions && heroCard.noiDeductions.length > 0
+      ? heroCard.noiDeductions
+      : (heroCard.yieldBasis === undefined ? [{ name: '운영비·공실충당', amount: 0 }] : []))
+    : [];
   return {
     value: heroCard.capRateBase,
     basis: isNoi ? 'NOI' : 'GPI',
-    deductions: isNoi ? (heroCard.noiDeductions ?? []) : [],
+    deductions,
     denominator: (heroCard.denominator as YieldDenominator) ?? 'asking_price',
   };
 }
+
+/**
+ * D10: 요약 슬라이드의 수익률 카드 1장 (라벨·값·부제). 수익률 슬라이드(A23)와 같은 YieldSet 정의를 따른다.
+ *  - NOI 기준: 부제에 운영비율(가정/제공)·공실충당 명시
+ *  - 총임대료 기준: Cap Rate로 부르지 않고 '임대수익률 (Gross)' + '운영비 차감 전'
+ */
+export function yieldSummaryMetric(
+  y: Yield,
+  assumptions: { opexPct?: number | null; opexSource?: 'user' | 'assumed'; vacancyReservePct?: number | null },
+): { label: string; value: string; sub: string } {
+  return {
+    label: yieldLabel(y),
+    value: fmtFixed(y.value, 2, '%'),
+    sub: y.basis === 'NOI' ? summaryCapRateSub(assumptions) : '운영비 차감 전',
+  };
+}
+
 
 /**
  * IMCore yields 구조에서 Yield 단일 객체를 구성합니다.

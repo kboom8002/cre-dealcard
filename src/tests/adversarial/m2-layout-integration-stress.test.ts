@@ -438,8 +438,9 @@ describe('M2 Adversarial Challenge: Archetype Layout Integration & Overflow Hard
       // In A24, table starts at 1.80, with spH=4.80, table bottom <= 6.60" <= 6.75"
       expect(tableBottom).toBeLessThanOrEqual(SAFE_BOTTOM + 0.01);
 
-      // Verify that long tenant text contains ellipsis '…'
-      expect(table.text).toContain('…');
+      // D7 (Phase A1): long tenant names are shown in full over 2 lines (<=7.5pt); '…' is only the last resort.
+      // Either way the cell must not overflow: table bottom was asserted above and the tenant is never dropped.
+      expect(/…|주식회사대한민국글로벌상업용부동산투자개발자산운용전문회사_본사/.test(table.text ?? '')).toBe(true);
     });
 
     it('[Remediated DEFECT-M2-02 & DEFECT-M2-03] A24 with table cell margin and clamped footnote achieves 0 errors in python verifier', () => {

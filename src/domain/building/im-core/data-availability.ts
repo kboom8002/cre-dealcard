@@ -28,6 +28,12 @@ export interface DataAvailability {
   hasExpertReview?: boolean;     // 전문가 검토 완료 — D36 §1.9 Screening 분기
   hasPermitZone?: boolean;       // 토지거래허가구역 조회 결과
   hasPhotos?: boolean;           // 건물 사진 존재 (gallery 면 결정)
+  // D4/D8 신설 — 중개인 제공 정보 면 (doc.body.broker_extras + photos_v2 문서 이미지)
+  hasBrokerPoints?: boolean;     // 투자 포인트 ≥1 → '투자 포인트·제안' 면
+  hasBrokerRegulation?: boolean; // 규제·계획 메모 또는 지구단위계획도/도면 이미지 → '규제·계획' 면
+  hasBrokerRegulationNotes?: boolean;  // (세분) 규제·계획 메모가 있음 — 미지정 시 hasBrokerRegulation 으로 간주
+  hasBrokerRegulationImages?: boolean; // (세분) 지구단위계획도/도면 이미지가 있음 → '지구단위계획·도면' 면
+  hasBrokerComps?: boolean;      // 인근 시세 비교 ≥1행 → '인근 시세 비교' 면
 }
 
 

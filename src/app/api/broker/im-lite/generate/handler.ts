@@ -18,9 +18,12 @@ import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration 
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
 import { validateCombination } from '@/domain/ontology';
 import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
+import { resolveTotalGrossAreaSqm } from '@/domain/building/mobile-im/resolve-total-area';
 import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
 import { resolvePhysicalSpecs } from '@/domain/building/mobile-im/resolve-physical-specs';
 import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
+import { resolveOverviewSpecs } from '@/domain/building/mobile-im/pptx/spec-resolver';
+import { applyBrokerExtrasToSections, mapBrokerExtrasStrings } from '@/domain/building/mobile-im/broker-extras';
 import { sqmToPyeong, pyeongToSqm, formatPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -414,12 +417,18 @@ export async function generateMobileIMHandler(
   }
 
   // ─── 공공데이터 vs 사용자 정본 면적/스펙 정합성 보정 (단독사옥 블라인드 지번 대응) ───
-  const userSpecifiedTotalArea = Number(supplemental.total_gross_area_m2 || 0)
-    || (supplemental.total_gross_area_pyeong ? pyeongToSqm(Number(supplemental.total_gross_area_pyeong)) : 0)
-    || (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
-        ? supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.area_sqm) || 0), 0)
-        : 0)
-    || Number((ssotRow.layers as any)?.physical?.total_area_sqm || 0);
+  // 연면적 우선순위: 중개인 명시 입력 > SSoT(공부) > 공공 건축물대장.
+  // 렌트롤 임대면적 합(floor_leases.area_sqm)은 공실·공용부·자가사용 누락 가능성이 있어 연면적이 아니다.
+  // → 표기값으로 쓰지 않고, 건축물대장 보유 여부 게이트(hasBuildingRegister)에서만 참고한다.
+  const leaseAreaSum = Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
+    ? supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.area_sqm) || 0), 0)
+    : 0;
+  const userSpecifiedTotalArea = resolveTotalGrossAreaSqm({
+    explicitSqm: Number(supplemental.total_gross_area_m2 || 0)
+      || (supplemental.total_gross_area_pyeong ? pyeongToSqm(Number(supplemental.total_gross_area_pyeong)) : 0),
+    ssotSqm: Number((ssotRow.layers as any)?.physical?.total_area_sqm || 0),
+    publicRegisterSqm: Number((externalData?.buildingRegister as any)?.totalArea || 0),
+  });
 
   // 다필지: 브로커가 입력한 필지 면적 합계(모든 필지에 면적이 있을 때만)를 SSoT 대지면적으로 사용.
   //   우선순위: 명시 대지면적 입력 > 필지 면적 합계 > 기존 SSoT. (V-World/대장의 단일 필지 면적으로 과소 표기되는 것 방지)
@@ -501,6 +510,14 @@ export async function generateMobileIMHandler(
       investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || (supplemental as any).investmentPosture || 'income',
     } as any,
   });
+
+  // ─── D4: 중개인 추가 정보 — 구조화 SSoT(sanitize 완료본) 보관 + 기존 섹션에 원문 블록 덧붙임 (AI 미관여) ───
+  // sanitize 루프 이전에 덧붙여야 아래 가드레일(예: '수익률 보장' 치환)이 블록에도 적용된다.
+  if (supplemental.broker_extras) {
+    supplemental.broker_extras = mapBrokerExtrasStrings(supplemental.broker_extras, sanitizeComplianceText);
+    const appliedExtras = applyBrokerExtrasToSections(writerResult.sections as any, supplemental.broker_extras);
+    log.info(`[im-handler] 중개인 추가 정보 블록 덧붙임: ${appliedExtras.join(', ') || '(대상 섹션 없음)'}`);
+  }
 
   // ─── v3 Guardrails: Sanitize all generated sections ───
   if (writerResult.sections) {
@@ -669,7 +686,7 @@ export async function generateMobileIMHandler(
           grade: gradeResult.grade as 'A' | 'B' | 'C' | 'D',
           posture: (identity?.investmentPosture || ssotRow.investment_posture || 'income') as any,
           dataAvailability: {
-            hasBuildingRegister: !!(externalData?.buildingRegister || externalData?.hasPublicData || userSpecifiedTotalArea > 0 || (ssotRow.total_area_pyeong && ssotRow.total_area_pyeong > 0) || ssotRow.total_area_sqm || (ssotRow.layers as any)?.total_floor_area_pyung || ssotRow.size_signal),
+            hasBuildingRegister: !!(externalData?.buildingRegister || externalData?.hasPublicData || userSpecifiedTotalArea > 0 || leaseAreaSum > 0 || (ssotRow.total_area_pyeong && ssotRow.total_area_pyeong > 0) || ssotRow.total_area_sqm || (ssotRow.layers as any)?.total_floor_area_pyung || ssotRow.size_signal),
             hasLandUsePlan: !!(externalData?.landUsePlan || externalData?.hasPublicData || userSpecifiedLandArea > 0 || (ssotRow.land_area_sqm && ssotRow.land_area_sqm > 0) || (ssotRow.layers as any)?.land_area_pyung || ssotRow.size_signal),
             hasRentRoll: !!(supplemental.floor_leases?.length || supplemental.monthly_rent_total_krw),
             hasComparables: !!(externalData?.comparableTransactions?.length || supplemental.manual_comps?.length),
@@ -701,6 +718,10 @@ export async function generateMobileIMHandler(
       broker_physical_inputs: (brokerPhysical.parkingCount !== undefined || brokerPhysical.elevatorCount !== undefined)
         ? { parking_count: brokerPhysical.parkingCount, elevator_count: brokerPhysical.elevatorCount }
         : undefined,
+      // D4: 중개인 추가 정보 — PPTX(C2)가 doc.body.broker_extras 를 구조화 SSoT 로 읽는다 (위에서 sanitize 완료)
+      broker_extras: supplemental.broker_extras ?? undefined,
+      // 시트 재오픈 복원용 — 기존에는 body에 기록되지 않아 복원 로직이 죽은 코드였음
+      broker_highlight: supplemental.broker_highlight ? sanitizeComplianceText(supplemental.broker_highlight) : undefined,
       photos_v2: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
       manual_comps: (supplemental as any).manual_comps ?? undefined,
       // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능
@@ -737,6 +758,23 @@ export async function generateMobileIMHandler(
         address: supplemental.resolved_address || ssotRow.raw_address || (ssotRow.layers as any)?.location?.raw_address || (ssotRow.layers as any)?.location?.address || null,
         pnu: supplemental.resolved_pnu || ssotRow.pnu || (ssotRow.layers as any)?.location?.pnu || (ssotRow.layers as any)?.pnu || null,
         own_vs_lease_savings_bil: (writerResult.financials as any)?.ownVsLeaseSavingsBil ?? undefined,
+        // D5: 건축물대장/토지이용계획 → ssot_summary (요약·토지·개요 슬라이드 공통 정본). 알 수 없으면 키 자체 생략(날조 금지)
+        ...(() => {
+          const sp = resolveOverviewSpecs(
+            { buildingRegister: externalData?.buildingRegister, landUsePlan: externalData?.landUsePlan },
+            {}, {}, supplemental.parcels,
+          );
+          return {
+            ...(sp.zoning ? { zoning: sp.zoning } : {}),
+            ...(sp.bcrNow ? { bcr_pct: sp.bcrNow } : {}),
+            ...(sp.farNow ? { far_pct: sp.farNow } : {}),
+            ...(sp.bcrMax ? { max_bcr_pct: sp.bcrMax } : {}),
+            ...(sp.farMax ? { max_far_pct: sp.farMax } : {}),
+            ...(sp.floorsAbove ? { floors_above: sp.floorsAbove } : {}),
+            ...(sp.floorsBelow ? { floors_below: sp.floorsBelow } : {}),
+            ...(sp.useAprYear ? { completion_year: sp.useAprYear } : {}),
+          };
+        })(),
       },
       external_data: externalData
         ? {

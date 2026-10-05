@@ -18,3 +18,4 @@ export { LoanStatusSection } from "./LoanStatusSection";
 export { AncillaryIncomeSection } from "./AncillaryIncomeSection";
 export { LogisticsSpecSection } from "./LogisticsSpecSection"; // W-2
 export { VacancySection } from "./VacancySection"; // W-2
+export { BrokerExtrasSection, BrokerTargetRentField } from "./BrokerExtrasSection"; // D4

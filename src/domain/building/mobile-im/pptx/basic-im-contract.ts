@@ -52,7 +52,45 @@ export const BASIC_IM_OPTIONAL_SLIDES = {
     label: '지적도',
     condition: 'hasCadastralMap' as const,
   },
+  // ── D4/D8: 중개인 제공 정보 면 (입력이 있을 때만 추가 — 미입력 시 기본 9면 불변) ──
+  /** 투자 포인트·제안: 요약(seq2) 바로 뒤 */
+  brokerPoints: {
+    afterSeq: 2,
+    archetype: 'A26' as const,
+    dataKey: 'brokerPoints' as const,
+    label: '투자 포인트·제안',
+    condition: 'hasBrokerPoints' as const,
+  },
+  /** 규제·계획: 토지(seq5) 바로 뒤 (규제 메모가 있을 때) */
+  brokerRegulation: {
+    afterSeq: 5,
+    archetype: 'A26' as const,
+    dataKey: 'brokerRegulation' as const,
+    label: '규제·계획',
+    condition: 'hasBrokerRegulation' as const,
+  },
+  /** 지구단위계획·도면: 규제·계획 바로 뒤 (도면 이미지가 있을 때만, A14 재사용) */
+  brokerRegulationImages: {
+    afterSeq: 5,
+    archetype: 'A14' as const,
+    dataKey: 'brokerRegulationImages' as const,
+    label: '지구단위계획·도면',
+    condition: 'hasBrokerRegulation' as const,
+  },
+  /** 인근 시세 비교: 수익률(seq7) 바로 뒤 (수익률 면이 없는 포스처는 토지 뒤) */
+  brokerComps: {
+    afterSeq: 7,
+    archetype: 'A26' as const,
+    dataKey: 'brokerComps' as const,
+    label: '인근 시세 비교',
+    condition: 'hasBrokerComps' as const,
+  },
 } as const;
+
+/** 중개인 제공 정보 면 dataKey — 면수 초과 절삭 대상에서 보호된다 */
+export const BASIC_IM_BROKER_SLIDE_KEYS = [
+  'brokerPoints', 'brokerRegulation', 'brokerRegulationImages', 'brokerComps',
+] as const;
 
 // ═══════════════════════════════════════════════════════════════════
 // §2. 면수·파일 크기 범위
@@ -61,8 +99,8 @@ export const BASIC_IM_OPTIONAL_SLIDES = {
 export const BASIC_IM_BOUNDS = {
   /** 최소 슬라이드 (렌트롤·수익률 없는 비수익형) */
   minSlides: 7,
-  /** 최대 슬라이드 (9기본 + 지적도1 + 갤러리확장1) */
-  maxSlides: 11,
+  /** 최대 슬라이드 (9기본 + 중개인 제공 면 최대 4: 포인트·규제·도면·시세; 지적도는 토지에 통합) */
+  maxSlides: 13,
   /** PPTX 최대 파일 크기 (KB) */
   maxFileSizeKB: 10_000,
 } as const;
@@ -100,6 +138,7 @@ export const BASIC_IM_ALLOWED = new Set([
   'A14',  // Gallery
   'A23',  // YieldFormula
   'A24',  // RentrollStacking
+  'A26',  // BrokerExtras — 중개인 제공 정보 면 (D4/D8). A04/A24 로는 원문 서술·시세표·요약 카드를 담을 수 없어 신설
 ] as const);
 
 /**
@@ -114,12 +153,12 @@ export const PRO_IM_RESERVED_ARCHETYPES = {
 
 export type ProReservedArchetype = keyof typeof PRO_IM_RESERVED_ARCHETYPES;
 
-/** 전체 지원 및 예약 아키타입 ID 목록 (A01~A25) */
+/** 전체 지원 및 예약 아키타입 ID 목록 (A01~A26) */
 export const ALL_ARCHETYPE_IDS = [
   'A01', 'A02', 'A03', 'A04', 'A05', 'A06', 'A07', 'A08', 'A09', 'A10',
   'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18',
   'A19', 'A20', 'A21',
-  'A22', 'A23', 'A24', 'A25',
+  'A22', 'A23', 'A24', 'A25', 'A26',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════

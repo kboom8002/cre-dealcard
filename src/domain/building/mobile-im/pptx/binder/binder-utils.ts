@@ -8,18 +8,18 @@ import { PRIME_TEMPLATE_ALIASES } from "../pptx-theme";
 import { calculateSetbackRatio, inferTenantCategory } from "../archetypes/a22-stacking-plan";
 import type { StackingPlanFloor, StackingPlanSummary } from "../../types";
 import { enforceTextBudget } from "../text-budget";
+import { stationNameOnly } from "./station-name";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 
-/** 역명 정규화: '양재역 신분당선' → '양재역', '강남역 2호선' → '강남역' (HP-10, HP-11) */
+/** D7(d): 표 셀 '미기재/미상/확인 필요/N/A' → '-' 정규화 (맞춤 이전 적용). 구현: ../missing-values */
+export { normalizeMissing, isMissingToken } from "../missing-values";
+
+/** 역명 정규화: '양재역 신분당선' → '양재역', '강남역 2호선' → '강남역' (HP-10, HP-11). 단일 구현: ./station-name */
 export function normalizeStationName(raw: string): string {
     if (!raw) return '';
-    return raw
-    .replace(/\s*(?:\d+호선|신분당선|수인분당선|공항철도|경의중앙선|경춘선|GTX-?[A-Z]|우이신설선|서해선|경강선|인천\d호선).*$/i, '')
-    .replace(/\([^)]*\)$/, '')
-    .trim()
-    .replace(/역$/, '') + '역';
+    return stationNameOnly(raw);
 }
 
 export function findLeadSentence(lines: string[]): string {
@@ -167,6 +167,8 @@ export function sanitizePersona(text: string): string {
     .replace(/\[인명\s*비공개\]/g, '담당자')
     .replace(/\[지역\s*신호로\s*대체됨\]/g, '해당 권역')
     .replace(/\[임차인\s*업종\s*정보로\s*대체됨\]/g, '주요 임차 업종')
+    // 임차인 상호 마스킹 라벨([임차인A] 등)이 본문에 노출되지 않도록 일반 명칭으로 정제
+    .replace(/\[임차인\s*[A-Z]?\]/g, '임차인')
     .replace(/\[이메일\s*비공개\]/g, '문의처')
     .replace(/\[연락처\s*비공개\]/g, '문의처')
     // ── 갱신요구권 환각 방어: 최초계약일 미확인 시 연수 단정 방지 (G18 보완) ──
@@ -219,6 +221,8 @@ export function stripMarkdown(text: string): string {
     .replace(/\[인명\s*비공개\]/g, '담당자')
     .replace(/\[지역\s*신호로\s*대체됨\]/g, '해당 권역')
     .replace(/\[임차인\s*업종\s*정보로\s*대체됨\]/g, '주요 임차 업종')
+    // 임차인 상호 마스킹 라벨([임차인A] 등)이 본문에 노출되지 않도록 일반 명칭으로 정제
+    .replace(/\[임차인\s*[A-Z]?\]/g, '임차인')
     .replace(/\[이메일\s*비공개\]/g, '문의처')
     .replace(/\[연락처\s*비공개\]/g, '문의처')
     // ── 어휘 중복 정제 (예: '핵심 권역 권역' -> '핵심 권역') ──

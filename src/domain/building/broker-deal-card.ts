@@ -51,6 +51,7 @@ import { getModel } from "@/ai/model-selector";
 import { detectDuplicateBuilding, type DedupResult } from "./building-dedup";
 import { linkBuildingToCanonicalProperty } from "./canonical-property";
 import { extractSlotsFromMemo, extractPostureProposal } from "./memo-slot-mapper";
+import { reconcileAskingPrice } from "./price-reconcile";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('broker-deal-card');
@@ -168,9 +169,11 @@ export async function brokerDealCardFromMemo(
   const slotMap = new Map(memoSlots.slots.map(s => [s.key, s.value]));
   const postureProposal = extractPostureProposal(input.memo || '');
 
-  const exactAskingPriceManwon = buildingTruth.askingPriceManwon
-    || (slotMap.get('askingPriceKrw') ? Number(slotMap.get('askingPriceKrw')) / 10000 : null);
-  const exactAskingPriceKrw = exactAskingPriceManwon ? exactAskingPriceManwon * 10000 : (Number(slotMap.get('askingPriceKrw')) || null);
+  // 매각가: AI 추출값과 메모 결정론적 슬롯 교차 검증 (AI 10배 오추출 방어 — reconcileAskingPrice)
+  const priceRec = reconcileAskingPrice(buildingTruth.askingPriceManwon, Number(slotMap.get('askingPriceKrw')) || null);
+  if (priceRec.warning) log.warn(`[broker-deal-card] ${priceRec.warning}`);
+  const exactAskingPriceManwon = priceRec.manwon;
+  const exactAskingPriceKrw = priceRec.krw;
 
   const exactMonthlyRentKrw = Number(slotMap.get('monthlyRentKrw')) || null;
   const exactTotalDepositKrw = Number(slotMap.get('totalDepositKrw')) || null;

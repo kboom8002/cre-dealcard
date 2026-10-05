@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
+import { parseBrokerExtras } from "@/domain/building/mobile-im/broker-extras";
 
 // IM 생성은 7섹션 AI 생성 + 외부 데이터 수집 + Judge 검증으로 60초 이상 소요 가능
 // thresholds.ts IM_HARD_TIMEOUT_MS = 180_000 (180초)에 정렬
@@ -78,6 +79,11 @@ export async function POST(req: NextRequest) {
       loan_amount_manwon: body.loan_amount_manwon,
       asking_price_manwon: body.asking_price_manwon,
     };
+
+    // D4: 중개인 추가 정보 — 검증 통과 시에만 supplemental.broker_extras 로 반영 (실패 시 400)
+    const extrasParsed = parseBrokerExtras(body.broker_extras);
+    if (!extrasParsed.ok) return NextResponse.json({ error: extrasParsed.error }, { status: 400 });
+    if (extrasParsed.value) supplemental.broker_extras = extrasParsed.value;
 
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });

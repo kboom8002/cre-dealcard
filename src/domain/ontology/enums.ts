@@ -411,6 +411,9 @@ export const PHOTO_CATEGORY = [
   'storage',         // 창고/보관실
   'map',             // 위치 지도 (자동 생성)
   'hero',            // 대표 사진 (브로커 지정)
+  'location_map',    // 위치도 (중개인 업로드 문서 이미지 — 갤러리 제외)
+  'district_plan_map', // 지구단위계획도 (중개인 업로드 — 갤러리 제외)
+  'cadastral',       // 지적도 (중개인 업로드 — 갤러리 제외)
 ] as const;
 export type PhotoCategory = typeof PHOTO_CATEGORY[number];
 

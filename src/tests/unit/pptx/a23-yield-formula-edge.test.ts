@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file a23-yield-formula-edge.test.ts
  * @description Unit tests for Archetype A23 (Yield Formula)
  *              Validates division by zero defense, stabilized badge, and non-finite number handling
@@ -106,7 +106,7 @@ describe('Archetype A23: Yield Formula Edge Case Tests', () => {
       const slideXml = zip.getEntries().find(e => e.entryName.includes('slide1.xml'))?.getData().toString('utf-8') || '';
 
       expect(slideXml).toContain('◇ 분석가정');
-      expect(slideXml).toContain('Stabilized');
+      expect(slideXml).toContain('안정화 수익률');
       expect(slideXml).toContain('3.50%');
       expect(slideXml).toContain('공실층 시세 100% 임대 달성 시');
     });

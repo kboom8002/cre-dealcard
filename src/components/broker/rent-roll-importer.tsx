@@ -70,13 +70,18 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
     let totRent = 0;
     let totMgmt = 0;
     let vacCnt = 0;
+    // 파서(parseRentRollData)와 같은 기준: 공실·자가사용 행은 합계에서 제외, 자가사용은 공실률 분모에서도 제외
+    let leasableCnt = 0;
     newRows.forEach(r => {
+      const ownerUse = r.lease_state === '자가사용';
+      if (!ownerUse) leasableCnt++;
+      if (r.is_vacant) vacCnt++;
+      if (r.is_vacant || ownerUse) return;
       totDep += (r.deposit_manwon || 0);
       totRent += (r.rent_manwon || 0);
       totMgmt += (r.mgmt_fee_manwon || 0);
-      if (r.is_vacant) vacCnt++;
     });
-    const vacPct = newRows.length > 0 ? Math.round((vacCnt / newRows.length) * 100) : 0;
+    const vacPct = leasableCnt > 0 ? Math.round((vacCnt / leasableCnt) * 100) : 0;
     setParsedPreview(prev => prev ? {
       ...prev,
       rows: newRows,

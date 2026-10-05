@@ -15,7 +15,7 @@ import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion
 import { pairOrDash } from "@/lib/format/safe-number";
 import { resolvePhysicalSpecs } from "../../resolve-physical-specs";
 import { summarizeParcels } from "../../parcel-input";
-import { resolveTenantAndUse, formatAreaSqm } from "./rent-roll-table-builder";
+import { resolveTenantAndUse, resolveLeaseNote, formatAreaSqm, formatAreaWithPyeong } from "./rent-roll-table-builder";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -135,25 +135,34 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     }
 
     const isBasicPresetForRentRoll = body?.preset === 'credeal_basic';
+    // D6: 비고(비고/임대상태/갱신요구권) 입력이 하나라도 있을 때만 11번째 열 — rent-roll-table-builder 와 동일 규칙
+    const coreNotes: string[] = core.leases.map((l: any) => resolveLeaseNote({
+      note: l.note, lease_state: l.leaseState, renewal_exercised: l.renewalExercised,
+    }));
+    const coreHasNoteCol = isBasicPresetForRentRoll && coreNotes.some(Boolean);
     const rentRollHeaders = isBasicPresetForRentRoll 
-            ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일']
+            ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일', ...(coreHasNoteCol ? ['비고'] : [])]
             : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
-    // 임차인/용도 비중복 해석 (Rule 4) — rent-roll-table-builder 와 동일 규칙
-    const coreParty = (l: any) => resolveTenantAndUse({
-            tenant_name: l.tenantName, tenant_type: l.tenantBusiness, is_vacant: l.leaseState === '공실',
-          });
-    const rentRollRows = core.leases.map(l => isBasicPresetForRentRoll ? [
+    // 임차인/용도 해석 (Rule 4, D6) — rent-roll-table-builder 와 동일 규칙 (상호 없으면 '임차인 A/B…' 마스킹)
+    let coreMaskSeq = 0;
+    const coreParty = (l: any) => {
+      const src = { tenant_name: l.tenantName, tenant_type: l.tenantBusiness, is_vacant: l.leaseState === '공실' };
+      const probe = resolveTenantAndUse(src);
+      return probe.isMasked ? resolveTenantAndUse(src, { maskSeq: coreMaskSeq++ }) : probe;
+    };
+    const rentRollRows = core.leases.map((l, coreIdx) => isBasicPresetForRentRoll ? ((party) => [
             l.unitLabel ?? '-',
-            coreParty(l).tenant,
-            coreParty(l).use,
-            l.leaseAreaSqm ? formatAreaSqm(l.leaseAreaSqm) : '-',
+            party.tenant,
+            party.use,
+            l.leaseAreaSqm ? formatAreaWithPyeong(l.leaseAreaSqm) : '-',
             (l as any).exclusiveAreaSqm ? formatAreaSqm((l as any).exclusiveAreaSqm) : '-',
             l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}` : '-',
             l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}` : '-',
             l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}` : '-',
             ((l.monthlyRentKrw || 0) + (l.mgmtFeeKrw || 0)) > 0 ? `${Math.round(((l.monthlyRentKrw || 0) + (l.mgmtFeeKrw || 0)) / 10000).toLocaleString()}` : '-',
-            l.currentExpiryDate ?? '-'
-          ] : [
+            l.currentExpiryDate ?? '-',
+            ...(coreHasNoteCol ? [coreNotes[coreIdx] || '-'] : []),
+          ])(coreParty(l)) : [
             l.unitLabel,
             l.tenantBusiness ?? (l.leaseState === '공실' ? '🚫 공실' : '-'),
             l.leaseAreaSqm ? `${(sqmToPyeong(l.leaseAreaSqm)).toFixed(0)}평` : '-',

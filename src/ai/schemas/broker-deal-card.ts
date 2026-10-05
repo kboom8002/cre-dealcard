@@ -6,6 +6,77 @@ import { z } from "zod/v4";
 
 // ---- Memo Parser Output (section 7.3) ----
 
+/** 숫자 후보 1개 변환 (콤마 숫자 문자열 허용, 유한수 아니면 null) */
+function toFiniteNumber(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string") {
+    const s = v.replace(/,/g, "").trim();
+    if (s === "" || !/^-?\d+(\.\d+)?$/.test(s)) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/**
+ * LLM이 범위("8~9억")를 배열로 반환해도 단일 대표값(중앙값, 짝수 개면 하위 중앙)으로 강제한다.
+ * 숫자 문자열("80,000") → 숫자, 그 외 → null.
+ */
+export function coerceSignalNumber(v: unknown): number | null {
+  if (Array.isArray(v)) {
+    const nums = v.map(toFiniteNumber).filter((n): n is number => n !== null).sort((a, b) => a - b);
+    if (nums.length === 0) return null;
+    return nums[Math.floor((nums.length - 1) / 2)];
+  }
+  return toFiniteNumber(v);
+}
+
+/**
+ * 원본 값이 복수 숫자(범위)였을 때, 대표값 외 나머지 값을 알리는 문자열 목록.
+ * (brokerNotes로 옮기기 위한 용도 — 원문 값만 사용, 새 사실은 만들지 않음)
+ */
+export function collectRangeNotes(rawSignals: unknown): string[] {
+  if (!rawSignals || typeof rawSignals !== "object") return [];
+  const notes: string[] = [];
+  for (const [key, val] of Object.entries(rawSignals as Record<string, unknown>)) {
+    if (!Array.isArray(val)) continue;
+    const nums = val.map(toFiniteNumber).filter((n): n is number => n !== null);
+    if (nums.length < 2) continue;
+    notes.push(`${key} 범위: ${nums.join("~")}`);
+  }
+  return notes;
+}
+
+const signalNumber = () => z.preprocess(coerceSignalNumber, z.number().nullable()).default(null);
+
+export const HospitalitySignalsSchema = z.object({
+  roomCount: signalNumber(),
+  adr: signalNumber(),           // 만원/박
+  occupancyRate: signalNumber(), // %
+  gopMargin: signalNumber(),     // %
+  operatingModel: z.string().nullable().default(null),
+});
+
+export const DevelopmentSignalsSchema = z.object({
+  landAreaPyung: signalNumber(),
+  farPct: signalNumber(),
+  bcrPct: signalNumber(),
+  constructionCostManwon: signalNumber(),
+  expectedSalesPriceManwon: signalNumber(),
+  developmentType: z.string().nullable().default(null),
+});
+
+export const TradingSignalsSchema = z.object({
+  pricePerPyeongManwon: signalNumber(),
+  marketPriceManwon: signalNumber(),
+  holdingPeriodMonths: signalNumber(),
+});
+
+export const OwnerOccupiedSignalsSchema = z.object({
+  selfUseIntent: z.boolean().nullable().default(null),
+  currentLeaseCostManwon: signalNumber(),
+});
+
 export const MemoParserOutputSchema = z.object({
   extractedFacts: z.object({
     region: z.string().nullable().default(null),
@@ -20,36 +91,16 @@ export const MemoParserOutputSchema = z.object({
     unitRentTexts: z.array(z.string()).default([]),
     sellerMotivationText: z.string().nullable().default(null),
     brokerNotes: z.array(z.string()).default([]),
-    hospitalitySignals: z.object({
-      roomCount: z.number().nullable().default(null),
-      adr: z.number().nullable().default(null),         // 만원/박
-      occupancyRate: z.number().nullable().default(null), // %
-      gopMargin: z.number().nullable().default(null),     // %
-      operatingModel: z.string().nullable().default(null),
-    }).default({
+    hospitalitySignals: HospitalitySignalsSchema.default({
       roomCount: null,
       adr: null,
       occupancyRate: null,
       gopMargin: null,
       operatingModel: null,
     }),
-    developmentSignals: z.object({
-      landAreaPyung: z.number().nullable().default(null),
-      farPct: z.number().nullable().default(null),
-      bcrPct: z.number().nullable().default(null),
-      constructionCostManwon: z.number().nullable().default(null),
-      expectedSalesPriceManwon: z.number().nullable().default(null),
-      developmentType: z.string().nullable().default(null),
-    }).default({ landAreaPyung: null, farPct: null, bcrPct: null, constructionCostManwon: null, expectedSalesPriceManwon: null, developmentType: null }),
-    tradingSignals: z.object({
-      pricePerPyeongManwon: z.number().nullable().default(null),
-      marketPriceManwon: z.number().nullable().default(null),
-      holdingPeriodMonths: z.number().nullable().default(null),
-    }).default({ pricePerPyeongManwon: null, marketPriceManwon: null, holdingPeriodMonths: null }),
-    ownerOccupiedSignals: z.object({
-      selfUseIntent: z.boolean().nullable().default(null),
-      currentLeaseCostManwon: z.number().nullable().default(null),
-    }).default({ selfUseIntent: null, currentLeaseCostManwon: null }),
+    developmentSignals: DevelopmentSignalsSchema.default({ landAreaPyung: null, farPct: null, bcrPct: null, constructionCostManwon: null, expectedSalesPriceManwon: null, developmentType: null }),
+    tradingSignals: TradingSignalsSchema.default({ pricePerPyeongManwon: null, marketPriceManwon: null, holdingPeriodMonths: null }),
+    ownerOccupiedSignals: OwnerOccupiedSignalsSchema.default({ selfUseIntent: null, currentLeaseCostManwon: null }),
   }),
   investmentPosture: z.enum(['income', 'owner_occupied', 'development', 'operating', 'trading']).optional(),
 

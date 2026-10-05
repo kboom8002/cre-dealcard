@@ -25,6 +25,8 @@ import {
   AncillaryIncomeSection,
   LogisticsSpecSection,
   VacancySection,
+  BrokerExtrasSection,
+  BrokerTargetRentField,
 } from "./bottom-sheet/sections";
 import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
@@ -299,6 +301,8 @@ export function ImDataBottomSheet({
       setTargetIrrPct,
       brokerHighlight,
       setBrokerHighlight,
+      brokerExtrasForm,
+      setBrokerExtrasForm,
       state,
       errorMsg,
       progress,
@@ -533,6 +537,9 @@ export function ImDataBottomSheet({
                 console.log(`[RentRollImport] onImport: ${leases.length}건 floorLeases 수신`);
               }}
             />
+
+            {/* D4: 목표 임대료 — 렌트롤 입력 근처 (안정화 수익률 산출용, 선택) */}
+            <BrokerTargetRentField form={brokerExtrasForm} setForm={setBrokerExtrasForm} />
 
             {/* Monthly Rent */}
           <div>
@@ -834,6 +841,7 @@ export function ImDataBottomSheet({
                     </button>
                   </div>
                   <select
+                    data-testid={`photo-category-${idx}`}
                     value={photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')}
                     onChange={(e) => setPhotoCategories(prev => ({ ...prev, [idx]: e.target.value }))}
                     className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
@@ -846,6 +854,9 @@ export function ImDataBottomSheet({
                     <option value="entrance">주 출입구</option>
                     <option value="mechanical">기계/설비</option>
                     <option value="floor_plan">층별 도면</option>
+                    <option value="location_map">위치도</option>
+                    <option value="district_plan_map">지구단위계획도</option>
+                    <option value="cadastral">지적도</option>
                   </select>
                   <input
                     type="text"
@@ -906,6 +917,7 @@ export function ImDataBottomSheet({
                       </button>
                     </div>
                     <select
+                      data-testid={`photo-category-${totalIdx}`}
                       value={photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')}
                       onChange={(e) => setPhotoCategories(prev => ({ ...prev, [totalIdx]: e.target.value }))}
                       className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
@@ -918,6 +930,9 @@ export function ImDataBottomSheet({
                       <option value="entrance">주 출입구</option>
                       <option value="mechanical">기계/설비</option>
                       <option value="floor_plan">층별 도면</option>
+                      <option value="location_map">위치도</option>
+                      <option value="district_plan_map">지구단위계획도</option>
+                      <option value="cadastral">지적도</option>
                     </select>
                     <input
                       type="text"
@@ -1267,6 +1282,9 @@ export function ImDataBottomSheet({
               className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
+
+          {/* D4: 중개인 추가 정보 (선택) — 접이식, 한줄 코멘트 바로 아래 */}
+          <BrokerExtrasSection form={brokerExtrasForm} setForm={setBrokerExtrasForm} />
         </div>
 
         {/* Footer actions - Fixed at bottom */}

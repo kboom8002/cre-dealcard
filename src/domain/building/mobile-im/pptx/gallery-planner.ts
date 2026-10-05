@@ -77,6 +77,8 @@ export const GALLERY_EXCLUDE_CATEGORIES = new Set([
   'business_card',
   'cadastral',
   'land_plan',
+  'location_map',       // D4: 중개인 위치도 → 입지 면 지도 슬롯
+  'district_plan_map',  // D4: 중개인 지구단위계획도 → '지구단위계획·도면' 면
 ]);
 
 /**

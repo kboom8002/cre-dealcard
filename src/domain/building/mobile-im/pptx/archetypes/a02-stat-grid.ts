@@ -4,6 +4,9 @@ import { C, M, CW, KR, NUM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { formatPyeong } from '@/lib/utils/area-conversion';
 import { isBoilerplateHighlight, isNearDuplicate } from '../summary-highlights';
+import { stationNameOnly } from '../binder/station-name';
+import { YIELD_LABELS, summaryCapRateSub } from '../../yield-set';
+import { fmtFixed } from '@/lib/format/safe-number';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -31,16 +34,28 @@ const abbrBasis = (raw: string): string => {
 };
 
 /**
- * Wave 9.3 (b안): 요약 카드 라벨에 산출 기준을 짧게 병기한다.
- * - "연 순수익률(Cap Rate, 기준: 순영업소득 ÷ 매매가격)" → "Cap Rate (NOI÷매매가)"
- * - "연 수익률(Cap Rate, 기준: NOI)" → "Cap Rate (NOI÷매매가)"
+ * Wave 9.3 (b안) / D10: 요약 카드 라벨에 산출 기준을 짧게 병기한다 (수익률 슬라이드 A23와 같은 이름 — YIELD_LABELS).
+ * - "연 순수익률(Cap Rate, 기준: 순영업소득 ÷ 매매가격)" → "Cap Rate (NOI 기준)"
+ * - "연 수익률(Cap Rate, 기준: NOI)" → "Cap Rate (NOI 기준)"
+ * - "연 수익률(Cap Rate, 기준: 총임대료 ÷ 매매가격)" → "임대수익률 (Gross, 매매가 대비)"  (총임대료 기준은 Cap Rate로 부르지 않음)
  * - "실투자금" / "필요 실투자금" → "실투자금 (취득비용 포함)"
  */
 export function normalizeSummaryLabel(label: string): string {
   const full = label.match(/Cap Rate,\s*기준:\s*([^÷)]+?)\s*÷\s*([^)]+?)\)/);
-  if (full) return `Cap Rate (${abbrBasis(full[1])}÷${abbrBasis(full[2])})`;
+  if (full) {
+    const basis = abbrBasis(full[1]);
+    const denom = abbrBasis(full[2]);
+    if (basis === 'NOI') return YIELD_LABELS.noiCapRate;
+    if (basis === '총임대료') return denom === '매매가−보증금' ? YIELD_LABELS.grossNetOfDeposit : YIELD_LABELS.grossOnPrice;
+    return `Cap Rate (${basis}÷${denom})`;
+  }
   const numOnly = label.match(/Cap Rate,\s*기준:\s*([^)]+?)\)/);
-  if (numOnly) return `Cap Rate (${abbrBasis(numOnly[1])}÷매매가)`;
+  if (numOnly) {
+    const basis = abbrBasis(numOnly[1]);
+    if (basis === 'NOI') return YIELD_LABELS.noiCapRate;
+    if (basis === '총임대료') return YIELD_LABELS.grossOnPrice;
+    return `Cap Rate (${basis}÷매매가)`;
+  }
   if (/^\s*(필요\s*)?실투자금\s*$/.test(label)) return '실투자금 (취득비용 포함)';
   return label.replace(/,\s*기준:.*?\)/, ')');
 }
@@ -129,7 +144,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       };
       if (hero.askingPriceDisplay) metrics.push({ label: '매매 희망가', value: hero.askingPriceDisplay });
       if (isFinitePos(hero.equityRequiredBil)) metrics.push({ label: '필요 실투자금', value: `약 ${hero.equityRequiredBil}억 원` });
-      if (isFinitePos(hero.capRateBase)) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${hero.capRateBase}%` });
+      if (isFinitePos(hero.capRateBase)) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: fmtFixed(hero.capRateBase, 2, '%'), sub: summaryCapRateSub(hero) });
       if (isFiniteNum(hero.leveragedYieldPct) && Number(hero.leveragedYieldPct) > -100 && Number(hero.leveragedYieldPct) < 1000) {
         metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
       }
@@ -149,9 +164,11 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     }
     if (!metrics.some((m: any) => m.label && (m.label.includes('수익률') || m.label.includes('Cap Rate')))) {
       const isPosCap = hero.capRateBase != null && Number.isFinite(Number(hero.capRateBase)) && Number(hero.capRateBase) > 0;
-      const cap = isPosCap ? `${hero.capRateBase}%` : (hero.grossYieldDisplay && !String(hero.grossYieldDisplay).includes('Infinity') ? hero.grossYieldDisplay : '-');
+      const cap = isPosCap ? fmtFixed(hero.capRateBase, 2, '%') : (hero.grossYieldDisplay && !String(hero.grossYieldDisplay).includes('Infinity') ? hero.grossYieldDisplay : '-');
       // capRateBase = NOI(base) ÷ 매매가 (FinancialCalculator). grossYieldDisplay는 기준 불명 → 일반 라벨
-      metrics.push({ label: isPosCap ? 'Cap Rate (NOI÷매매가)' : '연 수익률', value: cap });
+      metrics.push(isPosCap
+        ? { label: YIELD_LABELS.noiCapRate, value: cap, sub: summaryCapRateSub(hero) }
+        : { label: '연 수익률', value: cap });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('실투자금'))) {
       const isPosEq = hero.equityRequiredBil != null && Number.isFinite(Number(hero.equityRequiredBil)) && Number(hero.equityRequiredBil) > 0;
@@ -308,7 +325,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     const locPoi = input.data.enrichment?.locationPoi ?? input.data.locationPoi;
     const nearestSt = locPoi?.nearestStation;
     const rawSt = input.data.station_name || hero?.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
-    const stationName = rawSt ? rawSt.replace(/\s*(?:\d+호선|신분당선|수인분당선|공항철도|경의중앙선|경춘선|GTX-?[A-Z]|우이신설선|서해선|경강선|인천\d호선).*$/i, '').replace(/\([^)]*\)$/, '').replace(/역$/, '') + '역' : '';
+    const stationName = rawSt ? stationNameOnly(String(rawSt)) : '';
     const distNum = typeof nearestSt?.distanceM === 'number'
       ? nearestSt.distanceM
       : parseFloat(String(nearestSt?.distanceM || '').replace(/[^\d.]/g, ''));
