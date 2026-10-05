@@ -1,0 +1,9 @@
+{
+ "key": "0335f8528f4a96c7b76fd25222d09ef37cfb0bfd",
+ "recordedAt": "2026-10-05T04:54:56.262Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **하방 안정성**: 매입가 250억",
+ "failed": true,
+ "error": "Request was aborted."
+}

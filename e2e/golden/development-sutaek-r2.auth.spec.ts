@@ -12,6 +12,7 @@ const factory = createGoldenTest({
   posture: 'development',
   askingPriceManwon: 890000,
   resolution: 'R2',
+  multiParcel: true,
   expectedMinSlides: 6,
   expectedMaxSlides: 11,
   expectedFloors: [],

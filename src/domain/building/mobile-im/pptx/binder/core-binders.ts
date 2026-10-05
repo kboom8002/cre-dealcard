@@ -14,6 +14,7 @@ import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, fin
 import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
 import { pairOrDash } from "@/lib/format/safe-number";
 import { resolvePhysicalSpecs } from "../../resolve-physical-specs";
+import { summarizeParcels } from "../../parcel-input";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -363,6 +364,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     // G-06 → Wave 9.3: 대지면적 — 물건 개요(A04 building)와 동일 우선순위로 단일화.
     //   V-World landUsePlan/landPrice.landArea는 '대표 필지' 1개 면적이라 다필지 대지(예: 117번지 외 2필지)에서 과소 표기됨
     //   → SSoT/건축물대장 대지면적 우선, V-World는 최후 폴백.
+    const parcelSum = summarizeParcels(body?.parcels);
     const effectiveLandArea = [
       body?.ssot_summary?.land_area_sqm,
       regPlatArea,
@@ -385,14 +387,19 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
 
     if (effectiveLandArea && Number.isFinite(Number(effectiveLandArea)) && Number(effectiveLandArea) > 0) {
       const areaSqm = Number(effectiveLandArea);
-      rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(sqmToPyeong(areaSqm)).toFixed(1)}평)`]);
+      // 다필지: 토지 현황 행 수 상한(7행)을 넘기지 않도록 별도 행 대신 대지면적 행에 필지 수를 병기
+      rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(sqmToPyeong(areaSqm)).toFixed(1)}평)${parcelSum.isMulti ? ` · ${parcelSum.count}필지 합계` : ''}`]);
     }
 
     let zoningDistrict = body?.ssot_summary?.zone_type ?? body?.ssot_summary?.zoning ?? lup?.zoningDistrict ?? '-';
     if (zoningDistrict === '확인 필요' || zoningDistrict === '정보 없음') {
       zoningDistrict = lup?.zoningDistrict ?? '-';
     }
-    rows.push(['용도지역', zoningDistrict]);
+    // 다필지: 필지별 용도지역이 서로 다르면 모두 병기 (대표 필지 값만 쓰면 오표기)
+    const byParcel: Array<{ pnu: string; zoningDistrict: string }> = Array.isArray(enrichment.landUseByParcel) ? enrichment.landUseByParcel : [];
+    const distinctZones = Array.from(new Set(byParcel.map(p => p.zoningDistrict).filter(Boolean)));
+    const hasMixedZoning = distinctZones.length > 1;
+    rows.push(['용도지역', hasMixedZoning ? `${distinctZones.join(' / ')} (필지별 상이)` : zoningDistrict]);
 
     const statutory = STATUTORY_ZONING_LIMITS[zoningDistrict] ?? { bcr: 60, far: 400 };
     const maxBcr = lup?.buildingCoverageMax ?? statutory.bcr;
@@ -427,12 +434,18 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       ?? '-';
     if (effectiveLandShape && effectiveLandShape !== '-') rows.push(['필지 형상', effectiveLandShape]);
 
-    const landCat = lp?.landCategory ?? body?.ssot_summary?.land_category ?? '대';
+    // 다필지: 중개인이 입력한 필지 구성(지목 요약)을 우선, 단일 필지는 기존 우선순위 유지
+    const landCat = parcelSum.landCategoryLabel
+      ?? (parcelSum.isMulti ? undefined : (lp?.landCategory ?? body?.ssot_summary?.land_category))
+      ?? (parcelSum.isMulti ? '-' : '대');
     rows.push(['지목', landCat]);
 
-    if (lp?.pricePerSqm) {
+    if (parcelSum.isMulti && parcelSum.weightedOfficialPricePerM2) {
+      const w = parcelSum.weightedOfficialPricePerM2;
+      rows.push(['개별공시지가', `${w.toLocaleString()}원/㎡ (필지 면적 가중평균, ${Math.round(w * SQM_RATIO).toLocaleString()}원/평)`]);
+    } else if (lp?.pricePerSqm) {
       const pricePerPyeong = Math.round(Number(lp.pricePerSqm) * SQM_RATIO);
-      rows.push(['개별공시지가', `${Number(lp.pricePerSqm).toLocaleString()}원/㎡ (${pricePerPyeong.toLocaleString()}원/평, ${lp.baseYear ?? ''}년)`]);
+      rows.push([parcelSum.isMulti ? '개별공시지가 (대표 필지)' : '개별공시지가', `${Number(lp.pricePerSqm).toLocaleString()}원/㎡ (${pricePerPyeong.toLocaleString()}원/평, ${lp.baseYear ?? ''}년)`]);
     } else if (body?.ssot_summary?.land_price_per_sqm) {
       const p = Number(body.ssot_summary.land_price_per_sqm);
       rows.push(['개별공시지가', `${p.toLocaleString()}원/㎡ (${Math.round(p * SQM_RATIO).toLocaleString()}원/평)`]);

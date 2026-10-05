@@ -20,6 +20,7 @@ import { validateCombination } from '@/domain/ontology';
 import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
 import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
 import { resolvePhysicalSpecs } from '@/domain/building/mobile-im/resolve-physical-specs';
+import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
 import { sqmToPyeong, pyeongToSqm, formatPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -420,8 +421,31 @@ export async function generateMobileIMHandler(
         : 0)
     || Number((ssotRow.layers as any)?.physical?.total_area_sqm || 0);
 
+  // 다필지: 브로커가 입력한 필지 면적 합계(모든 필지에 면적이 있을 때만)를 SSoT 대지면적으로 사용.
+  //   우선순위: 명시 대지면적 입력 > 필지 면적 합계 > 기존 SSoT. (V-World/대장의 단일 필지 면적으로 과소 표기되는 것 방지)
+  // 중개인이 PNU 만 입력한 필지는 공공데이터(V-World)의 실제 면적/지목/공시지가로 보강 (중개인 입력 우선, 조회 실패·폴백은 미사용).
+  const knownParcelCount = new Set([
+    ...((supplemental.parcels ?? []) as Array<Record<string, unknown>>).map(p => String(p.pnu ?? '')).filter(Boolean),
+    ...(supplemental.pnus ?? []),
+  ]).size;
+  if (knownParcelCount > 1) {
+    try {
+      const { fillParcelsFromPublicData, defaultParcelLookupDeps } = await import('@/domain/building/mobile-im/parcel-enrichment');
+      const filled = await fillParcelsFromPublicData(
+        supplemental.parcels as any,
+        supplemental.pnus,
+        await defaultParcelLookupDeps(),
+      );
+      supplemental.parcels = filled.parcels as unknown as Array<Record<string, unknown>>;
+      log.info(`[im-handler] 다필지 ${filled.parcels.length}필지 보강: 조회 ${filled.lookedUp}건, 공공데이터로 채운 필드 ${filled.filledFields}개`);
+    } catch (err) {
+      log.warn('[im-handler] 다필지 보강 실패 (입력값 그대로 진행)', err);
+    }
+  }
+  const parcelSummary = summarizeParcels(supplemental.parcels);
   const userSpecifiedLandArea = Number(supplemental.land_area_m2 || 0)
     || (supplemental.land_area_pyeong ? pyeongToSqm(Number(supplemental.land_area_pyeong)) : 0)
+    || (parcelSummary.totalAreaM2 ?? 0)
     || Number((ssotRow.layers as any)?.physical?.land_area_sqm || 0);
 
   if (externalData?.buildingRegister && userSpecifiedTotalArea > 0) {
@@ -669,6 +693,7 @@ export async function generateMobileIMHandler(
       permitSpec: supplemental.permitSpec ?? undefined,
       regulation: supplemental.regulation ?? undefined,
       parcels: supplemental.parcels ?? undefined,
+      pnus: parcelSummary.pnus.length > 0 ? parcelSummary.pnus : undefined,
       floor_leases: supplemental.floor_leases ?? undefined,
       askingPrice: supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : undefined,
       asking_price_manwon: supplemental.asking_price_manwon ?? undefined,
@@ -696,6 +721,9 @@ export async function generateMobileIMHandler(
         size_signal: userSpecifiedTotalArea > 0 ? `${formatPyeong(userSpecifiedTotalArea, 1)}평` : ssotRow.size_signal,
         total_gross_area_sqm: userSpecifiedTotalArea > 0 ? userSpecifiedTotalArea : undefined,
         land_area_sqm: userSpecifiedLandArea > 0 ? userSpecifiedLandArea : undefined,
+        parcel_count: parcelSummary.count > 0 ? parcelSummary.count : undefined,
+        pnus: parcelSummary.pnus.length > 0 ? parcelSummary.pnus : undefined,
+        ...(parcelSummary.landCategoryLabel ? { land_category: parcelSummary.landCategoryLabel } : {}),
         investment_posture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
         vacancy_signal: supplemental.vacancy_status || (supplemental.vacancy_pct != null ? (supplemental.vacancy_pct === 0 ? '만실' : `공실률 ${supplemental.vacancy_pct}%`) : null) || ssotRow.vacancy_signal,
         vacancy_status: supplemental.vacancy_status || ssotRow.vacancy_signal,

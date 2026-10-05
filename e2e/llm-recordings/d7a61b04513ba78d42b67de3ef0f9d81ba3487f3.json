@@ -1,0 +1,14 @@
+{
+ "key": "d7a61b04513ba78d42b67de3ef0f9d81ba3487f3",
+ "recordedAt": "2026-10-05T05:04:38.355Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 총 3개 필지 기준 토지면적은 651.2㎡ (",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"계획된 오피스 2,500평(약 1652.9㎡) 규모\",\n      \"suggestion\": \"2,500평은 약 8,264.5㎡에 해당하므로 면적 환산값을 정정하고, 계획 규모의 근거 자료를 명시하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"일평균 유동인구 6.5만 명\",\n      \"suggestion\": \"공공데이터, 상권분석 보고서 또는 조사기관 자료의 출처·기준일을 제시하거나, 검증 전에는 해당 수치를 삭제하고 '유동인구 자료 확인 필요'로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"일평균 유동인구 6.5만 명 상권\",\n      \"suggestion\": \"유동인구 측정 지점, 조사 기간, 집계 방식 및 출처를 함께 기재하세요. 출처가 없다면 단정적 표현을 피하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"구리역 8호선 약 482m·경의중앙선 약 597m의 더블 역세권(도보 5분 이내)과 일평균 유동인구 6.5만 명 상권에 대한 선점 비용으로 평가할 수 있습니다.\",\n      \"suggestion\": \"'선점 비용'처럼 매입의 유리함이나 투자 매력을 암시하는 표현을 삭제하고, 확인 가능한 입지 및 가격 정보만 중립적으로 기술하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"선점 비용으로 평가할 수 있습니다\",\n      \"suggestion\": \"주관적인 가격·가치 평가를 피하고, '매도희망가 기준 토지 평당 환산가는 약 4,520만원이며, 인허가 및 사업성 검토가 필요하다'와 같이 산출 사실과 검토 필요사항으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2915,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 15392
+ }
+}

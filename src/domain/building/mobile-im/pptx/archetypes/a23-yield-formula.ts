@@ -141,7 +141,11 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // 토지평당가 (공시지가 최신값이 있을 때)
   if (landPriceHistory?.latestPricePerSqm > 0) {
     const pricePerPyeong = Math.round(landPriceHistory.latestPricePerSqm * SQM_RATIO);
-    renderRow('토지 공시지가 (평당)', `${Math.round(pricePerPyeong / 10000).toLocaleString()}만원`);
+    // 다필지: 단가 기준 명시 (면적 가중평균 / 대표 필지)
+    const priceLabel = d.landPriceBasis === 'weighted' ? '토지 공시지가 (평당, 면적가중)'
+      : d.landPriceBasis === 'representative' ? '토지 공시지가 (평당, 대표 필지)'
+      : '토지 공시지가 (평당)';
+    renderRow(priceLabel, `${Math.round(pricePerPyeong / 10000).toLocaleString()}만원`);
   }
 
   // 매매가 대비 토지비중

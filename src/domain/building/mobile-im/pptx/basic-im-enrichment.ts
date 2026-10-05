@@ -19,7 +19,15 @@ export interface EnrichmentResult {
   landPriceHistory?: LandPriceHistoryResult | null;
   /** 토지이용계획 (F-07) */
   landUsePlan?: { zoningDistrict?: string; buildingCoverageMax?: number; floorAreaRatioMax?: number } | null;
+  /**
+   * 다필지: 필지별 용도지역 (대표 필지 포함, 조회 성공분만).
+   * 2필지 이상일 때만 채워진다 — 필지마다 용도지역이 다를 수 있어 대표 필지 값만 쓰면 오표기 위험.
+   */
+  landUseByParcel?: Array<{ pnu: string; zoningDistrict: string }> | null;
 }
+
+/** 다필지 필지별 용도지역 조회 상한 (외부 API 호출 폭주 방지) */
+const MAX_PARCEL_LANDUSE_LOOKUPS = 10;
 
 /**
  * Basic IM enrichment: 좌표 기반으로 카카오맵/V-World 지적도 데이터를 자동 수집.
@@ -112,6 +120,29 @@ export async function enrichForBasicIm(
       }
     } catch (err) {
       console.warn('[basic-im-enrichment] landUsePlan fetch failed:', err);
+    }
+  }
+
+  // 2.6 다필지: 필지별 용도지역 (추가 필지 병렬 조회, 실패 필지는 생략 — 값을 만들어내지 않음)
+  if (pnu && additionalPnus && additionalPnus.length > 0) {
+    try {
+      const { fetchLandUsePlan } = await import('@/lib/external/land-use-api');
+      const targets = [pnu, ...additionalPnus].slice(0, MAX_PARCEL_LANDUSE_LOOKUPS);
+      const settled = await Promise.all(targets.map(async (p) => {
+        if (p === pnu && result.landUsePlan?.zoningDistrict) {
+          return { pnu: p, zoningDistrict: result.landUsePlan.zoningDistrict };
+        }
+        try {
+          const r = await fetchLandUsePlan(p);
+          return r?.zoningDistrict ? { pnu: p, zoningDistrict: r.zoningDistrict as string } : null;
+        } catch {
+          return null;
+        }
+      }));
+      const ok = settled.filter((x): x is { pnu: string; zoningDistrict: string } => !!x);
+      if (ok.length > 0) result.landUseByParcel = ok;
+    } catch (err) {
+      console.warn('[basic-im-enrichment] landUseByParcel fetch failed:', err);
     }
   }
 

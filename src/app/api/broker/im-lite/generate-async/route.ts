@@ -15,8 +15,10 @@ import { randomUUID } from "node:crypto";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { persistLeaseUnits } from "@/domain/building/mobile-im/lease-adapter";
 import { parseBrokerCount } from "@/domain/building/mobile-im/resolve-physical-specs";
+import { parseBrokerParcels, normalizePnu } from "@/domain/building/mobile-im/parcel-input";
 
 import { createModuleLogger } from '@/lib/logger';
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 const log = createModuleLogger('route');
 
 
@@ -118,6 +120,18 @@ export async function POST(req: NextRequest) {
     if (parkingParsed.value !== undefined) supplemental.parking_count = parkingParsed.value;
     if (elevatorParsed.value !== undefined) supplemental.elevator_count = elevatorParsed.value;
 
+    // 다필지: 바텀시트 ParcelSection 입력(parcels/pnus)을 파이프라인으로 전달 (기존에는 여기서 유실됨)
+    // pnus 는 parcels 에서 파생한 값 + 클라이언트가 보낸 pnus(19자리 숫자만) 의 합집합
+    const parcelsParsed = parseBrokerParcels(body.parcels);
+    if (!parcelsParsed.ok) return NextResponse.json({ error: parcelsParsed.error }, { status: 400 });
+    if (parcelsParsed.warnings.length > 0) log.warn('[generate-async] parcels 일부 필드 무시', { warnings: parcelsParsed.warnings });
+    if (parcelsParsed.parcels.length > 0) supplemental.parcels = parcelsParsed.parcels as unknown as Array<Record<string, unknown>>;
+    const extraPnus = Array.isArray(body.pnus)
+      ? (body.pnus as unknown[]).map(normalizePnu).filter((p): p is string => !!p)
+      : [];
+    const mergedPnus = Array.from(new Set([...parcelsParsed.pnus, ...extraPnus]));
+    if (mergedPnus.length > 0) supplemental.pnus = mergedPnus;
+
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });
     }
@@ -196,7 +210,7 @@ export async function POST(req: NextRequest) {
               deposit_krw: fl?.deposit_manwon ? Number(fl.deposit_manwon) * 10000 : (fl?.deposit_krw || undefined),
               monthly_rent_krw: fl?.rent_manwon ? Number(fl.rent_manwon) * 10000 : (fl?.monthly_rent_krw || undefined),
               mgmt_fee_krw: fl?.mgmt_fee_manwon ? Number(fl.mgmt_fee_manwon) * 10000 : (fl?.mgmt_fee_krw || undefined),
-              area_pyung: fl?.area_pyung || undefined,
+              area_pyung: fl?.area_pyung || (Number(fl?.area_sqm) > 0 ? sqmToPyeong(Number(fl.area_sqm)) : undefined),
               lease_start: fl?.lease_start || undefined,
               lease_end: fl?.lease_end || undefined,
               source_tier: 'broker_input',

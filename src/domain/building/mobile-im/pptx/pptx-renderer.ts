@@ -23,6 +23,7 @@ import { validateYield, type Yield } from './yield-object';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
 import { resolvePhysicalSpecs } from '../resolve-physical-specs';
+import { summarizeParcels, withParcelCountSuffix } from '../parcel-input';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -155,7 +156,10 @@ export class MobileImPptxRenderer {
       const coords = input.doc.body?.coordinates 
         ?? input.doc.body?.ssot_summary?.coordinates
         ?? (input.building?.lat && input.building?.lng ? { lat: Number(input.building.lat), lng: Number(input.building.lng) } : undefined);
-      if (coords?.lat && coords?.lng && (!enrichment.cadastralMapImage || !enrichment.landPriceHistory)) {
+      // 다필지: handler 단계의 지적도는 대표 PNU 1개만 하이라이트하므로, 2필지 이상이면 전 필지 기준으로 재생성한다.
+      const multiPnus: string[] = (input.doc.body?.ssot_summary?.pnus ?? input.doc.body?.pnus ?? []) as string[];
+      const isMultiParcelDeck = Array.isArray(multiPnus) && multiPnus.filter(Boolean).length > 1;
+      if (coords?.lat && coords?.lng && (!enrichment.cadastralMapImage || !enrichment.landPriceHistory || isMultiParcelDeck)) {
         try {
           const { enrichForBasicIm } = await import('./basic-im-enrichment');
           const pnu = input.doc.body?.ssot_summary?.pnu
@@ -172,8 +176,13 @@ export class MobileImPptxRenderer {
           enrichment = {
             ...enrichment,
             ...autoEnrichment,
-            cadastralMapImage: enrichment.cadastralMapImage || autoEnrichment.cadastralMapImage,
+            cadastralMapImage: isMultiParcelDeck
+              ? (autoEnrichment.cadastralMapImage || enrichment.cadastralMapImage)
+              : (enrichment.cadastralMapImage || autoEnrichment.cadastralMapImage),
             landPriceHistory: enrichment.landPriceHistory || autoEnrichment.landPriceHistory,
+            // auto 결과의 null 이 handler 단계의 유효 값을 덮어쓰지 않도록 보호
+            locationPoi: autoEnrichment.locationPoi ?? enrichment.locationPoi,
+            landUsePlan: enrichment.landUsePlan ?? autoEnrichment.landUsePlan,
           };
         } catch (err) {
           // Graceful degradation: enrichment 실패 시 기존 데이터로 진행 (Rule 43)
@@ -318,7 +327,11 @@ export class MobileImPptxRenderer {
         };
 
         const enrichedRows: [string, string][] = [
-          ['소재지', ssot.address || bldg.address || heroCard.address || '-'],
+          ['소재지', (() => {
+            const addr = ssot.address || bldg.address || heroCard.address || '-';
+            const cnt = Number(ssot.parcel_count ?? (Array.isArray(input.doc.body?.parcels) ? input.doc.body.parcels.length : 0));
+            return addr === '-' ? addr : withParcelCountSuffix(String(addr), cnt);
+          })()],
           ['대지면적', fmtArea(ssot.land_area_sqm || br.platArea || heroCard.landAreaM2 || bldg.land_area_sqm)],
           ['지목', ssot.land_category || br.jimok || '-'],
           ['지역/지구', ssot.zoning || br.useZone || bldg.use_zone || '-'],
@@ -853,8 +866,22 @@ export class MobileImPptxRenderer {
           capRateStabilized,
           stabilizedAssumption: '공실층을 인근 동일 용도 시세 수준으로 임대 가정',
           // Phase 2: 공시지가 10년 추이 (수익률 슬라이드 고도화)
-          landPriceHistory: enrichment?.landPriceHistory ?? input.doc.body?.enrichment?.landPriceHistory ?? null,
-          landAreaSqm: Number(ssot.land_area_sqm ?? 0),
+          ...(() => {
+            // 다필지: 대표 필지 단가 × 전체 면적 은 토지 비중을 왜곡하므로 기준을 명시/보정한다.
+            const baseLph = enrichment?.landPriceHistory ?? input.doc.body?.enrichment?.landPriceHistory ?? null;
+            const ps = summarizeParcels(input.doc.body?.parcels);
+            const totalLand = Number(ssot.land_area_sqm ?? 0);
+            if (!ps.isMulti || !baseLph) return { landPriceHistory: baseLph, landAreaSqm: totalLand };
+            if (ps.weightedOfficialPricePerM2) {
+              return {
+                landPriceHistory: { ...baseLph, latestPricePerSqm: ps.weightedOfficialPricePerM2 },
+                landAreaSqm: totalLand,
+                landPriceBasis: 'weighted',
+              };
+            }
+            // 전 필지 단가 미입력: 단가는 대표 필지 기준으로 표기하고, 전체 면적과 곱하는 토지 비중은 산출하지 않는다.
+            return { landPriceHistory: baseLph, landAreaSqm: 0, landPriceBasis: 'representative' };
+          })(),
           areaSignal: input.building?.area_signal ?? ssot.area_signal ?? '',
         };
       }

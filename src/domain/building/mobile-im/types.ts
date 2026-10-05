@@ -365,6 +365,8 @@ export interface MobileIMSupplementalInput {
   regulation?: Record<string, unknown>;
   /** 필지 정보 (개발형) */
   parcels?: Array<Record<string, unknown>>;
+  /** 다필지 PNU 목록 (19자리 숫자) — 지적도 다필지 하이라이트/필지별 토지이용계획 조회용 */
+  pnus?: string[];
 }
 
 /** 브로커가 직접 입력한 유사 건물 실거래가 */

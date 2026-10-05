@@ -99,6 +99,41 @@ interface GoldenTestState {
 
 // ── Factory ──
 
+/**
+ * 다필지 골든: 픽스처의 필지 주소를 실제 주소 API(/api/public/address)로 PNU 해소.
+ * 바텀시트 ParcelSection 에서 중개인이 필지별로 주소 검색 → PNU 확정하는 경로와 동일한 데이터를 만든다.
+ * - PNU 는 절대 지어내지 않는다: 해소 실패 시 테스트를 즉시 실패시킨다.
+ * - 면적은 픽스처에 양수로 명시된 경우에만 주입 (없으면 서버가 공공데이터로 보강).
+ */
+async function resolveFixtureParcels(
+  page: Page,
+  bs: Record<string, any>,
+): Promise<Array<{ pnu: string; landCategory?: string; areaM2?: number }>> {
+  const parcels: Array<Record<string, any>> = Array.isArray(bs.parcels) ? bs.parcels : [];
+  if (parcels.length < 2) return [];
+  const region = (String(bs.address ?? '').match(/[가-힣]+(?:구|시|군)(?=\s|$)/g) ?? [])
+    .find(t => !/(특별시|광역시|특별자치시)$/.test(t)) ?? '';
+  const out: Array<{ pnu: string; landCategory?: string; areaM2?: number }> = [];
+  for (const p of parcels) {
+    const keyword = String(p.address ?? '').trim();
+    if (!keyword) throw new Error('다필지 픽스처 필지에 address 가 없습니다.');
+    const resp = await page.request.get(`/api/public/address?keyword=${encodeURIComponent(keyword)}`);
+    if (!resp.ok()) throw new Error(`필지 주소 검색 실패 (${resp.status()}): ${keyword}`);
+    const data = await resp.json();
+    const arr: any[] = Array.isArray(data) ? data : (data.results ?? data.juso ?? []);
+    const hit = arr.find(r => /^\d{19}$/.test(String(r.pnu ?? ''))
+      && String(r.jibunAddr ?? '').trim().endsWith(keyword.replace(/^[가-힣]+(?:구|시|군)\s+/, ''))
+      && (!region || String(r.jibunAddr ?? '').includes(region)));
+    if (!hit) throw new Error(`필지 PNU 해소 실패 (실제 주소 API 결과 없음): ${keyword}`);
+    const entry: { pnu: string; landCategory?: string; areaM2?: number } = { pnu: String(hit.pnu) };
+    if (typeof p.jibun === 'string' && p.jibun) entry.landCategory = p.jibun;
+    if (typeof p.areaM2 === 'number' && p.areaM2 > 0) entry.areaM2 = p.areaM2;
+    out.push(entry);
+  }
+  console.log(`  🧩 다필지 ${out.length}필지 PNU 해소: ${out.map(p => p.pnu).join(', ')}`);
+  return out;
+}
+
 export function createGoldenTest(config: GoldenTestConfig) {
   const {
     name,
@@ -247,10 +282,16 @@ export function createGoldenTest(config: GoldenTestConfig) {
 
         // 📸 사진 에셋 자동 주입을 위한 generate-async 요청 가로채기
         const bs = loadBottomSheet();
+        // 다필지 골든: 필지별 실제 PNU 를 해소해 요청에 주입 (미해소 시 즉시 실패)
+        const injectedParcels = multiParcel ? await resolveFixtureParcels(page, bs) : [];
         await page.route('**/api/broker/im-lite/generate-async', async (route) => {
           const req = route.request();
           try {
             const postData = req.postDataJSON() || {};
+            if (injectedParcels.length > 1) {
+              postData.parcels = injectedParcels;
+              postData.pnus = injectedParcels.map(p => p.pnu);
+            }
             if (bs.photo_urls && Array.isArray(bs.photo_urls) && bs.photo_urls.length > 0) {
               postData.photo_urls = bs.photo_urls;
             }
@@ -544,6 +585,20 @@ export function createGoldenTest(config: GoldenTestConfig) {
         for (const kw of expectedKeywords) {
           expect(state.fullPptxText).toContain(kw);
           console.log(`  ✅ 키워드 "${kw}" 확인`);
+        }
+
+        // 다필지: 'N필지 통합' 표기 + 합계 대지면적(픽스처 landAreaM2)이 PPTX 에 반영되어야 함
+        //   (과거에는 대표 필지 1개로만 렌더되어도 약한 OR 단언이 통과했다)
+        if (multiParcel) {
+          const bsMp = loadBottomSheet();
+          const n = Array.isArray(bsMp.parcels) ? bsMp.parcels.length : 0;
+          if (n > 1) {
+            expect(state.fullPptxText, `다필지 ${n}필지 표기 누락`).toContain(`${n}필지`);
+            if (Number(bsMp.landAreaM2) > 0) {
+              expect(state.fullPptxText, `합계 대지면적 ${bsMp.landAreaM2}㎡ 누락`).toContain(Number(bsMp.landAreaM2).toLocaleString());
+            }
+            console.log(`  ✅ 다필지 ${n}필지 / 합계 ${bsMp.landAreaM2}㎡ 반영 확인`);
+          }
         }
 
         console.log(`\n  🎉 ${name}: 11종 품질 단언 전부 통과!`);
