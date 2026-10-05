@@ -94,8 +94,11 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     multiColRows = rawLeases.map((l: any, i: number) => {
       const unit = l.unitLabel ?? l.unit ?? `${i + 1}F`;
       const tenant = l.tenantBusiness ?? l.tenantName ?? '[임차인 미상]';
-      const exclusiveArea = l.exclusiveAreaSqm ?? l.areaSqm ?? '-';
-      const contractArea = l.contractAreaSqm ?? (l.areaSqm ? '-' : '-');
+      // 사용자가 기입한 면적만 표기 — 전용면적 칸에 임대(계약)면적을, 계약면적 칸에 전용면적을 대신 채우지 않는다.
+      // 레거시 단일 '전용면적' 열에서 복사된 대용값(areaSqmIsProxy / area_sqm_is_proxy)은 계약면적이 아니다.
+      const isProxyArea = Boolean(l.areaSqmIsProxy ?? l.area_sqm_is_proxy);
+      const exclusiveArea = l.exclusiveAreaSqm ?? l.exclusive_area_sqm ?? '-';
+      const contractArea = l.contractAreaSqm ?? (isProxyArea ? undefined : l.areaSqm) ?? '-';
       const deposit = l.depositKrw ? Math.round(l.depositKrw / 10000).toLocaleString() : (l.depositManwon ? Number(l.depositManwon).toLocaleString() : '-');
       const rent = l.monthlyRentKrw ? Math.round(l.monthlyRentKrw / 10000).toLocaleString() : (l.rentAmount ? Math.round(Number(l.rentAmount) / 10000).toLocaleString() : '-');
       const mgmt = l.mgmtFeeKrw ? Math.round(l.mgmtFeeKrw / 10000).toLocaleString() : '-';

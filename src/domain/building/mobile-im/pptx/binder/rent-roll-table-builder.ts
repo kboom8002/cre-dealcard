@@ -2,6 +2,60 @@ import { formatPyeong } from '@/lib/utils/area-conversion';
 import type { SectionData } from './binder-types';
 
 /**
+ * 렌트롤 면적 표기 SSOT: ㎡ 소수 1자리 + 천 단위 구분 (예: 2490.3 → '2,490.3')
+ * A24 표와 스태킹 플랜 라벨이 동일 문자열을 사용하도록 공용화 (Rule 70 ㎡ 통일)
+ */
+export function formatAreaSqm(v: number): string {
+  return Number(v).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** '공실', '(공실)', '[공실]' 등 공실 표식 문자열 */
+const VACANT_MARK = /^[\s(（[]*공실[\s)）\]]*$/;
+
+/**
+ * 렌트롤 임차인/용도 해석 (Rule 4 비중복 렌더링 · Rule 34 무날조)
+ * - 임차인: tenant_name(상호) 우선 → 없으면 업종 문자열(tenant_type)을 임차인 식별자로 사용
+ * - 용도: use / tenant_type / business_type 중 임차인 표기와 **다른** 실값이 있을 때만 표시, 아니면 '-'
+ *   (임차인명을 용도 칸에 복사하는 중복 렌더링 금지)
+ * - 상호 없이 '카페(스타벅스)'처럼 업종(상호) 결합 문자열만 있으면 입력 문자열을 그대로 분해
+ * - 공실: 임차인 '공실', 용도는 명시적 use 값이 있을 때만 (공실 표식 반복 금지)
+ */
+export function resolveTenantAndUse(l: {
+  tenant_name?: unknown;
+  tenant?: unknown;
+  tenant_type?: unknown;
+  use?: unknown;
+  business_type?: unknown;
+  is_vacant?: unknown;
+}): { tenant: string; use: string; isVacant: boolean } {
+  const clean = (v: unknown) => (v == null ? '' : String(v).trim());
+  let name = clean(l.tenant_name) || clean(l.tenant);
+  const explicitUse = clean(l.use);
+  let biz = clean(l.tenant_type) || clean(l.business_type);
+  const isVacant = l.is_vacant === true
+    || VACANT_MARK.test(name) || VACANT_MARK.test(biz)
+    || (!!name && name.includes('공실'));
+
+  if (isVacant) {
+    const use = explicitUse && !VACANT_MARK.test(explicitUse) ? explicitUse : '-';
+    return { tenant: '공실', use, isVacant: true };
+  }
+
+  if (!name && biz) {
+    const m = biz.match(/^(.+?)\s*[（(]\s*([^()（）]+?)\s*[)）]$/);
+    if (m) {
+      biz = m[1].trim();
+      name = m[2].trim();
+    }
+  }
+
+  const tenant = name || biz || '-';
+  const useCandidate = explicitUse || biz;
+  const use = useCandidate && useCandidate !== tenant && !VACANT_MARK.test(useCandidate) ? useCandidate : '-';
+  return { tenant, use, isVacant: false };
+}
+
+/**
  * A24 렌트롤 테이블 바인딩 (lease_status 섹션 처리 중 호출)
  * 1) floor_leases 기반 층별 상세 테이블 (Basic: 10열 / Pro: 7열)
  * 2) floor_leases·마크다운 표가 모두 없을 때 ssot_summary 기반 요약 합성
@@ -21,42 +75,66 @@ export function bindRentRollTable(
     const isFinitePos = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) > 0;
     const isFiniteNonNeg = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
 
+    // 통합계약(계약그룹): 금액은 대표 행에만 기입하므로, 같은 그룹의 금액 없는 행은 '〃'(위와 동일 계약)로 표기해 공란 오독을 막는다.
+    // 합계는 '〃' 셀을 숫자로 읽지 않으므로 대표 행 금액만 합산된다 (중복 집계 없음).
+    const groupKey = (l: any) => String(l?.contract_group ?? '').trim();
+    const groupsWithAmount = new Set<string>(
+      floorLeases
+        .filter((l: any) => groupKey(l) && (isFinitePos(l.deposit_manwon) || isFinitePos(l.rent_manwon)))
+        .map(groupKey),
+    );
+
     const rrRows = floorLeases.map((l: any) => {
-      const floor = l.floor || l.unit_label || '-';
+    const floor = l.floor || l.unit_label || '-';
       const areaPyeong = isFinitePos(l.area_sqm)
         ? `${formatPyeong(Number(l.area_sqm), 1)}평`
         : (isFinitePos(l.area_pyeong) ? `${l.area_pyeong}평` : '-');
+      // Pro(7열 '업종' 칼럼)은 기존 표기 유지
       const tenant = l.tenant_name || l.tenant || (l.is_vacant ? '공실' : (l.tenant_type || '-'));
-      const use = l.use || l.tenant_type || l.business_type || (l.is_vacant ? '공실' : '-');
-      const deposit = isFiniteNonNeg(l.deposit_manwon) ? `${Number(l.deposit_manwon).toLocaleString()}` : '-';
-      const rent = isFiniteNonNeg(l.rent_manwon) ? `${Number(l.rent_manwon).toLocaleString()}` : (l.is_vacant ? '-' : '-');
-      const mgmt = isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}` : '-';
+      // Basic(10열): 임차인/용도 비중복 해석 — 용도 칸에 임차인명 복사 금지 (Rule 4)
+      const basicParty = resolveTenantAndUse(l);
+      // 공실 행의 0원은 계약 금액이 아니라 '없음'이므로 '-' (0 날조 표기 방지)
+      const amountCell = (v: any) => (isFiniteNonNeg(v) && !(basicParty.isVacant && Number(v) === 0))
+        ? `${Number(v).toLocaleString()}`
+        : '-';
+      const deposit = amountCell(l.deposit_manwon);
+      const rent = amountCell(l.rent_manwon);
+      const mgmt = amountCell(l.mgmt_fee_manwon);
       const rentN = Number(l.rent_manwon) || 0;
       const mgmtN = Number(l.mgmt_fee_manwon) || 0;
-      const totalMonth = (rentN + mgmtN) > 0 ? (rentN + mgmtN).toLocaleString() : (rent !== '-' ? rent : '-');
+      const totalMonthRaw = (rentN + mgmtN) > 0 ? (rentN + mgmtN).toLocaleString() : (rent !== '-' ? rent : '-');
+      const isGroupFollower = !!groupKey(l) && groupsWithAmount.has(groupKey(l))
+        && !isFinitePos(l.deposit_manwon) && !isFinitePos(l.rent_manwon) && !isFinitePos(l.mgmt_fee_manwon);
+      const SAME_AS_ABOVE = '〃';
+      const depositCell = isGroupFollower ? SAME_AS_ABOVE : deposit;
+      const rentCell = isGroupFollower ? SAME_AS_ABOVE : rent;
+      const mgmtCell = isGroupFollower ? SAME_AS_ABOVE : mgmt;
+      const totalMonth = isGroupFollower ? SAME_AS_ABOVE : totalMonthRaw;
       const expiry = l.lease_end || l.contract_end || '-';
 
-      const areaSqmStr = isFinitePos(l.area_sqm)
-        ? Number(l.area_sqm).toFixed(1)
-        : (isFinitePos(l.area_pyeong) ? (Number(l.area_pyeong) / 0.3025).toFixed(1) : '-');
+      // 임대면적: 레거시 단일 '전용면적' 열에서 복사된 대용값(area_sqm_is_proxy)은 임대면적이 아니므로 비운다
+      const areaSqmStr = (!l.area_sqm_is_proxy && isFinitePos(l.area_sqm))
+      ? formatAreaSqm(Number(l.area_sqm))
+      : (isFinitePos(l.area_pyeong) ? formatAreaSqm(Number(l.area_pyeong) / 0.3025) : '-');
+      // 전용면적: 미기입이면 '-' (임대면적 값을 대신 채우지 않는다). 열 표시 여부는 a24 렌더러가 데이터로 결정.
       const excSqmStr = isFinitePos(l.exclusive_area_sqm)
-        ? Number(l.exclusive_area_sqm).toFixed(1)
-        : (isFinitePos(l.exclusive_area_pyeong) ? (Number(l.exclusive_area_pyeong) / 0.3025).toFixed(1) : areaSqmStr);
+      ? formatAreaSqm(Number(l.exclusive_area_sqm))
+      : (isFinitePos(l.exclusive_area_pyeong) ? formatAreaSqm(Number(l.exclusive_area_pyeong) / 0.3025) : '-');
       
       return isBasicPreset
         ? [
             floor,
-            tenant,
-            use,
+            basicParty.tenant,
+            basicParty.use,
             areaSqmStr,
             excSqmStr,
-            deposit,
-            rent,
-            mgmt,
+            depositCell,
+            rentCell,
+            mgmtCell,
             totalMonth,
             expiry
-          ]
-        : [floor, tenant, areaPyeong, deposit, rent, mgmt, expiry];
+            ]
+            : [floor, tenant, areaPyeong, depositCell, rentCell, mgmtCell, expiry];
     });
     result['rentRoll'].tableHead = rrHeaders;
     result['rentRoll'].tableRows = rrRows;

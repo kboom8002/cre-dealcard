@@ -3,7 +3,18 @@
 import React, { useRef, useState } from "react";
 // SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
 import * as XLSX from "xlsx";
-import { pyeongToSqm } from "@/lib/utils/area-conversion";
+import { calculateEfficiencyRatio } from "@/types/im";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
+import {
+  parseRentRollData,
+  summarizeRentRollAreas,
+  type ParsedRentRollRow,
+  type RentRollAreaSummary,
+} from "@/lib/rentroll/parse-rentroll-sheet";
+
+/** 바텀시트 '빈 양식' 다운로드 파일 — public/ 정적 파일. scripts/build-rentroll-template.mjs 로 생성 */
+const TEMPLATE_HREF = "/CREDEAL_rentroll_template_v1.3.xlsx";
+const TEMPLATE_DOWNLOAD_NAME = "CREDEAL_렌트롤_표준양식_v1.3.xlsx";
 
 interface RentRollImporterProps {
   hasExistingData?: boolean;
@@ -12,242 +23,26 @@ interface RentRollImporterProps {
     totalDeposit: number;
     mgmtFeeTotal: number;
     vacancyPct: number;
-    floorLeases: Array<{
-      floor: string;
-      tenant_type?: string;
-      tenant_name?: string;
-      deposit_manwon?: number;
-      rent_manwon?: number;
-      mgmt_fee_manwon?: number;
-      is_vacant?: boolean;
-      area_sqm?: number;
-      exclusive_area_sqm?: number;
-      lease_start?: string;
-      lease_end?: string;
-    }>;
+    floorLeases: ParsedRentRollRow[];
   }) => void;
 }
 
-interface ParseResult {
-  monthlyRent: number;
-  totalDeposit: number;
-  mgmtFeeTotal: number;
-  vacancyPct: number;
-  rowCount: number;
-  vacantCount: number;
-  detectedHeaderRow: number;
-  unitDetected: "manwon" | "won";
-  parsedRows: Array<{
-    floor: string;
-    tenant_type?: string;
-    tenant_name?: string;
-    deposit_manwon?: number;
-    rent_manwon?: number;
-    mgmt_fee_manwon?: number;
-    is_vacant?: boolean;
-    area_sqm?: number;
-    lease_start?: string;
-    lease_end?: string;
-  }>;
-}
-
-/**
- * 금액이 원 단위인지 만원 단위인지 자동 감지
- * 값이 100,000 이상이면 원 단위로 판단
- */
-function detectAndConvertToManwon(value: number): { manwon: number; unit: "won" | "manwon" } {
-  if (value >= 100000) {
-    return { manwon: Math.round(value / 10000), unit: "won" };
-  }
-  return { manwon: value, unit: "manwon" };
-}
-
-/**
- * CSV/Excel 렌트롤 파서 v2
- * - 멀티 헤더(실무 양식)에서 실제 컬럼 헤더 행 자동 탐지
- * - 금액 단위(원/만원) 자동 감지 및 변환
- * - 컬럼 키워드 대폭 확장
- * - 업종 컬럼이 비어있으면 공실로 추정
- */
-function parseRentRollData(data: any[][]): ParseResult {
-  const lines = data.filter(
-    (row) => row && row.length > 0 && row.some((cell) => String(cell ?? "").trim() !== "")
-  );
-
-  if (lines.length < 2) throw new Error("데이터가 부족합니다 (최소 2행 필요)");
-
-  // ── 헤더 행 자동 탐지 (최대 10행 스캔)
-  const HEADER_KEYWORDS = ["층", "호실", "면적", "보증금", "월세", "임대료", "rent", "deposit"];
-  let headerRowIdx = 0;
-  const maxScan = Math.min(10, lines.length - 1);
-
-  for (let i = 0; i < maxScan; i++) {
-    const rowText = lines[i].map((c) => String(c ?? "").toLowerCase()).join(" ");
-    const matchCount = HEADER_KEYWORDS.filter((k) => rowText.includes(k)).length;
-    if (matchCount >= 2) {
-      headerRowIdx = i;
-      break;
-    }
-  }
-
-  const header = lines[headerRowIdx].map((h) =>
-    String(h ?? "").trim().toLowerCase().replace(/[\s()（）]/g, "")
-  );
-
-  // ── 컬럼 인덱스 자동 매칭
-  const findCol = (keywords: string[]) =>
-    header.findIndex((h) => h && keywords.some((k) => h.includes(k)));
-
-  const rentIdx = findCol(["월임대료", "월세", "임대료", "rent", "월차임"]);
-  const depositIdx = findCol(["보증금", "임대보증금", "deposit"]);
-  const mgmtIdx = findCol(["관리비", "공용관리비", "mgmt", "maintenance"]);
-  const vacantIdx = findCol(["공실", "vacant", "empty"]);
-  const bizTypeIdx = findCol(['업종', '용도', '종류', '구분']);
-  const floorIdx = findCol(["층", "층수", "floor", "호", "위치"]);
-  const areaIdx = findCol(['면적', '전용면적', 'area', '㎡', '평']);
-  const tenantNameIdx = findCol(['임차인', '입주사', 'tenant', '상호']);
-  const leaseStartIdx = findCol(['계약시작', '시작일', '개시일', 'start']);
-  const leaseEndIdx = findCol(['계약종료', '종료일', '만료일', 'end', '만기']);
-
-  let totalRent = 0;
-  let totalDeposit = 0;
-  let totalMgmt = 0;
-  let vacantCount = 0;
-  let rowCount = 0;
-  let unitDetected: "won" | "manwon" = "manwon";
-
-  const parsedRows: ParseResult['parsedRows'] = [];
-
-  for (let i = headerRowIdx + 1; i < lines.length; i++) {
-    const cols = lines[i];
-    if (!cols || cols.length < 2) continue;
-
-    // 행이 완전히 비어있으면 건너뜀
-    const rowHasData = cols.some((c) => {
-      const v = String(c ?? "").trim();
-      return v !== "" && v !== "0";
-    });
-    if (!rowHasData) continue;
-
-    rowCount++;
-
-    const parseNum = (idx: number): number => {
-      if (idx < 0 || idx >= cols.length || cols[idx] == null) return 0;
-      const cleaned = String(cols[idx]).replace(/[^0-9.\-]/g, "");
-      return parseFloat(cleaned) || 0;
-    };
-
-    const rawRent = parseNum(rentIdx >= 0 ? rentIdx : 4);
-    const rawDeposit = parseNum(depositIdx >= 0 ? depositIdx : 3);
-    const rawMgmt = parseNum(mgmtIdx >= 0 ? mgmtIdx : -1);
-
-    // 단위 감지 (첫 번째 비-0 값으로 판단)
-    if (rawRent > 0 || rawDeposit > 0) {
-      const sampleVal = rawDeposit > 0 ? rawDeposit : rawRent;
-      if (sampleVal >= 100000) unitDetected = "won";
-    }
-
-    const convertedRent = detectAndConvertToManwon(rawRent).manwon;
-    const convertedDeposit = detectAndConvertToManwon(rawDeposit).manwon;
-    const convertedMgmt = detectAndConvertToManwon(rawMgmt).manwon;
-
-    totalRent += convertedRent;
-    totalDeposit += convertedDeposit;
-    totalMgmt += convertedMgmt;
-
-    // 공실 여부 판단
-    let isVacant = false;
-    if (vacantIdx >= 0 && cols[vacantIdx] != null) {
-      const val = String(cols[vacantIdx]).toLowerCase().trim();
-      isVacant = val === "y" || val === "1" || val === "공실" || val === "true" || val === "yes" || val === "●";
-    } else if (bizTypeIdx >= 0) {
-      // 업종/용도 컬럼이 비어있거나 '공실'이면 공실로 추정
-      const bizVal = String(cols[bizTypeIdx] ?? "").trim();
-      if (bizVal === "" || bizVal === "-" || bizVal === "공실") isVacant = true;
-    } else if (tenantNameIdx >= 0) {
-      // bizTypeIdx가 없으면 임차인명으로 공실 판단
-      const tVal = String(cols[tenantNameIdx] ?? "").trim();
-      if (tVal === "" || tVal === "-" || tVal === "공실") isVacant = true;
-    }
-    if (isVacant) vacantCount++;
-
-    // Accumulate per-row data
-    const actualFloorIdx = floorIdx >= 0 ? floorIdx : 0;
-    const floorVal = cols[actualFloorIdx] != null ? String(cols[actualFloorIdx]).trim() : `${rowCount}F`;
-    const bizVal = bizTypeIdx >= 0 && cols[bizTypeIdx] != null ? String(cols[bizTypeIdx]).trim() : undefined;
-    
-    const tName = tenantNameIdx >= 0 && cols[tenantNameIdx] != null ? String(cols[tenantNameIdx]).trim() : undefined;
-    
-    let areaVal: number | undefined = undefined;
-    if (areaIdx >= 0 && cols[areaIdx] != null) {
-      const originalStr = String(cols[areaIdx]);
-      const areaStr = originalStr.replace(/[^0-9.]/g, "");
-      const areaNum = parseFloat(areaStr);
-      if (!isNaN(areaNum)) {
-        if (originalStr.includes('평') || (areaNum < 50 && areaStr.includes('.'))) {
-           areaVal = parseFloat(pyeongToSqm(areaNum).toFixed(2));
-        } else {
-           areaVal = areaNum;
-        }
-      }
-    }
-
-    const parseDate = (val: any) => {
-      if (!val) return undefined;
-      let s = String(val).trim();
-      if (!isNaN(Number(s)) && Number(s) > 30000) {
-        const d = new Date(Math.round((Number(s) - 25569) * 86400 * 1000));
-        if (!isNaN(d.getTime())) {
-          return d.toISOString().split('T')[0];
-        }
-      }
-      s = s.replace(/\./g, '-').replace(/\//g, '-');
-      const m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-      if (m) {
-        return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-      }
-      return s;
-    };
-
-    const lStart = leaseStartIdx >= 0 ? parseDate(cols[leaseStartIdx]) : undefined;
-    const lEnd = leaseEndIdx >= 0 ? parseDate(cols[leaseEndIdx]) : undefined;
-
-    parsedRows.push({
-      floor: floorVal,
-      tenant_type: bizVal || undefined,
-      tenant_name: tName || undefined,
-      deposit_manwon: convertedDeposit || undefined,
-      rent_manwon: convertedRent || undefined,
-      mgmt_fee_manwon: convertedMgmt || undefined,
-      is_vacant: isVacant || undefined,
-      area_sqm: areaVal,
-      lease_start: lStart,
-      lease_end: lEnd,
-    });
-  }
-
-  const vacancyPct = rowCount > 0 ? Math.round((vacantCount / rowCount) * 100) : 0;
-
-  return {
-    monthlyRent: Math.round(totalRent),
-    totalDeposit: Math.round(totalDeposit),
-    mgmtFeeTotal: Math.round(totalMgmt),
-    vacancyPct,
-    rowCount,
-    vacantCount,
-    detectedHeaderRow: headerRowIdx + 1,
-    unitDetected,
-    parsedRows,
-  };
-}
+/** 프리뷰 표에서 편집되는 행 — 금액/공실 필드는 항상 값이 있다 */
+type PreviewRow = ParsedRentRollRow & {
+  deposit_manwon: number;
+  rent_manwon: number;
+  mgmt_fee_manwon: number;
+  is_vacant: boolean;
+};
 
 const HELP_CONTENT = [
-  { icon: "📋", text: "필수 컬럼: 층수, 호실, 보증금, 월세" },
-  { icon: "📊", text: "선택 컬럼: 면적(㎡), 관리비, 업종/임차인" },
-  { icon: "💰", text: "금액은 원 단위/만원 단위 모두 자동 인식" },
-  { icon: "📄", text: "제목·주소 행이 위에 있어도 자동 건너뜀" },
-  { icon: "🏢", text: "업종/임차인 칸이 비면 공실로 자동 계산" },
-  { icon: "📁", text: ".xlsx, .xls, .csv 모두 지원" },
+  { icon: "📋", text: "필수(R1): 호실/층, 업종·상호, 보증금, 월세, 만료일, 임대상태" },
+  { icon: "📐", text: "권장(R2): 임대면적(㎡)·전용면적(㎡)·관리비·적용법령 — 전용률은 자동 계산" },
+  { icon: "🔎", text: "R3(최초계약일·갱신요구권·대항력)는 엑셀 '자동검증' 시트의 갱신권·명도 판정용" },
+  { icon: "💰", text: "금액은 머리글의 단위(원/만원)를 읽고 만원으로 자동 변환" },
+  { icon: "📄", text: "제목·주소 행이 위에 있어도, 합계·예시·빈 행은 자동으로 건너뜀" },
+  { icon: "🏢", text: "임대상태(임대중/공실/자가사용) 열이 있으면 우선 사용, 없으면 업종·임차인 공란을 공실로 추정" },
+  { icon: "📁", text: ".xlsx, .xls, .csv 모두 지원 — 컬럼 정의는 양식의 '컬럼정의' 시트 참고" },
 ];
 
 export function RentRollImporter({ hasExistingData, onImport }: RentRollImporterProps) {
@@ -261,26 +56,16 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [parsedPreview, setParsedPreview] = useState<{
-    rows: Array<{
-      floor: string;
-      tenant_type?: string;
-      tenant_name?: string;
-      deposit_manwon: number;
-      rent_manwon: number;
-      mgmt_fee_manwon: number;
-      is_vacant: boolean;
-      area_sqm?: number;
-      exclusive_area_sqm?: number;
-      lease_start?: string;
-      lease_end?: string;
-    }>;
+    rows: PreviewRow[];
     monthlyRent: number;
     totalDeposit: number;
     mgmtFeeTotal: number;
     vacancyPct: number;
+    areaSummary: RentRollAreaSummary;
+    warnings: string[];
   } | null>(null);
 
-  const updatePreviewTotals = (newRows: any[]) => {
+  const updatePreviewTotals = (newRows: PreviewRow[]) => {
     let totDep = 0;
     let totRent = 0;
     let totMgmt = 0;
@@ -298,7 +83,8 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       totalDeposit: totDep,
       monthlyRent: totRent,
       mgmtFeeTotal: totMgmt,
-      vacancyPct: vacPct
+      vacancyPct: vacPct,
+      areaSummary: summarizeRentRollAreas(newRows),
     } : null);
 
     // 실시간 수정 내용도 상위 폼에 즉시 반영
@@ -333,7 +119,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       }
       const data = await res.json();
       
-      const rows = (data.floorLeases || []).map((r: any) => ({
+      const rows: PreviewRow[] = (data.floorLeases || []).map((r: any) => ({
         ...r,
         deposit_manwon: r.deposit_manwon || 0,
         rent_manwon: r.rent_manwon || 0,
@@ -347,6 +133,8 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         totalDeposit: data.totalDeposit,
         mgmtFeeTotal: data.mgmtFeeTotal,
         vacancyPct: data.vacancyPct,
+        areaSummary: summarizeRentRollAreas(rows),
+        warnings: [],
       });
 
       // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력
@@ -423,7 +211,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
 
       const parsed = parseRentRollData(jsonData);
 
-      const rows = parsed.parsedRows.map((r) => ({
+      const rows: PreviewRow[] = parsed.parsedRows.map((r) => ({
         ...r,
         deposit_manwon: r.deposit_manwon || 0,
         rent_manwon: r.rent_manwon || 0,
@@ -437,6 +225,8 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         totalDeposit: parsed.totalDeposit,
         mgmtFeeTotal: parsed.mgmtFeeTotal,
         vacancyPct: parsed.vacancyPct,
+        areaSummary: parsed.areaSummary,
+        warnings: parsed.warnings,
       });
 
       // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력
@@ -449,7 +239,11 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       });
 
       const unitLabel = parsed.unitDetected === "won" ? "(원→만원 자동변환)" : "(만원 단위)";
-      setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}. 폼에 금액이 자동 입력되었습니다.`);
+      const a = parsed.areaSummary;
+      const areaLabel = a.leaseSqm > 0 || a.exclusiveSqm > 0
+        ? ` 임대 ${a.leaseSqm.toLocaleString()}㎡${a.exclusiveSqm > 0 ? ` · 전용 ${a.exclusiveSqm.toLocaleString()}㎡` : ""}${a.weightedEfficiencyPct != null ? ` · 전용률 ${a.weightedEfficiencyPct}%` : ""}.`
+        : "";
+      setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}.${areaLabel} 폼에 금액이 자동 입력되었습니다.`);
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "파일 파싱 실패"}\n💡 아래 '?' 버튼을 눌러 작성 가이드를 확인하세요.`);
@@ -519,10 +313,10 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 ?
               </button>
               <a
-                href="/CREDEAL_rentroll_template_v1.2.xlsx"
-                download="CREDEAL_렌트롤_표준양식_v1.2.xlsx"
+                href={TEMPLATE_HREF}
+                download={TEMPLATE_DOWNLOAD_NAME}
                 className="border border-primary/30 text-primary px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-primary/10 transition-colors whitespace-nowrap"
-                title="파싱 호환 빈 엑셀 양식 다운로드"
+                title="빈 엑셀 양식 다운로드 (임대면적·전용면적·전용률 포함, R1/R2/R3 컬럼 설명 시트 포함)"
               >
                 📥 빈 양식
               </a>
@@ -594,12 +388,15 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       {parsedPreview && (
         <div className="mt-4 bg-secondary/50 rounded-lg p-3 border border-border animate-in fade-in duration-150">
           <h4 className="text-sm font-semibold mb-2 text-foreground">데이터 확인 및 수정</h4>
-          <div className="max-h-60 overflow-y-auto mb-2 border border-border rounded">
+          <div className="max-h-60 overflow-auto mb-2 border border-border rounded">
             <table className="w-full text-xs text-left">
               <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="px-2 py-1 font-medium">층</th>
                   <th className="px-2 py-1 font-medium">업종</th>
+                  <th className="px-2 py-1 font-medium whitespace-nowrap" title="임대차계약서상 계약면적(전용+공용분담), ㎡">임대㎡</th>
+                  <th className="px-2 py-1 font-medium whitespace-nowrap" title="임차인 독점 사용면적, ㎡">전용㎡</th>
+                  <th className="px-2 py-1 font-medium whitespace-nowrap" title="전용면적 ÷ 임대면적 × 100 (자동)">전용률</th>
                   <th className="px-2 py-1 font-medium">보증금</th>
                   <th className="px-2 py-1 font-medium">월세</th>
                   <th className="px-2 py-1 font-medium" title="보증금 + (월세 × 100)">환산보증금</th>
@@ -632,6 +429,64 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                         }}
                         className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
                       />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={row.area_sqm_is_proxy ? "" : (row.area_sqm ?? "")}
+                        placeholder="-"
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          const v = e.target.value === "" ? undefined : Number(e.target.value);
+                          newRows[idx].area_sqm = v;
+                          // 사용자가 임대면적을 직접 입력/삭제하면 레거시 대용값 표시는 해제
+                          newRows[idx].area_sqm_is_proxy = undefined;
+                          newRows[idx].efficiency_ratio_pct = calculateEfficiencyRatio(newRows[idx].exclusive_area_sqm ?? null, v ?? null) ?? undefined;
+                          updatePreviewTotals(newRows);
+                        }}
+                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={row.exclusive_area_sqm ?? ""}
+                        placeholder="-"
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          const v = e.target.value === "" ? undefined : Number(e.target.value);
+                          newRows[idx].exclusive_area_sqm = v;
+                          if (newRows[idx].area_sqm_is_proxy) {
+                            // 레거시 대용 임대면적은 전용면적과 같은 값을 유지 (전용률은 계산하지 않음)
+                            newRows[idx].area_sqm = v;
+                            newRows[idx].efficiency_ratio_pct = undefined;
+                          } else {
+                            newRows[idx].efficiency_ratio_pct = calculateEfficiencyRatio(v ?? null, newRows[idx].area_sqm ?? null) ?? undefined;
+                          }
+                          updatePreviewTotals(newRows);
+                        }}
+                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
+                      />
+                    </td>
+                    <td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
+                      {(() => {
+                        const ratio = row.efficiency_ratio_pct;
+                        if (ratio == null) return <span className="text-muted-foreground">-</span>;
+                        const bad = ratio > 100;
+                        const low = ratio < 30;
+                        return (
+                          <span
+                            className={bad ? "text-rose-500 font-semibold" : low ? "text-amber-500" : ""}
+                            title={bad ? "전용면적이 임대면적보다 큽니다 — 값을 확인해 주세요" : low ? "전용률이 30% 미만입니다 — 면적 입력을 확인해 주세요" : "전용면적 ÷ 임대면적 × 100"}
+                          >
+                            {ratio.toFixed(1)}%
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-2 py-1">
                       <input 
@@ -702,6 +557,21 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
             <span>총 월세: {parsedPreview.monthlyRent.toLocaleString()}만원</span>
             <span>공실률: {parsedPreview.vacancyPct}%</span>
           </div>
+          {(parsedPreview.areaSummary.leaseSqm > 0 || parsedPreview.areaSummary.exclusiveSqm > 0) && (
+            <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
+              📐 임대면적 {parsedPreview.areaSummary.leaseSqm.toLocaleString()}㎡({sqmToPyeong(parsedPreview.areaSummary.leaseSqm).toFixed(1)}평)
+              {parsedPreview.areaSummary.exclusiveSqm > 0 && ` · 전용면적 ${parsedPreview.areaSummary.exclusiveSqm.toLocaleString()}㎡`}
+              {parsedPreview.areaSummary.weightedEfficiencyPct != null && ` · 전용률 ${parsedPreview.areaSummary.weightedEfficiencyPct}%`}
+              {parsedPreview.areaSummary.exclusiveSqm > 0 && parsedPreview.areaSummary.rowsMissingExclusive > 0 && ` · 전용면적 미입력 ${parsedPreview.areaSummary.rowsMissingExclusive}호실`}
+            </p>
+          )}
+          {parsedPreview.warnings.length > 0 && (
+            <ul className="mb-2 space-y-0.5 text-[11px] text-amber-500">
+              {parsedPreview.warnings.map((w, i) => (
+                <li key={i}>⚠ {w}</li>
+              ))}
+            </ul>
+          )}
           {result && (
             <p className={`text-xs font-medium whitespace-pre-line mb-3 ${
               isError ? "text-rose-500" : "text-emerald-600 dark:text-emerald-400"

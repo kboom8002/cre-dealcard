@@ -12,6 +12,7 @@ import {
 } from '../../../im-core/pro-tenant-roster';
 import type { Comp } from '@/types/im-core';
 import type { SectionData } from './binder-types';
+import { buildProRentRollTable, detectProAreaMode } from './pro-rentroll-table';
 import { createModuleLogger } from '@/lib/logger';
 // 로그 모듈명은 분할 전과 동일하게 유지 (모니터링 쿼리 호환)
 const log = createModuleLogger('data-binder');
@@ -81,23 +82,30 @@ export function bindProImChapterData(
       ? doc.body.tenantRoster.filter(Boolean)
       : null;
 
+  // 통합계약(계약그룹): 금액은 대표 행에만 기입 → 같은 그룹의 금액 없는 행은 '〃' 로 표기
+  const rosterContractGroup = new WeakMap<InstitutionalTenantRosterItem, string>();
   const rawLeases: InstitutionalTenantRosterItem[] = rawInputLeases
     ? rawInputLeases.map((item: any, idx: number) => {
-        const areaM2 = Number(
+        // 레거시 단일 '전용면적' 열에서 복사된 대용값(area_sqm_is_proxy)은 임대면적이 아니다 → 임대면적 없음(0)으로 취급
+        const isProxyArea = Boolean(item.area_sqm_is_proxy);
+        const areaM2 = isProxyArea ? 0 : (Number(
           item.leasedAreaM2 ??
           item.leased_area_m2 ??
           item.area_m2 ??
           item.leased_area_sqm ??
           item.area_sqm ??
           (item.area_py != null ? Number(item.area_py) / 0.3025 : 0)
-        );
-        const areaPy = Number(
+        ) || 0);
+        const areaPy = isProxyArea ? 0 : (Number(
           item.leasedAreaPyeong ??
           item.leased_area_pyeong ??
           item.area_py ??
           item.area_pyeong ??
           (areaM2 * 0.3025)
-        );
+        ) || 0);
+        // 전용면적: 사용자가 기입한 값만 (임대면적으로 대체하지 않는다)
+        const excM2Raw = Number(item.exclusiveAreaM2 ?? item.exclusive_area_m2 ?? item.exclusive_area_sqm ?? 0) || 0;
+        const excPyRaw = Number(item.exclusiveAreaPyeong ?? item.exclusive_area_pyeong ?? (excM2Raw * 0.3025)) || 0;
         const depKrw = item.deposit_manwon != null
           ? Number(item.deposit_manwon) * 10000
           : Number(item.depositKrw ?? item.deposit_krw ?? item.deposit ?? 0);
@@ -108,7 +116,7 @@ export function bindProImChapterData(
           ? Number(item.maintenance_manwon) * 10000
           : Number(item.monthlyMaintenanceKrw ?? item.monthly_maintenance_krw ?? 0);
 
-        return {
+        const rosterItem: InstitutionalTenantRosterItem = {
           floor: String(item.floor || `${idx + 1}F`),
           unitNumber: String(item.unitNumber || item.unit_number || `${item.floor || idx + 1}01호`),
           tenantName: String(item.tenantName || item.tenant_name || item.name || '임차인'),
@@ -122,12 +130,27 @@ export function bindProImChapterData(
           leaseEndDate: item.leaseEndDate || item.lease_end_date || item.lease_end || '',
           statutoryProtection10Y: Boolean(item.statutoryProtection10Y ?? item.statutory_protection_10y ?? true),
           isAnchor: Boolean(item.isAnchor ?? item.is_anchor ?? false),
+          ...(excM2Raw > 0 ? { exclusiveAreaM2: Math.round(excM2Raw * 10) / 10, exclusiveAreaPyeong: Math.round(excPyRaw * 10) / 10 } : {}),
         };
+        const grp = String(item.contract_group ?? item.contractGroup ?? '').trim();
+        if (grp) rosterContractGroup.set(rosterItem, grp);
+        return rosterItem;
       })
     : (() => {
         log.warn('[data-binder] ⚠️ floor_leases 미제공 — 더미 렌트롤 주입 방지 (빈 배열 반환)');
         return [] as typeof rawLeases;
       })();
+
+  const groupsWithAmount = new Set<string>(
+    rawLeases
+      .filter((t) => rosterContractGroup.has(t) && (t.depositKrw > 0 || t.monthlyRentKrw > 0))
+      .map((t) => rosterContractGroup.get(t) as string),
+  );
+  const isGroupFollower = (t: InstitutionalTenantRosterItem): boolean => {
+    const g = rosterContractGroup.get(t);
+    return !!g && groupsWithAmount.has(g) && !(t.depositKrw > 0) && !(t.monthlyRentKrw > 0) && !(t.monthlyMaintenanceKrw > 0);
+  };
+  const proAreaMode = detectProAreaMode(rawLeases);
 
   const waleRes = calculateProWALE(rawLeases);
   const waleYears = waleRes.waleByRentYears || 0;
@@ -358,50 +381,14 @@ export function bindProImChapterData(
     const partKey = `rentRollPart${partNum}`;
 
     if (!result[partKey]) {
-      const tableHead = ['층', '호실', '임차인명', '주요업종', '임대면적(㎡)', '임대면적(평)', '보증금(만원)', '월임대료(만원)', '만기일자', '갱신옵션'];
-      const tableRows: any[][] = chunk.items.map(t => [
-        t.floor,
-        t.unitNumber,
-        t.tenantName,
-        t.industry,
-        t.leasedAreaM2.toLocaleString(),
-        t.leasedAreaPyeong.toLocaleString(),
-        Math.round(t.depositKrw / 10000).toLocaleString(),
-        Math.round(t.monthlyRentKrw / 10000).toLocaleString(),
-        t.leaseEndDate,
-        t.renewalOption || (t.statutoryProtection10Y ? '10년 보호' : '협의'),
-      ]);
-
-      // Running Subtotal Row for this page
-      tableRows.push([
-        '소계',
-        '-',
-        `${chunk.items.length}개사`,
-        '-',
-        chunk.subtotal.leasedAreaM2.toLocaleString(),
-        chunk.subtotal.leasedAreaPyeong.toLocaleString(),
-        Math.round(chunk.subtotal.depositKrw / 10000).toLocaleString(),
-        Math.round(chunk.subtotal.monthlyRentKrw / 10000).toLocaleString(),
-        '-',
-        '-',
-      ]);
-
-      // Grand Total Row on the final chunk
-      if (chunk.isLastPage) {
-        const gt = chunk.grandTotal || calculateTenantRosterSubtotal(rawLeases);
-        tableRows.push([
-          '합계',
-          '-',
-          `${gt.tenantCount}개사`,
-          '-',
-          gt.leasedAreaM2.toLocaleString(),
-          gt.leasedAreaPyeong.toLocaleString(),
-          Math.round(gt.depositKrw / 10000).toLocaleString(),
-          Math.round(gt.monthlyRentKrw / 10000).toLocaleString(),
-          '-',
-          '-',
-        ]);
-      }
+      // 면적 열은 사용자가 기입한 면적에 따라 결정 (pro-rentroll-table.ts) — 임대/전용 상호 대체 금지
+      const { tableHead, tableRows } = buildProRentRollTable({
+        chunk,
+        mode: proAreaMode,
+        grandTotal: chunk.isLastPage ? (chunk.grandTotal || calculateTenantRosterSubtotal(rawLeases)) : undefined,
+        allItems: rawLeases,
+        isGroupFollower,
+      });
 
       result[partKey] = {
         title: totalChunks > 1

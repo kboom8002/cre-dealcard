@@ -15,6 +15,7 @@ import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion
 import { pairOrDash } from "@/lib/format/safe-number";
 import { resolvePhysicalSpecs } from "../../resolve-physical-specs";
 import { summarizeParcels } from "../../parcel-input";
+import { resolveTenantAndUse, formatAreaSqm } from "./rent-roll-table-builder";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -137,12 +138,16 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     const rentRollHeaders = isBasicPresetForRentRoll 
             ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일']
             : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
+    // 임차인/용도 비중복 해석 (Rule 4) — rent-roll-table-builder 와 동일 규칙
+    const coreParty = (l: any) => resolveTenantAndUse({
+            tenant_name: l.tenantName, tenant_type: l.tenantBusiness, is_vacant: l.leaseState === '공실',
+          });
     const rentRollRows = core.leases.map(l => isBasicPresetForRentRoll ? [
             l.unitLabel ?? '-',
-            (l as any).tenantName ?? l.tenantBusiness ?? (l.leaseState === '공실' ? '공실' : '-'),
-            l.tenantBusiness ?? '-',
-            l.leaseAreaSqm ? l.leaseAreaSqm.toFixed(1) : '-',
-            (l as any).exclusiveAreaSqm ? (l as any).exclusiveAreaSqm.toFixed(1) : (l.leaseAreaSqm ? l.leaseAreaSqm.toFixed(1) : '-'),
+            coreParty(l).tenant,
+            coreParty(l).use,
+            l.leaseAreaSqm ? formatAreaSqm(l.leaseAreaSqm) : '-',
+            (l as any).exclusiveAreaSqm ? formatAreaSqm((l as any).exclusiveAreaSqm) : '-',
             l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}` : '-',
             l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}` : '-',
             l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}` : '-',

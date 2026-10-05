@@ -5,6 +5,8 @@ import type { ProvenanceKind } from '../imlib';
 import { calculateSetbackRatio, inferTenantCategory } from './a22-stacking-plan';
 import type { StackingPlanFloor } from '../../types';
 import { sqmToPyeong } from '@/lib/utils/area-conversion';
+import { projectBasicRentRollColumns, isNumericRentRollHeader, RENTROLL_SUMMARY_CELL, BASIC_RENTROLL_HEADERS } from '../rentroll-area-columns';
+import { formatAreaSqm } from '../binder/rent-roll-table-builder';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -60,6 +62,140 @@ function parseExpiryYear(text: string): string | undefined {
   return undefined;
 }
 
+// ════════════════════════════════════════
+// 스태킹 도식 헬퍼 (단위 테스트용 export)
+// ════════════════════════════════════════
+
+/** 스태킹 도식의 임대 단위(호실) — 렌트롤 표 1행 = 1단위 */
+export interface StackingUnit {
+  unitLabel: string;
+  tenant: string;
+  /** ㎡, 0 = 미기재 */
+  areaSqm: number;
+  /** 표와 동일한 면적 문자열 (예: '209.6'), 미기재 '' */
+  areaText: string;
+  isVacant: boolean;
+  expiryYear?: string;
+  category?: string;
+}
+
+/** 물리 층 1개 = 스태킹 도식 1행 (분할 임대 호실은 같은 행에 좌우 세그먼트로 배치) */
+export interface StackingFloorGroup {
+  key: string;
+  order: number;
+  isSubterranean: boolean;
+  totalArea: number;
+  units: StackingUnit[];
+}
+
+/**
+ * 호실 라벨 → 물리 층 키. '9F-A'·'9F-B'·'9층 901호'는 같은 '9F' 한 층으로 묶는다.
+ * '3F~4F'·'1-2F' 같은 병합/범위 라벨은 원 라벨을 유지한다.
+ */
+export function physicalFloorKey(label: string): { key: string; order: number; isSubterranean: boolean } {
+  const s = String(label ?? '').trim();
+  if (/^(RF|PH|옥탑|옥상)/i.test(s)) return { key: s, order: 99, isSubterranean: false };
+  const m = s.match(/^(B|지하\s*)?(\d+)\s*(F|층)?(.*)$/i);
+  if (!m) return { key: s || '-', order: 1, isSubterranean: false };
+  const isSub = !!m[1];
+  const n = parseInt(m[2], 10);
+  const rest = (m[4] || '').trim();
+  const base = isSub ? `B${n}` : `${n}F`;
+  const order = isSub ? -n : n;
+  if (!rest) return { key: base, order, isSubterranean: isSub };
+  // 범위/병합층 → 원 라벨 유지
+  if (/^[~～]/.test(rest) || /^[-–]\s*B?\d+\s*(F|층)?$/i.test(rest)) return { key: s, order, isSubterranean: isSub };
+  // 호실 접미사 (-A, _B, A, 901호, (A)) → 같은 물리 층
+  if (/^[-–_·.\s(]*[A-Za-z0-9가-힣]{1,6}\)?\s*(호|호실)?$/.test(rest)) return { key: base, order, isSubterranean: isSub };
+  return { key: s, order, isSubterranean: isSub };
+}
+
+/** 렌트롤 단위를 물리 층별로 묶어 아래(지하)→위 순으로 정렬 */
+export function groupStackingFloors(units: StackingUnit[]): StackingFloorGroup[] {
+  const map = new Map<string, StackingFloorGroup>();
+  for (const u of units) {
+    const pk = physicalFloorKey(u.unitLabel);
+    let g = map.get(pk.key);
+    if (!g) {
+      g = { key: pk.key, order: pk.order, isSubterranean: pk.isSubterranean, totalArea: 0, units: [] };
+      map.set(pk.key, g);
+    }
+    g.units.push(u);
+    g.totalArea += u.areaSqm > 0 ? u.areaSqm : 0;
+  }
+  return [...map.values()].sort((a, b) => a.order - b.order);
+}
+
+const STACK_MIN_PT = 6.5;
+
+function textWidthIn(text: string, pt: number, bold = false): number {
+  let w = 0;
+  for (const ch of String(text ?? '')) w += L.getCharWidthInches(ch, pt);
+  return bold ? w * 1.06 : w;
+}
+
+/** 한 줄 고정 맞춤: 기준 글꼴에서 0.5pt씩 줄이고, 최소 글꼴에서도 넘치면 말줄임 */
+export function fitSingleLine(
+  text: string, widthIn: number, basePt: number, minPt = STACK_MIN_PT, bold = false,
+): { text: string; fontSize: number; truncated: boolean } {
+  const t = String(text ?? '');
+  for (let pt = basePt; pt >= minPt - 1e-6; pt -= 0.5) {
+    if (textWidthIn(t, pt, bold) <= widthIn) return { text: t, fontSize: pt, truncated: false };
+  }
+  const chars = Array.from(t);
+  while (chars.length > 1 && textWidthIn(chars.join('') + '…', minPt, bold) > widthIn) chars.pop();
+  return { text: chars.join('').trimEnd() + '…', fontSize: minPt, truncated: true };
+}
+
+/** 스태킹 세그먼트 라벨: '임차인 209.6㎡' → (좁으면) '임차인' → (더 좁으면) 말줄임 · 항상 한 줄 */
+export function chooseStackLabel(
+  tenant: string, areaText: string, widthIn: number, basePt: number, minPt = STACK_MIN_PT, bold = false,
+): { text: string; fontSize: number } | null {
+  if (widthIn < 0.16) return null;
+  const candidates = areaText ? [`${tenant} ${areaText}㎡`, tenant] : [tenant];
+  for (const c of candidates) {
+    for (let pt = basePt; pt >= minPt - 1e-6; pt -= 0.5) {
+      if (textWidthIn(c, pt, bold) <= widthIn) return { text: c, fontSize: pt };
+    }
+  }
+  const f = fitSingleLine(tenant, widthIn, minPt, minPt, bold);
+  return f.text === '…' ? null : { text: f.text, fontSize: f.fontSize };
+}
+
+/** 숫자 셀 천 단위 구분 정규화 ('2490.3' → '2,490.3', '7600' → '7,600'), 숫자가 아니면 그대로 */
+export function formatNumericCell(text: string): string {
+  const s = String(text ?? '').trim();
+  if (!/^-?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?$/.test(s)) return s;
+  const dec = (s.split('.')[1] || '').length;
+  const n = Number(s.replace(/,/g, ''));
+  return Number.isFinite(n) ? n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : s;
+}
+
+/** 내용 폭 기반 열폭 배분 (열 수 = 헤더 수 유지, Rule 68) — 합계 = totalW */
+export function computeRentRollColumnWidths(
+  headers: string[], rows: string[][], totalW: number, headerPt: number, bodyPt: number, pad = 0.14,
+): number[] {
+  const need = headers.map((h, c) => {
+    let w = textWidthIn(h, headerPt, true);
+    for (const r of rows) w = Math.max(w, textWidthIn(r[c] ?? '', bodyPt, true));
+    // 한 열(긴 임차인명 등)이 표 폭을 독식하지 않도록 상한 — 넘치는 셀은 한 줄 말줄임
+    return Math.min(totalW * 0.24, Math.max(0.42, w + pad));
+  });
+  const sum = need.reduce((a, b) => a + b, 0);
+  const raw = sum <= totalW
+    ? need.map(n => n + (totalW - sum) * (n / sum))
+    : need.map(n => n * (totalW / sum));
+  const rounded = raw.map(v => Math.round(v * 100) / 100);
+  const diff = Math.round((totalW - rounded.reduce((a, b) => a + b, 0)) * 100) / 100;
+  if (rounded.length > 0) rounded[rounded.length - 1] = Math.round((rounded[rounded.length - 1] + diff) * 100) / 100;
+  return rounded;
+}
+
+function parseAreaNum(cell: string): number {
+  const n = parseFloat(String(cell ?? '').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput {
   const warnings: string[] = [];
   
@@ -103,249 +239,38 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     return { slide, warnings };
   }
 
-  // Left Panel (Stacking Plan)
+  // ─── 공통 프레임 ───
+  // 표와 스태킹 도식의 상단(헤더 행)·하단(합계 행)을 정렬한다.
+  // Rule 65: 스태킹 플랜 ≤ 2.2", 렌트롤 표 ≥ 9.0"
+  const topY = 1.80;
+  const bottomLimit = 6.62; // SAFE_BOTTOM(6.75) 이내
   const spX = M;
-  const spW = 3.40;
-  const spY = 1.8;
-  const spH = 4.8;
-  
-  // Right Panel (Rent Roll Table)
-  const gap = 0.30;
+  const spW = 2.20;
+  const gap = 0.25;
   const tbX = M + spW + gap;
-  const tbW = CW - spW - gap;
+  const tbW = CW - spW - gap; // ≈ 9.64"
 
-  // --- Render Left Panel: Stacking Plan ---
-  let floors: FloorInfo[] = stackingData;
-  if (floors.length === 0 && tableRows.length > 0) {
-    // F4 fix: 첫 행의 r[0]이 층 패턴에 맞는 경우만 스태킹 플랜으로 변환
-    // ssot_summary 합성 행("월 임대료 합계" 등)이 층 이름으로 둔갑하는 시각 오염 방지
-    const FLOOR_PATTERN = /^(B?\d+F?|지상|지하|옥탑|PH|RF|\d+층)/i;
-    const firstCell = String(tableRows[0]?.[0] || '');
-    if (FLOOR_PATTERN.test(firstCell.trim())) {
-      floors = tableRows.map((r: any[]) => {
-        const floor = String(r[0] || '').trim();
-        // D45 C-1 fix: 10열 표준 헤더 기준 인덱스 정렬
-        // ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
-        //   r[0]   r[1]     r[2]        r[3]       r[4]           r[5]           r[6]           r[7]           r[8]      r[9]
-        const is12Col = r.length >= 12;
-        const tenant  = String(r[is12Col ? 3 : 1] || '').trim();
-        const areaStr = String(r[is12Col ? 4 : 3] || '').trim();
-        const deposit = String(r[is12Col ? 7 : 5] || '').trim();
-        const rent    = String(r[is12Col ? 8 : 6] || '').trim();
-        const expiry  = String(r[is12Col ? 11 : 9] || '').trim();
-        const isVac = tenant.includes('공실') || floor.includes('공실');
-        return {
-          floor,
-          tenant: tenant || (isVac ? '공실' : '-'),
-          isVacant: isVac,
-          expiryYear: parseExpiryYear(expiry) || parseExpiryYear(tenant),
-          area: parseFloat(areaStr.replace(/[^0-9.]/g, '')) || 0,
-        };
-      });
-    }
-    // 층 패턴이 아니면 floors를 빈 배열로 유지 → 좌측 스태킹 도식 생략, 우측 테이블만 렌더링
-  }
+  // binder(rent-roll-table-builder / core-binders)가 만든 R2 10열 표인지 — 단위(㎡·만원)가 확정된 표
+  const isR2BinderTable = Array.isArray(data.tableHead)
+    && data.tableHead.length === BASIC_RENTROLL_HEADERS.length
+    && data.tableHead.every((h: any, i: number) => String(h) === BASIC_RENTROLL_HEADERS[i]);
+  const isSummaryRowOf = (r: any[]) => r.some((c: any) => RENTROLL_SUMMARY_CELL.test(String(c || '').trim()));
 
-  if (floors.length > 0) {
-    // D6 Fix: 층수 표준 정규화 — 지하(B)부터 지상(1F~5F) 순서로 바닥에서 위로 정렬
-    const parseFloorNum = (fl: any): number => {
-      const s = String(fl || '').trim().toUpperCase();
-      const bMatch = s.match(/^B(\d+)/);
-      if (bMatch) return -parseInt(bMatch[1], 10);
-      const fMatch = s.match(/^(\d+)F?/);
-      if (fMatch) return parseInt(fMatch[1], 10);
-      if (s.includes('지하')) return -1;
-      if (s.includes('옥상') || s.includes('RF') || s.includes('PH')) return 99;
-      return 1;
-    };
-    let drawFloors = [...floors].sort((a, b) => parseFloorNum(a.floor) - parseFloorNum(b.floor));
-    if (floors.length > 12) {
-      const bFloors = drawFloors.filter(f => String(f.floor).toUpperCase().startsWith('B'));
-      const aboveFloors = drawFloors.filter(f => !String(f.floor).toUpperCase().startsWith('B'));
-      if (bFloors.length > 1) {
-        const mergedB: FloorInfo = {
-          floor: `B${bFloors.length}~B1`,
-          tenant: '주차장 및 기계실',
-          category: 'parking'
-        };
-        drawFloors = [mergedB, ...aboveFloors];
-      }
-    }
+  // --- 표 모델 (그리기 전에 행 수·행 높이를 확정해 스태킹 도식과 정렬) ---
+  let rawRows: any[][] = [];
+  let displayRows: any[][] = [];
+  let truncated = false;
+  let totalCount = 0;
+  // D45: Dynamic row height to fit more rows (up to 18 rows comfortably)
+  const maxRowsToFit = 18;
 
-    // G-11: Determine colors & legends — usedYears는 drawFloors 기준으로 수집하여 범례와 바 일치 보장
-    const usedYears = new Set<string>();
-    drawFloors.forEach(f => {
-      const yr = f.expiryYear ? String(f.expiryYear) : parseExpiryYear(f.tenant || '');
-      if (yr && !f.isVacant && !f.tenant?.includes('공실')) {
-        // G-11: EXPIRY_HEATMAP_PALETTE에 정의된 연도만 범례에 포함 — 미정의 연도는 바에서 기본 회색으로 렌더링되므로 범례 불필요
-        if (EXPIRY_HEATMAP_PALETTE[yr]) {
-          usedYears.add(yr);
-        }
-        f._expiry = yr;
-      }
-    });
-
-    const years = Array.from(usedYears).sort();
-    
-    // Draw legend
-    let legendX = spX;
-    years.forEach(year => {
-      const color = EXPIRY_HEATMAP_PALETTE[year] || C.line2;
-      slide.addShape('rect', { x: legendX, y: spY, w: 0.15, h: 0.15, fill: { color } });
-      slide.addText(year, { x: legendX + 0.2, y: spY, w: 0.6, h: 0.15, fontSize: 9, color: '5B6B73', fontFace: KR });
-      legendX += 0.8;
-    });
-    // Add Vacant legend
-    slide.addShape('rect', { x: legendX, y: spY, w: 0.15, h: 0.15, fill: { color: 'FBEFE8' }, line: { dashType: 'dash' as const, color: 'B05A2E', width: 1.0 } });
-    slide.addText('공실', { x: legendX + 0.2, y: spY, w: 0.6, h: 0.15, fontSize: 9, color: 'B05A2E', fontFace: KR, bold: true });
-
-    // Render bars (bottom to top)
-    const drawAreaH = spH - 0.4;
-    const baseDrawY = spY + spH;
-
-    // 1. 층별로 세입자 그룹화
-    interface FloorGroup {
-      floorName: string;
-      isSubterranean: boolean;
-      totalArea: number;
-      tenants: typeof drawFloors;
-    }
-    const floorGroups: FloorGroup[] = [];
-    for (const f of drawFloors) {
-      let fg = floorGroups.find(g => g.floorName === String(f.floor));
-      if (!fg) {
-        fg = {
-          floorName: String(f.floor),
-          isSubterranean: String(f.floor).toUpperCase().startsWith('B'),
-          totalArea: 0,
-          tenants: []
-        };
-        floorGroups.push(fg);
-      }
-      fg.tenants.push(f);
-      fg.totalArea += (f.area || 0);
-    }
-
-    const hPerFloor = drawAreaH / Math.max(1, floorGroups.length);
-    const maxBarW = spW - 0.70;
-    const maxArea = Math.max(...floorGroups.map(g => g.totalArea), 1);  // 실제 최대면적 기준
-
-    let currentY = baseDrawY;
-    
-    // Ground line divider if B floors exist
-    const bCount = floorGroups.filter(g => g.isSubterranean).length;
-    if (bCount > 0 && bCount < floorGroups.length) {
-      const groundY = baseDrawY - (bCount * hPerFloor);
-      slide.addShape('line', {
-        x: spX + 0.55, y: groundY, w: spW - 0.65, h: 0,
-        line: { color: '94A3B8', width: 1.5, dashType: 'dash' as const }
-      });
-      slide.addText('GL', {
-        x: spX, y: groundY - 0.12, w: 0.50, h: 0.24,
-        fontSize: 7.5, color: '64748B', fontFace: KR, align: 'right', valign: 'middle', bold: true
-      });
-    }
-
-    // D45: 7층+ 동적 높이 축소 — 폰트 크기 조정
-    const floorFontSize = hPerFloor >= 0.65 ? 12 : hPerFloor >= 0.50 ? 10 : 9;
-    const tenantFontSize = hPerFloor >= 0.65 ? 10 : hPerFloor >= 0.50 ? 9 : 8;
-
-    floorGroups.forEach(group => {
-      currentY -= hPerFloor;
-      
-      const ratio = calculateSetbackRatio(group.totalArea || maxArea, maxArea, group.isSubterranean);
-      const floorBarW = maxBarW * ratio;
-      const floorBarX = spX + 0.58 + (maxBarW - floorBarW) / 2;
-      
-      // Floor label
-      const floorLabel = String(group.floorName).replace(/층$/, '');
-      slide.addText(floorLabel, {
-        x: spX, y: currentY, w: 0.52, h: hPerFloor,
-        fontSize: floorFontSize, bold: true, color: C.ink, align: 'right', valign: 'middle', fontFace: KR
-      });
-      
-      // Render tenants horizontally
-      let currentX = floorBarX;
-      group.tenants.forEach((tenant, idx) => {
-        const tenantRatio = group.totalArea > 0 ? (tenant.area || 0) / group.totalArea : 1 / group.tenants.length;
-        let tenantW = floorBarW * tenantRatio;
-        // F-13: 1F 다중 테넌트 시 바 폭 보장
-        if (group.tenants.length > 1) {
-          tenantW = Math.max(0.8, tenantW);
-          if (tenantW * group.tenants.length > floorBarW) {
-            tenantW = floorBarW / group.tenants.length; // 강제 균등 분할
-          }
-        }
-        
-        let fillCol = 'E2E8F0';
-        const isVacant = tenant.isVacant || tenant.tenant?.includes('공실');
-        if (isVacant) {
-          fillCol = 'FBEFE8';
-        } else if (tenant._expiry && EXPIRY_HEATMAP_PALETTE[tenant._expiry]) {
-          fillCol = EXPIRY_HEATMAP_PALETTE[tenant._expiry];
-        } else if (tenant.category === 'parking' || tenant.tenant?.includes('주차')) {
-          fillCol = 'E2E8F0';
-        }
-
-        // Bar
-        if (isVacant) {
-          slide.addShape('rect', {
-            x: currentX, y: currentY + 0.03, w: tenantW, h: hPerFloor - 0.06,
-            fill: { color: fillCol },
-            line: { dashType: 'dash' as const, color: 'B05A2E', width: 1.2 }
-          });
-        } else {
-          slide.addShape('rect', {
-            x: currentX, y: currentY + 0.03, w: tenantW, h: hPerFloor - 0.06,
-            fill: { color: fillCol },
-            line: { color: '5B6B73', width: 1.1 }
-          });
-        }
-        
-        // Tenant text inside bar
-        const tenantName = isVacant ? '공실' : (tenant.tenant || '');
-        const areaPyeong = tenant.area ? Math.round(sqmToPyeong(tenant.area)) : 0;
-        const areaLabel = areaPyeong > 0 ? `${areaPyeong}평` : '';
-        const combinedLabel = areaLabel ? `${tenantName} (${areaLabel})` : tenantName;
-        
-        if (tenantW >= 0.8) {
-          slide.addText(combinedLabel, {
-            x: currentX + 0.04, y: currentY + 0.02, w: tenantW - 0.08, h: hPerFloor - 0.04,
-            fontSize: tenantFontSize, bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
-            align: 'center', valign: 'middle', fontFace: KR, shrinkText: true
-          });
-        } else if (tenantW >= 0.4) {
-          slide.addText(tenantName, {
-            x: currentX + 0.02, y: currentY + 0.02, w: tenantW - 0.04, h: hPerFloor - 0.04,
-            fontSize: Math.max(tenantFontSize - 1, 7.5), bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
-            align: 'center', valign: 'middle', fontFace: KR
-          });
-        }
-        currentX += tenantW;
-      });
-    });
-  }
-
-  // 스펙 §5.2: 개략도 필수 각주
-  slide.addText('※ 렌트롤 현황 기준 층별 공간 배치도', {
-    x: spX, y: 6.52, w: spW, h: 0.20,
-    fontSize: 8.5, color: '8A8A8A', align: 'left',
-    fontFace: '맑은 고딕',
-    margin: 0,
-  });
-
-  // --- Right Panel: Rent Roll Table ---
-  const HEADERS = ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일'];
-  const colW = [0.48, 1.05, 0.88, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 1.30]; // Sum = 8.39 <= tbW (8.393)
-
-  
   if (tableRows.length > 0) {
-    let rawRows = tableRows.map((row: any) => {
+    rawRows = tableRows.map((row: any) => {
       const newRow = [...row];
       // Do not splice for 12 columns. Assuming tableRows provides exactly 12 columns.
       return newRow;
     });
-    
+
     // First row might be header — D45: '층수'/'층' 단독이 아니라 헤더 키워드 2개 이상 매칭 시에만 제거
     // B1층, 1층 등 실데이터가 '층'을 포함하므로 단순 includes('층')으로는 오탐
     const firstRowStr = (rawRows[0] || []).map((c: any) => String(c || '').trim());
@@ -356,107 +281,342 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     }
 
     // D7 Fix: 합계 행이 없으면 자동 합산 추가
-    const hasSummaryRow = rawRows.some((r: any) => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
+    const hasSummaryRow = rawRows.some((r: any) => isSummaryRowOf(r));
     if (!hasSummaryRow && rawRows.length > 0) {
-      let totalArea = 0, totalExcArea = 0, totalDeposit = 0, totalRent = 0, totalMgmt = 0, totalMonth = 0;
+      // 숫자로 읽힌 셀이 하나라도 있으면 합계를 표기 (행이 '0'이면 합계도 '0' — 행/합계 표기 일관성)
+      const sums = { area: 0, exc: 0, deposit: 0, rent: 0, mgmt: 0, month: 0 };
+      const seen = { deposit: false, rent: false, mgmt: false, month: false };
+      const num = (c: any) => parseFloat(String(c ?? '').replace(/[^0-9.]/g, ''));
       for (const r of rawRows) {
-        const a = parseFloat(String(r[3] || '').replace(/[^0-9.]/g, ''));
-        if (!isNaN(a)) totalArea += a;
-        const e = parseFloat(String(r[4] || '').replace(/[^0-9.]/g, ''));
-        if (!isNaN(e)) totalExcArea += e;
-        const d = parseFloat(String(r[5] || '').replace(/[^0-9.]/g, ''));
-        if (!isNaN(d)) totalDeposit += d;
-        const rt = parseFloat(String(r[6] || '').replace(/[^0-9.]/g, ''));
-        if (!isNaN(rt)) totalRent += rt;
-        const mt = parseFloat(String(r[7] || '').replace(/[^0-9.]/g, ''));
-        if (!isNaN(mt)) totalMgmt += mt;
-        const tot = parseFloat(String(r[8] || '').replace(/[^0-9.]/g, ''));
-        if (!isNaN(tot)) totalMonth += tot;
+        const a = num(r[3]); if (!isNaN(a)) sums.area += a;
+        const e = num(r[4]); if (!isNaN(e)) sums.exc += e;
+        const d = num(r[5]); if (!isNaN(d)) { sums.deposit += d; seen.deposit = true; }
+        const rt = num(r[6]); if (!isNaN(rt)) { sums.rent += rt; seen.rent = true; }
+        const mt = num(r[7]); if (!isNaN(mt)) { sums.mgmt += mt; seen.mgmt = true; }
+        const tot = num(r[8]); if (!isNaN(tot)) { sums.month += tot; seen.month = true; }
       }
-      
-      const totalMonthlySum = (totalMonth > 0 ? totalMonth : (totalRent + totalMgmt));
+      const totalMonthlySum = (sums.month > 0 ? sums.month : (sums.rent + sums.mgmt));
+      const money = (v: number, isSeen: boolean) => (isSeen ? Math.round(v).toLocaleString('en-US') : '-');
 
       rawRows.push([
         '합계',
         `${rawRows.length}개 호실`,
         '-',
-        totalArea > 0 ? `${totalArea.toFixed(1)}` : '-',
-        totalExcArea > 0 ? `${totalExcArea.toFixed(1)}` : '-',
-        totalDeposit > 0 ? `${Math.round(totalDeposit).toLocaleString()}` : '-',
-        totalRent > 0 ? `${Math.round(totalRent).toLocaleString()}` : '-',
-        totalMgmt > 0 ? `${Math.round(totalMgmt).toLocaleString()}` : '-',
-        totalMonthlySum > 0 ? `${Math.round(totalMonthlySum).toLocaleString()}` : '-',
+        sums.area > 0 ? formatAreaSqm(sums.area) : '-',
+        sums.exc > 0 ? formatAreaSqm(sums.exc) : '-',
+        money(sums.deposit, seen.deposit),
+        money(sums.rent, seen.rent),
+        money(sums.mgmt, seen.mgmt),
+        money(totalMonthlySum, seen.month || seen.rent || seen.mgmt),
         '-'
       ]);
     }
-    
-    let displayRows = rawRows;
-    let truncated = false;
-    let totalCount = rawRows.length;
-    
-    // D45: Dynamic row height to fit more rows (up to 18 rows comfortably)
-    const maxRowsToFit = 18;
+
+    displayRows = rawRows;
+    totalCount = rawRows.length;
     if (rawRows.length > maxRowsToFit) {
-      const summaryRow = rawRows.find((r: any) => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
-      displayRows = rawRows.filter((r: any) => !r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()))).slice(0, maxRowsToFit - 1);
+      const summaryRow = rawRows.find((r: any) => isSummaryRowOf(r));
+      displayRows = rawRows.filter((r: any) => !isSummaryRowOf(r)).slice(0, maxRowsToFit - 1);
       if (summaryRow) displayRows.push(summaryRow);
       truncated = true;
     }
-    
-    // Calculate dynamic sizes
-    const totalRenderRows = displayRows.length + 1; // +1 for header
-    let dynamicRowH = 0.35;
-    let dynamicFontSize = 8.5;
-    
-    if (totalRenderRows > 12) {
-      dynamicRowH = Math.max(0.24, 4.8 / totalRenderRows);
-      dynamicFontSize = dynamicRowH >= 0.30 ? 8.5 : dynamicRowH >= 0.27 ? 8 : 7.5;
+  }
+
+  const hasTable = displayRows.length > 0;
+  const totalRenderRows = displayRows.length + 1; // +1 for header
+  const tableBudgetH = bottomLimit - topY - (truncated ? 0.22 : 0);
+  const rowH = hasTable ? Math.max(0.22, Math.min(0.36, tableBudgetH / totalRenderRows)) : 0.32;
+  const bodyFontSize = rowH >= 0.32 ? 8.5 : rowH >= 0.28 ? 8 : rowH >= 0.25 ? 7.5 : 7;
+  const headerFontSize = rowH >= 0.30 ? 9 : bodyFontSize + 0.5;
+  const summaryInDisplay = hasTable && isSummaryRowOf(displayRows[displayRows.length - 1]);
+  const bodyRowCount = displayRows.length - (summaryInDisplay ? 1 : 0);
+
+  // --- Left Panel: Stacking Plan ---
+  // 표와 같은 SSOT(렌트롤 행)에서 단위를 만든다 → 층·임차인·면적 문자열이 표와 1:1 일치 (㎡ 통일, Rule 70)
+  const FLOOR_PATTERN = /^(B?\d+F?|지상|지하|옥탑|PH|RF|\d+층)/i;
+  const stackRows = rawRows.filter((r: any[]) => !isSummaryRowOf(r));
+  const tableIsFloorBased = stackRows.length > 0 && FLOOR_PATTERN.test(String(stackRows[0]?.[0] || '').trim());
+  let units: StackingUnit[] = [];
+  if (tableIsFloorBased && (isR2BinderTable || stackingData.length === 0)) {
+    // F4 fix: 첫 행의 r[0]이 층 패턴에 맞는 경우만 스태킹 플랜으로 변환
+    // ssot_summary 합성 행("월 임대료 합계" 등)이 층 이름으로 둔갑하는 시각 오염 방지
+    units = stackRows.map((r: any[]) => {
+      const floor = String(r[0] || '').trim();
+      // R2 10열: [층, 임차인, 용도, 임대면적, 전용면적, 보증금, 월임대료, 관리비, 월합계, 만기일]
+      // 레거시 12열: [층, 호실, 용도, 임차인, 면적, …, 만기(11)]
+      const is12Col = r.length >= 12;
+      const tenantRaw = String(r[is12Col ? 3 : 1] || '').trim();
+      const leaseCell = String(r[is12Col ? 4 : 3] || '').trim();
+      const excCell = is12Col ? '' : String(r[4] || '').trim();
+      const expiry = String(r[is12Col ? 11 : 9] || '').trim();
+      // 임대면적 우선, 미기재 시 전용면적 (표에 실제 기입된 값만 사용)
+      const areaCell = parseAreaNum(leaseCell) > 0 ? leaseCell : excCell;
+      const area = parseAreaNum(areaCell);
+      const isVac = tenantRaw.includes('공실') || floor.includes('공실');
+      return {
+        unitLabel: floor,
+        tenant: isVac ? '공실' : (tenantRaw || '-'),
+        areaSqm: area,
+        areaText: area > 0 ? formatNumericCell(areaCell) : '',
+        isVacant: isVac,
+        expiryYear: parseExpiryYear(expiry) || parseExpiryYear(tenantRaw),
+      };
+    });
+  } else if (stackingData.length > 0) {
+    units = (stackingData as FloorInfo[]).map((f: any) => {
+      const area = Number(f.leasableAreaM2 ?? f.floorAreaM2 ?? f.exclusiveAreaM2 ?? f.area) || 0;
+      const isVac = !!f.isVacant || String(f.tenant || '').includes('공실');
+      return {
+        unitLabel: String(f.floor ?? ''),
+        tenant: isVac ? '공실' : String(f.tenant || f.use || '-'),
+        areaSqm: area > 0 ? area : 0,
+        areaText: area > 0 ? formatAreaSqm(area) : '',
+        isVacant: isVac,
+        expiryYear: f.expiryYear ? String(f.expiryYear) : parseExpiryYear(String(f.tenant || '')),
+        category: f.category,
+      };
+    });
+  }
+  // 층 패턴이 아니면 units를 빈 배열로 유지 → 좌측 스태킹 도식 생략, 우측 테이블만 렌더링
+
+  // 같은 물리 층(9F-A·9F-B)은 한 행으로 묶는다 — 지하(B)부터 지상 순서로 바닥에서 위로 정렬
+  let groups = groupStackingFloors(units);
+  if (groups.length > 14) {
+    // 초고층: 지하층을 1행으로 압축 (임의 용도 라벨을 만들지 않고 층수만 표기)
+    const subs = groups.filter(g => g.isSubterranean);
+    if (subs.length > 1) {
+      const subArea = subs.reduce((a, g) => a + g.totalArea, 0);
+      const merged: StackingFloorGroup = {
+        key: `B${subs.length}~B1`,
+        order: -1,
+        isSubterranean: true,
+        totalArea: subArea,
+        units: [{
+          unitLabel: `B${subs.length}~B1`,
+          tenant: `지하 ${subs.length}개층`,
+          areaSqm: subArea,
+          areaText: subArea > 0 ? formatAreaSqm(subArea) : '',
+          isVacant: false,
+          category: 'parking',
+        }],
+      };
+      groups = [merged, ...groups.filter(g => !g.isSubterranean)];
     }
-    
+  }
+
+  if (groups.length > 0) {
+    const G = groups.length;
+    const bandH = rowH; // 헤더 띠·범례 띠 = 표 헤더 행·합계 행과 같은 높이
+    const bodyTop = topY + bandH;
+    const maxBodyH = Math.max(0.5, bottomLimit - topY - bandH * 2);
+    const targetBodyH = hasTable ? bodyRowCount * rowH : maxBodyH;
+    const lo = Math.min(0.22, maxBodyH / G);
+    const hi = Math.min(0.55, maxBodyH / G);
+    const hPerFloor = Math.min(hi, Math.max(lo, targetBodyH / G));
+    const bodyH = G * hPerFloor;
+
+    // 헤더 띠 (표 헤더 행과 동일 높이·색) — 단위 명시
+    slide.addShape('rect', {
+      x: spX, y: topY, w: spW, h: bandH,
+      fill: { color: C.ink }, line: { color: C.ink, width: 0.5 },
+    });
+    slide.addText('층별 스태킹 플랜 (㎡)', {
+      x: spX, y: topY, w: spW, h: bandH,
+      fontSize: fitSingleLine('층별 스태킹 플랜 (㎡)', spW - 0.12, headerFontSize, 7, true).fontSize,
+      bold: true, color: C.bg, align: 'center', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
+    });
+
+    // G-11: 만기 연도 색상 — 실제 그려지는 단위 기준으로 수집하여 범례와 바 일치 보장
+    const usedYears = new Set<string>();
+    let hasVacant = false;
+    groups.forEach(g => g.units.forEach(u => {
+      if (u.isVacant) { hasVacant = true; return; }
+      // G-11: EXPIRY_HEATMAP_PALETTE에 정의된 연도만 범례에 포함 — 미정의 연도는 기본 회색
+      if (u.expiryYear && EXPIRY_HEATMAP_PALETTE[u.expiryYear]) usedYears.add(u.expiryYear);
+    }));
+
+    // 셋백: 지상 기준층(중앙값) 대비 비율 — 지하 대형층이 지상층 폭을 깎아내리지 않도록
+    const aboveAreas = groups.filter(g => !g.isSubterranean && g.totalArea > 0).map(g => g.totalArea).sort((a, b) => a - b);
+    const allAreas = groups.filter(g => g.totalArea > 0).map(g => g.totalArea).sort((a, b) => a - b);
+    const pool = aboveAreas.length > 0 ? aboveAreas : allAreas;
+    const stdArea = pool.length > 0 ? pool[Math.floor((pool.length - 1) / 2)] : 0;
+    const ratios = groups.map(g => (g.totalArea > 0 && stdArea > 0)
+      ? calculateSetbackRatio(g.totalArea, stdArea, g.isSubterranean)
+      : 1.0);
+    const maxRatio = Math.max(...ratios, 1.0);
+
+    const labelW = 0.52; // Rule 70: 층 라벨 ≥ 0.50"
+    const barRegionX = spX + 0.60;
+    const maxBarW = spW - 0.62;
+    const unitW = maxBarW / maxRatio;
+
+    // D45: 층수가 많을수록 폰트 축소
+    const floorFontSize = hPerFloor >= 0.40 ? 10 : hPerFloor >= 0.30 ? 9 : hPerFloor >= 0.22 ? 8 : 7;
+    const labelBasePt = Math.min(hPerFloor >= 0.40 ? 8.5 : hPerFloor >= 0.30 ? 8 : 7.5, ((hPerFloor - 0.08) * 72) / 1.15);
+    const labelMinPt = Math.min(STACK_MIN_PT, labelBasePt);
+
+    groups.forEach((group, idx) => {
+      const rowY = bodyTop + bodyH - (idx + 1) * hPerFloor;
+      const floorBarW = unitW * ratios[idx];
+      const floorBarX = barRegionX + (maxBarW - floorBarW) / 2;
+
+      // Floor label
+      slide.addText(String(group.key).replace(/층$/, ''), {
+        x: spX, y: rowY, w: labelW, h: hPerFloor,
+        fontSize: floorFontSize, bold: true, color: C.ink, align: 'right', valign: 'middle',
+        fontFace: KR, margin: 0, wrap: false,
+      });
+
+      // 분할 임대: 면적 비례 좌우 세그먼트 (면적 미기재 시 균등 분할)
+      const n = group.units.length;
+      const allHaveArea = group.units.every(u => u.areaSqm > 0);
+      let widths = group.units.map(u => (allHaveArea && group.totalArea > 0)
+        ? floorBarW * (u.areaSqm / group.totalArea)
+        : floorBarW / n);
+      const minSeg = 0.20;
+      if (n > 1 && n * minSeg <= floorBarW && widths.some(w => w < minSeg)) {
+        const small = widths.map(w => w < minSeg);
+        const fixed = small.filter(Boolean).length * minSeg;
+        const restSum = widths.reduce((a, w, i) => a + (small[i] ? 0 : w), 0);
+        widths = widths.map((w, i) => small[i] ? minSeg : (restSum > 0 ? (w / restSum) * (floorBarW - fixed) : w));
+      }
+
+      let segX = floorBarX;
+      group.units.forEach((unit, uIdx) => {
+        const segW = widths[uIdx];
+        const isVacant = unit.isVacant;
+        let fillCol = 'E2E8F0';
+        if (isVacant) {
+          fillCol = 'FBEFE8';
+        } else if (unit.expiryYear && EXPIRY_HEATMAP_PALETTE[unit.expiryYear]) {
+          fillCol = EXPIRY_HEATMAP_PALETTE[unit.expiryYear];
+        }
+
+        // Bar segment
+        slide.addShape('rect', {
+          x: segX, y: rowY + 0.035, w: segW, h: hPerFloor - 0.07,
+          fill: { color: fillCol },
+          line: isVacant
+            ? { dashType: 'dash' as const, color: 'B05A2E', width: 1.0 }
+            : { color: '5B6B73', width: 0.75 },
+        });
+
+        // 한 줄 라벨: '임차인 209.6㎡' → 좁으면 '임차인' (표와 같은 ㎡ 문자열)
+        const lbl = hPerFloor >= 0.14
+          ? chooseStackLabel(unit.tenant, unit.areaText, segW - 0.10, labelBasePt, labelMinPt, isVacant)
+          : null;
+        if (lbl) {
+          slide.addText(lbl.text, {
+            x: segX + 0.03, y: rowY + 0.035, w: Math.max(0.05, segW - 0.06), h: hPerFloor - 0.07,
+            fontSize: lbl.fontSize, bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
+            align: 'center', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
+          });
+        }
+        segX += segW;
+      });
+    });
+
+    // Ground line divider if B floors exist — 'GL' 라벨은 층 라벨 열 좌측(층 라벨은 우측 정렬)에 두어 겹침 방지
+    const bCount = groups.filter(g => g.isSubterranean).length;
+    if (bCount > 0 && bCount < G) {
+      const groundY = bodyTop + bodyH - bCount * hPerFloor;
+      slide.addShape('line', {
+        x: barRegionX - 0.04, y: groundY, w: maxBarW + 0.06, h: 0,
+        line: { color: '94A3B8', width: 1.25, dashType: 'dash' as const },
+      });
+      slide.addText('GL', {
+        x: spX, y: groundY - 0.08, w: 0.24, h: 0.16,
+        fontSize: 6.5, color: '64748B', fontFace: KR, align: 'left', valign: 'middle', bold: true, margin: 0, wrap: false,
+      });
+    }
+
+    // 범례 띠 (표 합계 행과 같은 높이) — 공실 / 만기 연도
+    const legendY = bodyTop + bodyH;
+    type LegendItem = { label: string; color?: string; vacant?: boolean };
+    const legendPt = 7;
+    const yearsSorted = Array.from(usedYears).sort();
+    const buildLegend = (shortYear: boolean): LegendItem[] => [
+      ...(hasVacant ? [{ label: '공실', color: 'FBEFE8', vacant: true }] : []),
+      ...(yearsSorted.length > 0 ? [{ label: '만기' }] : []), // 색상 의미 표기 (스와치 없음)
+      ...yearsSorted.map(y => ({ label: shortYear ? `'${y.slice(2)}` : y, color: EXPIRY_HEATMAP_PALETTE[y] || C.line2 })),
+    ];
+    const itemW = (it: LegendItem) => (it.color ? 0.17 : 0) + textWidthIn(it.label, legendPt, !!it.vacant) + 0.10;
+    let legendItems = buildLegend(false);
+    if (legendItems.reduce((a, it) => a + itemW(it), 0) > spW - 0.04) legendItems = buildLegend(true);
+    let lx = spX + 0.04;
+    for (const item of legendItems) {
+      const w = itemW(item);
+      if (lx + w - 0.06 > spX + spW) break;
+      let tx = lx;
+      if (item.color) {
+        slide.addShape('rect', {
+          x: lx, y: legendY + (bandH - 0.12) / 2, w: 0.13, h: 0.12, fill: { color: item.color },
+          line: item.vacant ? { dashType: 'dash' as const, color: 'B05A2E', width: 0.75 } : { color: '5B6B73', width: 0.5 },
+        });
+        tx = lx + 0.17;
+      }
+      slide.addText(item.label, {
+        x: tx, y: legendY, w: textWidthIn(item.label, legendPt, !!item.vacant) + 0.06, h: bandH,
+        fontSize: legendPt, color: item.vacant ? 'B05A2E' : '5B6B73', bold: !!item.vacant,
+        fontFace: KR, valign: 'middle', margin: 0, wrap: false,
+      });
+      lx += w;
+    }
+  }
+
+  // (D-RR) 기존 '※ 렌트롤 현황 기준 층별 공간 배치도' 각주는 제거 — 도식 하단과 겹치고,
+  // 헤더 띠 '층별 스태킹 플랜 (㎡)'가 같은 정보를 전달하므로 중복 (Rule 4)
+
+  // --- Right Panel: Rent Roll Table ---
+  // 표 데이터는 표준 10열(층·임차인·용도·임대면적·전용면적·보증금·월임대료·관리비·월합계·만기일)로 만들고,
+  // 렌더 직전에 사용자가 기입한 면적 열만 남기도록 투영한다 (HEADERS/colW 는 아래 areaProj 에서 확정).
+  if (hasTable) {
+    // 면적 열 투영 — 임대면적/전용면적 중 사용자가 기입한 것(둘 중 하나 또는 둘 다)만 표기.
+    // 헤더·열폭·셀을 같은 keep 인덱스로 투영해 열 수 = 셀 수를 유지한다 (rule 68).
+    const areaProj = projectBasicRentRollColumns(rawRows);
+    const HEADERS = areaProj.headers;
+
+    // 셀 문자열 확정 (숫자 열은 천 단위 구분 통일: 2490.3 → 2,490.3)
+    const cellTexts: string[][] = displayRows.map((row: any[]) => areaProj.keep.map((ci, k) => {
+      const text = String(row[ci] ?? '').replace(/\*\*/g, '').trim();
+      return isNumericRentRollHeader(HEADERS[k]) ? formatNumericCell(text) : text;
+    }));
+
+    // 열폭: 내용 폭 기반 배분 (셀 줄바꿈 방지) — 합계 = tbW
+    const colW = computeRentRollColumnWidths(HEADERS, cellTexts, tbW, headerFontSize, bodyFontSize);
+
     // Render table
     const tableData: any[][] = [];
-    const cellMargin = L.getDynamicTableMargin(dynamicRowH);
-    
+    const cellMargin = L.getDynamicTableMargin(rowH);
+    const usable = (w: number) => Math.max(0.1, w - 0.12);
+
     // Header
     tableData.push(HEADERS.map((h, cIdx) => {
-      const cWidth = colW[cIdx] ?? 0.8;
-      const fitted = L.fitTableCell(h, cWidth, dynamicRowH, Math.max(dynamicFontSize, 9));
+      const fitted = fitSingleLine(h, usable(colW[cIdx] ?? 0.8), headerFontSize, 7, true);
       return {
         text: fitted.text,
         options: { fill: C.ink, color: C.bg, fontSize: fitted.fontSize, bold: true, align: 'center', margin: cellMargin }
       };
     }));
-    
+
     // Body
     displayRows.forEach((row: any, i: number) => {
-      const isSummary = row.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()));
-      const isVacant = String(row[3] || '').includes('공실');
+      const isSummary = isSummaryRowOf(row);
+      // 공실 판정은 층·임차인·용도 칸 기준 (면적 칸이 아님)
+      const isVacant = !isSummary && row.slice(0, 3).some((c: any) => String(c || '').includes('공실'));
       const isSelfUse = row.some((c: any) => /자가|자가사용/.test(String(c || '')));
-      
+
       const fill = isSummary ? C.tint : (isVacant ? 'FBEFE8' : (isSelfUse ? C.tint : (i % 2 === 0 ? C.bg : 'F3F6F7')));
       const color = isVacant ? 'B05A2E' : (isSummary ? C.ink : (isSelfUse ? C.slate : '2B2B2B'));
       const bold = isSummary || isVacant;
-      
-      const mappedRow = [
-        row[0] || '',
-        row[1] || '',
-        row[2] || '',
-        row[3] || '',
-        row[4] || '',
-        row[5] || '',
-        row[6] || '',
-        row[7] || '',
-        row[8] || '',
-        row[9] || '',
-      ].map((cell, cIdx) => {
-        const text = String(cell).replace(/\*\*/g, '');
-        const cWidth = colW[cIdx] ?? 0.8;
-        const fitted = L.fitTableCell(text, cWidth, dynamicRowH, dynamicFontSize);
+
+      const mappedRow = cellTexts[i].map((text, cIdx) => {
+        const fitted = fitSingleLine(text, usable(colW[cIdx] ?? 0.8), bodyFontSize, Math.min(7, bodyFontSize), bold);
         return {
           text: fitted.text,
           options: {
             fill, color, fontSize: fitted.fontSize, bold,
-            align: cIdx >= 3 && cIdx <= 8 ? 'right' : (cIdx === 1 ? 'left' : 'center'),
+            align: isNumericRentRollHeader(HEADERS[cIdx]) ? 'right' : (cIdx === 1 ? 'left' : 'center'),
             fontFace: KR,
             margin: cellMargin,
           }
@@ -464,18 +624,27 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       });
       tableData.push(mappedRow);
     });
-    
+
     slide.addTable(tableData, {
-      x: tbX, y: spY, w: tbW, colW,
+      x: tbX, y: topY, w: tbW, colW,
       border: { type: 'solid', color: C.line, pt: 0.3 },
-      rowH: dynamicRowH,
-      valign: 'middle'
+      rowH,
+      valign: 'middle',
+      autoPage: false,
     });
-    
+
+    // 단위 표기 (binder가 ㎡·만원으로 확정한 R2 표일 때만) — 헤더 셀은 표준 명칭 유지
+    if (isR2BinderTable) {
+      slide.addText('면적 ㎡ · 금액 만원', {
+        x: tbX, y: topY - 0.26, w: tbW, h: 0.22,
+        fontSize: 8, color: '7A8794', align: 'right', valign: 'bottom', fontFace: KR, margin: 0,
+      });
+    }
+
     if (truncated) {
       slide.addText(`(전체 ${totalCount - 1}건 중 ${maxRowsToFit - 1}건 표시)`, {
-        x: tbX, y: 6.52, w: tbW, h: 0.20,
-        fontSize: Math.max(dynamicFontSize - 1, 7), color: '7A8794', align: 'right', fontFace: KR, margin: 0
+        x: tbX, y: topY + totalRenderRows * rowH + 0.03, w: tbW, h: 0.18,
+        fontSize: Math.max(bodyFontSize - 1, 7), color: '7A8794', align: 'right', fontFace: KR, margin: 0
       });
     }
   }

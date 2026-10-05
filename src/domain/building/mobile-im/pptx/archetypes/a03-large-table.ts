@@ -76,7 +76,7 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
 
     // CellValue[][] 형태로 변환 (합계 행 Slate Tint #F1F5F9 및 공실 셀 Amber Accent #D97706 적용)
     const bodyRows = tableRows.map((r: any[]) => {
-      const isSummary = r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()));
+      const isSummary = r.some((c: any) => /^(?:합계|소계|계|총합|총액)(?:\s|$)/.test(String(c || '').trim()));
       return r.map((c: any, cIdx: number) => {
         const rawText = String(c || '').replace(/\*\*/g, '');
         const cWidth = colW[cIdx] ?? (CW / colCount);
