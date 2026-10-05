@@ -8,6 +8,7 @@ import type { MobileIMSection, MobileIMSectionType } from "./types";
 import { sanitizePersona, stripMarkdown } from './pptx/data-binder';
 
 import { createModuleLogger } from '@/lib/logger';
+import { isDeterministicLLMMode } from '@/ai/llm-determinism';
 const log = createModuleLogger('golden-im-manager');
 
 
@@ -127,6 +128,9 @@ export async function buildIMFewShotBlock(
   limit: number = 2,
   posture: string = 'income',
 ): Promise<{ formatted: string; usedIds: string[] }> {
+  // H4 결정성: 동적 few-shot 은 DB 골든셋(신선도·usage_count·실행마다 추가되는 골든)에 따라 매번 달라져
+  // 녹화/재생 프롬프트가 일치하지 않는다 → record/replay/record-missing 모드에서는 비활성 (live 동작은 그대로)
+  if (isDeterministicLLMMode()) return { formatted: '', usedIds: [] };
   try {
     const supabase = createServiceClient();
 

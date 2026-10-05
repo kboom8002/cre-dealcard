@@ -1,0 +1,14 @@
+{
+ "key": "32fccf76d30a5511571b06ddf0282a569ddd2320",
+ "recordedAt": "2026-10-05T09:47:56.406Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 연면적 2,490.88㎡ 규모의 선유테라피스타워는 월 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"현재 공실률은 8.33%로 확인되어 있어\",\n      \"suggestion\": \"공실률 산정 근거가 되는 임대현황표, 임대차계약서 또는 공식 자료를 명시하고, 근거가 없으면 '제공 자료 기준 공실률 8.33%'와 같이 출처를 한정하거나 해당 수치를 삭제하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 상권의 유동인구 및 업무·생활 편의시설 접근성은 신규 임차인 유치에 긍정적입니다.\",\n      \"suggestion\": \"유동인구 통계, 상권 분석 보고서 등 출처와 조사 시점을 제시하거나, 단정 대신 '신규 임차인 유치에 영향을 줄 수 있으므로 관련 지표 확인이 필요합니다'로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2015,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7526
+ }
+}

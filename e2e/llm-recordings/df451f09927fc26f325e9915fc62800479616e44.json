@@ -1,0 +1,14 @@
+{
+ "key": "df451f09927fc26f325e9915fc62800479616e44",
+ "recordedAt": "2026-10-05T10:11:09.197Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역 3호선 도보 4분 및 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 269곳, 카페 95곳\",\n      \"suggestion\": \"조사 기준일, 반경, 데이터 출처를 명시하거나 출처 확인이 어려운 경우 구체적인 수치를 삭제하고 '음식점과 카페 등 생활·업무 인프라가 형성되어 있다'처럼 완화하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"일 평균 유동인구가 형성된 상권은 임직원 편의와 대외 영업 효율을 뒷받침합니다\",\n      \"suggestion\": \"유동인구 조사기관·조사기간·수치를 제시하고, 대외 영업 효율에 관한 단정은 '업무 편의 측면에서 검토할 수 있습니다'처럼 조건부로 수정하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"양재역세권(도보 5분 이내) 서초 업무권의 입지 희소성\",\n      \"suggestion\": \"희소성을 뒷받침하는 공급 현황, 거래자료 또는 공공·전문기관 보고서를 인용하거나 '역세권 입지의 특성이 있다'와 같이 객관적 사실 중심으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"중장기 자산가치 보존 및 상승 가능성을 기대할 수 있습니다\",\n      \"suggestion\": \"자산가치 보존이나 상승을 기대하게 하는 표현을 삭제하고, '향후 자산가치는 시장 상황, 수요 및 권리관계에 대한 별도 검토가 필요합니다'처럼 중립적으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"중장기 자산가치 보존 및 상승 가능성을 기대할 수 있습니다\",\n      \"suggestion\": \"향후 가격·가치 상승 전망을 제시하지 말고, 확인 가능한 입지·교통 사실만 기술한 뒤 자산가치 평가는 별도 실사와 시장 검토가 필요하다고 명시하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2660,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 15775
+ }
+}

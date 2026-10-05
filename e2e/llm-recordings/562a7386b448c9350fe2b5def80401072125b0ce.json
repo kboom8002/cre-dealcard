@@ -1,0 +1,14 @@
+{
+ "key": "562a7386b448c9350fe2b5def80401072125b0ce",
+ "recordedAt": "2026-10-05T10:08:56.704Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **실질 영업이익(GOP)**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"반경 상권 내 음식점 200개·카페 124개가 집적되어 있다.\",\n      \"suggestion\": \"조사 기준일, 조사 범위, 출처를 명시하고 검증 가능한 자료가 없으면 '주변에 음식점과 카페가 다수 위치한다'와 같이 정성적·조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"이대·신촌 생활권의 역세권(도보 5분 이내) 상업 수요\",\n      \"suggestion\": \"상업 수요를 뒷받침하는 임대·공실·유동인구 등 공공데이터나 보고서를 인용하거나, '상업 수요를 확인하기 위한 추가 조사가 필요하다'고 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산가치 방어\",\n      \"suggestion\": \"가격 또는 자산가치에 대한 평가로 단정하지 말고, '운영·시설 개선 검토 요소' 또는 '가치 영향에 대한 별도 검토 필요'와 같이 중립적으로 표현하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"시설 개선·전문 위탁운영사 매칭을 검토해 상권 대응형 공간 및 브랜드 가치를 높일 여지가 있다.\",\n      \"suggestion\": \"가치 상승을 암시하는 표현을 피하고, '시설 개선 및 위탁운영사 매칭의 실행 가능성과 비용·효과를 검토할 수 있다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2918,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12875
+ }
+}

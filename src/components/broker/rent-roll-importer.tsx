@@ -31,7 +31,7 @@ interface RentRollImporterProps {
 type PreviewRow = ParsedRentRollRow & {
   deposit_manwon: number;
   rent_manwon: number;
-  mgmt_fee_manwon: number;
+  mgmt_fee_manwon?: number; // 미기재 시 undefined → IM 에서 '-' (0 날조 금지, Rule 34/37)
   is_vacant: boolean;
 };
 
@@ -123,7 +123,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         ...r,
         deposit_manwon: r.deposit_manwon || 0,
         rent_manwon: r.rent_manwon || 0,
-        mgmt_fee_manwon: r.mgmt_fee_manwon || 0,
+        mgmt_fee_manwon: Number.isFinite(r.mgmt_fee_manwon) ? r.mgmt_fee_manwon : undefined,
         is_vacant: r.is_vacant || false,
       }));
 
@@ -215,7 +215,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         ...r,
         deposit_manwon: r.deposit_manwon || 0,
         rent_manwon: r.rent_manwon || 0,
-        mgmt_fee_manwon: r.mgmt_fee_manwon || 0,
+        mgmt_fee_manwon: Number.isFinite(r.mgmt_fee_manwon) ? r.mgmt_fee_manwon : undefined,
         is_vacant: r.is_vacant || false,
       }));
 

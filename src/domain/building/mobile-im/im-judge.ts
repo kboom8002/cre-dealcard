@@ -8,8 +8,10 @@
 
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
+import { stripRenderOnlyExternal } from "./prompt-external-slice";
 
 import { createModuleLogger } from '@/lib/logger';
+import { isDeterministicLLMMode } from '@/ai/llm-determinism';
 const log = createModuleLogger('im-judge');
 
 
@@ -149,7 +151,7 @@ function buildJudgeUserPrompt(input: IMJudgeInput): string {
     ...safeSupplementalData
   } = (input.supplementalData as any) ?? {};
 
-  const slicedExternal = { ...safeExternalData };
+  const slicedExternal: any = stripRenderOnlyExternal({ ...safeExternalData }); // 지도 렌더 전용 후보 제외 (토큰·결정성)
   if (!['location_analysis', 'property_overview', 'location'].includes(input.sectionType)) {
     delete slicedExternal.poi;
   }
@@ -359,5 +361,7 @@ export function shouldJudgeByConfidence(
   };
 
   const rate = samplingRates[confidence];
+  // H4 결정성: 녹화/재생 모드에선 확률 샘플링 대신 필수 평가(needs_check)만 실행 → 호출 집합 고정
+  if (isDeterministicLLMMode()) return rate >= 1;
   return Math.random() < rate;
 }

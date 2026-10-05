@@ -82,3 +82,24 @@ describe('fillParcelsFromPublicData', () => {
     expect(r.parcels.map(p => p.pnu)).toEqual([P1]);
   });
 });
+
+describe('fillParcelsFromPublicData — 일시 실패 재시도', () => {
+  it('첫 조회 null/폴백 → 1회 재시도로 실데이터 채움', async () => {
+    let n = 0;
+    const d = deps({
+      fetchLandUsePlan: vi.fn(async (pnu: string) => (n++ === 0 ? null : { landArea: REAL[pnu]?.area })),
+      fetchLandPrice: vi.fn(async () => ({ landArea: 1, pricePerSqm: 1, _isFallback: true })),
+    });
+    const r = await fillParcelsFromPublicData([], [P1], d, 0);
+    expect(r.parcels[0].areaM2).toBe(253.9);
+    expect(r.parcels[0].officialPricePerM2).toBeUndefined(); // 재시도도 폴백 → 값 미생성
+    expect((d.fetchLandUsePlan as any).mock.calls.length).toBe(2);
+    expect((d.fetchLandPrice as any).mock.calls.length).toBe(2);
+  });
+
+  it('첫 조회 성공 시 재시도하지 않음', async () => {
+    const d = deps();
+    await fillParcelsFromPublicData([], [P1], d, 0);
+    expect((d.fetchLandUsePlan as any).mock.calls.length).toBe(1);
+  });
+});

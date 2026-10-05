@@ -1,0 +1,14 @@
+{
+ "key": "77d7edb9ca990334dfb6f44afdf8ee2ab10c9b84",
+ "recordedAt": "2026-10-05T10:01:59.234Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역(2·9호선) 도보권, 2002년 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실이 발생한 상태로, 역세권(도보 5분 이내) 유동 및 인근 주거 배후를 활용한 공실 해소와 임차인 구성 최적화가 안정적 현금흐름 확보의 핵심 과제입니다.\",\n      \"suggestion\": \"안정적인 현금흐름 확보를 전제하지 말고, 공실 해소 및 임차인 구성 개선 가능성을 검토할 필요가 있다는 조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"역세권(도보 5분 이내) 유동 및 인근 주거 배후\",\n      \"suggestion\": \"유동인구나 주거 배후를 언급하려면 조사 시점, 출처 및 산정 기준을 제시하고, 그렇지 않으면 '역세권 접근성과 주변 주거지역의 존재'처럼 객관적으로 확인 가능한 내용으로 한정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2060,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7130
+ }
+}

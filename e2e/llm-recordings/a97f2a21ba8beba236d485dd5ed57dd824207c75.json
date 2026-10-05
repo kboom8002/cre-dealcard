@@ -1,0 +1,14 @@
+{
+ "key": "a97f2a21ba8beba236d485dd5ed57dd824207c75",
+ "recordedAt": "2026-10-05T09:59:24.732Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: development_feasibility ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 목표 연면적 2,50",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"총사업비 대비 개발 이익률은 약 201.4%로 산정됩니다... 일반상업지역(건폐율 60%, 용적률 800%)의 개발 여력은 긍정적\",\n      \"suggestion\": \"높은 개발이익이나 사업성에 대한 긍정적 인상을 단정적으로 제시하지 말고, 가정별 민감도 분석과 함께 '검토용 시나리오일 뿐 투자성과를 보장하지 않는다'는 중립적 표현으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"총사업비 약 290.3억 원, 예상 분양·매각수입 약 875억 원, 개발 이익률은 약 201.4%, 토지 매입 실투자금은 약 89억 원, 공사비는 평당 1,200만 원, PF 담보인정비율(LTV) 60%, 금리 7~9%\",\n      \"suggestion\": \"각 수치의 산출 근거와 출처(매매계약·견적서·분양가 조사·금융기관 조건 등)를 명시하십시오. 근거가 없다면 구체적인 수치를 삭제하고, 검증 전 가정값을 사용한 예시 시나리오임을 명확히 표시하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2169,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8686
+ }
+}

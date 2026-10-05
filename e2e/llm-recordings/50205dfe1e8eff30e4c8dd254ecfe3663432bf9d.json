@@ -1,0 +1,14 @@
+{
+ "key": "50205dfe1e8eff30e4c8dd254ecfe3663432bf9d",
+ "recordedAt": "2026-10-05T10:03:03.534Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 33.33% 공실로 인해 월 임대수입 1,946",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"당산역 접근성과 인근 주거 밀집 수요를 활용해\",\n      \"suggestion\": \"인근 주거 수요를 언급하려면 관련 공공데이터나 상권·임대시장 보고서의 출처와 기준시점을 제시하거나, '인근 주거 배후 수요를 확인한 후'처럼 확인이 필요한 가정으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2055,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6834
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "0e963ec1a97a233779a0f0e2be80104ad998398c",
+ "recordedAt": "2026-10-05T10:11:25.233Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: cost_comparison ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 약 230억 원의 사옥 매입을",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"연간 점유비용 절감 효과는 **AI 추정 약 5.3억 원** ... 초기 자기자본의 회수기간은 약 **43년** ... 제시 매각가의 3.3㎡당 가격는 **36,122,276원**이며\",\n      \"suggestion\": \"연간 기존 임대료, 매입 금융조건·자기자본, 연면적 등 산출 근거와 원천자료를 명시하세요. 해당 입력값이 확인되지 않는 경우 구체적인 절감액·회수기간·3.3㎡당 가격을 삭제하고, 실제 임대차계약 및 면적 자료 확인 후 산출하도록 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1952,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7381
+ }
+}

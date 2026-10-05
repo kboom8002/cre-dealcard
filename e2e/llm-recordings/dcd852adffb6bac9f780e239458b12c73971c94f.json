@@ -1,0 +1,14 @@
+{
+ "key": "dcd852adffb6bac9f780e239458b12c73971c94f",
+ "recordedAt": "2026-10-05T10:01:58.840Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **당산역 2·9호선 더블역세권(도보 5분 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 임차 수요 확보에 유리합니다.\",\n      \"suggestion\": \"“임차 수요에 영향을 줄 수 있는 입지 요소로 검토됩니다”처럼 가능성과 검토 필요성을 중심으로 표현하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 191곳, 카페 53곳, 편의점 25곳\",\n      \"suggestion\": \"조사 기준일, 조사 범위, 출처를 명시하거나 출처 확인 전에는 구체적인 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공실 33.33% 해소\",\n      \"suggestion\": \"공실률 산정 대상, 기준일, 산정 방식 및 출처를 명시하세요. 검증 자료가 없으면 “현재 공실 개선 가능성을 검토” 등으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 당산센트럴IPARK 및 삼성래미안 등 대규모 주거 배후가 생활·근린 서비스 수요를 뒷받침합니다.\",\n      \"suggestion\": \"주거 인구, 소비 데이터 또는 공공·민간 보고서 등 근거를 제시하거나 “생활·근린 서비스 수요에 영향을 줄 수 있는 배후 요소”로 완화하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상권의 성장 추세는\",\n      \"suggestion\": \"상권 매출, 점포 수, 유동인구 등의 기간별 자료와 출처를 제시하거나 해당 표현을 삭제하고 객관적으로 확인 가능한 인프라 현황만 기술하세요.\"\n    }\n  ]\n}",
+  "tokens": 2039,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8331
+ }
+}

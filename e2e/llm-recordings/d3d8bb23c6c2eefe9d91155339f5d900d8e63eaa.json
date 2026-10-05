@@ -1,0 +1,14 @@
+{
+ "key": "d3d8bb23c6c2eefe9d91155339f5d900d8e63eaa",
+ "recordedAt": "2026-10-05T09:54:50.830Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 약 267m의 역세권(도보 5",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상업용 이용이 형성된 주변 환경은 오피스·근린생활시설 수요를 뒷받침하는 핵심 가치입니다.\",\n      \"suggestion\": \"상업용 이용 현황과 오피스·근린생활시설 수요를 뒷받침하는 근거 자료(공공데이터, 상권분석 보고서, 임대·공실 통계 등)를 명시하거나, '수요를 뒷받침할 가능성이 있어 관련 자료 확인이 필요합니다'와 같이 조건부로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1951,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6500
+ }
+}

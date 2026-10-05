@@ -22,6 +22,8 @@ export interface LandDetailInput {
   landShape?: string;              // 형상: '정방형' | '가장형' | '세장형' | '부정형' | '삼각형' 등
   landTopography?: string;         // 지형: '평지' | '완경사' | '급경사' | '고지' | '저지' 등
   roadFrontage?: string;           // 도로접면: '광대한면' | '중로한면' | '소로한면' | '세로(가)한면' | '맹지' 등
+  /** 다필지에서 필지별 면적이 일부 미확인일 때 표시할 건축물대장 대지면적(합계) — 필지별 값으로 복제하지 않는다 (Rule 34) */
+  registerLandAreaM2?: number;
 }
 
 export interface SectionOutput {
@@ -48,13 +50,22 @@ export function renderLandDetail(input: LandDetailInput): SectionOutput {
     lines.push(`### 필지 구성 (${input.parcels.length}필지)`);
     lines.push('| PNU | 지목 | 면적(㎡) | 지분율 | 공시지가(원/㎡) |');
     lines.push('|-----|------|---------|--------|----------------|');
-    const totalArea = input.parcels.reduce((s, p) => s + p.areaM2 * p.ownershipRatio, 0);
+    // 필지별 면적 미확인(0/NaN) 은 '-' (Rule 37). 전 필지 확인 시에만 합산, 아니면 건축물대장 대지면적을 출처와 함께 표시
+    const hasArea = (p: { areaM2: number }) => Number.isFinite(p.areaM2) && p.areaM2 > 0;
+    const allKnown = input.parcels.every(hasArea);
     for (const p of input.parcels) {
       const price = p.officialLandPricePerM2?.toLocaleString() ?? '-';
-      lines.push(`| ${p.pnu} | ${p.jimok} | ${p.areaM2.toLocaleString()} | ${(p.ownershipRatio * 100).toFixed(0)}% | ${price} |`);
+      const area = hasArea(p) ? p.areaM2.toLocaleString() : '-';
+      lines.push(`| ${p.pnu} | ${p.jimok} | ${area} | ${(p.ownershipRatio * 100).toFixed(0)}% | ${price} |`);
     }
     lines.push(``);
-    lines.push(`> **유효 대지면적 합계: ${totalArea.toLocaleString()}㎡ (${formatPyeong(totalArea, 1)}평)**`);
+    if (allKnown) {
+      const totalArea = input.parcels.reduce((s, p) => s + p.areaM2 * p.ownershipRatio, 0);
+      lines.push(`> **유효 대지면적 합계: ${totalArea.toLocaleString()}㎡ (${formatPyeong(totalArea, 1)}평)**`);
+    } else if (input.registerLandAreaM2 && input.registerLandAreaM2 > 0) {
+      const a = input.registerLandAreaM2;
+      lines.push(`> **대지면적 합계 (건축물대장): ${a.toLocaleString()}㎡ (${formatPyeong(a, 1)}평)** — 필지별 면적은 토지대장 확인 필요`);
+    }
   }
   
   // 용도지역 & 용적률

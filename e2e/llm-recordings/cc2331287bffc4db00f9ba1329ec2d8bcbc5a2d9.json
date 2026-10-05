@@ -1,0 +1,14 @@
+{
+ "key": "cc2331287bffc4db00f9ba1329ec2d8bcbc5a2d9",
+ "recordedAt": "2026-10-05T07:48:21.394Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "text",
+ "promptPreview": "B1 카페(자가) 96평 보증금0 월세0 관리비30 계약 2014-09-01~ 자가사용 1F 약국 23.7평 보증금6000 월세183 관리비30 계약 2014-09-01~2026-08-31 임대 11년 경과 1F 내",
+ "result": {
+  "content": "{\"floorLeases\":[{\"floor\":\"B1\",\"tenant_type\":\"카페\",\"area_sqm\":317.36,\"deposit_manwon\":0,\"rent_manwon\":0,\"mgmt_fee_manwon\":30,\"is_vacant\":true,\"lease_start\":\"2014-09-01\"},{\"floor\":\"1F\",\"tenant_type\":\"약국\",\"area_sqm\":78.35,\"deposit_manwon\":6000,\"rent_manwon\":183,\"mgmt_fee_manwon\":30,\"is_vacant\":false,\"lease_start\":\"2014-09-01\",\"lease_end\":\"2026-08-31\"},{\"floor\":\"1F\",\"tenant_type\":\"내과\",\"tenant_name\":\"로뎀나무내과\",\"area_sqm\":105.46,\"deposit_manwon\":14000,\"rent_manwon\":883,\"mgmt_fee_manwon\":30,\"is_vacant\":false,\"lease_start\":\"2014-09-01\",\"lease_end\":\"2026-08-31\"},{\"floor\":\"2F\",\"tenant_type\":\"내과\",\"tenant_name\":\"로뎀나무내과\",\"area_sqm\":252.23,\"deposit_manwon\":0,\"rent_manwon\":0,\"mgmt_fee_manwon\":30,\"is_vacant\":true,\"lease_start\":\"2014-09-01\",\"lease_end\":\"2026-08-31\"},{\"floor\":\"3F\",\"tenant_type\":\"헬쓰장\",\"area_sqm\":252.23,\"deposit_manwon\":5000,\"rent_manwon\":455,\"mgmt_fee_manwon\":20,\"is_vacant\":false,\"lease_start\":\"2014-09-01\",\"lease_end\":\"2026-04-17\"},{\"floor\":\"4F\",\"tenant_type\":\"와인매장\",\"area_sqm\":168.93,\"deposit_manwon\":3000,\"rent_manwon\":260,\"mgmt_fee_manwon\":20,\"is_vacant\":false,\"lease_start\":\"2014-09-01\",\"lease_end\":\"2025-04-30\"},{\"floor\":\"4F\",\"tenant_type\":\"자가사용\",\"area_sqm\":82.98,\"deposit_manwon\":0,\"rent_manwon\":0,\"mgmt_fee_manwon\":20,\"is_vacant\":true,\"lease_start\":\"2014-09-01\"},{\"floor\":\"5F\",\"tenant_type\":\"내과\",\"tenant_name\":\"로뎀나무내과\",\"area_sqm\":183.8,\"deposit_manwon\":1000,\"rent_manwon\":165,\"mgmt_fee_manwon\":20,\"is_vacant\":false,\"lease_start\":\"2014-09-01\",\"lease_end\":\"2026-08-31\"}],\"monthlyRent\":1946,\"totalDeposit\":29000,\"mgmtFeeTotal\":200,\"vacancyPct\":33.33}",
+  "tokens": 2316,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13611
+ }
+}

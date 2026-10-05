@@ -1,0 +1,14 @@
+{
+ "key": "e77b9dd7bdd3252db6bd382f646be2580bc99b5e",
+ "recordedAt": "2026-10-05T09:47:41.189Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 선유도역 도보 2분, 2018년 준공한 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"9호선 선유도역 역세권 도보권 입지와 업무용 건물의 규모감은 임차 수요 확보 및 공실 관리 관점에서 안정적인 현금흐름 기반을 뒷받침할 수 있습니다.\",\n      \"suggestion\": \"입지와 건물 규모를 객관적으로 기술하고, 임차 수요·공실률·현금흐름에 관한 판단은 삭제하거나 실제 임대현황 및 검증 가능한 자료를 함께 제시하세요. 예: \\\"9호선 선유도역 도보권에 위치한 업무시설로, 임대현황과 공실률은 별도 확인이 필요합니다.\\\"\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"임차 수요 확보 및 공실 관리 관점에서 안정적인 현금흐름 기반을 뒷받침할 수 있습니다.\",\n      \"suggestion\": \"출처나 임대현황 자료 없이 임차 수요와 안정적 현금흐름을 추정하지 말고, 객관적 사실만 기재하세요. 예: \\\"임차 수요와 공실 수준은 현 임대차계약, 임대율 및 인근 시장자료를 통해 확인할 필요가 있습니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 1843,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 5240
+ }
+}

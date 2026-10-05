@@ -1,0 +1,14 @@
+{
+ "key": "121b16ddc7391aba719700119f8f8383833e567a",
+ "recordedAt": "2026-10-05T10:14:56.768Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: comparable_analysis ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 희망가 760억 원(평당 75,18",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"목표 매각가 약 912억 원 및 약 152억 원의 시세차익(HPR 20%) 달성이 산술적으로 가능하다는 판단입니다.\",\n      \"suggestion\": \"목표 매각가와 시세차익·수익률을 제시하지 말고, 공실 해소·임대수익 안정화·시장 상황에 따라 결과가 달라지는 비보장성 시나리오 분석으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"AI 추정 인근 시세 대비 13% 할인 수준\",\n      \"suggestion\": \"공식 거래자료나 평가보고서 등 검증 가능한 출처가 없는 13% 할인 수치는 삭제하거나, 비교 대상·기준일·산출근거를 명시하십시오.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"AI 추정 인근 시세 대비 13% 할인 수준으로 제시되며\",\n      \"suggestion\": \"구체적인 비교 거래의 위치, 자산 규모, 거래일, 건물연령, 공실 및 임대조건을 제시하지 않는 한 ‘할인’ 또는 유리한 가격이라는 평가를 삭제하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"최근 12개월 내 확인된 인근 거래는 수서·도곡·청담·논현 일대의 소규모 구분 거래가 중심으로\",\n      \"suggestion\": \"거래신고자료, 공공데이터 또는 출처가 있는 시장보고서를 인용하고 거래 건수·자산 유형·조사 범위를 명시하십시오. 근거를 제시할 수 없다면 해당 시장 현황 단정을 삭제하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"이를 정상화할 경우 목표 매각가 약 912억 원 및 약 152억 원의 시세차익(HPR 20%) 달성이 산술적으로 가능하다는 판단입니다.\",\n      \"suggestion\": \"‘정상화’, ‘목표 매각가’, ‘시세차익 달성’과 같은 주관적 가격·상승 전망을 삭제하고, 확인 가능한 거래자료를 바탕으로 한 조건부 가격 시나리오 또는 검토 필요성으로 표현하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2360,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9283
+ }
+}

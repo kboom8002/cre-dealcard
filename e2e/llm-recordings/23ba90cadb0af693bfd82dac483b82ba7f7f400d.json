@@ -1,0 +1,14 @@
+{
+ "key": "23ba90cadb0af693bfd82dac483b82ba7f7f400d",
+ "recordedAt": "2026-10-05T10:08:31.828Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 등기사항증명서이 미연동 상태이므로 소유권, 근저",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"이대역 약 259m의 유동성과 음식점 중심 상권의 수요를 활용하되 경쟁지수 100 및 공실 발생 정보를 감안하여\",\n      \"suggestion\": \"이대역까지의 거리는 객관적 위치 정보로 유지하되, 유동인구·음식점 수요·경쟁지수·공실 발생 여부는 조사 기준일과 출처(공공데이터, 상권분석 보고서, 현장조사 등)를 명시하거나, '제공 자료상 해당 정보가 있는 경우'와 같이 조건부로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2051,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6967
+ }
+}

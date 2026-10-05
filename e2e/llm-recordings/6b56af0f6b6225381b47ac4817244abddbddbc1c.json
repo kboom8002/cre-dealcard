@@ -1,0 +1,14 @@
+{
+ "key": "6b56af0f6b6225381b47ac4817244abddbddbc1c",
+ "recordedAt": "2026-10-05T10:02:13.997Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 2·9호선 도보권의 접근성과 관련하여 주거·상업",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"33.33%의 공실은 적극적인 임차인 유치와 임대차 재정비를 통해 추가 현금흐름을 확보할 수 있는 개선 여지로 평가됩니다.\",\n      \"suggestion\": \"공실 해소 가능성을 단정적으로 긍정 평가하기보다, 임차인 유치 가능성·예상 소요 기간·임대조건 조정 여부 등을 확인한 후 추가 현금흐름 발생 여부를 검토한다고 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1904,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7002
+ }
+}

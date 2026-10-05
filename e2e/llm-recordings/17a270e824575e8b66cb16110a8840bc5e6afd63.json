@@ -1,0 +1,14 @@
+{
+ "key": "17a270e824575e8b66cb16110a8840bc5e6afd63",
+ "recordedAt": "2026-10-05T10:11:09.861Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown FM빌딩은 연면적 636.7평(약 210",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"안정적인 서초 업무·상권 배후\",\n      \"suggestion\": \"상권·업무 수요의 안정성을 단정하지 말고, 관련 공공데이터나 시장보고서의 출처·기준시점을 제시하거나 '서초 업무·상권 접근성을 보유하나 수요 및 공실 추이는 별도 확인이 필요하다'와 같이 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2344,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12785
+ }
+}

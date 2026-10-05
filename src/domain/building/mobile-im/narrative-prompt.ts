@@ -3,6 +3,7 @@
 
 import type { InvestmentPosture } from "@/domain/ontology";
 import type { MobileIMSectionType, MobileIMSupplementalInput, ExternalDataSnapshot } from "./types";
+import { stripRenderOnlyExternal } from "./prompt-external-slice";
 
 /** v3 B2B/B2C 렉시콘 프로필 */
 export type LexiconProfile = 'b2b' | 'b2c';
@@ -228,7 +229,7 @@ export function buildNarrativeUserPrompt(
       ? "3.3㎡당 매매가, 인근 거래사례 대비 가격 경쟁력 및 목표 시세차익 수치를 묘사하세요. 첫 문장에 '인근 시세 대비 가격 경쟁력, 목표 차익 ○억 원'을 명시하세요."
       : "실투자금(자기자본), 월 순수입, 연 순수익률(Cap Rate, 기준: NOI), 토지 평가액 비중을 종합하여 현금흐름과 하방 안정성을 객관적으로 서술하세요.",
     risk_check: "주요 리스크 항목과 이에 대한 '구체적 대응 방안(완화책)'을 함께 제시하세요. 리스크만 나열하지 말고 '어떻게 해결 가능한지'를 함께 서술하여 불안감을 해소하세요.",
-    investment_thesis: "이 건물을 지금 사야 하는 '3대 핵심 투자 포인트'를 반드시 아래 형식으로 정확히 작성하세요:\n- **포인트 제목**: 구체적 수치와 근거를 포함한 상세설명\n- **포인트 제목**: 구체적 수치와 근거를 포함한 상세설명\n- **포인트 제목**: 구체적 수치와 근거를 포함한 상세설명\n각 포인트에는 반드시 검증 가능한 수치(㎡, 억 원, %, 도보 분 등)를 1개 이상 포함하세요. 마지막 줄에 '> **종합 가치 제안**: 자산의 안정성과 성장성을 겸비한 상업용 부동산으로...' 형식의 실질적 투자 결론을 도출하세요.",
+    investment_thesis: "이 건물의 '3대 핵심 투자 포인트'를 반드시 아래 형식으로 정확히 작성하세요:\n- **포인트 제목**: 구체적 수치와 근거를 포함한 상세설명\n- **포인트 제목**: 구체적 수치와 근거를 포함한 상세설명\n- **포인트 제목**: 구체적 수치와 근거를 포함한 상세설명\n각 포인트에는 반드시 검증 가능한 수치(㎡, 억 원, %, 도보 분 등)를 1개 이상 포함하세요. 확인된 사실·수치를 근거로 객관적으로 서술하고, 수익·원금·현금흐름의 안정성을 보장하거나 매수를 권유하는 표현('지금 사야', '원금 보전', '하방 안정성 확보', '안정적 현금흐름 확보', '손실 가능성 낮음' 등)은 쓰지 마세요. 마지막 줄에 '> **종합 가치 제안**: ...' 형식으로 위 근거를 한 문장으로 요약하되, 위 포인트 문장을 그대로 반복하지 마세요.",
     next_steps: "투자 검토 진행 절차(비밀유지약약서 NDA, 현장 실사, LOI 제출) 및 1:1 비밀 상담 안내를 제공하세요. 절대 매물 개요나 투자 장점을 요약하지 마세요. 오직 투자 진행 단계(NDA, 실사, LOI)와 문의 안내만 출력하세요.",
     occupancy_fit: "법인 본사 사옥 실입주 적합성(연면적 수용 인원, 전용 주차, 파사드 브랜딩 효과)을 강조하세요.",
     cost_comparison: "10년 임차 유지 대비 사옥 매입 자가전환에 따른 비용 절감 효과와 손익분기점을 비교하세요.",
@@ -259,7 +260,7 @@ ${JSON.stringify(bssotLite, null, 2)}`;
     } = (externalData as any) ?? {};
     
     // [D09] 프롬프트 필드 슬라이싱: 섹션과 무관한 대용량 배열 제거
-    const slicedExternal = { ...safeExternalData };
+    const slicedExternal: any = stripRenderOnlyExternal({ ...safeExternalData }); // 지도 렌더 전용 후보 제외 (토큰·결정성)
     if (!['location_analysis', 'property_overview', 'location'].includes(sectionType)) {
       delete slicedExternal.poi;
     }

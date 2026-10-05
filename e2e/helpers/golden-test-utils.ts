@@ -106,6 +106,32 @@ export async function pollImCompletion(page: Page, maxWaitMs = 300_000): Promise
   return imCompleted;
 }
 
+// ── 5-1. LLM 재생 미스 단언 (H4 보강) ──
+// replay 모드에서 녹화 미스가 나면 섹션 생성기가 조용히 템플릿으로 폴백하여 골든이 "통과"해 버린다.
+// 서버(RecordReplayProvider)가 남기는 JSONL(test-results/llm-replay-misses.jsonl)로 미스를 잡아 실패시킨다.
+const REPLAY_MISS_LOG = process.env.LLM_MISS_LOG || path.join(process.cwd(), 'test-results', 'llm-replay-misses.jsonl');
+
+export function markReplayWindowStart(screenshotDir: string): void {
+  ensureDir(screenshotDir);
+  fs.writeFileSync(path.join(screenshotDir, 'replay-window-start.txt'), new Date().toISOString());
+}
+
+export function assertNoReplayMisses(screenshotDir: string): void {
+  if ((process.env.LLM_MODE ?? '').toLowerCase() !== 'replay') return;
+  const markFile = path.join(screenshotDir, 'replay-window-start.txt');
+  const since = fs.existsSync(markFile) ? fs.readFileSync(markFile, 'utf-8').trim() : '';
+  if (!fs.existsSync(REPLAY_MISS_LOG)) { console.log('  ✅ LLM 재생 미스 0건 (미스 로그 없음)'); return; }
+  const misses = fs.readFileSync(REPLAY_MISS_LOG, 'utf-8').split('\n').filter(Boolean)
+    .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+    .filter((m: any) => m && m.kind === 'replay-miss' && (!since || m.at >= since));
+  if (misses.length > 0) {
+    for (const m of misses.slice(0, 5)) console.log(`  ❌ LLM 재생 미스: ${m.key} ${m.model} "${m.preview}"`);
+  } else {
+    console.log('  ✅ LLM 재생 미스 0건');
+  }
+  expect(misses.length, 'replay 모드 LLM 녹화 미스 (프롬프트 드리프트 → 템플릿 폴백). LLM_MODE=record-missing 으로 증분 녹화 필요').toBe(0);
+}
+
 // ── 6. 문서 조회 및 자동 승인 (API 호출 + DB 서비스롤 폴백) ──
 
 export async function approveDocument(
@@ -115,7 +141,19 @@ export async function approveDocument(
 ): Promise<string> {
   const docsRes = await page.request.get(`/api/broker/im-lite/${buildingId}`);
   const docsJson = await docsRes.json();
-  const latestDoc = docsJson.documents?.[0] || docsJson.document;
+  let latestDoc = docsJson.documents?.[0] || docsJson.document;
+  if (!latestDoc) {
+    // 폴백: 생성 완료 후 리다이렉트된 /broker/im-approval/<docId> 에서 문서 ID 해소
+    const m = page.url().match(/im-approval\/([0-9a-f-]{36})/i);
+    if (m) {
+      const byIdRes = await page.request.get(`/api/broker/im-lite/${m[1]}`);
+      const byIdJson = await byIdRes.json().catch(() => ({}));
+      latestDoc = byIdJson.documents?.[0];
+      console.log(`  ⚠️ buildingId(${buildingId}) 조회 결과 없음 → URL docId(${m[1]}) 폴백, 실제 building_id=${latestDoc?.body?.building_id ?? latestDoc?.building_id ?? '?'}`);
+    } else {
+      console.log(`  ⚠️ buildingId(${buildingId}) 조회 결과 없음, URL=${page.url()} status=${docsRes.status()} body=${JSON.stringify(docsJson).slice(0, 200)}`);
+    }
+  }
   expect(latestDoc).toBeTruthy();
   const docId = latestDoc.id;
   console.log(`  📋 docId 획득: ${docId}, 상태: ${latestDoc.status}`);

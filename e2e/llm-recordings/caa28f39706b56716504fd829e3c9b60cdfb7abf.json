@@ -1,0 +1,14 @@
+{
+ "key": "caa28f39706b56716504fd829e3c9b60cdfb7abf",
+ "recordedAt": "2026-10-05T10:14:14.592Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 서울 강남구 논현로 816, 압구정역 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"약 1,010.9평(약 36㎡) 규모의 중대형 빌딩\",\n      \"suggestion\": \"면적 단위를 검증하여 수정하십시오. 연면적 3,341.8㎡는 약 1,010.9평에 해당하므로 ‘약 36㎡’는 삭제하거나 정확한 면적으로 정정해야 합니다.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"매도희망가 760억원 기준으로 향후 매매차익은 공실 해소, 임대수익 개선 및 리포지셔닝 성과에 좌우될 전망\",\n      \"suggestion\": \"미래 매매차익에 대한 전망 표현을 삭제하고, ‘향후 자산가치와 매매성과는 공실률, 임대조건, 운영비용 및 시장 상황 등에 따라 달라질 수 있으므로 별도 검토가 필요합니다’처럼 중립적인 조건부 문구로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2605,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12251
+ }
+}

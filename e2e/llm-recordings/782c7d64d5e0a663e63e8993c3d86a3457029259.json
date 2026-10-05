@@ -1,0 +1,14 @@
+{
+ "key": "782c7d64d5e0a663e63e8993c3d86a3457029259",
+ "recordedAt": "2026-10-05T08:27:15.166Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 총 3필지 기준 토지면적은 651.2㎡이며, ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"구리역 8호선 약 482m, 경의중앙선 약 597m의 역세권(도보 5분 이내) 입지와 음식·소매 중심의 생활상권은 임차 수요 측면에서 긍정적\",\n      \"suggestion\": \"임차 수요에 대한 평가를 삭제하거나, 해당 판단의 근거가 되는 공공데이터·상권분석 보고서·임대차 사례 등을 명시하세요. 예: \\\"해당 역과의 거리 및 상권 구성은 객관적 입지 요소로 확인되며, 실제 임차 수요는 공실률·임대차 사례·업종별 수요 검토가 필요합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 1992,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6917
+ }
+}

@@ -14,11 +14,11 @@ const FloorLeaseSchema = z.object({
   tenant_name: z.string().optional(),
   deposit_manwon: z.number().optional(),
   rent_manwon: z.number().optional(),
-  mgmt_fee_manwon: z.number().optional(),
+  mgmt_fee_manwon: z.number().nullish().transform((v) => v ?? undefined),
   is_vacant: z.boolean().optional(),
-  area_sqm: z.number().optional(),
-  lease_start: z.string().optional(),
-  lease_end: z.string().optional(),
+  area_sqm: z.number().nullish().transform((v) => v ?? undefined),
+  lease_start: z.string().nullish().transform((v) => v ?? undefined),
+  lease_end: z.string().nullish().transform((v) => v ?? undefined),
 });
 
 const ParseResultSchema = z.object({
@@ -42,7 +42,7 @@ const SYSTEM_PROMPT = `당신은 상업용 부동산 렌트롤(임대차 현황)
 - 금액 단위는 만원(manwon)으로 통일
 - "1억" = 10000만원, "5천만원" = 5000만원
 - "보증금/월세" 형식: 괄호 안 (보증금/월세)
-- 관리비가 명시되지 않으면 0
+- 관리비가 명시되지 않으면 mgmt_fee_manwon 필드를 생략 (0 으로 채우지 말 것 — 명시적 "관리비 0/없음"만 0)
 
 ## 공실 판별
 - "공실", "비어있음", "vacant", 월세 0원 → is_vacant: true
@@ -56,7 +56,7 @@ const SYSTEM_PROMPT = `당신은 상업용 부동산 렌트롤(임대차 현황)
       "tenant_name": "임차인/상호명 (예: 스타벅스) — 미기재 시 생략",
       "deposit_manwon": 보증금(만원),
       "rent_manwon": 월세(만원),
-      "mgmt_fee_manwon": 관리비(만원, 미기재 시 0),
+      "mgmt_fee_manwon": 관리비(만원, 미기재 시 생략),
       "is_vacant": true/false,
       "area_sqm": 면적(㎡, 미기재 시 생략),
       "lease_start": "계약시작일 (YYYY-MM-DD, 미기재 시 생략)",

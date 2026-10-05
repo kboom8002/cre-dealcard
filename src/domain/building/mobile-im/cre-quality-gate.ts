@@ -9,6 +9,7 @@
 // 핵심 원칙: D30 BL-6 Fail-Closed — LLM 실패 시 발행 차단 (system_error)
 // ──────────────────────────────────────────────────────────────────────────────
 
+import { createHash } from "crypto";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
@@ -53,6 +54,13 @@ export interface CREQualityGateResult {
 
 /** Quality Gate 모델 — IM Judge와 동일 모델 사용 */
 const GATE_MODEL = process.env.AI_IM_MODEL || getModel("luna");
+/**
+ * 게이트 호출 예산 (2026-10-05 실측): 녹화 58건 중 investment_thesis 게이트는 성공 시 13~16초,
+ * 기존 20초 단일 시도에서 3건이 abort → fail-closed 로 AI 초안이 템플릿으로 교체되었다.
+ * 시도당 40초 + 총 65초(타임아웃 시 1회 재시도) 로 꼬리 지연을 흡수한다. 최종 실패 시 BL-6 fail-closed 유지.
+ */
+const GATE_ATTEMPT_TIMEOUT_MS = 40_000;
+const GATE_TOTAL_BUDGET_MS = 65_000;
 
 /**
  * D30 BL-6: LLM 실패 시 Fail-Closed
@@ -246,8 +254,9 @@ export async function runCREQualityGate(
         maxTokens: 2048,
       },
       {
-        cacheKey: posture ? `cre-quality-gate:${sectionType}:${posture}` : `cre-quality-gate:${sectionType}`,
-        timeoutMs: 20_000, // Gate 실패 시 템플릿 폴백 존재 → 짧게 유지
+        // 캐시 키는 검사 대상 본문 해시까지 포함 — 게이트 실패 시 in-memory 폴백이 다른 문서의 판정을 재사용하지 않도록
+        cacheKey: `cre-quality-gate:${sectionType}:${posture ?? '-'}:${createHash('sha1').update(markdown).digest('hex').slice(0, 16)}`,
+        timeoutMs: GATE_ATTEMPT_TIMEOUT_MS, deadlineMs: Date.now() + GATE_TOTAL_BUDGET_MS,
       }
     );
 
@@ -293,7 +302,7 @@ export async function runCREQualityGate(
 
         // 3. 출처 명시된 데이터 및 사용자 입력 조건/산출값 → fabricated_data 면제
         if (issue.type === "fabricated_data") {
-          const provenancePattern = /AI 추정|공공데이터|SSoT 기준|건축물대장|토지이음|공시지가|국토교통부|통상|평균|권역|임차료|임대료|인상|기회비용|3%|규모|기준|산정|기업|직원|인당|면적|월\s?\d+|배분|절감|자가사용|취득세|4\.6%|9\.4%|감가상각|법인세|세율|세제|손비|사옥|점유|용적률|건폐율|공사비|PF|GOP|RevPAR|매매가|실거래/;
+          const provenancePattern = /AI 추정|공공데이터|SSoT 기준|건축물대장|토지이음|공시지가|국토교통부|통상|평균|권역|임차료|임대료|공실|인상|기회비용|3%|규모|기준|산정|기업|직원|인당|면적|월\s?\d+|배분|절감|자가사용|취득세|4\.6%|9\.4%|감가상각|법인세|세율|세제|손비|사옥|점유|용적률|건폐율|공사비|PF|GOP|RevPAR|매매가|실거래/;
           if (provenancePattern.test(excerpt)) return false;
         }
 

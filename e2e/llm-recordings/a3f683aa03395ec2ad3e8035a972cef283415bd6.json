@@ -1,0 +1,14 @@
+{
+ "key": "a3f683aa03395ec2ad3e8035a972cef283415bd6",
+ "recordedAt": "2026-10-05T09:56:10.105Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**: 검토 중인 오피스 개발안은\",\n      \"suggestion\": \"수익성을 단정하거나 긍정적으로 암시하지 말고, '개발 수익성 검토안' 또는 '사업성 검토 대상'처럼 중립적으로 표현하세요. 개발이익은 인허가, 공사비, 금융비용 및 처분가격에 따라 달라진다는 점을 제목에도 반영하는 것이 적절합니다.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력**\",\n      \"suggestion\": \"주관적 가치 평가를 배제하고 '토지 가격 및 입지 검토'처럼 객관적인 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **법정 용적률 최적화**\",\n      \"suggestion\": \"최적화 여부를 단정하지 말고 '용적률 및 신축 가능성 검토'로 수정하세요. 실제 활용 가능성은 개별 필지와 인허가 검토 결과에 따르는 것으로 명시하는 것이 적절합니다.\"\n    }\n  ]\n}",
+  "tokens": 2803,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12863
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "04df2a9b563a32cf4f3a53e9e9546ad1ecea90c5",
+ "recordedAt": "2026-10-05T09:55:52.346Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**: ... 총 사업비 대비 18~25% 수준의 예상 개발이익률과 준공 후 통매각·분양 가치는 ...\",\n      \"suggestion\": \"‘고수익 개발 마진’과 예상 수익률을 삭제하거나, 검토안의 가정에 따른 시나리오 수치임을 명시하고 매출·공사비·금융비·세금·분양률 등 산출 근거와 민감도 분석을 함께 제시하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"총 사업비 대비 18~25% 수준의 예상 개발이익률\",\n      \"suggestion\": \"해당 수치의 산출표, 적용한 매출·비용 가정 및 출처가 없으면 구체적 범위를 제시하지 말고 ‘사업 조건에 따라 달라지는 검토 대상 수치’로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"신사역 ... 잠원동 상업용 코너 토지라는 입지 희소성을 갖췄습니다.\",\n      \"suggestion\": \"희소성을 뒷받침하는 공급량, 유사 필지 현황 또는 공공·시장 보고서 출처를 제시하거나, 출처 없는 ‘희소성’ 표현을 삭제하고 역과의 거리·도로 접면 등 확인 가능한 물리적 특성만 기술하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력** ... 입지 희소성을 갖췄습니다. / • **고수익 개발 마진** / **종합 가치 제안**\",\n      \"suggestion\": \"‘우수한’, ‘고수익’, ‘가치 제안’과 같은 주관적 평가를 삭제하고, 매도 희망가·면적·공사비·인허가 및 처분가격에 관한 객관적 사실과 검토 조건으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2987,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14465
+ }
+}

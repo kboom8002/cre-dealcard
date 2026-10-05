@@ -1,0 +1,14 @@
+{
+ "key": "bb7079bfa9f29c50985ecc48131862088dd38c8d",
+ "recordedAt": "2026-10-05T09:58:57.334Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 수택동 구리역 더블역세권 도보권",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1618,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3763
+ }
+}

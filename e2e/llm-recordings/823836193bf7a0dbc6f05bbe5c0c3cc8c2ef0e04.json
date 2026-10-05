@@ -1,0 +1,14 @@
+{
+ "key": "823836193bf7a0dbc6f05bbe5c0c3cc8c2ef0e04",
+ "recordedAt": "2026-10-05T10:11:48.949Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • 실질 비용 절감: 10",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1754,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4306
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "fab0620aab536cf6c692ce68ded37ea436b211c6",
+ "recordedAt": "2026-10-05T10:07:51.730Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 이대역 도보 약 3분, 신촌역 경의중앙선 약 31",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 상권은 음식업 비중이 높고 유동인구가 집계되는 지역으로\",\n      \"suggestion\": \"음식업 비중과 유동인구 수치 또는 조사기관·기준시점·출처를 명시하거나, 출처 확인 전에는 '음식업 비중 및 유동인구는 별도 확인이 필요합니다'처럼 조건부로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1575,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4714
+ }
+}

@@ -25,6 +25,7 @@ import { suggestArchetype } from './archetype-registry';
 import type { BuildingSSoTLite } from '../building-ssot-lite.types';
 
 import { createModuleLogger } from '@/lib/logger';
+import { isDeterministicLLMMode } from '@/ai/llm-determinism';
 const log = createModuleLogger('im-context-builder');
 
 
@@ -286,7 +287,8 @@ export async function buildIMContext(
 
   // ── RAG 컨텍스트 사전 조회 (루프 밖으로 호이스팅 — B-4 수정) ────────────
   let ragCtx = "";
-  try {
+  // H4 결정성: RAG 유사사례는 DB 색인 상태(실행마다 승인 IM 추가)에 따라 달라짐 → 녹화/재생 모드에선 생략
+  if (!isDeterministicLLMMode()) try {
     const sb = createServiceClient();
     ragCtx = await generateRAGContext(
       sb as any,

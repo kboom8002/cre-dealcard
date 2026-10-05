@@ -30,6 +30,7 @@ import { calculateNetCashFlow, formatNetCashFlowMarkdown } from "./net-cash-flow
 import { judgeIMSection, shouldJudgeByConfidence } from "./im-judge";
 import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 import { runCREQualityGate } from "./cre-quality-gate";
+import { repairDraftForGate, isGateSystemFailure } from "./cre-gate-repair";
 import { extractKeyFacts, updateNumericalAnchors } from "./cross-validator";
 import { buildIMFewShotBlock } from "./golden-im-manager";
 import { logFewShotUsage, updateFewShotResultScore, promoteToGoldenCandidate } from "./fewshot-tracker";
@@ -419,16 +420,23 @@ export async function generateSingleSection(
       officialLandPricePerM2?: number;
     }> = [];
 
+    const siteAreaM2 = Number((ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || br?.platArea || 0);
+    let registerLandAreaM2: number | undefined;
     if (Array.isArray(supplemental.parcels) && supplemental.parcels.length > 0) {
+      // 다필지: 건물 전체 대지면적·대표 필지 공시지가를 필지별 값으로 복제하면 합계가 N배로 부풀려진다
+      // (2026-10-05 p5 실측: 518.7㎡ ×3 = 1,556.1㎡ 가 land_detail·투자포인트에 노출) → 필지별 미확인은 '-' (Rule 34/37)
+      const isMulti = supplemental.parcels.length > 1;
       for (const p of supplemental.parcels) {
         parcels.push({
           pnu: String(p.pnu || supplemental.resolved_pnu || externalData?.resolvedAddress?.pnu || '-'),
-          jimok: String(p.jimok || '대'),
-          areaM2: Number(p.areaM2 || p.area_m2 || (ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || br?.platArea || 0),
-          ownershipRatio: Number(p.ownershipRatio || p.ownership_ratio || 1),
-          officialLandPricePerM2: Number(p.officialLandPricePerM2 || lp?.pricePerSqm || 0) || undefined,
+          // BrokerParcel 필드명(landCategory/officialPricePerM2/shareRatio)도 수용 — 기존엔 대표 필지 폴백에 가려져 있었음
+          jimok: String(p.jimok || p.landCategory || (isMulti ? '-' : '대')),
+          areaM2: Number(p.areaM2 || p.area_m2 || (isMulti ? 0 : siteAreaM2)),
+          ownershipRatio: Number(p.ownershipRatio || p.ownership_ratio || p.shareRatio || 1),
+          officialLandPricePerM2: Number(p.officialLandPricePerM2 || p.officialPricePerM2 || (isMulti ? 0 : lp?.pricePerSqm) || 0) || undefined,
         });
       }
+      if (isMulti && siteAreaM2 > 0) registerLandAreaM2 = siteAreaM2;
     } else {
       const areaM2 = (ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || br?.platArea || (supplemental.land_area_m2 ?? 0);
       const pnu = supplemental.resolved_pnu || externalData?.resolvedAddress?.pnu || '';
@@ -460,6 +468,7 @@ export async function generateSingleSection(
       landShape,
       landTopography,
       roadFrontage,
+      registerLandAreaM2,
     });
 
     const finalSection: MobileIMSection = {
@@ -739,7 +748,8 @@ export async function generateSingleSection(
     const tenantNames: string[] = [];
     for (const lease of supplemental.floor_leases) {
       const l = lease as any;
-      const name = String(l.tenant_name || l.tenantName || l.note || '').trim();
+      // note(자유 메모, 예: '기존 자가사용')는 상호가 아니므로 폴백으로 쓰지 않는다 — 본문 일부가 [임차인X]로 오염됨
+      const name = String(l.tenant_name || l.tenantName || '').trim();
       if (name && name.length >= 2) tenantNames.push(name);
     }
     // 긴 이름부터 치환 (부분 매칭 방지)
@@ -775,7 +785,24 @@ export async function generateSingleSection(
   // D33 M-H: 정적 합성 문구에도 적용하되, judge ≥4.0 이면 이미 검증된 것으로 간주하여 Gate 호출 생략
   if (!IM_FAST_MODE && !(finalSectionJudgeScore !== undefined && finalSectionJudgeScore >= 4.0)) {
     try {
-      const gateResult = await runCREQualityGate(markdown, sectionType, posture);
+      let gateResult = await runCREQualityGate(markdown, sectionType, posture);
+      // high-risk AI 초안 → 지적 발췌만 1회 교정 후 게이트 재검증. 재검증 high/교정 실패면 아래 기존 템플릿 복구 유지.
+      // (게이트 시스템 실패는 교정 대상 아님 — BL-6 fail-closed)
+      if (!gateResult.passed && gateResult.riskLevel === "high" && generatedByAi && !isGateSystemFailure(gateResult.issues)) {
+        let repaired = await repairDraftForGate(markdown, sectionType, gateResult.issues, IM_AI_MODEL, (SECTION_MAX_TOKENS[sectionType] ?? 1000) * 2);
+        if (repaired) {
+          const repairedRisk = runRiskBoundaryCheck(repaired, sectionType);
+          if (repairedRisk.safe_text) repaired = repairedRisk.safe_text;
+          const regate = await runCREQualityGate(repaired, sectionType, posture);
+          if (regate.riskLevel !== "high") {
+            log.info(`[cre-gate-repair] ${sectionType} 교정본 채택 (재검증 ${regate.riskLevel}, 원 지적 ${gateResult.issues.length}건)`);
+            markdown = repaired;
+            gateResult = regate;
+          } else {
+            log.warn(`[cre-gate-repair] ${sectionType} 교정본도 high → 템플릿 복구`);
+          }
+        }
+      }
       if (!gateResult.passed && gateResult.riskLevel === "high") {
         log.warn(
           { issues: gateResult.issues.map(i => `${i.type}: ${i.excerpt.slice(0, 40)}`) },

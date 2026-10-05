@@ -1,0 +1,14 @@
+{
+ "key": "d49fae4eec1c519fff3c67b4e709eb809edb65d2",
+ "recordedAt": "2026-10-05T10:03:20.375Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **토지·입지**: 2026년 공시지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"### 가치개선(Value-add) 시나리오 (AI 추정) ... ① 공실 해소 | +약 0.99억 원 (+50%) | 2.59% | 불필요 ... ② 임대료 현실화 (+5%) | +약 0.10억 원 (+5%) | 1.81% | 불필요 ... ③ 리모델링 후 임대료 상승 | +약 0.16억 원 (+8%) | 1.86% | 약 4.32억 원\",\n      \"suggestion\": \"원문에 없는 NOI 기준값, 비용 구조, 임대료 산정 근거 및 시장 임대료 자료가 확인되지 않으므로 구체적인 개선액·Cap Rate·투자비를 제시하지 마세요. 산출식, 가정, 출처를 명시하거나 '자료 확보 후 산정 필요'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2221,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7789
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "52ca8e0d88644ef7d339fcc81b910cc74bdb1fc5",
+ "recordedAt": "2026-10-05T10:11:24.224Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역 3호선 도보 4분 및 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"음식점과 카페 등 생활·업무 인프라와 일 평균 유동인구가 형성된 상권은 임직원 편의와 대외 영업 효율을 뒷받침합니다.\",\n      \"suggestion\": \"유동인구 수치와 상권 활성도에 대한 공공데이터 또는 신뢰할 수 있는 보고서를 인용하거나, 근거가 없는 경우 ‘음식점과 카페 등 생활·업무 인프라가 위치합니다’처럼 확인 가능한 시설 정보 중심으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"양재역세권(도보 5분 이내) 서초 업무권의 입지 희소성을 기반으로 중장기 자산가치 보존 및 상승 가능성을 기대할 수 있습니다.\",\n      \"suggestion\": \"‘입지 희소성’ 및 자산가치 상승에 대한 주관적 평가를 삭제하고, ‘자산가치는 향후 임대·거래사례, 개발계획 및 시장자료를 종합적으로 검토할 필요가 있습니다’처럼 객관적 검토 문구로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2053,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7712
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "8ec60de90fe1c408fcaeca41f6267a6b86a634c7",
+ "recordedAt": "2026-10-05T09:47:54.128Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **선유도역(9호선) 도보 약 2분의 역세권",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"여의도·마곡·강남권 등 주요 업무권역과의 이동 편의성이 임차 수요의 저변을 넓힙니다.\",\n      \"suggestion\": \"임차 수요 확대를 단정하지 말고, 교통 접근성이 우수하다는 객관적 사실만 기재하거나 관련 임대차·수요 분석 자료의 출처와 기준시점을 명시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"반경 내 음식점 265곳, 카페 86곳 등 풍부한 생활·상업 인프라와 일평균 약 6.5만 명의 유동인구는 근무자 편의 및 저층부 임차 경쟁력에 긍정적이며\",\n      \"suggestion\": \"음식점·카페 수와 유동인구의 조사 출처, 조사일, 반경 및 집계 기준을 명시하세요. 임차 경쟁력에 대한 평가 대신 해당 인프라 및 유동인구 데이터를 객관적으로 제시하고, 효과는 조건부 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2054,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8099
+ }
+}

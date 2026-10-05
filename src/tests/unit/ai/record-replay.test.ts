@@ -83,6 +83,38 @@ describe('H4 record-replay: 모드', () => {
     expect(resolveLLMMode({ LLM_MODE: 'REPLAY' } as any)).toBe('replay');
     expect(resolveLLMMode({ LLM_MODE: 'record' } as any)).toBe('record');
     expect(resolveLLMMode({ LLM_MODE: 'weird' } as any)).toBe('live');
+    expect(resolveLLMMode({ LLM_MODE: 'record-missing' } as any)).toBe('record-missing');
+  });
+
+  it('record-missing: 성공 녹화가 있으면 실호출 없이 재생', async () => {
+    const first = fakeProvider('{"v":1}');
+    await new RecordReplayProvider(first, 'record', dir).chat(base);
+    const inner = fakeProvider('{"v":2}');
+    const rm = new RecordReplayProvider(inner, 'record-missing', dir);
+    const r = await rm.chat(base);
+    expect(inner.calls).toBe(0);
+    expect(r.content).toBe('{"v":1}');
+  });
+
+  it('record-missing: 녹화 없음 → 실호출 후 저장, 이후 replay 가능', async () => {
+    const inner = fakeProvider('{"v":3}');
+    const rm = new RecordReplayProvider(inner, 'record-missing', dir);
+    await rm.chat(base);
+    expect(inner.calls).toBe(1);
+    const r = await new RecordReplayProvider(null, 'replay', dir).chat(base);
+    expect(r.content).toBe('{"v":3}');
+  });
+
+  it('record-missing: 실패 녹화는 재호출하여 성공으로 덮어씀', async () => {
+    const failing: LLMProvider = { name: 'openai', async chat() { throw new Error('Request was aborted.'); } };
+    await expect(new RecordReplayProvider(failing, 'record', dir).chat(base)).rejects.toThrow(/aborted/);
+    await expect(new RecordReplayProvider(null, 'replay', dir).chat(base)).rejects.toThrow(/LLM_REPLAYED_FAILURE/);
+
+    const inner = fakeProvider('{"v":4}');
+    await new RecordReplayProvider(inner, 'record-missing', dir).chat(base);
+    expect(inner.calls).toBe(1);
+    const r = await new RecordReplayProvider(null, 'replay', dir).chat(base);
+    expect(r.content).toBe('{"v":4}');
   });
 });
 

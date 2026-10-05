@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // E2E 격리: 별도 포트 dev 서버가 사용자 dev 서버와 .next 를 공유하지 않도록 (미설정 시 기본 .next)
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 3600,

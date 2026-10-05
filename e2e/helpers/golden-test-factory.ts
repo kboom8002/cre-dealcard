@@ -27,6 +27,8 @@ import {
   handleDuplicateModal,
   pollImCompletion,
   approveDocument,
+  markReplayWindowStart,
+  assertNoReplayMisses,
   downloadPptx,
   analyzePptxZip,
   assertNoPoisonTokens,
@@ -209,7 +211,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
 
       // ── Phase 1: 딜카드 생성 ──
       test(`Phase 1: 딜카드 생성 [${name}]`, async ({ page }) => {
-        console.log(`\n🔷 Phase 1: ${name} 딜카드 생성`);
+        console.log(`\n🔷 Phase 1: ${name} 딜카드 생성`); markReplayWindowStart(screenshotDir);
 
         await page.goto('/broker');
         await page.waitForLoadState('networkidle');
@@ -471,7 +473,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
               const rentRollArea = page.locator('textarea[placeholder*="층"], textarea[placeholder*="B1"], textarea[placeholder*="임차"]').first();
               if (await rentRollArea.isVisible({ timeout: 2000 }).catch(() => false)) {
                 const rentRollText = bs.floor_leases.map((l: any) =>
-                  `${l.floor} ${l.tenant_type || ''} ${l.area_pyeong ? l.area_pyeong + '평 ' : ''}보증금${l.deposit_manwon || 0} 월세${l.rent_manwon || 0} ${l.note || ''}`
+                  `${l.floor} ${l.tenant_type || ''} ${l.area_pyeong ? l.area_pyeong + '평 ' : ''}보증금${l.deposit_manwon || 0} 월세${l.rent_manwon || 0} ${l.mgmt_fee_manwon != null ? `관리비${l.mgmt_fee_manwon} ` : ''}${l.lease_start || l.lease_end ? `계약 ${l.lease_start || ''}~${l.lease_end || ''} ` : ''}${l.note || ''}`
                 ).join('\n');
                 await rentRollArea.fill(rentRollText);
                 console.log(`  📝 렌트롤 텍스트 입력 (${bs.floor_leases.length}개 층)`);
@@ -506,7 +508,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
         await shot(page, screenshotDir, 'im-generating-started', stepCounter);
 
         const completed = await pollImCompletion(page, imWaitMs);
-        expect(completed).toBe(true);
+        expect(completed).toBe(true); assertNoReplayMisses(screenshotDir);
         await shot(page, screenshotDir, 'im-generation-complete', stepCounter);
 
         state.docId = await approveDocument(page, state.buildingId, screenshotDir);

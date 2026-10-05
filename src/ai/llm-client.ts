@@ -27,7 +27,7 @@ if (!hasOpenAiKey || isTestEnv) {
 // H4: LLM_MODE=record|replay 이면 녹화/재생 래퍼로 교체 (결정론적 E2E/CI). 기본 live 는 동작 변경 없음.
 const llmMode = resolveLLMMode();
 if (llmMode !== "live") {
-  const inner = llmMode === "record" ? (providerRegistry.get("openai") ?? null) : null;
+  const inner = llmMode === "record" || llmMode === "record-missing" ? (providerRegistry.get("openai") ?? null) : null;
   providerRegistry.set("openai", new RecordReplayProvider(inner, llmMode));
   log.warn(`[llm-client] LLM_MODE=${llmMode} — RecordReplayProvider 활성`);
 }

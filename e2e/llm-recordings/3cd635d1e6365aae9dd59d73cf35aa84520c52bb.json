@@ -1,0 +1,14 @@
+{
+ "key": "3cd635d1e6365aae9dd59d73cf35aa84520c52bb",
+ "recordedAt": "2026-10-05T10:02:09.779Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **당산역 2·9호선 더블역세권(도보 5분 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 임차 수요 확보에 유리합니다.\",\n      \"suggestion\": \"임차 수요에 영향을 줄 수 있는 입지 요인으로 볼 수 있으나, 실제 수요와 임대 가능성은 임대차 현황 및 시장자료 확인이 필요하다고 수정하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공실 33.33% 해소\",\n      \"suggestion\": \"공실률의 산정 근거와 기준시점·출처를 명시하거나, 검증 가능한 자료가 없으면 해당 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상권의 성장 추세는 공실 33.33% 해소 및 임대수익 개선을 위한 임차인 유치 기반으로 활용될 수 있습니다.\",\n      \"suggestion\": \"상권 성장 추세를 뒷받침하는 공공데이터나 시장보고서를 인용하고, 임대수익 개선 효과는 단정하지 말고 임차인 유치 가능성에 대한 별도 검토가 필요하다고 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 1994,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7587
+ }
+}

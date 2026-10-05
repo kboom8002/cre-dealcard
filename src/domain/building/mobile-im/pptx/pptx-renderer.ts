@@ -335,7 +335,7 @@ export class MobileImPptxRenderer {
           })()],
           ['대지면적', fmtArea(ssot.land_area_sqm || br.platArea || heroCard.landAreaM2 || bldg.land_area_sqm)],
           ['지목', ssot.land_category || br.jimok || '-'],
-          ['지역/지구', ssot.zoning || br.useZone || bldg.use_zone || '-'],
+          ['지역/지구', ssot.zoning || br.useZone || bldg.use_zone || enrichment?.landUsePlan?.zoningDistrict || input.core?.physical?.zoning || '-'],
           ['건축면적', fmtArea(br.archArea || ssot.building_area_sqm)],
           ['건폐율', ssot.bcr_pct ? `${ssot.bcr_pct}%` : (br.bcrPct ? `${br.bcrPct}%` : '-')],
           ['연면적', fmtArea(ssot.total_gross_area_sqm || heroCard.totalGrossAreaSqm || bldg.total_area_sqm)],
@@ -349,8 +349,8 @@ export class MobileImPptxRenderer {
             return `${ymd} ${age}`;
           })()],
           ['층수', (() => {
-            const below = Number(ssot.floors_below || heroCard.floorsBelow || bldg.floors_below || br.ugrndFlrCnt || 0);
-            const above = Number(ssot.floors_above || heroCard.floorsAbove || bldg.floors_above || br.grndFlrCnt || 0);
+            const below = Number(ssot.floors_below || heroCard.floorsBelow || bldg.floors_below || br.ugrndFlrCnt || input.core?.physical?.floorsBelow || 0);
+            const above = Number(ssot.floors_above || heroCard.floorsAbove || bldg.floors_above || br.grndFlrCnt || input.core?.physical?.floorsAbove || 0);
             if (!below && !above) return '-';
             return `지하${below}층 ~ 지상${above}층`;
           })()],
@@ -400,6 +400,18 @@ export class MobileImPptxRenderer {
               dataMap['building'].left.rows.push([key, val]);
             }
           }
+          // Rule 4: 제원 표에는 제원만 — LLM 이 '**자산 하이라이트**: • …' 같은 서술형 항목을 key-value 로 써서
+          // 좌측 표에 하이라이트가 한 번 더(말줄임 포함) 렌더되던 문제 제거. 하이라이트는 우측 박스가 정본.
+          {
+            const isNarrativeSpecRow = ([k, v]: [string, string]) => {
+              const key = String(k ?? '').replace(/\s+/g, '');
+              if (/하이라이트|투자포인트|핵심포인트|요약|특장점|강점|투자매력/.test(key)) return true;
+              const val = String(v ?? '').trim();
+              return val.startsWith('•') || (val.match(/•/g) ?? []).length >= 2;
+            };
+            dataMap['building'].left.rows = dataMap['building'].left.rows.filter((r: [string, string]) => !isNarrativeSpecRow(r));
+          }
+
           // 소재지는 SSoT 주소(다필지 표기 포함)를 정본으로 하고 항상 첫 행에 둔다 (LLM 이 도로명 주소 등으로 바꿔 쓰는 것 방지)
           {
             const rows: any[] = dataMap['building'].left.rows;

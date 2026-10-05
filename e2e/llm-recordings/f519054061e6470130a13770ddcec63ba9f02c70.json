@@ -1,0 +1,14 @@
+{
+ "key": "f519054061e6470130a13770ddcec63ba9f02c70",
+ "recordedAt": "2026-10-05T09:54:44.460Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 잠원 신사역 더블역세권 도보 3",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1495,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 2323
+ }
+}

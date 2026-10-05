@@ -1,3 +1,5 @@
+import { isDeterministicLLMMode } from '@/ai/llm-determinism';
+
 export interface PromptTemplate {
   id: string;
   version: string;
@@ -136,6 +138,8 @@ Your goal is to write the Investment Thesis section for a Mobile Information Mem
         }
         return abTestCandidates[Math.abs(hash) % abTestCandidates.length];
       }
+      // H4 결정성: 녹화/재생 모드에선 무작위 변형 선택 금지 (프롬프트 해시 고정)
+      if (isDeterministicLLMMode()) return abTestCandidates[0];
       const randomIndex = Math.floor(Math.random() * abTestCandidates.length);
       return abTestCandidates[randomIndex];
     }

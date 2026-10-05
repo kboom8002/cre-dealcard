@@ -1,0 +1,14 @@
+{
+ "key": "557fc54840a1fc6c2f94fd167963d5f50ed98a0e",
+ "recordedAt": "2026-10-05T09:59:09.431Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: site_analysis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 총 651.2㎡ (197평) 대지는 일",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1481,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 2744
+ }
+}

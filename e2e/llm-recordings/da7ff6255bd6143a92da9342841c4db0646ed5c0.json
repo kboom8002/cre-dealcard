@@ -1,0 +1,14 @@
+{
+ "key": "da7ff6255bd6143a92da9342841c4db0646ed5c0",
+ "recordedAt": "2026-10-05T09:48:08.487Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 공실률 8.33%로 운영 중이며, 월 임대료는 총",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"업종이 분산된 임차인 구성은 특정 업종 의존도를 낮춰 안정적인 현금흐름 확보에 긍정적입니다.\",\n      \"suggestion\": \"임차인 업종이 여러 분야로 구성되어 있다는 사실만 객관적으로 기재하고, 현금흐름의 안정성이나 확보 가능성에 대한 단정은 삭제하세요. 예: \\\"임차인은 IT·디자인·전문서비스·교육 등 여러 업종으로 구성되어 있으며, 업종별 임대차 기간과 갱신 여부에 대한 추가 확인이 필요합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2615,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7226
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "c4df4e06f8ec8b21b0cae1bd3a82f986506cb55c",
+ "recordedAt": "2026-10-05T09:59:01.210Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, 경의",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"해당 상권은 일 평균 유동인구 6.5만 명\",\n      \"suggestion\": \"조사기관, 조사일, 조사 지점·범위 및 산출 방법을 명시한 출처를 제시하거나, 검증 가능한 자료가 없으면 구체적인 수치를 삭제하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"음식·소매·서비스 업종이 집적되어 상권 유입과 임차수요 확보 측면의 기반이 형성되어 있습니다. 해당 상권은 ... 성장 추세로 집계되어\",\n      \"suggestion\": \"상권 업종 구성, 유동인구 성장률 및 임차수요에 관한 공공데이터나 조사보고서의 출처·기준시점을 제시하십시오. 근거가 없다면 ‘현장 및 공개자료 확인이 필요하다’와 같이 조건부 표현으로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2005,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8041
+ }
+}

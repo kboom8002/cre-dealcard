@@ -30,6 +30,20 @@ export async function defaultParcelLookupDeps(): Promise<ParcelLookupDeps> {
   };
 }
 
+/**
+ * V-World 일시 실패(타임아웃·폴백 응답) 1회 재시도.
+ * 2026-10-05 p5 골든 실측: 같은 3필지가 한 실행에선 면적·공시지가 모두 채워지고, 다른 실행에선 전부 실패 →
+ * land_detail 이 '-' 로 비고 프롬프트가 달라졌다. 실패는 여전히 null (값을 만들지 않음).
+ */
+export const PARCEL_LOOKUP_RETRY_DELAY_MS = 400;
+async function lookupWithRetry<T extends { _isFallback?: boolean }>(fn: () => Promise<T | null>, delayMs: number): Promise<T | null> {
+  const first = await fn().catch(() => null);
+  if (first && !first._isFallback) return first;
+  if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+  const second = await fn().catch(() => null);
+  return second && !second._isFallback ? second : first;
+}
+
 const positive = (v: unknown): number | undefined => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -44,6 +58,7 @@ export async function fillParcelsFromPublicData(
   parcels: BrokerParcel[] | undefined,
   pnus: string[] | undefined,
   deps: ParcelLookupDeps,
+  retryDelayMs: number = PARCEL_LOOKUP_RETRY_DELAY_MS,
 ): Promise<{ parcels: BrokerParcel[]; filledFields: number; lookedUp: number }> {
   const list: BrokerParcel[] = (parcels ?? []).map(p => ({ ...p }));
   const known = new Set(list.map(p => p.pnu).filter((p): p is string => !!p));
@@ -64,8 +79,8 @@ export async function fillParcelsFromPublicData(
   await Promise.all(targets.map(async (p) => {
     const pnu = p.pnu as string;
     const [lup, lp] = await Promise.all([
-      deps.fetchLandUsePlan(pnu).catch(() => null),
-      deps.fetchLandPrice(pnu).catch(() => null),
+      lookupWithRetry(() => deps.fetchLandUsePlan(pnu), retryDelayMs),
+      lookupWithRetry(() => deps.fetchLandPrice(pnu), retryDelayMs),
     ]);
     lookedUp++;
     const lupOk = lup && !lup._isFallback ? lup : null;

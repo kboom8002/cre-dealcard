@@ -1,0 +1,14 @@
+{
+ "key": "bcbb381ebdeef40d38beb8086af7ebd42f17b2bf",
+ "recordedAt": "2026-10-05T09:47:42.940Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **선유도역(9호선) 도보 약 2분의 역세권",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 265곳, 카페 86곳 등 ... 일평균 약 6.5만 명의 유동인구\",\n      \"suggestion\": \"조사 기준일, 조사 범위 및 공공데이터·상권분석 보고서 등 출처를 명시하거나, 검증 가능한 자료가 없으면 수치 기재를 삭제하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"양평로 변 업무·상업 수요를 동시에 흡수할 수 있는 오피스 자산입니다.\",\n      \"suggestion\": \"해당 수요를 뒷받침하는 임대차·상권 데이터와 출처를 제시하거나, '업무·상업 기능에 대한 접근성이 있는 입지'처럼 객관적 입지 설명으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"여의도·마곡·강남권 등 주요 업무권역과의 이동 편의성이 임차 수요의 저변을 넓힙니다.\",\n      \"suggestion\": \"임차 수요 확대를 입증하는 시장 자료를 인용하거나, '주요 업무권역으로의 이동 경로를 확보할 수 있습니다'와 같이 교통 접근성에 한정해 표현하십시오.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 임대수익 유지와 공실 해소에 유리한 기반으로 평가됩니다.\",\n      \"suggestion\": \"임대수익의 안정성이나 공실 해소를 암시하는 표현을 삭제하고, '임대수익 및 공실률은 실제 임대차 현황과 시장자료 확인이 필요합니다'처럼 검토 필요사항으로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2160,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8576
+ }
+}
