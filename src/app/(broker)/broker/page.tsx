@@ -497,60 +497,62 @@ export default async function BrokerPage() {
         {/* ── 인사 & 날짜 & 로그인 상태 ── */}
         <GreetingHeader userName={userName} userPhotoUrl={userPhotoUrl} />
 
-        {/* ── 퀵액션 버튼 (PB 웰스 럭셔리 디자인 · 한글 보정 적용) ── */}
+        {/* ── 퀵액션 버튼 (PB 웰스 럭셔리 디자인 · 정사각형 타일 확장) ── */}
         <div className="grid grid-cols-2 gap-3">
           <Link
             href="/broker/deal-card/new"
             id="quick-action-new-dealcard"
-            className="flex items-center gap-3 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 px-4 py-4 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md"
+            className="aspect-square flex flex-col justify-between rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 p-4 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md group"
           >
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
-              <span className="text-amber-300 font-black text-[15px]">30s</span>
+            <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <span className="text-amber-300 font-black text-[16px]">30s</span>
             </div>
             <div>
-              <p className="text-[15px] font-extrabold text-amber-300 leading-tight">딜카드 등록</p>
-              <p className="text-[13px] font-medium text-slate-400 mt-0.5">카톡 메모 붙여넣기</p>
+              <p className="text-[16px] font-extrabold text-amber-300 leading-tight">딜카드 등록</p>
+              <p className="text-[12px] font-medium text-slate-400 mt-1">카톡 메모 붙여넣기</p>
             </div>
           </Link>
 
           <Link
             href="/broker/buildings"
             id="quick-action-buildings"
-            className="flex items-center gap-3 rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 px-4 py-4 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md"
+            className="aspect-square flex flex-col justify-between rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 p-4 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md group"
           >
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5 text-blue-300" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-[15px] font-extrabold text-blue-300 leading-tight">내 딜카드</p>
-              <p className="text-[13px] font-medium text-slate-400 mt-0.5">등록 물건 목록 확인</p>
+              <p className="text-[16px] font-extrabold text-blue-300 leading-tight">내 딜카드</p>
+              <p className="text-[12px] font-medium text-slate-400 mt-1">등록 물건 목록 확인</p>
             </div>
           </Link>
 
           <Link
             href="/broker/inbox"
             id="quick-action-inbox"
-            className="flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 px-4 py-4 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md"
+            className="aspect-square flex flex-col justify-between rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 p-4 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md group"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
               <Bell className="w-5 h-5 text-emerald-300" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-[15px] font-extrabold text-emerald-300 leading-tight">소통 관리함</p>
-              <p className="text-[13px] font-medium text-slate-400 mt-0.5">인바운드 요청 확인</p>
+              <p className="text-[16px] font-extrabold text-emerald-300 leading-tight">소통 관리함</p>
+              <p className="text-[12px] font-medium text-slate-400 mt-1">인바운드 요청 확인</p>
             </div>
           </Link>
+
           <Link
-            href="/broker/clients"
-            id="quick-action-clients"
-            className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 px-4 py-4 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md"
+            href="/broker/magazine-editor"
+            id="quick-action-magazine-editor"
+            data-testid="quick-action-clients"
+            className="aspect-square flex flex-col justify-between rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 p-4 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md group"
           >
-            <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5 text-rose-300" strokeWidth={2.2} />
+            <div className="w-11 h-11 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+              <Newspaper className="w-5 h-5 text-rose-300" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-[15px] font-extrabold text-rose-300 leading-tight">고객 관리</p>
-              <p className="text-[13px] font-medium text-slate-400 mt-0.5">매수·임차 고객 DB</p>
+              <p className="text-[16px] font-extrabold text-rose-300 leading-tight">매거진 편집</p>
+              <p className="text-[12px] font-medium text-slate-400 mt-1">위클리 매거진 제작</p>
             </div>
           </Link>
         </div>
