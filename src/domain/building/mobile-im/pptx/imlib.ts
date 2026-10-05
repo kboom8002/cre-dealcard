@@ -611,6 +611,14 @@ function fitTitleHeader(cleanTitle: string, titleW: number, initialFs: number, d
   return { titleFit, isTwoLine, titleH };
 }
 
+/**
+ * Basic IM(credeal_basic): 슬라이드 제목 위 소형 키커(예: '요약' / '요약', 'Land & Cadastral' / '토지 정보')는
+ * 큰 제목과 중복되므로 표시하지 않는다. 번호 배지와 큰 제목만 수직 정렬한다.
+ */
+export function isKickerSuppressed(): boolean {
+  return THEME_META.presetId === 'credeal_basic';
+}
+
 /** §5 밝은 슬라이드 제목 블록 — layoutStyle 분기 */
 export function head(
   s: Slide,
@@ -630,6 +638,7 @@ export function head(
 
   const cleanTitle = sanitizeText(title) || '개요';
   const cleanKicker = sanitizeText(kicker) || kicker;
+  const hideKicker = isKickerSuppressed();
 
   switch (style) {
     // ── modern: 좌측 액센트 세로 바 + 좌정렬 ──
@@ -645,7 +654,7 @@ export function head(
         x: M, y: 0.42, w: 0.05, h: barH,
         fill: { color: C.brass },
       });
-      s.addText(`${numStr}  ${kicker}`, {
+      s.addText(hideKicker ? numStr : `${numStr}  ${kicker}`, {
         x: M + 0.20, y: 0.42, w: titleW, h: 0.20,
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
@@ -678,7 +687,7 @@ export function head(
         line: { color: C.brass, width: 0.5 },
       });
       // 중앙 정렬 kicker
-      s.addText(`${numStr}  ·  ${kicker}`, {
+      s.addText(hideKicker ? numStr : `${numStr}  ·  ${kicker}`, {
         x: M, y: 0.48, w: CW, h: 0.22,
         fontSize: 9, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 3, margin: 0, align: 'center',
@@ -718,7 +727,7 @@ export function head(
           fontFace: NUM, margin: 0,
         });
       }
-      s.addText(kicker, {
+      if (!hideKicker) s.addText(kicker, {
         x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20,
         fontSize: 8.5, bold: true, color: C.mute,
         fontFace: NUM, charSpacing: 1.5, margin: 0,
@@ -768,7 +777,7 @@ export function head(
           fontFace: NUM, margin: 0,
         });
       }
-      s.addText(kicker, {
+      if (!hideKicker) s.addText(kicker, {
         x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22,
         fontSize: 9, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2.5, margin: 0,
@@ -808,7 +817,7 @@ export function head(
           fontFace: NUM, margin: 0,
         });
       }
-      s.addText(kicker, {
+      if (!hideKicker) s.addText(kicker, {
         x: M + 0.54, y: 0.50, w: CW - 0.54, h: 0.20,
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
@@ -837,8 +846,11 @@ export function head(
     default: {
       const titleW = CW - 0.62;
       const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 23, 0.40);
-      const titleY = 0.70;
-      const subY = isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10;
+      // 키커 미표시 시: 번호 원(중심 y=0.71)과 제목 중심을 일치
+      const titleY = hideKicker ? Math.max(0.42, 0.71 - titleH / 2) : 0.70;
+      const subY = hideKicker
+        ? Math.max(1.02, titleY + titleH + 0.06)
+        : (isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10);
 
       if (numStr) {
         s.addShape('ellipse', {
@@ -852,7 +864,7 @@ export function head(
           fontFace: NUM, margin: 0,
         });
       }
-      s.addText(kicker, {
+      if (!hideKicker) s.addText(kicker, {
         x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20,
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
@@ -893,6 +905,7 @@ export function headD(
 
   const cleanTitle = sanitizeText(title) || '개요';
   const cleanKicker = sanitizeText(kicker) || kicker;
+  const hideKicker = isKickerSuppressed();
 
   switch (style) {
     case 'modern': {
@@ -903,7 +916,7 @@ export function headD(
       const barH = sub ? (subY + 0.24 - 0.42) : (titleY + titleH - 0.42);
 
       s.addShape('rect', { x: M, y: 0.42, w: 0.05, h: barH, fill: { color: C.brass } });
-      s.addText(`${numStr}  ${kicker}`, { x: M + 0.20, y: 0.42, w: titleW, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
+      s.addText(hideKicker ? numStr : `${numStr}  ${kicker}`, { x: M + 0.20, y: 0.42, w: titleW, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
       s.addText(titleFit.displayText, { x: M + 0.20, y: titleY, w: titleW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
       if (sub) s.addText(sub, { x: M + 0.20, y: subY, w: titleW, h: 0.24, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
@@ -916,7 +929,7 @@ export function headD(
       const goldLineY = sub ? subY + 0.26 : titleY + titleH + 0.06;
 
       s.addShape('line', { x: M, y: 0.38, w: CW, h: 0, line: { color: C.brass, width: 0.5 } });
-      s.addText(`${numStr}  ·  ${kicker}`, { x: M, y: 0.48, w: CW, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 3, margin: 0, align: 'center' });
+      s.addText(hideKicker ? numStr : `${numStr}  ·  ${kicker}`, { x: M, y: 0.48, w: CW, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 3, margin: 0, align: 'center' });
       s.addText(titleFit.displayText, { x: M, y: titleY, w: CW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, align: 'center', shrinkText: true });
       s.addShape('line', { x: M + CW * 0.3, y: goldLineY, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
       if (sub) s.addText(sub, { x: M, y: subY, w: CW, h: 0.22, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0, align: 'center' });
@@ -930,7 +943,7 @@ export function headD(
       const lineY = sub ? subY + 0.26 : titleY + titleH + 0.06;
 
       if (numStr) s.addText(numStr, { x: M, y: 0.48, w: 0.36, h: 0.24, fontSize: 10, bold: true, color: CD.mute, fontFace: NUM, margin: 0 });
-      s.addText(kicker, { x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20, fontSize: 8.5, bold: true, color: CD.mute, fontFace: NUM, charSpacing: 1.5, margin: 0 });
+      if (!hideKicker) s.addText(kicker, { x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20, fontSize: 8.5, bold: true, color: CD.mute, fontFace: NUM, charSpacing: 1.5, margin: 0 });
       s.addText(titleFit.displayText, { x: M, y: titleY, w: CW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
       s.addShape('line', { x: M, y: lineY, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
       if (sub) s.addText(sub, { x: M, y: subY, w: CW, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
@@ -948,7 +961,7 @@ export function headD(
       if (numStr) {
         s.addText(numStr, { x: M, y: 0.36, w: 0.60, h: 0.50, fontSize: 28, bold: true, color: C.brass, fontFace: NUM, margin: 0 });
       }
-      s.addText(kicker, { x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2.5, margin: 0 });
+      if (!hideKicker) s.addText(kicker, { x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2.5, margin: 0 });
       s.addText(titleFit.displayText, { x: M + 0.70, y: titleY, w: titleW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
       if (sub) s.addText(sub, { x: M + 0.70, y: subY, w: titleW, h: 0.22, fontSize: 10, color: CD.mute, fontFace: KR, margin: 0 });
       break;
@@ -973,7 +986,7 @@ export function headD(
           fontFace: NUM, margin: 0,
         });
       }
-      s.addText(kicker, {
+      if (!hideKicker) s.addText(kicker, {
         x: M + 0.54, y: 0.48, w: CW - 0.54, h: 0.20,
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
@@ -1000,14 +1013,16 @@ export function headD(
     default: {
       const titleW = CW - 0.62;
       const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 24, 0.46);
-      const titleY = 0.72;
-      const subY = isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10;
+      const titleY = hideKicker ? Math.max(0.42, 0.71 - titleH / 2) : 0.72;
+      const subY = hideKicker
+        ? Math.max(1.02, titleY + titleH + 0.06)
+        : (isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10);
 
       if (numStr) {
         s.addShape('ellipse', { x: M, y: 0.50, w: 0.42, h: 0.42, fill: { color: C.brass } });
         s.addText(numStr, { x: M, y: 0.50, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
       }
-      s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
+      if (!hideKicker) s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
       s.addText(titleFit.displayText, { x: M + 0.62, y: titleY, w: titleW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
       if (sub) s.addText(sub, { x: M + 0.62, y: subY, w: titleW, h: 0.26, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0 });
       break;

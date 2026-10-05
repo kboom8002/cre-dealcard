@@ -68,12 +68,91 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const rightX = M + leftW + gap;
   const rightW = CW - leftW - gap; // F-05: 우측 패널 항상 확보
 
+  const rawCap = typeof capRateAsIs === 'number' ? capRateAsIs : parseFloat(String(capRateAsIs));
+  const numCapRate = Number.isFinite(rawCap) && rawCap > 0 ? rawCap : 0;
+
+  // ── 좌측 KPI 행 사전 산출 (2026-10-05: 레이아웃 높이를 먼저 계산해 하단 콜아웃과의 겹침을 원천 차단) ──
+  const kpiRows: Array<[string, string, boolean]> = [
+    ['연간 임대수입', fmtManwon(annualRent), false],
+    ['승계 보증금', fmtManwon(totalDeposit), false],
+    ['매매가', fmtManwon(askingPrice), false],
+    ['보증금 차감 매입가 (매매가−보증금)', fmtManwon(netInvestment), true],
+  ];
+  // 토지평당가 (공시지가 최신값이 있을 때)
+  if (landPriceHistory?.latestPricePerSqm > 0) {
+    const pricePerPyeong = Math.round(landPriceHistory.latestPricePerSqm * SQM_RATIO);
+    // 다필지: 단가 기준 명시 (면적 가중평균 / 대표 필지)
+    const priceLabel = d.landPriceBasis === 'weighted' ? '토지 공시지가 (평당, 면적가중)'
+      : d.landPriceBasis === 'representative' ? '토지 공시지가 (평당, 대표 필지)'
+      : '토지 공시지가 (평당)';
+    kpiRows.push([priceLabel, `${Math.round(pricePerPyeong / 10000).toLocaleString()}만원`, false]);
+  }
+  // 매매가 대비 토지비중
+  if (landPriceHistory?.latestPricePerSqm > 0 && landAreaSqm > 0 && askingPrice > 0) {
+    const landTotalValue = landPriceHistory.latestPricePerSqm * landAreaSqm;
+    const landRatio = (landTotalValue / askingPrice) * 100;
+    if (landRatio > 0 && landRatio < 200) {
+      kpiRows.push(['매매가 대비 토지 비중', `${landRatio.toFixed(1)}%`, landRatio >= 50]);
+    }
+  }
+
+  const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
+  if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
+
+  // ── 하단 콜아웃: 투자 판단 참고 (데이터 기반 자동 생성) — 높이 계산을 위해 먼저 산출 ──
+  const calloutBullets: string[] = [];
+
+  // 수익률 비교 (서울 소형빌딩 평균 4.5~5.5% 기준)
+  if (numCapRate > 0) {
+    if (numCapRate >= 6.0) {
+      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균(4.5~5.5%) 대비 양호한 수준`);
+    } else if (numCapRate >= 4.5) {
+      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균 수준`);
+    } else {
+      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 시장 평균 하회 — 토지가치 상승 또는 리모델링 후 임대료 증대 가능성 검토 필요`);
+    }
+  }
+
+  // 공시지가 CAGR
+  if (hasLandHistory && landPriceHistory.cagrPct != null) {
+    if (landPriceHistory.cagrPct >= 3.0) {
+      calloutBullets.push(`• ${landPriceHistory.history.length}년간 공시지가 연평균 ${landPriceHistory.cagrPct}% 상승 → 토지가치 보존력 확인`);
+    } else if (landPriceHistory.cagrPct > 0) {
+      calloutBullets.push(`• ${landPriceHistory.history.length}년간 공시지가 연평균 ${landPriceHistory.cagrPct}% 상승 (완만한 성장세)`);
+    }
+  }
+
+  // 토지 비중
+  if (landPriceHistory?.latestPricePerSqm > 0 && landAreaSqm > 0 && askingPrice > 0) {
+    const landTotalValue = landPriceHistory.latestPricePerSqm * landAreaSqm;
+    const landRatio = (landTotalValue / askingPrice) * 100;
+    if (landRatio >= 60) {
+      calloutBullets.push(`• 매매가 대비 토지비중 ${landRatio.toFixed(0)}% → 감가 리스크 낮은 토지 중심 자산`);
+    }
+  }
+
+  // ── 세로 레이아웃 예산 (SAFE_BOTTOM 6.75 내에서 카드 + 콜아웃이 겹치지 않도록) ──
+  const cardY = 1.45;
+  const calloutGap = 0.15;
+  const calloutH = calloutBullets.length > 0 ? 0.42 + calloutBullets.length * 0.25 : 0;
+  const availCardH = SAFE_BOTTOM - cardY - (calloutH > 0 ? calloutH + calloutGap : 0);
+  const padTop = 0.20;
+  const yieldBgH = 1.00;
+  const afterYield = 0.15;
+  const stabBadgeH = 0.55;
+  const stabBlockH = hasStabilized ? 0.12 + stabBadgeH : 0;
+  const padBottom = 0.18;
+  const fixedH = padTop + yieldBgH + afterYield + stabBlockH + padBottom;
+  let rowH = 0.38;
+  if (fixedH + kpiRows.length * rowH > availCardH) {
+    rowH = Math.max(0.28, (availCardH - fixedH) / Math.max(1, kpiRows.length));
+  }
+  // 카드는 가용 높이를 채워 좌우 패널 하단을 정렬 (최대 4.40)
+  const cardH = Math.min(4.40, Math.max(fixedH + kpiRows.length * rowH, availCardH));
+
   // ══════════════════════════════════════════════════════════════
   // 좌측 패널: 수익률 KPI 카드
   // ══════════════════════════════════════════════════════════════
-  const cardY = 1.50;
-  const cardH = 4.20; // SSoT: 4.20 균일 높이로 하단 SAFE_BOTTOM(6.75) 준수 및 지면 이탈 방어
-
   // 카드 배경
   slide.addShape('roundRect', {
     x: M, y: cardY, w: leftW, h: cardH,
@@ -83,16 +162,12 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   });
 
   // ── 대형 수익률 표시 ──
-  const yieldBgY = cardY + 0.25;
-  const yieldBgH = 1.10;
+  const yieldBgY = cardY + padTop;
   slide.addShape('roundRect', {
     x: M + 0.25, y: yieldBgY, w: leftW - 0.50, h: yieldBgH,
     fill: { color: C.ink },
     rectRadius: 0.08,
   });
-
-  const rawCap = typeof capRateAsIs === 'number' ? capRateAsIs : parseFloat(String(capRateAsIs));
-  const numCapRate = Number.isFinite(rawCap) && rawCap > 0 ? rawCap : 0;
 
   // Wave 9.3 (b안): 값 = 연 임대수입 ÷ (매매가−보증금) — 요약 슬라이드의 Cap Rate(NOI÷매매가)와 구분되도록 기준 병기.
   //   모바일 '순투자금'은 대출까지 차감(매매가−보증금−대출)하므로, 대출 유무와 무관하게 정확하도록 A23은 공식으로 표기한다.
@@ -110,19 +185,19 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   });
 
   // ── 핵심 재무 지표 행 ──
-  let rowY = yieldBgY + yieldBgH + 0.25;
-  const rowH = 0.38;
+  let rowY = yieldBgY + yieldBgH + afterYield;
   const labelX = M + 0.35;
   const valueX = M + leftW - 2.80;
+  const rowFs = rowH < 0.34 ? 10.5 : 11;
 
-  const renderRow = (lbl: string, value: string, highlight = false) => {
+  for (const [lbl, value, highlight] of kpiRows) {
     slide.addText(lbl, {
       x: labelX, y: rowY, w: 3.0, h: rowH,
-      color: C.mute, fontFace: KR, fontSize: 11, valign: 'middle',
+      color: C.mute, fontFace: KR, fontSize: rowFs, valign: 'middle',
     });
     slide.addText(value, {
       x: valueX, y: rowY, w: 2.40, h: rowH,
-      color: highlight ? C.brass : C.ink, fontFace: NUM, fontSize: 12, bold: highlight,
+      color: highlight ? C.brass : C.ink, fontFace: NUM, fontSize: rowFs + 1, bold: highlight,
       align: 'right', valign: 'middle',
     });
     // 구분선
@@ -131,40 +206,13 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       line: { color: 'E8E8E8', width: 0.5 },
     });
     rowY += rowH;
-  };
-
-  renderRow('연간 임대수입', fmtManwon(annualRent));
-  renderRow('승계 보증금', fmtManwon(totalDeposit));
-  renderRow('매매가', fmtManwon(askingPrice));
-  renderRow('보증금 차감 매입가 (매매가−보증금)', fmtManwon(netInvestment), true);
-
-  // 토지평당가 (공시지가 최신값이 있을 때)
-  if (landPriceHistory?.latestPricePerSqm > 0) {
-    const pricePerPyeong = Math.round(landPriceHistory.latestPricePerSqm * SQM_RATIO);
-    // 다필지: 단가 기준 명시 (면적 가중평균 / 대표 필지)
-    const priceLabel = d.landPriceBasis === 'weighted' ? '토지 공시지가 (평당, 면적가중)'
-      : d.landPriceBasis === 'representative' ? '토지 공시지가 (평당, 대표 필지)'
-      : '토지 공시지가 (평당)';
-    renderRow(priceLabel, `${Math.round(pricePerPyeong / 10000).toLocaleString()}만원`);
   }
 
-  // 매매가 대비 토지비중
-  if (landPriceHistory?.latestPricePerSqm > 0 && landAreaSqm > 0 && askingPrice > 0) {
-    const landTotalValue = landPriceHistory.latestPricePerSqm * landAreaSqm;
-    const landRatio = (landTotalValue / askingPrice) * 100;
-    if (landRatio > 0 && landRatio < 200) {
-      renderRow('매매가 대비 토지 비중', `${landRatio.toFixed(1)}%`, landRatio >= 50);
-    }
-  }
-
-  // ── 안정화 수익률 하단 배지 (조건부) ──
-  const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
-  if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
+  // ── 안정화 수익률 하단 배지 (조건부) — 카드 내부 하단에 고정 (카드 밖 이탈 금지) ──
   if (hasStabilized) {
-    rowY += 0.15;
-    const stabBadgeH = 0.55;
+    const stabY = Math.max(rowY + 0.12, cardY + cardH - padBottom - stabBadgeH);
     slide.addShape('roundRect', {
-      x: M + 0.25, y: rowY, w: leftW - 0.50, h: stabBadgeH,
+      x: M + 0.25, y: stabY, w: leftW - 0.50, h: stabBadgeH,
       fill: { color: 'F6F1E4' },
       line: { color: C.brass, width: 1.0 },
       rectRadius: 0.06,
@@ -172,13 +220,13 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     const stabTitle = '◇ 분석가정 · 안정화 임대수익률 (Stabilized)';
     const stabLabel = assumption ? `${stabTitle}\n${assumption}` : stabTitle;
     slide.addText(stabLabel, {
-      x: M + 0.40, y: rowY, w: 3.6, h: stabBadgeH,
+      x: M + 0.40, y: stabY, w: 3.6, h: stabBadgeH,
       color: C.ink, fontFace: KR, fontSize: assumption ? 8.5 : 10, bold: true, valign: 'middle',
     });
     const rawStab = typeof capRateStabilized === 'number' ? capRateStabilized : parseFloat(String(capRateStabilized));
     const stabVal = Number.isFinite(rawStab) && rawStab > 0 ? rawStab : 0;
     slide.addText(`${stabVal.toFixed(2)}%`, {
-      x: M + leftW - 3.00, y: rowY, w: 2.50, h: stabBadgeH,
+      x: M + leftW - 3.00, y: stabY, w: 2.50, h: stabBadgeH,
       color: C.brass, fontFace: NUM, fontSize: 18, bold: true,
       align: 'right', valign: 'middle',
     });
@@ -223,9 +271,9 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       color: C.ink, fontFace: KR, fontSize: 12, bold: true, valign: 'middle',
     });
 
-    // 바 차트 영역
+    // 바 차트 영역 (하단 CAGR 2행 + 출처 1행 공간 확보 — 출처와 누적 상승률 겹침 방지)
     const barAreaY = chartY + 0.60;
-    const barAreaH = chartH - 1.60;
+    const barAreaH = chartH - 1.85;
     const maxPrice = Math.max(...history.map((h: { pricePerSqm: number }) => h.pricePerSqm));
     const barCount = history.length;
     const barH = Math.min(0.32, (barAreaH - 0.1) / barCount);
@@ -250,8 +298,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
         fill: { color: barColor },
       });
 
-      // 가격 라벨 (만원 단위)
-      const priceManwon = Math.round(item.pricePerSqm / 10000);
+      // 가격 라벨 (원/㎡)
       slide.addText(`${item.pricePerSqm.toLocaleString()}`, {
         x: rightX + 0.85 + bw, y, w: 1.20, h: barH,
         fontFace: NUM, fontSize: 8, color: C.mute, align: 'left', valign: 'middle',
@@ -287,51 +334,12 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 하단 콜아웃: 투자 판단 참고 (데이터 기반 자동 생성)
+  // 하단 콜아웃: 투자 판단 참고 — 좌·우 카드 하단 아래에 배치 (겹침 없음)
   // ══════════════════════════════════════════════════════════════
-  const calloutBullets: string[] = [];
-
-  // 수익률 비교 (서울 소형빌딩 평균 4.5~5.5% 기준)
-  if (numCapRate > 0) {
-    if (numCapRate >= 6.0) {
-      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균(4.5~5.5%) 대비 양호한 수준`);
-    } else if (numCapRate >= 4.5) {
-      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균 수준`);
-    } else {
-      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 시장 평균 하회 — 토지가치 상승 또는 리모델링 후 임대료 증대 가능성 검토 필요`);
-    }
-  }
-
-  // 공시지가 CAGR
-  if (hasLandHistory && landPriceHistory.cagrPct != null) {
-    if (landPriceHistory.cagrPct >= 3.0) {
-      calloutBullets.push(`• ${landPriceHistory.history.length}년간 공시지가 연평균 ${landPriceHistory.cagrPct}% 상승 → 토지가치 보존력 확인`);
-    } else if (landPriceHistory.cagrPct > 0) {
-      calloutBullets.push(`• ${landPriceHistory.history.length}년간 공시지가 연평균 ${landPriceHistory.cagrPct}% 상승 (완만한 성장세)`);
-    }
-  }
-
-  // 토지 비중
-  if (landPriceHistory?.latestPricePerSqm > 0 && landAreaSqm > 0 && askingPrice > 0) {
-    const landTotalValue = landPriceHistory.latestPricePerSqm * landAreaSqm;
-    const landRatio = (landTotalValue / askingPrice) * 100;
-    if (landRatio >= 60) {
-      calloutBullets.push(`• 매매가 대비 토지비중 ${landRatio.toFixed(0)}% → 감가 리스크 낮은 토지 중심 자산`);
-    }
-  }
-
   if (calloutBullets.length > 0) {
-    let calloutY = cardY + cardH + 0.15;
-    const rawH = 0.20 + calloutBullets.length * 0.28;
-    let calloutH = rawH;
-    // 하단 안전 마진(SAFE_BOTTOM = 6.75) 클램프 가드: 푸터(6.94) 침범 및 슬라이드 바닥 이탈 방지
-    if (calloutY + calloutH > SAFE_BOTTOM) {
-      calloutH = Math.max(0.50, SAFE_BOTTOM - calloutY);
-      if (calloutY + calloutH > SAFE_BOTTOM) {
-        calloutY = SAFE_BOTTOM - calloutH;
-      }
-    }
-    L.callout(slide, M, calloutY, CW, calloutH, 'info', '투자 판단 참고',
+    const calloutY = cardY + cardH + calloutGap;
+    const finalH = Math.max(0.50, Math.min(calloutH, SAFE_BOTTOM - calloutY));
+    L.callout(slide, M, calloutY, CW, finalH, 'info', '투자 판단 참고',
       calloutBullets.join('\n'));
   }
 

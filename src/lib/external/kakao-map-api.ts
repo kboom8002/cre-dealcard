@@ -11,6 +11,8 @@ export interface PoiSpot {
   lng: number;
   distanceM: number;
   category: 'subway' | 'landmark' | 'hospital' | 'university' | 'shopping' | 'public';
+  /** 카카오 category_name 원문 (예: "교통,수송 > 지하철,전철 > 수도권9호선") — POI 정밀 선별용 */
+  categoryName?: string;
 }
 
 export interface LocationPoiData {
@@ -31,6 +33,11 @@ export interface LocationPoiData {
   };
   /** 지도 오버레이용 주요 스폿 (최대 5개) */
   keySpots: PoiSpot[];
+  /**
+   * 입지 POI 정밀 선별(location-poi-selector)용 실조회 후보 풀 (중복 제거, 거리순, 최대 60개).
+   * 카카오 응답에 실제 존재하는 장소만 포함 — 이름/거리 임의 생성 금지 (Rule 34).
+   */
+  candidateSpots?: PoiSpot[];
   _isFallback?: boolean;
 }
 
@@ -65,6 +72,8 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
 
       let nearestStation: LocationPoiData['nearestStation'] = null;
       const keySpots: PoiSpot[] = [];
+      // 정밀 선별용 후보 풀 (category_name 포함, keySpots 필터 이전 원본)
+      const candidateSpots: PoiSpot[] = [];
 
       // 모든 역을 keySpots에 추가 (좌표 포함)
       for (const s of stations) {
@@ -72,12 +81,22 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         const sLng = parseFloat(s.x);
         const distanceM = parseInt(s.distance, 10) || 500;
         if (!isNaN(sLat) && !isNaN(sLng)) {
+          // "선유도역 9호선"처럼 이미 '역'을 포함한 이름에 '역'을 중복 부착하지 않음
+          const rawName = String(s.place_name);
           keySpots.push({
-            name: String(s.place_name).replace(/역$/, '') + '역',
+            name: rawName.includes('역') ? rawName : rawName + '역',
             lat: sLat,
             lng: sLng,
             distanceM,
             category: 'subway',
+          });
+          candidateSpots.push({
+            name: rawName,
+            lat: sLat,
+            lng: sLng,
+            distanceM,
+            category: 'subway',
+            categoryName: s.category_name ? String(s.category_name) : undefined,
           });
         }
       }
@@ -159,6 +178,14 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
               const dLng = parseFloat(doc.x);
               const distanceM = parseInt(doc.distance, 10) || 500;
               if (!isNaN(dLat) && !isNaN(dLng)) {
+                candidateSpots.push({
+                  name: String(doc.place_name),
+                  lat: dLat,
+                  lng: dLng,
+                  distanceM,
+                  category: lm.category,
+                  categoryName: doc.category_name ? String(doc.category_name) : undefined,
+                });
                 // 대학교만 필터 (초/중/고 제외)
                 if (lm.code === 'SC4') {
                   const name = String(doc.place_name);
@@ -209,6 +236,14 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
                   distanceM,
                   category: 'landmark' as const,
                 });
+                candidateSpots.push({
+                  name: String(doc.place_name),
+                  lat: dLat,
+                  lng: dLng,
+                  distanceM,
+                  category: 'landmark' as const,
+                  categoryName: doc.category_name ? String(doc.category_name) : undefined,
+                });
               }
             }
           } catch {
@@ -216,6 +251,76 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
           }
         })
       );
+
+      // ── 3.6 정밀 선별용 추가 후보 (관광명소/숙박/문화시설 + 도로시설·대형병원·대학 키워드) ──
+      // keySpots(기존 5개 슬롯) 산출에는 영향을 주지 않고 candidateSpots 에만 추가한다.
+      const extraCategorySearches = [
+        { code: 'AT4', radius: 2000 }, // 관광명소
+        { code: 'AD5', radius: 1000 }, // 숙박 (호텔 필터는 선별기에서)
+        { code: 'CT1', radius: 1500 }, // 문화시설
+      ];
+      const extraKeywordSearches = [
+        { query: '나들목', radius: 3000 },
+        { query: 'IC', radius: 3000 },
+        { query: '종합병원', radius: 2000 },
+        { query: '대학교', radius: 2000 },
+      ];
+      const pushCandidateDocs = (docs: any[], category: PoiSpot['category']) => {
+        for (const doc of docs) {
+          const dLat = parseFloat(doc.y);
+          const dLng = parseFloat(doc.x);
+          const distanceM = parseInt(doc.distance, 10);
+          if (isNaN(dLat) || isNaN(dLng) || !Number.isFinite(distanceM)) continue;
+          candidateSpots.push({
+            name: String(doc.place_name),
+            lat: dLat,
+            lng: dLng,
+            distanceM,
+            category,
+            categoryName: doc.category_name ? String(doc.category_name) : undefined,
+          });
+        }
+      };
+      await Promise.all([
+        ...extraCategorySearches.map(async ({ code, radius }) => {
+          try {
+            const url = `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=${code}&y=${lat}&x=${lng}&radius=${radius}&sort=distance&size=15`;
+            const res = await fetch(url, {
+              headers: { Authorization: `KakaoAK ${restKey}` },
+              signal: AbortSignal.timeout(2000),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            pushCandidateDocs(data?.documents || [], 'landmark');
+          } catch {
+            // 보조 후보 조회 실패 시 무시
+          }
+        }),
+        ...extraKeywordSearches.map(async ({ query, radius }) => {
+          try {
+            const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&y=${lat}&x=${lng}&radius=${radius}&sort=distance&size=10`;
+            const res = await fetch(url, {
+              headers: { Authorization: `KakaoAK ${restKey}` },
+              signal: AbortSignal.timeout(2000),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            pushCandidateDocs(data?.documents || [], 'landmark');
+          } catch {
+            // 보조 후보 조회 실패 시 무시
+          }
+        }),
+      ]);
+
+      const uniqueCandidates = candidateSpots
+        .reduce((acc, spot) => {
+          const exists = acc.find(s => s.name === spot.name
+            || (Math.abs(s.lat - spot.lat) < 0.00005 && Math.abs(s.lng - spot.lng) < 0.00005 && s.category === spot.category));
+          if (!exists) acc.push(spot);
+          return acc;
+        }, [] as PoiSpot[])
+        .sort((a, b) => a.distanceM - b.distanceM)
+        .slice(0, 60);
 
       const uniqueSpots = keySpots.reduce((acc, spot) => {
         const exists = acc.find(s => Math.abs(s.lat - spot.lat) < 0.0001 && Math.abs(s.lng - spot.lng) < 0.0001);
@@ -237,6 +342,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
           parking: counts.parking, restaurant: counts.restaurant, convenience: counts.convenience,
         },
         keySpots: balancedSpots,
+        candidateSpots: uniqueCandidates,
       };
     } catch (err) {
       log.warn({ err: err }, "[kakao-map-api] API failed, returning null to prevent hallucination:");

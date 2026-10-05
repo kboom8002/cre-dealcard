@@ -3,7 +3,10 @@ import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
 import { stripMarkdown } from '../data-binder';
-import { fetchKakaoMapImage, generateStaticMapPlaceholder, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
+import { fetchKakaoMapImage, generateStaticMapPlaceholder, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot, type LocationMapOverlayMeta } from '../utils/image-optimizer';
+import { poiMarkerFill } from '../utils/location-map-overlay';
+import { readMapMarkerMeta, centerCropToAspect, normToSlot } from '@/lib/external/map-overlay-meta';
+import sharp from 'sharp';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('a06-diagram');
@@ -25,6 +28,152 @@ export interface ArchetypeOutput {
   suppress?: boolean;
 }
 
+/** 좌측 지도 슬롯 (인치) */
+const MAP_Y = 1.62;
+const MAP_H = 4.50;
+
+/** 범례 행에서 제거할 keySpots 파생 랜드마크 라벨 (지도 번호 범례로 대체 — Rule 4 중복 방지) */
+const POI_DERIVED_ROW_LABELS = new Set(['의료시설', '교육시설', '상업시설', '주요시설', '공공기관']);
+
+/**
+ * [Rule 66] 지도 위 '본건' 네이티브 라벨 (PptxGenJS 텍스트 — 서버리스 CJK 두부 원천 차단).
+ * markerTopY(마커 상단) 바로 위에 말풍선형 라벨을 배치하고, 슬롯 밖으로 나가지 않도록 클램프한다.
+ */
+function addTargetLabel(
+  slide: ReturnType<PptxGenJS['addSlide']>,
+  cx: number,
+  markerTopY: number,
+  markerBottomY: number,
+  slot: { x: number; y: number; w: number; h: number },
+  color: string,
+): void {
+  const w = 0.52;
+  const h = 0.24;
+  const tip = 0.07;
+  let above = true;
+  let y = markerTopY - tip - h;
+  if (y < slot.y + 0.04) {
+    above = false;
+    y = markerBottomY + tip;
+  }
+  const x = Math.max(slot.x + 0.04, Math.min(slot.x + slot.w - w - 0.04, cx - w / 2));
+  const tipX = Math.max(x + 0.06, Math.min(x + w - 0.18, cx - 0.06));
+  slide.addShape('roundRect', {
+    x, y, w, h,
+    fill: { color },
+    line: { color: 'FFFFFF', width: 1 },
+    rectRadius: 0.05,
+  });
+  slide.addShape('triangle', {
+    x: tipX, y: above ? y + h - 0.01 : y - tip + 0.01, w: 0.12, h: tip,
+    fill: { color },
+    line: { color, width: 0 },
+    rotate: above ? 180 : 0,
+  });
+  slide.addText('본건', {
+    x, y, w, h,
+    fontSize: 9.5, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', fontFace: KR, margin: 0,
+  });
+}
+
+/**
+ * 지적도 이미지 배치: 슬롯 종횡비로 중앙 크롭(늘이기 왜곡 제거) 후 삽입하고,
+ * PNG tEXt에 기록된 본건 마커 위치에 네이티브 '본건' 라벨을 얹는다.
+ */
+async function placeCadastralImage(
+  slide: ReturnType<PptxGenJS['addSlide']>,
+  image: string,
+  slot: { x: number; y: number; w: number; h: number },
+): Promise<void> {
+  const meta = readMapMarkerMeta(image);
+  let data: string | null = null;
+  let crop: { left: number; top: number; width: number; height: number } | null = null;
+  let imgW = meta?.imgW ?? 0;
+  let imgH = meta?.imgH ?? 0;
+  try {
+    const b64 = image.includes(',') ? image.slice(image.indexOf(',') + 1) : image;
+    const buf = Buffer.from(b64, 'base64');
+    const md = await sharp(buf).metadata();
+    if (md.width && md.height) {
+      imgW = md.width;
+      imgH = md.height;
+      crop = centerCropToAspect(imgW, imgH, slot.w / slot.h);
+      const out = await sharp(buf)
+        .extract(crop)
+        .resize({ width: Math.min(1200, crop.width), withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      data = `image/jpeg;base64,${out.toString('base64')}`;
+    }
+  } catch (err) {
+    log.warn('[a06-diagram] cadastral crop failed — 원본 비율로 배치:', err);
+    crop = null;
+  }
+  if (!data) {
+    const optimizedCadastral = await optimizeImageForPptx(image, 1200, 80);
+    data = optimizedCadastral?.base64 || image;
+  }
+  slide.addImage({ data, ...slot });
+
+  if (meta?.target && imgW > 0 && imgH > 0) {
+    const pt = normToSlot(meta.target, { w: imgW, h: imgH }, slot, crop);
+    if (pt) {
+      // 마커 반경 11px(+테두리) → 인치 환산
+      const pxToIn = slot.w / (crop?.width ?? imgW);
+      const r = 14 * pxToIn;
+      addTargetLabel(slide, pt.x, pt.y - r, pt.y + r, slot, 'DC2626');
+    }
+  }
+}
+
+/** 입지 지도 하단 번호 범례 (지도 마커 번호 = 범례 번호, 한글 명칭은 네이티브 텍스트) */
+function addPoiLegend(
+  slide: ReturnType<PptxGenJS['addSlide']>,
+  meta: LocationMapOverlayMeta,
+  x: number,
+  y: number,
+  w: number,
+): void {
+  type Cell = { kind: 'poi'; n: number; fill: string; text: string } | { kind: 'walk'; text: string };
+  const cells: Cell[] = meta.pois.map(p => ({
+    kind: 'poi' as const,
+    n: p.index,
+    fill: poiMarkerFill(p.poi.kind).replace('#', ''),
+    text: p.poi.label,
+  }));
+  if (meta.walkCircle) {
+    cells.push({ kind: 'walk', text: `도보 ${meta.walkCircle.minutes}분 반경 (약 ${meta.walkCircle.radiusM}m)` });
+  }
+  if (cells.length === 0) return;
+  const cols = 2;
+  const colW = w / cols;
+  const rowH = 0.22;
+  cells.slice(0, 6).forEach((cell, i) => {
+    const cx = x + (i % cols) * colW;
+    const cy = y + Math.floor(i / cols) * rowH;
+    if (cell.kind === 'poi') {
+      slide.addShape('ellipse', {
+        x: cx, y: cy + 0.025, w: 0.17, h: 0.17,
+        fill: { color: cell.fill },
+        line: { color: 'FFFFFF', width: 0.75 },
+      });
+      slide.addText(String(cell.n), {
+        x: cx, y: cy + 0.025, w: 0.17, h: 0.17,
+        fontSize: 7.5, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', fontFace: KR, margin: 0,
+      });
+    } else {
+      slide.addText('╌', {
+        x: cx, y: cy, w: 0.17, h: rowH,
+        fontSize: 10, bold: true, color: 'B8860B', align: 'center', valign: 'middle', fontFace: KR, margin: 0,
+      });
+    }
+    slide.addText(cell.text, {
+      x: cx + 0.22, y: cy, w: colW - 0.26, h: rowH,
+      fontSize: 8.5, color: '1E293B', valign: 'middle', fontFace: KR, margin: 0, fit: 'shrink',
+    });
+  });
+}
+
 export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.light(input.pres);
   const warnings: string[] = [];
@@ -36,6 +185,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const textW = CW - mapW - gap;
 
   // ── 좌측: 지도 ──
+  let poiLegendRendered = false;
   const coords = input.data?.coordinates ?? null;
   const mapImageUrl = input.data?.mapImageUrl ?? null;
   const areaOrAddress = input.data?.left?.source || input.data?.areaSignal || '서울';
@@ -52,8 +202,8 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     slide.addImage({ data: optimizedMacro?.base64 || macroTransitImg, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else if (input.data?.cadastralImage) {
     // 0-2차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
-    const optimizedCadastral = await optimizeImageForPptx(input.data.cadastralImage, 1200, 80);
-    slide.addImage({ data: optimizedCadastral?.base64 || input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
+    // 슬롯 종횡비 중앙 크롭 + 네이티브 '본건' 라벨 (이미지 내 영문 TARGET 라벨 제거 — Rule 66)
+    await placeCadastralImage(slide, String(input.data.cadastralImage), { x: M, y: MAP_Y, w: mapW, h: MAP_H });
   } else if (input.data.title?.includes('토지') || input.data.kicker?.includes('토지') || input.data.title?.includes('지적도')) {
     // 지적도 슬라이드인데 V-World 이미지가 없는 경우 Fallback
     L.fallbackCard(slide, M, 1.62, mapW, 4.50, {
@@ -71,13 +221,19 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     });
     warnings.push('[BL-2] 지적도 API 연동 실패로 대체 실사 카드 삽입됨');
   } else {
-    let mapImg: { base64: string } | null = null;
+    let mapImg: { base64: string; overlayMeta?: LocationMapOverlayMeta } | null = null;
 
     // 1차: 카카오 Static Map + POI 오버레이 (최우선 — 도보 반경/랜드마크 표시)
+    // 포스처/자산유형 맞춤 POI 3~5건 정밀 선별 (location-poi-selector, 실조회 후보만 사용)
     if (coords) {
       try {
         mapImg = await generateStaticMapPlaceholder(
-          areaOrAddress, 1120, 900, coords, poiSpots
+          areaOrAddress, 1120, 900, coords, poiSpots,
+          {
+            posture: input.data?.posture ?? null,
+            assetType: input.data?.assetType ?? null,
+            candidates: Array.isArray(input.data?.poiCandidates) ? input.data.poiCandidates : null,
+          },
         );
       } catch (err) {
         log.warn('[a06-diagram] generateStaticMapPlaceholder failed:', err);
@@ -119,7 +275,18 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         input.data.kicker?.includes('Location') ||
         input.data.kicker?.includes('SECTION')
       );
-      if (isLocationSlide) {
+      const overlayMeta = mapImg.overlayMeta;
+      if (isLocationSlide && overlayMeta) {
+        // [Rule 66] 핀 위 네이티브 '본건' 라벨 (이미지 내 TARGET 텍스트 제거, 단일 표시)
+        const slot = { x: M, y: MAP_Y, w: mapW, h: MAP_H };
+        const tx = M + overlayMeta.target.x * mapW;
+        const ty = MAP_Y + overlayMeta.target.y * MAP_H;
+        const topY = MAP_Y + overlayMeta.targetTopY * MAP_H;
+        addTargetLabel(slide, tx, topY, ty + 0.05, slot, '132A3A');
+        // 지도 하단(지도 바깥) 번호 범례: 마커 번호 = 범례 번호, 명칭 + 도보 시간
+        addPoiLegend(slide, overlayMeta, M, MAP_Y + MAP_H + 0.06, mapW);
+        poiLegendRendered = overlayMeta.pois.length > 0;
+      } else if (isLocationSlide) {
         // 1. 좌측 하단 반투명 범례 카드 (도보 권역 및 대상지 안내)
         slide.addShape('roundRect', {
           x: M + 0.15, y: 1.62 + 4.50 - 0.45, w: 3.50, h: 0.35,
@@ -188,7 +355,10 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     y += 0.35;
   }
 
-  let rightRows = (right.rows ?? []).slice(0, 7);
+  let rightRows = (right.rows ?? [])
+    // 지도 번호 범례에 랜드마크가 표시되면 keySpots 파생 랜드마크 행은 제거 (Rule 4 비중복)
+    .filter((r: any) => !(poiLegendRendered && Array.isArray(r) && POI_DERIVED_ROW_LABELS.has(String(r[0] ?? ''))))
+    .slice(0, 7);
   if (rightRows.length === 0 && input.data.content) {
     // 마크다운 콘텐츠에서 키-값 불릿을 동적 추출 (Rule 26: 특정 지역명 하드코딩 금지)
     const contentText = String(input.data.content);

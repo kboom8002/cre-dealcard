@@ -3,6 +3,7 @@ import * as L from '../imlib';
 import { C, M, CW, KR, NUM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { formatPyeong } from '@/lib/utils/area-conversion';
+import { isBoilerplateHighlight, isNearDuplicate } from '../summary-highlights';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -287,8 +288,11 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // D42 SOTA: 내적 독백 및 단순 행정 체크리스트 문구 필터링 (Rule 1 & Rule 2 준수)
   const INTERNAL_MONOLOGUE = /(내적|사료됨|판단됨|실사\s*점검|정밀\s*진단|공부\s*확인|권리관계\s*정밀|검토(\s*필요)?$|안정적\s*수요\s*검토|의견으로는|자료입니다|수준의\s*가격대)/;
   // 검증 가능한 구체적 앵커(숫자, 역, 도로, 지표 등)가 있는 문장만 인정
-  const VERIFIABLE_ANCHOR = /(역|도보|호선|도로|접면|대로|%|Cap|억|평|공실|만실|사옥|임대료|수익률|지분)/i;
-  const filteredKP = keyPoints.filter(pt => !SPEC_TERMS.test(pt.trim()) && !INTERNAL_MONOLOGUE.test(pt.trim()) && VERIFIABLE_ANCHOR.test(pt.trim()));
+  const VERIFIABLE_ANCHOR = /(역|도보|호선|도로|접면|대로|%|Cap|억|평|㎡|공실|만실|사옥|임대료|임차|호실|수익률|지분|공시지가|용적률|준공)/i;
+  // 2026-10-05: 템플릿 상투 문구(premium-template-engine 폴백) 및 리드 문장과 같은 포인트 제거 (Rule 4)
+  const filteredKP = keyPoints.filter(pt => !SPEC_TERMS.test(pt.trim()) && !INTERNAL_MONOLOGUE.test(pt.trim()) && VERIFIABLE_ANCHOR.test(pt.trim())
+    && !isBoilerplateHighlight(pt) && !(leadSentence && isNearDuplicate(leadSentence, pt)))
+    .filter((pt, i, arr) => arr.findIndex(o => isNearDuplicate(o, pt)) === i);
   keyPoints.length = 0;
   keyPoints.push(...filteredKP);
 
@@ -317,10 +321,11 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         : '대중교통 역세권 입지';
 
     const fallbackPool = [
-      `입지 가치: ${stationPart}, ${area} 업무·상업 중심지 배후 수요 확보`,
-      capRate ? `수익 안정성: 연 순수익률(Cap Rate) ${capRate} 기반 안정적 임대수익 자산` : `수익 안정성: 안정적 임대수익 기반 투자 매물`,
-      gfaPyeong && landPyeong ? `자산 규모: 대지 ${landPyeong}평·연면적 ${gfaPyeong}평 규모 단독 빌딩` : `자산 희소성: 역세권 단독 빌딩으로 사옥 및 임대수익형 최적 자산`,
-    ];
+      stationName ? `입지 — ${stationPart}` : '',
+      capRate ? `수익률 — 연 순수익률(Cap Rate) ${capRate}` : '',
+      gfaPyeong && landPyeong ? `자산 규모 — 대지 ${landPyeong}평·연면적 ${gfaPyeong}평` : '',
+    ].filter(Boolean);
+    void area;
     for (const fb of fallbackPool) {
       if (keyPoints.length >= 3) break;
       if (!keyPoints.some(kp => kp.startsWith(fb.substring(0, 5)))) keyPoints.push(fb);
@@ -336,8 +341,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   const availableH = 6.55 - hlStartY - 0.36; // 헤더(0.36) 제외
   const numPoints = Math.min(3, keyPoints.length);
   // 행 높이를 남은 공간에 맞춰 동적 계산 (최소 0.40, 최대 0.64)
-  const maxRowH = Math.min(0.64, availableH / numPoints - 0.06);
-  const rowH = Math.max(0.40, maxRowH);
+  const maxRowH = Math.min(0.70, availableH / Math.max(1, numPoints) - 0.06);
+  const rowH = Math.max(0.46, maxRowH);
   const rowGap = Math.max(0.04, Math.min(0.12, (availableH - numPoints * rowH) / Math.max(1, numPoints - 1)));
 
   if (keyPoints.length > 0 && hlStartY < 5.8) {
@@ -375,13 +380,14 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
           align: 'center', valign: 'middle', margin: 0,
         });
 
-        // 우측 내용 텍스트: 최대 95자 수용 (긴 문장은 10pt 축소)
-        const isLong = pt.length > 65;
-        const ptText = pt.length > 95 ? pt.slice(0, 92) + '...' : pt;
-        slide.addText(ptText, {
+        // 우측 내용 텍스트: 말줄임('...') 금지 — 폰트 자동 맞춤(최대 2줄)으로 전체 문장 표시
+        const ptFit = L.fitTextToBox(pt, CW - 0.85, rowH - 0.08, {
+          minFontSize: 9.5, maxFontSize: hlFontSize, targetLines: 2, allowTruncate: false,
+        });
+        slide.addText(pt, {
           x: M + 0.70, y: ry + 0.04, w: CW - 0.85, h: rowH - 0.08,
-          color: C.ink, fontFace: KR, fontSize: isLong ? 10 : hlFontSize,
-          margin: 0, valign: 'middle',
+          color: C.ink, fontFace: KR, fontSize: ptFit.fontSize,
+          margin: 0, valign: 'middle', shrinkText: true,
         });
       }
     });

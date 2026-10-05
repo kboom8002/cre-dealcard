@@ -3,6 +3,7 @@ import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { optimizeImagesForPptx, type OptimizedImage } from '../utils/image-optimizer';
+import { addImageFit } from '../utils/image-fit';
 import type { PhotoMeta } from '../../types';
 import type { GalleryLayoutType } from '../gallery-planner';
 import { PHOTO_CATEGORY_LABELS } from '../../photo-url-transformer';
@@ -130,11 +131,8 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     });
 
     // 1. 이미지 (contain 모드 — D31 BL-2: 비율 유지, 크로핑 0)
-    slide.addImage({
-      data: optImg.base64,
-      x, y, w, h,
-      sizing: { type: 'contain', w, h },
-    });
+    //    2026-10-05: PptxGenJS sizing 은 w/h 를 원본 크기로 간주하므로 실제 픽셀 크기로 배치 (기존: 박스 비율로 늘어남)
+    addImageFit(slide, optImg.base64, { x, y, w, h }, optImg.width, optImg.height, 'contain');
 
     const meta = validPhotos[metaIdx] || {};
 

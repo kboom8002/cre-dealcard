@@ -4,6 +4,7 @@ import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { stripMarkdown } from '../data-binder';
 import { optimizeImageForPptx, type OptimizedImage } from '../utils/image-optimizer';
+import { addImageFit, planImageFit } from '../utils/image-fit';
 import { prioritizeSpecRows } from '../spec-row-priority';
 
 export interface ArchetypeInput {
@@ -121,10 +122,19 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     leftContentBottom = 1.80 + 1.8;
   }
   
+  // 좌측 컬럼 실제 하단 (우측 하이라이트 박스 하단 정렬 기준)
+  let leftColumnBottom = leftContentBottom;
+  // 매각가 박스는 우측 하이라이트 박스와 하단 정렬하기 위해 우측 레이아웃 산출 후 그린다
+  let drawPriceBox: ((alignBottom?: number) => void) | null = null;
   if (input.data.priceTable) {
     const hasPrice2 = !!input.data.priceTable2;
     const priceBoxH = hasPrice2 ? 1.10 : 0.60;
-    const py = Math.min(Math.max(leftContentBottom + 0.12, 4.40), 6.75 - priceBoxH);
+    const pyDefault = Math.min(Math.max(leftContentBottom + 0.12, 4.40), 6.75 - priceBoxH);
+    leftColumnBottom = pyDefault + priceBoxH;
+    drawPriceBox = (alignBottom?: number) => {
+    const py = alignBottom != null
+      ? Math.min(6.75 - priceBoxH, Math.max(pyDefault, alignBottom - priceBoxH))
+      : pyDefault;
 
     // 매각가 테이블 (금색 테두리 박스)
     slide.addShape('rect', {
@@ -166,7 +176,9 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
         fontFace: KR, fontSize: 13, bold: false, color: C.brass, valign: 'middle', align: 'right', margin: 0
       });
     }
+    };
   }
+  let rightBottomForAlign: number | undefined;
 
   // Brass 수직 구분선
   slide.addShape('line', {
@@ -176,7 +188,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
 
   // ── 우측: 사진 + 콜아웃 (사진 우선) ──
   const photoCandidate = input.data.photoUrl || right.photoUrl;
-  let photoImg: { base64: string } | null = null;
+  let photoImg: { base64: string; width?: number; height?: number } | null = null;
   if (photoCandidate) {
     const opt = await optimizeImageForPptx(photoCandidate, 1200, 85);
     photoImg = opt || { base64: photoCandidate };
@@ -206,43 +218,82 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
 
   if (photoImg) {
-    slide.addImage({
-      data: photoImg.base64,
-      x: rx, y: 1.80, w: rw, h: 3.20,
-      sizing: { type: 'cover', w: rw, h: 3.20 },
-    });
-    // 우측 하단: 핵심 강점 콜아웃
-    let calloutText = stripMarkdown(right.callouts?.[0]?.body || '');
-    if (!calloutText || calloutText.length < 15) {
-      const kickerLower = (input.data.kicker || '').toLowerCase();
-      const titleLower = (input.data.title || '').toLowerCase();
-      const isEviction = kickerLower.includes('eviction') || titleLower.includes('명도') || titleLower.includes('철거');
-      const isLand = kickerLower.includes('land') || titleLower.includes('부지') || titleLower.includes('도로') || titleLower.includes('인허가');
+    // 우측 하단: 핵심 강점 콜아웃 문구 결정
+    let calloutLines: string[] = [];
+    if (Array.isArray(input.data.assetHighlights) && input.data.assetHighlights.length > 0) {
+      // 2026-10-05: 렌더러가 실데이터(역·임대·대지)로 합성한 짧은 하이라이트 우선
+      calloutLines = input.data.assetHighlights.map((s: unknown) => String(s ?? '').trim()).filter(Boolean).slice(0, 3);
+    } else {
+      let calloutText = stripMarkdown(right.callouts?.[0]?.body || '');
+      if (!calloutText || calloutText.length < 15) {
+        const kickerLower = (input.data.kicker || '').toLowerCase();
+        const titleLower = (input.data.title || '').toLowerCase();
+        const isEviction = kickerLower.includes('eviction') || titleLower.includes('명도') || titleLower.includes('철거');
+        const isLand = kickerLower.includes('land') || titleLower.includes('부지') || titleLower.includes('도로') || titleLower.includes('인허가');
 
-      if (isEviction) {
-        calloutText = '• 매도인/임차인 명도 현황 및 퇴거 확약 조건 확인 필요\n• 임차인 권리금·명도 분쟁 리스크 사전 실사 권고\n• 명도 완료 시 즉시 철거·착공 가능 여부 일정 확인';
-      } else if (isLand) {
-        calloutText = '• 필지 도로 접면 현황 및 차량 진출입 여건 현장 확인 필요\n• 건축법상 일조권·사선제한 영향 사전 검토 권고\n• 필지 결합 개발 시 대지 이용 효율 및 용적률 최적화 검토';
-      } else {
-        const keyPoint = input.data.keyInvestmentPoint
-          || input.data.heroCard?.keyInvestmentPoint
-          || input.data.keyPoint;
-        if (keyPoint) {
-          const parts = String(keyPoint).split(/\s*[·•\n]\s*/).filter(Boolean);
-          calloutText = parts.map(p => `• ${p}`).join('\n');
+        if (isEviction) {
+          calloutText = '• 매도인/임차인 명도 현황 및 퇴거 확약 조건 확인 필요\n• 임차인 권리금·명도 분쟁 리스크 사전 실사 권고\n• 명도 완료 시 즉시 철거·착공 가능 여부 일정 확인';
+        } else if (isLand) {
+          calloutText = '• 필지 도로 접면 현황 및 차량 진출입 여건 현장 확인 필요\n• 건축법상 일조권·사선제한 영향 사전 검토 권고\n• 필지 결합 개발 시 대지 이용 효율 및 용적률 최적화 검토';
         } else {
-          // D42 RCA: Rule 37 준수 — 동적 데이터 기반 텍스트 (회피성 문구 금지)
-          const addr = input.data.address || input.data.resolved_address || '';
-          const areaStr = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
-          const priceStr = input.data.heroCard?.askingPriceDisplay || input.data.price_display || '';
-          calloutText = `• ${areaStr} 소재 ${addr ? addr.split(' ').slice(-1)[0] + ' ' : ''}핵심 입지 자산`
-            + `\n• ${priceStr ? priceStr + ' 기준 ' : ''}안정적 임대수익 기반 투자 매물`
-            + `\n• 대중교통 역세권 접근성 및 주변 상업 인프라 우수`;
+          const keyPoint = input.data.keyInvestmentPoint
+            || input.data.heroCard?.keyInvestmentPoint
+            || input.data.keyPoint;
+          if (keyPoint) {
+            const parts = String(keyPoint).split(/\s*[·•\n]\s*/).filter(Boolean);
+            calloutText = parts.map(p => `• ${p}`).join('\n');
+          } else {
+            // D42 RCA / 2026-10-05: 데이터 근거 없는 일반론 문구("핵심 입지 자산", "안정적 임대수익 기반 투자 매물" 등)는
+            // 출력하지 않는다 (Rule 34/37). 하이라이트가 없으면 사진이 우측 컬럼 전체를 사용한다.
+            calloutText = '';
+          }
         }
       }
+      calloutLines = calloutText.split('\n').map(l => l.replace(/^[•·\-*]\s*/, '').trim()).filter(Boolean).slice(0, 4);
     }
     const calloutTitle = (input.data.kicker || '').includes('Eviction') || (input.data.title || '').includes('명도') ? '명도 리스크 관리' : '자산 하이라이트';
-    L.callout(slide, rx, 5.12, rw, 1.65, 'info', calloutTitle, calloutText);
+
+    // ── 레이아웃: 하이라이트 박스는 내용 높이에 맞추고, 좌측 매각가 박스 하단과 정렬 ──
+    const photoTop = 1.80;
+    const lineH = 0.29;
+    const boxH = calloutLines.length > 0 ? 0.14 + 0.26 + 0.06 + calloutLines.length * lineH + 0.10 : 0;
+    const minPhotoH = 2.40;
+    const boxBottom = Math.min(6.75, Math.max(leftColumnBottom, photoTop + minPhotoH + (boxH > 0 ? 0.15 + boxH : 0)));
+    const boxY = boxBottom - boxH;
+    const photoH = (boxH > 0 ? boxY - 0.15 : boxBottom) - photoTop;
+    rightBottomForAlign = boxBottom;
+
+    // 사진: 원본 픽셀 비율 보존 (비율 차이가 작으면 중앙 크롭, 크면 전체 보존 + 여백 배경)
+    const photoBox = { x: rx, y: photoTop, w: rw, h: photoH };
+    if (planImageFit(photoBox, photoImg.width, photoImg.height, 'auto').mode === 'contain') {
+      // 원본 비율이 박스와 크게 다르면 전체를 보존하고 여백은 은은한 배경으로 마감 (배경 → 이미지 순)
+      slide.addShape('rect', { ...photoBox, fill: { color: 'F3F1EC' }, line: { color: 'E2DED3', width: 0.75 } });
+    }
+    addImageFit(slide, photoImg.base64, photoBox, photoImg.width, photoImg.height, 'auto');
+
+    if (boxH > 0) {
+      // 매각가 박스와 같은 브라스 톤 팔레트 (F6F1E4 / B8860B)
+      slide.addShape('roundRect', {
+        x: rx, y: boxY, w: rw, h: boxH,
+        rectRadius: 0.05,
+        fill: { color: 'F6F1E4' },
+        line: { color: 'D4C89A', width: 0.75 },
+      });
+      slide.addShape('rect', { x: rx, y: boxY + 0.08, w: 0.05, h: boxH - 0.16, fill: { color: 'B8860B' }, line: { color: 'B8860B', width: 0 } });
+      slide.addText(calloutTitle, {
+        x: rx + 0.20, y: boxY + 0.12, w: rw - 0.32, h: 0.26,
+        fontFace: KR, fontSize: 11, bold: true, color: C.brassD || '8A6A1F', margin: 0, valign: 'middle',
+      });
+      calloutLines.forEach((line, i) => {
+        const ly = boxY + 0.14 + 0.26 + 0.06 + i * lineH;
+        const fit = L.fitTextToBox(line, rw - 0.50, lineH, { minFontSize: 9, maxFontSize: 10.5, targetLines: 1, allowTruncate: false });
+        slide.addShape('rect', { x: rx + 0.22, y: ly + lineH / 2 - 0.03, w: 0.06, h: 0.06, fill: { color: 'B8860B' }, line: { color: 'B8860B', width: 0 } });
+        slide.addText(line, {
+          x: rx + 0.36, y: ly, w: rw - 0.50, h: lineH,
+          fontFace: KR, fontSize: fit.fontSize, color: C.ink, margin: 0, valign: 'middle', shrinkText: true,
+        });
+      });
+    }
   } else {
     // 사진이 없을 때: 2개 카드로 꽉 찬 렌더링
     let cy = 1.80;
@@ -314,6 +365,8 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     }
   }
   
+  if (drawPriceBox) drawPriceBox(rightBottomForAlign);
+
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);
   return { slide, warnings };

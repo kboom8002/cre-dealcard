@@ -24,6 +24,7 @@ import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from '.
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
 import { resolvePhysicalSpecs } from '../resolve-physical-specs';
 import { summarizeParcels, withParcelCountSuffix } from '../parcel-input';
+import { buildSummaryHighlights, extractSummaryFacts, isBoilerplateHighlight } from './summary-highlights';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -570,6 +571,10 @@ export class MobileImPptxRenderer {
         // POI 주요 스폿 (역, 상권 랜드마크) — 지도 마커 오버레이용
         const externalPoi = enrichment?.locationPoi ?? input.doc.body?.external_data?.locationPoi ?? input.doc.body?.enrichment?.locationPoi;
         dataMap['location'].poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
+        // 입지 POI 정밀 선별(location-poi-selector)용: 실조회 후보 풀 + 포스처/자산유형
+        dataMap['location'].poiCandidates = externalPoi?.candidateSpots ?? null;
+        dataMap['location'].posture = posture;
+        dataMap['location'].assetType = input.building?.asset_type ?? input.doc.body?.ssot_summary?.asset_type ?? null;
 
         // D8: 우측 입지 조건 구조화 행 — ssot/POI 데이터에서 동적 생성 (하드코딩 금지)
         const ssot = input.doc.body?.ssot_summary ?? {};
@@ -905,6 +910,27 @@ export class MobileImPptxRenderer {
       dataMap['summary'].station_walk_min = input.doc.body?.ssot_summary?.station_walk_min ?? (enrichment?.locationPoi?.nearestStation?.walkMinutes);
       dataMap['summary'].asking_price_manwon = input.doc.body?.ssot_summary?.asking_price_manwon ?? input.doc.body?.asking_price_manwon;
       dataMap['summary'].askingPrice = dataMap['cover']?.askingPrice ?? dataMap['building']?.priceTable?.value;
+
+      // 2026-10-05: Basic IM 요약 — 실데이터 기반 리드 문장 / 3대 투자 포인트 / 물건 개요 하이라이트
+      //   - 템플릿 상투 문구(premium-template-engine 폴백) 대체, 리드 == 포인트01 중복 제거 (Rule 4)
+      //   - 데이터가 없는 항목은 만들지 않음 (Rule 34) — 부족분만 템플릿이 아닌 기존 포인트로 보충
+      if (theme.presetId === 'credeal_basic') {
+        const summaryFacts = extractSummaryFacts({
+          posture,
+          body: input.doc.body ?? {},
+          building: input.building ?? {},
+          enrichment: enrichment ?? {}, core: (input as any).core ?? null, specRows: dataMap['building']?.left?.rows ?? [],
+        });
+        const priorPoints: string[] = [
+          ...(Array.isArray(dataMap['summary'].keyPoints) ? dataMap['summary'].keyPoints : []),
+          ...(Array.isArray(heroCard.keyPoints) ? heroCard.keyPoints : []),
+        ].map((p: unknown) => String(p ?? ''));
+        const hl = buildSummaryHighlights(summaryFacts, priorPoints);
+        if (hl.points.length > 0) dataMap['summary'].keyPoints = hl.points;
+        if (hl.lead) dataMap['summary'].leadSentence = hl.lead;
+        else if (isBoilerplateHighlight(String(dataMap['summary'].leadSentence ?? ''))) dataMap['summary'].leadSentence = '';
+        if (dataMap['building'] && hl.shortHighlights.length > 0) dataMap['building'].assetHighlights = hl.shortHighlights;
+      }
 
       if (posture === 'owner_occupied' && (!dataMap['summary'].keyPoints || dataMap['summary'].keyPoints.length === 0)) {
         const areaSig = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? '도심 업무권역';
