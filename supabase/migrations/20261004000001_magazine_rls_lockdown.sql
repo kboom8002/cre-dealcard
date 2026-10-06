@@ -118,6 +118,27 @@ alter table public.magazine_editions         enable row level security;
 alter table public.magazine_analytics_events enable row level security;
 alter table public.magazine_subscribers      enable row level security;
 
+-- ── 5b. PUBLIC/anon 역할로 열린 '조건부' 쓰기 정책을 authenticated 로 한정 ───────────
+--   운영에는 `TO` 없이 만들어져 roles={public} 인 정책(예: auth.uid() 로 소유자만 통과시키는 ALL 정책)이 있다.
+--   조건이 auth.uid() 기반이라 anon 에게는 항상 false 이지만, 역할이 PUBLIC 이면 "익명에게 열린 쓰기 정책"으로
+--   남아 6-1 검증에 걸린다. authenticated 로 좁혀도 로그인 사용자 동작은 그대로이고 anon 은 명시적으로 차단된다.
+--   (qual='true' 정책은 위 1번에서 이미 제거됨. 적용된 정책은 NOTICE 로 출력된다.)
+do $$
+declare r record;
+begin
+  for r in
+    select schemaname, tablename, policyname, cmd, roles, qual, with_check
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('magazine_issues','magazine_editions','magazine_analytics_events','magazine_subscribers')
+      and (roles && array['public','anon']::name[])
+      and cmd in ('ALL','INSERT','UPDATE','DELETE')
+  loop
+    raise notice 'RESTRICT POLICY %.% (cmd=%, roles=%, qual=%, with_check=%) -> TO authenticated', r.tablename, r.policyname, r.cmd, r.roles, r.qual, r.with_check;
+    execute format('alter policy %I on %I.%I to authenticated', r.policyname, r.schemaname, r.tablename);
+  end loop;
+end $$;
+
 -- ── 6. 자동 검증 (실패 시 예외 → 트랜잭션 전체 롤백) ─────────────────────────
 do $$
 declare
