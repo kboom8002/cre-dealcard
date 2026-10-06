@@ -1,6 +1,6 @@
 # Vercel 환경변수 설정 가이드 (모바일 매거진)
 
-> 작성: 2026-10-06 · 대상 프로젝트: `kboom8002-5489s-projects/cre-dealcard` · 운영 도메인: `https://www.credeal.net`
+> 작성: 2026-10-06 · 대상 프로젝트: `kboom8002-5489s-projects/cre-dealcard` · 운영 기준 URL: `https://credeal.net` (`www.credeal.net` 도 같은 사이트)
 > 이 문서에는 **비밀값 자체를 적지 않습니다.** 값이 필요한 곳은 "어디서 발급받는지"만 안내합니다.
 
 ---
@@ -10,7 +10,7 @@
 | 구분 | 변수 | 상태 |
 |:--|:--|:--|
 | ✅ 자동 생성·등록 완료 (Production) | `UNSUBSCRIBE_SECRET`, `MAGAZINE_SID_SECRET` | 무작위 64자 값을 새로 만들어 등록 (값은 어디에도 저장·출력하지 않음) |
-| ✅ 자동 등록 완료 (Production) | `NEXT_PUBLIC_APP_BASE_URL=https://www.credeal.net` | 운영 도메인 고정값 |
+| ✅ 자동 등록 완료 (Production) | `NEXT_PUBLIC_APP_BASE_URL=https://credeal.net` | 서버용 `APP_BASE_URL` 과 같은 값 |
 | ✅ 자동 등록 완료 (Production) | `MAGAZINE_SEND_ENABLED=false`, `MAGAZINE_SEND_DRY_RUN=true`, `MAGAZINE_CRON_GENERATE_ENABLED=false`, `MAGAZINE_AUTO_SEND_ALLOWED=false`, `MAGAZINE_ALLOW_LLM_MOCK=false`, `MAGAZINE_TRACKING_ENABLED=true` | 모두 "안전한 기본값"(발송 꺼짐·드라이런) |
 | 🔎 이미 있지만 값 확인 필요 | `APP_BASE_URL`, `CRON_SECRET`, `NEXT_PUBLIC_KAKAO_APP_KEY`, `OPENAI_API_KEY`, `AI_DEFAULT_MODEL` | §2 참고 |
 | ✍️ 직접 찾아서 입력 | `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL`, `RESEND_API_KEY`, `EMAIL_FROM`, `SOLAPI_API_KEY`, `SOLAPI_API_SECRET`, `SOLAPI_SENDER_PHONE`, `SOLAPI_PFID` | §3 참고 (발송을 켜기 전까지는 **필수 아님**) |
@@ -58,7 +58,7 @@ Vercel CLI 로는 "여러 환경에 공유된" 변수 값을 읽을 수 없어�
 
 | 변수 | 올바른 값 | 어디서 확인/발급 | 비고 |
 |:--|:--|:--|:--|
-| `APP_BASE_URL` | `https://www.credeal.net` (끝에 `/` 없이) | 대시보드(위 방법) | **비어 있거나 `localhost` 이면 안 됩니다.** 비면 발송 배치가 `APP_BASE_URL is empty` 로 중단됩니다. `NEXT_PUBLIC_APP_BASE_URL` 과 같은 값이어야 합니다. (`credeal.net` 은 `www.credeal.net` 으로 307 리다이렉트됩니다) |
+| `APP_BASE_URL` | `https://credeal.net` (끝에 `/` 없이) | 대시보드(위 방법) | **비어 있거나 `localhost` 이면 안 됩니다.** 비면 발송 배치가 `APP_BASE_URL is empty` 로 중단됩니다. `NEXT_PUBLIC_APP_BASE_URL` 과 **같은 값**이어야 합니다. (`credeal.net` 은 `www.credeal.net` 으로 307 리다이렉트됩니다) |
 | `CRON_SECRET` | 추측 불가능한 임의 문자열(32자 이상 권장) | 대시보드 | Vercel 크론은 이 값이 있으면 자동으로 `Authorization: Bearer <값>` 을 붙여 호출합니다. 없거나 짧으면 `/api/cron/*`, `/api/pulse/generate` 가 401. 새로 만들려면 PowerShell: `[Convert]::ToBase64String((1..48 \| % { Get-Random -Maximum 256 }) -as [byte[]])` |
 | `NEXT_PUBLIC_KAKAO_APP_KEY` | 카카오 **JavaScript 키** | [developers.kakao.com](https://developers.kakao.com) → 내 애플리케이션 → 앱 키 → **JavaScript 키** | 같은 앱의 **플랫폼 → Web** 에 `https://www.credeal.net`, `https://credeal.net` 이 등록돼 있어야 카카오 공유가 동작합니다. REST 키(`KAKAO_REST_API_KEY`)와 헷갈리지 마세요 |
 | `OPENAI_API_KEY` | `sk-…` | [platform.openai.com](https://platform.openai.com) → API keys | **현재 크레딧이 소진(`credit_balance_exhausted`)되어 모든 LLM 기능이 실패합니다.** Billing 에서 충전하세요. 키 자체는 그대로 둬도 됩니다 |
