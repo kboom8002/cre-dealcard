@@ -104,23 +104,25 @@
 
 > 적용 후 `schema:drift` 가 `appliedMigrations` 를 알도록 스냅샷 재생성(#4)을 **반드시** 한다 — 안 하면 적용된 컬럼도 '적용 예정 오버레이'로만 취급된다.
 
-## 8. 적용 기록 (사용자가 기입)
+## 8. 적용 기록
+
+백업 스키마 `backup_20261004`(subscribers 6 / editions 2 / analytics_events 2361 / issues 8) 생성 후 적용. 000001은 SQL Editor(5b 수정본), 나머지는 Supabase CLI(`db query --linked -f`)로 순차 적용, 전부 오류 0.
 
 | 파일 | 적용 일시(KST) | 적용자 | 검증(#2~#9) | 비고 |
 |:--|:--|:--|:--|:--|
-| 000001 magazine_rls_lockdown | | | [ ] | |
-| 000002 magazine_editions_check | | | [ ] | |
-| 000003 magazine_poll_responses | | | [ ] | |
-| 000005 magazine_dispatch_logs | | | [ ] | |
-| 000006 magazine_subscribers_consent | | | [ ] | |
-| 000007 magazine_settings | | | [ ] | |
-| 000010 magazine_rate_limit | | | [ ] | |
-| 000012 magazine_cron_runs | | | [ ] | |
-| 000013 magazine_editions_unique_kind | | | [ ] | |
-| 000014 magazine_retention | | | [ ] | |
-| 000011 magazine_broker_user_id | | | [ ] | |
-| 000015 magazine_broker_user_id_backfill | | | [ ] | 수정 완료(analytics edition 경유) — pglite 재검증 후 적용 |
-| 000016 magazine_analytics_v2 | | | [ ] | |
+| 000001 magazine_rls_lockdown | 2026-10-06 | 사용자(SQL Editor) | [x] rls-probe PASS · policy-scan PASS | PUBLIC ALL 정책 4건은 5b 단계에서 `authenticated`로 전환 |
+| 000002 magazine_editions_check | 2026-10-06 | 에이전트(CLI) | [x] | 가드 통과 |
+| 000003 magazine_poll_responses | 2026-10-06 | 에이전트(CLI) | [x] 테이블 존재 | |
+| 000005 magazine_dispatch_logs | 2026-10-06 | 에이전트(CLI) | [x] 테이블 존재 | |
+| 000006 magazine_subscribers_consent | 2026-10-06 | 에이전트(CLI) | [x] 동의 컬럼 6종 존재 | 중복 가드 통과 |
+| 000007 magazine_settings | 2026-10-06 | 에이전트(CLI) | [x] 테이블 존재 | |
+| 000010 magazine_rate_limit | 2026-10-06 | 에이전트(CLI) | [x] anon 실행권한 false / service_role true | |
+| 000012 magazine_cron_runs | 2026-10-06 | 에이전트(CLI) | [x] 테이블 존재 | |
+| 000013 magazine_editions_unique_kind | 2026-10-06 | 에이전트(CLI) | [x] | 중복 가드 통과 |
+| 000014 magazine_retention | 2026-10-06 | 에이전트(CLI) | [x] | |
+| 000011 magazine_broker_user_id | 2026-10-06 | 에이전트(CLI) | [x] `broker_user_id` 컬럼 존재 | |
+| 000015 magazine_broker_user_id_backfill | (보류) | | [ ] | 정리 16/10 후 적용 |
+| 000016 magazine_analytics_v2 | 2026-10-06 | 에이전트(CLI) | [x] | |
 | 000008 broker_public_profiles_view (검토 후) | | | [ ] | |
 | 000009 activity_events_anon_insert_drop (검토 후) | | | [ ] | |
 

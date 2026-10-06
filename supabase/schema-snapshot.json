@@ -1,8 +1,21 @@
 {
  "$comment": "운영 PostgREST OpenAPI 스키마 스냅샷(F-01). 스키마 메타데이터만 포함(PII 없음). scripts/schema-snapshot.ts 로 재생성.",
- "generatedAt": "2026-10-05T14:33:18.130Z",
+ "generatedAt": "2026-10-06T12:18:55.571Z",
  "source": "PostgREST OpenAPI /rest/v1/ (service role, read-only)",
- "appliedMigrations": [],
+ "appliedMigrations": [
+  "20261004000001",
+  "20261004000002",
+  "20261004000003",
+  "20261004000005",
+  "20261004000006",
+  "20261004000007",
+  "20261004000010",
+  "20261004000012",
+  "20261004000013",
+  "20261004000014",
+  "20261004000011",
+  "20261004000016"
+ ],
  "tables": {
   "activity_events": {
    "columns": {
@@ -2033,6 +2046,7 @@
   },
   "magazine_analytics_events": {
    "columns": {
+    "broker_user_id": "uuid",
     "created_at": "timestamp with time zone",
     "dwell_seconds": "integer",
     "edition_id": "uuid",
@@ -2053,10 +2067,57 @@
     "visitor_id"
    ]
   },
+  "magazine_cron_runs": {
+   "columns": {
+    "broker_id": "text",
+    "broker_user_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "duration_ms": "integer",
+    "id": "uuid",
+    "issue_date": "date",
+    "kind": "text",
+    "reason": "text",
+    "run_id": "text",
+    "status": "text"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "status"
+   ]
+  },
+  "magazine_dispatch_logs": {
+   "columns": {
+    "blocked_reason": "text",
+    "broker_id": "text",
+    "broker_user_id": "uuid",
+    "channel": "text",
+    "created_at": "timestamp with time zone",
+    "edition_id": "text",
+    "error": "text",
+    "id": "uuid",
+    "idempotency_key": "text",
+    "kind": "text",
+    "provider_msg_id": "text",
+    "recipient_hash": "text",
+    "status": "text",
+    "subscriber_id": "uuid"
+   },
+   "required": [
+    "broker_id",
+    "channel",
+    "created_at",
+    "id",
+    "idempotency_key",
+    "kind",
+    "status"
+   ]
+  },
   "magazine_editions": {
    "columns": {
     "asset_id": "uuid",
     "broker_id": "text",
+    "broker_user_id": "uuid",
     "content": "jsonb",
     "cover_image_url": "text",
     "cover_keywords": "text[]",
@@ -2099,6 +2160,7 @@
   "magazine_issues": {
    "columns": {
     "broker_id": "text",
+    "broker_user_id": "uuid",
     "content": "jsonb",
     "created_at": "timestamp with time zone",
     "id": "uuid",
@@ -2114,15 +2176,79 @@
     "updated_at"
    ]
   },
-  "magazine_subscribers": {
+  "magazine_poll_responses": {
    "columns": {
     "broker_id": "text",
+    "broker_user_id": "uuid",
+    "choice": "smallint",
+    "created_at": "timestamp with time zone",
+    "edition_date": "date",
+    "edition_id": "text",
+    "id": "uuid",
+    "subscriber_id": "uuid",
+    "visitor_id": "text"
+   },
+   "required": [
+    "broker_id",
+    "choice",
+    "created_at",
+    "edition_date",
+    "id",
+    "visitor_id"
+   ]
+  },
+  "magazine_rate_limits": {
+   "columns": {
+    "hits": "integer",
+    "key": "text",
+    "window_start": "timestamp with time zone"
+   },
+   "required": [
+    "hits",
+    "key",
+    "window_start"
+   ]
+  },
+  "magazine_settings": {
+   "columns": {
+    "auto_send": "boolean",
+    "broker_slug": "text",
+    "broker_user_id": "uuid",
+    "send_day": "text",
+    "send_hour_kst": "integer",
+    "theme_color": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "auto_send",
+    "broker_user_id",
+    "send_day",
+    "send_hour_kst",
+    "updated_at"
+   ]
+  },
+  "magazine_subscribers": {
+   "columns": {
+    "age_confirmed": "boolean",
+    "broker_id": "text",
+    "broker_user_id": "uuid",
     "channel": "text",
     "client_id": "uuid",
+    "confirm_status": "text",
+    "confirm_token_hash": "text",
+    "consent_channel": "text",
+    "consent_ip_hash": "text",
+    "consent_version": "text",
     "created_at": "timestamp with time zone",
     "id": "uuid",
     "interest_profile": "jsonb",
+    "marketing_consent_at": "timestamp with time zone",
     "metadata": "jsonb",
+    "night_consent": "boolean",
+    "phone_e164": "text",
+    "privacy_consent_at": "timestamp with time zone",
+    "reconfirm_due_at": "timestamp with time zone",
     "segment": "text",
     "source": "text",
     "status": "text",
@@ -2133,10 +2259,13 @@
     "unsubscribed_at": "timestamp with time zone"
    },
    "required": [
+    "age_confirmed",
     "broker_id",
     "channel",
+    "confirm_status",
     "created_at",
     "id",
+    "night_consent",
     "status"
    ]
   },
@@ -3213,6 +3342,20 @@
    "p_user_id"
   ],
   "is_admin": [],
+  "magazine_purge_old_events": [
+   "p_days"
+  ],
+  "magazine_purge_unsubscribed": [
+   "p_days"
+  ],
+  "magazine_rl_gc": [
+   "p_keep_hours"
+  ],
+  "magazine_rl_hit": [
+   "p_key",
+   "p_max",
+   "p_window_seconds"
+  ],
   "my_active_circle_ids": []
  }
 }
