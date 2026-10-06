@@ -22,7 +22,7 @@ import {
   shouldShowPollResults,
   type PollResults,
 } from "@/lib/magazine/poll-helpers";
-import { getOrCreateVisitorId } from "@/lib/magazine/view-helpers";
+import { getOrCreateVisitorId } from "@/lib/magazine/visitor-id";
 
 interface PollSectionProps {
   brokerId: string;

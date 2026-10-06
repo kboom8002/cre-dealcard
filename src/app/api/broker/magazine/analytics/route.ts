@@ -9,6 +9,7 @@ import { VISITOR_HASH_LIKE } from "@/lib/magazine/visitor-hash";
 import { isMissingColumnError } from "@/lib/magazine/subscriber-view";
 import { computeTemperatures, loadSubscriberEvents } from "@/lib/magazine/subscriber-temperature";
 import { computeBuyerTemperature, emptyTemperatureDistribution, type TemperatureEvent } from "@/domain/magazine/buyer-temperature";
+import { hotLeadThresholdMeta, parseHotLeadLimit, parseHotLeadTier, selectHotLeads } from "@/lib/magazine/hot-lead-filter";
 import {
   KPI_DEFINITIONS,
   aggregatePageDwell,
@@ -148,7 +149,13 @@ export async function GET(req: NextRequest) {
 
 
     // ── 전체 브로커 매거진 성과 대시보드 ──
+    const hotLeadTier = parseHotLeadTier(searchParams.get("tier"));
+    if (!hotLeadTier) {
+      return jsonError("INVALID_PARAMETER", "tier 는 hot, warm, all 중 하나여야 합니다.", 400);
+    }
+    const hotLeadLimit = parseHotLeadLimit(searchParams.get("limit"));
     const now = Date.now();
+
     const thirtyDaysAgo = new Date(now - 30 * DAY_MS).toISOString();
 
     // 2. 활성 구독자 수
@@ -272,10 +279,10 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 핫리드 (점수 및 최근 활동 기준 정렬 TOP 10)
-    const hotLeads = [...enrichedSubscribers]
-      .sort((a, b) => b.score - a.score || new Date(b.lastActiveAt ?? 0).getTime() - new Date(a.lastActiveAt ?? 0).getTime())
-      .slice(0, 10);
+    // 핫리드: 점수 임계(tier) 이상만 — 점수 0·냉각·미확인 구독자는 제외 (정렬: 점수 → 최근 활동)
+    const hotSelection = selectHotLeads(enrichedSubscribers, hotLeadTier, hotLeadLimit);
+    const hotLeads = hotSelection.leads;
+
 
     // 7. 최근 14일 일별 열람 추이 (KST)
     const fourteenDaysAgo = now - 14 * DAY_MS;
@@ -381,6 +388,16 @@ export async function GET(req: NextRequest) {
       sectionStats,
       temperatureDistribution,
       hotLeads,
+      // 핫리드 메타 (추가 키): 판정 기준 · 전체 구독자 수 · 일치/반환 수
+      hotLeadThreshold: hotLeadThresholdMeta(hotLeadTier),
+      totalSubscribers: subscriberCount ?? 0,
+      hotLeadQuery: {
+        tier: hotLeadTier,
+        limit: hotLeadLimit,
+        matched: hotSelection.matched,
+        returned: hotLeads.length,
+        evaluated: activeSubscribers.length,
+      },
       dailyTrend,
       latestPollResults,
       pollUnavailable,

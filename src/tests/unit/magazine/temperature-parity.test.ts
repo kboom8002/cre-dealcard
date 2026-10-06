@@ -90,10 +90,10 @@ describe('온도 단일화 (T3-ANL-1)', () => {
     expect(sHot.temperatureScore).toBe(aHot.score);
     expect(aHot.score).toBeGreaterThanOrEqual(80);
 
-    const aNew = a.hotLeads.find((l: { id: string }) => l.id === SUB_NEW);
+    // 점수 0 신규 구독자는 핫리드에서 제외되지만(서버 임계), 구독자 목록에서는 같은 ⚪ 미확인 판정이다
+    expect(a.hotLeads.find((l: { id: string }) => l.id === SUB_NEW)).toBeUndefined();
     const sNew = s.subscribers.find((x: { id: string }) => x.id === SUB_NEW);
-    expect(sNew.buyerTemperature).toBe(aNew.buyerTemperature);
-    expect(aNew.buyerTemperature).toBe('⚪ 미확인');
+    expect(sNew.buyerTemperature).toBe('⚪ 미확인');
 
     // 분포도 같은 판정
     expect(a.temperatureDistribution['🔥 적극검토']).toBe(1);

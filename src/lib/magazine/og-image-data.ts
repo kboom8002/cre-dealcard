@@ -11,6 +11,7 @@
 import { MARKET_TEMP_CONFIG, type MarketTemperature } from '@/domain/magazine/types';
 import { formatKoreanDate, parseIssueDate, todayKst } from '@/lib/magazine/kst';
 import { maskAddress } from '@/lib/magazine/pii';
+import { stripSyntheticScore } from '@/lib/magazine/strip-synthetic-score';
 import { isPlausibleBrokerParam } from '@/lib/magazine/slug';
 import {
   findIssueForDate,
@@ -110,7 +111,8 @@ export function isSuspectStatValue(value: string): boolean {
 
 function cleanBriefing(raw: string | null): string | null {
   if (!raw) return null;
-  const text = raw
+  // '62/100' 같은 합성 점수 토큰은 줄 길이 필터 전에 제거한다 (뷰어와 같은 공용 규칙).
+  const text = stripSyntheticScore(raw)
     .replace(/[#*`_~>]/g, '')
     .split('\n')
     .map((s) => s.trim())
@@ -119,6 +121,33 @@ function cleanBriefing(raw: string | null): string | null {
     .replace(/\s+/g, ' ')
     .trim();
   return text || null;
+}
+
+/** 필드 라벨이 값 자리에 그대로 들어온 경우(예: '매각가')는 매물명/주소가 아니다. */
+const PLACEHOLDER_DEAL_TEXT = new Set([
+  '매각가',
+  '매매가',
+  '가격',
+  '주소',
+  '소재지',
+  '제목',
+  '이름',
+  '매물',
+  '미정',
+]);
+
+/**
+ * 매물 행 정규화: 제목·주소가 같으면(공백 무시) 한 번만, 라벨만 있는 값은 버린다.
+ * 제목이 없으면 title 은 '' — 주소로 채워 '양평동 · 양평동' 이 되는 중복을 막는다.
+ */
+export function normalizeDeal(rawTitle: string | null, rawAddress: string): ImageDeal | null {
+  const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+  const real = (s: string | null) => (s && !PLACEHOLDER_DEAL_TEXT.has(norm(s)) ? s : '');
+  const address = real(rawAddress);
+  let title = real(rawTitle);
+  if (title && address && norm(title) === norm(address)) title = '';
+  if (!title && !address) return null;
+  return { title, address };
 }
 
 export function toDateLabel(date: string): string {
@@ -168,10 +197,9 @@ export function buildImageModel(
   for (const d of dealSource) {
     if (!d || typeof d !== 'object') continue;
     const o = d as Record<string, unknown>;
-    const title = str(o.title) ?? str(o.name);
-    const address = maskAddress(o.address);
-    if (!title && !address) continue;
-    deals.push({ title: title ?? address, address });
+    const deal = normalizeDeal(str(o.title) ?? str(o.name), maskAddress(o.address));
+    if (!deal) continue;
+    deals.push(deal);
     if (deals.length >= 3) break;
   }
 

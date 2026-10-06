@@ -123,10 +123,32 @@ function na(step: string, id: string, desc: string, reason: string) {
   results.push({ step, id, claim: desc, pass: 'NA', detail: reason });
 }
 
-async function shot(page: Page, name: string, fullPage = false) {
+async function shot(page: Page, name: string, opts: { hideToasts?: boolean; fullPage?: boolean } = {}) {
   try {
     await page.waitForTimeout(400);
-    await page.screenshot({ path: path.join(OUT_DIR, name), fullPage });
+    // scrollIntoView 로 문서 전체가 밀린 경우만 원위치(패널 내부 스크롤은 유지)
+    const sy = await page.evaluate(() => {
+      const y = window.scrollY;
+      window.scrollTo(0, 0);
+      // overflow:hidden 조상이 scrollIntoView/포커스로 밀린 경우(사용자 휠로는 생기지 않는 상태) 원위치
+      let hidden = 0;
+      document.querySelectorAll<HTMLElement>('body *').forEach((el) => {
+        if (el.scrollTop > 0) {
+          const o = getComputedStyle(el).overflowY;
+          if (o === 'hidden' || o === 'clip') {
+            hidden = Math.max(hidden, el.scrollTop);
+            el.scrollTop = 0;
+          }
+        }
+      });
+      return y + hidden * 10000;
+    }).catch(() => -1);
+    if (sy > 0) notes[`docScroll_${name}`] = { window: sy % 10000, overflowHidden: Math.floor(sy / 10000) };
+    await page.screenshot({
+      path: path.join(OUT_DIR, name),
+      fullPage: !!opts.fullPage,
+      style: opts.hideToasts ? '[data-sonner-toaster]{visibility:hidden !important}' : undefined,
+    });
   } catch (e) {
     notes[`shot_fail_${name}`] = String(e).slice(0, 200);
   }
@@ -407,8 +429,8 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
     for (const r of results) console.log(`${r.pass === true ? 'PASS' : r.pass === 'NA' ? 'NA  ' : 'FAIL'} ${r.id} ${r.claim}${r.pass === true ? '' : ' :: ' + (r.detail || '').slice(0, 160)}`);
   });
 
-  test('실습 1~10 — 튜토리얼 그대로 따라하기', async ({ page, baseURL }) => {
-    test.setTimeout(900_000);
+  test('실습 1~10 — 튜토리얼 그대로 따라하기', async ({ page, baseURL, browser }) => {
+    test.setTimeout(1_800_000);
     page.on('console', (m) => {
       if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 300));
     });
@@ -431,15 +453,16 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
 
     // ═══════════════ 사전 준비 ═══════════════
     await test.step('사전준비 로그인 화면', async () => {
-      const ctx = await pwRequest.newContext({ baseURL });
-      const res = await ctx.get('/login');
-      const html = await res.text();
+      // 로그인 페이지는 'use client' 컴포넌트 → SSR HTML이 아니라 비로그인 브라우저로 확인
+      const anon = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
+      const lp = await anon.newPage();
+      await lp.goto('/login');
       await claim('사전준비', 'P-1', '로그인 화면에 "비밀번호를 잊으셨나요?" 링크(/reset-password)가 있다', async () => {
-        expect(res.status()).toBe(200);
-        expect(html).toContain('비밀번호를 잊으셨나요?');
-        expect(html).toContain('/reset-password');
+        const link = lp.getByRole('link', { name: '비밀번호를 잊으셨나요?' });
+        await expect(link).toBeVisible({ timeout: 90_000 });
+        await expect(link).toHaveAttribute('href', '/reset-password');
       });
-      await ctx.dispose();
+      await anon.close();
     });
 
     // ═══════════════ 실습 1. 에디터 접속 ═══════════════
@@ -463,9 +486,24 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         notes.tabLabelHeights = hs;
         for (const h of hs) expect(h).toBeLessThanOrEqual(20);
       });
-      await claim('실습1', '1-4', '헤더에 "{라벨} · 위클리", 상태 "초안", "작성 n/8 완료", 저장 상태 배지가 있다', async () => {
+      await claim('실습1', '1-3b', '탭 이름이 자기 탭 칸 안에 들어가 옆 탭 아이콘과 겹치지 않는다(1440px)', async () => {
+        const over = await page.getByRole('tab').evaluateAll((els) =>
+          els
+            .map((e) => {
+              const b = e.getBoundingClientRect();
+              const s = (e.querySelector('span') as HTMLElement | null)?.getBoundingClientRect();
+              if (!s || s.width === 0) return null;
+              const o = Math.max(b.left - s.left, s.right - b.right);
+              return o > 1 ? `${e.getAttribute('aria-label')}:+${Math.round(o)}px` : null;
+            })
+            .filter(Boolean),
+        );
+        notes.tabLabelOverflow = over;
+        expect(over, `넘침: ${over.join(', ')}`).toEqual([]);
+      });
+      await claim('실습1', '1-4', '헤더에 "{라벨} · 위클리", 상태 "초안", "작성 n/5 완료"(완료 개념 있는 5개 탭), 저장 상태 배지가 있다', async () => {
         await expect(page.getByText(/W\d{2}-\d{4} · 위클리/)).toBeVisible();
-        await expect(page.getByTestId('editor-progress')).toHaveText(/작성 \d\/8 완료/);
+        await expect(page.getByTestId('editor-progress')).toHaveText(/작성 \d\/5 완료/);
         await expect(page.getByText(/자동 저장 켜짐|저장됨/).first()).toBeVisible();
       });
       await claim('실습1', '1-5', '오른쪽 미리보기는 iframe(?preview=1&edition=…)으로 격리되어 있다', async () => {
@@ -489,7 +527,17 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         await page.waitForTimeout(3000);
         expect(captured.analyticsBeacon.length).toBe(0);
       });
-      await shot(page, 'p1_01_editor_overview.png');
+      await expect
+        .poll(
+          async () => {
+            const f = page.frames().find((fr) => fr.url().includes('preview=1'));
+            return f ? (await f.locator('body').innerText().catch(() => '')).trim().length : 0;
+          },
+          { timeout: 30_000 },
+        )
+        .toBeGreaterThan(20)
+        .catch(() => (notes.previewRenderWait = 'timeout'));
+      await shot(page, 'p1_01_editor_overview.png', { hideToasts: true });
     });
 
     // ═══════════════ 실습 2. 커버 ═══════════════
@@ -576,7 +624,9 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
       await claim('실습4', '4-3', '테마 제목이 미리보기 "주간 테마" 영역에 표시된다', async () => {
         await expect(preview.getByText(T.themeTitle).first()).toBeVisible({ timeout: 20_000 });
       });
-      await shot(page, 'p1_04_theme_deals.png');
+      await panel.getByLabel('테마 제목', { exact: true }).scrollIntoViewIfNeeded().catch(() => {});
+      await preview.getByText(T.themeTitle).first().scrollIntoViewIfNeeded().catch(() => {});
+      await shot(page, 'p1_04_theme_deals.png', { hideToasts: true });
     });
 
     // ═══════════════ 실습 5. 뉴스 ═══════════════
@@ -591,7 +641,9 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
       const cardsText = await panel.locator('button[aria-pressed]').allInnerTexts();
       notes.newsCardSample = cardsText.slice(0, 2);
       await claim('실습5', '5-2', '뉴스 카드에 HTML 엔티티(&quot; 등)가 그대로 보이지 않는다', async () => {
-        expect(cardsText.join('\n')).not.toMatch(/&quot;|&amp;|&#39;|&lt;|&gt;/);
+        const hits = cardsText.join('\n').match(/.{0,50}(&quot;|&amp;|&#39;|&lt;|&gt;).{0,20}/g) ?? [];
+        notes.newsEntityHits = hits.slice(0, 5);
+        expect(hits, `엔티티 노출: ${hits.slice(0, 3).join(' || ')}`).toEqual([]);
       });
       await claim('실습5', '5-3', '토픽은 한글로 표시된다(영문 토픽 키 노출 없음)', async () => {
         expect(cardsText.join('\n')).not.toMatch(/\b(rental|policy|market|finance|regulation|investment|general|other)\b/);
@@ -604,6 +656,7 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         await expect(toast('뉴스는 최대 6개까지 선택할 수 있습니다')).toBeVisible({ timeout: 4000 });
         await expect(hdr).toHaveText(/\(6\/6 선택\)/);
       });
+      await hdr.scrollIntoViewIfNeeded().catch(() => {});
       await shot(page, 'p1_05_news.png');
     });
 
@@ -642,13 +695,7 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         expect(clip).toBe(T.aiEdited);
       });
       await shot(page, 'p1_06_ai_assist.png');
-      await claim('실습6', '6-4', '"필드노트에 넣기" → 필드노트 "독자에게 한마디"에 들어가고 필드노트 탭으로 이동', async () => {
-        await panel.getByRole('button', { name: '필드노트에 넣기' }).click();
-        await expect(tab('필드노트')).toHaveAttribute('aria-selected', 'true');
-        await expect(panel.getByLabel('독자에게 한마디', { exact: true })).toHaveValue(T.aiEdited);
-      });
-      // 실패(크레딧 소진/LLM 장애) 1케이스: 사용자 언어 오류 + 원문 보존
-      await tab('AI비서').click();
+      // 실패(크레딧 소진/LLM 장애) 1케이스: 사용자 언어 오류 + 원문 메모·기존 결과 보존 (같은 탭에서)
       aiMode = 'fail';
       const memoNow = await panel.locator('#ai-assist-idea').inputValue();
       await panel.getByRole('button', { name: '✨ AI 말투 생성하기' }).click();
@@ -656,8 +703,17 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         await expect(toast('AI 서비스를 일시적으로 사용할 수 없습니다')).toBeVisible({ timeout: 6000 });
         await expect(panel.locator('#ai-assist-idea')).toHaveValue(memoNow);
         expect(memoNow).toBe(T.aiMemo);
+        await expect(panel.locator('#ai-assist-result')).toHaveValue(T.aiEdited);
       });
       await shot(page, 'p1_06b_ai_error.png');
+      await claim('실습6', '6-4', '"필드노트에 넣기" → 필드노트 "독자에게 한마디"에 들어가고 필드노트 탭으로 이동', async () => {
+        await panel.getByRole('button', { name: '필드노트에 넣기' }).click();
+        await expect(tab('필드노트')).toHaveAttribute('aria-selected', 'true');
+        await expect(panel.getByLabel('독자에게 한마디', { exact: true })).toHaveValue(T.aiEdited);
+      });
+      // 관찰: AI비서 탭으로 돌아오면 메모가 유지되는가 (탭 로컬 state)
+      await tab('AI비서').click();
+      notes.aiMemoAfterTabSwitch = await panel.locator('#ai-assist-idea').inputValue().catch(() => 'ERR');
     });
 
     // ═══════════════ 실습 7. 구독자 & QR ═══════════════
@@ -689,7 +745,7 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         await expect(add.getByLabel(/휴대폰 번호/)).toHaveValue(fmtPhone(SUB_PHONE_DIGITS));
       });
       await add.getByLabel('고객이 수신에 동의했음을 확인합니다').check();
-      await shot(page, 'p1_07_add_subscriber.png');
+      await shot(page, 'p1_07_add_subscriber.png', { hideToasts: true });
       const postResp = page.waitForResponse((r) => /\/api\/broker\/magazine\/subscribers$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST', { timeout: 20_000 });
       await add.getByRole('button', { name: '구독자 추가' }).click();
       const pr = await postResp.catch(() => null);
@@ -762,9 +818,13 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
       await claim('실습7', '7-12', '명함 인쇄 문구에 발송 요일과 내 이름이 들어간다("중개사중개사" 등 중복 없음)', async () => {
         const txt = await qr.getByText(/스마트폰 카메라로 비추시면/).innerText();
         notes.qrPrintText = txt;
-        expect(txt).toContain('화요일');
+        const prof = await page.request.get('/api/broker/profile').then((r) => r.json()).catch(() => null);
+        const dn: string = prof?.data?.name || prof?.data?.display_name || BROKER_SLUG;
+        notes.displayName = dn;
+        expect(txt).toContain('매주 화요일');
         expect(txt).not.toMatch(/중개사중개사|undefined|null/);
-        expect(txt).toMatch(new RegExp(`(${notes.displayName ?? '___'}|${BROKER_SLUG}|김테스트)`));
+        const publicName = (prof?.data?.broker?.name as string | undefined) || '김테스트'; // 공개명 SSOT = broker_profiles.name
+        expect([dn, publicName].some((n) => txt.includes(`${n}의 시장 리포트`)), `명함 문구에 이름 없음: ${txt}`).toBe(true);
       });
       const dlP = page.waitForEvent('download', { timeout: 20_000 }).catch(() => null);
       await qr.getByRole('button', { name: /인쇄용 QR \(8cm · 300DPI\)/ }).click();
@@ -780,7 +840,7 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         expect(info.dpiX).toBe(300);
         expect(dl!.suggestedFilename()).toContain(BROKER_SLUG);
       });
-      await shot(page, 'p1_09_qr_modal.png');
+      await shot(page, 'p1_09_qr_modal.png', { hideToasts: true });
       await claim('실습7', '7-14', 'QR 모달 "닫기"가 가려지지 않고 닫힌다(미리보기 위에 표시)', async () => {
         const close = qr.getByRole('button', { name: '닫기' });
         const hit = await hitTest(page, close);
@@ -830,7 +890,9 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
       await claim('실습8', '8-7', '"⬇️ 이미지 다운로드"(원페이지 1080x1920)는 발행 전에는 비활성', async () => {
         await expect(panel.getByRole('button', { name: '⬇️ 이미지 다운로드' })).toBeDisabled();
       });
-      await shot(page, 'p1_10_publish_settings.png');
+      await seg.evaluate((el) => el.scrollIntoView({ block: 'start' })).catch(() => {});
+      await preview.getByText(T.pollQuestion).first().scrollIntoViewIfNeeded().catch(() => {});
+      await shot(page, 'p1_10_publish_settings.png', { hideToasts: true });
     });
 
     // ═══════════════ 실습 9. 저장·복원·발행 ═══════════════
@@ -852,7 +914,7 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
       notes.autosaveDelayMs = dt;
       notes.autosaveSinceStepStartMs = captured.editionsPatch[before].t - t0;
       await claim('실습9', '9-1', '입력을 멈추고 약 3초 뒤 자동 저장(PATCH /api/magazine/editions)된다', async () => {
-        expect(dt).toBeGreaterThanOrEqual(2500);
+        expect(dt).toBeGreaterThanOrEqual(2000); // 3s 디바운스는 마지막 fill 도중 시작 → tEdit 기준 측정은 소폭 짧게 나온다
         expect(dt).toBeLessThanOrEqual(8000);
       });
       await claim('실습9', '9-2', '저장 상태 배지가 "저장됨 · HH:MM"으로 바뀐다', async () => {
@@ -888,23 +950,40 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         await ctx.dispose();
       });
 
-      // (2) 저장 실패 → 빨간 배지 + 다시 시도
+      // (2) 저장 실패 → 빨간 배지 + 다시 시도 (튜토리얼 흐름: 내용은 그대로 두고 다시 시도)
       store.failNextPatch = true;
       await panel.getByLabel('키워드 2', { exact: true }).fill(T.keywords[1] + '.');
       await claim('실습9', '9-5', '저장 실패(500) 시 "저장 실패" 배지와 "다시 시도" 버튼이 뜨고, 다시 시도하면 저장된다', async () => {
         await expect(page.getByText('저장 실패', { exact: true })).toBeVisible({ timeout: 12_000 });
         await expect(page.getByText('저장에 실패했습니다. 잠시 후 다시 시도해 주세요.')).toBeVisible();
         await shot(page, 'p1_11b_save_failed.png');
-        await panel.getByLabel('키워드 2', { exact: true }).fill(T.keywords[1]);
+        const n = captured.editionsPatch.length;
         await page.getByRole('button', { name: '다시 시도' }).click();
+        await expect.poll(() => captured.editionsPatch.length, { timeout: 8000 }).toBeGreaterThan(n);
+        expect(captured.editionsPatch[captured.editionsPatch.length - 1].status).toBe(200);
         await expect(page.getByText(/저장됨 · \d{2}:\d{2}/)).toBeVisible({ timeout: 12_000 });
       });
 
-      // (3) 수동 저장 버튼
+      // (3) 수동 저장 버튼 — 실제 변경을 만든 뒤 debounce 전에 바로 저장
+      await panel.getByLabel('키워드 2', { exact: true }).fill(T.keywords[1]);
+      const nManual = captured.editionsPatch.length;
       await page.getByRole('button', { name: '저장', exact: true }).click();
-      await claim('실습9', '9-6', '헤더 "저장" 버튼 → "저장되었습니다" 안내', async () => {
+      await claim('실습9', '9-6', '헤더 "저장" 버튼 → 즉시 저장 요청 + "저장되었습니다" 안내', async () => {
         await expect(toast('저장되었습니다')).toBeVisible({ timeout: 6000 });
+        expect(captured.editionsPatch.length).toBeGreaterThan(nManual);
+        await expect(page.getByText(/저장됨 · \d{2}:\d{2}/)).toBeVisible({ timeout: 8000 });
       });
+
+      // (3b) 경계 사례: 실패 후 내용을 저장본과 같게 되돌린 뒤 "다시 시도"
+      store.failNextPatch = true;
+      await panel.getByLabel('키워드 2', { exact: true }).fill(T.keywords[1] + '!');
+      await expect(page.getByText('저장 실패', { exact: true })).toBeVisible({ timeout: 12_000 });
+      await panel.getByLabel('키워드 2', { exact: true }).fill(T.keywords[1]);
+      await page.getByRole('button', { name: '다시 시도' }).click().catch(() => {});
+      await claim('실습9', '9-5b', '실패 후 내용을 저장본과 같게 되돌리고 "다시 시도"하면 "저장 실패" 배지가 풀린다(거짓 실패 표시 없음)', async () => {
+        await expect(page.getByText('저장 실패', { exact: true })).toBeHidden({ timeout: 6000 });
+      });
+      store.failNextPatch = false;
 
       // (4) 다시 접속(새로고침) → 전 필드 복원
       await page.waitForTimeout(500);
@@ -951,6 +1030,44 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         if (notes.realMeta?.sendEnabled === false) await expect(confirm.getByText('발행만 되고 구독자 발송은 중지 상태입니다(관리자 설정)')).toBeVisible();
         expect(captured.publish.length).toBe(pubBefore);
       });
+      await claim('실습9', '9-8b', '발행 확인 모달의 값(발행 날짜 등)이 읽을 수 있는 대비(≥4.5:1)로 표시된다', async () => {
+        await page.waitForTimeout(400); // 진입 애니메이션 종료
+        const ratio = await confirm.getByText(kstDate()).evaluate((el) => {
+          const cv = document.createElement('canvas');
+          cv.width = cv.height = 1;
+          const ctx = cv.getContext('2d', { willReadFrequently: true })!;
+          const rgba = (c: string) => {
+            ctx.clearRect(0, 0, 1, 1);
+            ctx.fillStyle = '#000';
+            ctx.fillStyle = c;
+            ctx.fillRect(0, 0, 1, 1);
+            const d = ctx.getImageData(0, 0, 1, 1).data;
+            return [d[0], d[1], d[2], d[3] / 255];
+          };
+          const lum = ([r, g, b]: number[]) => {
+            const f = (v: number) => {
+              v /= 255;
+              return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            };
+            return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+          };
+          const fg = rgba(getComputedStyle(el).color);
+          let n: Element | null = el;
+          let bg = [255, 255, 255];
+          while (n) {
+            const c = rgba(getComputedStyle(n).backgroundColor);
+            if (c[3] > 0.5) {
+              bg = c.slice(0, 3);
+              break;
+            }
+            n = n.parentElement;
+          }
+          const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+          return Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100;
+        });
+        notes.publishConfirmValueContrast = ratio;
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+      });
       await shot(page, 'p1_12_publish_confirm.png');
       await confirm.getByRole('button', { name: '발행하기' }).click();
       const share = page.getByRole('dialog', { name: '매거진 발행 완료!' });
@@ -978,7 +1095,7 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
       await claim('실습9', '9-12', '공유 모달에 "카카오톡으로 1:1 수동 공유" 버튼', async () => {
         await expect(share.getByRole('button', { name: '카카오톡으로 1:1 수동 공유' })).toBeVisible();
       });
-      await shot(page, 'p1_13_share_modal.png');
+      await shot(page, 'p1_13_share_modal.png', { hideToasts: true });
       await share.getByRole('button', { name: '닫기' }).click();
 
       // (6) 발행 후: 잠금 + 정정 발행
@@ -1036,23 +1153,31 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         await expect(panel.getByText(/관심사·읽은 이력\(40%\)과 최근 열람·클릭 행동\(60%\)/).first()).toBeVisible();
         await expect(panel.getByText(/6개월 이상 열람이 없으면 냉각/).first()).toBeVisible();
       });
-      await claim('실습10', '10-4', '매수 온도 단계 필터 5종(🔥 적극검토 등)', async () => {
-        const g = panel.getByRole('group', { name: '매수 온도 단계 필터' });
-        await expect(g.getByRole('button')).toHaveCount(5);
+      await claim('실습10', '10-4', '매수 온도 5단계 분포(🔥 적극검토 등) + 핫리드 선별 기준 선택', async () => {
+        const dist = panel.getByRole('list', { name: '매수 온도 단계별 구독자 수' });
+        await expect(dist.getByRole('listitem')).toHaveCount(5);
+        await expect(panel.getByRole('group', { name: '핫리드 선별 기준' }).getByRole('button').first()).toBeVisible();
       });
       await claim('실습10', '10-5', '"지금 연락해야 할 핫리드" 영역(반응 점수 상위 10명)', async () => {
         await expect(panel.getByText('지금 연락해야 할 핫리드')).toBeVisible();
+      });
+      await claim('실습10', '10-5b', '핫리드에는 반응이 있는 고객만 나온다(0점·❄️ 냉각 고객을 "지금 연락" 대상으로 추천하지 않음)', async () => {
+        const j = await page.request.get('/api/broker/magazine/analytics').then((r) => r.json());
+        const leads: Array<{ score?: number; buyerTemperature?: string; totalViews?: number }> = j?.hotLeads ?? j?.data?.hotLeads ?? [];
+        notes.hotLeadsReal = leads.map((l) => `${l.buyerTemperature}/${l.score}/${l.totalViews}`);
+        const cold = leads.filter((l) => (l.score ?? 0) <= 0 || l.buyerTemperature === '❄️ 냉각');
+        expect(cold.length, `0점/냉각 핫리드 ${cold.length}명: ${notes.hotLeadsReal.join(', ')}`).toBe(0);
       });
       const briefBtns = panel.getByRole('button', { name: '통화 브리핑(템플릿)' });
       const realLeadCount = await briefBtns.count();
       notes.realHotLeadCount = realLeadCount;
       const pollNotMigrated = await panel.getByText('독자 투표 집계를 사용하려면 데이터베이스 업데이트가 필요합니다').isVisible().catch(() => false);
       notes.pollNotMigrated = pollNotMigrated;
-      await shot(page, 'p1_15_analytics.png');
+      await shot(page, 'p1_15_analytics.png', { hideToasts: true });
 
       // 통화 브리핑 UI 계약 — 실데이터에 핫리드가 없으면 응답에 1명을 주입해 UI 만 검증(스크린샷은 튜토리얼에 쓰지 않음)
       if (realLeadCount === 0) {
-        await page.route('**/api/broker/magazine/analytics', async (route) => {
+        await page.route(/\/api\/broker\/magazine\/analytics(\?|$)/, async (route) => {
           if (new URL(route.request().url()).searchParams.get('subscriberId')) return route.continue();
           const resp = await route.fetch();
           const j = await resp.json().catch(() => ({}));
@@ -1085,7 +1210,7 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
         await m.getByRole('button', { name: '문구 복사' }).click();
         const clip = await page.evaluate(() => navigator.clipboard.readText());
         expect(clip).toContain('고객님, 안녕하세요');
-        if (realLeadCount > 0) await shot(page, 'p1_15b_call_briefing.png');
+        if (realLeadCount > 0) await shot(page, 'x_call_briefing_real.png', { hideToasts: true });
         else await shot(page, 'x_call_briefing_contract_only.png');
         await m.getByRole('button', { name: '닫기' }).click();
       });
@@ -1100,6 +1225,13 @@ test.describe('Tutorial Part1 Golden — 매거진 만들기 & 편집하기 (D-0
       const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, vw: window.innerWidth }));
       notes.mobile = m;
       await claim('모바일', 'M-1', '가로 스크롤(오버플로) 없음', async () => expect(m.sw).toBeLessThanOrEqual(m.vw + 1));
+      await claim('모바일', 'M-4', '탭 바와 하단 발행 영역 사이에 편집 공간이 충분하다(≥250px)', async () => {
+        const tl = await page.getByRole('tablist', { name: '콘텐츠 편집 단계' }).boundingBox();
+        const ft = await page.getByRole('link', { name: /실제 화면으로 보기/ }).boundingBox();
+        const gap = tl && ft ? Math.round(ft.y - (tl.y + tl.height)) : -1;
+        notes.mobileEditGapPx = gap;
+        expect(gap).toBeGreaterThanOrEqual(250);
+      });
       await claim('모바일', 'M-2', '활성 탭은 이름이 보이고, 나머지 탭도 스크린리더 이름(aria-label)을 가진다', async () => {
         await expect(page.getByRole('tab', { selected: true }).locator('span').first()).toBeVisible();
         const labels = await page.getByRole('tab').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') || ''));

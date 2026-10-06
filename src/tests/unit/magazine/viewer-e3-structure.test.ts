@@ -95,13 +95,14 @@ describe('U-07 (magazine) 라우트 그룹', () => {
     expect(exists('app/(public)/magazine')).toBe(false);
     for (const rel of [
       'app/(magazine)/magazine/error.tsx',
-      'app/(magazine)/magazine/loading.tsx',
       'app/(magazine)/magazine/[brokerId]/page.tsx',
       'app/(magazine)/magazine/[brokerId]/subscribe/page.tsx',
       'app/(magazine)/magazine/[brokerId]/subscribe/SubscribeFormClient.tsx',
       'app/(magazine)/magazine/[brokerId]/[date]/page.tsx',
       'app/(magazine)/magazine/[brokerId]/[date]/magazine-view.tsx',
     ]) expect(exists(rel), rel).toBe(true);
+    // loading.tsx 는 응답을 스트리밍해 notFound()/permanentRedirect 를 HTTP 200 으로 만든다 — 두지 않는다.
+    expect(exists('app/(magazine)/magazine/loading.tsx')).toBe(false);
   });
 
   it('/privacy·/terms 는 (public) 에 남는다 (이동 대상 아님)', () => {

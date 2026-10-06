@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Wand2, Copy, FileInput, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { editorToast } from "./editor-toaster";
@@ -9,16 +9,31 @@ import {
 } from '@/lib/magazine/ai-comment-schema';
 import { extractApiErrorMessage, readJsonSafe } from '@/lib/magazine/editor-helpers';
 
+export interface AiAssistMemory {
+  idea: string;
+  result: string;
+  warnings: string[];
+}
+
 interface EditorAiAssistTabProps {
   /** 생성된(편집된) 문구를 필드노트 '독자에게 한마디'에 적용 */
   onApply?: (text: string) => void;
+  /** 탭을 오가도 입력·결과가 유지되도록 부모가 보관하는 값(초기값) */
+  memory?: AiAssistMemory;
+  onMemoryChange?: (m: AiAssistMemory) => void;
 }
 
-export function EditorAiAssistTab({ onApply }: EditorAiAssistTabProps = {}) {
-  const [idea, setIdea] = useState("");
-  const [result, setResult] = useState("");
-  const [warnings, setWarnings] = useState<string[]>([]);
+export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiAssistTabProps = {}) {
+  const [idea, setIdea] = useState(memory?.idea ?? "");
+  const [result, setResult] = useState(memory?.result ?? "");
+  const [warnings, setWarnings] = useState<string[]>(memory?.warnings ?? []);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    onMemoryChange?.({ idea, result, warnings });
+    // onMemoryChange 는 부모의 setState — 값이 바뀔 때만 보고한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idea, result, warnings]);
 
   const handleGenerate = async () => {
     if (!idea.trim() || isGenerating) return;

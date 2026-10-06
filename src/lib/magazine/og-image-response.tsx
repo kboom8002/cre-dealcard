@@ -88,8 +88,8 @@ export async function renderMagazineImage(opts: {
 
   if (!model) return renderNeutralImage(format);
 
-  const { hasKorean } = await loadOgFonts();
-  const t = makeTranslate(hasKorean);
+  const { hasKorean, glyphs } = await loadOgFonts();
+  const t = makeTranslate(hasKorean, glyphs);
   const { width, height } = IMAGE_SIZES[format];
   const props = { m: model, t, width, height };
   const element =

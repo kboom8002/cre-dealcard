@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { assertOwnsRow, jsonError, notFoundResponse, requireBrokerContext } from '@/lib/magazine/authz';
 import { isUuid } from '@/lib/magazine/slug';
 import { maskPhone } from '@/lib/magazine/pii';
+import { isMagazineSendEnabled } from '@/lib/magazine/send-flags';
 import { generateSpecialEdition } from '@/domain/magazine/special-edition-generator';
 import { distributeSpecialEdition, selectFlashTargets } from '@/domain/magazine/distribute-special-edition';
 import type { SubscriberRow, TargetSegment } from '@/domain/magazine/send-batch';
@@ -122,6 +123,8 @@ export async function GET(req: NextRequest) {
       matchable: canMatch,
       matchedPreview: matchedPreview.slice(0, 10),
       defaultHeadline,
+      // 발송 마스터 스위치(런타임 env) — 모달이 '발송 중지' 안내를 정직하게 보여 주는 근거
+      sendEnabled: isMagazineSendEnabled(),
       // 하위 호환 키
       totalSubscribers: subList.length,
       targetCount: matched.length,

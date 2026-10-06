@@ -2,7 +2,7 @@ import React from 'react';
 import { Newspaper, ToggleRight, ToggleLeft, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { MAX_NEWS_SELECTION } from '@/lib/magazine/edition-save';
-import { topicLabel } from '@/lib/magazine/editor-labels';
+import { cleanNewsText, formatNewsSummary, topicLabel } from '@/lib/magazine/editor-labels';
 import { EmptyState } from '@/components/ui/empty-state';
 
 interface NewsItem {
@@ -48,6 +48,7 @@ export function NewsCurationPanel({
           const newsId = news.id ?? news.title;
           const isSelected = selectedNewsIds.has(newsId);
           const topic = topicLabel(news.topic);
+          const summaryLines = formatNewsSummary(news.summary);
           return (
             <motion.button
               key={newsId ?? idx}
@@ -71,13 +72,17 @@ export function NewsCurationPanel({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-label font-bold text-white leading-snug line-clamp-2 mb-1">
-                    {news.title}
+                    {cleanNewsText(news.title)}
                   </p>
-                  {/* AI summary inline */}
-                  {news.summary && (
-                    <p className="text-caption text-ink-muted leading-relaxed mb-1.5 line-clamp-3">
-                      {news.summary}
-                    </p>
+                  {/* AI summary inline — "핵심 팩트: … | 브로커 임플리케이션: …" 파이프 원문을 줄 단위로 */}
+                  {summaryLines.length > 0 && (
+                    <ul className="text-caption text-ink-muted leading-relaxed mb-1.5 space-y-0.5 list-none">
+                      {summaryLines.slice(0, 3).map((line, i) => (
+                        <li key={i} className="line-clamp-2">
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                   <div className="flex items-center gap-2 flex-wrap">
                     {news.importance_score != null && (

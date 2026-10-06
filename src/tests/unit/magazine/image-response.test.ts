@@ -5,6 +5,7 @@ import {
   renderNeutralImage,
 } from '@/lib/magazine/og-image-response';
 import type { ImageModel } from '@/lib/magazine/og-image-data';
+import { loadOgFonts, resetOgFontCache } from '@/lib/magazine/og-fonts';
 
 // 이미지 실측 회귀 보호 + 중립 이미지/캐시 헤더 + 로더 실패 처리 (C-04)
 
@@ -128,4 +129,25 @@ describe('이미지 응답: 한글 데이터도 렌더 실패하지 않음 (폰�
     expect(res.status).toBe(200);
     expect(await dims(res)).toMatchObject({ w: 1080, h: 1920, format: 'png' });
   }, 30_000);
+
+  it('번들 폰트(public/fonts)가 있으면 hasKorean=true — 한글이 제거되지 않고 렌더된다', async () => {
+    const { existsSync } = await import('fs');
+    const nodePath = await import('path');
+    const bundled = existsSync(nodePath.join(process.cwd(), 'public', 'fonts', 'NotoSansKR-Regular.woff'));
+    delete process.env.MAGAZINE_OG_FONT_PATH;
+    resetOgFontCache();
+    const loaded = await loadOgFonts();
+    if (bundled) {
+      expect(loaded.hasKorean).toBe(true);
+      expect(loaded.fonts.length).toBeGreaterThanOrEqual(2);
+    }
+    const res = await renderMagazineImage({
+      format: 'og',
+      brokerId: 'test-broker-kim',
+      date: '2026-09-30',
+      loadModel: async () => ({ ...MODEL, headline: '2026년 9월 시장 점검 9.4%', brokerName: '김중개' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await dims(res)).toMatchObject({ w: 1200, h: 630, format: 'png' });
+  }, 60_000);
 });

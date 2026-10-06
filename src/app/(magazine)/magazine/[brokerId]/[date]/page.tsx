@@ -10,6 +10,7 @@ import {
   findLatestIssueDate,
   maskPublicAddresses,
   resolvePublicBroker,
+  resolvePublicDisplayName,
   type MagazineContent,
 } from "@/lib/magazine/public-page-data";
 import { isUnpublishedContent } from "@/lib/magazine/get-published-issue";
@@ -71,9 +72,17 @@ const loadPage = cache(async (brokerParam: string, date: string): Promise<PageSt
   // 초안/검수대기 표시가 남은 콘텐츠는 공개하지 않는다.
   if (isUnpublishedContent(issue)) return unpublished("draft");
 
+  // 중개사 이름 SSOT: 발행 스냅샷(data.broker.name)이 아니라 구독 페이지와 같은 공개 표시명을 쓴다.
+  const displayName = await resolvePublicDisplayName(supabase, broker);
+  const masked = maskPublicAddresses(issue);
+  const snapshotBroker = (masked.broker && typeof masked.broker === "object" ? masked.broker : {}) as Record<string, unknown>;
+  const data: MagazineContent = displayName
+    ? { ...masked, broker: { ...snapshotBroker, name: displayName } }
+    : masked;
+
   return {
     kind: "ok",
-    data: maskPublicAddresses(issue),
+    data,
     brokerSlug: broker.slug,
     brokerVibe: broker,
   };

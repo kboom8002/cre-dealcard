@@ -90,6 +90,15 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
     if (mountedRef.current) setStatus(s);
   }, []);
 
+  // 저장 실패/변경중 표시를 거두고 '저장됨' 으로 (서버 값과 현재 값이 같을 때)
+  const clearFailure = useCallback(() => {
+    if (mountedRef.current) {
+      setErrorKind(null);
+      setErrorMessage(null);
+    }
+    setStatusBoth('saved');
+  }, [setStatusBoth]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -114,7 +123,8 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
       }
       const sigAtStart = signatureRef.current;
       if (savedSignatureRef.current === sigAtStart) {
-        if (statusRef.current === 'dirty') setStatusBoth('saved');
+        // 저장할 변경이 없음 = 서버 값과 같다 → 이전 실패(dirty/error) 표시를 거두고 '저장됨' 으로
+        if (statusRef.current === 'dirty' || statusRef.current === 'error') clearFailure();
         return true;
       }
 
@@ -174,7 +184,7 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
         if (inFlightRef.current === exec) inFlightRef.current = null;
       }
     },
-    [setStatusBoth],
+    [setStatusBoth, clearFailure],
   );
 
   const saveNow = useCallback(() => runSave(false), [runSave]);
@@ -200,7 +210,8 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
       return;
     }
     if (signature === savedSignatureRef.current) {
-      if (statusRef.current === 'dirty') setStatusBoth('saved');
+      // 'error' 는 사용자가 '다시 시도'를 누를 때까지 유지(버튼 유지) — 재시도 시 runSave 가 거둔다
+      if (statusRef.current === 'dirty') clearFailure();
       return;
     }
     // 충돌/잠금 상태에서는 자동 저장을 멈추고 사용자가 선택하게 한다
@@ -210,7 +221,7 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
       void runSave(false);
     }, AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [signature, ready, enabled, editionId, runSave, setStatusBoth]);
+  }, [signature, ready, enabled, editionId, runSave, setStatusBoth, clearFailure]);
 
   // ── 30초 주기: 변경분이 있을 때만 (실패 후 재시도 포함) ──
   useEffect(() => {

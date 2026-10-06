@@ -204,12 +204,37 @@ export const CONSENT_ATTEST_HINT =
 
 export type AddChannel = 'kakao' | 'email' | 'both';
 
+/** 채널 라벨 SSOT — 추가 폼·목록 필터·상세 모달이 모두 이 상수를 쓴다. */
+export const CHANNEL_LABEL: Record<AddChannel, string> = {
+  kakao: '카카오톡',
+  email: '이메일',
+  both: '둘 다',
+};
+
 export interface AddSubscriberInput {
   name: string;
   phone: string;
   email: string;
   channel: AddChannel;
   attested: boolean;
+}
+
+export type AddFieldErrors = Partial<Record<'name' | 'phone' | 'email' | 'attested', string>>;
+
+/**
+ * 입력이 바뀐 뒤 '이미 표시 중인 오류'만 현재 값 기준으로 재계산한다.
+ *  - 해소된 오류는 사라지고(예: 채널을 '카카오톡'으로 바꾸면 '이메일 필요' 오류 해제),
+ *  - 여전히 유효하지 않으면 최신 문구로 갱신된다(이메일 비움→형식 오류 등).
+ *  - 아직 오류가 없던 필드는 건드리지 않는다(입력 중 조기 경고 방지).
+ */
+export function refreshAddErrors(next: AddSubscriberInput, prev: AddFieldErrors): AddFieldErrors {
+  const v = validateAddSubscriber(next);
+  const current: AddFieldErrors = v.ok ? {} : v.errors;
+  const out: AddFieldErrors = {};
+  for (const key of Object.keys(prev) as Array<keyof AddFieldErrors>) {
+    if (prev[key] && current[key]) out[key] = current[key];
+  }
+  return out;
 }
 
 export interface AddSubscriberPayload {

@@ -34,7 +34,8 @@ import {
 import { formatKoreanDate } from "@/lib/magazine/kst";
 import { normalizePoll } from "@/lib/magazine/poll-helpers";
 import {
-  buildMagazineTitle, estimateReadMinutes, formatPriceKo, hasAnyViewerContent, isSectionEnabled,
+  buildMagazineTitle, cleanScoreText, estimateReadMinutes, filterKeyStatsByEvidence, formatPriceKo,
+  hasAnyViewerContent, hasScoreEvidence, isSectionEnabled,
   MARKET_TEMP_VIEW, parseViewerTarget, pickTopNews, resolveSectionOrder,
   taxVisibleForTarget, toTelHref, type ViewerTarget,
 } from "@/lib/magazine/view-helpers";
@@ -85,12 +86,19 @@ export function MagazineView({
   const dateLabel = dateLabelProp ?? formatKoreanDate(date);
   // URL 의 ?target= 이 우선, 없으면 에디션의 target_segment(발송 대상)를 기본 순서로 존중한다.
   const target: ViewerTarget = targetProp !== undefined ? parseViewerTarget(targetProp) : parseViewerTarget(data.target_segment);
-  const title = buildMagazineTitle(data.headline, broker.name);
+  // 점수 지표는 근거(generation 메타 + 심리 항목 + 기준일)가 있을 때만 노출 (P0-05: 출처 없는 점수 숫자 금지).
+  // 과거 발행본의 합성 점수(NN/100 형태)는 표지 지표·심리 섹션·본문 토큰 모두에서 걷어낸다.
+  const scoreEvidence = hasScoreEvidence(data);
+  const title = buildMagazineTitle(cleanScoreText(data.headline as string | null | undefined, scoreEvidence), broker.name);
   const telHref = toTelHref(broker.phone);
 
-  // 투자 심리: 실제 숫자 점수가 있을 때만 표시 (고정 기본값 금지, M2-03)
+  // 투자 심리: 실제 숫자 점수 + 근거가 있을 때만 표시 (고정 기본값 금지, M2-03)
   const sentiment = (data.sentiment as { score?: unknown; status?: string; asOf?: string } | null) ?? null;
-  const sentimentScore = typeof sentiment?.score === "number" && Number.isFinite(sentiment.score) ? sentiment.score : null;
+  const sentimentScore = scoreEvidence && typeof sentiment?.score === "number" && Number.isFinite(sentiment.score) ? sentiment.score : null;
+  const keyStats = Array.isArray(data.keyStats)
+    ? filterKeyStatsByEvidence(data.keyStats as Array<{ value: string; label: string; accent?: string }>, scoreEvidence)
+    : [];
+  const briefingText = cleanScoreText((data.briefing as string | undefined) ?? "", scoreEvidence);
   const accent = (data.themeColor as string | undefined) || (data.theme_color as string | undefined) || "#6366f1";
 
   // ── Cover data ──
@@ -100,12 +108,15 @@ export function MagazineView({
   const coverImageUrl = data.cover_image_url as string | null | undefined;
 
   // ── Field note ──
-  const fieldNote = (data.field_note as Record<string, string> | null | undefined) ?? {};
+  const rawFieldNote = (data.field_note as Record<string, string> | null | undefined) ?? {};
+  const fieldNote: Record<string, string> = Object.fromEntries(
+    Object.entries(rawFieldNote).map(([k, v]) => [k, typeof v === "string" ? (cleanScoreText(v, scoreEvidence) as string) : v]),
+  );
   const hasFieldNote = !!(fieldNote.question || fieldNote.buyerReaction || fieldNote.sellerReaction || fieldNote.marketJudgment || fieldNote.comment);
 
   // ── Theme of week ──
-  const themeTitle = data.theme_title as string | null | undefined;
-  const themeBodyMd = data.theme_body_md as string | null | undefined;
+  const themeTitle = cleanScoreText(data.theme_title as string | null | undefined, scoreEvidence);
+  const themeBodyMd = cleanScoreText(data.theme_body_md as string | null | undefined, scoreEvidence);
   const themeAssetTypes = strArray(data.theme_asset_types);
 
   // ── Deals ──
@@ -152,7 +163,7 @@ export function MagazineView({
           <div className="ml-auto"><DataBadge type="ai" /></div>
         </div>
         <div className="p-4">
-          <RichBriefing text={(data.briefing as string) ?? ""} />
+          <RichBriefing text={briefingText} />
         </div>
       </div>
     </Section>
@@ -174,7 +185,7 @@ export function MagazineView({
         <div className="flex items-center gap-2 border-b border-violet-500/10 px-4 py-3">
           <PenLine className="h-4 w-4 text-violet-300" aria-hidden="true" />
           <h2 className="text-label font-bold text-violet-200">{brokerName}의 현장 노트</h2>
-          <div className="ml-auto"><DataBadge type="ai" /></div>
+          {/* 현장 노트는 중개인이 직접 쓴 글 — 'AI 분석' 배지를 붙이지 않는다(허위 출처 표기 방지) */}
         </div>
         <div className="space-y-3.5 p-4">
           {fieldRow("💬", "이번 주 시장", fieldNote.question)}
@@ -494,9 +505,9 @@ export function MagazineView({
           </div>
 
           {/* Key stats */}
-          {Array.isArray(data.keyStats) && data.keyStats.length > 0 && (
+          {keyStats.length > 0 && (
             <ul className="relative mt-5 grid grid-cols-3 gap-2">
-              {(data.keyStats as Array<{ value: string; label: string; accent?: string }>).map((stat, i) => (
+              {keyStats.map((stat, i) => (
                 <li key={i} className={`rounded-xl border p-2.5 text-center ${STAT_TONE[stat.accent ?? ""] ?? "text-ink-muted border-white/10 bg-white/5"}`}>
                   <div className="mb-1 text-body font-extrabold leading-none">{stat.value}</div>
                   <div className="text-caption text-ink-muted">{stat.label}</div>

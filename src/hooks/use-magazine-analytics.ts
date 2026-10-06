@@ -16,6 +16,7 @@ import {
   buildClickPayload,
   defaultIdGenerator,
   isPreviewContext,
+  isValidVisitorId,
   readSubscriberSid,
   resolveVisitorId,
   type ClickPayload,
@@ -136,6 +137,8 @@ export function useMagazineAnalytics({ editionId, enabled = true }: MagazineAnal
     if (typeof window === 'undefined') return;
     const st = (stateRef.current = newState());
     if (!enabled) return;
+    // 서버는 uuid(에디션/레거시 issue id)만 받는다 — `${brokerId}-${date}` 같은 폴백 값은 400 이므로 전송하지 않는다
+    if (!isValidVisitorId(editionRef.current)) return;
     if (isPreviewContext(window.location.search, window.self !== window.top)) return;
 
     const visitorId = resolveVisitorId(safeStorage('local'));

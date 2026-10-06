@@ -185,12 +185,16 @@ export function AuctionSection({ picks }: { picks: AnyRec[] }) {
       title="경매 픽"
       icon={<Hammer className="h-4 w-4 text-amber-300" aria-hidden="true" />}
       badge={
+        // 헤더는 <button> 이므로 용어 설명 버튼(GlossaryText)을 넣지 않는다 — 중첩 button 은 hydration 오류. 설명은 패널 본문에 둔다.
         <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-caption font-bold text-amber-200">
-          <GlossaryText text="NPL 소싱" seen={seen} />
+          NPL 소싱
         </span>
       }
     >
       <div className="space-y-2">
+        <p className="text-caption leading-relaxed text-ink-subtle">
+          <GlossaryText text="NPL 기반 경매 물건 — 최저입찰가와 감정가를 비교해 보세요." seen={seen} />
+        </p>
         {picks.map((a, i) => (
           <div key={i} className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5">
             <div className="mb-2 flex items-start justify-between">

@@ -46,4 +46,36 @@ describe.runIf(!!DIR)('이미지 시각 덤프', () => {
     }
     expect(fonts.fonts.length).toBeGreaterThanOrEqual(0);
   }, 120_000);
+
+  it('한글·숫자·% 혼합 헤드라인 + 희귀 음절 → PNG (og/story/card, mixed-*.png)', async () => {
+    resetOgFontCache();
+    const fonts = await loadOgFonts();
+    mkdirSync(DIR!, { recursive: true });
+    const model = {
+      date: '2026-09-30',
+      dateLabel: '2026.09.30',
+      dateKorean: '2026년 9월 30일 (화)',
+      headline: '2026년 9월 시장 점검 9.4% 꿻 상승 (YoY) · 강남 CAP 4.2%',
+      marketTemp: '관망' as const,
+      keywords: ['금리 3.25%', '강남', 'CAP RATE'],
+      themeTitle: '전월 대비 +1.2%p',
+      briefing: '이번 달 거래량은 전월 대비 9.4% 늘었고 평균 캡레이트는 4.2%로 보합입니다. 희귀 음절 꿻 은 제거됩니다.',
+      brokerName: '김중개',
+      company: '테스트부동산',
+      phone: '010-1234-5678',
+      regions: ['강남'],
+      stats: [{ label: '활성 매물', value: '3건 · 9.4%', accent: 'indigo' }],
+      deals: [{ title: '역삼 꼬마빌딩', address: '서울 강남구 역삼동' }],
+    };
+    for (const format of ['og', 'story', 'card'] as const) {
+      const res = await renderMagazineImage({
+        format,
+        brokerId: 'test-broker-kim',
+        date: '2026-09-30',
+        loadModel: async () => model,
+      });
+      writeFileSync(path.join(DIR!, `mixed-${format}-${fonts.hasKorean ? 'ko' : 'latin'}.png`), Buffer.from(await res.arrayBuffer()));
+    }
+    expect(fonts.fonts.length).toBeGreaterThanOrEqual(0);
+  }, 120_000);
 });

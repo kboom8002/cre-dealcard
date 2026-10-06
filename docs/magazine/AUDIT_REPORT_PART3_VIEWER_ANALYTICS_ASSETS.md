@@ -1,6 +1,8 @@
 # CREDEAL 모바일 매거진 Part 3 — 열람 · 분석 · 이미지 에셋 정밀 E2E 감사 보고서
 
 > ⚠ **[무효 · 2026-10-06 표기] 이 보고서의 "ALL PASSED / 100% 무결" 판정은 신뢰할 수 없습니다.** 2026-09-20 로컬 dev 서버 + 테스트 계정 + mock/오염 데이터 기준 결과이며, 이후 감사에서 분석 이벤트 `edition_id` 전량 NULL(운영 2,334건 중 100%)·단 3개 visitor_id 등 계측 신뢰 문제와, 설문·세무·소셜프루프 값이 고정/목업이었음이 확인되었습니다. 현행 기준은 [`audit-2026-10-04/`](./audit-2026-10-04/) (`remediation_plan.md`).
+>
+> ⚠ **[Wave4 D-01 · 2026-10-06]** 본문이 증빙으로 인용한 `tutorial_images/31~39_*.png` 는 더미 전화번호·가짜 지표(LTV 60 고정, 62/100 등)를 담고 있어 **삭제**되었습니다(아래 이미지 링크는 깨진 상태가 정상). "Sharp/SHA256 지문 검증" 서술도 실측 근거가 없습니다. 현행 따라하기 문서는 [`TUTORIAL_PART3_VIEWER_ANALYTICS.md`](./TUTORIAL_PART3_VIEWER_ANALYTICS.md), 현행 골든 스펙은 `e2e/magazine-tutorial-part3-golden.auth.spec.ts` 입니다.
 
 > **감사 일시**: 2026-09-20 11:51 (KST)  
 > **감사 환경**: Next.js App Router (`localhost:3000`), Supabase DB 실연동, Playwright (Chromium 모바일 480×950 및 에셋 전용 뷰포트)  

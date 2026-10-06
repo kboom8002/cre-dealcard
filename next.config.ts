@@ -58,6 +58,11 @@ const nextConfig: NextConfig = {
       "./node_modules/@playwright/**",
     ],
   },
+  outputFileTracingIncludes: {
+    // OG/이미지 라우트가 fs.readFile 로 읽는 번들 한글 폰트(Noto Sans KR, OFL) — src/lib/magazine/og-fonts.ts
+    "/api/og/**": ["./public/fonts/**"],
+    "/api/magazine/**": ["./public/fonts/**"],
+  },
   async headers() {
     return [
       {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { verifyUnsubToken, type UnsubVerifyFailure } from "@/domain/magazine/unsub-token";
 import { resolveBroker } from "@/lib/magazine/resolve-broker";
+import { publicBrokerDisplayName } from "@/lib/magazine/public-page-data";
 import { escapeHtml } from "@/lib/magazine/escape";
 import { isMissingColumnError } from "@/lib/magazine/subscriber-view";
 import { isUuid } from "@/lib/magazine/slug";
@@ -27,7 +28,8 @@ const HTML_HEADERS = {
 const PAGE_CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 16px; background-color: #f9fafb; color: #111827; }
-  .card { background: #ffffff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; border: 1px solid #e5e7eb; }
+  /* 한글은 단어 중간에서 끊지 않고(keep-all), 긴 영문·URL 은 넘치지 않게 어디서든 줄바꿈(anywhere) */
+  .card { background: #ffffff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; border: 1px solid #e5e7eb; word-break: keep-all; overflow-wrap: anywhere; }
   .brand { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #4b5563; }
   h1 { margin: 0 0 12px; color: #111827; font-size: 18px; line-height: 1.4; }
   p { color: #374151; font-size: 14px; margin: 0 0 24px; line-height: 1.6; }
@@ -83,6 +85,25 @@ function failureResponse(reason: UnsubVerifyFailure | "BINDING_MISMATCH" | "NOT_
   return errorPage(status, heading, message);
 }
 
+/**
+ * 해지 페이지의 중개사 표시명 — 구독 페이지·뷰어·카카오 공유 제목과 같은 SSOT 규칙(`publicBrokerDisplayName`):
+ * `broker_profiles.name` 우선, 없으면 `profiles.display_name`(resolveBroker().displayName). 발행 스냅샷(콘텐츠의 broker.name)은 쓰지 않는다.
+ * broker_profiles.name 컬럼이 없는 DB 등으로 조회가 실패하면 display_name 으로 폴백하고 로그만 남긴다(해지 화면은 항상 보여 준다).
+ */
+async function publicNameFor(
+  supabase: ReturnType<typeof createServiceClient>,
+  broker: { userId: string; displayName: string | null },
+): Promise<string | null> {
+  let bpName: unknown = null;
+  const { data, error } = await supabase.from("broker_profiles").select("name").eq("user_id", broker.userId).maybeSingle();
+  if (error) {
+    log.warn("[Unsubscribe] broker_profiles.name lookup failed — display_name 사용", { error: error.message });
+  } else {
+    bpName = (data as { name?: unknown } | null)?.name;
+  }
+  return publicBrokerDisplayName(bpName, broker.displayName);
+}
+
 /** 토큰의 broker가 구독자 행의 broker와 같은지 확인 (slug ↔ uuid 혼재 과도기 허용). */
 async function brokerMatches(
   supabase: ReturnType<typeof createServiceClient>,
@@ -98,9 +119,10 @@ async function brokerMatches(
   return {
     matches: !!subBrokerId && keys.has(subBrokerId),
     brokerUserId: broker?.userId ?? (isUuid(tokenBrokerId) ? tokenBrokerId : null),
-    displayName: broker?.displayName ?? null,
+    displayName: broker ? await publicNameFor(supabase, broker) : null,
   };
 }
+
 
 function tokenFromUrl(url: URL): string {
   return url.searchParams.get("t") || url.searchParams.get("token") || "";
@@ -116,12 +138,15 @@ export async function GET(request: Request) {
   const verified = verifyUnsubToken(token);
   if (!verified.ok) return failureResponse(verified.reason, false);
 
-  // 중개인 표시명(가능하면). 실패해도 확인 화면은 보여 준다.
+  // 중개인 표시명(가능하면, 공개 SSOT 규칙). 실패해도 확인 화면은 보여 준다.
   let brandHtml = "";
   try {
-    const broker = await resolveBroker(createServiceClient(), verified.brokerId);
-    if (broker?.displayName) brandHtml = `<p class="brand">${escapeHtml(broker.displayName)} 매거진</p>`;
+    const supabase = createServiceClient();
+    const broker = await resolveBroker(supabase, verified.brokerId);
+    const name = broker ? await publicNameFor(supabase, broker) : null;
+    if (name) brandHtml = `<p class="brand">${escapeHtml(name)} 매거진</p>`;
   } catch (err) {
+
     log.warn("[Unsubscribe GET] broker lookup failed", { error: err instanceof Error ? err.message : String(err) });
   }
 

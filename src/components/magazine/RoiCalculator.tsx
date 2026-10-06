@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
-import { Calculator, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { formatManwonInt, formatPriceKo, formatSignedManwon } from "@/lib/magazine/view-helpers";
 import { GlossaryTerm } from "@/components/magazine/GlossaryTerm";
 import {
@@ -62,11 +62,9 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
 
   return (
     <div className="space-y-4">
-      {/* 헤더 */}
-      <div className="flex items-center gap-2">
-        <Calculator className="h-4 w-4" style={{ color: accentColor }} aria-hidden="true" />
-        <p className="text-label font-extrabold text-white">수지분석 계산기</p>
-        <span className="ml-auto rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-caption font-bold text-emerald-300">
+      {/* 헤더: 제목은 바깥 SectionCard 가 이미 표시하므로(중복 방지) 시뮬레이션 배지만 둔다 */}
+      <div className="flex items-center justify-end">
+        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-caption font-bold text-emerald-300">
           실시간 시뮬레이션
         </span>
       </div>

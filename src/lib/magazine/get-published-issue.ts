@@ -12,7 +12,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isFutureDateKst, parseIssueDate } from '@/lib/magazine/kst';
 import { resolveBroker, type ResolvedBroker } from '@/lib/magazine/resolve-broker';
-import { findIssueForDate, maskPublicAddresses, type MagazineContent } from '@/lib/magazine/public-page-data';
+import {
+  findIssueForDate, isUnpublishedContent, maskPublicAddresses, type MagazineContent,
+} from '@/lib/magazine/public-page-data';
 
 export type PublishedIssueResult =
   | { kind: 'ok'; date: string; broker: ResolvedBroker; data: MagazineContent }
@@ -21,18 +23,8 @@ export type PublishedIssueResult =
   | { kind: 'broker_not_found' }
   | { kind: 'not_published' };
 
-const NON_PUBLIC_STATUS = new Set(['draft', 'needs_review', 'editing', 'review', 'scheduled', 'archived']);
-
-/** content 가 초안/검수대기로 표시되어 있으면 true — 공개하지 않는다. */
-export function isUnpublishedContent(content: MagazineContent): boolean {
-  const status = (content as { status?: unknown }).status;
-  if (typeof status === 'string' && NON_PUBLIC_STATUS.has(status)) return true;
-  const qg = (content as { generation?: { qualityGate?: { passed?: unknown } | null } }).generation?.qualityGate;
-  // 생성 직후(draft) 콘텐츠는 magazine_issues 에 들어가지 않지만, 혹시 복사된 경우를 방어한다.
-  // qualityGate.passed === false 이면 검수 전 콘텐츠.
-  if (qg && qg.passed === false) return true;
-  return false;
-}
+/** content 가 초안/검수대기로 표시되어 있으면 true — 공개하지 않는다. (구현은 public-page-data 의 단일 판정) */
+export { isUnpublishedContent };
 
 /** 공개 응답용 정제 — 지번 마스킹(복사본 반환). */
 export function maskIssueForPublic(content: MagazineContent): MagazineContent {

@@ -73,7 +73,10 @@ function note(practice: string, step: string, detail: string) {
 /** 튜토리얼용 스크린샷 — Next dev 표시기(nextjs-portal)는 촬영 시에만 숨긴다(운영 빌드엔 없음). */
 async function shot(page: Page, name: string, fullPage = false) {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
-  await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' }).catch(() => {});
+  // dev 인디케이터 숨김 — 에디터 미리보기 폰은 iframe 이므로 모든 프레임에 주입
+  for (const f of page.frames()) {
+    await f.addStyleTag({ content: 'nextjs-portal{display:none!important}' }).catch(() => {});
+  }
   await page.waitForTimeout(250);
   await page.screenshot({ path: path.join(SHOT_DIR, name), fullPage }).catch(() => {});
 }
@@ -131,6 +134,61 @@ async function mobileContext(browser: Browser, opts: { auth?: boolean; w?: numbe
   return ctx;
 }
 
+/** 브로커 에디터 = 데스크톱 1440x900 (Part1/3 과 동일 기준, 스크린샷 이름 *_1440) */
+async function desktopContext(browser: Browser) {
+  const ctx = await browser.newContext({
+    baseURL: BASE,
+    storageState: AUTH_STATE,
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    locale: 'ko-KR',
+    extraHTTPHeaders: { 'x-playwright-test': 'true', 'x-forwarded-for': RUN_IP },
+  });
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  await installSafety(ctx);
+  return ctx;
+}
+
+/** 20분 넘은 이전 실행 잔여 fixture(E2E_TUT2_) 정리 — Part1/3 과 같은 방식 */
+async function purgeStaleFixtures(): Promise<number> {
+  const cutoff = new Date(Date.now() - 20 * 60_000).toISOString();
+  const { data } = await sb
+    .from('magazine_subscribers')
+    .select('id')
+    .like('subscriber_name', 'E2E_TUT2_%')
+    .lt('created_at', cutoff);
+  const ids = (data || []).map((r: any) => r.id);
+  if (!ids.length) return 0;
+  await sb.from('activity_events').delete().eq('event_type', 'magazine_unsubscribed').in('entity_id', ids);
+  const { count } = await sb.from('magazine_subscribers').delete({ count: 'exact' }).in('id', ids);
+  return count || 0;
+}
+
+/** 뷰어 하단 고정 바가 본문 조작 요소(버튼·링크·입력)를 가리는지 — 페이지 끝까지 스크롤한 상태와 구독 CTA 위치에서 검사 */
+async function bottomBarOverlap(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    const bar = document.querySelector('[aria-label="상담·공유 바로가기"]') as HTMLElement | null;
+    if (!bar) return ['NO_BAR'];
+    const hits: string[] = [];
+    const scan = () => {
+      const b = bar.getBoundingClientRect();
+      document.querySelectorAll('main button, main a[href], main input, main label').forEach((el) => {
+        if (bar.contains(el)) return;
+        const r = (el as HTMLElement).getBoundingClientRect();
+        if (r.width === 0 || r.height === 0 || r.bottom <= 0 || r.top >= window.innerHeight) return;
+        const overlap = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+        const overlapX = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+        // 가려진 채로 끝까지 스크롤해도 벗어날 수 없는 요소만 결함으로 본다(페이지 끝 상태)
+        if (overlap > 4 && overlapX > 4) hits.push(`${el.tagName.toLowerCase()}:"${((el as HTMLElement).innerText || (el as HTMLInputElement).placeholder || '').trim().slice(0, 24)}" overlap=${Math.round(overlap)}px`);
+      });
+    };
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    await new Promise((r) => setTimeout(r, 400));
+    scan();
+    return hits;
+  });
+}
+
 async function subsByPhone(phones: string[]) {
   const { data } = await sb.from('magazine_subscribers').select('*').in('subscriber_phone', phones);
   return data || [];
@@ -159,19 +217,25 @@ let LATEST_DATE = ''; // 랜딩 "최근 발행" 카드가 가리키는 발행일
 async function openOutreach(page: Page) {
   await page.goto('/broker/magazine-editor?tab=outreach', { waitUntil: 'domcontentloaded' });
   await page.getByRole('tab', { name: '구독자 관리' }).waitFor({ state: 'visible', timeout: 120_000 });
+  // 목록 스켈레톤(aria-label="구독자 목록을 불러오는 중")이 사라질 때까지 대기 — 로딩 중 캡처 방지
+  await expect.soft(page.getByLabel('구독자 목록을 불러오는 중')).toHaveCount(0, { timeout: 60_000 });
+  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
   await expect.soft(page.getByText(/총 \d+명 중 \d+명 표시/)).toBeVisible({ timeout: 60_000 });
 }
 
 // 직렬 모드는 쓰지 않는다: 한 실습의 제품 결함 FAIL 이 뒤 실습을 skip 시키지 않도록(--workers=1 로 순서 유지).
 test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개선 UI)', () => {
   test.beforeAll(async ({ request }) => {
+    test.setTimeout(300_000); // 격리 포트 dev 서버 최초 컴파일 대기
     fs.mkdirSync(SHOT_DIR, { recursive: true });
+    const purged = await purgeStaleFixtures();
+    if (purged) note('setup', 'stale fixture purge', `E2E_TUT2_ 잔여 ${purged}건 삭제(20분 초과)`);
     // 테스트 전화번호가 실데이터와 충돌하지 않는지
     const pre = await subsByPhone(TEST_PHONES);
     const foreign = pre.filter((s: any) => !(s.subscriber_name || '').startsWith('E2E_TUT2_'));
     if (foreign.length) throw new Error(`테스트 전화번호가 실데이터와 충돌: ${foreign.map((f: any) => f.subscriber_phone).join(',')}`);
     // 랜딩 최근 발행일
-    const html = await (await request.get(`/magazine/${SLUG}/subscribe`)).text();
+    const html = await (await request.get(`/magazine/${SLUG}/subscribe`, { timeout: 240_000 })).text();
     const m = html.match(new RegExp(`/magazine/${SLUG}/(\\d{4}-\\d{2}-\\d{2})`));
     LATEST_DATE = m?.[1] || '';
     note('setup', 'env', `BASE=${BASE} RUN_IP=${RUN_IP} LATEST_DATE=${LATEST_DATE || '(none)'} UNSUB_SECRET=${UNSUB_SECRET ? 'set' : 'MISSING'}`);
@@ -253,10 +317,16 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
 
     await test.step('1-4 없는 슬러그 404 / UUID 주소는 슬러그로 308', async () => {
       const r404 = await request.get(`/magazine/${NONEXIST_SLUG}/subscribe`);
-      check(P, '존재하지 않는 슬러그 → 404', r404.status() === 404, `status=${r404.status()}`);
+      const body404 = await r404.text();
+      check(P, '존재하지 않는 슬러그 → HTTP 404', r404.status() === 404, `status=${r404.status()} (loading.tsx 스트리밍이면 200)`);
+      check(P, '존재하지 않는 슬러그 → noindex', /<meta[^>]*name="robots"[^>]*noindex/.test(body404), `noindex=${/noindex/.test(body404)}`);
       const rUuid = await request.get(`/magazine/${UID}/subscribe`, { maxRedirects: 0 });
       const loc = rUuid.headers()['location'] || '';
-      check(P, 'UUID 주소 → 308 슬러그 주소', rUuid.status() === 308 && loc.includes(`/magazine/${SLUG}/subscribe`), `status=${rUuid.status()} location=${loc}`);
+      check(P, 'UUID 주소 → HTTP 308 슬러그 주소', rUuid.status() === 308 && loc.includes(`/magazine/${SLUG}/subscribe`), `status=${rUuid.status()} location=${loc}`);
+      const p2 = await ctx.newPage();
+      await p2.goto(`/magazine/${UID}/subscribe`, { waitUntil: 'networkidle' });
+      check(P, 'UUID 주소 → 브라우저는 슬러그 주소에 도착', p2.url().includes(`/magazine/${SLUG}/subscribe`), `url=${p2.url()}`);
+      await p2.close();
     });
 
     await test.step('1-5 작은 화면(360x740) 가로 넘침 없음', async () => {
@@ -279,6 +349,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
   test('실습2: 고객이 되어 구독 신청해 보기 @needs-migration', async ({ browser, request }) => {
     test.setTimeout(240_000);
     const P = '실습2';
+    test.info().annotations.push({ type: 'needs-migration', description: '구독 동의 컬럼(000006) 적용 후 실 신청 성공 경로(200 pending)로 전환 — 현재는 503 정직 강등 + payload 계약(mock)' });
     const ctx = await mobileContext(browser);
     const page = await ctx.newPage();
     watch(page, 'subscribe-form');
@@ -417,7 +488,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
   test('실습3: 명함용 QR 코드 만들기', async ({ browser }) => {
     test.setTimeout(240_000);
     const P = '실습3';
-    const ctx = await mobileContext(browser, { auth: true });
+    const ctx = await desktopContext(browser);
     const page = await ctx.newPage();
     watch(page, 'editor-qr');
 
@@ -426,7 +497,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       check(P, '"구독자 관리" 탭 선택됨', (await page.getByRole('tab', { name: '구독자 관리' }).getAttribute('aria-selected')) === 'true');
       const sendOff = await page.getByRole('status').filter({ hasText: '현재 발송 기능이 꺼져 있어요' }).count();
       note(P, '발송 꺼짐 안내 노출', `count=${sendOff}`);
-      await shot(page, 'p2_06_outreach_tab.png');
+      await shot(page, 'p2_06_outreach_tab_1440.png');
     });
 
     await test.step('3-2 "QR 코드" → 오프라인 구독 QR 코드 팝업', async () => {
@@ -436,7 +507,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       const url = (await dlg.locator('p.font-mono').first().innerText().catch(() => '')).trim();
       check(P, 'QR 주소 = {사이트}/magazine/내슬러그/subscribe?source=qr_card', /^https?:\/\/[^/]+\/magazine\/test-broker-kim\/subscribe\?source=qr_card$/.test(url), `qrUrl=${url}`);
       note(P, 'QR 주소 도메인', `${url} (NEXT_PUBLIC_SITE_URL 기준 — 운영은 credeal.net)`);
-      await shot(page, 'p2_07_qr_modal.png');
+      await shot(page, 'p2_07_qr_modal_1440.png');
     });
 
     await test.step('3-3 "인쇄용 QR (8cm · 300DPI)" 다운로드', async () => {
@@ -479,7 +550,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
   test('실습4: 구독자 직접 추가하고 관리하기', async ({ browser }) => {
     test.setTimeout(240_000);
     const P = '실습4';
-    const ctx = await mobileContext(browser, { auth: true });
+    const ctx = await desktopContext(browser);
     const page = await ctx.newPage();
     watch(page, 'editor-subs');
     await openOutreach(page);
@@ -509,8 +580,17 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       check(P, '둘 다 + 이메일 없음 → 이메일 필요 오류', (await dlg.getByText('이메일 수신을 선택하면 이메일 주소가 필요해요.').count()) > 0);
       check(P, '동의 미체크 → 오류', (await dlg.getByText('수신 동의 확인에 체크해 주세요.').count()) > 0);
       await dlg.getByRole('radio', { name: '카카오톡' }).click();
+      // 채널을 카카오톡으로 되돌리면 이메일 요구 오류는 더 이상 유효하지 않으므로 사라져야 한다(제품 기대).
+      const staleEmailErr = await dlg.getByText('이메일 수신을 선택하면 이메일 주소가 필요해요.').count();
+      check(P, '카카오톡으로 되돌리면 이메일 필요 오류 해제', staleEmailErr === 0, `staleEmailErrorCount=${staleEmailErr} (AddSubscriberForm set()은 같은 키 오류만 지움)`);
+      if (staleEmailErr) {
+        // 캡처용 정상 상태 복원(테스트 조작): 이메일 칸 입력 이벤트로 오류를 지운 뒤 다시 비운다.
+        const em = dlg.locator('input[type="email"]');
+        await em.fill('x');
+        await em.fill('');
+      }
       await dlg.getByLabel('고객이 수신에 동의했음을 확인합니다').check();
-      await shot(page, 'p2_08_add_subscriber.png');
+      await shot(page, 'p2_08_add_subscriber_1440.png');
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/broker/magazine/subscribers') && r.request().method() === 'POST', { timeout: 30_000 }),
         dlg.getByRole('button', { name: '구독자 추가' }).click(),
@@ -545,7 +625,8 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       const tags = (row?.interest_profile as any)?.tags || {};
       check(P, 'DB interest_profile.tags 반영', (tags.regions || []).includes('강남·서초') && (tags.assetTypes || []).includes('꼬마빌딩'), JSON.stringify(tags));
       check(P, '"열람 이력 (최근 30일)" 섹션', (await dlg.getByText('열람 이력').count()) > 0);
-      await shot(page, 'p2_09_subscriber_detail.png');
+      await dlg.getByText('관심 권역').first().scrollIntoViewIfNeeded().catch(() => {});
+      await shot(page, 'p2_09_subscriber_detail_1440.png');
       await page.keyboard.press('Escape');
     });
     await ctx.close();
@@ -608,16 +689,18 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
   test('실습6: 매거진 안 구독 카드로 신청 @needs-migration', async ({ browser }) => {
     test.setTimeout(180_000);
     const P = '실습6';
+    test.info().annotations.push({ type: 'needs-migration', description: '구독 위젯 실 신청은 동의 컬럼 적용 후 — 현재 payload 계약(mock)만' });
     test.skip(!LATEST_DATE, '최근 발행일 없음');
     const ctx = await mobileContext(browser);
     const page = await ctx.newPage();
     watch(page, 'viewer-subscribe-card');
     await page.goto(`/magazine/${SLUG}/${LATEST_DATE}`, { waitUntil: 'networkidle' });
-    const card = page.locator('div').filter({ has: page.getByRole('heading', { name: /주간 매거진 구독하기/ }) }).last();
+    const cardHeading = page.getByRole('heading', { name: /주간 매거진 구독하기/ });
+    const card = cardHeading.locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]');
 
     await test.step('6-1 "📰 주간 매거진 구독하기" 카드 · 채널 토글', async () => {
-      await page.getByRole('heading', { name: /주간 매거진 구독하기/ }).scrollIntoViewIfNeeded({ timeout: 20_000 }).catch(() => {});
-      check(P, '구독 카드 노출', await page.getByRole('heading', { name: /주간 매거진 구독하기/ }).isVisible().catch(() => false));
+      await cardHeading.scrollIntoViewIfNeeded({ timeout: 20_000 }).catch(() => {});
+      check(P, '구독 카드 노출', await cardHeading.isVisible().catch(() => false));
       const toggles = card.getByRole('group', { name: '수신 채널' }).getByRole('button');
       check(P, '채널 토글 = 카카오톡·이메일·둘 다', JSON.stringify(await toggles.allInnerTexts()) === JSON.stringify(['카카오톡', '이메일', '둘 다']), JSON.stringify(await toggles.allInnerTexts()));
       check(P, '기본 = 카카오톡(전화 칸만)', (await card.getByPlaceholder('휴대폰 번호 (010-0000-0000 형식)').count()) === 1 && (await card.getByPlaceholder('이메일 주소').count()) === 0);
@@ -626,7 +709,27 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       await card.getByRole('button', { name: '둘 다' }).click();
       check(P, '둘 다 → 전화+이메일 · CTA "카톡·이메일로 받기"', (await card.getByPlaceholder('이메일 주소').count()) === 1 && (await card.getByPlaceholder(/휴대폰 번호/).count()) === 1 && (await card.getByRole('button', { name: '카톡·이메일로 받기' }).count()) === 1);
       check(P, '동의 전 CTA 비활성', await card.getByRole('button', { name: '카톡·이메일로 받기' }).isDisabled());
+      check(P, '구독 CTA 가 하단 바에 가려지지 않음(390)', (await obstruct(card.getByRole('button', { name: '카톡·이메일로 받기' }))) === 'clickable');
+      await cardHeading.scrollIntoViewIfNeeded();
       await shot(page, 'p2_11_viewer_subscribe_card.png');
+    });
+
+    await test.step('6-1b 하단 바 ↔ 구독 위젯·본문 겹침 (390x844 / 360x740)', async () => {
+      const hits390 = await bottomBarOverlap(page);
+      check(P, '390x844 페이지 끝에서 하단 바가 본문 조작 요소를 가리지 않음', hits390.length === 0, JSON.stringify(hits390).slice(0, 300));
+      const small = await mobileContext(browser, { w: 360, h: 740 });
+      const sp = await small.newPage();
+      watch(sp, 'viewer-360');
+      await sp.goto(`/magazine/${SLUG}/${LATEST_DATE}`, { waitUntil: 'networkidle' });
+      const ov = await sp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      check(P, '360px 뷰어 가로 오버플로 없음', ov <= 0, `overflow=${ov}px`);
+      const h360 = sp.getByRole('heading', { name: /주간 매거진 구독하기/ });
+      const c360 = h360.locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]');
+      await h360.scrollIntoViewIfNeeded({ timeout: 20_000 }).catch(() => {});
+      check(P, '구독 CTA 가 하단 바에 가려지지 않음(360)', (await obstruct(c360.getByRole('button', { name: '카카오톡으로 받기' }))) === 'clickable');
+      const hits360 = await bottomBarOverlap(sp);
+      check(P, '360x740 페이지 끝에서 하단 바가 본문 조작 요소를 가리지 않음', hits360.length === 0, JSON.stringify(hits360).slice(0, 300));
+      await small.close();
     });
 
     await test.step('6-2 [@needs-migration] payload 계약(route mock)', async () => {
@@ -680,7 +783,9 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
         check(P, '랜딩 최근 발행일이 아카이브에 존재', hasLatest > 0, `latest=${LATEST_DATE} found=${hasLatest}`);
       }
       const r404 = await request.get(`/magazine/${NONEXIST_SLUG}`);
-      check(P, '없는 슬러그 아카이브 → 404', r404.status() === 404, `status=${r404.status()}`);
+      const b404 = await r404.text();
+      check(P, '없는 슬러그 아카이브 → HTTP 404', r404.status() === 404, `status=${r404.status()} (loading.tsx 스트리밍이면 200)`);
+      check(P, '없는 슬러그 아카이브 → noindex', /<meta[^>]*name="robots"[^>]*noindex/.test(b404));
     });
     await ctx.close();
   });
@@ -751,7 +856,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
     });
 
     await test.step('8-5 에디터: 해지자는 "수신 중" 목록에서 빠지고 "수신거부" 필터에 표시', async () => {
-      const ectx = await mobileContext(browser, { auth: true });
+      const ectx = await desktopContext(browser);
       const ep = await ectx.newPage();
       watch(ep, 'editor-unsub');
       await openOutreach(ep);
@@ -760,9 +865,13 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       await ep.getByRole('group', { name: '구독 상태 필터' }).getByRole('button', { name: '수신거부' }).click();
       await expect.soft(list.getByText(NAME.unsub)).toBeVisible({ timeout: 20_000 });
       const row = list.getByRole('button').filter({ hasText: NAME.unsub });
-      check(P, '"수신거부" 필터에 해지자 + 배지', (await row.count()) === 1 && (await row.getByText('수신거부', { exact: true }).count()) === 1);
+      const rowN = await row.count();
+      const rowText = rowN ? (await row.first().innerText()).replace(/\s+/g, ' ') : '';
+      const listN = await list.getByRole('button').count();
+      const countText = await ep.getByText(/총 \d+명 중 \d+명 표시/).innerText().catch(() => '');
+      check(P, '"수신거부" 필터에 해지자 + 배지', rowN === 1 && /수신거부/.test(rowText), `rows=${rowN} text="${rowText}" listButtons=${listN} ${countText}`);
       await ep.getByPlaceholder('이름, 전화번호, 이메일 검색...').fill('E2E_TUT2');
-      await shot(ep, 'p2_15_editor_unsubscribed_filter.png');
+      await shot(ep, 'p2_15_editor_unsubscribed_filter_1440.png');
       await ectx.close();
     });
     await ctx.close();
@@ -790,7 +899,10 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       const payload: any = await page.evaluate(() => (window as any).__kakaoShare || null);
       check(P, '카카오 sendDefault 호출(feed)', payload?.objectType === 'feed', JSON.stringify(payload)?.slice(0, 200));
       const { data: bp } = await sb.from('broker_profiles').select('name').eq('slug', SLUG).maybeSingle();
-      check(P, '제목 "[이름] 주간 부동산 AI 매거진"', payload?.content?.title === `[${bp?.name}] 주간 부동산 AI 매거진`, payload?.content?.title);
+      const viewerName = (await page.locator('header[data-section-id="cover"] p.font-bold').first().innerText().catch(() => '')).trim();
+      check(P, '제목 "[이름] 주간 부동산 AI 매거진" (이름 = 구독 페이지와 같은 프로필 이름)', payload?.content?.title === `[${bp?.name}] 주간 부동산 AI 매거진`, `title=${payload?.content?.title} profile=${bp?.name} viewerHeader=${viewerName}`);
+      const nested = await page.evaluate(() => Array.from(document.querySelectorAll('button button')).map((b) => `outer="${((b.parentElement?.closest('button') as HTMLElement | null)?.innerText || '').replace(/\s+/g, ' ').slice(0, 30)}" inner="${(b as HTMLElement).innerText.slice(0, 20)}"`));
+      check(P, '뷰어에 중첩 <button> 없음(하이드레이션 오류)', nested.length === 0, JSON.stringify(nested).slice(0, 200));
       check(P, '버튼 "매거진 열람"', payload?.buttons?.[0]?.title === '매거진 열람', payload?.buttons?.[0]?.title);
       const img: string = payload?.content?.imageUrl || '';
       check(P, '썸네일 = /api/og/magazine?brokerId=&date=', img.includes(`/api/og/magazine?brokerId=${SLUG}&date=${LATEST_DATE}`), img);
@@ -821,7 +933,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
   test('실습10: 딜카드에서 속보 매거진 발행', async ({ browser }) => {
     test.setTimeout(240_000);
     const P = '실습10';
-    const ctx = await mobileContext(browser, { auth: true });
+    const ctx = await desktopContext(browser);
     const page = await ctx.newPage();
     watch(page, 'special');
 
@@ -845,7 +957,7 @@ test.describe('📗 Tutorial Part 2 Golden — 구독자 모으기 & 확산 (개
       const distribute = dlg.getByRole('checkbox', { name: /매칭 구독자 \d+명에게 발송/ });
       check(P, '"발행과 함께 … 발송" 기본 꺼짐', (await distribute.count()) === 1 && !(await distribute.isChecked()));
       check(P, '버튼 "속보 발행"(발송 아님)', (await dlg.getByRole('button', { name: '속보 발행', exact: true }).count()) === 1);
-      await shot(page, 'p2_17_special_modal.png');
+      await shot(page, 'p2_17_special_modal_1440.png');
       await distribute.check();
       check(P, '발송 켜면 버튼 "속보 발행 및 발송"', (await dlg.getByRole('button', { name: '속보 발행 및 발송' }).count()) === 1);
       await distribute.uncheck();

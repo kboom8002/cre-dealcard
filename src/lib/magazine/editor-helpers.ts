@@ -30,6 +30,8 @@ export async function readJsonSafe(res: Response): Promise<unknown> {
 export interface EditorIdentity {
   slug: string | null;
   displayName: string | null;
+  /** broker_profiles.name — 공개 페이지가 우선 쓰는 표시명 */
+  brokerName?: string | null;
   company: string | null;
   phone: string | null;
   photoUrl: string | null;
@@ -57,6 +59,7 @@ export function parseEditorIdentity(json: unknown): EditorIdentity | null {
   return {
     slug: str(d.slug) ?? str(broker?.slug),
     displayName: str(d.display_name),
+    brokerName: str(broker?.name),
     company: str(d.company),
     phone: str(d.phone),
     photoUrl: str(d.photo_url) ?? str(broker?.photo_url),
@@ -65,6 +68,18 @@ export function parseEditorIdentity(json: unknown): EditorIdentity | null {
     magazineThemeColor: str(d.magazine_theme_color),
     isPaid: !!sub?.isPaid,
   };
+}
+
+/**
+ * 공개 표시명(QR 인쇄 문구 등) — 공개 페이지의 `publicBrokerDisplayName(broker_profiles.name, profiles.display_name)`
+ * (src/lib/magazine/public-page-data.ts)와 같은 규칙: broker_profiles.name 우선, 비면 display_name.
+ * public-page-data 는 서버 전용(pii→node:crypto)이라 클라이언트에서 import 할 수 없어 규칙만 동일하게 둔다.
+ */
+export function resolveEditorPublicName(
+  identity: Pick<EditorIdentity, 'brokerName' | 'displayName'> | null | undefined,
+  fallback: string,
+): string {
+  return str(identity?.brokerName)?.trim() || str(identity?.displayName)?.trim() || fallback;
 }
 
 /** 미리보기 전용 broker 객체 — 이메일은 절대 phone 슬롯에 넣지 않는다(T3-PII-1). */

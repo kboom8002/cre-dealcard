@@ -4,8 +4,10 @@
  * E-04 (T3-04·T3-06·T3-13·T3-14·S2-08·S2-28·D2-25·T1-13):
  *  - withPublicGuard: 본문 8KB · IP/방문자 레이트리밋 · zod 검증. event_type 은 5종 화이트리스트(그 외 'alert' 등 위조 이벤트는 400, 어떤 알림도 만들지 않는다).
  *  - 방문자 ID: 클라이언트 랜덤 uuid → 서버에서 HMAC 해시(`v2_…`)만 저장. 시크릿(MAGAZINE_SID_SECRET) 없으면 503 (미수집을 정직하게 알림).
- *  - edition_id(uuid) 필수 + 존재·발행 상태 확인. **broker 는 에디션에서 서버가 결정**(클라이언트 metadata.broker_id 신뢰 금지).
- *    draft/미발행 에디션 이벤트는 저장하지 않는다(미리보기 오염 서버측 방어선).
+ *  - edition_id(uuid) 필수 + 존재·발행 상태 확인. **broker 는 호에서 서버가 결정**(클라이언트 metadata.broker_id 신뢰 금지).
+ *    레거시 뷰어가 magazine_issues.id 를 보내도 404 로 버리지 않는다(edition-target.ts): issue → 같은 날짜의 발행 에디션으로 연결,
+ *    에디션이 없으면 edition_id NULL + metadata.legacy_issue_id 로 기록(에디션 지표와 분리).
+ *    draft/미발행 호 이벤트는 저장하지 않는다(미리보기 오염 서버측 방어선).
  *  - page_view: 30분 내 같은 방문자 중복은 저장·조회수 증가 모두 생략, 첫 열람만 `increment_edition_views` RPC 로 view_count 증가.
  *  - 구독자 귀속: metadata.sid(서명 토큰)를 서버가 검증해 같은 브로커의 구독자일 때만 metadata.subscriber_id 기록. 위조·만료면 익명 처리.
  *  - 핫리드 알림: **서버가 계산한 온도(🔥)** 로만 트리거 (클라이언트 값 무시) · 브로커당 시간당 상한 · 24시간 구독자 중복 방지 ·
@@ -17,6 +19,8 @@ import { createModuleLogger } from '@/lib/logger';
 import { guardError, withPublicGuard } from '@/lib/magazine/public-guard';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/magazine/user-message';
 import { resolveBroker } from '@/lib/magazine/resolve-broker';
+import { resolveEventTarget, type LegacyIssueRef } from '@/lib/magazine/edition-target';
+import { isUnpublishedContent } from '@/lib/magazine/get-published-issue';
 import { isMagazineSendEnabled, isMagazineTrackingEnabled } from '@/lib/magazine/send-flags';
 import { hashVisitorId } from '@/lib/magazine/visitor-hash';
 import { canonicalClickTarget, rawClickTarget, sanitizeClickMeta } from '@/lib/magazine/visitor-id';
@@ -58,42 +62,60 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
 
   const supabase = createServiceClient();
 
-  // 1) 에디션: 존재 · 발행 상태 확인, broker 는 서버가 결정
-  const { data: edition, error: edErr } = await supabase
-    .from('magazine_editions')
-    .select('id, broker_id, status')
-    .eq('id', body.edition_id)
-    .maybeSingle();
-  if (edErr) {
-    log.error('[Magazine Analytics] edition lookup', edErr.message);
+  // 1) 호 해석: edition uuid 우선 → 레거시 issue id(→ 같은 날짜의 발행 에디션) → 에디션 없는 레거시 호.
+  //    broker 는 호에서 서버가 결정한다.
+  const target = await resolveEventTarget(supabase, body.edition_id);
+  if (target.kind === 'error') {
+    log.error('[Magazine Analytics] target lookup', target.message);
     return guardError(500, 'INTERNAL', GENERIC_ERROR_MESSAGE);
   }
-  if (!edition) return guardError(404, 'EDITION_NOT_FOUND', '존재하지 않는 호수입니다.');
-  if (edition.status !== 'published') {
-    return NextResponse.json({ ok: true, tracked: false, reason: 'NOT_PUBLISHED' });
+  if (target.kind === 'not_found') return guardError(404, 'EDITION_NOT_FOUND', '존재하지 않는 호수입니다.');
+
+  /** edition 에 연결된 호면 그 id, 에디션 없는 레거시 호면 null (집계에서 구분 · metadata.legacy_issue_id 로 보존) */
+  let editionId: string | null = null;
+  let brokerRaw: string;
+  let legacy: LegacyIssueRef | null = null;
+  if (target.kind === 'edition') {
+    if (target.edition.status !== 'published') {
+      return NextResponse.json({ ok: true, tracked: false, reason: 'NOT_PUBLISHED' });
+    }
+    editionId = target.edition.id;
+    brokerRaw = String(target.edition.broker_id);
+  } else {
+    // 초안/검수대기 표시가 남은 레거시 콘텐츠는 기록하지 않는다 (뷰어와 같은 기준)
+    if (target.issue.content && isUnpublishedContent(target.issue.content)) {
+      return NextResponse.json({ ok: true, tracked: false, reason: 'NOT_PUBLISHED' });
+    }
+    legacy = target.issue;
+    brokerRaw = legacy.brokerKey;
   }
 
-  const broker = await resolveBroker(supabase, String(edition.broker_id));
+  const broker = await resolveBroker(supabase, brokerRaw);
   const brokerKeys = Array.from(
-    new Set([String(edition.broker_id), broker?.userId, broker?.slug].filter((k): k is string => !!k)),
+    new Set([brokerRaw, broker?.userId, broker?.slug].filter((k): k is string => !!k)),
   );
 
   // 2) page_view 중복 억제
   if (body.event_type === 'page_view') {
     const since = new Date(Date.now() - PAGE_VIEW_DEDUP_MINUTES * 60_000).toISOString();
-    const { count, error: dupErr } = await supabase
+    let dupQuery = supabase
       .from('magazine_analytics_events')
       .select('id', { count: 'exact', head: true })
-      .eq('edition_id', edition.id)
       .eq('visitor_id', visitorHash)
       .eq('event_type', 'page_view')
       .gte('created_at', since);
+    dupQuery = legacy
+      ? dupQuery.is('edition_id', null).eq('metadata->>legacy_issue_id', legacy.issueId)
+      : dupQuery.eq('edition_id', editionId);
+
+    const { count, error: dupErr } = await dupQuery;
     if (dupErr) {
       log.error('[Magazine Analytics] dedup lookup', dupErr.message);
       return guardError(500, 'INTERNAL', GENERIC_ERROR_MESSAGE);
     }
     if ((count ?? 0) > 0) return NextResponse.json({ ok: true, tracked: false, reason: 'DUPLICATE_VIEW' });
   }
+
 
   // 3) 구독자 귀속 (서명 토큰 검증 + 브로커 일치 + 구독자 존재)
   let subscriber: { id: string; interest_profile: unknown; subscribed_at: string | null } | null = null;
@@ -124,7 +146,7 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
     meta.target_raw = rawTarget; // 뷰어 원문 어휘 보존 (감사·재분류용)
   }
   const row = {
-    edition_id: edition.id,
+    edition_id: editionId,
     visitor_id: visitorHash,
     event_type: body.event_type,
     section_id: body.section_id ?? null,
@@ -138,6 +160,10 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
       ...(referrerHost(body.metadata?.referrer) ? { referrer_host: referrerHost(body.metadata?.referrer) } : {}),
       ...(subscriber ? { subscriber_id: subscriber.id } : {}),
       ...(Object.keys(meta).length > 0 ? { meta } : {}),
+      // 에디션이 없는 레거시 호: edition_id NULL 로 저장하되 어느 호인지 보존 (에디션 지표와 섞이지 않음)
+      ...(legacy ? { legacy_issue_id: legacy.issueId, ...(legacy.issueDate ? { legacy_issue_date: legacy.issueDate } : {}) } : {}),
+      // issue id 로 들어왔지만 발행 에디션으로 연결된 경우의 원본 id (감사용)
+      ...(target.kind === 'edition' && target.viaIssueId ? { via_issue_id: target.viaIssueId } : {}),
     },
   };
   const { error: insErr } = await supabase.from('magazine_analytics_events').insert(row);
@@ -146,9 +172,9 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
     return guardError(500, 'INTERNAL', GENERIC_ERROR_MESSAGE);
   }
 
-  // 5) 조회수 (첫 page_view 만)
-  if (body.event_type === 'page_view') {
-    const { error: rpcErr } = await supabase.rpc('increment_edition_views', { edition_id: edition.id });
+  // 5) 조회수 (첫 page_view 만, 에디션 연결 호만 — 레거시 호는 view_count 컬럼이 없다)
+  if (body.event_type === 'page_view' && editionId) {
+    const { error: rpcErr } = await supabase.rpc('increment_edition_views', { edition_id: editionId });
     if (rpcErr) log.warn('[Magazine Analytics] increment_edition_views 실패 (view_count 미증가)', rpcErr.message);
   }
 
@@ -172,13 +198,15 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
       broker_id: broker.userId,
       metadata: {
         user_agent_hash: visitorHash,
-        edition_id: edition.id,
+        ...(editionId ? { edition_id: editionId } : {}),
+        ...(legacy ? { legacy_issue_id: legacy.issueId } : {}),
         ...(subscriber ? { subscriber_id: subscriber.id } : {}),
       },
       created_at: new Date().toISOString(),
     });
     if (actErr) log.warn('[Magazine Analytics] activity_events insert', actErr.message);
   }
+
 
   // 7) 핫리드 알림 — 서버 계산 점수로만
   if (subscriber && broker?.userId && kind && ['page_view', 'im_request', 'phone_click', 'listing_click', 'poll_vote', 'inquiry'].includes(kind)) {

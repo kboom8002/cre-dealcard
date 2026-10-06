@@ -93,8 +93,16 @@ interface BarActionProps {
   className?: string;
 }
 
+/**
+ * 아이콘 위 · 라벨 아래(최대 2줄) 세로 배치 — 360~390px 에서도 라벨이 '…' 로 잘리지 않는다.
+ * min-h-12(48px) ≥ 44px 터치 타깃. `min-w-0` 로 flex 자식이 내용 폭 이상으로 밀리지 않게 한다.
+ */
 const ACTION_BASE =
-  'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-body font-bold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300';
+  'inline-flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1.5 py-1.5 text-center leading-tight font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300';
+
+/** 라벨: 줄바꿈 허용(whitespace-normal) · 한글은 단어 단위(break-keep) · 최대 2줄 */
+const ACTION_LABEL =
+  'min-w-0 max-w-full whitespace-normal break-keep text-label leading-tight line-clamp-2';
 
 function BarAction({
   icon,
@@ -108,11 +116,11 @@ function BarAction({
   const content = (
     <>
       {icon ? (
-        <span className="shrink-0" aria-hidden="true">
+        <span className="flex shrink-0 items-center justify-center" aria-hidden="true">
           {icon}
         </span>
       ) : null}
-      <span className="truncate">{children}</span>
+      <span className={ACTION_LABEL}>{children}</span>
     </>
   );
   if (href) {
@@ -129,11 +137,12 @@ function BarAction({
   );
 }
 
+/** Primary 는 가중(1.4) — 같은 줄의 Secondary(1)보다 넓지만 라벨 공간을 먼저 확보한다 */
 function Primary(props: BarActionProps) {
   return (
     <BarAction
       {...props}
-      variantClass="min-w-0 flex-[2] bg-indigo-600 text-white hover:bg-indigo-500"
+      variantClass="flex-[1.4_1_0%] bg-indigo-600 text-white hover:bg-indigo-500"
     />
   );
 }
@@ -142,7 +151,7 @@ function Secondary(props: BarActionProps) {
   return (
     <BarAction
       {...props}
-      variantClass="min-w-0 flex-1 border border-slate-600 bg-slate-800 text-ink-muted hover:bg-slate-700"
+      variantClass="flex-[1_1_0%] border border-slate-600 bg-slate-800 text-ink-muted hover:bg-slate-700"
     />
   );
 }

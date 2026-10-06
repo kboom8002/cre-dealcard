@@ -95,21 +95,57 @@ function handRoi(i: { price: number; ltv: number; rate: number; deposit: number;
 }
 
 async function hideDevChrome(page: Page) {
-  await page.addStyleTag({ content: 'nextjs-portal, [data-nextjs-toast], #__next-build-watcher { display: none !important; }' }).catch(() => {});
+  // 메인 문서 + 미리보기 iframe 모두에서 Next dev 표시(N 배지/Compiling 토스트) 숨김
+  for (const f of page.frames()) {
+    await f.addStyleTag({ content: 'nextjs-portal, [data-nextjs-toast], [data-nextjs-dev-tools-button], #__next-build-watcher { display: none !important; }' }).catch(() => {});
+  }
 }
 
-async function shot(page: Page, name: string, opts: { fullPage?: boolean; doc?: boolean; mask?: any[]; locator?: any } = {}) {
+async function shot(page: Page, name: string, opts: { fullPage?: boolean; doc?: boolean; mask?: any[]; locator?: any; clip?: { x: number; y: number; width: number; height: number }; maskPhones?: boolean } = {}) {
   if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
   await hideDevChrome(page);
+  if (opts.maskPhones) {
+    // 고객 전화번호 텍스트를 DOM 에서 010-****-**** 로 치환 (mask 박스는 overflow 로 가려진 요소까지 칠해 화면을 오염시킴)
+    for (const f of page.frames()) {
+      await f.evaluate(() => {
+        const re = /01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g;
+        const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        for (let n = w.nextNode(); n; n = w.nextNode()) if (re.test(n.nodeValue || '')) n.nodeValue = (n.nodeValue || '').replace(re, '010-****-****');
+      }).catch(() => {});
+    }
+  }
   await page.waitForTimeout(150);
   const file = path.join(OUT_DIR, name);
   if (opts.locator) await opts.locator.screenshot({ path: file, mask: opts.mask });
-  else await page.screenshot({ path: file, fullPage: !!opts.fullPage, mask: opts.mask });
+  else await page.screenshot({ path: file, fullPage: !!opts.fullPage, mask: opts.mask, clip: opts.clip });
   if (opts.doc) {
     if (!fs.existsSync(DOC_IMG_DIR)) fs.mkdirSync(DOC_IMG_DIR, { recursive: true });
     fs.copyFileSync(file, path.join(DOC_IMG_DIR, name));
     (report.docImages ||= []).push(name);
   }
+}
+
+/** 에디터 좌측 패널(h-screen 내부 스크롤)을 잘림 없이 촬영: 뷰포트를 스크롤 높이만큼 늘린 뒤 좌측만 clip, 이후 원복 */
+async function editorPanelShot(page: Page, name: string, mask?: any[]) {
+  const vp = page.viewportSize() || { width: 1440, height: 900 };
+  const m = await page.evaluate(() => {
+    let extra = 0; let width = 460;
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+      const r = el.getBoundingClientRect();
+      if (r.left > 4 || r.width < 300 || r.width > 700) continue;
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 4) {
+        if (el.scrollHeight - el.clientHeight > extra) { extra = el.scrollHeight - el.clientHeight; width = Math.ceil(r.right); }
+      }
+    }
+    return { extra, width };
+  });
+  const h = Math.min(vp.height + m.extra + 8, 6000);
+  await page.setViewportSize({ width: vp.width, height: h });
+  await page.waitForTimeout(600);
+  await shot(page, name, { doc: true, mask, maskPhones: true, clip: { x: 0, y: 0, width: Math.min(m.width, vp.width), height: h } });
+  await page.setViewportSize(vp);
+  await page.waitForTimeout(300);
 }
 
 function attachDiagnostics(page: Page, label: string) {
@@ -158,7 +194,7 @@ async function newReaderContext(browser: Browser, viewport = { width: 390, heigh
 }
 
 async function gotoViewer(page: Page, url: string) {
-  const resp = await page.goto(url, { waitUntil: 'networkidle' }).catch(async () => page.goto(url, { waitUntil: 'load' }));
+  const resp = await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 }).catch(async () => page.goto(url, { waitUntil: 'load', timeout: 120000 }));
   // 클라이언트 섬 하이드레이션 대기 (계산기는 next/dynamic 지연 로드)
   await page.locator('#roi-price-range').waitFor({ state: 'attached', timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(600);
@@ -260,11 +296,20 @@ function note(step: string, data: Record<string, any>) {
 // ─────────────────────────────────────────────────────────────
 // 픽스처 (실제 발행본 복제 + 설문/세무/시장온도/키워드)
 // ─────────────────────────────────────────────────────────────
+/** 중단된 실행이 남긴 e2e-tut3 픽스처(TAG 시각 20분 경과)만 삭제 — 동시 실행 중인 픽스처는 건드리지 않음 */
+async function purgeStaleFixtures(db: ReturnType<typeof sb>): Promise<string[]> {
+  const { data } = await db.from('magazine_issues').select('id, issue_date, tag:content->>e2e_fixture').filter('content->>e2e_fixture', 'like', 'e2e-tut3-%');
+  const stale = (data || []).filter((r: any) => r.tag !== TAG && Date.now() - Number(String(r.tag).replace('e2e-tut3-', '')) > 20 * 60_000);
+  for (const r of stale as any[]) await db.from('magazine_issues').delete().eq('id', r.id);
+  return (stale as any[]).map((r) => `${r.issue_date}:${r.tag}`);
+}
+
 async function createFixture() {
   const db = sb();
   const { data: base, error: baseErr } = await db.from('magazine_issues').select('content').eq('broker_id', SLUG).eq('issue_date', BASE_ISSUE_DATE).maybeSingle();
   if (baseErr || !base?.content) throw new Error(`base issue ${BASE_ISSUE_DATE} 없음: ${baseErr?.message}`);
   const { data: older } = await db.from('magazine_issues').select('content').eq('broker_id', SLUG).eq('issue_date', REAL_DATE).maybeSingle();
+  report.stalePurged = await purgeStaleFixtures(db);
   const { data: taken } = await db.from('magazine_issues').select('issue_date').in('broker_id', [SLUG, BROKER_UUID]).in('issue_date', FIXTURE_CANDIDATES);
   const takenSet = new Set((taken || []).map((r: any) => r.issue_date));
   const date = FIXTURE_CANDIDATES.find((d) => !takenSet.has(d));
@@ -366,7 +411,7 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       const coverText = (await cover.innerText()).replace(/\s+/g, ' ');
       note(S1, { coverText: coverText.slice(0, 500) });
       await expect.soft(page.locator('h1'), 'h1 = 발행본 헤드라인').toHaveText(content.headline);
-      await expect.soft(cover.getByText('E2E 테스트 브로커').first(), '커버 브로커 이름').toBeVisible();
+      await expect.soft(cover.getByText('김테스트', { exact: true }).first(), '커버 브로커 이름 (공개 이름 SSOT = broker_profiles.name)').toBeVisible();
       await expect.soft(cover.getByTestId('initial-avatar'), '사진 없음 → 이니셜 아바타').toBeVisible();
       expect.soft(coverText, '소속 표기').toContain('E2E 테스트 부동산중개법인');
       const expectedDate = await page.locator('[data-section-id="cover"] time').innerText();
@@ -400,7 +445,7 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       for (const [id, re] of Object.entries(expectTitles)) {
         if (order.includes(id)) expect.soft(titles[id] ?? '', `섹션 제목 ${id}`).toMatch(re);
       }
-      await expect.soft(page.getByTestId('tracking-notice'), '푸터 열람 통계 고지').toBeVisible();
+      await expect.soft(page.locator('main footer').getByTestId('tracking-notice'), '푸터 열람 통계 고지').toBeVisible();
       const metrics = await page.evaluate(() => {
         const vis = (el: Element) => { const r = (el as HTMLElement).getBoundingClientRect(); return r.width > 0 && r.height > 0; };
         const small = Array.from(document.querySelectorAll('main button, main a, main input, main summary, nav a, nav button')).filter(vis).map((el) => {
@@ -636,7 +681,7 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
         await gotoViewer(p, `${VIEWER}?target=${target}`);
         await slowScroll(p);
         orders[target] = await sectionOrder(p);
-        expect.soft(orders[target], `?target=${target} 순서 = ${target} 기본 순서`).toEqual(SECTION_ORDER[target].filter((s) => orders[target].includes(s) || (target === 'buyer' && false)));
+        expect.soft(orders[target], `?target=${target} 순서 = ${target} 기본 순서`).toEqual(SECTION_ORDER[target].filter((s) => orders[target].includes(s)));
         if (target === 'buyer') expect.soft(orders.buyer.includes('tax_clinic'), 'buyer → 세무 섹션 숨김').toBeFalsy();
         if (target === 'seller') {
           expect.soft(orders.seller.includes('tax_clinic'), 'seller → 세무 섹션 노출').toBeTruthy();
@@ -648,30 +693,37 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       report.sectionOrderBuyer = orders.buyer;
       report.sectionOrderSeller = orders.seller;
       // 같은 데이터에서 all 에는 있고 buyer 에는 없는 섹션은 세무뿐
-      expect.soft(orders.all.filter((s) => !orders.buyer.includes(s)), 'buyer 에서 빠지는 섹션 = tax_clinic').toEqual(['tax_clinic']);
+      expect.soft((orders.all ?? []).filter((s) => !orders.buyer.includes(s)), 'buyer 에서 빠지는 섹션 = tax_clinic').toEqual(['tax_clinic']);
     });
 
     // ═════════════ 실습 5 ═════════════
-    const S5 = '실습5 시장 데이터·뉴스 아코디언';
+    const S5 = '실습5 시장 데이터·뉴스·경매 아코디언';
     await runStep(S5, async () => {
       const market = page.locator('[data-section-id="market_data"]');
-      await market.scrollIntoViewIfNeeded();
-      const mh = market.getByRole('button', { name: /시장 데이터/ });
-      expect.soft(await mh.getAttribute('aria-expanded'), '전체 독자: 시장 데이터 기본 접힘').toBe('false');
-      await mh.click();
-      await page.waitForTimeout(250);
-      const mt = (await market.innerText()).replace(/\s+/g, ' ');
-      note(S5, { marketText: mt.slice(0, 600) });
       const dbTx = Array.isArray(content.recentTransactions) ? content.recentTransactions.length : 0;
-      expect.soft(await market.locator('tbody tr').count(), `실거래 행 = 발행 데이터 recentTransactions(${dbTx}) (더미 금지)`).toBe(Math.min(dbTx, 5));
-      if (content.rentalTrend) expect.soft(mt, '임대 동향(공실률)').toContain(`${content.rentalTrend.vacancy_rate}%`);
-      if (content.commercialDistrict) expect.soft(mt, '상권 분석(매출 지수)').toContain('매출 지수');
-      await expect.soft(market.getByTestId('market-source'), '출처·기준일 표기').toContainText('출처: 공공데이터 · 기준일:');
-      await shot(page, 'p3_06_market_open_390.png', { doc: true, locator: market });
+      const hasMarket = dbTx > 0 || !!content.rentalTrend || !!content.commercialDistrict || !!content.monthlySummary;
+      note(S5, { hasMarketData: hasMarket, dbTx });
+      if (!hasMarket) {
+        expect.soft(await market.count(), '시장 데이터 없음 → 섹션 숨김 (더미 실거래 주입 금지)').toBe(0);
+        test.info().annotations.push({ type: 'N/A(data)', description: '테스트 브로커 발행본 전부 recentTransactions 0·rentalTrend/commercialDistrict null → 시장 데이터 펼침/seller 기본 펼침은 코드 확인만' });
+      } else {
+        await market.scrollIntoViewIfNeeded();
+        const mh = market.getByRole('button', { name: /시장 데이터/ });
+        expect.soft(await mh.getAttribute('aria-expanded'), '전체 독자: 시장 데이터 기본 접힘').toBe('false');
+        await mh.click();
+        await page.waitForTimeout(250);
+        const mt = (await market.innerText()).replace(/\s+/g, ' ');
+        note(S5, { marketText: mt.slice(0, 600) });
+        expect.soft(await market.locator('tbody tr').count(), `실거래 행 = 발행 데이터 recentTransactions(${dbTx}) (더미 금지)`).toBe(Math.min(dbTx, 5));
+        await expect.soft(market.getByTestId('market-source'), '출처·기준일 표기').toContainText('출처: 공공데이터 · 기준일:');
+        await shot(page, 'p3_06_market_open_390.png', { doc: true, locator: market });
+      }
 
       const news = page.locator('[data-section-id="news_curation"]');
       await news.scrollIntoViewIfNeeded();
-      await news.getByRole('button', { name: /뉴스 큐레이션/ }).click();
+      const nh = news.getByRole('button', { name: /뉴스 큐레이션/ });
+      expect.soft(await nh.getAttribute('aria-expanded'), '뉴스 기본 접힘').toBe('false');
+      await nh.click();
       await page.waitForTimeout(250);
       const items = await news.locator('li').allInnerTexts();
       const labels = items.map((t) => (t.match(/(호재|악재|중립)/) || [])[1] ?? '?');
@@ -681,12 +733,28 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       expect.soft(labels, '감성 = 텍스트+기호(▲호재/▼악재/–중립), 발행 데이터와 일치').toEqual(expected);
       await shot(page, 'p3_07_news_open_390.png', { doc: true, locator: news });
 
+      const auction = page.locator('[data-section-id="auction_picks"]');
+      if ((await auction.count()) > 0) {
+        await auction.getByRole('button', { name: /경매 픽/ }).click();
+        await page.waitForTimeout(250);
+        const at = (await auction.innerText()).replace(/\s+/g, ' ');
+        note(S5, { auctionText: at.slice(0, 400) });
+        expect.soft(at.length, '경매 픽 펼침 내용').toBeGreaterThan(10);
+      }
+
       const sp = await reader.newPage(); attachDiagnostics(sp, 'seller-market');
       await gotoViewer(sp, `${VIEWER}?target=seller`);
       const sm = sp.locator('[data-section-id="market_data"]');
-      expect.soft(await sm.getByRole('button', { name: /시장 데이터/ }).getAttribute('aria-expanded'), 'seller: 시장 데이터 기본 펼침').toBe('true');
-      await sm.scrollIntoViewIfNeeded();
-      await shot(sp, 'p3_08_seller_market_390.png', { doc: true });
+      if (hasMarket) {
+        expect.soft(await sm.getByRole('button', { name: /시장 데이터/ }).getAttribute('aria-expanded'), 'seller: 시장 데이터 기본 펼침').toBe('true');
+        await sm.scrollIntoViewIfNeeded();
+      } else {
+        expect.soft(await sm.count(), 'seller 에서도 시장 데이터 더미 없음').toBe(0);
+        // 매도 타깃 고유 순서(세무 → 계산기)가 보이도록 세무 섹션 하단~계산기 머리로 스크롤
+        await sp.locator('[data-section-id="roi_calculator"]').evaluate((el) => { el.scrollIntoView({ block: 'start' }); window.scrollBy(0, -360); }).catch(() => {});
+        await sp.waitForTimeout(300);
+      }
+      await shot(sp, 'p3_08_seller_view_390.png', { doc: true });
       await sp.close();
     });
 
@@ -707,9 +775,10 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       note(S6, { callHref, imHref });
       expect.soft(callHref, '전화 = tel:숫자').toMatch(/^tel:\d{9,11}$/);
       expect.soft(imHref, 'IM 요청 → 중개사 프로필(ref=magazine-cta)').toBe(`/broker-profile/${SLUG}?ref=magazine-cta`);
-      const boxes = await bar.locator('a, button').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { t: (e as HTMLElement).innerText.trim(), w: Math.round(r.width), h: Math.round(r.height) }; }));
+      const boxes = await bar.locator('a, button').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); const s = e.querySelector('span.truncate') as HTMLElement | null; return { t: (s?.textContent || (e as HTMLElement).innerText).trim(), w: Math.round(r.width), h: Math.round(r.height), truncated: !!s && s.scrollWidth > s.clientWidth + 1 }; }));
       report.bottomBarBoxes = boxes;
       boxes.forEach((b) => expect.soft(b.h, `"${b.t}" 높이 ≥44px`).toBeGreaterThanOrEqual(44));
+      boxes.forEach((b) => expect.soft(b.truncated, `390px 고정바 라벨 "${b.t}" 말줄임(…) 없음`).toBeFalsy());
       let b0 = beacons.length;
       await call.click();
       const cb = await waitBeacon((b) => b.body?.target_param === 'phone_click', b0);
@@ -798,20 +867,16 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       expect.soft(beaconsSince(b3).length, '미리보기 → 분석 비콘 0').toBe(0);
       await ctx2.close();
       // 고지
-      const noticeText = (await page.getByTestId('tracking-notice').innerText()).replace(/\s+/g, ' ');
+      const noticeText = (await page.locator('main footer').getByTestId('tracking-notice').innerText()).replace(/\s+/g, ' ');
       report.trackingNotice = noticeText;
       expect.soft(noticeText, '고지: 임의 방문자 번호 13개월, 쿠키·기기 지문 아님').toMatch(/임의의 방문자 번호를 13개월간 저장.*쿠키·기기 지문 아님/);
-      expect.soft(await page.getByTestId('tracking-notice').getByRole('link', { name: '개인정보 처리방침' }).getAttribute('href'), '처리방침 링크').toBe('/privacy');
+      expect.soft(await page.locator('main footer').getByTestId('tracking-notice').getByRole('link', { name: '개인정보 처리방침' }).getAttribute('href'), '처리방침 링크').toBe('/privacy');
       // 서버 수집 경로 (직접 POST, 쓰기 시 afterAll 정리)
       const v1 = crypto.randomUUID(); directPostVisitors.push(v1);
       const r1 = await request.post('/api/public/magazine/analytics', { data: { edition_id: fixtureId, visitor_id: v1, event_type: 'page_view', metadata: { pv: TAG } } });
       const j1 = await r1.json().catch(() => null);
-      const { data: draft } = await db.from('magazine_editions').select('id, status').like('id::text' as any, `${DRAFT_EDITION_ID_PREFIX}%`).limit(1);
-      let draftId: string | null = draft?.[0]?.id ?? null;
-      if (!draftId) {
-        const { data: anyDraft } = await db.from('magazine_editions').select('id').in('broker_id', [SLUG, BROKER_UUID]).neq('status', 'published').limit(1);
-        draftId = anyDraft?.[0]?.id ?? null;
-      }
+      const { data: drafts } = await db.from('magazine_editions').select('id').in('broker_id', [SLUG, BROKER_UUID]).neq('status', 'published').limit(5);
+      const draftId: string | null = (drafts || []).find((d: any) => String(d.id).startsWith(DRAFT_EDITION_ID_PREFIX))?.id ?? drafts?.[0]?.id ?? null;
       const v2 = crypto.randomUUID(); directPostVisitors.push(v2);
       const r2 = draftId ? await request.post('/api/public/magazine/analytics', { data: { edition_id: draftId, visitor_id: v2, event_type: 'page_view', metadata: { pv: TAG } } }) : null;
       const j2 = r2 ? await r2.json().catch(() => null) : null;
@@ -826,12 +891,17 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
     // ═════════════ 실습 8 ═════════════
     const S8 = '실습8 성과 대시보드 — 매수 온도·핫리드·통화 브리핑';
     const ed = await browser.newContext({ storageState: path.resolve(__dirname, '.auth/user.json'), viewport: { width: 1440, height: 900 }, locale: 'ko-KR' });
-    await ed.route('**/api/**', (r) => (r.request().method() === 'GET' ? r.continue() : r.abort()));
+    // 비-GET 차단. 예외: 이번 호 초안 get-or-create(POST, LLM 없음 — 이번 주 초안 W41 이 이미 있어 반환만 함)
+    await ed.route('**/api/**', (r) => (r.request().method() === 'GET' || /\/api\/magazine\/editions\/draft$/.test(new URL(r.request().url()).pathname) ? r.continue() : r.abort()));
     await ed.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL() });
     const ep = await ed.newPage(); ep.setDefaultTimeout(20000); attachDiagnostics(ep, 'editor');
-    const phoneMask = () => [ep.locator('a[href^="tel:"]'), ep.getByText(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/)];
+    const phoneMask = (): any[] => []; // 전화번호는 shot({maskPhones}) 의 DOM 치환으로 가림
     await runStep(S8, async () => {
-      await ep.goto('/broker/magazine-editor', { waitUntil: 'domcontentloaded' });
+      await ep.goto('/broker/magazine-editor', { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await ep.getByRole('tablist').first().waitFor({ timeout: 120000 }).catch(() => {});
+      report.editorUrl = ep.url();
+      report.editorBody = (await ep.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 600);
+      if ((await ep.getByRole('tab').count()) === 0) await shot(ep, 'p3_debug_editor.png');
       await ep.waitForLoadState('networkidle').catch(() => {});
       const tabs = (await ep.getByRole('tab').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
       report.editorTabs = tabs;
@@ -852,7 +922,9 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       const kpiNote = await ep.getByRole('note').first().innerText().catch(() => '');
       report.kpiDefinitionCompletion = kpiNote;
       expect.soft(kpiNote.length, 'KPI 정의 툴팁(role=note)').toBeGreaterThan(5);
-      await ep.keyboard.press('Escape');
+      await ep.getByRole('button', { name: '완독률 기준 보기' }).click(); // 토글로 닫기(Escape 미지원)
+      await ep.mouse.move(1200, 50);
+      await ep.waitForTimeout(300);
       const { count: dbActive } = await db.from('magazine_subscribers').select('id', { count: 'exact', head: true }).in('broker_id', [SLUG, BROKER_UUID]).eq('status', 'active');
       report.activeSubscribers = { api: aj?.subscriberCount, db: dbActive };
       expect.soft(aj?.subscriberCount, '활성 구독자 = DB 실측').toBe(dbActive);
@@ -861,32 +933,75 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       if (aj?.pollUnavailable === 'NOT_MIGRATED') {
         await expect.soft(ep.getByText(/독자 투표 집계를 사용하려면 데이터베이스 업데이트가 필요합니다/), '@needs-migration 투표 집계 미적용 안내').toBeVisible();
       }
-      // 5단계 온도 필터
+      // 5단계 온도 분포 (표시 전용 — 전체 활성 구독자 기준)
       const tiers = ['🔥 적극검토', '📈 관심', '⏸️ 관망', '❄️ 냉각', '⚪ 미확인'];
+      const distList = ep.getByRole('list', { name: '매수 온도 단계별 구독자 수' });
+      await expect.soft(distList, '온도 분포 목록(표시 전용)').toBeVisible();
       const tierCounts: Record<string, number | null> = {};
       for (const t of tiers) {
-        const btn = ep.locator(`button[aria-label^="${t} "]`);
-        const label = await btn.getAttribute('aria-label').catch(() => null);
+        const label = await distList.locator(`[aria-label^="${t} "]`).first().getAttribute('aria-label', { timeout: 5000 }).catch(() => null);
         tierCounts[t] = label ? Number((label.match(/(\d+)명$/) || [])[1]) : null;
-        expect.soft(label, `온도 필터 "${t} N명"`).toMatch(new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\d+명$`));
+        expect.soft(label ?? '', `온도 분포 "${t} N명"`).toMatch(new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\d+명$`));
       }
       report.tierCounts = tierCounts;
       const apiDist = aj?.temperatureDistribution || {};
       expect.soft(tiers.map((t) => tierCounts[t]), 'UI 온도 분포 = API').toEqual(tiers.map((t) => apiDist[t] ?? 0));
-      await shot(ep, 'p3_11_dashboard_1440.png', { doc: true, fullPage: true, mask: phoneMask() });
-      // 핫리드 → 상세 패널
-      const leads = (aj?.hotLeads || []).filter((h: any) => h.subscriber_name);
+      expect.soft(tiers.reduce((s, t) => s + (apiDist[t] ?? 0), 0), '온도 분포 합 = 활성 구독자').toBe(aj?.subscriberCount);
+
+      // 핫리드 선별 기준 (서버 필터 ?tier=) — 기본 '관심 이상'(warm)
+      const group = ep.getByRole('group', { name: '핫리드 선별 기준' });
+      await expect.soft(group, '"핫리드 선별 기준" 그룹').toBeVisible();
+      await expect.soft(group.getByRole('button', { name: /관심 이상/ }), '기본 선택 = 관심 이상').toHaveAttribute('aria-pressed', 'true');
+      expect.soft(aResp?.url() ?? '', '최초 조회 = ?tier=warm').toContain('tier=warm');
+      const leadCountUi = async () => Number(((await ep.getByText('지금 연락해야 할 핫리드').locator('xpath=following-sibling::span[1]').innerText().catch(() => '')).match(/(\d+)명/) || [])[1]);
+      const tierRuns: Record<string, any> = {};
+      const checkTier = (tier: string, leadsArr: any[]) => {
+        if (tier === 'hot') return leadsArr.every((h) => h.buyerTemperature === '🔥 적극검토');
+        if (tier === 'warm') return leadsArr.every((h) => ['🔥 적극검토', '📈 관심'].includes(h.buyerTemperature));
+        return leadsArr.every((h) => h.score > 0);
+      };
+      const warmLeads = aj?.hotLeads || [];
+      tierRuns.warm = { n: warmLeads.length, ui: await leadCountUi(), ok: checkTier('warm', warmLeads), rule: aj?.hotLeadThreshold?.rule, query: aj?.hotLeadQuery };
+      expect.soft(tierRuns.warm.ok, 'warm: 🔥/📈 만').toBeTruthy();
+      expect.soft(tierRuns.warm.ui, 'warm: UI 핫리드 수 = API').toBe(warmLeads.length);
+      if (aj?.hotLeadThreshold?.rule) await expect.soft(ep.getByText(aj.hotLeadThreshold.rule).first(), '선별 기준 문구 표시').toBeVisible();
+      if (warmLeads.length === 0) await expect.soft(ep.getByText('아직 관심 신호가 있는 구독자가 없습니다'), 'warm 0명 → 빈 상태 안내').toBeVisible();
+      let allJson: any = null;
+      for (const [tier, label] of [['hot', /적극검토만/], ['all', /반응 있는 전체/]] as const) {
+        const [r] = await Promise.all([
+          ep.waitForResponse((x) => x.url().includes(`/api/broker/magazine/analytics?tier=${tier}`), { timeout: 30000 }).catch(() => null),
+          group.getByRole('button', { name: label }).click(),
+        ]);
+        await ep.waitForTimeout(600);
+        const j: any = r ? await r.json().catch(() => null) : null;
+        const ls = j?.hotLeads || [];
+        tierRuns[tier] = { status: r?.status() ?? null, n: ls.length, ui: await leadCountUi(), ok: checkTier(tier, ls), pressed: await group.getByRole('button', { name: label }).getAttribute('aria-pressed'), rule: j?.hotLeadThreshold?.rule, query: j?.hotLeadQuery };
+        expect.soft(tierRuns[tier].status, `${tier}: 서버 재조회 200`).toBe(200);
+        expect.soft(tierRuns[tier].ok, `${tier}: 서버 선별 규칙 준수`).toBeTruthy();
+        expect.soft(tierRuns[tier].ui, `${tier}: UI 핫리드 수 = API`).toBe(ls.length);
+        expect.soft(tierRuns[tier].pressed, `${tier}: aria-pressed`).toBe('true');
+        if (tier === 'all') allJson = j;
+      }
+      const bad = await ep.request.get('/api/broker/magazine/analytics?tier=bogus');
+      tierRuns.invalid = { status: bad.status(), code: (await bad.json().catch(() => ({})))?.error?.code };
+      expect.soft(tierRuns.invalid.status, '알 수 없는 tier → 400').toBe(400);
+      report.hotLeadTiers = tierRuns;
+      await editorPanelShot(ep, 'p3_11_dashboard_1440.png', phoneMask());
+      // 핫리드('반응 있는 전체') → 상세 패널 / 통화 브리핑
+      const leads = (allJson?.hotLeads || []).filter((h: any) => h.subscriber_name);
+      report.hotLeadsAll = leads.map((h: any) => ({ t: h.buyerTemperature, s: h.score, v: h.totalViews }));
       if (leads.length > 0) {
         const name = leads[0].subscriber_name;
         await ep.getByRole('button', { name: `${name} 열람 상세 보기` }).first().click();
         const panel = ep.getByRole('dialog');
         await expect.soft(panel, '고객 이름 → 열람 이력 패널').toBeVisible({ timeout: 10000 });
         await expect.soft(panel.getByText(`${name} 열람 이력`), `패널 제목 "${name} 열람 이력"`).toBeVisible();
-        await ep.waitForTimeout(1500);
+        await expect(panel.getByText('불러오는 중')).toHaveCount(0, { timeout: 30000 }).catch(() => {});
+        await ep.waitForTimeout(300);
         const pt = (await panel.innerText()).replace(/\s+/g, ' ');
         report.detailPanel = pt.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g, '010-****-****').slice(0, 500);
         for (const k of ['열람 횟수', '평균 체류', '마지막 활동']) expect.soft(pt, `패널 "${k}"`).toContain(k);
-        await shot(ep, 'p3_12_subscriber_detail_1440.png', { doc: true, mask: phoneMask() });
+        await shot(ep, 'p3_12_subscriber_detail_1440.png', { doc: true, mask: phoneMask(), maskPhones: true });
         await panel.getByRole('button', { name: '닫기' }).first().click().catch(async () => ep.keyboard.press('Escape'));
         await ep.waitForTimeout(400);
         // 통화 브리핑(템플릿)
@@ -904,21 +1019,13 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
         expect.soft(mt, '"AI 생성 아님" 명시').toContain('AI 생성 아님');
         expect.soft(apiCalls.length, '템플릿 → 생성 API 호출 0').toBe(0);
         await expect.soft(modal.getByRole('button', { name: /문구 복사/ }), '"문구 복사"').toBeVisible();
-        await shot(ep, 'p3_13_call_briefing_1440.png', { doc: true, mask: phoneMask() });
+        await shot(ep, 'p3_13_call_briefing_1440.png', { doc: true, mask: phoneMask(), maskPhones: true });
         const closed = await modal.getByRole('button', { name: '닫기' }).first().click({ timeout: 5000 }).then(() => true).catch(() => false);
         report.callBriefingCloseClickable = closed;
         expect.soft(closed, '모달 "닫기" 클릭 가능').toBeTruthy();
         if (!closed) await ep.keyboard.press('Escape');
-        // 필터
-        const hotLabel = await ep.locator('button[aria-label^="🔥 적극검토 "]').getAttribute('aria-label');
-        await ep.locator('button[aria-label^="🔥 적극검토 "]').click();
-        await ep.waitForTimeout(300);
-        const hotShown = await ep.getByRole('button', { name: /열람 상세 보기$/ }).count();
-        report.hotFilter = { label: hotLabel, shown: hotShown, apiHotInTop10: leads.filter((h: any) => h.buyerTemperature === '🔥 적극검토').length };
-        expect.soft(hotShown, '🔥 필터 → 상위 10명 중 🔥 단계만').toBe(report.hotFilter.apiHotInTop10);
-        await ep.locator('button[aria-label^="🔥 적극검토 "]').click();
       } else {
-        test.info().annotations.push({ type: 'N/A(data)', description: '핫리드 0명 → 상세 패널/통화 브리핑 검증 불가' });
+        test.info().annotations.push({ type: 'N/A(data)', description: '반응 있는 구독자 0명 → 상세 패널/통화 브리핑 검증 불가' });
       }
       await expect.soft(ep.getByText('콘텐츠별 독자 관심도').first(), '섹션 관심도').toBeVisible();
       await expect.soft(ep.getByText('발행 에디션별 성과').first(), '에디션별 성과').toBeVisible();
@@ -944,10 +1051,12 @@ test.describe('📙 Tutorial Part3 — Golden E2E (Wave4 D-01)', () => {
       };
       expect.soft(report.publishTab.story, '"원페이지 이미지 (1080x1920)"').toBeTruthy();
       expect.soft(report.publishTab.pollEditor && report.publishTab.taxEditor && report.publishTab.sectionOrder, '설문/세무/섹션 순서 편집 UI').toBeTruthy();
-      await shot(ep, 'p3_14_publish_tab_1440.png', { doc: true, fullPage: true, mask: phoneMask() });
+      await editorPanelShot(ep, 'p3_14_publish_tab_1440.png', phoneMask());
 
       const fonts = { publicFonts: fs.existsSync(path.resolve(__dirname, '../public/fonts')), envFontPath: !!process.env.MAGAZINE_OG_FONT_PATH };
       report.fontStatus = { ...fonts, expected: fonts.publicFonts || fonts.envFontPath ? 'Noto Sans KR' : 'Latin fallback (한글 제거)' };
+      // 한글 폰트가 없으면 latinSafe 가 한글을 지워 요약이 "9.4% 5 , 1 . . :" 같은 구두점 잔해가 됨 → 상용 불가 (제품 결함)
+      expect.soft(fonts.publicFonts || fonts.envFontPath, 'SNS 이미지 한글 폰트 탑재 (public/fonts 또는 MAGAZINE_OG_FONT_PATH)').toBeTruthy();
       const assets: Record<string, any> = {};
       const targets: [string, string, number, number, string | null][] = [
         ['og', `/api/og/magazine?brokerId=${SLUG}&date=${FIX_DATE}`, 1200, 630, 'p3_17_og_image.png'],

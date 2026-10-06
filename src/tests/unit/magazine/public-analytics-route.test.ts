@@ -18,6 +18,10 @@ const h = vi.hoisted(() => ({
   rpcCalls: [] as Array<{ name: string; args: unknown }>,
   alertCalls: [] as unknown[][],
   edition: null as null | { id: string; broker_id: string; status: string },
+  /** magazine_issues.id 조회 결과 (레거시 issue id 경로) */
+  issue: null as null | { id: string; broker_id: string; issue_date: string; content: unknown },
+  /** magazine_editions 의 id 이외 조회(라벨/발행일/loadSubscriberEvents) 결과 */
+  labelEditions: [{ id: '99999999-9999-4999-8999-999999999999' }] as Array<Record<string, unknown>>,
   dupCount: 0,
   sub: null as null | Record<string, unknown>,
   events: [] as Array<Record<string, unknown>>,
@@ -45,9 +49,11 @@ function setupDb() {
     const hasEq = (col: string) => call.filters.some((f) => f[0] === 'eq' && f[1] === col);
     switch (call.table) {
       case 'magazine_editions':
-        // 라우트: .eq('id').maybeSingle() → 객체 / loadSubscriberEvents: .in('broker_id') → 배열
+        // 라우트: .eq('id').maybeSingle() → 객체 / 라벨·발행일 조회·loadSubscriberEvents: 배열
         if (hasEq('id')) return { data: h.edition };
-        return { data: [{ id: ED }] };
+        return { data: h.labelEditions };
+      case 'magazine_issues':
+        return { data: h.issue };
       case 'magazine_analytics_events':
         if (call.op === 'insert') return { data: null };
         if (call.filters.some((f) => f[0] === 'like')) return { data: h.events };
@@ -100,6 +106,8 @@ beforeEach(() => {
   h.rpcCalls = [];
   h.alertCalls = [];
   h.edition = { id: ED, broker_id: 'broker-a', status: 'published' };
+  h.issue = null;
+  h.labelEditions = [{ id: ED }];
   h.dupCount = 0;
   h.sub = null;
   h.events = [];
@@ -173,6 +181,73 @@ describe('에디션 · 브로커 결정', () => {
     const act = insertsOf('activity_events')[0].payload as { broker_id: string; actor_id: string };
     expect(act.broker_id).toBe(BROKER_USER);
     expect(act.actor_id).toBe(BROKER_USER);
+  });
+});
+
+describe('레거시 issue id 로 들어온 열람 기록 (404 로 버리지 않는다)', () => {
+  const ISSUE = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const issueRow = (content: unknown = {}) => ({ id: ISSUE, broker_id: 'broker-a', issue_date: '2026-10-05', content });
+
+  it('같은 날짜의 발행 에디션이 있으면 그 에디션에 정상 기록 (+ via_issue_id, 조회수 RPC)', async () => {
+    h.edition = null; // id 로는 에디션 없음
+    h.issue = issueRow();
+    h.labelEditions = [{ id: ED, broker_id: 'broker-a', status: 'published' }];
+    const res = await POST(post(evt({ edition_id: ISSUE })));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, tracked: true });
+    const row = insertsOf('magazine_analytics_events')[0].payload as { edition_id: string | null; metadata: Record<string, unknown> };
+    expect(row.edition_id).toBe(ED);
+    expect(row.metadata.via_issue_id).toBe(ISSUE);
+    expect(row.metadata.legacy_issue_id).toBeUndefined();
+    expect(h.rpcCalls.filter((r) => r.name === 'increment_edition_views')[0].args).toEqual({ edition_id: ED });
+  });
+
+  it('에디션이 없는 레거시 호 → edition_id NULL + metadata.legacy_issue_id 로 기록, view_count RPC 없음', async () => {
+    h.edition = null;
+    h.issue = issueRow();
+    h.labelEditions = [];
+    const res = await POST(post(evt({ edition_id: ISSUE })));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, tracked: true });
+    const row = insertsOf('magazine_analytics_events')[0].payload as { edition_id: string | null; metadata: Record<string, unknown> };
+    expect(row.edition_id).toBeNull();
+    expect(row.metadata).toMatchObject({ v: 2, legacy_issue_id: ISSUE, legacy_issue_date: '2026-10-05' });
+    expect(h.rpcCalls.filter((r) => r.name === 'increment_edition_views')).toHaveLength(0);
+    // broker 는 호(issue)에서 서버가 결정 — 퍼널 이벤트도 legacy_issue_id 만 담고 edition_id 는 없다
+    const act = insertsOf('activity_events')[0].payload as { broker_id: string; metadata: Record<string, unknown> };
+    expect(act.broker_id).toBe(BROKER_USER);
+    expect(act.metadata).toMatchObject({ legacy_issue_id: ISSUE });
+    expect(act.metadata.edition_id).toBeUndefined();
+  });
+
+  it('레거시 호 page_view 중복은 legacy_issue_id 기준으로 억제 (edition_id IS NULL 조건)', async () => {
+    h.edition = null;
+    h.issue = issueRow();
+    h.labelEditions = [];
+    h.dupCount = 1;
+    const json = await (await POST(post(evt({ edition_id: ISSUE })))).json();
+    expect(json).toMatchObject({ ok: true, tracked: false, reason: 'DUPLICATE_VIEW' });
+    expect(insertsOf('magazine_analytics_events')).toHaveLength(0);
+    const dup = (h.db.calls as FakeCall[]).find((c) => c.table === 'magazine_analytics_events' && c.op !== 'insert')!;
+    expect(dup.filters.some((f) => f[0] === 'is' && f[1] === 'edition_id')).toBe(true);
+    expect(dup.filters.some((f) => f[0] === 'eq' && f[1] === 'metadata->>legacy_issue_id' && f[2] === ISSUE)).toBe(true);
+  });
+
+  it('초안/검수대기 표시가 남은 레거시 콘텐츠는 기록하지 않는다', async () => {
+    h.edition = null;
+    h.issue = issueRow({ status: 'draft' });
+    h.labelEditions = [];
+    const json = await (await POST(post(evt({ edition_id: ISSUE })))).json();
+    expect(json).toMatchObject({ ok: true, tracked: false, reason: 'NOT_PUBLISHED' });
+    expect(insertsOf('magazine_analytics_events')).toHaveLength(0);
+  });
+
+  it('에디션도 issue 도 아닌 uuid → 여전히 404', async () => {
+    h.edition = null;
+    h.issue = null;
+    const res = await POST(post(evt({ edition_id: ISSUE })));
+    expect(res.status).toBe(404);
+    expect(insertsOf('magazine_analytics_events')).toHaveLength(0);
   });
 });
 

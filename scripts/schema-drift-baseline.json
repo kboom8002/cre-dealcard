@@ -1,6 +1,6 @@
 {
  "$comment": "스키마 드리프트 baseline(F-01). 키 = file|table|col|op|kind, 값 = 건수(줄번호 제외). 위반이 줄었을 때만 --update-baseline 으로 갱신.",
- "generatedAt": "2026-10-05T14:53:25.172Z",
+ "generatedAt": "2026-10-06T07:01:34.155Z",
  "snapshotGeneratedAt": "2026-10-05T14:33:18.130Z",
  "overlayMigrations": [
   "20261004000001_magazine_rls_lockdown.sql",
@@ -18,10 +18,11 @@
   "20261004000013_magazine_editions_unique_kind.sql",
   "20261004000014_magazine_retention.sql",
   "20261004000015_magazine_broker_user_id_backfill.sql",
+  "20261004000016_magazine_analytics_v2.sql",
   "20261005000000_lease_ledger_exclusive_area.sql"
  ],
- "total": 722,
- "magazineTotal": 2,
+ "total": 720,
+ "magazineTotal": 0,
  "counts": {
   "src/ai/cost-tracker.ts|im_generation_metrics||from|TABLE-MISSING": 1,
   "src/ai/cost-tracker.ts|im_generation_metrics|building_id|insert|TABLE-MISSING": 1,
@@ -60,7 +61,6 @@
   "src/app/(broker)/broker/funnel/page.tsx|bookings|id|select|TABLE-MISSING": 1,
   "src/app/(broker)/broker/funnel/page.tsx|bookings|slot_id|in|TABLE-MISSING": 1,
   "src/app/(broker)/broker/leasing/page.tsx|spaces|asset_type|select|COL-MISSING": 1,
-  "src/app/(broker)/broker/magazine-editor/page.tsx|activity_events|user_id|insert|COL-MISSING": 1,
   "src/app/(broker)/broker/page.tsx|bookings||from|TABLE-MISSING": 1,
   "src/app/(broker)/broker/page.tsx|bookings|id|select|TABLE-MISSING": 1,
   "src/app/(broker)/broker/page.tsx|bookings|requester_id|select|TABLE-MISSING": 1,
@@ -178,7 +178,6 @@
   "src/app/api/broker/inbox/route.ts|in_app_notifications|title|select|TABLE-MISSING": 1,
   "src/app/api/broker/inbox/route.ts|in_app_notifications|type|select|TABLE-MISSING": 1,
   "src/app/api/broker/inbox/route.ts|in_app_notifications|user_id|eq|TABLE-MISSING": 1,
-  "src/app/api/broker/magazine/subscribers/[id]/intent/route.ts|broker_clients|owner_id|eq|COL-MISSING": 1,
   "src/app/api/broker/match/route.ts|building_signal_cards|building_ssot_lite_id|eq|COL-MISSING": 1,
   "src/app/api/broker/morning-intelligence/combine/route.ts|user_combined_briefing||from|TABLE-MISSING": 1,
   "src/app/api/broker/morning-intelligence/combine/route.ts|user_combined_briefing|combined_action_list|insert|TABLE-MISSING": 1,

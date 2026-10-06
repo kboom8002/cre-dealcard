@@ -19,6 +19,18 @@ export function formatKrPhoneInput(raw: string): string {
   return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
 }
 
+/**
+ * 소유 중개사 화면 표시용: 01000007103 → 010-0000-7103.
+ * 휴대폰(01x, 10~11자리 숫자/공백/하이픈만)일 때만 포맷하고, 마스킹('010-****-1234')·유선·국제 번호 등은 원문 그대로 둔다.
+ */
+export function formatKrPhoneDisplay(raw: string | null | undefined): string {
+  const s = String(raw ?? '').trim();
+  if (!s || !/^[\d\s-]+$/.test(s)) return s;
+  const d = s.replace(/\D/g, '');
+  if (!/^01\d{8,9}$/.test(d)) return s;
+  return formatKrPhoneInput(d);
+}
+
 /** 서버로 보낼 수 있는 최소 길이(10~11자리) 여부. 실제 검증은 서버가 한다. */
 export function isPlausiblePhoneDigits(raw: string): boolean {
   const d = digitsOnly(raw);

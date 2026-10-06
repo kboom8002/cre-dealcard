@@ -12,6 +12,9 @@ const h = vi.hoisted(() => ({
   db: null as unknown as { client: unknown; calls: unknown[] },
   sub: null as null | Record<string, unknown>,
   displayName: '김중개' as string | null,
+  /** broker_profiles.name (공개 표시명 SSOT 1순위) */
+  bpName: null as string | null,
+  bpNameError: null as null | { code?: string; message: string },
   updateError: null as null | { code?: string; message: string },
 }));
 
@@ -28,6 +31,11 @@ function setupDb() {
       case 'broker_profiles': {
         const slug = call.filters.find((f) => f[0] === 'eq' && f[1] === 'slug')?.[2];
         const uid = call.filters.find((f) => f[0] === 'eq' && f[1] === 'user_id')?.[2];
+        // 표시명 조회(.select('name'))
+        if (call.filters.some((f) => f[0] === 'select' && f[1] === 'name')) {
+          if (h.bpNameError) return { error: h.bpNameError };
+          return { data: { name: h.bpName } };
+        }
         if (slug === 'broker-a' || uid === UA) {
           return { data: { user_id: UA, slug: 'broker-a', bio: null, specialty_regions: [], specialty_assets: [], is_public: true } };
         }
@@ -61,6 +69,8 @@ beforeEach(() => {
   vi.stubEnv('UNSUBSCRIBE_SECRET', 'route-test-secret');
   h.sub = { id: SUB, broker_id: 'broker-a', status: 'active' };
   h.displayName = '김중개';
+  h.bpName = null;
+  h.bpNameError = null;
   h.updateError = null;
   setupDb();
 });
@@ -247,5 +257,62 @@ describe('POST /unsubscribe (해지 실행)', () => {
     const payload = ev.payload as { actor_id: string; metadata: Record<string, unknown> };
     expect(payload.actor_id).toBe(UA); // uuid 컬럼에 slug가 들어가지 않는다
     expect(JSON.stringify(payload)).not.toMatch(/phone|email|name|010/i);
+  });
+});
+
+describe('중개사 표시명 SSOT · 한글 줄바꿈 (Part2 골든)', () => {
+  const brand = async (res: Response) => (await res.text()).match(/<p class="brand">([^<]*)<\/p>/)?.[1] ?? null;
+
+  it('broker_profiles.name 이 있으면 profiles.display_name 보다 우선 (확인·완료 화면 모두)', async () => {
+    h.bpName = '공개 중개사명';
+    h.displayName = '에디터 표시명';
+    expect(await brand(await GET(new Request(`${BASE}?t=${encodeURIComponent(tok())}`)))).toBe('공개 중개사명 매거진');
+    expect(await brand(await POST(form(tok())))).toBe('공개 중개사명 매거진');
+  });
+
+  it('broker_profiles.name 이 비어 있으면 display_name 으로 폴백 (공백만 있는 값 포함)', async () => {
+    h.bpName = '   ';
+    h.displayName = '에디터 표시명';
+    expect(await brand(await GET(new Request(`${BASE}?t=${encodeURIComponent(tok())}`)))).toBe('에디터 표시명 매거진');
+  });
+
+  it('name 조회가 실패(컬럼 없음 등)해도 display_name 으로 보여 주고 해지는 정상 처리', async () => {
+    h.bpNameError = { code: '42703', message: 'column broker_profiles.name does not exist' };
+    h.displayName = '에디터 표시명';
+    const res = await POST(form(tok()));
+    expect(res.status).toBe(200);
+    expect(await brand(res)).toBe('에디터 표시명 매거진');
+    expect(calls('magazine_subscribers', 'update')).toHaveLength(1);
+  });
+
+  it('이름이 전혀 없으면 브랜드 줄을 만들지 않는다(가짜 기본값 금지)', async () => {
+    h.bpName = null;
+    h.displayName = null;
+    const html = await (await GET(new Request(`${BASE}?t=${encodeURIComponent(tok())}`))).text();
+    expect(html).not.toContain('class="brand"');
+  });
+
+  it('공개 표시명도 이스케이프된다 (broker_profiles.name XSS)', async () => {
+    h.bpName = '<img src=x onerror=alert(1)>';
+    const html = await (await GET(new Request(`${BASE}?t=${encodeURIComponent(tok())}`))).text();
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
+
+  it('한글은 단어 중간에서 끊지 않고(keep-all) 긴 영문·URL 은 anywhere 로 줄바꿈', async () => {
+    const html = await (await GET(new Request(`${BASE}?t=${encodeURIComponent(tok())}`))).text();
+    expect(html).toContain('word-break: keep-all');
+    expect(html).toContain('overflow-wrap: anywhere');
+  });
+
+  it('위조 토큰은 표시명 조회 전에 400 으로 끝난다 (DB 미접근, 회귀 보호)', async () => {
+    h.bpName = '공개 중개사명';
+    const res = await GET(new Request(`${BASE}?t=fake`));
+    expect(res.status).toBe(400);
+    expect(await brand(res)).toBeNull();
+    expect(h.db.calls).toHaveLength(0);
+    const post = await POST(form('fake'));
+    expect(post.status).toBe(400);
+    expect(h.db.calls).toHaveLength(0);
   });
 });

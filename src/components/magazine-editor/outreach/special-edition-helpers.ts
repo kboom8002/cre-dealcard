@@ -24,6 +24,8 @@ export interface SpecialPreview {
   matchable: boolean;
   matchedPreview: Array<{ id: string; name: string; temperature: string; color: string }>;
   defaultHeadline: string | null;
+  /** 서버가 알려 주는 발송 마스터 스위치. 응답에 없으면 null(알 수 없음) */
+  sendEnabled: boolean | null;
 }
 
 function n(v: unknown): number {
@@ -62,6 +64,7 @@ export function parseSpecialPreview(json: unknown): SpecialPreview | null {
         color: s(m.color) ?? '#64748b',
       })),
     defaultHeadline: s(j.defaultHeadline),
+    sendEnabled: typeof j.sendEnabled === 'boolean' ? j.sendEnabled : null,
   };
 }
 

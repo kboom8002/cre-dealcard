@@ -29,10 +29,11 @@ export interface MarketTempConfig {
 
 // 이모지는 에디터(`lib/magazine/editor-labels.ts EDITOR_MARKET_TEMP_ICON`)·뷰어(`view-helpers MARKET_TEMP_VIEW`)와 동일한
 // 색 사각형 세트 — 구독자 매수 온도(🔥📈⏸️❄️⚪, buyer-temperature.ts)와 겹치지 않는다 (U2-24, 테스트로 보장).
+// 색상은 이모지 사각형 색과 일치시킨다 (🟩 초록 · 🟨 노랑 · 🟦 파랑 · 🟧 주황 · 🟥 빨강) — 배지 색과 아이콘 색이 어긋나지 않도록.
 export const MARKET_TEMP_CONFIG: Record<MarketTemperature, MarketTempConfig> = {
   '적극 매수': {
     emoji: '🟩',
-    color: '#ef4444',
+    color: '#10b981',
     description: '강한 매수 신호 — 거래량 급증, 매물 소진 빠름',
   },
   '선별 매수': {
@@ -42,17 +43,17 @@ export const MARKET_TEMP_CONFIG: Record<MarketTemperature, MarketTempConfig> = {
   },
   '관망': {
     emoji: '🟦',
-    color: '#6b7280',
+    color: '#3b82f6',
     description: '관망 국면 — 뚜렷한 방향 없이 거래 위축',
   },
   '조정 대기': {
     emoji: '🟧',
-    color: '#3b82f6',
+    color: '#f97316',
     description: '조정 진행 중 — 급매 나올 수 있으나 하락 리스크 상존',
   },
   '위기 경계': {
     emoji: '🟥',
-    color: '#dc2626',
+    color: '#ef4444',
     description: '시장 위기 경계 — 금리·경기 악재 집중, 신규 투자 보류 권고',
   },
 };

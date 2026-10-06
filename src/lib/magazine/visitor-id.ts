@@ -68,9 +68,21 @@ export function parseStoredVisitorId(raw: string | null | undefined, now: number
 }
 
 /**
+ * 레거시 값 해석 — 구형 `view-helpers.getOrCreateVisitorId` 는 같은 키에 **JSON 이 아닌 raw 문자열**(UUID)을 저장했다.
+ * raw 가 유효한 UUID 이면 그 ID 를 이어받는다(투표 중복 방지 ID 유지). 발급 시각은 알 수 없으므로 now 로 보고 JSON 형식으로 다시 쓴다.
+ * UUID 가 아닌 구형 폴백 값(`v<base36>`)은 버리고 새로 발급한다.
+ */
+export function parseLegacyVisitorId(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = raw.trim();
+  return isValidVisitorId(v) ? v : null;
+}
+
+/**
  * 방문자 ID 를 읽거나 새로 만든다.
  *  - 저장소가 있으면 영속(13개월), 쓰기 실패(사생활 보호 모드 등)면 이번 페이지 로드 동안만 유효한 ID.
  *  - 난수 생성기가 없으면 null (호출자는 추적을 중단해야 한다).
+ *  - 저장 값 계약: key=`cre_mag_vid`, value=`{"id":"<uuid>","createdAt":<ms>}` (JSON). 레거시 raw UUID 는 읽을 때 이 형식으로 이전한다.
  */
 export function resolveVisitorId(
   storage: KeyValueStorage | null | undefined,
@@ -79,8 +91,18 @@ export function resolveVisitorId(
 ): string | null {
   if (storage) {
     try {
-      const existing = parseStoredVisitorId(storage.getItem(VISITOR_ID_STORAGE_KEY), now);
+      const rawStored = storage.getItem(VISITOR_ID_STORAGE_KEY);
+      const existing = parseStoredVisitorId(rawStored, now);
       if (existing) return existing.id;
+      const legacyId = parseLegacyVisitorId(rawStored);
+      if (legacyId) {
+        try {
+          storage.setItem(VISITOR_ID_STORAGE_KEY, JSON.stringify({ id: legacyId, createdAt: now } satisfies StoredVisitorId));
+        } catch {
+          // 이전 쓰기 실패 — 이번 로드에서는 레거시 ID 그대로 사용
+        }
+        return legacyId;
+      }
     } catch {
       // 저장소 접근 거부 → 아래에서 세션 ID 로 진행
     }
@@ -96,6 +118,31 @@ export function resolveVisitorId(
   }
   return id;
 }
+
+/** 브라우저 localStorage (접근 불가·SSR 이면 null). */
+export function browserLocalStorage(): KeyValueStorage | null {
+  try {
+    const w = (globalThis as { window?: { localStorage?: KeyValueStorage } }).window;
+    return w?.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * **단일 출처** — 열람 추적(useMagazineAnalytics)과 독자 투표(PollSection)가 같은 ID 를 쓴다.
+ * 문자열을 항상 돌려준다: 난수 생성기가 없으면 투표 중복 방지용 임시 값(`v…`, 저장 안 함 · 열람 추적은 resolveVisitorId 가 null 이라 중단).
+ */
+export function getOrCreateVisitorId(
+  storage: KeyValueStorage | null | undefined = browserLocalStorage(),
+  now: number = Date.now(),
+  generate: IdGenerator = defaultIdGenerator,
+): string {
+  const id = resolveVisitorId(storage, now, generate);
+  if (id) return id;
+  return `v${now.toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
 
 /** 에디터 미리보기·iframe 에서는 비콘을 보내지 않는다 (T1-13: 세션당 99~104회 오염). */
 export function isPreviewContext(search: string, inIframe: boolean): boolean {

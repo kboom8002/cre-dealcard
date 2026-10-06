@@ -59,6 +59,23 @@ export function classifyIssueDate(date: string, now: Date = new Date()): IssueDa
 
 export type MagazineContent = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
+const NON_PUBLIC_STATUS = new Set(['draft', 'needs_review', 'editing', 'review', 'scheduled', 'archived']);
+
+/**
+ * 초안/검수대기 표시 판정(원시 값 기준 — 목록 조회에서는 content 전체를 읽지 않고 이 두 값만 select 한다).
+ *  - status 가 비공개 상태이거나, qualityGate.passed === false(검수 전 콘텐츠)이면 비공개.
+ */
+export function isNonPublicMarker(status: unknown, qualityGatePassed: unknown): boolean {
+  if (typeof status === 'string' && NON_PUBLIC_STATUS.has(status)) return true;
+  return qualityGatePassed === false || qualityGatePassed === 'false';
+}
+
+/** content 가 초안/검수대기로 표시되어 있으면 true — 공개하지 않는다. */
+export function isUnpublishedContent(content: MagazineContent): boolean {
+  const qg = (content as { generation?: { qualityGate?: { passed?: unknown } | null } }).generation?.qualityGate;
+  return isNonPublicMarker((content as { status?: unknown }).status, qg ? qg.passed : undefined);
+}
+
 const EDITION_COLUMNS =
   'id, edition_type, edition_label, title, market_temp, cover_keywords, cover_image_url, field_note, theme_title, theme_body_md, theme_asset_types, theme_color, content, published_at';
 
@@ -141,40 +158,17 @@ export async function findIssueForDate(
   return null;
 }
 
-/** 실제 최신 발행본 날짜(KST, 오늘 이전). 없으면 null — 오늘 날짜로 폴백하지 않는다(T2-CL-2). */
+/**
+ * 실제 최신 발행본 날짜(KST, 오늘 이전). 없으면 null — 오늘 날짜로 폴백하지 않는다(T2-CL-2).
+ * 아카이브와 같은 통합 목록(`listPublishedEntries`)에서 도출하므로 랜딩 '최신호'와 아카이브 카드가 어긋나지 않는다.
+ */
 export async function findLatestIssueDate(
   supabase: Db,
   broker: { user_id: string; slug: string | null },
   now: Date = new Date(),
 ): Promise<string | null> {
-  const keys = brokerKeys(broker);
-  const today = todayKst(now);
-  const candidates: string[] = [];
-
-  const { data: issues, error: issueErr } = await supabase
-    .from('magazine_issues')
-    .select('issue_date')
-    .in('broker_id', keys)
-    .lte('issue_date', today)
-    .order('issue_date', { ascending: false })
-    .limit(1);
-  if (issueErr) throw new Error(`latest issue lookup failed: ${issueErr.message}`);
-  if (issues?.[0]?.issue_date) candidates.push(String(issues[0].issue_date).slice(0, 10));
-
-  const { data: eds, error: edErr } = await supabase
-    .from('magazine_editions')
-    .select('published_at')
-    .in('broker_id', keys)
-    .eq('status', 'published')
-    .not('published_at', 'is', null)
-    .lte('published_at', now.toISOString())
-    .order('published_at', { ascending: false })
-    .limit(1);
-  if (edErr) throw new Error(`latest edition lookup failed: ${edErr.message}`);
-  if (eds?.[0]?.published_at) candidates.push(toKstDate(new Date(eds[0].published_at)));
-
-  if (candidates.length === 0) return null;
-  return candidates.sort().reverse()[0];
+  const [latest] = await listPublishedEntries(supabase, broker, 1, now);
+  return latest?.date ?? null;
 }
 
 /**
@@ -275,4 +269,104 @@ export async function listPublishedEditions(
     .limit(limit * 2);
   if (error) throw new Error(`archive edition lookup failed: ${error.message}`);
   return buildArchiveEntries((data ?? []) as Array<Record<string, unknown>>, now).slice(0, limit);
+}
+
+/**
+ * 레거시 `magazine_issues` 행(목록용 최소 컬럼) → 아카이브 항목.
+ * 초안/검수대기 표시(status · qualityGate.passed=false)·미래 날짜·잘못된 날짜는 제외, 같은 날짜는 최신 갱신 1건.
+ */
+export function buildLegacyIssueEntries(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  now: Date = new Date(),
+): ArchiveEntry[] {
+  const today = todayKst(now);
+  const byDate = new Map<string, { entry: ArchiveEntry; stamp: string }>();
+  for (const r of rows) {
+    if (!r || typeof r.id !== 'string') continue;
+    const date = typeof r.issue_date === 'string' ? r.issue_date.slice(0, 10) : '';
+    if (!parseIssueDate(date) || date > today) continue;
+    if (isNonPublicMarker(r.status, r.qg_passed)) continue;
+    const stamp = typeof r.updated_at === 'string' ? r.updated_at : '';
+    const existing = byDate.get(date);
+    if (existing && existing.stamp >= stamp) continue;
+    byDate.set(date, {
+      stamp,
+      entry: {
+        id: r.id,
+        date,
+        label: date,
+        title: typeof r.headline === 'string' && r.headline.trim() ? r.headline.trim() : null,
+        marketTemp: typeof r.market_temp === 'string' && r.market_temp ? r.market_temp : null,
+        keywords: Array.isArray(r.cover_keywords)
+          ? (r.cover_keywords as unknown[]).filter((k): k is string => typeof k === 'string' && !!k).slice(0, 3)
+          : [],
+      },
+    });
+  }
+  return Array.from(byDate.values()).map((v) => v.entry);
+}
+
+/**
+ * 발행된 에디션 항목 + 에디션이 없는 날짜의 레거시 발행본(날짜 중복 제거: 같은 날짜면 에디션 우선) → 최신순.
+ * 뷰어(`findIssueForDate`)·구독 랜딩(`findLatestIssueDate`)·아카이브가 모두 이 규칙을 쓴다 (계획서 E-01 '읽기 호환').
+ */
+export function mergeArchiveEntries(
+  editionEntries: ReadonlyArray<ArchiveEntry>,
+  legacyEntries: ReadonlyArray<ArchiveEntry>,
+): ArchiveEntry[] {
+  const byDate = new Map<string, ArchiveEntry>();
+  for (const e of legacyEntries) byDate.set(e.date, e);
+  for (const e of editionEntries) byDate.set(e.date, e); // 에디션이 레거시를 덮어쓴다
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+/**
+ * 독자 공개 발행본 목록 = published editions + 에디션 없는 레거시 published issues (draft/needs_review 제외).
+ * 조회수 컬럼은 select 하지 않는다. DB 오류는 삼키지 않고 throw.
+ */
+export async function listPublishedEntries(
+  supabase: Db,
+  broker: { user_id: string; slug: string | null },
+  limit = 50,
+  now: Date = new Date(),
+): Promise<ArchiveEntry[]> {
+  const editionEntries = await listPublishedEditions(supabase, broker, limit, now);
+
+  const { data, error } = await supabase
+    .from('magazine_issues')
+    .select(
+      'id, issue_date, updated_at, headline:content->>headline, market_temp:content->>market_temp, cover_keywords:content->cover_keywords, status:content->>status, qg_passed:content->generation->qualityGate->>passed',
+    )
+    .in('broker_id', brokerKeys(broker))
+    .lte('issue_date', todayKst(now))
+    .order('issue_date', { ascending: false })
+    .limit(Math.max(limit * 2, 20));
+  if (error) throw new Error(`archive issue lookup failed: ${error.message}`);
+  const legacyEntries = buildLegacyIssueEntries((data ?? []) as Array<Record<string, unknown>>, now);
+
+  return mergeArchiveEntries(editionEntries, legacyEntries).slice(0, limit);
+}
+
+/**
+ * 공개 중개사 표시명 단일 규칙 — 구독 페이지·뷰어 헤더·카카오 공유 제목·해지 페이지·QR 인쇄 문구가 모두 같은 이름을 쓴다.
+ * `broker_profiles.name` 우선, 없으면 `profiles.display_name`(구독 페이지와 동일). 발행 스냅샷(`data.broker.name`)은 쓰지 않는다.
+ */
+export function publicBrokerDisplayName(
+  brokerProfileName: unknown,
+  profileDisplayName: unknown,
+): string | null {
+  const pick = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  return pick(brokerProfileName) ?? pick(profileDisplayName);
+}
+
+/** 공개 이름 조회 — broker_profiles.name 이 있으면 추가 조회 없이, 없을 때만 profiles.display_name 을 읽는다. DB 오류는 throw. */
+export async function resolvePublicDisplayName(
+  supabase: Db,
+  broker: { user_id: string; name?: unknown },
+): Promise<string | null> {
+  const direct = publicBrokerDisplayName(broker.name, null);
+  if (direct) return direct;
+  const { data, error } = await supabase.from('profiles').select('display_name').eq('id', broker.user_id).maybeSingle();
+  if (error) throw new Error(`profile lookup failed: ${error.message}`);
+  return publicBrokerDisplayName(null, (data as { display_name?: unknown } | null)?.display_name);
 }

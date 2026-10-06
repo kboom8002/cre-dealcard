@@ -6,22 +6,25 @@ import { toast } from 'sonner';
 import { Modal } from '@/components/ui/modal';
 import { formatKrPhoneInput } from '@/lib/magazine/phone-input';
 import {
+  CHANNEL_LABEL,
   CONSENT_ATTEST_HINT,
   CONSENT_ATTEST_TEXT,
   describeAddResponse,
   networkErrorMessage,
+  refreshAddErrors,
   validateAddSubscriber,
   type AddChannel,
+  type AddFieldErrors,
   type AddSubscriberInput,
 } from './outreach-helpers';
 
 const CHANNELS: Array<{ key: AddChannel; label: string; icon: typeof Mail }> = [
-  { key: 'kakao', label: '카카오톡', icon: MessageCircle },
-  { key: 'email', label: '이메일', icon: Mail },
-  { key: 'both', label: '둘 다', icon: Send },
+  { key: 'kakao', label: CHANNEL_LABEL.kakao, icon: MessageCircle },
+  { key: 'email', label: CHANNEL_LABEL.email, icon: Mail },
+  { key: 'both', label: CHANNEL_LABEL.both, icon: Send },
 ];
 
-type FieldErrors = Partial<Record<'name' | 'phone' | 'email' | 'attested', string>>;
+type FieldErrors = AddFieldErrors;
 
 interface AddSubscriberFormProps {
   open: boolean;
@@ -43,8 +46,10 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
   const needsEmail = form.channel === 'email' || form.channel === 'both';
 
   function set<K extends keyof AddSubscriberInput>(key: K, value: AddSubscriberInput[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
-    if (key in errors) setErrors((e) => ({ ...e, [key as keyof FieldErrors]: undefined }));
+    const next = { ...form, [key]: value } as AddSubscriberInput;
+    setForm(next);
+    // 채널·이메일·전화 검증은 서로 의존한다 — 표시 중인 오류를 현재 값 기준으로 함께 재계산/해제
+    setErrors((prev) => refreshAddErrors(next, prev));
     setFormError('');
   }
 

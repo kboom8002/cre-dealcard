@@ -6,7 +6,9 @@ import { Modal } from '@/components/ui/modal';
 import { ErrorState } from '@/components/ui/error-state';
 import { SkeletonGroup, SkeletonText } from '@/components/ui/Skeleton';
 import { TAG_GROUP_KEYS, type TagGroupKey } from '@/lib/magazine/tags';
+import { formatKrPhoneDisplay } from '@/lib/magazine/phone-input';
 import {
+  CHANNEL_LABEL,
   TAG_GROUP_LABELS,
   TAG_PRESETS,
   addTag,
@@ -43,9 +45,9 @@ export interface DetailSubscriber {
 }
 
 const CHANNEL_OPTIONS: Array<{ key: DetailSubscriber['channel']; label: string }> = [
-  { key: 'kakao', label: '카카오톡' },
-  { key: 'email', label: '이메일' },
-  { key: 'both', label: '카카오+이메일' },
+  { key: 'kakao', label: CHANNEL_LABEL.kakao },
+  { key: 'email', label: CHANNEL_LABEL.email },
+  { key: 'both', label: CHANNEL_LABEL.both },
 ];
 
 interface Props {
@@ -253,7 +255,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
         <div className="min-w-0">
           <p className="truncate text-body font-bold text-white">{subscriber.subscriber_name}</p>
           <p className="flex items-center gap-1.5 text-label text-ink-muted">
-            <Phone className="h-3 w-3" aria-hidden="true" /> {subscriber.subscriber_phone}
+            <Phone className="h-3 w-3" aria-hidden="true" /> {formatKrPhoneDisplay(subscriber.subscriber_phone)}
           </p>
           {subscriber.subscriber_email ? (
             <p className="flex items-center gap-1.5 truncate text-label text-ink-muted">

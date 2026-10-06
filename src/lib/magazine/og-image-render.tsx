@@ -13,8 +13,8 @@ import type { ImageModel } from '@/lib/magazine/og-image-data';
 
 export type Translate = (s: string, latinFallback?: string) => string;
 
-export function makeTranslate(hasKorean: boolean): Translate {
-  return (s, fb = '') => latinSafe(s, hasKorean, fb);
+export function makeTranslate(hasKorean: boolean, glyphs: ReadonlySet<number> | null = null): Translate {
+  return (s, fb = '') => latinSafe(s, hasKorean, fb, glyphs);
 }
 
 export const ACCENT: Record<string, string> = {
@@ -191,6 +191,16 @@ function Stats({ m, t, size }: { m: ImageModel; t: Translate; size: number }) {
   );
 }
 
+/** 매물 행 문구: 제목·주소가 같거나 비어 있으면 한 번만 (예: '양평동 · 양평동' 방지). */
+export function dealRowText(title: string, address: string): string {
+  const key = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+  const parts: string[] = [];
+  for (const p of [title, address]) {
+    if (p && !parts.some((x) => key(x) === key(p))) parts.push(p);
+  }
+  return parts.join(' · ');
+}
+
 function DealList({ m, t, size }: { m: ImageModel; t: Translate; size: number }) {
   // 주소는 이미 maskAddress(동 단위) 처리됨 — 정확한 지번은 절대 그리지 않는다.
   const rows = m.deals
@@ -212,7 +222,7 @@ function DealList({ m, t, size }: { m: ImageModel; t: Translate; size: number })
       <span style={{ color: '#a5b4fc', fontSize: `${size - 4}px`, fontWeight: 800 }}>{t('이번 주 매물 (동 단위)', 'Featured deals')}</span>
       {rows.map((d, i) => (
         <span key={i} style={{ color: '#e2e8f0', fontSize: `${size}px`, fontWeight: 600 }}>
-          {clip(d.address ? `${d.title} · ${d.address}` : d.title, 40)}
+          {clip(dealRowText(d.title, d.address), 40)}
         </span>
       ))}
     </div>

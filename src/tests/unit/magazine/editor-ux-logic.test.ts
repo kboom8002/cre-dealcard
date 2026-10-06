@@ -26,7 +26,7 @@ import {
 import { asyncReducer, defaultIsEmpty, initialAsyncState, toErrorMessage } from '@/lib/magazine/use-async-state';
 import { EDITOR_TOAST_SLOT, createEditorToaster, type ToastKind } from '@/lib/magazine/editor-toast';
 import { computeTabCompletion, summarizeCompletion } from '@/lib/magazine/editor-progress';
-import { EDITOR_MARKET_TEMP_ICON, marketTempIcon, topicLabel, BUYER_TEMP_EMOJIS } from '@/lib/magazine/editor-labels';
+import { EDITOR_MARKET_TEMP_ICON, marketTempIcon, topicLabel, BUYER_TEMP_EMOJIS, cleanNewsText, formatNewsSummary } from '@/lib/magazine/editor-labels';
 import { EMPTY_FIELD_NOTE, type EditorForm } from '@/lib/magazine/edition-save';
 import { MAGAZINE_SEND_DAY_LABEL } from '@/lib/magazine/schedule-labels';
 
@@ -291,5 +291,33 @@ describe('editor labels (U-05)', () => {
       const text = readFileSync(join(process.cwd(), f), 'utf8');
       expect(text, f).not.toMatch(/(월|화|수|목|금)요일/);
     }
+  });
+});
+
+describe('뉴스 표시 정리 (골든 Part1 결함 ①)', () => {
+  it('크롤러 topic 키(rental/market_trend/transaction/finance/regulation/development)는 모두 한글', () => {
+    for (const k of ['rental', 'market_trend', 'transaction', 'finance', 'regulation', 'development']) {
+      const label = topicLabel(k);
+      expect(label, k).not.toBe('기타');
+      expect(/[A-Za-z_]/.test(label), k).toBe(false);
+    }
+    expect(topicLabel('rental')).toBe('임대·공실');
+  });
+
+  it('cleanNewsText: &quot; 등 엔티티를 디코딩(이중 인코딩 포함)하고 공백을 정리한다', () => {
+    expect(cleanNewsText('[네이버뉴스] &quot;세금 폭탄&quot;…개편')).toBe('[네이버뉴스] "세금 폭탄"…개편');
+    expect(cleanNewsText('A &amp;quot;B&amp;quot;  C')).toBe('A "B" C');
+    expect(cleanNewsText('x &lt;script&gt;')).toBe('x <script>'); // 텍스트로만 쓰이고 React 가 이스케이프
+    expect(cleanNewsText(null)).toBe('');
+  });
+
+  it('formatNewsSummary: 파이프/줄바꿈으로 이어진 요약을 항목으로 나누고 엔티티를 디코딩', () => {
+    const lines = formatNewsSummary(
+      '핵심 팩트: 공실률 9.4%|브로커 임플리케이션: &quot;하방 압력&quot;|추천 액션: 가격 협상',
+    );
+    expect(lines).toEqual(['핵심 팩트: 공실률 9.4%', '브로커 임플리케이션: "하방 압력"', '추천 액션: 가격 협상']);
+    expect(lines.join('')).not.toContain('|');
+    expect(formatNewsSummary(undefined)).toEqual([]);
+    expect(formatNewsSummary('한 줄\n두 줄')).toEqual(['한 줄', '두 줄']);
   });
 });

@@ -59,6 +59,8 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
   const loading = isOpen && (!loaded || loaded.key !== requestKey);
   const preview = loaded?.preview ?? null;
   const loadError = !loading && loaded?.key === requestKey ? loaded.error : null;
+  // 서버(special GET)가 알려 주는 발송 스위치가 최종 근거. 값이 없을 때만 호출부 힌트(sendDisabled)를 쓴다.
+  const sendOff = preview?.sendEnabled != null ? preview.sendEnabled === false : sendDisabled === true;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -276,7 +278,7 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
               </span>
             </label>
           </div>
-          {autoDistribute && sendDisabled ? (
+          {autoDistribute && sendOff ? (
             <p className="flex items-start gap-1.5 text-caption text-amber-300" role="status">
               <Info className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
               현재 발송 기능이 꺼져 있어요. 발행은 되지만 독자에게는 발송되지 않습니다.

@@ -8,8 +8,10 @@ import {
   findIssueForDate,
   findLatestIssueDate,
   maskPublicAddresses,
+  publicBrokerDisplayName,
   resolvePublicBroker,
 } from '@/lib/magazine/public-page-data';
+import { resolveSubscribeSource } from '@/lib/magazine/subscribe-source';
 import { formatKoreanDate } from '@/lib/magazine/kst';
 import { MAGAZINE_SEND_DAY_LABEL } from '@/lib/magazine/schedule-labels';
 import { InitialAvatar } from '@/components/magazine/InitialAvatar';
@@ -41,7 +43,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const found = await loadBroker(brokerId);
   if (!found) return { title: '매거진 구독 | CRE DealCard', robots: { index: false, follow: false } };
 
-  const name = (found.bp.name as string | null) || found.profile?.display_name || '중개사';
+  const name = publicBrokerDisplayName(found.bp.name, found.profile?.display_name) || '중개사';
   const company = found.profile?.company || 'CRE DealCard';
 
   return {
@@ -76,7 +78,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
     permanentRedirect(`/magazine/${canonical}/subscribe${q ? `?${q}` : ''}`);
   }
 
-  const brokerName = (bp.name as string | null) || profile?.display_name || '';
+  const brokerName = publicBrokerDisplayName(bp.name, profile?.display_name) || '';
   const brokerCompany = profile?.company || null;
   const brokerSlug = (bp.slug as string | null) ?? brokerId;
   const regions = Array.isArray(bp.specialty_regions) ? (bp.specialty_regions as string[]) : [];
@@ -175,7 +177,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
           brokerName={brokerName}
           regions={regions}
           assets={assets}
-          initialSource={source || 'qr_card'}
+          initialSource={resolveSubscribeSource(source, ref)}
           referrer={ref || null}
           latestDate={latestDate}
         />

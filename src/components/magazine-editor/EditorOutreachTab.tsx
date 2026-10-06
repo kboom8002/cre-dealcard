@@ -9,6 +9,7 @@ import { SkeletonGroup, SkeletonText } from '@/components/ui/Skeleton';
 import { AddSubscriberForm } from './outreach/AddSubscriberForm';
 import { SubscriberDetailModal, type DetailSubscriber } from './outreach/SubscriberDetailModal';
 import {
+  CHANNEL_LABEL,
   extractApiError,
   filterSubscribers,
   isUnsubscribedLike,
@@ -19,6 +20,7 @@ import {
   stripWeekly,
   withWeekly,
 } from './outreach/outreach-helpers';
+import { formatKrPhoneDisplay } from '@/lib/magazine/phone-input';
 
 // ── 타입 ──
 
@@ -45,9 +47,9 @@ interface Subscriber extends DetailSubscriber {
 // ── 상수 ──
 
 const CHANNEL_META: Record<string, { icon: typeof Mail; label: string; color: string }> = {
-  kakao: { icon: MessageCircle, label: '카카오톡', color: '#FEE500' },
-  email: { icon: Mail, label: '이메일', color: '#6366f1' },
-  both: { icon: Send, label: '카카오+이메일', color: '#10b981' },
+  kakao: { icon: MessageCircle, label: CHANNEL_LABEL.kakao, color: '#FEE500' },
+  email: { icon: Mail, label: CHANNEL_LABEL.email, color: '#6366f1' },
+  both: { icon: Send, label: CHANNEL_LABEL.both, color: '#10b981' },
 };
 
 const TEMP_FILTERS = ['🔥 적극검토', '📈 관심', '⏸️ 관망', '❄️ 냉각', '⚪ 미확인'];
@@ -244,8 +246,8 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
         ))}
       </div>
 
-      {/* 구독자 수 */}
-      {!loadError ? (
+      {/* 구독자 수 — 로딩 중에는 숨겨 '총 0명 중 0명' 오표시를 막는다 */}
+      {!loadError && !loading ? (
         <div className="flex items-center justify-between px-1 text-caption text-ink-muted">
           <span>
             총 {total}명 중 {filteredSubs.length}명 표시
@@ -311,7 +313,7 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
                       ) : null}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2">
-                      <span className="text-caption text-ink-muted">{sub.subscriber_phone}</span>
+                      <span className="text-caption text-ink-muted">{formatKrPhoneDisplay(sub.subscriber_phone)}</span>
                       <ChannelIcon className="h-3 w-3" style={{ color: channelMeta.color }} role="img" aria-label={channelMeta.label} />
                     </div>
                   </div>

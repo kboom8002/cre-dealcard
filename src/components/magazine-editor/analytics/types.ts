@@ -1,5 +1,8 @@
 /** 성과 탭 공용 타입 — /api/broker/magazine/analytics 응답 (키는 추가만 가능, 변경 금지: E2 구독자 상세 모달이 같은 응답을 읽는다) */
 
+/** 핫리드 선별 기준 — 서버 `?tier=` 값과 동일 */
+export type HotLeadTier = 'hot' | 'warm' | 'all';
+
 export interface SectionStat {
   sectionId: string;
   label: string;
@@ -75,6 +78,9 @@ export interface AnalyticsData {
   sectionStats?: SectionStat[];
   temperatureDistribution?: Record<string, number>;
   hotLeads?: HotLead[];
+  hotLeadThreshold?: { tier: HotLeadTier; minScore: number; tierLabels: string[] | null; rule: string };
+  totalSubscribers?: number;
+  hotLeadQuery?: { tier: HotLeadTier; limit: number; matched: number; returned: number; evaluated: number };
   dailyTrend?: { date: string; count: number }[];
   editions?: Array<{ id: string; broker_id: string; edition_label?: string; title?: string; market_temp?: string | null; view_count?: number | null; published_at?: string | null; created_at?: string }>;
   latestPollResults?: PollResults | null;

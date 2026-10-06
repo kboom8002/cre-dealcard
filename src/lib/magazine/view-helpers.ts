@@ -1,6 +1,8 @@
 /**
  * src/lib/magazine/view-helpers.ts — 독자 뷰어 클라이언트/서버 공용 순수 헬퍼 (node 전용 import 금지)
  */
+import { decodeEntities } from './escape';
+import { hasSyntheticScore, stripSyntheticScore } from './strip-synthetic-score';
 
 /**
  * 카카오 공유 썸네일 등 절대 OG 이미지 URL.
@@ -11,29 +13,11 @@ export function buildOgImageUrl(baseUrl: string, slug: string, date: string): st
   return `${base}/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}`;
 }
 
-const VISITOR_KEY = 'cre_mag_vid';
-
-function randomId(): string {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
-  return `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
-}
-
 /**
- * 설문 중복 방지용 1st-party 익명 방문자 ID (localStorage). 개인정보 아님.
- * 저장소 접근이 막혀 있으면 호출마다 임의 값을 돌려준다(서버가 IP 해시로도 보호).
+ * 설문 중복 방지용 익명 방문자 ID — 열람 분석과 같은 `visitor-id.ts`(단일 출처, localStorage `cre_mag_vid`, JSON `{id,createdAt}`)의
+ * 구현을 그대로 노출한다. 이 파일에서 키·저장 형식을 따로 정의하거나 localStorage 에 직접 쓰지 않는다(실습2b: 투표 후 ID 가 바뀌던 충돌).
  */
-export function getOrCreateVisitorId(): string {
-  try {
-    const existing = window.localStorage.getItem(VISITOR_KEY);
-    if (existing && /^[A-Za-z0-9_-]{8,64}$/.test(existing)) return existing;
-    const fresh = randomId();
-    window.localStorage.setItem(VISITOR_KEY, fresh);
-    return fresh;
-  } catch {
-    return randomId();
-  }
-}
+export { getOrCreateVisitorId } from './visitor-id';
 
 // ─────────────────────────────────────────────────────────────
 // 금액·숫자 표기 (U-05: `65억`, T3-43: NOI 만원 정수)
@@ -193,6 +177,22 @@ export interface NewsItemView {
   sentiment: 'bullish' | 'bearish' | 'neutral';
 }
 
+/** 뉴스 제목: HTML 엔티티(`&quot;` 등) 디코드 + 공백 정리 + 앞쪽 `[매체]` 제거. 결과는 React 가 다시 이스케이프한다. */
+export function cleanNewsTitle(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  return decodeEntities(raw).replace(/\s+/g, ' ').replace(/^\[.*?\]\s*/, '').trim();
+}
+
+/**
+ * 뉴스 요약 표시 정리: 엔티티 디코드 후 `핵심 팩트: A | 브로커 임플리케이션: B | …` 구조에서
+ * 첫 조각(핵심 팩트 본문)만 남기고 내부 라벨 접두를 제거한다. 파이프가 없는 일반 요약은 그대로(공백만 정리).
+ */
+export function cleanNewsSummaryText(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const first = (decodeEntities(raw).split('|')[0] ?? '').replace(/\s+/g, ' ').trim();
+  return first.replace(/^핵심\s*팩트\s*[:：]\s*/, '').trim();
+}
+
 /** topNews / news_curation 에서 제목이 있는 항목만 최대 6건. */
 export function pickTopNews(data: Record<string, unknown>, max = MAX_NEWS_ITEMS): NewsItemView[] {
   const raw = Array.isArray(data.topNews) ? data.topNews : Array.isArray(data.news_curation) ? data.news_curation : [];
@@ -200,12 +200,12 @@ export function pickTopNews(data: Record<string, unknown>, max = MAX_NEWS_ITEMS)
   for (const n of raw) {
     if (!n || typeof n !== 'object') continue;
     const r = n as Record<string, unknown>;
-    const title = String(r.title ?? '').replace(/^\[.*?\]\s*/, '').trim();
+    const title = cleanNewsTitle(r.title);
     if (!title) continue;
     const s = r.sentiment === 'bullish' || r.sentiment === 'bearish' ? r.sentiment : 'neutral';
     out.push({
       title,
-      summary: typeof r.summary === 'string' ? r.summary : '',
+      summary: cleanNewsSummaryText(r.summary),
       source: typeof r.source === 'string' ? r.source : '',
       topic: typeof r.topic === 'string' ? r.topic : '',
       sentiment: s,
@@ -230,15 +230,54 @@ export function sentimentMeta(score: number): { label: string; bar: string; text
 }
 
 // ─────────────────────────────────────────────────────────────
+// 점수 지표 근거 판정 (P0-05: 출처 없는 점수 숫자는 렌더하지 않는다)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 에디션이 점수 지표(투자 심리 지수 등)를 보여 줄 근거를 갖는지.
+ *  - `generation` 메타가 있고 mock 생성이 아니며(`isMock !== true`),
+ *  - `sentiment.items` 가 비어 있지 않고 `sentiment.asOf`(기준일)가 있을 때만 true.
+ * 과거 발행본의 합성 점수(items=[] · generation 없음)는 false → 점수는 숨긴다.
+ */
+export function hasScoreEvidence(data: Record<string, unknown>): boolean {
+  const gen = data.generation;
+  if (!gen || typeof gen !== 'object' || Array.isArray(gen)) return false;
+  if ((gen as { isMock?: unknown }).isMock === true) return false;
+  const s = data.sentiment;
+  if (!s || typeof s !== 'object') return false;
+  const { items, asOf } = s as { items?: unknown; asOf?: unknown };
+  return Array.isArray(items) && items.length > 0 && typeof asOf === 'string' && asOf.trim().length > 0;
+}
+
+/** 표지 keyStats 에서 근거 없는 점수 지표('NN/100' 값, 점수에서 파생된 '시장 상태')를 걷어낸다. 근거가 있으면 그대로. */
+export function filterKeyStatsByEvidence<T extends { value?: unknown; label?: unknown }>(
+  keyStats: readonly T[],
+  evidence: boolean,
+): T[] {
+  if (evidence) return [...keyStats];
+  return keyStats.filter((s) => {
+    if (!s || typeof s !== 'object') return false;
+    if (typeof s.value === 'string' && hasSyntheticScore(s.value)) return false;
+    return s.label !== '시장 상태';
+  });
+}
+
+/** 본문 텍스트의 'NN/100' 토큰만 제거(문장은 유지). 근거가 있거나 토큰이 없으면 원문을 그대로 돌려준다. */
+export function cleanScoreText<T extends string | null | undefined>(text: T, evidence: boolean): T | string {
+  if (evidence || typeof text !== 'string' || !hasSyntheticScore(text)) return text;
+  return stripSyntheticScore(text);
+}
+
+// ─────────────────────────────────────────────────────────────
 // 시장 온도 (뱃지 설명을 모바일에서도 노출, T3-52)
 // ─────────────────────────────────────────────────────────────
 
 export const MARKET_TEMP_VIEW: Readonly<Record<string, { emoji: string; color: string; description: string }>> = {
-  '적극 매수': { emoji: '🟩', color: '#ef4444', description: '강한 매수 신호 — 거래량 급증, 매물 소진 빠름' },
+  '적극 매수': { emoji: '🟩', color: '#10b981', description: '강한 매수 신호 — 거래량 급증, 매물 소진 빠름' },
   '선별 매수': { emoji: '🟨', color: '#f59e0b', description: '선별적 기회 존재 — 입지·가격 따져 진입 가능' },
-  '관망': { emoji: '🟦', color: '#6b7280', description: '관망 국면 — 뚜렷한 방향 없이 거래 위축' },
-  '조정 대기': { emoji: '🟧', color: '#3b82f6', description: '조정 진행 중 — 급매 나올 수 있으나 하락 리스크 상존' },
-  '위기 경계': { emoji: '🟥', color: '#dc2626', description: '시장 위기 경계 — 금리·경기 악재 집중, 신규 투자 보류 권고' },
+  '관망': { emoji: '🟦', color: '#3b82f6', description: '관망 국면 — 뚜렷한 방향 없이 거래 위축' },
+  '조정 대기': { emoji: '🟧', color: '#f97316', description: '조정 진행 중 — 급매 나올 수 있으나 하락 리스크 상존' },
+  '위기 경계': { emoji: '🟥', color: '#ef4444', description: '시장 위기 경계 — 금리·경기 악재 집중, 신규 투자 보류 권고' },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -409,11 +448,14 @@ export function hasAnyViewerContent(data: Record<string, unknown>): boolean {
 // ─────────────────────────────────────────────────────────────
 
 const TOPIC_LABELS_KO: Readonly<Record<string, string>> = {
-  rate: '금리', rates: '금리', interest: '금리',
+  // 크롤러 키 — 에디터(editor-labels.ts TOPIC_LABELS)와 같은 라벨을 써서 거래/임대 태그가 섞여 보이지 않게 한다
+  transaction: '거래·매물', transactions: '거래·매물', deal: '거래·매물',
+  rental: '임대·공실', rent: '임대·공실', vacancy: '임대·공실',
+  market_trend: '시장 동향', market: '시장 동향', trend: '시장 동향',
+  rate: '금리', rates: '금리', interest: '금리', interest_rate: '금리',
   policy: '정책', regulation: '규제', tax: '세제',
-  market: '시장', transaction: '거래', transactions: '거래',
-  supply: '공급', redevelopment: '재건축·재개발', development: '개발',
-  finance: '금융', loan: '대출', auction: '경매', npl: 'NPL',
+  supply: '공급', redevelopment: '재건축·재개발', development: '개발·재개발',
+  finance: '금융·금리', loan: '대출', auction: '경매', npl: 'NPL',
   office: '오피스', retail: '상가', 'small-building': '꼬마빌딩', landmark: '랜드마크',
   other: '기타', general: '일반',
 };
@@ -421,5 +463,5 @@ const TOPIC_LABELS_KO: Readonly<Record<string, string>> = {
 export function topicLabelKo(topic: string): string {
   const t = (topic ?? '').trim();
   if (!t) return '';
-  return TOPIC_LABELS_KO[t.toLowerCase()] ?? t;
+  return TOPIC_LABELS_KO[t.toLowerCase().replace(/[\s-]+/g, '_')] ?? TOPIC_LABELS_KO[t.toLowerCase()] ?? t;
 }

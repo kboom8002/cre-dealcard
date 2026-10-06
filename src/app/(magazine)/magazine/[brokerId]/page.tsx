@@ -6,8 +6,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { formatKoreanDate } from "@/lib/magazine/kst";
 import {
   canonicalBrokerSlug,
-  listPublishedEditions,
+  listPublishedEntries,
   resolvePublicBroker,
+  resolvePublicDisplayName,
 } from "@/lib/magazine/public-page-data";
 import { MARKET_TEMP_VIEW } from "@/lib/magazine/view-helpers";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -20,11 +21,18 @@ const loadBroker = cache(async (param: string) =>
   resolvePublicBroker(createServiceClient(), param, "user_id, slug, name, bio, logo_company_url"),
 );
 
-/** 발행본 목록 — metadata 와 page 가 한 요청 안에서 1회만 조회 (DB 오류는 throw). */
+/** 발행본 목록 — published editions + 에디션 없는 레거시 published issues. metadata 와 page 가 한 요청 안에서 1회만 조회 (DB 오류는 throw). */
 const loadEntries = cache(async (param: string) => {
   const profile = await loadBroker(param);
   if (!profile) return null;
-  return listPublishedEditions(createServiceClient(), profile);
+  return listPublishedEntries(createServiceClient(), profile);
+});
+
+/** 공개 표시명(구독 페이지·뷰어와 동일 규칙) */
+const loadDisplayName = cache(async (param: string) => {
+  const profile = await loadBroker(param);
+  if (!profile) return null;
+  return resolvePublicDisplayName(createServiceClient(), profile);
 });
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -35,7 +43,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "CRE 주간 매거진 아카이브", robots: { index: false, follow: false } };
   }
 
-  const label = (profile.name as string | null) || (profile.slug as string | null) || brokerId;
+  const label = (await loadDisplayName(brokerId)) || (profile.slug as string | null) || brokerId;
   const title = `${label}의 주간 매거진 아카이브`;
   const entries = await loadEntries(brokerId);
 
@@ -60,7 +68,7 @@ export default async function MagazineArchivePage({ params }: PageProps) {
   if (canonical) permanentRedirect(`/magazine/${canonical}`);
 
   const slug = (profile.slug as string | null) ?? brokerId;
-  const displayName = (profile.name as string | null) || slug;
+  const displayName = (await loadDisplayName(brokerId)) || slug;
 
   // 발행된 에디션 목록 — 조회수는 독자에게 노출하지 않으므로 조회하지도 않는다 (U2-30)
   const entries = (await loadEntries(brokerId)) ?? [];
