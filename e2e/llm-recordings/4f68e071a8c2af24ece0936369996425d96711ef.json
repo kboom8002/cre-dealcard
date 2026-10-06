@@ -1,0 +1,14 @@
+{
+ "key": "4f68e071a8c2af24ece0936369996425d96711ef",
+ "recordedAt": "2026-10-06T15:18:23.462Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: market_position ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도 희망가 760억원은 연면적 1,010",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"연면적 1,010.9평(약 36㎡)\",\n      \"suggestion\": \"1,010.9평은 약 3,342㎡에 해당하므로 면적 단위를 확인해 수정하십시오. 실제 연면적이 약 36㎡라면 평수 표기를 재검증해야 합니다.\"\n    }\n  ]\n}",
+  "tokens": 1830,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7992
+ }
+}

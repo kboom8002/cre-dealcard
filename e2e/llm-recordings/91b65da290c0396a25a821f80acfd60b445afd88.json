@@ -1,0 +1,14 @@
+{
+ "key": "91b65da290c0396a25a821f80acfd60b445afd88",
+ "recordedAt": "2026-10-06T11:14:32.554Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 약 5분, 2·9호선 더",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 191곳, 카페 53곳\",\n      \"suggestion\": \"해당 수치의 조사 기준일과 출처(예: 공공데이터 또는 상권분석 보고서)를 명시하거나, 검증 가능한 자료가 없으면 구체적인 숫자를 삭제하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"대규모 주거 배후를 갖춘 당산 핵심 생활권 입지입니다\",\n      \"suggestion\": \"‘대규모’ 및 ‘핵심 생활권’이라는 평가의 근거가 되는 세대 수, 조사자료 또는 공공데이터를 제시하거나, ‘인접 주거지역이 위치한 입지’처럼 객관적으로 확인 가능한 표현으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"근린생활시설 및 소규모 오피스 수요 확보에 유리합니다. ... 인접 아파트 단지의 상시 배후수요는\",\n      \"suggestion\": \"임대·유동인구 조사, 공공 상권 데이터 또는 실제 임대사례 등 근거를 제시하십시오. 근거가 없다면 ‘수요 관련 추가 확인이 필요합니다’와 같이 가능성·검토 수준으로 완화하십시오.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"수요 확보에 유리합니다 ... 임차인 유치와 안정적인 현금흐름 유지에 긍정적인 기반이 됩니다\",\n      \"suggestion\": \"임차인 유치나 현금흐름의 안정성을 암시하는 단정적 표현을 삭제하고, ‘임차수요 및 현금흐름에 영향을 줄 수 있는 입지 요인으로 검토할 수 있으나 별도 검증이 필요합니다’처럼 조건부로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2135,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10326
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "d299db18aefce9f9a0cc5e690cc0bfe59f68d399",
+ "recordedAt": "2026-10-06T15:14:37.859Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역(3호선) 도보 약 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"역세권(도보 5분 이내) 업무 수요를 기반으로 자산 활용가치도 기대할 수 있습니다.\",\n      \"suggestion\": \"업무 수요와 자산 활용가치를 단정적으로 긍정하지 말고, 관련 시장자료와 임대·자가사용 조건을 확인해야 한다는 중립적 표현으로 수정하세요. 예: \\\"역세권 입지를 고려한 자가사용 및 임대 활용 가능성을 검토할 수 있습니다.\\\"\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"역세권(도보 5분 이내) 업무 수요를 기반으로\",\n      \"suggestion\": \"업무 수요를 언급하려면 공공데이터, 시장보고서 또는 임대·공실 자료의 출처와 기준시점을 제시하세요. 근거가 없다면 해당 문구를 삭제하거나 \\\"업무 수요 여부에 대한 별도 확인이 필요합니다\\\"로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산 활용가치도 기대할 수 있습니다.\",\n      \"suggestion\": \"자산 가치에 대한 주관적 긍정 평가를 삭제하고, 확인 가능한 물리적·입지적 사실과 검토 과제로 표현하세요. 예: \\\"자가사용 및 임대 활용 가능성은 공실 현황과 수요 자료를 바탕으로 검토가 필요합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2123,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8454
+ }
+}

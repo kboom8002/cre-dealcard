@@ -1,0 +1,14 @@
+{
+ "key": "2dd0d103e20c43456ae78f631f2cabf0f5f38ab1",
+ "recordedAt": "2026-10-06T12:17:00.959Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**: ... 총사업비 대비 예상 개발이익률은 18~25% 범위로 검토됩니다.\",\n      \"suggestion\": \"‘고수익’과 같은 홍보성 표현을 삭제하고, 개발이익률은 산정 기준·민감도·전제조건을 명시한 시나리오 분석으로만 제시하세요. 예: ‘가정한 공사비·매각가·금융비용 조건에 따라 개발이익률이 달라질 수 있으므로 별도 검증이 필요함’.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"총사업비 대비 예상 개발이익률은 18~25% 범위로 검토됩니다.\",\n      \"suggestion\": \"해당 수치의 산출 근거, 매각가·공사비·금융비용·세금·인허가비 등 계산 항목과 출처를 제시하세요. 검증 가능한 근거가 없으면 구체적인 수치 범위를 삭제하고 ‘사업비 및 시장 조건에 따른 별도 산정 필요’로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력** ... • **고수익 개발 마진** ... > **종합 가치 제안**\",\n      \"suggestion\": \"‘우수한’, ‘고수익’, ‘가치 제안’ 등 주관적·홍보성 가치평가 표현을 삭제하고, 확인 가능한 면적·교통거리·용도지역·개발 검토 조건 등 객관적 사실과 검토 필요사항만 기술하세요.\"\n    }\n  ]\n}",
+  "tokens": 2887,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 16679
+ }
+}

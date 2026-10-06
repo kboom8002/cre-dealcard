@@ -1,0 +1,14 @@
+{
+ "key": "6d57a4b305c186bac8ccdb353279d10fd90e0a8e",
+ "recordedAt": "2026-10-06T11:16:28.316Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **토지·입지**: 2026년 개별공",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"가치개선(Value-add) 시나리오 (AI 추정) ... ② 임대료 현실화 (+5%) | +약 0.10억 원 (+5%) | 1.81% | 불필요 ... ③ 리모델링 후 임대료 상승 | +약 0.16억 원 (+8%) | 1.86% | 약 1.52억 원\",\n      \"suggestion\": \"제공된 임대차 자료만으로 산출 근거가 확인되지 않는 NOI, 개선 Cap Rate, 리모델링 비용 및 임대료 상승률은 삭제하거나, 산식·견적서·시장 임대료 자료 등 객관적 근거를 명시하십시오. 근거가 없으면 '검증이 필요한 가정값'으로만 표시하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"임대료 현실화 (+5%)\", \n      \"suggestion\": \"임대료 상승을 예상하거나 현실화 가능성을 단정하는 표현 대신, '임대료가 5% 변동하는 경우의 가정 시나리오'처럼 중립적인 민감도 분석으로 표현하고 실제 적용 가능성은 별도 검토 사항으로 표시하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2658,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13910
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "fdfc0a1c1263feda9968cf65c803cc9b43865375",
+ "recordedAt": "2026-10-06T15:14:37.525Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **양재역 3호선 도보 약 4",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"풍부한 인근 상업 인프라를 기반으로 식음·카페 등 업무지원 시설 이용이 편리하며, 자가사용 기업에는 인력 유지 및 업무 효율 측면의 입지 경쟁력이 기대됩니다.\",\n      \"suggestion\": \"확인 가능한 시설명·거리·공공자료 또는 조사 출처를 제시하고, 근거가 없으면 ‘식음·카페 등 업무지원 시설의 이용 가능 여부를 확인할 수 있습니다’처럼 객관적·조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"외부 임차공간의 임대료 부담을 절감하고, 서초권역 내 자가 사옥 확보를 통한 장기 자산가치 보유 전략에 적합합니다.\",\n      \"suggestion\": \"현재 임차료, 매입 금융비용, 보유기간 등 산출 근거를 제시하거나, ‘기존 임차료와 금융비용을 비교해 절감 가능성을 검토할 수 있습니다’처럼 조건부 분석 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"서초권역 내 자가 사옥 확보를 통한 장기 자산가치 보유 전략에 적합합니다.\",\n      \"suggestion\": \"자산가치 보유 전략에 대한 적합성 판단을 삭제하고, ‘장기 보유를 전제로 자산가치 및 보유비용을 검토할 수 있습니다’처럼 중립적인 검토 문구로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2128,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9470
+ }
+}

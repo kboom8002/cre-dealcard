@@ -1,0 +1,14 @@
+{
+ "key": "347f54d11becd3a8e1f850cc0f1bf532c1c9ecff",
+ "recordedAt": "2026-10-06T14:19:44.763Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown - **공실·임대수익 변동 리스크:** 현재 공실률은",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"현재 공실률은 8.3%이며 월 임대료 합계 5,147만원\",\n      \"suggestion\": \"공실률과 월 임대료의 산출 근거 및 기준일을 명시하고, 제공 자료에 해당 수치가 없으면 삭제하거나 '제공 자료 기준'으로 출처를 확인한 뒤 기재하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"현재 공실률은 8.3%이며 ... 신규 임차 수요에 따라 달라질 수 있으므로\",\n      \"suggestion\": \"공실률이 자산 자체의 현황인지 지역 시장 지표인지 구분하고, 시장 지표라면 조사 기준일과 공공데이터·시장보고서 등 출처를 제시하세요. 근거가 없으면 '공실 변동 가능성이 있음'처럼 정성적·조건부 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2317,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9491
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "6e150667c018a65d5dbf0f46be599403a16efc7c",
+ "recordedAt": "2026-10-06T11:53:19.371Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown ### 3대 핵심 투자 포인트 • **토",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"가치개선(Value-add) 시나리오 (AI 추정) ... 임대료 현실화 (+5%) ... +약 0.10억 원 (+5%) ... ③ 리모델링 후 임대료 상승 ... +약 0.16억 원 (+8%) ... 개선 Cap Rate 1.81%, 1.86% ... 투자 비용 약 1.52억 원\",\n      \"suggestion\": \"실제 임대료 자료, 공사 견적서, 예상 NOI 산출 근거, 적용한 Cap Rate의 출처를 제시하십시오. 근거가 없으면 구체적인 상승률·금액·Cap Rate·투자비를 삭제하고, 검토 항목으로만 표현하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"② 임대료 현실화 (+5%) 및 ③ 리모델링 후 임대료 상승 ... NOI 개선 ... 개선 Cap Rate 1.81%, 1.86%\",\n      \"suggestion\": \"미래 임대료 상승이나 수익 개선을 전망하는 표현 대신, '임대료 조정 및 리모델링 효과는 임차 수요, 공사비, 공실 기간 등에 대한 별도 검토가 필요함'과 같이 조건부 검토 문구로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2325,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10653
+ }
+}

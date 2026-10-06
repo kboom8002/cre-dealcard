@@ -1,0 +1,14 @@
+{
+ "key": "94d43ab6a11939837e68b2858a0099cb4bd9fa1b",
+ "recordedAt": "2026-10-06T14:26:36.723Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: market_position ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown ### 시장 포지셔닝 및 시세 격차 분석 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"본 자산의 매도 희망가(760억)를 인근 권역 유사 매물의 거래사례 및 시세와 비교하여 가격 경쟁력을 평가합니다.\",\n      \"suggestion\": \"거래사례의 출처, 거래일, 자산 규모·용도·상태 등 비교 조건을 명시하고, 검증된 자료가 없는 경우 가격 경쟁력이나 유불리를 단정하지 않도록 수정하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"시세 대비 경쟁력 확보\",\n      \"suggestion\": \"인근 거래사례의 구체적인 출처와 산정 기준을 제시한 뒤, ‘제시된 거래사례와 단순 비교한 결과’처럼 중립적으로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"입지 및 접근성 우수 | 권역 평균 수준 | 하방 경직성 보유\",\n      \"suggestion\": \"입지·접근성은 역 거리, 도로 접면 등 확인 가능한 객관적 사실로 구체화하고, ‘하방 경직성’처럼 가격 방어력을 단정하는 표현은 근거 자료가 있을 때에만 조건부로 제시하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"인근 시세 대비 합리적 매도가 형성\",\n      \"suggestion\": \"‘합리적’과 같은 주관적 가격 평가를 삭제하고, 출처와 비교 조건이 확인된 경우에 한해 ‘제시된 거래사례와 비교한 가격 수준’처럼 사실 중심으로 기술하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"단기 매매 및 포트폴리오 재편에 적합합니다.\",\n      \"suggestion\": \"투자 또는 매매 적합성을 단정하지 말고, ‘단기 매매 또는 포트폴리오 재편 목적이라면 거래비용, 보유기간, 유동성 및 위험요인에 대한 별도 검토가 필요합니다’처럼 조건부 검토 문구로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2149,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9384
+ }
+}

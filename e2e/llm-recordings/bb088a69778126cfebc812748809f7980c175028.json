@@ -1,0 +1,14 @@
+{
+ "key": "bb088a69778126cfebc812748809f7980c175028",
+ "recordedAt": "2026-10-06T11:29:04.703Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: market_position ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도 희망가 760억 원은 연면적 321.",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공시지가 기준 토지가액은 약 197억 원(571.5㎡ 기준)으로 산출되며\",\n      \"suggestion\": \"공시지가 고시 연도·공시기관·㎡당 공시지가 및 산출 근거를 명시하거나, 검증 가능한 자료가 없으면 해당 수치와 단정적 표현을 삭제하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"희망가는 이에 건물가치와 신사·논현로 입지 프리미엄을 반영한 수준으로 판단된다.\",\n      \"suggestion\": \"입지 프리미엄을 뒷받침하는 감정평가, 거래사례 또는 공신력 있는 시장자료를 제시하거나, '건물가치 및 입지 요인이 가격에 반영되었을 가능성이 있으므로 관련 자료 확인이 필요하다'처럼 중립적으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"희망가는 이에 건물가치와 신사·논현로 입지 프리미엄을 반영한 수준으로 판단된다.\",\n      \"suggestion\": \"가격의 적정성이나 구성 요소를 주관적으로 판단하지 말고, '희망가의 가격 구성과 적정성은 건물·토지 가치 및 유사 거래사례 확인 후 검토가 필요하다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2411,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13102
+ }
+}

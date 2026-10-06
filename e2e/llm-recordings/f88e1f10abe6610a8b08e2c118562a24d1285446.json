@@ -1,0 +1,14 @@
+{
+ "key": "f88e1f10abe6610a8b08e2c118562a24d1285446",
+ "recordedAt": "2026-10-06T13:40:18.467Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양평로 116-1, 선유도역 9호선 도보",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"임대수익 개선 여지를 보유한 역세권(도보 5분 이내) 오피스빌딩입니다.\",\n      \"suggestion\": \"투자수익 개선을 암시하지 않도록 '현재 공실률 및 임대현황에 대한 추가 확인이 필요한 자산입니다'와 같이 객관적으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 해소와 안정적 임차인(우수 신용도) 유치를 통한 현금흐름 안정화가 핵심 운용 과제입니다.\",\n      \"suggestion\": \"'공실 해소 및 임차인 유치 여부에 따라 임대현황이 달라질 수 있으므로 관련 실행 가능성과 비용을 검토해야 합니다'와 같이 결과를 보장하지 않는 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 해소를 통한 임대수익 최적화 가능성\",\n      \"suggestion\": \"'공실 해소 시 임대수익 변동 가능성이 있으므로 임차인 유치 가능성 및 예상 비용을 별도 검토'와 같이 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2116,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9391
+ }
+}

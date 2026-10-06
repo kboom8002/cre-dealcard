@@ -1,0 +1,14 @@
+{
+ "key": "c78314f55bf62b4c84e68c3cc601d7f58a25c861",
+ "recordedAt": "2026-10-06T11:51:27.172Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 임대수익은 월 1,946만원, 보증금 2억9,00",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1735,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7560
+ }
+}

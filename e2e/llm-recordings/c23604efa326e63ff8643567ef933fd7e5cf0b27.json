@@ -1,0 +1,14 @@
+{
+ "key": "c23604efa326e63ff8643567ef933fd7e5cf0b27",
+ "recordedAt": "2026-10-06T12:19:56.682Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: development_feasibility ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 예비 사업수지 기준 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"토지 매입비는 평당 4,500만원, 초기 자기자본은 약 89억원으로 검토되며, 공사비·부대비를 포함한 총 사업비는 약 290.3억원으로 추정됩니다.\",\n      \"suggestion\": \"토지 매매계약서·감정평가서·시공사 견적서·사업수지표 등 근거자료를 명시하고, 자료가 없는 경우 구체적 수치 대신 '현재 확보된 자료 기준의 내부 가정치'로 표시하거나 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"목표 연면적 2,500평(약 1652.9㎡)\",\n      \"suggestion\": \"건축개요, 설계도서 또는 건축사 검토자료를 출처로 명시하세요. 확정 자료가 없다면 '목표 연면적은 별도 검토 중'으로 수정하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"PF는 담보인정비율(LTV) 60%, 금리 연 7~9% 수준을 전제로 금융비용을 반영해야 하고\",\n      \"suggestion\": \"대주단의 금융조건서, 금융기관 제안서 또는 최근 확정된 금융조건을 근거로 제시하세요. 근거가 없는 경우 'LTV 및 금리는 대주단 협의에 따라 달라지는 가정치'라고 명시하고 확정적 수치 제시는 피하세요.\"\n    },\n    {\n      \"type\": \"legal_assertion\",\n      \"excerpt\": \"현행 일반상업지역 용적률 800%\",\n      \"suggestion\": \"관할 지자체의 도시계획조례, 용도지역·지구 확인서 및 해당 필지의 건축규제 검토 결과를 출처로 제시하고, 확인 전에는 '적용 여부 및 허용 용적률은 관할 기관 확인이 필요함'으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2308,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11876
+ }
+}

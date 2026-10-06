@@ -1,0 +1,14 @@
+{
+ "key": "dbd305f87cdd4dcfa8697f2a02e33de92d375471",
+ "recordedAt": "2026-10-06T11:52:59.361Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 월 임대료 1,946만 원, 공실률 0%(자가사",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"현재 월 임대료 1,946만 원, 공실률 0%(자가사용 2호실 제외)로 안정적 현금흐름이 확인되나\",\n      \"suggestion\": \"현금흐름의 안정성을 단정하지 말고, \\\"현재 확인된 월 임대료와 공실 현황을 기준으로 현금흐름이 산출되나, 자가사용 호실의 임대 전환 및 기존 임차인의 계약 조건에 따라 변동될 수 있습니다\\\"와 같이 객관적·조건부 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2083,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8919
+ }
+}

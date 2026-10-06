@@ -1,0 +1,14 @@
+{
+ "key": "1ef354d36abd49cab7492f607360cc80087d0df7",
+ "recordedAt": "2026-10-06T13:44:56.343Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대상은 제3종일반주거지역 내 근린생활시",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"현재 37.5% 공실은 50인 기준 자가사용 공간으로 재구성하여 연 7.5억 원 수준의 임차료 절감 및 추정 4.2년 손익분기 달성에 활용할 여지가 있으나\",\n      \"suggestion\": \"37.5% 공실률, 50인 자가사용 기준, 연 7.5억 원 임차료 절감액 및 4.2년 손익분기 기간의 산출 근거와 출처를 명시하십시오. 원자료가 확인되지 않는 경우 수치를 삭제하거나 ‘제공된 임직원 수·현재 임차료·공사비 등 가정에 따른 예시 계산’으로 명확히 표시하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2116,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8366
+ }
+}

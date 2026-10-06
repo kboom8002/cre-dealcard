@@ -1,0 +1,14 @@
+{
+ "key": "2dcd27cc0b72d09e24c1c3abb7e16523ea8416a9",
+ "recordedAt": "2026-10-06T11:19:55.393Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown - 현재 공실률 8.3%는 월 임대료 5,147만원 ",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 2162,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9959
+ }
+}

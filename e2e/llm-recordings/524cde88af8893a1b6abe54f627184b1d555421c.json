@@ -1,0 +1,14 @@
+{
+ "key": "524cde88af8893a1b6abe54f627184b1d555421c",
+ "recordedAt": "2026-10-06T14:11:45.483Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대상 자산은 약 197평(약 651.2㎡) 규",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 발생 및 매도인 명도 책임 조건은 개발 착수 측면에서 긍정적\",\n      \"suggestion\": \"긍정적 평가 대신 사실 중심으로 '공실 및 매도인 명도 책임 조건은 개발 착수 전 확인해야 할 주요 조건이다'와 같이 중립적으로 표현하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"연면적 2,500평(약 1652.9㎡)\",\n      \"suggestion\": \"수치 간 환산이 일치하지 않습니다. 2,500평은 약 8,264.5㎡이므로 해당 면적을 수정하거나, 1,652.9㎡가 맞다면 약 500평으로 정정하고 원자료를 확인하세요.\"\n    }\n  ]\n}",
+  "tokens": 2519,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13843
+ }
+}

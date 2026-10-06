@@ -2,14 +2,14 @@
  "schemaVersion": 1,
  "name": "development-jamwon-r3",
  "fixtureDir": "docs/golden-test-data/p4-jamwon-dev/r3-verified",
- "capturedAt": "2026-10-05T16:29:09.371Z",
- "docId": "0f78a8e9-cb5d-4042-b7d8-b506a6a7ea67",
- "buildingId": "2e96c096-d24f-405e-8a52-e6e47c05f784",
+ "capturedAt": "2026-10-06T16:02:06.319Z",
+ "docId": "6aaf1e3f-8014-452c-9cb3-c58100d22c3a",
+ "buildingId": "44634e2c-5212-4eb0-af23-de9ef787362d",
  "doc": {
-  "id": "0f78a8e9-cb5d-4042-b7d8-b506a6a7ea67",
-  "title": "잠원 오피스빌딩 매각",
+  "id": "6aaf1e3f-8014-452c-9cb3-c58100d22c3a",
+  "title": "잠원·신사권역 기타 매각",
   "document_type": "mobile_im",
-  "created_at": "2026-10-05T16:07:01.279561+00:00",
+  "created_at": "2026-10-06T15:52:47.713866+00:00",
   "body": {
    "pnus": [
     "1165010600100260014",
@@ -18,15 +18,15 @@
    "tier": "basic",
    "claims": [
     {
-     "id": "69ac97b3-8b8e-43b2-9a92-d3a771a6efab",
-     "asOf": "2026-10-05",
+     "id": "1b0a1d13-05d8-4359-8243-7a2a1ad5ae08",
+     "asOf": "2026-10-06",
      "unit": "원",
      "value": 24200000000,
      "status": "reconciled",
      "subject": "asking_price",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "broker"
       }
      ],
@@ -35,15 +35,15 @@
      "expertRequired": false
     },
     {
-     "id": "8fb60c00-3a11-439d-8a1b-27e4a824b9c5",
-     "asOf": "2026-10-05",
+     "id": "d169ebdc-0b8a-4913-bc2e-bbb6530e575c",
+     "asOf": "2026-10-06",
      "unit": "㎡",
      "value": 2032.59,
      "status": "reconciled",
      "subject": "total_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "public_api"
       }
      ],
@@ -52,15 +52,15 @@
      "expertRequired": false
     },
     {
-     "id": "43194e65-c5cf-45f9-8490-458386234676",
-     "asOf": "2026-10-05",
+     "id": "5c80b748-93b6-4bff-a4bb-bf5603068697",
+     "asOf": "2026-10-06",
      "unit": "㎡",
      "value": 616.1,
      "status": "reconciled",
      "subject": "land_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "public_api"
       }
      ],
@@ -174,7 +174,7 @@
    "preset": "credeal_basic",
    "ai_used": true,
    "im_type": "mobile_im_lite",
-   "ogTitle": "잠원 오피스빌딩 매각",
+   "ogTitle": "잠원·신사권역 기타 매각",
    "parcels": [
     {
      "pnu": "1165010600100260014",
@@ -195,23 +195,23 @@
     "revpar": null,
     "zoning": "제2종일반주거지역",
     "hasLoan": false,
-    "keyRisk": "등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
+    "keyRisk": "등기부등본, 건축물대장, 토지대장 및 토지이용계획확인서 확인이 필요합니다. 임대차·공실 현황과 신축 스태킹 플랜의 인허가 및 사업성 전제는 별도 실사가 필요합니다.",
     "posture": "development",
-    "assetType": "오피스빌딩",
+    "assetType": "기타",
     "keyPoints": [
-     "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-     "안정적인 자산 가치: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.",
-     "향후 가치개선(Value-add) 잠재력: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다."
+     "토지 잔존 가치: 잠원·신사권역 소재 기타으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+     "개발 이익률: 잔여 용적률 활용 및 신축 개발을 통한 사업 수익 실현이 가능합니다.",
+     "분양/매각 출구 전략: 개발 완료 후 분양 또는 통 매각을 통한 자본 회수 시나리오입니다. 인근 실거래 비교 사례 10건 기준 평균 3.3㎡당 가격 약 5,361만원/3.3㎡(53,609,683원)으로, 본 자산과 비교 검토할 수 있습니다."
     ],
-    "areaSignal": "잠원",
+    "areaSignal": "잠원·신사권역",
     "landAreaM2": 616.1,
     "noiBaseBil": null,
     "capRateBase": null,
     "gopMarginPct": null,
     "targetHprPct": null,
     "breakevenYears": null,
-    "pricePerPyeong": 129850000,
-    "readinessScore": 55,
+    "pricePerPyeong": 130000000,
+    "readinessScore": 65,
     "dcf10YearNpvBil": null,
     "devHoldYieldPct": null,
     "totalGrossAreaM2": 2032.59,
@@ -220,14 +220,14 @@
     "marketDiscountPct": null,
     "askingPriceDisplay": "242억 원",
     "devProfitMarginPct": null,
-    "keyInvestmentPoint": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-    "landPricePerPyeong": 12985,
+    "keyInvestmentPoint": "토지 잔존 가치: 잠원·신사권역 소재 기타으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+    "landPricePerPyeong": 13000,
     "ownVsLeaseSavingsBil": null
    },
    "sections": [
     {
-     "title": "이 오피스, 어떤 자산인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "title": "이 매물, 어떤 자산인가",
+     "markdown": "신사역 더블역세권 도보 3~4분, 잠원·신사권역에 위치한 1990년 준공 근린생활시설 자산입니다. 대지 616.1㎡ (186.4평), 연면적 2,032.59㎡ (614.9평) 규모의 철근콘크리트조 지상 5층·지하 1층 건물로, 주차 12대 및 승강기 1대를 갖추고 있습니다. 제2종일반주거지역 내 상업용 이용 토지로서, 매도인 명도 조건 및 업무시설 중심의 신축 검토안은 향후 자산 재구성과 수익성 제고 가능성을 뒷받침하나 인허가·사업성은 별도 확인이 필요합니다. > **자산 하이라이트**: • 신사역 신분당선 도보 3분의 우수한 접근성 • 약 615평(약 2033.1㎡) 연면적의 안정적 기존 규모 • 명도 후 신축·리포지셔닝 검토 가능한 개발 여지",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -237,7 +237,7 @@
        "fieldKey": "total_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+       "lastVerifiedAt": "2026-10-06T15:52:41.594Z"
       },
       {
        "value": 616.1,
@@ -245,7 +245,7 @@
        "fieldKey": "plat_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+       "lastVerifiedAt": "2026-10-06T15:52:41.594Z"
       },
       {
        "value": "19901108",
@@ -253,7 +253,7 @@
        "fieldKey": "use_approval_date",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+       "lastVerifiedAt": "2026-10-06T15:52:41.594Z"
       }
      ],
      "section_type": "property_overview",
@@ -261,8 +261,8 @@
      "section_order": 1
     },
     {
-     "title": "왜 지금 이 오피스을 사야 하는가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "title": "왜 지금 이 매물을 사야 하는가",
+     "markdown": "> 💡 **종합 가치 제안**: 잠원·신사권역 소재 기타 — 잔여 용적률 및 개발 사업 수익성을 분석합니다. **3대 핵심 투자 포인트 (개발형)** • **토지 잔존 가치**: 잠원·신사권역 소재 기타으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다. • **개발 이익률**: 잔여 용적률 활용 및 신축 개발을 통한 사업 수익 실현이 가능합니다. • **분양/매각 출구 전략**: 개발 완료 후 분양 또는 통 매각을 통한 자본 회수 시나리오입니다. 인근 실거래 비교 사례 **10건** 기준 평균 3.3㎡당 가격 **약 5,361만원/3.3㎡**(53,609,683원)으로, 본 자산과 비교 검토할 수 있습니다. **권역 시세 벤치마킹 (실거래 분석 · 연면적 기준)**\n| 항목 | 수치 |\n|------|------|\n| **본 자산 ㎡당 단가 (연면적 기준)** | 11,905,992원/㎡ |\n| **권역 평균 ㎡당 단가 (연면적 기준)** | 16,216,929원/㎡ |\n| **시세 대비 포지션** | 🟢 **-26.6% 디스카운트** |\n| **경쟁력 판정** | **주변 사례와 보정 기준을 함께 검토해야 합니다. — 매력적 진입 가격** |\n| **비교 사례 수** | 10건 | > ℹ️ **단가 기준 안내**: 본 비교는 건물 연면적 기준 단가입니다. (토지 면적 단가와 구분) 최근 인근 실거래 기준이며 개별 물건 조건에 따라 차이가 있습니다. **예상 매수자 유형 (AI 분석)**\n| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **시행사·개발업체** | ◎ 최적합 | 용적률 활용 및 신축 개발 사업 수행 |\n| **건설사 자체 개발** | ○ 적합 | 자체 시공을 통한 원가 절감 |\n| **리츠·부동산 펀드** | △ 검토 | 개발 완료 후 수익형 보유 전환 |",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -272,7 +272,7 @@
     },
     {
      "title": "이 입지, 투자할 만한 곳인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "**신사역 신분당선 도보 3분·3호선 도보권의 더블역세권(도보 5분 이내), 잠원·신사 핵심 상권을 동시에 누리는 입지입니다.** 서울 서초구 신반포로47길 77에 위치해 강남 주요 업무·상권으로의 접근성이 우수하며, 신사역을 통한 광역 이동 편의성이 오피스 수요 확보에 강점으로 작용할 수 있습니다. 다수의 카페와 음식점이 분포해 있어 업무 편의 및 방문객 접근성에 긍정적 영향을 줄 가능성이 있어 별도 검토가 필요합니다. 다만 개발 및 임대사업의 실질적 수익성은 용도지역, 인허가 조건, 신축 스태킹 플랜 및 임대차 시장 조사를 포함한 별도 실사를 통해 확인이 필요합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -302,7 +302,7 @@
     },
     {
      "title": "위험요인 및 대응 방안",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "대상지는 제2종일반주거지역으로 확인되며, 현 건축물의 용적률(325.63%)이 공시된 법정 상한(200%)을 상회하는 것으로 나타나 신축 시 기존 연면적(2,032.59㎡·614.9평(약 2032.7㎡))의 재현은 제한될 가능성이 있습니다. 목표 오피스 464평(약 1533.9㎡) 개발안은 용도 적합성, 주차대수, 도로접면 및 사다리형 필지의 설계 효율에 따라 인허가 면적과 공사비가 달라질 수 있으므로, 매입 전 건축사 사전검토를 통해 가능한 연면적·주차 계획을 확정하고 공사비(평당 750만원 가정) 및 임대수익의 보수적 민감도 분석을 권고합니다. 또한 2개 필지 합산면적과 건축물대장상 대지면적의 정합성, 등기사항증명서상 소유권·담보권 등 권리관계, 매도인 책임 명도 조건은 별도 실사 및 계약상 선행조건으로 확인해야 하며, 본 내용은 공공·제공 자료에 기초한 예비 검토로서 법률·세무·인허가 또는 수익성을 보장하지 않습니다.",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -312,7 +312,7 @@
        "fieldKey": "zoning",
        "confidence": "confirmed",
        "sourceDetail": "토지이용규제정보서비스(LURIS) API",
-       "lastVerifiedAt": "2026-10-05T16:06:51.246Z"
+       "lastVerifiedAt": "2026-10-06T15:52:41.594Z"
       }
      ],
      "section_type": "risk_check",
@@ -321,7 +321,7 @@
     },
     {
      "title": "실사 안내 및 면책 조항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "투자 검토를 희망하시는 경우, 우선 비밀유지계약(NDA) 체결 후 상세 자료와 협의 가능한 거래 조건을 안내드립니다. 이후 현장 실사를 통해 건물·토지 현황, 임대차 및 명도 조건, 인허가 진행 사항과 개발사업 전제를 확인할 수 있습니다. 검토 완료 후에는 가격, 조건 및 실사 전제사항을 반영한 LOI(인수의향서)를 제출해 주시면 매도인 측과 협의를 진행합니다. 1:1 비밀 상담을 통해 실사 범위, 일정 및 제안 구조를 개별적으로 안내받으실 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -331,7 +331,7 @@
     },
     {
      "title": "실사 체크리스트 및 확인사항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "투자를 위해 반드시 짚고 넘어가야 할 핵심 확인사항입니다. **📋 물리적·권리적 실사** 1. **임대차 현황 파악**: 현재 임차인의 계약 기간, 갱신 여부, 보증금 및 월세 지급 현황 확인 2. **건축물대장 대조**: 위반건축물 여부, 용도 변경 이력, 주차장법 위반 여부 확인 3. **등기사항증명서 확인**: 근저당, 가압류, 신탁 등 소유권 외 권리관계 및 말소 조건 확인 4. **현장 실사**: 건물 노후도, 누수, 설비(승강기, 냉난방) 작동 상태 직접 점검",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -341,7 +341,7 @@
     },
     {
      "title": "개발 부지로서 대지 조건은 어떠한가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "대상지는 잠원·신사권역 내 총 대지면적 616.1㎡(186.4평(약 285.6㎡), 추가 필지 합산 기준)로, 제2종일반주거지역에 위치하며 상업용 이용 현황과 소로 각지 접도 조건을 갖추고 있습니다. 건축물대장상 현 건폐율 49.76%는 법정 상한 60% 대비 여력이 있으나, 용적률은 325.63%로 토지이용계획상 확인된 법정 상한 200%를 상회하여 기존 건축물의 적법성·완화 적용 및 향후 신축 가능 연면적은 개별 필지별 기준으로 정밀 검토가 필요합니다. 사다리형 평지 대지의 코너 입지는 개발 설계에 활용 가능한 요소이나, 도로 폭·방위·정북 및 일조 사선·인접 대지 이격거리 제한은 관할 관청 및 건축사와의 사전 협의로 반드시 확인해야 합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -351,7 +351,7 @@
     },
     {
      "title": "신축/개발 사업수지와 수익성은 어떠한가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 반포 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 242억 수준의 합리적인 매각가와 614.9평(약 2032.7㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "**신축 사업수지 및 개발 타당성 분석**\n본 자산의 대지 매입 후 신축 개발 시 총 사업비, 예상 분양 수입 및 개발 이익률을 종합 추정합니다. **신축 사업수지 요약**\n| 구분 | 추정 금액 | 비고 |\n|------|-----------|------|\n| **토지 매입비** | 희망가 기준 | 사업비 내 비중 산출 |\n| **추정 신축 공사비** | 3.3㎡당 공사비 산정 | 신축 연면적 기준 |\n| **예상 총 사업비** | 토지비 + 공사비 + 금융/기타 | 총 투자금 |\n| **예상 개발 이익률** | **산출 불가 (사업비 데이터 부족)** | 시장 상황 연동 | > ⚠️ 신축 공사비 및 분양가 변동에 따라 최종 수익률이 달라질 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -366,7 +366,7 @@
     }
    ],
    "dataGrade": "B",
-   "heroTitle": "잠원 오피스빌딩 매각",
+   "heroTitle": "잠원·신사권역 기타 매각",
    "photos_v2": [
     {
      "url": "docs/golden-test-data/p4-jamwon-dev/r3-verified/images/image_01.png",
@@ -741,20 +741,20 @@
        "categoryName": "여행 > 숙박 > 여관,모텔"
       },
       {
-       "lat": 37.516359146752,
-       "lng": 127.021677224954,
-       "name": "무인 신사동지점",
-       "category": "landmark",
-       "distanceM": 398,
-       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
-      },
-      {
        "lat": 37.51728753591448,
        "lng": 127.01964480432345,
        "name": "짝호텔",
        "category": "landmark",
        "distanceM": 398,
        "categoryName": "여행 > 숙박 > 여관,모텔"
+      },
+      {
+       "lat": 37.516359146752,
+       "lng": 127.021677224954,
+       "name": "무인 신사동지점",
+       "category": "landmark",
+       "distanceM": 398,
+       "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
       },
       {
        "lat": 37.51120000205266,
@@ -1008,7 +1008,7 @@
     "registryData": {
      "source": "fallback_mock",
      "checked": false,
-     "fetchedAt": "2026-10-05T16:06:50.673Z",
+     "fetchedAt": "2026-10-06T15:52:29.785Z",
      "mortgages": [],
      "attachments": [],
      "rawResponse": null,
@@ -1188,16 +1188,16 @@
     "equityRequired": 242,
     "landValueRatio": 100,
     "leveragedYield": null,
-    "pricePerPyeong": 129850000,
+    "pricePerPyeong": 130000000,
     "devHoldYieldPct": null,
     "totalDepositBil": null,
     "landCostRatioPct": 83.3,
     "regulationExpiry": "2028-05-18",
     "devProfitMarginPct": null,
     "grossYieldOnEquity": null,
-    "landPricePerPyeong": 12985,
+    "landPricePerPyeong": 13000,
     "landValueRatioNote": "신축/개발 부지 — 토지 매입가 100% 반영",
-    "regulationDaysLeft": 591,
+    "regulationDaysLeft": 590,
     "constructionCostBil": 34.8,
     "totalProjectCostBil": 290.6,
     "grossYieldStabilized": null,
@@ -1223,7 +1223,7 @@
    "vacateSpec": {
     "responsibility": "seller"
    },
-   "approved_at": "2026-10-05T16:07:14.000Z",
+   "approved_at": "2026-10-06T15:53:04.851Z",
    "askingPrice": 24200000000,
    "coordinates": {
     "lat": 37.5138266988703,
@@ -1232,8 +1232,8 @@
    "dcfEligible": false,
    "mapImageUrl": "/api/public/map/static?lat=37.5138266988703&lng=127.018476031463&w=640&h=360&level=3",
    "releaseTier": "fact_om",
-   "generated_at": "2026-10-05T16:06:58.993Z",
-   "heroSubtitle": "잠원 소재, 오피스빌딩, 매각 희망가 242억 원대",
+   "generated_at": "2026-10-06T15:52:47.230Z",
+   "heroSubtitle": "잠원·신사권역 소재, 기타, 매각 희망가 200억대",
    "ssot_summary": {
     "pnu": "1165010600100260014",
     "pnus": [
@@ -1244,11 +1244,14 @@
     "address": "서울 서초구 신반포로47길 77",
     "bcr_pct": 49.76,
     "far_pct": 325.63,
-    "asset_type": "오피스빌딩",
+    "asset_type": "기타",
+    "price_band": "200억대",
+    "area_signal": "잠원·신사권역",
     "area_source": {
      "land": "parcel_sum",
      "total": "public_register"
     },
+    "fit_summary": null,
     "max_bcr_pct": 60,
     "max_far_pct": 200,
     "size_signal": "614.9평",
@@ -1257,8 +1260,9 @@
     "parcel_count": 2,
     "land_area_sqm": 616.1,
     "land_category": "대",
-    "vacancy_signal": "공실 발생",
-    "vacancy_status": "공실 발생",
+    "vacancy_signal": null,
+    "vacancy_status": null,
+    "caution_summary": "등기부등본, 건축물대장, 토지대장 및 토지이용계획확인서 확인이 필요합니다. 임대차·공실 현황과 신축 스태킹 플랜의 인허가 및 사업성 전제는 별도 실사가 필요합니다.",
     "completion_year": 1990,
     "register_main_pnu": "1165010600100260014",
     "investment_posture": "development",
@@ -1272,7 +1276,7 @@
    "external_data": {
     "errors": [],
     "address": "서울 서초구 신반포로47길 77",
-    "enrichedAt": "2026-10-05T16:06:51.246Z",
+    "enrichedAt": "2026-10-06T15:52:41.594Z",
     "hasPublicData": true,
     "fallbackStatus": {
      "landPrice": null,
@@ -1281,16 +1285,17 @@
      "buildingRegister": null
     }
    },
-   "ogDescription": "잠원 · 오피스빌딩 · 242억 원대 · 핵심 투자 포인트 및 자산 개요",
+   "ogDescription": "잠원·신사권역 · 기타 · 200억대 · 신사역 더블역세권 도보 3~4분, 잠원·신사권역에 위치한 1990년 준공",
    "developmentSpec": {
     "targetUse": "office",
     "contractorStatus": "undecided",
     "targetScalePyung": 464,
-    "constructionCostPerPyung": 750
+    "constructionCostPerPyung": 750,
+    "landPricePerPyeongManwon": 13000
    },
-   "readiness_score": 55,
+   "readiness_score": 65,
    "dataCompleteness": {
-    "generatedAt": "2026-10-05T16:06:58.999Z",
+    "generatedAt": "2026-10-06T15:52:47.237Z",
     "qualityGrade": "B",
     "buildingRegister": true,
     "pptxExportAllowed": true,
@@ -1300,9 +1305,9 @@
    "financialWarnings": [],
    "investmentPosture": "development",
    "investment_posture": "development",
-   "keyInvestmentPoint": "잠원 소재, 오피스빌딩, 매각 희망가 242억 원대",
+   "keyInvestmentPoint": "잠원·신사권역 소재, 기타, 매각 희망가 200억대",
    "asking_price_manwon": 2420000,
-   "approval_target_hash": "sha256:a8163a66e8a1458709e8e50516316355e05a63b787f6891056128bda57e606b4",
+   "approval_target_hash": "sha256:caba3781fca378d3614acccc33bd901ab3fff649a9e2834d8f4752eead72ce88",
    "broker_physical_inputs": {
     "parking_count": 12,
     "elevator_count": 1
@@ -1310,24 +1315,25 @@
   }
  },
  "building": {
-  "id": "2e96c096-d24f-405e-8a52-e6e47c05f784",
+  "id": "44634e2c-5212-4eb0-af23-de9ef787362d",
   "created_by_role": "broker",
   "input_type": "broker_memo",
   "raw_input": "잠원동 26-14, 16번지 두원빌딩 매각\n매각가 약 242억 (토지평당 1.3억)\n2종일반주거, 1990년 준공\nB1~5F, 주차 12대\n강남대로 이면, 트리플 역세권\n신사역 도보 4분, 논현역 도보 7분\n매도인 명도 조건 - 현재 임차인 명도 협의 중 및 완료 상태\n다필지 (26-14, 26-16)\n신축 후 임대 예상 스태킹 플랜 포함",
-  "area_signal": "잠원",
-  "asset_type": "오피스빌딩",
-  "price_band": "242억",
-  "size_signal": "580평",
-  "current_use_signal": "근린생활시설",
-  "vacancy_signal": "공실 발생",
-  "fit_summary": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-  "caution_summary": "권리관계 및 공부 서류 검토 필요",
+  "area_signal": "잠원·신사권역",
+  "asset_type": "기타",
+  "price_band": "200억대",
+  "size_signal": "지하 1층~지상 5층, 주차 12대, 다필지",
+  "current_use_signal": null,
+  "vacancy_signal": null,
+  "fit_summary": "잠원·신사권역 소재 기타으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+  "caution_summary": "등기부등본, 건축물대장, 토지대장 및 토지이용계획확인서 확인이 필요합니다. 임대차·공실 현황과 신축 스태킹 플랜의 인허가 및 사업성 전제는 별도 실사가 필요합니다.",
   "hidden_fields": [
    "exact_address",
-   "seller_motivation"
+   "tenant_name",
+   "negotiation_memo",
+   "owner_identity"
   ],
   "layers": {
-   "pnu": "1168010100107420001",
    "finance": {
     "vacancy_pct": null,
     "loan_amount_krw": null,
@@ -1340,13 +1346,9 @@
     "total_deposit_manwon": null
    },
    "location": {
-    "pnu": "1168010100107420001",
-    "address": "역삼동 742-1",
-    "raw_address": "역삼동 742-1"
-   },
-   "coordinates": {
-    "lat": 37.4966382941162,
-    "lng": 127.035204690522
+    "pnu": null,
+    "address": "잠원동·신사역권역",
+    "raw_address": null
    },
    "lease_summary": {
     "vacancy_pct": null,
@@ -1357,19 +1359,19 @@
    }
   },
   "confidence": {
-   "assetType": "confirmed",
-   "priceBand": "confirmed",
-   "areaSignal": "confirmed",
+   "assetType": "needs_verification",
+   "priceBand": "user_provided",
+   "areaSignal": "user_provided",
    "fitSummary": "ai_hypothesis"
   },
   "disclosure": {
    "guard_checked": true
   },
   "status": "public_signal_ready",
-  "created_at": "2026-09-08T00:53:31.667467+00:00",
-  "updated_at": "2026-10-05T16:07:18.993918+00:00",
-  "promotion_score": 0.3259,
-  "promotion_updated_at": "2026-10-02T05:15:25.851+00:00",
+  "created_at": "2026-10-06T14:52:30.390166+00:00",
+  "updated_at": "2026-10-06T15:53:08.056067+00:00",
+  "promotion_score": 0.345,
+  "promotion_updated_at": "2026-10-06T14:52:33.301+00:00",
   "matched_buyer_count": 0,
   "vacancy_inquiry_count": 0,
   "vacancy_avg_fit_score": null,
@@ -1383,30 +1385,25 @@
   "iot_floor_occupancy": null,
   "iot_device_id": null,
   "iot_last_synced_at": null,
-  "verification_status": "not_found",
+  "verification_status": "skipped",
   "verification_details": {
    "checks": {
     "purposeMatch": null,
-    "buildingExists": false,
+    "buildingExists": null,
     "areaWithinRange": null
    },
-   "status": "not_found",
+   "status": "skipped",
    "details": {
-    "aiAddress": "잠원",
-    "aiAssetType": "오피스빌딩",
-    "errorReason": "국토부 건축물대장에 해당 건물 정보 없음",
-    "aiSizeSignal": "580평"
+    "aiAddress": "잠원·신사권역",
+    "aiAssetType": "기타",
+    "errorReason": "주소 파싱 실패 (시군구/법정동 분리 불가)",
+    "aiSizeSignal": "지하 1층~지상 5층, 주차 12대, 다필지"
    },
-   "resolvedComponents": {
-    "ji": "0",
-    "bun": "0",
-    "bjdongCd": "10600",
-    "sigunguCd": "11650"
-   }
+   "resolvedComponents": null
   },
   "verified_at": null,
-  "raw_address": "역삼동 742-1",
-  "canonical_property_id": "855ede22-5d60-45d1-a30c-fa9e9c212cfa",
+  "raw_address": null,
+  "canonical_property_id": null,
   "address": "서울 서초구 신반포로47길 77",
   "pnu": "1165010600100260014",
   "lat": 37.5138266988703,
@@ -1702,20 +1699,20 @@
      "categoryName": "여행 > 숙박 > 여관,모텔"
     },
     {
-     "name": "무인 신사동지점",
-     "lat": 37.516359146752,
-     "lng": 127.021677224954,
-     "distanceM": 398,
-     "category": "landmark",
-     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
-    },
-    {
      "name": "짝호텔",
      "lat": 37.51728753591448,
      "lng": 127.01964480432345,
      "distanceM": 398,
      "category": "landmark",
      "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "무인 신사동지점",
+     "lat": 37.516359146752,
+     "lng": 127.021677224954,
+     "distanceM": 398,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
     },
     {
      "name": "논현역 7호선",

@@ -2,27 +2,27 @@
  "schemaVersion": 1,
  "name": "operating-hotel-r2",
  "fixtureDir": "docs/golden-test-data/p6-hotel-operating/r2-standard",
- "capturedAt": "2026-10-05T21:21:08.610Z",
- "docId": "8aa6e6b6-0fc3-4656-aab4-e2f0b21298ba",
- "buildingId": "ffefa1f7-71c8-4b72-ab1c-75272f057d05",
+ "capturedAt": "2026-10-06T16:02:14.549Z",
+ "docId": "142bb44e-5772-4d36-9d3a-dc1098a9b9ae",
+ "buildingId": "97f5f856-19f1-46f0-8e5a-fea7ccabea70",
  "doc": {
-  "id": "8aa6e6b6-0fc3-4656-aab4-e2f0b21298ba",
-  "title": "대현 오피스빌딩 매각",
+  "id": "142bb44e-5772-4d36-9d3a-dc1098a9b9ae",
+  "title": "이대권역 호텔 매각",
   "document_type": "mobile_im",
-  "created_at": "2026-10-05T21:20:02.618494+00:00",
+  "created_at": "2026-10-06T15:58:27.927852+00:00",
   "body": {
    "tier": "basic",
    "claims": [
     {
-     "id": "eb30bf31-c2ea-4c64-9db5-fcbbd6c57cbf",
-     "asOf": "2026-10-05",
+     "id": "40049904-b841-49d2-9eb0-df1a6f836319",
+     "asOf": "2026-10-06",
      "unit": "원",
      "value": 30000000000,
      "status": "reconciled",
      "subject": "asking_price",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "broker"
       }
      ],
@@ -31,15 +31,15 @@
      "expertRequired": false
     },
     {
-     "id": "6f838264-0afe-4da2-bf8f-c16856213f4e",
-     "asOf": "2026-10-05",
+     "id": "51f5f027-1ebc-420b-a85d-266b22c595a0",
+     "asOf": "2026-10-06",
      "unit": "㎡",
      "value": 3842.6444840000004,
      "status": "reconciled",
      "subject": "total_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "public_api"
       }
      ],
@@ -48,15 +48,15 @@
      "expertRequired": false
     },
     {
-     "id": "ff607287-41a7-409a-9dfb-2cb3fc88035f",
-     "asOf": "2026-10-05",
+     "id": "ac67c0f4-e594-4268-946f-2c24672e1abe",
+     "asOf": "2026-10-06",
      "unit": "㎡",
      "value": 486.2809735,
      "status": "reconciled",
      "subject": "land_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "public_api"
       }
      ],
@@ -120,23 +120,23 @@
    "preset": "credeal_basic",
    "ai_used": true,
    "im_type": "mobile_im_lite",
-   "ogTitle": "대현 오피스빌딩 매각",
+   "ogTitle": "이대권역 호텔 매각",
    "heroCard": {
     "adr": 95000,
     "occPct": 78,
     "revpar": 74100,
     "zoning": "일반상업지역",
     "hasLoan": false,
-    "keyRisk": "권리관계 및 공부 서류 검토 필요",
+    "keyRisk": "운영자료와 결산자료를 통해 매출, GOP, ADR, OCC 및 RevPAR 확인이 필요합니다. 위탁운영 계약의 만료일·해지·승계 조건과 GOP 기준 Cap Rate 산식도 확인해야 합니다.",
     "opexPct": null,
     "posture": "operating",
-    "assetType": "오피스빌딩",
+    "assetType": "호텔",
     "keyPoints": [
-     "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-     "안정적인 자산 가치: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.",
-     "향후 가치개선(Value-add) 잠재력: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다."
+     "운영 자산 브랜드: 이대권역 소재 호텔으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+     "GOP 마진 수익: 직영 운영을 통한 영업이익(GOP) 기반의 실질 수익 창출이 핵심입니다.",
+     "운영 최적화 출구: 오퍼레이션 효율화 및 브랜드 가치 제고를 통한 자산 가치 상승이 유력합니다. 인근 실거래 비교 사례 10건 기준 평균 3.3㎡당 가격 약 3,298만원/3.3㎡(32,975,953원)으로, 본 자산과 비교 검토할 수 있습니다."
     ],
-    "areaSignal": "대현",
+    "areaSignal": "이대권역",
     "landAreaM2": 486.2809735,
     "noiBaseBil": 10.7,
     "capRateBase": 3.57,
@@ -154,14 +154,14 @@
     "vacancyReservePct": null,
     "askingPriceDisplay": "300억 원",
     "devProfitMarginPct": null,
-    "keyInvestmentPoint": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+    "keyInvestmentPoint": "운영 자산 브랜드: 이대권역 소재 호텔으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
     "landPricePerPyeong": null,
     "ownVsLeaseSavingsBil": null
    },
    "sections": [
     {
-     "title": "이 오피스, 어떤 자산인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "title": "이 호텔, 어떤 자산인가",
+     "markdown": "**이대권역** 소재 **호텔** 주요 자산입니다. | 항목 | 내용 |\n|------|------|\n| **소재지** | 이대권역 |\n| **주요 용도** | - |\n| **연면적** | 3,842.6㎡ (1162평) |\n| **대지면적** | 486.3㎡ (147평) |\n| **용도지역** | 일반상업지역 |\n| **매도 희망가** | 300억대 | > 본 매물은 이대권역 입지의 직영 운영형 자산입니다.",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -171,7 +171,7 @@
        "fieldKey": "total_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T21:19:32.247Z"
+       "lastVerifiedAt": "2026-10-06T15:58:23.162Z"
       },
       {
        "value": 486.2809735,
@@ -179,7 +179,7 @@
        "fieldKey": "plat_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T21:19:32.247Z"
+       "lastVerifiedAt": "2026-10-06T15:58:23.162Z"
       }
      ],
      "section_type": "property_overview",
@@ -187,8 +187,8 @@
      "section_order": 1
     },
     {
-     "title": "왜 지금 이 오피스을 사야 하는가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "title": "왜 지금 이 호텔을 사야 하는가",
+     "markdown": "> 💡 **종합 가치 제안**: 이대권역 소재 호텔 — 직영/위탁 운영 기반 GOP 수익성과 자산 가치를 분석합니다. **3대 핵심 투자 포인트 (운영형)** • **운영 자산 브랜드**: 이대권역 소재 호텔으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다. • **GOP 마진 수익**: 직영 운영을 통한 영업이익(GOP) 기반의 실질 수익 창출이 핵심입니다. • **운영 최적화 출구**: 오퍼레이션 효율화 및 브랜드 가치 제고를 통한 자산 가치 상승이 유력합니다. 인근 실거래 비교 사례 **10건** 기준 평균 3.3㎡당 가격 **약 3,298만원/3.3㎡**(32,975,953원)으로, 본 자산과 비교 검토할 수 있습니다. **권역 시세 벤치마킹 (실거래 분석 · 연면적 기준)**\n| 항목 | 수치 |\n|------|------|\n| **본 자산 ㎡당 단가 (연면적 기준)** | 7,807,123원/㎡ |\n| **권역 평균 ㎡당 단가 (연면적 기준)** | 9,975,226원/㎡ |\n| **시세 대비 포지션** | 🟢 **-21.7% 디스카운트** |\n| **경쟁력 판정** | **저평가 — 매력적 진입 가격** |\n| **비교 사례 수** | 10건 | > ℹ️ **단가 기준 안내**: 본 비교는 건물 연면적 기준 단가입니다. (토지 면적 단가와 구분) 최근 인근 실거래 기준이며 개별 물건 조건에 따라 차이가 있습니다. **예상 매수자 유형 (AI 분석)**\n| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **전문 운영사 (호텔·물류 등)** | ◎ 최적합 | 운영 노하우를 통한 실질 영업이익(GOP) 제고 |\n| **자산운용사 (오퍼레이셔널)** | ○ 적합 | 운영 위탁 + 자산 보유 분리 전략 |\n| **프랜차이즈 본사** | △ 검토 | 직영 전환을 통한 브랜드 가치 제고 |",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -198,7 +198,7 @@
     },
     {
      "title": "이 입지, 투자할 만한 곳인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "이대역(2호선) 도보 3분, 신촌역 경의중앙선 약 313m의 더블 교통 접근성을 갖춘 이대권역 핵심 입지입니다. 반경 내 카페 124곳, 음식점 307곳, 편의점 44곳이 집적되어 있어 대학가·신촌 상권의 상시 유동인구와 체류 수요를 객실 수요로 연결할 기반이 있습니다. 현재 94실 호텔은 객실 점유율 78%, GOP 마진 38%를 기록하고 있으며, 향후 직영 운영 전환을 검토할 경우에도 우수한 접근성과 생활 인프라는 ADR·점유율 방어 및 GOP 개선의 핵심 기반이 될 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -218,7 +218,7 @@
     },
     {
      "title": "토지 현황과 이용 조건은 어떠한가",
-     "markdown": "## 토지 현황 - **지목**: 대\n- **대지면적**: 486.281㎡ (147.1평)\n- **공시지가**: 29,970,000원/㎡ ### 이용 규제\n- **용도지역**: 일반상업지역\n- **건폐율**: 60%\n- **필지 형상**: 가로장방\n- **지형**: 평지\n- **도로접면**: 중로각지",
+     "markdown": "## 토지 현황 - **지목**: 대\n- **대지면적**: 486.3㎡ (147.1평)\n- **공시지가**: 29,970,000원/㎡ ### 이용 규제\n- **용도지역**: 일반상업지역\n- **건폐율**: 60%\n- **필지 형상**: 가로장방\n- **지형**: 평지\n- **도로접면**: 중로각지",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [],
@@ -228,7 +228,7 @@
     },
     {
      "title": "위험요인 및 대응 방안",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "아래 사항은 **실사(Due Diligence) 과정에서 추가 확인이 필요한 핵심 점검 항목**입니다. > ⚠️ 운영자료와 결산자료를 통해 매출, GOP, ADR, OCC 및 RevPAR 확인이 필요합니다. 위탁운영 계약의 만료일·해지·승계 조건과 GOP 기준 Cap Rate 산식도 확인해야 합니다. **리스크 점검 항목**\n| 구분 | 현황 (브로커 제공 기준) | 실사 시 확인 사항 |\n|------|------------------------|-------------------|\n| **건물 물리적 상태** | 준공연도 확인 필요, - | 누수·균열·설비 노후 여부 현장 점검 필요 |\n| **승강기 및 설비** | 승강기 정보 확인 필요 | 정기검사 이력, 냉난방 설비 상태 확인 필요 |\n| **임차인 이탈 위험** | 임대차 계약 현황 LOI 접수 후 열람 | 잔여 계약기간(WALE), 임차인 신용도 확인 필요 |\n| **명도 및 분쟁** | 등기사항증명서 LOI 접수 후 열람 | 임대차 분쟁·소송 이력 확인 필요 |\n| **권리관계 및 금융** | 소유 구조·담보권 LOI 접수 후 열람 | 가압류·가처분·근저당 설정 현황 확인 필요 | > 🟡 **점검 안내**: 상기 항목은 브로커 제공 정보 기준이며, 세부 임대차 계약서 및 등기사항증명서는 LOI 접수 후 원본 열람 가능합니다.",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -238,7 +238,7 @@
        "fieldKey": "zoning",
        "confidence": "confirmed",
        "sourceDetail": "토지이용규제정보서비스(LURIS) API",
-       "lastVerifiedAt": "2026-10-05T21:19:32.247Z"
+       "lastVerifiedAt": "2026-10-06T15:58:23.162Z"
       }
      ],
      "section_type": "risk_check",
@@ -247,7 +247,7 @@
     },
     {
      "title": "실사 안내 및 면책 조항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "투자 검토는 비밀유지계약(NDA) 체결 후 진행되며, 체결 완료 시 직영 운영 실적, 매출 구성, GOP 및 GOP 마진 산출 근거, ADR·OCC·RevPAR 등 핵심 운영자료를 확인할 수 있습니다. 이후 현장 실사를 통해 객실·공용부 상태와 운영 동선을 점검하고, 위탁운영 계약의 승계·해지 조건 및 결산자료를 대조 검토합니다. 검토를 마친 투자자는 가격, 실사 조건 및 거래 일정을 포함한 LOI(인수의향서)를 제출하는 절차로 진행됩니다. 1:1 비밀 상담을 통해 NDA 체결, 자료 열람 및 실사 일정 조율을 안내받으실 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -257,7 +257,7 @@
     },
     {
      "title": "실사 체크리스트 및 확인사항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "투자를 위해 반드시 짚고 넘어가야 할 핵심 확인사항입니다. **📋 물리적·권리적 실사** 1. **임대차 현황 파악**: 현재 임차인의 계약 기간, 갱신 여부, 보증금 및 월세 지급 현황 확인 2. **건축물대장 대조**: 위반건축물 여부, 용도 변경 이력, 주차장법 위반 여부 확인 3. **등기사항증명서 확인**: 근저당, 가압류, 신탁 등 소유권 외 권리관계 및 말소 조건 확인 4. **현장 실사**: 건물 노후도, 누수, 설비(승강기, 냉난방) 작동 상태 직접 점검",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -267,7 +267,7 @@
     },
     {
      "title": "운영 자산으로서 현황과 실적은 어떠한가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "**직영 자가운영 현황 및 오퍼레이션 개요**\n본 자산은 직영 운영 형태의 자산으로서 독자적인 영업 매출 및 브랜딩 가치를 창출하고 있습니다. **운영 자산 개요**\n| 항목 | 운영 스펙 | 비고 |\n|------|-----------|------|\n| **운영 형태** | 직영 자가운영 (Operating) | 오퍼레이터 직영 |\n| **주요 영업 요소** | 객실/매장/창고 가동률 | 영업 실적 연동 |\n| **시설 상태** | 주기적 시설개선 및 유지보수 | 영업 가치 유지 | > 💡 운영 전문성 및 차별화된 오퍼레이션을 통한 수익성 최적화 자산입니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -277,7 +277,7 @@
     },
     {
      "title": "실질 영업이익(GOP) 및 손익 구조 분석",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 연희 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 300억 수준의 합리적인 매각가와 1162.4평(약 3842.6㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "**GOP (Gross Operating Profit) 분석**\n임대차 수익 구조가 아닌 영업 총매출에서 직접 운영비를 차감한 GOP 기반의 실질 수익성을 분석합니다. **GOP 수익성 분석**\n| 항목 | 추정 실적 | 비고 |\n|------|-----------|------|\n| **연간 총 매출** | 영업 매출 수지 | AI/실적 추정 |\n| **운영비 (OPEX)** | 인건비, 재료비, 유틸리티 | 마진율 차감 |\n| **연간 GOP (영업이익)** | **영업 매출 × GOP 마진율** | 실질 운영 수익 |\n| **실질 영업이익률(GOP Cap Rate)** | **매도 희망가 대비 GOP 비율** | 자산 가치 기준 | > ⚠️ 객단가(ADR) 및 가동률(OCC) 관리를 통한 지속적 GOP 마진 개선이 핵심입니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -292,7 +292,7 @@
     }
    ],
    "dataGrade": "B",
-   "heroTitle": "대현 오피스빌딩 매각",
+   "heroTitle": "이대권역 호텔 매각",
    "photos_v2": [
     {
      "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_01.png",
@@ -398,7 +398,7 @@
       "subway": 8,
       "busStop": 0,
       "parking": 31,
-      "restaurant": 306,
+      "restaurant": 307,
       "convenience": 44
      },
      "candidateSpots": [
@@ -531,12 +531,12 @@
        "categoryName": "문화,예술 > 문화시설 > 박물관"
       },
       {
-       "lat": 37.5576465422299,
-       "lng": 126.944912382568,
-       "name": "예스에이피엠",
+       "lat": 37.557642943528464,
+       "lng": 126.94492370288361,
+       "name": "예스에이피엠아파트",
        "category": "landmark",
        "distanceM": 165,
-       "categoryName": "가정,생활 > 복합쇼핑몰"
+       "categoryName": "부동산 > 주거시설 > 아파트"
       },
       {
        "lat": 37.5602446572269,
@@ -894,7 +894,7 @@
     "registryData": {
      "source": "fallback_mock",
      "checked": false,
-     "fetchedAt": "2026-10-05T21:19:31.851Z",
+     "fetchedAt": "2026-10-06T15:58:11.826Z",
      "mortgages": [],
      "attachments": [],
      "rawResponse": null,
@@ -1093,7 +1093,7 @@
     "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_04.png",
     "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_05.png"
    ],
-   "approved_at": "2026-10-05T21:20:16.724Z",
+   "approved_at": "2026-10-06T15:58:44.210Z",
    "askingPrice": 30000000000,
    "coordinates": {
     "lat": 37.5590467181363,
@@ -1102,15 +1102,15 @@
    "dcfEligible": false,
    "mapImageUrl": "/api/public/map/static?lat=37.5590467181363&lng=126.945552056884&w=640&h=360&level=3",
    "releaseTier": "fact_om",
-   "generated_at": "2026-10-05T21:20:02.242Z",
-   "heroSubtitle": "대현 소재, 오피스빌딩, 매각 희망가 300억",
+   "generated_at": "2026-10-06T15:58:27.605Z",
+   "heroSubtitle": "이대권역 소재, 호텔, 매각 희망가 300억대",
    "ssot_summary": {
     "pnu": "1141011200100560001",
     "zoning": "일반상업지역",
     "address": "서울 서대문구 이화여대길 51",
-    "asset_type": "오피스빌딩",
-    "price_band": "300억",
-    "area_signal": "대현",
+    "asset_type": "호텔",
+    "price_band": "300억대",
+    "area_signal": "이대권역",
     "area_source": {
      "land": "broker_memo",
      "total": "broker_memo",
@@ -1119,14 +1119,14 @@
       "register_sqm": 231.4
      }
     },
-    "fit_summary": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
+    "fit_summary": null,
     "max_bcr_pct": 60,
     "max_far_pct": 800,
     "size_signal": "1162.4평",
     "land_area_sqm": 486.2809735,
-    "vacancy_signal": "공실 발생",
-    "vacancy_status": "공실 발생",
-    "caution_summary": "권리관계 및 공부 서류 검토 필요",
+    "vacancy_signal": "객실 점유율 78%",
+    "vacancy_status": "객실 점유율 78%",
+    "caution_summary": "운영자료와 결산자료를 통해 매출, GOP, ADR, OCC 및 RevPAR 확인이 필요합니다. 위탁운영 계약의 만료일·해지·승계 조건과 GOP 기준 Cap Rate 산식도 확인해야 합니다.",
     "register_main_pnu": "1141011200100560001",
     "investment_posture": "operating",
     "asking_price_manwon": 3000000,
@@ -1136,7 +1136,7 @@
    "external_data": {
     "errors": [],
     "address": "서울 서대문구 이화여대길 51",
-    "enrichedAt": "2026-10-05T21:19:32.247Z",
+    "enrichedAt": "2026-10-06T15:58:23.162Z",
     "hasPublicData": true,
     "fallbackStatus": {
      "landPrice": null,
@@ -1145,7 +1145,7 @@
      "buildingRegister": null
     }
    },
-   "ogDescription": "대현 · 오피스빌딩 · 300억 · 핵심 투자 포인트 및 자산 개요",
+   "ogDescription": "이대권역 · 호텔 · 300억대 · 이대권역 소재 호텔 주요 자산입니다. 항목 내용",
    "hotel_operating": {
     "adr_krw": 95000,
     "revpar_krw": 74100,
@@ -1159,7 +1159,7 @@
    },
    "readiness_score": 70,
    "dataCompleteness": {
-    "generatedAt": "2026-10-05T21:20:02.246Z",
+    "generatedAt": "2026-10-06T15:58:27.607Z",
     "qualityGrade": "B",
     "buildingRegister": true,
     "pptxExportAllowed": true,
@@ -1169,9 +1169,9 @@
    "financialWarnings": [],
    "investmentPosture": "operating",
    "investment_posture": "operating",
-   "keyInvestmentPoint": "대현 소재, 오피스빌딩, 매각 희망가 300억",
+   "keyInvestmentPoint": "이대권역 소재, 호텔, 매각 희망가 300억대",
    "asking_price_manwon": 3000000,
-   "approval_target_hash": "sha256:cf979655c76c4d5f9a719202bb6571ef2bcfc6d922f3f6e1a2aeefb2e5c29849",
+   "approval_target_hash": "sha256:13758a37490b31bf320133757a6e1024b36a85ef460413c681a83c9e4693ef9d",
    "broker_physical_inputs": {
     "parking_count": 18,
     "elevator_count": 2
@@ -1179,21 +1179,22 @@
   }
  },
  "building": {
-  "id": "ffefa1f7-71c8-4b72-ab1c-75272f057d05",
+  "id": "97f5f856-19f1-46f0-8e5a-fea7ccabea70",
   "created_by_role": "broker",
   "input_type": "broker_memo",
   "raw_input": "에이치에비뉴호텔 이대점 매각\n매각가 300억\n소재지: 서울 서대문구 대현동 (이대역 도보 3분)\n대지 147.1평 (486.2㎡), 연면적 1,162.4평 (3,842.6㎡)\n지하 2층 ~ 지상 12층, 준공 2016년, 주차 18대, 승강기 2대\n일반상업지역, 관광호텔업 3급\n총 객실 94실 (스탠다드 더블 46, 트윈 28, 디럭스 14, 스위트 6)\n운영: 에이치 에비뉴 위탁운영 (2029년 만료)\nADR 95,000원, OCC 78%, RevPAR 74,100원\n연간 총매출 약 28.2억, GOP 약 10.7억 (GOP 마진 38%)\nCap Rate (GOP 기준) 약 3.57%",
-  "area_signal": "대현",
-  "asset_type": "오피스빌딩",
-  "price_band": "300억",
-  "size_signal": "147.1평",
-  "current_use_signal": "근린생활시설",
-  "vacancy_signal": "공실 발생",
-  "fit_summary": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-  "caution_summary": "권리관계 및 공부 서류 검토 필요",
+  "area_signal": "이대권역",
+  "asset_type": "호텔",
+  "price_band": "300억대",
+  "size_signal": "대지 147.1평, 연면적 1,162.4평, 지하 2층~지상 12층, 총 94실",
+  "current_use_signal": "관광호텔 운영 중, 위탁운영 계약 2029년 만료",
+  "vacancy_signal": "객실 점유율 78%",
+  "fit_summary": "이대권역 소재 호텔으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+  "caution_summary": "운영자료와 결산자료를 통해 매출, GOP, ADR, OCC 및 RevPAR 확인이 필요합니다. 위탁운영 계약의 만료일·해지·승계 조건과 GOP 기준 Cap Rate 산식도 확인해야 합니다.",
   "hidden_fields": [
    "exact_address",
-   "seller_motivation"
+   "tenant_name",
+   "lease_contract_raw_text"
   ],
   "layers": {
    "finance": {
@@ -1209,8 +1210,8 @@
    },
    "location": {
     "pnu": null,
-    "address": "매각가 300",
-    "raw_address": "매각가 300"
+    "address": "이대역권역",
+    "raw_address": null
    },
    "lease_summary": {
     "vacancy_pct": null,
@@ -1223,19 +1224,19 @@
    "total_floor_area_pyung": 1162.4
   },
   "confidence": {
-   "assetType": "confirmed",
-   "priceBand": "confirmed",
-   "areaSignal": "confirmed",
+   "assetType": "user_provided",
+   "priceBand": "user_provided",
+   "areaSignal": "user_provided",
    "fitSummary": "ai_hypothesis"
   },
   "disclosure": {
    "guard_checked": true
   },
   "status": "public_signal_ready",
-  "created_at": "2026-10-02T05:22:06.283408+00:00",
-  "updated_at": "2026-10-05T21:20:19.709749+00:00",
+  "created_at": "2026-10-06T15:25:52.821969+00:00",
+  "updated_at": "2026-10-06T15:58:47.02093+00:00",
   "promotion_score": 0.345,
-  "promotion_updated_at": "2026-10-02T05:22:09.605+00:00",
+  "promotion_updated_at": "2026-10-06T15:25:55.465+00:00",
   "matched_buyer_count": 0,
   "vacancy_inquiry_count": 0,
   "vacancy_avg_fit_score": null,
@@ -1249,29 +1250,24 @@
   "iot_floor_occupancy": null,
   "iot_device_id": null,
   "iot_last_synced_at": null,
-  "verification_status": "not_found",
+  "verification_status": "skipped",
   "verification_details": {
    "checks": {
     "purposeMatch": null,
-    "buildingExists": false,
+    "buildingExists": null,
     "areaWithinRange": null
    },
-   "status": "not_found",
+   "status": "skipped",
    "details": {
-    "aiAddress": "대현",
-    "aiAssetType": "오피스빌딩",
-    "errorReason": "국토부 건축물대장에 해당 건물 정보 없음",
-    "aiSizeSignal": "147.1평"
+    "aiAddress": "이대권역",
+    "aiAssetType": "호텔",
+    "errorReason": "주소 파싱 실패 (시군구/법정동 분리 불가)",
+    "aiSizeSignal": "대지 147.1평, 연면적 1,162.4평, 지하 2층~지상 12층, 총 94실"
    },
-   "resolvedComponents": {
-    "ji": "0",
-    "bun": "0",
-    "bjdongCd": "11200",
-    "sigunguCd": "11410"
-   }
+   "resolvedComponents": null
   },
   "verified_at": null,
-  "raw_address": "매각가 300",
+  "raw_address": null,
   "canonical_property_id": null,
   "address": "서울 서대문구 이화여대길 51",
   "pnu": "1141011200100560001",
@@ -1302,7 +1298,7 @@
     "busStop": 0,
     "cafe": 124,
     "parking": 31,
-    "restaurant": 306,
+    "restaurant": 307,
     "convenience": 44
    },
    "keySpots": [
@@ -1392,20 +1388,20 @@
      "categoryName": "여행 > 관광,명소 > 테마거리"
     },
     {
-     "name": "이화52번가",
-     "lat": 37.5593872415555,
-     "lng": 126.944854511401,
-     "distanceM": 72,
-     "category": "landmark",
-     "categoryName": "여행 > 관광,명소 > 테마거리"
-    },
-    {
      "name": "신촌대학탐방나들길",
      "lat": 37.559697526744216,
      "lng": 126.94559221484572,
      "distanceM": 72,
      "category": "landmark",
      "categoryName": "여행 > 관광,명소 > 도보여행"
+    },
+    {
+     "name": "이화52번가",
+     "lat": 37.5593872415555,
+     "lng": 126.944854511401,
+     "distanceM": 72,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리"
     },
     {
      "name": "히든플레이스",
@@ -1472,12 +1468,12 @@
      "categoryName": "문화,예술 > 문화시설 > 박물관"
     },
     {
-     "name": "예스에이피엠",
-     "lat": 37.5576465422299,
-     "lng": 126.944912382568,
+     "name": "예스에이피엠아파트",
+     "lat": 37.557642943528464,
+     "lng": 126.94492370288361,
      "distanceM": 165,
      "category": "landmark",
-     "categoryName": "가정,생활 > 복합쇼핑몰"
+     "categoryName": "부동산 > 주거시설 > 아파트"
     },
     {
      "name": "카페ING 이화여자대학교 국제관점",

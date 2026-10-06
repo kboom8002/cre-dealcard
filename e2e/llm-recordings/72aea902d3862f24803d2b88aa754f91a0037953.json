@@ -1,0 +1,14 @@
+{
+ "key": "72aea902d3862f24803d2b88aa754f91a0037953",
+ "recordedAt": "2026-10-06T15:07:07.765Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **9호선 선유도역 도보 약 2분의 역세권 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"반경 내 다수의 음식점·카페·생활편의시설과 인접 주거 배후수요는 상가 및 업무시설 임차 수요의 지속성에 기여하며\",\n      \"suggestion\": \"시설 목록, 배후세대 수, 유동인구, 임대·공실 통계 등 확인 가능한 근거를 제시하거나, '임차 수요에 영향을 줄 수 있으므로 관련 자료 확인이 필요합니다'처럼 조건부로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 관리와 임대수익 최적화 측면에서 경쟁력 있는 입지입니다.\",\n      \"suggestion\": \"수익성이나 투자 경쟁력을 단정하지 말고, '공실률·임대료·임차인 구성 등을 확인한 후 임대수익 및 공실 관리 가능성을 검토할 수 있습니다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"공실 관리와 임대수익 최적화 측면에서 경쟁력 있는 입지입니다.\",\n      \"suggestion\": \"비교 대상과 기준 자료가 없으므로 '경쟁력 있는'이라는 평가를 삭제하고, 인근 유사 자산의 공실률·임대료·임대기간 등 비교 기준과 출처를 제시한 경우에만 제한적으로 사용하세요.\"\n    }\n  ]\n}",
+  "tokens": 1982,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9424
+ }
+}

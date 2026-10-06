@@ -1,0 +1,14 @@
+{
+ "key": "8dc319a9bf4a37bbb7931b22b38c64acaff18231",
+ "recordedAt": "2026-10-06T11:14:32.087Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역(9호선) 도보 약 5분, 영신로 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"현재 자가사용 2개 호실을 제외한 임대 호실은 공실 없이 운영 중이며, 월 임대료 1,946만원을 바탕으로 안정적인 현금흐름을 확보하고 있어\",\n      \"suggestion\": \"현금흐름의 안정성을 단정하지 말고, '제공된 자료상 자가사용 2개 호실을 제외한 임대 호실은 공실 없이 운영 중이며, 월 임대료는 1,946만원으로 제시되어 있습니다. 실제 임대수익의 지속 가능성은 임대차계약, 비용, 공실 및 임대료 회수 내역 확인이 필요합니다'와 같이 객관적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1954,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7585
+ }
+}

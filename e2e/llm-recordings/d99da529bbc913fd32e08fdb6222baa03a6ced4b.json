@@ -1,0 +1,14 @@
+{
+ "key": "d99da529bbc913fd32e08fdb6222baa03a6ced4b",
+ "recordedAt": "2026-10-06T14:16:02.615Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: income_analysis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 실투자금(취득비용 포함, 시스템 산출값)은 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"연 순영업소득(NOI)은 AI 추정 기준 약 1.9억~2.2억 원이며, 연 수익률(Cap Rate, NOI÷매매가)은 1.6%~1.9%로 추정된다\",\n      \"suggestion\": \"NOI 산출에 사용한 공실, 운영비, 임대료 인식 기준 및 원천자료를 명시하십시오. 근거를 제시할 수 없다면 해당 수치와 Cap Rate를 삭제하고, 확인 가능한 임대료 합계만 기재하십시오.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공실 현황 | 0.0% (임대중 6 · 자가사용 2 · 공실 0)\",\n      \"suggestion\": \"층별 표에는 자가사용이 4F 1개 호실로만 표시되고, B1은 임차인·임대료가 공란이므로 점유 상태를 확인한 뒤 임대중·자가사용·공실 수치를 재산정하십시오.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"토지 가치 측면의 하방 안정성을 뒷받침하나\",\n      \"suggestion\": \"투자 안정성을 암시하는 표현을 삭제하고, '공시지가 기준 토지 평가액은 약 37.9억 원으로 산출되며, 공시지가와 실제 거래가·담보가치는 다를 수 있다'처럼 객관적 사실과 유의사항으로 표현하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"토지 가치 측면의 하방 안정성을 뒷받침하나\",\n      \"suggestion\": \"공시지가 비중만 제시하고 가격의 하방 안정성에 대한 평가를 배제하십시오. 실제 가치 판단에는 감정평가, 거래사례 및 권리·임대차 검토가 필요하다고 기재하십시오.\"\n    }\n  ]\n}",
+  "tokens": 3398,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 17649
+ }
+}

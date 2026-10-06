@@ -1,0 +1,14 @@
+{
+ "key": "d201c3fd14f25523cfa7e9042718161587efa2a2",
+ "recordedAt": "2026-10-06T12:17:16.221Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**: 제시된 개발안은 오피스 464평(약 1533.9㎡), 평당 공사비 750만 원을 기준으로 하며\",\n      \"suggestion\": \"개발이익을 산정하거나 수익성을 단정하는 표현을 삭제하고, '개발사업 수익성은 총사업비, 인허가, 매각·분양 조건 및 시장 여건을 반영해 별도 검토가 필요함'과 같이 중립적으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력**\",\n      \"suggestion\": \"주관적 가치평가 표현을 삭제하고, '대지 616.1㎡, 매도 희망가 242억 원, 평당 환산가 약 1억 3,000만 원'처럼 확인 가능한 사실과 산출값만 기재하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"> **종합 가치 제안**: 신사역 더블역세권(도보 5분 이내)의 616.1㎡ 규모 토지와 기존 2,032.59㎡ 근린생활시설의 공실 발생 상태를 바탕으로\",\n      \"suggestion\": \"'종합 가치 제안'과 같이 자산 가치를 긍정적으로 평가하는 제목을 삭제하고, '자산 검토 요약' 등 중립적 제목으로 변경하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2370,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11483
+ }
+}

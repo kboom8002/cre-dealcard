@@ -1,0 +1,14 @@
+{
+ "key": "82a42bc5de2a3fc18ba0bb07c8b5466a9008042c",
+ "recordedAt": "2026-10-06T12:15:43.050Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 도보 3분, 3호선",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"서울 서초구 신반포로47길 77 일대는 카페 118곳, 음식점 392곳 등\",\n      \"suggestion\": \"카페·음식점 수의 산정 기준, 조사 시점, 출처(예: 공공데이터 또는 상권분석 보고서)를 명시하거나, 검증 가능한 출처가 없으면 구체적인 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"풍부한 생활·상업 인프라가 집적되어 있어 오피스 및 근린생활시설 수요를 동시에 흡수할 수 있습니다.\",\n      \"suggestion\": \"임대수요를 단정하지 말고, 실제 임대·유동인구·공실률 자료와 출처를 제시한 뒤 ‘수요 흡수 가능성을 검토할 수 있음’과 같이 조건부로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"잠원·신사 생활권의 프리미엄과 신사역 중심 상권의 유동성을 기반으로\",\n      \"suggestion\": \"‘프리미엄’ 및 ‘유동성’의 근거가 되는 상권 매출, 유동인구, 임대료 또는 공실률 자료와 출처를 제시하거나, 확인 가능한 교통·시설 현황 중심으로 중립적으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"잠원·신사 생활권의 프리미엄\",\n      \"suggestion\": \"가격 또는 자산가치 우위를 암시하는 ‘프리미엄’ 표현을 삭제하고, 해당 생활권의 객관적 시설·교통·접근성 정보로 대체하세요.\"\n    }\n  ]\n}",
+  "tokens": 2396,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13485
+ }
+}

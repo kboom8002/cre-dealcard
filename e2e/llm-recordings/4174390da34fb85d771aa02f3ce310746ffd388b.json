@@ -1,0 +1,14 @@
+{
+ "key": "4174390da34fb85d771aa02f3ce310746ffd388b",
+ "recordedAt": "2026-10-06T13:37:04.483Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 더블역세권(도보 5분 이내) 생활",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적 임대운영 및 자가사용분 수익화 여력\",\n      \"suggestion\": \"투자 안정성이나 수익성을 암시하는 표현을 배제하고, “현재 확인된 임대료 및 공실 현황과 자가사용 2개 호실의 임대 전환 가능성을 검토할 수 있음”처럼 사실과 조건부 검토 사항으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 1870,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7257
+ }
+}

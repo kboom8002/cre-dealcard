@@ -12,7 +12,7 @@ import { calculateWALE } from './wale-calculator';
 import { calculateBenchmarkMetrics, formatBenchmarkMarkdown } from './comparable-benchmark';
 import { computeVacancyPositioning, formatVacancyPositioningRow } from './vacancy-positioning';
 import { parsePriceBandKrw } from './im-context-builder';
-import { formatPyeong, pyeongToSqm, sqmToPyeong, SQM_RATIO, PYEONG_RATIO } from '@/lib/utils/area-conversion';
+import { formatPyeong, formatSqm, pyeongToSqm, sqmToPyeong, SQM_RATIO, PYEONG_RATIO } from '@/lib/utils/area-conversion';
 import { normalizeGeneratedMarkdown } from './terminology-normalizer';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -126,8 +126,8 @@ export function generatePremiumTemplate(
       const overviewRows = [
         `| **소재지** | ${areaStr} |`,
         `| **주요 용도** | ${mainPurpose} |`,
-        totalArea > 0 ? `| **연면적** | ${totalArea.toLocaleString()}㎡ (${totalPyeong}) |` : `| **연면적** | - |`,
-        platArea > 0 ? `| **대지면적** | ${platArea.toLocaleString()}㎡ (${platPyeong}) |` : `| **대지면적** | - |`,
+        totalArea > 0 ? `| **연면적** | ${formatSqm(totalArea)}㎡ (${totalPyeong}) |` : `| **연면적** | - |`,
+        platArea > 0 ? `| **대지면적** | ${formatSqm(platArea)}㎡ (${platPyeong}) |` : `| **대지면적** | - |`,
         floorsStr ? `| **층수** | ${floorsStr} |` : (floorsAbove > 0 ? `| **층수** | 지하 ${floorsBelow}층 / 지상 ${floorsAbove}층 |` : null),
         `| **용도지역** | ${zoningDistrict} |`,
         elevatorCount > 0 ? `| **승강기** | ${elevatorCount}대 |` : null,
@@ -429,7 +429,7 @@ ${tableRows}
         ? `\n인근 실거래 비교 사례 **${compsCount}건** 기준 평균 3.3㎡당 가격 **약 ${pyeongFormatted}원/3.3㎡**(${avgPyeongPrice.toLocaleString()}원)으로, 본 자산과 비교 검토할 수 있습니다.\n`
         : "";
 
-      const fitSummary = String(buyerFit.fit_summary ?? "");
+      const fitSummary = sanitizeFitSummary(buyerFit.fit_summary ?? "");
       const assetType  = String(assetIdentity.asset_type  || "상업용 자산");
       const areaSignal = String(assetIdentity.area_signal || "해당 권역");
 
@@ -636,7 +636,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 ### 개발 규제 및 공법 여력
 | 항목 | 공법 기준 | 개발 여력 분석 |
 |------|-----------|----------------|
-| **대지면적** | ${platArea ? `${platArea}㎡` : "-"} | ${platPyeong} |
+| **대지면적** | ${platArea ? `${formatSqm(platArea)}㎡` : "-"} | ${platPyeong} |
 | **용도지역** | ${zoningDistrict} | 법정 건폐율/용적률 상한 적용 |
 | **명도 상태** | 기존 건물 임차인 현황 | 착공 전 명도 협의 필요 |
 | **개발 잠재력** | 잔여 용적률 및 건축 가능 연면적 검토 | 상업/업무 시설 기획 가능 |
@@ -723,7 +723,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
       const zoningVal = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || (supplemental as any)?.zoning || "-");
       const bcMaxVal = lu?.buildingCoverageMax ? `${lu.buildingCoverageMax}%` : (br?.bcRat ? `${br.bcRat}% (현황)` : "-");
       const farMaxVal = lu?.floorAreaRatioMax ? `${lu.floorAreaRatioMax}%` : (br?.vlRat ? `${br.vlRat}% (현황)` : "-");
-      const landAreaVal = lu?.landArea ? `${lu.landArea.toLocaleString()}㎡` : (platArea ? `${platArea.toLocaleString()}㎡` : "-");
+      const landAreaVal = lu?.landArea ? `${lu.landArea.toLocaleString()}㎡` : (platArea ? `${formatSqm(platArea)}㎡` : "-");
       const shapeVal = lu?.landShape || (supplemental.regulation as any)?.landShape || "-";
       const terrainVal = lu?.terrain || (supplemental.regulation as any)?.landTopography || "-";
       const roadVal = lu?.roadAccess || (supplemental.regulation as any)?.roadFrontage || "-";
@@ -768,8 +768,8 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
     // ─── D37 income 15면 확장 섹션들 ─────────────────────────────────────────
     case "decision_snapshot": {
       const askStr = purchasePrice > 0 ? `${(purchasePrice / 1e8).toLocaleString()}억 원` : "가격 협의";
-      const grossStr = totalArea > 0 ? `${totalArea.toLocaleString()}㎡ (${formatPyeong(totalArea, 0)}평)` : "-";
-      const platStr = platArea > 0 ? `${platArea.toLocaleString()}㎡ (${formatPyeong(platArea, 0)}평)` : "-";
+      const grossStr = totalArea > 0 ? `${formatSqm(totalArea)}㎡ (${formatPyeong(totalArea, 0)}평)` : "-";
+      const platStr = platArea > 0 ? `${formatSqm(platArea)}㎡ (${formatPyeong(platArea, 0)}평)` : "-";
       const rentStr = monthlyRent > 0 ? `월 ${Math.round(monthlyRent / 10000).toLocaleString()}만 원` : "-";
       const keyPoint = (buyerFit as any)?.keyInvestmentPoint || supplemental.broker_highlight || "입지 경쟁력 및 안정적 자산 운용 가치";
 
@@ -918,6 +918,7 @@ export function formatBasicIncomeMarkdown(
   return `### 기본 수입 분석\n| 항목 | 추정값 | 비고 |\n|------|--------|------|\n| **연 임대 수입(총액)** | **${(annualGross / 1e8).toFixed(1)}억 원** | 월세 × 12 |\n| **공실 반영 수입** | **${(effectiveGross / 1e8).toFixed(1)}억 원** | 공실률 ${vacPct}% 반영 |\n| **추정 NOI** | **${(estimatedNoi / 1e8).toFixed(1)}억 원** | 운영비 15% 추정 차감 |\n\n> 💡 매도 희망가를 추가 입력하면 자본환원율(Cap Rate), IRR, DCF 감응도 분석이 포함됩니다.`;
 }
 import { SectionAssembler } from './section-assembler';
+import { sanitizeFitSummary } from './fit-summary-sanitize';
 
 export function getTemplateNarrative(
   sectionType: MobileIMSectionType,

@@ -1,0 +1,14 @@
+{
+ "key": "482c0564e18741943bdfc07985f7ebd82a9d2559",
+ "recordedAt": "2026-10-06T13:08:14.782Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: development_feasibility ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 합산 대지 651.2",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공사비(평당 1,200만원)·기타비용을 포함해 약 290.3억원으로 추정되며, ... 초기 토지 매입 실투자금은 브릿지 대출을 제외하고 약 89억원으로 제시되나\",\n      \"suggestion\": \"공사 연면적, 공사비 산출 근거, 기타비용 항목 및 토지비 계산 근거를 제시하고, 근거가 없는 수치는 삭제하거나 ‘검토용 가정’으로 명확히 표시하십시오. 특히 총사업비 290.3억원은 산식과 전제조건을 함께 기재해야 합니다.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"PF는 통상 담보인정비율(LTV) 60% 및 금리 7~9% 수준을 가정해\",\n      \"suggestion\": \"LTV와 금리 수준의 출처, 기준일, 금융기관 및 사업 유형별 조건을 명시하십시오. 출처가 없다면 특정 수치를 ‘통상’ 수준으로 단정하지 말고, 금융기관별 조건 확인이 필요한 가정치로 표현하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2151,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10067
+ }
+}

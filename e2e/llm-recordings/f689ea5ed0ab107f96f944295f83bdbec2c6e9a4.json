@@ -1,0 +1,14 @@
+{
+ "key": "f689ea5ed0ab107f96f944295f83bdbec2c6e9a4",
+ "recordedAt": "2026-10-06T15:02:35.506Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산권역의 5층 규모 근생빌딩으로, 약국·의원·헬스장·",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"월 임대료 합계 1,946만원을 기반으로 안정적인 현금흐름을 확보하고 있습니다.\",\n      \"suggestion\": \"월 임대료 합계는 1,946만원으로 제시되어 있으나, 공실·연체·관리비·운영비 및 계약 조건을 반영한 실제 현금흐름은 실사를 통해 확인할 필요가 있습니다.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 대단지 주거 배후는 생활밀착형 임차 수요를 뒷받침하는 요소입니다.\",\n      \"suggestion\": \"인근 대단지 주거 배후는 생활밀착형 업종 수요와 관련된 입지 요인으로 볼 수 있으나, 실제 임차 수요와 지속 가능성은 공공데이터 및 임대차 실적 확인이 필요합니다.\"\n    }\n  ]\n}",
+  "tokens": 2263,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12311
+ }
+}

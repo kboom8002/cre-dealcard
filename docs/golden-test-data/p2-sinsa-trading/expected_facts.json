@@ -33,7 +33,6 @@
       ],
       "where": "both",
       "source": "register",
-      "pending": "W3-rerecord",
       "note": "register.platArea=1061.9 = fixture (landUsePlan.landArea 571.5 는 대표필지 일부 — 사용 금지)"
     },
     {

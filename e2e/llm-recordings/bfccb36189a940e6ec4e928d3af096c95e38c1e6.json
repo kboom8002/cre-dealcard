@@ -1,0 +1,14 @@
+{
+ "key": "bfccb36189a940e6ec4e928d3af096c95e38c1e6",
+ "recordedAt": "2026-10-06T13:18:42.792Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown > 💡 **종합 가치 제안**: ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"오퍼레이션 효율화 및 브랜드 가치 제고를 통한 자산 가치 상승이 유력합니다.\",\n      \"suggestion\": \"운영 효율화와 브랜드 가치 제고가 자산 가치에 미칠 영향은 운영 성과, 비용 구조 및 시장 상황에 따라 달라질 수 있다고 조건부로 표현하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"인근 실거래 비교 사례 10건 기준 평균 3.3㎡당 가격 약 3,298만원/3.3㎡(32,975,953원)\",\n      \"suggestion\": \"거래일, 대상 자산, 출처 및 산정 방식이 확인된 경우에만 기재하고, 근거 자료가 없으면 구체적인 거래 건수와 가격을 삭제하거나 출처 확인 필요 문구로 대체하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"본 자산 ㎡당 단가 7,807,123원/㎡, 권역 평균 ㎡당 단가 9,975,226원/㎡, 비교 사례 수 10건\",\n      \"suggestion\": \"원천 딜카드 또는 공공·전문기관 자료로 각 수치와 비교 사례를 검증한 뒤 출처와 기준일을 명시하세요. 검증되지 않은 경우 수치를 제시하지 마세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"시세 대비 포지션: -21.7% 디스카운트 ... 경쟁력 판정: ... 매력적 진입 가격\",\n      \"suggestion\": \"비교 대상의 위치, 거래 시점, 건물 연식·용도·권리관계·토지 및 연면적 기준 등 조건과 출처를 명시하고, 유불리 판단 대신 산술적 가격 차이만 중립적으로 제시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.\",\n      \"suggestion\": \"역·도로와의 거리 등 확인 가능한 교통 사실만 기재하고, 유동인구와 임대 수요에 관한 주장은 조사자료나 공공데이터를 인용하거나 가능성·검토 사항으로 완화하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"매력적 진입 가격\",\n      \"suggestion\": \"해당 표현을 삭제하고, 출처와 비교 조건을 명시한 객관적 가격 차이 또는 산정 결과로 대체하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산 가치 상승이 유력합니다.\",\n      \"suggestion\": \"가격 상승 전망을 단정하지 말고, 운영 개선 시나리오별 영향과 주요 전제·위험 요인을 검토하는 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 3103,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 16126
+ }
+}

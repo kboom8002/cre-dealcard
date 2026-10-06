@@ -1,0 +1,14 @@
+{
+ "key": "3a7a426e69118afd6568c5dafeb725f68297af50",
+ "recordedAt": "2026-10-06T14:02:23.858Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **핵심 한줄 정의: 당산역 더블역세권(",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 없는 임대 운영 기반의 월 임대수익\",\n      \"suggestion\": \"현재 확인된 임대 현황을 중립적으로 기재하여 \\\"제공 자료 기준, 자가사용 2개 호실을 제외한 임대 가능 호실은 현재 공실 없이 운영 중이며 월 임대료는 총 1,946만원\\\"으로 수정하고, 향후 공실·임대료 변동 가능성을 함께 명시하세요.\"\n    }\n  ]\n}",
+  "tokens": 1974,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8095
+ }
+}

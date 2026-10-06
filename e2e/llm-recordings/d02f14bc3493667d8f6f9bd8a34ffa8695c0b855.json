@@ -1,0 +1,14 @@
+{
+ "key": "d02f14bc3493667d8f6f9bd8a34ffa8695c0b855",
+ "recordedAt": "2026-10-06T00:44:35.210Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: gop_analysis] GOP(Gross Operating Profit), ADR, 가동률(OCC) 운영 실적 및 이익률 구조를 제시하세요. ## [기본 건물 데이터 (SSoT)] { ",
+ "result": {
+  "content": "94실 규모의 관리위탁 운영 기준, ADR 9.5만원·평균 가동률(OCC) 78%를 적용한 RevPAR는 7.41만원이며, 연 매출 약 28.2억원에서 인건비·운영비·마케팅비를 차감한 연 GOP는 약 10.7억원으로 추정됩니다. GOP 마진율은 38%, 매각가 300억원 기준 GOP Cap Rate는 3.57%로, 역세권 및 대학가 수요를 기반으로 한 직영 운영 수익성을 검토할 수 있습니다. 다만 현재 공실 발생 현황과 객실 운영 지표의 적용 범위, 월별·시즌별 매출 변동, 손익분기 가동률 및 최근 3개년 GOP 추이는 운영 원장과 관리위탁계약서 확인이 필요합니다.",
+  "tokens": 3714,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 4454
+ }
+}

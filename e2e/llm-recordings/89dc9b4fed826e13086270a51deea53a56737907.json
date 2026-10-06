@@ -1,0 +1,14 @@
+{
+ "key": "89dc9b4fed826e13086270a51deea53a56737907",
+ "recordedAt": "2026-10-06T13:37:24.737Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **공실률 0%로 운영 중이며, 자가사용 2호실을",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"월 임대료는 총 1,946만원, 보증금은 총 2억9,000만원으로 안정적인 현금흐름 기반을 갖추고 있습니다.\",\n      \"suggestion\": \"확정적·긍정적 표현을 피하고, ‘현재 확인된 임대료 및 보증금 기준의 임대수입 현황이며, 계약 갱신·공실 발생 등에 따라 변동될 수 있습니다’와 같이 객관적으로 기재하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"당산역 접근성과 의료·생활밀착 업종 중심의 임차 구성은 재임대 수요 확보 측면에서 긍정적인 요소입니다.\",\n      \"suggestion\": \"재임대 수요에 대한 객관적 조사나 출처가 없다면 해당 평가를 삭제하고, ‘당산역 접근성과 의료·생활밀착 업종 중심의 임차 구성은 재임대 검토 시 확인할 요소입니다’처럼 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 3074,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14988
+ }
+}

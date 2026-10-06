@@ -1,0 +1,14 @@
+{
+ "key": "e476c515ee0b89921ce5023255b6cc6a70fd6337",
+ "recordedAt": "2026-10-06T12:15:33.059Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 도보 3분, 1",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1456,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3109
+ }
+}

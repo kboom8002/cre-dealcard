@@ -93,7 +93,7 @@ export async function repairDraftForGate(
     const { systemPrompt, userPrompt } = buildRepairPrompts(markdown, sectionType, issues);
     const result = await callLLM(
       { systemPrompt, userPrompt, model, temperature: 0, maxTokens },
-      { timeoutMs: REPAIR_TIMEOUT_MS },
+      { timeoutMs: REPAIR_TIMEOUT_MS, allowMock: process.env.NODE_ENV === 'test' },
     );
     const repaired = result.content.trim()
       .replace(/^```(?:markdown|md)?\s*/i, '')

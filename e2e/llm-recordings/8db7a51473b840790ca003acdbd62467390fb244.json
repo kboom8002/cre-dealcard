@@ -1,0 +1,14 @@
+{
+ "key": "8db7a51473b840790ca003acdbd62467390fb244",
+ "recordedAt": "2026-10-06T14:21:56.407Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: gop_analysis] GOP(Gross Operating Profit), ADR, 가동률(OCC) 운영 실적 및 이익률 구조를 제시하세요. ## [기본 건물 데이터 (SSoT)] { ",
+ "result": {
+  "content": "호텔 운영 가정 기준 연매출은 약 28.2억 원, GOP는 약 10.7억 원으로 추정되며, GOP 마진율은 38%입니다. 매매가 300억 원 기준 GOP Cap Rate는 3.57%로 산출되며, ADR 95,000원·평균 가동률 78%에 따른 RevPAR는 74,100원입니다. 에이치 에비뉴의 위탁운영(Management Contract) 구조와 94실 운영 데이터는 제시되었으나, 객실 수·ADR·가동률 기준 매출 산식과 연매출의 정합성은 실사 단계에서 확인이 필요합니다. 최근 3개년 GOP 추이, 월별 시즌성, 인건비·운영비·마케팅비 구성 및 손익분기 가동률은 운영 원장 확보 후 검증이 필요합니다.",
+  "tokens": 3668,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 5523
+ }
+}

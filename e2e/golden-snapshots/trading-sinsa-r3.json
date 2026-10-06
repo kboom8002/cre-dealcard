@@ -2,27 +2,27 @@
  "schemaVersion": 1,
  "name": "trading-sinsa-r3",
  "fixtureDir": "docs/golden-test-data/p2-sinsa-trading/r3-verified",
- "capturedAt": "2026-10-05T16:29:22.982Z",
- "docId": "dbe57978-44df-4c70-82f2-b0166ba9758d",
+ "capturedAt": "2026-10-06T16:02:18.793Z",
+ "docId": "e50fe715-9038-4232-80f2-023a0804e8b4",
  "buildingId": "ccf09625-9ba1-4f3f-824d-26d79b20e762",
  "doc": {
-  "id": "dbe57978-44df-4c70-82f2-b0166ba9758d",
-  "title": "신사 오피스빌딩 매각",
+  "id": "e50fe715-9038-4232-80f2-023a0804e8b4",
+  "title": "신사·압구정권역 기타 매각",
   "document_type": "mobile_im",
-  "created_at": "2026-10-05T16:27:42.401482+00:00",
+  "created_at": "2026-10-06T16:01:06.280289+00:00",
   "body": {
    "tier": "basic",
    "claims": [
     {
-     "id": "cf1387d1-3d8d-4e4f-beb7-ec8f82564cc0",
-     "asOf": "2026-10-05",
+     "id": "5ef0a0f0-f92a-4412-8953-008956ef99e4",
+     "asOf": "2026-10-06",
      "unit": "원",
      "value": 76000000000,
      "status": "reconciled",
      "subject": "asking_price",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "broker"
       }
      ],
@@ -31,15 +31,15 @@
      "expertRequired": false
     },
     {
-     "id": "0c80f262-29d5-412b-b3a7-6da2a6a5124a",
-     "asOf": "2026-10-05",
+     "id": "644a116e-f4eb-4571-a1fa-41e89667cbce",
+     "asOf": "2026-10-06",
      "unit": "㎡",
-     "value": 3341.8,
+     "value": 3341.78499865,
      "status": "reconciled",
      "subject": "total_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "public_api"
       }
      ],
@@ -48,15 +48,15 @@
      "expertRequired": false
     },
     {
-     "id": "1e4d6968-404b-4f55-884a-161019770580",
-     "asOf": "2026-10-05",
+     "id": "6c5b0ca9-19f2-48d1-93a5-4754d6cfa51e",
+     "asOf": "2026-10-06",
      "unit": "㎡",
-     "value": 1061.9,
+     "value": 1061.8842577000003,
      "status": "reconciled",
      "subject": "land_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "public_api"
       }
      ],
@@ -65,28 +65,28 @@
      "expertRequired": false
     },
     {
-     "id": "5cc4f4c8-868e-408e-8062-63a9f8860e00",
-     "asOf": "2026-10-05",
+     "id": "f899f5b0-3bc4-42be-bfc4-241093972be2",
+     "asOf": "2026-10-06",
      "unit": "원/㎡",
-     "value": 22742235,
+     "value": 22742337,
      "status": "reconciled",
      "subject": "price_per_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
-       "excerpt": "asking_price / total_area = 22742235",
+       "asOf": "2026-10-06",
+       "excerpt": "asking_price / total_area = 22742337",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "71e6f8b3-351b-4b04-b1b4-cb3f47e14128",
+      "id": "9ac9700c-4c61-4f6e-9382-404ceada1cc1",
       "inputs": {
-       "asking_price": "cf1387d1-3d8d-4e4f-beb7-ec8f82564cc0",
-       "land_area_sqm": "1e4d6968-404b-4f55-884a-161019770580",
-       "total_area_sqm": "0c80f262-29d5-412b-b3a7-6da2a6a5124a"
+       "asking_price": "5ef0a0f0-f92a-4412-8953-008956ef99e4",
+       "land_area_sqm": "6c5b0ca9-19f2-48d1-93a5-4754d6cfa51e",
+       "total_area_sqm": "644a116e-f4eb-4571-a1fa-41e89667cbce"
       },
-      "result": 22742235,
+      "result": 22742337,
       "formula": "asking_price / total_area",
       "formulaVersion": "v1.0.0"
      },
@@ -94,28 +94,28 @@
      "expertRequired": false
     },
     {
-     "id": "23ab87cc-0553-4349-b820-68ef4ca790d2",
-     "asOf": "2026-10-05",
+     "id": "e9859076-adc6-4c01-9d14-363ce348bb93",
+     "asOf": "2026-10-06",
      "unit": "원/평",
-     "value": 75180939,
+     "value": 75181277,
      "status": "reconciled",
      "subject": "price_per_pyeong",
      "evidence": [
       {
-       "asOf": "2026-10-05",
-       "excerpt": "price_per_sqm * 3.30578 = 75180939",
+       "asOf": "2026-10-06",
+       "excerpt": "price_per_sqm * 3.30578 = 75181277",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "cc41ed39-7759-40d1-b425-71fc6abd50c9",
+      "id": "270e25b2-27be-41c1-96e3-3ab4ab7d330d",
       "inputs": {
-       "asking_price": "cf1387d1-3d8d-4e4f-beb7-ec8f82564cc0",
-       "land_area_sqm": "1e4d6968-404b-4f55-884a-161019770580",
-       "total_area_sqm": "0c80f262-29d5-412b-b3a7-6da2a6a5124a"
+       "asking_price": "5ef0a0f0-f92a-4412-8953-008956ef99e4",
+       "land_area_sqm": "6c5b0ca9-19f2-48d1-93a5-4754d6cfa51e",
+       "total_area_sqm": "644a116e-f4eb-4571-a1fa-41e89667cbce"
       },
-      "result": 75180939,
+      "result": 75181277,
       "formula": "price_per_sqm * 3.30578",
       "formulaVersion": "v1.0.0"
      },
@@ -188,48 +188,48 @@
    "preset": "credeal_basic",
    "ai_used": true,
    "im_type": "mobile_im_lite",
-   "ogTitle": "신사 오피스빌딩 매각",
+   "ogTitle": "신사·압구정권역 기타 매각",
    "heroCard": {
     "adr": null,
     "occPct": null,
     "revpar": null,
     "zoning": "제3종일반주거지역",
     "hasLoan": false,
-    "keyRisk": "등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
+    "keyRisk": "등기부등본, 건축물대장 및 토지이용계획확인서 확인 필요. 임대차·공실 현황과 인근 실거래가의 시점·대상·출처 확인 필요.",
     "posture": "trading",
-    "assetType": "오피스빌딩",
+    "assetType": "기타",
     "keyPoints": [
-     "시세 분석: 신사 소재 자산의 인근 시세 대비 매입가 적정성 검토",
-     "보유 전략: 760억 수준에서 단기 보유 후 시세차익 실현 시나리오",
+     "시세 분석: 신사·압구정권역 소재 자산의 인근 시세 대비 매입가 적정성 검토",
+     "보유 전략: 700억대 수준에서 단기 보유 후 시세차익 실현 시나리오",
      "실사 점검: 등기·권리관계·물리적 상태 확인을 통한 매입 리스크 진단"
     ],
-    "areaSignal": "신사",
-    "landAreaM2": 1061.9,
+    "areaSignal": "신사·압구정권역",
+    "landAreaM2": 1061.8842577000003,
     "noiBaseBil": null,
     "capRateBase": null,
     "gopMarginPct": null,
     "targetHprPct": 20,
     "breakevenYears": null,
-    "pricePerPyeong": 75180939,
-    "readinessScore": 55,
+    "pricePerPyeong": 75181277,
+    "readinessScore": 65,
     "dcf10YearNpvBil": null,
     "devHoldYieldPct": null,
-    "totalGrossAreaM2": 3341.8,
+    "totalGrossAreaM2": 3341.78499865,
     "equityRequiredBil": 760,
     "leveragedYieldPct": null,
     "marketDiscountPct": 13,
     "askingPriceDisplay": "760억 원",
     "devProfitMarginPct": null,
-    "keyInvestmentPoint": "신사 오피스빌딩 — 시세차익 매매 기회 (760억 원)",
+    "keyInvestmentPoint": "신사·압구정권역 기타 — 시세차익 매매 기회 (760억 원)",
     "landPricePerPyeong": null,
     "ownVsLeaseSavingsBil": null
    },
    "sections": [
     {
-     "title": "이 오피스, 어떤 자산인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수서 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 760억 수준의 합리적인 매각가와 1010.9평(약 3341.8㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "title": "이 매물, 어떤 자산인가",
+     "markdown": "논현로 816, 압구정역 도보 약 7분 거리의 1998년 준공 제1종근린생활시설 ‘ICL빌딩’입니다. 연면적 3,341.8㎡ (1,010.9평), 지하 2층~지상 6층 규모의 철골철근콘크리트 건물로, 주차 26대 및 승강기 1대를 갖췄습니다. 신사·압구정권역의 논현로 대로변 입지와 상업용 토지 이용현황은 임차 수요 및 향후 자산가치 방어 측면에서 강점으로 평가될 수 있으며, 매매차익 실현 가능성은 권역 내 유사 자산의 실제 거래조건·임대차 현황 및 권리관계 확인을 전제로 검토가 필요합니다. > **자산 하이라이트**: • 압구정역 접근성이 확보된 논현로 입지 • 약 1,010.9평(약 36㎡) 규모의 중대형 근린생활시설 • 대로변 상업 활용성과 신사·압구정권역 시세 갭 검토 여지",
      "min_tier": "public",
-     "confidence": "confirmed",
+     "confidence": "needs_check",
      "provenance": [
       {
        "value": 3341.8,
@@ -237,7 +237,7 @@
        "fieldKey": "total_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T16:27:32.392Z"
+       "lastVerifiedAt": "2026-10-06T16:01:01.695Z"
       },
       {
        "value": 1061.9,
@@ -245,7 +245,7 @@
        "fieldKey": "plat_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T16:27:32.392Z"
+       "lastVerifiedAt": "2026-10-06T16:01:01.695Z"
       },
       {
        "value": "19980429",
@@ -253,7 +253,7 @@
        "fieldKey": "use_approval_date",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T16:27:32.392Z"
+       "lastVerifiedAt": "2026-10-06T16:01:01.695Z"
       }
      ],
      "section_type": "property_overview",
@@ -262,7 +262,7 @@
     },
     {
      "title": "이 입지, 투자할 만한 곳인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수서 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 760억 수준의 합리적인 매각가와 1010.9평(약 3341.8㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "**압구정역 도보 7분, 논현로 변의 가시성과 신사·압구정 생활권을 동시에 확보한 핵심 입지**입니다. 근린생활시설의 임차 수요와 상권 활용도가 기대되며, 학동역(7호선)도 약 827m 거리에 위치합니다. 대상 자산은 논현로 변에 위치하며, 매도 희망가와 인근 유사 자산의 실거래가·거래시점·개별 조건을 대조해 시세 갭은 별도 검증이 필요합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -282,7 +282,7 @@
     },
     {
      "title": "위험요인 및 대응 방안",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수서 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 760억 수준의 합리적인 매각가와 1010.9평(약 3341.8㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "- **매매차익·시세 갭 리스크:** 매도 희망가 760억원은 개별 거래조건을 반영한 인근 실거래 비교가 선행되지 않아 단기 매매차익을 확정적으로 기대하기 어렵습니다. 특히 제공된 비교사례는 규모·층·용도·거래단위가 본 건과 상이하므로, 동일 권역의 중대형 근린생활시설 및 빌딩 실거래를 기준으로 토지가치·수익가치·재조달원가를 교차 검증하고, 목표 매입가 및 최소 보유기간을 보수적으로 설정할 필요가 있습니다. - **토지면적 및 개발여력 확인 리스크:** 건축물대장상 대지면적은 약 1,061.9㎡인 반면 토지이용계획 자료상 토지면적은 571.5㎡로 표시되어 면적 기준의 불일치가 있으며, 이는 3.3㎡당 가격·담보가치·시세 갭 산정에 중대한 영향을 줄 수 있습니다. 제3종일반주거지역, 법정 용적률 250% 대비 현 용적률 237.18%로 추가 개발여력도 제한적일 수 있으므로, 계약 전 토지대장·등기사항증명서·측량성과·건축물대장을 통해 필지 및 면적을 확정하고 관할 행정청 또는 건축전문가의 용도변경 및 증축 가능 여부는 관할 관청 확인이 필요합니다.성 검토를 받는 것이 바람직합니다. - **운영 및 물리적 자산 리스크:** 1998년 사용승인 건물로서 설비 교체, 구조·방수·소방·승강기 유지보수 등 예상치 못한 자본적지출이 발생할 수 있고, 주차 26대 및 승강기 1대가 임차 수요와 업종 구성에 제약으로 작용할 가능성이 있습니다. 매수 전 전문기관의 기술실사와 장기수선비 추정을 실시하고, 임대차 원장·공실·임대료·보증금·원상복구 의무를 확인하여 리모델링 및 임차인 교체 비용을 매입가 협상에 반영할 필요가 있습니다. - **권리·인허가 리스크 및 유의사항:** 등기사항증명서상 근저당권, 가압류, 임차권 등 권리관계는 현재 미확인 상태이며, 현 용도 및 향후 업종 전환은 용도지역·건축법·주차·소방 등 관계 법령상 제한을 받을 수 있습니다. 잔금 전 최신 등기사항증명서, 건축물대장, 토지이용계획확인서, 임대차계약서 및 인허가 서류를 법무·세무·건축 전문가와 함께 검토하고, 중대한 하자 또는 권리제한 발견 시 가격조정·선결조건·해제권을 계약서에 반영하는 방안을 권고합니다; 본 내용은 제공 자료에 기초한 일반적 리스크 검토로서 법률·세무·감정 또는 수익을 보장하는 의견이 아닙니다.",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -292,7 +292,7 @@
        "fieldKey": "zoning",
        "confidence": "confirmed",
        "sourceDetail": "토지이용규제정보서비스(LURIS) API",
-       "lastVerifiedAt": "2026-10-05T16:27:32.392Z"
+       "lastVerifiedAt": "2026-10-06T16:01:01.695Z"
       }
      ],
      "section_type": "risk_check",
@@ -301,7 +301,7 @@
     },
     {
      "title": "실사 안내 및 면책 조항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수서 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 760억 수준의 합리적인 매각가와 1010.9평(약 3341.8㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "투자 검토를 희망하시는 경우, 우선 비밀유지계약(NDA) 체결 후 상세 자료를 제공해 드립니다. 이후 현장 실사를 통해 건물·임대차·주차 등 운영 현황과 물리적 상태를 확인하고, 등기사항증명서·건축물대장·토지이용계획확인서 등 권리 및 인허가 관련 서류를 함께 검토합니다. 검토 완료 후 인수 조건을 반영한 LOI(인수의향서)를 제출하는 절차로 진행되며, 1:1 비밀 상담을 통해 자료 요청 범위와 일정, 협의 조건을 안내받으실 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -311,7 +311,7 @@
     },
     {
      "title": "실사 체크리스트 및 확인사항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수서 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 760억 수준의 합리적인 매각가와 1010.9평(약 3341.8㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "신사·압구정권역의 논현로 입지와 571.5㎡ 규모의 상업용 토지는 제3종일반주거지역에 위치하며, 현 용적률은 237.18%입니다. 다만 제3종일반주거지역 내 현 용적률이 237.18%로 법정 상한 250%에 근접해 있어, 단순 증축에 따른 추가 가치 제고 여지는 제한적으로 검토할 필요가 있습니다. 매도희망가 760억원의 적정성과 시세 갭은 인근 거래가의 자산 규모·입지·거래 조건이 상이하므로 직접 비교가 어렵고, 등기·임대차 현황 및 유사 규모 토지·빌딩 실거래 사례를 통한 별도 검증이 필요합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -321,7 +321,7 @@
     },
     {
      "title": "시장 내 자산 위치와 가격 경쟁력",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수서 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 760억 수준의 합리적인 매각가와 1010.9평(약 3341.8㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "매도 희망가 760억원은 연면적 1,010.9평(약 36㎡) 기준 평당 약 7,518만원이며, 제공된 인근 거래의 평당 가격은 약 1,385만~7,429만원 범위로 제시되어 있다. 다만 비교 거래는 수서·도곡·청담·논현 등 입지와 층수, 면적, 거래 단위가 상이한 개별 호실 중심 자료여서, 이를 본 자산의 확정 할인율로 해석하기에는 한계가 있다. 동일 권역의 일괄매각 사례 및 현재 경쟁 매물 자료가 확보되면 실질 할인율, 최근 3년 거래 회전율, 대체원가 대비 가격 수준을 추가 검증할 필요가 있다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -331,7 +331,7 @@
     },
     {
      "title": "유사 거래사례 및 비교 분석",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수서 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 760억 수준의 합리적인 매각가와 1010.9평(약 3341.8㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "희망가 760억 원은 연면적 1,010.9평(약 36㎡) 기준 평당 7,518만 원이며, 인근 거래사례와의 가격 비교에는 검증 가능한 자료 확인이 필요합니다. 다만 제시된 인근 비교 사례는 구분소유·소규모 면적 중심이어서, 본 자산과 동일한 일괄 매각형 근린생활시설의 3.3㎡당 가격·총 거래가·건물연령·연면적·연 순수익률(Cap Rate) 비교에는 데이터 제한이 있습니다. 760억 원에 취득하고 비용을 제외한다고 가정할 때, 단기 매각 시 목표 차익 약 152억 원은 목표 매각가 약 912억 원, 보유기간 총수익률(HPR) 20%에 해당하나, 리모델링 상태·임대차 및 공실률·권리관계와 동일 규모 인근 일괄거래 실사례를 확인한 후에만 타당성 판단이 가능합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -346,7 +346,7 @@
     }
    ],
    "dataGrade": "B",
-   "heroTitle": "신사 오피스빌딩 매각",
+   "heroTitle": "신사·압구정권역 기타 매각",
    "photos_v2": [
     {
      "url": "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_01.jpeg",
@@ -456,7 +456,7 @@
       }
      ],
      "poiCounts": {
-      "cafe": 138,
+      "cafe": 137,
       "subway": 8,
       "busStop": 0,
       "parking": 68,
@@ -593,12 +593,12 @@
        "categoryName": "의료,건강 > 병원 > 대학병원"
       },
       {
-       "lat": 37.519974732339726,
-       "lng": 127.03047672564844,
-       "name": "에이든 바이 베스트웨스턴 청담 호텔",
+       "lat": 37.5199837417853,
+       "lng": 127.030478991708,
+       "name": "에이프로젝트컴퍼니",
        "category": "landmark",
        "distanceM": 226,
-       "categoryName": "여행 > 숙박 > 호텔"
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
       },
       {
        "lat": 37.5221967544805,
@@ -956,7 +956,7 @@
     "registryData": {
      "source": "fallback_mock",
      "checked": false,
-     "fetchedAt": "2026-10-05T16:27:31.743Z",
+     "fetchedAt": "2026-10-06T16:00:55.559Z",
      "mortgages": [],
      "attachments": [],
      "rawResponse": null,
@@ -966,7 +966,6 @@
     "buildingRegister": {
      "bcRat": 51.3,
      "vlRat": 237.18,
-     "mainPnu": "1168010700105900000",
      "archArea": 544.73,
      "platArea": 1061.9,
      "structure": "철골철근콘크리트구조",
@@ -975,10 +974,6 @@
      "floorsAbove": 6,
      "floorsBelow": 2,
      "mainPurpose": "제1종근린생활시설",
-     "attachedLots": [
-      "1168010700105900001",
-      "1168010700105900002"
-     ],
      "buildingName": "ICL빌딩",
      "parkingCount": 26,
      "elevatorCount": 1,
@@ -1132,7 +1127,7 @@
      "worst": 0
     },
     "disclaimer": "AI 매매 시세차익 추정값 (참고용). 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.",
-    "pricePerSqm": 22742235,
+    "pricePerSqm": 22742337,
     "yieldOnCost": null,
     "targetHprPct": 20,
     "annualRentBil": null,
@@ -1140,7 +1135,7 @@
     "equityRequired": 760,
     "landValueRatio": null,
     "leveragedYield": null,
-    "pricePerPyeong": 75180939,
+    "pricePerPyeong": 75181277,
     "totalDepositBil": null,
     "marketDiscountPct": 13,
     "grossYieldOnEquity": null,
@@ -1156,7 +1151,7 @@
     "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_06.png",
     "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/cadastral_map.png"
    ],
-   "approved_at": "2026-10-05T16:28:02.867Z",
+   "approved_at": "2026-10-06T16:01:19.186Z",
    "askingPrice": 76000000000,
    "coordinates": {
     "lat": 37.5213029371495,
@@ -1165,42 +1160,41 @@
    "dcfEligible": false,
    "mapImageUrl": "/api/public/map/static?lat=37.5213029371495&lng=127.028527499187&w=640&h=360&level=3",
    "releaseTier": "fact_om",
-   "generated_at": "2026-10-05T16:27:40.125Z",
-   "heroSubtitle": "신사 소재, 오피스빌딩, 매각 희망가 760억 원대",
+   "generated_at": "2026-10-06T16:01:05.802Z",
+   "heroSubtitle": "신사·압구정권역 소재, 기타, 매각 희망가 700억대",
    "ssot_summary": {
     "pnu": "1168010700105900000",
     "zoning": "제3종일반주거지역",
     "address": "서울 강남구 논현로 816",
     "bcr_pct": 51.3,
     "far_pct": 237.18,
-    "asset_type": "오피스빌딩",
+    "asset_type": "기타",
+    "price_band": "700억대",
+    "area_signal": "신사·압구정권역",
     "area_source": {
-     "land": "public_register",
-     "total": "public_register"
+     "land": "broker_memo",
+     "total": "broker_memo"
     },
+    "fit_summary": null,
     "max_bcr_pct": 50,
     "max_far_pct": 250,
     "size_signal": "1010.9평",
     "floors_above": 6,
     "floors_below": 2,
-    "land_area_sqm": 1061.9,
-    "vacancy_signal": "공실 발생",
-    "vacancy_status": "공실 발생",
+    "land_area_sqm": 1061.8842577000003,
+    "vacancy_signal": null,
+    "vacancy_status": null,
+    "caution_summary": "등기부등본, 건축물대장 및 토지이용계획확인서 확인 필요. 임대차·공실 현황과 인근 실거래가의 시점·대상·출처 확인 필요.",
     "completion_year": 1998,
-    "register_main_pnu": "1168010700105900000",
     "investment_posture": "trading",
     "asking_price_manwon": 7600000,
-    "total_gross_area_sqm": 3341.8,
-    "register_attached_pnus": [
-     "1168010700105900001",
-     "1168010700105900002"
-    ]
+    "total_gross_area_sqm": 3341.78499865
    },
    "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
    "external_data": {
     "errors": [],
     "address": "서울 강남구 논현로 816",
-    "enrichedAt": "2026-10-05T16:27:32.392Z",
+    "enrichedAt": "2026-10-06T16:01:01.695Z",
     "hasPublicData": true,
     "fallbackStatus": {
      "landPrice": null,
@@ -1209,10 +1203,10 @@
      "buildingRegister": null
     }
    },
-   "ogDescription": "신사 · 오피스빌딩 · 760억 원대 · 핵심 투자 포인트 및 자산 개요",
-   "readiness_score": 55,
+   "ogDescription": "신사·압구정권역 · 기타 · 700억대 · 논현로 816, 압구정역 도보 약 7분 거리의 1998년 준공 제1종근린",
+   "readiness_score": 65,
    "dataCompleteness": {
-    "generatedAt": "2026-10-05T16:27:40.130Z",
+    "generatedAt": "2026-10-06T16:01:05.804Z",
     "qualityGrade": "B",
     "buildingRegister": true,
     "pptxExportAllowed": true,
@@ -1222,9 +1216,9 @@
    "financialWarnings": [],
    "investmentPosture": "trading",
    "investment_posture": "trading",
-   "keyInvestmentPoint": "신사 소재, 오피스빌딩, 매각 희망가 760억 원대",
+   "keyInvestmentPoint": "신사·압구정권역 소재, 기타, 매각 희망가 700억대",
    "asking_price_manwon": 7600000,
-   "approval_target_hash": "sha256:4a00d9a31342c888f631131b9462b1a73404b2dd48d7091c41cf1030ffda492a",
+   "approval_target_hash": "sha256:c306fc1a4b39b52b151ebe069eb1973caa7b179392769d47b0d7dce8c2de51de",
    "broker_physical_inputs": {
     "parking_count": 26,
     "elevator_count": 1
@@ -1236,17 +1230,16 @@
   "created_by_role": "broker",
   "input_type": "broker_memo",
   "raw_input": "신사동 590 ICL빌딩 매각\n매각가 760억 (토지평당 약 2.36억)\n소재지: 서울 강남구 신사동 590\n압구정역 도보 5분, 도산대로·을지병원 사거리 인근\n대지면적: 1,061.9㎡ (321.2평), 연면적 3,341.8㎡ (1,010.9평)\n제3종일반주거지역, 지하 2층 ~ 지상 6층, 준공 1998년, 주차 26대\n인근 실거래가: 평당 2.8억~3.2억 형성 (시세 대비 저평가 갭 투자)",
-  "area_signal": "신사",
-  "asset_type": "오피스빌딩",
-  "price_band": "760억",
-  "size_signal": "321.2평",
-  "current_use_signal": "근린생활시설",
-  "vacancy_signal": "공실 발생",
-  "fit_summary": "신사 오피스빌딩 — 시세차익 매매 기회 (760억 원)",
-  "caution_summary": "권리관계 및 공부 서류 검토 필요",
+  "area_signal": "신사·압구정권역",
+  "asset_type": "기타",
+  "price_band": "700억대",
+  "size_signal": "대지 1,061.9㎡(321.2평), 연면적 3,341.8㎡(1,010.9평), 지하 2층~지상 6층, 주차 26대",
+  "current_use_signal": null,
+  "vacancy_signal": null,
+  "fit_summary": "신사·압구정권역 기타 — 시세차익 매매 기회 (760억 원)",
+  "caution_summary": "등기부등본, 건축물대장 및 토지이용계획확인서 확인 필요. 임대차·공실 현황과 인근 실거래가의 시점·대상·출처 확인 필요.",
   "hidden_fields": [
-   "exact_address",
-   "seller_motivation"
+   "exact_address"
   ],
   "layers": {
    "finance": {
@@ -1262,8 +1255,8 @@
    },
    "location": {
     "pnu": null,
-    "address": "매각가 760",
-    "raw_address": "매각가 760"
+    "address": "신사·압구정권역",
+    "raw_address": null
    },
    "lease_summary": {
     "vacancy_pct": null,
@@ -1273,12 +1266,12 @@
     "total_deposit_manwon": null
    },
    "land_area_pyung": 321.22,
-   "total_floor_area_pyung": 321.22
+   "total_floor_area_pyung": 1010.89
   },
   "confidence": {
-   "assetType": "confirmed",
-   "priceBand": "confirmed",
-   "areaSignal": "confirmed",
+   "assetType": "needs_verification",
+   "priceBand": "user_provided",
+   "areaSignal": "user_provided",
    "fitSummary": "ai_hypothesis"
   },
   "disclosure": {
@@ -1286,9 +1279,9 @@
   },
   "status": "public_signal_ready",
   "created_at": "2026-09-13T14:34:30.963126+00:00",
-  "updated_at": "2026-10-05T16:28:07.199063+00:00",
-  "promotion_score": 0.3321,
-  "promotion_updated_at": "2026-10-02T05:05:59.809+00:00",
+  "updated_at": "2026-10-06T16:01:21.413672+00:00",
+  "promotion_score": 0.3272,
+  "promotion_updated_at": "2026-10-06T15:16:57.831+00:00",
   "matched_buyer_count": 0,
   "vacancy_inquiry_count": 0,
   "vacancy_avg_fit_score": null,
@@ -1302,29 +1295,24 @@
   "iot_floor_occupancy": null,
   "iot_device_id": null,
   "iot_last_synced_at": null,
-  "verification_status": "not_found",
+  "verification_status": "skipped",
   "verification_details": {
    "checks": {
     "purposeMatch": null,
-    "buildingExists": false,
+    "buildingExists": null,
     "areaWithinRange": null
    },
-   "status": "not_found",
+   "status": "skipped",
    "details": {
-    "aiAddress": "신사",
-    "aiAssetType": "오피스빌딩",
-    "errorReason": "국토부 건축물대장에 해당 건물 정보 없음",
-    "aiSizeSignal": "321.2평"
+    "aiAddress": "신사·압구정권역",
+    "aiAssetType": "기타",
+    "errorReason": "주소 파싱 실패 (시군구/법정동 분리 불가)",
+    "aiSizeSignal": "대지 1,061.9㎡(321.2평), 연면적 3,341.8㎡(1,010.9평), 지하 2층~지상 6층, 주차 26대"
    },
-   "resolvedComponents": {
-    "ji": "0",
-    "bun": "0",
-    "bjdongCd": "10700",
-    "sigunguCd": "11680"
-   }
+   "resolvedComponents": null
   },
   "verified_at": null,
-  "raw_address": "매각가 760",
+  "raw_address": null,
   "canonical_property_id": null,
   "address": "서울 강남구 논현로 816",
   "pnu": "1168010700105900000",
@@ -1353,7 +1341,7 @@
    "poiCounts": {
     "subway": 8,
     "busStop": 0,
-    "cafe": 138,
+    "cafe": 137,
     "parking": 68,
     "restaurant": 463,
     "convenience": 30
@@ -1525,12 +1513,12 @@
      "categoryName": "의료,건강 > 병원 > 대학병원"
     },
     {
-     "name": "에이든 바이 베스트웨스턴 청담 호텔",
-     "lat": 37.519974732339726,
-     "lng": 127.03047672564844,
+     "name": "에이프로젝트컴퍼니",
+     "lat": 37.5199837417853,
+     "lng": 127.030478991708,
      "distanceM": 226,
      "category": "landmark",
-     "categoryName": "여행 > 숙박 > 호텔"
+     "categoryName": "문화,예술 > 문화시설 > 미술관"
     },
     {
      "name": "뒤로수길",

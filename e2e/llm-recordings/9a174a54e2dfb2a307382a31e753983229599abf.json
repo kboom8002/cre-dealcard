@@ -1,0 +1,14 @@
+{
+ "key": "9a174a54e2dfb2a307382a31e753983229599abf",
+ "recordedAt": "2026-10-06T15:06:54.783Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **9호선 선유도역 도보 약 2분의 역세권 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"영등포·선유도 업무·상업권 수요를 흡수하는 안정적 임대차 기반을 갖췄습니다.\",\n      \"suggestion\": \"임대차 안정성을 단정하지 말고, 확인 가능한 임대차 현황·계약기간·임차인 구성 등을 제시한 뒤 '임대수요 가능성은 별도 검토가 필요합니다'와 같이 조건부로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인접 주거 배후수요는 상가 및 업무시설 임차 수요의 지속성에 기여하며\",\n      \"suggestion\": \"공공데이터, 상권분석 보고서 또는 임대차 실적 등 출처를 명시하거나, 출처가 없다면 '인접 주거지가 있어 배후수요가 형성될 가능성이 있습니다'처럼 추정·검토 수준으로 완화하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"공실 관리와 임대수익 최적화 측면에서 경쟁력 있는 입지입니다.\",\n      \"suggestion\": \"비교 대상, 기준 시점, 공실률·임대료 등 검증 가능한 지표와 출처를 제시하지 않는 한 '경쟁력 있는'이라는 우열 평가를 삭제하고, 역세권·도로 접근성 등 객관적 입지 사실만 기술하세요.\"\n    }\n  ]\n}",
+  "tokens": 2069,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10263
+ }
+}

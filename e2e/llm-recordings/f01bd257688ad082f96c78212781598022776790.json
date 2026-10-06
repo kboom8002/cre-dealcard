@@ -1,0 +1,14 @@
+{
+ "key": "f01bd257688ad082f96c78212781598022776790",
+ "recordedAt": "2026-10-06T11:07:10.182Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 도보 약 3분, 3",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"탁월한 대중교통 접근성이 핵심 경쟁력입니다.\",\n      \"suggestion\": \"가치 판단이나 투자 유도성이 드러나지 않도록 \\\"신사역 및 3호선 접근성이 확인되는 입지입니다\\\"처럼 객관적 사실 중심으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"반경 내 다수의 음식점·카페·편의시설이 형성되어 있어 임차인과 방문객의 체류 편의성이 높습니다. ... 오피스 개발 시 업무 수요와 근린상권 유동을 동시에 흡수할 수 있는 입지적 기반을 갖추고 있습니다.\",\n      \"suggestion\": \"시설 목록·조사 기준·출처를 제시하거나, 업무 수요와 유동을 단정하지 않고 \\\"인근 상업시설 접근성을 바탕으로 업무 수요 및 상권 유동에 대한 추가 검토가 필요합니다\\\"처럼 조건부로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2013,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9648
+ }
+}

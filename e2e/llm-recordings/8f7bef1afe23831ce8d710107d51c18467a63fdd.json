@@ -1,0 +1,14 @@
+{
+ "key": "8f7bef1afe23831ce8d710107d51c18467a63fdd",
+ "recordedAt": "2026-10-06T13:20:06.650Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **양재역 3호선 도보 약 4",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"역세권(도보 5분 이내) 입지 프리미엄을 유지하면서 임차료 지출 절감과 기업 거점 자산의 장기 보유가치를 함께 기대할 수 있습니다.\",\n      \"suggestion\": \"자가사용 기업의 검토 요소로만 표현하고, 절감액이나 보유가치의 발생을 암시하지 않도록 수정하세요. 예: \\\"역세권 접근성, 임차료 지출 구조 및 장기 보유 필요성을 종합적으로 검토할 수 있습니다.\\\"\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"입지 프리미엄을 유지하면서 ... 기업 거점 자산의 장기 보유가치를 함께 기대할 수 있습니다.\",\n      \"suggestion\": \"입지 프리미엄 및 장기 보유가치에 대한 주관적 평가·기대 표현을 삭제하고, 확인 가능한 입지 조건과 자가사용 비용 분석으로 대체하세요. 예: \\\"역과의 거리 및 주변 편의시설을 자가사용 기업의 접근성 평가 요소로 검토할 수 있습니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2008,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8163
+ }
+}

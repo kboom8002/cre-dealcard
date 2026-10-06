@@ -1,0 +1,14 @@
+{
+ "key": "7322ae71bd256652f2631e5c49856c911284eb1e",
+ "recordedAt": "2026-10-06T11:07:15.470Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 본 자산은 신사역 신분당선 약 267m, 3호",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상권 접근성과 임차 수요 측면에서 우수한 잠재력을 갖춘 잠원권 자산입니다.\",\n      \"suggestion\": \"역과의 거리 등 확인 가능한 객관적 입지만 기재하고, 임차 수요나 잠재력에 관한 평가는 공공데이터·시장보고서·임대사례 등 출처를 함께 제시하십시오. 예: \\\"신사역 신분당선 약 267m, 3호선 약 331m 거리에 위치합니다.\\\"\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"공실 해소를 통한 가치 개선 또는 오피스 개발·리포지셔닝 관점의 검토가 적합합니다.\",\n      \"suggestion\": \"가격·가치에 대한 주관적 평가로 읽히지 않도록 중립적으로 표현하십시오. 예: \\\"공실 해소 및 오피스 개발·리포지셔닝 가능성에 대한 사업성 검토가 필요합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2016,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11199
+ }
+}

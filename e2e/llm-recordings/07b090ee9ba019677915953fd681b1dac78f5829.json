@@ -1,0 +1,14 @@
+{
+ "key": "07b090ee9ba019677915953fd681b1dac78f5829",
+ "recordedAt": "2026-10-06T13:12:51.886Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: income_analysis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 실투자금(취득비용 포함)은 **약 118.4",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"준공업지역 상업용 토지의 하방 안정성을 보완하는 요소\",\n      \"suggestion\": \"투자 안정성을 암시하지 않도록 삭제하거나, 확인 가능한 공시지가·토지이용계획 등의 객관적 사실만 기재하고 투자 판단은 독자가 하도록 수정하십시오.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"연 순영업소득(NOI)은 운영비 차감 후 약 1.9억~2.2억 원으로 추정되며, Cap Rate(NOI÷매매가)는 1.6%~1.9% 구간으로 제시됩니다.\",\n      \"suggestion\": \"운영비, 수선비, 세금, 공실 및 관리비 부담 등 산출 근거를 제시하십시오. 근거가 없으면 해당 수치와 Cap Rate를 삭제하고, 확인 가능한 비용 자료 확보 후 재산정한다고 표현하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"준공업지역 상업용 토지의 하방 안정성을 보완하는 요소\",\n      \"suggestion\": \"‘하방 안정성’처럼 가격·가치의 유리함을 평가하는 표현을 제거하고, ‘2026년 개별공시지가 기준 토지 평가액은 약 37.91억 원으로 기재되어 있다’와 같이 출처가 확인되는 객관적 사실로 한정하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"준공업지역 상업용 토지의 하방 안정성\",\n      \"suggestion\": \"공공기관 자료나 전문 보고서의 출처·기준·작성일을 명시하지 않는 한 해당 지역 토지의 가격 하방 또는 시장 안정성을 단정하지 마십시오.\"\n    }\n  ]\n}",
+  "tokens": 3433,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 38352
+ }
+}

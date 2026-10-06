@@ -1,0 +1,14 @@
+{
+ "key": "a2216955a924a583fe14e5cc86ff4b25728333c1",
+ "recordedAt": "2026-10-06T11:14:52.441Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 공실률 0%로 운영 중이며, 자가사용 2개 호실을",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 주거단지와 당산역 접근성은 재임대 수요를 뒷받침하는 요소입니다.\",\n      \"suggestion\": \"인근 주거단지와 당산역 접근성은 객관적인 입지 특성으로만 기재하고, 재임대 수요에 미치는 영향은 관련 공공데이터·시장보고서·임대 사례 등을 제시하거나 '재임대 수요에 영향을 줄 수 있어 확인이 필요합니다'와 같이 조건부로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2451,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7665
+ }
+}

@@ -23,7 +23,7 @@
       "label": "연면적(㎡)",
       "anyOf": [
         "re:(?<![\\d,.])1,?441\\.15(?!\\d)\\s*㎡",
-        "re:(?<![\\d,.])1,?141\\.15(?!\\d)\\s*㎡"
+        "re:(?<![\\d,.])1,?141\\.(?:15|2)(?!\\d)\\s*㎡"
       ],
       "where": "both",
       "source": "fixture",
@@ -33,7 +33,7 @@
       "id": "land-area",
       "label": "대지면적(㎡)",
       "anyOf": [
-        "re:(?<![\\d,.])506\\.8(?!\\d)\\s*㎡"
+        "re:(?<![\\d,.])506\\.8(?:1)?(?!\\d)\\s*㎡"
       ],
       "where": "both",
       "source": "register",
@@ -209,7 +209,6 @@
       ],
       "where": "both",
       "source": "fixture",
-      "pending": "W3-rerecord",
       "note": "PPTX는 lease-vacancy SSOT 로 통과. 뷰어 본문은 LLM 생성물(구 스냅샷에 33.33% 저장) — 재녹화 후 pending 해제"
     }
   ],
@@ -217,7 +216,7 @@
     {
       "label": "연면적",
       "labelRegex": "연면적",
-      "regexNearLabel": "^\\s*(?<![\\d,.])1,?441\\.15(?!\\d)|^\\s*(?<![\\d,.])1,?141\\.15(?!\\d)",
+      "regexNearLabel": "^\\s*(?<![\\d,.])1,?441\\.15(?!\\d)|^\\s*(?<![\\d,.])1,?141\\.(?:15|2)(?!\\d)",
       "window": 22,
       "where": "pptx",
       "source": "fixture",
@@ -226,7 +225,7 @@
     {
       "label": "대지면적",
       "labelRegex": "대지면적",
-      "regexNearLabel": "^\\s*(?<![\\d,.])506\\.8(?!\\d)",
+      "regexNearLabel": "^\\s*(?<![\\d,.])506\\.8(?:1)?(?!\\d)",
       "window": 22,
       "where": "pptx",
       "source": "register"

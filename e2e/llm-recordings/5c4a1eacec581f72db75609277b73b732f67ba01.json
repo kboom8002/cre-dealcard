@@ -1,0 +1,14 @@
+{
+ "key": "5c4a1eacec581f72db75609277b73b732f67ba01",
+ "recordedAt": "2026-10-06T12:16:07.222Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: site_analysis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대상지는 건축물대장상 대지면적 616.",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1572,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4120
+ }
+}

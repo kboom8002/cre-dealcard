@@ -21,7 +21,7 @@
       "id": "gfa",
       "label": "연면적(㎡)",
       "anyOf": [
-        "re:(?<![\\d,.])2,?104\\.88(?!\\d)\\s*㎡"
+        "re:(?<![\\d,.])2,?104\\.(?:88|9|8)(?!\\d)\\s*㎡"
       ],
       "where": "both",
       "source": "fixture",
@@ -194,7 +194,7 @@
     {
       "label": "연면적",
       "labelRegex": "연면적",
-      "regexNearLabel": "^\\s*(?<![\\d,.])2,?104\\.88(?!\\d)",
+      "regexNearLabel": "^\\s*(?<![\\d,.])2,?104\\.(?:88|9|8)(?!\\d)",
       "window": 22,
       "where": "pptx",
       "source": "fixture",

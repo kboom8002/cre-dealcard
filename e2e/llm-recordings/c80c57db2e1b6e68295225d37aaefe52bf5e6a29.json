@@ -1,0 +1,14 @@
+{
+ "key": "c80c57db2e1b6e68295225d37aaefe52bf5e6a29",
+ "recordedAt": "2026-10-06T11:57:45.128Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: operation_overview] 직영 자가운영 영업 개요 및 브랜드 오퍼레이션 현황을 설명하세요. ## [기본 건물 데이터 (SSoT)] { \"asset_identity\": { ",
+ "result": {
+  "content": "본 자산은 94실 규모로 운영되며, 에이치 에비뉴와의 관리운영계약을 기반으로 자가 보유 자산의 브랜드 운영을 수행하고 있습니다. 최근 운영 지표는 객실점유율 78%, ADR 9.5만원, RevPAR 7.41만원이며, 연 매출은 약 28.2억원, GOP는 약 10.7억원(GOP 마진 38%)으로 집계됩니다. 다만 GOP는 객실·운영부문 비용 차감 후 수익으로, 임대료·감가상각·금융비용 및 보유세 등을 반영한 NOI와는 구분되며, F&B·부대시설 매출 구성과 관리수수료·인센티브 조건은 추가 확인이 필요합니다.",
+  "tokens": 3364,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 4390
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "91692bfd77c94388e205c08230e76af0552539e1",
+ "recordedAt": "2026-10-06T14:02:18.232Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **당산역 9호선 도보 5분, 2·9호선 더",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 카페 53곳, 음식점 191곳, 편의점 25곳\",\n      \"suggestion\": \"조사 기준일, 출처 및 집계 범위를 명시하거나 검증 가능한 자료가 없으면 구체적인 수치를 삭제하고 ‘인근에 카페·음식점·편의점 등 생활편의시설이 분포합니다’처럼 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"근린생활시설 임차인의 운영 편의와 지속적인 수요 확보에 유리합니다\",\n      \"suggestion\": \"출처가 있는 유동인구·매출·임대수요 자료를 제시하거나, ‘인근 생활편의시설의 분포가 확인됩니다’와 같이 관찰 가능한 입지 사실로 한정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인접한 당산삼성래미안 및 당산센트럴아이파크 등 주거 배후는 안정적인 소비 기반을 제공합니다\",\n      \"suggestion\": \"주거단지의 존재와 위치만 객관적으로 기술하고, 소비 기반의 안정성에 대한 판단은 관련 인구·상권·소비 데이터와 출처를 함께 제시하는 경우에만 포함하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"중로각지의 가시성과 접근성은 공실 최소화 및 임대수익 최적화에 긍정적으로 작용할 수 있습니다\",\n      \"suggestion\": \"공실 감소나 임대수익 개선을 암시하지 말고 ‘중로에 접하고 있어 차량 및 보행 접근성을 확인할 수 있습니다’처럼 물리적 입지 특성으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1985,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 15748
+ }
+}

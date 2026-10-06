@@ -1,0 +1,14 @@
+{
+ "key": "0a12019ea51df8c7d8b7bb96b4c931927f37899c",
+ "recordedAt": "2026-10-06T14:26:18.270Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 압구정역(3호선) 도보 7분, 논현로 대로",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1633,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4963
+ }
+}

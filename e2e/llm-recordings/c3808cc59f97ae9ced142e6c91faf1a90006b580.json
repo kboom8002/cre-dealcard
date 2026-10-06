@@ -1,0 +1,14 @@
+{
+ "key": "c3808cc59f97ae9ced142e6c91faf1a90006b580",
+ "recordedAt": "2026-10-06T15:19:07.290Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: comparable_analysis ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 희망가 760억 원은 연면적 1,0",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"연면적 1,010.9평(약 36㎡) 기준\",\n      \"suggestion\": \"1,010.9평의 면적 환산값을 확인하여 수정하십시오. 1,010.9평은 약 3,342㎡에 해당하므로, ‘약 36㎡’가 오기라면 삭제하거나 정확한 면적으로 정정해야 합니다.\"\n    }\n  ]\n}",
+  "tokens": 1872,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7937
+ }
+}

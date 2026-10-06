@@ -1,0 +1,14 @@
+{
+ "key": "22525471bf350458abfc835cf68cfb98cf7f795c",
+ "recordedAt": "2026-10-06T14:27:16.161Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도 희망가 760억원은 공시지가 기준 토지가치 및",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"매도 희망가 760억원은 공시지가 기준 토지가치 및 인근 소규모·용도 상이 거래사례만으로 직접 정당화하기 어려워\",\n      \"suggestion\": \"매도 희망가의 적정성에 대한 단정적 평가 대신, 제공된 자료만으로는 가격 검토에 한계가 있으며 주변 유사 규모·용도 거래사례, 감정평가, 예상 매각비용 등을 추가 확인해야 한다고 중립적으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2526,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12352
+ }
+}

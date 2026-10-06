@@ -1,0 +1,14 @@
+{
+ "key": "865c8609153eb0e76e4dd6d13cfead79d982d6b0",
+ "recordedAt": "2026-10-06T11:14:41.448Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 약 5분, 2·9호선 더",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"인접 아파트 단지의 상시 배후수요는 임차인 유치와 안정적인 현금흐름 유지에 긍정적인 기반이 됩니다.\",\n      \"suggestion\": \"배후수요와 현금흐름의 안정성을 단정하지 말고, 인접 단지 규모·상권 유동인구·임대차 실적 등 확인 가능한 자료를 제시한 뒤 ‘임차인 유치 가능성을 검토할 수 있습니다’처럼 조건부로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"대규모 주거 배후를 갖춘 당산 핵심 생활권 입지입니다.\",\n      \"suggestion\": \"‘대규모’ 및 ‘핵심 생활권’의 판단 근거가 되는 공공자료나 객관적 지표를 인용하거나, 확인 가능한 인접 주거단지와 세대 수 등으로 구체화하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"근린생활시설 및 소규모 오피스 수요 확보에 유리해\",\n      \"suggestion\": \"임대수요를 단정하지 말고, 인근 업종 구성·공실 현황·임대차 사례 등 출처를 제시하거나 ‘수요 가능성을 검토할 수 있습니다’로 완화하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"생활·상업 인프라가 집적되어 있으며, 인접 아파트 단지의 상시 배후수요는\",\n      \"suggestion\": \"‘집적’과 ‘상시 배후수요’에 대한 객관적 근거를 제시하세요. 근거가 없다면 인근 시설의 구체적 목록과 거리만 사실적으로 기술하세요.\"\n    }\n  ]\n}",
+  "tokens": 1879,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7073
+ }
+}

@@ -590,6 +590,7 @@ export async function generateSingleSection(
         cacheKey: `mobile-im-${sectionType}-${String(ctx.buildingId ?? "")}-${String(ctx.assetIdentity.area_signal ?? "").slice(0, 20)}-${String(ctx.assetIdentity.asset_type ?? "").slice(0, 20)}`,
         // FAST_MODE: 30초, 일반: 90초 (gpt-5.6-terra 등 대형 모델 대응)
         timeoutMs: input.timeoutMs ?? (IM_FAST_MODE ? 30000 : 90000),
+        allowMock: process.env.NODE_ENV === 'test', // 쿼터 소진 시 Mock 샘플이 실제 데이터로 유입되는 것 방지
       },
     );
 

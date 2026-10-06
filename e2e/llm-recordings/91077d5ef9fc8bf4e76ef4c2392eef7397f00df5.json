@@ -1,0 +1,14 @@
+{
+ "key": "91077d5ef9fc8bf4e76ef4c2392eef7397f00df5",
+ "recordedAt": "2026-10-06T14:54:14.638Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대상지는 제2종일반주거지역으로 확인되며, 현",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"현 건축물의 용적률(325.63%)이 공시된 법정 상한(200%)을 상회하는 것으로 나타나 ... 기존 연면적(2,032.59㎡·614.9평(약 2032.7㎡)) ... 목표 오피스 464평(약 1533.9㎡) ... 공사비(평당 750만원 가정)\",\n      \"suggestion\": \"용적률·법정 상한·연면적·개발면적·공사비 수치의 출처와 기준일을 명시하고, 확인되지 않은 값은 삭제하거나 '제공 자료 기준의 가정치'로 명확히 표시하세요. 특히 법정 상한과 공사비는 관할 규정 및 견적 자료로 별도 검증해야 합니다.\"\n    }\n  ]\n}",
+  "tokens": 2097,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8766
+ }
+}

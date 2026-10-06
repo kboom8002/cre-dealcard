@@ -1,0 +1,14 @@
+{
+ "key": "6000348059ddbb08dcd29ba2fd4e7fa95c6509be",
+ "recordedAt": "2026-10-06T11:28:11.030Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 압구정역(3호선) 도보 약 7분, 학동역(",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적 임차인(우수 신용도) 유치 및 업종 재구성을 통한 가치 개선 여지가 있으며\",\n      \"suggestion\": \"임차인 유치와 업종 재구성은 실행 가능성 및 비용·기간에 따라 달라질 수 있음을 명시하고, 객관적 검토 과제로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"압구정·청담·논현을 잇는 강남 핵심 상권의 소비력과 업무·주거 수요를 함께 흡수할 수 있으며, 인근에 카페·음식점 등 생활편의 업종이 밀집해 있습니다.\",\n      \"suggestion\": \"소비력, 업무·주거 수요, 업종 밀집 여부를 공공데이터나 조사보고서 등 출처와 기준시점과 함께 제시하거나, 확인이 필요한 입지 특성으로 완화하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"희소성 높은 신사 권역 입지 프리미엄을 기반으로 향후 매매 시 시세 갭 실현 가능성을 검토할 수 있습니다.\",\n      \"suggestion\": \"비교 대상 자산, 거래 시점, 면적·용도·임대조건 등 비교 조건과 출처가 없으므로 ‘입지 프리미엄’ 및 ‘시세 갭’ 표현을 삭제하거나 검증 가능한 비교자료를 첨부하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"희소성 높은 신사 권역 입지 프리미엄\",\n      \"suggestion\": \"주관적 가치평가를 피하고, 확인 가능한 교통·접근성·주변 시설 등의 객관적 사실만 기재하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"향후 매매 시 시세 갭 실현 가능성을 검토할 수 있습니다.\",\n      \"suggestion\": \"향후 가격 차익을 암시하는 표현 대신, 매매가격 검토를 위해 최근 실거래·유사 자산 거래사례·임대현황을 확인해야 한다고 중립적으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2286,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11891
+ }
+}

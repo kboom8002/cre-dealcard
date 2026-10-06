@@ -1,0 +1,14 @@
+{
+ "key": "06bf116c5063e34ad0b64a22125d1cac48eb4aa5",
+ "recordedAt": "2026-10-06T11:11:37.830Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: development_feasibility ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대지 197.0평(약",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"대지 197.0평(약 651.2㎡) 기준 토지비는 평당 4,500만원, 약 89억원으로 추정되며, 공사비 및 제반비용을 포함한 총 사업비는 약 290.3억원 수준으로 검토됩니다. 토지비 비중은 총 사업비의 약 30.7%이며, 초기 자기자본은 브릿지 대출을 제외할 경우 약 89억원이 필요할 것으로 예상됩니다.\",\n      \"suggestion\": \"토지비, 공사비, 제반비용, 총 사업비 및 자기자본 산정의 근거가 되는 매매조건·견적서·금융조건을 명시하세요. 근거 자료가 없다면 구체적인 수치를 삭제하고, '제시된 가정에 따른 예비 추정치이며 검증이 필요함'과 같이 가정별 산출표로 제시하세요.\"\n    }\n  ]\n}",
+  "tokens": 1940,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8199
+ }
+}

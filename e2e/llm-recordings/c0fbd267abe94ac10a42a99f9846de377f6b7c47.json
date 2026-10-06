@@ -1,0 +1,14 @@
+{
+ "key": "c0fbd267abe94ac10a42a99f9846de377f6b7c47",
+ "recordedAt": "2026-10-06T13:37:00.883Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 월 임대료는 1,946만원, 보증금은 2억9,00",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1522,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3844
+ }
+}

@@ -27,6 +27,7 @@ import {
   handleDuplicateModal,
   pollImCompletion,
   approveDocument,
+  resetBackSyncedBuildingState,
   markReplayWindowStart,
   assertNoReplayMisses,
   downloadPptx,
@@ -413,6 +414,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
         const idFile = path.join(screenshotDir, 'building-id.txt');
         if (!fs.existsSync(idFile)) { test.skip(); return; }
         state.buildingId = fs.readFileSync(idFile, 'utf-8').trim();
+        await resetBackSyncedBuildingState(state.buildingId);
 
         // 기존 docId 재사용 (REUSE_DOC_ID=1 환경변수 지정 시에만 재사용, 기본은 신규 생성)
         const existingDocFile = path.join(screenshotDir, 'doc-id.txt');

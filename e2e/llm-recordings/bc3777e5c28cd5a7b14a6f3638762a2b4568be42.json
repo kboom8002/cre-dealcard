@@ -1,0 +1,14 @@
+{
+ "key": "bc3777e5c28cd5a7b14a6f3638762a2b4568be42",
+ "recordedAt": "2026-10-06T11:25:06.299Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "text",
+ "promptPreview": "B1 파티룸 보증금0 월세0 1F 상가 보증금0 월세0 2F 공실 보증금0 월세0 3F 사무실 보증금0 월세0 4F 공실 보증금0 월세0 5F 공실 보증금0 월세0 6F 사무실 보증금0 월세0 7F 사무",
+ "result": {
+  "content": "{\n  \"floorLeases\": [\n    {\n      \"floor\": \"B1\",\n      \"tenant_type\": \"파티룸\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": false,\n      \"lease_state\": \"임대중\"\n    },\n    {\n      \"floor\": \"1F\",\n      \"tenant_type\": \"상가\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": false,\n      \"lease_state\": \"임대중\"\n    },\n    {\n      \"floor\": \"2F\",\n      \"tenant_type\": \"공실\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": true,\n      \"lease_state\": \"공실\"\n    },\n    {\n      \"floor\": \"3F\",\n      \"tenant_type\": \"사무실\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": false,\n      \"lease_state\": \"임대중\"\n    },\n    {\n      \"floor\": \"4F\",\n      \"tenant_type\": \"공실\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": true,\n      \"lease_state\": \"공실\"\n    },\n    {\n      \"floor\": \"5F\",\n      \"tenant_type\": \"공실\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": true,\n      \"lease_state\": \"공실\"\n    },\n    {\n      \"floor\": \"6F\",\n      \"tenant_type\": \"사무실\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": false,\n      \"lease_state\": \"임대중\"\n    },\n    {\n      \"floor\": \"7F\",\n      \"tenant_type\": \"사무실\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"is_vacant\": false,\n      \"lease_state\": \"임대중\"\n    }\n  ],\n  \"monthlyRent\": 0,\n  \"totalDeposit\": 0,\n  \"mgmtFeeTotal\": 0,\n  \"vacancyPct\": 37.5\n}",
+  "tokens": 1612,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 5079
+ }
+}

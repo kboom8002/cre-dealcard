@@ -1,0 +1,14 @@
+{
+ "key": "be33a50ff2edca32361f0724063aec4cc59f6e52",
+ "recordedAt": "2026-10-06T12:07:19.335Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: checklist] 자산의 가치를 객관적이고 설득력 있게 설명하세요. ## [기본 건물 데이터 (SSoT)] { \"asset_identity\": { \"area_signal\": \"",
+ "result": {
+  "content": "본 자산은 이대역 도보 약 3분, 신촌역 경의중앙선 약 313m 거리에 위치해 직영 숙박시설 운영 시 안정적인 유동인구 기반을 확보할 수 있는 입지입니다. 제공된 운영 실적 기준 94실 규모에서 연 매출 28.2억원, 연 GOP 10.7억원, GOP 마진 38%를 기록하고 있어, 운영 효율이 수익성의 핵심 가치로 평가됩니다. 다만 현재 공부상 용도 및 공실 현황과 호텔 운영 데이터 간 정합성, 관리위탁계약 조건 및 등기·권리관계는 투자 전 반드시 확인이 필요합니다.",
+  "tokens": 3161,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 5073
+ }
+}

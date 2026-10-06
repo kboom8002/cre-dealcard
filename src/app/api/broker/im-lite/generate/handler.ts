@@ -27,6 +27,7 @@ import {
 } from '@/domain/building/mobile-im/resolve-total-area';
 import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
 import { resolvePhysicalSpecs } from '@/domain/building/mobile-im/resolve-physical-specs';
+import { sanitizeFitSummaryKeepNull } from '@/domain/building/mobile-im/fit-summary-sanitize';
 import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
 import { resolveOverviewSpecs } from '@/domain/building/mobile-im/pptx/spec-resolver';
 import { applyBrokerExtrasToSections, mapBrokerExtrasStrings } from '@/domain/building/mobile-im/broker-extras';
@@ -190,7 +191,7 @@ export async function generateMobileIMHandler(
     size_signal: ssotRow.size_signal,
     current_use_signal: ssotRow.current_use_signal,
     vacancy_signal: ssotRow.vacancy_signal,
-    fit_summary: ssotRow.fit_summary,
+    fit_summary: sanitizeFitSummaryKeepNull(ssotRow.fit_summary),
     caution_summary: ssotRow.caution_summary,
     raw_input: ssotRow.raw_input,
     layers: ssotRow.layers,
@@ -817,7 +818,7 @@ export async function generateMobileIMHandler(
         investment_posture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
         vacancy_signal: supplemental.vacancy_status || (supplemental.vacancy_pct != null ? (supplemental.vacancy_pct === 0 ? '만실' : `공실률 ${supplemental.vacancy_pct}%`) : null) || ssotRow.vacancy_signal,
         vacancy_status: supplemental.vacancy_status || ssotRow.vacancy_signal,
-        fit_summary: ssotRow.fit_summary,
+        fit_summary: sanitizeFitSummaryKeepNull(ssotRow.fit_summary),
         caution_summary: ssotRow.caution_summary,
         monthly_rent_total_krw: supplemental.monthly_rent_total_krw,
         asking_price_manwon: supplemental.asking_price_manwon,

@@ -1,0 +1,14 @@
+{
+ "key": "030686d629630830be17eb6a8247ba6c03379604",
+ "recordedAt": "2026-10-06T14:11:40.891Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 경기 구리시 수택동 419-19",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"상업·업무 수요를 흡수할 수 있는 입지입니다.\",\n      \"suggestion\": \"수요 흡수 효과를 단정하지 말고, “상업·업무시설 접근성이 확인되며, 실제 임대수요는 시장조사 및 임대조건 검토가 필요합니다”처럼 객관적·조건부로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 발생 상태로 임대차 재구성 또는 개발 검토를 통한 수익성 개선 여지가 있습니다.\",\n      \"suggestion\": \"수익성 개선을 암시하는 표현을 삭제하거나, “공실 해소 및 임대차 재구성 가능성은 관련 인허가, 사업비, 임대수요 검토 후 판단해야 합니다”처럼 조건부 검토 문구로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상업·업무 수요를 흡수할 수 있는 입지입니다.\",\n      \"suggestion\": \"수요에 관한 출처가 없으므로, 해당 문구를 삭제하거나 공공데이터·임대시장 보고서·실제 임대사례 등 검증 가능한 근거를 명시하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"공실 활용 및 임대차 재구성을 통한 가치상승 가능성\",\n      \"suggestion\": \"주관적인 가치 상승 전망을 삭제하고, “공실 활용 및 임대차 재구성 방안 검토 대상”처럼 사실 및 검토 필요성 중심으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2220,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10419
+ }
+}

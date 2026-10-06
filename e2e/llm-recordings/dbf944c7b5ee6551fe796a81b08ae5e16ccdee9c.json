@@ -1,0 +1,14 @@
+{
+ "key": "dbf944c7b5ee6551fe796a81b08ae5e16ccdee9c",
+ "recordedAt": "2026-10-06T15:17:47.073Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## 섹션: location_access ## 검토자 지적 사항 1. [fabricated_data] 발췌: \"반경 내 카페 137곳, 음식점 463곳\" 수정 제안: 조사 기준일, 반경 범위, 출처(예: 공공",
+ "result": {
+  "content": "**압구정역 도보 7분, 논현로 변의 가시성과 신사·압구정 생활권을 동시에 확보한 핵심 입지**입니다. 근린생활시설의 임차 수요와 상권 활용도가 기대되며, 학동역(7호선)도 약 827m 거리에 위치합니다. 대상 자산은 논현로 변에 위치하며, 매도 희망가와 인근 유사 자산의 실거래가·거래시점·개별 조건을 대조해 시세 갭은 별도 검증이 필요합니다.",
+  "tokens": 1024,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 4147
+ }
+}

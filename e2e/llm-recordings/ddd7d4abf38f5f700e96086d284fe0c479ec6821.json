@@ -1,0 +1,14 @@
+{
+ "key": "ddd7d4abf38f5f700e96086d284fe0c479ec6821",
+ "recordedAt": "2026-10-06T11:29:50.132Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: comparable_analysis ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 희망 매각가 760억 원은 연면적 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"매입가 760억 원 대비 약 152억 원의 목표 시세차익(보유기간 HPR 20%)\",\n      \"suggestion\": \"HPR 20%와 목표 시세차익의 산출 근거, 예상 매각가, 보유기간, 비용·세금·공실 가정을 제시하고, 검증되지 않은 경우 구체적 수치 대신 가정 시나리오로 명시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"최근 거래 자료에는 도곡동 업무시설 및 청담·논현권 근린생활시설 거래가 포함되어 있으나\",\n      \"suggestion\": \"거래일, 소재지, 거래금액, 연면적, 출처 등 검증 가능한 자료를 인용하세요. 출처를 제시할 수 없다면 '확인된 거래자료가 제한적이다'처럼 단정성을 낮추세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"신사·압구정 생활권의 입지성과 매입가 가정을 반영한 목표치로는 검토 가능\",\n      \"suggestion\": \"입지성에 따른 가격 또는 수익성의 타당성을 평가하는 표현을 삭제하고, '해당 가정에 기반한 내부 검토 시나리오이며 적정성은 별도 검증이 필요하다'고 중립적으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2666,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 17065
+ }
+}

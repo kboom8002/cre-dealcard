@@ -1,0 +1,14 @@
+{
+ "key": "f155dedf42a3390cdecc47f16d42e591e4133cc2",
+ "recordedAt": "2026-10-06T12:04:31.681Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: gop_analysis] GOP(Gross Operating Profit), ADR, 가동률(OCC) 운영 실적 및 이익률 구조를 제시하세요. ## [기본 건물 데이터 (SSoT)] { ",
+ "result": {
+  "content": "94객실 기준 연간 ADR 95,000원, 평균 가동률(OCC) 78%를 적용한 RevPAR는 74,100원이며, 연 매출은 약 28.2억 원으로 추정됩니다. 연 실질 영업이익(GOP)은 약 10.7억 원, GOP 마진율은 38%로 산정되며, 매매가 300억 원 기준 GOP Cap Rate는 3.57%입니다. 다만 3개년 매출·GOP 추이, 월별 시즌성, 인건비·운영비·마케팅비 세부 내역 및 손익분기 가동률은 확인이 필요하며, 제시 수치는 운영 실적 및 비용 구조에 따라 변동될 수 있습니다.",
+  "tokens": 3570,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 2697
+ }
+}

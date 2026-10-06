@@ -1,0 +1,14 @@
+{
+ "key": "1d457af6e093e3790181acfc2628832188923391",
+ "recordedAt": "2026-10-06T15:04:10.998Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **토지·입지**: 2026년 공시지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"② 임대료 현실화 (+5%) | +약 0.10억 원 (+5%) | 1.81% | 불필요\",\n      \"suggestion\": \"임대차계약서, 인근 동일 업종·면적의 실제 임대료 자료, NOI 산출 근거 및 비용 가정을 제시하십시오. 근거가 없으면 구체적인 개선액과 Cap Rate를 삭제하고 '가정에 따른 시뮬레이션'으로만 표현하십시오.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"③ 리모델링 후 임대료 상승 | +약 0.16억 원 (+8%) | 1.86% | 약 3.42억 원\",\n      \"suggestion\": \"임대료 상승률, NOI 증가액, 리모델링 비용 및 개선 Cap Rate의 산출 근거가 제공되지 않았으므로 구체적 수치를 삭제하거나, 견적서·임대료 비교자료·NOI 산식 등 검증 가능한 근거와 함께 제시하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2247,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10708
+ }
+}

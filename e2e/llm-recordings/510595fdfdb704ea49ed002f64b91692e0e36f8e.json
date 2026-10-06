@@ -1,0 +1,14 @@
+{
+ "key": "510595fdfdb704ea49ed002f64b91692e0e36f8e",
+ "recordedAt": "2026-10-06T04:03:59.025Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 도보 3분, 3호선",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근에 다수의 음식점·카페·생활편의시설이 밀집해 임차 수요와 상권 유입을 뒷받침합니다. 주요 간선도로 접근성과 풍부한 주차 인프라가 결합되어 오피스 및 근린생활시설 수요를 폭넓게 흡수할 수 있으며\",\n      \"suggestion\": \"음식점·카페·생활편의시설의 분포, 주차 규모·이용 가능 여부, 임차 수요 및 상권 유입에 관한 공공데이터·현장조사·시장보고서 등 근거를 제시하세요. 근거가 없다면 '수요에 긍정적인 영향을 줄 가능성이 있으므로 별도 검토가 필요합니다'처럼 단정적 표현을 완화하세요.\"\n    }\n  ]\n}",
+  "tokens": 1645,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 5079
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "0bdc7532dcefc201d87c0711b69221865b1c51c9",
+ "recordedAt": "2026-10-06T13:20:10.154Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역(3호선) 도보 약 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"서초권 핵심 입지의 실물자산 보유를 통한 장기 자산가치 확보 관점\",\n      \"suggestion\": \"‘핵심 입지’ 및 장기 자산가치 확보와 같은 시장·가치 판단 표현은 삭제하거나, 관련 공공자료·시장보고서·객관적 지표를 명시하세요. 예: ‘양재역 도보 약 4분 입지에서 자가사용 전환 가능성을 검토할 수 있습니다.’\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"장기 자산가치 확보 관점에서 검토할 수 있습니다\",\n      \"suggestion\": \"장기 자산가치 확보를 암시하는 표현을 자산 보유의 가능성이나 투자 효과로 단정하지 않도록 수정하세요. 예: ‘장기 보유 목적의 자가사용 전환 가능성을 검토할 수 있습니다.’\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"현재 37.5%의 공실\",\n      \"suggestion\": \"공실률 산정 근거가 원문에 없다면 해당 수치를 삭제하거나, 산정 기준과 출처를 명시하세요. 예: ‘제공 자료 기준 공실률 37.5%’ 또는 ‘공실 공간의 자가사용 전환 가능성’으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2170,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9815
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "23a44c6c2cbbc8761e2e0f2d7a1d69a1487a0b81",
+ "recordedAt": "2026-10-06T14:24:07.756Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역 3호선 도보 4분, 신",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"서초 권역의 안정적인 업무 수요는\",\n      \"suggestion\": \"공공데이터나 시장보고서 등 출처를 제시하거나, \\\"서초 권역의 업무 수요를 검토할 때 참고할 수 있는 입지\\\"처럼 객관적·조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"장기 자가사용 및 자산가치 보유 관점에서 강점입니다.\",\n      \"suggestion\": \"\\\"장기 자가사용을 검토할 수 있는 입지 특성이 있습니다\\\"처럼 용도와 관찰 가능한 특성만 기술하고, 자산가치 보유에 관한 긍정적 판단은 삭제하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산가치 보유 관점에서 강점입니다.\",\n      \"suggestion\": \"자산가치에 대한 주관적 평가를 삭제하고, 교통 접근성·주변 편의시설 등 확인 가능한 사실만 기재하세요.\"\n    }\n  ]\n}",
+  "tokens": 1923,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7928
+ }
+}

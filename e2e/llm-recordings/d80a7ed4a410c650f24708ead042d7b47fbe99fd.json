@@ -1,0 +1,14 @@
+{
+ "key": "d80a7ed4a410c650f24708ead042d7b47fbe99fd",
+ "recordedAt": "2026-10-06T14:08:31.740Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **신사역 신분당선·3호선 도보 약",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"반경 내 다수의 카페와 음식점 등 생활·상업 인프라가 형성되어 있습니다. 향후 오피스 개발 시에는 희소성 있는 잠원권 역세권(도보 5분 이내) 입지를 바탕으로 임대수요 및 자산가치 제고 가능성을 검토할 수 있습니다.\",\n      \"suggestion\": \"카페·음식점의 구체적인 조사 기준이나 출처를 제시하고, ‘희소성’ 및 임대수요·자산가치 제고 가능성은 객관적 근거가 있는 경우에만 제한적으로 기재하세요. 예: ‘주변 시설 현황 및 오피스 임대수요는 별도 시장조사와 개발성 검토가 필요합니다.’\"\n    }\n  ]\n}",
+  "tokens": 1954,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14044
+ }
+}

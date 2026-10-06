@@ -1,0 +1,14 @@
+{
+ "key": "12acd99025893e4e65fffbb90dce184c5e8891fd",
+ "recordedAt": "2026-10-06T13:40:37.133Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양평로 116-1, 선유도역 9호선 도보",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"월 임대료 5,147만원이 발생하는 가운데 8.3% 공실이 있어\",\n      \"suggestion\": \"임대차계약서, 임대료 입금 내역, 임대현황표 등 확인 가능한 근거를 함께 제시하고, 근거가 없으면 '제시 자료 기준 월 임대료 5,147만원 및 공실률 8.3%로 기재되어 있으나 확인이 필요함'으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2477,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14226
+ }
+}

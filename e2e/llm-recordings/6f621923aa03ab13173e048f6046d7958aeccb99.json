@@ -1,0 +1,14 @@
+{
+ "key": "6f621923aa03ab13173e048f6046d7958aeccb99",
+ "recordedAt": "2026-10-06T14:56:11.677Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 중개사 메모를 구조화해주세요. ## 메모 수택동 [ADDR_DETAIL_A] 외 2필지 매각 매각가 89억 (토지평당 4,500만원) 소재지: 경기도 구리시 수택동 [ADDR_DETAIL_B], [ADDR_D",
+ "result": {
+  "content": "{\n  \"extractedFacts\": {\n    \"region\": \"경기도 구리시 수택동·구리역권\",\n    \"exactAddressCandidate\": \"상세주소 비공개, 총 3필지\",\n    \"assetType\": \"나대지 개발부지\",\n    \"priceText\": \"매각가 89억원, 토지 평당 4,500만원\",\n    \"sizeText\": \"대지면적 총 651.2㎡(197.0평), 신축 가능 연면적 약 2,500평\",\n    \"currentUse\": \"나대지\",\n    \"leaseSignal\": \"명도 불필요\",\n    \"vacancySignal\": \"해당 없음(나대지)\",\n    \"tenantNames\": [],\n    \"unitRentTexts\": [],\n    \"sellerMotivationText\": \"\",\n    \"brokerNotes\": [\n      \"총 3필지 일괄 매각\",\n      \"구리역 8호선·경의중앙선 도보 5분\",\n      \"용도지역은 일반상업지역\",\n      \"복합개발 또는 오피스텔 계획 언급\",\n      \"신축 가능 연면적 약 2,500평\",\n      \"즉시 착공 가능 문구는 인허가 및 착공 요건 확인 필요\"\n    ],\n    \"hospitalitySignals\": {\n      \"roomCount\": null,\n      \"adr\": null,\n      \"occupancyRate\": null,\n      \"gopMargin\": null,\n      \"operatingModel\": null\n    },\n    \"developmentSignals\": {\n      \"landAreaPyung\": 197.0,\n      \"farPct\": 1260,\n      \"bcrPct\": null,\n      \"constructionCostManwon\": null,\n      \"expectedSalesPriceManwon\": null,\n      \"developmentType\": \"신축\"\n    },\n    \"tradingSignals\": {\n      \"pricePerPyeongManwon\": 4500,\n      \"marketPriceManwon\": null,\n      \"holdingPeriodMonths\": null\n    },\n    \"ownerOccupiedSignals\": {\n      \"selfUseIntent\": false,\n      \"currentLeaseCostManwon\": null\n    }\n  },\n  \"detectedSensitiveFields\": [\n    \"exact_address\"\n  ],\n  \"ambiguousFields\": [\n    \"허가 용적률 1,260%의 허가 완료 여부 및 적용 근거\",\n    \"신축 가능 연면적 약 2,500평의 산정 기준\",\n    \"복합개발과 오피스텔 중 확정된 개발 용도\",\n    \"즉시 착공 가능 여부\"\n  ],\n  \"warnings\": [\n    \"용도지역, 용적률 및 개발 가능 규모는 토지이용계획확인서와 인허가 자료 확인이 필요합니다.\",\n    \"즉시 착공 가능 여부는 건축허가, 철거·정비 사항, 기반시설 및 관계 법령 요건 확인이 필요합니다.\",\n    \"매각가와 토지 평당가는 메모 기재값이며 면적 및 금액 산식의 재확인이 필요합니다.\"\n  ]\n}",
+  "tokens": 2652,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 19203
+ }
+}

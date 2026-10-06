@@ -1,0 +1,14 @@
+{
+ "key": "0c584f9ed6b3b988e9a84875b49b5ba21528ab64",
+ "recordedAt": "2026-10-06T13:15:24.638Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 서울 영등포구 양평로 116-1 소재 자산은 선유도역(",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상업·업무 수요를 흡수할 수 있는 입지 경쟁력을 갖추고 있습니다.\",\n      \"suggestion\": \"상업·업무 수요에 대한 구체적인 근거(인근 임대차 사례, 유동인구·업종 분포 자료, 공공데이터 또는 시장 보고서)를 제시하거나, '상업·업무 수요 유입 가능성은 관련 자료 확인이 필요합니다'와 같이 조건부로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1898,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7921
+ }
+}

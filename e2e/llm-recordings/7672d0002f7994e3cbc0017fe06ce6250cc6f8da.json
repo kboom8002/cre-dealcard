@@ -1,0 +1,14 @@
+{
+ "key": "7672d0002f7994e3cbc0017fe06ce6250cc6f8da",
+ "recordedAt": "2026-10-06T15:14:35.546Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도 희망가 230억 원 기준, 연면적 ",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1600,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4867
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "4b724ac702556f60420b79a585f4ea79a0abcc57",
+ "recordedAt": "2026-10-06T11:23:18.084Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: gop_analysis] GOP(Gross Operating Profit), ADR, 가동률(OCC) 운영 실적 및 이익률 구조를 제시하세요. ## [기본 건물 데이터 (SSoT)] { ",
+ "result": {
+  "content": "94실 운영 기준, ADR 95,000원과 평균 가동률(OCC) 78%를 적용한 RevPAR는 74,100원이며, 연간 총매출은 약 28.2억 원으로 추정됩니다. GOP는 약 10.7억 원/년, GOP 마진은 38% 수준으로 산정되며, 제시 매매가 300억 원 기준 GOP Cap Rate는 3.57%입니다. 다만 최근 3개년 매출·비용 및 월별 가동률 자료가 확보되지 않아 GOP 추세, 계절별 변동성 및 손익분기 가동률은 확인이 필요합니다. 에이치 에비뉴의 위탁운영(Management Contract) 구조로 제시되어 있으므로, 인수 전 운영계약 조건·운영비 구성·공실 발생 현황을 포함한 실사 검증이 요구됩니다.",
+  "tokens": 3590,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 3043
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "c51660aa1feb40c971ebd2de5e2b3965e3265830",
+ "recordedAt": "2026-10-06T14:21:50.705Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: operation_overview] 직영 자가운영 영업 개요 및 브랜드 오퍼레이션 현황을 설명하세요. ## [기본 건물 데이터 (SSoT)] { \"asset_identity\": { ",
+ "result": {
+  "content": "에이치 에비뉴가 관리위탁 방식으로 운영 중인 것으로 제시되며, 94객실 기준 ADR 9.5만원, OCC 78%, RevPAR 7.41만원의 운영 실적이 확인됩니다. 연 매출은 28.2억원, GOP는 10.7억원으로 제시되어 GOP 마진은 약 38% 수준이나, 이는 운영비 차감 전 영업총이익으로 NOI와는 구분됩니다. F&B·부대시설 매출 구성, 인건비 비중 및 계절별 변동, 관리수수료·인센티브 등 브랜드 계약 조건은 별도 확인이 필요하며, 공부상 근린생활시설 및 공실 발생 정보와 호텔 운영 현황의 정합성도 실사 과정에서 검증되어야 합니다.",
+  "tokens": 3347,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 5163
+ }
+}

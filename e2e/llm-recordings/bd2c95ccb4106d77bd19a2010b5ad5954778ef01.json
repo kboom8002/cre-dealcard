@@ -1,0 +1,14 @@
+{
+ "key": "bd2c95ccb4106d77bd19a2010b5ad5954778ef01",
+ "recordedAt": "2026-10-06T00:44:39.209Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: gop_analysis ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown ### GOP (Gross Operating",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1526,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3824
+ }
+}

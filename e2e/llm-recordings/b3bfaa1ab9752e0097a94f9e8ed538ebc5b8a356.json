@@ -1,0 +1,14 @@
+{
+ "key": "b3bfaa1ab9752e0097a94f9e8ed538ebc5b8a356",
+ "recordedAt": "2026-10-06T13:11:55.879Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 5분, 2호선도 인근에 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"인근 아파트 단지와 생활권 수요를 기반으로 근린생활시설 임차인 유치에 적합합니다.\",\n      \"suggestion\": \"임차인 유치 적합성을 단정하지 말고, 확인된 상권·임대수요 자료를 근거로 조건부로 표현하세요. 예: \\\"인근 아파트 단지 및 생활권 수요는 근린생활시설 임차인 유치 가능성을 검토하는 요소이나, 실제 수요는 별도 확인이 필요합니다.\\\"\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 아파트 단지와 생활권 수요를 기반으로 근린생활시설 임차인 유치에 적합합니다. 주변에 음식점·카페·편의점 등 생활편의시설이 분포하며\",\n      \"suggestion\": \"임차 수요와 시설 분포를 단정하려면 조사 시점, 조사 범위 및 공공데이터·상권분석보고서 등 출처를 제시하세요. 출처가 없다면 \\\"현장 및 공개 상권자료를 통해 확인이 필요합니다\\\"로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1937,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8070
+ }
+}

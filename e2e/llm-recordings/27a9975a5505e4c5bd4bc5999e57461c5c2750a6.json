@@ -1,0 +1,14 @@
+{
+ "key": "27a9975a5505e4c5bd4bc5999e57461c5c2750a6",
+ "recordedAt": "2026-10-06T14:24:02.900Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: cost_comparison ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 10년 보유 기준 자가전환 시",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 2247,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12845
+ }
+}

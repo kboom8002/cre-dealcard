@@ -1,0 +1,14 @@
+{
+ "key": "c7c64f704ca19fd9fffc8a6c7daea7be25c02358",
+ "recordedAt": "2026-10-06T00:43:58.260Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: next_steps ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 투자 검토를 희망하시는 경우, 우선 비밀유지약정",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1243,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 2721
+ }
+}

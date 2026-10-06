@@ -1,0 +1,14 @@
+{
+ "key": "edd9c356d12ef63dac63d4eafb546eb4a11b0e14",
+ "recordedAt": "2026-10-06T12:16:31.412Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대지면적은 건축물대장상 616.1㎡이나 토지",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1837,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6057
+ }
+}

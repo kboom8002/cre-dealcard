@@ -180,7 +180,6 @@
       ],
       "where": "both",
       "source": "derived",
-      "pending": "W3",
       "note": "뷰어 렌트롤/본문에 마스킹 라벨 잔존 — 실명 사용 결정(W3)"
     },
     {
@@ -316,7 +315,6 @@
     "label": "임차인 실명 (렌트롤 상호 그대로)",
     "where": "both",
     "source": "fixture",
-    "pending": "W3",
     "note": "CREDEAL_rentroll_p5-yangpyeong-income_r3-verified.xlsx 임차인(상호) 컬럼 그대로 (상호가 업종명인 호실 포함)",
     "names": [
       "스타벅스",

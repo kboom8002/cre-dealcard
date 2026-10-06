@@ -1,0 +1,14 @@
+{
+ "key": "45a1a9bf7d1b4e856eb8da7fe695d512d873819f",
+ "recordedAt": "2026-10-06T11:45:49.733Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 본 자산은 총 대지면적 651.2㎡를 기반으로",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"업무·상업시설 수요를 흡수할 입지 경쟁력이 있습니다\",\n      \"suggestion\": \"구리역과의 거리 등 객관적 입지 정보만 기재하고, 업무·상업시설 수요 및 사업성은 관련 자료 확인과 별도 분석이 필요하다고 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"업무·상업시설 수요를 흡수할\",\n      \"suggestion\": \"공공데이터, 임대차 조사 또는 시장 보고서 등 출처를 제시하거나, 출처가 없다면 '업무·상업시설 수요 유입 가능성을 검토할 수 있다'처럼 조건부로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"임대차 정상화 또는 자산 재구성을 통한 가치 제고 기회를 제공하며\",\n      \"suggestion\": \"가치 상승을 암시하는 표현을 삭제하고, '임대차 정상화 또는 자산 재구성 가능성을 검토할 수 있으며, 그 효과는 별도 사업성 분석이 필요하다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2070,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9917
+ }
+}

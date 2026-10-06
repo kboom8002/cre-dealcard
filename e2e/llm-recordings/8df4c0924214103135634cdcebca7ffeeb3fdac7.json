@@ -1,0 +1,14 @@
+{
+ "key": "8df4c0924214103135634cdcebca7ffeeb3fdac7",
+ "recordedAt": "2026-10-06T14:26:08.858Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 압구정역(3호선) 도보 7분, 논현로 대로",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"향후 안정화된 임대수익을 기반으로 매각가치를 높일 수 있는 요소입니다.\",\n      \"suggestion\": \"임대수익 안정화 및 매각가치 상승을 단정적으로 연상시키지 않도록, 임차인 재구성·업종 변경의 실행 가능성과 임대차 조건에 따라 결과가 달라질 수 있음을 명시하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"접근성과 권역 프리미엄을 갖춘 자산입니다.\",\n      \"suggestion\": \"‘권역 프리미엄’처럼 구체적인 비교 기준과 출처가 없는 우월성 표현은 삭제하고, 역과 도로까지의 거리 등 확인 가능한 입지 사실만 기술하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"반경 내 다수의 음식점·카페·생활편의시설이 집적되어 있습니다.\",\n      \"suggestion\": \"시설 목록, 조사 기준일 또는 지도·공공데이터 등 근거를 제시하거나, ‘인근에 음식점·카페·생활편의시설이 위치합니다’처럼 검증 가능한 범위로 완화하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"임차인 재구성 및 업종 고도화를 통한 가치 개선 여지를 제공하며, 향후 안정화된 임대수익을 기반으로 매각가치를 높일 수 있는 요소입니다.\",\n      \"suggestion\": \"가치 개선이나 매각가치 상승에 대한 평가·전망을 삭제하고, ‘임차인 재구성 및 업종 변경 가능성은 임대수요와 실행 조건에 대한 추가 검토가 필요합니다’처럼 조건부 검토 사항으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2225,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9818
+ }
+}

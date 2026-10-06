@@ -1,0 +1,14 @@
+{
+ "key": "b683abd3012908d9bafccd4c17a0d72eb2d66269",
+ "recordedAt": "2026-10-06T15:02:49.121Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **당산역 2·9호선 더블역세권(도보 5분 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"배후 주거수요와 생활형 상권을 갖춘\",\n      \"suggestion\": \"주거수요 규모와 상권 활성화 여부를 확인할 수 있는 공공데이터·상권분석 보고서·현장 조사 자료를 인용하거나, '인근에 주거 단지와 생활편의시설이 위치한'과 같이 확인 가능한 사실 중심으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"현재의 생활밀착형 임차업종과의 적합성이 높고, 안정적인 임대수요 및 공실 관리 측면에서 경쟁력을 기대할 수 있습니다.\",\n      \"suggestion\": \"'안정적인 임대수요'와 '경쟁력'처럼 수익성과 운영 안정성을 긍정적으로 암시하는 표현을 삭제하고, '현재 임차업종 구성은 생활편의 업종 중심이며, 향후 임대수요와 공실 수준은 별도 확인이 필요합니다'처럼 중립적으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"안정적인 임대수요 및 공실 관리 측면에서 경쟁력을 기대할 수 있습니다.\",\n      \"suggestion\": \"해당 판단을 뒷받침하는 임대차 현황, 공실률, 임대수요 조사 또는 공공·시장 보고서의 출처와 기준시점을 제시하세요. 근거가 없다면 '임대수요와 공실 수준은 현장 및 자료 확인이 필요합니다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2114,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10850
+ }
+}

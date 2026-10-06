@@ -287,6 +287,7 @@ export async function judgeIMSection(
       },
       {
         cacheKey: `im-judge:${input.sectionType}`,
+        allowMock: process.env.NODE_ENV === 'test', // 쿼터 소진 시 Mock 샘플이 실제 데이터로 유입되는 것 방지
         timeoutMs: 25_000, // 평가는 생성보다 빠름. 실패 시 폴백 존재 → 짧게 유지
       }
     );

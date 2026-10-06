@@ -95,7 +95,8 @@ const FALLBACK_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
 // ── 공통 패턴 (총괄/개별 구분 불필요한 일반 슬롯) ──
 const GENERAL_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
   { key: 'askingPriceKrw', regex: /(?:매매가|매각가|희망가|매가)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
-  { key: 'totalFloorAreaPyung', regex: /(?:연면적|전용면적|면적)[:\s]*(?:약\s*)?([\d,.]+)\s*(평|㎡|py)/i, type: 'number' },
+  // 2026-10 RCA: 맨 '면적' 대안이 '대지면적/토지면적/건축면적' 의 접미 '면적' 에 매칭되어 대지면적이 연면적 슬롯에 중복 저장됨 → 한글 직전 문자 금지(lookbehind).
+  { key: 'totalFloorAreaPyung', regex: /(?:연면적|전용면적|(?<![가-힣])면적)[:\s]*(?:약\s*)?([\d,.]+)\s*(평|㎡|py)/i, type: 'number' },
   { key: 'buildYear', regex: /(?:준공|건축|신축|완공)[:\s]*(\d{4})\s*(?:년)?/i, type: 'number' },
   { key: 'floorsAboveGround', regex: /(?:지상|지상층|층수)[:\s]*(\d+)\s*(?:층)/i, type: 'number' },
   { key: 'floorsUnderGround', regex: /(?:지하)[:\s]*(\d+)\s*(?:층)/i, type: 'number' },

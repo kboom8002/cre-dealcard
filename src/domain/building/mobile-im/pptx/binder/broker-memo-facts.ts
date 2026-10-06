@@ -160,6 +160,45 @@ export function parseBrokerMemoFacts(text: string | null | undefined): BrokerMem
   };
 }
 
+/** 건물 제원(층수·준공연도) 메모 명시값 — 개요 슬라이드 폴백 전용 (대장·SSoT 모두 비어 있을 때만 사용) */
+export interface BuildingSpecMemoFacts {
+  floorsAbove?: number;
+  floorsBelow?: number;
+  completionYear?: number;
+}
+
+/**
+ * '지하 2층 ~ 지상 12층' / 'B1~5F' / '준공 2016년' / '2018년 신축' 같은 현황 표기만 추출.
+ * 신축·계획·개발 맥락의 층수(계획 규모)와 연도는 현황이 아니므로 단독 표기는 해당 문맥 줄에서 제외 (Rule 34).
+ */
+export function parseBuildingSpecMemoFacts(text: string | null | undefined): BuildingSpecMemoFacts {
+  const out: BuildingSpecMemoFacts = {};
+  const t = typeof text === 'string' ? text : '';
+  const PLAN_CTX = /(신축\s*(?:후|가능|예정|계획)|계획|개발|증축|목표|예정|가능)/;
+  const nowYear = new Date().getFullYear();
+  for (const line of t.split(/\r?\n/)) {
+    const range = line.match(/지하\s*(\d{1,2})\s*층\s*[~\-–—]\s*지상\s*(\d{1,3})\s*층/);
+    const bf = line.match(/\bB\s*(\d{1,2})\s*[~\-–—]\s*(\d{1,3})\s*F\b/i);
+    if (out.floorsAbove === undefined) {
+      if (range) { out.floorsBelow = Number(range[1]); out.floorsAbove = Number(range[2]); }
+      else if (bf) { out.floorsBelow = Number(bf[1]); out.floorsAbove = Number(bf[2]); }
+      else if (!PLAN_CTX.test(line)) {
+        const up = line.match(/지상\s*(\d{1,3})\s*층/);
+        const down = line.match(/지하\s*(\d{1,2})\s*층/);
+        if (up) out.floorsAbove = Number(up[1]);
+        if (up && down) out.floorsBelow = Number(down[1]);
+      }
+    }
+    if (out.completionYear === undefined) {
+      const y1 = line.match(/(?:준공|사용승인)\s*(?:연도|년도|일)?\s*[:：]?\s*((?:19|20)\d{2})\s*(?:년|\.|-|\/)?/);
+      const y2 = line.match(/((?:19|20)\d{2})\s*년\s*(?:준공|신축|사용승인)(?!\s*(?:후|가능|예정|계획))/);
+      const y = Number((y1 ?? y2)?.[1]);
+      if (Number.isFinite(y) && y >= 1900 && y <= nowYear) out.completionYear = y;
+    }
+  }
+  return out;
+}
+
 /** 원문 메모 텍스트 위치: building 행 raw_input (라우트: select('*')) → body 사본 폴백 */
 export function brokerMemoTextOf(body: Record<string, any> | undefined | null, building?: any): string {
   const cands = [building?.raw_input, building?.rawInput, body?.raw_input, body?.rawInput, body?.ssot_summary?.raw_input];

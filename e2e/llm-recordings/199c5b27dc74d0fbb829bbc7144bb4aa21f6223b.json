@@ -1,0 +1,14 @@
+{
+ "key": "199c5b27dc74d0fbb829bbc7144bb4aa21f6223b",
+ "recordedAt": "2026-10-06T11:18:43.461Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 선유도역(9호선) 약 135m의 역세권(도보 5분 이내",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"근린생활시설 수요를 흡수할 수 있는 임대 경쟁력을 갖춘 자산입니다.\",\n      \"suggestion\": \"임대 경쟁력에 대한 단정 대신, 확인된 입지·임대차 현황을 객관적으로 제시하고 임차 수요 및 경쟁력은 별도 검토가 필요하다고 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"근린생활시설 수요를 흡수할 수 있는 임대 경쟁력을 갖춘 자산입니다.\",\n      \"suggestion\": \"근린생활시설 수요나 임대 경쟁력을 주장하려면 공실률, 임대차 체결 사례, 상권·시장 보고서 등 근거와 출처를 제시하세요. 근거가 없으면 '입지상 근린생활시설 임차 수요를 검토할 수 있는 위치' 정도로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"적극적인 임차인 유치 및 임대차 재구성을 통해 추가 현금흐름을 개선할 수 있는 여지로 판단됩니다.\",\n      \"suggestion\": \"추가 현금흐름 개선을 예측하는 표현을 피하고, '공실 해소 및 임대차 재구성 가능성과 관련 비용·기간을 검토할 필요가 있습니다'처럼 조건과 불확실성을 명시하세요.\"\n    }\n  ]\n}",
+  "tokens": 2090,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10281
+ }
+}

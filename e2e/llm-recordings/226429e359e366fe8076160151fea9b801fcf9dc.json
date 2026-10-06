@@ -1,0 +1,14 @@
+{
+ "key": "226429e359e366fe8076160151fea9b801fcf9dc",
+ "recordedAt": "2026-10-06T14:57:54.492Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 약 482m 거리의 일반상업지역",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"약 2,500평(약 1652.9㎡) 개발 시\",\n      \"suggestion\": \"2,500평은 약 8,264.5㎡에 해당하므로 면적 환산을 정정하거나, 1,652.9㎡가 근거라면 약 500평으로 수정하고 해당 개발면적의 인허가·설계 근거를 명시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"역세권(도보 5분 이내) 상업 수요를 바탕으로\",\n      \"suggestion\": \"상업 수요를 단정하지 말고, 공공데이터·상권분석 보고서·임대 및 거래자료 등 출처를 제시하거나 '상업 수요가 있을 가능성을 검토할 수 있다'와 같이 조건부로 표현하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"희망 매각가 89억원은 제시 토지 3.3㎡당 가격 4,500만원 수준과 대체로 부합하며\",\n      \"suggestion\": \"'대체로 부합'과 같은 가격 적정성 평가를 삭제하고, '희망 매각가는 제시 단가 기준 약 4,500만원/3.3㎡로 산출된다'처럼 산술적 사실만 기재하세요.\"\n    }\n  ]\n}",
+  "tokens": 3214,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 20394
+ }
+}

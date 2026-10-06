@@ -1,0 +1,14 @@
+{
+ "key": "c13a2a7b6e35cd8736b27feb304ccd0277e2d5b7",
+ "recordedAt": "2026-10-06T15:13:04.559Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 파싱된 메모 데이터로 Building SSoT Lite를 생성해주세요. ## 원본 메모 서초동 [ADDR_DETAIL_A] [BLDG_NAME_A] 매각 매각가 230억 (토지평당 약 1.28억) 소재지: 서",
+ "result": {
+  "content": "{\n  \"areaSignal\": \"서초권역\",\n  \"assetType\": \"사무용빌딩\",\n  \"investmentPosture\": \"owner_occupied\",\n  \"priceBand\": \"200억대\",\n  \"askingPriceManwon\": 2300000,\n  \"sizeSignal\": \"대지 596.0㎡(180.3평), 연면적 2,104.88㎡(636.7평), 지하 1층~지상 6층\",\n  \"currentUseSignal\": \"업무시설 및 사옥 활용 제안\",\n  \"vacancySignal\": \"2층·4층·5층 공실, 사옥 즉시 입주 가능 표기\",\n  \"fitSummary\": \"양재역 도보 5분 거리의 636.7평 규모 빌딩. 2층·4층·5층이 공실로 사옥 활용에 맞는 매물.\",\n  \"cautionSummary\": \"건축물대장, 토지이용계획 및 전체 임대차 현황 확인 필요. 공실 인도 조건과 임대료 절감액·자가전환 손익분기 산식 검토 필요.\",\n  \"hiddenFields\": [\n    \"exact_address\"\n  ],\n  \"confidence\": {\n    \"areaSignal\": \"user_provided\",\n    \"assetType\": \"needs_verification\",\n    \"priceBand\": \"user_provided\",\n    \"investmentPosture\": \"user_provided\",\n    \"fitSummary\": \"ai_hypothesis\"\n  },\n  \"missingData\": [\n    \"건축물대장상 주용도\",\n    \"전체 임대차 현황\",\n    \"2층·4층·5층 외 층별 임차 현황\",\n    \"공실 인도 및 명도 조건\",\n    \"연 임대료 절감액 산정 기준과 비교 대상\",\n    \"자가전환 손익분기 산식과 비용 반영 범위\",\n    \"용적률\",\n    \"건폐율\"\n  ],\n  \"boundaryNote\": \"이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다. 가격, 수익률, 법률, 세무, 대출 가능성을 확정하지 않습니다.\"\n}",
+  "tokens": 3862,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 9432
+ }
+}

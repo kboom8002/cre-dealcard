@@ -1,0 +1,14 @@
+{
+ "key": "487d32ce47d46e1ed934dbc068d16c2a6b7fb84a",
+ "recordedAt": "2026-10-06T11:25:32.197Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역 3호선 약 343m, 신분당선 약",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공실 37.5% 발생 현황\",\n      \"suggestion\": \"공실률 산정 기준일, 대상 면적 및 출처를 명시하거나, 확인되지 않은 수치라면 삭제·완화하여 '일부 공실이 확인되는 경우'처럼 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"서초권 업무·상업 수요를 바탕으로\",\n      \"suggestion\": \"업무·상업 수요를 뒷받침하는 공공데이터나 시장보고서의 출처와 기준시점을 제시하거나, 출처가 없다면 '서초권 업무·상업 기능에 대한 접근성'처럼 객관적으로 확인 가능한 내용으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1984,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9026
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "3fb92e3d7a751de87558fd95c2960170772ccec9",
+ "recordedAt": "2026-10-06T11:54:46.498Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 선유도역(9호선) 도보 약 2분의 역세권 도",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 임차수요 확보에 유리합니다\",\n      \"suggestion\": \"임차수요 및 재임대 가능성은 확정적으로 표현하지 말고, 임대차 현황·공실 기간·문의량 등 확인 가능한 자료를 바탕으로 조건부 검토 의견으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"현재 발생한 공실의 재임대 및 임대수익 정상화 관점에서도 활용도가 높은 입지입니다\",\n      \"suggestion\": \"재임대나 임대수익 정상화를 전제하지 말고, 주변 임대료·공실 현황·임차인 수요 확인이 필요하다는 식의 중립적 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"안정적인 임차수요 확보에 유리합니다\",\n      \"suggestion\": \"공공데이터, 임대차 거래자료 또는 시장보고서 등 출처를 제시하거나, ‘역세권 및 업무권역 접근성은 임차수요 검토 시 고려 요소가 될 수 있습니다’처럼 객관적·조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"임차 경쟁력을 뒷받침합니다\",\n      \"suggestion\": \"임차 경쟁력이라는 시장 판단을 단정하지 말고, 교통 접근성이 임차인 유치 검토에 참고될 수 있다는 수준으로 표현하거나 관련 근거를 첨부하세요.\"\n    }\n  ]\n}",
+  "tokens": 1911,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8598
+ }
+}

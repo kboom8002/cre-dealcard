@@ -13,6 +13,7 @@
  */
 
 import { normalizeBuildingRegister, registerReportsNoBasement } from '@/lib/external/building-register-normalize';
+import { BROKER_STATED_TAG } from './binder/broker-memo-facts';
 
 type Rec = Record<string, any>;
 
@@ -39,6 +40,8 @@ export interface OverviewSpecs {
   structure?: string;
   /** 건축면적 (㎡) */
   archArea?: number;
+  /** 값이 중개인 메모(원문)에서 복원된 항목 — 출처 라벨(● 중개인입력) 병기용 */
+  memoSourced?: { floors?: boolean; useApr?: boolean };
 }
 
 export interface OverviewFallbackSources {
@@ -48,6 +51,8 @@ export interface OverviewFallbackSources {
   core?: Rec | null;
   /** 경과 연수 계산 기준 연도 (테스트 결정성용, 기본: 현재 연도) */
   nowYear?: number;
+  /** 중개인 메모 명시 제원 — 대장/토지이용계획/SSoT/hero/building/core 가 모두 비었을 때만 사용 (최후 폴백) */
+  memo?: { floorsAbove?: number; floorsBelow?: number; completionYear?: number } | null;
 }
 
 const MISSING_RE = /^(?:-|–|—|n\/a|na|null|undefined|미기재|미상|미확인|확인\s*필요|\[[^\]]*미기재\])$/i;
@@ -167,18 +172,24 @@ export function resolveOverviewSpecs(
   const farMax = multi.length > 1 ? undefined : firstPos(lup.floorAreaRatioMax, s.max_far_pct, bldg.max_far_pct);
 
   // ── 사용승인일 ──
-  const aprRaw = [nbr.useAprDay, s.use_apr_day, s.completion_year, h.completionYear, bldg.built_year, phys.completionYear]
+  const memo = fallback.memo ?? {};
+  const aprFromSources = [nbr.useAprDay, s.use_apr_day, s.completion_year, h.completionYear, bldg.built_year, phys.completionYear]
     .map(parseUseAprDay)
     .find(Boolean);
+  const aprFromMemo = aprFromSources ? undefined : parseUseAprDay(memo.completionYear);
+  const aprRaw = aprFromSources ?? aprFromMemo;
   const nowYear = fallback.nowYear ?? new Date().getFullYear();
   const useAprAge = aprRaw && nowYear >= aprRaw.year ? nowYear - aprRaw.year : undefined;
 
   // ── 층수 ──
-  const floorsAbove = firstPos(nbr.floorsAbove, s.floors_above, h.floorsAbove, bldg.floors_above, phys.floorsAbove);
+  const floorsAboveSrc = firstPos(nbr.floorsAbove, s.floors_above, h.floorsAbove, bldg.floors_above, phys.floorsAbove);
+  const floorsAbove = floorsAboveSrc ?? pos(memo.floorsAbove);
   // 대장이 지하 0층으로 확정한 경우(키는 있으나 0)는 다른 소스로 덮지 않는다 (기존 `??` 체인 의미 유지)
   const registerSaysNoBasement = registerReportsNoBasement(enr.buildingRegister);
-  const floorsBelow = nbr.floorsBelow
+  const floorsBelowSrc = nbr.floorsBelow
     ?? (registerSaysNoBasement ? undefined : pos(s.floors_below ?? h.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow));
+  const floorsBelow = floorsBelowSrc ?? (registerSaysNoBasement ? undefined : pos(memo.floorsBelow));
+  const memoFloors = (floorsAboveSrc === undefined && floorsAbove !== undefined) || (floorsBelowSrc === undefined && floorsBelow !== undefined);
 
   return {
     zoning,
@@ -195,6 +206,7 @@ export function resolveOverviewSpecs(
     mainPurpose: firstStr(nbr.mainPurpose, s.main_purpose, h.mainPurpose, bldg.main_purpose),
     structure: firstStr(nbr.structure, s.structure, h.structure, bldg.structure),
     archArea: firstPos(nbr.archArea, s.arch_area_sqm, s.building_area_sqm, h.archAreaM2, bldg.arch_area_sqm),
+    memoSourced: (memoFloors || aprFromMemo) ? { floors: memoFloors || undefined, useApr: aprFromMemo ? true : undefined } : undefined,
   };
 }
 
@@ -230,14 +242,15 @@ export function buildOverviewSpecRows(specs: OverviewSpecs): [string, string][] 
   }
 
   if (specs.useAprDay) {
-    rows.push(['사용승인일', specs.useAprAge !== undefined ? `${specs.useAprDay} (건축 후 약 ${specs.useAprAge}년)` : specs.useAprDay]);
+    const aprVal = specs.useAprAge !== undefined ? `${specs.useAprDay} (건축 후 약 ${specs.useAprAge}년)` : specs.useAprDay;
+    rows.push(['사용승인일', specs.memoSourced?.useApr ? `${aprVal} · ${BROKER_STATED_TAG}` : aprVal]);
   }
 
   if (specs.floorsAbove || specs.floorsBelow) {
     const parts: string[] = [];
     if (specs.floorsBelow) parts.push(`지하 ${specs.floorsBelow}층`);
     if (specs.floorsAbove) parts.push(`지상 ${specs.floorsAbove}층`);
-    rows.push(['층수', parts.join(' / ')]);
+    rows.push(['층수', specs.memoSourced?.floors ? `${parts.join(' / ')} · ${BROKER_STATED_TAG}` : parts.join(' / ')]);
   }
 
   if (specs.mainPurpose) rows.push(['주용도', specs.mainPurpose]);

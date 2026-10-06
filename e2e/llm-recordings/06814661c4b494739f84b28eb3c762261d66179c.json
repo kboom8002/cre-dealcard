@@ -1,0 +1,14 @@
+{
+ "key": "06814661c4b494739f84b28eb3c762261d66179c",
+ "recordedAt": "2026-10-06T11:25:52.485Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: occupancy_fit ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 연면적 180.3평(약 596㎡)",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공실 37.5% 발생 상황에서는\",\n      \"suggestion\": \"검토 자료에 해당 공실률의 산출 근거가 제시되어 있지 않으므로 삭제하거나, 대상 면적·기준 시점·산출 방식이 포함된 객관적 자료를 출처와 함께 제시하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"공실 37.5% 발생 상황에서는\",\n      \"suggestion\": \"공실률을 단정하지 말고 공식 자료 또는 임대현황 확인 결과를 인용하십시오. 근거가 없으면 '공실 현황은 확인이 필요합니다'와 같이 조건부로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2047,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9043
+ }
+}

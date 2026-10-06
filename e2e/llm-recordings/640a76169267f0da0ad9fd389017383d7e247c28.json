@@ -1,0 +1,14 @@
+{
+ "key": "640a76169267f0da0ad9fd389017383d7e247c28",
+ "recordedAt": "2026-10-06T14:02:54.805Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: income_analysis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 실투자금(취득비용 포함) **약 118.4억",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"토지 가치가 매입가의 일정 부분을 뒷받침하는 구조\",\n      \"suggestion\": \"공시지가와 매도 희망가의 비율을 객관적 사실로만 제시하고, 가격의 적정성이나 매입가를 뒷받침한다는 평가를 삭제하세요. 예: \\\"2026년 공시지가 기준 토지 평가액은 약 37.91억 원으로, 매도 희망가 115억 원의 약 33.0%에 해당합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2646,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9149
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "ac4b74cd5d389d6738607cefca5e02cf4643f738",
+ "recordedAt": "2026-10-06T13:41:38.888Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **토지·입지**: 2026년 공시지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"### 가치개선(Value-add) 시나리오 (AI 추정)\\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\\n|---------|---------|-------------|--------|\\n| ① 공실 해소 | +약 0.48억 원 (+9.1%) | 2.29% | 불필요 |\\n| ② 임대료 현실화 (+5%) | +약 0.26억 원 (+5%) | 2.2% | 불필요 |\\n| ③ 리모델링 후 임대료 상승 | +약 0.42억 원 (+8%) | 2.27% | 약 1.56억 원 |\",\n      \"suggestion\": \"현재 임대수익, 면적별 임대료, 공실 면적, 운영비, 리모델링 견적 등 산출 근거를 제시하고, 근거가 없는 수치는 삭제하거나 가정값·예시값으로 명확히 구분하십시오. 각 Cap Rate와 NOI 개선액의 계산식 및 적용 기간도 함께 기재하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2203,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10355
+ }
+}

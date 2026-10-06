@@ -1,0 +1,14 @@
+{
+ "key": "cdec5bb4183a4336fd09fe3bc0d0495992fd5bea",
+ "recordedAt": "2026-10-06T14:02:21.360Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## 섹션: location_access ## 검토자 지적 사항 1. [fabricated_data] 발췌: \"반경 내 카페 53곳, 음식점 191곳, 편의점 25곳\" 수정 제안: 조사 기준일, 출처 및 집계",
+ "result": {
+  "content": "**당산역 9호선 도보 5분, 2·9호선 더블역세권(도보 5분 이내)과 대단지 주거 배후를 갖춘 당산 생활권 입지입니다.** 인근에 카페·음식점·편의점 등 생활편의시설이 분포합니다. 인접한 당산삼성래미안 및 당산센트럴아이파크 등 주거단지가 위치합니다. 중로에 접하고 있어 차량 및 보행 접근성을 확인할 수 있습니다.",
+  "tokens": 997,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 3122
+ }
+}

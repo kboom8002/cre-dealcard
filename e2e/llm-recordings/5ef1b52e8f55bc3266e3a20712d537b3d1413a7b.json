@@ -1,0 +1,14 @@
+{
+ "key": "5ef1b52e8f55bc3266e3a20712d537b3d1413a7b",
+ "recordedAt": "2026-10-06T11:51:29.987Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 5분, 2·9호선 더블역",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 관리 및 향후 임차인 교체 시에도 경쟁력 있는 입지 조건으로 평가됩니다.\",\n      \"suggestion\": \"입지의 경쟁력을 단정하지 말고, 중로각지·역세권·주거 배후 등 확인 가능한 요소만 기재한 뒤 임대수요와 공실 영향은 별도 검토가 필요하다고 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"당산 핵심 생활권 입지입니다.\",\n      \"suggestion\": \"‘핵심’과 같이 시장적 우위를 단정하는 표현은 삭제하거나, 관련 공공데이터·상권 보고서·시장자료의 출처와 기준을 함께 제시하세요.\"\n    }\n  ]\n}",
+  "tokens": 1768,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7955
+ }
+}

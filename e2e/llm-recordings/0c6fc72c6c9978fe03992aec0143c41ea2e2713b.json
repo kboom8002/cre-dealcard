@@ -1,0 +1,14 @@
+{
+ "key": "0c6fc72c6c9978fe03992aec0143c41ea2e2713b",
+ "recordedAt": "2026-10-06T14:18:52.082Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **선유도역(9호선) 도보 약 2분의 역세권",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"여의도·강남권 및 김포공항 방면 이동 편의가 안정적인 임차 수요 기반을 뒷받침합니다.\",\n      \"suggestion\": \"임차 수요를 확정적으로 뒷받침한다고 표현하지 말고, \\\"교통 접근성이 잠재 임차 수요에 영향을 줄 수 있으므로 실제 수요와 임대 가능성에 대한 별도 검토가 필요합니다\\\"처럼 조건부로 수정하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 265곳, 카페 86곳, 편의시설 및 주차시설이 집적되어 있습니다.\",\n      \"suggestion\": \"해당 수치를 산출한 지도·공공데이터의 출처, 기준일, 반경 및 분류 기준을 명시하거나, 검증 가능한 출처가 없으면 구체적인 숫자를 삭제하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"안정적인 임차 수요 기반을 뒷받침합니다.\",\n      \"suggestion\": \"공실률, 임대차 체결 현황, 임대 수요 조사 등 근거 자료를 인용하거나, \\\"잠재 임차 수요에 긍정적으로 작용할 가능성이 있습니다\\\"와 같이 불확실성을 반영해 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"편의시설 및 주차시설이 집적되어 있습니다.\",\n      \"suggestion\": \"시설 분포를 확인할 수 있는 공공데이터나 현장조사 출처를 제시하고, 근거가 없으면 \\\"주변 편의시설 및 주차시설 분포에 대한 확인이 필요합니다\\\"로 완화하세요.\"\n    }\n  ]\n}",
+  "tokens": 2427,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13654
+ }
+}

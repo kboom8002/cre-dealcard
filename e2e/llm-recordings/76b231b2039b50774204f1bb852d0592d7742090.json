@@ -1,0 +1,14 @@
+{
+ "key": "76b231b2039b50774204f1bb852d0592d7742090",
+ "recordedAt": "2026-10-06T14:24:04.982Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 공실 37.5%가 발생한 현황은 지상 2",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"서초권 업무 인프라, 제3종일반주거지역의 건폐율 50%·용적률 250% 기준은 장기 보유 관점의 입지 및 토지 활용 가치를 뒷받침합니다.\",\n      \"suggestion\": \"서초권 업무 인프라와 해당 용도지역의 건폐율·용적률은 입지 및 토지 활용을 검토할 때 참고할 수 있는 요소입니다. 장기 보유 가치에 대한 판단은 별도의 권리·인허가·수요 검토가 필요합니다.\"\n    }\n  ]\n}",
+  "tokens": 2462,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14131
+ }
+}

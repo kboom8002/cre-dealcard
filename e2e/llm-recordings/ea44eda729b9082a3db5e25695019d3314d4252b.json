@@ -1,0 +1,14 @@
+{
+ "key": "ea44eda729b9082a3db5e25695019d3314d4252b",
+ "recordedAt": "2026-10-06T13:20:37.502Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 제3종일반주거지역 내 현 근린생활시설로",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1704,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4187
+ }
+}

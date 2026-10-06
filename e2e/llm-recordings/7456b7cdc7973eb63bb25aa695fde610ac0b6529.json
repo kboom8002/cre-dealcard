@@ -1,0 +1,14 @@
+{
+ "key": "7456b7cdc7973eb63bb25aa695fde610ac0b6529",
+ "recordedAt": "2026-10-06T14:11:38.885Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, 경의",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 613개, 카페 80개\",\n      \"suggestion\": \"조사 기준일, 반경, 집계 출처(공공데이터·지도 플랫폼 등)를 명시하고 검증 가능한 자료가 없는 경우 구체적인 수치를 삭제하거나 '다수의 음식점과 카페가 분포'처럼 완화하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"생활·상업 인프라가 집적되어 있어 근린생활시설 및 오피스 수요를 흡수할 수 있는 배후 상권을 확보했습니다.\",\n      \"suggestion\": \"상권 분석 보고서, 유동인구·매출·공실률 등 객관적 근거를 제시하거나, '수요 흡수 가능성은 업종·면적·임대조건 및 별도 상권 분석을 통해 검토가 필요합니다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2007,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8874
+ }
+}

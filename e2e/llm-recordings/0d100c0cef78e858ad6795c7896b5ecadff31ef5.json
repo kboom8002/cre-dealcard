@@ -1,0 +1,14 @@
+{
+ "key": "0d100c0cef78e858ad6795c7896b5ecadff31ef5",
+ "recordedAt": "2026-10-06T14:19:02.082Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 공실률은 **8.3%**로, B1 공실을 제",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"임차인 구성이 분산되어 있어 특정 업종 의존도를 낮춘 점은 안정적 임대수익 측면의 강점입니다.\",\n      \"suggestion\": \"임차인 구성이 여러 업종으로 분산되어 있어 특정 업종 의존도와 관련된 임대수익 변동 가능성을 검토할 수 있습니다. 다만 실제 안정성은 임차인의 재무상태, 재계약 여부 및 시장 상황에 따라 달라질 수 있습니다.\"\n    }\n  ]\n}",
+  "tokens": 2406,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 5077
+ }
+}

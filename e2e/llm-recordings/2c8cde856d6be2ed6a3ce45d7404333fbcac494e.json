@@ -1,0 +1,14 @@
+{
+ "key": "2c8cde856d6be2ed6a3ce45d7404333fbcac494e",
+ "recordedAt": "2026-10-06T15:05:33.259Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 파싱된 메모 데이터로 Building SSoT Lite를 생성해주세요. ## 원본 메모 양평동4가 [BLDG_NAME_A] 매각 매각가 250억 대지면적 518.7㎡ (157평) 준공업지역, 2018년 신축 ",
+ "result": {
+  "content": "{\n  \"areaSignal\": \"영등포·선유도권역\",\n  \"assetType\": \"기타\",\n  \"investmentPosture\": \"development\",\n  \"priceBand\": \"250억대\",\n  \"askingPriceManwon\": 2500000,\n  \"sizeSignal\": \"대지면적 518.7㎡(157평), 지하 1층~지상 10층\",\n  \"currentUseSignal\": null,\n  \"vacancySignal\": null,\n  \"fitSummary\": \"선유도역 도보 1분 거리의 2018년 준공 빌딩. 대지 157평, 지하 1층~지상 10층 규모다.\",\n  \"cautionSummary\": \"매각가·대지면적과 용도지역·준공연도·층수는 관련 공부 확인이 필요하다. 건축물 용도, 현재 사용 현황, 임대차 및 공실 현황은 별도 실사가 필요하다.\",\n  \"hiddenFields\": [\n    \"exact_address\"\n  ],\n  \"confidence\": {\n    \"areaSignal\": \"user_provided\",\n    \"assetType\": \"needs_verification\",\n    \"priceBand\": \"user_provided\",\n    \"investmentPosture\": \"ai_hypothesis\",\n    \"fitSummary\": \"ai_hypothesis\"\n  },\n  \"missingData\": [\n    \"정확한 건축물 용도\",\n    \"현재 사용 현황\",\n    \"임대차 현황\",\n    \"공실 현황\",\n    \"연면적\",\n    \"용적률\",\n    \"건폐율\",\n    \"건축물대장\",\n    \"토지이용계획\"\n  ],\n  \"boundaryNote\": \"이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다. 가격, 수익률, 법률, 세무, 대출 가능성을 확정하지 않습니다.\"\n}",
+  "tokens": 3952,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 18224
+ }
+}

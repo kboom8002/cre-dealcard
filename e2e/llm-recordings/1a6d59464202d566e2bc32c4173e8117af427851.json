@@ -1,0 +1,14 @@
+{
+ "key": "1a6d59464202d566e2bc32c4173e8117af427851",
+ "recordedAt": "2026-10-06T13:38:24.243Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: income_analysis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 실투자금(취득비용 포함)은 **약 118.4",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"운영비 차감 후 연 순영업소득(NOI)은 AI 추정 약 1.9억~2.2억 원\",\n      \"suggestion\": \"운영비 및 상세 비용자료가 제공되지 않았으므로 NOI를 구체적인 금액 범위로 제시하지 말고, '운영비 자료 미제공으로 NOI 및 Cap Rate 산정 불가'라고 기재하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"Cap Rate(NOI÷매매가)는 1.6%~1.9% 범위다.\",\n      \"suggestion\": \"근거가 확인되지 않은 NOI에 기반한 수치이므로 삭제하고, 실제 운영비·세금·수선비·관리비 등 확인 후 산정하도록 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2725,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9821
+ }
+}

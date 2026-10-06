@@ -1,0 +1,14 @@
+{
+ "key": "18274dca6601d9906278585b722831707472240a",
+ "recordedAt": "2026-10-06T13:44:19.669Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **양재역 3호선 도보 4분,",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 카페 95곳, 음식점 269곳 등\",\n      \"suggestion\": \"조사 기준일과 출처를 명시하거나, 검증된 자료가 없으면 '주변에 다양한 카페와 음식점이 위치합니다'처럼 구체적 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"임차료 지출 절감과 서초 권역 자산 보유에 따른 장기적 가치 방어를 함께 기대할 수 있습니다.\",\n      \"suggestion\": \"사옥 매입에 따른 임차료 절감 효과는 현재 임차료와 금융비용을 비교하는 조건부 분석으로 제시하고, 자산 가치에 대해서는 '가치 방어' 같은 긍정적 전망을 삭제하거나 변동 가능성을 명시하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"서초 권역 자산 보유에 따른 장기적 가치 방어\",\n      \"suggestion\": \"주관적인 가치 전망을 삭제하고, 해당 문장을 '서초 권역 내 자산 보유에 따른 장단점은 임차료, 금융비용, 보유기간 및 시장 변동성을 종합해 검토할 필요가 있습니다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2094,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9877
+ }
+}

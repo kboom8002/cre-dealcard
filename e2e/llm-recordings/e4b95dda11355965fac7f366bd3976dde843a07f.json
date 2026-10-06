@@ -1,0 +1,14 @@
+{
+ "key": "e4b95dda11355965fac7f366bd3976dde843a07f",
+ "recordedAt": "2026-10-06T11:57:40.728Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 서울 서대문구 이화여대길 51, 이",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"약 1,162평(약 535.5㎡) 규모\",\n      \"suggestion\": \"본문에 제시된 연면적 3,842.6㎡(약 1,162.4평)와 일치하지 않는 535.5㎡ 수치는 근거를 확인한 뒤 삭제하거나 정확한 면적으로 수정하세요. 면적 근거가 없다면 '약 1,162평 규모'로만 표기하는 것이 적절합니다.\"\n    }\n  ]\n}",
+  "tokens": 2269,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 15188
+ }
+}

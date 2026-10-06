@@ -1,0 +1,14 @@
+{
+ "key": "86d0a640ce367cf1920f6f9a728c5fdde0b15341",
+ "recordedAt": "2026-10-06T11:08:35.400Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **우수한 토지 경쟁력**\",\n      \"suggestion\": \"평가적 표현을 삭제하고, 매도 희망가·면적·역세권 거리 등 확인 가능한 사실만 기술하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**\",\n      \"suggestion\": \"‘고수익’처럼 매수를 유도할 수 있는 표현 대신, 개발이익률은 검증 전 가정치이며 사업성 분석 결과에 따라 달라진다고 중립적으로 표현하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"본 자산은 ... **검토형 가치상승 기회를 갖춘 자산**입니다.\",\n      \"suggestion\": \"‘가치상승 기회’와 같은 긍정적 투자 유도 표현을 삭제하고, 활용 가능성 및 검토 필요사항을 객관적으로 기술하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"추가 개발 시나리오상 목표 규모는 **464평(약 1533.9㎡), 평당 공사비는 750만 원 ... 총 사업비 대비 예상 개발이익률 18~25%**\",\n      \"suggestion\": \"각 수치의 산출 근거, 견적서, 시장자료 또는 사업성 분석 출처를 명시하세요. 근거가 없다면 ‘검토를 위한 가정치’로 표시하고 확정적 수치처럼 제시하지 마세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력**\",\n      \"suggestion\": \"주관적 가격·가치 평가를 배제하고, 면적 환산가격과 입지 관련 객관적 사실만 제시하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **고수익 개발 마진**\",\n      \"suggestion\": \"‘고수익’이라는 주관적 평가를 삭제하고, 개발이익률은 검증되지 않은 시나리오상 가정치로만 표시하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"**검토형 가치상승 기회**를 갖춘 자산\",\n      \"suggestion\": \"향후 가치 상승을 암시하는 표현을 삭제하고, 기존 시설의 공실 및 활용 방향에 대한 검토 필요성만 기재하세요.\"\n    }\n  ]\n}",
+  "tokens": 3106,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 17658
+ }
+}

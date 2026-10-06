@@ -1,0 +1,14 @@
+{
+ "key": "b7411039b58c39eb495a7e4c38795d44e96c5161",
+ "recordedAt": "2026-10-06T11:45:50.022Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"구리역 8호선 도보 약 6분의 역세권(도보 5분 이내) 입지\",\n      \"suggestion\": \"제공된 정보와 일치하도록 '구리역 8호선 도보 약 6분 입지'로 통일하고, '도보 5분 이내' 표현은 삭제하거나 별도 측정 근거가 있는 경우에만 기재하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"일반상업지역의 높은 토지 활용 잠재력\",\n      \"suggestion\": \"토지 활용 가능성에 대한 긍정적 단정을 피하고, 용도지역·건폐율·용적률·관련 인허가 검토 결과를 근거로 '개발 가능 범위는 관련 법규 및 인허가 검토가 필요합니다'처럼 조건부로 표현하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"공실 활용을 통한 임대차 재구성 및 가치개선 여지\",\n      \"suggestion\": \"가치 상승을 암시하는 표현을 삭제하고, '공실 활용 및 임대차 재구성 방안을 검토할 수 있습니다'처럼 실행 가능한 검토 과제로 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2127,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9917
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "a82f751f8f43cb63ad0ee720297372b7dba8f2fc",
+ "recordedAt": "2026-10-06T11:28:48.736Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: market_position ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도 희망가 760억 원은 연면적 321.",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"제공된 강남구 최근 거래사례의 평당 약 1,385만~7,429만 원 범위를 상회한다.\",\n      \"suggestion\": \"거래사례의 계약일, 소재지, 용도, 연면적, 거래금액 및 출처를 명시하거나, 검증 가능한 자료가 없으면 구체적인 수치와 ‘상회’ 표현을 삭제하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"공시지가 기준 토지가액은 약 197억 원(571.5㎡ 기준)으로 산출되며\",\n      \"suggestion\": \"공시지가의 기준연도·단가·공시자료 출처와 산출식을 제시하세요. 해당 근거가 없으면 구체적인 토지가액을 기재하지 마세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"매도 희망가 760억 원은 ... 평당 약 2억 3,660만 원 수준으로, 제공된 강남구 최근 거래사례의 평당 약 1,385만~7,429만 원 범위를 상회한다.\",\n      \"suggestion\": \"비교사례의 입지·용도·건물 상태·거래 시점·면적 차이를 표로 제시하고, 동일 조건의 비교가 불가능하면 가격 우열이나 고평가 여부를 판단하는 표현을 삭제하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"희망가는 이에 건물가치와 신사·논현로 입지 프리미엄을 반영한 수준으로 판단된다.\",\n      \"suggestion\": \"‘입지 프리미엄을 반영한 수준’ 및 ‘판단된다’와 같은 주관적 가격 평가를 삭제하고, 건물가치 산정 근거와 입지 관련 객관적 사실만 기재하세요.\"\n    }\n  ]\n}",
+  "tokens": 2250,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11859
+ }
+}

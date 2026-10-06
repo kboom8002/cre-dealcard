@@ -1,0 +1,14 @@
+{
+ "key": "65c472f6cc17db245d20b6c81ddc8b8a019a3cda",
+ "recordedAt": "2026-10-06T12:19:26.303Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 총 651.2㎡ (197평) 규모의 일반상업지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"개발 계획상 목표 연면적 약 2,500평(약 1652.9㎡)\",\n      \"suggestion\": \"평수와 제곱미터 환산값을 재확인하십시오. 2,500평은 약 8,264.5㎡에 해당하므로, 1,652.9㎡를 유지하려면 목표 연면적을 약 500평으로 수정해야 합니다.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"오피스 및 근린생활시설 수요를 함께 고려할 수 있는 입지입니다.\",\n      \"suggestion\": \"수요를 단정하지 말고, 임대·분양 조사나 공공·민간 시장자료 확인을 전제로 ‘오피스 및 근린생활시설 수요 검토가 필요한 입지’로 수정하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"역세권(도보 5분 이내) 상업지의 토지 활용도를 기반으로 한 중장기 가치 제고 가능성을 판단할 수 있습니다.\",\n      \"suggestion\": \"가치 상승 또는 가치 제고를 암시하는 표현을 삭제하고, ‘인허가 가능 규모와 사업비·임대수요 검토를 거쳐 개발 타당성을 평가할 수 있습니다’처럼 검토 절차 중심으로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2683,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 17188
+ }
+}

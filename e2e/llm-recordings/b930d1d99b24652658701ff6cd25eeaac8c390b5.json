@@ -1,0 +1,14 @@
+{
+ "key": "b930d1d99b24652658701ff6cd25eeaac8c390b5",
+ "recordedAt": "2026-10-06T12:00:26.133Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **실질 비용 절감**",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"사옥 소유를 통한 기업 신용도 제고 및 핵심 자산화\",\n      \"suggestion\": \"사옥 소유가 기업 신용도나 자산가치에 미치는 효과는 금융기관의 심사기준, 재무상태 및 시장상황에 따라 달라질 수 있으므로, '신용도 제고 가능성을 검토할 수 있음' 등 조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"매도희망가 230억 원 기준, 연 7.5억 원 절감 시나리오와 4.2년의 손익분기 추정치\",\n      \"suggestion\": \"손익분기 산식과 비용 항목을 명시하고 수치를 재검증하세요. 단순히 매도희망가 230억 원을 연 7.5억 원 절감액으로 나누면 약 30.7년이므로, 4.2년 산출에 사용한 금융비용·세금·잔존가치 등 추가 전제 없이는 해당 수치를 제시하지 않는 것이 적절합니다.\"\n    },\n    {\n      \"type\": \"legal_assertion\",\n      \"excerpt\": \"건물 감가상각 손비 인정 및 대출 이자비용 처리를 통한 법인세 절감\",\n      \"suggestion\": \"감가상각비와 대출이자의 손금산입 및 세액효과는 자산 구분, 대출 조건, 세법 적용 및 법인별 과세상황에 따라 달라질 수 있으므로, '손금 인정 및 세금 효과 발생 여부·범위를 세무 검토할 수 있음'으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 3317,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 23395
+ }
+}

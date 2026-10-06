@@ -25,19 +25,17 @@
       ],
       "where": "both",
       "source": "fixture",
-      "pending": "W1",
       "note": "fixture grossFloorAreaM2=3842.6 (memo 1,162.4평); 대장 231.4 는 타 건물"
     },
     {
       "id": "land-area",
       "label": "대지면적(㎡)",
       "anyOf": [
-        "re:(?<![\\d,.])486\\.2(?!\\d)\\s*㎡"
+        "re:(?<![\\d,.])486\\.[23](?!\\d)\\s*㎡"
       ],
       "where": "both",
       "source": "fixture",
-      "pending": "W1",
-      "note": "fixture landAreaM2=486.2 (memo 147.1평) — claims.land_area_sqm=0 이 게이트를 막음"
+      "note": "fixture landAreaM2=486.2 (memo 147.1평) — claims.land_area_sqm=0 이 게이트를 막음. 486.2|486.3 허용: 147.1평×3.305785=486.28㎡ → 소수 1자리 반올림 486.3 (메모 표기 486.2 는 절삭)"
     },
     {
       "id": "floors-above",
@@ -47,7 +45,6 @@
       ],
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1",
       "note": "fixture B2~12F (memo 지하 2층~지상 12층)"
     },
     {
@@ -57,8 +54,7 @@
         "re:지하\\s*2\\s*층"
       ],
       "where": "pptx",
-      "source": "fixture",
-      "pending": "W1"
+      "source": "fixture"
     },
     {
       "id": "completion-year",
@@ -69,7 +65,6 @@
       ],
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1",
       "note": "fixture completionYear=2016 (대장 1971 은 타 건물)"
     },
     {
@@ -156,8 +151,7 @@
       ],
       "where": "both",
       "source": "derived",
-      "note": "0 클레임이 면적으로 렌더됨 — Rule 34/37 (결측은 -) — hotel: claims.land_area_sqm=0 (W1)",
-      "pending": "W1"
+      "note": "0 클레임이 면적으로 렌더됨 — Rule 34/37 (결측은 -) — hotel: claims.land_area_sqm=0 (W1)"
     },
     {
       "label": "'0.0평' 표기",
@@ -166,7 +160,6 @@
       ],
       "where": "both",
       "source": "derived",
-      "pending": "W1",
       "note": " — hotel: claims.land_area_sqm=0 (W1)"
     },
     {
@@ -220,7 +213,6 @@
       ],
       "where": "both",
       "source": "derived",
-      "pending": "W1",
       "note": "대장 PNU 불일치/비정상 — RCA"
     },
     {
@@ -229,8 +221,7 @@
         "1971"
       ],
       "where": "both",
-      "source": "derived",
-      "pending": "W1"
+      "source": "derived"
     }
   ],
   "must_not_be_dash": [
@@ -241,17 +232,16 @@
       "window": 22,
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1",
       "note": "원천에 값이 있는데 PPTX 가 다른 값/대시/행 누락"
     },
     {
       "label": "대지면적",
       "labelRegex": "대지면적",
-      "regexNearLabel": "^\\s*(?<![\\d,.])486\\.2(?!\\d)",
+      "regexNearLabel": "^\\s*(?<![\\d,.])486\\.[23](?!\\d)",
       "window": 22,
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1"
+      "note": "486.2|486.3 허용 (147.1평×3.305785=486.28 → 반올림 486.3, 메모 표기 486.2 는 절삭)"
     },
     {
       "label": "층수",
@@ -260,7 +250,6 @@
       "window": 30,
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1",
       "note": "층수 행이 대시이거나 누락"
     },
     {
@@ -270,7 +259,6 @@
       "window": 14,
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1",
       "note": "준공 연도 행이 대시이거나 누락"
     }
   ],
@@ -297,7 +285,6 @@
       "tolerancePct": 0.5,
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1",
       "note": "fixture grossFloorAreaM2=3842.6 (memo 1,162.4평); 대장 231.4 는 타 건물 — 다른 건물 값(예: 231.4㎡)이 한 곳이라도 섞이면 실패"
     },
     {
@@ -309,7 +296,6 @@
       "tolerancePct": 0.5,
       "where": "pptx",
       "source": "fixture",
-      "pending": "W1",
       "note": "fixture landAreaM2=486.2 (memo 147.1평) — claims.land_area_sqm=0 이 게이트를 막음"
     }
   ],

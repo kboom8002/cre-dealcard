@@ -1,0 +1,14 @@
+{
+ "key": "f0d5eb020b97f5c2d6e6b5d5f3eabff6e90d56ae",
+ "recordedAt": "2026-10-06T11:23:01.912Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: checklist] 자산의 가치를 객관적이고 설득력 있게 설명하세요. ## [기본 건물 데이터 (SSoT)] { \"asset_identity\": { \"area_signal\": \"",
+ "result": {
+  "content": "94실 규모의 호텔 직영 운영 기준, 연매출 약 28.2억원과 연간 GOP 약 10.7억원이 제시되어 있으며, GOP 마진은 38% 수준입니다. 매각희망가 300억원 기준 단순 환산 시 연간 GOP는 약 3.6% 수준으로, 임대료 수익보다 운영 효율과 객실 매출 관리가 자산가치의 핵심 변수입니다. 이대역 도보 약 3분의 접근성과 신촌 생활권 수요는 운영 기반으로 평가되나, 관리위탁 방식의 계약 조건·운영비 내역 및 발생 공실과 호텔 운영 실적의 범위는 거래 전 확인이 필요합니다.",
+  "tokens": 3200,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 5521
+ }
+}

@@ -1,0 +1,9 @@
+{
+ "key": "ce92797ed5410cfde398c5304a687d6917386640",
+ "recordedAt": "2026-10-06T14:54:43.519Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: investment_thesis] 이 건물의 '3대 핵심 투자 포인트'를 반드시 아래 형식으로 정확히 작성하세요: - **포인트 제목**: 구체적 수치와 근거를 포함한 상세설명 - **포인트",
+ "failed": true,
+ "error": "OpenAI returned an empty response after retry"
+}

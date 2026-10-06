@@ -1,0 +1,14 @@
+{
+ "key": "6fe752d28e65cca716c4af6b8fbd3779c6900272",
+ "recordedAt": "2026-10-06T13:20:40.635Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **실질 비용 절감**",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"legal_assertion\",\n      \"excerpt\": \"건물 감가상각 손비 인정 및 대출 이자비용 처리를 통한 법인세 절감\",\n      \"suggestion\": \"감가상각비 및 대출 이자비용의 세무상 손금 인정 여부와 실제 절세 효과는 취득 구조, 사용 형태 및 세법 검토 결과에 따라 달라질 수 있으므로, ‘적용 가능성 및 효과를 세무 검토할 수 있음’으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2048,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7772
+ }
+}

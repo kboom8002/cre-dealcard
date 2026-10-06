@@ -1,0 +1,14 @@
+{
+ "key": "b87cff0336bfeb3a8f053ae2e8a58536d5d9ae03",
+ "recordedAt": "2026-10-06T13:37:05.977Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 5분, 2호선도 약 49",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"근린생활시설 임차 수요를 폭넓게 확보할 수 있으며\",\n      \"suggestion\": \"임차 수요 확보를 단정하지 말고, 주변 업종 구성·유동인구·공실 현황 등 확인 가능한 자료를 바탕으로 조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"생활밀착형 업종의 안정적인 매출 기반 및 임대차 수요 형성에 긍정적이며, 이는 공실 최소화와 지속적인 현금흐름 관리 측면에서 강점으로 평가됩니다.\",\n      \"suggestion\": \"안정적인 매출, 공실 최소화, 지속적인 현금흐름을 암시하는 표현을 삭제하고, 해당 입지의 객관적 특성과 검토 필요사항만 기술하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"당산권의 주거 배후와 상업 기능이 맞닿아 있어 근린생활시설 임차 수요를 폭넓게 확보할 수 있으며, 반경 내 식음·카페 등 생활편의시설이 집적돼 있습니다.\",\n      \"suggestion\": \"임차 수요와 시설 집적을 단정하지 말고, 확인 가능한 공공데이터·상권분석 보고서·현장 조사 자료의 출처와 기준시점을 제시하거나 '확인이 필요하다'는 식으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"이는 공실 최소화와 지속적인 현금흐름 관리 측면에서 강점으로 평가됩니다.\",\n      \"suggestion\": \"자산의 우수성이나 투자상 강점을 평가하는 문구 대신, '공실률 및 임대차 현황에 대한 별도 확인이 필요합니다'와 같이 중립적인 검토 문구로 변경하세요.\"\n    }\n  ]\n}",
+  "tokens": 2152,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10138
+ }
+}

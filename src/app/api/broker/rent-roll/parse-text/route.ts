@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       model: getModel("luna"),
       temperature: 0.1,
       maxTokens: 2000,
-    });
+    }, { allowMock: process.env.NODE_ENV === 'test' });
 
     // Extract JSON from response (handle possible markdown wrapping)
     let jsonStr = result.content.trim();
@@ -114,6 +114,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(normalizeTextParsedRentRoll(validated));
   } catch (err: any) {
     log.error("[rent-roll/parse-text] Error:", err);
+    if (err?.name === "LLMMockNotAllowedError") {
+      // AI 쿼터/키 문제 — 샘플(Mock) 렌트롤을 실제 데이터처럼 돌려주지 않고 명확히 실패 처리
+      return NextResponse.json(
+        { error: "AI 분석 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: err.message || "렌트롤 파싱에 실패했습니다." },
       { status: 400 }

@@ -1,0 +1,14 @@
+{
+ "key": "5ea970e4fe0c3f330f1224d20bb1070749cee373",
+ "recordedAt": "2026-10-06T15:40:14.425Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **이대권역** 소재 **호텔** ",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1283,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 1955
+ }
+}

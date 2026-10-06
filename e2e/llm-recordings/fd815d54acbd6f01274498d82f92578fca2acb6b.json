@@ -1,0 +1,14 @@
+{
+ "key": "fd815d54acbd6f01274498d82f92578fca2acb6b",
+ "recordedAt": "2026-10-06T14:53:27.460Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 더블역세권 도보 3~4분",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"매도인 명도 조건 및 업무시설 중심의 신축 검토안은 향후 자산 재구성과 수익성 제고 가능성을 뒷받침하나\",\n      \"suggestion\": \"수익성 개선을 암시하는 표현을 삭제하고, \\\"명도 조건 및 업무시설 중심의 신축 대안을 검토할 수 있으나, 개발 가능 여부와 사업성은 인허가·설계·시장성 검토가 필요합니다\\\"와 같이 중립적으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"명도 후 신축·리포지셔닝 검토 가능한 개발 여지\",\n      \"suggestion\": \"\\\"명도 후 신축·용도 재구성 대안 검토 가능성\\\"으로 수정해 투자 매력이나 수익성에 대한 긍정적 인상을 줄이는 것이 적절합니다.\"\n    }\n  ]\n}",
+  "tokens": 2055,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8669
+ }
+}

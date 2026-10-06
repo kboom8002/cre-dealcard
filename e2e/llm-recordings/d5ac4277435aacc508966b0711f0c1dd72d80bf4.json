@@ -1,0 +1,14 @@
+{
+ "key": "d5ac4277435aacc508966b0711f0c1dd72d80bf4",
+ "recordedAt": "2026-10-06T14:59:46.629Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**: 목표 연면적 2,500평 ...\",\n      \"suggestion\": \"수익성이나 마진을 확정적으로 암시하지 않도록 '개발 사업성 검토' 등 중립적 표현으로 수정하고, 예상 매출·분양가·임대료·비용·민감도 분석 등 근거를 제시하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"목표 연면적 2,500평(약 1652.9㎡)\",\n      \"suggestion\": \"면적 환산을 정정하세요. 2,500평은 약 8,264.5㎡이며, 1,652.9㎡는 약 500평에 해당합니다. 목표 연면적과 공사비 산정 기준을 일치시켜야 합니다.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"일반상업지역 내 나대지라는 입지 희소성을 갖춘다.\",\n      \"suggestion\": \"희소성을 단정하지 말고, 해당 권역의 유사 용도 토지 공급 현황이나 공공·공신력 있는 자료를 제시하거나 '희소성 여부는 인근 토지 공급 및 거래자료 확인이 필요하다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력**\",\n      \"suggestion\": \"주관적 평가를 배제하고 '토지 및 입지 주요 조건'처럼 중립적인 제목으로 변경한 뒤, 면적·용도지역·역과의 거리 등 확인 가능한 사실만 기술하세요.\"\n    }\n  ]\n}",
+  "tokens": 2441,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10900
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "4f5a1319ccf48942208e56942d98b29e4441c540",
+ "recordedAt": "2026-10-06T11:25:36.015Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역(3호선) 도보 약 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"현재 공실 발생(37.5%)\",\n      \"suggestion\": \"공실률 산정 근거(임대차 현황, 기준 면적·시점 등)를 명시하거나, 검증 전에는 '현재 일부 공실이 있는 것으로 파악되며 정확한 공실률은 확인이 필요합니다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"공실 활용 및 운영 재구성을 통한 가치상승 여지\",\n      \"suggestion\": \"가격·가치 상승을 암시하지 않도록 '공실 활용 및 운영 재구성 방안을 검토할 수 있음'으로 수정하고, 가치 영향은 별도 사업성 및 시장 검토 대상으로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2440,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14234
+ }
+}

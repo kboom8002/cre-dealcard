@@ -1,0 +1,14 @@
+{
+ "key": "026a3c69a06ef7c3a901df89b0ac1f9ea2516c55",
+ "recordedAt": "2026-10-06T11:23:09.688Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **대현** 소재 자산입니다. ###",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"반경 500m 내 주요 상업시설 및 업무시설 밀집\",\n      \"suggestion\": \"상업시설·업무시설의 구체적 목록과 확인 기준, 공공데이터 또는 조사자료의 출처를 제시하거나, 출처 확인 전이라면 \\\"반경 500m 내 상업시설 및 업무시설 분포는 별도 확인이 필요합니다\\\"로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"대현 내 위치하며 접근성과 가시성이 양호한 입지입니다.\",\n      \"suggestion\": \"접근성과 가시성을 판단한 객관적 근거(역과의 거리, 도로 접면, 전면 폭, 유동인구 자료 등)를 제시하거나, 근거가 없으면 \\\"접근성 및 가시성은 현장 확인이 필요합니다\\\"와 같이 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1733,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6862
+ }
+}

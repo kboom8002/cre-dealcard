@@ -1,0 +1,14 @@
+{
+ "key": "de977d94592b14d4a245f602a08c6308f8ab4d22",
+ "recordedAt": "2026-10-06T11:55:34.964Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현 공실률 8.3%는 월 임대수익 5,147만원의 안",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"현 공실률 8.3%는 월 임대수익 5,147만원의 안정성에 영향을 줄 수 있으나, 선유도역 약 135m의 역세권(도보 5분 이내)과 인근 업무·생활 수요를 활용해\",\n      \"suggestion\": \"공실률 8.3%와 인근 업무·생활 수요의 출처, 기준 시점, 산정 범위를 명시하고, 검증되지 않은 경우 '제공 자료상 공실률은 8.3%로 기재되어 있으며 별도 확인이 필요하다'와 같이 조건부로 표현하세요. 역과의 거리·도보 시간은 객관적 위치 정보로서 확인 가능한 출처를 병기하면 됩니다.\"\n    }\n  ]\n}",
+  "tokens": 2148,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8740
+ }
+}

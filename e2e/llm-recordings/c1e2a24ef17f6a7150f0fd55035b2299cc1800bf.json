@@ -1,0 +1,14 @@
+{
+ "key": "c1e2a24ef17f6a7150f0fd55035b2299cc1800bf",
+ "recordedAt": "2026-10-06T14:58:34.859Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: development_feasibility ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown AI 추정 기준 토지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"AI 추정 기준 토지비는 평당 4,500만원, 토지 매입 실투자금은 약 89억원이며, 토지비·공사비·부대비를 포함한 총 사업비는 약 290.3억원으로 검토됩니다.\",\n      \"suggestion\": \"토지 매매계약서, 감정평가서, 공사비 견적서 등 근거 자료를 제시하고, 근거가 없는 경우 구체적인 수치를 삭제하거나 산출식·가정·출처를 명시하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"PF 조달 시에는 담보인정비율(LTV) 60% 및 금리 7~9% 수준의 금융비용을 반영한 별도 수지 검토가 필요합니다.\",\n      \"suggestion\": \"대주단 제안서, 금융기관 견적 또는 최근 금융조건 등 출처를 명시하세요. 출처가 없다면 특정 LTV와 금리 대신 ‘대주단 조건에 따른 금융비용’으로 표현하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"약 2,500평(약 1652.9㎡) 개발 가능 연면적\",\n      \"suggestion\": \"토지면적, 적용 용적률, 건축면적 및 산출 근거를 명시하고, 인허가 확인 전에는 확정 수치가 아닌 가정치임을 분명히 하거나 구체적 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"legal_assertion\",\n      \"excerpt\": \"일반상업지역 공적 기준 용적률 800%\",\n      \"suggestion\": \"해당 지자체의 도시계획조례, 지구단위계획 및 개별 필지 규제를 출처로 제시하고, ‘적용 가능 여부는 관할 행정기관 확인이 필요하다’고 표현하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"AI 추정 기준 토지비는 평당 4,500만원\",\n      \"suggestion\": \"객관적인 거래사례나 감정평가 근거가 없다면 가격 평가로 단정하지 말고, ‘검토용 가정치’로 명확히 표시하거나 근거 자료를 보완하세요.\"\n    }\n  ]\n}",
+  "tokens": 2356,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11350
+ }
+}

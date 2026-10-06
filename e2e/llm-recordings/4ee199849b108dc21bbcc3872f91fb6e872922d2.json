@@ -1,0 +1,14 @@
+{
+ "key": "4ee199849b108dc21bbcc3872f91fb6e872922d2",
+ "recordedAt": "2026-10-06T15:03:34.665Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: income_analysis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 월 임대수입(운영비 차감 전)은 **약 1,",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"연 순영업소득(NOI)은 **약 1.9억~2.2억 원**으로 추정되며, 연 수익률(Cap Rate, NOI÷매매가)은 **1.6%~1.9%** 수준\",\n      \"suggestion\": \"운영비, 실제 수납 임대료, 공실·연체, 임대차 조건 등 산출 근거를 명시하고 검증 전에는 구체적인 NOI 및 Cap Rate 수치를 제시하지 않거나, '자료 확인 후 산정 예정'으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2604,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9797
+ }
+}

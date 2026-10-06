@@ -1,0 +1,14 @@
+{
+ "key": "b7ad349a39b7c9f6b471c058f38febf965f3bcc6",
+ "recordedAt": "2026-10-06T14:02:13.045Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **핵심 한줄 정의: 당산역 더블역세권(",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"임대 가능 호실은 공실 없이 운영 중으로 안정적 현금흐름 기반을 갖추고 있습니다.\",\n      \"suggestion\": \"현재 확인된 임대 가능 호실의 공실 현황과 월 임대료만 객관적으로 기재하고, '안정적 현금흐름'과 같은 수익 안정성 판단은 삭제하거나 '제공자료 기준 월 임대료는 총 1,946만원이며, 임대 가능 호실은 현재 공실 없이 운영 중입니다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1964,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8007
+ }
+}

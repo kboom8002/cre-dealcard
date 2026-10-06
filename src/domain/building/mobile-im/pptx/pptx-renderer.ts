@@ -39,6 +39,8 @@ import { summarizeParcels, withParcelCountSuffix } from '../parcel-input';
 import { resolveBrokerMemoFacts } from './binder/broker-memo-facts';
 import { buildSummaryHighlights, extractSummaryFacts, isBoilerplateHighlight } from './summary-highlights';
 import { resolveOverviewSpecs, buildOverviewSpecRows, isMissingSpecValue } from './spec-resolver';
+import { brokerMemoTextOf, parseBuildingSpecMemoFacts } from './binder/broker-memo-facts';
+import { normalizeAreaRowsPrecision } from './binder/area-precision';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -353,7 +355,8 @@ export class MobileImPptxRenderer {
         // D5: 대장(bcRat/vlRat/useAprDay/floorsAbove…) > 토지이용계획(용도지역·법정 상한) > ssot 폴백을 단일 리졸버로 처리
         const overviewSpecs = resolveOverviewSpecs(
           enrichment, ssot, heroCard, input.doc.body?.parcels,
-          { building: bldg, core: input.core?.physical },
+          // 대장/SSoT 가 비어 있을 때만 중개인 메모 명시 층수·준공연도로 폴백 (● 중개인입력 라벨 병기)
+          { building: bldg, core: input.core?.physical, memo: parseBuildingSpecMemoFacts(brokerMemoTextOf(input.doc.body, bldg)) },
         );
         const overviewSpecRows = buildOverviewSpecRows(overviewSpecs);
         const specHeadRows = overviewSpecRows.filter(([k]) => k !== '주용도' && k !== '주구조');
@@ -825,6 +828,8 @@ export class MobileImPptxRenderer {
         for (const [k, v] of Object.entries(brokerMap)) dataMap[k] = v as any;
         applyBrokerLocation(dataMap['location'], brokerExtras, brokerImages);
         applyBrokerRentRollPlan(dataMap['rentRoll'], brokerExtras);
+        // 면적 행 표기 정밀도 통일: 평→㎡ 환산 잔여 소수(3,842.644㎡)는 소수 1자리로 (표시 전용, 값 불변)
+        normalizeAreaRowsPrecision(dataMap);
       }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)

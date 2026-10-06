@@ -1,0 +1,14 @@
+{
+ "key": "043374606d6c74e2adb5f56b2c9b3a21d39062f9",
+ "recordedAt": "2026-10-06T15:15:22.046Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **실질 비용 절감: ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"양재역 3호선 343m, 도보 4분 거리에 위치하고 2층·4층·5층 공실(공실률 37.5%)이 확인되어\",\n      \"suggestion\": \"공실률 산정의 전체 층수·면적 등 분모와 확인 기준을 명시하거나, 검증 가능한 경우에만 수치를 기재하십시오. 현재 본문상 2·4·5층 공실 및 ‘6층 사무용 자산’ 정보만으로 37.5%를 재현하기 어렵습니다.\"\n    },\n    {\n      \"type\": \"legal_assertion\",\n      \"excerpt\": \"세제 혜택 최적화: 건물 감가상각 손비 인정 및 대출 이자비용 처리를 통한 법인세 절감\",\n      \"suggestion\": \"세제 혜택이나 손금 인정이 확정된 것처럼 보이지 않도록 ‘관련 요건 충족 여부 및 세무 검토 결과에 따라 감가상각·이자비용의 손금 산입 가능성을 검토할 수 있음’으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"사옥 소유를 통한 기업 신용도 제고 및 핵심 자산화 ... 사옥형 투자 대상이다.\",\n      \"suggestion\": \"소유가 기업 신용도나 자산가치 제고로 이어진다고 단정하지 말고, ‘자가 사용 전환 및 자산 편입 가능성을 검토할 수 있는 사옥 후보’처럼 중립적인 표현으로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 3375,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 20137
+ }
+}

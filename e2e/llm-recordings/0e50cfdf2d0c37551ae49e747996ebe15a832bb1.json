@@ -1,0 +1,14 @@
+{
+ "key": "0e50cfdf2d0c37551ae49e747996ebe15a832bb1",
+ "recordedAt": "2026-10-06T14:15:14.198Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 약 5분, 연면적 5",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"임대 운영 호실은 공실 없이 운영 중인 것으로 확인되어 안정적인 현금흐름 기반을 갖췄습니다.\",\n      \"suggestion\": \"현재 확인된 임대 현황만 중립적으로 기술하고, 수익 안정성을 단정하지 않도록 수정하십시오. 예: \\\"임대 운영 호실은 현재 공실 없이 운영 중인 것으로 제시되어 있으나, 임대차계약서와 임대료 입금 내역을 통해 확인이 필요합니다.\\\"\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"대단지 아파트 배후 수요를 기반으로 생활밀착형 임차 수요를 흡수할 수 있는 입지입니다.\",\n      \"suggestion\": \"아파트 배후 수요와 임차 수요를 단정하지 말고, 확인 가능한 근거를 명시하거나 조건부로 표현하십시오. 예: \\\"인근 대단지 아파트가 위치해 있어 생활밀착형 업종 수요와의 연관성을 검토할 수 있는 입지입니다.\\\"\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"월 임대료 1,946만원의 공실 없는 임대 운영 기반\",\n      \"suggestion\": \"공실 여부를 근거로 안정적인 운영 또는 현금흐름을 암시하지 않도록 수정하십시오. 예: \\\"제시된 월 임대료 1,946만원 및 임대 운영 현황\\\"\"\n    }\n  ]\n}",
+  "tokens": 2193,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10620
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "985cfe568903f1f36166a5f6191a8de0dadd82fd",
+ "recordedAt": "2026-10-06T11:26:18.247Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **실질 비용 절감**",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"사옥 소유를 통한 기업 신용도 제고 및 핵심 자산화\",\n      \"suggestion\": \"사옥 소유가 기업 신용도나 자산 가치 제고로 이어진다고 단정하지 말고, 금융·회계·운영 조건에 따라 기대 효과를 검토할 수 있다는 조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"접근성과 자산 활용성을 결합한 사옥형 투자 대상이다.\",\n      \"suggestion\": \"투자 매력이나 취득을 권유하는 인상을 줄 수 있으므로, '접근성과 자산 활용성을 기준으로 검토 가능한 사옥형 자산이다'처럼 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2950,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 17712
+ }
+}

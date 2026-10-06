@@ -1,0 +1,14 @@
+{
+ "key": "9543cac8b80d76567c74f64a9eb4ec0b2576bb4d",
+ "recordedAt": "2026-10-06T15:16:39.905Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 파싱된 메모 데이터로 Building SSoT Lite를 생성해주세요. ## 원본 메모 신사동 [BLDG_NAME_A] 매각 매각가 760억 (토지평당 약 2.36억) 소재지: 서울 강남구 신사동 590 압구",
+ "result": {
+  "content": "{\n  \"areaSignal\": \"신사·압구정권역\",\n  \"assetType\": \"기타\",\n  \"investmentPosture\": \"trading\",\n  \"priceBand\": \"700억대\",\n  \"askingPriceManwon\": 7600000,\n  \"sizeSignal\": \"대지 1,061.9㎡(321.2평), 연면적 3,341.8㎡(1,010.9평), 지하 2층~지상 6층, 주차 26대\",\n  \"currentUseSignal\": null,\n  \"vacancySignal\": null,\n  \"fitSummary\": \"압구정역 도보 5분, 도산대로와 을지병원 사거리 인근 입지. 대지 321.2평 규모의 700억대 매물.\",\n  \"cautionSummary\": \"등기부등본, 건축물대장 및 토지이용계획확인서 확인 필요. 임대차·공실 현황과 인근 실거래가의 시점·대상·출처 확인 필요.\",\n  \"hiddenFields\": [\n    \"exact_address\"\n  ],\n  \"confidence\": {\n    \"areaSignal\": \"user_provided\",\n    \"assetType\": \"needs_verification\",\n    \"priceBand\": \"user_provided\",\n    \"investmentPosture\": \"ai_hypothesis\",\n    \"fitSummary\": \"ai_hypothesis\"\n  },\n  \"missingData\": [\n    \"건물의 구체적인 현재 용도\",\n    \"임대차 현황\",\n    \"공실 현황\",\n    \"용적률 및 건폐율\",\n    \"인근 실거래가의 거래 시점·비교 대상·출처\",\n    \"토지 평당가 산정 기준의 세부 조건\"\n  ],\n  \"boundaryNote\": \"이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다. 가격, 수익률, 법률, 세무, 대출 가능성을 확정하지 않습니다.\"\n}",
+  "tokens": 3994,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 10784
+ }
+}

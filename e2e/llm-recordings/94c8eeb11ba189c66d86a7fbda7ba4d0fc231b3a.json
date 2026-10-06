@@ -1,0 +1,14 @@
+{
+ "key": "94c8eeb11ba189c66d86a7fbda7ba4d0fc231b3a",
+ "recordedAt": "2026-10-06T13:13:22.207Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 등기사항증명서가 미연동 상태이고 건축물대장상 주용도·",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"공실 발생 시 인근 주거배후 수요를 활용한 업종 다변화\",\n      \"suggestion\": \"인근 주거배후 수요의 규모·구성·임대수요를 뒷받침하는 공공데이터나 시장보고서 출처를 제시하거나, '인근 수요에 대한 별도 조사가 필요합니다'처럼 검토 의견으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2051,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7863
+ }
+}

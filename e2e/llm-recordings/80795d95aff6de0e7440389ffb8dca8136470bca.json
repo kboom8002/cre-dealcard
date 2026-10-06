@@ -1,0 +1,14 @@
+{
+ "key": "80795d95aff6de0e7440389ffb8dca8136470bca",
+ "recordedAt": "2026-10-06T11:51:17.458Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 임대수익은 월 1,946만원, 보증금 2억9,00",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"주변 상업·주거 수요를 바탕으로 안정적 임차수요를 기대할 수 있으며\",\n      \"suggestion\": \"임차수요의 안정성을 단정하거나 기대하게 하는 표현을 삭제하고, 확인 가능한 입지·수요 자료를 제시한 뒤 '임차수요는 별도 검토가 필요합니다'와 같이 중립적으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"주변 상업·주거 수요를 바탕으로 안정적 임차수요를 기대할 수 있으며\",\n      \"suggestion\": \"상권·임차수요에 관한 공공데이터, 시장보고서 또는 조사자료의 출처와 기준시점을 명시하거나, 근거가 없으면 '주변 상업·주거시설이 확인되며 임차수요는 별도 검토가 필요합니다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1980,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9510
+ }
+}

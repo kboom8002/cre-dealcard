@@ -1,0 +1,14 @@
+{
+ "key": "7c2e5c7ea4ba26bdf5f91a0ebe2eab0d25adfef8",
+ "recordedAt": "2026-10-06T14:57:41.990Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역권역 수택동 소재, 3필지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"구리역 8호선 약 482m(도보 약 6분) 및 경의중앙선 구리역 약 597m 거리에 있어 역세권(도보 5분 이내) 배후 수요 접근성이 기대됩니다.\",\n      \"suggestion\": \"역과의 거리·도보 시간 등 객관적 접근성만 기재하고, 배후 수요에 관한 표현은 출처를 제시하거나 삭제하십시오. 예: \\\"구리역 8호선 약 482m, 경의중앙선 구리역 약 597m 거리로 역 접근성이 확인됩니다.\\\"\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"나대지 기반의 신축 상품 기획 유연성\",\n      \"suggestion\": \"투자상 장점을 단정적으로 강조하지 말고, 인허가·사업성 검토가 필요한 개발 특성으로 중립적으로 수정하십시오. 예: \\\"나대지로서 개발계획 수립이 가능하나, 용도·규모·인허가 조건에 따라 사업성이 달라질 수 있습니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2133,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10173
+ }
+}

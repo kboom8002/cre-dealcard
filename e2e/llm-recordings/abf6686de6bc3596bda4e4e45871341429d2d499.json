@@ -1,0 +1,14 @@
+{
+ "key": "abf6686de6bc3596bda4e4e45871341429d2d499",
+ "recordedAt": "2026-10-06T11:28:14.882Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 핵심 한줄 정의: 신사 논현로 대로변,",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 발생분의 임대차 재구성 및 자산 가치 정상화 여지가 있으며, 강남 신사권 핵심 입지를 바탕으로 향후 매각 시 시세 갭 실현 가능성을 검토할 수 있는 자산입니다.\",\n      \"suggestion\": \"투자성과나 매각 차익을 암시하지 말고, ‘공실 임대차 재구성 가능 여부와 매각가치는 임대현황·시장자료·감정평가 등을 통해 별도 검토가 필요합니다’처럼 객관적 검토사항으로 수정하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"향후 매각 시 시세 갭 실현 가능성을 검토할 수 있는 자산입니다.\",\n      \"suggestion\": \"비교 대상 자산, 기준 시점, 거래·감정·공시자료 등 근거가 없으므로 ‘시세 갭’ 표현을 삭제하고, 필요한 경우 구체적인 비교 기준과 출처를 제시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"강남 신사권 핵심 입지\",\n      \"suggestion\": \"‘핵심 입지’와 같은 시장 우위 판단은 출처가 없으므로 삭제하거나, 도로 접면·역과의 거리·주변 업무시설 등 확인 가능한 물리적·교통적 사실로 대체하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산 가치 정상화 여지\",\n      \"suggestion\": \"가치 회복을 전제하거나 암시하지 말고, ‘공실 임대차 재구성에 따른 가치 영향은 임대료·공실기간·운영비 및 시장거래자료 검토가 필요합니다’처럼 분석 과제로 표현하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"공실 리포지셔닝을 통한 가치상승 검토 여지\",\n      \"suggestion\": \"가격 상승 전망으로 읽힐 수 있으므로, ‘공실 공간의 용도·임대조건 재검토 가능성’ 등 실행 가능한 자산관리 사항으로 수정하고 가치 상승 표현은 삭제하세요.\"\n    }\n  ]\n}",
+  "tokens": 2682,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 15411
+ }
+}

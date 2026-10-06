@@ -1,0 +1,14 @@
+{
+ "key": "031ddebbbc02719c7f9b400b6fd7eee0f42ad25c",
+ "recordedAt": "2026-10-06T14:15:09.821Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도 희망가 115억 원 기준, 월 임대료 1,946만",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 임대수익 기반을 갖춘 자산입니다.\",\n      \"suggestion\": \"현재 확인된 월 임대료와 보증금 등 객관적 조건만 기술하고, 안정성이나 수익성을 단정하지 않도록 수정하세요. 예: \\\"월 임대료 1,946만 원과 보증금 2억 9,000만 원이 제시되어 있습니다.\\\"\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"배후 주거단지 인접성은 근린생활시설 수요를 뒷받침하는 요소이며\",\n      \"suggestion\": \"수요를 단정하지 말고 입지 조건에 대한 객관적 설명으로 제한하거나, 관련 공공데이터·시장보고서의 출처를 명시하세요. 예: \\\"배후 주거단지와 인접한 입지로, 관련 수요에 대한 별도 검토가 필요합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 1990,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8645
+ }
+}

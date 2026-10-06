@@ -3,7 +3,7 @@
  * @description F-1: 토지 상세 섹션 렌더러 (결정론, LLM 미사용)
  */
 
-import { formatPyeong } from '@/lib/utils/area-conversion';
+import { formatPyeong, formatSqm } from '@/lib/utils/area-conversion';
 
 export interface LandDetailInput {
   parcels: Array<{
@@ -45,7 +45,7 @@ export function renderLandDetail(input: LandDetailInput): SectionOutput {
     // 대지면적 미확인(0/NaN/음수) 은 '0㎡ (0.0평)' 이 아니라 '-' (Rule 34/37)
     lines.push(
       Number.isFinite(p.areaM2) && p.areaM2 > 0
-        ? `- **대지면적**: ${p.areaM2.toLocaleString()}㎡ (${formatPyeong(p.areaM2, 1)}평)`
+        ? `- **대지면적**: ${formatSqm(p.areaM2)}㎡ (${formatPyeong(p.areaM2, 1)}평)`
         : `- **대지면적**: -`,
     );
     if (p.officialLandPricePerM2) {
@@ -60,16 +60,16 @@ export function renderLandDetail(input: LandDetailInput): SectionOutput {
     const allKnown = input.parcels.every(hasArea);
     for (const p of input.parcels) {
       const price = p.officialLandPricePerM2?.toLocaleString() ?? '-';
-      const area = hasArea(p) ? p.areaM2.toLocaleString() : '-';
+      const area = hasArea(p) ? formatSqm(p.areaM2) : '-';
       lines.push(`| ${p.pnu} | ${p.jimok} | ${area} | ${(p.ownershipRatio * 100).toFixed(0)}% | ${price} |`);
     }
     lines.push(``);
     if (allKnown) {
       const totalArea = input.parcels.reduce((s, p) => s + p.areaM2 * p.ownershipRatio, 0);
-      lines.push(`> **유효 대지면적 합계: ${totalArea.toLocaleString()}㎡ (${formatPyeong(totalArea, 1)}평)**`);
+      lines.push(`> **유효 대지면적 합계: ${formatSqm(totalArea)}㎡ (${formatPyeong(totalArea, 1)}평)**`);
     } else if (input.registerLandAreaM2 && input.registerLandAreaM2 > 0) {
       const a = input.registerLandAreaM2;
-      lines.push(`> **대지면적 합계 (건축물대장): ${a.toLocaleString()}㎡ (${formatPyeong(a, 1)}평)** — 필지별 면적은 토지대장 확인 필요`);
+      lines.push(`> **대지면적 합계 (건축물대장): ${formatSqm(a)}㎡ (${formatPyeong(a, 1)}평)** — 필지별 면적은 토지대장 확인 필요`);
     }
   }
   

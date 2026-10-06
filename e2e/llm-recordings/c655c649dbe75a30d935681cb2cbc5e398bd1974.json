@@ -1,0 +1,14 @@
+{
+ "key": "c655c649dbe75a30d935681cb2cbc5e398bd1974",
+ "recordedAt": "2026-10-06T14:02:36.603Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 공실률 0%로 운영 중이며, 자가사용 2개 호실을",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"내과·약국·헬스장·와인매장 등 생활밀착형 업종 구성은 안정적인 현금흐름 확보에 유리합니다.\",\n      \"suggestion\": \"업종 구성과 임대 현황을 객관적으로 기재하고, 현금흐름의 안정성에 대한 판단은 삭제하십시오. 예: \\\"내과·약국·헬스장·와인매장 등으로 구성되어 있으며, 실제 임대료 수납 현황과 계약 갱신 여부에 대한 확인이 필요합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2368,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7724
+ }
+}

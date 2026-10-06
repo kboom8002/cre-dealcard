@@ -1,0 +1,14 @@
+{
+ "key": "739760d84c5a75147623cf251a391e0ae94a83e0",
+ "recordedAt": "2026-10-06T11:10:59.790Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 본 자산은 구리시 수택동 일반상업지역 내 총 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"구리역 8호선 약 482m 접근성을 갖춰 업무·상업시설 수요를 흡수할 입지 기반을 보유합니다.\",\n      \"suggestion\": \"수요 흡수 가능성을 단정하지 말고, 객관적으로 확인 가능한 교통 접근성만 기술하거나 공공데이터·시장보고서 등 근거를 함께 제시하세요. 예: \\\"구리역 8호선 약 482m 접근성을 갖춘 입지이며, 업무·상업시설 수요와의 적합성은 별도 시장조사가 필요합니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 1940,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7199
+ }
+}

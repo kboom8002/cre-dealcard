@@ -1,0 +1,14 @@
+{
+ "key": "d170a5a15b4866ec93a145740c927289bca07a9f",
+ "recordedAt": "2026-10-06T13:18:03.949Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: operation_overview] 직영 자가운영 영업 개요 및 브랜드 오퍼레이션 현황을 설명하세요. ## [기본 건물 데이터 (SSoT)] { \"asset_identity\": { ",
+ "result": {
+  "content": "에이치 에비뉴가 관리운영계약(Management Contract) 방식으로 운영 중인 94실 규모의 숙박시설로, 제공된 운영 실적 기준 객실 가동률은 78%, ADR은 95,000원, RevPAR는 74,100원입니다. 연간 매출은 약 28.2억원, GOP는 약 10.7억원으로 GOP 마진은 38%이며, 이는 현장 운영비 차감 후 수익으로 자산 보유비용 등을 반영한 NOI와는 구분됩니다. F&B·부대시설 매출, 관리수수료·인센티브 조건 및 인건비 구성은 별도 확인이 필요하며, 건축물대장상 주용도와 숙박업 운영·인허가의 정합성도 거래 전 검토되어야 합니다.",
+  "tokens": 3375,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 5192
+ }
+}

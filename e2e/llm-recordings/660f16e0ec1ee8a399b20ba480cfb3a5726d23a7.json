@@ -1,0 +1,14 @@
+{
+ "key": "660f16e0ec1ee8a399b20ba480cfb3a5726d23a7",
+ "recordedAt": "2026-10-06T14:57:45.264Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, 경의",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 613곳, 카페 80곳, 편의시설 34곳\",\n      \"suggestion\": \"조사 기준일, 데이터 출처 및 집계 범위를 명시하거나, 검증 가능한 자료가 없으면 구체적인 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"오피스 및 근린상업 복합 개발의 임대·매각 경쟁력 제고가 기대됩니다.\",\n      \"suggestion\": \"임대·매각 성과를 암시하는 표현을 삭제하고, 해당 입지 요소가 개발성 검토에 참고될 수 있다는 중립적 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상업·업무시설의 배후 소비 및 유동인구 확보에 유리한 입지로 평가됩니다.\",\n      \"suggestion\": \"유동인구 또는 소비수요 관련 공공데이터·상권분석 보고서의 출처와 기준을 제시하거나, '상권 접근성 검토 시 참고할 수 있습니다'처럼 중립적으로 표현하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"배후 소비 및 유동인구 확보에 유리한 입지로 평가됩니다\",\n      \"suggestion\": \"주관적인 우열 평가를 피하고, 음식점·카페·편의시설 분포 등 확인 가능한 입지 사실만 기재하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"평지·소로각지 조건은 개발 동선과 가시성 측면에서 강점이 될 수 있으며\",\n      \"suggestion\": \"개발상 유리하다는 평가 대신 '평지 및 소로각지 조건으로, 실제 동선·가시성은 설계 및 인허가 검토가 필요합니다'와 같이 사실 및 확인사항 중심으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2242,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13246
+ }
+}

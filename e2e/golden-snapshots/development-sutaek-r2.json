@@ -2,14 +2,14 @@
  "schemaVersion": 1,
  "name": "development-sutaek-r2",
  "fixtureDir": "docs/golden-test-data/p7-sutaek-dev/r2-standard",
- "capturedAt": "2026-10-05T16:29:12.031Z",
- "docId": "0c7bd925-8480-461d-9021-c5a612820ac4",
+ "capturedAt": "2026-10-06T16:02:08.401Z",
+ "docId": "1e273408-7d13-45d3-91db-d4da18702425",
  "buildingId": "7d232303-abe3-48d3-9b76-91f24d5d05df",
  "doc": {
-  "id": "0c7bd925-8480-461d-9021-c5a612820ac4",
-  "title": "수택 오피스빌딩 매각",
+  "id": "1e273408-7d13-45d3-91db-d4da18702425",
+  "title": "구리역권역 나대지 매각",
   "document_type": "mobile_im",
-  "created_at": "2026-10-05T16:08:43.205038+00:00",
+  "created_at": "2026-10-06T15:54:16.141349+00:00",
   "body": {
    "pnus": [
     "4131010500104190019",
@@ -19,15 +19,15 @@
    "tier": "basic",
    "claims": [
     {
-     "id": "fa592f26-0756-4ef5-ab68-578cddda80bc",
-     "asOf": "2026-10-05",
+     "id": "83293df7-caf8-4859-b230-779b456d8ef3",
+     "asOf": "2026-10-06",
      "unit": "원",
      "value": 8900000000,
      "status": "reconciled",
      "subject": "asking_price",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "broker"
       }
      ],
@@ -36,15 +36,15 @@
      "expertRequired": false
     },
     {
-     "id": "dfdef1e0-d35b-47a8-b804-5f8f955d078c",
-     "asOf": "2026-10-05",
+     "id": "6952849a-8a4f-4b33-821c-724c56ae6da5",
+     "asOf": "2026-10-06",
      "unit": "㎡",
      "value": 651.2,
      "status": "reconciled",
      "subject": "land_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-06",
        "sourceId": "public_api"
       }
      ],
@@ -158,7 +158,7 @@
    "preset": "credeal_basic",
    "ai_used": true,
    "im_type": "mobile_im_lite",
-   "ogTitle": "수택 오피스빌딩 매각",
+   "ogTitle": "구리역권역 나대지 매각",
    "parcels": [
     {
      "pnu": "4131010500104190019",
@@ -185,23 +185,23 @@
     "revpar": null,
     "zoning": "일반상업지역",
     "hasLoan": false,
-    "keyRisk": "등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
+    "keyRisk": "용도지역, 허가 용적률 1,260%의 적용 근거와 개발 가능 연면적을 인허가 자료로 확인해야 합니다. 즉시 착공 요건과 매각가·토지 평당가 산식의 재확인이 필요합니다.",
     "posture": "development",
-    "assetType": "오피스빌딩",
+    "assetType": "나대지",
     "keyPoints": [
-     "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-     "안정적인 자산 가치: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.",
-     "향후 가치개선(Value-add) 잠재력: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다."
+     "토지 잔존 가치: 구리역권역 소재 나대지으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+     "개발 이익률: 잔여 용적률 활용 및 신축 개발을 통한 사업 수익 실현이 가능합니다.",
+     "분양/매각 출구 전략: 개발 완료 후 분양 또는 통 매각을 통한 자본 회수 시나리오입니다. 인근 실거래 비교 사례 10건 기준 평균 3.3㎡당 가격 약 2,247만원/3.3㎡(22,467,624원)으로, 본 자산과 비교 검토할 수 있습니다."
     ],
-    "areaSignal": "수택",
+    "areaSignal": "구리역권역",
     "landAreaM2": 651.2,
     "noiBaseBil": null,
     "capRateBase": null,
     "gopMarginPct": null,
     "targetHprPct": null,
     "breakevenYears": null,
-    "pricePerPyeong": null,
-    "readinessScore": 55,
+    "pricePerPyeong": 45000000,
+    "readinessScore": 70,
     "dcf10YearNpvBil": null,
     "devHoldYieldPct": null,
     "totalGrossAreaM2": null,
@@ -210,14 +210,14 @@
     "marketDiscountPct": null,
     "askingPriceDisplay": "89억 원",
     "devProfitMarginPct": null,
-    "keyInvestmentPoint": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-    "landPricePerPyeong": null,
+    "keyInvestmentPoint": "토지 잔존 가치: 구리역권역 소재 나대지으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+    "landPricePerPyeong": 4500,
     "ownVsLeaseSavingsBil": null
    },
    "sections": [
     {
-     "title": "이 오피스, 어떤 자산인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "title": "이 대지, 어떤 자산인가",
+     "markdown": "구리역권역 수택동 소재, 3필지 합계 197.0평(약 651.2㎡) 규모의 일반상업지역 나대지 개발부지입니다. 대상지는 경기 구리시 수택동 419-19 일원에 위치하며, 구리역 8호선 약 482m(도보 약 6분) 및 경의중앙선 구리역 약 597m 거리에 있어 역세권(도보 5분 이내) 배후 수요 접근성이 기대됩니다. 현황은 나대지이며, 메모상 오피스 신축 기준 약 2,500평(약 1652.9㎡)의 연면적 개발이 검토되고 있으나, 공적 토지이용계획상 용적률은 최대 800%로 확인되어 1,260% 적용 근거와 최종 개발 가능 규모는 인허가 자료를 통해 검증이 필요합니다. > **자산 하이라이트**: • 구리역 8호선·경의중앙선 더블 역세권(도보 5분 이내) 접근성 • 일반상업지역 내 3필지 통합 개발 규모 • 나대지로서 개발계획 수립이 가능하나, 용도·규모·인허가 조건에 따라 사업성이 달라질 수 있습니다",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -226,8 +226,8 @@
      "section_order": 1
     },
     {
-     "title": "왜 지금 이 오피스을 사야 하는가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "title": "왜 지금 이 대지을 사야 하는가",
+     "markdown": "> 💡 **종합 가치 제안**: 구리역권역 소재 나대지 — 잔여 용적률 및 개발 사업 수익성을 분석합니다. **3대 핵심 투자 포인트 (개발형)** • **토지 잔존 가치**: 구리역권역 소재 나대지으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다. • **개발 이익률**: 잔여 용적률 활용 및 신축 개발을 통한 사업 수익 실현이 가능합니다. • **분양/매각 출구 전략**: 개발 완료 후 분양 또는 통 매각을 통한 자본 회수 시나리오입니다. 인근 실거래 비교 사례 **10건** 기준 평균 3.3㎡당 가격 **약 2,247만원/3.3㎡**(22,467,624원)으로, 본 자산과 비교 검토할 수 있습니다. **예상 매수자 유형 (AI 분석)**\n| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **시행사·개발업체** | ◎ 최적합 | 용적률 활용 및 신축 개발 사업 수행 |\n| **건설사 자체 개발** | ○ 적합 | 자체 시공을 통한 원가 절감 |\n| **리츠·부동산 펀드** | △ 검토 | 개발 완료 후 수익형 보유 전환 |",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -237,7 +237,7 @@
     },
     {
      "title": "이 입지, 투자할 만한 곳인가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "구리역 8호선 도보 약 6분, 경의중앙선 구리역 약 600m권의 더블 역세권(도보 5분 이내)에 위치한 일반상업지역 개발부지입니다. 주변에 상업·편의시설이 위치해 있어 상업·업무시설의 배후 소비 및 유동인구 확보에 유리한 입지로 평가됩니다. 3필지 합계 651.2㎡ 규모의 평지·소로각지 조건은 개발 동선과 가시성 측면에서 강점이 될 수 있으며, 구리역권 교통 접근성은 오피스 및 근린상업 복합 개발의 입지 여건 검토에 참고할 수 있습니다. 다만 최종 개발 규모와 용적률 적용은 인허가 자료를 통해 별도 확인이 필요합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -267,7 +267,7 @@
     },
     {
      "title": "위험요인 및 대응 방안",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "본 건은 일반상업지역이나 공공 토지이용계획상 용적률 800%와 메모상 허가 용적률 1,260%(신축 가능 연면적 약 2,500평(약 1652.9㎡)) 간 차이가 있어, 3필지 일괄 개발 시의 합필 가능 여부·도로조건·주차장 및 건축기준을 전제로 한 구리시 사전협의와 건축사 법규검토 후에만 사업규모를 확정할 필요가 있습니다. 희망 매각가 89억원은 토지 평당 약 4,518만원 수준이며, 목표 연면적 2,500평(약 1652.9㎡) 및 평당 공사비 750만원을 단순 적용할 경우 토지비·직접공사비만 약 276.5억원(금융비, 설계·인허가, 제세공과금, 예비비 제외)이므로, 오피스 임대수요·예상 임대료·공실률을 보수적으로 적용한 사업성 분석과 단계별 자금조달 계획으로 수익성 하방을 관리해야 합니다. 또한 인허가가 진행 중이고 등기사항증명서상 권리관계가 미확인된 상태이므로, 계약 전 전 필지의 등기사항증명서·토지이용계획확인서·경계 및 도로접면·인허가 승계 가능 여부를 실사하고, 중대한 권리·허가 하자 발생 시 해제 또는 가격조정이 가능한 특약을 설정하는 방안이 필요하며, 본 내용은 예비 검토로서 최종 법률·세무·건축 자문을 대체하지 않습니다.",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -277,7 +277,7 @@
        "fieldKey": "zoning",
        "confidence": "confirmed",
        "sourceDetail": "토지이용규제정보서비스(LURIS) API",
-       "lastVerifiedAt": "2026-10-05T16:08:34.544Z"
+       "lastVerifiedAt": "2026-10-06T15:54:09.882Z"
       }
      ],
      "section_type": "risk_check",
@@ -286,7 +286,7 @@
     },
     {
      "title": "실사 안내 및 면책 조항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "투자 검토를 희망하시는 경우, 우선 비밀유지약정서(NDA) 체결 후 인허가 진행자료, 토지 관련 서류 및 개발 검토자료를 순차적으로 제공해 드립니다. 이후 현장 실사를 통해 3개 필지의 현황, 도로 접면 및 개발 여건을 직접 확인하실 수 있도록 일정을 조율합니다. 검토 완료 후에는 희망 거래조건과 실사·계약 관련 조건을 반영한 LOI(인수의향서) 제출로 협의를 진행합니다. 1:1 비밀 상담을 통해 자료 요청 범위, 실사 일정 및 LOI 작성 절차를 안내받으실 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -296,7 +296,7 @@
     },
     {
      "title": "실사 체크리스트 및 확인사항",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "투자를 위해 반드시 짚고 넘어가야 할 핵심 확인사항입니다. **📋 물리적·권리적 실사** 1. **임대차 현황 파악**: 현재 임차인의 계약 기간, 갱신 여부, 보증금 및 월세 지급 현황 확인 2. **건축물대장 대조**: 위반건축물 여부, 용도 변경 이력, 주차장법 위반 여부 확인 3. **등기사항증명서 확인**: 근저당, 가압류, 신탁 등 소유권 외 권리관계 및 말소 조건 확인 4. **현장 실사**: 건물 노후도, 누수, 설비(승강기, 냉난방) 작동 상태 직접 점검",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -306,7 +306,7 @@
     },
     {
      "title": "개발 부지로서 대지 조건은 어떠한가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "총 3필지, 대지 651.2㎡ (197.0평)의 나대지로서 현 건축물 기준 용적률·건폐율 소진이 없어, 일반상업지역상 법정 용적률 800% 적용 시 최대 연면적 약 5,210㎡ (1,576평), 건폐율 60% 기준 최대 건축면적 약 391㎡의 개발 여력을 보유합니다. 메모상 허가 용적률 1,260% 및 약 2,500평(약 1652.9㎡) 규모 오피스 개발안은 법정 기준 대비 추가 인센티브 또는 개별 허가 조건의 적용 여부가 핵심이므로, 관할 관청을 통한 용도지역·지구단위계획·인허가 가능 연면적 확인이 필수입니다. 사다리형 평지 및 소로각지 접도 조건은 설계 효율에 영향을 줄 수 있으며, 일조·도로사선 및 정북방향 인접대지 이격 기준은 도로폭, 방위, 인접 필지 현황을 포함한 건축사 검토가 필요합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -316,7 +316,7 @@
     },
     {
      "title": "신축/개발 사업수지와 수익성은 어떠한가",
-     "markdown": "**핵심 투자 포인트 및 자산 개요**\n본 자산은 수택 권역 중심에 위치한 안정적 오피스빌딩입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다. 2. **안정적인 자산 가치**: 89억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다. 3. **향후 가치개선(Value-add) 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.",
+     "markdown": "AI 추정 기준 토지비는 평당 4,500만원, 토지 매입 실투자금은 약 89억원이며, 토지비·공사비·부대비를 포함한 총 사업비는 약 290.3억원으로 검토됩니다. 다만 예상 분양가 및 분양면적별 분양수입 자료가 없어 현 단계에서는 개발이익 및 사업수익률 산정이 불가하며, PF 조달 시에는 담보인정비율(LTV) 60% 및 금리 7~9% 수준의 금융비용을 반영한 별도 수지 검토가 필요합니다. 일반상업지역 용적률 800% 및 메모상 1,260%의 적용 가능 여부는 해당 지자체의 도시계획조례, 지구단위계획 및 개별 필지 규제를 확인하고 관할 행정기관에 확인이 필요하며, 약 2,500평(약 1652.9㎡) 개발 가능 연면적 및 인허가 진행 상태를 우선 확인해야 하며, 모든 수치는 AI 추정치로 실제 인허가·시공·분양 조건에 따라 달라질 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -331,7 +331,7 @@
     }
    ],
    "dataGrade": "B",
-   "heroTitle": "수택 오피스빌딩 매각",
+   "heroTitle": "구리역권역 나대지 매각",
    "photos_v2": [
     {
      "url": "docs/golden-test-data/p7-sutaek-dev/r2-standard/images/image_01.png",
@@ -477,7 +477,7 @@
       "subway": 4,
       "busStop": 0,
       "parking": 35,
-      "restaurant": 603,
+      "restaurant": 613,
       "convenience": 34
      },
      "candidateSpots": [
@@ -973,7 +973,7 @@
     "registryData": {
      "source": "fallback_mock",
      "checked": false,
-     "fetchedAt": "2026-10-05T16:08:34.124Z",
+     "fetchedAt": "2026-10-06T15:53:58.512Z",
      "mortgages": [],
      "attachments": [],
      "rawResponse": null,
@@ -1135,16 +1135,16 @@
     "equityRequired": 89,
     "landValueRatio": 100,
     "leveragedYield": null,
-    "pricePerPyeong": null,
+    "pricePerPyeong": 45000000,
     "devHoldYieldPct": null,
     "totalDepositBil": null,
     "landCostRatioPct": 30.7,
     "regulationExpiry": "2028-05-18",
     "devProfitMarginPct": null,
     "grossYieldOnEquity": null,
-    "landPricePerPyeong": null,
+    "landPricePerPyeong": 4500,
     "landValueRatioNote": "신축/개발 부지 — 토지 매입가 100% 반영",
-    "regulationDaysLeft": 591,
+    "regulationDaysLeft": 590,
     "constructionCostBil": 187.5,
     "totalProjectCostBil": 290.3,
     "grossYieldStabilized": null,
@@ -1170,7 +1170,7 @@
    "vacateSpec": {
     "responsibility": "seller"
    },
-   "approved_at": "2026-10-05T16:08:53.086Z",
+   "approved_at": "2026-10-06T15:54:32.965Z",
    "askingPrice": 8900000000,
    "coordinates": {
     "lat": 37.5982209229699,
@@ -1179,8 +1179,8 @@
    "dcfEligible": false,
    "mapImageUrl": "/api/public/map/static?lat=37.5982209229699&lng=127.140989794639&w=640&h=360&level=3",
    "releaseTier": "fact_om",
-   "generated_at": "2026-10-05T16:08:40.973Z",
-   "heroSubtitle": "수택 소재, 오피스빌딩, 매각 희망가 89억 원대",
+   "generated_at": "2026-10-06T15:54:15.786Z",
+   "heroSubtitle": "구리역권역 소재, 나대지, 매각 희망가 80억대",
    "ssot_summary": {
     "pnu": "4131010500104190019",
     "pnus": [
@@ -1190,17 +1190,23 @@
     ],
     "zoning": "일반상업지역",
     "address": "경기 구리시 수택동 419-19",
-    "asset_type": "오피스빌딩",
+    "asset_type": "나대지",
+    "price_band": "80억대",
+    "area_signal": "구리역권역",
     "area_source": {
-     "land": "parcel_sum"
+     "land": "parcel_sum",
+     "planned_gfa_sqm": 8264.4625
     },
+    "fit_summary": null,
     "max_bcr_pct": 60,
     "max_far_pct": 800,
+    "size_signal": "3필지, 대지면적 총 651.2㎡(197.0평), 메모상 신축 가능 연면적 약 2,500평",
     "parcel_count": 3,
     "land_area_sqm": 651.2,
     "land_category": "대",
-    "vacancy_signal": "공실 발생",
-    "vacancy_status": "공실 발생",
+    "vacancy_signal": "해당 없음",
+    "vacancy_status": "해당 없음",
+    "caution_summary": "용도지역, 허가 용적률 1,260%의 적용 근거와 개발 가능 연면적을 인허가 자료로 확인해야 합니다. 즉시 착공 요건과 매각가·토지 평당가 산식의 재확인이 필요합니다.",
     "investment_posture": "development",
     "asking_price_manwon": 890000
    },
@@ -1208,7 +1214,7 @@
    "external_data": {
     "errors": [],
     "address": "경기 구리시 수택동 419-19",
-    "enrichedAt": "2026-10-05T16:08:34.544Z",
+    "enrichedAt": "2026-10-06T15:54:09.882Z",
     "hasPublicData": true,
     "fallbackStatus": {
      "landPrice": null,
@@ -1217,16 +1223,18 @@
      "buildingRegister": null
     }
    },
-   "ogDescription": "수택 · 오피스빌딩 · 89억 원대 · 핵심 투자 포인트 및 자산 개요",
+   "ogDescription": "구리역권역 · 나대지 · 80억대 · 구리역권역 수택동 소재, 3필지 합계 197.0평(약 651.2㎡) 규모",
    "developmentSpec": {
+    "maxFarPct": 1260,
     "targetUse": "office",
     "contractorStatus": "undecided",
     "targetScalePyung": 2500,
-    "constructionCostPerPyung": 750
+    "constructionCostPerPyung": 750,
+    "landPricePerPyeongManwon": 4500
    },
-   "readiness_score": 55,
+   "readiness_score": 70,
    "dataCompleteness": {
-    "generatedAt": "2026-10-05T16:08:40.976Z",
+    "generatedAt": "2026-10-06T15:54:15.789Z",
     "qualityGrade": "B",
     "buildingRegister": true,
     "pptxExportAllowed": true,
@@ -1236,9 +1244,9 @@
    "financialWarnings": [],
    "investmentPosture": "development",
    "investment_posture": "development",
-   "keyInvestmentPoint": "수택 소재, 오피스빌딩, 매각 희망가 89억 원대",
+   "keyInvestmentPoint": "구리역권역 소재, 나대지, 매각 희망가 80억대",
    "asking_price_manwon": 890000,
-   "approval_target_hash": "sha256:6fe8cceabbd3ba884069fbb7f2fbe4788217e2a5628a2c4053f8a311a1201043"
+   "approval_target_hash": "sha256:d14258a9caeee042ffadc0db83a7645653c80dfcc5619cc9774504f698d9c848"
   }
  },
  "building": {
@@ -1246,17 +1254,16 @@
   "created_by_role": "broker",
   "input_type": "broker_memo",
   "raw_input": "수택동 419-19 외 2필지 매각\n매각가 89억 (토지평당 4,500만원)\n소재지: 경기도 구리시 수택동 419-19, 419-12, 419-96 (3필지)\n구리역(8호선·경의중앙선) 도보 5분\n대지면적: 총 651.2㎡ (197.0평)\n용도지역: 일반상업지역 (허가 용적률 1,260%)\n신축 가능 연면적: 약 2,500평 규모 복합개발/오피스텔\n나대지 상태 (명도 불필요, 즉시 착공 가능)",
-  "area_signal": "수택",
-  "asset_type": "오피스빌딩",
-  "price_band": "89억",
-  "size_signal": "197.0평",
-  "current_use_signal": "근린생활시설",
-  "vacancy_signal": "공실 발생",
-  "fit_summary": "입지 가치 및 접근성: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.",
-  "caution_summary": "권리관계 및 공부 서류 검토 필요",
+  "area_signal": "구리역권역",
+  "asset_type": "나대지",
+  "price_band": "80억대",
+  "size_signal": "3필지, 대지면적 총 651.2㎡(197.0평), 메모상 신축 가능 연면적 약 2,500평",
+  "current_use_signal": "나대지",
+  "vacancy_signal": "해당 없음",
+  "fit_summary": "구리역권역 소재 나대지으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+  "caution_summary": "용도지역, 허가 용적률 1,260%의 적용 근거와 개발 가능 연면적을 인허가 자료로 확인해야 합니다. 즉시 착공 요건과 매각가·토지 평당가 산식의 재확인이 필요합니다.",
   "hidden_fields": [
-   "exact_address",
-   "seller_motivation"
+   "exact_address"
   ],
   "layers": {
    "finance": {
@@ -1272,8 +1279,8 @@
    },
    "location": {
     "pnu": null,
-    "address": "매각가 89",
-    "raw_address": "매각가 89"
+    "address": "상세주소 비공개, 총 3필지",
+    "raw_address": "상세주소 비공개, 총 3필지"
    },
    "lease_summary": {
     "vacancy_pct": null,
@@ -1282,12 +1289,12 @@
     "monthly_rent_manwon": null,
     "total_deposit_manwon": null
    },
-   "total_floor_area_pyung": 2500
+   "planned_floor_area_pyung": 2500
   },
   "confidence": {
-   "assetType": "confirmed",
-   "priceBand": "confirmed",
-   "areaSignal": "confirmed",
+   "assetType": "user_provided",
+   "priceBand": "user_provided",
+   "areaSignal": "user_provided",
    "fitSummary": "ai_hypothesis"
   },
   "disclosure": {
@@ -1295,9 +1302,9 @@
   },
   "status": "public_signal_ready",
   "created_at": "2026-09-17T02:05:13.076491+00:00",
-  "updated_at": "2026-10-05T16:08:57.800453+00:00",
-  "promotion_score": 0.336,
-  "promotion_updated_at": "2026-10-02T05:19:16.35+00:00",
+  "updated_at": "2026-10-06T15:54:35.600433+00:00",
+  "promotion_score": 0.3311,
+  "promotion_updated_at": "2026-10-06T14:57:03.553+00:00",
   "matched_buyer_count": 0,
   "vacancy_inquiry_count": 0,
   "vacancy_avg_fit_score": null,
@@ -1311,29 +1318,24 @@
   "iot_floor_occupancy": null,
   "iot_device_id": null,
   "iot_last_synced_at": null,
-  "verification_status": "not_found",
+  "verification_status": "skipped",
   "verification_details": {
    "checks": {
     "purposeMatch": null,
-    "buildingExists": false,
+    "buildingExists": null,
     "areaWithinRange": null
    },
-   "status": "not_found",
+   "status": "skipped",
    "details": {
-    "aiAddress": "수택",
-    "aiAssetType": "오피스빌딩",
-    "errorReason": "국토부 건축물대장에 해당 건물 정보 없음",
-    "aiSizeSignal": "197.0평"
+    "aiAddress": "구리역권역",
+    "aiAssetType": "나대지",
+    "errorReason": "주소 파싱 실패 (시군구/법정동 분리 불가)",
+    "aiSizeSignal": "3필지, 대지면적 총 651.2㎡(197.0평), 메모상 신축 가능 연면적 약 2,500평"
    },
-   "resolvedComponents": {
-    "ji": "0",
-    "bun": "0",
-    "bjdongCd": "10500",
-    "sigunguCd": "41310"
-   }
+   "resolvedComponents": null
   },
   "verified_at": null,
-  "raw_address": "매각가 89",
+  "raw_address": "상세주소 비공개, 총 3필지",
   "canonical_property_id": null,
   "address": "경기 구리시 수택동 419-19",
   "pnu": "4131010500104190019",
@@ -1364,7 +1366,7 @@
     "busStop": 0,
     "cafe": 80,
     "parking": 35,
-    "restaurant": 603,
+    "restaurant": 613,
     "convenience": 34
    },
    "keySpots": [

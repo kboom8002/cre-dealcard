@@ -1,0 +1,14 @@
+{
+ "key": "944c983c1555222123c9c2f27896102ce55f7e14",
+ "recordedAt": "2026-10-06T11:48:47.011Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**: ... 목표 개발이익률 18~25% 및 준공 후 통매각·분양가치 창출을 검토하는 구조이다.\",\n      \"suggestion\": \"‘고수익’이라는 단정적 표현을 삭제하고, 개발이익률은 가정에 따른 시뮬레이션일 뿐임을 명시하세요. 예: ‘가정한 공사비·매입가·매각가에 따라 예상 개발수익률을 산출하는 검토안이며, 실제 수익은 인허가·공사비·분양 및 매각 조건에 따라 달라질 수 있음’.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"약 2,500평(약 1652.9㎡) 규모 오피스 개발\",\n      \"suggestion\": \"면적 환산값을 정정하세요. 2,500평은 약 8,264.5㎡에 해당하며, 1,652.9㎡는 약 500평입니다. 산정 근거와 원자료도 함께 제시해야 합니다.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력**\",\n      \"suggestion\": \"객관적 근거 없이 자산의 우수성을 평가하는 표현을 삭제하고, 확인 가능한 사실만 기재하세요. 예: ‘매도희망가 89억 원, 대지면적 651.2㎡, 일반상업지역 여부 및 역과의 거리 확인이 필요한 대상지’.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **고수익 개발 마진**\",\n      \"suggestion\": \"가격·수익성에 대한 주관적 평가인 ‘고수익’을 삭제하고, ‘개발수익성 검토안’처럼 중립적인 표현으로 변경하세요.\"\n    }\n  ]\n}",
+  "tokens": 2987,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 17443
+ }
+}

@@ -21,6 +21,18 @@ export function formatPyeong(sqm: number, fractionDigits: number = 1): string {
 }
 
 /**
+ * 뷰어/PPTX 공통 ㎡ 표기 — 평→㎡ 환산 잔여 소수(3 자리 이상: 3,842.644)만 소수 1자리로 통일 (3,842.6). 표시 전용.
+ * 대장 등 원천이 소수 2자리 이하로 준 값(1,441.15 / 506.8)은 그대로 둔다 (정밀도 훼손 금지).
+ * 정수는 '.0' 없이 (596), 비정상 값은 '-'.
+ */
+export function formatSqm(sqm: number, fractionDigits: number = 1): string {
+  if (!Number.isFinite(sqm)) return '-';
+  const native = Number(sqm.toFixed(2));
+  const digits = Math.abs(sqm - native) < 1e-9 ? 2 : fractionDigits;
+  return Number(sqm.toFixed(digits)).toLocaleString(undefined, { maximumFractionDigits: digits });
+}
+
+/**
  * Extracts Pyeong area from a mixed string like "96평(약 317.4㎡)" or "317.4㎡".
  * Follows Rule D40 #32: Dedicated Area Extractor
  */

@@ -1,0 +1,14 @@
+{
+ "key": "cdde452b4cf35b8d6db15e41091b6ff87f47b2ba",
+ "recordedAt": "2026-10-06T11:42:38.078Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 도보 3분·3호선 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 카페 118곳, 음식점 392곳, 주차시설 70곳\",\n      \"suggestion\": \"수치의 조사 기준(반경, 기준일, 데이터 출처)을 명시하고 검증 가능한 자료를 인용하세요. 출처가 없다면 구체적 숫자를 삭제하거나 '다수의 편의시설이 확인됨'과 같이 완화하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"잠원권 핵심 생활상권\",\n      \"suggestion\": \"'핵심'이라는 평가를 뒷받침할 공공데이터나 시장 보고서 출처를 제시하거나, 확인 가능한 시설·도로·역세권 등 객관적 사실 중심으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"오피스 수요층의 출퇴근 편의성이 높으며, 신사·가로수길 및 반포 생활권을 배후로 안정적인 상권 접근성을 기대할 수 있습니다.\",\n      \"suggestion\": \"오피스 수요와 상권의 안정성을 단정하지 말고, 역과의 거리·노선 등 객관적 입지 사실로 한정하세요. 필요한 경우 관련 수요·유동인구·공실률 자료와 출처를 함께 제시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"풍부한 편의 인프라는 임차인의 업무·접객 환경을 뒷받침하며, 향후 오피스 개발 시 입지 경쟁력과 임대차 흡수력의 기반으로 작용할 수 있습니다.\",\n      \"suggestion\": \"'풍부한', '입지 경쟁력', '임대차 흡수력'과 같은 시장성 평가를 객관적 지표와 출처로 보완하거나, '개발 및 임대 성과는 별도 검토가 필요함'과 같이 조건부 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2238,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12818
+ }
+}

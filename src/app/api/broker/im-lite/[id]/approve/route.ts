@@ -13,6 +13,7 @@ import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { runApprovalGate } from '@/domain/building/im-core';
 
 import { createModuleLogger } from '@/lib/logger';
+import { sanitizeFitSummary } from '@/domain/building/mobile-im/fit-summary-sanitize';
 const log = createModuleLogger('route');
 
 
@@ -302,7 +303,8 @@ export async function POST(
 
       // Bug 1: 딜카드 투자 포인트 역동기화 — heroCard → building_ssot_lite.fit_summary
       if (fullDoc?.body?.heroCard?.keyInvestmentPoint && fullDoc?.building_id) {
-        const fitSummary = fullDoc.body.heroCard.keyInvestmentPoint;
+        // label-prefix accumulation guard: sync only the pure body text
+        const fitSummary = sanitizeFitSummary(fullDoc.body.heroCard.keyInvestmentPoint);
         // 디폴트 문장이 아닌 경우에만 역동기화
         if (!fitSummary.includes('투자 검토 자료입니다') && fitSummary.length > 10) {
           await supabase

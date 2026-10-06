@@ -1,0 +1,14 @@
+{
+ "key": "e9c8ade5ce4d88e3b180974e4cb9a845f0eece97",
+ "recordedAt": "2026-10-06T15:12:54.923Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 중개사 메모를 구조화해주세요. ## 메모 서초동 [ADDR_DETAIL_A] [BLDG_NAME_A] 매각 매각가 230억 (토지평당 약 1.28억) 소재지: 서울 서초구 서초동 [ADDR_DETAIL_B] ",
+ "result": {
+  "content": "{\n  \"extractedFacts\": {\n    \"region\": \"서초권역(양재역 인근)\",\n    \"exactAddressCandidate\": \"서울 서초구 서초동 [ADDR_DETAIL_B]\",\n    \"assetType\": \"빌딩\",\n    \"priceText\": \"매각가 230억원, 토지 평당 약 1억 2,800만원\",\n    \"sizeText\": \"대지면적 596.0㎡(180.3평), 연면적 2,104.88㎡(636.7평), 지하 1층~지상 6층\",\n    \"currentUse\": \"업무시설 및 사옥 활용 제안\",\n    \"leaseSignal\": \"연 임대료 절감액 약 7억 5,000만원, 자가전환 손익분기 약 4.2년\",\n    \"vacancySignal\": \"2층·4층·5층 공실, 사옥 즉시 입주 가능 표기\",\n    \"tenantNames\": [],\n    \"unitRentTexts\": [],\n    \"sellerMotivationText\": \"\",\n    \"brokerNotes\": [\n      \"양재역(3호선·신분당선) 도보 5분 표기\",\n      \"제3종일반주거지역\",\n      \"2005년 준공\",\n      \"연 임대료 절감액 및 자가전환 손익분기는 중개사 제시 수치\"\n    ],\n    \"hospitalitySignals\": {\n      \"roomCount\": null,\n      \"adr\": null,\n      \"occupancyRate\": null,\n      \"gopMargin\": null,\n      \"operatingModel\": \"\"\n    },\n    \"developmentSignals\": {\n      \"landAreaPyung\": 180.3,\n      \"farPct\": null,\n      \"bcrPct\": null,\n      \"constructionCostManwon\": null,\n      \"expectedSalesPriceManwon\": null,\n      \"developmentType\": \"\"\n    },\n    \"tradingSignals\": {\n      \"pricePerPyeongManwon\": 12800,\n      \"marketPriceManwon\": null,\n      \"holdingPeriodMonths\": null\n    },\n    \"ownerOccupiedSignals\": {\n      \"selfUseIntent\": true,\n      \"currentLeaseCostManwon\": null\n    }\n  },\n  \"detectedSensitiveFields\": [\n    \"exact_address\"\n  ],\n  \"ambiguousFields\": [\n    \"현재 주용도 및 전체 임대차 현황이 기재되지 않음\",\n    \"2층·4층·5층 외 나머지 층의 임차 현황이 기재되지 않음\",\n    \"연 임대료 절감액의 산정 기준과 비교 대상이 기재되지 않음\",\n    \"자가전환 손익분기 4.2년의 산식과 비용 반영 범위가 기재되지 않음\"\n  ],\n  \"warnings\": [\n    \"정확한 소재지는 공개 자료에서 권역 정보로 비식별 처리 필요\",\n    \"공실 및 즉시 입주 가능 여부는 임대차계약과 명도 조건 확인 필요\",\n    \"용도지역·면적·층수·준공연도는 토지이용계획과 건축물대장 확인 필요\",\n    \"토지 평당가와 임대료 절감액, 자가전환 손익분기는 원자료 및 산식 확인 필요\"\n  ]\n}",
+  "tokens": 2732,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 17241
+ }
+}

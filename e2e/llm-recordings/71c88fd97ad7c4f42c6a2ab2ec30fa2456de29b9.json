@@ -1,0 +1,14 @@
+{
+ "key": "71c88fd97ad7c4f42c6a2ab2ec30fa2456de29b9",
+ "recordedAt": "2026-10-06T14:03:42.328Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **토지·입지**: 2026년 공시지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"가치개선(Value-add) 시나리오 (AI 추정)\\n\\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\\n|---------|---------|-------------|--------|\\n| ② 임대료 현실화 (+5%) | +약 0.10억 원 (+5%) | 1.81% | 불필요 |\\n| ③ 리모델링 후 임대료 상승 | +약 0.16억 원 (+8%) | 1.86% | 약 1.52억 원 |\",\n      \"suggestion\": \"임대료 상승률, NOI 증감액, Cap Rate, 리모델링 비용의 산출 근거와 출처를 명시하십시오. 검증 가능한 임대차 사례·공사 견적·산식이 없으면 구체적 수치를 삭제하고, '별도 검토 필요'와 같은 정성적 표현으로 수정하십시오. 특히 '투자 비용 불필요'는 근거가 확인되지 않는 단정이므로 삭제하거나 조건부 표현으로 바꾸십시오.\"\n    }\n  ]\n}",
+  "tokens": 2265,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 16703
+ }
+}

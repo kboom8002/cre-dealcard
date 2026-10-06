@@ -1,0 +1,14 @@
+{
+ "key": "6371aa7de25d18546cd4ba642c54c5f378a4d9b5",
+ "recordedAt": "2026-10-06T11:07:19.525Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 도보 약 3분, 3",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"서울 서초구 신반포로47길 77 일대는 잠원·신사 생활권의 상업 인프라를 공유하며, 반경 내 다수의 음식점·카페·편의시설이 형성되어 있어 임차인과 방문객의 체류 편의성이 높습니다.\",\n      \"suggestion\": \"상업시설 분포와 이용 편의성을 주장하려면 조사 기준일, 반경, 시설 수 또는 공공·상업 데이터 출처를 제시하세요. 예: '반경 500m 내 음식점·카페·편의시설이 확인되며, 상세 시설 수는 현장 및 지도 데이터 확인이 필요합니다.'\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"오피스 개발 시 업무 수요와 근린상권 유동을 동시에 흡수할 수 있는 입지적 기반을 갖추고 있습니다.\",\n      \"suggestion\": \"업무 수요나 유동인구를 단정하지 말고, 관련 통계·상권분석 보고서·유동인구 데이터의 출처와 기준일을 명시하세요. 예: '오피스 개발 가능성 검토 시 인근 오피스 수요와 유동인구에 대한 별도 검증이 필요합니다.'\"\n    }\n  ]\n}",
+  "tokens": 1783,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6617
+ }
+}

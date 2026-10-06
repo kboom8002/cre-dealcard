@@ -257,6 +257,7 @@ export async function runCREQualityGate(
         // 캐시 키는 검사 대상 본문 해시까지 포함 — 게이트 실패 시 in-memory 폴백이 다른 문서의 판정을 재사용하지 않도록
         cacheKey: `cre-quality-gate:${sectionType}:${posture ?? '-'}:${createHash('sha1').update(markdown).digest('hex').slice(0, 16)}`,
         timeoutMs: GATE_ATTEMPT_TIMEOUT_MS, deadlineMs: Date.now() + GATE_TOTAL_BUDGET_MS,
+        allowMock: process.env.NODE_ENV === 'test', // 쿼터 소진 시 Mock 샘플이 실제 데이터로 유입되는 것 방지
       }
     );
 

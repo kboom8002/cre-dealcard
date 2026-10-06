@@ -1,0 +1,14 @@
+{
+ "key": "8a40b168c699206ab941c18fd450a067530685cf",
+ "recordedAt": "2026-10-06T15:03:00.967Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 공실률 0%로, 자가사용 2호실을 제외한 임",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 2294,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7365
+ }
+}

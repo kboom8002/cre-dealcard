@@ -1,0 +1,14 @@
+{
+ "key": "1dde5b50f0270926603b7dde9fed4e41994fb7c2",
+ "recordedAt": "2026-10-06T14:53:35.999Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **신사역 신분당선 도보 3분·3호",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"잠원·신사 핵심 상권을 동시에 누리는 입지입니다. ... 신사역을 통한 광역 이동 편의성이 오피스 수요 확보에 강점으로 작용할 수 있습니다. 다수의 카페와 음식점이 분포해 있어 업무 편의 및 방문객 접근성에 긍정적 영향을 줄 가능성이 있어\",\n      \"suggestion\": \"‘핵심 상권’, ‘오피스 수요 확보’, ‘다수의 카페와 음식점’ 등의 표현은 공공데이터·상권분석 보고서·현장조사 등 근거를 제시하거나, ‘상권 및 오피스 수요에 긍정적으로 작용할 가능성이 있으므로 별도 조사가 필요합니다’처럼 검증 전의 가설적 표현으로 완화하세요.\"\n    }\n  ]\n}",
+  "tokens": 1756,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6338
+ }
+}

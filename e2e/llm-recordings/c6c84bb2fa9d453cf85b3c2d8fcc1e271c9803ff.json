@@ -1,0 +1,14 @@
+{
+ "key": "c6c84bb2fa9d453cf85b3c2d8fcc1e271c9803ff",
+ "recordedAt": "2026-10-06T11:43:00.398Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: site_analysis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대지면적 616.1㎡ (186.4평) ",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1385,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 2389
+ }
+}

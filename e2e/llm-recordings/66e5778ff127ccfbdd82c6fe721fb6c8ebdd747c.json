@@ -1,0 +1,14 @@
+{
+ "key": "66e5778ff127ccfbdd82c6fe721fb6c8ebdd747c",
+ "recordedAt": "2026-10-06T15:17:52.290Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: trading 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **압구정역 도보 7분, 논현로 변의 가시",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"근린생활시설의 임차 수요와 상권 활용도가 기대되며\",\n      \"suggestion\": \"공공데이터, 상권분석 보고서, 임대차 실적 등 객관적 출처를 제시하거나, 출처가 없다면 \\\"임차 수요와 상권 활용도는 별도 확인이 필요합니다\\\"처럼 단정적·긍정적 전망을 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1588,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 5210
+ }
+}

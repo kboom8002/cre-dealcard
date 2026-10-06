@@ -1,0 +1,14 @@
+{
+ "key": "999f83d6256696c3399e9a781827c815a7d8d745",
+ "recordedAt": "2026-10-06T14:53:26.928Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **신사역 신분당선 도보 3분·3호",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 카페 118곳, 음식점 392곳\",\n      \"suggestion\": \"공공데이터, 지도 플랫폼, 상권분석 보고서 등 확인 가능한 출처와 조사 기준일·반경을 명시하거나, 검증 전에는 '다수의 카페와 음식점이 분포'와 같이 정성적 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"잠원·신사 핵심 상권\",\n      \"suggestion\": \"'핵심 상권'처럼 시장의 우수성을 단정하는 표현은 삭제하거나, 상권분석 보고서·공공데이터 등 객관적 근거를 인용해 표현을 제한하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"신사역을 통한 광역 이동 편의성이 오피스 수요 확보에 강점으로 작용할 수 있습니다.\",\n      \"suggestion\": \"오피스 수요나 임차인 확보 효과를 뒷받침하는 임대차 시장 조사, 공실률, 수요 분석 등의 출처를 제시하거나, '광역 교통 접근성이 오피스 수요 검토 시 고려 요소가 될 수 있습니다'처럼 분석 가능성 중심으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"임차인의 업무 편의와 방문객 유입 측면에서 경쟁력을 갖춥니다.\",\n      \"suggestion\": \"임차인 선호도나 방문객 유입을 단정하지 말고, '업무 편의 및 방문객 접근성에 긍정적 영향을 줄 가능성이 있어 별도 검토가 필요합니다'로 수정하거나 관련 조사 자료를 인용하세요.\"\n    }\n  ]\n}",
+  "tokens": 2179,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11041
+ }
+}

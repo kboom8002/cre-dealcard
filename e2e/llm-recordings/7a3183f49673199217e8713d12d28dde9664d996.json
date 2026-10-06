@@ -1,0 +1,14 @@
+{
+ "key": "7a3183f49673199217e8713d12d28dde9664d996",
+ "recordedAt": "2026-10-06T11:11:23.753Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: site_analysis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 총 대지면적 651.2㎡ (197.0평",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"개발 사양상 최대 용적률 1,260% 적용 가능성이 제시되어 있으나\",\n      \"suggestion\": \"1,260%의 근거가 되는 개발계획, 관련 법령·조례, 지구단위계획 또는 관할 관청 확인 자료를 명시하십시오. 근거가 없으면 해당 수치를 삭제하고 '추가 용적률 적용 가능 여부는 관련 계획 및 관청 확인이 필요함'으로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 1923,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7778
+ }
+}

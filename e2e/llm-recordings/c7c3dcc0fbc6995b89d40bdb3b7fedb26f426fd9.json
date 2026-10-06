@@ -1,0 +1,14 @@
+{
+ "key": "c7c3dcc0fbc6995b89d40bdb3b7fedb26f426fd9",
+ "recordedAt": "2026-10-06T14:57:54.333Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역권역 수택동 소재, 3필지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"구리역 8호선 약 482m(도보 약 6분) 및 경의중앙선 구리역 약 597m 거리에 있어 역세권(도보 5분 이내) 배후 수요 접근성이 기대됩니다.\",\n      \"suggestion\": \"교통거리와 도보시간 등 확인 가능한 객관적 사실만 기재하고, 배후 수요에 관한 평가는 출처가 있는 수요·상권 자료를 인용하거나 조건부 표현으로 수정하십시오. 또한 본문상 도보 약 6분인 482m를 ‘도보 5분 이내’로 병기하지 않도록 사실관계를 일치시키십시오.\"\n    }\n  ]\n}",
+  "tokens": 2057,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8509
+ }
+}

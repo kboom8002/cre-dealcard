@@ -1,0 +1,14 @@
+{
+ "key": "deee54239ba3feac286f4e21ba65946a84dfe3d4",
+ "recordedAt": "2026-10-06T15:05:15.030Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 중개사 메모를 구조화해주세요. ## 메모 양평동4가 [BLDG_NAME_A] 매각 매각가 250억 대지면적 518.7㎡ (157평) 준공업지역, 2018년 신축 B1~10F 선유도역 도보 1분 ## 지시사항",
+ "result": {
+  "content": "{\n  \"extractedFacts\": {\n    \"region\": \"영등포·선유도권역\",\n    \"exactAddressCandidate\": \"\",\n    \"assetType\": \"빌딩\",\n    \"priceText\": \"250억원\",\n    \"sizeText\": \"대지면적 518.7㎡(157평), 지하 1층~지상 10층\",\n    \"currentUse\": \"\",\n    \"leaseSignal\": \"\",\n    \"vacancySignal\": \"\",\n    \"tenantNames\": [],\n    \"unitRentTexts\": [],\n    \"sellerMotivationText\": \"\",\n    \"brokerNotes\": [\n      \"준공업지역\",\n      \"2018년 준공\",\n      \"지하 1층~지상 10층\",\n      \"선유도역 도보 1분\"\n    ],\n    \"hospitalitySignals\": {\n      \"roomCount\": null,\n      \"adr\": null,\n      \"occupancyRate\": null,\n      \"gopMargin\": null,\n      \"operatingModel\": \"\"\n    },\n    \"developmentSignals\": {\n      \"landAreaPyung\": 157,\n      \"farPct\": null,\n      \"bcrPct\": null,\n      \"constructionCostManwon\": null,\n      \"expectedSalesPriceManwon\": null,\n      \"developmentType\": \"신축\"\n    },\n    \"tradingSignals\": {\n      \"pricePerPyeongManwon\": null,\n      \"marketPriceManwon\": null,\n      \"holdingPeriodMonths\": null\n    },\n    \"ownerOccupiedSignals\": {\n      \"selfUseIntent\": false,\n      \"currentLeaseCostManwon\": null\n    }\n  },\n  \"detectedSensitiveFields\": [\n    \"exact_address\"\n  ],\n  \"ambiguousFields\": [\n    \"구체적인 건축물 용도와 현재 사용 현황이 기재되지 않음\",\n    \"임대차 현황과 공실 여부가 기재되지 않음\",\n    \"2018년 신축 표기는 준공연도 확인이 필요함\"\n  ],\n  \"warnings\": [\n    \"매각가와 면적은 중개사 메모 기재값으로 별도 확인이 필요함\",\n    \"용도지역, 준공연도, 층수는 토지이용계획 및 건축물대장 확인이 필요함\",\n    \"역 도보 시간은 출입구와 이동 경로에 따라 달라질 수 있음\",\n    \"정확한 소재지와 건물 식별 정보는 공개용 정보에서 제외함\"\n  ]\n}",
+  "tokens": 2254,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 13978
+ }
+}

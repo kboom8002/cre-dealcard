@@ -1,0 +1,14 @@
+{
+ "key": "0652fe1bfe4e3b5a3137a9257304635b98b242f6",
+ "recordedAt": "2026-10-06T13:44:30.682Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **양재역 3호선 도보 4분,",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"서초 권역 자산 보유에 따른 장기적 가치 방어를 함께 기대할 수 있습니다.\",\n      \"suggestion\": \"장기적 가치 방어에 대한 평가를 삭제하고, 확인 가능한 객관적 사실이나 조건부 검토 문구로 수정하세요. 예: \\\"서초 권역 내 자산 보유를 통한 자가사용 및 임차료 절감 효과를 검토할 수 있습니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 1886,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8485
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "c9280db4b40088d20ca492fe21b3345dbebe80b9",
+ "recordedAt": "2026-10-06T14:57:57.471Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, 경의",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"주변에 상업·편의시설이 위치해 있어 상업·업무시설의 배후 소비 및 유동인구 확보에 유리한 입지로 평가됩니다.\",\n      \"suggestion\": \"상업·편의시설의 구체적인 목록과 공공데이터·유동인구 조사·시장보고서 등 객관적 근거를 제시하거나, \\\"배후 소비 및 유동인구 확보 가능성은 관련 자료와 현장조사를 통해 별도 검토가 필요합니다\\\"와 같이 조건부 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1769,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6592
+ }
+}

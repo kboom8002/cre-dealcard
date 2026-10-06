@@ -1,0 +1,14 @@
+{
+ "key": "0b998e1b93db36297d6e6ab081b6e351d326c87c",
+ "recordedAt": "2026-10-06T12:19:26.823Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 경기 구리시 수택동 419-19",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상업 및 업무시설 수요에 대응할 수 있는 입지입니다.\",\n      \"suggestion\": \"수요에 대한 객관적 근거가 제시되지 않았으므로, “상업 및 업무시설 입지가 가능한 일반상업지역 내 자산입니다”처럼 용도지역과 물리적 조건에 한정해 표현하고, 수요를 언급하려면 공공데이터·시장보고서 등 출처를 명시하세요.\"\n    }\n  ]\n}",
+  "tokens": 1849,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6642
+ }
+}

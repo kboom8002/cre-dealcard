@@ -1,0 +1,14 @@
+{
+ "key": "3ebb1d6619ddea3a3217c984836ff57db2d56c3b",
+ "recordedAt": "2026-10-06T14:03:14.312Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown - **임대수익 리스크:** 월 임대료 1,946만원",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"월 임대료 1,946만원 기준 표면수익률은 약 2.0% 수준이며\",\n      \"suggestion\": \"표면수익률 산출에 사용한 매매가격 또는 평가가격과 산식을 함께 제시하고, 해당 근거가 확인되지 않은 경우 '제시된 임대료와 매매가격을 기준으로 별도 산정·검증이 필요합니다'로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2191,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8526
+ }
+}

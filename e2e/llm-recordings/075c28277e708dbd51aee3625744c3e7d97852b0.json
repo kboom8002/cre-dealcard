@@ -1,0 +1,14 @@
+{
+ "key": "075c28277e708dbd51aee3625744c3e7d97852b0",
+ "recordedAt": "2026-10-06T13:12:07.434Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 공실률 0%로 운영 중이며, 자가사용 2개 호실을",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"월 임대료 1,946만원의 현금흐름을 확보하고 있습니다. ... 특히 내과가 복수 층을 사용해 임차 기반의 안정성을 뒷받침합니다.\",\n      \"suggestion\": \"현재 자료상 월 임대료 합계가 1,946만원으로 기재되어 있으며, 실제 현금 유입 및 임대차 계약 조건은 확인이 필요하다고 중립적으로 표현하세요. '안정성을 뒷받침합니다'는 삭제하거나 '복수 층을 사용하는 임차인이 확인됩니다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2452,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8272
+ }
+}

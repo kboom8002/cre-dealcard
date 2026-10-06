@@ -1,0 +1,14 @@
+{
+ "key": "048635efd606ae68afe4d275b70e5f5b1a760af3",
+ "recordedAt": "2026-10-06T12:07:59.908Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: gop_analysis] GOP(Gross Operating Profit), ADR, 가동률(OCC) 운영 실적 및 이익률 구조를 제시하세요. ## [기본 건물 데이터 (SSoT)] { ",
+ "result": {
+  "content": "호텔 운영 가정 기준, 94실에서 ADR 95,000원·평균 가동률 78%를 적용한 RevPAR는 74,100원이며, 연 매출은 약 28.2억 원으로 제시됩니다. 총매출에서 인건비·운영비·마케팅비를 차감한 연 GOP는 약 10.7억 원, GOP 마진은 38%로 추정되며, 매매가 300억 원 기준 GOP Cap Rate는 3.57%입니다. 이대역 도보 약 3분 및 신촌역 접근성을 바탕으로 운영 수요를 기대할 수 있으나, 3개년 매출·GOP 추이, 월별/시즌별 가동률 변동, 실제 운영비 내역 및 손익분기 가동률은 확인이 필요합니다.",
+  "tokens": 3593,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 2885
+ }
+}

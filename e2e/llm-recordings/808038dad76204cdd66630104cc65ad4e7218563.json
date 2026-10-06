@@ -1,0 +1,14 @@
+{
+ "key": "808038dad76204cdd66630104cc65ad4e7218563",
+ "recordedAt": "2026-10-06T14:58:13.931Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: site_analysis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 총 3필지, 대지 651.2㎡ (197",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"메모상 허가 용적률 1,260% 및 약 2,500평(약 1,652.9㎡) 규모 오피스 개발안\",\n      \"suggestion\": \"면적 환산값을 재검증하십시오. 2,500평은 약 8,264㎡이며, 1,652.9㎡는 약 500평에 해당하므로 원자료 또는 단위 표기를 정정하고 근거를 명시해야 합니다.\"\n    }\n  ]\n}",
+  "tokens": 1966,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8465
+ }
+}

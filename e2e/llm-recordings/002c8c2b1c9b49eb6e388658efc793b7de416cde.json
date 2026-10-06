@@ -1,0 +1,14 @@
+{
+ "key": "002c8c2b1c9b49eb6e388658efc793b7de416cde",
+ "recordedAt": "2026-10-06T14:18:32.932Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 본 자산은 선유도역(9호선) 약 135m 거리의 역세권",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"월 임대료 5,147만원을 기반으로 안정적인 임대수익을 추구할 수 있는 오피스빌딩입니다.\",\n      \"suggestion\": \"월 임대료 5,147만원이 확인된 자산으로 소개하되, 임대수익의 안정성이나 투자성을 단정하지 말고 임대차 현황 및 변동 가능성을 함께 검토하도록 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"현재 공실률은 8.3%로\",\n      \"suggestion\": \"공실률 산정 기준일과 임대면적 기준을 명시하고, 관련 임대차 현황 자료 또는 출처를 제시하세요. 출처가 없으면 '공실 현황은 별도 확인이 필요합니다'로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1948,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9250
+ }
+}

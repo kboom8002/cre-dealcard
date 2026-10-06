@@ -1,0 +1,14 @@
+{
+ "key": "a66b2769d2b95d1288b279a33063a1444792f296",
+ "recordedAt": "2026-10-06T13:38:39.794Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 공실은 없으나 자가사용 2개 호실의 향후 임대 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 당산역 역세권(도보 5분 이내) 수요를 활용한 선임차 마케팅\",\n      \"suggestion\": \"당산역까지의 접근성은 객관적 사실로 별도 기재하고, 임차 수요에 대해서는 공공데이터·시장보고서·중개사 조사 등 출처와 조사 시점을 제시하거나, '역세권 접근성을 고려한 선임차 마케팅'처럼 시장 수요를 단정하지 않는 표현으로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2078,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8031
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "6895c5186fc750d3d5564dd3b9c7f969141b8b32",
+ "recordedAt": "2026-10-06T11:54:49.101Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 월 임대료 5,147만원과 보증금 5억3,700만원이 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"임차 수요 유지 및 공실 해소에 유리한 기반입니다\",\n      \"suggestion\": \"임차 수요 유지 및 공실 해소에 도움이 될 가능성이 있으나, 실제 효과는 임대차 조건·수요 조사·공실 해소 계획에 따라 달라질 수 있다고 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"공실률 8.3%는 적극적인 임차인 유치 및 임대차 재구성을 통한 수익 개선 여지를 시사합니다\",\n      \"suggestion\": \"공실률의 산정 기준, 조사 시점 및 출처를 명시하세요. 출처가 없다면 '제시된 자료상 공실률은 8.3%이며, 향후 임대차 재구성 가능성은 별도 검토가 필요합니다'처럼 중립적으로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"임차 수요 유지 및 공실 해소에 유리한 기반입니다\",\n      \"suggestion\": \"임차 수요나 공실 해소 효과를 단정하지 말고, 역세권·도로변 입지가 임대 수요에 미치는 영향은 현장 조사와 임대시장 자료를 통해 확인이 필요하다고 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2083,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10252
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "59cce5f07fdbb33427e1d9ccdfb3ea5b862a6e3e",
+ "recordedAt": "2026-10-06T14:09:16.730Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 제2종일반주거지역의 법정 용적률 상한은 20",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1633,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3504
+ }
+}

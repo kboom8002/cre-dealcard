@@ -1,0 +1,14 @@
+{
+ "key": "7496a9a7c1fdd14e103980fd52e53dcf7d1e3481",
+ "recordedAt": "2026-10-06T14:56:22.513Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 파싱된 메모 데이터로 Building SSoT Lite를 생성해주세요. ## 원본 메모 수택동 [ADDR_DETAIL_A] 외 2필지 매각 매각가 89억 (토지평당 4,500만원) 소재지: 경기도 구리시 수택",
+ "result": {
+  "content": "{\n  \"areaSignal\": \"구리역권역\",\n  \"assetType\": \"나대지\",\n  \"investmentPosture\": \"development\",\n  \"priceBand\": \"80억대\",\n  \"askingPriceManwon\": 890000,\n  \"sizeSignal\": \"3필지, 대지면적 총 651.2㎡(197.0평), 메모상 신축 가능 연면적 약 2,500평\",\n  \"currentUseSignal\": \"나대지\",\n  \"vacancySignal\": \"해당 없음\",\n  \"fitSummary\": \"구리역 도보 5분 거리의 일반상업지역 나대지. 3필지 일괄 매각으로 복합개발·오피스텔 신축 검토 대상.\",\n  \"cautionSummary\": \"용도지역, 허가 용적률 1,260%의 적용 근거와 개발 가능 연면적을 인허가 자료로 확인해야 합니다. 즉시 착공 요건과 매각가·토지 평당가 산식의 재확인이 필요합니다.\",\n  \"hiddenFields\": [\n    \"exact_address\"\n  ],\n  \"confidence\": {\n    \"areaSignal\": \"user_provided\",\n    \"assetType\": \"user_provided\",\n    \"priceBand\": \"user_provided\",\n    \"investmentPosture\": \"user_provided\",\n    \"fitSummary\": \"ai_hypothesis\"\n  },\n  \"missingData\": [\n    \"토지이용계획확인서\",\n    \"토지 및 건물 등기부등본\",\n    \"지적도 및 필지별 면적 자료\",\n    \"허가 용적률 1,260%의 적용 근거와 인허가 자료\",\n    \"신축 가능 연면적 약 2,500평의 산정 자료\",\n    \"건폐율\",\n    \"확정 개발 용도\",\n    \"즉시 착공을 위한 제반 요건 확인 자료\"\n  ],\n  \"boundaryNote\": \"이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다. 가격, 수익률, 법률, 세무, 대출 가능성을 확정하지 않습니다.\"\n}",
+  "tokens": 3756,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 10703
+ }
+}

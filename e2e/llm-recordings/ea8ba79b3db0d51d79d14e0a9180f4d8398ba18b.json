@@ -1,0 +1,14 @@
+{
+ "key": "ea8ba79b3db0d51d79d14e0a9180f4d8398ba18b",
+ "recordedAt": "2026-10-06T14:59:05.801Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 본 건은 일반상업지역이나 공공 토지이용계획상",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1978,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6910
+ }
+}

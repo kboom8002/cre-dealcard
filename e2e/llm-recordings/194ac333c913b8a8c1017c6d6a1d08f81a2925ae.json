@@ -1,0 +1,14 @@
+{
+ "key": "194ac333c913b8a8c1017c6d6a1d08f81a2925ae",
+ "recordedAt": "2026-10-06T11:19:11.366Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 공실률 8.3%로, 약 91.7%의 임대면적",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 2522,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6577
+ }
+}

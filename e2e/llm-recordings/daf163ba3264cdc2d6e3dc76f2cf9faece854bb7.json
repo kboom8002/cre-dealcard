@@ -1,0 +1,14 @@
+{
+ "key": "daf163ba3264cdc2d6e3dc76f2cf9faece854bb7",
+ "recordedAt": "2026-10-06T12:15:54.910Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 신사역 신분당선 도보 3분, 3호선",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"잠원·신사 생활권의 프리미엄과 신사역 중심 상권의 유동성을 기반으로\",\n      \"suggestion\": \"공공데이터, 상권분석 보고서 또는 유동인구·매출 자료 등 객관적 출처를 명시하십시오. 출처가 없다면 '잠원·신사 생활권의 인지도와 신사역 인근 상업시설 접근성을 고려하여'처럼 시장 상황을 단정하지 않는 표현으로 수정하십시오.\"\n    }\n  ]\n}",
+  "tokens": 1795,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7292
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "412d49544d7c35717520656a50e4bc84bc2eeb82",
+ "recordedAt": "2026-10-06T14:12:26.316Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: development_feasibility ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대지 651.2㎡ (",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"대지 651.2㎡ (197평) 기준, 토지 3.3㎡당 가격 4,500만원을 적용한 개발 검토상 총 사업비는 ... 약 290.3억원으로 추정되며, 토지비 비중은 30.7%, 초기 자기자본은 약 89억원 수준으로 검토됩니다 ... PF 담보인정비율(LTV) 60%·금리 7~9% 가정\",\n      \"suggestion\": \"각 수치의 원천자료(딜카드, 감정평가서, 견적서, 금융조건 제안서 등), 기준일, 산식 및 적용 면적을 명시하고, 확인되지 않은 값은 ‘검증 전 가정치’로 구분하십시오. 특히 총사업비·토지비 비중·자기자본의 산출 근거와 LTV·금리의 금융기관별 조건을 제시해야 합니다.\"\n    }\n  ]\n}",
+  "tokens": 2595,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 13983
+ }
+}

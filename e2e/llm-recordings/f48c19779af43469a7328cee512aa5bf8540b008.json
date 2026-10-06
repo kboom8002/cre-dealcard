@@ -1,0 +1,14 @@
+{
+ "key": "f48c19779af43469a7328cee512aa5bf8540b008",
+ "recordedAt": "2026-10-06T14:09:07.813Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: risk_check ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 제2종일반주거지역의 법정 용적률 상한은 20",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"legal_assertion\",\n      \"excerpt\": \"현 건물의 적법한 기존 상태\",\n      \"suggestion\": \"건축물대장 기재 및 현황상 기존 용적률이 325.63%로 확인되나, 해당 건축물의 적법성 및 재건축 가능 여부는 건축사와 관할 행정청의 별도 확인이 필요하다고 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2042,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7493
+ }
+}

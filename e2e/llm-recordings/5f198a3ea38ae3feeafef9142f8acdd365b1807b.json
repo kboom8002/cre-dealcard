@@ -1,0 +1,14 @@
+{
+ "key": "5f198a3ea38ae3feeafef9142f8acdd365b1807b",
+ "recordedAt": "2026-10-06T11:46:01.385Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"일반상업지역의 높은 토지 활용 잠재력\",\n      \"suggestion\": \"‘높은’과 같은 긍정적 평가를 삭제하고, ‘일반상업지역으로서 적용 용도·건폐율·용적률 및 인허가 가능성 확인이 필요함’처럼 검토 필요사항으로 중립화하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"공실 활용을 통한 임대차 재구성 및 가치개선 여지\",\n      \"suggestion\": \"가치 상승을 암시하지 않도록 ‘공실 해소 및 임대차 재구성 가능성은 임대수요, 비용, 인허가 조건 검토 후 판단 필요’로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1994,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8829
+ }
+}

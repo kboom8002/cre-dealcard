@@ -1,0 +1,14 @@
+{
+ "key": "d87c902caa99e380aedfa5310d663fd411b9bb44",
+ "recordedAt": "2026-10-06T00:44:00.745Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 투자를 위해 반드시 짚고 넘어가야 할 핵심 확인사",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1290,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 1874
+ }
+}

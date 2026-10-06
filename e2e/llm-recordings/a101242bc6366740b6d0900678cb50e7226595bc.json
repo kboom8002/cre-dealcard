@@ -1,0 +1,14 @@
+{
+ "key": "a101242bc6366740b6d0900678cb50e7226595bc",
+ "recordedAt": "2026-10-06T11:45:50.997Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, 경의",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 613곳, 카페 80곳, 편의점 34곳\",\n      \"suggestion\": \"각 수치의 조사 기준일, 반경 범위, 조사 출처를 명시하거나, 검증 가능한 자료가 없으면 구체적인 숫자를 삭제하고 ‘주변에 음식점·카페·편의점 등 생활편의시설이 분포합니다’처럼 표현을 완화하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"구리 도심 상권과의 높은 연결성이 핵심 우위입니다\",\n      \"suggestion\": \"비교 대상과 평가 기준이 제시되지 않았으므로 ‘구리 도심 상권에 접근할 수 있는 입지입니다’처럼 객관적 접근성 서술로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"생활·상업 인프라가 밀집해 있어 근린생활시설 및 업무시설 수요를 뒷받침합니다\",\n      \"suggestion\": \"임대차 거래자료, 유동인구 자료, 공실률 또는 공공·민간 보고서 등 근거를 인용하거나, ‘수요에 긍정적인 요인으로 검토될 수 있습니다’처럼 단정적 시장 수요 주장을 완화하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"향후 오피스 개발 시 임차 수요 확보와 자산가치 제고 측면에서 긍정적인 기반이 될 수 있습니다\",\n      \"suggestion\": \"임차 수요 확보 및 자산가치 제고를 전제하지 말고, ‘향후 오피스 개발 시 임대수요 및 사업성에 대한 별도 검토가 필요합니다’처럼 조건부 검토 의견으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산가치 제고 측면에서 긍정적인 기반이 될 수 있습니다\",\n      \"suggestion\": \"자산가치 상승 또는 제고를 평가하는 표현을 삭제하고, ‘개발계획 수립 시 접근성과 주변 인프라를 평가 요소로 검토할 수 있습니다’처럼 중립적인 분석 문구로 바꾸세요.\"\n    }\n  ]\n}",
+  "tokens": 2287,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 12601
+ }
+}

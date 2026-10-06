@@ -1,0 +1,14 @@
+{
+ "key": "117d7b9257a6572154183e5aacbe898736f70a35",
+ "recordedAt": "2026-10-06T14:17:12.966Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **토지·입지**: 2026년 공시지",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"가치개선(Value-add) 시나리오 (AI 추정) ... 임대료 현실화 (+5%) ... 개선 Cap Rate 1.81% ... 리모델링 후 임대료 상승 ... +약 0.16억 원 (+8%) ... 투자 비용 약 1.52억 원\",\n      \"suggestion\": \"임대료 상승률, NOI 증가액, Cap Rate 및 리모델링 비용의 산출 근거와 출처를 제시하십시오. 근거가 없다면 구체적 수치를 삭제하고, 검증 전제의 민감도 분석 또는 가정값임을 명시하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"가치개선(Value-add) 시나리오 ... 임대료 현실화 (+5%) ... 리모델링 후 임대료 상승 ...\",\n      \"suggestion\": \"향후 임대료 상승이나 가치 개선을 전제한 표현 대신, '임대료가 각각 5% 및 8% 변동한다고 가정한 민감도 분석'처럼 조건부 시나리오로 명확히 표현하고 투자 판단을 유도하는 가치 평가 표현은 삭제하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2795,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14678
+ }
+}

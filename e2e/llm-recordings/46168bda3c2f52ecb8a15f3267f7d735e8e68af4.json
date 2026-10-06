@@ -1,0 +1,14 @@
+{
+ "key": "46168bda3c2f52ecb8a15f3267f7d735e8e68af4",
+ "recordedAt": "2026-10-06T11:25:33.535Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: cost_comparison ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 사옥 매입(매각가 230억 원",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"AI 추정 기준 자가전환 시 주변 임대시세 대비 연 약 7.5억 원의 비용 절감이 가능하며, 임대료 절감 기준 손익분기점은 약 4.2년으로 제시됩니다.\",\n      \"suggestion\": \"임대료, 보증금, 금융비용, 취득 부대비용 등 산출 근거와 출처를 명시하거나, 검증 전에는 구체적 금액·기간을 삭제하고 '가정에 따라 산출 필요'로 수정하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"주변 임대시세 대비 연 약 7.5억 원의 비용 절감\",\n      \"suggestion\": \"비교 대상의 위치, 면적, 건물급, 임대 조건, 기준일 및 출처를 제시하세요. 검증 전에는 '적용 임대료 가정 대비 비용 차이'처럼 비교의 한계를 명시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"향후 자산가치 상승 가능성은 매입의 추가 효익으로 볼 수 있으나\",\n      \"suggestion\": \"공공데이터·감정평가·거래사례 등 객관적 근거가 없는 경우 해당 문구를 삭제하고, '향후 자산가치는 시장 상황에 따라 달라지므로 별도 검토가 필요함'으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"평당 매매가의 권역 내 사옥 거래가 대비 적정성\",\n      \"suggestion\": \"‘적정성’에 대한 판단을 제시하지 말고, 비교 가능한 권역·유사 사옥 거래사례와 기준일을 확인해야 한다는 검토 과제로 표현하세요.\"\n    }\n  ]\n}",
+  "tokens": 2224,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10886
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "62b170d109f89318df3d1087e0d79aee1991b9cf",
+ "recordedAt": "2026-10-06T14:18:34.691Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 서울 영등포구 양평로 116-1, 선유도",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 리싱을 통한 임대수익 최적화 가능성\",\n      \"suggestion\": \"공실 리싱 전략의 실행 가능성과 예상 효과는 임대료, 수요, 리싱 기간 및 비용 등 확인 가능한 근거를 바탕으로 별도 검토가 필요하다고 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"역세권(도보 5분 이내) 접근성과 생활·업무 수요를 바탕으로 공실 해소 및 임대수익 안정화 여지를 검토할 수 있습니다.\",\n      \"suggestion\": \"생활·업무 수요에 관한 단정적 표현을 삭제하거나, 공공데이터·시장보고서·임대차 실적 등 출처를 제시하세요. 예: '역세권 접근성을 고려할 때 공실 해소 가능성은 인근 임대수요 및 임대료 자료 확인 후 검토할 수 있습니다.'\"\n    }\n  ]\n}",
+  "tokens": 2058,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9138
+ }
+}

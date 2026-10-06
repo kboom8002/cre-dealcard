@@ -1,0 +1,14 @@
+{
+ "key": "c72252de868b4ca9cafd60d62049ee5fbcff5e86",
+ "recordedAt": "2026-10-06T13:44:40.180Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: occupancy_fit ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 50인 기준 1인당 3.3평(약 ",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1569,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3671
+ }
+}

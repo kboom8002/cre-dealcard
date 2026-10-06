@@ -1,0 +1,14 @@
+{
+ "key": "5714be6fef9a8ef58a7c9ce502ce9ee113ff55de",
+ "recordedAt": "2026-10-06T11:48:24.696Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**: ... 목표 개발이익률 18~25% 및 준공 후 통매각·분양가치 창출을 검토하는 구조이다.\",\n      \"suggestion\": \"‘고수익’ 및 ‘가치 창출’처럼 수익성을 긍정적으로 단정하는 표현을 삭제하고, ‘개발이익률 18~25%를 가정한 시나리오이며 공사비·분양가·금융비·인허가 결과에 따라 달라질 수 있다’와 같이 조건과 불확실성을 명시하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"약 2,500평(약 1652.9㎡) 규모 오피스 개발\",\n      \"suggestion\": \"2,500평은 약 8,264.5㎡에 해당하므로 면적 단위를 정정하세요. 1,652.9㎡를 유지하려면 약 500평으로 수정해야 합니다.\"\n    },\n    {\n      \"type\": \"legal_assertion\",\n      \"excerpt\": \"대상지는 건폐율 60%, 법정 용적률 800%가 적용되는 일반상업지역으로, ... 사업 검토상 최대 용적률 1,260% 적용 시\",\n      \"suggestion\": \"용도지역·건폐율·법정 용적률 및 추가 용적률 적용 가능성을 확정적으로 서술하지 말고, 관련 도시계획 조례·지구단위계획·인허가 및 용적률 인센티브 충족 여부 확인이 필요하다는 조건부 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력**\",\n      \"suggestion\": \"주관적 평가인 ‘우수한 토지 경쟁력’을 삭제하고, ‘매도희망가를 대지면적 기준으로 환산하면 평당 약 4,518만 원이며, 일반상업지역 및 역 접근성이 확인된다’처럼 객관적 사실만 기재하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **법정 용적률 최적화**\",\n      \"suggestion\": \"‘최적화’라는 가격·사업성 평가 표현을 ‘용적률 적용 가능성 검토’ 등 중립적인 표현으로 변경하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **고수익 개발 마진**\",\n      \"suggestion\": \"‘고수익’이라는 주관적 가격·수익성 평가를 삭제하고, ‘개발사업 수지 검토안’ 또는 ‘가정 기반 개발사업 시나리오’로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 3129,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 20860
+ }
+}

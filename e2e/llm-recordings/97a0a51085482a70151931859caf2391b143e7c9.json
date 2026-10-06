@@ -1,0 +1,14 @@
+{
+ "key": "97a0a51085482a70151931859caf2391b143e7c9",
+ "recordedAt": "2026-10-06T15:01:13.817Z",
+ "model": "gpt-5.6-sol",
+ "responseFormat": "json_object",
+ "promptPreview": "다음 파싱된 메모 데이터로 Building SSoT Lite를 생성해주세요. ## 원본 메모 당산동5가 [ADDR_DETAIL_A] 근생빌딩 매각 매각가 115억 대지면적 506.8㎡ (153.31평) 연면적 1,",
+ "result": {
+  "content": "{\n  \"areaSignal\": \"당산권역\",\n  \"assetType\": \"근생빌딩\",\n  \"investmentPosture\": \"income\",\n  \"priceBand\": \"110억대\",\n  \"askingPriceManwon\": 1150000,\n  \"sizeSignal\": \"대지면적 506.8㎡(153.31평), 연면적 1,141.15㎡, 지하 1층~지상 5층\",\n  \"currentUseSignal\": \"지하 1층과 지상 4층 일부는 자가사용 중이며, 약국·의원·헬스장·와인 관련 업종이 임차 중\",\n  \"vacancySignal\": \"공실 여부 미기재\",\n  \"fitSummary\": \"당산역 도보 5분의 2·9호선 역세권 근생빌딩. 약국·의원 등 다업종 임대차와 자가사용 공간이 함께 구성되어 있습니다.\",\n  \"cautionSummary\": \"연면적 환산값과 층별 면적 합계의 차이, 현재 임대차 및 공실 현황 확인이 필요합니다. 건축물대장·토지이용계획확인서 및 임대차계약서 실사도 필요합니다.\",\n  \"hiddenFields\": [\n    \"exact_address\",\n    \"tenant_name\",\n    \"unit_rent\"\n  ],\n  \"confidence\": {\n    \"areaSignal\": \"user_provided\",\n    \"assetType\": \"user_provided\",\n    \"priceBand\": \"confirmed\",\n    \"investmentPosture\": \"ai_hypothesis\",\n    \"fitSummary\": \"ai_hypothesis\"\n  },\n  \"missingData\": [\n    \"연면적 평 환산값 및 층별 면적 기준\",\n    \"현재 임대차 갱신·퇴거·재계약 현황\",\n    \"현재 공실 현황\",\n    \"2층 의원 통합계약의 임대조건\",\n    \"지상 4층 자가사용 공간의 구체적 용도\",\n    \"자가사용 주체\",\n    \"용적률 및 건폐율\",\n    \"건축물대장 및 토지이용계획확인서\",\n    \"NOI 및 공실률\"\n  ],\n  \"boundaryNote\": \"이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다. 가격, 수익률, 법률, 세무, 대출 가능성을 확정하지 않습니다.\"\n}",
+  "tokens": 4272,
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "latencyMs": 13898
+ }
+}

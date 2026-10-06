@@ -1,0 +1,14 @@
+{
+ "key": "b9fe8a996ecc046f2b1b6d165b7651d73509103f",
+ "recordedAt": "2026-10-06T13:15:22.239Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 9호선 선유도역 도보 2분, 당산역 2호선 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 해소 및 안정적인 임대현금흐름 확보에 유리한 환경입니다.\",\n      \"suggestion\": \"공실 해소나 임대현금흐름의 안정성을 단정하지 말고, 해당 시설·주거지 인접성이 임차 수요에 미칠 수 있는 영향을 검토할 필요가 있다고 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"업무·상업 수요를 폭넓게 흡수할 기반이 됩니다. ... 근린생활시설 임차 수요를 뒷받침하고\",\n      \"suggestion\": \"수요를 단정하지 말고, 구체적인 공공데이터·상권보고서·임대차 자료를 인용하거나 '임차 수요에 긍정적으로 작용할 가능성이 있으므로 추가 확인이 필요하다'와 같이 조건부로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1888,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8214
+ }
+}

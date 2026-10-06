@@ -1,0 +1,14 @@
+{
+ "key": "861c011df6797402e85ecc251c63eacd252fdc25",
+ "recordedAt": "2026-10-06T14:15:24.454Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 약 5분, 연면적 5",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"대단지 아파트 배후 수요를 기반으로 생활밀착형 임차 수요를 흡수할 수 있는 입지입니다. ... 아파트 배후 수요를 갖춘 생활밀착형 근린생활시설 자산\",\n      \"suggestion\": \"인근 아파트의 존재와 위치 등 객관적으로 확인 가능한 사실만 기재하고, 임차 수요의 존재·흡수 가능성은 공공데이터, 상권분석 보고서 또는 임대차 현황 등 근거를 인용하여 조건부로 표현하세요. 예: '인근 아파트 배후가 확인되며, 생활밀착형 임차 수요와의 연관성은 별도 검토가 필요합니다.'\"\n    }\n  ]\n}",
+  "tokens": 1930,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6949
+ }
+}

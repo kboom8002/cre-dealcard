@@ -1,0 +1,14 @@
+{
+ "key": "b40d2b5d7e6e35b00c23a6a08fac1aeefbf75354",
+ "recordedAt": "2026-10-06T15:02:46.829Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역(2·9호선) 도보 약 5분, 20",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1474,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3041
+ }
+}

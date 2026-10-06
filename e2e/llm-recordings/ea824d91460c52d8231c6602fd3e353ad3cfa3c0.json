@@ -1,0 +1,14 @@
+{
+ "key": "ea824d91460c52d8231c6602fd3e353ad3cfa3c0",
+ "recordedAt": "2026-10-06T14:23:57.329Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역 3호선 도보 4분, 신",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"반경 내 음식점 269곳, 카페 95곳, 편의점 27곳과 주차시설 65곳이 확인되어\",\n      \"suggestion\": \"확인 기준일, 조사 범위, 출처를 명시하거나 검증 가능한 자료가 없으면 구체적 수치를 삭제하고 '주변에 음식점·카페·편의점·주차시설이 분포'처럼 표현을 완화하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"서초 권역의 안정적인 업무 수요는\",\n      \"suggestion\": \"공공데이터나 상업용 부동산 보고서 등 출처와 기준 시점을 제시하거나, '업무시설이 밀집한 권역으로 평가될 수 있으나 수요 수준은 별도 확인이 필요합니다'처럼 조건부로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"업무·미팅·생활 편의성이 우수하며, ... 자산가치 보유 관점에서 강점입니다.\",\n      \"suggestion\": \"매입 또는 자산가치 우위를 암시하는 단정적 표현을 피하고, '자가사용 편의와 장기 보유 적합성은 기업의 실제 이용계획 및 권역 수요 자료를 바탕으로 검토할 필요가 있습니다'처럼 중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2116,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11068
+ }
+}

@@ -197,6 +197,25 @@ export async function approveDocument(
   return docId;
 }
 
+/**
+ * 골든 결정성: 승인 시 heroCard.keyInvestmentPoint(= 직전 실행의 LLM 출력)가 building_ssot_lite.fit_summary 로
+ * 역동기화되어, 다음 실행의 LLM 프롬프트 입력이 이전 실행 출력에 따라 달라진다(재녹화가 고정점에 도달하지 못함).
+ * Phase 2 시작 전에 이 역동기화 필드를 고정값(null)으로 리셋해 매 실행이 동일한 입력에서 출발하게 한다.
+ */
+export async function resetBackSyncedBuildingState(buildingId: string): Promise<void> {
+  const { createClient } = require('@supabase/supabase-js');
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!serviceRoleKey || !buildingId) {
+    console.log('  ⚠️ fit_summary 리셋 생략 (service role key/buildingId 없음)');
+    return;
+  }
+  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+  const { error } = await adminClient.from('building_ssot_lite').update({ fit_summary: null }).eq('id', buildingId);
+  if (error) console.log('  ⚠️ fit_summary 리셋 실패:', error.message);
+  else console.log('  🔁 fit_summary 역동기화 상태 리셋 (골든 결정성)');
+}
+
 // ── 7. PPTX 다운로드 (UI 버튼 + API 직접 호출 폴백) ──
 
 async function safeSaveDownload(download: any, targetPath: string): Promise<string> {

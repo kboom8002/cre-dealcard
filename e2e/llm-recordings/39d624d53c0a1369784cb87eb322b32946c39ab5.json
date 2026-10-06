@@ -1,0 +1,14 @@
+{
+ "key": "39d624d53c0a1369784cb87eb322b32946c39ab5",
+ "recordedAt": "2026-10-06T11:25:24.987Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown **양재역 3호선 도보 4분,",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"서초권역의 안정적인 업무·상업 수요는\",\n      \"suggestion\": \"공공데이터, 상권분석 보고서 또는 임대·공실 관련 출처를 제시하거나, 출처 없는 시장 현황 단정을 삭제하고 '업무·상업시설이 위치한 서초권역'처럼 확인 가능한 입지 사실로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"중장기 자산가치 방어 측면에서도 긍정적인 기반입니다.\",\n      \"suggestion\": \"자산가치의 방어 또는 향후 가격 전망을 단정하지 말고, '중장기 자산가치에 영향을 줄 수 있는 입지 요소로 검토할 수 있습니다'처럼 조건부·중립적으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1813,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 6568
+ }
+}

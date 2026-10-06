@@ -1,0 +1,14 @@
+{
+ "key": "c878979172aaa5257c4905f3b817babc7edbf9f0",
+ "recordedAt": "2026-10-06T11:51:48.673Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 공실률 0%로 운영 중이며, 자가사용 2개 호실을",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"월 임대료 1,946만원의 현금흐름을 확보하고 있습니다.\",\n      \"suggestion\": \"현재 임대차표상 월 임대료 합계가 1,946만원으로 기재되어 있다고 객관적으로 표현하고, 실제 수납 여부·계약 유지 여부에 따라 변동될 수 있음을 명시하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"의료·생활밀착형 수요를 기반으로 한 임차인 포트폴리오가 형성되어 있습니다.\",\n      \"suggestion\": \"수요에 대한 별도 조사나 공공·시장 보고서 출처가 없다면 해당 평가를 삭제하고, '내과·약국·헬스장·와인매장 등으로 임차 업종이 구성되어 있습니다'처럼 확인 가능한 임차인 구성만 기재하세요.\"\n    }\n  ]\n}",
+  "tokens": 3041,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 15936
+ }
+}

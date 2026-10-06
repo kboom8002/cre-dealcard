@@ -1,0 +1,14 @@
+{
+ "key": "eb708e05cd54cb8982528d450fbf02f395433e3c",
+ "recordedAt": "2026-10-06T15:40:31.968Z",
+ "model": "gpt-5.6-terra",
+ "responseFormat": "text",
+ "promptPreview": "## [섹션 작성 미션: gop_analysis] GOP(Gross Operating Profit), ADR, 가동률(OCC) 운영 실적 및 이익률 구조를 제시하세요. ## [기본 건물 데이터 (SSoT)] { ",
+ "result": {
+  "content": "연 매출 약 28.2억 원, GOP 약 10.7억 원 및 GOP 마진율 38%를 기준으로, 매매가 300억 원 대비 GOP Cap Rate는 약 3.57%로 추정됩니다. 객실 94실 기준 ADR은 95,000원, 평균 가동률(OCC)은 78%, RevPAR는 74,100원으로 제시되어 안정적인 객실 운영 수준을 시사합니다. 다만 현재 위탁운영 계약은 2029년 만료 예정으로, 3개년 매출·GOP 추이, 월별 성수기 변동성, 손익분기 가동률 및 위탁운영 수수료·승계 조건은 결산자료와 운영보고서를 통해 확인이 필요합니다.",
+  "tokens": 3727,
+  "model": "gpt-5.6-terra",
+  "provider": "openai",
+  "latencyMs": 4066
+ }
+}

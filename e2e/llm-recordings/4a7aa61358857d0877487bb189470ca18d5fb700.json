@@ -1,0 +1,14 @@
+{
+ "key": "4a7aa61358857d0877487bb189470ca18d5fb700",
+ "recordedAt": "2026-10-06T14:23:54.484Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 양재역 3호선 도보 4분,",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1603,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4608
+ }
+}

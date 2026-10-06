@@ -1,0 +1,14 @@
+{
+ "key": "cd718016006a2c55e8d0ff14e3775f5db9af6f3d",
+ "recordedAt": "2026-10-06T11:11:00.197Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 구리역 8호선 도보 약 6분, 경의",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 해소 및 임대수익 안정화에 유리한 환경을 갖췄습니다.\",\n      \"suggestion\": \"공실 해소나 임대수익 안정화를 단정하지 말고, 해당 가능성을 판단하려면 임대수요·공실률·임대료 등 객관적 자료의 확인이 필요하다고 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"광역 접근성과 유동인구 흡수력이 돋보이는 입지입니다.\",\n      \"suggestion\": \"유동인구 조사자료나 공공·전문기관 통계를 제시하거나, 출처가 없으면 '접근성 측면의 검토가 필요합니다'처럼 객관적 사실 중심으로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"근린생활시설·업무시설 수요를 함께 공략할 수 있으며, 인근에 음식점·카페 등 생활밀착형 상권이 형성되어\",\n      \"suggestion\": \"시설 수요와 상권 형성을 단정하지 말고, 상권분석 자료·임대차 현황·유동인구 데이터에 근거해 검토해야 한다고 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2069,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9613
+ }
+}

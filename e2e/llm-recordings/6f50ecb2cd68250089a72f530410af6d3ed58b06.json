@@ -1,0 +1,14 @@
+{
+ "key": "6f50ecb2cd68250089a72f530410af6d3ed58b06",
+ "recordedAt": "2026-10-06T13:09:42.611Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **우수한 토지 경쟁력**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"• **고수익 개발 마진**\",\n      \"suggestion\": \"수익성을 확정하거나 고수익을 암시하지 않도록 '개발 수지 및 사업성 검토' 등 중립적인 표현으로 수정하고, 토지비·공사비·인허가비·금융비용·분양 또는 매각가를 반영한 산출 근거를 제시하십시오.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"목표 연면적은 2,500평(약 1652.9㎡)\",\n      \"suggestion\": \"수치가 서로 일치하지 않습니다. 2,500평은 약 8,264.5㎡이고, 1,652.9㎡는 약 500평이므로 실제 목표 연면적을 확인하여 하나의 단위로 통일하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"• **우수한 토지 경쟁력** ... • **법정 용적률 최적화** ... **종합 가치 제안**\",\n      \"suggestion\": \"주관적 우수성·최적화·가치 판단을 삭제하고, 확인 가능한 사실 중심으로 '토지 면적 및 용도지역', '용적률 적용 가능성 검토', '개발 검토 대상 부지' 등으로 표현하십시오.\"\n    }\n  ]\n}",
+  "tokens": 3258,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 21204
+ }
+}

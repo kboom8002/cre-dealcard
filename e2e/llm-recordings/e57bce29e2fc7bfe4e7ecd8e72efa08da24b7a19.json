@@ -1,0 +1,14 @@
+{
+ "key": "e57bce29e2fc7bfe4e7ecd8e72efa08da24b7a19",
+ "recordedAt": "2026-10-06T13:11:40.128Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 5분, 2호선도 약 49",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 임차 수요 확보에 유리합니다\",\n      \"suggestion\": \"임차 수요와 관련된 확정적·긍정적 표현을 피하고, '임차 수요에 영향을 줄 수 있는 입지 요소로 검토할 수 있습니다'처럼 조건부로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 리스크를 낮추고 임대료 방어력을 뒷받침합니다\",\n      \"suggestion\": \"공실 및 임대료 안정성을 단정하지 말고, '생활 인프라 집적도는 임차인 유치 검토 시 참고할 수 있는 요소입니다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"장기적인 현금흐름 안정성 측면에서도 주목할 요소입니다\",\n      \"suggestion\": \"현금흐름 안정성을 암시하는 표현을 삭제하고, '장기 임대수익 분석 시 교통 접근성을 고려할 수 있습니다'처럼 중립적으로 표현하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"2호선도 약 493m 거리에 위치한 ... 반경 내 음식점 191곳, 카페 53곳, 편의점 25곳\",\n      \"suggestion\": \"각 수치의 산정 기준, 조사 시점 및 출처를 명시하세요. 검증 가능한 근거가 없으면 구체적 수치를 삭제하고 '주변에 음식점·카페·편의점 등 생활편의시설이 분포합니다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"상업용 토지는 가시성과 접근성이 뛰어나며\",\n      \"suggestion\": \"비교 대상과 평가 기준이 제시되지 않은 우월성 표현을 삭제하고, '영신로변 중로각지로 도로 접면 및 접근 동선을 확인할 수 있습니다'처럼 객관적 사실 중심으로 수정하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"당산 권역의 교통 프리미엄\",\n      \"suggestion\": \"구체적인 비교 대상이나 산정 근거가 없는 '프리미엄' 표현을 삭제하고, '여의도 및 영등포 업무권과 연결되는 교통 접근성을 보유합니다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"안정적인 임차 수요 확보에 유리합니다\",\n      \"suggestion\": \"시장 수요를 단정하지 말고, 임대차 계약 현황·문의량·공실률·공공 또는 전문기관 자료 등 근거를 제시한 뒤 조건부로 설명하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"공실 리스크를 낮추고 임대료 방어력을 뒷받침합니다\",\n      \"suggestion\": \"공실 및 임대료 관련 시장 주장을 뒷받침하는 출처와 비교 기간을 제시하거나, 해당 문장을 삭제하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"장기적인 현금흐름 안정성\",\n      \"suggestion\": \"임대료, 계약기간, 갱신 조건, 공실률 및 운영비 등 산정 근거 없이 현금흐름 안정성을 주장하지 말고, 관련 자료 확인이 필요하다고 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2587,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 15085
+ }
+}

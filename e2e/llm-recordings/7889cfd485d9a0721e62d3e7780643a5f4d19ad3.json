@@ -1,0 +1,14 @@
+{
+ "key": "7889cfd485d9a0721e62d3e7780643a5f4d19ad3",
+ "recordedAt": "2026-10-06T11:55:11.848Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 공실률 8.3%로 운영 중이며, 월 임대수익은 총",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"2027~2028년 만기 계약이 다수 확보되어 중기 현금흐름의 안정성이 기대됩니다.\",\n      \"suggestion\": \"2027~2028년 만기 계약이 다수 존재하나, 중기 현금흐름은 재계약 여부와 공실 발생 여부에 따라 달라질 수 있으므로 관련 현황을 확인해야 합니다.\"\n    }\n  ]\n}",
+  "tokens": 2553,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 7217
+ }
+}

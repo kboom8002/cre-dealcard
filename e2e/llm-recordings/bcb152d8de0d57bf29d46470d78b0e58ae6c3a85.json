@@ -1,0 +1,14 @@
+{
+ "key": "bcb152d8de0d57bf29d46470d78b0e58ae6c3a85",
+ "recordedAt": "2026-10-06T13:11:29.800Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: next_steps ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 투자 검토를 희망하시는 경우, 우선 비밀유지계약(ND",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 현금흐름 유지 및 임대수익 최적화 관점의 검토를 진행하실 수 있습니다.\",\n      \"suggestion\": \"“현금흐름의 지속 가능성과 임대수익 관련 가정·위험요인을 검토하실 수 있습니다”와 같이 수익 안정성이나 최적화를 전제하지 않는 중립적 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1570,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 4881
+ }
+}

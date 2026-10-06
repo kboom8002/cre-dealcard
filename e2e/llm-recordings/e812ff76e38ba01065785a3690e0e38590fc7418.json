@@ -1,0 +1,14 @@
+{
+ "key": "e812ff76e38ba01065785a3690e0e38590fc7418",
+ "recordedAt": "2026-10-06T14:15:17.807Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: checklist ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도 희망가 115억 원 기준, 월 임대료 1,946만",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1476,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 3721
+ }
+}

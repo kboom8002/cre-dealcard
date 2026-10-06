@@ -1,0 +1,14 @@
+{
+ "key": "3d845ae7eafbb3ec36ba5e5ae27467317f47a3c4",
+ "recordedAt": "2026-10-06T13:44:27.126Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: cost_comparison ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 매도희망가 230억 원(평당 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"향후 자산가치 상승 가능성을 함께 확보하는 구조\",\n      \"suggestion\": \"자산가치 상승을 확보한다고 단정하지 말고, 향후 가치 변동은 시장·자산·금융 조건에 따라 달라질 수 있으며 별도 검토가 필요하다고 수정하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"AI 추정상 자가전환 시 임차 대비 연 약 7.5억 원의 비용 절감과 약 4.2년의 손익분기점 ... 연 3% 임대료 인상 ... 취득세 4.6% ... 인근 서초동 업무용 거래사례의 평당 약 3,733만 원\",\n      \"suggestion\": \"각 수치의 산출 근거와 출처를 제시하고, 실제 기업의 임차료·면적·금융조건·세무조건 및 확인 가능한 거래자료에 기반해 재산출하세요. 근거가 없으면 구체적 수치를 삭제하거나 가정치임을 명시하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"인근 서초동 업무용 거래사례의 평당 약 3,733만 원과 비교하면 본 자산의 희망 3.3㎡당 가격는 높은 수준으로 나타나므로\",\n      \"suggestion\": \"거래시점, 연면적, 건물 연식·상태, 용도, 입지, 거래조건 및 출처를 제시하지 않은 채 가격 우열을 판단하지 말고, 비교 가능성에 한계가 있음을 명시한 중립적 표현으로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"향후 자산가치 상승 가능성을 함께 확보하는 구조\",\n      \"suggestion\": \"향후 가격 상승을 전제하거나 긍정적으로 평가하지 말고, 자산가치는 시장 상황에 따라 상승 또는 하락할 수 있어 예측하지 않는다고 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2313,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10826
+ }
+}

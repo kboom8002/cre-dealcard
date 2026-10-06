@@ -1,0 +1,14 @@
+{
+ "key": "64f0b2bde6fa60d5fbea01f6fab6ac29149365a3",
+ "recordedAt": "2026-10-06T11:51:18.228Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 5분, 2·9호선 더블역",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"안정적인 임대수익 기반 형성에 유리합니다.\",\n      \"suggestion\": \"임대수익의 안정성을 단정하지 말고, 해당 입지의 배후시설 및 교통 접근성을 객관적으로 기술한 뒤 실제 임대수요와 공실률은 별도 확인이 필요하다고 수정하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"인근에 음식점 191곳, 카페 53곳, 편의시설 25곳이 분포해\",\n      \"suggestion\": \"조사 기준일, 조사 범위, 출처를 명시하거나 검증 가능한 자료가 없으면 구체적인 수치를 삭제하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"대단지 주거 배후를 갖춘 당산 핵심 생활권 입지입니다. ... 근린생활시설 수요를 뒷받침하며, ... 공실 관리 및 향후 임차인 교체 시에도 경쟁력 있는 입지 조건으로 평가됩니다.\",\n      \"suggestion\": \"‘핵심’, ‘수요를 뒷받침’, ‘공실 관리에 경쟁력’처럼 시장성과 임대수요를 단정하는 표현은 삭제하거나, 공공데이터·상권분석 보고서·임대차 자료 등 근거와 조사 기준을 함께 제시하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"향후 임차인 교체 시에도 경쟁력 있는 입지 조건으로 평가됩니다.\",\n      \"suggestion\": \"비교 대상과 평가 기준이 없으므로 해당 표현을 삭제하고, ‘교통 접근성과 주변 편의시설이 확인됩니다’처럼 객관적으로 관찰 가능한 사실만 기술하세요.\"\n    }\n  ]\n}",
+  "tokens": 2160,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11529
+ }
+}

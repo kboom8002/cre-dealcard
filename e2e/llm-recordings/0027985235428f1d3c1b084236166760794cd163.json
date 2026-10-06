@@ -1,0 +1,14 @@
+{
+ "key": "0027985235428f1d3c1b084236166760794cd163",
+ "recordedAt": "2026-10-06T14:53:48.630Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: site_analysis ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 대상지는 잠원·신사권역 내 총 대지면적",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1660,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 5195
+ }
+}

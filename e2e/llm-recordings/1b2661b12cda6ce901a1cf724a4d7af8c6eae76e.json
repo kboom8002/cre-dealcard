@@ -1,0 +1,14 @@
+{
+ "key": "1b2661b12cda6ce901a1cf724a4d7af8c6eae76e",
+ "recordedAt": "2026-10-06T12:19:05.342Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: next_steps ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 비밀유지계약(NDA) 체결 후, 상세 검토자",
+ "result": {
+  "content": "{\"issues\": []}",
+  "tokens": 1240,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 1398
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "9ac18ed2bcc2fad9db2a0196c1cee2378704129f",
+ "recordedAt": "2026-10-06T11:51:20.319Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 당산역 9호선 도보 5분, 영신로 259",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 없이 운영 중으로 월 임대료 1,946만원의 안정적 현금흐름 기반을 보유합니다.\",\n      \"suggestion\": \"확정적·안정적 수익을 암시하지 않도록, '자가사용 2호실을 제외한 임대공간의 현 임대료는 월 1,946만원으로 기재되어 있으며, 임대차계약 및 실제 입금 내역 확인이 필요합니다'처럼 사실과 확인사항 중심으로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"공실 없는 임대운영 기반과 월 임대수익 창출력\",\n      \"suggestion\": \"투자 매력이나 수익성을 강조하는 표현을 삭제하고, '현재 확인된 임대공간의 공실 현황 및 월 임대료'처럼 객관적인 운영 현황으로 표현하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"인근 대단지 주거 배후를 갖췄습니다.\",\n      \"suggestion\": \"대단지 명칭, 세대 수, 거리 및 확인 출처를 제시하거나, 출처가 없으면 '인근 주거지역 접근성이 언급된 입지'처럼 단정하지 않는 표현으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 2095,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10438
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "key": "b0eb842440fcabdd6baff683e3225eabb602cc9e",
+ "recordedAt": "2026-10-06T12:19:17.564Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: property_overview ## 매물 투자 포스처: development 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 경기 구리시 수택동 419-19",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"일반상업지역 및 소로 각지의 사업성 있는 토지 조건\",\n      \"suggestion\": \"사업성을 단정하지 말고, 확인 가능한 물리·용도지역 정보 중심으로 수정하세요. 예: \\\"일반상업지역에 위치하고 소로에 접한 토지 조건\\\"\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"상업 및 업무시설 수요에 대응할 수 있는 입지입니다\",\n      \"suggestion\": \"출처가 없는 수요 판단을 삭제하거나 조건부 표현으로 완화하세요. 예: \\\"상업 및 업무시설 용도로의 활용 가능성은 관련 수요 및 인허가 검토가 필요합니다\\\"\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"공실 해소·임대차 재구성 및 개발 가치 제고 검토 가능\",\n      \"suggestion\": \"가치 상승을 암시하는 표현을 배제하고 검토 대상만 중립적으로 제시하세요. 예: \\\"공실 해소, 임대차 재구성 또는 개발 방안을 검토할 수 있습니다\\\"\"\n    }\n  ]\n}",
+  "tokens": 2137,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9955
+ }
+}
