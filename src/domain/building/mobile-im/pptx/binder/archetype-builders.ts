@@ -15,6 +15,9 @@ import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { isVacantLeaseRow, isOwnerUseLeaseRow, isNonLeasableLeaseRow } from "../../lease-vacancy";
 import { resolveBrokerMemoFacts, resolveHotelOperating, BROKER_STATED_TAG } from "./broker-memo-facts";
 import { resolveDisplayAreas } from "./display-areas";
+import { formatLeaseAreaCompact, areaUnitFromHeader } from "./lease-area-format";
+import { resolveAreaInputUnit, PYEONG_TO_SQM_V15, type AreaInputUnit } from "../../rentroll-meta";
+import { buildYieldSetFromBody, YIELD_LABELS, summaryCapRateSub } from "../../yield-set";
 
 /**
  * 아키타입별 props 변환기
@@ -231,6 +234,7 @@ export function buildA17Props(markdown: string, tables: ParsedTable[], lines: st
 /** A22 StackingPlan: stackingPlan[], summary, kicker, title */
 export function buildA22Props(markdown: string, tables: ParsedTable[], lines: string[], body?: Record<string, any>): Record<string, any> {
     let floors: StackingPlanFloor[] = [];
+    let tableAreaUnit: AreaInputUnit | null = null;
     if (Array.isArray(body?.stackingPlan) && body.stackingPlan.length > 0) {
     floors = body.stackingPlan.map((f: any) => ({ ...f }));
     }
@@ -246,6 +250,13 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
       const leasableIdx = headers.findIndex(h => h.includes('임대') || h.includes('바닥'));
       const tenantIdx = headers.findIndex(h => h.includes('입주') || h.includes('임차') || h.includes('테넌트') || h.includes('상호'));
       const expiryIdx = headers.findIndex(h => h.includes('만기') || h.includes('종료'));
+      // 면적 머리글 단위: '(㎡)' → ㎡, '(평)' → 평, 꼬리표 없음 → 레거시(평)
+      const exclusiveSqm = exclusiveIdx !== -1 && areaUnitFromHeader(headers[exclusiveIdx]) === 'sqm';
+      const leasableSqm = leasableIdx !== -1 && areaUnitFromHeader(headers[leasableIdx]) === 'sqm';
+      if (!tableAreaUnit) {
+        tableAreaUnit = (leasableIdx !== -1 ? areaUnitFromHeader(headers[leasableIdx]) : null)
+          ?? (exclusiveIdx !== -1 ? areaUnitFromHeader(headers[exclusiveIdx]) : null);
+      }
 
       if (floorIdx !== -1) {
         for (const row of t.rows) {
@@ -260,9 +271,15 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
           const tenant = tenantIdx !== -1 ? stripMarkdown(row[tenantIdx] || '').trim() : undefined;
           const expiryText = expiryIdx !== -1 ? stripMarkdown(row[expiryIdx] || '').replace(/[^\d]/g, '') : '';
 
-          const exclusiveAreaPy = exText ? parseFloat(exText) : undefined;
-          const leasableAreaPy = leasableText ? parseFloat(leasableText) : undefined;
+          // v1.5 §9.1: 머리글 '임대면적(㎡)'이면 ㎡, '(평)'이면 평 — 단위 꼬리표 없는 레거시 머리글은 기존대로 평
+          const exAsSqm = exText ? parseFloat(exText) : undefined;
+          const leasableAsSqm = leasableText ? parseFloat(leasableText) : undefined;
+          const exclusiveAreaPy = exText ? (exclusiveSqm ? sqmToPyeong(exAsSqm as number) : parseFloat(exText)) : undefined;
+          const leasableAreaPy = leasableText ? (leasableSqm ? sqmToPyeong(leasableAsSqm as number) : parseFloat(leasableText)) : undefined;
+          const exclusiveAreaM2 = exText ? (exclusiveSqm ? exAsSqm : pyeongToSqm(exclusiveAreaPy as number)) : undefined;
+          const leasableAreaM2 = leasableText ? (leasableSqm ? leasableAsSqm : pyeongToSqm(leasableAreaPy as number)) : undefined;
           const floorAreaPy = leasableAreaPy ?? exclusiveAreaPy;
+          const floorAreaM2 = leasableAreaM2 ?? exclusiveAreaM2;
           let expiryYear = expiryText ? parseInt(expiryText, 10) : undefined;
           if (expiryYear && expiryYear < 100) expiryYear += 2000;
 
@@ -271,11 +288,11 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
             use: use || '업무시설',
             tenant: tenant || '-',
             exclusiveAreaPy,
-            exclusiveAreaM2: exclusiveAreaPy ? pyeongToSqm(exclusiveAreaPy) : undefined,
+            exclusiveAreaM2: exclusiveAreaM2 || undefined,
             leasableAreaPy,
-            leasableAreaM2: leasableAreaPy ? pyeongToSqm(leasableAreaPy) : undefined,
+            leasableAreaM2: leasableAreaM2 || undefined,
             floorAreaPy,
-            floorAreaM2: floorAreaPy ? pyeongToSqm(floorAreaPy) : undefined,
+            floorAreaM2: floorAreaM2 || undefined,
             expiryYear: expiryYear && expiryYear > 1900 ? expiryYear : undefined,
             isVacant: tenant?.includes('공실') || use?.includes('공실'),
           });
@@ -369,6 +386,8 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
     title: '건축 입면 셋백 단면 실루엣 및 층별 임대차 현황',
     stackingPlan: floors,
     summary,
+    // v1.5 §9.1: A22 가 표기할 면적 단위 — 문서 메타 우선, 없으면 표 머리글 단위, 기본 ㎡
+    areaInputUnit: body?.rent_roll_meta ? resolveAreaInputUnit(body.rent_roll_meta) : (tableAreaUnit ?? 'sqm'),
     };
 }
 
@@ -895,31 +914,33 @@ export function buildGenericProps(markdown: string, tables: ParsedTable[], lines
  * D7(a): 임대차 현황에서 계산한 공실 컴팩트 문자열.
  * 공실 있음 → '공실 N개 호실 · X평 (P%)', 공실 없음 → '만실 운영 (공실 0%)', 데이터 없음 → null.
  */
-export function buildVacancyCompact(floorLeases: any): string | null {
+export function buildVacancyCompact(floorLeases: any, unit: AreaInputUnit = 'sqm'): string | null {
   if (!Array.isArray(floorLeases) || floorLeases.length === 0) return null;
   const leases = floorLeases.filter((fl: any) => fl && typeof fl === 'object');
   if (leases.length === 0) return null;
   // 점유 상태 SSOT: 자가사용·통합계약 후행(월세 0)은 공실이 아니다
   const isVacant = (fl: any) => isVacantLeaseRow(fl);
-  const areaPy = (fl: any): number => {
+  // v1.5 §9.1: 계산 정본은 ㎡ (임대면적 ㎡ → 레거시 평 입력 → 전용면적), 표기만 입력 단위
+  const areaSqm = (fl: any): number => {
     const sqm = Number(fl.area_sqm);
-    if (!fl.area_sqm_is_proxy && Number.isFinite(sqm) && sqm > 0) return sqm * 0.3025;
+    if (!fl.area_sqm_is_proxy && Number.isFinite(sqm) && sqm > 0) return sqm;
     const py = Number(fl.area_pyeong);
-    if (Number.isFinite(py) && py > 0) return py;
+    if (Number.isFinite(py) && py > 0) return py * PYEONG_TO_SQM_V15;
     const exc = Number(fl.exclusive_area_sqm);
-    if (Number.isFinite(exc) && exc > 0) return exc * 0.3025;
+    if (Number.isFinite(exc) && exc > 0) return exc;
     return 0;
   };
   const vacants = leases.filter(isVacant);
   if (vacants.length === 0) return '만실 운영 (공실 0%)';
-  const vacArea = vacants.reduce((s: number, fl: any) => s + areaPy(fl), 0);
+  const vacArea = vacants.reduce((s: number, fl: any) => s + areaSqm(fl), 0);
   // 분모 = 임대 가능 면적 (비임대 공용·설비, 자가사용 제외 — summarizeLeaseOccupancy 공실률 정의와 동일)
   const totalArea = leases
     .filter((fl: any) => !isNonLeasableLeaseRow(fl) && !isOwnerUseLeaseRow(fl))
-    .reduce((s: number, fl: any) => s + areaPy(fl), 0);
+    .reduce((s: number, fl: any) => s + areaSqm(fl), 0);
   let out = `공실 ${vacants.length}개 호실`;
-  if (vacArea > 0) {
-    out += ` · ${Math.round(vacArea).toLocaleString()}평`;
+  const vacText = formatLeaseAreaCompact(vacArea, unit);
+  if (vacText) {
+    out += ` · ${vacText}`;
     if (totalArea > 0) out += ` (${((vacArea / totalArea) * 100).toFixed(1)}%)`;
   }
   return out;
@@ -971,13 +992,27 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       const scaleStr = floorsBelow ? `B${floorsBelow}/F${floorsAbove}` : `지상 ${floorsAbove}층`;
       metrics.push({ label: '건축규모', value: scaleStr });
     }
+    // v1.5 Q1: Basic IM 의 단일 수익률 헤드라인 = V04(Σ월세×12 ÷ (매매가−보증금)). A23 과 같은 YieldSet → 같은 값·같은 이름.
+    // NOI Cap Rate 는 보조 지표로 부제에만(가정 문구는 summaryCapRateSub 와 동일). V04 를 산출할 수 없으면 기존 지표로 폴백.
     const yieldObj = buildYieldFromHeroCard(heroCard);
-    if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
+    const basicYieldSet = buildYieldSetFromBody(body);
+    const v04 = basicYieldSet.grossYieldNetOfDeposit;
+    if (v04 != null && Number.isFinite(v04) && v04 > 0) {
+      summaryYield = { value: v04, basis: 'GPI', deductions: [], denominator: 'net_of_deposit' };
+      const noiCap = basicYieldSet.noiCapRate;
+      metrics.push({
+        label: YIELD_LABELS.grossNetOfDeposit,
+        value: `${v04.toFixed(2)}%`,
+        sub: noiCap != null && noiCap > 0
+          ? `${YIELD_LABELS.noiCapRate} ${noiCap.toFixed(2)}% · ${summaryCapRateSub(basicYieldSet.assumptions)}`
+          : '운영비 차감 전',
+      });
+    } else if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;
       metrics.push(yieldSummaryMetric(yieldObj, heroCard));
     }
     const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl && isVacantLeaseRow(fl));
-    const vacCompact = buildVacancyCompact(body?.floor_leases);
+    const vacCompact = buildVacancyCompact(body?.floor_leases, resolveAreaInputUnit(body?.rent_roll_meta));
     const vacDisplayRaw = (heroCard.vacancyDisplay && heroCard.vacancyDisplay !== '확인 중') ? String(heroCard.vacancyDisplay) : '';
     const vacSignalRaw = ssotB.vacancy_signal ? String(ssotB.vacancy_signal) : '';
     const vacSentence = vacDisplayRaw || vacSignalRaw;

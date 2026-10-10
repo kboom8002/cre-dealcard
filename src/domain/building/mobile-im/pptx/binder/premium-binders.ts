@@ -12,6 +12,8 @@ import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+import { areaUnitLabel, resolveAreaInputUnit } from "../../rentroll-meta";
+import { formatLeaseAreaCell } from "../../lease-area-cell";
 
 /**
  * 1. 기관투자자 프라임 (Institutional Dark/Gold) 특화 바인딩
@@ -88,17 +90,20 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     ],
     wale,
     };
-    const multiColHeaders = ['호실/층', '임차인(업종)', '전용면적(㎡)', '계약면적(㎡)', '보증금(만원)', '월 임대료(만원)', '관리비(만원)', '만기일자', '잔여기간'];
+    // v1.5 §9.1: 면적 열은 입력 단위(㎡|평) 단일 단위. 값 = ㎡ 정본 → 입력 단위 (평 = ㎡÷3.305785, 소수 2자리)
+    const areaUnit = resolveAreaInputUnit(body.rent_roll_meta);
+    const areaUnitText = areaUnitLabel(areaUnit);
+    const multiColHeaders = ['호실/층', '임차인(업종)', `전용면적(${areaUnitText})`, `임대면적(${areaUnitText})`, '보증금(만원)', '월 임대료(만원)', '관리비(만원)', '만기일자', '잔여기간'];
     let multiColRows: string[][] = [];
     if (Array.isArray(rawLeases) && rawLeases.length > 0) {
     multiColRows = rawLeases.map((l: any, i: number) => {
       const unit = l.unitLabel ?? l.unit ?? `${i + 1}F`;
       const tenant = l.tenantBusiness ?? l.tenantName ?? '[임차인 미상]';
-      // 사용자가 기입한 면적만 표기 — 전용면적 칸에 임대(계약)면적을, 계약면적 칸에 전용면적을 대신 채우지 않는다.
-      // 레거시 단일 '전용면적' 열에서 복사된 대용값(areaSqmIsProxy / area_sqm_is_proxy)은 계약면적이 아니다.
+      // 사용자가 기입한 면적만 표기 — 전용면적 칸에 임대(계약)면적을, 임대면적 칸에 전용면적을 대신 채우지 않는다.
+      // 레거시 단일 '전용면적' 열에서 복사된 대용값(areaSqmIsProxy / area_sqm_is_proxy)은 임대면적이 아니다.
       const isProxyArea = Boolean(l.areaSqmIsProxy ?? l.area_sqm_is_proxy);
-      const exclusiveArea = l.exclusiveAreaSqm ?? l.exclusive_area_sqm ?? '-';
-      const contractArea = l.contractAreaSqm ?? (isProxyArea ? undefined : l.areaSqm) ?? '-';
+      const exclusiveArea = formatLeaseAreaCell(Number(l.exclusiveAreaSqm ?? l.exclusive_area_sqm), areaUnit);
+      const contractArea = formatLeaseAreaCell(Number(l.contractAreaSqm ?? (isProxyArea ? undefined : l.areaSqm)), areaUnit);
       const deposit = l.depositKrw ? Math.round(l.depositKrw / 10000).toLocaleString() : (l.depositManwon ? Number(l.depositManwon).toLocaleString() : '-');
       const rent = l.monthlyRentKrw ? Math.round(l.monthlyRentKrw / 10000).toLocaleString() : (l.rentAmount ? Math.round(Number(l.rentAmount) / 10000).toLocaleString() : '-');
       const mgmt = l.mgmtFeeKrw ? Math.round(l.mgmtFeeKrw / 10000).toLocaleString() : '-';
@@ -269,12 +274,15 @@ export function bindCorporateTemplateData(doc: any, dataMap: Record<string, Sect
 export function bindCommercialTemplateData(doc: any, dataMap: Record<string, SectionData> = {}): Record<string, SectionData> {
     const body = doc?.body ?? {};
     const floorLeases: any[] = (body.floor_leases ?? []).filter(Boolean);
-    const mdHeaders = ['층수', '업종', '전용면적', '보증금 / 월세', '비고'];
+    // v1.5 §9.1: 값은 floor_leases.area_sqm(= 임대면적)이므로 머리글을 '임대면적(단위)' 로 바로잡는다 (X6). 단일 단위, 소수 2자리.
+    const areaUnit = resolveAreaInputUnit(body.rent_roll_meta);
+    const areaUnitText = areaUnitLabel(areaUnit);
+    const mdHeaders = ['층수', '업종', `임대면적(${areaUnitText})`, '보증금 / 월세', '비고'];
     const mdRows = floorLeases.length > 0
             ? floorLeases.map((l: any) => [
                 l.floor || '-',
                 l.tenant_type || l.tenant_name || '-',
-                l.area_sqm ? `${(sqmToPyeong(l.area_sqm)).toFixed(0)}평 (${l.area_sqm}㎡)` : '-',
+                formatLeaseAreaCell(l.area_sqm_is_proxy ? undefined : Number(l.area_sqm), areaUnit),
                 `${l.deposit_manwon ? (l.deposit_manwon / 10000).toFixed(1) + '억' : '-'} / ${l.rent_manwon ? l.rent_manwon + '만 원' : '-'}`,
                 l.notes || '',
               ])
@@ -295,7 +303,7 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
     tableRows: mdRows,
     left: {
       sub: '층별 임대 현황',
-      rows: mdRows.map(r => [r[0], `${r[1]} (${r[2]})`]),
+      rows: mdRows.map(r => [r[0], r[2] === '-' ? `${r[1]}` : `${r[1]} (${r[2]}${areaUnitText})`]),
     },
     right: {
       sub: '임대 구성 특징',

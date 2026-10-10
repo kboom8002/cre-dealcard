@@ -136,6 +136,7 @@ export function ImDataBottomSheet({
       vacancyPct,
       setFloorLeases,
       floorLeasesRef,
+      setRentRollMeta,
       monthlyRentRef,
       handleEnterKey,
       totalDepositRef,
@@ -534,6 +535,10 @@ export function ImDataBottomSheet({
                 const leases = data.floorLeases || [];
                 setFloorLeases(leases);
                 floorLeasesRef.current = leases; // 즉시 ref 동기화 — React 렌더 사이클 대기 불필요
+                // v1.5: 면적 입력 단위·C5·J3~J8·V12 해제 사유를 그대로 저장 (생성 요청마다 재전송)
+                if (data.meta) setRentRollMeta(data.meta);
+                // J3 매각가(원→만원): 입력창이 비어 있을 때만 프리필. 중개인이 직접 입력한 값은 덮어쓰지 않음 (차이는 서버 [PRICE-RECONCILE] 경고)
+                if (data.askingPriceManwon != null && !askingPrice) setAskingPrice(String(data.askingPriceManwon));
                 console.log(`[RentRollImport] onImport: ${leases.length}건 floorLeases 수신`);
               }}
             />

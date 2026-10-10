@@ -118,9 +118,18 @@ export interface GateContext {
   brandHallucinationBlocked?: boolean;
   /** G30: 가정값 ◇ 표기 확인 여부 */
   assumptionMarked?: boolean;
+  // 렌트롤 v1.5 (docs/RENTROLL_v1.3_to_v1.5.md §3.2, §6.4) — 생성은 막지 않고 승인·발행만 차단한다 (approval-gate: body.gateReport.blocked)
+  /** V01: 통합계약 금액 판정 AD 열이 '월세 누락'·'금액 중복' 인 행 수 (0이어야 통과, 미설정 = 렌트롤 없음 → 통과) */
+  rentrollAmountIssues?: number;
+  /** V12: 임대면적 합 ÷ 연면적(J4) > 2 또는 < 0.45 (AREA_UNIT_MISMATCH) */
+  areaUnitMismatch?: boolean;
+  /** V12 해제: 중개인이 사유를 적으면 차단 해제 (사유는 게이트 리포트에 기록) */
+  areaUnitOverride?: { reason: string; by?: string; at?: string } | null;
 }
 
 import type { GateResultStatus } from '@/types/gate-result';
+import { amountCheck } from './lease-math';
+import { checkAreaUnit } from './rentroll-checks';
 
 export interface LegacyGateResult {
   code: string;
@@ -161,6 +170,8 @@ export interface GateDefinition {
   check: (ctx: GateContext) => boolean;
   /** V5 감사 §5.3 시정: 이 게이트가 적용되는 포스처 목록. undefined = 전 포스처 */
   appliesTo?: ('income' | 'owner_occupied' | 'development' | 'operating' | 'trading')[];
+  /** 통과했어도 리포트에 남겨야 할 사유(예: V12 해제 사유). 없으면 undefined */
+  note?: (ctx: GateContext) => string | undefined;
 }
 
 export interface GateResult {
@@ -170,6 +181,8 @@ export interface GateResult {
   passed: boolean;
   status?: GateResultStatus;
   errorDetail?: string;
+  /** 통과 사유 메모 (예: 'V12 해제 — 사유: …'). 있을 때만 키가 존재한다 */
+  note?: string;
 }
 
 export interface GateReport {
@@ -178,6 +191,48 @@ export interface GateReport {
   results: GateResult[];
   failedBlocks: GateResult[];
   failedWarns: GateResult[];
+}
+
+/**
+ * 렌트롤 게이트(V01/V12) 입력 산출 — writer.ts GateContext 구성과 handler(body.gateReport) 가 공유한다.
+ *  - V01: lease-math.amountCheck (스펙 AD 열 재계산; 엑셀 캐시 미사용) 가 '월세 누락'·'금액 중복' 인 행 수.
+ *    매출연동(rent_type='revenue_linked') 행은 고정 월세가 없는 것이 정상이므로 제외한다 (영구 차단 방지).
+ *  - V12: rentroll-checks.checkAreaUnit(Σarea_sqm ÷ J4) 이 AREA_UNIT_MISMATCH. J4 가 없으면 판정 보류(차단 안 함).
+ *  - 렌트롤 행이 없으면 {} → 두 게이트 모두 통과.
+ * 값을 추측해 보정하지 않는다 (스펙 §8). 계산 중 예외는 게이트를 막지 않도록 {} 로 흡수한다.
+ */
+export function deriveRentrollGateContext(
+  supplemental: { floor_leases?: unknown; rent_roll_meta?: { gfa_sqm?: number | null; area_unit_override?: GateContext['areaUnitOverride'] } | null } | null | undefined,
+): Pick<GateContext, 'rentrollAmountIssues' | 'areaUnitMismatch' | 'areaUnitOverride'> {
+  try {
+    const rows = (Array.isArray(supplemental?.floor_leases) ? supplemental!.floor_leases : [])
+      .filter((r): r is Record<string, any> => !!r && typeof r === 'object');
+    if (rows.length === 0) return {};
+    const meta = supplemental?.rent_roll_meta ?? null;
+    const amountRows = rows.filter((r) => r.rent_type !== 'revenue_linked');
+    const rentrollAmountIssues = amountRows.filter((r) => {
+      const v = amountCheck(r, amountRows);
+      return v === '월세 누락' || v === '금액 중복';
+    }).length;
+    const areaIssue = checkAreaUnit(rows, meta?.gfa_sqm);
+    return {
+      rentrollAmountIssues,
+      areaUnitMismatch: areaIssue?.code === 'AREA_UNIT_MISMATCH',
+      areaUnitOverride: meta?.area_unit_override ?? null,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** V12 해제는 비어 있지 않은 사유가 있어야 유효하다 (스펙 §6.4-7: override_reason 필수) */
+function hasAreaUnitOverrideReason(ctx: GateContext): boolean {
+  return typeof ctx.areaUnitOverride?.reason === 'string' && ctx.areaUnitOverride.reason.trim().length > 0;
+}
+
+function formatAreaUnitOverrideNote(ov: GateContext['areaUnitOverride']): string {
+  const who = ov?.by ? ` (해제자 ${ov.by}${ov.at ? `, ${ov.at}` : ''})` : '';
+  return `V12 해제 — 사유: ${ov?.reason?.trim() ?? ''}${who}`;
 }
 
 export const LEGACY_GATE_MAP: Readonly<Record<string, string>> = {
@@ -251,6 +306,16 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G54', label: '결손 변명 문구 0건', severity: 'block', check: (ctx) => (ctx.defectExcuseCount ?? 0) === 0 },
   { id: 'G55', label: 'AI 훈계조 문구 0건', severity: 'block', check: (ctx) => (ctx.preachyToneCount ?? 0) === 0 },
   { id: 'G56', label: '내부 시스템 규칙 노출 0건', severity: 'block', check: (ctx) => (ctx.internalRuleLeakCount ?? 0) === 0 },
+  // ── 렌트롤 v1.5 (스펙 §3.2 V01/V12, §6.4-7) — 생성은 허용, 승인·발행만 차단 (approval-gate 가 body.gateReport.blocked 로 차단) ──
+  // V02/V03/V06~V10 은 비차단 경고(rentroll_checks)이므로 여기에 게이트로 두지 않는다.
+  { id: 'V01', label: '렌트롤 금액 판정 — 월세 누락·금액 중복 0건', severity: 'block', check: (ctx) => (ctx.rentrollAmountIssues ?? 0) === 0 },
+  {
+    id: 'V12',
+    label: '렌트롤 면적 단위 혼동 없음 (사유 입력 시 해제)',
+    severity: 'block',
+    check: (ctx) => ctx.areaUnitMismatch !== true || hasAreaUnitOverrideReason(ctx),
+    note: (ctx) => (ctx.areaUnitMismatch === true && hasAreaUnitOverrideReason(ctx) ? formatAreaUnitOverrideNote(ctx.areaUnitOverride) : undefined),
+  },
   // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3
   { id: 'QG09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'QG11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },
@@ -271,13 +336,20 @@ export interface ClassifiedFailure {
   message?: string;
 }
 
-export function runPublishGates(ctx: GateContext): GateReport & {
+/** 렌트롤 v1.5 게이트 — 생성 시점에 승인 게이트용 body.gateReport 를 만들 때 평가하는 부분집합 */
+export const RENTROLL_GATE_IDS: readonly string[] = ['V01', 'V12'];
+
+/**
+ * @param onlyIds 지정하면 해당 id 의 게이트만 평가한다 (기본: PUBLISH_GATES 전체)
+ */
+export function runPublishGates(ctx: GateContext, onlyIds?: readonly string[]): GateReport & {
   classifiedFailures: ClassifiedFailure[];
 } {
   const results: GateResult[] = [];
   const classifiedFailures: ClassifiedFailure[] = [];
 
   for (const g of PUBLISH_GATES) {
+    if (onlyIds && !onlyIds.includes(g.id)) continue;
     let passed: boolean;
     let errorMsg: string | undefined;
 
@@ -299,7 +371,11 @@ export function runPublishGates(ctx: GateContext): GateReport & {
     if (!passed) {
       status = errorMsg ? 'SYSTEM_ERROR' : 'FAIL';
     }
-    results.push({ id: g.id, label: g.label, severity: g.severity, passed, status, errorDetail: errorMsg });
+    let note: string | undefined;
+    if (passed) {
+      try { note = g.note?.(ctx); } catch { note = undefined; }
+    }
+    results.push({ id: g.id, label: g.label, severity: g.severity, passed, status, errorDetail: errorMsg, ...(note ? { note } : {}) });
 
     if (!passed && !errorMsg) {
       // 의도적 차단/경고 — system_error가 아닌 경우

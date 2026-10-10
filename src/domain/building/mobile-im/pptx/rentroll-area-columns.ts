@@ -13,11 +13,34 @@
  *
  * 한 칸에 다른 면적을 대신 채워 넣지 않는다 (예전 폴백: 전용면적 칸에 임대면적 값 복사 → 오표기).
  * rules/07 #68(열 수 = 셀 수)을 지키기 위해 헤더·열폭·행 셀을 같은 keep 인덱스로 동시에 투영한다.
+ *
+ * v1.5 §9.1: 면적 머리글은 입력 단위(G9)를 따른다 — '임대면적(㎡)' | '임대면적(평)'.
+ * 따라서 머리글 완전 일치 비교는 금지, **접두어(stem) 매칭**만 쓴다 (isBasicRentRollHeaderRow / isNumericRentRollHeader).
  */
+import { leaseAreaHeader, stripAreaUnitFromHeader, isLeaseAreaHeader } from './binder/lease-area-format';
+import type { AreaInputUnit } from '../rentroll-meta';
 
+/** 표준 10열 머리글의 stem (면적 열은 단위 꼬리표 없음 — 실제 표기는 basicRentRollHeaders(unit)) */
 export const BASIC_RENTROLL_HEADERS = [
   '층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일',
 ] as const;
+
+/** 입력 단위가 반영된 표준 10열 머리글 ('임대면적(㎡)' · '전용면적(㎡)' 등) */
+export function basicRentRollHeaders(unit: AreaInputUnit = 'sqm'): string[] {
+  return BASIC_RENTROLL_HEADERS.map((h, i) =>
+    i === 3 ? leaseAreaHeader('lease', unit) : i === 4 ? leaseAreaHeader('exclusive', unit) : h);
+}
+
+/** 머리글 행이 표준 10열(+선택 비고 11열)인지 — 면적 머리글은 stem 접두어로 비교 */
+export function isBasicRentRollHeaderRow(head: unknown): boolean {
+  if (!Array.isArray(head)) return false;
+  const n = BASIC_RENTROLL_HEADERS.length;
+  if (!(head.length === n || (head.length === n + 1 && String(head[n]) === '비고'))) return false;
+  return BASIC_RENTROLL_HEADERS.every((h, i) => (
+    i === 3 || i === 4
+      ? isLeaseAreaHeader(head[i], i === 3 ? 'lease' : 'exclusive')
+      : String(head[i]) === h));
+}
 
 /** D6: 입력(비고/임대상태/갱신요구권)이 있을 때만 붙는 11번째 열 */
 export const RENTROLL_NOTE_HEADER = '비고';
@@ -85,7 +108,7 @@ export function detectAreaColumnMode(rows: unknown[][]): AreaColumnMode {
   return 'lease';
 }
 
-export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjection {
+export function projectBasicRentRollColumns(rows: unknown[][], unit: AreaInputUnit = 'sqm'): AreaColumnProjection {
   const mode = detectAreaColumnMode(rows);
   const all = BASIC_RENTROLL_HEADERS.map((_, i) => i);
   const dropIdx = mode === 'both' ? -1 : mode === 'lease' ? EXCLUSIVE_AREA_COL : LEASE_AREA_COL;
@@ -140,7 +163,8 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
     else w[1] += freedExp * 0.25;
   }
   const colW = keep.map((i) => Math.round(w[i] * 100) / 100);
-  const headerAt = (i: number): string => (i === NOTE_COL ? RENTROLL_NOTE_HEADER : BASIC_RENTROLL_HEADERS[i]);
+  const unitHeaders = basicRentRollHeaders(unit);
+  const headerAt = (i: number): string => (i === NOTE_COL ? RENTROLL_NOTE_HEADER : unitHeaders[i]);
 
   return {
     mode,
@@ -150,8 +174,8 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
   };
 }
 
-/** 숫자 열(우측 정렬) 판정 — 열 인덱스가 아니라 머리글 기준 (투영 후에도 정렬이 유지되도록) */
+/** 숫자 열(우측 정렬) 판정 — 열 인덱스가 아니라 머리글 기준 (투영 후에도 정렬이 유지되도록). 면적 머리글은 '(㎡)'/'(평)' 꼬리표를 떼고 stem 으로 비교 */
 const NUMERIC_HEADERS = new Set(['임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계']);
 export function isNumericRentRollHeader(header: string): boolean {
-  return NUMERIC_HEADERS.has(header);
+  return NUMERIC_HEADERS.has(stripAreaUnitFromHeader(header));
 }

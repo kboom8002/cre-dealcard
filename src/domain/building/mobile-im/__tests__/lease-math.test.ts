@@ -5,6 +5,7 @@ import {
   residentialVacatePoint,
   resolveLedger,
   resolveCapabilities,
+  resolveEvaluationDate,
 } from '../lease-math';
 import type { LeaseRow } from '@/types/im';
 
@@ -186,5 +187,38 @@ describe('Lease Math & Vacate Schedule Contracts (Phase 2-2)', () => {
       }];
       expect(resolveLedger(rows)).toBe('R3');
     });
+  });
+});
+
+describe('v1.4 — 계약 단위 해상도 & 평가 기준일 (LeaseRow 호환)', () => {
+  const mk = (o: Partial<LeaseRow>): LeaseRow => ({
+    unitLabel: '101호', tenantBusiness: '카페', depositKrw: 30_000_000, monthlyRentKrw: 2_000_000, currentExpiryDate: '2027-01-01',
+    leaseState: '임대중', contractGroup: null, leaseAreaSqm: 50, legalBasis: '상가', mgmtFeeKrw: 200_000, currentStartDate: '2025-01-01',
+    firstContractDate: '2020-01-01', renewalExercised: '없음', opposingPower: '사업자등록', note: null, ...o,
+  });
+
+  it('LM-08: 통합계약 비대표 행(금액 null)이 있어도 R3 (v1.3 규칙이면 R0)', () => {
+    const rep = mk({ unitLabel: '1F', contractGroup: 'A' });
+    const sub = mk({ unitLabel: '2F', contractGroup: 'A', monthlyRentKrw: null, mgmtFeeKrw: null, depositKrw: null });
+    expect(resolveLedger([rep, sub])).toBe('R3');
+    expect(resolveLedger([rep, sub], { asOf: '2025-05-15' })).toBe('R3');
+    // v1.3 규칙: 임대중 모든 행에 월세
+    const v13 = [rep, sub].filter(r => r.leaseState === '임대중').every(r => r.monthlyRentKrw !== null);
+    expect(v13).toBe(false);
+  });
+
+  it('LM-09: 그룹에 금액 행이 2개면 R0 (금액 중복)', () => {
+    const a = mk({ unitLabel: '1F', contractGroup: 'A' });
+    const b = mk({ unitLabel: '2F', contractGroup: 'A' });
+    expect(resolveLedger([a, b])).toBe('R0');
+  });
+
+  it('LM-10: 갱신권 잔여는 평가 기준일(C5) 기준 — 기준일이 다르면 잔여가 다르다', () => {
+    const row = mk({ firstContractDate: '2023-04-01' });
+    const at = (ymd: string) => commercialVacatePoint(row, resolveEvaluationDate(ymd));
+    const r1 = at('2025-05-15');
+    const r2 = at('2026-10-10');
+    expect(r1.state === 'determined' && r1.reason).toContain('잔여 7.9년');
+    expect(r2.state === 'determined' && r2.reason).toContain('잔여 6.5년');
   });
 });

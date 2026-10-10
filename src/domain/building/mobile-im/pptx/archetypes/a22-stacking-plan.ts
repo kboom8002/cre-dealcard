@@ -16,6 +16,8 @@ import { C, M, CW, KR, NUM, CD } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import type { StackingPlanFloor, StackingPlanSummary, TenantCategory } from '../../types';
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+import { PYEONG_TO_SQM_V15, areaUnitLabel, resolveAreaInputUnit, sqmToInputUnit, type AreaInputUnit } from '../../rentroll-meta';
+import { formatAreaNumber } from '../../lease-area-cell';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -730,8 +732,25 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
   const tableY = kpiY + kpiH + 0.16;
   const tableW = 5.92;
 
-  const tableHeaders = ['층수', '주용도', '전용(평)', '임대(평)', '주요 입주사', '만기'];
+  // v1.5 §9.1: 렌트롤 계열 임대면적 표기 → 입력 단위(㎡|평) 단일 단위. 데이터가 없으면 ㎡ 기본.
+  const areaUnit: AreaInputUnit = resolveAreaInputUnit({
+    area_input_unit: input.data.areaInputUnit ?? input.data.rentRollMeta?.area_input_unit,
+  });
+  const areaUnitText = areaUnitLabel(areaUnit);
+  const tableHeaders = ['층수', '주용도', `전용(${areaUnitText})`, `임대(${areaUnitText})`, '주요 입주사', '만기'];
   const tableColW = [0.65, 1.15, 0.78, 0.78, 1.96, 0.60]; // 0.65 + 1.15 + 0.78 + 0.78 + 1.96 + 0.60 = 5.92"
+
+  /** 층 면적 → 입력 단위 값. 입력 단위와 같은 원천(㎡/평)이 있으면 그 값을, 없으면 환산(평=㎡÷3.305785, ㎡=평×3.305785) */
+  const floorAreaInUnit = (m2?: number | null, py?: number | null): number | null => {
+    const hasM2 = typeof m2 === 'number' && Number.isFinite(m2) && m2 > 0;
+    const hasPy = typeof py === 'number' && Number.isFinite(py) && py > 0;
+    if (areaUnit === 'pyeong') {
+      if (hasPy) return Math.round((py as number) * 100) / 100;
+      return hasM2 ? sqmToInputUnit(m2 as number, 'pyeong') : null;
+    }
+    if (hasM2) return Math.round((m2 as number) * 100) / 100;
+    return hasPy ? sqmToInputUnit((py as number) * PYEONG_TO_SQM_V15, 'sqm') : null;
+  };
 
   const displayTableRows: Array<[string, string, string, string, string, string]> = [];
 
@@ -739,27 +758,30 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     displayTableRows.push([
       f.floor || '-',
       f.use ? f.use.replace(/제[12]종근린생활시설/g, '근린생활').slice(0, 10) : '-',
-      f.exclusiveAreaPy != null ? f.exclusiveAreaPy.toFixed(1) : (f.exclusiveAreaM2 ? (sqmToPyeong(f.exclusiveAreaM2)).toFixed(1) : '-'),
-      f.leasableAreaPy != null ? f.leasableAreaPy.toFixed(1) : (f.leasableAreaM2 ? (sqmToPyeong(f.leasableAreaM2)).toFixed(1) : '-'),
+      formatAreaNumber(floorAreaInUnit(f.exclusiveAreaM2, f.exclusiveAreaPy)),
+      formatAreaNumber(floorAreaInUnit(f.leasableAreaM2, f.leasableAreaPy)),
       f.tenant ? f.tenant.slice(0, 18) : '-',
       f.expiryYear && f.expiryYear > 0 ? `${f.expiryYear}` : '-',
     ]);
   });
 
   // ── 동적 집계 계산 (Dynamic Summary Calculation) ──
-  // 1) 실제 전용면적(평) 합산
-  const realTotalExclusivePy = normalizedFloors.reduce((sum, f) => {
-    const py = f.exclusiveAreaPy ?? (f.exclusiveAreaM2 ? sqmToPyeong(f.exclusiveAreaM2) : 0);
-    return sum + (typeof py === 'number' && !isNaN(py) ? py : 0);
+  // 1) 실제 전용면적 합산 (입력 단위, 행에 표시된 값의 합)
+  const realTotalExclusive = normalizedFloors.reduce((sum, f) => {
+    const v = floorAreaInUnit(f.exclusiveAreaM2, f.exclusiveAreaPy);
+    return sum + (v ?? 0);
   }, 0);
-  const fallbackExclusivePy = summary.totalExclusiveAreaPy
-    ? String(summary.totalExclusiveAreaPy)
+  /** 평 단위 요약값(요약 필드는 평) → 입력 단위 표기 */
+  const pyToUnitText = (py: number): string =>
+    formatAreaNumber(areaUnit === 'pyeong' ? Math.round(py * 100) / 100 : sqmToInputUnit(py * PYEONG_TO_SQM_V15, 'sqm'));
+  const fallbackExclusive = summary.totalExclusiveAreaPy
+    ? pyToUnitText(Number(summary.totalExclusiveAreaPy))
     : (summary.totalGrossAreaPy && summary.exclusiveRatePct
-        ? ((summary.totalGrossAreaPy * summary.exclusiveRatePct) / 100).toFixed(1)
+        ? pyToUnitText((summary.totalGrossAreaPy * summary.exclusiveRatePct) / 100)
         : '-');
-  const formattedExclusivePy = realTotalExclusivePy > 0
-    ? realTotalExclusivePy.toFixed(1)
-    : fallbackExclusivePy;
+  const formattedExclusivePy = realTotalExclusive > 0
+    ? formatAreaNumber(Math.round(realTotalExclusive * 100) / 100)
+    : fallbackExclusive;
 
   // 2) 실제 공실 층수 및 텍스트 산출
   const vacantFloorsCount = normalizedFloors.filter(f => f.isVacant || f.category === 'vacant' || f.tenantCategory === 'vacant').length;
@@ -790,9 +812,9 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     dynamicAnchorNote = '일반 임대 운용';
   }
 
-  // 4) 실제 연면적/임대면적 표기
+  // 4) 실제 연면적/임대면적 표기 (요약 필드는 평 → 표 입력 단위로 환산, 값이 없으면 기존처럼 원문 유지)
   const formattedGfa = typeof totalGfaPy === 'number'
-    ? `${totalGfaPy.toLocaleString()}`
+    ? (Number.isFinite(totalGfaPy) && totalGfaPy > 0 ? pyToUnitText(totalGfaPy) : `${totalGfaPy}`)
     : `${totalGfaPy}`;
 
   // 합계 행 추가

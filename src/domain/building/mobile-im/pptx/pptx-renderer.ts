@@ -30,6 +30,8 @@ import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 import { validateLayout } from './layout-validator';
 import { validateYield, type Yield } from './yield-object';
 import { buildYieldSetFromBody } from '../yield-set';
+import { resolveAreaInputUnit } from '../rentroll-meta';
+import { buildRentrollFactsNote } from './binder/rentroll-check-facts';
 import { summarizeLeaseOccupancy, isNonLeasableLeaseRow } from '../lease-vacancy';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
@@ -867,6 +869,13 @@ export class MobileImPptxRenderer {
         if (dataMap['rentRoll'] && Array.isArray(input.doc.body?.floor_leases)) {
           const nonLeasable = (input.doc.body.floor_leases as any[]).filter(r => r && isNonLeasableLeaseRow(r)).length;
           if (nonLeasable > 0) (dataMap['rentRoll'] as any).nonLeasableRowCount = nonLeasable;
+        }
+        // v1.5 §9.1 — 면적 표기 단위(G9)와 계산된 사실 각주(V06·V07~V09). 값이 없으면 키 자체를 달지 않는다
+        if (dataMap['rentRoll']) {
+          const rrData = dataMap['rentRoll'] as any;
+          if (!rrData.areaInputUnit) rrData.areaInputUnit = resolveAreaInputUnit(input.doc.body?.rent_roll_meta);
+          const factsNote = buildRentrollFactsNote(input.doc.body?.rentroll_checks);
+          if (factsNote) rrData.rentrollFactsNote = factsNote;
         }
       }
 

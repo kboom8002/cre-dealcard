@@ -23,9 +23,10 @@ import {
   type MobileIMWriterInput,
   type MobileIMWriterOutput,
 } from "./types";
-import { runPublishGates } from './quality-gates-v02';
+import { runPublishGates, deriveRentrollGateContext } from './quality-gates-v02';
 import { MOBILE_IM_STANDARD_DISCLAIMER, humanizeGuardrailTokensForView } from "./guardrails";
 import type { DCFOutputs } from "./dcf-sensitivity";
+import { sumLeasedRentRoll } from "./lease-vacancy";
 import { runCrossValidation, type CrossValidatorAnchors } from "./cross-validator";
 import { createServiceClient } from "@/lib/supabase/service";
 import { indexIMSections } from "./im-embedding-indexer";
@@ -54,6 +55,7 @@ import { NumericalAnchors } from "./numerical-anchors";
 import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
 import { calculateFinancials } from "./financials";
 import { brokerFinancialExtras } from "./broker-financial-inputs";
+import { resolveMonthlyRentKrw } from "./rentroll-checks";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
 import { resolveLandAreaWithSource, readSsotLayerAreas, readVworldLandAreaSqm, positiveOrNull, positiveOrZero } from "./resolve-total-area";
 import { summarizeParcels } from "./parcel-input";
@@ -100,7 +102,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     askingPriceKrw: ctx.purchasePriceKrw,
     totalAreaSqm: ctx.totalAreaSqm,
     landAreaSqm: resolvedLand.value,
-    monthlyRentTotalKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : (input.supplemental?.monthly_rent_total_krw ?? 0),
+    monthlyRentTotalKrw: resolveMonthlyRentKrw(input.supplemental),
     totalDepositKrw: ctx.cachedFinancials?.totalDepositBil ? ctx.cachedFinancials.totalDepositBil * 1e8 : (input.supplemental?.total_deposit_manwon ? input.supplemental.total_deposit_manwon * 10000 : 0),
     vacancyPct: input.supplemental?.vacancy_pct ?? 0,
     ...(ctx.cachedFinancials?.capRate?.base ? { capRateBase: ctx.cachedFinancials.capRate.base } : {}),
@@ -140,7 +142,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   const financialClaimResult = financialCalc.calculate({
     posture: ctx.sectionPlan.posture as any,
     purchasePriceKrw: ctx.purchasePriceKrw,
-    monthlyRentKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : (input.supplemental?.monthly_rent_total_krw ?? 0),
+    monthlyRentKrw: resolveMonthlyRentKrw(input.supplemental),
     totalAreaSqm: ctx.totalAreaSqm,
     platAreaSqm: resolvedLand.value > 0 ? resolvedLand.value : undefined,
     vacancyRatePct: input.supplemental?.vacancy_pct ?? undefined,
@@ -175,7 +177,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       return calculateFinancials({
         posture: ctx.sectionPlan.posture as any,
         purchasePriceKrw: ctx.purchasePriceKrw,
-        monthlyRentKrw: input.supplemental?.monthly_rent_total_krw ?? 0,
+        monthlyRentKrw: resolveMonthlyRentKrw(input.supplemental),
         totalAreaSqm: ctx.totalAreaSqm,
         platAreaSqm: resolvedLand.value > 0 ? resolvedLand.value : undefined,
         vacancyRatePct: input.supplemental?.vacancy_pct ?? undefined,
@@ -201,7 +203,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           ?? undefined,
         // 개발형 Hold 모드: floor_leases 월 총임대수익 합산 → 연 수익률 산출
         devHoldMonthlyRentManwon: Array.isArray(input.supplemental?.floor_leases)
-          ? (input.supplemental.floor_leases as any[]).reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0), 0)
+          ? sumLeasedRentRoll(input.supplemental.floor_leases as any[]).rentManwon
           : undefined,
       });
     } catch {
@@ -476,6 +478,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       calculationNotReproducible: false,  // FinancialCalculator 결정론적 → 항상 재현 가능
       pageCountExceeded: false,           // deck-sequencer에서 절삭으로 보장
       permitZoneNotDisplayed: derivedDA.hasPermitZone === true && !sections.some(s => s.section_type === 'property_overview'),
+      // 렌트롤 v1.5 V01/V12 — 생성은 막지 않고(publishBlocked 는 리포트용) 승인·발행 차단은 handler 의 body.gateReport 가 담당
+      ...deriveRentrollGateContext(input.supplemental),
     };
     const gateReport = runPublishGates(gateCtx);
     if (gateReport.blocked) {

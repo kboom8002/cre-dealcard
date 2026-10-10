@@ -13,6 +13,7 @@ import {
 import type { Comp } from '@/types/im-core';
 import type { SectionData } from './binder-types';
 import { buildProRentRollTable, detectProAreaMode } from './pro-rentroll-table';
+import { PYEONG_TO_SQM_V15, resolveAreaInputUnit } from '../../rentroll-meta';
 import { createModuleLogger } from '@/lib/logger';
 // 로그 모듈명은 분할 전과 동일하게 유지 (모니터링 쿼리 호환)
 const log = createModuleLogger('data-binder');
@@ -50,13 +51,23 @@ export function bindProImChapterData(
     0
   );
 
-  const rawCapRate = Number(
+  // Q1(v1.5): 수익률 정본 = V04 (Σ월세×12 ÷ (매매가−보증금)). 문서에 수익률이 없을 때의 폴백도 같은 정의를 쓴다.
+  const v04Denominator = askingPriceKrw - totalDepositKrw;
+  const v04FallbackPct =
+    annualRentKrw > 0 && Number.isFinite(askingPriceKrw) && askingPriceKrw > 0 && v04Denominator > 0
+      ? Number(((annualRentKrw / v04Denominator) * 100).toFixed(2))
+      : 0;
+  const docCapRate = Number(
     doc.body?.cap_rate_percent ||
     (doc.body?.cap_rate_base ? Number(doc.body.cap_rate_base) * 100 : 0) ||
     (doc.body?.ssot_summary?.cap_rate ? Number(doc.body.ssot_summary.cap_rate) : 0) ||
-    (askingPriceKrw > 0 && Number.isFinite(askingPriceKrw) ? Number(((annualRentKrw / askingPriceKrw) * 100).toFixed(2)) : 0)
+    0
   );
+  const capRateFromDoc = Number.isFinite(docCapRate) && docCapRate > 0;
+  const rawCapRate = capRateFromDoc ? docCapRate : v04FallbackPct;
   const capRatePct = Number.isFinite(rawCapRate) && rawCapRate > 0 ? rawCapRate : 0;
+  /** 폴백(V04)으로 산출된 수익률이면 기준을 라벨에 명시 */
+  const capRateBasisLabel = !capRateFromDoc && capRatePct > 0 ? '수익률 (월세×12÷(매매가−보증금))' : '초기 Cap Rate';
 
   const grossFloorAreaPy = Number(
     doc.body?.total_gross_area_py ||
@@ -94,26 +105,32 @@ export function bindProImChapterData(
           item.area_m2 ??
           item.leased_area_sqm ??
           item.area_sqm ??
-          (item.area_py != null ? Number(item.area_py) / 0.3025 : 0)
+          (item.area_py != null ? Number(item.area_py) * PYEONG_TO_SQM_V15 : undefined) ??
+          (item.area_pyeong != null ? Number(item.area_pyeong) * PYEONG_TO_SQM_V15 : undefined) ??
+          (item.leased_area_pyeong != null ? Number(item.leased_area_pyeong) * PYEONG_TO_SQM_V15 : 0)
         ) || 0);
+        // v1.5 §9.1: 평 표기값 = ㎡ ÷ 3.305785 (반올림 전 ㎡ 기준, 표기 단계에서 소수 2자리)
         const areaPy = isProxyArea ? 0 : (Number(
           item.leasedAreaPyeong ??
           item.leased_area_pyeong ??
           item.area_py ??
           item.area_pyeong ??
-          (areaM2 * 0.3025)
+          (areaM2 / PYEONG_TO_SQM_V15)
         ) || 0);
         // 전용면적: 사용자가 기입한 값만 (임대면적으로 대체하지 않는다)
         const excM2Raw = Number(item.exclusiveAreaM2 ?? item.exclusive_area_m2 ?? item.exclusive_area_sqm ?? 0) || 0;
-        const excPyRaw = Number(item.exclusiveAreaPyeong ?? item.exclusive_area_pyeong ?? (excM2Raw * 0.3025)) || 0;
+        const excPyRaw = Number(item.exclusiveAreaPyeong ?? item.exclusive_area_pyeong ?? (excM2Raw / PYEONG_TO_SQM_V15)) || 0;
         const depKrw = item.deposit_manwon != null
           ? Number(item.deposit_manwon) * 10000
           : Number(item.depositKrw ?? item.deposit_krw ?? item.deposit ?? 0);
-        const rentKrw = item.monthly_rent_manwon != null
-          ? Number(item.monthly_rent_manwon) * 10000
+        // X2: floor_leases 의 실제 키는 rent_manwon / mgmt_fee_manwon (monthly_rent_manwon / maintenance_manwon 은 레거시 별칭)
+        const rentManwonRaw = item.monthly_rent_manwon ?? item.rent_manwon;
+        const rentKrw = rentManwonRaw != null
+          ? Number(rentManwonRaw) * 10000
           : Number(item.monthlyRentKrw ?? item.monthly_rent_krw ?? item.monthlyRent ?? 0);
-        const maintKrw = item.maintenance_manwon != null
-          ? Number(item.maintenance_manwon) * 10000
+        const maintManwonRaw = item.maintenance_manwon ?? item.mgmt_fee_manwon;
+        const maintKrw = maintManwonRaw != null
+          ? Number(maintManwonRaw) * 10000
           : Number(item.monthlyMaintenanceKrw ?? item.monthly_maintenance_krw ?? 0);
 
         const rosterItem: InstitutionalTenantRosterItem = {
@@ -121,8 +138,8 @@ export function bindProImChapterData(
           unitNumber: String(item.unitNumber || item.unit_number || `${item.floor || idx + 1}01호`),
           tenantName: String(item.tenantName || item.tenant_name || item.name || '임차인'),
           industry: String(item.industry || item.category || '일반업무'),
-          leasedAreaM2: Number(areaM2.toFixed(1)),
-          leasedAreaPyeong: Number(areaPy.toFixed(1)),
+          leasedAreaM2: Math.round(areaM2 * 100) / 100,
+          leasedAreaPyeong: Math.round(areaPy * 100) / 100,
           depositKrw: depKrw,
           monthlyRentKrw: rentKrw,
           monthlyMaintenanceKrw: maintKrw,
@@ -130,7 +147,7 @@ export function bindProImChapterData(
           leaseEndDate: item.leaseEndDate || item.lease_end_date || item.lease_end || '',
           statutoryProtection10Y: Boolean(item.statutoryProtection10Y ?? item.statutory_protection_10y ?? true),
           isAnchor: Boolean(item.isAnchor ?? item.is_anchor ?? false),
-          ...(excM2Raw > 0 ? { exclusiveAreaM2: Math.round(excM2Raw * 10) / 10, exclusiveAreaPyeong: Math.round(excPyRaw * 10) / 10 } : {}),
+          ...(excM2Raw > 0 ? { exclusiveAreaM2: Math.round(excM2Raw * 100) / 100, exclusiveAreaPyeong: Math.round(excPyRaw * 100) / 100 } : {}),
         };
         const grp = String(item.contract_group ?? item.contractGroup ?? '').trim();
         if (grp) rosterContractGroup.set(rosterItem, grp);
@@ -151,6 +168,8 @@ export function bindProImChapterData(
     return !!g && groupsWithAmount.has(g) && !(t.depositKrw > 0) && !(t.monthlyRentKrw > 0) && !(t.monthlyMaintenanceKrw > 0);
   };
   const proAreaMode = detectProAreaMode(rawLeases);
+  /** v1.5 §9.1: 렌트롤 입력 단위 (G9). 없으면 ㎡ */
+  const areaInputUnit = resolveAreaInputUnit(doc.body?.rent_roll_meta);
 
   const waleRes = calculateProWALE(rawLeases);
   const waleYears = waleRes.waleByRentYears || 0;
@@ -333,14 +352,14 @@ export function bindProImChapterData(
           ['희망 매매가', exactAskText],
           ['대지 평당가', `${pricePerPyeongLand.toLocaleString()}만 원/평`],
           ['연면적 평당가', `${pricePerPyeongGfa.toLocaleString()}만 원/평`],
-          ['기준 연 순수익률', `${capRatePct.toFixed(2)}% (NOI 환원 기준)`],
+          ['기준 연 순수익률', capRateBasisLabel === '초기 Cap Rate' ? `${capRatePct.toFixed(2)}% (NOI 환원 기준)` : `${capRatePct.toFixed(2)}% (월세×12÷(매매가−보증금) 기준)`],
           ['물리적 상태', '사용승인 이후 지속적 관리 및 시설 유지보수 양호'],
         ],
       },
       right: {
         stats: [
           { label: '희망 매매가', value: exactAskText },
-          { label: '초기 Cap Rate', value: `${capRatePct.toFixed(2)}%` },
+          { label: capRateBasisLabel, value: `${capRatePct.toFixed(2)}%` },
           { label: 'WALE (가중만기)', value: `${waleYears.toFixed(1)}년` },
         ],
         callouts: [
@@ -385,6 +404,7 @@ export function bindProImChapterData(
       const { tableHead, tableRows } = buildProRentRollTable({
         chunk,
         mode: proAreaMode,
+        unit: areaInputUnit,
         grandTotal: chunk.isLastPage ? (chunk.grandTotal || calculateTenantRosterSubtotal(rawLeases)) : undefined,
         allItems: rawLeases,
         isGroupFollower,
@@ -416,7 +436,7 @@ export function bindProImChapterData(
       content: '',
       tables: [],
       metrics: {},
-      tableHead: ['만기 연도', '해당 임차인 수', '만기 면적(평)', '만기 월세(만원)', '비중 (%)', '누적 비중 (%)'],
+      tableHead: ['만기 연도', '해당 임차인 수', `만기 면적(${areaInputUnit === 'pyeong' ? '평' : '㎡'})`, '만기 월세(만원)', '비중 (%)', '누적 비중 (%)'],
       tableRows: [],
       _derived: true,
     };

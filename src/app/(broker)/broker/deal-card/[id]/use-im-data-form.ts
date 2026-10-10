@@ -12,6 +12,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
+import type { RentRollMeta } from "@/domain/building/mobile-im/rentroll-meta";
 import { computeFinancialSummary } from "@/domain/building/financials";
 import { uploadPhotosSequentially } from "@/lib/image-compressor";
 import { toast } from "sonner";
@@ -248,6 +249,8 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
     const [exteriorPhotoIndex, setExteriorPhotoIndex] = useState<number | null>(null);
     const [floorLeases, setFloorLeases] = useState<Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>>([]);
     const floorLeasesRef = useRef(floorLeases);
+    // 렌트롤 v1.5 메타 (G9 면적 단위 · C5 기준일 · J3~J8 · V12 해제 사유) — 생성 요청마다 재전송해야 서버 기본값('sqm')으로 덮이지 않는다
+    const [rentRollMeta, setRentRollMeta] = useState<RentRollMeta | null>(null);
     const [manualComps, setManualComps] = useState<Array<{ address: string; dealAmount: string; area: string; dealYear: string; dealMonth: string; buildingUse: string; memo: string; }>>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [readinessScore, setReadinessScore] = useState(0);
@@ -369,6 +372,10 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
           }
           // 전문가 한줄 의견 복원 — Basic/Pro 공통 (이전: Pro 전용 + body 미기록으로 사실상 죽은 코드)
           if (existingDocBody?.broker_highlight && !brokerHighlight) setBrokerHighlight(String(existingDocBody.broker_highlight));
+          // 렌트롤 v1.5 메타 복원 — 재생성 시 면적 단위·V12 해제 사유가 기본값('sqm')으로 리셋되지 않게 한다
+          if (existingDocBody?.rent_roll_meta && typeof existingDocBody.rent_roll_meta === 'object') {
+            setRentRollMeta((prev) => prev ?? (existingDocBody.rent_roll_meta as RentRollMeta));
+          }
           // D4: 중개인 추가 정보 복원 — 이미 입력 중인 값이 있으면 덮어쓰지 않음
           if (existingDocBody?.broker_extras) {
             const restored = brokerExtrasToForm(existingDocBody.broker_extras);
@@ -678,6 +685,7 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
               order: idx,
             })) : undefined,
             floor_leases: (floorLeasesRef.current.length > 0 ? floorLeasesRef.current : floorLeases.length > 0 ? floorLeases : undefined),
+            rent_roll_meta: rentRollMeta ?? undefined,
             logistics,
             hospitalitySpec,
             developmentSpec,
@@ -934,6 +942,8 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
       vacancyPct,
       setFloorLeases,
       floorLeasesRef,
+      rentRollMeta,
+      setRentRollMeta,
       monthlyRentRef,
       handleEnterKey,
       totalDepositRef,

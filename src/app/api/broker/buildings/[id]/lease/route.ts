@@ -141,6 +141,9 @@ export async function POST(
     .eq('id', id);
 
   // v3: Persist normalized lease units to dedicated table (S2-T11)
+  // 두 작성자(generate-async 바텀시트 / 이 스튜디오 폼)가 같은 asset_id 행을 공유한다. 이 폼은 계약그룹·전용면적·적용법령·
+  // 근거·렌트프리·입금확인 등을 모르므로 (1) sparse: 이 폼이 값을 주지 않은 컬럼은 upsert 에서 빼 다른 작성자의 값을 null 로
+  // 덮어쓰지 않고, (2) pruneSourceTier: 이 폼이 만든 행('studio_input')만 정리해 바텀시트가 만든 행을 지우지 않는다.
   try {
     const leaseUnits = (normalizedSummary.privateLayer?.tenants || []).map((t: any, idx: number) => ({
       floor: t.floor || `${idx + 1}F`,
@@ -148,11 +151,12 @@ export async function POST(
       area_pyung: Number(t.area_pyung || t.면적 || 0),
       deposit_krw: Number(t.deposit_krw || t.보증금 || 0),
       monthly_rent_krw: Number(t.monthly_rent_krw || t.월세 || 0),
-      mgmt_fee_krw: Number(t.mgmt_fee_krw || t.관리비 || 0),
-      source_tier: 'broker_input',
+      // X4: 빈 관리비를 0원으로 저장하지 않는다 (0 → undefined → null)
+      mgmt_fee_krw: Number(t.mgmt_fee_krw || t.관리비 || 0) || undefined,
+      source_tier: 'studio_input',
     }));
     if (leaseUnits.length > 0) {
-      const persistResult = await persistLeaseUnits(id, leaseUnits);
+      const persistResult = await persistLeaseUnits(id, leaseUnits, undefined, { sparse: true, pruneSourceTier: 'studio_input' });
       log.info(`[lease] Persisted ${persistResult.inserted} units to lease_units table`);
     }
   } catch (err) {

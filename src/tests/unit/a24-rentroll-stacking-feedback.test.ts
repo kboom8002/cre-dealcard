@@ -14,7 +14,9 @@ import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import fs from 'fs';
 import path from 'path';
-import { bindRentRollTable, resolveTenantAndUse, formatAreaSqm } from '@/domain/building/mobile-im/pptx/binder/rent-roll-table-builder';
+import { bindRentRollTable, resolveTenantAndUse } from '@/domain/building/mobile-im/pptx/binder/rent-roll-table-builder';
+import { formatLeaseArea } from '@/domain/building/mobile-im/pptx/binder/lease-area-format';
+import { PYEONG_TO_SQM_V15 } from '@/domain/building/mobile-im/rentroll-meta';
 import {
   buildA24RentrollStacking,
   physicalFloorKey,
@@ -87,18 +89,20 @@ describe('bindRentRollTable — 면적·용도·관리비/만기일 매핑 (p5 �
   const byFloor = (f: string) => rr.tableRows.find(r => r[0] === f)!;
 
   it('POSITIVE: 임대면적은 area_pyeong ㎡ 환산(천 단위 구분), 전용면적 미입력은 "-"', () => {
-    expect(byFloor('2F')[3]).toBe('209.6 (63.4평)'); // D6: ㎡ + 평 병기
-    expect(byFloor('B1')[3]).toMatch(/^422\.1 \(\d+(\.\d)?평\)$/);
+    // v1.5 §9.1: 단일 단위 · 소수 2자리 ('(63.4평)' 병기 제거)
+    expect(byFloor('2F')[3]).toBe('209.59');
+    expect(byFloor('B1')[3]).toBe('422.15');
     for (const r of rr.tableRows) expect(r[4]).toBe('-');
+    expect(rr.tableHead.slice(3, 5)).toEqual(['임대면적(㎡)', '전용면적(㎡)']);
   });
 
   it('NEGATIVE: 전용면적 칸에 임대면적 값을 복사하지 않는다 / 입력이 있으면 실제 값', () => {
     for (const r of rr.tableRows) expect(r[4]).not.toBe(r[3]);
     const withExc = bind([{ floor: '1F', tenant_type: '카페', area_sqm: 1234.5, exclusive_area_sqm: 987.6, deposit_manwon: 1, rent_manwon: 1 }]);
-    expect(withExc.tableRows[0][3]).toBe('1,234.5 (373.4평)');
-    expect(withExc.tableRows[0][4]).toBe('987.6');
+    expect(withExc.tableRows[0][3]).toBe('1,234.50');
+    expect(withExc.tableRows[0][4]).toBe('987.60');
     const withExcPy = bind([{ floor: '1F', tenant_type: '카페', area_pyeong: 30, exclusive_area_pyeong: 20 }]);
-    expect(withExcPy.tableRows[0][4]).toBe(formatAreaSqm(20 / 0.3025));
+    expect(withExcPy.tableRows[0][4]).toBe(formatLeaseArea(20 * PYEONG_TO_SQM_V15, 'sqm'));
   });
 
   it('POSITIVE: 용도는 임차인과 다를 때만 — 업종(상호) 문자열은 분해', () => {
@@ -140,16 +144,46 @@ describe('A24 슬라이드 렌더 (OpenXML) — p5 렌트롤', () => {
     expect(r.tableTexts).toEqual(expect.arrayContaining(['9F-A', '9F-B']));
   });
 
-  it('POSITIVE: 스태킹 라벨 단위는 ㎡ (표와 같은 숫자), 합계는 천 단위 구분', async () => {
+  it('POSITIVE: 스태킹 라벨 단위는 ㎡ (표와 같은 숫자), 합계는 표시값의 합 · 천 단위 구분 · 평 병기 없음', async () => {
     const r = await renderSlideXml(bind(p5Leases));
-    expect(r.nonTableTexts.some(t => /209\.6㎡$/.test(t))).toBe(true);
-    expect(r.nonTableTexts.some(t => /422\.1㎡$/.test(t))).toBe(true);
-    // 합계: 천 단위 구분 + 평 병기 (데이터 행이 평 병기일 때)
-    expect(r.tableTexts.some(t => /^2,490\.3 \(\d+(\.\d)?평\)$/.test(t))).toBe(true);
-    expect(r.tableTexts).not.toContain('2490.3');
+    expect(r.nonTableTexts.some(t => /209\.59㎡$/.test(t))).toBe(true);
+    expect(r.nonTableTexts.some(t => /422\.15㎡$/.test(t))).toBe(true);
+    // 합계: 행 표기값(소수 2자리)의 합 — v1.5 §9.1, '(N평)' 병기 없음
+    expect(r.tableTexts).toContain('2,490.28');
+    expect(r.tableTexts.some(t => /\(\d+(\.\d)?평\)/.test(t))).toBe(false);
+    expect(r.tableTexts).not.toContain('2490.28');
+    expect(r.nonTableTexts).toContain('층별 스태킹 플랜 (㎡)');
+    expect(r.nonTableTexts).toContain('면적 ㎡ · 금액 만원');
   });
 
-  it('NEGATIVE: 스태킹 도식에 평 라벨·겹치는 각주 없음 (표는 ㎡ + 평 병기), 열 수 = 셀 수 (Rule 68/70)', async () => {
+  it('POSITIVE(평 모드): 머리글·라벨·합계·캡션·스트립 제목이 모두 평 단일 단위, 대장 스냅 없음', async () => {
+    const pyBody = { preset: 'credeal_basic', floor_leases: p5Leases, rent_roll_meta: { area_input_unit: 'pyeong' } };
+    const result: Record<string, any> = { rentRoll: { title: '렌트롤', content: '', tables: [] } };
+    bindRentRollTable({ body: pyBody }, '', result);
+    const r = await renderSlideXml({ ...result.rentRoll, registerTotalAreaSqm: 8230.55 });
+    expect(r.tableTexts).toEqual(expect.arrayContaining(['임대면적(평)', '63.40']));
+    expect(r.tableTexts).not.toContain('임대면적(㎡)');
+    expect(r.nonTableTexts.some(t => /63\.40평$/.test(t))).toBe(true);
+    expect(r.nonTableTexts).toContain('층별 스태킹 플랜 (평)');
+    expect(r.nonTableTexts).toContain('면적 평 · 금액 만원');
+    expect(r.nonTableTexts.some(t => /㎡/.test(t) && !/면적/.test(t) && !/비고/.test(t))).toBe(false);
+    // 합계 = 표시값의 합 (127.70+55.00+63.40×8+32.00+31.40 = 753.30)
+    expect(r.tableTexts).toContain('753.30');
+  });
+
+  it('POSITIVE: 계산된 사실 각주(rentrollFactsNote)는 한 줄·하단 안전선 이내, 없으면 생략', async () => {
+    const base = bind(p5Leases);
+    const withNote = await renderSlideXml({ ...base, rentrollFactsNote: '12개월 내 만기·만료 경과 월세 12.5% · 근거 계약서 원본 3건 · 렌트프리 잔여 2개 호실' });
+    expect(withNote.nonTableTexts.some(t => t.startsWith('12개월 내 만기·만료 경과 월세'))).toBe(true);
+    const EMU = 914400;
+    const offs = [...withNote.xml.matchAll(/<a:off x="(\d+)" y="(\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/>/g)]
+      .map(m => ({ y: +m[2] / EMU, h: +m[4] / EMU }));
+    for (const o of offs.filter(o => o.y >= 1.5 && o.y < 6.8)) expect(o.y + o.h).toBeLessThanOrEqual(6.76);
+    const without = await renderSlideXml(base);
+    expect(without.nonTableTexts.some(t => t.startsWith('12개월 내'))).toBe(false);
+  });
+
+  it('NEGATIVE: 스태킹 도식에 평 라벨·겹치는 각주 없음 (㎡ 모드), 열 수 = 셀 수 (Rule 68/70)', async () => {
     const r = await renderSlideXml(bind(p5Leases));
     expect(r.nonTableTexts.some(t => /\d평/.test(t) && !/면적/.test(t))).toBe(false);
     expect(r.texts.some(t => t.includes('렌트롤 현황 기준'))).toBe(false);
@@ -171,6 +205,7 @@ describe('라벨/열폭 헬퍼', () => {
   it('POSITIVE: 넓으면 "임차인 면적㎡", 좁으면 임차인명만 (한 줄)', () => {
     expect(chooseStackLabel('건축설계사무소', '209.6', 1.5, 8)!.text).toBe('건축설계사무소 209.6㎡');
     expect(chooseStackLabel('컨설팅', '105.8', 0.5, 8)!.text).toBe('컨설팅');
+    expect(chooseStackLabel('건축설계사무소', '63.40', 1.5, 8, 7, false, '평')!.text).toBe('건축설계사무소 63.40평');
   });
 
   it('NEGATIVE: 매우 좁은 세그먼트는 라벨 생략, 숫자 아닌 셀은 포맷하지 않음', () => {

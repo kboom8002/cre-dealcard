@@ -143,11 +143,24 @@ async function resolveFixtureParcels(
   return out;
 }
 
+/** 골든 팩토리가 V12(면적 단위 의심) 차단을 해제할 때 입력하는 기본 사유 (bottom_sheet.json 의 v12OverrideReason 이 우선) */
+const DEFAULT_V12_OVERRIDE_REASON = '골든 테스트: 의도된 중개인 면적 오기 재현';
+
 /**
  * 렌트롤 xlsx 를 RentRollImporter 의 파일 입력(실제 업로드 경로)으로 올린다.
  * 파서 결과(합계·공실률·경고)는 화면 문구로 확인하고 콘솔에 남긴다.
+ *
+ * 렌트롤 v1.5: 임대면적 합이 연면적(J4)의 2배 초과/0.45배 미만이면 임포터가 V12(AREA_UNIT_MISMATCH)로 차단하고
+ * 폼에 아무것도 반영하지 않는다 (data-testid rent-roll-v12-panel). 이때는 해제 사유 textarea
+ * (rent-roll-v12-override-reason)에 사유를 적고 '사유 기록 후 V12 해제'(rent-roll-v12-override-apply)를 눌러야 반영된다.
+ *  - opts.expectV12Block=true  : 차단이 반드시 떠야 한다(unit-confusion 변형). 안 뜨면 실패.
+ *  - opts.expectV12Block=false : 차단이 뜨는 것은 예상 밖(보고 대상) — 경고를 남기되 생성은 계속하도록 같은 방식으로 해제한다.
  */
-async function uploadRentRollXlsxViaUi(page: Page, absXlsxPath: string): Promise<void> {
+async function uploadRentRollXlsxViaUi(
+  page: Page,
+  absXlsxPath: string,
+  opts: { expectV12Block?: boolean; v12OverrideReason?: string } = {},
+): Promise<void> {
   if (!fs.existsSync(absXlsxPath)) throw new Error(`렌트롤 xlsx 없음: ${absXlsxPath}`);
   // 엑셀 탭이 기본이지만 텍스트 탭이 열려 있을 수 있어 먼저 전환
   const input = page.locator('input[type="file"][accept*=".xlsx"]').first();
@@ -157,7 +170,29 @@ async function uploadRentRollXlsxViaUi(page: Page, absXlsxPath: string): Promise
   await input.waitFor({ state: 'attached', timeout: 10_000 });
   await input.setInputFiles(absXlsxPath);
   const done = page.locator('text=/호실 분석 완료|❌/').first();
-  await done.waitFor({ state: 'visible', timeout: 20_000 });
+  const v12Panel = page.locator('[data-testid="rent-roll-v12-panel"]');
+  await done.or(v12Panel).first().waitFor({ state: 'visible', timeout: 20_000 });
+
+  if (await v12Panel.isVisible().catch(() => false)) {
+    const panelText = (await v12Panel.innerText()).replace(/\s+/g, ' ').trim();
+    const reason = opts.v12OverrideReason || DEFAULT_V12_OVERRIDE_REASON;
+    if (!opts.expectV12Block) {
+      console.warn(`  ⚠️ 예상 밖 V12 차단 (${path.basename(absXlsxPath)}): ${panelText.slice(0, 200)} — 사유를 입력해 해제하고 진행`);
+      test.info().annotations.push({ type: 'v12-unexpected-block', description: panelText.slice(0, 200) });
+    } else {
+      console.log(`  ⛔ V12 차단 확인(예상대로): ${panelText.slice(0, 160)}`);
+      test.info().annotations.push({ type: 'v12-block', description: panelText.slice(0, 200) });
+    }
+    await page.locator('[data-testid="rent-roll-v12-override-reason"]').fill(reason);
+    await page.locator('[data-testid="rent-roll-v12-override-apply"]').click();
+    const released = page.locator('text=/사유를 기록하고 V12를 해제했습니다/').first();
+    await released.waitFor({ state: 'visible', timeout: 10_000 });
+    console.log(`  ✅ V12 해제 (사유: ${reason})`);
+    return;
+  }
+  if (opts.expectV12Block) {
+    throw new Error(`V12 차단이 예상됐지만 임포터가 차단하지 않았습니다 (${path.basename(absXlsxPath)}) — 단위 혼동 픽스처(G9=평 + ㎡ 숫자)·J4 연면적을 확인하세요`);
+  }
   const msg = (await done.innerText()).trim();
   if (msg.startsWith('❌')) throw new Error(`렌트롤 xlsx 업로드 실패: ${msg}`);
   console.log(`  📊 렌트롤 xlsx 업로드: ${path.basename(absXlsxPath)} → ${msg.split('\n')[0]}`);
@@ -615,7 +650,11 @@ export function createGoldenTest(config: GoldenTestConfig) {
 
         // ── 렌트롤 입력 (R2+ income/owner_occupied 지원: RentRollImporter 텍스트 탭) ──
         if (xlsxMode && (posture === 'income' || posture === 'owner_occupied')) {
-          await uploadRentRollXlsxViaUi(page, path.join(absDataDir, String(bs.rentRollXlsx)));
+          await uploadRentRollXlsxViaUi(page, path.join(absDataDir, String(bs.rentRollXlsx)), {
+            // 렌트롤 v1.5 단위 혼동 변형(unit-confusion): bottom_sheet.json 에 v12OverrideReason 이 있으면 V12 차단을 기대하고 사유를 입력한다
+            expectV12Block: !!bs.v12OverrideReason,
+            v12OverrideReason: typeof bs.v12OverrideReason === 'string' ? bs.v12OverrideReason : undefined,
+          });
           await shot(page, screenshotDir, 'rentroll-xlsx-imported', stepCounter);
         }
         if (!xlsxMode && bs.floor_leases && bs.floor_leases.length > 0 && (posture === 'income' || posture === 'owner_occupied')) {

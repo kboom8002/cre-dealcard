@@ -397,7 +397,10 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(grandTotalRow[0]).toBe('합계');
       expect(grandTotalRow[2]).toBe('25개사');
       const expectedTotalDepositManwon = (50_000_000 * 25) / 10000;
-      expect(grandTotalRow[6]).toBe(expectedTotalDepositManwon.toLocaleString());
+      // v1.5 §9.1: 면적 이중 단위 열 제거(9열) → 인덱스 대신 헤더로 보증금 열을 찾는다
+      const depositIdx = result['rentRollPart3']!.tableHead!.indexOf('보증금(만원)');
+      expect(depositIdx).toBeGreaterThan(-1);
+      expect(grandTotalRow[depositIdx]).toBe(expectedTotalDepositManwon.toLocaleString());
     });
 
     it('[Positive] 36 tenants produces exactly 3 chunks of 12', async () => {

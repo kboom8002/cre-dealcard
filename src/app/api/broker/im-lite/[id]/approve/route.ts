@@ -187,15 +187,20 @@ export async function POST(
         });
       }
     }
-    // yield fallback from monthly rent
+    // yield fallback from monthly rent — V04 단일 수익률 정의: Σ월세×12 ÷ (매매가 − 보증금)
+    // (보증금 미상/≥매매가 → 분모는 매매가 단독이며 단위 라벨에 기준을 명시)
     if (!allClaims.some(c => ['gross_yield', 'yield_on_cost', 'cap_rate', 'cap_rate_base', 'net_yield'].includes(c.subject))) {
       const monthlyRent = ssot.monthly_rent_total_krw || ssot.noi_monthly_krw;
       const askingPrice = ssot.asking_price_manwon ? ssot.asking_price_manwon * 10000 : ssot.asking_price;
-      if (monthlyRent && askingPrice && askingPrice > 0) {
-        const annualYield = ((monthlyRent * 12) / askingPrice) * 100;
+      const depositKrwRaw = Number(ssot.total_deposit_krw ?? (Number(ssot.total_deposit_manwon) > 0 ? Number(ssot.total_deposit_manwon) * 10000 : NaN));
+      const hasDeposit = Number.isFinite(depositKrwRaw) && depositKrwRaw > 0 && depositKrwRaw < askingPrice;
+      const denominator = hasDeposit ? askingPrice - depositKrwRaw : askingPrice;
+      if (monthlyRent && askingPrice && askingPrice > 0 && denominator > 0) {
+        const annualYield = ((monthlyRent * 12) / denominator) * 100;
         registry.register({
           subject: 'gross_yield',
           value: Math.round(annualYield * 100) / 100,
+          unit: hasDeposit ? '% (월세×12÷(매매가−보증금))' : '% (월세×12÷매매가, 보증금 미상)',
           evidence: [],
           provenance: 'broker',
           asOf: new Date().toISOString(),

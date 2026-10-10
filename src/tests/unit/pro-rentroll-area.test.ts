@@ -48,13 +48,17 @@ describe("Pro 렌트롤 — 면적 모드 선택", () => {
     expect(detectProAreaMode([item({})])).toBe("none");
   });
 
-  it("헤더: 임대만→임대(㎡/평), 전용만→전용(㎡/평), 둘다→11열", () => {
+  it("헤더: 임대만→임대(㎡), 전용만→전용(㎡), 평 모드→(평), 둘다→10열 (면적 종류당 1열)", () => {
     expect(proRentRollHeaders("lease")).toContain("임대면적(㎡)");
     expect(proRentRollHeaders("lease")).not.toContain("전용면적(㎡)");
-    expect(proRentRollHeaders("exclusive")).toContain("전용면적(평)");
+    expect(proRentRollHeaders("exclusive")).toContain("전용면적(㎡)");
+    expect(proRentRollHeaders("exclusive", "pyeong")).toContain("전용면적(평)");
     expect(proRentRollHeaders("exclusive")).not.toContain("임대면적(㎡)");
-    expect(proRentRollHeaders("both")).toHaveLength(11);
-    expect(proRentRollHeaders("lease")).toHaveLength(10);
+    expect(proRentRollHeaders("both", "pyeong")).toEqual(
+      expect.arrayContaining(["임대면적(평)", "전용면적(평)"]),
+    );
+    expect(proRentRollHeaders("both")).toHaveLength(10);
+    expect(proRentRollHeaders("lease")).toHaveLength(9);
   });
 
   it("모든 모드에서 헤더 수 = 본문/소계/합계 셀 수, 다른 면적 대체 없음", () => {
@@ -72,9 +76,9 @@ describe("Pro 렌트롤 — 면적 모드 선택", () => {
     }
     const both = buildProRentRollTable({ chunk: chunk!, mode: "both", allItems: items });
     const excIdx = both.tableHead.indexOf("전용면적(㎡)");
-    expect(both.tableRows[0]![excIdx]).toBe("60");
+    expect(both.tableRows[0]![excIdx]).toBe("60.00");
     expect(both.tableRows[1]![excIdx]).toBe("-"); // 102호는 전용 미기입 → 임대값(50)으로 대체 금지
-    expect(both.tableRows[2]![excIdx]).toBe("60"); // 소계: 기입된 전용면적만 합산
+    expect(both.tableRows[2]![excIdx]).toBe("60.00"); // 소계: 기입된 전용면적만 합산
   });
 });
 
@@ -84,7 +88,7 @@ describe("bindProImChapterData — 렌트롤 매핑", () => {
     const p = (r as any).rentRollPart1;
     expect(p.tableHead).toContain("임대면적(㎡)");
     expect(p.tableHead).not.toContain("전용면적(㎡)");
-    expect(p.tableRows[0][p.tableHead.indexOf("임대면적(㎡)")]).toBe("100");
+    expect(p.tableRows[0][p.tableHead.indexOf("임대면적(㎡)")]).toBe("100.00");
   });
 
   it("전용면적만 기입 → 전용 열, 임대 열 없음", () => {
@@ -92,7 +96,7 @@ describe("bindProImChapterData — 렌트롤 매핑", () => {
     const p = (r as any).rentRollPart1;
     expect(p.tableHead).toContain("전용면적(㎡)");
     expect(p.tableHead).not.toContain("임대면적(㎡)");
-    expect(p.tableRows[0][p.tableHead.indexOf("전용면적(㎡)")]).toBe("60");
+    expect(p.tableRows[0][p.tableHead.indexOf("전용면적(㎡)")]).toBe("60.00");
   });
 
   it("레거시 프록시(area_sqm_is_proxy) → 임대면적으로 표기하지 않음", () => {
@@ -105,13 +109,58 @@ describe("bindProImChapterData — 렌트롤 매핑", () => {
     expect(p.tableHead).not.toContain("임대면적(㎡)");
   });
 
-  it("둘 다 기입 → 11열, 합계 행 포함", () => {
+  it("둘 다 기입 → 10열(면적 종류당 1열), 합계 행 포함", () => {
     const r = bind([lease({ area_sqm: 100, exclusive_area_sqm: 60 })]);
     const p = (r as any).rentRollPart1;
-    expect(p.tableHead).toHaveLength(11);
+    expect(p.tableHead).toHaveLength(10);
     const last = p.tableRows[p.tableRows.length - 1];
     expect(last[0]).toBe("합계");
-    expect(last).toHaveLength(11);
+    expect(last).toHaveLength(10);
+  });
+
+  it("v1.5 평 모드: 헤더 임대면적(평), 값 = ㎡÷3.305785 소수 2자리, 합계도 같은 단위", () => {
+    const rr = bindProImChapterData(
+      { body: { floor_leases: [lease({ area_sqm: 317.22 })], rent_roll_meta: { area_input_unit: "pyeong" } } } as any,
+      undefined,
+      {},
+    );
+    const p = (rr as any).rentRollPart1;
+    expect(p.tableHead).toContain("임대면적(평)");
+    expect(p.tableHead).not.toContain("임대면적(㎡)");
+    const idx = p.tableHead.indexOf("임대면적(평)");
+    expect(p.tableRows[0][idx]).toBe("95.96");
+    expect(p.tableRows[p.tableRows.length - 1][idx]).toBe("95.96");
+  });
+
+  it("v1.5 ㎡ 모드(기본): 단일 열 임대면적(㎡) = 317.22, '(N평)' 병기 없음", () => {
+    const r = bind([lease({ area_sqm: 317.22 })]);
+    const p = (r as any).rentRollPart1;
+    const idx = p.tableHead.indexOf("임대면적(㎡)");
+    expect(p.tableHead.filter((h: string) => h.includes("면적"))).toHaveLength(1);
+    expect(p.tableRows[0][idx]).toBe("317.22");
+    expect(p.tableRows[0].join("|")).not.toContain("평");
+  });
+
+  it("v1.5 평 입력(area_pyeong) → ㎡ 정본 환산 후 평 모드에서 원값 복원 (95.96)", () => {
+    const rr = bindProImChapterData(
+      { body: { floor_leases: [lease({ area_pyeong: 95.96 })], rent_roll_meta: { area_input_unit: "pyeong" } } } as any,
+      undefined,
+      {},
+    );
+    const p = (rr as any).rentRollPart1;
+    expect(p.tableRows[0][p.tableHead.indexOf("임대면적(평)")]).toBe("95.96");
+  });
+
+  it("v1.5 면적 미기재 → '-' (임의 값 생성 금지)", () => {
+    const { tableHead, tableRows } = buildProRentRollTable({
+      chunk: chunkTenantRoster([{
+        floor: "1F", unitNumber: "101", tenantName: "A", industry: "사무",
+        leasedAreaM2: 0, leasedAreaPyeong: 0, depositKrw: 0, monthlyRentKrw: 0, monthlyMaintenanceKrw: 0,
+        leaseStartDate: "", leaseEndDate: "", statutoryProtection10Y: true,
+      } as InstitutionalTenantRosterItem], 12)[0]!,
+      mode: "none", allItems: [],
+    });
+    expect(tableRows[0]![tableHead.indexOf("임대면적(㎡)")]).toBe("-");
   });
 
   it("계약그룹 후행 행은 금액 '〃', 대표 행은 금액 유지", () => {
@@ -144,7 +193,7 @@ describe("A03 슬라이드 — Pro 렌트롤 OpenXML", () => {
     const trs = tbl.match(/<a:tr [\s\S]*?<\/a:tr>/g) ?? [];
     const counts = trs.map((tr) => (tr.match(/<a:tc>|<a:tc /g) ?? []).length);
     expect(new Set(counts).size).toBe(1);
-    expect(counts[0]).toBe(10);
+    expect(counts[0]).toBe(9); // v1.5 §9.1: 면적 종류당 1열 (이중 단위 열 제거)
     expect(tbl).toContain("전용면적(㎡)");
     expect(tbl).not.toContain("임대면적(㎡)");
   });

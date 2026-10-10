@@ -181,6 +181,24 @@ B1 카페 96평 자가사용
   },
 };
 
+// ig1 파생 변형 — 렌트롤 v1.5 면적 단위(G9) 시험. 데이터·메모·합계·정답은 corrected 와 동일하고 xlsx 의 G9/면적 숫자만 다르다.
+//  - corrected-pyeong : G9=평, C/D = ㎡ ÷ 3.305785 (소수 2자리) — 파서가 ㎡ 로 되환산해 corrected 와 같은 데이터가 된다 (표기만 평)
+//  - unit-confusion   : G9=평 인데 C/D 에는 ㎡ 숫자 그대로 → ΣAE = 1,441.15×3.305785 = 4,764.14㎡ (연면적의 330.6%) → V12 차단.
+//                       E2E 는 임포터의 해제 사유를 입력(IncomeGolden: v12OverrideReason)한 뒤 생성을 진행한다.
+ig1.variants['corrected-pyeong'] = { ...ig1.variants.corrected, base: 'corrected', areaUnit: 'pyeong' };
+ig1.variants['unit-confusion'] = {
+  ...ig1.variants.corrected,
+  base: 'corrected',
+  areaUnit: 'pyeong',
+  rawSqmNumbers: true,
+  v12OverrideReason: '골든 테스트: 의도된 중개인 면적 오기 재현',
+};
+ig1.expected['corrected-pyeong'] = { ...ig1.expected.corrected };
+ig1.expected['unit-confusion'] = {
+  ...ig1.expected.corrected,
+  observations: ['G9=평 + ㎡ 숫자 → V12(AREA_UNIT_MISMATCH, ΣAE 4,764.14㎡ = 연면적의 330.6%) 차단 → 임포터 해제 사유 입력 후 생성 진행', '승인·발행 차단/해제는 별도 게이트에서 검증 (여기서는 생성 진행까지)'],
+};
+
 // ─────────────────────────────────────────────────────────────
 // ig2 쌍림동 114 (운남빌딩)
 // ─────────────────────────────────────────────────────────────

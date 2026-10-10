@@ -1,4 +1,6 @@
 /**
+ * [레거시] v1.3 생성기 — v1.5 양식은 수기 관리다 (public/CREDEAL_rentroll_template_v1.5.xlsx, 이 스크립트로 재생성하지 않는다)
+ *
  * CREDEAL 렌트롤 표준양식 v1.3 생성기
  *
  *   node scripts/build-rentroll-template.mjs

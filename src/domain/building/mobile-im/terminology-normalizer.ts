@@ -304,7 +304,45 @@ export function normalizeTerminology(text: string): NormalizationResult {
   return applyRules(text, HARDCODED_TERM_RULES);
 }
 
+// ─── 보호 블록 (v1.5 §9.1) ───────────────────────────────────────────────────
+// 결정적(deterministic) 렌트롤 표처럼 이미 표기 단위가 확정된 블록은 규칙 치환(예: hardcoded_pyeongToSqm 의
+// 'N평' → 'N평(약 X㎡)')에서 제외한다. 마커는 사설영역 문자라 어떤 규칙에도 걸리지 않고, applyRules 가 항상 제거한다.
+
+export const PROTECT_BEGIN = '\uE000RR_PROTECT_BEGIN\uE001';
+export const PROTECT_END = '\uE000RR_PROTECT_END\uE001';
+const PROTECT_SPLIT_RE = /\uE000RR_PROTECT_BEGIN\uE001([\s\S]*?)\uE000RR_PROTECT_END\uE001/g;
+
+/** 블록을 규칙 치환에서 제외하도록 마커로 감싼다 */
+export function protectBlock(block: string): string {
+  return block ? `${PROTECT_BEGIN}${block}${PROTECT_END}` : block;
+}
+
+/** 남아 있는 보호 마커 제거 (치환 결과가 버려지는 경로에서 사용) */
+export function stripProtectMarkers(text: string): string {
+  return text ? text.replace(/\uE000RR_PROTECT_(?:BEGIN|END)\uE001/g, '') : text;
+}
+
 function applyRules(text: string, rules: ReplacementRule[]): NormalizationResult {
+  if (text && text.includes(PROTECT_BEGIN)) {
+    // 보호 구간은 그대로 두고 그 밖의 구간에만 규칙을 적용한다 (마커는 결과에서 제거)
+    const replaced: { original: string; normalized: string }[] = [];
+    let out = '';
+    let last = 0;
+    for (const m of text.matchAll(PROTECT_SPLIT_RE)) {
+      const idx = m.index ?? 0;
+      const seg = applyRulesPlain(text.slice(last, idx), rules);
+      replaced.push(...seg.replaced);
+      out += seg.text + m[1];
+      last = idx + m[0].length;
+    }
+    const tail = applyRulesPlain(text.slice(last), rules);
+    replaced.push(...tail.replaced);
+    return { text: stripProtectMarkers(out + tail.text), replaced };
+  }
+  return applyRulesPlain(text, rules);
+}
+
+function applyRulesPlain(text: string, rules: ReplacementRule[]): NormalizationResult {
   const replaced: { original: string; normalized: string }[] = [];
   let result = text;
 

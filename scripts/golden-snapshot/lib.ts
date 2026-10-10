@@ -41,6 +41,16 @@ export const GOLDENS: GoldenDef[] = [
     oracleDir: `docs/income-golden-data/${dir}/${v}`,
     group: 'income-ig',
   }))),
+  // ig1 파생 변형 (렌트롤 v1.5 면적 단위 시험) — corrected 와 같은 데이터, xlsx 의 G9/면적 숫자만 다르다.
+  //  · income-ig1-corrected-pyeong : G9=평 (면적 = ㎡÷3.305785) — 평 표기 정답키(임대면적(평)·95.96·평 합계)
+  //  · income-ig1-unit-confusion   : G9=평 + ㎡ 숫자 → V12 차단 → 해제 사유 입력 후 생성 (E2E: income-golden-ig1-unit-confusion)
+  // capture 는 live LLM 배치(사전 승인). 스냅샷이 없으면 rerender/oracle 은 skip 한다.
+  ...(['corrected-pyeong', 'unit-confusion'] as const).map((v): GoldenDef => ({
+    name: `income-ig1-${v}`,
+    fixtureDir: `docs/income-golden-data/ig1-dangsan5ga-11-47/${v}`,
+    oracleDir: `docs/income-golden-data/ig1-dangsan5ga-11-47/${v}`,
+    group: 'income-ig',
+  })),
 ];
 
 /** 7대 골든 (git 추적 데이터) — rerender/capture 'core' 범위 */

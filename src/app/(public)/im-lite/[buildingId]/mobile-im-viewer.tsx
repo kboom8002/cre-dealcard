@@ -486,6 +486,7 @@ export function MobileIMViewer({
                     rawMarkdown={section.content || (section as any).markdown}
                     tables={(section as any).tables}
                     buildingName={doc.blindName || doc.fullName}
+                    areaInputUnit={(doc as any).body?.rent_roll_meta?.area_input_unit === "pyeong" ? "pyeong" : (doc as any).body?.rent_roll_meta ? "sqm" : undefined}
                   />
                 )}
                 {/* 토지 현황 섹션 아래에 지적도 표시 */}

@@ -30,12 +30,15 @@ import { resolvePhysicalSpecs } from '@/domain/building/mobile-im/resolve-physic
 import { sanitizeFitSummaryKeepNull } from '@/domain/building/mobile-im/fit-summary-sanitize';
 import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
 import { resolveOverviewSpecs } from '@/domain/building/mobile-im/pptx/spec-resolver';
-import { resolveDisplayAreas } from '@/domain/building/mobile-im/pptx/binder/display-areas';
+import { resolveDisplayAreas, isRegisterTrustworthy } from '@/domain/building/mobile-im/pptx/binder/display-areas';
 import { rewriteRejectedAreas } from '@/domain/building/mobile-im/area-authority';
 import { applyBrokerExtrasToSections, mapBrokerExtrasStrings } from '@/domain/building/mobile-im/broker-extras';
 import { sqmToPyeong, pyeongToSqm, formatPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
 import { summarizeLeaseOccupancy, isOwnerUseLeaseRow, normalizeLeaseOccupancyFields, sumLeasedRentRoll } from '@/domain/building/mobile-im/lease-vacancy';
 import { supplementBrokerMemoFacts } from '@/domain/building/mobile-im/broker-financial-inputs';
+import { computeRentrollChecks, type RentrollChecks } from '@/domain/building/mobile-im/rentroll-checks';
+import { runPublishGates, deriveRentrollGateContext, RENTROLL_GATE_IDS, type GateContext } from '@/domain/building/mobile-im/quality-gates-v02';
+import { resolveAreaInputUnit, type RentRollMeta } from '@/domain/building/mobile-im/rentroll-meta';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('handler');
@@ -516,7 +519,73 @@ export async function generateMobileIMHandler(
   if (totalAreaRes.brokerLooksLikeLand) {
     log.warn(`[im-handler] 중개인 연면적(${totalAreaRes.brokerSqm}㎡)이 대지면적과 같음 — 대지 오기로 판단, 건축물대장 연면적(${totalAreaRes.registerSqm}㎡) 채택`);
   }
-  const userSpecifiedTotalArea = totalAreaRes.value;
+  // ─── 렌트롤 v1.5 메타 정규화 (스펙 §5) — 미지정은 'sqm'. V12 해제의 by/at 은 클라이언트 값을 믿지 않고 서버가 채운다. ───
+  const rentrollMetaIn = (supplemental.rent_roll_meta ?? null) as RentRollMeta | null;
+  const rentrollMeta: RentRollMeta = { ...(rentrollMetaIn ?? {}), area_input_unit: resolveAreaInputUnit(rentrollMetaIn) };
+  const overrideReason = String(rentrollMeta.area_unit_override?.reason ?? '').trim();
+  if (overrideReason) {
+    rentrollMeta.area_unit_override = { reason: overrideReason, by: userId, at: new Date().toISOString() };
+  } else {
+    delete rentrollMeta.area_unit_override;
+  }
+  // 라우트의 렌트롤 원장 영속(lease_ledger_meta)이 서버가 채운 by/at 을 그대로 쓰도록 같은 객체에 되돌려 둔다.
+  supplemental.rent_roll_meta = rentrollMeta;
+  // J3 vs 바텀시트 매각가 — 바텀시트(supplemental.asking_price_manwon)가 정본, 불일치(>0.5%)는 경고만.
+  if (Number(rentrollMeta.asking_price_krw) > 0 && Number(supplemental.asking_price_manwon) > 0) {
+    const j3 = Number(rentrollMeta.asking_price_krw);
+    const sheetKrw = Number(supplemental.asking_price_manwon) * 10000;
+    if (Math.abs(sheetKrw - j3) / j3 > 0.005) {
+      log.warn(`[PRICE-RECONCILE] 렌트롤 매각가(J3) ${Math.round(j3).toLocaleString()}원 ≠ 바텀시트 매각가 ${Math.round(sheetKrw).toLocaleString()}원 — 바텀시트 값 채택`);
+    }
+  }
+  // J4 연면적 — 가장 낮은 우선순위 폴백(명시 > 메모 > 대장 > J4). 대장·명시 값이 있으면 그 값이 이기고 1% 초과 괴리는 경고만 남긴다.
+  const rentrollGfaSqm = Number(rentrollMeta.gfa_sqm) > 0 ? Number(rentrollMeta.gfa_sqm) : 0;
+  if (rentrollGfaSqm > 0 && totalAreaRes.value > 0 && Math.abs(rentrollGfaSqm - totalAreaRes.value) / totalAreaRes.value > 0.01) {
+    log.warn(`[AREA-RECONCILE] 렌트롤 연면적(J4) ${rentrollGfaSqm}㎡ ≠ 채택 연면적 ${totalAreaRes.value}㎡(${totalAreaRes.source}) — 채택값 유지`);
+  }
+  const userSpecifiedTotalArea = totalAreaRes.value > 0 ? totalAreaRes.value : rentrollGfaSqm;
+  const totalAreaSource: string = totalAreaRes.value > 0 ? totalAreaRes.source : (rentrollGfaSqm > 0 ? 'rentroll_gfa' : totalAreaRes.source);
+  // V01~V13 서버 재계산 (엑셀 캐시를 믿지 않음) — 실패해도 생성은 계속한다.
+  let rentrollChecks: RentrollChecks | undefined;
+  if (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
+    try {
+      const regForChecks = (externalData?.buildingRegister ?? null) as Record<string, any> | null;
+      const regGfa = regForChecks && !totalAreaRes.registerConflict && isRegisterTrustworthy(regForChecks) ? Number(regForChecks.totalArea) : 0;
+      rentrollChecks = computeRentrollChecks({
+        rows: supplemental.floor_leases as any,
+        gfaSqm: rentrollGfaSqm > 0 ? rentrollGfaSqm : null,
+        askingPriceKrw: Number(supplemental.asking_price_manwon) > 0 ? Number(supplemental.asking_price_manwon) * 10000 : (rentrollMeta.asking_price_krw ?? null),
+        otherIncomeKrw: rentrollMeta.other_income_krw ?? null,
+        marketRent: rentrollMeta,
+        asOf: rentrollMeta.rentroll_as_of ?? null,
+        areaInputUnit: rentrollMeta.area_input_unit,
+        registerGfaSqm: regGfa > 0 ? regGfa : null,
+        areaOverride: rentrollMeta.area_unit_override ?? null,
+      });
+    } catch (err) {
+      log.warn({ err }, '[im-handler] rentroll_checks 계산 실패 — 검증 결과 없이 진행');
+    }
+  }
+  // 승인 게이트용 범위 한정 리포트 — 렌트롤 게이트(V01·V12)만 평가해 body.gateReport 에 영속한다.
+  // 전체 PUBLISH_GATES 를 영속하면 (예: G20 사진 PII 확인 미설정) 모든 문서 승인이 막히므로 범위를 한정한다.
+  // 생성은 막지 않는다 — approval-gate(approve 라우트)가 body.gateReport.blocked 로만 승인·발행을 차단한다.
+  const rentrollGateCtx = deriveRentrollGateContext(supplemental);
+  let rentrollGateReport: Record<string, unknown> | undefined;
+  try {
+    const rep = runPublishGates(rentrollGateCtx as unknown as GateContext, RENTROLL_GATE_IDS);
+    rentrollGateReport = {
+      scope: 'rentroll_v15',
+      allPassed: rep.allPassed,
+      blocked: rep.blocked,
+      results: rep.results,
+      failedBlocks: rep.failedBlocks,
+      failedWarns: rep.failedWarns,
+      evaluatedAt: new Date().toISOString(),
+    };
+    if (rep.blocked) log.warn({ failed: rep.failedBlocks.map(g => g.id) }, '[im-handler] 렌트롤 게이트 차단 — 문서는 생성하되 승인·발행은 차단됩니다');
+  } catch (err) {
+    log.warn({ err }, '[im-handler] 렌트롤 게이트 평가 실패 — gateReport 미저장');
+  }
   // 대지면적: 명시 입력 > 필지 합 > 메모 SSoT(평→㎡) > 건축물대장 platArea(>0) > V-World > 없음 (대장이 다른 건물이면 대장 대지면적도 배제)
   const landAreaRes = resolveLandAreaWithSource({
     explicitSqm: Number(supplemental.land_area_m2 || 0),
@@ -862,6 +931,22 @@ export async function generateMobileIMHandler(
       parcels: supplemental.parcels ?? undefined,
       pnus: parcelSummary.pnus.length > 0 ? parcelSummary.pnus : undefined,
       floor_leases: supplemental.floor_leases ?? undefined,
+      // 렌트롤 v1.5 (스펙 §5) — 입력 단위·헤더 메타(J3~J8, C5, V12 해제 기록). 항상 기록하며 미지정은 area_input_unit:'sqm'
+      rent_roll_meta: rentrollMeta,
+      // 서버 재계산 V01~V13 (엑셀 캐시 미사용). 렌트롤 행이 없으면 키 생략
+      rentroll_checks: rentrollChecks ?? undefined,
+      // V12 해제 이력 — 사유·해제자·시각 (게이트 리포트 note 와 동일 출처). 해제가 없으면 키 생략
+      override_log: rentrollMeta.area_unit_override
+        ? [{
+            code: 'AREA_UNIT_MISMATCH',
+            reason: rentrollMeta.area_unit_override.reason,
+            by: rentrollMeta.area_unit_override.by,
+            at: rentrollMeta.area_unit_override.at,
+            mismatch: rentrollGateCtx.areaUnitMismatch === true,
+          }]
+        : undefined,
+      // 승인 게이트(approve 라우트가 body.gateReport.blocked 를 읽음) — 렌트롤 게이트(V01·V12) 범위만. 생성은 막지 않는다.
+      gateReport: rentrollGateReport,
       askingPrice: supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : undefined,
       asking_price_manwon: supplemental.asking_price_manwon ?? undefined,
       resolved_address: supplemental.resolved_address ?? undefined,
@@ -894,7 +979,7 @@ export async function generateMobileIMHandler(
         land_area_sqm: userSpecifiedLandArea > 0 ? userSpecifiedLandArea : undefined,
         // B2: 면적 출처(provenance) — 2배 괴리 시 대장 값을 폐기했음을 기록
         area_source: {
-          ...(userSpecifiedTotalArea > 0 ? { total: totalAreaRes.source } : {}),
+          ...(userSpecifiedTotalArea > 0 ? { total: totalAreaSource } : {}),
           ...(userSpecifiedLandArea > 0 ? { land: landAreaRes.source } : {}),
           ...(totalAreaRes.registerConflict ? { register_conflict: { broker_sqm: totalAreaRes.brokerSqm, register_sqm: totalAreaRes.registerSqm } } : {}),
           ...(totalAreaRes.brokerLooksLikeLand ? { broker_gfa_looks_like_land: { broker_sqm: totalAreaRes.brokerSqm, register_sqm: totalAreaRes.registerSqm } } : {}),

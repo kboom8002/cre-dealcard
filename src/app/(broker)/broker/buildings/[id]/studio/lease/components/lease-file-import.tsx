@@ -1,9 +1,19 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-// SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
+// SECURITY: SheetJS(xlsx) 입력은 신뢰할 수 없다 — 파일 크기 제한 + 파서 단의 위치·값 검증으로 방어
 import * as XLSX from 'xlsx';
 import { pyeongToSqm } from '@/lib/utils/area-conversion';
+import { detectVersion, parseRentRollWorkbook, pickRentRollSheetName } from '@/lib/rentroll/parse-rentroll-workbook';
+
+/** 업종 문구 → 스튜디오 tenant_type (공실 문구 포함) */
+function classifyTenantType(typeVal: string, isVacant = false): string {
+  if (isVacant) return 'vacant';
+  if (typeVal.includes('식당') || typeVal.includes('카페') || typeVal.includes('음식')) return 'food';
+  if (typeVal.includes('매장') || typeVal.includes('리테일') || typeVal.includes('상가')) return 'retail';
+  if (typeVal.includes('공실')) return 'vacant';
+  return 'office';
+}
 
 interface TenantRow {
   floor: string;
@@ -54,8 +64,38 @@ export function LeaseFileImport({ onImport }: LeaseFileImportProps) {
       try {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
+        // '렌트롤' 시트 우선(없으면 첫 시트) — 표준양식은 첫 시트가 안내 시트라서 SheetNames[0] 이 아니다
+        const wsname = pickRentRollSheetName(wb) ?? wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
+
+        // CREDEAL 표준양식(v1.3~v1.5): 고정 열 위치로 정확히 읽는다. 금액은 만원 → 스튜디오 단위(원)로 환산
+        if (ws && detectVersion(ws) !== 'unknown') {
+          const parsed = parseRentRollWorkbook(ws);
+          const blocking = parsed.issues.find((i) => i.level === 'blocking');
+          if (blocking) {
+            throw new Error(
+              `${blocking.message} 엑셀 G9(면적 단위)를 확인해 다시 올려 주세요. (바텀시트 렌트롤 임포트에서는 사유를 남기고 해제할 수 있습니다)`,
+            );
+          }
+          const fromTemplate: TenantRow[] = parsed.parsedRows.map((r) => ({
+            floor: r.floor || '미상',
+            area_sqm: r.area_sqm ?? 0, // ㎡ 정본 — 정수 반올림하지 않는다
+            tenant_type: classifyTenantType(r.tenant_type ?? '', r.is_vacant === true),
+            // 통합계약 비대표 행은 금액이 없다 → 0 이 아니라 null
+            monthly_rent: r.rent_manwon != null ? r.rent_manwon * 10000 : null,
+            deposit: r.deposit_manwon != null ? r.deposit_manwon * 10000 : null,
+            contract_end: r.lease_end ?? null,
+            is_anchor: false,
+            tenant_name: r.tenant_name ?? null,
+          }));
+          if (fromTemplate.length === 0) {
+            throw new Error('유효한 임대차 데이터를 찾을 수 없습니다.');
+          }
+          onImport(fromTemplate);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+        }
+
         const data = XLSX.utils.sheet_to_json(ws);
 
         if (data.length === 0) {
@@ -89,14 +129,11 @@ export function LeaseFileImport({ onImport }: LeaseFileImportProps) {
           // 일단 단순 매핑합니다.
           const isPyeong = areaKey && areaKey.includes('평');
           if (isPyeong && area_sqm > 0) {
-            area_sqm = Math.round(pyeongToSqm(area_sqm));
+            area_sqm = Math.round(pyeongToSqm(area_sqm) * 100) / 100;
           }
 
-          let tenant_type = 'office';
           const typeVal = typeKey ? parseValue(row[typeKey]) : '';
-          if (typeVal.includes('식당') || typeVal.includes('카페') || typeVal.includes('음식')) tenant_type = 'food';
-          else if (typeVal.includes('매장') || typeVal.includes('리테일') || typeVal.includes('상가')) tenant_type = 'retail';
-          else if (typeVal.includes('공실')) tenant_type = 'vacant';
+          const tenant_type = classifyTenantType(typeVal);
 
           newTenants.push({
             floor: floorVal || '미상',

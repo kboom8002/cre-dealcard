@@ -302,6 +302,16 @@ ${JSON.stringify(slicedExternal, null, 2)}`;
 
     prompt += `\n\n## [추가 수집 데이터]
 ${JSON.stringify(slicedSupp, null, 2)}`;
+
+    // v1.5 §9.1: 중개인이 평 단위로 렌트롤을 입력한 경우, 임대/전용면적 서술의 단위를 명시한다.
+    // (floor_leases 의 area_sqm / exclusive_area_sqm 은 ㎡ 정본값, 렌트롤 표는 평(÷3.305785, 소수 2자리)로 표기된다.)
+    // ㎡ 입력(기본)은 프롬프트를 바꾸지 않는다 — 기존 녹화 프롬프트 유지.
+    const rrUnit = (slicedSupp as any)?.rent_roll_meta?.area_input_unit;
+    if (rrUnit === 'pyeong' && Array.isArray(slicedSupp.floor_leases) && slicedSupp.floor_leases.length > 0) {
+      prompt += `\n\n## [렌트롤 면적 단위]
+- floor_leases 의 area_sqm / exclusive_area_sqm 은 ㎡ 값입니다. 중개인 입력 및 렌트롤 표 표기 단위는 평(㎡ ÷ 3.305785, 소수 2자리)입니다.
+- 임대면적·전용면적을 본문에 서술할 때는 반드시 단위를 붙이고(예: "95.96평"), 렌트롤 표의 표기 단위와 같은 단위로 쓰세요.`;
+    }
   }
 
   if (marketIndicators?.financialsMarkdown) {

@@ -4,9 +4,17 @@ import { C, CD, KR, M, CW, light } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { calculateSetbackRatio, inferTenantCategory } from './a22-stacking-plan';
 import type { StackingPlanFloor } from '../../types';
-import { sqmToPyeong } from '@/lib/utils/area-conversion';
-import { projectBasicRentRollColumns, isNumericRentRollHeader, RENTROLL_SUMMARY_CELL, BASIC_RENTROLL_HEADERS, RENTROLL_NOTE_HEADER } from '../rentroll-area-columns';
-import { formatAreaSqm, formatAreaWithPyeong, parseLeadingNumber, MASKED_TENANT_RE } from '../binder/rent-roll-table-builder';
+import { projectBasicRentRollColumns, isNumericRentRollHeader, RENTROLL_SUMMARY_CELL, isBasicRentRollHeaderRow, RENTROLL_NOTE_HEADER } from '../rentroll-area-columns';
+import { formatAreaSqm, parseLeadingNumber, MASKED_TENANT_RE } from '../binder/rent-roll-table-builder';
+import {
+  areaUnitFromHeader,
+  formatLeaseArea,
+  formatLeaseAreaValue,
+  rentRollUnitCaption,
+  stackingAreaSuffix,
+  stackingStripTitle,
+} from '../binder/lease-area-format';
+import { resolveAreaInputUnit, type AreaInputUnit } from '../../rentroll-meta';
 import { normalizeMissing } from '../missing-values';
 
 export interface ArchetypeInput {
@@ -174,16 +182,17 @@ export function abbreviateTenantLabel(text: string): string {
   return out.replace(/\s{2,}/g, ' ').trim();
 }
 
-/** 스태킹 세그먼트 라벨: '임차인 209.6㎡' → (좁으면) '임차인' → (약어) → (최후) 말줄임 · 항상 한 줄 */
+/** 스태킹 세그먼트 라벨: '임차인 209.60㎡' (평 모드: '임차인 63.40평') → (좁으면) '임차인' → (약어) → (최후) 말줄임 · 항상 한 줄 */
 export function chooseStackLabel(
   tenant: string, areaText: string, widthIn: number, basePt: number, minPt = STACK_MIN_PT, bold = false,
+  areaSuffix: '㎡' | '평' = '㎡',
 ): { text: string; fontSize: number } | null {
   if (widthIn < 0.16) return null;
   const short = abbreviateTenantLabel(tenant);
   const candidates = [
-    ...(areaText ? [`${tenant} ${areaText}㎡`] : []),
+    ...(areaText ? [`${tenant} ${areaText}${areaSuffix}`] : []),
     tenant,
-    ...(short !== tenant ? [...(areaText ? [`${short} ${areaText}㎡`] : []), short] : []),
+    ...(short !== tenant ? [...(areaText ? [`${short} ${areaText}${areaSuffix}`] : []), short] : []),
   ];
   for (const c of candidates) {
     for (let pt = basePt; pt >= minPt - 1e-6; pt -= 0.5) {
@@ -286,18 +295,22 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     ? data.brokerPostAcquisitionPlan.map((s: any) => String(s ?? '').trim()).filter(Boolean).slice(0, 4)
     : [];
   const planBoxH = brokerPlan.length > 0 ? 0.34 + brokerPlan.length * 0.22 + 0.08 : 0;
-  const bottomLimit = 6.62 - (planBoxH > 0 ? planBoxH + 0.10 : 0); // SAFE_BOTTOM(6.75) 이내
+  // v1.5 §9.1 각주: body.rentroll_checks 의 계산된 사실(V06·V07~V09)만 8pt 한 줄 — 있을 때만 하단 영역(SAFE_BOTTOM 이내)을 예약
+  const factsNote = typeof data.rentrollFactsNote === 'string' ? data.rentrollFactsNote.trim() : '';
+  const factsH = factsNote ? 0.20 : 0;
+  const bottomLimit = 6.62 - factsH - (planBoxH > 0 ? planBoxH + 0.10 : 0); // SAFE_BOTTOM(6.75) 이내
   const spX = M;
   const spW = 2.20;
   const gap = 0.25;
   const tbX = M + spW + gap;
   const tbW = CW - spW - gap; // ≈ 9.64"
 
-  // binder(rent-roll-table-builder / core-binders)가 만든 R2 10열(+선택 비고 11열) 표인지 — 단위(㎡·만원)가 확정된 표
-  const isR2BinderTable = Array.isArray(data.tableHead)
-    && (data.tableHead.length === BASIC_RENTROLL_HEADERS.length
-      || (data.tableHead.length === BASIC_RENTROLL_HEADERS.length + 1 && String(data.tableHead[BASIC_RENTROLL_HEADERS.length]) === RENTROLL_NOTE_HEADER))
-    && BASIC_RENTROLL_HEADERS.every((h, i) => String(data.tableHead[i]) === h);
+  // binder(rent-roll-table-builder / core-binders)가 만든 R2 10열(+선택 비고 11열) 표인지 — 단위(㎡|평·만원)가 확정된 표
+  // 면적 머리글은 '임대면적(㎡)'|'임대면적(평)' — stem 접두어로 비교 (완전 일치 금지)
+  const isR2BinderTable = isBasicRentRollHeaderRow(data.tableHead);
+  // 표시 단위: 표 머리글의 단위 꼬리표가 정본(화면에 보이는 것), 없으면 data.areaInputUnit, 없으면 ㎡
+  const areaUnit: AreaInputUnit = (isR2BinderTable ? areaUnitFromHeader(data.tableHead[3]) ?? areaUnitFromHeader(data.tableHead[4]) : null)
+    ?? resolveAreaInputUnit({ area_input_unit: data.areaInputUnit });
   const isSummaryRowOf = (r: any[]) => r.some((c: any) => RENTROLL_SUMMARY_CELL.test(String(c || '').trim()));
 
   // --- 표 모델 (그리기 전에 행 수·행 높이를 확정해 스태킹 도식과 정렬) ---
@@ -347,24 +360,33 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       }
       const totalMonthlySum = (sums.month > 0 ? sums.month : (sums.rent + sums.mgmt));
       const money = (v: number, isSeen: boolean) => (isSeen ? Math.round(v).toLocaleString('en-US') : '-');
-      // 합계 면적 정밀도 정합: 행은 소수 1자리로 반올림 표기되므로 행 합에는 최대 (행 수 × 0.05㎡) 오차가 있다.
+      // 합계 면적 = **행에 표기된 값(입력 단위)의 합** (평 모드에서도 같은 단위, '(N평)' 병기 없음 — §9.1)
+      // 정밀도: 행 면적 셀의 소수 자리(binder 표는 2자리, 레거시 표는 1자리)를 따른다.
+      const areaDec = Math.min(2, Math.max(1, ...rawRows.flatMap((r: any[]) => [r[3], r[4]]).map((c: any) => {
+        const m = String(c ?? '').match(/\d[\d,]*\.(\d+)/);
+        return m ? m[1].length : 0;
+      })));
+      const roundDec = (v: number) => Math.round(v * 10 ** areaDec) / 10 ** areaDec;
+      sums.area = roundDec(sums.area);
+      sums.exc = roundDec(sums.exc);
+      // 합계 면적 정밀도 정합(㎡ 모드 한정): 행은 areaDec 자리 반올림 표기이므로 행 합에는 최대 (행 수 × 0.5×10^-areaDec ㎡) 오차가 있다.
       // 대장 연면적이 그 오차 범위 안이면(= 행이 건물 전체 면적을 구성) 대장값을 그대로 표기해 개요 슬라이드와 일치시킨다.
+      // 평 모드는 대장(㎡)과 단위가 달라 스냅하지 않는다 (환산 후 스냅하면 평 표기값의 합과 어긋남).
       const regTotal = Number(data.registerTotalAreaSqm);
       const areaRows = rawRows.filter((r: any[]) => !isNaN(num(r[3]))).length;
-      const snapToRegister = Number.isFinite(regTotal) && regTotal > 0 && sums.area > 0
-        && Math.abs(sums.area - regTotal) <= areaRows * 0.05 + 1e-6;
+      const snapToRegister = areaUnit === 'sqm' && Number.isFinite(regTotal) && regTotal > 0 && sums.area > 0
+        && Math.abs(sums.area - regTotal) <= areaRows * 0.5 * 10 ** -areaDec + 1e-6;
       const totalArea = snapToRegister ? regTotal : sums.area;
-      const fmtTotalSqm = (v: number) => snapToRegister
-        ? v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 })
-        : formatAreaSqm(v);
-      const hasPyeong = rawRows.some((r: any[]) => /평\)/.test(String(r[3] ?? '')));
+      const fmtTotalArea = (v: number) => snapToRegister
+        ? v.toLocaleString('en-US', { minimumFractionDigits: areaDec, maximumFractionDigits: 2 })
+        : formatLeaseAreaValue(v, { decimals: areaDec });
 
       rawRows.push([
         '합계',
         `${Math.max(0, rawRows.length - (Number(data.nonLeasableRowCount) > 0 && Number(data.nonLeasableRowCount) < rawRows.length ? Number(data.nonLeasableRowCount) : 0))}개 호실`,
         '-',
-        sums.area > 0 ? (hasPyeong ? `${fmtTotalSqm(totalArea)} (${sqmToPyeong(totalArea).toFixed(1)}평)` : fmtTotalSqm(totalArea)) : '-',
-        sums.exc > 0 ? formatAreaSqm(sums.exc) : '-',
+        sums.area > 0 ? fmtTotalArea(totalArea) : '-',
+        sums.exc > 0 ? formatLeaseAreaValue(sums.exc, { decimals: areaDec }) : '-',
         money(sums.deposit, seen.deposit),
         money(sums.rent, seen.rent),
         money(sums.mgmt, seen.mgmt),
@@ -393,12 +415,15 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   const bodyRowCount = displayRows.length - (summaryInDisplay ? 1 : 0);
 
   // --- Left Panel: Stacking Plan ---
-  // 표와 같은 SSOT(렌트롤 행)에서 단위를 만든다 → 층·임차인·면적 문자열이 표와 1:1 일치 (㎡ 통일, Rule 70)
+  // 표와 같은 SSOT(렌트롤 행)에서 단위를 만든다 → 층·임차인·면적 문자열이 표와 1:1 일치 (입력 단위 통일, Rule 70 / §9.1)
   const FLOOR_PATTERN = /^(B?\d+F?|지상|지하|옥탑|PH|RF|\d+층)/i;
   const stackRows = rawRows.filter((r: any[]) => !isSummaryRowOf(r));
   const tableIsFloorBased = stackRows.length > 0 && FLOOR_PATTERN.test(String(stackRows[0]?.[0] || '').trim());
   let units: StackingUnit[] = [];
+  // 표 경로: 면적 숫자가 이미 입력 단위(표 셀 문자열) / 층별 ㎡ 데이터 경로: ㎡ → 입력 단위로 환산해 표기
+  let unitsAreInInputUnit = false;
   if (tableIsFloorBased && (isR2BinderTable || stackingData.length === 0)) {
+    unitsAreInInputUnit = true;
     // F4 fix: 첫 행의 r[0]이 층 패턴에 맞는 경우만 스태킹 플랜으로 변환
     // ssot_summary 합성 행("월 임대료 합계" 등)이 층 이름으로 둔갑하는 시각 오염 방지
     units = stackRows.map((r: any[]) => {
@@ -413,7 +438,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       // 임대면적 우선, 미기재 시 전용면적 (표에 실제 기입된 값만 사용)
       const areaCell = parseAreaNum(leaseCell) > 0 ? leaseCell : excCell;
       const area = parseAreaNum(areaCell);
-      // '209.6 (63.4평)' → 스태킹 라벨은 표와 같은 ㎡ 숫자 토큰만 사용 (평 환산 라벨 금지, Rule 70)
+      // 스태킹 라벨은 표와 같은 숫자 토큰(입력 단위)만 사용 — 꼬리표(㎡|평)는 areaUnit 이 붙인다
       const areaToken = (String(areaCell).match(/\d[\d,]*(?:\.\d+)?/) ?? [''])[0];
       const isVac = tenantRaw.includes('공실') || floor.includes('공실');
       // D6: 임차인이 '임차인 A' 같은 마스킹 라벨이면 도식에는 용도(업종)를 표기 (익명 라벨은 정보가 없음)
@@ -436,7 +461,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         unitLabel: String(f.floor ?? ''),
         tenant: isVac ? '공실' : String(f.tenant || f.use || '-'),
         areaSqm: area > 0 ? area : 0,
-        areaText: area > 0 ? formatAreaSqm(area) : '',
+        areaText: area > 0 ? formatLeaseArea(area, areaUnit) : '',
         isVacant: isVac,
         expiryYear: f.expiryYear ? String(f.expiryYear) : parseExpiryYear(String(f.tenant || '')),
         category: f.category,
@@ -461,7 +486,9 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
           unitLabel: `B${subs.length}~B1`,
           tenant: `지하 ${subs.length}개층`,
           areaSqm: subArea,
-          areaText: subArea > 0 ? formatAreaSqm(subArea) : '',
+          areaText: subArea > 0
+            ? (unitsAreInInputUnit ? formatLeaseAreaValue(subArea, { decimals: 2 }) : formatLeaseArea(subArea, areaUnit))
+            : '',
           isVacant: false,
           category: 'parking',
         }],
@@ -486,9 +513,9 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       x: spX, y: topY, w: spW, h: bandH,
       fill: { color: C.ink }, line: { color: C.ink, width: 0.5 },
     });
-    slide.addText('층별 스태킹 플랜 (㎡)', {
+    slide.addText(stackingStripTitle(areaUnit), {
       x: spX, y: topY, w: spW, h: bandH,
-      fontSize: fitSingleLine('층별 스태킹 플랜 (㎡)', spW - 0.12, headerFontSize, 7, true).fontSize,
+      fontSize: fitSingleLine(stackingStripTitle(areaUnit), spW - 0.12, headerFontSize, 7, true).fontSize,
       bold: true, color: C.bg, align: 'center', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
     });
 
@@ -569,7 +596,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
         // 한 줄 라벨: '임차인 209.6㎡' → 좁으면 '임차인' (표와 같은 ㎡ 문자열)
         const lbl = hPerFloor >= 0.14
-          ? chooseStackLabel(unit.tenant, unit.areaText, segW - 0.10, labelBasePt, labelMinPt, isVacant)
+          ? chooseStackLabel(unit.tenant, unit.areaText, segW - 0.10, labelBasePt, labelMinPt, isVacant, stackingAreaSuffix(areaUnit))
           : null;
         if (lbl) {
           slide.addText(lbl.text, {
@@ -639,7 +666,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   if (hasTable) {
     // 면적 열 투영 — 임대면적/전용면적 중 사용자가 기입한 것(둘 중 하나 또는 둘 다)만 표기.
     // 헤더·열폭·셀을 같은 keep 인덱스로 투영해 열 수 = 셀 수를 유지한다 (rule 68).
-    const areaProj = projectBasicRentRollColumns(rawRows);
+    const areaProj = projectBasicRentRollColumns(rawRows, areaUnit);
     const HEADERS = areaProj.headers;
 
     // 셀 문자열 확정 (숫자 열은 천 단위 구분 통일: 2490.3 → 2,490.3)
@@ -712,9 +739,18 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
     // 단위 표기 (binder가 ㎡·만원으로 확정한 R2 표일 때만) — 헤더 셀은 표준 명칭 유지
     if (isR2BinderTable) {
-      slide.addText(cellTexts.some(r => r.some(c => /평\)/.test(c))) ? '면적 ㎡ (평) · 금액 만원' : '면적 ㎡ · 금액 만원', {
+      slide.addText(rentRollUnitCaption(areaUnit), {
         x: tbX, y: topY - 0.26, w: tbW, h: 0.22,
         fontSize: 8, color: '7A8794', align: 'right', valign: 'bottom', fontFace: KR, margin: 0,
+      });
+    }
+    // v1.5 §9.1 각주 — 계산된 사실(V06·V07~V09)만. 한 줄(축소 맞춤), SAFE_BOTTOM 이내
+    if (factsNote) {
+      const factsW = CW;
+      const fitted = fitSingleLine(factsNote, factsW, 8, 6.5, false);
+      slide.addText(fitted.text, {
+        x: M, y: 6.62 - factsH + 0.01, w: factsW, h: factsH - 0.02,
+        fontSize: fitted.fontSize, color: '7A8794', align: 'left', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
       });
     }
     // 전 호실 공통 비고(binder 가 열에서 분리) — 단위 표기 줄 왼쪽에 1회만 표기

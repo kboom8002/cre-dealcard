@@ -713,8 +713,8 @@ describe('Adversarial Deep Boundary & Semantic Defect Analysis', () => {
     expect(extractText(summaryRow[0])).toBe('합계');
     // Column 1: Dynamically computed '2개층 공실' (reflects vacancy)
     expect(extractText(summaryRow[1])).toBe('2개층 공실');
-    // Column 2: Dynamically calculated sum of exclusiveAreaPy (100 + 100 = 200.0)
-    expect(extractText(summaryRow[2])).toBe('200.0');
+    // Column 2: v1.5 §9.1 — 입력 단위(기본 ㎡)로 표시된 값의 합 (100평+100평 → 330.58+330.58 = 661.16㎡)
+    expect(extractText(summaryRow[2])).toBe('661.16');
     // Column 4: Dynamic tenant note (no false 8개층 claims)
     expect(extractText(summaryRow[4])).not.toContain('8개층');
   });

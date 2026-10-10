@@ -13,7 +13,7 @@ import { calculateBenchmarkMetrics, formatBenchmarkMarkdown } from './comparable
 import { computeVacancyPositioning, formatVacancyPositioningRow } from './vacancy-positioning';
 import { parsePriceBandKrw } from './im-context-builder';
 import { formatPyeong, formatSqm, pyeongToSqm, sqmToPyeong, SQM_RATIO, PYEONG_RATIO } from '@/lib/utils/area-conversion';
-import { normalizeGeneratedMarkdown } from './terminology-normalizer';
+import { normalizeGeneratedMarkdown, protectBlock } from './terminology-normalizer';
 import { verifiedLegalLimits } from './legal-limits';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -242,7 +242,8 @@ ${infra}
         try {
           const normalizedLeases = normalizeFloorLeases(supplemental.floor_leases);
           // [A5] 어댑터로 정규화된 Rent Roll 삽입
-          rentRollTable = "\n" + formatRentRollMarkdown(normalizedLeases);
+          // v1.5 §9.1: 입력 단위(G9) 표기 유지 — 마지막 normalizeGeneratedMarkdown 이 '평→N평(약 X㎡)' 로 덮어쓰지 않도록 보호 블록으로 감싼다
+          rentRollTable = "\n" + protectBlock(formatRentRollMarkdown(normalizedLeases, supplemental.rent_roll_meta));
 
           // [B1] WALE 계산
           const waleUnits = normalizedLeases

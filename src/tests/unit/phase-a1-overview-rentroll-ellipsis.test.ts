@@ -19,9 +19,9 @@ import {
   bindRentRollTable,
   resolveTenantAndUse,
   resolveLeaseNote,
-  formatAreaWithPyeong,
   parseLeadingNumber,
 } from '@/domain/building/mobile-im/pptx/binder/rent-roll-table-builder';
+import { formatLeaseArea } from '@/domain/building/mobile-im/pptx/binder/lease-area-format';
 import { projectBasicRentRollColumns } from '@/domain/building/mobile-im/pptx/rentroll-area-columns';
 import { normalizeMissing, isMissingToken } from '@/domain/building/mobile-im/pptx/missing-values';
 import {
@@ -141,8 +141,10 @@ describe('D6 resolveTenantAndUse / 비고 / 임대면적 평 병기', () => {
     expect(resolveLeaseNote({ note: '분할임대', lease_state: '자가사용' })).toBe('분할임대 · 자가사용');
   });
 
-  it('formatAreaWithPyeong / parseLeadingNumber: ㎡ + 평 병기, 파싱은 첫 숫자 토큰만', () => {
-    expect(formatAreaWithPyeong(209.6)).toBe('209.6 (63.4평)');
+  it('formatLeaseArea / parseLeadingNumber: 단일 단위 소수 2자리, 파싱은 첫 숫자 토큰만 (레거시 병기 문자열도 파싱)', () => {
+    expect(formatLeaseArea(209.6, 'sqm')).toBe('209.60');
+    expect(formatLeaseArea(209.6, 'pyeong')).toBe('63.40');
+    expect(formatLeaseArea(undefined, 'sqm')).toBe('-');
     expect(parseLeadingNumber('1,234.5 (373.4평)')).toBeCloseTo(1234.5, 5);
     expect(parseLeadingNumber('-')).toBe(0);
   });
@@ -173,7 +175,7 @@ describe('D6 resolveTenantAndUse / 비고 / 임대면적 평 병기', () => {
 
   it('NEGATIVE: 면적이 없으면 임대면적 셀은 "-" (날조 금지)', () => {
     const r = bind([{ floor: '1F', tenant_type: '카페', deposit_manwon: 1, rent_manwon: 1 }]);
-    const areaIdx = r.tableHead.indexOf('임대면적');
+    const areaIdx = r.tableHead.findIndex(h => h.startsWith('임대면적')); // 머리글은 '임대면적(㎡)'|'(평)' — 접두어 매칭
     expect(areaIdx).toBeGreaterThanOrEqual(0);
     expect(r.tableRows[0][areaIdx]).toBe('-');
   });
@@ -204,12 +206,15 @@ describe('D7 normalizeMissing', () => {
 });
 
 describe('D7 공실 컴팩트 문자열', () => {
-  it('POSITIVE: 공실 호실 수 · 평 (비율%)', () => {
+  it('POSITIVE: 공실 호실 수 · 면적 (비율%) — 입력 단위(㎡|평) 단일 표기', () => {
     const leases = [
       { floor: '1F', tenant_type: '카페', area_pyeong: 100 },
       { floor: '2F', tenant_type: '(공실)', is_vacant: true, area_pyeong: 10 },
     ];
-    expect(buildVacancyCompact(leases)).toBe('공실 1개 호실 · 10평 (9.1%)');
+    // v1.5 §9.1: 기본 ㎡ (10평 = 33.06㎡ → 정수 33㎡), 평 모드는 입력한 평 그대로
+    expect(buildVacancyCompact(leases)).toBe('공실 1개 호실 · 33㎡ (9.1%)');
+    expect(buildVacancyCompact(leases, 'pyeong')).toBe('공실 1개 호실 · 10평 (9.1%)');
+    expect(buildVacancyCompact(leases, 'sqm')).not.toMatch(/평/);
   });
 
   it('POSITIVE: 면적 없이 공실만 → 호실 수만 / 공실 없음 → 만실', () => {

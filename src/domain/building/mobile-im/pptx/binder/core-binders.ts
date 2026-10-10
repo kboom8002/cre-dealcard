@@ -15,7 +15,9 @@ import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion
 import { pairOrDash, fmtFixed } from "@/lib/format/safe-number";
 import { resolvePhysicalSpecs } from "../../resolve-physical-specs";
 import { summarizeParcels } from "../../parcel-input";
-import { resolveTenantAndUse, resolveLeaseNote, formatAreaSqm, formatAreaWithPyeong } from "./rent-roll-table-builder";
+import { resolveTenantAndUse, resolveLeaseNote } from "./rent-roll-table-builder";
+import { formatLeaseArea, leaseAreaHeader } from "./lease-area-format";
+import { resolveAreaInputUnit } from "../../rentroll-meta";
 import { normalizeBuildingRegister } from "@/lib/external/building-register-normalize";
 import { verifiedLegalLimits } from "./legal-limits";
 
@@ -137,13 +139,15 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     }
 
     const isBasicPresetForRentRoll = body?.preset === 'credeal_basic';
+    // v1.5 §9.1: 면적은 입력 단위(body.rent_roll_meta.area_input_unit, 기본 sqm)로 표기 — 계산 정본은 ㎡
+    const coreAreaUnit = resolveAreaInputUnit(body?.rent_roll_meta);
     // D6: 비고(비고/임대상태/갱신요구권) 입력이 하나라도 있을 때만 11번째 열 — rent-roll-table-builder 와 동일 규칙
     const coreNotes: string[] = core.leases.map((l: any) => resolveLeaseNote({
       note: l.note, lease_state: l.leaseState, renewal_exercised: l.renewalExercised,
     }));
     const coreHasNoteCol = isBasicPresetForRentRoll && coreNotes.some(Boolean);
     const rentRollHeaders = isBasicPresetForRentRoll 
-            ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일', ...(coreHasNoteCol ? ['비고'] : [])]
+            ? ['층', '임차인', '용도', leaseAreaHeader('lease', coreAreaUnit), leaseAreaHeader('exclusive', coreAreaUnit), '보증금', '월임대료', '관리비', '월합계', '만기일', ...(coreHasNoteCol ? ['비고'] : [])]
             : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
     // 임차인/용도 해석 (Rule 4, D6) — rent-roll-table-builder 와 동일 규칙 (상호 없으면 '임차인 A/B…' 마스킹)
     let coreMaskSeq = 0;
@@ -156,8 +160,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
             l.unitLabel ?? '-',
             party.tenant,
             party.use,
-            l.leaseAreaSqm ? formatAreaWithPyeong(l.leaseAreaSqm) : '-',
-            (l as any).exclusiveAreaSqm ? formatAreaSqm((l as any).exclusiveAreaSqm) : '-',
+            formatLeaseArea(l.leaseAreaSqm, coreAreaUnit),
+            formatLeaseArea((l as any).exclusiveAreaSqm, coreAreaUnit),
             l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}` : '-',
             l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}` : '-',
             l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}` : '-',
@@ -180,6 +184,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     metrics: {},
     tableHead: rentRollHeaders,
     tableRows: rentRollRows,
+    ...(isBasicPresetForRentRoll ? { areaInputUnit: coreAreaUnit } : {}),
     };
     if (isBasicPresetForRentRoll && result['rentRoll'] && result['stackingPlan']) {
     if (result['rentRoll']) result['rentRoll'].stackingPlan = result['stackingPlan']?.stackingPlan ?? [];

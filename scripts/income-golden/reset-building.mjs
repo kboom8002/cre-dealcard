@@ -14,9 +14,11 @@ import path from 'node:path';
 
 const SETS = ['ig1', 'ig2', 'ig3', 'ig4'];
 const VARIANTS = ['corrected', 'as-is'];
+/** ig1 파생 변형 (렌트롤 v1.5 단위 시험) */
+const EXTRA = ['ig1-corrected-pyeong', 'ig1-unit-confusion'];
 const args = process.argv.slice(2);
 const targets = args.includes('--all')
-  ? SETS.flatMap((s) => VARIANTS.map((v) => `${s}-${v}`))
+  ? [...SETS.flatMap((s) => VARIANTS.map((v) => `${s}-${v}`)), ...EXTRA]
   : args;
 
 if (targets.length === 0) {

@@ -7,6 +7,7 @@ import type { ArchetypeCode } from './archetype-registry';
 import type { BuildingSSoTLite } from '../building-ssot-lite.types';
 import type { Claim } from '@/domain/building/im-core/claim';
 import type { BrokerExtras } from './broker-extras';
+import type { RentRollMeta, EvidenceLevel, PaymentStatus } from './rentroll-meta';
 
 /** 개별 사진 메타데이터 (v0.6.0) */
 export interface PhotoMeta {
@@ -109,6 +110,26 @@ export interface FloorLeaseInput {
   lease_end?: string;         // 계약 종료일 (YYYY-MM-DD)
   note?: string;              // 참고 (임대료 인상 조건 등)
   is_vacant?: boolean;        // 공실 여부
+
+  // ── 렌트롤 표준 양식 v1.3~v1.5 행 필드 (스펙 §5: 이름 확정) ──
+  /** 임대면적 ㎡ 정본 (v1.5: G9 단위 환산 후 값) */
+  area_sqm?: number;
+  /** 전용면적 ㎡ 정본 (v1.5: G9 단위 환산 후 값) */
+  exclusive_area_sqm?: number;
+  /** 계약그룹 — 같은 값이면 하나의 통합계약(금액은 대표 행에만) */
+  contract_group?: string;
+  /** 임대상태 (임대중/공실/자가사용) */
+  lease_state?: '임대중' | '공실' | '자가사용';
+  legal_basis?: '상가' | '주택' | '미확인';
+  first_contract_date?: string;
+  renewal_exercised?: '있음' | '없음' | '모름';
+  opposing_power?: '사업자등록' | '주민등록' | '미확인';
+  /** v1.4 Z — 근거 */
+  evidence_level?: EvidenceLevel | null;
+  /** v1.4 AA — 렌트프리 잔여(개월, 정수 ≥ 0) */
+  rent_free_months?: number | null;
+  /** v1.4 AB — 입금 확인(최근 12개월) */
+  payment_status?: PaymentStatus | null;
 
   /** 임대료 유형 */
   rent_type?: 'fixed'            // 고정 임대료 (기본)
@@ -328,6 +349,12 @@ export interface MobileIMSupplementalInput {
 
   /** 비임대 부가수입 항목 */
   ancillary_incomes?: AncillaryIncomeItem[];
+
+  /**
+   * 렌트롤 v1.5 헤더 블록 + 물건 단위 메타 (G9 면적 입력 단위, C5 기준일, J3~J8, V12 해제).
+   * 라우트에서 parseRentRollMeta 로 검증한 값만 들어온다. area_unit_override.by/at 은 handler 가 서버에서 채운다.
+   */
+  rent_roll_meta?: RentRollMeta;
 
   hospitalitySpec?: HospitalitySpec;
   developmentSpec?: DevelopmentSpec;

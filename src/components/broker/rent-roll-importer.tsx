@@ -1,43 +1,68 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-// SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
+// SECURITY: SheetJS(xlsx) 입력은 신뢰할 수 없다 — 파일 크기 제한 + 파서 단의 위치·값 검증으로 방어
 import * as XLSX from "xlsx";
 import { calculateEfficiencyRatio } from "@/types/im";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
 import {
-  parseRentRollData,
   summarizeRentRollAreas,
   type ParsedRentRollRow,
   type RentRollAreaSummary,
 } from "@/lib/rentroll/parse-rentroll-sheet";
+import { parseRentRollWorkbook } from "@/lib/rentroll/parse-rentroll-workbook";
+import {
+  areaUnitLabel,
+  sqmToInputUnit,
+  toSqmFromInput,
+  type AreaInputUnit,
+  type RentRollIssue,
+  type RentRollMeta,
+  type RentrollVersion,
+} from "@/domain/building/mobile-im/rentroll-meta";
 
-/** 바텀시트 '빈 양식' 다운로드 파일 — public/ 정적 파일. scripts/build-rentroll-template.mjs 로 생성 */
-const TEMPLATE_HREF = "/CREDEAL_rentroll_template_v1.3.xlsx";
-const TEMPLATE_DOWNLOAD_NAME = "CREDEAL_렌트롤_표준양식_v1.3.xlsx";
+/** 바텀시트 '빈 양식' 다운로드 파일 — public/ 정적 파일 (v1.5 는 수기 관리, 생성 스크립트 없음) */
+const TEMPLATE_HREF = "/CREDEAL_rentroll_template_v1.5.xlsx";
+const TEMPLATE_DOWNLOAD_NAME = "CREDEAL_렌트롤_표준양식_v1.5.xlsx";
+
+/** onImport 페이로드 — meta 는 항상 채워진다(텍스트 입력은 sqm/unknown) */
+export interface RentRollImportPayload {
+  monthlyRent: number;
+  totalDeposit: number;
+  mgmtFeeTotal: number;
+  vacancyPct: number;
+  floorLeases: ParsedRentRollRow[];
+  /** 렌트롤 헤더 블록 + 입력 단위. V12 해제 시 area_unit_override.reason 이 채워진다 */
+  meta: RentRollMeta;
+  /** 구조화 이슈. blocking(V12)은 해제 사유 입력 전에는 onImport 가 호출되지 않고, 해제 후에는 이슈가 남은 채 meta.area_unit_override.reason 이 채워진다 */
+  issues: RentRollIssue[];
+  /** J3 매각(희망)가 → 만원 (미기재 null). 바텀시트는 '희망가가 비어 있을 때만' 채우고 덮어쓰지 않는다 */
+  askingPriceManwon: number | null;
+}
 
 interface RentRollImporterProps {
   hasExistingData?: boolean;
-  onImport: (data: {
-    monthlyRent: number;
-    totalDeposit: number;
-    mgmtFeeTotal: number;
-    vacancyPct: number;
-    floorLeases: ParsedRentRollRow[];
-  }) => void;
+  onImport: (data: RentRollImportPayload) => void;
 }
 
-/** 프리뷰 표에서 편집되는 행 — 금액/공실 필드는 항상 값이 있다 */
+/** 프리뷰 표에서 편집되는 행 — 통합계약 비대표 행은 금액이 undefined(빈칸, 0 날조 금지) */
 type PreviewRow = ParsedRentRollRow & {
-  deposit_manwon: number;
-  rent_manwon: number;
+  deposit_manwon?: number;
+  rent_manwon?: number;
   mgmt_fee_manwon?: number; // 미기재 시 undefined → IM 에서 '-' (0 날조 금지, Rule 34/37)
   is_vacant: boolean;
 };
 
+const TEXT_MODE_META: RentRollMeta = { area_input_unit: "sqm", rentroll_version: "unknown" };
+
+function versionBadgeLabel(version: RentrollVersion, unit: AreaInputUnit): string {
+  const u = unit === "pyeong" ? "평 입력" : "㎡ 입력";
+  return version === "unknown" ? `레거시 양식 · ${u}` : `v${version} · ${u}`;
+}
+
 const HELP_CONTENT = [
   { icon: "📋", text: "필수(R1): 호실/층, 업종·상호, 보증금, 월세, 만료일, 임대상태" },
-  { icon: "📐", text: "권장(R2): 임대면적(㎡)·전용면적(㎡)·관리비·적용법령 — 전용률은 자동 계산" },
+  { icon: "📐", text: "권장(R2): 임대면적·전용면적(G9에서 ㎡/평 선택)·관리비·적용법령 — 전용률은 자동 계산" },
   { icon: "🔎", text: "R3(최초계약일·갱신요구권·대항력)는 엑셀 '자동검증' 시트의 갱신권·명도 판정용" },
   { icon: "💰", text: "금액은 머리글의 단위(원/만원)를 읽고 만원으로 자동 변환" },
   { icon: "📄", text: "제목·주소 행이 위에 있어도, 합계·예시·빈 행은 자동으로 건너뜀" },
@@ -54,6 +79,9 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
   const [textInput, setTextInput] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // V12(면적 단위 의심) 해제 사유 — 입력 중 초안 / 확정(적용)된 사유
+  const [overrideDraft, setOverrideDraft] = useState("");
+  const [overrideReason, setOverrideReason] = useState<string | null>(null);
 
   const [parsedPreview, setParsedPreview] = useState<{
     rows: PreviewRow[];
@@ -63,7 +91,45 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
     vacancyPct: number;
     areaSummary: RentRollAreaSummary;
     warnings: string[];
+    version: RentrollVersion;
+    meta: RentRollMeta;
+    issues: RentRollIssue[];
   } | null>(null);
+
+  /** blocking 이슈(V12) — 사유로 해제되기 전에는 상위 폼으로 아무것도 내보내지 않는다 */
+  const blockingIssues = parsedPreview?.issues.filter((i) => i.level === "blocking") ?? [];
+  const isBlocked = blockingIssues.length > 0 && !overrideReason;
+  // 프리뷰 면적 편집은 엑셀 입력 단위(㎡/평)로 보여 주고, 저장은 ㎡ 정본으로 환산한다
+  const areaUnit: AreaInputUnit = parsedPreview?.meta.area_input_unit ?? "sqm";
+  const showArea = (sqm: number | null | undefined): number | "" => sqmToInputUnit(sqm ?? null, areaUnit) ?? "";
+  const readArea = (raw: string): number | undefined =>
+    raw === "" ? undefined : (toSqmFromInput(Number(raw), areaUnit) ?? undefined);
+
+  /** 상위 폼 페이로드 — 해제 사유가 있으면 meta.area_unit_override 에 싣는다 */
+  const buildPayload = (
+    p: {
+      rows: PreviewRow[];
+      monthlyRent: number;
+      totalDeposit: number;
+      mgmtFeeTotal: number;
+      vacancyPct: number;
+      meta: RentRollMeta;
+      issues: RentRollIssue[];
+    },
+    reason: string | null,
+  ): RentRollImportPayload => {
+    const meta: RentRollMeta = reason ? { ...p.meta, area_unit_override: { reason } } : p.meta;
+    return {
+      monthlyRent: p.monthlyRent,
+      totalDeposit: p.totalDeposit,
+      mgmtFeeTotal: p.mgmtFeeTotal,
+      vacancyPct: p.vacancyPct,
+      floorLeases: p.rows,
+      meta,
+      issues: p.issues,
+      askingPriceManwon: meta.asking_price_krw != null ? Math.round(meta.asking_price_krw / 10000) : null,
+    };
+  };
 
   const updatePreviewTotals = (newRows: PreviewRow[]) => {
     let totDep = 0;
@@ -92,14 +158,18 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       areaSummary: summarizeRentRollAreas(newRows),
     } : null);
 
-    // 실시간 수정 내용도 상위 폼에 즉시 반영
-    onImport({
-      monthlyRent: totRent,
-      totalDeposit: totDep,
-      mgmtFeeTotal: totMgmt,
-      vacancyPct: vacPct,
-      floorLeases: newRows,
-    });
+    // 실시간 수정 내용도 상위 폼에 즉시 반영 (V12 차단 중에는 반영하지 않는다)
+    if (parsedPreview && !isBlocked) {
+      onImport(buildPayload({
+        rows: newRows,
+        monthlyRent: totRent,
+        totalDeposit: totDep,
+        mgmtFeeTotal: totMgmt,
+        vacancyPct: vacPct,
+        meta: parsedPreview.meta,
+        issues: parsedPreview.issues,
+      }, overrideReason));
+    }
   };
 
   const handleTextParse = async () => {
@@ -126,30 +196,30 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       
       const rows: PreviewRow[] = (data.floorLeases || []).map((r: any) => ({
         ...r,
-        deposit_manwon: r.deposit_manwon || 0,
-        rent_manwon: r.rent_manwon || 0,
+        deposit_manwon: Number.isFinite(r.deposit_manwon) ? r.deposit_manwon : undefined,
+        rent_manwon: Number.isFinite(r.rent_manwon) ? r.rent_manwon : undefined,
         mgmt_fee_manwon: Number.isFinite(r.mgmt_fee_manwon) ? r.mgmt_fee_manwon : undefined,
         is_vacant: r.is_vacant || false,
       }));
 
-      setParsedPreview({
+      const preview = {
         rows,
         monthlyRent: data.monthlyRent,
         totalDeposit: data.totalDeposit,
         mgmtFeeTotal: data.mgmtFeeTotal,
         vacancyPct: data.vacancyPct,
         areaSummary: summarizeRentRollAreas(rows),
-        warnings: [],
-      });
+        warnings: [] as string[],
+        version: "unknown" as RentrollVersion,
+        meta: TEXT_MODE_META,
+        issues: [] as RentRollIssue[],
+      };
+      setOverrideDraft("");
+      setOverrideReason(null);
+      setParsedPreview(preview);
 
       // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력
-      onImport({
-        monthlyRent: data.monthlyRent,
-        totalDeposit: data.totalDeposit,
-        mgmtFeeTotal: data.mgmtFeeTotal,
-        vacancyPct: data.vacancyPct,
-        floorLeases: rows,
-      });
+      onImport(buildPayload(preview, null));
 
       setResult("✅ AI 분석이 완료되었습니다. 폼에 금액이 자동 입력되었습니다.");
     } catch (err: any) {
@@ -182,7 +252,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
     setIsError(false);
 
     try {
-      // xlsx@0.18.5 — readAsBinaryString + type:'binary'가 .xlsx 파싱에 가장 안정적
+      // SheetJS(xlsx 0.20.x) — readAsBinaryString + type:'binary'가 .xlsx 파싱에 가장 안정적
       const binaryStr = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -196,35 +266,19 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         throw new Error("시트를 찾을 수 없습니다. 파일이 비어있는지 확인해주세요.");
       }
 
-      // v1.2 표준양식 호환: '렌트롤' 시트 우선 탐지
-      const rentRollSheetName = workbook.SheetNames.find(
-        (name) => name.includes('렌트롤') || name.toLowerCase().includes('rent')
-      );
-      const targetSheetName = rentRollSheetName || workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[targetSheetName];
-      console.log(`[RentRollImporter] Using sheet: '${targetSheetName}' (of ${workbook.SheetNames.length} sheets)`);
-      
-      if (!worksheet) {
-        throw new Error(`시트 '${targetSheetName}'를 읽을 수 없습니다.`);
-      }
-
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-
-      if (!jsonData || jsonData.length === 0) {
-        throw new Error("시트에 데이터가 없습니다. 다른 시트나 파일을 확인해주세요.");
-      }
-
-      const parsed = parseRentRollData(jsonData);
+      // v1.2~v1.5 표준양식 호환: '렌트롤' 시트 우선 탐지 (parseRentRollWorkbook 이 시트 선택·버전 감지·고정 위치 파싱)
+      const parsed = parseRentRollWorkbook(workbook);
 
       const rows: PreviewRow[] = parsed.parsedRows.map((r) => ({
         ...r,
-        deposit_manwon: r.deposit_manwon || 0,
-        rent_manwon: r.rent_manwon || 0,
+        // 통합계약 비대표 행은 undefined 유지 (0 으로 채우면 '0원 계약'으로 오인)
+        deposit_manwon: r.deposit_manwon ?? undefined,
+        rent_manwon: r.rent_manwon ?? undefined,
         mgmt_fee_manwon: Number.isFinite(r.mgmt_fee_manwon) ? r.mgmt_fee_manwon : undefined,
         is_vacant: r.is_vacant || false,
       }));
 
-      setParsedPreview({
+      const preview = {
         rows,
         monthlyRent: parsed.monthlyRent,
         totalDeposit: parsed.totalDeposit,
@@ -232,23 +286,29 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         vacancyPct: parsed.vacancyPct,
         areaSummary: parsed.areaSummary,
         warnings: parsed.warnings,
-      });
+        version: parsed.version,
+        meta: parsed.meta,
+        issues: parsed.issues,
+      };
+      setOverrideDraft("");
+      setOverrideReason(null);
+      setParsedPreview(preview);
 
-      // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력
-      onImport({
-        monthlyRent: parsed.monthlyRent,
-        totalDeposit: parsed.totalDeposit,
-        mgmtFeeTotal: parsed.mgmtFeeTotal,
-        vacancyPct: parsed.vacancyPct,
-        floorLeases: rows,
-      });
+      const blocked = parsed.issues.some((i) => i.level === "blocking");
+      // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력 — V12 차단 시에는 해제 사유 전까지 보류
+      if (!blocked) onImport(buildPayload(preview, null));
 
       const unitLabel = parsed.unitDetected === "won" ? "(원→만원 자동변환)" : "(만원 단위)";
       const a = parsed.areaSummary;
       const areaLabel = a.leaseSqm > 0 || a.exclusiveSqm > 0
         ? ` 임대 ${a.leaseSqm.toLocaleString()}㎡${a.exclusiveSqm > 0 ? ` · 전용 ${a.exclusiveSqm.toLocaleString()}㎡` : ""}${a.weightedEfficiencyPct != null ? ` · 전용률 ${a.weightedEfficiencyPct}%` : ""}.`
         : "";
-      setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}.${areaLabel} 폼에 금액이 자동 입력되었습니다.`);
+      if (blocked) {
+        setIsError(true);
+        setResult(`⛔ ${parsed.rowCount}개 호실을 읽었지만 면적 단위 확인이 필요해 폼에는 아직 반영하지 않았습니다.`);
+      } else {
+        setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}.${areaLabel} 폼에 금액이 자동 입력되었습니다.`);
+      }
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "파일 파싱 실패"}\n💡 아래 '?' 버튼을 눌러 작성 가이드를 확인하세요.`);
@@ -392,15 +452,23 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       {/* Parsed Preview Editable Mini-Table */}
       {parsedPreview && (
         <div className="mt-4 bg-secondary/50 rounded-lg p-3 border border-border animate-in fade-in duration-150">
-          <h4 className="text-sm font-semibold mb-2 text-foreground">데이터 확인 및 수정</h4>
+          <h4 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-2">
+            데이터 확인 및 수정
+            <span
+              data-testid="rent-roll-version-badge"
+              className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap"
+            >
+              {versionBadgeLabel(parsedPreview.version, parsedPreview.meta.area_input_unit)}
+            </span>
+          </h4>
           <div className="max-h-60 overflow-auto mb-2 border border-border rounded">
             <table className="w-full text-xs text-left">
               <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="px-2 py-1 font-medium">층</th>
                   <th className="px-2 py-1 font-medium">업종</th>
-                  <th className="px-2 py-1 font-medium whitespace-nowrap" title="임대차계약서상 계약면적(전용+공용분담), ㎡">임대㎡</th>
-                  <th className="px-2 py-1 font-medium whitespace-nowrap" title="임차인 독점 사용면적, ㎡">전용㎡</th>
+                  <th className="px-2 py-1 font-medium whitespace-nowrap" title={`임대차계약서상 계약면적(전용+공용분담), ${areaUnitLabel(parsedPreview.meta.area_input_unit)}`}>임대{areaUnitLabel(parsedPreview.meta.area_input_unit)}</th>
+                  <th className="px-2 py-1 font-medium whitespace-nowrap" title={`임차인 독점 사용면적, ${areaUnitLabel(parsedPreview.meta.area_input_unit)}`}>전용{areaUnitLabel(parsedPreview.meta.area_input_unit)}</th>
                   <th className="px-2 py-1 font-medium whitespace-nowrap" title="전용면적 ÷ 임대면적 × 100 (자동)">전용률</th>
                   <th className="px-2 py-1 font-medium">보증금</th>
                   <th className="px-2 py-1 font-medium">월세</th>
@@ -440,11 +508,11 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                         type="number"
                         step="0.01"
                         min="0"
-                        value={row.area_sqm_is_proxy ? "" : (row.area_sqm ?? "")}
+                        value={row.area_sqm_is_proxy ? "" : showArea(row.area_sqm)}
                         placeholder="-"
                         onChange={(e) => {
                           const newRows = [...parsedPreview.rows];
-                          const v = e.target.value === "" ? undefined : Number(e.target.value);
+                          const v = readArea(e.target.value);
                           newRows[idx].area_sqm = v;
                           // 사용자가 임대면적을 직접 입력/삭제하면 레거시 대용값 표시는 해제
                           newRows[idx].area_sqm_is_proxy = undefined;
@@ -459,11 +527,11 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                         type="number"
                         step="0.01"
                         min="0"
-                        value={row.exclusive_area_sqm ?? ""}
+                        value={showArea(row.exclusive_area_sqm)}
                         placeholder="-"
                         onChange={(e) => {
                           const newRows = [...parsedPreview.rows];
-                          const v = e.target.value === "" ? undefined : Number(e.target.value);
+                          const v = readArea(e.target.value);
                           newRows[idx].exclusive_area_sqm = v;
                           if (newRows[idx].area_sqm_is_proxy) {
                             // 레거시 대용 임대면적은 전용면적과 같은 값을 유지 (전용률은 계산하지 않음)
@@ -496,10 +564,11 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                     <td className="px-2 py-1">
                       <input 
                         type="number" 
-                        value={row.deposit_manwon} 
+                        value={row.deposit_manwon ?? ""}
+                        placeholder="-"
                         onChange={(e) => {
                           const newRows = [...parsedPreview.rows];
-                          newRows[idx].deposit_manwon = Number(e.target.value);
+                          newRows[idx].deposit_manwon = e.target.value === "" ? undefined : Number(e.target.value);
                           updatePreviewTotals(newRows);
                         }}
                         className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
@@ -508,10 +577,11 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                     <td className="px-2 py-1">
                       <input 
                         type="number" 
-                        value={row.rent_manwon} 
+                        value={row.rent_manwon ?? ""}
+                        placeholder="-"
                         onChange={(e) => {
                           const newRows = [...parsedPreview.rows];
-                          newRows[idx].rent_manwon = Number(e.target.value);
+                          newRows[idx].rent_manwon = e.target.value === "" ? undefined : Number(e.target.value);
                           updatePreviewTotals(newRows);
                         }}
                         className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
@@ -520,6 +590,9 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                     {/* D37 H-6: 환산보증금 + 상임법 뱃지 */}
                     <td className="px-2 py-1 text-right">
                       {(() => {
+                        if (row.deposit_manwon == null && row.rent_manwon == null) {
+                          return <span className="text-muted-foreground">-</span>;
+                        }
                         const dep = row.deposit_manwon ?? 0;
                         const rent = row.rent_manwon ?? 0;
                         const converted = dep + rent * 100; // 상임법 시행령 제2조
@@ -570,6 +643,55 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
               {parsedPreview.areaSummary.exclusiveSqm > 0 && parsedPreview.areaSummary.rowsMissingExclusive > 0 && ` · 전용면적 미입력 ${parsedPreview.areaSummary.rowsMissingExclusive}호실`}
             </p>
           )}
+          {blockingIssues.length > 0 && (
+            <div
+              data-testid="rent-roll-v12-panel"
+              role="alert"
+              className="mb-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-2 space-y-1.5"
+            >
+              <p className="text-xs font-bold text-rose-500">⛔ 면적 단위 확인 필요 (V12)</p>
+              {blockingIssues.map((i, k) => (
+                <p key={k} className="text-[11px] text-rose-500 leading-relaxed">{i.message}</p>
+              ))}
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                엑셀 G9(면적 단위)를 실제 입력 단위와 맞춰 다시 업로드하는 것이 원칙입니다. 값이 맞다고 확인되면 사유를 남기고 해제할 수 있으며, 단위는 자동으로 보정하지 않습니다.
+              </p>
+              {overrideReason ? (
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400">✅ 해제됨 — 사유: {overrideReason}</p>
+              ) : (
+                <>
+                  <textarea
+                    data-testid="rent-roll-v12-override-reason"
+                    value={overrideDraft}
+                    onChange={(e) => setOverrideDraft(e.target.value)}
+                    placeholder="해제 사유 (필수) — 예: 연면적이 실제로 4,764㎡인 대형 필지임을 등기부로 확인"
+                    className="w-full h-14 bg-background border border-input rounded px-2 py-1 text-[11px] resize-none outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <button
+                    type="button"
+                    data-testid="rent-roll-v12-override-apply"
+                    disabled={!overrideDraft.trim()}
+                    onClick={() => {
+                      const reason = overrideDraft.trim();
+                      if (!reason || !parsedPreview) return;
+                      setOverrideReason(reason);
+                      setIsError(false);
+                      setResult("✅ 사유를 기록하고 V12를 해제했습니다. 폼에 금액이 자동 입력되었습니다.");
+                      onImport(buildPayload(parsedPreview, reason));
+                    }}
+                    className="w-full bg-rose-500 text-white py-1 rounded text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    사유 기록 후 V12 해제
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {parsedPreview.meta.asking_price_krw != null && (
+            <p className="text-[11px] text-muted-foreground mb-2" data-testid="rent-roll-asking-price">
+              💴 렌트롤 매각희망가(J3): {Math.round(parsedPreview.meta.asking_price_krw / 10000).toLocaleString()}만원 — 폼의 희망가가 비어 있을 때만 채웁니다
+            </p>
+          )}
           {parsedPreview.warnings.length > 0 && (
             <ul className="mb-2 space-y-0.5 text-[11px] text-amber-500">
               {parsedPreview.warnings.map((w, i) => (
@@ -587,18 +709,14 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
           <div className="flex gap-2">
             <button 
               type="button"
+              disabled={isBlocked}
               onClick={() => {
-                onImport({
-                  monthlyRent: parsedPreview.monthlyRent,
-                  totalDeposit: parsedPreview.totalDeposit,
-                  mgmtFeeTotal: parsedPreview.mgmtFeeTotal,
-                  vacancyPct: parsedPreview.vacancyPct,
-                  floorLeases: parsedPreview.rows
-                });
+                if (isBlocked) return;
+                onImport(buildPayload(parsedPreview, overrideReason));
                 setParsedPreview(null);
                 setResult("✅ 데이터가 성공적으로 반영되었습니다.");
               }} 
-              className="flex-1 bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium hover:opacity-90 transition-opacity"
+              className="flex-1 bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               적용
             </button>

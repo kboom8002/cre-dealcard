@@ -8,8 +8,11 @@
 
 import type { FloorLeaseInput } from "./types";
 import { createServiceClient } from '@/lib/supabase/service';
-import { pyeongToSqm, formatPyeong } from '@/lib/utils/area-conversion';
+import { pyeongToSqm, formatPyeong, sqmToPyeong } from '@/lib/utils/area-conversion';
 import { resolveLeaseOccupancy } from './lease-vacancy';
+import { EVIDENCE_LEVELS, PAYMENT_STATUSES, areaUnitLabel, resolveAreaInputUnit, type AreaInputUnit, type RentRollMeta } from './rentroll-meta';
+import { formatLeaseAreaCell } from './lease-area-cell';
+import { groupContracts, resolveEvaluationDate } from './lease-math';
 
 export interface NormalizedLease {
   floor: string;
@@ -30,6 +33,16 @@ export interface NormalizedLease {
   /** 자가사용 호실 (공실 아님, 공실률 분모 제외) */
   isOwnerUse?: boolean;
   note?: string;
+  /** 임대면적 ㎡ 가 레거시 단일 '전용면적' 열 대용값(area_sqm_is_proxy)이면 true — 표에 임대면적으로 표기하지 않는다 */
+  areaIsProxy?: boolean;
+  /** 전용면적 ㎡ 정본 (v1.4+ D열). 없으면 undefined — 임대면적으로 대체하지 않는다 */
+  exclusiveAreaSqm?: number;
+  /** 계약그룹 (통합계약 — 같은 값이면 하나의 계약) */
+  contractGroup?: string;
+  /** v1.4 AA — 렌트프리 잔여(개월, 정수 ≥ 0) */
+  rentFreeMonths?: number;
+  /** v1.4 AB — 입금 확인 (정상/연체/미확인) */
+  paymentStatus?: string;
 }
 
 const MANWON_TO_WON = 10_000;
@@ -79,6 +92,11 @@ export function normalizeFloorLeases(raw: FloorLeaseInput[]): NormalizedLease[] 
     const occupancy = resolveLeaseOccupancy(r as any);
     const tenantName = String((r as any).tenant_name ?? (r as any).tenantName ?? '').trim();
 
+    const exclusiveRaw = Number((r as any).exclusive_area_sqm);
+    const contractGroup = String((r as any).contract_group ?? (r as any).contractGroup ?? '').trim();
+    const rentFreeRaw = (r as any).rent_free_months;
+    const paymentStatus = (r as any).payment_status;
+
     return {
       floor:          r.floor ?? "-",
       tenantType:     r.tenant_type ?? "미분류",
@@ -92,20 +110,55 @@ export function normalizeFloorLeases(raw: FloorLeaseInput[]): NormalizedLease[] 
       isVacant:       occupancy === '공실',
       isOwnerUse:     occupancy === '자가사용',
       note:           r.note,
+      ...((r as any).area_sqm_is_proxy ? { areaIsProxy: true } : {}),
+      ...(Number.isFinite(exclusiveRaw) && exclusiveRaw > 0 ? { exclusiveAreaSqm: exclusiveRaw } : {}),
+      ...(contractGroup ? { contractGroup } : {}),
+      ...(typeof rentFreeRaw === 'number' && Number.isFinite(rentFreeRaw) && rentFreeRaw > 0 ? { rentFreeMonths: Math.round(rentFreeRaw) } : {}),
+      ...(typeof paymentStatus === 'string' && paymentStatus ? { paymentStatus } : {}),
     };
   });
 }
 
 /**
- * NormalizedLease 배열을 Rent Roll 마크다운 테이블로 변환
+ * 렌트롤 비고 — 신규 필드(v1.4 AA/AB)에서 사실만 표기. 값이 없으면 빈 문자열 (지어내지 않는다).
+ *  - 렌트프리 N개월 / 입금 연체 / 입금 미확인 (정상은 표기하지 않음)
  */
-export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
+export function resolveRentRollNote(l: NormalizedLease): string {
+  const parts: string[] = [];
+  if (!l.isVacant && typeof l.rentFreeMonths === 'number' && l.rentFreeMonths > 0) parts.push(`렌트프리 ${l.rentFreeMonths}개월`);
+  if (!l.isVacant && l.paymentStatus === '연체') parts.push('입금 연체');
+  else if (!l.isVacant && l.paymentStatus === '미확인') parts.push('입금 미확인');
+  return parts.join(', ');
+}
+
+/**
+ * NormalizedLease 배열을 Rent Roll 마크다운 테이블로 변환
+ *
+ * v1.5 §9.1: 면적 열은 입력 단위(㎡|평) 단일 단위 — 머리글 '임대면적(㎡)'/'임대면적(평)', 값은 ㎡ 정본 → 입력 단위(소수 2자리).
+ * 전용면적은 값이 있는 호실이 하나라도 있을 때만 '전용면적(단위)' 열을 추가한다 (임대면적으로 대체하지 않음).
+ * 렌트프리/입금 상태는 해당 사실이 있을 때만 '비고' 열에 표기한다.
+ * @param unitOrMeta 'sqm'|'pyeong' 또는 rent_roll_meta({area_input_unit}) — 없으면 ㎡
+ */
+export function formatRentRollMarkdown(
+  leases: NormalizedLease[],
+  unitOrMeta?: AreaInputUnit | { area_input_unit?: unknown } | null,
+): string {
   if (!leases || leases.length === 0) return '';
+  const unit: AreaInputUnit = typeof unitOrMeta === 'string' ? (unitOrMeta === 'pyeong' ? 'pyeong' : 'sqm') : resolveAreaInputUnit(unitOrMeta);
+  const unitText = areaUnitLabel(unit);
   // D1: 렌트롤에 임차인 상호가 하나라도 있으면 '임차인' 열을 추가해 실명을 그대로 표기 (없으면 기존 열 구성 유지 — 날조 금지)
   const hasTenantNames = leases.some((l) => !l.isVacant && !!l.tenantName);
-  const header = hasTenantNames
-    ? `### 층별 임대 현황\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|`
-    : `### 층별 임대 현황\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|`;
+  const hasExclusive = leases.some((l) => typeof l.exclusiveAreaSqm === 'number' && l.exclusiveAreaSqm > 0);
+  const hasNotes = leases.some((l) => resolveRentRollNote(l) !== '');
+
+  const cols: string[] = ['층수'];
+  if (hasTenantNames) cols.push('임차인');
+  cols.push('업종', `임대면적(${unitText})`);
+  if (hasExclusive) cols.push(`전용면적(${unitText})`);
+  cols.push('보증금', '월 임대료', '관리비', '임대 만기');
+  if (hasNotes) cols.push('비고');
+  const header = `### 층별 임대 현황\n| ${cols.join(' | ')} |\n|${cols.map(() => '------').join('|')}|`;
+
   const rows = leases.map((l) => {
     const tenantLabel =
       l.isVacant ? "🚫 공실"
@@ -114,15 +167,20 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
       : l.tenantType === "food" ? "F&B"
       : l.tenantType || "근생/업무";
 
-    const areaPyeong = l.areaSqm > 0 ? `${formatPyeong(l.areaSqm, 0)}평` : "-";
+    const leaseArea = formatLeaseAreaCell(l.areaIsProxy ? undefined : l.areaSqm, unit);
+    const excArea = formatLeaseAreaCell(l.exclusiveAreaSqm, unit);
     const depositStr = l.depositKrw > 0 ? `${Math.round(l.depositKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
     const rentStr    = l.monthlyRentKrw > 0 ? `${Math.round(l.monthlyRentKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
     const mgmtStr    = l.mgmtFeeKrw > 0 ? `${Math.round(l.mgmtFeeKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
 
     const nameCell = l.isVacant ? '-' : (l.tenantName || '-');
-    return hasTenantNames
-      ? `| ${l.floor} | ${nameCell} | ${tenantLabel} | ${areaPyeong} | ${depositStr} | ${rentStr} | ${mgmtStr} | ${l.leaseEnd || "미정"} |`
-      : `| ${l.floor} | ${tenantLabel} | ${areaPyeong} | ${depositStr} | ${rentStr} | ${mgmtStr} | ${l.leaseEnd || "미정"} |`;
+    const cells: string[] = [l.floor];
+    if (hasTenantNames) cells.push(nameCell);
+    cells.push(tenantLabel, leaseArea);
+    if (hasExclusive) cells.push(excArea);
+    cells.push(depositStr, rentStr, mgmtStr, l.leaseEnd || "미정");
+    if (hasNotes) cells.push(resolveRentRollNote(l) || '-');
+    return `| ${cells.join(' | ')} |`;
   });
   return `${header}\n${rows.join("\n")}`;
 }
@@ -188,6 +246,12 @@ export interface LeaseUnitPersistInput {
   lease_state?: '임대중' | '공실' | '자가사용';
   note?: string;
   source_tier?: string;
+  /** v1.4 Z — 근거 (허용값 밖은 null 로 저장) */
+  evidence_level?: string | null;
+  /** v1.4 AA — 렌트프리 잔여(개월, 정수 ≥ 0) */
+  rent_free_months?: number | null;
+  /** v1.4 AB — 입금 확인(최근 12개월) */
+  payment_status?: string | null;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -201,6 +265,11 @@ const pickEnum = <T extends string>(allowed: readonly T[], v: unknown): T | null
 const positiveSqm = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? parseFloat(n.toFixed(2)) : null;
+};
+const nonNegativeInt = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : null;
 };
 
 /**
@@ -234,7 +303,8 @@ export function buildLeaseLedgerRows(
       legal_basis: pickEnum(LEGAL_BASES, unit.legal_basis),
       deposit_krw: unit.deposit_krw || null,
       monthly_rent_krw: unit.monthly_rent_krw || null,
-      mgmt_fee_krw: unit.mgmt_fee_krw || 0,
+      // X4 / 스펙 §8: 통합계약 비대표 행의 빈 관리비를 0원으로 저장하지 않는다 (null = 미기재). DB DEFAULT 도 제거됨.
+      mgmt_fee_krw: unit.mgmt_fee_krw ?? null,
       first_contract_date: unit.first_contract_date && ISO_DATE.test(unit.first_contract_date) ? unit.first_contract_date : null,
       current_start_date: unit.lease_start && ISO_DATE.test(unit.lease_start) ? unit.lease_start : null,
       current_expiry_date: unit.lease_end && ISO_DATE.test(unit.lease_end) ? unit.lease_end : null,
@@ -243,10 +313,125 @@ export function buildLeaseLedgerRows(
       lease_state:
         pickEnum(LEASE_STATES, unit.lease_state) ?? (unit.tenant_sector?.includes('공실') ? '공실' : '임대중'),
       note: unit.note || null,
+      // v1.4 Z/AA/AB — CHECK 제약과 같은 허용값만 통과 (밖은 null). 추측해서 채우지 않는다.
+      evidence_level: pickEnum(EVIDENCE_LEVELS, unit.evidence_level),
+      rent_free_months: nonNegativeInt(unit.rent_free_months),
+      payment_status: pickEnum(PAYMENT_STATUSES, unit.payment_status),
       source_tier: unit.source_tier || 'broker_input',
       updated_at: new Date().toISOString(),
     };
   });
+}
+
+/**
+ * 바텀시트/임포터의 floor_leases 행(만원 단위, snake_case) → persistLeaseUnits 입력(원 단위).
+ * generate-async 라우트가 쓰던 인라인 매핑을 이곳으로 옮겼다 (동작 동일 + v1.4 필드 contract_group/evidence/렌트프리/입금확인).
+ *  - 금액은 truthy 값만 환산한다: 0·빈 값은 undefined → 원장 null (통합계약 비대표 행의 빈 금액을 0원으로 저장하지 않는다, 스펙 §8).
+ *  - 레거시 단일 '전용면적' 열에서 복사된 대용 area_sqm(area_sqm_is_proxy)은 임대면적으로 저장하지 않는다.
+ */
+export function floorLeaseToPersistUnit(fl: any): LeaseUnitPersistInput {
+  const occupancy = resolveLeaseOccupancy(fl);
+  return {
+    floor: fl?.floor,
+    tenant_sector: fl?.tenant_type || fl?.tenant_sector || undefined,
+    deposit_krw: fl?.deposit_manwon ? Number(fl.deposit_manwon) * 10000 : (fl?.deposit_krw || undefined),
+    monthly_rent_krw: fl?.rent_manwon ? Number(fl.rent_manwon) * 10000 : (fl?.monthly_rent_krw || undefined),
+    mgmt_fee_krw: fl?.mgmt_fee_manwon ? Number(fl.mgmt_fee_manwon) * 10000 : (fl?.mgmt_fee_krw || undefined),
+    area_pyung: fl?.area_pyung || (!fl?.area_sqm_is_proxy && Number(fl?.area_sqm) > 0 ? sqmToPyeong(Number(fl.area_sqm)) : undefined),
+    lease_area_sqm: fl?.area_sqm_is_proxy ? undefined : (Number(fl?.area_sqm) > 0 ? Number(fl.area_sqm) : undefined),
+    exclusive_area_sqm: Number(fl?.exclusive_area_sqm) > 0 ? Number(fl.exclusive_area_sqm) : undefined,
+    contract_group: fl?.contract_group || undefined,
+    legal_basis: fl?.legal_basis || undefined,
+    first_contract_date: fl?.first_contract_date || undefined,
+    renewal_exercised: fl?.renewal_exercised || undefined,
+    opposing_power: fl?.opposing_power || undefined,
+    // 점유 상태 SSOT: is_vacant 플래그(월세 0 추정 오염 가능)를 그대로 '공실' 로 영속하지 않는다
+    lease_state: fl?.lease_state || (occupancy !== '임대중' ? occupancy : undefined),
+    note: fl?.note || undefined,
+    lease_start: fl?.lease_start || undefined,
+    lease_end: fl?.lease_end || undefined,
+    evidence_level: fl?.evidence_level ?? undefined,
+    rent_free_months: fl?.rent_free_months ?? undefined,
+    payment_status: fl?.payment_status ?? undefined,
+    source_tier: 'broker_input',
+  };
+}
+
+const finitePositive = (v: unknown): number | null => {
+  const n = Number(v);
+  return v != null && v !== '' && Number.isFinite(n) && n > 0 ? n : null;
+};
+const trimmedOrNull = (v: unknown, max: number): string | null => {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  return t ? t.slice(0, max) : null;
+};
+
+/**
+ * rent_roll_meta → lease_ledger_meta 행 (순수 함수, DB 접근 없음). 물건(asset_id)당 1행.
+ * 환산하지 않는다: gfa_sqm(J4)·market_rent_*(J5~J7)는 입력값 그대로 (스펙 §8).
+ */
+export function buildLeaseLedgerMetaRow(assetId: string, meta: RentRollMeta): Record<string, unknown> {
+  const ov = meta.area_unit_override;
+  const at = ov?.at ? new Date(ov.at) : null;
+  const other = Number(meta.other_income_krw);
+  return {
+    asset_id: assetId,
+    area_input_unit: resolveAreaInputUnit(meta),
+    rentroll_version: trimmedOrNull(meta.rentroll_version, 10),
+    rentroll_as_of: meta.rentroll_as_of && ISO_DATE.test(meta.rentroll_as_of) ? meta.rentroll_as_of : null,
+    asking_price_krw: finitePositive(meta.asking_price_krw),
+    gfa_sqm: positiveSqm(meta.gfa_sqm),
+    market_rent_1f: finitePositive(meta.market_rent_1f),
+    market_rent_1f_source: trimmedOrNull(meta.market_rent_1f_source, 200),
+    market_rent_upper: finitePositive(meta.market_rent_upper),
+    market_rent_upper_source: trimmedOrNull(meta.market_rent_upper_source, 200),
+    market_rent_basement: finitePositive(meta.market_rent_basement),
+    market_rent_basement_source: trimmedOrNull(meta.market_rent_basement_source, 200),
+    other_income_krw: meta.other_income_krw != null && Number.isFinite(other) && other >= 0 ? Math.round(other) : null,
+    other_income_note: trimmedOrNull(meta.other_income_note, 200),
+    area_unit_override_reason: trimmedOrNull(ov?.reason, 200),
+    area_unit_override_by: trimmedOrNull(ov?.by, 100),
+    area_unit_override_at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export interface PersistLeaseOptions {
+  /** 렌트롤 메타 — 있을 때만 lease_ledger_meta 를 upsert (없으면 기존 메타를 건드리지 않는다) */
+  meta?: RentRollMeta | null;
+  /**
+   * true 면 이번 호출의 모든 행에서 값이 전부 null 인 컬럼은 upsert 페이로드에서 뺀다 →
+   * 이 작성자가 모르는 컬럼(계약그룹·전용면적·적용법령·v1.4 필드 등)을 다른 작성자가 저장한 값 위에 null 로 덮어쓰지 않는다.
+   * (스튜디오 lease route 처럼 일부 필드만 아는 작성자용)
+   */
+  sparse?: boolean;
+  /** 지정하면 prune 을 이 source_tier 의 행으로 한정한다 (다른 작성자가 만든 행을 지우지 않는다) */
+  pruneSourceTier?: string;
+}
+
+const NEW_LEDGER_COLUMNS = ['evidence_level', 'rent_free_months', 'payment_status'] as const;
+/** 마이그레이션 20261011000000 미적용 DB 에서 새 컬럼 때문에 원장 전체 쓰기가 실패하지 않도록 판별 */
+const mentionsNewLedgerColumn = (msg: string): boolean => NEW_LEDGER_COLUMNS.some((c) => msg.includes(c));
+
+function omitKeys(rows: Array<Record<string, unknown>>, keys: readonly string[]): Array<Record<string, unknown>> {
+  return rows.map((r) => {
+    const next = { ...r };
+    for (const k of keys) delete next[k];
+    return next;
+  });
+}
+
+function toSparseRows(rows: Array<Record<string, unknown>>, units: LeaseUnitPersistInput[]): Array<Record<string, unknown>> {
+  if (rows.length === 0) return rows;
+  const always = new Set(['asset_id', 'unit_label', 'updated_at', 'source_tier']);
+  const explicitState = units.some((u) => pickEnum(LEASE_STATES, u.lease_state) != null);
+  const keys = Object.keys(rows[0]).filter((k) => {
+    if (always.has(k)) return true;
+    if (k === 'lease_state') return explicitState; // 기본값('임대중')이 다른 작성자의 '자가사용'/'공실'을 덮지 않게
+    return rows.some((r) => r[k] !== null && r[k] !== undefined);
+  });
+  return rows.map((r) => Object.fromEntries(keys.map((k) => [k, r[k]])));
 }
 
 /**
@@ -256,13 +441,16 @@ export function buildLeaseLedgerRows(
  * 충돌키는 (asset_id, unit_label) — 호출부는 building_ssot_lite id 를 asset_id 로 넘기며
  * lease_ledger.building_id(FK → buildings) 는 채우지 않는다. 마이그레이션
  * 20261005000000_lease_ledger_exclusive_area.sql 이 비-부분(unique) 인덱스를 제공해야 upsert 가 동작한다.
- * 이번 제출에 없는 호실은 렌트롤이 교체된 것으로 보고 같은 asset_id 에서 삭제한다.
+ * 이번 제출에 없는 호실은 렌트롤이 교체된 것으로 보고 같은 asset_id 에서 삭제한다
+ * (opts.pruneSourceTier 지정 시 해당 source_tier 행만 — 두 작성자 간 prune 충돌 방지).
+ * opts.meta 가 있으면 물건 단위 메타(lease_ledger_meta: G9 면적 입력 단위·C5·J3~J8·V12 해제 기록)도 upsert 한다.
  * @see SDD S2-T11
  */
 export async function persistLeaseUnits(
   assetId: string,
   units: LeaseUnitPersistInput[],
   buildingId?: string,
+  opts?: PersistLeaseOptions,
 ): Promise<{ inserted: number; errors: string[] }> {
   const supabase = createServiceClient();
   const errors: string[] = [];
@@ -271,12 +459,22 @@ export async function persistLeaseUnits(
   const isDualMode = process.env.LEASE_TABLE === 'legacy_dual';
 
   // 1. Primary: lease_ledger 일괄 upsert
-  const rows = buildLeaseLedgerRows(assetId, units, buildingId);
+  let rows = buildLeaseLedgerRows(assetId, units, buildingId);
+  if (opts?.sparse) rows = toSparseRows(rows, units);
   if (rows.length > 0) {
     try {
-      const { error: ledgerError } = await supabase
+      let { error: ledgerError } = await supabase
         .from('lease_ledger')
         .upsert(rows, { onConflict: 'asset_id,unit_label' });
+
+      // 마이그레이션(20261011000000) 적용 전 DB: 새 컬럼 없이 재시도 (기존 쓰기가 회귀하지 않도록)
+      if (ledgerError && mentionsNewLedgerColumn(ledgerError.message ?? '')) {
+        log.warn(`[lease-adapter] 새 컬럼 미적용 DB — v1.4 컬럼을 빼고 재시도: ${ledgerError.message}`);
+        rows = omitKeys(rows, NEW_LEDGER_COLUMNS);
+        ({ error: ledgerError } = await supabase
+          .from('lease_ledger')
+          .upsert(rows, { onConflict: 'asset_id,unit_label' }));
+      }
 
       if (ledgerError) {
         errors.push(`lease_ledger: ${ledgerError.message}`);
@@ -287,16 +485,33 @@ export async function persistLeaseUnits(
         const keep = rows
           .map((r) => `"${String(r.unit_label).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
           .join(',');
-        const { error: pruneError } = await supabase
+        let prune = supabase
           .from('lease_ledger')
           .delete()
-          .eq('asset_id', assetId)
-          .not('unit_label', 'in', `(${keep})`);
+          .eq('asset_id', assetId);
+        if (opts?.pruneSourceTier) prune = prune.eq('source_tier', opts.pruneSourceTier);
+        const { error: pruneError } = await prune.not('unit_label', 'in', `(${keep})`);
         if (pruneError) log.warn(`[lease-adapter] lease_ledger prune warning: ${pruneError.message}`);
       }
     } catch (e) {
       errors.push('lease_ledger: unexpected error');
       log.warn(`[lease-adapter] lease_ledger upsert warning:`, e);
+    }
+  }
+
+  // 1-b. 물건 단위 메타 (G9 면적 입력 단위 등) — 실패해도 호실 저장은 유지 (비차단)
+  if (opts?.meta) {
+    try {
+      const { error: metaError } = await supabase
+        .from('lease_ledger_meta')
+        .upsert(buildLeaseLedgerMetaRow(assetId, opts.meta), { onConflict: 'asset_id' });
+      if (metaError) {
+        errors.push(`lease_ledger_meta: ${metaError.message}`);
+        log.warn(`[lease-adapter] lease_ledger_meta write failed: ${metaError.message}`);
+      }
+    } catch (e) {
+      errors.push('lease_ledger_meta: unexpected error');
+      log.warn(`[lease-adapter] lease_ledger_meta upsert warning:`, e);
     }
   }
 
@@ -412,10 +627,12 @@ export interface EvictionAnalysis {
 
 /**
  * 개발형(development) 물건의 기존 임차인 명도 비용 및 일정 분석
+ * @param asOf 평가 기준일(렌트롤 C5 등). 없으면 오늘(기존 동작 유지)
  */
-export function analyzeEviction(leases: NormalizedLease[]): EvictionAnalysis {
+export function analyzeEviction(leases: NormalizedLease[], asOf?: string | Date | number | null): EvictionAnalysis {
   const activeTenants = leases.filter(l => !l.isVacant);
-  const totalTenants = activeTenants.length;
+  // §6.4 계약 단위: 같은 contract_group 은 하나의 계약 — 비대표 행을 별도 임차인으로 세지 않는다 (그룹 없는 행은 행=계약)
+  const totalTenants = groupContracts(leases).filter(g => g.rows.some(r => !r.isVacant)).length;
   const depositRefundKrw = activeTenants.reduce((sum, l) => sum + (l.depositKrw || 0), 0);
 
   // 예상 명도비: 세대당 이사비(300만원) + 예상 합의금/영업보상(월세 6개월분)
@@ -435,7 +652,7 @@ export function analyzeEviction(leases: NormalizedLease[]): EvictionAnalysis {
   let estimatedMonths = totalTenants <= 2 ? 6 : totalTenants <= 5 ? 9 : 12;
   if (latestLeaseEnd) {
     const endDate = new Date(latestLeaseEnd);
-    const now = new Date();
+    const now = asOf == null ? new Date() : resolveEvaluationDate(asOf);
     const diffMonths = Math.max(0, Math.round((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30)));
     estimatedMonths = Math.max(estimatedMonths, diffMonths + 3);
   }

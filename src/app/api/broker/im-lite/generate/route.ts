@@ -10,6 +10,8 @@ import { requireBroker } from "@/lib/auth-guard";
 import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { parseBrokerExtras } from "@/domain/building/mobile-im/broker-extras";
+import { parseRentRollMeta } from "@/domain/building/mobile-im/rentroll-meta-parse";
+import { sanitizeAncillaryIncomes, sanitizeGrossAreaM2 } from "@/domain/building/mobile-im/supplemental-sanitize";
 
 // IM 생성은 7섹션 AI 생성 + 외부 데이터 수집 + Judge 검증으로 60초 이상 소요 가능
 // thresholds.ts IM_HARD_TIMEOUT_MS = 180_000 (180초)에 정렬
@@ -84,6 +86,17 @@ export async function POST(req: NextRequest) {
     const extrasParsed = parseBrokerExtras(body.broker_extras);
     if (!extrasParsed.ok) return NextResponse.json({ error: extrasParsed.error }, { status: 400 });
     if (extrasParsed.value) supplemental.broker_extras = extrasParsed.value;
+
+    // 렌트롤 v1.5 메타 — enum/숫자/길이 검증 (실패 시 400 + 한국어 메시지). generate-async 와 동일 규칙.
+    const rentRollMetaParsed = parseRentRollMeta(body.rent_roll_meta);
+    if (!rentRollMetaParsed.ok) return NextResponse.json({ error: rentRollMetaParsed.error }, { status: 400 });
+    if (rentRollMetaParsed.value) supplemental.rent_roll_meta = rentRollMetaParsed.value;
+
+    // X1: 부가수입·연면적 통과 (sanitize)
+    const ancillary = sanitizeAncillaryIncomes(body.ancillary_incomes);
+    if (ancillary) supplemental.ancillary_incomes = ancillary;
+    const grossAreaM2 = sanitizeGrossAreaM2(body.total_gross_area_m2);
+    if (grossAreaM2 !== undefined) supplemental.total_gross_area_m2 = grossAreaM2;
 
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });

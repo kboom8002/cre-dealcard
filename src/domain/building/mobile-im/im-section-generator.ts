@@ -34,10 +34,11 @@ import { repairDraftForGate, isGateSystemFailure } from "./cre-gate-repair";
 import { extractKeyFacts, updateNumericalAnchors } from "./cross-validator";
 import { buildIMFewShotBlock } from "./golden-im-manager";
 import { logFewShotUsage, updateFewShotResultScore, promoteToGoldenCandidate } from "./fewshot-tracker";
-import { normalizeTerminologyAsync } from "./terminology-normalizer";
+import { normalizeTerminologyAsync, protectBlock, stripProtectMarkers } from "./terminology-normalizer";
 import { CrePromptRegistry } from "./cre-prompt-registry";
 import { generatePremiumTemplate, formatBasicIncomeMarkdown, getSectionTitle } from "./premium-template-engine";
 import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary } from "./lease-adapter";
+import { sumLeasedRentRoll } from "./lease-vacancy";
 import { brokerFinancialExtras } from './broker-financial-inputs';
 import { maskFabricatedBrands } from "./tenant-name-policy";
 import { alignPlatAreaForPrompt } from "./prompt-land-area";
@@ -261,7 +262,7 @@ export async function generateSingleSection(
             ?? (supplemental.developmentSpec as any)?.expectedSalePricePerPyeong
             ?? undefined,
           devHoldMonthlyRentManwon: Array.isArray(supplemental.floor_leases)
-            ? (supplemental.floor_leases as any[]).reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0), 0)
+            ? sumLeasedRentRoll(supplemental.floor_leases as any[]).rentManwon
             : undefined,
           // 중개인 제시값(구조화 + 원문 메모 명시값) — 가정 기본값 대신 사용 (Rule 34)
           ...brokerFinancialExtras(supplemental as any, posture),
@@ -712,9 +713,10 @@ export async function generateSingleSection(
   if ((sectionType === "lease_status" || sectionType === "income_analysis") && supplemental.floor_leases && supplemental.floor_leases.length > 0) {
     try {
       const normalized = normalizeFloorLeases(supplemental.floor_leases);
-      const deterministicTable = formatRentRollMarkdown(normalized);
+      // v1.5 §9.1: 표 머리글·값은 입력 단위(G9) 그대로. 용어 정규화(평→'N평(약 X㎡)')에서 제외하도록 보호 블록으로 감싼다.
+      const deterministicTable = formatRentRollMarkdown(normalized, supplemental.rent_roll_meta);
       const summaryTable = formatRentRollSummary(normalized);
-      const fullRentRollBlock = `${deterministicTable}\n\n${summaryTable}`;
+      const fullRentRollBlock = protectBlock(`${deterministicTable}\n\n${summaryTable}`);
 
       // 기존 마크다운 테이블 영역 교체 (| 로 시작하는 연속 행 블록)
       const lines = markdown.split('\n');
@@ -752,10 +754,12 @@ export async function generateSingleSection(
     }
   }
 
-  // 용어 정규화
+  // 용어 정규화 (보호 블록 = 결정적 렌트롤 표는 제외, 마커는 항상 제거)
   const normResult = await normalizeTerminologyAsync(markdown);
   if (normResult.replaced.length > 0) {
     markdown = normResult.text;
+  } else {
+    markdown = stripProtectMarkers(markdown);
   }
 
   // 갱신요구권 연수 환각 정제: 최초계약일이 미제출된 경우 "N년 잔여" 단정 표현을 "최초계약일 확인 필요"로 치환 (불변조건 7)

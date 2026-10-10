@@ -1,23 +1,20 @@
-import { formatPyeong } from '@/lib/utils/area-conversion';
 import type { SectionData } from './binder-types';
 import { isVacantLeaseRow } from '../../lease-vacancy';
+import { resolveAreaInputUnit, type AreaInputUnit } from '../../rentroll-meta';
+import {
+  formatLeaseAreaFromRow,
+  leaseAreaHeader,
+  stackingAreaSuffix,
+} from './lease-area-format';
 
 /**
- * 렌트롤 면적 표기 SSOT: ㎡ 소수 1자리 + 천 단위 구분 (예: 2490.3 → '2,490.3')
- * A24 표와 스태킹 플랜 라벨이 동일 문자열을 사용하도록 공용화 (Rule 70 ㎡ 통일)
+ * 면적 표기 SSOT(1자리, 레거시): ㎡ 소수 1자리 + 천 단위 구분 (예: 2490.3 → '2,490.3')
+ * 렌트롤 표·스태킹 라벨의 임대면적은 v1.5 §9.1 에 따라 `lease-area-format.formatLeaseArea`(입력 단위·소수 2자리)를 쓴다.
+ * 이 함수는 레거시 스태킹 데이터(층별 ㎡ 면적) 폴백 전용.
  */
 export function formatAreaSqm(v: number): string {
   return Number(v).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
-
-/**
- * 임대면적 셀 SSOT (D6): '209.6 (63.4평)' — ㎡ 우선 + 평 병기. 면적이 없으면 호출부가 '-' 를 쓴다 (날조 금지).
- * 숫자 파싱은 첫 숫자 토큰(㎡)만 읽도록 `parseLeadingNumber` 를 쓴다 (스태킹 라벨은 ㎡ 만 사용, Rule 70).
- */
-export function formatAreaWithPyeong(sqm: number): string {
-  return `${formatAreaSqm(sqm)} (${formatPyeong(Number(sqm), 1)}평)`;
-}
-
 /** '1,234.5 (373.4평)' → 1234.5 (첫 숫자 토큰). 숫자가 없으면 0 */
 export function parseLeadingNumber(cell: unknown): number {
   const m = String(cell ?? '').match(/-?\d[\d,]*(?:\.\d+)?/);
@@ -106,14 +103,41 @@ export function resolveTenantAndUse(
 }
 
 /**
+ * v1.4/1.5 행 단위 입력(AA 렌트프리 잔여·AB 입금 확인)에서 만든 비고 조각 — 값이 없으면 []. 날조 금지.
+ *  - '렌트프리 N개월' (rent_free_months > 0)
+ *  - '입금 연체' / '입금 미확인' (payment_status 가 '연체'/'미확인'. '정상'·null·그 외는 생략)
+ * 공실·자가사용 행에는 붙이지 않는다. 중개인 비고에 이미 같은 사실이 있으면 중복 표기하지 않는다 (Rule 4).
+ */
+export function resolveLeaseFlags(
+  l: { rent_free_months?: unknown; payment_status?: unknown; lease_state?: unknown; is_vacant?: unknown },
+  existingNote = '',
+): string[] {
+  const state = l.lease_state == null ? '' : String(l.lease_state).trim();
+  if (l.is_vacant === true || state === '공실' || state === '자가사용') return [];
+  const flags: string[] = [];
+  const months = Number(l.rent_free_months);
+  if (Number.isFinite(months) && months > 0 && !/렌트\s*프리/.test(existingNote)) {
+    flags.push(`렌트프리 ${Math.round(months)}개월`);
+  }
+  const pay = l.payment_status == null ? '' : String(l.payment_status).trim();
+  if (pay === '연체' && !/입금.*연체|연체/.test(existingNote)) flags.push('입금 연체');
+  else if (pay === '미확인' && !/입금.*미확인/.test(existingNote)) flags.push('입금 미확인');
+  return flags;
+}
+
+/**
  * 렌트롤 비고 (D6) — 입력 필드(비고/임대상태/갱신요구권)에서만 구성. 입력이 없으면 ''(날조 금지).
+ * v1.5: 렌트프리 잔여·입금 상태 계산 사실(`resolveLeaseFlags`)을 뒤에 붙인다. `includeFlags:false` 는 공통 비고 추출용
+ * (행별 사실이 '공통 비고'로 오인되어 각주로 빠지지 않도록 별도 취급).
  */
 export function resolveLeaseNote(l: {
   note?: unknown;
   lease_state?: unknown;
   renewal_exercised?: unknown;
   is_vacant?: unknown;
-}): string {
+  rent_free_months?: unknown;
+  payment_status?: unknown;
+}, opts: { includeFlags?: boolean } = {}): string {
   const clean = (v: unknown) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
   const parts: string[] = [];
   const note = clean(l.note);
@@ -121,6 +145,7 @@ export function resolveLeaseNote(l: {
   const state = clean(l.lease_state);
   if (state === '자가사용' && !parts.some((p) => p.includes('자가'))) parts.push('자가사용');
   if (clean(l.renewal_exercised) === '있음') parts.push('갱신요구권 행사');
+  if (opts.includeFlags !== false) parts.push(...resolveLeaseFlags(l, parts.join(' ')));
   return parts.join(' · ');
 }
 
@@ -168,16 +193,23 @@ export function bindRentRollTable(
   const floorLeases: any[] = (doc.body?.floor_leases ?? []).filter(Boolean);
   if (floorLeases.length > 0 && result['rentRoll']) {
     const isBasicPreset = doc.body?.preset === 'credeal_basic' || doc.body?.tier === 'basic';
+    // v1.5 §9.1: 렌트롤 표 면적은 입력 단위(G9 → body.rent_roll_meta.area_input_unit, 없으면 sqm)로 표기. 계산 정본은 ㎡.
+    const areaUnit: AreaInputUnit = resolveAreaInputUnit(doc.body?.rent_roll_meta);
+    (result['rentRoll'] as any).areaInputUnit = areaUnit;
     // D6: 비고 열은 입력(비고/임대상태/갱신요구권)이 하나라도 있을 때만 11번째 열로 추가 (없으면 기존 10열 — 빈 열 금지)
-    const rawLeaseNotes: string[] = floorLeases.map((l: any) => resolveLeaseNote(l));
+    // 공통 비고 추출은 중개인 입력 문장만 대상 — 행별 계산 사실(렌트프리·입금 상태)은 공통 각주로 빠지지 않게 분리했다가 되붙인다.
+    const rawLeaseNotes: string[] = floorLeases.map((l: any) => resolveLeaseNote(l, { includeFlags: false }));
     // 대다수 호실에 같은 문장이 반복되는 공통 비고는 표 열이 아닌 각주로 (Rule 4: 같은 문장 중복 렌더 금지)
-    const { common: commonLeaseNote, notes: leaseNotes } = isBasicPreset
+    const { common: commonLeaseNote, notes: baseLeaseNotes } = isBasicPreset
       ? extractCommonLeaseNote(rawLeaseNotes)
       : { common: '', notes: rawLeaseNotes };
     if (commonLeaseNote) (result['rentRoll'] as any).commonNote = commonLeaseNote;
+    const leaseNotes: string[] = isBasicPreset
+      ? floorLeases.map((l: any, i: number) => [baseLeaseNotes[i], ...resolveLeaseFlags(l, `${baseLeaseNotes[i]} ${commonLeaseNote}`)].filter(Boolean).join(' · '))
+      : baseLeaseNotes;
     const hasNoteCol = isBasicPreset && leaseNotes.some(Boolean);
     const rrHeaders = isBasicPreset
-      ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일', ...(hasNoteCol ? ['비고'] : [])]
+      ? ['층', '임차인', '용도', leaseAreaHeader('lease', areaUnit), leaseAreaHeader('exclusive', areaUnit), '보증금', '월임대료', '관리비', '월합계', '만기일', ...(hasNoteCol ? ['비고'] : [])]
       : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
     const isFinitePos = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) > 0;
     const isFiniteNonNeg = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
@@ -194,9 +226,9 @@ export function bindRentRollTable(
     let maskSeq = 0; // 상호 미기재 임차인 마스킹 라벨 순번 (임차인 A, B, C …)
     const rrRows = floorLeases.map((l: any, rowIdx: number) => {
     const floor = l.floor || l.unit_label || '-';
-      const areaPyeong = isFinitePos(l.area_sqm)
-        ? `${formatPyeong(Number(l.area_sqm), 1)}평`
-        : (isFinitePos(l.area_pyeong) ? `${l.area_pyeong}평` : '-');
+      // Pro(7열 '면적' 칼럼): 입력 단위 단일 값 + 단위 꼬리표 ('209.60㎡' / '63.40평'). 면적이 없으면 '-'
+      const proArea = formatLeaseAreaFromRow({ sqm: l.area_sqm, pyeong: l.area_pyeong }, areaUnit);
+      const areaPyeong = proArea === '-' ? '-' : `${proArea}${stackingAreaSuffix(areaUnit)}`;
       // Pro(7열 '업종' 칼럼)은 기존 표기 유지
       const tenant = l.tenant_name || l.tenant || (l.is_vacant ? '공실' : (l.tenant_type || '-'));
       // Basic(10~11열): 용도(업종)는 항상 표기, 임차인은 상호 또는 마스킹 라벨 (D6)
@@ -222,14 +254,16 @@ export function bindRentRollTable(
       const expiry = l.lease_end || l.contract_end || '-';
 
       // 임대면적: 레거시 단일 '전용면적' 열에서 복사된 대용값(area_sqm_is_proxy)은 임대면적이 아니므로 비운다
-      // D6: ㎡ + 평 병기 ('209.6 (63.4평)'). 면적이 없으면 '-' (날조 금지)
-      const areaSqmStr = (!l.area_sqm_is_proxy && isFinitePos(l.area_sqm))
-      ? formatAreaWithPyeong(Number(l.area_sqm))
-      : (isFinitePos(l.area_pyeong) ? formatAreaWithPyeong(Number(l.area_pyeong) / 0.3025) : '-');
+      // §9.1: 입력 단위 단일 값 (㎡ 2자리 / 평 = ㎡÷3.305785 2자리). 면적이 없으면 '-' (날조 금지)
+      const areaSqmStr = formatLeaseAreaFromRow(
+        { sqm: l.area_sqm_is_proxy ? undefined : l.area_sqm, pyeong: l.area_pyeong },
+        areaUnit,
+      );
       // 전용면적: 미기입이면 '-' (임대면적 값을 대신 채우지 않는다). 열 표시 여부는 a24 렌더러가 데이터로 결정.
-      const excSqmStr = isFinitePos(l.exclusive_area_sqm)
-      ? formatAreaSqm(Number(l.exclusive_area_sqm))
-      : (isFinitePos(l.exclusive_area_pyeong) ? formatAreaSqm(Number(l.exclusive_area_pyeong) / 0.3025) : '-');
+      const excSqmStr = formatLeaseAreaFromRow(
+        { sqm: l.exclusive_area_sqm, pyeong: l.exclusive_area_pyeong },
+        areaUnit,
+      );
       
       return isBasicPreset
         ? [

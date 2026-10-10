@@ -15,6 +15,7 @@
 import React, { useState, useMemo } from 'react';
 import type { StackingPlanFloor, StackingPlanSummary, TenantCategory } from '@/domain/building/mobile-im/types';
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+import { PYEONG_TO_SQM_V15, areaUnitLabel, resolveAreaInputUnit, sqmToInputUnit, type AreaInputUnit } from '@/domain/building/mobile-im/rentroll-meta';
 
 export interface StackingPlanViewProps {
   stackingPlan?: StackingPlanFloor[];
@@ -22,6 +23,8 @@ export interface StackingPlanViewProps {
   rawMarkdown?: string;
   tables?: Array<{ headers: string[]; rows: string[][] }>;
   buildingName?: string;
+  /** 렌트롤 입력 단위(G9, doc.body.rent_roll_meta.area_input_unit). 없으면 마크다운 머리글 단위 → ㎡ */
+  areaInputUnit?: AreaInputUnit;
 }
 
 const CATEGORY_STYLES: Record<TenantCategory, {
@@ -74,31 +77,50 @@ const CATEGORY_STYLES: Record<TenantCategory, {
   },
 };
 
-/** 면적(평) 추출 헬퍼 함수: '96평(약 317.4㎡)' 형태에서 평수를 안전하게 추출 */
-function extractAreaPyeong(text?: string): number | undefined {
-  if (!text) return undefined;
-  const clean = text.trim();
-  // 1. "96평(약 317.4㎡)" 또는 "96평"
-  const pyMatch = clean.match(/([\d,]+(?:\.\d+)?)\s*평/);
-  if (pyMatch) {
-    return parseFloat(pyMatch[1].replace(/,/g, ''));
-  }
-  // 2. "317.4㎡" 또는 "317.4m²" (평수 표기 없이 m²만 있는 경우 환산)
-  const m2Match = clean.match(/([\d,]+(?:\.\d+)?)\s*(?:㎡|m²|m2)/i);
-  if (m2Match) {
-    return Math.round(sqmToPyeong(parseFloat(m2Match[1].replace(/,/g, ''))) * 10) / 10;
-  }
-  // 3. 순수 숫자만 있는 경우 (금액 '만', 날짜 '-' 등 혼입 제외)
-  const numMatch = clean.match(/^[\d,]+(?:\.\d+)?$/);
-  if (numMatch) {
-    return parseFloat(numMatch[0].replace(/,/g, ''));
-  }
-  return undefined;
+/** 머리글에서 면적 단위 추출: '전용(㎡)' → sqm, '임대(평)' → pyeong, 단위 없음 → null */
+function headerAreaUnit(header?: string): AreaInputUnit | null {
+  if (!header) return null;
+  if (/㎡|m²|m2/i.test(header)) return 'sqm';
+  if (/\(\s*평\s*\)|평/.test(header)) return 'pyeong';
+  return null;
 }
 
-/** 마크다운 테이블 파싱 보조 함수 */
-function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
-  if (!markdown) return [];
+/** 표기용: ㎡ 정본(우선) / 평 → 입력 단위 숫자+단위 토큰. 값이 없으면 '-' (모든 셀이 단위를 가진다) */
+function fmtFloorArea(m2: number | undefined, py: number | undefined, unit: AreaInputUnit): string {
+  const hasM2 = typeof m2 === 'number' && Number.isFinite(m2) && m2 > 0;
+  const hasPy = typeof py === 'number' && Number.isFinite(py) && py > 0;
+  let v: number | null = null;
+  if (unit === 'pyeong') v = hasPy ? Math.round((py as number) * 100) / 100 : (hasM2 ? sqmToInputUnit(m2 as number, 'pyeong') : null);
+  else v = hasM2 ? Math.round((m2 as number) * 100) / 100 : (hasPy ? sqmToInputUnit((py as number) * PYEONG_TO_SQM_V15, 'sqm') : null);
+  return v == null ? '-' : `${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${areaUnitLabel(unit)}`;
+}
+
+/** 면적 셀 파싱: '96평(약 317.4㎡)' / '317.4㎡' / 머리글 단위가 있는 순수 숫자. 단위 불명 숫자는 undefined (평으로 가정하지 않음) */
+function extractArea(text: string | undefined, hdrUnit: AreaInputUnit | null): { py?: number; m2?: number } {
+  if (!text) return {};
+  const clean = text.trim();
+  const fromPy = (py: number) => ({ py, m2: Math.round(py * PYEONG_TO_SQM_V15 * 100) / 100 });
+  const fromM2 = (m2: number) => ({ m2, py: sqmToInputUnit(m2, 'pyeong') ?? undefined });
+  // 1. "96평(약 317.4㎡)" 또는 "96평" — 셀 안의 단위 토큰이 머리글보다 우선
+  const pyMatch = clean.match(/([\d,]+(?:\.\d+)?)\s*평/);
+  if (pyMatch) return fromPy(parseFloat(pyMatch[1].replace(/,/g, '')));
+  // 2. "317.4㎡" 또는 "317.4m²"
+  const m2Match = clean.match(/([\d,]+(?:\.\d+)?)\s*(?:㎡|m²|m2)/i);
+  if (m2Match) return fromM2(parseFloat(m2Match[1].replace(/,/g, '')));
+  // 3. 순수 숫자 — 머리글 단위로만 해석 (금액 '만', 날짜 '-' 등 혼입 제외)
+  const numMatch = clean.match(/^[\d,]+(?:\.\d+)?$/);
+  if (numMatch && hdrUnit) {
+    const n = parseFloat(numMatch[0].replace(/,/g, ''));
+    return hdrUnit === 'sqm' ? fromM2(n) : fromPy(n);
+  }
+  return {};
+}
+
+/** 마크다운 테이블 파싱 보조 함수 — 면적 머리글 단위(㎡|평)를 함께 반환 */
+export interface ParsedFloorsFromMarkdown { floors: StackingPlanFloor[]; unit: AreaInputUnit | null }
+const EMPTY_PARSE: ParsedFloorsFromMarkdown = { floors: [], unit: null };
+export function parseFloorsFromMarkdown(markdown?: string): ParsedFloorsFromMarkdown {
+  if (!markdown) return EMPTY_PARSE;
   const lines = markdown.split('\n').map(l => l.trim());
   
   // 파이프 기호(| ... |)를 포함하는 라인 추출 (후행 마크다운 헤더 등 혼입 방어)
@@ -110,7 +132,7 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
       tableLines.push(l.substring(firstPipe, lastPipe + 1));
     }
   }
-  if (tableLines.length < 3) return [];
+  if (tableLines.length < 3) return EMPTY_PARSE;
 
   // '층'을 포함하는 헤더 라인 찾기
   let headerLineIdx = -1;
@@ -129,7 +151,7 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
     }
   }
 
-  if (headerLineIdx === -1 || floorIdx === -1) return [];
+  if (headerLineIdx === -1 || floorIdx === -1) return EMPTY_PARSE;
 
   const useIdx = headers.findIndex(h => h.includes('용도') || h.includes('업종'));
   const exIdx = headers.findIndex(h => h.includes('전용'));
@@ -162,8 +184,10 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
 
     const use = useIdx !== -1 ? cells[useIdx] : '근린생활시설';
     const tenant = tenantIdx !== -1 ? cells[tenantIdx] : (useIdx !== -1 ? cells[useIdx] : '-');
-    const exclusiveAreaPy = exIdx !== -1 ? extractAreaPyeong(cells[exIdx]) : undefined;
-    const leasableAreaPy = leaseIdx !== -1 ? extractAreaPyeong(cells[leaseIdx]) : undefined;
+    const exArea = exIdx !== -1 ? extractArea(cells[exIdx], headerAreaUnit(headers[exIdx])) : {};
+    const leaseArea = leaseIdx !== -1 ? extractArea(cells[leaseIdx], headerAreaUnit(headers[leaseIdx])) : {};
+    const exclusiveAreaPy = exArea.py;
+    const leasableAreaPy = leaseArea.py;
     const expStr = expiryIdx !== -1 ? cells[expiryIdx].replace(/[^\d]/g, '') : '';
 
     let expiryYear = expStr ? parseInt(expStr, 10) : undefined;
@@ -192,9 +216,9 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
       use,
       tenant,
       exclusiveAreaPy,
-      exclusiveAreaM2: exclusiveAreaPy ? Math.round((pyeongToSqm(exclusiveAreaPy)) * 10) / 10 : undefined,
+      exclusiveAreaM2: exArea.m2,
       leasableAreaPy,
-      leasableAreaM2: leasableAreaPy ? Math.round((pyeongToSqm(leasableAreaPy)) * 10) / 10 : undefined,
+      leasableAreaM2: leaseArea.m2,
       floorAreaPy: leasableAreaPy ?? exclusiveAreaPy,
       expiryYear: expiryYear && expiryYear > 1900 && expiryYear < 2100 ? expiryYear : undefined,
       isVacant,
@@ -204,7 +228,9 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
     });
   }
 
-  return floors;
+  // 표기 단위: 임대면적 머리글 > 전용면적 머리글 (없으면 호출측 기본값)
+  const unit = (leaseIdx !== -1 ? headerAreaUnit(headers[leaseIdx]) : null) ?? (exIdx !== -1 ? headerAreaUnit(headers[exIdx]) : null);
+  return { floors, unit };
 }
 
 export function StackingPlanView({
@@ -212,20 +238,29 @@ export function StackingPlanView({
   summary: propSummary,
   rawMarkdown,
   buildingName,
+  areaInputUnit,
 }: StackingPlanViewProps) {
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<TenantCategory | 'all'>('all');
 
   // 데이터 정규화: 실데이터 없으면 빈 배열 반환 (목데이터 누출 차단)
+  const parsedMarkdown = useMemo(
+    () => (propFloors && propFloors.length > 0 ? null : parseFloorsFromMarkdown(rawMarkdown)),
+    [propFloors, rawMarkdown],
+  );
   const floors = useMemo(() => {
     if (propFloors && propFloors.length > 0) {
       return propFloors;
     }
-    const parsed = parseFloorsFromMarkdown(rawMarkdown);
-    if (parsed.length > 0) return parsed;
+    if (parsedMarkdown && parsedMarkdown.floors.length > 0) return parsedMarkdown.floors;
 
     return [];
-  }, [propFloors, rawMarkdown]);
+  }, [propFloors, parsedMarkdown]);
+
+  // v1.5 §9.1: 표기 단위 = 렌트롤 입력 단위(prop) > 마크다운 머리글 단위 > ㎡. 숫자만 단독으로 평으로 간주하지 않는다.
+  const displayUnit: AreaInputUnit = areaInputUnit
+    ? resolveAreaInputUnit({ area_input_unit: areaInputUnit })
+    : (parsedMarkdown?.unit ?? 'sqm');
 
   // 지상층 및 지하층 분리 + 정렬 (건물 입면: 높은 층이 위)
   const parseFloorNum = (f: string): number => {
@@ -538,15 +573,13 @@ export function StackingPlanView({
                   <div className="bg-neutral-900/60 p-2 rounded-lg border border-neutral-800">
                     <p className="text-[10px] text-neutral-400">전용면적</p>
                     <p className="font-semibold text-neutral-200 mt-0.5">
-                      {activeFloor.exclusiveAreaPy ? `${activeFloor.exclusiveAreaPy.toFixed(1)}평` : '-'}
-                      {activeFloor.exclusiveAreaM2 ? ` (${activeFloor.exclusiveAreaM2.toFixed(1)}㎡)` : ''}
+                      {fmtFloorArea(activeFloor.exclusiveAreaM2, activeFloor.exclusiveAreaPy, displayUnit)}
                     </p>
                   </div>
                   <div className="bg-neutral-900/60 p-2 rounded-lg border border-neutral-800">
                     <p className="text-[10px] text-neutral-400">임대면적</p>
                     <p className="font-semibold text-neutral-200 mt-0.5">
-                      {activeFloor.leasableAreaPy ? `${activeFloor.leasableAreaPy.toFixed(1)}평` : '-'}
-                      {activeFloor.leasableAreaM2 ? ` (${activeFloor.leasableAreaM2.toFixed(1)}㎡)` : ''}
+                      {fmtFloorArea(activeFloor.leasableAreaM2, activeFloor.leasableAreaPy, displayUnit)}
                     </p>
                   </div>
                 </div>
@@ -580,7 +613,7 @@ export function StackingPlanView({
                   <tr>
                     <th className="py-1.5 px-2">층</th>
                     <th className="py-1.5 px-2">주요 입주사</th>
-                    <th className="py-1.5 px-2 text-right">전용(평)</th>
+                    <th className="py-1.5 px-2 text-right">전용({areaUnitLabel(displayUnit)})</th>
                     <th className="py-1.5 px-2 text-right">만기</th>
                   </tr>
                 </thead>
@@ -598,7 +631,7 @@ export function StackingPlanView({
                         <td className="py-1 px-2 font-bold">{f.floor}</td>
                         <td className="py-1 px-2 font-sans truncate max-w-[120px]">{f.tenant}</td>
                         <td className="py-1 px-2 text-right">
-                          {f.exclusiveAreaPy ? f.exclusiveAreaPy.toFixed(1) : '-'}
+                          {fmtFloorArea(f.exclusiveAreaM2, f.exclusiveAreaPy, displayUnit)}
                         </td>
                         <td className="py-1 px-2 text-right text-amber-400">
                           {f.expiryYear ? `${f.expiryYear}` : '-'}

@@ -72,31 +72,42 @@ describe("projectBasicRentRollColumns — 기입한 면적만 표기", () => {
     const p = projectBasicRentRollColumns([R("1F", "100.0", "75.0"), R("2F", "80.0", "60.0")]);
     expect(p.mode).toBe("both");
     expect(p.headers).toHaveLength(10);
-    expect(p.headers).toContain("임대면적");
-    expect(p.headers).toContain("전용면적");
+    expect(p.headers).toContain("임대면적(㎡)");
+    expect(p.headers).toContain("전용면적(㎡)");
+  });
+
+  it("평 모드: 머리글 꼬리표가 (평) 으로 바뀐다 (열 수·투영은 동일)", () => {
+    const p = projectBasicRentRollColumns([R("1F", "100.0", "75.0")], "pyeong");
+    expect(p.headers).toHaveLength(10);
+    expect(p.headers).toContain("임대면적(평)");
+    expect(p.headers).toContain("전용면적(평)");
+    expect(p.headers).not.toContain("임대면적(㎡)");
+    const lease = projectBasicRentRollColumns([R("1F", "100.0", "-")], "pyeong");
+    expect(lease.headers).toContain("임대면적(평)");
+    expect(lease.headers).toHaveLength(9);
   });
 
   it("임대면적만 기입 → 전용면적 열 제거 (9열)", () => {
     const p = projectBasicRentRollColumns([R("1F", "100.0", "-"), R("2F", "80.0", "-")]);
     expect(p.mode).toBe("lease");
     expect(p.headers).toHaveLength(9);
-    expect(p.headers).toContain("임대면적");
-    expect(p.headers).not.toContain("전용면적");
+    expect(p.headers).toContain("임대면적(㎡)");
+    expect(p.headers.some(h => h.startsWith("전용면적"))).toBe(false);
   });
 
   it("전용면적만 기입 → 임대면적 열 제거 (9열)", () => {
     const p = projectBasicRentRollColumns([R("1F", "-", "75.0"), R("2F", "-", "60.0")]);
     expect(p.mode).toBe("exclusive");
     expect(p.headers).toHaveLength(9);
-    expect(p.headers).toContain("전용면적");
-    expect(p.headers).not.toContain("임대면적");
+    expect(p.headers).toContain("전용면적(㎡)");
+    expect(p.headers.some(h => h.startsWith("임대면적"))).toBe(false);
   });
 
   it("호실 중 일부만 기입해도 그 면적 열은 유지, 둘 다 없으면 임대면적 열만 '-' 로 유지", () => {
     expect(detectAreaColumnMode([R("1F", "100.0", "-"), R("2F", "-", "60.0")])).toBe("both");
     const none = projectBasicRentRollColumns([R("1F", "-", "-")]);
     expect(none.headers).toHaveLength(9);
-    expect(none.headers).toContain("임대면적");
+    expect(none.headers).toContain("임대면적(㎡)");
   });
 
   it("합계 행의 면적은 판정에 쓰지 않는다", () => {
@@ -175,14 +186,23 @@ function bind(floorLeases: any[]) {
 describe("bindRentRollTable — 면적 폴백 제거 · 통합계약", () => {
   it("전용면적이 없으면 '-' (임대면적 값을 전용면적 칸에 복사하지 않는다)", () => {
     const rows = bind([{ floor: "1F", tenant_type: "카페", area_sqm: 100, deposit_manwon: 5000, rent_manwon: 300, lease_end: "2027-03-31" }]);
-    expect(rows[0][3]).toBe("100.0 (30.3평)");
+    expect(rows[0][3]).toBe("100.00"); // v1.5 §9.1: 단일 단위·소수 2자리 ('(30.3평)' 병기 제거)
     expect(rows[0][4]).toBe("-");
+  });
+
+  it("평 모드(rent_roll_meta.area_input_unit='pyeong'): 값 = ㎡÷3.305785 · 머리글 '(평)'", () => {
+    const result: Record<string, any> = { rentRoll: { title: "x", content: "", tables: [] } };
+    bindRentRollTable({ body: { preset: "credeal_basic", rent_roll_meta: { area_input_unit: "pyeong" }, floor_leases: [{ floor: "1F", tenant_type: "카페", area_sqm: 100, exclusive_area_sqm: 60, deposit_manwon: 1, rent_manwon: 1 }] } }, "", result);
+    expect(result.rentRoll.tableHead.slice(3, 5)).toEqual(["임대면적(평)", "전용면적(평)"]);
+    expect(result.rentRoll.tableRows[0][3]).toBe("30.25");
+    expect(result.rentRoll.tableRows[0][4]).toBe("18.15");
+    expect(result.rentRoll.areaInputUnit).toBe("pyeong");
   });
 
   it("레거시 대용 임대면적(area_sqm_is_proxy)은 임대면적 칸을 비우고 전용면적만 표기", () => {
     const rows = bind([{ floor: "1F", tenant_type: "카페", area_sqm: 75, exclusive_area_sqm: 75, area_sqm_is_proxy: true, deposit_manwon: 5000, rent_manwon: 300 }]);
     expect(rows[0][3]).toBe("-");
-    expect(rows[0][4]).toBe("75.0");
+    expect(rows[0][4]).toBe("75.00");
   });
 
   it("계약그룹 대표 행 외 금액이 빈 행은 '〃', 단독 계약·공실 행은 그대로 '-'", () => {
@@ -233,23 +253,23 @@ describe("A24 렌트롤 슬라이드 — 면적 열 렌더링 (OpenXML)", () => 
     const r = await renderA24([R("1F", "100.0", "75.0"), R("2F", "80.0", "60.0")]);
     expect(r.gridCols).toBe(10);
     expect(new Set(r.cellCounts)).toEqual(new Set([10]));
-    expect(r.headerTexts).toEqual(expect.arrayContaining(["임대면적", "전용면적"]));
+    expect(r.headerTexts).toEqual(expect.arrayContaining(["임대면적(㎡)", "전용면적(㎡)"]));
   });
 
   it("임대면적만 기입: 9열 · 헤더에 전용면적 없음 · 모든 행 셀 수 9", async () => {
     const r = await renderA24([R("1F", "100.0", "-"), R("2F", "80.0", "-")]);
     expect(r.gridCols).toBe(9);
     expect(new Set(r.cellCounts)).toEqual(new Set([9]));
-    expect(r.headerTexts).toContain("임대면적");
-    expect(r.headerTexts).not.toContain("전용면적");
+    expect(r.headerTexts).toContain("임대면적(㎡)");
+    expect(r.headerTexts.some((h) => h.startsWith("전용면적"))).toBe(false);
   });
 
   it("전용면적만 기입: 9열 · 헤더에 임대면적 없음 · 모든 행 셀 수 9", async () => {
     const r = await renderA24([R("1F", "-", "75.0"), R("2F", "-", "60.0")]);
     expect(r.gridCols).toBe(9);
     expect(new Set(r.cellCounts)).toEqual(new Set([9]));
-    expect(r.headerTexts).toContain("전용면적");
-    expect(r.headerTexts).not.toContain("임대면적");
+    expect(r.headerTexts).toContain("전용면적(㎡)");
+    expect(r.headerTexts.some((h) => h.startsWith("임대면적"))).toBe(false);
   });
 
   it("18행을 넘겨 잘려도 합계 행은 마지막에 유지된다 (한글 뒤 \\b 정규식 결함 회귀 방지)", async () => {

@@ -33,7 +33,7 @@ const FOOTNOTE_H = 0.24;
  * A23 — 투자수익률 분석 슬라이드 (Basic IM v2.0)
  *
  * D10/D9 (2026-10): 수익률 3행을 같은 이름·같은 정의로 표기하고(요약 슬라이드와 동일 YieldSet), 하단에 가정 각주를 둔다.
- *  1) 임대수익률 (Gross, 매매가−보증금 대비) — 운영비 차감 전
+ *  1) 임대수익률 (매매가−보증금 대비) — 운영비 차감 전 (v1.5 Q1: 전 IM 단일 수익률 헤드라인, V04). 기타수입이 있으면 V05 를 별도 줄로.
  *  2) Cap Rate (NOI 기준) — 운영비·공실충당 차감 후 (NOI 값이 있을 때만)
  *  3) 안정화 수익률 — 실제 공실·자가사용 면적 × 중개인 목표임대료일 때만 '임대 가정' 문구,
  *     아니면 '공실충당 N% 제외 기준 (참고)' (시세 임대를 가정하지 않음)
@@ -91,6 +91,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const noiCap = yieldSet?.noiCapRate != null && Number.isFinite(yieldSet.noiCapRate) && yieldSet.noiCapRate > 0
     ? yieldSet.noiCapRate
     : null;
+  // V05 — 기타수입이 있을 때만(YieldSet이 null 이면 줄 자체를 만들지 않는다)
+  const inclOther = yieldSet?.grossYieldInclOtherIncome != null && Number.isFinite(yieldSet.grossYieldInclOtherIncome) && yieldSet.grossYieldInclOtherIncome > 0
+    ? yieldSet.grossYieldInclOtherIncome
+    : null;
 
   const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
   if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
@@ -102,7 +106,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   let stabLabel = '';
   let stabCaption: string | null = null;
   if (hasStabilized) {
-    if (ysStab?.kind === 'target_rent') {
+    if (ysStab && ysStab.kind !== 'reserve_excluded') {
+      // target_rent · market_rent(M5~M7 출처 인용) 모두 캡션 표기 — 가정의 근거를 숨기지 않는다
       stabLabel = ysStab.label;
       stabCaption = ysStab.caption;
     } else if (!ysStab && callerAssumption) {
@@ -149,7 +154,9 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   if (numCapRate > 0) {
     const parts = [`임대수익률 ${fmtFixed(numCapRate, 2, '%')} (운영비 차감 전)`];
     if (noiCap != null) parts.push(`Cap Rate ${fmtFixed(noiCap, 2, '%')} (운영비·공실충당 차감 후)`);
-    if (hasStabilized && stabCaption) parts.push(`공실·자가사용 면적 임대 가정 시 안정화 수익률 ${fmtFixed(stabVal, 2, '%')}`);
+    if (hasStabilized && stabCaption) {
+      parts.push(`${ysStab?.kind === 'market_rent' ? '공실·자가사용 면적 시장 임대료 가정 시' : '공실·자가사용 면적 임대 가정 시'} 안정화 수익률 ${fmtFixed(stabVal, 2, '%')}`);
+    }
     calloutBullets.push(`• ${parts.join(', ')}`);
   }
 
@@ -194,7 +201,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const primaryRowH = 0.46;
   const secondaryRowH = 0.30;
   const captionH = stabCaption ? 0.30 : 0;
-  const yieldBgH = boxPad * 2 + primaryRowH + (noiCap != null ? secondaryRowH : 0) + (hasStabilized ? secondaryRowH + captionH : 0);
+  const yieldBgH = boxPad * 2 + primaryRowH + (inclOther != null ? secondaryRowH : 0) + (noiCap != null ? secondaryRowH : 0) + (hasStabilized ? secondaryRowH + captionH : 0);
 
   const fixedH = padTop + yieldBgH + afterYield + padBottom;
   const calloutHFor = (n: number) => (n > 0 ? 0.42 + n * 0.25 : 0);
@@ -253,6 +260,20 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     align: 'right', valign: 'middle', margin: 0,
   });
   yRowY += primaryRowH;
+
+  // ①-b 임대수익률 (기타수입 포함, 참고) — V05. 렌트롤 J8 기타수입이 있을 때만, 헤드라인 V04 와 별도 줄
+  if (inclOther != null) {
+    slide.addText(YIELD_LABELS.grossInclOtherIncome, {
+      x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
+      color: 'FFFFFF', fontFace: KR, fontSize: 10, valign: 'middle', shrinkText: true, margin: 0,
+    });
+    slide.addText(fmtFixed(inclOther, 2, '%'), {
+      x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
+      color: C.brass, fontFace: NUM, fontSize: 15, bold: true,
+      align: 'right', valign: 'middle', margin: 0,
+    });
+    yRowY += secondaryRowH;
+  }
 
   // ② Cap Rate (NOI 기준) — 운영비·공실충당 차감 후 (요약 슬라이드와 같은 값·같은 이름)
   if (noiCap != null) {

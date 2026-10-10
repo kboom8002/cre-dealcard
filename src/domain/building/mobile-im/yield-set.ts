@@ -8,19 +8,26 @@
  *  ① grossYieldOnPrice       = 연 임대료 ÷ 매매가                (운영비 차감 전)
  *  ② grossYieldNetOfDeposit  = 연 임대료 ÷ (매매가 − 보증금)     (운영비 차감 전, 보증금 승계 가정)
  *  ③ noiCapRate              = NOI ÷ 매매가                     (운영비·공실충당 차감 후)
- *  ④ stabilized              = 아래 둘 중 하나 (종류를 값과 함께 반드시 표기)
+ *  ④ stabilized              = 아래 셋 중 하나 (종류를 값과 함께 반드시 표기). 우선순위 market_rent > target_rent > reserve_excluded
+ *       - 'market_rent'      : (현재 연 임대료 + Σ공실·자가사용 행의 J[층 구분](원/전용평·월) × 전용면적(㎡)/3.305785 × 12) ÷ (매매가 − 보증금)
+ *                              → 렌트롤 J5~J7(시장 임대료)이 있고 모든 공실·자가사용 행의 전용면적·해당 층 단가를 알 때만.
+ *                              임대면적으로 대체하지 않는다. 단위(원/전용평)는 환산하지 않는다 — 표기만 원→만원.
  *       - 'target_rent'      : (현재 연 임대료 + 실제 공실·자가사용 면적 × 목표임대료 × 12) ÷ (매매가 − 보증금)
  *                              → 중개인이 목표임대료(평당 만원/월)를 입력했고 해당 면적을 알 때만
+ *                              (단위 만원/임대평 — market_rent 의 J 값(원/전용평)과 절대 섞지 않는다)
  *       - 'reserve_excluded' : 현재 연 임대료를 공실충당률로 역산(÷(1−충당률)) ÷ (매매가 − 보증금)
  *                              → 시세 임대 가정이 **아님**. '공실충당 N% 제외 기준 (참고)'로만 표기
+ *  ⑤ grossYieldInclOtherIncome = (연 임대료 + 기타수입 월액×12) ÷ (매매가 − 보증금)  [렌트롤 V05]
+ *       → IM 에는 별도 줄. 헤드라인(②)에 합산하지 않는다.
  *
  * 금융 문구 원칙: 근거 없는 시장 비교·평가 문구는 만들지 않는다 (시장 벤치마크 표 없음).
  */
 import { sqmToPyeong } from '@/lib/utils/area-conversion';
-import { resolveLeaseOccupancy } from './lease-vacancy';
+import { resolveLeaseOccupancy, isNonLeasableLeaseRow } from './lease-vacancy';
+import { PYEONG_TO_SQM_V15, type RentRollMarketRent } from './rentroll-meta';
 
 export type OpexSource = 'user' | 'assumed';
-export type StabilizedKind = 'target_rent' | 'reserve_excluded';
+export type StabilizedKind = 'market_rent' | 'target_rent' | 'reserve_excluded';
 
 export interface YieldAssumptions {
   /** 운영비 ÷ 연 임대료 (%) — 미상이면 null */
@@ -34,6 +41,8 @@ export interface YieldAssumptions {
   depositKrw: number;
   /** 중개인 입력 목표임대료 (만원/평/월) — 없으면 null */
   targetRentPerPyeongManwon: number | null;
+  /** 렌트롤 J8 기타수입 (원/월, VAT 별도) — 없으면 null/undefined */
+  otherIncomeKrw?: number | null;
 }
 
 export interface StabilizedYield {
@@ -42,15 +51,23 @@ export interface StabilizedYield {
   value: number;
   /** 행 라벨 — 종류에 따라 정확히 구분 */
   label: string;
-  /** 근거 한 줄 (target_rent일 때만; reserve_excluded는 null) */
+  /** 근거 한 줄 (market_rent·target_rent일 때만; reserve_excluded는 null) */
   caption: string | null;
-  /** target_rent: 목표임대료를 적용한 면적(평) */
+  /** target_rent: 목표임대료를 적용한 면적(평, 임대면적 기준) */
   appliedAreaPyeong?: number;
+  /** market_rent: 시장 임대료를 적용한 전용면적(평) */
+  appliedExclusivePyeong?: number;
+  /** market_rent: 가정 임대수입 증가분 (원/년) */
+  addedRentKrw?: number;
+  /** market_rent: 캡션에 인용한 시장 임대료 출처 (M5~M7) */
+  marketRentSources?: string[];
 }
 
 export interface YieldSet {
   grossYieldOnPrice: number | null;
   grossYieldNetOfDeposit: number | null;
+  /** V05 — (연 임대료 + 기타수입×12) ÷ (매매가−보증금). 기타수입이 없으면 null. 헤드라인에 합산하지 않는다. */
+  grossYieldInclOtherIncome: number | null;
   noiCapRate: number | null;
   stabilized: StabilizedYield | null;
   annualRentKrw: number;
@@ -60,10 +77,12 @@ export interface YieldSet {
 
 /** 두 슬라이드가 공유하는 지표명 (같은 지표 = 같은 이름) */
 export const YIELD_LABELS = {
-  grossNetOfDeposit: '임대수익률 (Gross, 매매가−보증금 대비)',
+  grossNetOfDeposit: '임대수익률 (매매가−보증금 대비)',
   grossOnPrice: '임대수익률 (Gross, 매매가 대비)',
+  grossInclOtherIncome: '임대수익률 (기타수입 포함, 참고)',
   noiCapRate: 'Cap Rate (NOI 기준)',
   stabilizedTargetRent: '안정화 수익률',
+  stabilizedMarketRent: '안정화 수익률 (시장 임대료 가정)',
 } as const;
 
 export const stabilizedReserveLabel = (vacancyReservePct: number | null | undefined): string =>
@@ -163,8 +182,97 @@ export interface BuildYieldSetParams {
   vacancyReservePct?: number | null;
   actualVacancyPct?: number | null;
   floorLeases?: unknown;
-  /** broker_extras.target_rent_per_pyeong_manwon (만원/평/월) */
+  /** broker_extras.target_rent_per_pyeong_manwon (만원/임대평/월) — market_rent 의 J 값(원/전용평)과 단위가 다르다. 섞지 않는다. */
   targetRentPerPyeongManwon?: number | null;
+  /** 렌트롤 J8 기타수입 (원/월, VAT 별도) — V05 별도 줄 전용. 헤드라인에 합산하지 않는다. */
+  otherIncomeKrw?: number | null;
+  /** 렌트롤 J5~J7 + M5~M7 (원/전용평·월, 환산 금지) — 있으면 market_rent 안정화 수익률 후보 */
+  marketRent?: RentRollMarketRent | null;
+}
+
+/* ─────────────────────────── 시장 임대료(J5~J7) 안정화 ─────────────────────────── */
+
+export type MarketRentClass = '1f' | 'upper' | 'basement';
+
+const MARKET_CLASS_LABEL: Record<MarketRentClass, string> = { '1f': '1층', upper: '지상층', basement: '지하층' };
+
+/** 층 구분: B*·지하 → basement, 1F·1층 → 1f, 그 외 → upper. 층 표기가 비면 null(분류 불가). */
+export function classifyFloorForMarketRent(floor: unknown): MarketRentClass | null {
+  const f = floor == null ? '' : String(floor).trim();
+  if (!f) return null;
+  if (/^(B\d*|지하)/i.test(f)) return 'basement';
+  if (/^(지상\s*)?1\s*(F|층)/i.test(f) || f === '1') return '1f';
+  return 'upper';
+}
+
+export interface MarketRentSimulation {
+  /** 가정 임대수입 증가분 (원/년) */
+  addedRentKrw: number;
+  /** 적용 전용면적 합 (평) */
+  appliedExclusivePyeong: number;
+  /** 적용 행 종류 ('공실' | '자가사용') */
+  kinds: string[];
+  /** 사용된 층 구분별 단가 (원/전용평·월) — 환산 없이 입력값 그대로 */
+  usedRates: Partial<Record<MarketRentClass, number>>;
+  /** 사용된 층 구분의 출처(M5~M7) — 없으면 빈 문자열 */
+  usedSources: Partial<Record<MarketRentClass, string>>;
+}
+
+/**
+ * Σ(공실·자가사용 행의 J[층 구분] × 전용면적(㎡)/3.305785) × 12.
+ * 산출 불가(null) 조건 — 임대면적으로 대체하지 않고 호출자가 다음 안정화 종류로 폴스루한다:
+ *  - 공실·자가사용 행이 없음
+ *  - 공실·자가사용 행 중 전용면적이 없거나, 층 구분을 못하거나, 해당 구분의 J 값이 없는 행이 하나라도 있음
+ */
+export function computeMarketRentStabilization(
+  floorLeases: unknown,
+  marketRent: RentRollMarketRent | null | undefined,
+): MarketRentSimulation | null {
+  if (!marketRent) return null;
+  const rate: Record<MarketRentClass, number | null> = {
+    '1f': pos(marketRent.market_rent_1f),
+    upper: pos(marketRent.market_rent_upper),
+    basement: pos(marketRent.market_rent_basement),
+  };
+  const src: Record<MarketRentClass, string> = {
+    '1f': String(marketRent.market_rent_1f_source ?? '').trim(),
+    upper: String(marketRent.market_rent_upper_source ?? '').trim(),
+    basement: String(marketRent.market_rent_basement_source ?? '').trim(),
+  };
+  const leases = (Array.isArray(floorLeases) ? floorLeases : []).filter(
+    (l): l is Record<string, any> => !!l && typeof l === 'object',
+  );
+  let monthlyKrw = 0;
+  let exclPyeong = 0;
+  let count = 0;
+  const kinds = new Set<string>();
+  const usedRates: Partial<Record<MarketRentClass, number>> = {};
+  const usedSources: Partial<Record<MarketRentClass, string>> = {};
+  for (const l of leases) {
+    if (isNonLeasableLeaseRow(l)) continue;
+    const occ = resolveLeaseOccupancy(l);
+    if (occ !== '공실' && occ !== '자가사용') continue;
+    count += 1;
+    const excl = pos(l.exclusive_area_sqm ?? l.exclusiveAreaSqm);
+    const cls = classifyFloorForMarketRent(l.floor ?? l.unit ?? l.unit_label ?? l.unitLabel);
+    if (excl == null || cls == null) return null;
+    const j = rate[cls];
+    if (j == null) return null;
+    const py = excl / PYEONG_TO_SQM_V15;
+    monthlyKrw += j * py;
+    exclPyeong += py;
+    kinds.add(occ);
+    usedRates[cls] = j;
+    usedSources[cls] = src[cls];
+  }
+  if (count === 0 || !(monthlyKrw > 0)) return null;
+  return {
+    addedRentKrw: monthlyKrw * 12,
+    appliedExclusivePyeong: exclPyeong,
+    kinds: [...kinds],
+    usedRates,
+    usedSources,
+  };
 }
 
 export function buildYieldSet(p: BuildYieldSetParams): YieldSet {
@@ -174,18 +282,36 @@ export function buildYieldSet(p: BuildYieldSetParams): YieldSet {
   const net = price - deposit;
   const reservePct = p.vacancyReservePct != null && Number.isFinite(p.vacancyReservePct) ? p.vacancyReservePct : null;
   const target = pos(p.targetRentPerPyeongManwon);
+  const otherIncome = pos(p.otherIncomeKrw);
 
   const grossYieldOnPrice = price > 0 && annualRent > 0 ? r2((annualRent / price) * 100) : null;
   const grossYieldNetOfDeposit = net > 0 && annualRent > 0 ? r2((annualRent / net) * 100) : null;
+  // V05: 기타수입은 별도 줄 — 분자에만 더하고 헤드라인(②)에는 절대 합산하지 않는다
+  const grossYieldInclOtherIncome = net > 0 && annualRent > 0 && otherIncome != null
+    ? r2(((annualRent + otherIncome * 12) / net) * 100)
+    : null;
 
   const noiBase = p.noiBaseKrw != null && Number.isFinite(p.noiBaseKrw) ? p.noiBaseKrw : null;
   const noiCapRate = pos(p.noiCapRatePct) ?? (price > 0 && noiBase != null && noiBase > 0 ? r2((noiBase / price) * 100) : null);
 
-  // ④ 안정화 수익률
+  // ④ 안정화 수익률 — 우선순위: market_rent > target_rent > reserve_excluded
   let stabilized: StabilizedYield | null = null;
   const area = summarizeVacantOwnerUseArea(p.floorLeases);
   const appliedArea = area.vacantPyeong + area.ownerUsePyeong;
-  if (net > 0 && annualRent > 0 && target != null && area.areaKnown && appliedArea > 0) {
+  const market = net > 0 && annualRent > 0 ? computeMarketRentStabilization(p.floorLeases, p.marketRent) : null;
+  if (market) {
+    stabilized = {
+      kind: 'market_rent',
+      value: r2(((annualRent + market.addedRentKrw) / net) * 100),
+      label: YIELD_LABELS.stabilizedMarketRent,
+      caption: buildMarketRentCaption(market),
+      appliedExclusivePyeong: Number(market.appliedExclusivePyeong.toFixed(1)),
+      addedRentKrw: Math.round(market.addedRentKrw),
+      marketRentSources: (['1f', 'upper', 'basement'] as MarketRentClass[])
+        .map((c) => market.usedSources[c])
+        .filter((v): v is string => !!v),
+    };
+  } else if (net > 0 && annualRent > 0 && target != null && area.areaKnown && appliedArea > 0) {
     const addedRentKrw = appliedArea * target * 12 * 10_000; // 만원/평/월 → 원/년
     stabilized = {
       kind: 'target_rent',
@@ -206,6 +332,7 @@ export function buildYieldSet(p: BuildYieldSetParams): YieldSet {
   return {
     grossYieldOnPrice,
     grossYieldNetOfDeposit,
+    grossYieldInclOtherIncome,
     noiCapRate,
     stabilized,
     annualRentKrw: annualRent,
@@ -217,6 +344,7 @@ export function buildYieldSet(p: BuildYieldSetParams): YieldSet {
       actualVacancyPct: p.actualVacancyPct != null && Number.isFinite(p.actualVacancyPct) ? p.actualVacancyPct : null,
       depositKrw: deposit,
       targetRentPerPyeongManwon: target,
+      otherIncomeKrw: otherIncome,
     },
   };
 }
@@ -225,6 +353,18 @@ function buildTargetRentCaption(area: VacantAreaSummary, targetManwon: number): 
   const kinds = [area.vacantPyeong > 0 ? '공실' : '', area.ownerUsePyeong > 0 ? '자가사용' : ''].filter(Boolean).join('·');
   const total = Number((area.vacantPyeong + area.ownerUsePyeong).toFixed(1));
   return `${kinds} ${total.toLocaleString()}평을 목표임대료 평당 ${trimNum(targetManwon, 2)}만원으로 임대 가정 (중개인 입력)`;
+}
+
+/** market_rent 캡션 — 표기 단위만 원→만원 (J 값 자체는 환산하지 않음), 출처(M5~M7) 인용 */
+function buildMarketRentCaption(m: MarketRentSimulation): string {
+  const order: MarketRentClass[] = ['1f', 'upper', 'basement'];
+  const used = order.filter((c) => m.usedRates[c] != null);
+  const rates = used.map((c) => `${MARKET_CLASS_LABEL[c]} ${trimNum((m.usedRates[c] as number) / 10_000, 2)}만원`).join(' · ');
+  const sources = used
+    .map((c) => `${MARKET_CLASS_LABEL[c]} ${m.usedSources[c] ? m.usedSources[c] : '출처 미기재'}`)
+    .join('; ');
+  const total = Number(m.appliedExclusivePyeong.toFixed(1)).toLocaleString();
+  return `${m.kinds.join('·')} 전용 ${total}평에 시장 임대료(${rates}/전용평·월)를 적용해 임대 가정 (출처: ${sources})`;
 }
 
 /* ─────────────────────────── 요약 슬라이드 부제 / 각주 ─────────────────────────── */
@@ -319,5 +459,8 @@ export function buildYieldSetFromBody(body: Record<string, any> | null | undefin
     floorLeases: b.floor_leases,
     // Phase C가 추가하는 중개인 입력 — 필드가 아직 없을 수 있으므로 방어적으로 읽는다.
     targetRentPerPyeongManwon: numOrNull(b.broker_extras?.target_rent_per_pyeong_manwon),
+    // 렌트롤 v1.5 헤더 블록 (doc.body.rent_roll_meta) — J8 기타수입(V05 별도 줄), J5~J7 시장 임대료(market_rent)
+    otherIncomeKrw: numOrNull(b.rent_roll_meta?.other_income_krw),
+    marketRent: b.rent_roll_meta && typeof b.rent_roll_meta === 'object' ? (b.rent_roll_meta as RentRollMarketRent) : null,
   });
 }

@@ -14,7 +14,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createGoldenTest } from './golden-test-factory';
 
-export type IncomeVariant = 'corrected' | 'as-is';
+/**
+ * 변형:
+ *  - corrected / as-is : 원본 결함 보완본 / 원본 그대로
+ *  - corrected-pyeong  : corrected 와 같은 데이터, 렌트롤 xlsx 만 G9=평 (면적 칸 = ㎡÷3.305785) — 평 표기 시험
+ *  - unit-confusion    : G9=평 + ㎡ 숫자 → 임포터 V12 차단 → 팩토리가 해제 사유('골든 테스트: 의도된 중개인 면적 오기 재현') 입력 후 생성 진행
+ * 파생 두 변형은 corrected 와 같은 정답이 확정된 입력이라 corrected 와 동일하게 hard 단언한다.
+ */
+export type IncomeVariant = 'corrected' | 'as-is' | 'corrected-pyeong' | 'unit-confusion';
 
 const ROOT = 'docs/income-golden-data';
 const fmt = (n: number) => Number(n).toLocaleString('en-US');
@@ -25,7 +32,7 @@ export function registerIncomeGolden(setId: string, variant: IncomeVariant) {
   const expected = JSON.parse(fs.readFileSync(path.join(abs, 'expected.json'), 'utf-8'));
   const bs = JSON.parse(fs.readFileSync(path.join(abs, 'bottom_sheet.json'), 'utf-8'));
   const leases: Array<Record<string, any>> = bs.floor_leases ?? [];
-  const isCorrected = variant === 'corrected';
+  const isCorrected = variant !== 'as-is';
 
   const factory = createGoldenTest({
     name: `income-${setId.split('-')[0]}-${variant}`,

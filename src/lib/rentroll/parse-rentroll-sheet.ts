@@ -10,6 +10,17 @@
  */
 import { pyeongToSqm } from "@/lib/utils/area-conversion";
 import { calculateEfficiencyRatio } from "@/types/im";
+import {
+  EVIDENCE_LEVELS,
+  PAYMENT_STATUSES,
+  toSqmFromInput,
+  type AreaInputUnit,
+  type EvidenceLevel,
+  type PaymentStatus,
+  type RentRollIssue,
+  type RentRollMeta,
+  type RentrollVersion,
+} from "@/domain/building/mobile-im/rentroll-meta";
 
 export type RentRollLeaseState = "임대중" | "공실" | "자가사용";
 /** lease_ledger CHECK 제약과 동일한 허용값 */
@@ -48,6 +59,12 @@ export interface ParsedRentRollRow {
   lease_end?: string;
   lease_state?: RentRollLeaseState;
   note?: string;
+  /** Z 근거 (v1.4+). 허용값 밖/빈 값은 null. 레거시 양식은 키 없음 */
+  evidence_level?: EvidenceLevel | null;
+  /** AA 렌트프리 잔여(개월, 정수 ≥ 0). 빈 값 null */
+  rent_free_months?: number | null;
+  /** AB 입금 확인(최근12개월). 허용값 밖/빈 값은 null */
+  payment_status?: PaymentStatus | null;
 }
 
 export interface RentRollAreaSummary {
@@ -76,6 +93,58 @@ export interface ParseResult {
   areaSummary: RentRollAreaSummary;
   /** 사용자에게 보여줄 데이터 품질 경고 (최대 12건 + 요약) */
   warnings: string[];
+  /** 감지된 양식 버전 (parseRentRollData(AoA) 레거시 경로는 'unknown') */
+  version: RentrollVersion;
+  /** 헤더 블록 + 입력 단위 메타 (레거시 경로는 { area_input_unit: 'sqm' }) */
+  meta: RentRollMeta;
+  /** 구조화 이슈 채널 (blocking 은 warnings 문자열에 넣지 않는다). 레거시 경로는 빈 배열 */
+  issues: RentRollIssue[];
+}
+
+/**
+ * 템플릿 양식(v1.3~v1.5) 고정 위치 레이아웃 — 0-based 열 인덱스 / 0-based 행 인덱스.
+ * parseRentRollWorkbook 이 만들어 parseRentRollData 에 넘긴다. 지정되면 머리글 키워드 탐색·
+ * '<50 소수 = 평' 휴리스틱·전용률 역산을 쓰지 않고 위치와 areaInputUnit 으로만 읽는다.
+ */
+export interface RentRollLayout {
+  headerRowIdx: number;
+  firstDataRowIdx: number;
+  lastDataRowIdx: number;
+  cols: {
+    floor: number;
+    group: number;
+    leaseArea: number;
+    exclusiveArea: number;
+    bizTenant: number;
+    legal: number;
+    deposit: number;
+    rent: number;
+    mgmt: number;
+    firstContract: number;
+    leaseStart: number;
+    leaseEnd: number;
+    renewal: number;
+    opposing: number;
+    state: number;
+    note: number;
+    /** v1.4+ 에서만 (없으면 -1 → 필드 null 고정) */
+    evidence: number;
+    rentFree: number;
+    payment: number;
+    /** v1.5 AE/AF — 대조용 캐시(없으면 -1) */
+    leaseSqmCache: number;
+    exclusiveSqmCache: number;
+  };
+  areaInputUnit: AreaInputUnit;
+  /** true 면 Z/AA/AB 를 읽고, false(v1.3)면 세 필드를 null 로 고정 */
+  readV14Fields: boolean;
+}
+
+export interface ParseRentRollOptions {
+  asOf?: Date;
+  layout?: RentRollLayout;
+  /** 헤더 블록 단계에서 생긴 경고 — 행 경고보다 먼저 노출 */
+  preWarnings?: string[];
 }
 
 type AmountUnit = "manwon" | "won" | "cheonwon" | "unknown";
@@ -137,6 +206,44 @@ function areaUnitOfHeader(h: string | undefined): AreaUnit {
 
 function round2(n: number): number {
   return Math.round(n * SQM_PER_PYEONG_ROUND) / SQM_PER_PYEONG_ROUND;
+}
+
+/**
+ * Date → 'YYYY-MM-DD'. SheetJS cellDates 는 셀 직접 접근 시 UTC 자정, sheet_to_json 경유 시 로컬 자정 Date 를 만든다.
+ * 로컬 자정이면 로컬 성분, 아니면 UTC 성분을 쓴다 (어느 경로든 같은 날짜).
+ */
+function dateObjToIso(d: Date): string | undefined {
+  if (Number.isNaN(d.getTime())) return undefined;
+  const localMidnight = d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0;
+  const utcMidnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  if (localMidnight && !utcMidnight) {
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+/** 셀 → 양수 (숫자 또는 '1,234.5' 문자열). 0 이하·비수치는 null (공실 0 면적이 분모를 오염시키지 않도록) */
+function positiveNumber(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const n = typeof raw === "number" ? raw : parseFloat(String(raw).replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * 엑셀 날짜 셀(시리얼 | Date | 'YYYY-MM-DD'/'YYYY.MM.DD'/'YYYY/MM/DD') → 'YYYY-MM-DD'. 해석 불가·빈 값은 undefined.
+ * (렌트롤 기준일 C5 등 헤더 블록용 — 행 날짜의 레거시 파싱과 달리 원문 문자열을 돌려주지 않는다)
+ */
+export function excelDateToIso(val: unknown): string | undefined {
+  if (val == null || val === "") return undefined;
+  if (val instanceof Date) return dateObjToIso(val);
+  if (typeof val === "number" || (typeof val === "string" && val.trim() !== "" && !isNaN(Number(val)))) {
+    const n = Number(val);
+    if (n > 30000 && n < 80000) return new Date(Math.round((n - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+    return undefined;
+  }
+  const m = String(val).trim().replace(/[./]/g, "-").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : undefined;
 }
 
 /**
@@ -206,7 +313,9 @@ function normalizeOpposingPower(raw: string): RentRollOpposingPower | undefined 
  * - 임대상태(임대중/공실/자가사용) 컬럼 우선, 없으면 업종·임차인 공란으로 공실 추정
  * - 합계/소계 행, '예시 행' 표식 행, 자동계산 열만 채워진 빈 행은 건너뜀
  */
-export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}): ParseResult {
+export function parseRentRollData(data: any[][], options: ParseRentRollOptions = {}): ParseResult {
+  const layout = options.layout;
+  const issues: RentRollIssue[] = [];
   const asOfIso = (options.asOf ?? new Date()).toISOString().slice(0, 10);
   const expiredLeases: string[] = [];
   const lines = data
@@ -223,46 +332,55 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
   let headerLineIdx = 0;
   let bestMatch = 0;
   const maxScan = Math.min(30, lines.length - 1);
-  for (let i = 0; i < maxScan; i++) {
-    const rowText = lines[i].row.map((c) => String(c ?? "").toLowerCase()).join(" ");
-    const matchCount = HEADER_KEYWORDS.filter((k) => rowText.includes(k)).length;
-    if (matchCount >= 2 && matchCount > bestMatch) {
-      bestMatch = matchCount;
-      headerLineIdx = i;
+  if (layout) {
+    headerLineIdx = lines.findIndex((l) => l.rowIndex === layout.headerRowIdx);
+    if (headerLineIdx < 0) throw new Error("렌트롤 머리글 행(12행)을 찾을 수 없습니다.");
+  } else {
+    for (let i = 0; i < maxScan; i++) {
+      const rowText = lines[i].row.map((c) => String(c ?? "").toLowerCase()).join(" ");
+      const matchCount = HEADER_KEYWORDS.filter((k) => rowText.includes(k)).length;
+      if (matchCount >= 2 && matchCount > bestMatch) {
+        bestMatch = matchCount;
+        headerLineIdx = i;
+      }
     }
   }
 
   const header = lines[headerLineIdx].row.map(normalizeHeader);
 
-  // ── 컬럼 인덱스 자동 매칭 (파생·자동 컬럼 제외)
+  // ── 컬럼 인덱스 자동 매칭 (파생·자동 컬럼 제외). 템플릿 레이아웃이면 고정 위치(스펙 §6.2)를 우선한다.
+  const LC = layout?.cols;
+  const fixedOr = (fixed: number | undefined, kw: () => number): number => (fixed !== undefined ? fixed : kw());
   const AMOUNT_EXCLUDE = ["환산", "평당", "단가", "총수입", "noc"];
-  const rentIdx = findCol(header, ["월임대료", "월세", "임대료", "rent", "월차임"], { exclude: AMOUNT_EXCLUDE });
-  const depositIdx = findCol(header, ["보증금", "임대보증금", "deposit"], { exclude: AMOUNT_EXCLUDE });
-  const mgmtIdx = findCol(header, ["관리비", "공용관리비", "mgmt", "maintenance"], { exclude: AMOUNT_EXCLUDE });
-  const vacantIdx = findCol(header, ["공실", "vacant", "empty"]);
-  const stateIdx = findCol(header, ["임대상태", "임대구분", "점유", "상태"], { exclude: ["계약상태", "자동"] });
-  const bizTypeIdx = findCol(header, ["업종", "용도", "종류", "구분"], { exclude: ["임대구분"] });
-  const floorIdx = findCol(header, ["층", "층수", "floor", "호", "위치"], { exclude: ["그룹"] });
-  const tenantNameIdx = findCol(header, ["임차인", "입주사", "tenant", "상호"]);
-  const leaseStartIdx = findCol(header, ["계약시작", "시작일", "개시일", "start"]);
-  const leaseEndIdx = findCol(header, ["계약종료", "종료일", "만료일", "end", "만기"]);
-  const noteIdx = findCol(header, ["비고", "note", "remark", "특이"]);
+  const rentIdx = fixedOr(LC?.rent, () => findCol(header, ["월임대료", "월세", "임대료", "rent", "월차임"], { exclude: AMOUNT_EXCLUDE }));
+  const depositIdx = fixedOr(LC?.deposit, () => findCol(header, ["보증금", "임대보증금", "deposit"], { exclude: AMOUNT_EXCLUDE }));
+  const mgmtIdx = fixedOr(LC?.mgmt, () => findCol(header, ["관리비", "공용관리비", "mgmt", "maintenance"], { exclude: AMOUNT_EXCLUDE }));
+  const vacantIdx = layout ? -1 : findCol(header, ["공실", "vacant", "empty"]);
+  const stateIdx = fixedOr(LC?.state, () => findCol(header, ["임대상태", "임대구분", "점유", "상태"], { exclude: ["계약상태", "자동"] }));
+  // 템플릿의 E열 '업종/상호'는 업종·임차인 두 필드를 겸한다 (기존 키워드 매칭과 같은 결과)
+  const bizTypeIdx = fixedOr(LC?.bizTenant, () => findCol(header, ["업종", "용도", "종류", "구분"], { exclude: ["임대구분"] }));
+  const floorIdx = fixedOr(LC?.floor, () => findCol(header, ["층", "층수", "floor", "호", "위치"], { exclude: ["그룹"] }));
+  const tenantNameIdx = fixedOr(LC?.bizTenant, () => findCol(header, ["임차인", "입주사", "tenant", "상호"]));
+  const leaseStartIdx = fixedOr(LC?.leaseStart, () => findCol(header, ["계약시작", "시작일", "개시일", "start"]));
+  const leaseEndIdx = fixedOr(LC?.leaseEnd, () => findCol(header, ["계약종료", "종료일", "만료일", "end", "만기"]));
+  const noteIdx = fixedOr(LC?.note, () => findCol(header, ["비고", "note", "remark", "특이"]));
   // 원장(lease_ledger)에만 있고 렌트롤 표에는 그리지 않는 항목 — 값이 있으면 그대로 앱으로 전달
-  const groupIdx = findCol(header, ["계약그룹", "통합계약", "그룹", "group"]);
-  const legalIdx = findCol(header, ["적용법령", "법령", "legalbasis"], { exclude: ["상임법전면"] });
-  const firstContractIdx = findCol(header, ["최초계약", "firstcontract"]);
-  const renewalIdx = findCol(header, ["갱신요구", "renewal"], { exclude: ["잔여", "자동"] });
-  const opposingIdx = findCol(header, ["대항력", "opposing"]);
+  const groupIdx = fixedOr(LC?.group, () => findCol(header, ["계약그룹", "통합계약", "그룹", "group"]));
+  const legalIdx = fixedOr(LC?.legal, () => findCol(header, ["적용법령", "법령", "legalbasis"], { exclude: ["상임법전면"] }));
+  const firstContractIdx = fixedOr(LC?.firstContract, () => findCol(header, ["최초계약", "firstcontract"]));
+  const renewalIdx = fixedOr(LC?.renewal, () => findCol(header, ["갱신요구", "renewal"], { exclude: ["잔여", "자동"] }));
+  const opposingIdx = fixedOr(LC?.opposing, () => findCol(header, ["대항력", "opposing"]));
 
   // ── 면적 컬럼 3종: ㎡ 컬럼 우선, 없으면 평 컬럼(→㎡ 환산), 마지막으로 레거시 단일 '면적' 컬럼
+  //    (템플릿 레이아웃은 C/D 고정 + G9 단위 직접 환산이라 아래 키워드 탐색·전용률 역산을 건너뛴다)
   const DERIVED_EXCLUDE = ["률", "율", "%", "당", "단가"];
-  const leaseSqmIdx = findCol(header, ["임대면적", "계약면적", "공급면적"], { exclude: [...DERIVED_EXCLUDE, "평"] });
-  const excSqmIdx = findCol(header, ["전용면적", "전유면적"], { exclude: [...DERIVED_EXCLUDE, "평"] });
-  const leasePyIdx = findCol(header, ["임대면적", "계약면적", "공급면적"], { exclude: DERIVED_EXCLUDE, require: "평" });
-  const excPyIdx = findCol(header, ["전용면적", "전유면적"], { exclude: DERIVED_EXCLUDE, require: "평" });
-  const ratioIdx = findCol(header, ["전용률", "전용율", "efficiency"]);
+  const leaseSqmIdx = layout ? layout.cols.leaseArea : findCol(header, ["임대면적", "계약면적", "공급면적"], { exclude: [...DERIVED_EXCLUDE, "평"] });
+  const excSqmIdx = layout ? layout.cols.exclusiveArea : findCol(header, ["전용면적", "전유면적"], { exclude: [...DERIVED_EXCLUDE, "평"] });
+  const leasePyIdx = layout ? -1 : findCol(header, ["임대면적", "계약면적", "공급면적"], { exclude: DERIVED_EXCLUDE, require: "평" });
+  const excPyIdx = layout ? -1 : findCol(header, ["전용면적", "전유면적"], { exclude: DERIVED_EXCLUDE, require: "평" });
+  const ratioIdx = layout ? -1 : findCol(header, ["전용률", "전용율", "efficiency"]);
   const claimed = new Set<number>([leaseSqmIdx, excSqmIdx, leasePyIdx, excPyIdx, ratioIdx].filter((i) => i >= 0));
-  const genericAreaIdx = findCol(header, ["면적", "area", "㎡"], { exclude: [...DERIVED_EXCLUDE, "적용", "상임법"], skip: claimed });
+  const genericAreaIdx = layout ? -1 : findCol(header, ["면적", "area", "㎡"], { exclude: [...DERIVED_EXCLUDE, "적용", "상임법"], skip: claimed });
 
   const leaseAreaIdx = leaseSqmIdx >= 0 ? leaseSqmIdx : leasePyIdx;
   const excAreaIdx = excSqmIdx >= 0 ? excSqmIdx : excPyIdx;
@@ -296,13 +414,15 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
   let rowCount = 0;
   let unitDetected: "won" | "manwon" = "manwon";
   const warnings: string[] = [];
+  const cacheDiffs: string[] = [];
   let warningOverflow = 0;
   const warn = (msg: string) => {
     if (warnings.length < MAX_WARNINGS) warnings.push(msg);
     else warningOverflow++;
   };
+  for (const w of options.preWarnings ?? []) warn(w);
   if (legacyExclusiveAsLease) {
-    warn("임대면적 열이 없어 '전용면적' 열 값을 전용면적으로 보존했습니다 (면적 합계 연산에는 같은 값을 임대면적 대용으로 사용하며 전용률은 계산하지 않음). 최신 양식(v1.3)을 쓰면 임대·전용면적을 분리해 입력할 수 있습니다.");
+    warn("임대면적 열이 없어 '전용면적' 열 값을 전용면적으로 보존했습니다 (면적 합계 연산에는 같은 값을 임대면적 대용으로 사용하며 전용률은 계산하지 않음). 최신 양식(v1.5)을 쓰면 임대·전용면적을 분리해 입력할 수 있습니다.");
   }
 
   const parsedRows: ParsedRentRollRow[] = [];
@@ -310,6 +430,7 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
   for (let li = headerLineIdx + 1; li < lines.length; li++) {
     const cols = lines[li].row;
     if (!cols || cols.length < 2) continue;
+    if (layout && (lines[li].rowIndex < layout.firstDataRowIdx || lines[li].rowIndex > layout.lastDataRowIdx)) continue;
 
     const cell = (idx: number): unknown => (idx >= 0 && idx < cols.length ? cols[idx] : undefined);
     const text = (idx: number): string => String(cell(idx) ?? "").trim();
@@ -412,13 +533,29 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
     // ── 면적 3종
     let areaVal: number | undefined;
     let exclusiveVal: number | undefined;
-    if (leaseAreaIdx >= 0) {
-      areaVal = parseAreaCell(cell(leaseAreaIdx), areaUnitOfHeader(header[leaseAreaIdx]));
-    } else if (legacyAreaOnlyIdx >= 0) {
-      areaVal = parseAreaCell(cell(legacyAreaOnlyIdx), areaUnitOfHeader(header[legacyAreaOnlyIdx]));
-    }
-    if (excAreaIdx >= 0) {
-      exclusiveVal = parseAreaCell(cell(excAreaIdx), areaUnitOfHeader(header[excAreaIdx]));
+    if (layout) {
+      // 템플릿(v1.3~v1.5): 위치 + G9 단위로 직접 환산. 셀 접미사·머리글·'<50 소수=평' 휴리스틱은 쓰지 않는다 (스펙 §6.3).
+      areaVal = toSqmFromInput(positiveNumber(cell(leaseAreaIdx)), layout.areaInputUnit) ?? undefined;
+      exclusiveVal = toSqmFromInput(positiveNumber(cell(excAreaIdx)), layout.areaInputUnit) ?? undefined;
+      // AE/AF 캐시는 대조용 — 0/빈 값(미계산 파일)이면 건너뛴다
+      const crossCheck = (parsed: number | undefined, cacheIdx: number, label: string) => {
+        if (parsed == null || cacheIdx < 0) return;
+        const raw = cell(cacheIdx);
+        const c = typeof raw === "number" ? raw : Number(String(raw ?? "").replace(/,/g, ""));
+        if (!Number.isFinite(c) || c <= 0) return;
+        if (Math.abs(parsed - c) > 0.01 + 1e-9) cacheDiffs.push(`${floorVal} ${label} 파서 ${parsed} ≠ 캐시 ${c}`);
+      };
+      crossCheck(areaVal, layout.cols.leaseSqmCache, "임대");
+      crossCheck(exclusiveVal, layout.cols.exclusiveSqmCache, "전용");
+    } else {
+      if (leaseAreaIdx >= 0) {
+        areaVal = parseAreaCell(cell(leaseAreaIdx), areaUnitOfHeader(header[leaseAreaIdx]));
+      } else if (legacyAreaOnlyIdx >= 0) {
+        areaVal = parseAreaCell(cell(legacyAreaOnlyIdx), areaUnitOfHeader(header[legacyAreaOnlyIdx]));
+      }
+      if (excAreaIdx >= 0) {
+        exclusiveVal = parseAreaCell(cell(excAreaIdx), areaUnitOfHeader(header[excAreaIdx]));
+      }
     }
     let areaIsProxy = false;
     if (legacyExclusiveAsLease && exclusiveVal != null) {
@@ -448,6 +585,7 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
     // ── 날짜
     const parseDate = (val: any) => {
       if (!val) return undefined;
+      if (val instanceof Date) return dateObjToIso(val);
       let s = String(val).trim();
       if (!isNaN(Number(s)) && Number(s) > 30000) {
         const d = new Date(Math.round((Number(s) - 25569) * 86400 * 1000));
@@ -473,6 +611,31 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
     const firstDate = firstDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(firstDateRaw) ? firstDateRaw : undefined;
     const groupVal = groupIdx >= 0 ? text(groupIdx) : "";
 
+    // ── v1.4+ 행 필드 (Z 근거 / AA 렌트프리 / AB 입금) — 템플릿 레이아웃일 때만. 허용값 밖은 추측하지 않고 null + 경고
+    const v14Fields: Pick<ParsedRentRollRow, "evidence_level" | "rent_free_months" | "payment_status"> = {
+      evidence_level: null,
+      rent_free_months: null,
+      payment_status: null,
+    };
+    if (layout?.readV14Fields) {
+      const ev = layout.cols.evidence >= 0 ? text(layout.cols.evidence) : "";
+      if (ev) {
+        if ((EVIDENCE_LEVELS as readonly string[]).includes(ev)) v14Fields.evidence_level = ev as EvidenceLevel;
+        else warn(`${floorVal}: 근거 '${ev}'은(는) 허용값(${EVIDENCE_LEVELS.join("/")}) 밖이라 비웠습니다.`);
+      }
+      const ps = layout.cols.payment >= 0 ? text(layout.cols.payment) : "";
+      if (ps) {
+        if ((PAYMENT_STATUSES as readonly string[]).includes(ps)) v14Fields.payment_status = ps as PaymentStatus;
+        else warn(`${floorVal}: 입금 확인 '${ps}'은(는) 허용값(${PAYMENT_STATUSES.join("/")}) 밖이라 비웠습니다.`);
+      }
+      const rfRaw = layout.cols.rentFree >= 0 ? text(layout.cols.rentFree) : "";
+      if (rfRaw) {
+        const rf = Number(rfRaw.replace(/,/g, ""));
+        if (Number.isInteger(rf) && rf >= 0) v14Fields.rent_free_months = rf;
+        else warn(`${floorVal}: 렌트프리 잔여 '${rfRaw}'은(는) 0 이상의 정수가 아니라 비웠습니다.`);
+      }
+    }
+
     parsedRows.push({
       floor: floorVal,
       tenant_type: bizVal || undefined,
@@ -494,6 +657,7 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
       lease_end: lEnd,
       lease_state: leaseState,
       note: noteVal || undefined,
+      ...(layout ? v14Fields : {}),
     });
   }
 
@@ -501,6 +665,12 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
     throw new Error(
       "읽을 수 있는 호실 데이터가 없습니다. 헤더 아래에 실제 호실을 입력했는지 확인해 주세요 (예시 행·합계 행은 자동 제외됩니다).",
     );
+  }
+  if (cacheDiffs.length > 0) {
+    const shown = cacheDiffs.slice(0, 3).join(", ");
+    const msg = `엑셀 AE/AF(㎡ 환산) 캐시값과 파서 환산값이 0.01㎡ 넘게 다른 호실 ${cacheDiffs.length}건 (${shown}${cacheDiffs.length > 3 ? " 외" : ""}) — 파서 환산값(G9 단위 × 3.305785)을 사용합니다. 파일을 다시 계산해 저장했는지 확인해 주세요.`;
+    issues.push({ code: "AREA_CACHE_DIFF", level: "warning", message: msg });
+    warn(msg);
   }
   if (expiredLeases.length > 0) {
     const shown = expiredLeases.slice(0, 4).join(", ");
@@ -524,6 +694,10 @@ export function parseRentRollData(data: any[][], options: { asOf?: Date } = {}):
     parsedRows,
     areaSummary: summarizeRentRollAreas(parsedRows),
     warnings,
+    // 레거시(키워드) 경로 기본값 — 템플릿 워크북 경로(parseRentRollWorkbook)가 덮어쓴다
+    version: "unknown",
+    meta: { area_input_unit: layout?.areaInputUnit ?? "sqm" },
+    issues,
   };
 }
 

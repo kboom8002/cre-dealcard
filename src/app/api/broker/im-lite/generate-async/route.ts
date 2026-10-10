@@ -13,14 +13,14 @@ import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { randomUUID } from "node:crypto";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
-import { persistLeaseUnits } from "@/domain/building/mobile-im/lease-adapter";
+import { persistLeaseUnits, floorLeaseToPersistUnit } from "@/domain/building/mobile-im/lease-adapter";
 import { parseBrokerCount } from "@/domain/building/mobile-im/resolve-physical-specs";
 import { parseBrokerParcels, normalizePnu } from "@/domain/building/mobile-im/parcel-input";
 import { parseBrokerExtras } from "@/domain/building/mobile-im/broker-extras";
+import { parseRentRollMeta } from "@/domain/building/mobile-im/rentroll-meta-parse";
+import { sanitizeAncillaryIncomes, sanitizeGrossAreaM2, sanitizeRentrollRowFields } from "@/domain/building/mobile-im/supplemental-sanitize";
 
 import { createModuleLogger } from '@/lib/logger';
-import { sqmToPyeong } from "@/lib/utils/area-conversion";
-import { resolveLeaseOccupancy } from "@/domain/building/mobile-im/lease-vacancy";
 const log = createModuleLogger('route');
 
 
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
   let residentialSpecInput: Record<string, any> | null = null;
   let investmentPostureInput: string | null = null;
   let preset: string | undefined = undefined;
+  let hasExplicitRentRollMeta = false;
 
   try {
     const body = await req.json();
@@ -127,6 +128,23 @@ export async function POST(req: NextRequest) {
     const extrasParsed = parseBrokerExtras(body.broker_extras);
     if (!extrasParsed.ok) return NextResponse.json({ error: extrasParsed.error }, { status: 400 });
     if (extrasParsed.value) supplemental.broker_extras = extrasParsed.value;
+
+    // 렌트롤 v1.5: 헤더 블록·면적 입력 단위·V12 해제 사유 — enum/숫자/길이 검증 (실패 시 400 + 한국어 메시지).
+    // override.by/at 은 클라이언트 값을 무시하고 handler 가 서버에서 채운다.
+    const rentRollMetaParsed = parseRentRollMeta(body.rent_roll_meta);
+    if (!rentRollMetaParsed.ok) return NextResponse.json({ error: rentRollMetaParsed.error }, { status: 400 });
+    if (rentRollMetaParsed.value) {
+      supplemental.rent_roll_meta = rentRollMetaParsed.value;
+      hasExplicitRentRollMeta = true;
+    }
+
+    // X1: 기존 화이트리스트가 버리던 부가수입·연면적을 sanitize 후 통과 (비정상 값은 조용히 생략)
+    const ancillary = sanitizeAncillaryIncomes(body.ancillary_incomes);
+    if (ancillary) supplemental.ancillary_incomes = ancillary;
+    const grossAreaM2 = sanitizeGrossAreaM2(body.total_gross_area_m2);
+    if (grossAreaM2 !== undefined) supplemental.total_gross_area_m2 = grossAreaM2;
+    // v1.4 행 필드(근거·렌트프리·입금확인) enum/정수 정규화 — 허용값 밖은 null (추측 보정 금지)
+    if (Array.isArray(supplemental.floor_leases)) supplemental.floor_leases = sanitizeRentrollRowFields(supplemental.floor_leases);
 
     // 다필지: 바텀시트 ParcelSection 입력(parcels/pnus)을 파이프라인으로 전달 (기존에는 여기서 유실됨)
     // pnus 는 parcels 에서 파생한 값 + 클라이언트가 보낸 pnus(19자리 숫자만) 의 합집합
@@ -211,30 +229,14 @@ export async function POST(req: NextRequest) {
         // ── Phase B: SSoT 역류 — 바텀시트 데이터를 building_ssot_lite에 영속화 ──
         try {
           if (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
-            // 바텀시트 필드명(manwon) → persistLeaseUnits 필드명(krw) 변환
-            const mappedUnits = supplemental.floor_leases.filter(Boolean).map((fl: any) => ({
-              floor: fl?.floor,
-              tenant_sector: fl?.tenant_type || fl?.tenant_sector || null,
-              deposit_krw: fl?.deposit_manwon ? Number(fl.deposit_manwon) * 10000 : (fl?.deposit_krw || undefined),
-              monthly_rent_krw: fl?.rent_manwon ? Number(fl.rent_manwon) * 10000 : (fl?.monthly_rent_krw || undefined),
-              mgmt_fee_krw: fl?.mgmt_fee_manwon ? Number(fl.mgmt_fee_manwon) * 10000 : (fl?.mgmt_fee_krw || undefined),
-              area_pyung: fl?.area_pyung || (!fl?.area_sqm_is_proxy && Number(fl?.area_sqm) > 0 ? sqmToPyeong(Number(fl.area_sqm)) : undefined),
-              // 레거시 단일 '전용면적' 열에서 복사된 대용 area_sqm 은 임대면적으로 저장하지 않는다
-              lease_area_sqm: fl?.area_sqm_is_proxy ? undefined : (Number(fl?.area_sqm) > 0 ? Number(fl.area_sqm) : undefined),
-              exclusive_area_sqm: Number(fl?.exclusive_area_sqm) > 0 ? Number(fl.exclusive_area_sqm) : undefined,
-              contract_group: fl?.contract_group || undefined,
-              legal_basis: fl?.legal_basis || undefined,
-              first_contract_date: fl?.first_contract_date || undefined,
-              renewal_exercised: fl?.renewal_exercised || undefined,
-              opposing_power: fl?.opposing_power || undefined,
-              // 점유 상태 SSOT: is_vacant 플래그(월세 0 추정 오염 가능)를 그대로 '공실' 로 영속하지 않는다
-              lease_state: fl?.lease_state || (resolveLeaseOccupancy(fl) !== '임대중' ? resolveLeaseOccupancy(fl) : undefined),
-              note: fl?.note || undefined,
-              lease_start: fl?.lease_start || undefined,
-              lease_end: fl?.lease_end || undefined,
-              source_tier: 'broker_input',
-            }));
-            await persistLeaseUnits(buildingId, mappedUnits);
+            // 바텀시트 필드명(manwon) → persistLeaseUnits 필드명(krw) 변환 (공용 매핑: lease-adapter.floorLeaseToPersistUnit)
+            const mappedUnits = supplemental.floor_leases.filter(Boolean).map(floorLeaseToPersistUnit);
+            // 메타(G9 면적 입력 단위 등)는 클라이언트가 명시적으로 보낸 경우에만 원장에 쓴다 —
+            // 미전송(구 클라이언트) 시 기본값 'sqm' 으로 기존 'pyeong' 메타를 덮어쓰지 않기 위함.
+            // handler 가 override.by/at 을 서버 값으로 채운 supplemental.rent_roll_meta 를 사용한다.
+            await persistLeaseUnits(buildingId, mappedUnits, undefined, {
+              meta: hasExplicitRentRollMeta ? supplemental.rent_roll_meta : undefined,
+            });
           }
 
           const { data: existing } = await bgSupabase
