@@ -37,8 +37,13 @@ export function resolveLeaseOccupancy(lease: LeaseLike): LeaseOccupancy {
   const l = lease as Record<string, any>;
   const state = str(l.lease_state ?? l.leaseState);
 
-  if (state === '자가사용' || OWNER_USE_RE.test(ownerUseText(l))) return '자가사용';
-  if (state === '공실' || VACANT_RE.test(vacancyText(l))) return '공실';
+  // 명시 lease_state(importer/UI 검증 입력)가 키워드 추정보다 우선한다.
+  //  예: lease_state '공실' + 비고 '기존 자가사용. 희망 임대료…' → 공실 (비고의 '자가' 로 자가사용 오판 금지)
+  if (state === '공실') return '공실';
+  if (state === '자가사용') return '자가사용';
+  if (state === '임대중') return '임대중';
+  if (OWNER_USE_RE.test(ownerUseText(l))) return '자가사용';
+  if (VACANT_RE.test(vacancyText(l))) return '공실';
 
   const flagged = l.is_vacant === true || l.isVacant === true;
   if (flagged) {
@@ -57,18 +62,44 @@ export function resolveLeaseOccupancy(lease: LeaseLike): LeaseOccupancy {
 export const isVacantLeaseRow = (lease: LeaseLike): boolean => resolveLeaseOccupancy(lease) === '공실';
 export const isOwnerUseLeaseRow = (lease: LeaseLike): boolean => resolveLeaseOccupancy(lease) === '자가사용';
 
+/** 공용·설비 공간 명칭 (괄호·공백 제거 후 완전 일치만 — '창고'는 임대 사례가 많아 제외) */
+const NON_LEASABLE_RE = /^(기계실|전기실|발전기실|보일러실|주차장|주차|계단실|관리실|경비실|방재실|물탱크실|공용|공용부|화장실)$/;
+
+/**
+ * 비임대 행 — 렌트롤에 공간 구성으로 적힌 설비·공용 공간(기계실, 주차장 등).
+ * 오탐 방지: 명칭이 완전 일치하고, 보증금·월세가 0/미기입이며, 계약일이 없고, 명시 상태가 '공실'이 아닐 때만.
+ * (유료 주차 운영사처럼 금액·계약이 있으면 임대 호실로 본다)
+ */
+export function isNonLeasableLeaseRow(lease: LeaseLike): boolean {
+  if (!lease) return false;
+  const l = lease as Record<string, any>;
+  if (str(l.lease_state ?? l.leaseState) === '공실') return false;
+  const names = [l.tenant_name, l.tenantName, l.tenant_type, l.tenantType, l.use, l.usage]
+    .map(v => str(v).replace(/[()（）\s]/g, ''))
+    .filter(Boolean);
+  if (names.length === 0 || !names.some(n => NON_LEASABLE_RE.test(n))) return false;
+  const money = (v: unknown) => { const n = typeof v === 'number' ? v : parseFloat(str(v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
+  if (money(l.rent_manwon ?? l.monthly_rent_manwon) > 0 || money(l.deposit_manwon) > 0) return false;
+  if (str(l.lease_start) || str(l.lease_end ?? l.contract_end)) return false;
+  return true;
+}
+
 export interface LeaseOccupancySummary {
+  /** 임대 대상 호실 수 (비임대 공용·설비 행 제외) */
   total: number;
   leased: number;
   vacant: number;
   ownerUse: number;
+  /** 비임대(공용·설비) 행 수 — total 에 포함하지 않는다 */
+  nonLeasable: number;
   /** 공실률 % (소수 1자리) — 분모는 자가사용 제외 임대 가능 호실. 임대 가능 호실이 0이면 null */
   vacancyPct: number | null;
   vacantFloors: string[];
 }
 
 export function summarizeLeaseOccupancy(leases: ReadonlyArray<LeaseLike> | null | undefined): LeaseOccupancySummary {
-  const rows = (Array.isArray(leases) ? leases : []).filter(Boolean) as Record<string, any>[];
+  const all = (Array.isArray(leases) ? leases : []).filter(Boolean) as Record<string, any>[];
+  const rows = all.filter(r => !isNonLeasableLeaseRow(r));
   let vacant = 0;
   let ownerUse = 0;
   const vacantFloors: string[] = [];
@@ -86,6 +117,7 @@ export function summarizeLeaseOccupancy(leases: ReadonlyArray<LeaseLike> | null 
     leased: leasable - vacant,
     vacant,
     ownerUse,
+    nonLeasable: all.length - rows.length,
     vacancyPct: leasable > 0 ? Math.round((vacant / leasable) * 1000) / 10 : null,
     vacantFloors,
   };

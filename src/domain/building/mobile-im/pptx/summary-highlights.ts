@@ -16,14 +16,22 @@
 
 import { parseStationName } from './binder/station-name';
 import { normalizeBuildingRegister } from '@/lib/external/building-register-normalize';
-import { isVacantLeaseRow } from '../lease-vacancy';
+import { isNonLeasableLeaseRow, resolveLeaseOccupancy, summarizeLeaseOccupancy } from '../lease-vacancy';
+import { verifiedLegalLimits, verifiedLegalLimitsFromSsot } from './binder/legal-limits';
+import { resolveDisplayAreas } from './binder/display-areas';
 
 export interface SummaryLeaseFacts {
+  /** 임대 대상 호실 수 (비임대 공용·설비 행 제외, 자가사용 포함) */
   totalUnits: number;
+  /** 임대중 호실 수 (공실·자가사용 제외) */
   leasedUnits: number;
+  /** 자가사용 호실 수 */
+  ownerUseUnits?: number;
   vacantFloors: string[];
   monthlyRentManwon?: number;
   depositManwon?: number;
+  /** 바텀시트 합계 ↔ 렌트롤 합계 불일치 시 경고 (렌더 warnings 용) */
+  reconcileWarning?: string;
 }
 
 export interface SummaryFacts {
@@ -159,12 +167,17 @@ function pointLease(f: SummaryFacts): string | null {
   if (!l || l.totalUnits <= 0) return null;
   const rent = l.monthlyRentManwon && l.monthlyRentManwon > 0 ? formatManwonKo(l.monthlyRentManwon) : '';
   const dep = l.depositManwon && l.depositManwon > 0 ? formatManwonKo(l.depositManwon) : '';
+  const owner = l.ownerUseUnits && l.ownerUseUnits > 0 ? l.ownerUseUnits : 0;
+  const vacantCount = Math.max(0, l.totalUnits - l.leasedUnits - owner);
   let occ: string;
-  if (l.leasedUnits >= l.totalUnits) occ = `전 ${l.totalUnits}개 호실 임차 중`;
-  else if (l.leasedUnits <= 0) occ = `${l.totalUnits}개 호실 전체 공실`;
+  if (vacantCount === 0 && owner === 0) occ = `전 ${l.totalUnits}개 호실 임차 중`;
+  else if (l.leasedUnits <= 0 && owner === 0) occ = `${l.totalUnits}개 호실 전체 공실`;
+  else if (l.leasedUnits <= 0 && vacantCount === 0) occ = `${l.totalUnits}개 호실 전체 자가사용`;
   else {
-    const vf = l.vacantFloors.length > 0 && l.vacantFloors.length <= 3 ? `(공실 ${l.vacantFloors.join('·')})` : '';
-    occ = `${l.totalUnits}개 호실 중 ${l.leasedUnits}개 임차 중${vf}`;
+    const parts: string[] = [];
+    if (vacantCount > 0) parts.push(l.vacantFloors.length > 0 && l.vacantFloors.length <= 3 ? `공실 ${l.vacantFloors.join('·')}` : `공실 ${vacantCount}`);
+    if (owner > 0) parts.push(`자가사용 ${owner}`);
+    occ = `${l.totalUnits}개 호실 중 ${l.leasedUnits}개 임차 중${parts.length ? `(${parts.join('·')})` : ''}`;
   }
   const money = rent && dep ? `, 월 임대료 ${rent}·보증금 ${dep}` : rent ? `, 월 임대료 ${rent}` : dep ? `, 보증금 ${dep}` : '';
   if (l.leasedUnits <= 0) return `임대 현황 — ${occ}으로, 임대 구성에 따라 수익 구조를 설계할 수 있습니다.`;
@@ -234,9 +247,14 @@ function buildShortHighlights(f: SummaryFacts): string[] {
   }
   const l = f.lease;
   if (l && l.totalUnits > 0 && f.posture !== 'owner_occupied' && f.posture !== 'development') {
-    const rate = Math.round((l.leasedUnits / l.totalUnits) * 1000) / 10;
+    // 임차율 분모 = 임대 가능 호실(자가사용 제외). 자가사용은 별도 표기 (분모 혼용 금지)
+    const owner = l.ownerUseUnits && l.ownerUseUnits > 0 ? l.ownerUseUnits : 0;
+    const leasable = l.totalUnits - owner;
     const rent = l.monthlyRentManwon && l.monthlyRentManwon > 0 ? ` · 월 임대료 ${formatManwonKo(l.monthlyRentManwon)}` : '';
-    out.push(`임차 ${l.leasedUnits}/${l.totalUnits}개 호실(${rate}%)${rent}`);
+    if (leasable > 0) {
+      const rate = Math.round((l.leasedUnits / leasable) * 1000) / 10;
+      out.push(`임차 ${l.leasedUnits}/${leasable}개 호실(${rate}%)${owner ? ` · 자가사용 ${owner}` : ''}${rent}`);
+    }
   }
   if (f.landSqm && f.landSqm > 0) {
     const parcel = f.parcelCount && f.parcelCount > 1 ? `${f.parcelCount}필지 통합 ` : '';
@@ -301,28 +319,34 @@ const pos = (v: unknown): number | undefined => {
   return n != null && n > 0 ? n : undefined;
 };
 
-function isVacantLease(l: Record<string, any>): boolean {
-  if (!l) return false;
-  // 점유 상태 SSOT: 자가사용·통합계약 후행(월세 0)은 공실이 아니다 (oracle income-dangsan-r3 '공실 B1·2F·4F' 오표기 수정)
-  return isVacantLeaseRow(l);
-}
-
 export function extractLeaseFacts(leases: unknown, ssot?: Record<string, any>): SummaryLeaseFacts | undefined {
   if (!Array.isArray(leases) || leases.length === 0) return undefined;
   const rows = (leases as Record<string, any>[]).filter(Boolean);
   if (rows.length === 0) return undefined;
-  const vacant = rows.filter(isVacantLease);
-  const vacantFloors = [...new Set(vacant.map(v => String(v.floor ?? v.unit ?? '').trim()).filter(Boolean))];
-  const sumRent = rows.reduce((a, r) => a + (isVacantLease(r) ? 0 : (num(r.rent_manwon ?? r.monthly_rent_manwon) ?? 0)), 0);
-  const sumDep = rows.reduce((a, r) => a + (isVacantLease(r) ? 0 : (num(r.deposit_manwon) ?? 0)), 0);
+  // 점유 SSOT — 자가사용은 임차로 세지 않고, 비임대(기계실·주차장 등) 행은 호실 수에서 제외
+  const occ = summarizeLeaseOccupancy(rows);
+  // 금액: 렌트롤 임대중 행 합 (A24 합계 행과 같은 모집단 — 공실·자가사용·비임대 제외)
+  const incomeRows = rows.filter(r => !isNonLeasableLeaseRow(r) && resolveLeaseOccupancy(r) === '임대중');
+  const sumRent = incomeRows.reduce((a, r) => a + (num(r.rent_manwon ?? r.monthly_rent_manwon) ?? 0), 0);
+  const sumDep = incomeRows.reduce((a, r) => a + (num(r.deposit_manwon) ?? 0), 0);
   const ssotRentKrw = pos(ssot?.monthly_rent_total_krw);
+  const ssotRent = ssotRentKrw ? Math.round(ssotRentKrw / 10000) : undefined;
   const ssotDep = pos(ssot?.total_deposit_manwon);
+  // 렌트롤에 금액이 있으면 렌트롤이 SSOT. 바텀시트 합계는 렌트롤 금액이 비었을 때만 폴백.
+  const monthlyRentManwon = sumRent > 0 ? sumRent : ssotRent;
+  const depositManwon = sumRent > 0 ? (sumDep > 0 ? sumDep : undefined) : (ssotDep ?? (sumDep > 0 ? sumDep : undefined));
+  const diff = (a?: number, b?: number) => (a && b ? Math.abs(a - b) / b : 0);
+  const reconcileWarning = sumRent > 0 && (diff(ssotRent, sumRent) > 0.005 || diff(ssotDep, sumDep) > 0.005)
+    ? `바텀시트 합계(월 ${ssotRent ?? '-'}만·보증금 ${ssotDep ?? '-'}만)와 렌트롤 합계(월 ${sumRent}만·보증금 ${sumDep}만)가 달라 렌트롤 기준으로 표기`
+    : undefined;
   return {
-    totalUnits: rows.length,
-    leasedUnits: rows.length - vacant.length,
-    vacantFloors,
-    monthlyRentManwon: ssotRentKrw ? Math.round(ssotRentKrw / 10000) : (sumRent > 0 ? sumRent : undefined),
-    depositManwon: ssotDep ?? (sumDep > 0 ? sumDep : undefined),
+    totalUnits: occ.total,
+    leasedUnits: occ.leased,
+    ownerUseUnits: occ.ownerUse,
+    vacantFloors: occ.vacantFloors,
+    monthlyRentManwon,
+    depositManwon,
+    ...(reconcileWarning ? { reconcileWarning } : {}),
   };
 }
 
@@ -377,6 +401,11 @@ export function extractSummaryFacts(input: ExtractFactsInput): SummaryFacts {
     return s && s !== '-' ? s : undefined;
   };
   const spec = fromSpecRows(input.specRows);
+  const areas = resolveDisplayAreas({
+    brokerLandSqm: pos(ssot.land_area_sqm ?? hero.landAreaM2 ?? bldg.land_area_sqm),
+    brokerGfaSqm: pos(ssot.total_gross_area_sqm ?? hero.totalGrossAreaSqm ?? bldg.total_area_sqm),
+    register: br,
+  });
 
   return {
     posture: input.posture,
@@ -391,11 +420,11 @@ export function extractSummaryFacts(input: ExtractFactsInput): SummaryFacts {
     completionYear: Number.isFinite(yr) && yr > 1900 ? yr : undefined,
     floorsAbove: pos(ssot.floors_above ?? hero.floorsAbove ?? bldg.floors_above ?? phys.floorsAbove ?? nbr.floorsAbove ?? spec.above),
     floorsBelow: pos(ssot.floors_below ?? hero.floorsBelow ?? bldg.floors_below ?? phys.floorsBelow ?? nbr.floorsBelow ?? spec.below),
-    gfaSqm: pos(ssot.total_gross_area_sqm ?? hero.totalGrossAreaSqm ?? bldg.total_area_sqm ?? nbr.totalArea),
-    landSqm: pos(ssot.land_area_sqm ?? nbr.platArea ?? hero.landAreaM2 ?? bldg.land_area_sqm),
+    gfaSqm: areas.gfaSqm,
+    landSqm: areas.landSqm,
     parcelCount: pos(ssot.parcel_count) ?? (parcels.length > 0 ? parcels.length : undefined),
     farPct: pos(ssot.far_pct ?? nbr.vlRat),
-    maxFarPct: pos(ssot.max_far_pct),
+    maxFarPct: verifiedLegalLimitsFromSsot(ssot).farMax ?? verifiedLegalLimits(lup).farMax,
     lease: input.posture === 'owner_occupied' ? undefined : extractLeaseFacts(body.floor_leases, ssot),
     landPriceCagrPct: num(lph?.cagrPct),
     landPriceYears: Array.isArray(lph?.history) ? lph.history.length : undefined,

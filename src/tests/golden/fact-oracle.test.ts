@@ -12,7 +12,7 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { CORE_GOLDEN_NAMES, OUT_DIR, hasSnapshot, installOfflineGuard, loadExpectedFacts, rerenderSnapshot } from '../../../scripts/golden-snapshot/lib';
+import { ORACLE_GOLDEN_NAMES, OUT_DIR, hasSnapshot, installOfflineGuard, loadExpectedFacts, rerenderSnapshot } from '../../../scripts/golden-snapshot/lib';
 import { evaluateOracle, renderSummary, renderTable, summarize, type FactResult } from './oracle-engine';
 
 const STRICT = process.env.ORACLE_STRICT === '1';
@@ -23,7 +23,8 @@ let blockedTotal = 0;
 describe(`fact-oracle (offline re-render, strict=${STRICT})`, () => {
   beforeAll(async () => { await installOfflineGuard(); });
 
-  for (const name of CORE_GOLDEN_NAMES) {
+  // 7대 골든 + income ig 8변형 (ig 는 git 미추적 데이터 — expected_facts.json/스냅샷이 없으면 skip)
+  for (const name of ORACLE_GOLDEN_NAMES) {
     const facts = loadExpectedFacts(name);
     const present = !!facts && hasSnapshot(name);
     (present ? it : it.skip)(`${name}`, async () => {

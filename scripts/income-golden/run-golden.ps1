@@ -32,8 +32,10 @@ foreach ($t in $Targets) {
   npx playwright test $spec --workers=1 --timeout=600000 --reporter=list --output=".next/pw-$t-out" *> $log
   $code = $LASTEXITCODE
   $sw.Stop()
-  $passed = (Select-String -Path $log -Pattern '^\s+(\d+) passed' | Select-Object -Last 1).Matches.Groups[1].Value
-  $failed = (Select-String -Path $log -Pattern '^\s+(\d+) failed' | Select-Object -Last 1).Matches.Groups[1].Value
+  $countOf = { param($kind) $m = Select-String -Path $log -Pattern "^\s+(\d+) $kind" | Select-Object -Last 1; if ($m) { [int]$m.Matches[0].Groups[1].Value } else { 0 } }
+  $passed = & $countOf 'passed'
+  $failed = & $countOf 'failed'
+  if ($code -ne 0 -or $failed -gt 0) { $script:anyFail = $true }
   $summary += "$t`texit=$code`tpassed=$passed`tfailed=$failed`t$([int]$sw.Elapsed.TotalMinutes)m"
   Write-Output $summary[-1]
   # E2E 부작용 복원 (tsconfig.json / docs/test 수정 잔재)
@@ -48,3 +50,4 @@ if ($Capture) {
 $summary | Set-Content -Encoding UTF8 (Join-Path $logDir 'summary.txt')
 Write-Output '--- SUMMARY ---'
 $summary
+if ($script:anyFail) { exit 1 } else { exit 0 }

@@ -9,7 +9,8 @@
 
 export type Where = 'pptx' | 'viewer' | 'both';
 export type Source = 'fixture' | 'register' | 'derived';
-export type PendingTag = 'W1' | 'W2' | 'W3';
+/** W1~W3: 기존 결함 묶음 · P2: LLM 뷰어 본문 재녹화 대기(추정 법정 한도·구 수치 인용) */
+export type PendingTag = 'W1' | 'W2' | 'W3' | 'P2';
 
 interface Base {
   id?: string;

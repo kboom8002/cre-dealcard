@@ -18,8 +18,10 @@ export interface GoldenDef {
   name: string;
   /** docs/ 하위 픽스처 디렉터리 (repo 상대) */
   fixtureDir: string;
-  /** 오라클(expected_facts.json) 위치 — 7대 골든만 */
+  /** 오라클(expected_facts.json) 위치 */
   oracleDir?: string;
+  /** 'income-ig': git 미추적 데이터(docs/income-golden-data) 기반 — 'core' 범위에서 제외, 파일 없으면 오라클 skip */
+  group?: 'income-ig';
 }
 
 export const GOLDENS: GoldenDef[] = [
@@ -30,18 +32,23 @@ export const GOLDENS: GoldenDef[] = [
   { name: 'operating-hotel-r2', fixtureDir: 'docs/golden-test-data/p6-hotel-operating/r2-standard', oracleDir: 'docs/golden-test-data/p6-hotel-operating' },
   { name: 'owner-seocho-r3', fixtureDir: 'docs/golden-test-data/p3-seocho-owner/r3-verified', oracleDir: 'docs/golden-test-data/p3-seocho-owner' },
   { name: 'trading-sinsa-r3', fixtureDir: 'docs/golden-test-data/p2-sinsa-trading/r3-verified', oracleDir: 'docs/golden-test-data/p2-sinsa-trading' },
-  // e2e/income-golden-*.auth.spec.ts (docs/income-golden-data) — 스냅샷만 (오라클은 각 expected.json 사용)
-  { name: 'income-ig1-as-is', fixtureDir: 'docs/income-golden-data/ig1-dangsan5ga-11-47/as-is' },
-  { name: 'income-ig1-corrected', fixtureDir: 'docs/income-golden-data/ig1-dangsan5ga-11-47/corrected' },
-  { name: 'income-ig2-as-is', fixtureDir: 'docs/income-golden-data/ig2-ssangnim-114/as-is' },
-  { name: 'income-ig2-corrected', fixtureDir: 'docs/income-golden-data/ig2-ssangnim-114/corrected' },
-  { name: 'income-ig3-as-is', fixtureDir: 'docs/income-golden-data/ig3-changsin-464-6/as-is' },
-  { name: 'income-ig3-corrected', fixtureDir: 'docs/income-golden-data/ig3-changsin-464-6/corrected' },
-  { name: 'income-ig4-as-is', fixtureDir: 'docs/income-golden-data/ig4-yangpyeong4ga-117/as-is' },
-  { name: 'income-ig4-corrected', fixtureDir: 'docs/income-golden-data/ig4-yangpyeong4ga-117/corrected' },
+  // e2e/income-golden-*.auth.spec.ts (docs/income-golden-data, git 미추적) — expected_facts.json 은 각 변형 폴더에 둔다
+  ...([
+    ['ig1', 'ig1-dangsan5ga-11-47'], ['ig2', 'ig2-ssangnim-114'], ['ig3', 'ig3-changsin-464-6'], ['ig4', 'ig4-yangpyeong4ga-117'],
+  ] as const).flatMap(([id, dir]) => (['as-is', 'corrected'] as const).map((v): GoldenDef => ({
+    name: `income-${id}-${v}`,
+    fixtureDir: `docs/income-golden-data/${dir}/${v}`,
+    oracleDir: `docs/income-golden-data/${dir}/${v}`,
+    group: 'income-ig',
+  }))),
 ];
 
-export const CORE_GOLDEN_NAMES = GOLDENS.filter(g => g.oracleDir).map(g => g.name);
+/** 7대 골든 (git 추적 데이터) — rerender/capture 'core' 범위 */
+export const CORE_GOLDEN_NAMES = GOLDENS.filter(g => g.oracleDir && !g.group).map(g => g.name);
+/** income ig 8변형 */
+export const INCOME_IG_NAMES = GOLDENS.filter(g => g.group === 'income-ig').map(g => g.name);
+/** 사실 오라클 대상 전체 (expected_facts.json·스냅샷이 없으면 테스트에서 skip) */
+export const ORACLE_GOLDEN_NAMES = GOLDENS.filter(g => g.oracleDir).map(g => g.name);
 
 /** docs/golden-test-data/<fixture>/expected_facts.json (없으면 null) */
 export function loadExpectedFacts(name: string): any | null {

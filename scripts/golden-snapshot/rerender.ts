@@ -2,15 +2,16 @@
  * @file scripts/golden-snapshot/rerender.ts
  * @description 스냅샷을 오프라인으로 PPTX 재렌더 (서버/Playwright/LLM/실 API 없음).
  *
- *   npx tsx scripts/golden-snapshot/rerender.ts <name|all|core>
+ *   npx tsx scripts/golden-snapshot/rerender.ts <name|all|core|income>
  *
  * 출력: e2e/golden-snapshots/out/<name>.pptx, <name>.slides.json (슬라이드 텍스트 + 뷰어 섹션 마크다운)
  */
-import { GOLDENS, CORE_GOLDEN_NAMES, hasSnapshot, rerenderSnapshot } from './lib';
+import { GOLDENS, CORE_GOLDEN_NAMES, INCOME_IG_NAMES, hasSnapshot, rerenderSnapshot } from './lib';
 
 async function main() {
   const target = process.argv[2] ?? 'core';
   const names = target === 'all' ? GOLDENS.map(g => g.name).filter(hasSnapshot)
+    : target === 'income' ? INCOME_IG_NAMES.filter(hasSnapshot)
     : target === 'core' ? CORE_GOLDEN_NAMES : [target];
   let failed = 0;
   for (const n of names) {

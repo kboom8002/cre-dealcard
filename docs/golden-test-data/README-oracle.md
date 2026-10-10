@@ -80,6 +80,9 @@ $env:ORACLE_STRICT='1'; npm run test:oracle         # pending 도 실패로 취�
 | `W1` | 면적/게이트/대장 수정 (0 클레임, 다른 건물 대장값, 메모 면적 키 불일치, 층수·준공 누락) | register/gate agent |
 | `W2` | 랜드마크 POI (위치도·입지 슬라이드의 구체 시설명) | landmark agent |
 | `W3` | 임차인 실명 (마스킹 `임차인 A`, `[임차인…]` 제거) | tenant agent |
+| `P2` | LLM 뷰어 본문 재녹화 대기 (추정 법정 한도·구 수치 인용 등 프롬프트 입력 변경이 필요한 항목) | P2 재녹화 배치 |
+
+> income ig 8변형(`income-ig*-{as-is,corrected}`)의 `expected_facts.json` 은 git 미추적 데이터 폴더 `docs/income-golden-data/<set>/<variant>/` 에 있다. 파일이 없는 환경에서는 오라클 테스트가 skip 된다. 범위 실행: `oracle.ts income` / `rerender.ts income`.
 
 - `pending` 이 붙은 사실이 **실패**하면 `PENDING`(expected-fail, 테스트를 막지 않음)으로만 보고한다. **태그 없는 실패는 `FAIL` 이며 테스트가 실패한다.**
 - 해당 작업이 끝나면 PASS* 로 표시되므로 **태그를 지운다** (stale tag 정리). 태그를 새로 다는 것은 "알려진 결함 묶음에 속한다"는 증명이 있을 때만.

@@ -2,27 +2,27 @@
  "schemaVersion": 1,
  "name": "income-ig1-corrected",
  "fixtureDir": "docs/income-golden-data/ig1-dangsan5ga-11-47/corrected",
- "capturedAt": "2026-10-05T13:19:24.751Z",
- "docId": "a9e8ed2e-5559-4b5a-a0e3-e2772ac375e1",
- "buildingId": "7ba66e2a-e3bb-405c-b089-8638bdcaaa95",
+ "capturedAt": "2026-10-10T06:06:25.911Z",
+ "docId": "6160e14c-e6f3-44bb-a922-b68b5f3826c8",
+ "buildingId": "1b4f61df-4e4b-44ac-81c2-e3bec2e7817f",
  "doc": {
-  "id": "a9e8ed2e-5559-4b5a-a0e3-e2772ac375e1",
+  "id": "6160e14c-e6f3-44bb-a922-b68b5f3826c8",
   "title": "당산권역 근생빌딩 매각",
   "document_type": "mobile_im",
-  "created_at": "2026-10-05T12:31:21.338881+00:00",
+  "created_at": "2026-10-10T05:18:23.49072+00:00",
   "body": {
    "tier": "basic",
    "claims": [
     {
-     "id": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-     "asOf": "2026-10-05",
+     "id": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+     "asOf": "2026-10-10",
      "unit": "원",
      "value": 11500000000,
      "status": "reconciled",
      "subject": "asking_price",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "sourceId": "broker"
       }
      ],
@@ -31,15 +31,15 @@
      "expertRequired": false
     },
     {
-     "id": "cf637d81-ef2f-4c30-b99b-450127c78dc4",
-     "asOf": "2026-10-05",
+     "id": "03bc3494-3e6e-471d-8c98-b96ebec7a3df",
+     "asOf": "2026-10-10",
      "unit": "원/월",
      "value": 19460000,
      "status": "reconciled",
      "subject": "monthly_rent_total",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "sourceId": "broker"
       }
      ],
@@ -48,15 +48,15 @@
      "expertRequired": false
     },
     {
-     "id": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-     "asOf": "2026-10-05",
+     "id": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+     "asOf": "2026-10-10",
      "unit": "㎡",
-     "value": 1441.15,
+     "value": 1441.15697075,
      "status": "reconciled",
      "subject": "total_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "sourceId": "public_api"
       }
      ],
@@ -65,15 +65,15 @@
      "expertRequired": false
     },
     {
-     "id": "effccc3b-1c3e-429c-96a3-171945f8043e",
-     "asOf": "2026-10-05",
+     "id": "9431133a-287c-49b8-b152-99d17350960a",
+     "asOf": "2026-10-10",
      "unit": "㎡",
-     "value": 506.8,
+     "value": 506.80989835,
      "status": "reconciled",
      "subject": "land_area_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "sourceId": "public_api"
       }
      ],
@@ -82,15 +82,15 @@
      "expertRequired": false
     },
     {
-     "id": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-     "asOf": "2026-10-05",
+     "id": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 0,
      "status": "unverified",
      "subject": "vacancy_rate_pct",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "sourceId": "assumed"
       }
      ],
@@ -99,15 +99,15 @@
      "expertRequired": false
     },
     {
-     "id": "370b0106-b429-492b-a728-f62ebfa63e7b",
-     "asOf": "2026-10-05",
+     "id": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+     "asOf": "2026-10-10",
      "unit": "원",
      "value": 290000000,
      "status": "reconciled",
      "subject": "total_deposit",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "sourceId": "broker"
       }
      ],
@@ -116,30 +116,30 @@
      "expertRequired": false
     },
     {
-     "id": "cfaccf5f-cfeb-44b1-9e00-f5e9e661073a",
-     "asOf": "2026-10-05",
+     "id": "27c04cc4-c104-4953-8a50-c5f6605bdbe6",
+     "asOf": "2026-10-10",
      "unit": "원",
      "value": 191486400,
      "status": "reconciled",
      "subject": "noi_base",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "annual_gross * (1 - vacancy) - opex = 191486400",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "be28152c-2361-4494-8263-1f670e69e963",
+      "id": "d3f42283-bf39-4364-b970-09614c3e2b86",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 191486400,
       "formula": "annual_gross * (1 - vacancy) - opex",
@@ -150,30 +150,30 @@
      "expertRequired": false
     },
     {
-     "id": "d359df14-4700-4f35-b340-01ea6ab7e35f",
-     "asOf": "2026-10-05",
+     "id": "a1dc1ad3-19c1-4857-b24f-42191107153f",
+     "asOf": "2026-10-10",
      "unit": "원",
      "value": 196156800,
      "status": "reconciled",
      "subject": "noi_best",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "annual_gross - opex_low = 196156800",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "9477865a-9275-4de6-ab60-6c9f4bf1451e",
+      "id": "f55a2039-1930-4c24-8f4f-2f74d098b15a",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 196156800,
       "formula": "annual_gross - opex_low",
@@ -183,30 +183,30 @@
      "expertRequired": false
     },
     {
-     "id": "a469b19f-cd80-4fc9-999b-29700dc2f54d",
-     "asOf": "2026-10-05",
+     "id": "223f8103-e537-441d-9182-dabdd7acc23b",
+     "asOf": "2026-10-10",
      "unit": "원",
      "value": 184480800,
      "status": "reconciled",
      "subject": "noi_worst",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "annual_gross * (1 - vacancy_high) - opex_high = 184480800",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "2c4e11f6-09e5-43ac-82af-d3b13b40de48",
+      "id": "7176aa7a-affc-4f2f-ae7a-f00ce834de70",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 184480800,
       "formula": "annual_gross * (1 - vacancy_high) - opex_high",
@@ -216,30 +216,30 @@
      "expertRequired": false
     },
     {
-     "id": "f6c5a421-5b69-4148-9fb5-5dfa511bf260",
-     "asOf": "2026-10-05",
+     "id": "45ac5615-3985-41bd-9f9a-330c17e768a0",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 1.67,
      "status": "unverified",
      "subject": "cap_rate_base",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "운영비 미입력 — 실질 NOI 산출 불가",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "c5b6ebe1-7289-4840-a4c9-68d462edeba8",
+      "id": "15e6aac3-6f9b-4a66-acac-a8f8132bc5a8",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 1.67,
       "formula": "noi_base / asking_price * 100",
@@ -249,30 +249,30 @@
      "expertRequired": false
     },
     {
-     "id": "71cdfbfb-eec8-4405-9cec-8dfe929adf61",
-     "asOf": "2026-10-05",
+     "id": "eb52a9e7-6b1b-4999-bdec-665cf011fbcc",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 1.71,
      "status": "unverified",
      "subject": "cap_rate_best",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "운영비 미입력 — 실질 NOI 산출 불가",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "bb7d2133-846d-461a-951b-65f4df5ee74a",
+      "id": "732fb41c-b454-4efd-a79d-dc2292239115",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 1.71,
       "formula": "noi_best / asking_price * 100",
@@ -282,30 +282,30 @@
      "expertRequired": false
     },
     {
-     "id": "650f1292-d7f5-4d22-812b-32ab804b4245",
-     "asOf": "2026-10-05",
+     "id": "51924e5c-a4e9-4aa6-9cbc-8784c163eaa5",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 1.6,
      "status": "unverified",
      "subject": "cap_rate_worst",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "운영비 미입력 — 실질 NOI 산출 불가",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "51230a4d-9245-4db7-b4dd-84a74e645da9",
+      "id": "9a05600b-6c90-4249-82d4-bab3988276d9",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 1.6,
       "formula": "noi_worst / asking_price * 100",
@@ -315,29 +315,29 @@
      "expertRequired": false
     },
     {
-     "id": "6d18db3d-baa3-468f-b8c3-10ccea4a8fe4",
-     "asOf": "2026-10-05",
+     "id": "b5306e9d-560b-40af-ac49-f01cffe7f948",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": -1.8,
      "status": "reconciled",
      "subject": "irr_5y_base",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "irr(cfs, hold=5) = -1.8",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "0a9153ca-bac7-4a46-9087-f2f3b9a0111a",
+      "id": "c185f8ae-278c-4439-91be-b2d4cc5fff05",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": -1.8,
       "formula": "irr(cfs, hold=5)",
@@ -347,29 +347,29 @@
      "expertRequired": false
     },
     {
-     "id": "eb53164e-d36d-4db7-a7e9-74057107ecd0",
-     "asOf": "2026-10-05",
+     "id": "98d525b0-fb04-49cd-b425-a8e826acc6fb",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 1.8,
      "status": "reconciled",
      "subject": "irr_5y_best",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "irr(cfs_best, hold=5) = 1.8",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "784433d3-fe86-4d10-a0f1-209692c6ad40",
+      "id": "aebc2853-734c-4967-b681-8017bd039e7b",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 1.8,
       "formula": "irr(cfs_best, hold=5)",
@@ -379,29 +379,29 @@
      "expertRequired": false
     },
     {
-     "id": "14f354ee-1fee-46da-aa7a-9483964f4b6d",
-     "asOf": "2026-10-05",
+     "id": "1c86d78b-2216-4c2a-bc91-5af3e0b8a96a",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": -7,
      "status": "reconciled",
      "subject": "irr_5y_worst",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "irr(cfs_worst, hold=5) = -7",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "c44a9a07-5605-4728-aeb3-9b0367472f6e",
+      "id": "1e55017f-804f-434b-8acf-f0259f642c81",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": -7,
       "formula": "irr(cfs_worst, hold=5)",
@@ -411,30 +411,30 @@
      "expertRequired": false
     },
     {
-     "id": "ccc3981c-bc45-46a0-87ce-57b7a92de1fe",
-     "asOf": "2026-10-05",
+     "id": "df421f46-0ec5-412c-8ca5-85a846ba3a20",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 2.03,
      "status": "reconciled",
      "subject": "yield_on_cost",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "annual_gross / asking_price * 100 = 2.03",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "8eb357ca-0fcf-44e6-9ce3-c91dc808247a",
+      "id": "461bce1a-f5c2-4af9-9d59-900f43b2d9b5",
       "basis": "GPI",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 2.03,
       "formula": "annual_gross / asking_price * 100",
@@ -444,31 +444,31 @@
      "expertRequired": false
     },
     {
-     "id": "9b533f96-0061-49bb-9bc6-2fc4882f1eb8",
-     "asOf": "2026-10-05",
+     "id": "424deb8e-fccb-49d4-b228-67695df81897",
+     "asOf": "2026-10-10",
      "unit": "원/㎡",
-     "value": 7979738,
+     "value": 7979700,
      "status": "reconciled",
      "subject": "price_per_sqm",
      "evidence": [
       {
-       "asOf": "2026-10-05",
-       "excerpt": "asking_price / total_area = 7979738",
+       "asOf": "2026-10-10",
+       "excerpt": "asking_price / total_area = 7979700",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "7e9eb87d-809e-494f-b19b-f01ea1d0feb9",
+      "id": "7afd5c9b-580a-49ee-bea8-d0912c81f7f5",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
-      "result": 7979738,
+      "result": 7979700,
       "formula": "asking_price / total_area",
       "formulaVersion": "v1.0.0"
      },
@@ -476,31 +476,31 @@
      "expertRequired": false
     },
     {
-     "id": "31b22c38-2527-436a-8858-a6912975efca",
-     "asOf": "2026-10-05",
+     "id": "392fcaab-eeea-4e65-bb82-a799c46ba4c4",
+     "asOf": "2026-10-10",
      "unit": "원/평",
-     "value": 26379298,
+     "value": 26379173,
      "status": "reconciled",
      "subject": "price_per_pyeong",
      "evidence": [
       {
-       "asOf": "2026-10-05",
-       "excerpt": "price_per_sqm * 3.30578 = 26379298",
+       "asOf": "2026-10-10",
+       "excerpt": "price_per_sqm * 3.30578 = 26379173",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "839879e9-f1d4-4713-814b-e62b1413b125",
+      "id": "36e7a7a4-d7b5-40e4-a21f-109ab685b98d",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
-      "result": 26379298,
+      "result": 26379173,
       "formula": "price_per_sqm * 3.30578",
       "formulaVersion": "v1.0.0"
      },
@@ -508,29 +508,29 @@
      "expertRequired": false
     },
     {
-     "id": "9ccd8cbc-be1f-42bf-8211-f1e5fdd55d0a",
-     "asOf": "2026-10-05",
+     "id": "edfaaaed-2486-41d6-8988-3ce86ca73efc",
+     "asOf": "2026-10-10",
      "unit": "억원",
      "value": 118.4,
      "status": "reconciled",
      "subject": "equity_required",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "total_cost - deposit - loan = 118.4",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "4355ce53-1a2b-4a90-9240-23b27fd37b32",
+      "id": "b8e25975-c921-4f5a-a00b-1948d7ad32bb",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 118.4,
       "formula": "total_cost - deposit - loan",
@@ -540,29 +540,29 @@
      "expertRequired": false
     },
     {
-     "id": "63dd77e3-64fc-4043-acd1-ac1929732c1a",
-     "asOf": "2026-10-05",
+     "id": "f6670f02-ddb8-4a26-ae09-a5c796240045",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 1.71,
      "status": "reconciled",
      "subject": "leveraged_yield",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "(noi - interest) / equity * 100 = 1.71",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "50dd61a3-c489-4321-acb4-00447387e819",
+      "id": "5d6c51a4-4c4b-4fa7-aff2-2e19b8af4edb",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 1.71,
       "formula": "(noi - interest) / equity * 100",
@@ -572,29 +572,29 @@
      "expertRequired": false
     },
     {
-     "id": "07adbcd7-f4ee-4bd5-926c-1006de96178f",
-     "asOf": "2026-10-05",
+     "id": "bf6b6081-3fe2-4366-8720-d7445f10073d",
+     "asOf": "2026-10-10",
      "unit": "%",
      "value": 33,
      "status": "reconciled",
      "subject": "land_value_ratio",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "land_price_total / asking_price * 100 = 33",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "d7c75df7-014a-486e-91f1-70c33fab9222",
+      "id": "bda50af7-6434-4436-8842-772d6acae153",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 33,
       "formula": "land_price_total / asking_price * 100",
@@ -604,29 +604,29 @@
      "expertRequired": false
     },
     {
-     "id": "d071518e-541e-4960-8b8f-915200afad3f",
-     "asOf": "2026-10-05",
+     "id": "b40b2d68-dccd-4adf-bf4e-f19ccc082856",
+     "asOf": "2026-10-10",
      "unit": "억원",
      "value": 121.3,
      "status": "reconciled",
      "subject": "total_acquisition_cost",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "asking + tax + broker_fee = 121.3",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "581a925f-3262-4818-aec3-3a22a25df5a3",
+      "id": "5c0cf056-1180-4dc4-ba8a-22c49ee91974",
       "inputs": {
-       "asking_price": "c36df225-42f7-42f6-ad5c-7380ad80a125",
-       "land_area_sqm": "effccc3b-1c3e-429c-96a3-171945f8043e",
-       "total_deposit": "370b0106-b429-492b-a728-f62ebfa63e7b",
-       "total_area_sqm": "06cddb0f-0f62-4aab-87b0-5756e035f932",
-       "vacancy_rate_pct": "6e5658b2-7c09-4579-baa3-92af04b9bb1b",
-       "monthly_rent_total": "cf637d81-ef2f-4c30-b99b-450127c78dc4"
+       "asking_price": "741d77f5-49f1-4f72-af91-eebacadbc64a",
+       "land_area_sqm": "9431133a-287c-49b8-b152-99d17350960a",
+       "total_deposit": "955bfddb-4dd0-4b7e-bac1-bd251851b45b",
+       "total_area_sqm": "ae8f0e2d-03fa-47de-90f2-49f377a475a5",
+       "vacancy_rate_pct": "369cdf95-e6a9-4a7e-82d5-f124b45e06b7",
+       "monthly_rent_total": "03bc3494-3e6e-471d-8c98-b96ebec7a3df"
       },
       "result": 121.3,
       "formula": "asking + tax + broker_fee",
@@ -636,15 +636,15 @@
      "expertRequired": false
     },
     {
-     "id": "f8838a15-81ad-4d53-8565-9738c45412f9",
-     "asOf": "2026-10-05",
+     "id": "ab5bf7a2-a6b0-41ff-be88-f7d9b291e001",
+     "asOf": "2026-10-10",
      "unit": "",
      "value": 1,
      "status": "reconciled",
      "subject": "negative_leverage",
      "evidence": [
       {
-       "asOf": "2026-10-05",
+       "asOf": "2026-10-10",
        "excerpt": "negative_leverage = 1",
        "sourceId": "derived"
       }
@@ -766,17 +766,17 @@
     "revpar": null,
     "zoning": "준공업지역",
     "hasLoan": false,
-    "keyRisk": "등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
+    "keyRisk": "등기사항증명서·건축물대장·토지이용계획과 임대차계약서 확인이 필요합니다. 기대수익률 산식과 준공업지역 제도 적용 여부는 별도 검토가 필요합니다.",
     "opexPct": 18,
     "posture": "income",
     "assetType": "근생빌딩",
     "keyPoints": [
-     "토지·입지: 2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m·도보 5분, 2호선 493m 거리에 위치하며 중로각지에 접합니다.",
-     "임대 현황: 월 임대료는 1,946만원, 임대보증금은 2억9,000만원이며 공실률은 0%로 기재되어 있습니다. 지하 1층 전체와 지상 4층 일부는 자가사용 중이며, 병원·약국 임차 이력은 11년으로 제공됩니다.",
-     "수익 구조: 매도 희망가는 115억원이며, 자가사용 중인 지하 1층 전체와 지상 4층 일부에 대해 보증금 합계 8,000만원, 월 임대료 합계 602만원의 임대 전환안이 제시되어 있습니다."
+     "토지·입지: 2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m, 도보 5분 거리에 위치하며 중로각지 및 준공업지역 필지입니다.",
+     "임대 현황: 월 임대료는 1,946만원, 임대보증금은 2억9,000만원이며, 임대차 기준 공실률은 0%입니다. 카페·약국·내과·헬스장·와인 관련 업종이 사용 중이고, 지하 1층 전체 및 지상 4층 일부는 자가사용 공간입니다.",
+     "수익 구조: 매도 희망가 115억원에서 임대 수익 존재 (NDA)을 차감한 순투자금은 112.1억원이며, 월 임대료 1,946만원의 연환산 임대수익률은 약 2.08%입니다(산출 기준: 연 임대료 2억3,352만원 ÷ 순투자금 112.1억원)."
     ],
     "areaSignal": "당산권역",
-    "landAreaM2": 506.8,
+    "landAreaM2": 506.80989835,
     "noiBaseBil": 1.8,
     "opexSource": "assumed",
     "yieldBasis": "NOI",
@@ -790,25 +790,25 @@
      }
     ],
     "breakevenYears": null,
-    "pricePerPyeong": 26379298,
-    "readinessScore": 80,
+    "pricePerPyeong": 26379173,
+    "readinessScore": 90,
     "dcf10YearNpvBil": null,
     "devHoldYieldPct": null,
-    "totalGrossAreaM2": 1441.15,
+    "totalGrossAreaM2": 1441.15697075,
     "equityRequiredBil": 118.4,
     "leveragedYieldPct": 1.6,
     "marketDiscountPct": null,
     "vacancyReservePct": 5,
     "askingPriceDisplay": "115억 원",
     "devProfitMarginPct": null,
-    "keyInvestmentPoint": "토지·입지: 2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m·도보 5분, 2호선 493m 거리에 위치하며 중로각지에 접합니다.",
+    "keyInvestmentPoint": "토지·입지: 2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m, 도보 5분 거리에 위치하며 중로각지 및 준공업지역 필지입니다.",
     "landPricePerPyeong": null,
     "ownVsLeaseSavingsBil": null
    },
    "sections": [
     {
      "title": "이 건물, 어떤 자산인가",
-     "markdown": "**자산 개요** 당산역(2·9호선) 도보 5분, 2002년 사용승인된 **B1~5F 규모의 역세권(도보 5분 이내) 근생빌딩**입니다. 서울 영등포구 영신로 259에 위치하며, 대지면적 506.8㎡, 연면적 1,441.15㎡ (435.9평)의 철근콘크리트 구조로 건축물대장상 주용도는 제2종근린생활시설입니다. 준공업지역의 중로각지·평지에 자리하고 승강기 1대와 주차 8대를 갖췄으며, 병원·약국 장기임차 기반과 자가사용 공간의 임대 전환 여지를 통해 안정적 현금흐름 및 수익 개선을 함께 검토할 수 있는 자산입니다. > **자산 하이라이트**: • 당산역 2·9호선 도보권의 우수한 대중교통 접근성 • 약 435.9평(약 1441㎡) 규모의 B1~5F 근생 운영 자산 • 병원·약국 장기임차 및 자가사용분 임대 전환 가능성",
+     "markdown": "**자산 개요** **당산역 도보 5분, 2002년 준공의 지하 1층~지상 5층 근생빌딩 ‘호산당빌딩’입니다.** 서울 영등포구 영신로 259에 위치하며, 대지면적 506.8㎡, 연면적 1,441.15㎡ (435.9평) 규모의 철근콘크리트 구조 자산으로 제2종근린생활시설 용도 및 준공업지역에 해당합니다. 카페·약국·내과·헬스장·와인 관련 업종이 운영 중이고, 명시된 임대 공실은 없으며 지하 1층 전체 및 지상 4층 일부 자가사용 공간은 향후 임대 전환을 통한 추가 현금흐름 확보 여지를 제공합니다. > **자산 하이라이트**: • 당산역 2·9호선 도보권 입지 • 병원·약국 등 임차인 입점 • 자가사용 공간의 임대 전환을 통한 수익 최적화 여지",
      "min_tier": "public",
      "confidence": "needs_check",
      "provenance": [
@@ -818,7 +818,7 @@
        "fieldKey": "total_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T12:29:10.538Z"
+       "lastVerifiedAt": "2026-10-10T05:15:52.306Z"
       },
       {
        "value": 506.8,
@@ -826,7 +826,7 @@
        "fieldKey": "plat_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T12:29:10.538Z"
+       "lastVerifiedAt": "2026-10-10T05:15:52.306Z"
       },
       {
        "value": "20021212",
@@ -834,7 +834,7 @@
        "fieldKey": "use_approval_date",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-05T12:29:10.538Z"
+       "lastVerifiedAt": "2026-10-10T05:15:52.306Z"
       }
      ],
      "section_type": "property_overview",
@@ -843,22 +843,20 @@
     },
     {
      "title": "왜 지금 이 건물을 사야 하는가",
-     "markdown": "**3대 핵심 투자 포인트** • **토지·입지**: 2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m·도보 5분, 2호선 493m 거리에 위치하며 중로각지에 접합니다. • **임대 현황**: 월 임대료는 1,946만원, 임대보증금은 2억9,000만원이며 공실률은 0%로 기재되어 있습니다. 지하 1층 전체와 지상 4층 일부는 자가사용 중이며, 병원·약국 임차 이력은 11년으로 제공됩니다. • **수익 구조**: 매도 희망가는 115억원이며, 자가사용 중인 지하 1층 전체와 지상 4층 일부에 대해 보증금 합계 8,000만원, 월 임대료 합계 602만원의 임대 전환안이 제시되어 있습니다. > **종합 가치 제안**: 대지 506.8㎡ 규모의 준공업지역 근생빌딩으로, 당산역 2·9호선 도보권 입지와 현 임대 운영 및 자가사용 공간의 임대 전환 계획을 함께 검토할 수 있는 자산입니다. **가치개선(Value-add) 시나리오 (AI 추정)**\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\n|---------|---------|-------------|--------|\n| ② 임대료 현실화 (+5%) | +약 0.10억 원 (+5%) | 1.81% | 불필요 |\n| ③ 리모델링 후 임대료 상승 | +약 0.16억 원 (+8%) | 1.86% | 약 4.32억 원 | > 가치개선(Value-add) 시나리오는 AI 추정이며 실제 시장 조건에 따라 다를 수 있습니다. > **전문가 한줄 의견**: \"당산역 도보 5분 · 병원/약국 11년 장기임차 · 토지평당 7,500만원\"\n\n### 투자 포인트 (중개인 입력)\n\n- 깨끗하게 관리된 건물, 병원·약국 우량 임차로 공실 리스크 낮음\n- 인근 매물(토지평당 1.3억 이상) 대비 낮은 토지평당가\n- 서울시 준공업지역 제도개선(2024.10) — 지구단위계획 수립 시 용적률 상한 400%\n- 자가사용분(B1 전체, 4F 일부) 임대 전환 시 기대수익률 약 3.1%\n\n> 병원·약국 우량 임차 구성의 당산역 도보권 근생",
+     "markdown": "**주요 검토사항** • **토지·입지**: 2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m, 도보 5분 거리에 위치하며 중로각지 및 준공업지역 필지입니다. • **임대 현황**: 월 임대료는 1,946만원, 임대보증금은 2억9,000만원이며, 임대차 기준 공실률은 0%입니다. 카페·약국·내과·헬스장·와인 관련 업종이 사용 중이고, 지하 1층 전체 및 지상 4층 일부는 자가사용 공간입니다. • **수익 구조**: 매도 희망가 115억원에서 임대 수익 존재 (NDA)을 차감한 순투자금은 112.1억원이며, 월 임대료 1,946만원의 연환산 임대수익률은 약 2.08%입니다(산출 기준: 연 임대료 2억3,352만원 ÷ 순투자금 112.1억원). > **종합 가치 제안**: 당산역 도보권의 506.8㎡ 준공업지역 중로각지 토지 위에 1,441.15㎡ 규모의 근린생활시설과 다업종 임차 구성을 갖춘 자산입니다. **가치개선(Value-add) 시나리오 (AI 추정)**\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\n|---------|---------|-------------|--------|\n| ② 임대료 현실화 (+5%) | +약 0.10억 원 (+5%) | 1.81% | 불필요 |\n| ③ 리모델링 후 임대료 상승 | +약 0.16억 원 (+8%) | 1.86% | 약 4.32억 원 | > 가치개선(Value-add) 시나리오는 AI 추정이며 실제 시장 조건에 따라 다를 수 있습니다. > **전문가 한줄 의견**: \"당산역 도보 5분 · 병원/약국 11년 장기임차 · 토지평당 7,500만원\"\n\n### 투자 포인트 (중개인 입력)\n\n- 깨끗하게 관리된 건물, 병원·약국 우량 임차로 공실 리스크 낮음\n- 인근 매물(토지평당 1.3억 이상) 대비 낮은 토지평당가\n- 서울시 준공업지역 제도개선(2024.10) — 지구단위계획 수립 시 용적률 상한 400%\n- 자가사용분(B1 전체, 4F 일부) 임대 전환 시 기대수익률 약 3.1%\n\n> 병원·약국 우량 임차 구성의 당산역 도보권 근생",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
-     "judge_score": 4.1,
      "section_type": "investment_thesis",
      "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
      "section_order": 2
     },
     {
      "title": "이 입지, 투자할 만한 곳인가",
-     "markdown": "**입지 분석** **당산역 2·9호선 더블역세권 도보 5분, 대단지 아파트 배후를 확보한 영신로변 근생 입지**입니다. 당산역 9호선 약 406m, 2호선 약 493m 거리에 위치해 직장인·주거 수요를 동시에 흡수할 수 있으며, 국회대로와 올림픽대로 접근성도 우수해 광역 이동이 편리합니다. 인접한 당산삼성래미안 및 당산센트럴아이파크 등 주거 배후와 일상 소비 수요를 바탕으로 음식·소매·서비스 업종의 임차 수요가 형성되어 있어, 병원·약국 중심의 장기 임차 기반을 뒷받침하는 안정적 현금흐름 입지로 평가됩니다.\n\n### 입지 설명 (중개인 입력)\n\n당산역(2·9호선) 도보 5분, 배후 아파트 밀집, 국회대로·올림픽대로 접근 용이",
+     "markdown": "**입지 분석** **당산역 2·9호선 도보 5분, 대단지 아파트 배후를 확보한 당산권역 근생 입지**입니다. 9호선 당산역 약 406m, 2호선 당산역 약 493m 거리로 인근 주거시설과 역세권 교통망이 위치해 있어 관련 수요 여부를 검토할 수 있으며, 국회대로와 올림픽대로 접근성도 갖춰 광역 이동이 편리합니다. 인접한 당산삼성래미안 및 당산센트럴아이파크 등 주거 배후와 카페·음식점 등 생활밀착형 상권이 위치해 있으며, 현재 병원·약국·카페 등이 입점해 있습니다. 준공업지역 내 중로각지·평지의 상업용 토지로, 향후 제도 적용 및 지구단위계획 수립 여부는 별도 확인이 필요하나 권역 성장성과 자산 활용 유연성을 함께 검토할 수 있는 입지입니다.\n\n### 입지 설명 (중개인 입력)\n\n당산역(2·9호선) 도보 5분, 배후 아파트 밀집, 국회대로·올림픽대로 접근 용이",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
-     "judge_score": 4.1,
      "section_type": "location_access",
      "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
      "section_order": 3
@@ -885,7 +883,7 @@
     },
     {
      "title": "임대차 현황과 공실은 실제로 어떠한가",
-     "markdown": "현재 **공실률 0%**로 운영 중이며, 월 임대료 합계 **1,946만 원**, 보증금 합계 **2억 9,000만 원**의 안정적 현금흐름을 확보하고 있습니다. 1·2·5층 내과와 1층 약국은 2016년부터 장기 임차 중이며 2028년 1월까지 계약되어 의료시설 중심의 견고한 임대 기반을 형성합니다. 매도인 자가사용 중인 B1 전체와 4층 일부는 향후 임대 전환 시 월 **602만 원**(제시 현실화안 기준)의 추가 임대수익 창출 여지가 있으며, 주요 임차인의 갱신·묵시적 갱신 조건 및 세부 계약사항은 매수 전 확인이 필요합니다. **층별 임대 현황**\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|\n| B1 | [임차인A] | 96평(약 317.4㎡) | - | - | - | 미정 |\n| 1F | [임차인C] | 24평(약 79.3㎡) | 6,000만 | 183만 | - | 2028-01-31 |\n| 1F | [임차인B] | 32평(약 105.8㎡) | 14,000만 | 883만 | - | 2028-01-31 |\n| 2F | [임차인B] | 76평(약 251.2㎡) | - | - | - | 2028-01-31 |\n| 3F | [임차인F] | 76평(약 251.2㎡) | 5,000만 | 455만 | - | 2027-09-17 |\n| 4F | [임차인D] | 51평(약 168.6㎡) | 3,000만 | 260만 | - | 2027-09-30 |\n| 4F | [임차인E] | 25평(약 82.6㎡) | - | - | - | 미정 |\n| 5F | [임차인B] | 56평(약 185.1㎡) | 1,000만 | 165만 | - | 2028-01-31 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 0.0% (임대중 7 · 자가사용 1 · 공실 0) | 자가사용 포함 가동 중 |\n| **월 임대료 합계** | 1,946만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.3억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.9억 원 | 임차인 보증금 합계 |\n| **임차인 정보** | 실사 및 NDA 체결 후 상세 제공 | 개인정보 보호 처리 |\n\n### 매입 후 전략 (중개인 입력)\n\n- 자가사용 B1 임대 전환 (현실화안 보증 5,000만 / 월 458만)\n- 4F 자가사용분 임대 전환 (현실화안 보증 3,000만 / 월 144만)",
+     "markdown": "현재 **공실률 0%**로 운영 중이며, 지하 1층 전체와 4층 일부는 매도인 자가사용 공간으로 공실이 아닌 향후 수익화 여력을 보유합니다. 보증금 합계 **2억 9,000만 원**, 월 임대료 합계 **1,946만 원**의 현금흐름이 형성되어 있으며, 약국·내과는 2016년부터 임차 중이며 현재 계약 만료일은 2028년 1월입니다. 실제 계약 유지 여부와 갱신 가능성은 별도 확인이 필요합니다. 헬스장과 와인업종의 계약 종료는 2027년 9월로 예정되어 있어 선제적 재계약 협의가 필요하며, 특히 와인업종은 묵시적 갱신 상태로 계약조건 확인이 요구됩니다. 자가사용분은 매입 후 임대 전환 시 추가 임대수익 확보가 가능하나, 전환 가능 임대조건 및 기존 임대차계약서는 별도 검증이 필요합니다. **층별 임대 현황**\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|\n| B1 | 데이르 카페(자가) | 데이르 카페(자가) | 96평(약 317.4㎡) | - | - | - | 미정 |\n| 1F | 고은약국 | 고은약국 | 24평(약 79.3㎡) | 6,000만 | 183만 | - | 2028-01-31 |\n| 1F | 로뎀나무내과 | 로뎀나무내과 | 32평(약 105.8㎡) | 14,000만 | 883만 | - | 2028-01-31 |\n| 2F | 로뎀나무내과 | 로뎀나무내과 | 76평(약 251.2㎡) | - | - | - | 2028-01-31 |\n| 3F | 헬스장 | 헬스장 | 76평(약 251.2㎡) | 5,000만 | 455만 | - | 2027-09-17 |\n| 4F | 국제와인 | 국제와인 | 51평(약 168.6㎡) | 3,000만 | 260만 | - | 2027-09-30 |\n| 4F | (자가) | (자가) | 25평(약 82.6㎡) | - | - | - | 미정 |\n| 5F | 로뎀나무내과 | 로뎀나무내과 | 56평(약 185.1㎡) | 1,000만 | 165만 | - | 2028-01-31 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 0.0% (임대중 6 · 자가사용 2 · 공실 0) | 자가사용 포함 가동 중 |\n| **월 임대료 합계** | 1,946만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.3억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.9억 원 | 임차인 보증금 합계 |\n\n### 매입 후 전략 (중개인 입력)\n\n- 자가사용 B1 임대 전환 (현실화안 보증 5,000만 / 월 458만)\n- 4F 자가사용분 임대 전환 (현실화안 보증 3,000만 / 월 144만)",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -895,25 +893,24 @@
        "fieldKey": "monthly_rent_total",
        "confidence": "confirmed",
        "sourceDetail": "브로커 제공 실제 임대 정보",
-       "lastVerifiedAt": "2026-10-05T12:29:18.479Z"
+       "lastVerifiedAt": "2026-10-10T05:16:00.142Z"
       },
       {
-       "value": "공실 현황은 별도 기재되지 않았으며, 지하 1층 전체와 지상 4층 일부는 자가사용",
+       "value": "공실 없음 (자가사용 2호실 제외)",
        "source": "broker_input",
        "fieldKey": "vacancy_rate",
        "confidence": "confirmed",
        "sourceDetail": "브로커 제공 실시간 수치",
-       "lastVerifiedAt": "2026-10-05T12:29:18.479Z"
+       "lastVerifiedAt": "2026-10-10T05:16:00.142Z"
       }
      ],
-     "judge_score": 4.45,
      "section_type": "lease_status",
      "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
      "section_order": 6
     },
     {
      "title": "투자 구조 및 현금흐름 분석",
-     "markdown": "**수익 분석** 실투자금(취득비용 포함)은 **약 118.4억 원**이며, 순투자금(매매가−보증금−대출)은 **약 112.1억 원**입니다(매도 희망가 115억 원−보증금 2.9억 원−대출 0원, 취득세·중개보수 제외). 월 임대수입(운영비 차감 전)은 **약 1,946만 원**으로, 월 임대료 합계 1,946만 원에서 월 대출이자 0원을 차감한 금액이며, 순투자금 대비 임대수익률(순투자금 대비·운영비 차감 전)은 **연 2.08%**입니다. AI 추정 연 순영업소득(NOI)은 **약 1.6억~2.0억 원**, 매도 희망가 115억 원 기준 연 수익률(Cap Rate, NOI 기준)은 **약 1.4%~1.7%**이며, 운영비·세금·수선비 등 실제 비용 확정 전 참고치입니다. 토지 평가액 비중은 **33%**(2026년 공시지가 ㎡당 748만 원 × 대지 506.8㎡ ÷ 매도 희망가 115억 원)로, 제시된 공시지가와 대지면적을 기준으로 산출한 참고 지표이며, 실제 가치 방어 여부는 별도 검토가 필요합니다. WACC 및 자기자본수익률(NOI÷순투자금)은 대출 조건과 확정 운영비 자료가 없어 별도 산정하지 않았습니다. **층별 임대 현황**\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|\n| B1 | [임차인A] | 96평(약 317.4㎡) | - | - | - | 미정 |\n| 1F | [임차인C] | 24평(약 79.3㎡) | 6,000만 | 183만 | - | 2028-01-31 |\n| 1F | [임차인B] | 32평(약 105.8㎡) | 14,000만 | 883만 | - | 2028-01-31 |\n| 2F | [임차인B] | 76평(약 251.2㎡) | - | - | - | 2028-01-31 |\n| 3F | [임차인F] | 76평(약 251.2㎡) | 5,000만 | 455만 | - | 2027-09-17 |\n| 4F | [임차인D] | 51평(약 168.6㎡) | 3,000만 | 260만 | - | 2027-09-30 |\n| 4F | [임차인E] | 25평(약 82.6㎡) | - | - | - | 미정 |\n| 5F | [임차인B] | 56평(약 185.1㎡) | 1,000만 | 165만 | - | 2028-01-31 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 0.0% (임대중 7 · 자가사용 1 · 공실 0) | 자가사용 포함 가동 중 |\n| **월 임대료 합계** | 1,946만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.3억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.9억 원 | 임차인 보증금 합계 |\n| **임차인 정보** | 실사 및 NDA 체결 후 상세 제공 | 개인정보 보호 처리 |",
+     "markdown": "**수익 분석** 실투자금(취득비용 포함, **순투자금+취득세·중개보수**)은 약 **118.4억 원**이며, 매수 후 월 임대수입(운영비 차감 전, **월 임대료 합계−월 대출이자**)은 대출이 없어 월 **약 1,946만 원**입니다. 순투자금(매매가−보증금−대출, **115억 원−2.9억 원−0원**, 취득세·중개보수 제외)은 약 **112.1억 원**으로, 임대수익률(순투자금 대비·운영비 차감 전, **연 임대수입 약 2.34억 원÷순투자금**)은 **연 2.08%**입니다. 운영비 차감 후 연 순영업소득(NOI)은 AI 추정 기준 약 **1.6억~2.0억 원**이며, Cap Rate(NOI÷매도 희망가 115억 원)는 **1.4%~1.7%** 범위로 추정되나 실제 운영비·보유세·수선비 실적 확인이 필요합니다. 공시지가 기준 토지 평가액은 약 **37.9억 원**(㎡당 748만 원×506.8㎡)으로 매도 희망가 대비 토지 지분 가치 비중이 **33%**이며, 공시지가를 단순 참고자료로 제시한 수치이며 실제 회수 가능 가치나 손실 방어를 의미하지 않습니다. **층별 임대 현황**\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|\n| B1 | 데이르 카페(자가) | 데이르 카페(자가) | 96평(약 317.4㎡) | - | - | - | 미정 |\n| 1F | 고은약국 | 고은약국 | 24평(약 79.3㎡) | 6,000만 | 183만 | - | 2028-01-31 |\n| 1F | 로뎀나무내과 | 로뎀나무내과 | 32평(약 105.8㎡) | 14,000만 | 883만 | - | 2028-01-31 |\n| 2F | 로뎀나무내과 | 로뎀나무내과 | 76평(약 251.2㎡) | - | - | - | 2028-01-31 |\n| 3F | 헬스장 | 헬스장 | 76평(약 251.2㎡) | 5,000만 | 455만 | - | 2027-09-17 |\n| 4F | 국제와인 | 국제와인 | 51평(약 168.6㎡) | 3,000만 | 260만 | - | 2027-09-30 |\n| 4F | (자가) | (자가) | 25평(약 82.6㎡) | - | - | - | 미정 |\n| 5F | 로뎀나무내과 | 로뎀나무내과 | 56평(약 185.1㎡) | 1,000만 | 165만 | - | 2028-01-31 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 0.0% (임대중 6 · 자가사용 2 · 공실 0) | 자가사용 포함 가동 중 |\n| **월 임대료 합계** | 1,946만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.3억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.9억 원 | 임차인 보증금 합계 |",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -923,7 +920,7 @@
        "fieldKey": "official_land_price",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 개별공시지가 API (2026)",
-       "lastVerifiedAt": "2026-10-05T12:29:10.538Z"
+       "lastVerifiedAt": "2026-10-10T05:15:52.306Z"
       }
      ],
      "section_type": "income_analysis",
@@ -932,7 +929,7 @@
     },
     {
      "title": "위험요인 및 대응 방안",
-     "markdown": "**리스크 체크** 등기사항증명서가 미연동 상태이므로 소유권, 근저당·압류·가처분 등 권리제한과 임대 수익 존재 (NDA)의 우선순위는 계약 전 최신 등기사항증명서 및 임대차계약서 원본으로 반드시 대조해야 하며, 잔금 전 권리변동 금지·말소조건을 특약으로 명확히 하는 방식으로 회수 리스크를 완화할 필요가 있습니다. 2002년 사용승인된 철근콘크리트조 건물인 만큼 승강기·소방·전기·방수·주차장(8대) 및 위반건축물 여부를 정밀 실사하여 예상 CAPEX를 매매대금 또는 하자보수 특약에 반영하는 것이 안정적 현금흐름 확보에 중요합니다. 현재 월 임대료는 1,946만원이며 공실은 없는 것으로 제시되나, 지하 1층 전체와 4층 일부가 자가사용 중이므로 해당 면적의 임대 전환 시에는 용도 적합성, 소방·환기·피난 기준, 목표 임대료의 시장 수용성을 사전 검토하고 단계적 리스업 및 충분한 공실·인테리어 예비비를 확보해야 합니다. 준공업지역으로 건폐율 60%·용적률 400% 기준 및 지구단위계획·용도지역 변경 가능성은 향후 행정계획에 따라 달라질 수 있으므로 관할 관청 확인이 필요하며, 본 내용은 제한된 자료에 기초한 예비 검토로서 법률·세무·건축 적법성 또는 임대수익을 보장하지 않으므로 최종 계약 전 관련 전문가의 실사와 자문이 요구됩니다.",
+     "markdown": "**리스크 체크** 본 자산은 준공업지역 내 제2종근린생활시설로, 향후 자가사용 중인 지하 1층 전체 및 지상 4층 일부의 임대 전환, 용도변경 또는 증·개축을 검토할 경우 지구단위계획 수립 여부, 허용용도, 주차장 기준 및 건축·소방 관련 적법성을 관할 관청과 토지이용계획확인서로 사전 확인해야 합니다. 현재 월 임대료 1,946만원 및 공실 0%는 자가사용 2개 호실을 제외한 기준이므로, 자가사용분 임대 전환 시에는 예상 임대료의 실현 가능성, 공사·원상복구 비용 및 리스업 기간을 보수적으로 반영하되, 병원·약국 등 기존 생활밀착형 임차인의 계약기간·보증금·연체이력과 갱신조건을 실사하고 단계적 임대 전환 계획을 수립하면 안정적 현금흐름 확대에 도움이 될 수 있습니다. 또한 등기사항증명서가 미확인 상태이므로 근저당권·압류·가처분 등 권리제한, 임대차보증금의 대항력 및 우선변제 관계와 2002년 사용승인 건물의 승강기·소방·전기·방수 등 주요 설비 CAPEX를 거래 전 확인하고, 발견 사항은 매매대금 조정·말소 조건·하자 및 보증금 승계 조항에 반영할 필요가 있습니다. > ⚠️ 본 내용은 제공 자료에 기초한 예비 검토로서 법률·세무·건축 적법성, 인허가 가능성 또는 임대수익을 보장하지 않으며, 최종 계약 전 등기·건축물대장·토지이용계획·임대차계약서 실사 및 관련 전문가 자문이 필요합니다.",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -942,7 +939,7 @@
        "fieldKey": "zoning",
        "confidence": "confirmed",
        "sourceDetail": "토지이용규제정보서비스(LURIS) API",
-       "lastVerifiedAt": "2026-10-05T12:29:10.538Z"
+       "lastVerifiedAt": "2026-10-10T05:15:52.306Z"
       }
      ],
      "section_type": "risk_check",
@@ -951,7 +948,7 @@
     },
     {
      "title": "실사 안내 및 면책 조항",
-     "markdown": "**Next Steps** 🔒 **NDA 체결 후** 임대차계약, 보증금·월차임, 자가사용 공간 및 운영 관련 비공개 자료를 제공해 드립니다. 👀 **현장 실사**주요 임차인 현황, 시설 관리 상태, 임대 전환 가능 공간 및 안정적 현금흐름 확보를 위한 운영 요소를 확인합니다. ✍️ 검토 완료 후 **LOI(매입의향서(LOI))**를 제출하여 매입가격과 주요 거래조건 협의를 시작하며, 필요 시 담당자 **1:1 비밀 상담**을 통해 자금계획 및 임대수익 최적화 방향을 개별적으로 논의하실 수 있습니다.",
+     "markdown": "**Next Steps** 🔒 **NDA 체결 후** 임대차계약서, 보증금·월 임대료 내역, 자가사용 공간의 임대 전환 관련 자료 등 비공개 자료를 제공하며, 임대수익의 지속 가능성과 현금흐름 구조를 검토합니다. 👀 **현장 실사**에서는 임차인 운영 현황, 건물 관리 상태, 자가사용 공간 및 주차·설비 여건을 직접 확인하고, 등기사항증명서·건축물대장·토지이용계획 등 권리·인허가 사항을 별도 검증합니다. ✍️ 실사 완료 후 **LOI(매입의향서(LOI))** 를 통해 매입 희망가격, 거래 조건 및 실사 범위를 제안할 수 있으며, 필요 시 **1:1 비밀 상담**을 통해 자금계획과 임대 운영 전략을 개별적으로 협의해 드립니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -961,7 +958,7 @@
     },
     {
      "title": "실사 체크리스트 및 확인사항",
-     "markdown": "월 임대료 1,946만원(연 환산 약 2억3,352만원)과 임대 수익 존재 (NDA)을 기반으로 현금흐름이 형성되어 있으며, 병원·약국의 11년 장기 임차 이력은 임차 안정성 측면에서 긍정적입니다. 현재 공실률은 0%로 제시되었으나, 지하 1층 전체 및 지상 4층 일부는 자가사용 중이므로 실질 임대 가능 면적과 임대차 현황은 계약서 기준으로 확인이 필요합니다. 해당 자가사용 공간을 임대 전환할 경우 추가 임대수익 창출 여지가 있으며, 당산역 도보권과 아파트 배후 수요는 안정적인 임차 수요 확보에 유리한 요소입니다.",
+     "markdown": "당산역 도보권의 근생빌딩으로, 현재 카페·약국·내과·헬스장·와인 관련 업종이 입점해 있으며 월 임대료 1,946만원과 공실 없음(자가사용 공간 제외)을 기반으로 안정적인 현금흐름을 확보하고 있습니다. 특히 병원·약국의 장기 임차 이력은 생활밀착형 수요에 기반한 임차 안정성 측면에서 긍정적이며, 지하 1층 전체 및 지상 4층 일부 자가사용 공간은 향후 임대 전환을 통한 추가 수익화 여지를 제공합니다. 다만 임대차의 잔여기간·갱신조건 및 자가사용분의 실제 임대 가능 조건은 계약서와 현장 확인을 통해 검증이 필요합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -1618,7 +1615,7 @@
     "registryData": {
      "source": "fallback_mock",
      "checked": false,
-     "fetchedAt": "2026-10-05T12:29:09.074Z",
+     "fetchedAt": "2026-10-10T05:15:51.439Z",
      "mortgages": [],
      "attachments": [],
      "rawResponse": null,
@@ -1628,6 +1625,8 @@
     "buildingRegister": {
      "bcRat": 51.89,
      "vlRat": 221.76,
+     "mainPnu": "1156011500100110047",
+     "archArea": 263.01,
      "platArea": 506.8,
      "structure": "철근콘크리트구조",
      "totalArea": 1441.15,
@@ -1635,57 +1634,42 @@
      "floorsAbove": 5,
      "floorsBelow": 1,
      "mainPurpose": "제2종근린생활시설",
-     "buildingName": "호산당빌딩"
+     "buildingName": "호산당빌딩",
+     "parkingCount": 8,
+     "elevatorCount": 1,
+     "selfParkingCount": 8,
+     "passengerElevatorCount": 1
     },
     "locationMapImage": null,
     "cadastralMapImage": "$asset-data:income-ig1-corrected/asset-11.png",
-    "commercialDistrict": {
-     "salesIndex": 80,
-     "storeCount": 500,
-     "closingRate": 7,
-     "growthTrend": "up",
-     "districtCode": "1156011500",
-     "districtName": "해당 상권",
-     "footfallDaily": 65000,
-     "topCategories": [
-      {
-       "name": "음식",
-       "count": 200,
-       "share": 40
-      },
-      {
-       "name": "소매",
-       "count": 150,
-       "share": 30
-      },
-      {
-       "name": "서비스",
-       "count": 50,
-       "share": 10
-      }
-     ],
-     "footfallByTime": [
-      {
-       "hour": "08-11",
-       "count": 20
-      },
-      {
-       "hour": "11-14",
-       "count": 35
-      },
-      {
-       "hour": "14-17",
-       "count": 15
-      },
-      {
-       "hour": "17-21",
-       "count": 30
-      }
-     ],
-     "competitionIndex": 100,
-     "avgMonthlyRevenue": 11000
-    },
+    "commercialDistrict": null,
     "comparableTransactions": [
+     {
+      "area": 15.52,
+      "floors": 12,
+      "address": "영등포구 여의도동 36-2",
+      "dealDay": 6,
+      "dealYear": 2026,
+      "dealMonth": 10,
+      "dealAmount": 150000000,
+      "_isFallback": false,
+      "buildingUse": "업무",
+      "pricePerSqm": 9664948,
+      "pricePerPyeong": 31950242
+     },
+     {
+      "area": 13.29,
+      "floors": 0,
+      "address": "영등포구 영등포동5가 24",
+      "dealDay": 3,
+      "dealYear": 2026,
+      "dealMonth": 10,
+      "dealAmount": 945000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "pricePerSqm": 71106095,
+      "pricePerPyeong": 235061462
+     },
      {
       "area": 4.96,
       "floors": 40,
@@ -1698,6 +1682,71 @@
       "buildingUse": "판매",
       "pricePerSqm": 5040323,
       "pricePerPyeong": 16662223
+     },
+     {
+      "area": 98.01,
+      "floors": 0,
+      "address": "영등포구 당산동3가 558-3",
+      "dealDay": 10,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 75700000,
+      "_isFallback": false,
+      "buildingUse": "제1종근린생활",
+      "pricePerSqm": 772370,
+      "pricePerPyeong": 2553290
+     },
+     {
+      "area": 7.02,
+      "floors": 0,
+      "address": "영등포구 당산동3가 558-3",
+      "dealDay": 10,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 5310000,
+      "_isFallback": false,
+      "buildingUse": "업무",
+      "pricePerSqm": 756410,
+      "pricePerPyeong": 2500530
+     },
+     {
+      "area": 61.2,
+      "floors": 9,
+      "address": "영등포구 여의도동 13-25",
+      "dealDay": 30,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 545000000,
+      "_isFallback": false,
+      "buildingUse": "업무",
+      "pricePerSqm": 8905229,
+      "pricePerPyeong": 29438772
+     },
+     {
+      "area": 39.13,
+      "floors": 0,
+      "address": "영등포구 당산동5가 11-33",
+      "dealDay": 15,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 1456000000,
+      "_isFallback": false,
+      "buildingUse": "제1종근린생활",
+      "pricePerSqm": 37209302,
+      "pricePerPyeong": 123005953
+     },
+     {
+      "area": 35.49,
+      "floors": 0,
+      "address": "영등포구 당산동5가 11-33",
+      "dealDay": 15,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 1344000000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "pricePerSqm": 37869822,
+      "pricePerPyeong": 125189491
      },
      {
       "area": 2609.54,
@@ -1724,97 +1773,6 @@
       "buildingUse": "교육연구",
       "pricePerSqm": 8672367,
       "pricePerPyeong": 28668981
-     },
-     {
-      "area": 4.96,
-      "floors": 0,
-      "address": "영등포구 영등포동3가 9-13",
-      "dealDay": 22,
-      "dealYear": 2026,
-      "dealMonth": 9,
-      "dealAmount": 33000000,
-      "_isFallback": false,
-      "buildingUse": "판매",
-      "pricePerSqm": 6653226,
-      "pricePerPyeong": 21994134
-     },
-     {
-      "area": 4.96,
-      "floors": 0,
-      "address": "영등포구 영등포동3가 9-13",
-      "dealDay": 22,
-      "dealYear": 2026,
-      "dealMonth": 9,
-      "dealAmount": 33000000,
-      "_isFallback": false,
-      "buildingUse": "판매",
-      "pricePerSqm": 6653226,
-      "pricePerPyeong": 21994134
-     },
-     {
-      "area": 4.96,
-      "floors": 0,
-      "address": "영등포구 영등포동3가 9-13",
-      "dealDay": 22,
-      "dealYear": 2026,
-      "dealMonth": 9,
-      "dealAmount": 33000000,
-      "_isFallback": false,
-      "buildingUse": "판매",
-      "pricePerSqm": 6653226,
-      "pricePerPyeong": 21994134
-     },
-     {
-      "area": 161.72,
-      "floors": 3,
-      "address": "영등포구 여의도동 14-24",
-      "dealDay": 21,
-      "dealYear": 2026,
-      "dealMonth": 9,
-      "dealAmount": 1505000000,
-      "_isFallback": false,
-      "buildingUse": "업무",
-      "pricePerSqm": 9306208,
-      "pricePerPyeong": 30764324
-     },
-     {
-      "area": 169.87,
-      "floors": 3,
-      "address": "영등포구 여의도동 14-24",
-      "dealDay": 21,
-      "dealYear": 2026,
-      "dealMonth": 9,
-      "dealAmount": 1591000000,
-      "_isFallback": false,
-      "buildingUse": "업무",
-      "pricePerSqm": 9365986,
-      "pricePerPyeong": 30961935
-     },
-     {
-      "area": 125.71,
-      "floors": 3,
-      "address": "영등포구 여의도동 14-24",
-      "dealDay": 21,
-      "dealYear": 2026,
-      "dealMonth": 9,
-      "dealAmount": 1204000000,
-      "_isFallback": false,
-      "buildingUse": "업무",
-      "pricePerSqm": 9577599,
-      "pricePerPyeong": 31661484
-     },
-     {
-      "area": 42.74,
-      "floors": 0,
-      "address": "영등포구 문래동4가 2*",
-      "dealDay": 16,
-      "dealYear": 2026,
-      "dealMonth": 9,
-      "dealAmount": 1280000000,
-      "_isFallback": false,
-      "buildingUse": "제2종근린생활",
-      "pricePerSqm": 29948526,
-      "pricePerPyeong": 99003388
      }
     ]
    },
@@ -1842,7 +1800,7 @@
     "noiBaseKrw": 179810400,
     "opexSource": "assumed",
     "isBasicMode": true,
-    "pricePerSqm": 7979738,
+    "pricePerSqm": 7979700,
     "yieldOnCost": 2.03,
     "brokerFeeBil": 1.03,
     "annualRentBil": 2.3352,
@@ -1850,7 +1808,7 @@
     "equityRequired": 118.4,
     "landValueRatio": 33,
     "leveragedYield": 1.6,
-    "pricePerPyeong": 26379298,
+    "pricePerPyeong": 26379173,
     "totalDepositBil": 2.9,
     "negativeLeverage": true,
     "acquisitionTaxBil": 5.29,
@@ -1873,7 +1831,7 @@
     "$asset-path:income-ig1-corrected/asset-09.jpg",
     "$asset-path:income-ig1-corrected/asset-10.jpg"
    ],
-   "approved_at": "2026-10-05T12:31:44.083Z",
+   "approved_at": "2026-10-10T05:18:48.011Z",
    "askingPrice": 11500000000,
    "coordinates": {
     "lat": 37.5305639270671,
@@ -1994,8 +1952,8 @@
      "first_contract_date": "2016-02-01"
     }
    ],
-   "generated_at": "2026-10-05T12:31:19.289Z",
-   "heroSubtitle": "당산권역 소재, 근생빌딩, 매각 희망가 115억 원대",
+   "generated_at": "2026-10-10T05:18:23.004Z",
+   "heroSubtitle": "당산권역 소재, 근생빌딩, 매각 희망가 110억대",
    "ssot_summary": {
     "pnu": "1156011500100110047",
     "zoning": "준공업지역",
@@ -2003,19 +1961,27 @@
     "bcr_pct": 51.89,
     "far_pct": 221.76,
     "asset_type": "근생빌딩",
-    "max_bcr_pct": 60,
-    "max_far_pct": 400,
+    "price_band": "110억대",
+    "area_signal": "당산권역",
+    "area_source": {
+     "land": "broker_memo",
+     "total": "broker_memo"
+    },
+    "fit_summary": null,
     "size_signal": "435.9평",
     "vacancy_pct": 0,
     "floors_above": 5,
     "floors_below": 1,
-    "vacancy_signal": "공실 현황은 별도 기재되지 않았으며, 지하 1층 전체와 지상 4층 일부는 자가사용",
-    "vacancy_status": "공실 현황은 별도 기재되지 않았으며, 지하 1층 전체와 지상 4층 일부는 자가사용",
+    "land_area_sqm": 506.80989835,
+    "vacancy_signal": "공실 없음 (자가사용 2호실 제외)",
+    "vacancy_status": "공실 없음 (자가사용 2호실 제외)",
+    "caution_summary": "등기사항증명서·건축물대장·토지이용계획과 임대차계약서 확인이 필요합니다. 기대수익률 산식과 준공업지역 제도 적용 여부는 별도 검토가 필요합니다.",
     "completion_year": 2002,
+    "register_main_pnu": "1156011500100110047",
     "investment_posture": "income",
     "asking_price_manwon": 1150000,
     "total_deposit_manwon": 29000,
-    "total_gross_area_sqm": 1441.15,
+    "total_gross_area_sqm": 1441.15697075,
     "monthly_rent_total_krw": 19460000
    },
    "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
@@ -2069,7 +2035,7 @@
    "external_data": {
     "errors": [],
     "address": "서울 영등포구 영신로 259",
-    "enrichedAt": "2026-10-05T12:29:10.538Z",
+    "enrichedAt": "2026-10-10T05:15:52.306Z",
     "hasPublicData": true,
     "fallbackStatus": {
      "landPrice": null,
@@ -2078,11 +2044,11 @@
      "buildingRegister": null
     }
    },
-   "ogDescription": "당산권역 · 근생빌딩 · 115억 원대 · 자산 개요 당산역(2·9호선) 도보 5분, 2002년 사용승인된 B1~5",
-   "readiness_score": 80,
+   "ogDescription": "당산권역 · 근생빌딩 · 110억대 · 자산 개요 당산역 도보 5분, 2002년 준공의 지하 1층~지상 5층 근",
+   "readiness_score": 90,
    "broker_highlight": "당산역 도보 5분 · 병원/약국 11년 장기임차 · 토지평당 7,500만원",
    "dataCompleteness": {
-    "generatedAt": "2026-10-05T12:31:19.291Z",
+    "generatedAt": "2026-10-10T05:18:23.011Z",
     "qualityGrade": "B",
     "buildingRegister": true,
     "pptxExportAllowed": true,
@@ -2094,9 +2060,9 @@
    ],
    "investmentPosture": "income",
    "investment_posture": "income",
-   "keyInvestmentPoint": "당산권역 소재, 근생빌딩, 매각 희망가 115억 원대",
+   "keyInvestmentPoint": "당산권역 소재, 근생빌딩, 매각 희망가 110억대",
    "asking_price_manwon": 1150000,
-   "approval_target_hash": "sha256:e73439c52fbdd5471c6497c421a5ab1387d3aedd2211d91091aedf0a891973e3",
+   "approval_target_hash": "sha256:05232289e3eba632f03fef949641fbaf43c760901bbf078ef13103779fc76e5d",
    "broker_physical_inputs": {
     "parking_count": 8,
     "elevator_count": 1
@@ -2104,7 +2070,7 @@
   }
  },
  "building": {
-  "id": "7ba66e2a-e3bb-405c-b089-8638bdcaaa95",
+  "id": "1b4f61df-4e4b-44ac-81c2-e3bec2e7817f",
   "created_by_role": "broker",
   "input_type": "broker_memo",
   "raw_input": "당산동5가 11-47 호산당빌딩 근생 매각\n매각가 115억 (토지평당 약 7,500만원)\n대지 506.8㎡(153.3평), 연면적 1,441.15㎡(435.9평), 준공업지역\n2002년 준공, B1~5F, 자주식 주차 8대, EV 1대, 층별 구분등기(형제 공동소유)\n당산역(2·9호선) 도보 5분, 배후 아파트 밀집, 국회대로·올림픽대로 접근 용이\n\n임대현황 (보증금/월세, 만원)\nB1 카페 96평 자가사용\n1F 고은약국 6,000/183 ~28.01 (임대 11년차)\n1F 로뎀나무내과 14,000/883 ~28.01 (2F와 통합계약)\n2F 로뎀나무내과 (1F 계약에 포함)\n3F 헬스장 5,000/455 ~27.09\n4F 국제와인 3,000/260 ~27.09\n4F 일부 25평 자가사용\n5F 로뎀나무내과 1,000/165 ~28.01\n합계 보증금 29,000 / 월세 1,946\n\n제안 포인트\n- 깨끗하게 잘 관리된 건물, 병원·약국 우량 임차로 공실 리스크 낮음\n- 인근 우량 입지 매물(토지평당 1.3억 이상) 대비 저렴한 토지평당가\n- 서울시 준공업지역 제도개선(2024.10) 수혜: 지구단위계획 수립 시 주거용도 용적률 상한 400%, 준주거·3종일반주거 용도지역 변경 추진\n- 매입 후 임대료 현실화 여지: 자가사용분(B1 전체, 4F 일부) 임대 전환, 약국·병원 약 10년간 임대료 동결 → 현실화 시 기대수익률 약 3.1%\n\n인근 매물: 당산동5가 11-30 200억(토지평당 1.39억), 영등포3가 1 430억(1.52억), 영등포7가 29-28 180억(0.89억), 영등포7가 94-14 430억(1.62억)",
@@ -2112,10 +2078,10 @@
   "asset_type": "근생빌딩",
   "price_band": "110억대",
   "size_signal": "대지 506.8㎡(153.3평), 연면적 1,441.15㎡(435.9평), 지하 1층~지상 5층",
-  "current_use_signal": "약국, 의료시설, 헬스장, 와인 관련 업종, 카페 및 자가사용 공간으로 구성",
-  "vacancy_signal": "공실 현황은 별도 기재되지 않았으며, 지하 1층 전체와 지상 4층 일부는 자가사용",
-  "fit_summary": "토지·입지: 2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m·도보 5분, 2호선 493m 거리에 위치하며 중로각지에 접합니다.",
-  "caution_summary": "건축물대장·등기사항증명서와 임대차계약서 확인 필요. 자가사용 공간의 점유 현황, EV 표기, 기대수익률 3.1%의 산정 기준 및 제도개선 적용 조건은 실사와 관할 기관 확인이 필요하다.",
+  "current_use_signal": "카페, 약국, 내과, 헬스장, 와인 관련 업종이 사용 중이며 지하 1층 전체와 지상 4층 일부는 자가사용",
+  "vacancy_signal": "명시된 공실은 없으며 지하 1층 전체와 지상 4층 일부는 자가사용 공간",
+  "fit_summary": "2026년 공시지가 ㎡당 748만원 기준 대지 506.8㎡의 토지 평가액은 약 37.9억원으로, 매도 희망가 115억원의 약 33.0%입니다. 당산역 9호선 406m, 도보 5분 거리에 위치하며 중로각지 및 준공업지역 필지입니다.",
+  "caution_summary": "등기사항증명서·건축물대장·토지이용계획과 임대차계약서 확인이 필요합니다. 기대수익률 산식과 준공업지역 제도 적용 여부는 별도 검토가 필요합니다.",
   "hidden_fields": [
    "exact_address",
    "tenant_name",
@@ -2138,8 +2104,8 @@
    },
    "location": {
     "pnu": null,
-    "address": "비공개",
-    "raw_address": "비공개"
+    "address": "당산권역",
+    "raw_address": null
    },
    "lease_summary": {
     "vacancy_pct": null,
@@ -2161,10 +2127,10 @@
    "guard_checked": true
   },
   "status": "public_signal_ready",
-  "created_at": "2026-10-05T12:26:57.528487+00:00",
-  "updated_at": "2026-10-05T12:31:48.730446+00:00",
+  "created_at": "2026-10-10T05:14:19.41621+00:00",
+  "updated_at": "2026-10-10T05:18:51.11839+00:00",
   "promotion_score": 0.345,
-  "promotion_updated_at": "2026-10-05T12:26:59.765+00:00",
+  "promotion_updated_at": "2026-10-10T05:14:22.466+00:00",
   "matched_buyer_count": 0,
   "vacancy_inquiry_count": 0,
   "vacancy_avg_fit_score": null,
@@ -2195,7 +2161,7 @@
    "resolvedComponents": null
   },
   "verified_at": null,
-  "raw_address": "비공개",
+  "raw_address": null,
   "canonical_property_id": null,
   "address": "서울 영등포구 영신로 259",
   "pnu": "1156011500100110047",
@@ -2210,6 +2176,605 @@
   "email": "broker@example.test",
   "registration_no": "11560-2026-00001"
  },
- "liveEnrichment": null,
+ "liveEnrichment": {
+  "cadastralMapImage": "$asset-data:income-ig1-corrected/asset-12.png",
+  "hasCadastralMap": true,
+  "locationPoi": {
+   "nearestStation": {
+    "name": "당산역 9호선",
+    "lat": 37.5337892432802,
+    "lng": 126.902165052778,
+    "distanceM": 406,
+    "walkMinutes": 5
+   },
+   "poiCounts": {
+    "subway": 8,
+    "busStop": 0,
+    "cafe": 53,
+    "parking": 25,
+    "restaurant": 191,
+    "convenience": 25
+   },
+   "keySpots": [
+    {
+     "name": "당산역 9호선",
+     "lat": 37.5337892432802,
+     "lng": 126.902165052778,
+     "distanceM": 406,
+     "category": "subway"
+    },
+    {
+     "name": "당산역 2호선",
+     "lat": 37.5347843171332,
+     "lng": 126.902611795523,
+     "distanceM": 493,
+     "category": "subway"
+    },
+    {
+     "name": "당산삼성래미안4차아파트 425동",
+     "lat": 37.53069317407665,
+     "lng": 126.90408109367051,
+     "distanceM": 28,
+     "category": "landmark"
+    },
+    {
+     "name": "당산센트럴아이파크아파트 후문",
+     "lat": 37.5306025873835,
+     "lng": 126.903483852819,
+     "distanceM": 77,
+     "category": "landmark"
+    },
+    {
+     "name": "당산센트럴IPARK아파트",
+     "lat": 37.530113924721135,
+     "lng": 126.90309303527658,
+     "distanceM": 122,
+     "category": "landmark"
+    }
+   ],
+   "candidateSpots": [
+    {
+     "name": "로뎀나무내과의원",
+     "lat": 37.5305510600851,
+     "lng": 126.904382216595,
+     "distanceM": 2,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 내과"
+    },
+    {
+     "name": "당산삼성래미안4차아파트 425동",
+     "lat": 37.53069317407665,
+     "lng": 126.90408109367051,
+     "distanceM": 28,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트 > 아파트 동"
+    },
+    {
+     "name": "당산센트럴아이파크아파트 후문",
+     "lat": 37.5306025873835,
+     "lng": 126.903483852819,
+     "distanceM": 77,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 입출구"
+    },
+    {
+     "name": "당산센트럴IPARK아파트",
+     "lat": 37.530113924721135,
+     "lng": 126.90309303527658,
+     "distanceM": 122,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트"
+    },
+    {
+     "name": "미소치과의원",
+     "lat": 37.52976362617296,
+     "lng": 126.90555303252653,
+     "distanceM": 138,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 치과"
+    },
+    {
+     "name": "그린드네크웍스",
+     "lat": 37.5315349274069,
+     "lng": 126.905469340249,
+     "distanceM": 145,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "이든동물의료센터",
+     "lat": 37.5320941053368,
+     "lng": 126.905040972784,
+     "distanceM": 180,
+     "category": "hospital",
+     "categoryName": "가정,생활 > 반려동물 > 동물병원"
+    },
+    {
+     "name": "에스앤유서울미소치과의원",
+     "lat": 37.5325150898057,
+     "lng": 126.904194161883,
+     "distanceM": 216,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 치과"
+    },
+    {
+     "name": "한림대학교의료원 재단본부",
+     "lat": 37.5318751979736,
+     "lng": 126.906213356807,
+     "distanceM": 219,
+     "category": "landmark",
+     "categoryName": "사회,공공기관 > 단체,협회"
+    },
+    {
+     "name": "윤보재활의학과의원",
+     "lat": 37.5285507008764,
+     "lng": 126.904213939707,
+     "distanceM": 223,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 재활의학과"
+    },
+    {
+     "name": "아우래",
+     "lat": 37.5308669424546,
+     "lng": 126.907309777404,
+     "distanceM": 262,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "hanulmall",
+     "lat": 37.533260749651724,
+     "lng": 126.90374064891732,
+     "distanceM": 304,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "롯데마트 맥스 영등포점",
+     "lat": 37.5277923761476,
+     "lng": 126.904607475753,
+     "distanceM": 308,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 대형마트 > 롯데마트"
+    },
+    {
+     "name": "홈플러스익스프레스 당산점",
+     "lat": 37.53187099393466,
+     "lng": 126.90106107195523,
+     "distanceM": 325,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 홈플러스익스프레스"
+    },
+    {
+     "name": "당산중학교",
+     "lat": 37.5320745379211,
+     "lng": 126.907634120403,
+     "distanceM": 334,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 중학교"
+    },
+    {
+     "name": "영등포농협 하나로마트 당산역점",
+     "lat": 37.53324514343618,
+     "lng": 126.90229134866306,
+     "distanceM": 349,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 하나로마트"
+    },
+    {
+     "name": "당산 KS Stay",
+     "lat": 37.5338800914656,
+     "lng": 126.903072322659,
+     "distanceM": 385,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "당산역 9호선",
+     "lat": 37.5337892432802,
+     "lng": 126.902165052778,
+     "distanceM": 406,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권9호선"
+    },
+    {
+     "name": "당산지구대",
+     "lat": 37.5336263213917,
+     "lng": 126.901273719774,
+     "distanceM": 435,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 지구대"
+    },
+    {
+     "name": "서울당서초등학교",
+     "lat": 37.5318661274297,
+     "lng": 126.899565398341,
+     "distanceM": 447,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "남영모텔",
+     "lat": 37.53464410349771,
+     "lng": 126.9041314732049,
+     "distanceM": 453,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "부띠끄호텔K",
+     "lat": 37.53410181333119,
+     "lng": 126.90099137175442,
+     "distanceM": 492,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "당산역 2호선",
+     "lat": 37.5347843171332,
+     "lng": 126.902611795523,
+     "distanceM": 493,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권2호선"
+    },
+    {
+     "name": "서울영동초등학교",
+     "lat": 37.5268559504154,
+     "lng": 126.907649605583,
+     "distanceM": 504,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "한강공원노들길나들목 진출입로2",
+     "lat": 37.5351351601786,
+     "lng": 126.904145553139,
+     "distanceM": 507,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 입출구"
+    },
+    {
+     "name": "여의하류IC",
+     "lat": 37.5322635522863,
+     "lng": 126.909711106146,
+     "distanceM": 509,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 도로시설 > IC"
+    },
+    {
+     "name": "업플로 당산",
+     "lat": 37.5352221524738,
+     "lng": 126.902550129078,
+     "distanceM": 541,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 게스트하우스"
+    },
+    {
+     "name": "당산서중학교",
+     "lat": 37.5325609648934,
+     "lng": 126.898704612312,
+     "distanceM": 546,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 중학교"
+    },
+    {
+     "name": "꿈이룸소극장",
+     "lat": 37.5284271766611,
+     "lng": 126.898710202493,
+     "distanceM": 552,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "하이서울유스호스텔",
+     "lat": 37.52560634497886,
+     "lng": 126.9032527206694,
+     "distanceM": 559,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 유스호스텔"
+    },
+    {
+     "name": "G모텔",
+     "lat": 37.5348659035849,
+     "lng": 126.901041275604,
+     "distanceM": 560,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "당산나들목",
+     "lat": 37.53579965459531,
+     "lng": 126.9047104207176,
+     "distanceM": 581,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 도로시설 > 지하차도"
+    },
+    {
+     "name": "서울영등포경찰서",
+     "lat": 37.52585220719,
+     "lng": 126.90094457988,
+     "distanceM": 603,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰서"
+    },
+    {
+     "name": "영등포아트홀",
+     "lat": 37.52620290196588,
+     "lng": 126.90011827359992,
+     "distanceM": 612,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "호텔 아벤트리 여의도",
+     "lat": 37.52639032488713,
+     "lng": 126.90905864074071,
+     "distanceM": 622,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 호텔"
+    },
+    {
+     "name": "당산2동주민센터",
+     "lat": 37.53100283342792,
+     "lng": 126.89731287948426,
+     "distanceM": 624,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+    },
+    {
+     "name": "영등포구민회관",
+     "lat": 37.526024521035,
+     "lng": 126.900138874622,
+     "distanceM": 627,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 시,군,구민회관"
+    },
+    {
+     "name": "영등포대학입학정보센터",
+     "lat": 37.52600467222379,
+     "lng": 126.90010722501115,
+     "distanceM": 630,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 교육단체"
+    },
+    {
+     "name": "한강공원노들길나들목 진출입로1",
+     "lat": 37.5363253415131,
+     "lng": 126.905212113015,
+     "distanceM": 643,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 입출구"
+    },
+    {
+     "name": "서문벚꽃길",
+     "lat": 37.5316811318791,
+     "lng": 126.911598940113,
+     "distanceM": 651,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 도보여행"
+    },
+    {
+     "name": "호텔로프트",
+     "lat": 37.53462878026919,
+     "lng": 126.89872670675135,
+     "distanceM": 671,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 호텔"
+    },
+    {
+     "name": "창작플랫폼 경험과상상",
+     "lat": 37.5325920750248,
+     "lng": 126.897170408544,
+     "distanceM": 674,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "국회의사당 식물원",
+     "lat": 37.530885143719,
+     "lng": 126.912265120429,
+     "distanceM": 699,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 수목원,식물원"
+    },
+    {
+     "name": "당산119안전센터",
+     "lat": 37.5354914335493,
+     "lng": 126.899189427106,
+     "distanceM": 712,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 소방서 > 119안전센터"
+    },
+    {
+     "name": "하나로마트 국회점",
+     "lat": 37.530321392565554,
+     "lng": 126.91263686470593,
+     "distanceM": 732,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 하나로마트"
+    },
+    {
+     "name": "서울영중초등학교",
+     "lat": 37.5238544519694,
+     "lng": 126.90393373643133,
+     "distanceM": 745,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "GS더프레시 영등포구청역점",
+     "lat": 37.525231816162,
+     "lng": 126.898234861596,
+     "distanceM": 802,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+    },
+    {
+     "name": "SL모텔",
+     "lat": 37.5270267784353,
+     "lng": 126.896354459272,
+     "distanceM": 809,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "호텔리버트리",
+     "lat": 37.5365273892671,
+     "lng": 126.898961743118,
+     "distanceM": 815,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "tcc아트센터",
+     "lat": 37.529317756205,
+     "lng": 126.895029886383,
+     "distanceM": 836,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "영등포농협 하나로마트 영등포시장역점",
+     "lat": 37.52310212348999,
+     "lng": 126.9061858774718,
+     "distanceM": 843,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 하나로마트"
+    },
+    {
+     "name": "고라니호스텔",
+     "lat": 37.5251645611808,
+     "lng": 126.897562975305,
+     "distanceM": 848,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박"
+    },
+    {
+     "name": "영등포구청",
+     "lat": 37.5263617665219,
+     "lng": 126.89627166361284,
+     "distanceM": 853,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 구청"
+    },
+    {
+     "name": "영등포구청역 2호선",
+     "lat": 37.5258305311402,
+     "lng": 126.89667739939,
+     "distanceM": 858,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권2호선"
+    },
+    {
+     "name": "달모텔",
+     "lat": 37.52522547825908,
+     "lng": 126.89715902633127,
+     "distanceM": 869,
+     "category": "landmark",
+     "categoryName": "여행 > 숙박 > 여관,모텔"
+    },
+    {
+     "name": "영등포시장역 5호선",
+     "lat": 37.522709383885,
+     "lng": 126.905179566968,
+     "distanceM": 874,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수도권5호선"
+    },
+    {
+     "name": "당산1동주민센터",
+     "lat": 37.5249733938446,
+     "lng": 126.89738449562,
+     "distanceM": 874,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+    },
+    {
+     "name": "액터즈 스튜디오",
+     "lat": 37.5271700446009,
+     "lng": 126.895340611089,
+     "distanceM": 881,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 공연장,연극극장"
+    },
+    {
+     "name": "국회의사당 아트갤러리",
+     "lat": 37.5294882534039,
+     "lng": 126.914257916618,
+     "distanceM": 883,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "한림대학교 한강성심병원 제5별관",
+     "lat": 37.523678647671595,
+     "lng": 126.90949972730276,
+     "distanceM": 889,
+     "category": "landmark",
+     "categoryName": "의료,건강 > 병원부속시설"
+    }
+   ]
+  },
+  "landPriceHistory": {
+   "history": [
+    {
+     "year": "2017",
+     "pricePerSqm": 4486000
+    },
+    {
+     "year": "2018",
+     "pricePerSqm": 4709000
+    },
+    {
+     "year": "2019",
+     "pricePerSqm": 5098000
+    },
+    {
+     "year": "2020",
+     "pricePerSqm": 5888000
+    },
+    {
+     "year": "2021",
+     "pricePerSqm": 6372000
+    },
+    {
+     "year": "2022",
+     "pricePerSqm": 7250000
+    },
+    {
+     "year": "2023",
+     "pricePerSqm": 6881000
+    },
+    {
+     "year": "2024",
+     "pricePerSqm": 7001000
+    },
+    {
+     "year": "2025",
+     "pricePerSqm": 7180000
+    },
+    {
+     "year": "2026",
+     "pricePerSqm": 7480000
+    }
+   ],
+   "cagrPct": 5.8,
+   "totalGrowthPct": 66.7,
+   "latestPricePerSqm": 7480000,
+   "oldestPricePerSqm": 4486000
+  },
+  "landUsePlan": {
+   "zoningDistrict": "준공업지역",
+   "zoningOverlap": [],
+   "buildingCoverageMax": 60,
+   "floorAreaRatioMax": 400,
+   "landArea": 506.8,
+   "landShape": "사다리형",
+   "terrain": "평지",
+   "roadAccess": "중로각지",
+   "landUseSituation": "상업용",
+   "_source": "vworld"
+  }
+ },
  "urlTier": "basic"
 }

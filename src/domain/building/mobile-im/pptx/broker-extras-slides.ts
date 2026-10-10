@@ -12,6 +12,7 @@
 import type { BrokerExtras, BrokerMarketComp, BrokerRegulatoryNote } from '../broker-extras';
 import { COMP_KIND_LABELS, REGULATORY_KIND_LABELS } from '../broker-extras';
 import { sqmToPyeong } from '@/lib/utils/area-conversion';
+import { isNearDuplicate } from './summary-highlights';
 
 /** 지면에 쓰는 비사진(문서) 이미지 카테고리 — 일반 갤러리('현장 사진')에서 제외된다. */
 export const BROKER_IMAGE_CATEGORIES: ReadonlySet<string> = new Set(['location_map', 'district_plan_map', 'floor_plan']);
@@ -107,7 +108,24 @@ export function readBrokerExtras(body: unknown): BrokerExtras | null {
   const rent = posNum(r.target_rent_per_pyeong_manwon);
   if (rent !== undefined) out.target_rent_per_pyeong_manwon = rent;
 
+  dedupeBrokerPointsAgainstLocation(out);
   return Object.keys(out).length > 0 ? out : null;
+}
+
+/**
+ * Rule 4 (비중복 렌더링): 같은 문장이 '투자 포인트' 면과 '입지' 면 callout 에 이중 렌더되지 않도록 정리.
+ *  - 입지 설명(location_note)과 사실상 같은 투자 포인트는 포인트에서 제거 (입지 문장은 입지 면이 정본).
+ *  - 제거 결과 포인트가 0개가 되면 포인트를 유지하고 입지 callout 을 생략 (투자 포인트 면 소실 방지).
+ * 원문 문자열은 바꾸지 않는다 (선택만).
+ */
+export function dedupeBrokerPointsAgainstLocation(extras: BrokerExtras): void {
+  const loc = extras.location_note;
+  const pts = extras.investment_points;
+  if (!loc || !pts?.length) return;
+  const kept = pts.filter(p => !isNearDuplicate(p, loc));
+  if (kept.length === pts.length) return;
+  if (kept.length > 0) extras.investment_points = kept;
+  else delete extras.location_note;
 }
 
 /**

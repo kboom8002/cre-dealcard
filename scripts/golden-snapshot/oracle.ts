@@ -2,17 +2,19 @@
  * @file scripts/golden-snapshot/oracle.ts
  * @description 오프라인 재렌더 + 사실 오라클 평가 CLI (vitest 없이 표 출력).
  *
- *   npx tsx scripts/golden-snapshot/oracle.ts [name|core]      # ORACLE_STRICT=1 이면 pending 도 실패
+ *   npx tsx scripts/golden-snapshot/oracle.ts [name|core|income|all]      # ORACLE_STRICT=1 이면 pending 도 실패
  *   → e2e/golden-snapshots/out/oracle-report.{json,md}
  */
 import fs from 'fs';
 import path from 'path';
-import { CORE_GOLDEN_NAMES, OUT_DIR, hasSnapshot, loadExpectedFacts, rerenderSnapshot } from './lib';
+import { CORE_GOLDEN_NAMES, INCOME_IG_NAMES, ORACLE_GOLDEN_NAMES, OUT_DIR, hasSnapshot, loadExpectedFacts, rerenderSnapshot } from './lib';
 import { evaluateOracle, renderSummary, renderTable, summarize, type FactResult } from '../../src/tests/golden/oracle-engine';
 
 async function main() {
   const target = process.argv[2] ?? 'core';
-  const names = target === 'core' || target === 'all' ? CORE_GOLDEN_NAMES : [target];
+  const names = target === 'core' ? CORE_GOLDEN_NAMES
+    : target === 'income' ? INCOME_IG_NAMES
+    : target === 'all' ? ORACLE_GOLDEN_NAMES : [target];
   const strict = process.env.ORACLE_STRICT === '1';
   const all: FactResult[] = [];
   for (const n of names) {

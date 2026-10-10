@@ -361,7 +361,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
       rawRows.push([
         '합계',
-        `${rawRows.length}개 호실`,
+        `${Math.max(0, rawRows.length - (Number(data.nonLeasableRowCount) > 0 && Number(data.nonLeasableRowCount) < rawRows.length ? Number(data.nonLeasableRowCount) : 0))}개 호실`,
         '-',
         sums.area > 0 ? (hasPyeong ? `${fmtTotalSqm(totalArea)} (${sqmToPyeong(totalArea).toFixed(1)}평)` : fmtTotalSqm(totalArea)) : '-',
         sums.exc > 0 ? formatAreaSqm(sums.exc) : '-',

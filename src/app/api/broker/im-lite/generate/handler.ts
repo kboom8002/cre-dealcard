@@ -467,14 +467,7 @@ export async function generateMobileIMHandler(
   //     개발 포스처 등에서 "신축/계획/가능 연면적" 라벨의 메모 값은 기존 연면적이 아니라 계획 GFA 로 분류된다.
   const areaPosture = String(identity?.investmentPosture || ssotRow.investment_posture || (supplemental as any).investmentPosture || 'income');
   const ssotAreas = readSsotLayerAreas(ssotRow.layers, { memoText: ssotRow.raw_input, development: areaPosture === 'development' });
-  // B2: 중개인(명시/메모) 값과 공공 대장 값은 서로 다른 슬롯으로 비교한다 (대장 값을 중개인 슬롯에 섞지 않는다).
-  const totalAreaRes = resolveTotalAreaWithSource({
-    explicitSqm: Number(supplemental.total_gross_area_m2 || 0),
-    explicitPyeong: Number(supplemental.total_gross_area_pyeong || 0),
-    memoSqm: ssotAreas.totalSqm,
-    registerSqm: Number((externalData?.buildingRegister as any)?.totalArea || 0),
-  });
-  const userSpecifiedTotalArea = totalAreaRes.value;
+  // B2: 연면적 해석(resolveTotalAreaWithSource)은 다필지 보강 이후로 이동 — 대지 오기 판정에 필지 합이 필요하다.
 
   // 다필지: 브로커가 입력한 필지 면적 합계(모든 필지에 면적이 있을 때만)를 SSoT 대지면적으로 사용.
   //   우선순위: 명시 대지면적 입력 > 필지 면적 합계 > 기존 SSoT. (V-World/대장의 단일 필지 면적으로 과소 표기되는 것 방지)
@@ -498,6 +491,22 @@ export async function generateMobileIMHandler(
     }
   }
   const parcelSummary = summarizeParcels(supplemental.parcels);
+  // B2: 중개인(명시/메모) 값과 공공 대장 값은 서로 다른 슬롯으로 비교한다 (대장 값을 중개인 슬롯에 섞지 않는다).
+  //     중개인 대지면적(명시 > 필지 합 > 메모)은 '연면적 칸 대지 오기' 판정에만 쓴다.
+  const totalAreaRes = resolveTotalAreaWithSource({
+    explicitSqm: Number(supplemental.total_gross_area_m2 || 0),
+    explicitPyeong: Number(supplemental.total_gross_area_pyeong || 0),
+    memoSqm: ssotAreas.totalSqm,
+    registerSqm: Number((externalData?.buildingRegister as any)?.totalArea || 0),
+    brokerLandSqm: Number(supplemental.land_area_m2 || 0)
+      || (Number(supplemental.land_area_pyeong || 0) > 0 ? pyeongToSqm(Number(supplemental.land_area_pyeong)) : 0)
+      || (parcelSummary.totalAreaM2 ?? 0)
+      || ssotAreas.landSqm,
+  });
+  if (totalAreaRes.brokerLooksLikeLand) {
+    log.warn(`[im-handler] 중개인 연면적(${totalAreaRes.brokerSqm}㎡)이 대지면적과 같음 — 대지 오기로 판단, 건축물대장 연면적(${totalAreaRes.registerSqm}㎡) 채택`);
+  }
+  const userSpecifiedTotalArea = totalAreaRes.value;
   // 대지면적: 명시 입력 > 필지 합 > 메모 SSoT(평→㎡) > 건축물대장 platArea(>0) > V-World > 없음 (대장이 다른 건물이면 대장 대지면적도 배제)
   const landAreaRes = resolveLandAreaWithSource({
     explicitSqm: Number(supplemental.land_area_m2 || 0),
@@ -810,6 +819,7 @@ export async function generateMobileIMHandler(
           ...(userSpecifiedTotalArea > 0 ? { total: totalAreaRes.source } : {}),
           ...(userSpecifiedLandArea > 0 ? { land: landAreaRes.source } : {}),
           ...(totalAreaRes.registerConflict ? { register_conflict: { broker_sqm: totalAreaRes.brokerSqm, register_sqm: totalAreaRes.registerSqm } } : {}),
+          ...(totalAreaRes.brokerLooksLikeLand ? { broker_gfa_looks_like_land: { broker_sqm: totalAreaRes.brokerSqm, register_sqm: totalAreaRes.registerSqm } } : {}),
           ...(ssotAreas.plannedGfaSqm > 0 ? { planned_gfa_sqm: ssotAreas.plannedGfaSqm } : {}),
         },
         parcel_count: parcelSummary.count > 0 ? parcelSummary.count : undefined,

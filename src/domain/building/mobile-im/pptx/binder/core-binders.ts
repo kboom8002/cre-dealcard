@@ -534,8 +534,11 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
 
     const lupRows: string[][] = [];
     if (lup.zoningDistrict) lupRows.push(['용도지역', lup.zoningDistrict]);
-    if (lup.buildingCoverageMax && lup.floorAreaRatioMax) {
-      lupRows.push(['건폐율/용적률', `${lup.buildingCoverageMax}% / ${lup.floorAreaRatioMax}%`]);
+    {
+      const legal = verifiedLegalLimits(lup); // 공식 토지이용계획 값만 (추정·기본값 금지)
+      if (legal.bcrMax && legal.farMax) {
+        lupRows.push(['법정 건폐율/용적률', `${legal.bcrMax}% / ${legal.farMax}%`]);
+      }
     }
     if (lup.roadAccess) lupRows.push(['도로접면', lup.roadAccess]);
 

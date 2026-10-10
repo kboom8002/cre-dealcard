@@ -177,6 +177,8 @@ export interface ResolveTotalAreaInput {
   memoSqm?: number | null;
   /** 공공 건축물대장 연면적(㎡) */
   registerSqm?: number | null;
+  /** 중개인 대지면적(㎡: 명시 > 필지 합 > 메모) — 연면적 칸 대지 오기 판정용 (대장값 금지) */
+  brokerLandSqm?: number | null;
 }
 
 export interface ResolvedTotalArea extends ResolvedArea {
@@ -185,6 +187,8 @@ export interface ResolvedTotalArea extends ResolvedArea {
   registerSqm: number;
   /** 중개인 값과 대장이 2배 이상(양방향) 괴리 → 대장은 "다른 건물"로 간주 */
   registerConflict: boolean;
+  /** 중개인 연면적 = 중개인 대지면적(±1%) & 대장이 2배 이상 큼 → 중개인 오기로 보고 대장 채택 */
+  brokerLooksLikeLand?: boolean;
 }
 
 export const AREA_CONFLICT_RATIO = 2.0;
@@ -199,15 +203,22 @@ export function resolveTotalAreaWithSource(src: ResolveTotalAreaInput): Resolved
   const memo = positiveOrZero(src.memoSqm);
   const register = positiveOrZero(src.registerSqm);
   const brokerSqm = explicit || memo;
-  const registerConflict = isAreaConflict(brokerSqm, register);
+  const brokerLand = positiveOrZero(src.brokerLandSqm);
+  // 중개인 연면적이 중개인 대지면적과 1% 이내로 같고 대장 연면적이 그보다 2배 이상 크면,
+  // 대장이 "다른 건물"인 것이 아니라 중개인이 대지면적을 연면적 칸에 적은 것(ig4 as-is: 156.9평 = 대지).
+  // → 대장 연면적을 채택하고 대장 사실은 유지한다 (가드가 같은 건물의 공부 사실을 지우는 오판 방지).
+  const brokerLooksLikeLand = brokerSqm > 0 && brokerLand > 0 && register >= brokerSqm * AREA_CONFLICT_RATIO
+    && Math.abs(brokerSqm - brokerLand) / brokerLand <= 0.01;
+  const registerConflict = !brokerLooksLikeLand && isAreaConflict(brokerSqm, register);
 
   let value = 0;
   let source: AreaSource = 'none';
-  if (explicit > 0) { value = explicit; source = 'explicit_input'; }
+  if (brokerLooksLikeLand) { value = register; source = 'public_register'; }
+  else if (explicit > 0) { value = explicit; source = 'explicit_input'; }
   else if (memo > 0) { value = memo; source = 'broker_memo'; }
   else if (register > 0) { value = register; source = 'public_register'; }
 
-  return { value, source, brokerSqm, registerSqm: register, registerConflict };
+  return { value, source, brokerSqm, registerSqm: register, registerConflict, ...(brokerLooksLikeLand ? { brokerLooksLikeLand } : {}) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

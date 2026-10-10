@@ -64,8 +64,10 @@ describe('summary-highlights', () => {
     expect(r.points[0]).toContain('선유도역(9호선) 도보 2분(약 135m)');
     expect(r.points[0]).toContain('광대세각');
     expect(r.points[1]).toContain('12개 호실 중 11개 임차 중(공실 B1)');
-    expect(r.points[1]).toContain('5,147만 원');
-    expect(r.points[1]).toContain('5억 3,700만 원');
+    // 2026-10-10: 렌트롤 금액이 있으면 렌트롤 임대중 행 합이 SSOT (A24 합계 행과 동일 모집단).
+    //   이 픽스처 행 합 = 715 + 400×10 = 4,715만 / 7,600 + 4,000×10 = 4억 7,600만 (ssot 5,147/53,700 은 폴백 전용)
+    expect(r.points[1]).toContain('4,715만 원');
+    expect(r.points[1]).toContain('4억 7,600만 원');
     expect(r.points[2]).toContain('3필지 통합 대지 518.7㎡');
     expect(r.points[2]).toContain('연평균 4.9%');
     for (const p of r.points) {

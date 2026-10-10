@@ -30,7 +30,7 @@ import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 import { validateLayout } from './layout-validator';
 import { validateYield, type Yield } from './yield-object';
 import { buildYieldSetFromBody } from '../yield-set';
-import { summarizeLeaseOccupancy } from '../lease-vacancy';
+import { summarizeLeaseOccupancy, isNonLeasableLeaseRow } from '../lease-vacancy';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
 import { collectBrokerMentionTexts } from './utils/broker-mention-texts';
@@ -41,6 +41,7 @@ import { buildSummaryHighlights, extractSummaryFacts, isBoilerplateHighlight } f
 import { resolveOverviewSpecs, buildOverviewSpecRows, isMissingSpecValue } from './spec-resolver';
 import { brokerMemoTextOf, parseBuildingSpecMemoFacts } from './binder/broker-memo-facts';
 import { normalizeAreaRowsPrecision } from './binder/area-precision';
+import { resolveDisplayAreas, isRegisterTrustworthy } from './binder/display-areas';
 import { verifiedLegalLimitsFromSsot } from './binder/legal-limits';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -408,6 +409,9 @@ export class MobileImPptxRenderer {
           // LLM이 building 섹션을 생성한 경우: 누락 스펙 병합
           const specGroup = (k: string): string => {
             const c = String(k).replace(/\s+/g, '');
+            // 제원 라벨이 아닌 서술형/정크 키(길거나 문장부호·마크다운 포함)는 제원 그룹으로 묶지 않는다
+            // (예: '…사용승인 이후 리모델링…' 키가 '#준공' 그룹을 선점해 공부 사용승인일 행을 막던 문제)
+            if (c.length > 20 || /[.,*•]/.test(c)) return c;
             if (/준공|사용승인|건축연도/.test(c)) return '#준공';
             if (/용도지역|지역\/지구|지역지구/.test(c)) return '#용도지역';
             if (/건폐율|용적률/.test(c)) return '#건폐용적';
@@ -421,6 +425,18 @@ export class MobileImPptxRenderer {
           dataMap['building'].left.rows = dataMap['building'].left.rows.filter(
             (r: [string, string]) => !isMissingSpecValue(r?.[1]),
           );
+          // Rule 4: 제원 표에는 제원만 — LLM 이 '**자산 하이라이트**: • …' 같은 서술형 항목을 key-value 로 써서
+          // 좌측 표에 하이라이트가 한 번 더(말줄임 포함) 렌더되던 문제 제거. 하이라이트는 우측 박스가 정본.
+          // 그룹 병합 '이전'에 실행해야 서술형 행이 제원 그룹(예: #준공)을 선점해 공부 값을 막는 일이 없다.
+          {
+            const isNarrativeSpecRow = ([k, v]: [string, string]) => {
+              const key = String(k ?? '').replace(/\s+/g, '');
+              if (/하이라이트|투자포인트|핵심포인트|요약|특장점|강점|투자매력/.test(key)) return true;
+              const val = String(v ?? '').trim();
+              return val.startsWith('•') || (val.match(/•/g) ?? []).length >= 2;
+            };
+            dataMap['building'].left.rows = dataMap['building'].left.rows.filter((r: [string, string]) => !isNarrativeSpecRow(r));
+          }
           // Rule 4: 같은 제원이 다른 라벨(예: 건축연도(사용승인일) vs 준공시점)로 이중 렌더되지 않도록 그룹 단위로 중복 제거
           // D5: 기존 값이 유효하면 LLM 값 유지, 없으면 공부(리졸버) 값 추가. 건폐율/용적률은 현황치 2개가 모두 있는 경우에만 LLM 행을 유지.
           const existingGroupRows = (g: string) =>
@@ -449,17 +465,7 @@ export class MobileImPptxRenderer {
               return !(g.startsWith('#') && leftGroups.has(g));
             });
           }
-          // Rule 4: 제원 표에는 제원만 — LLM 이 '**자산 하이라이트**: • …' 같은 서술형 항목을 key-value 로 써서
-          // 좌측 표에 하이라이트가 한 번 더(말줄임 포함) 렌더되던 문제 제거. 하이라이트는 우측 박스가 정본.
-          {
-            const isNarrativeSpecRow = ([k, v]: [string, string]) => {
-              const key = String(k ?? '').replace(/\s+/g, '');
-              if (/하이라이트|투자포인트|핵심포인트|요약|특장점|강점|투자매력/.test(key)) return true;
-              const val = String(v ?? '').trim();
-              return val.startsWith('•') || (val.match(/•/g) ?? []).length >= 2;
-            };
-            dataMap['building'].left.rows = dataMap['building'].left.rows.filter((r: [string, string]) => !isNarrativeSpecRow(r));
-          }
+          // (서술형 행 필터는 그룹 병합 이전으로 이동됨 — 위 참조)
 
           // 소재지는 SSoT 주소(다필지 표기 포함)를 정본으로 하고 항상 첫 행에 둔다 (LLM 이 도로명 주소 등으로 바꿔 쓰는 것 방지)
           {
@@ -836,11 +842,27 @@ export class MobileImPptxRenderer {
           totArea: Number(enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea) || null,
           platArea: Number(enrichment?.buildingRegister?.platArea) || null,
           archArea: Number(enrichment?.buildingRegister?.archArea) || null,
+          gfaAuthoritative: isRegisterTrustworthy(enrichment?.buildingRegister),
         });
+        // 면적 단일 해석기 경고(중개인 연면적 ≠ 대장) — 중개인 검토용
+        {
+          const ssotA = input.doc.body?.ssot_summary ?? {};
+          const areaRes = resolveDisplayAreas({
+            brokerLandSqm: Number(ssotA.land_area_sqm) || null,
+            brokerGfaSqm: Number(ssotA.total_gross_area_sqm) || null,
+            register: enrichment?.buildingRegister ?? null,
+          });
+          for (const w of areaRes.warnings) warnings.push(`[AREA-RECONCILE] ${w}`);
+        }
         // 렌트롤 자동 합계 행 정밀도 정합(A24): 반올림된 행 합(1,441.2)이 대장 연면적(1,441.15)과 반올림 오차 이내면 대장값 표기
         const regTotArea = Number(enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea);
         if (dataMap['rentRoll'] && Number.isFinite(regTotArea) && regTotArea > 0) {
           (dataMap['rentRoll'] as any).registerTotalAreaSqm = regTotArea;
+        }
+        // 합계 행 'N개 호실' — 비임대 공용·설비 행(기계실·주차장 등)은 호실 수에서 제외 (점유 SSOT 와 동일 모집단)
+        if (dataMap['rentRoll'] && Array.isArray(input.doc.body?.floor_leases)) {
+          const nonLeasable = (input.doc.body.floor_leases as any[]).filter(r => r && isNonLeasableLeaseRow(r)).length;
+          if (nonLeasable > 0) (dataMap['rentRoll'] as any).nonLeasableRowCount = nonLeasable;
         }
       }
 
@@ -1027,6 +1049,7 @@ export class MobileImPptxRenderer {
           ...(Array.isArray(heroCard.keyPoints) ? heroCard.keyPoints : []),
         ].map((p: unknown) => String(p ?? ''));
         const hl = buildSummaryHighlights(summaryFacts, priorPoints);
+        if (summaryFacts.lease?.reconcileWarning) warnings.push(`[LEASE-RECONCILE] ${summaryFacts.lease.reconcileWarning}`);
         if (hl.points.length > 0) dataMap['summary'].keyPoints = hl.points;
         if (hl.lead) dataMap['summary'].leadSentence = hl.lead;
         else if (isBoilerplateHighlight(String(dataMap['summary'].leadSentence ?? ''))) dataMap['summary'].leadSentence = '';

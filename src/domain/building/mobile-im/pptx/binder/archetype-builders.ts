@@ -12,8 +12,9 @@ import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
-import { isVacantLeaseRow } from "../../lease-vacancy";
+import { isVacantLeaseRow, isOwnerUseLeaseRow, isNonLeasableLeaseRow } from "../../lease-vacancy";
 import { resolveBrokerMemoFacts, resolveHotelOperating, BROKER_STATED_TAG } from "./broker-memo-facts";
+import { resolveDisplayAreas } from "./display-areas";
 
 /**
  * 아키타입별 props 변환기
@@ -912,7 +913,10 @@ export function buildVacancyCompact(floorLeases: any): string | null {
   const vacants = leases.filter(isVacant);
   if (vacants.length === 0) return '만실 운영 (공실 0%)';
   const vacArea = vacants.reduce((s: number, fl: any) => s + areaPy(fl), 0);
-  const totalArea = leases.reduce((s: number, fl: any) => s + areaPy(fl), 0);
+  // 분모 = 임대 가능 면적 (비임대 공용·설비, 자가사용 제외 — summarizeLeaseOccupancy 공실률 정의와 동일)
+  const totalArea = leases
+    .filter((fl: any) => !isNonLeasableLeaseRow(fl) && !isOwnerUseLeaseRow(fl))
+    .reduce((s: number, fl: any) => s + areaPy(fl), 0);
   let out = `공실 ${vacants.length}개 호실`;
   if (vacArea > 0) {
     out += ` · ${Math.round(vacArea).toLocaleString()}평`;
@@ -951,16 +955,15 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const safeAsk = (askPrice && !String(askPrice).includes('Infinity') && !String(askPrice).includes('NaN')) ? String(askPrice) : '-';
     if (safeAsk !== '-') metrics.push({ label: '매매 희망가', value: safeAsk });
     const ssotB = body?.ssot_summary ?? {};
-    const rawLandAreaPy = heroCard.landAreaPyeong
-      ?? ssotB.land_area_pyeong
-      ?? (ssotB.land_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.land_area_sqm)) * 10) / 10 : undefined)
-      ?? (ssotB.plat_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.plat_area_sqm)) * 10) / 10 : undefined);
-    const landAreaPy = Number.isFinite(Number(rawLandAreaPy)) && Number(rawLandAreaPy) > 0 ? Number(rawLandAreaPy) : undefined;
+    const pyToSqm = (py: unknown) => (Number.isFinite(Number(py)) && Number(py) > 0 ? pyeongToSqm(Number(py)) : undefined);
+    const dispAreas = resolveDisplayAreas({
+      brokerLandSqm: Number(ssotB.land_area_sqm) || Number(ssotB.plat_area_sqm) || pyToSqm(heroCard.landAreaPyeong ?? ssotB.land_area_pyeong),
+      brokerGfaSqm: Number(ssotB.total_gross_area_sqm) || pyToSqm(heroCard.totalGrossAreaPyeong ?? ssotB.total_gross_area_pyeong),
+      register: body?.enrichment?.buildingRegister ?? null,
+    });
+    const landAreaPy = dispAreas.landSqm ? Math.round(sqmToPyeong(dispAreas.landSqm) * 10) / 10 : undefined;
     if (landAreaPy) metrics.push({ label: '대지면적', value: `${Number(landAreaPy).toLocaleString()}평` });
-    const rawGfaPy = heroCard.totalGrossAreaPyeong
-      ?? ssotB.total_gross_area_pyeong
-      ?? (ssotB.total_gross_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.total_gross_area_sqm)) * 10) / 10 : undefined);
-    const gfaPy = Number.isFinite(Number(rawGfaPy)) && Number(rawGfaPy) > 0 ? Number(rawGfaPy) : undefined;
+    const gfaPy = dispAreas.gfaSqm ? Math.round(sqmToPyeong(dispAreas.gfaSqm) * 10) / 10 : undefined;
     if (gfaPy) metrics.push({ label: '연면적', value: `${Number(gfaPy).toLocaleString()}평` });
     const floorsAbove = ssotB.floors_above ?? heroCard.floorsAbove;
     const floorsBelow = ssotB.floors_below ?? heroCard.floorsBelow;
