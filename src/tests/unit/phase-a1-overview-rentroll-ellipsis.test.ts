@@ -115,9 +115,9 @@ describe('D6 resolveTenantAndUse / 비고 / 임대면적 평 병기', () => {
     expect(resolveTenantAndUse({ tenant_name: '스타벅스', tenant_type: '카페' })).toMatchObject({ tenant: '스타벅스', use: '카페', isMasked: false });
   });
 
-  it('POSITIVE: 상호 + 업종 결합 문자열 "카페(스타벅스)" 분해, 상호 == 업종이면 마스킹', () => {
+  it('POSITIVE: 상호 + 업종 결합 문자열 "카페(스타벅스)" 분해, 상호 == 업종이면 입력 그대로(마스킹 금지)', () => {
     expect(resolveTenantAndUse({ tenant_type: '카페(스타벅스)' })).toMatchObject({ tenant: '스타벅스', use: '카페' });
-    expect(resolveTenantAndUse({ tenant_name: '세무사', tenant_type: '세무사' }, { maskSeq: 2 })).toMatchObject({ tenant: '임차인 C', use: '세무사' });
+    expect(resolveTenantAndUse({ tenant_name: '세무사', tenant_type: '세무사' }, { maskSeq: 2 })).toMatchObject({ tenant: '세무사', use: '-', isMasked: false });
   });
 
   it('NEGATIVE: 공실은 임차인 "공실", 용도에 공실 표식 반복 금지', () => {

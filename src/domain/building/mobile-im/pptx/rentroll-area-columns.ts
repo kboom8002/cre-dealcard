@@ -20,6 +20,8 @@ export const BASIC_RENTROLL_HEADERS = [
 /** D6: 입력(비고/임대상태/갱신요구권)이 있을 때만 붙는 11번째 열 */
 export const RENTROLL_NOTE_HEADER = '비고';
 export const NOTE_COL = 10;
+/** 용도 열 인덱스 — 모든 행이 '-'/빈 값이면 투영에서 생략 */
+export const USE_COL = 2;
 /** 비고 열 기준 폭(in) — 11열 투영 시에만 사용 */
 export const RENTROLL_NOTE_COL_W = 1.0;
 
@@ -74,9 +76,13 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
   const mode = detectAreaColumnMode(rows);
   const all = BASIC_RENTROLL_HEADERS.map((_, i) => i);
   const dropIdx = mode === 'both' ? -1 : mode === 'lease' ? EXCLUSIVE_AREA_COL : LEASE_AREA_COL;
-  const keep = all.filter((i) => i !== dropIdx);
+  const dataRows = rows.filter((r) => !isRentRollSummaryRow(r));
+  // 용도 열 — 모든 데이터 행이 '-'/빈 값이면 열 자체를 생략 (상호=업종 단일 입력처럼 구분되는 용도가 없을 때)
+  const hasUse = dataRows.some((r) => hasNoteValue(r[USE_COL]));
+  const dropUse = dataRows.length > 0 && !hasUse;
+  const keep = all.filter((i) => i !== dropIdx && !(dropUse && i === USE_COL));
   // D6: 비고 열 — 데이터 행 중 하나라도 비고가 있을 때만 (헤더·열폭·셀을 같은 keep 으로 투영해 열 수 = 셀 수 유지)
-  const hasNote = rows.filter((r) => !isRentRollSummaryRow(r)).some((r) => hasNoteValue(r[NOTE_COL]));
+  const hasNote = dataRows.some((r) => hasNoteValue(r[NOTE_COL]));
   if (hasNote) keep.push(NOTE_COL);
 
   // 제거한 열의 폭은 텍스트가 긴 열(임차인·용도·만기일)에 되돌려 표 전체 폭을 유지한다
@@ -86,6 +92,12 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
     w[1] += freed * 0.46;
     w[2] += freed * 0.28;
     w[9] += freed * 0.26;
+  }
+  if (dropUse) {
+    const freedUse = w[USE_COL];
+    w[1] += freedUse * 0.5;
+    if (hasNote) w[NOTE_COL] += freedUse * 0.5;
+    else w[9] += freedUse * 0.5;
   }
   const colW = keep.map((i) => Math.round(w[i] * 100) / 100);
   const headerAt = (i: number): string => (i === NOTE_COL ? RENTROLL_NOTE_HEADER : BASIC_RENTROLL_HEADERS[i]);

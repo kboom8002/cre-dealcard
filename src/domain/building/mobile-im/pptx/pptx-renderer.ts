@@ -829,7 +829,11 @@ export class MobileImPptxRenderer {
         applyBrokerLocation(dataMap['location'], brokerExtras, brokerImages);
         applyBrokerRentRollPlan(dataMap['rentRoll'], brokerExtras);
         // 면적 행 표기 정밀도 통일: 평→㎡ 환산 잔여 소수(3,842.644㎡)는 소수 1자리로 (표시 전용, 값 불변)
-        normalizeAreaRowsPrecision(dataMap);
+        normalizeAreaRowsPrecision(dataMap, {
+          totArea: Number(enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea) || null,
+          platArea: Number(enrichment?.buildingRegister?.platArea) || null,
+          archArea: Number(enrichment?.buildingRegister?.archArea) || null,
+        });
       }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)

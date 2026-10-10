@@ -25,21 +25,54 @@ export function normalizeAreaValuePrecision(value: string): string {
 
 type Row = [string, string, ...unknown[]];
 
-function normalizeRows(rows: unknown): void {
+export interface RegisterAreas {
+  totArea?: number | null;
+  platArea?: number | null;
+  archArea?: number | null;
+}
+
+const SNAP_TOLERANCE = 0.01; // 중개인/환산 값이 대장값과 1% 이내면 같은 값으로 간주
+
+/** 면적 라벨별 대장 기준값 (연면적 → totArea, 대지면적 → platArea, 건축면적 → archArea) */
+function registerRefFor(label: string, reg: RegisterAreas): number | null {
+  const pick = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  if (/연면적/.test(label)) return pick(reg.totArea);
+  if (/대지면적/.test(label)) return pick(reg.platArea);
+  if (/건축면적/.test(label)) return pick(reg.archArea);
+  return null;
+}
+
+/**
+ * 표시용 스냅: "N㎡ (M평)" 의 N 이 대장 기준값과 1% 이내이고 정확히 같지 않으면 대장 정밀값으로 표기.
+ * (예: 평→㎡ 환산 1,441.157 → 대장 1,441.15). 1% 초과 괴리는 중개인 값 그대로 둔다(충돌은 별도 경고 대상).
+ */
+function snapToRegister(value: string, ref: number): string {
+  const m = /^\s*(\d[\d,]*(?:\.\d+)?)\s*㎡\s*\(\s*(?:약\s*)?\d[\d,.]*\s*평\s*\)\s*$/.exec(value);
+  if (!m) return value;
+  const v = Number(m[1].replace(/,/g, ''));
+  if (!Number.isFinite(v) || v <= 0) return value;
+  if (Math.abs(v - ref) < 1e-9) return value;
+  if (Math.abs(v - ref) / ref > SNAP_TOLERANCE) return value;
+  return `${formatSqm(ref)}㎡ (${formatPyeong(ref, 1)}평)`;
+}
+
+function normalizeRows(rows: unknown, reg?: RegisterAreas): void {
   if (!Array.isArray(rows)) return;
   for (const r of rows as Row[]) {
     if (Array.isArray(r) && typeof r[0] === 'string' && typeof r[1] === 'string' && AREA_LABEL.test(r[0])) {
+      const ref = reg ? registerRefFor(r[0], reg) : null;
+      if (ref) r[1] = snapToRegister(r[1], ref);
       r[1] = normalizeAreaValuePrecision(r[1]);
     }
   }
 }
 
 /** dataMap 의 물건 개요(building)·토지(land) 슬라이드 좌/우 행을 제자리 정규화 */
-export function normalizeAreaRowsPrecision(dataMap: Record<string, any>): void {
+export function normalizeAreaRowsPrecision(dataMap: Record<string, any>, register?: RegisterAreas): void {
   for (const key of ['building', 'land']) {
     const d = dataMap?.[key];
     if (!d) continue;
-    normalizeRows(d.left?.rows);
-    normalizeRows(d.right?.rows);
+    normalizeRows(d.left?.rows, register);
+    normalizeRows(d.right?.rows, register);
   }
 }

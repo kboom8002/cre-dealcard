@@ -89,10 +89,11 @@ export function resolveTenantAndUse(
     }
   }
 
-  // 상호가 업종/용도와 동일하면 사실상 업종 문자열 → 임차인 칸에는 쓰지 않는다
+  // 상호가 업종/용도와 동일한 문자열이면(입력에 상호/업종 구분이 없음) 임차인 칸에 입력 그대로 표기한다.
+  // IM 은 실제 임차인명 정책(오너 결정 2026-10) — 'A/B/C' 마스킹 금지. 용도 칸은 구분되는 업종이 있을 때만, 없으면 '-' (비중복 렌더링).
   if (name && (name === biz || name === explicitUse)) {
-    if (!biz) biz = name;
-    name = '';
+    const distinct = [explicitUse, biz].find((v) => v && v !== name && !VACANT_MARK.test(v));
+    return { tenant: name, use: distinct ?? '-', isVacant: false, isMasked: false };
   }
 
   const useCandidate = explicitUse || biz;
