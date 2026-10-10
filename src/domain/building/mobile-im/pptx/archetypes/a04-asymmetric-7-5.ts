@@ -6,6 +6,7 @@ import { stripMarkdown } from '../data-binder';
 import { optimizeImageForPptx, type OptimizedImage } from '../utils/image-optimizer';
 import { addImageFit, planImageFit } from '../utils/image-fit';
 import { prioritizeSpecRows } from '../spec-row-priority';
+import { verifiedLegalLimitsFromSsot } from '../binder/legal-limits';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -320,8 +321,8 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
         const bldg = input.data.building ?? {};
         const bcr = Number(ssot.bcr_pct ?? bldg.bcr_pct ?? ssot.bcrPct);
         const far = Number(ssot.far_pct ?? bldg.far_pct ?? ssot.farPct);
-        const maxBcr = Number(ssot.max_bcr_pct ?? bldg.max_bcr_pct);
-        const maxFar = Number(ssot.max_far_pct ?? bldg.max_far_pct);
+        // 법정 상한: 공식 출처만 (legal-limits.ts — 용도지역명 추정치 숨김)
+        const { bcrMax: maxBcr = NaN, farMax: maxFar = NaN } = verifiedLegalLimitsFromSsot(ssot);
         const zoning = ssot.zoning ?? bldg.zoning ?? input.data.zoning ?? '';
         const road = ssot.road_condition ?? bldg.road_condition ?? '';
         const landCat = ssot.land_category ?? bldg.land_category ?? '';
@@ -336,7 +337,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
             line += ` (법정 상한: ${maxBcr}% / ${maxFar}%)`;
             const farGap = maxFar - far;
             if (farGap > 5) {
-              line += `\n  \u2192 용적률 ${farGap.toFixed(1)}%p 여유 \u2014 증축/리모델링 밸류애드 잠재력`;
+              line += `\n  \u2192 잔여 용적률 ${farGap.toFixed(1)}%p`;
             }
           }
           regBullets.push(line);

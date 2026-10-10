@@ -347,12 +347,23 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       }
       const totalMonthlySum = (sums.month > 0 ? sums.month : (sums.rent + sums.mgmt));
       const money = (v: number, isSeen: boolean) => (isSeen ? Math.round(v).toLocaleString('en-US') : '-');
+      // 합계 면적 정밀도 정합: 행은 소수 1자리로 반올림 표기되므로 행 합에는 최대 (행 수 × 0.05㎡) 오차가 있다.
+      // 대장 연면적이 그 오차 범위 안이면(= 행이 건물 전체 면적을 구성) 대장값을 그대로 표기해 개요 슬라이드와 일치시킨다.
+      const regTotal = Number(data.registerTotalAreaSqm);
+      const areaRows = rawRows.filter((r: any[]) => !isNaN(num(r[3]))).length;
+      const snapToRegister = Number.isFinite(regTotal) && regTotal > 0 && sums.area > 0
+        && Math.abs(sums.area - regTotal) <= areaRows * 0.05 + 1e-6;
+      const totalArea = snapToRegister ? regTotal : sums.area;
+      const fmtTotalSqm = (v: number) => snapToRegister
+        ? v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 })
+        : formatAreaSqm(v);
+      const hasPyeong = rawRows.some((r: any[]) => /평\)/.test(String(r[3] ?? '')));
 
       rawRows.push([
         '합계',
         `${rawRows.length}개 호실`,
         '-',
-        sums.area > 0 ? (rawRows.some((r: any[]) => /평\)/.test(String(r[3] ?? ''))) ? formatAreaWithPyeong(sums.area) : formatAreaSqm(sums.area)) : '-',
+        sums.area > 0 ? (hasPyeong ? `${fmtTotalSqm(totalArea)} (${sqmToPyeong(totalArea).toFixed(1)}평)` : fmtTotalSqm(totalArea)) : '-',
         sums.exc > 0 ? formatAreaSqm(sums.exc) : '-',
         money(sums.deposit, seen.deposit),
         money(sums.rent, seen.rent),

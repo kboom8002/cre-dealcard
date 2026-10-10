@@ -12,11 +12,12 @@ import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
-import { pairOrDash } from "@/lib/format/safe-number";
+import { pairOrDash, fmtFixed } from "@/lib/format/safe-number";
 import { resolvePhysicalSpecs } from "../../resolve-physical-specs";
 import { summarizeParcels } from "../../parcel-input";
 import { resolveTenantAndUse, resolveLeaseNote, formatAreaSqm, formatAreaWithPyeong } from "./rent-roll-table-builder";
 import { normalizeBuildingRegister } from "@/lib/external/building-register-normalize";
+import { verifiedLegalLimits } from "./legal-limits";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -388,17 +389,6 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       lup?.landArea,
       lp?.landArea,
     ].map(v => Number(v)).find(n => Number.isFinite(n) && n > 0);
-    const STATUTORY_ZONING_LIMITS: Record<string, { bcr: number; far: number }> = {
-      '준공업지역': { bcr: 60, far: 400 },
-      '제1종일반주거지역': { bcr: 60, far: 150 },
-      '제2종일반주거지역': { bcr: 60, far: 200 },
-      '제3종일반주거지역': { bcr: 50, far: 250 },
-      '준주거지역': { bcr: 60, far: 400 },
-      '일반상업지역': { bcr: 60, far: 800 },
-      '근린상업지역': { bcr: 60, far: 600 },
-      '중심상업지역': { bcr: 70, far: 1000 },
-      '유통상업지역': { bcr: 60, far: 800 },
-    };
 
     if (effectiveLandArea && Number.isFinite(Number(effectiveLandArea)) && Number(effectiveLandArea) > 0) {
       const areaSqm = Number(effectiveLandArea);
@@ -416,23 +406,23 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     const hasMixedZoning = distinctZones.length > 1;
     rows.push(['용도지역', hasMixedZoning ? `${distinctZones.join(' / ')} (필지별 상이)` : zoningDistrict]);
 
-    const statutory = STATUTORY_ZONING_LIMITS[zoningDistrict] ?? { bcr: 60, far: 400 };
-    const maxBcr = lup?.buildingCoverageMax ?? statutory.bcr;
-    const maxFar = lup?.floorAreaRatioMax ?? statutory.far;
+    // 법정 상한: 공식 조회값만 (legal-limits.ts). 용도지역명 추정 테이블·60/400 기본값은 실제 조례·지구단위계획과
+    // 달라(예: 창신 일반상업 800% vs 실제 600%) 사실 오류가 되므로 제거 — 미확인 시 숨김 (2026-10-10 결정)
+    const { bcrMax: maxBcr, farMax: maxFar } = hasMixedZoning ? {} : verifiedLegalLimits(lup);
     const currentBcr = body?.ssot_summary?.bcr_pct ?? body?.ssot_summary?.bcr;
     const currentFar = body?.ssot_summary?.far_pct ?? body?.ssot_summary?.far;
 
     const rawBcr = Number(currentBcr);
     if (Number.isFinite(rawBcr) && rawBcr > 0) {
-      rows.push(['건폐율', `현행 ${rawBcr}% (법정 상한 ${maxBcr}%)`]);
-    } else {
+      rows.push(['건폐율', maxBcr ? `현행 ${rawBcr}% (법정 상한 ${maxBcr}%)` : `현행 ${rawBcr}%`]);
+    } else if (maxBcr) {
       rows.push(['법정 건폐율', `${maxBcr}% 이하`]);
     }
 
     const rawFar = Number(currentFar);
     if (Number.isFinite(rawFar) && rawFar > 0) {
-      rows.push(['용적률', `현행 ${rawFar}% (법정 상한 ${maxFar}%)`]);
-    } else {
+      rows.push(['용적률', maxFar ? `현행 ${rawFar}% (법정 상한 ${maxFar}%)` : `현행 ${rawFar}%`]);
+    } else if (maxFar) {
       rows.push(['법정 용적률', `${maxFar}% 이하`]);
     }
 
@@ -449,24 +439,29 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       ?? '-';
     if (effectiveLandShape && effectiveLandShape !== '-') rows.push(['필지 형상', effectiveLandShape]);
 
-    // 다필지: 중개인이 입력한 필지 구성(지목 요약)을 우선, 단일 필지는 기존 우선순위 유지
+    // 다필지: 중개인이 입력한 필지 구성(지목 요약)을 우선, 단일 필지는 기존 우선순위 유지. 미확인 시 행 생략('대' 기본값 날조 금지)
     const landCat = parcelSum.landCategoryLabel
-      ?? (parcelSum.isMulti ? undefined : (lp?.landCategory ?? body?.ssot_summary?.land_category))
-      ?? (parcelSum.isMulti ? '-' : '대');
-    rows.push(['지목', landCat]);
+      ?? (parcelSum.isMulti ? undefined : (lp?.landCategory ?? body?.ssot_summary?.land_category));
+    if (landCat && landCat !== '-') rows.push(['지목', landCat]);
 
+    // 콜아웃용 계산 지표 (행과 중복되지 않는 "공시지가 대비 배율")
+    let officialPerPyeongWon: number | undefined;
     if (parcelSum.isMulti && parcelSum.weightedOfficialPricePerM2) {
       const w = parcelSum.weightedOfficialPricePerM2;
+      officialPerPyeongWon = Math.round(w * SQM_RATIO);
       rows.push(['개별공시지가', `${w.toLocaleString()}원/㎡ (필지 면적 가중평균, ${Math.round(w * SQM_RATIO).toLocaleString()}원/평)`]);
     } else if (lp?.pricePerSqm) {
       const pricePerPyeong = Math.round(Number(lp.pricePerSqm) * SQM_RATIO);
+      officialPerPyeongWon = pricePerPyeong;
       rows.push([parcelSum.isMulti ? '개별공시지가 (대표 필지)' : '개별공시지가', `${Number(lp.pricePerSqm).toLocaleString()}원/㎡ (${pricePerPyeong.toLocaleString()}원/평, ${lp.baseYear ?? ''}년)`]);
     } else if (body?.ssot_summary?.land_price_per_sqm) {
       const p = Number(body.ssot_summary.land_price_per_sqm);
+      officialPerPyeongWon = Math.round(p * SQM_RATIO);
       rows.push(['개별공시지가', `${p.toLocaleString()}원/㎡ (${Math.round(p * SQM_RATIO).toLocaleString()}원/평)`]);
     }
 
     // 토지평당가 (매매가 / 대지면적)
+    let askPerPyeongManwon: number | undefined;
     const rawAsk = body?.ssot_summary?.asking_price_manwon ?? body?.askingPriceManwon;
     const askNum = typeof rawAsk === 'number' ? rawAsk : parseFloat(String(rawAsk ?? ''));
     const landAreaNum = typeof effectiveLandArea === 'number' ? effectiveLandArea : parseFloat(String(effectiveLandArea ?? ''));
@@ -475,6 +470,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       if (Number.isFinite(landPyeong) && landPyeong > 0) {
         const pyeongPrice = Math.round(askNum / landPyeong);
         if (Number.isFinite(pyeongPrice) && pyeongPrice > 0) {
+          askPerPyeongManwon = pyeongPrice;
           rows.push(['토지평당가', `약 ${pyeongPrice.toLocaleString()}만 원/평`]);
         }
       }
@@ -482,22 +478,27 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
 
     // 기존 마크다운 파싱 결과보다 V-World 데이터 우선하되, 우측 분석 콜아웃은 보존
     const existingRight = dataMap['land']?.right;
-    const bcrFarText = (currentBcr && currentFar)
-      ? `• 현 건폐율 ${currentBcr}%, 용적률 ${currentFar}% (법정 상한: 건폐율 ${maxBcr}%, 용적률 ${maxFar}%)\n• ${zoningDistrict !== '-' ? zoningDistrict : '해당 지역'} 기준 법정 상한 대비 용적률 상향 및 밸류애드 잠재력 보유`
-      : `• ${zoningDistrict !== '-' ? zoningDistrict : '해당 지역'} 기준 법정 건폐율 ${maxBcr}% 이하, 법정 용적률 ${maxFar}% 이하 적용\n• 입지 특성에 부합하는 최적 토지이용 및 건축 규제 기준 충족`;
-    const roadText = effectiveRoadAccess
-      ? `• ${effectiveRoadAccess} 접면으로 보행자 접근성 및 차량 진출입 동선 우수`
-      : '• 전면 도로 접면 조건 양호, 접근성 우수';
+    // 우측 콜아웃: 좌측 행과 중복되지 않는 "계산된 사실"만 (Rule 4 비중복 · Rule 34 근거 없는 평가 금지).
+    //  - 공식 법정 상한이 있을 때만 잔여 용적률
+    //  - 매매가 기준 토지평당가 ÷ 개별공시지가(평당) 배율
+    // 근거 없는 상투 문구('접근성 우수', '밸류애드 잠재력 보유', '규제 기준 충족')는 제거.
+    const calloutBullets: string[] = [];
+    const farNowNum = Number(currentFar);
+    if (maxFar && Number.isFinite(farNowNum) && farNowNum > 0 && maxFar - farNowNum > 5) {
+      calloutBullets.push(`• 법정 상한 ${maxFar}% 대비 잔여 용적률 ${fmtFixed(maxFar - farNowNum, 1)}%p`);
+    }
+    if (askPerPyeongManwon && officialPerPyeongWon && officialPerPyeongWon > 0) {
+      const multiple = (askPerPyeongManwon * 10_000) / officialPerPyeongWon;
+      if (Number.isFinite(multiple) && multiple > 0) {
+        calloutBullets.push(`• 매매가 기준 토지평당가 약 ${askPerPyeongManwon.toLocaleString()}만원 = 개별공시지가(평당 ${Math.round(officialPerPyeongWon / 10_000).toLocaleString()}만원)의 ${fmtFixed(multiple, 1)}배`);
+      }
+    }
 
     const rightCallouts = existingRight?.callouts?.length > 0
       ? existingRight.callouts
-      : [
-          {
-            kind: 'info',
-            title: '토지 규제 및 공법 분석',
-            body: `${bcrFarText}\n${roadText}`,
-          },
-        ];
+      : calloutBullets.length > 0
+        ? [{ kind: 'info', title: '토지 가치 지표', body: calloutBullets.join('\n') }]
+        : [];
 
     dataMap['land'] = {
       ...(dataMap['land'] ?? {}),

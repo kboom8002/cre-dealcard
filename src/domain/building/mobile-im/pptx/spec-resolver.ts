@@ -14,6 +14,7 @@
 
 import { normalizeBuildingRegister, registerReportsNoBasement } from '@/lib/external/building-register-normalize';
 import { BROKER_STATED_TAG } from './binder/broker-memo-facts';
+import { verifiedLegalLimits } from './binder/legal-limits';
 
 type Rec = Record<string, any>;
 
@@ -167,9 +168,10 @@ export function resolveOverviewSpecs(
   // ── 건폐율/용적률: 현황(대장) > ssot > hero > building ──
   const bcrNow = firstPos(nbr.bcRat, s.bcr_pct, h.bcrPct, bldg.bcr_pct);
   const farNow = firstPos(nbr.vlRat, s.far_pct, h.farPct, bldg.far_pct);
-  // 법정 상한: 토지이용계획 > ssot. 필지별 용도지역이 서로 다르면 단일 상한이 성립하지 않으므로 생략
-  const bcrMax = multi.length > 1 ? undefined : firstPos(lup.buildingCoverageMax, s.max_bcr_pct, bldg.max_bcr_pct);
-  const farMax = multi.length > 1 ? undefined : firstPos(lup.floorAreaRatioMax, s.max_far_pct, bldg.max_far_pct);
+  // 법정 상한: 공식 조회값만 (legal-limits.ts — 용도지역명 추정치는 숨김). 필지별 용도지역이 서로 다르면 단일 상한 불성립 → 생략
+  const verified = multi.length > 1 ? {} : verifiedLegalLimits(lup);
+  const bcrMax = verified.bcrMax;
+  const farMax = verified.farMax;
 
   // ── 사용승인일 ──
   const memo = fallback.memo ?? {};

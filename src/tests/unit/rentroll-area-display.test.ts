@@ -112,6 +112,35 @@ describe("projectBasicRentRollColumns — 기입한 면적만 표기", () => {
       expect(p.colW.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 1);
     }
   });
+
+  const noMgmt = (r: string[], mgmt: string) => { const c = [...r]; c[7] = mgmt; c[8] = c[6]; return c; };
+
+  it("관리비가 전 행 미기입('-'/빈 값/0)이면 관리비·월합계 열을 함께 생략하고 폭은 유지", () => {
+    const total = BASIC_RENTROLL_COL_W.reduce((a, b) => a + b, 0);
+    const rows = [noMgmt(R("1F", "100.0", "75.0"), "-"), noMgmt(R("2F", "80.0", "60.0"), "0"), noMgmt(R("3F", "80.0", "60.0"), "")];
+    const p = projectBasicRentRollColumns(rows);
+    expect(p.headers).not.toContain("관리비");
+    expect(p.headers).not.toContain("월합계");
+    expect(p.headers).toHaveLength(8);
+    expect(p.keep).toHaveLength(p.headers.length);
+    expect(p.colW.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 1);
+  });
+
+  it("[NEG] 한 호실이라도 관리비가 있거나 '별도' 같은 비숫자 표기면 관리비·월합계 열 유지", () => {
+    const one = projectBasicRentRollColumns([noMgmt(R("1F", "100.0", "75.0"), "-"), R("2F", "80.0", "60.0")]);
+    expect(one.headers).toContain("관리비");
+    expect(one.headers).toContain("월합계");
+    const sep = projectBasicRentRollColumns([noMgmt(R("1F", "100.0", "75.0"), "별도")]);
+    expect(sep.headers).toContain("관리비");
+  });
+
+  it("[NEG] 합계 행의 관리비는 판정에 쓰지 않는다", () => {
+    const p = projectBasicRentRollColumns([
+      noMgmt(R("1F", "100.0", "75.0"), "-"),
+      ["합계", "1개 호실", "-", "100.0", "75.0", "5,000", "300", "30", "330", "-"],
+    ]);
+    expect(p.headers).not.toContain("관리비");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────

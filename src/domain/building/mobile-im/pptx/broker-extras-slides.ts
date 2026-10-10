@@ -310,13 +310,17 @@ export function buildBrokerCompsData(extras: BrokerExtras, opts: BrokerDataMapOp
   if (comps.length === 0) return null;
   const subject = subjectLandPricePerPyeongManwon(opts.ssot, opts.body);
   const stats = computeCompsStats(comps, subject);
-  const tableHead = ['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고'];
+  // 비고가 하나도 없으면 '-'만 있는 열을 만들지 않는다 (렌더러는 head 길이로 열폭을 투영)
+  const hasNote = comps.some(c => (c.note ?? '').trim() !== '');
+  const tableHead = hasNote
+    ? ['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고']
+    : ['구분', '소재지', '가격(억)', '토지평당가(만원)'];
   const tableRows = comps.map(c => [
     COMP_KIND_LABELS[c.kind],
     c.location,
     c.price_eok !== undefined ? fmtNum(c.price_eok) : '-',
     c.land_price_per_pyeong_manwon !== undefined ? fmtNum(c.land_price_per_pyeong_manwon) : '-',
-    c.note ?? '-',
+    ...(hasNote ? [c.note?.trim() ? c.note : '-'] : []),
   ]);
   const summaryCards: Array<{ label: string; value: string; sub: string }> = [];
   if (stats.transactionAvg !== undefined) {

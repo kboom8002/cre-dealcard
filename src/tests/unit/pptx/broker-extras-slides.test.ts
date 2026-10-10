@@ -198,8 +198,16 @@ describe('dataMap 빌더 — 원문 그대로 / 입력 없으면 생략', () => 
   it('시세 비교: 표·요약 카드·각주 (괴리율 산식 포함)', () => {
     const extras = readBrokerExtras(body)!;
     const comps = buildBrokerCompsData(extras, { ssot: body.ssot_summary, body: body as any })!;
-    expect(comps.tableHead).toEqual(['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고']);
-    expect(comps.tableRows[0]).toEqual(['실거래', '인접 필지', '80', '10,000', '-']);
+    // 비고가 하나도 없으면 '-'만 있는 비고 열을 만들지 않는다
+    expect(comps.tableHead).toEqual(['구분', '소재지', '가격(억)', '토지평당가(만원)']);
+    expect(comps.tableRows[0]).toEqual(['실거래', '인접 필지', '80', '10,000']);
+    const withNote = buildBrokerCompsData(
+      { market_comps: [...extras.market_comps!, { kind: 'listing', location: '대로변', price_eok: 90, note: '호가' }] },
+      { ssot: body.ssot_summary, body: body as any },
+    )!;
+    expect(withNote.tableHead).toEqual(['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고']);
+    expect(withNote.tableRows[0]).toEqual(['실거래', '인접 필지', '80', '10,000', '-']);
+    expect(withNote.tableRows[1][4]).toBe('호가');
     const labels = comps.summaryCards.map((c: any) => c.label);
     expect(labels).toEqual(['실거래 평균', '본건 환산', '괴리율']);
     expect(comps.summaryCards.find((c: any) => c.label === '괴리율').value).toBe('+25.0%');

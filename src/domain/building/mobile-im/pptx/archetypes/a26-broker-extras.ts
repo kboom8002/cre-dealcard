@@ -171,11 +171,15 @@ function renderRegulation(slide: Slide, data: Record<string, any>): void {
 function renderComps(slide: Slide, data: Record<string, any>): void {
   const head: string[] = data.tableHead ?? ['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고'];
   const rows: string[][] = Array.isArray(data.tableRows) ? data.tableRows : [];
-  const colW = [0.85, 4.10, 1.40, 1.90, CW - (0.85 + 4.10 + 1.40 + 1.90)];
+  // 비고 열이 생략되면(전 행 미기입) 남는 폭은 소재지 열에 준다 — 열 수 = 셀 수 유지 (rule 68)
+  const hasNoteCol = head.length >= 5;
+  const colW = hasNoteCol
+    ? [0.85, 4.10, 1.40, 1.90, CW - (0.85 + 4.10 + 1.40 + 1.90)]
+    : [0.85, CW - (0.85 + 1.40 + 1.90), 1.40, 1.90];
   const rh = 0.42;
   const bottom = L.styledTable(slide, M, TOP, CW, head, rows, colW, {
     rh, bfs: 10, hfs: 10, autoPage: false,
-    colAlign: ['center', 'left', 'right', 'right', 'left'],
+    colAlign: hasNoteCol ? ['center', 'left', 'right', 'right', 'left'] : ['center', 'left', 'right', 'right'],
   });
 
   const cards: Array<{ label: string; value: string; sub: string }> = Array.isArray(data.summaryCards) ? data.summaryCards : [];

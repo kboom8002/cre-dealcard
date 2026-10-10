@@ -41,6 +41,7 @@ import { buildSummaryHighlights, extractSummaryFacts, isBoilerplateHighlight } f
 import { resolveOverviewSpecs, buildOverviewSpecRows, isMissingSpecValue } from './spec-resolver';
 import { brokerMemoTextOf, parseBuildingSpecMemoFacts } from './binder/broker-memo-facts';
 import { normalizeAreaRowsPrecision } from './binder/area-precision';
+import { verifiedLegalLimitsFromSsot } from './binder/legal-limits';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -504,9 +505,9 @@ export class MobileImPptxRenderer {
             const far = Number(ssotEx.far_pct ?? bldg.far_pct);
             if (Number.isFinite(bcr) && Number.isFinite(far) && bcr > 0 && far > 0) {
               let bcrFarStr = `${bcr}% / ${far}%`;
-              const maxBcr = Number(ssotEx.max_bcr_pct);
-              const maxFar = Number(ssotEx.max_far_pct);
-              if (Number.isFinite(maxBcr) && Number.isFinite(maxFar)) {
+              // 법정 상한은 공식 출처일 때만 (legal-limits.ts — 용도지역명 추정치 숨김)
+              const { bcrMax: maxBcr, farMax: maxFar } = verifiedLegalLimitsFromSsot(ssotEx);
+              if (maxBcr && maxFar) {
                 bcrFarStr += ` (법정 ${maxBcr}% / ${maxFar}%)`;
               }
               bldgRows.push(['건폐율 / 용적률', bcrFarStr]);
@@ -789,20 +790,22 @@ export class MobileImPptxRenderer {
             const ssot = input.doc.body?.ssot_summary ?? {};
             const bcr = ssot.bcr_pct;
             const far = ssot.far_pct;
-            const maxBcr = ssot.max_bcr_pct ?? 50;
-            const maxFar = ssot.max_far_pct ?? 250;
+            // 법정 상한: 공식 출처만 (기존 50/250 하드코딩 기본값은 날조라 제거 — Rule 34)
+            const { bcrMax: maxBcr, farMax: maxFar } = verifiedLegalLimitsFromSsot(ssot);
             const road = ssot.road_condition ?? '';
             const zoning = ssot.zoning ?? '';
             const bullets: string[] = [];
             if (bcr && far) {
-              bullets.push(`• 현 건폐율 ${bcr}%, 용적률 ${far}% (법정 상한: 건폐율 ${maxBcr}%, 용적률 ${maxFar}%)`);
-              const farGap = Number(maxFar) - Number(far);
+              bullets.push(maxBcr && maxFar
+                ? `• 현 건폐율 ${bcr}%, 용적률 ${far}% (법정 상한: 건폐율 ${maxBcr}%, 용적률 ${maxFar}%)`
+                : `• 현 건폐율 ${bcr}%, 용적률 ${far}%${zoning ? ` (${zoning})` : ''}`);
+              const farGap = maxFar ? Number(maxFar) - Number(far) : 0;
               if (farGap > 5) {
-                bullets.push(`• ${zoning} 기준 법정 상한 대비 용적률 ${farGap.toFixed(1)}%p 여유 — 밸류애드 잠재력`);
+                bullets.push(`• ${zoning} 기준 법정 상한 대비 용적률 ${farGap.toFixed(1)}%p 여유`);
               }
             }
             if (road) {
-              bullets.push(`• ${road} 접면 차량 진출입 및 보행자 접근성 우수`);
+              bullets.push(`• 도로접면: ${road}`);
             }
             if (bullets.length > 0) {
               dataMap['land'].right.callout = {
@@ -834,6 +837,11 @@ export class MobileImPptxRenderer {
           platArea: Number(enrichment?.buildingRegister?.platArea) || null,
           archArea: Number(enrichment?.buildingRegister?.archArea) || null,
         });
+        // 렌트롤 자동 합계 행 정밀도 정합(A24): 반올림된 행 합(1,441.2)이 대장 연면적(1,441.15)과 반올림 오차 이내면 대장값 표기
+        const regTotArea = Number(enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea);
+        if (dataMap['rentRoll'] && Number.isFinite(regTotArea) && regTotArea > 0) {
+          (dataMap['rentRoll'] as any).registerTotalAreaSqm = regTotArea;
+        }
       }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)

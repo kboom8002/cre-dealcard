@@ -71,7 +71,9 @@ describe('토지 현황 — 다필지', () => {
   it('[NEG] 일부 필지 지목 미입력이어도 지목을 대표 필지 값으로 대체하지 않는다', () => {
     const body = { ...multiBody, parcels: multiBody.parcels.map(p => ({ pnu: p.pnu, areaM2: p.areaM2 })) };
     const rows = landRows({ landUsePlan: baseLup, landPrice: lp }, body);
-    expect(row(rows, '지목')?.[1]).toBe('-');
+    // 미확인 값은 '-' 대신 행 자체를 생략한다 (대표 필지 '대'로 대체 금지가 본 의도).
+    expect(row(rows, '지목')).toBeUndefined();
+    expect(rows.some(r => r[1] === '대')).toBe(false);
   });
 
   it('[NEG] 단일 필지는 기존 표기 유지 (필지 구성 행·대표 필지 접미사 없음)', () => {

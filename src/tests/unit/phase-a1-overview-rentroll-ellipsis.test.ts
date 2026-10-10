@@ -44,7 +44,7 @@ describe('D5 resolveOverviewSpecs / buildOverviewSpecRows', () => {
       bcRat: 58.4, vlRat: 398.8, useAprDay: '20030514',
       floorsAbove: 12, floorsBelow: 2, mainPurpose: '업무시설', structure: '철근콘크리트구조',
     },
-    landUsePlan: { zoningDistrict: '일반상업지역', buildingCoverageMax: 60, floorAreaRatioMax: 400 },
+    landUsePlan: { zoningDistrict: '일반상업지역', buildingCoverageMax: 60, floorAreaRatioMax: 400, limitsSource: 'official' },
   };
 
   it('POSITIVE: 대장 실제 키(bcRat/vlRat/useAprDay/floorsAbove…)를 읽어 행 생성', () => {
@@ -59,6 +59,14 @@ describe('D5 resolveOverviewSpecs / buildOverviewSpecRows', () => {
     expect(map.get('층수')).toBe('지하 2층 / 지상 12층');
     expect(map.get('주용도')).toBe('업무시설');
     expect(map.get('주구조')).toBe('철근콘크리트구조');
+  });
+
+  it('NEGATIVE: 용도지역 추정 법정 상한(공식 출처 아님)은 표기하지 않는다', () => {
+    const inferred = { ...enrichment, landUsePlan: { ...enrichment.landUsePlan, limitsSource: 'inferred_zoning' } };
+    const specs = resolveOverviewSpecs(inferred, {}, {}, undefined, { nowYear: NOW });
+    expect(specs.bcrMax).toBeUndefined();
+    expect(specs.farMax).toBeUndefined();
+    expect(new Map(buildOverviewSpecRows(specs)).get('건폐율 / 용적률')).toBe('58.4% / 398.8%');
   });
 
   it('POSITIVE: ssot_summary(handler가 쓴 키)만 있어도 동일 행 생성 (대장 > ssot 우선순위)', () => {
@@ -90,8 +98,8 @@ describe('D5 resolveOverviewSpecs / buildOverviewSpecRows', () => {
     expect(isMissingSpecValue('일반상업지역')).toBe(false);
   });
 
-  it('법정 상한만 있으면 라벨에 (법정) 을 명시해 현황으로 오인되지 않게 한다', () => {
-    const rowsOut = buildOverviewSpecRows(resolveOverviewSpecs({ landUsePlan: { buildingCoverageMax: 60, floorAreaRatioMax: 400 } }, {}, {}));
+  it('법정 상한만 있으면(공식 출처) 라벨에 (법정) 을 명시해 현황으로 오인되지 않게 한다', () => {
+    const rowsOut = buildOverviewSpecRows(resolveOverviewSpecs({ landUsePlan: { buildingCoverageMax: 60, floorAreaRatioMax: 400, limitsSource: 'official' } }, {}, {}));
     expect(rowsOut).toEqual([['건폐율 / 용적률 (법정)', '60% / 400%']]);
   });
 

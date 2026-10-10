@@ -180,9 +180,11 @@ describe('Basic IM SOTA Render Verification Test', () => {
     expect(slideXmls[5]).toContain('FBEFE8');
     console.log('  ✅ G4: A24 공실 스타일링 FBEFE8 확인');
 
-    // F-06: 렌트롤 10열 표준 컬럼 확인
-    expect(slideTexts[5]).toContain('관리비');
-    console.log('  ✅ 렌트롤 10열 표준 컬럼 (관리비 포함) 확인');
+    // F-06: 렌트롤 표준 컬럼 — 픽스처에 관리비 입력이 없으므로 관리비·월합계(=월임대료) 열은 생략된다
+    expect(slideTexts[5]).toContain('월임대료');
+    expect(slideTexts[5]).not.toContain('관리비');
+    expect(slideTexts[5]).not.toContain('월합계');
+    console.log('  ✅ 렌트롤 표준 컬럼 (관리비 미기입 → 관리비·월합계 생략) 확인');
 
     // ═══════════════════════════════════════════════════
     // Slide 7: Yield Formula (A23)

@@ -9,6 +9,8 @@
  *  - 전용면적만 기입 → 9열 (임대면적 열 제거, 전용면적 열 유지)
  *  - 둘 다 비어 있음 → 9열 (임대면적 열만 '-' 로 유지: 면적 미기재 사실을 표에 남긴다)
  *
+ * 관리비가 모든 호실에서 미기입이면 관리비 열과 월합계 열(= 월임대료와 동일)을 함께 생략한다.
+ *
  * 한 칸에 다른 면적을 대신 채워 넣지 않는다 (예전 폴백: 전용면적 칸에 임대면적 값 복사 → 오표기).
  * rules/07 #68(열 수 = 셀 수)을 지키기 위해 헤더·열폭·행 셀을 같은 keep 인덱스로 동시에 투영한다.
  */
@@ -22,6 +24,9 @@ export const RENTROLL_NOTE_HEADER = '비고';
 export const NOTE_COL = 10;
 /** 용도 열 인덱스 — 모든 행이 '-'/빈 값이면 투영에서 생략 */
 export const USE_COL = 2;
+/** 관리비·월합계 열 인덱스 — 관리비가 전 행 미기입이면 두 열을 함께 생략 (월합계 = 월임대료로 중복) */
+export const MGMT_COL = 7;
+export const MONTHLY_TOTAL_COL = 8;
 /** 비고 열 기준 폭(in) — 11열 투영 시에만 사용 */
 export const RENTROLL_NOTE_COL_W = 1.0;
 
@@ -63,6 +68,12 @@ function hasNoteValue(cell: unknown): boolean {
   return s !== '' && s !== '-' && s !== '〃';
 }
 
+/** 관리비 셀 기입 여부 — '별도'·'실비' 같은 비숫자 표기도 기입, 순수 0(원/만원)은 미기입 */
+function hasMgmtValue(cell: unknown): boolean {
+  if (!hasNoteValue(cell)) return false;
+  return !/^0(?:\.0+)?\s*(?:만원|원)?$/.test(String(cell).trim());
+}
+
 export function detectAreaColumnMode(rows: unknown[][]): AreaColumnMode {
   const dataRows = rows.filter((r) => !isRentRollSummaryRow(r));
   const hasLease = dataRows.some((r) => hasAreaValue(r[LEASE_AREA_COL]));
@@ -80,7 +91,12 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
   // 용도 열 — 모든 데이터 행이 '-'/빈 값이면 열 자체를 생략 (상호=업종 단일 입력처럼 구분되는 용도가 없을 때)
   const hasUse = dataRows.some((r) => hasNoteValue(r[USE_COL]));
   const dropUse = dataRows.length > 0 && !hasUse;
-  const keep = all.filter((i) => i !== dropIdx && !(dropUse && i === USE_COL));
+  // 관리비 열 — 모든 데이터 행이 미기입('-'/빈 값/0)이면 관리비 열과, 월임대료와 같아지는 월합계 열을 함께 생략
+  const hasMgmt = dataRows.some((r) => hasMgmtValue(r[MGMT_COL]));
+  const dropMgmt = dataRows.length > 0 && !hasMgmt;
+  const keep = all.filter((i) => i !== dropIdx
+    && !(dropUse && i === USE_COL)
+    && !(dropMgmt && (i === MGMT_COL || i === MONTHLY_TOTAL_COL)));
   // D6: 비고 열 — 데이터 행 중 하나라도 비고가 있을 때만 (헤더·열폭·셀을 같은 keep 으로 투영해 열 수 = 셀 수 유지)
   const hasNote = dataRows.some((r) => hasNoteValue(r[NOTE_COL]));
   if (hasNote) keep.push(NOTE_COL);
@@ -98,6 +114,14 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
     w[1] += freedUse * 0.5;
     if (hasNote) w[NOTE_COL] += freedUse * 0.5;
     else w[9] += freedUse * 0.5;
+  }
+  if (dropMgmt) {
+    const freedMgmt = w[MGMT_COL] + w[MONTHLY_TOTAL_COL];
+    w[1] += freedMgmt * 0.5;
+    if (!dropUse) w[USE_COL] += freedMgmt * 0.25;
+    else w[1] += freedMgmt * 0.25;
+    if (hasNote) w[NOTE_COL] += freedMgmt * 0.25;
+    else w[9] += freedMgmt * 0.25;
   }
   const colW = keep.map((i) => Math.round(w[i] * 100) / 100);
   const headerAt = (i: number): string => (i === NOTE_COL ? RENTROLL_NOTE_HEADER : BASIC_RENTROLL_HEADERS[i]);

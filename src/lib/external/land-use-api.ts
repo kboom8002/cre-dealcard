@@ -13,6 +13,8 @@ export interface LandUsePlanData {
   zoningOverlap: string[];        // 기타 용도지구 (예: 방화지구)
   buildingCoverageMax: number;    // 법정 건폐율 상한 (%)
   floorAreaRatioMax: number;      // 법정 용적률 상한 (%)
+  /** 상한 출처. 'official' 만 IM 에 표시(legal-limits.ts). 현재 V-World 경로는 용도지역명 추정이라 미설정(=숨김) */
+  limitsSource?: 'official' | 'inferred_zoning';
   landArea?: number;              // 토지면적 (㎡) — V-World 제공
   landShape?: string;             // 형상 (사다리형, 정방형 등)
   terrain?: string;               // 지형 (평지, 완경사 등)
