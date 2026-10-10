@@ -41,6 +41,7 @@ import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary } f
 import { brokerFinancialExtras } from './broker-financial-inputs';
 import { maskFabricatedBrands } from "./tenant-name-policy";
 import { alignPlatAreaForPrompt } from "./prompt-land-area";
+import { verifiedLegalLimits, stripUnverifiedLimits } from "./legal-limits";
 import type { IMGenerationContext } from "./im-context-builder";
 import { getPosturePromptOverlay } from "./posture-prompts";
 import { getModel } from "@/ai/model-selector";
@@ -189,6 +190,8 @@ export async function generateSingleSection(
     externalData as Record<string, any> | null,
     Number((ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || (supplemental as any)?.land_area_m2 || 0),
   ) as ExternalDataSnapshot | null;
+  // 공식 조회가 아닌 법정 한도(용도지역명 추정치)는 LLM 입력에서 제거 — '추정 법정 상한 N%' 본문 방지 (P2, legal-limits.ts)
+  externalData = stripUnverifiedLimits(externalData as Record<string, any> | null) as ExternalDataSnapshot | null;
 
   // Backfill monthly_rent_total_krw from floor_leases if empty
   if (!supplemental.monthly_rent_total_krw && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
@@ -472,9 +475,11 @@ export async function generateSingleSection(
     }
 
     const zoning = lu?.zoningDistrict || String((ctx.assetIdentity as any)?.zoning || (buildingSsotLite as any)?.physicalFact?.zoning_district || (buildingSsotLite as any)?.physicalFact?.zoningDistrict || (supplemental as any)?.zoning || '-');
-    const buildingCoverageRatio = br?.bcRat || (supplemental.regulation as any)?.bcRat || lu?.buildingCoverageMax || undefined;
+    // 법정 한도는 공식 조회값만 (legal-limits.ts) — 용도지역명 추정치(lu.buildingCoverageMax 등)는 '현황 건폐율/법정 용적률'로 쓰지 않는다.
+    const officialLimits = verifiedLegalLimits(lu as Record<string, any> | undefined);
+    const buildingCoverageRatio = br?.bcRat || (supplemental.regulation as any)?.bcRat || undefined;
     const floorAreaRatio = br?.vlRat || (supplemental.regulation as any)?.vlRat || undefined;
-    const maxFar = lu?.floorAreaRatioMax || (supplemental.regulation as any)?.maxFar || undefined;
+    const maxFar = officialLimits.farMax || (supplemental.regulation as any)?.maxFar || undefined;
     const landShape = lu?.landShape || (supplemental.regulation as any)?.landShape || undefined;
     const landTopography = lu?.terrain || (supplemental.regulation as any)?.landTopography || undefined;
     const roadFrontage = lu?.roadAccess || (supplemental.regulation as any)?.roadFrontage || undefined;

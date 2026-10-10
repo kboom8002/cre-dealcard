@@ -2,19 +2,19 @@
  "schemaVersion": 1,
  "name": "income-ig2-corrected",
  "fixtureDir": "docs/income-golden-data/ig2-ssangnim-114/corrected",
- "capturedAt": "2026-10-10T06:06:59.227Z",
- "docId": "d95b5ed3-0782-44bf-94bf-968353fb6d91",
- "buildingId": "a8731ce0-54ab-4e04-8e02-af26e523b275",
+ "capturedAt": "2026-10-10T11:06:13.727Z",
+ "docId": "9fa80d44-cead-42c7-a1de-a51292a690ba",
+ "buildingId": "3bec5187-4dee-4484-a648-e40e1e52109d",
  "doc": {
-  "id": "d95b5ed3-0782-44bf-94bf-968353fb6d91",
-  "title": "동대문역사문화공원·충무로권역 근생빌딩 매각",
+  "id": "9fa80d44-cead-42c7-a1de-a51292a690ba",
+  "title": "종로/광화문권역 근생빌딩 매각",
   "document_type": "mobile_im",
-  "created_at": "2026-10-10T05:32:06.459221+00:00",
+  "created_at": "2026-10-10T10:52:11.65753+00:00",
   "body": {
    "tier": "basic",
    "claims": [
     {
-     "id": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
+     "id": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
      "asOf": "2026-10-10",
      "unit": "원",
      "value": 9500000000,
@@ -31,7 +31,7 @@
      "expertRequired": false
     },
     {
-     "id": "57934be7-e59b-4627-8b63-da56afe2bbd9",
+     "id": "9a0c817e-28f2-4b16-9156-36f2bc249d60",
      "asOf": "2026-10-10",
      "unit": "원/월",
      "value": 23570000,
@@ -48,10 +48,10 @@
      "expertRequired": false
     },
     {
-     "id": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
+     "id": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
      "asOf": "2026-10-10",
      "unit": "㎡",
-     "value": 1687.5040689500001,
+     "value": 1687.51,
      "status": "reconciled",
      "subject": "total_area_sqm",
      "evidence": [
@@ -65,10 +65,10 @@
      "expertRequired": false
     },
     {
-     "id": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
+     "id": "99dc87c7-466c-4b65-8f57-724b858acedb",
      "asOf": "2026-10-10",
      "unit": "㎡",
-     "value": 420.59502555000006,
+     "value": 420.6,
      "status": "reconciled",
      "subject": "land_area_sqm",
      "evidence": [
@@ -82,7 +82,7 @@
      "expertRequired": false
     },
     {
-     "id": "18fb735f-b2d6-4a20-a702-45d498c86e59",
+     "id": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 14.3,
@@ -99,7 +99,7 @@
      "expertRequired": false
     },
     {
-     "id": "d704be7f-e1e3-422f-b498-1fefeeba1431",
+     "id": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
      "asOf": "2026-10-10",
      "unit": "원",
      "value": 240000000,
@@ -116,7 +116,7 @@
      "expertRequired": false
     },
     {
-     "id": "02295bcf-7f67-47a8-b111-4e02186915ad",
+     "id": "f0381685-eb6b-417c-9978-d61895a442ca",
      "asOf": "2026-10-10",
      "unit": "원",
      "value": 191482680,
@@ -131,15 +131,15 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "cc953563-6cd4-4623-bfa5-b4ed63b4dfcb",
+      "id": "4a00873f-fa7d-406e-b8d0-537d9711a227",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 191482680,
       "formula": "annual_gross * (1 - vacancy) - opex",
@@ -150,7 +150,7 @@
      "expertRequired": false
     },
     {
-     "id": "fbd26e6a-b7ae-40b2-b84c-1a33f65add97",
+     "id": "dfab4a51-a86b-48e5-8378-8fcc931fc2a9",
      "asOf": "2026-10-10",
      "unit": "원",
      "value": 237585600,
@@ -165,15 +165,15 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "a383de3b-1ca4-43ac-a91c-97a8676a1754",
+      "id": "d141d56b-774b-4f84-bd3d-b11a05195eff",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 237585600,
       "formula": "annual_gross - opex_low",
@@ -183,7 +183,7 @@
      "expertRequired": false
     },
     {
-     "id": "98b53a16-5465-42cb-8e5c-b40cecfc833c",
+     "id": "253d8f1c-1233-4b50-b4e1-9e99608b5f44",
      "asOf": "2026-10-10",
      "unit": "원",
      "value": 166875600,
@@ -198,15 +198,15 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "7dc5842c-1612-4395-a454-c5b7193aff98",
+      "id": "b4cb5a80-5ecc-4443-9399-1c753dde6637",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 166875600,
       "formula": "annual_gross * (1 - vacancy_high) - opex_high",
@@ -216,7 +216,7 @@
      "expertRequired": false
     },
     {
-     "id": "d0847213-fe87-4830-a592-0852e366941f",
+     "id": "e76a7ec1-a6ae-4e20-bc94-1dcb1cdf1e8b",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 2.02,
@@ -231,15 +231,15 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "3cc5c0f6-f8a2-49ea-9588-5bbe85edf807",
+      "id": "4744d053-0bbb-45bb-a63f-825675372ac6",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 2.02,
       "formula": "noi_base / asking_price * 100",
@@ -249,7 +249,7 @@
      "expertRequired": false
     },
     {
-     "id": "9ec8bc03-0fc8-4c24-9a28-18d8c947aec1",
+     "id": "7eb3fab5-76ba-4e06-a929-a900962de1ef",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 2.5,
@@ -264,15 +264,15 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "f94c9f5a-e32e-439c-ba39-add10c44012f",
+      "id": "e106827c-b09c-486d-b167-12270c14f4b6",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 2.5,
       "formula": "noi_best / asking_price * 100",
@@ -282,7 +282,7 @@
      "expertRequired": false
     },
     {
-     "id": "4110b30e-c8d5-4651-971e-14a788bf2a28",
+     "id": "2f7ac4bf-1aef-4cfc-9403-80335f92c5ff",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 1.76,
@@ -297,15 +297,15 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "ef9d595e-f192-4e64-8128-9324adc23af5",
+      "id": "05aaa47a-f544-4861-8995-4ec9440423cc",
       "basis": "NOI",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 1.76,
       "formula": "noi_worst / asking_price * 100",
@@ -315,7 +315,7 @@
      "expertRequired": false
     },
     {
-     "id": "40f20b3f-8d3f-4b32-8e7c-6d634d1bb37f",
+     "id": "7d452d73-4ab0-428e-b332-186f88eb66d5",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": -0.6,
@@ -330,14 +330,14 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "e00143b0-c959-49f4-8109-d3f6a1898086",
+      "id": "f2cd06b5-3a39-460f-898d-8106b4a5c675",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": -0.6,
       "formula": "irr(cfs, hold=5)",
@@ -347,7 +347,7 @@
      "expertRequired": false
     },
     {
-     "id": "ecf77682-3603-408d-8612-dcb47d6183a4",
+     "id": "d6620fac-29ac-4719-be4a-57cdc31d878c",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 6.8,
@@ -362,14 +362,14 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "a88f7b02-94fd-4c1c-b465-68be85f46557",
+      "id": "bfe57312-100f-40cb-8ea3-bd805c3c0980",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 6.8,
       "formula": "irr(cfs_best, hold=5)",
@@ -379,7 +379,7 @@
      "expertRequired": false
     },
     {
-     "id": "739a715f-83ca-487d-bb37-c1fb2ad35ef2",
+     "id": "8cec71e6-c480-4ab6-b9da-923ff1098b4e",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": -7.3,
@@ -394,14 +394,14 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "2b2df082-8435-493e-a753-1045b147b73d",
+      "id": "dc8ebe17-d2b7-4914-8d69-4037a827f5c1",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": -7.3,
       "formula": "irr(cfs_worst, hold=5)",
@@ -411,7 +411,7 @@
      "expertRequired": false
     },
     {
-     "id": "5e00143c-5d95-4a15-b75e-a386a1484766",
+     "id": "24467a72-2886-4768-a704-288ee59a67b6",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 2.98,
@@ -426,15 +426,15 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "4e436646-cb99-49de-b2ea-e3174f5293b6",
+      "id": "aecf648f-d505-485b-b98e-baec05f3aece",
       "basis": "GPI",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 2.98,
       "formula": "annual_gross / asking_price * 100",
@@ -444,31 +444,31 @@
      "expertRequired": false
     },
     {
-     "id": "209762bd-9c3c-4bf0-898c-26f137c05708",
+     "id": "0a82b32a-6b6f-4e04-a4b0-909d7c742184",
      "asOf": "2026-10-10",
      "unit": "원/㎡",
-     "value": 5629616,
+     "value": 5629596,
      "status": "reconciled",
      "subject": "price_per_sqm",
      "evidence": [
       {
        "asOf": "2026-10-10",
-       "excerpt": "asking_price / total_area = 5629616",
+       "excerpt": "asking_price / total_area = 5629596",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "b87ab747-b6a3-4529-b8b8-71814439c3b5",
+      "id": "bca932ce-2412-4bd5-8591-24dd19a11868",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
-      "result": 5629616,
+      "result": 5629596,
       "formula": "asking_price / total_area",
       "formulaVersion": "v1.0.0"
      },
@@ -476,31 +476,31 @@
      "expertRequired": false
     },
     {
-     "id": "d2dcb98e-2645-4177-aeee-2d7be6fb318c",
+     "id": "c770de2c-660b-4514-b1c0-a125f19a7db5",
      "asOf": "2026-10-10",
      "unit": "원/평",
-     "value": 18610300,
+     "value": 18610234,
      "status": "reconciled",
      "subject": "price_per_pyeong",
      "evidence": [
       {
        "asOf": "2026-10-10",
-       "excerpt": "price_per_sqm * 3.30578 = 18610300",
+       "excerpt": "price_per_sqm * 3.30578 = 18610234",
        "sourceId": "derived"
       }
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "1e05aee2-caf1-4286-a6c4-fdae2a3f46a8",
+      "id": "91c8fbd6-05c6-4347-8e40-377c205e435c",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
-      "result": 18610300,
+      "result": 18610234,
       "formula": "price_per_sqm * 3.30578",
       "formulaVersion": "v1.0.0"
      },
@@ -508,7 +508,7 @@
      "expertRequired": false
     },
     {
-     "id": "e5eaf662-959a-4c5b-b137-a3bcca45f23f",
+     "id": "092e1d92-71f7-450a-b3ab-226d095fbb10",
      "asOf": "2026-10-10",
      "unit": "억원",
      "value": 97.8,
@@ -523,14 +523,14 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "af179faf-5f8e-4d37-b1c7-ddd2ee503075",
+      "id": "696eb825-32d2-424b-9838-507303694c65",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 97.8,
       "formula": "total_cost - deposit - loan",
@@ -540,7 +540,7 @@
      "expertRequired": false
     },
     {
-     "id": "6ff0f2fb-daac-4209-b6bc-e2117e2af31b",
+     "id": "dc723988-7231-4b07-ad0b-493973b6977d",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 2.07,
@@ -555,14 +555,14 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "3692dfe5-d99e-4c0c-bd98-3b4cfc830d98",
+      "id": "ea39bb9f-312b-4ed8-9c07-c918e8699940",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 2.07,
       "formula": "(noi - interest) / equity * 100",
@@ -572,7 +572,7 @@
      "expertRequired": false
     },
     {
-     "id": "80569d02-9cdd-4341-a271-3dc9cc12b5e2",
+     "id": "c8d7e0e0-eb83-4ffa-93b9-f9e01f8804b2",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 30.9,
@@ -587,14 +587,14 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "2fa51eb1-0b6f-4651-ad08-0de1e2030927",
+      "id": "a20d61a3-5689-4dbf-8661-aa32917f226f",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 30.9,
       "formula": "land_price_total / asking_price * 100",
@@ -604,7 +604,7 @@
      "expertRequired": false
     },
     {
-     "id": "03553691-46a0-484d-b6fc-036ab2c35257",
+     "id": "0d89b684-9bf3-4fd8-b439-81080a6730a2",
      "asOf": "2026-10-10",
      "unit": "억원",
      "value": 100.2,
@@ -619,14 +619,14 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "ab291d96-881a-4296-81aa-6240fb15ae3c",
+      "id": "faf53ce2-c4b0-48c0-9a0d-ff024033efe0",
       "inputs": {
-       "asking_price": "08d47a5e-c361-4c1e-b6e3-bfd02f198fee",
-       "land_area_sqm": "ae6e6b00-1ca3-4945-bcb3-80384e0c221c",
-       "total_deposit": "d704be7f-e1e3-422f-b498-1fefeeba1431",
-       "total_area_sqm": "c33e4db1-d82b-41fe-b5a6-7b6474869d41",
-       "vacancy_rate_pct": "18fb735f-b2d6-4a20-a702-45d498c86e59",
-       "monthly_rent_total": "57934be7-e59b-4627-8b63-da56afe2bbd9"
+       "asking_price": "18ddbf78-3b1b-4eba-b901-691d2a0d5471",
+       "land_area_sqm": "99dc87c7-466c-4b65-8f57-724b858acedb",
+       "total_deposit": "d6cab40a-3f93-47e4-8456-a7c3f7366645",
+       "total_area_sqm": "1e0805d2-c7e9-40b2-8fa0-f15e646d192f",
+       "vacancy_rate_pct": "35b8b926-7bd2-4555-8d88-77039c8ef4e7",
+       "monthly_rent_total": "9a0c817e-28f2-4b16-9156-36f2bc249d60"
       },
       "result": 100.2,
       "formula": "asking + tax + broker_fee",
@@ -636,7 +636,7 @@
      "expertRequired": false
     },
     {
-     "id": "f1597fd7-ee40-4b2b-813c-87ba84892cb4",
+     "id": "99813dd8-eec0-4869-841e-92368d248bb1",
      "asOf": "2026-10-10",
      "unit": "",
      "value": 1,
@@ -654,7 +654,7 @@
      "expertRequired": false
     },
     {
-     "id": "66cc2957-d962-493b-a6a7-aa991a0b2737",
+     "id": "cff3ddac-0454-493b-bc87-c19684b5df3b",
      "asOf": "2026-10-10",
      "unit": "%",
      "value": 3.47,
@@ -669,7 +669,7 @@
      ],
      "provenance": "derived",
      "calculation": {
-      "id": "522c6ed0-64c0-4e5d-bbf5-7194dc6cc5c5",
+      "id": "f27ee526-6d20-4acd-b0d1-95f28c3dd2df",
       "basis": "NOI",
       "inputs": {},
       "result": 3.47,
@@ -680,7 +680,7 @@
      "expertRequired": false
     },
     {
-     "id": "1124212f-cbb0-49c0-85b7-73217ce0c0df",
+     "id": "1e5ffe7a-8403-46c7-ac93-7993e1424828",
      "asOf": "2026-10-10",
      "unit": "%p",
      "value": 0.5,
@@ -793,24 +793,24 @@
    "preset": "credeal_basic",
    "ai_used": true,
    "im_type": "mobile_im_lite",
-   "ogTitle": "동대문역사문화공원·충무로권역 근생빌딩 매각",
+   "ogTitle": "종로/광화문권역 근생빌딩 매각",
    "heroCard": {
     "adr": null,
     "occPct": null,
     "revpar": null,
     "zoning": "제3종일반주거지역",
     "hasLoan": false,
-    "keyRisk": "건축물대장과 지구단위계획 결정도서로 증축·구조·용도 및 주차장 완화 적용 여부 확인 필요. 임대차계약서와 입금 자료를 통한 임대현황 검증 및 제조업 임차 부분의 허용용도 확인이 필요하다.",
+    "keyRisk": "임대차계약서와 입금 자료를 통한 임대현황 확인이 필요하다. 건축물대장·토지이용계획 및 7층 증축 관련 인허가 서류 확인이 필요하다.",
     "opexPct": 18,
     "posture": "income",
     "assetType": "근생빌딩",
     "keyPoints": [
-     "자산 가치 완충 여력 확보: 동대문역사문화공원·충무로권역 소재 근생빌딩으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
-     "안정적 월 현금흐름: 현행 임대차 현황 및 공실률 기반 순영업소득(NOI) 구조가 확인됩니다.",
-     "가치 상승 및 출구 전략: 현행 공법 여력을 활용한 가치개선(Value-add) 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다. 인근 실거래 비교 사례 10건 기준 평균 3.3㎡당 가격 약 2,817만원/3.3㎡(28,172,591원)으로, 본 자산과 비교 검토할 수 있습니다."
+     "토지·입지: 2026년 공시지가 ㎡당 698.8만원과 공시지가 데이터상 토지면적 420.6㎡를 기준으로 한 토지 평가액은 약 30.51억원으로, 희망 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선 313m, 도보 4분 거리에 위치하며 소로 한 면에 접합니다.",
+     "임대 현황: 월 임대료는 2,357만원, 보증금은 2억4,000만원이며, 지하 1층 78평(약 257.9㎡)(257.9㎡) 공실을 포함한 공실률은 14.3%입니다. 지하층 외 임대 대상 공간은 실질적 공실이 없고, 소매점·제조업·사무소·기원 등의 용도로 사용 중입니다.",
+     "수익 구조: 희망 매매가는 95억원이며, 월 임대료 2,357만원과 임대 수익 존재 (NDA)이 제시되어 있습니다. 순투자금, 연 수익률(Cap Rate, 기준: 순영업수익(NOI)) 및 대출 조건별 자기자본수익률은 시스템 산출값이 제공되지 않아 본 항목에 반영하지 않습니다."
     ],
-    "areaSignal": "동대문역사문화공원·충무로권역",
-    "landAreaM2": 420.59502555000006,
+    "areaSignal": "종로/광화문권역",
+    "landAreaM2": 420.6,
     "noiBaseBil": 2.2,
     "opexSource": "assumed",
     "yieldBasis": "NOI",
@@ -824,25 +824,25 @@
      }
     ],
     "breakevenYears": null,
-    "pricePerPyeong": 18610300,
+    "pricePerPyeong": 18610234,
     "readinessScore": 90,
     "dcf10YearNpvBil": null,
     "devHoldYieldPct": null,
-    "totalGrossAreaM2": 1687.5040689500001,
+    "totalGrossAreaM2": 1687.51,
     "equityRequiredBil": 97.8,
     "leveragedYieldPct": 2.35,
     "marketDiscountPct": null,
     "vacancyReservePct": 5,
     "askingPriceDisplay": "95억 원",
     "devProfitMarginPct": null,
-    "keyInvestmentPoint": "자산 가치 완충 여력 확보: 동대문역사문화공원·충무로권역 소재 근생빌딩으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
+    "keyInvestmentPoint": "토지·입지: 2026년 공시지가 ㎡당 698.8만원과 공시지가 데이터상 토지면적 420.6㎡를 기준으로 한 토지 평가액은 약 30.51억원으로, 희망 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선 313m, 도보 4분 거리에 위치하며 소로 한 면에 접합니다.",
     "landPricePerPyeong": null,
     "ownVsLeaseSavingsBil": null
    },
    "sections": [
     {
      "title": "이 건물, 어떤 자산인가",
-     "markdown": "동대문역사문화공원역 도보 4분, 2003년 준공의 지하 1층~지상 7층 규모 근생빌딩입니다. 서울 중구 장충단로7길 56에 위치하며, 철근콘크리트 구조·연면적 1,687.51㎡ (510.5평)·대지면적 436.6㎡ 규모로 소매점·제조업·사무소 등 복합 수요를 수용하고 있습니다. 현재 공실 및 7층 일부 자가사용 면적을 제외한 월 임대료는 2,357만원이며, 지하 1층 소매점 약 78평(약 257.9㎡)의 공실은 임차인 유치 시 추가 임대수익 확보 여지로 검토할 수 있습니다. > **자산 하이라이트**: • 동대문역사문화공원·충무로권역의 우수한 대중교통 접근성 • 약 510.5평(약 1687.6㎡) 규모의 철근콘크리트 근생빌딩 • 지하 공실 임대차 재구성을 통한 현금흐름 개선 가능성",
+     "markdown": "**자산 개요** **동대문역사문화공원역 도보 4분, 연면적 510.5평(약 1687.6㎡) 규모의 2003년 준공 근생빌딩**입니다. 서울 중구 장충단로7길 56에 위치하며, 철근콘크리트 구조의 지하 1층~지상 7층 건물로 대지면적 420.6㎡ (127.2평), 연면적 1,687.51㎡ (510.5평) 규모입니다. 제3종일반주거지역 내 상업용으로 이용 중이며, 소매점·제조업·사무소·기원·주차장 등으로 구성되어 업종 분산형 임대운영이 가능하고, 승강기 1대 및 주차 6대를 갖췄습니다. 지하 1층 약 78평(약 257.9㎡) 공실을 제외하면 임대 대상 공간의 실질 공실이 없는 것으로 제시되어, 현금흐름 안정성과 지하층 임대차 정상화에 따른 추가 수익 여력을 함께 검토할 수 있는 자산입니다. > **자산 하이라이트**: • 동대문역사문화공원역·동대입구역·충무로역 도보권 입지 • 지하층 외 실질 공실 없는 임대운영 기반 • 510.5평(약 1687.6㎡) 규모의 다층 근생빌딩 및 지하 공실 수익화 가능성",
      "min_tier": "public",
      "confidence": "needs_check",
      "provenance": [
@@ -852,7 +852,7 @@
        "fieldKey": "total_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-10T05:29:22.015Z"
+       "lastVerifiedAt": "2026-10-10T10:50:01.050Z"
       },
       {
        "value": 420.6,
@@ -860,7 +860,7 @@
        "fieldKey": "plat_area",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-10T05:29:22.015Z"
+       "lastVerifiedAt": "2026-10-10T10:50:01.050Z"
       },
       {
        "value": "20030624",
@@ -868,7 +868,7 @@
        "fieldKey": "use_approval_date",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 건축물대장 API",
-       "lastVerifiedAt": "2026-10-10T05:29:22.015Z"
+       "lastVerifiedAt": "2026-10-10T10:50:01.050Z"
       }
      ],
      "judge_score": 4.7,
@@ -878,7 +878,7 @@
     },
     {
      "title": "왜 지금 이 건물을 사야 하는가",
-     "markdown": "> 💡 **종합 가치 제안**: 동대문역사문화공원·충무로권역 소재 근생빌딩 — 임대 수익 구조와 자산 가치 상승 시나리오를 분석합니다. **3대 핵심 투자 포인트 (Investment Highlights)** • **자산 가치 완충 여력 확보**: 동대문역사문화공원·충무로권역 소재 근생빌딩으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다. • **안정적 월 현금흐름**: 현행 임대차 현황 및 공실률 기반 순영업소득(NOI) 구조가 확인됩니다. • **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 가치개선(Value-add) 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다. 인근 실거래 비교 사례 **10건** 기준 평균 3.3㎡당 가격 **약 2,817만원/3.3㎡**(28,172,591원)으로, 본 자산과 비교 검토할 수 있습니다. **권역 시세 벤치마킹 (실거래 분석 · 연면적 기준)**\n| 항목 | 수치 |\n|------|------|\n| **본 자산 ㎡당 단가 (연면적 기준)** | 5,629,596원/㎡ |\n| **권역 평균 ㎡당 단가 (연면적 기준)** | 8,522,209원/㎡ |\n| **시세 대비 포지션** | 🟢 **-33.9% 디스카운트** |\n| **경쟁력 판정** | **주변 사례와 보정 기준을 함께 검토해야 합니다. — 매력적 진입 가격** |\n| **비교 사례 수** | 10건 | > ℹ️ **단가 기준 안내**: 본 비교는 건물 연면적 기준 단가입니다. (토지 면적 단가와 구분) 최근 인근 실거래 기준이며 개별 물건 조건에 따라 차이가 있습니다. **예상 매수자 유형 (AI 분석)**\n| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **임대 수익형 투자자** | ◎ 최적합 | 안정 MD, 예측 가능한 월 현금흐름 |\n| **상가 전문 임대 운영사** | ○ 적합 | MD 관리 노하우 보유 시 최적 |\n| **프랜차이즈 본사 직매장** | △ 검토 | 브랜드 노출 + 직영 운영 가능 | **가치개선(Value-add) 시나리오 (AI 추정)**\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\n|---------|---------|-------------|--------|\n| ① 공실 해소 | +약 0.40억 원 (+16.7%) | 2.95% | 불필요 |\n| ② 임대료 현실화 (+5%) | +약 0.12억 원 (+5%) | 2.66% | 불필요 |\n| ③ 리모델링 후 임대료 상승 | +약 0.19억 원 (+8%) | 2.73% | 약 5.06억 원 | > 가치개선(Value-add) 시나리오는 AI 추정이며 실제 시장 조건에 따라 다를 수 있습니다. > **전문가 한줄 의견**: \"3개 역 도보권 · 지하 외 실공실 없음 · 토지평당 7,470만원\"\n\n### 투자 포인트 (중개인 입력)\n\n- 3개 역 도보 10분 이내, 장충체육관·신라호텔·동국대 인접\n- 지하층 외 실질적인 공실 없음\n- 사무소·인쇄 관련 업종 수요 풍부",
+     "markdown": "**3대 핵심 투자 포인트** • **토지·입지**: 2026년 공시지가 ㎡당 698.8만원과 공시지가 데이터상 토지면적 420.6㎡를 기준으로 한 토지 평가액은 약 30.51억원으로, 희망 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선 313m, 도보 4분 거리에 위치하며 소로 한 면에 접합니다. • **임대 현황**: 월 임대료는 2,357만원, 보증금은 2억4,000만원이며, 지하 1층 78평(약 257.9㎡)(257.9㎡) 공실을 포함한 공실률은 14.3%입니다. 지하층 외 임대 대상 공간은 실질적 공실이 없고, 소매점·제조업·사무소·기원 등의 용도로 사용 중입니다. • **수익 구조**: 희망 매매가는 95억원이며, 월 임대료 2,357만원과 임대 수익 존재 (NDA)이 제시되어 있습니다. 순투자금, 연 수익률(Cap Rate, 기준: 순영업수익(NOI)) 및 대출 조건별 자기자본수익률은 시스템 산출값이 제공되지 않아 본 항목에 반영하지 않습니다. > **종합 가치 제안**: 1,687.51㎡ 규모의 7층 근린생활시설로서 역 도보권 접근성, 공시지가 기반 토지 비중 및 지하층을 제외한 임대 운영 현황을 함께 검토할 수 있는 자산입니다. **가치개선(Value-add) 시나리오 (AI 추정)**\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\n|---------|---------|-------------|--------|\n| ① 공실 해소 | +약 0.40억 원 (+16.7%) | 2.95% | 불필요 |\n| ② 임대료 현실화 (+5%) | +약 0.12억 원 (+5%) | 2.66% | 불필요 |\n| ③ 리모델링 후 임대료 상승 | +약 0.19억 원 (+8%) | 2.73% | 약 5.06억 원 | > 가치개선(Value-add) 시나리오는 AI 추정이며 실제 시장 조건에 따라 다를 수 있습니다. > **전문가 한줄 의견**: \"3개 역 도보권 · 지하 외 실공실 없음 · 토지평당 7,470만원\"\n\n### 투자 포인트 (중개인 입력)\n\n- 3개 역 도보 10분 이내, 장충체육관·신라호텔·동국대 인접\n- 지하층 외 실질적인 공실 없음\n- 사무소·인쇄 관련 업종 수요 풍부",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -888,11 +888,10 @@
     },
     {
      "title": "이 입지, 투자할 만한 곳인가",
-     "markdown": "**입지 분석** **3개 역 도보 10분권, 동대문역사문화공원·충무로권역의 인쇄·사무 수요를 흡수하는 도심 근생 입지**입니다. 동대문역사문화공원역(5호선) 약 313m·도보 4분, 동대입구역(3호선) 약 428m 거리에 위치하며, 충무로역까지도 도보권으로 접근 가능해 임차인의 출퇴근 편의와 업종별 인력 확보에 유리합니다. 반경 내 음식점 372곳, 카페 92곳, 편의점 36곳 및 주차시설 51곳이 분포하고 장충체육관·신라호텔·동국대가 인접해 생활·업무·관광 수요가 복합된 배후를 확보합니다. 이러한 도심 접근성과 특화 상권 기반은 사무소·소매점 중심의 안정적인 임차 수요를 뒷받침하며, 현재 지하 1층 공실의 임대 정상화 시 추가 현금흐름 개선 여지도 제공합니다.\n\n### 입지 설명 (중개인 입력)\n\n동대문역사문화공원역·동대입구역·충무로역 도보 10분 이내. 서울 지리적 중심부, 인쇄 등 특화 업종 상권 형성",
+     "markdown": "**입지 분석** **동대문역사문화공원역·동대입구역·충무로역 도보권, 서울 도심 동대문 상권과 장충권역을 연결하는 임대수요 기반 입지**입니다. 동대문역사문화공원역 5호선이 약 313m(도보 4분), 동대입구역 3호선이 약 428m 거리에 위치해 대중교통 접근성이 우수하며, 다중 노선 이용 수요를 흡수할 수 있습니다. 장충체육관·신라호텔·동국대학교와 인접하고 인쇄·사무 관련 특화 업종이 형성된 권역으로, 소매·사무소 등 다양한 근린생활시설 임차수요를 뒷받침합니다. 주변에 음식점과 카페 등 생활·상업 인프라가 분포되어 있습니다.\n\n### 입지 설명 (중개인 입력)\n\n동대문역사문화공원역·동대입구역·충무로역 도보 10분 이내. 서울 지리적 중심부, 인쇄 등 특화 업종 상권 형성",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
-     "judge_score": 4.1,
      "section_type": "location_access",
      "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
      "section_order": 3
@@ -909,7 +908,7 @@
     },
     {
      "title": "토지 현황과 이용 조건은 어떠한가",
-     "markdown": "## 토지 현황 - **지목**: 대\n- **대지면적**: 420.6㎡ (127.2평)\n- **공시지가**: 6,988,000원/㎡ ### 이용 규제\n- **용도지역**: 제3종일반주거지역\n- **건폐율**: 59.71%\n- **용적률**: 295.68% (법정 상한 250%, 여유 -45.7%p)\n- **필지 형상**: 사다리형\n- **지형**: 평지\n- **도로접면**: 소로한면\n\n### 규제·계획 (중개인 입력)\n\n- **지구단위계획**: 불허용도 제조(인쇄·고무류)·정신병원·창고·위험물저장 등 / 1층 지정용도 소매·휴게·음식·사무소·서점·사진·관공·노유자\n- **지구단위계획**: 건폐율 50% 이하, 용적률 250% 이하, 높이 20m 이하 (16m 이하 시 부설주차장 100% 완화)",
+     "markdown": "## 토지 현황 - **지목**: 대\n- **대지면적**: 420.6㎡ (127.2평)\n- **공시지가**: 6,988,000원/㎡ ### 이용 규제\n- **용도지역**: 제3종일반주거지역\n- **건폐율**: 59.71%\n- **용적률**: 295.68%\n- **필지 형상**: 사다리형\n- **지형**: 평지\n- **도로접면**: 소로한면\n\n### 규제·계획 (중개인 입력)\n\n- **지구단위계획**: 불허용도 제조(인쇄·고무류)·정신병원·창고·위험물저장 등 / 1층 지정용도 소매·휴게·음식·사무소·서점·사진·관공·노유자\n- **지구단위계획**: 건폐율 50% 이하, 용적률 250% 이하, 높이 20m 이하 (16m 이하 시 부설주차장 100% 완화)",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [],
@@ -919,7 +918,7 @@
     },
     {
      "title": "임대차 현황과 공실은 실제로 어떠한가",
-     "markdown": "**임대차 현황** 현재 **공실률 14.3%**로, 지하 1층 소매점 **78평(약 257.9㎡)(257.9㎡)**을 제외하면 실질 공실 없이 운영 중입니다. 공실 및 7층 자가사용 면적을 제외한 월 임대료는 **2,357만 원**, 보증금 합계는 **2억 4,000만 원**이며, 1~6층에는 소매점·제조업·사무소·기원 등이 입점해 있습니다. 지하 1층은 보증금 **4,000만 원/월 400만 원**(관리비 별도)의 임대 조건이 제시되어 있어, 신규 임차 유치 시 추가 임대수익 확보 여지가 있습니다. 다만 계약 만기가 2027~2028년에 집중되어 있어, 임대차계약서·입금내역 확인과 함께 갱신 조건 및 제조업 임차 부분의 허용용도 검토가 필요합니다. **층별 임대 현황**\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|\n| B1 | - | 🚫 공실 | 78평(약 257.9㎡) | - | - | - | 미정 |\n| 1F | 소매점 | 소매점 | 76평(약 251.2㎡) | 8,000만 | 700만 | - | 2027-03-31 |\n| 2F | 제조업 | 제조업 | 27평(약 89.3㎡) | 2,000만 | 175만 | - | 2027-08-31 |\n| 3F | 소매점 | 소매점 | 74평(약 244.6㎡) | 5,000만 | 460만 | - | 2028-02-29 |\n| 4F | 사무소 | 사무소 | 70평(약 231.4㎡) | 2,000만 | 442만 | - | 2027-11-30 |\n| 5F | 사무소 | 사무소 | 62평(약 205㎡) | 4,000만 | 300만 | - | 2028-05-31 |\n| 6F | 기원 | 기원 | 45평(약 148.8㎡) | 3,000만 | 280만 | - | 2027-06-30 |\n| 7F | 사무소(자가) | 사무소(자가) | 15평(약 49.6㎡) | - | - | - | 미정 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 14.3% (임대중 6 · 자가사용 1 · 공실 1) | 공실 1실 |\n| **월 임대료 합계** | 2,357만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.8억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.4억 원 | 임차인 보증금 합계 |",
+     "markdown": "**임대차 현황** 현재 **공실률 14.3%**로, 지하 1층 78평(약 257.9㎡)을 제외한 임대 대상 공간은 실질적으로 임대 완료된 상태입니다. 보증금 합계 **2억 4,000만 원**, 월 임대료 합계 **2,357만 원**의 현금흐름이 형성되어 있으며, 1층 소매점부터 상층 사무소·제조업·기원까지 업종이 분산되어 단일 임차인 의존도를 낮췄습니다. 지하 1층은 보증금 4,000만 원·월 400만 원(관리비 별도)의 희망 임대조건이 제시되어 있어, 신규 임대차 체결 시 추가 임대수익 확보 여지가 있습니다. 다만 계약 갱신권 행사 여부, 실제 임대료 입금 내역 및 각 임대차계약서의 조건은 매수 전 확인이 필요합니다. **층별 임대 현황**\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|\n| B1 | - | 🚫 공실 | 78평(약 257.9㎡) | - | - | - | 미정 |\n| 1F | 소매점 | 소매점 | 76평(약 251.2㎡) | 8,000만 | 700만 | - | 2027-03-31 |\n| 2F | 제조업 | 제조업 | 27평(약 89.3㎡) | 2,000만 | 175만 | - | 2027-08-31 |\n| 3F | 소매점 | 소매점 | 74평(약 244.6㎡) | 5,000만 | 460만 | - | 2028-02-29 |\n| 4F | 사무소 | 사무소 | 70평(약 231.4㎡) | 2,000만 | 442만 | - | 2027-11-30 |\n| 5F | 사무소 | 사무소 | 62평(약 205㎡) | 4,000만 | 300만 | - | 2028-05-31 |\n| 6F | 기원 | 기원 | 45평(약 148.8㎡) | 3,000만 | 280만 | - | 2027-06-30 |\n| 7F | 사무소(자가) | 사무소(자가) | 15평(약 49.6㎡) | - | - | - | 미정 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 14.3% (임대중 6 · 자가사용 1 · 공실 1) | 공실 1실 |\n| **월 임대료 합계** | 2,357만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.8억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.4억 원 | 임차인 보증금 합계 |",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -929,26 +928,27 @@
        "fieldKey": "monthly_rent_total",
        "confidence": "confirmed",
        "sourceDetail": "브로커 제공 실제 임대 정보",
-       "lastVerifiedAt": "2026-10-10T05:29:29.108Z"
+       "lastVerifiedAt": "2026-10-10T10:50:08.734Z"
       },
       {
-       "value": "지하 1층 소매점 78평(약 257.9㎡) 공실, 공실 및 자가사용 면적을 제외한 월세 합계 2,357만원",
+       "value": "지하 1층 78평(약 257.9㎡) 공실, 7층 15평(약 49.6㎡) 자가사용. 메모상 지하층 외 임대 대상 공간은 실질적인 공실 없음",
        "source": "broker_input",
        "fieldKey": "vacancy_rate",
        "confidence": "confirmed",
        "sourceDetail": "브로커 제공 실시간 수치",
-       "lastVerifiedAt": "2026-10-10T05:29:29.108Z"
+       "lastVerifiedAt": "2026-10-10T10:50:08.734Z"
       }
      ],
+     "judge_score": 4.7,
      "section_type": "lease_status",
      "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
      "section_order": 6
     },
     {
      "title": "투자 구조 및 현금흐름 분석",
-     "markdown": "**수익 분석** 순투자금(매매가−보증금−대출)은 **약 92.6억 원**(매도 희망가 95억 원−보증금 합계 2.4억 원−선순위 대출금 0원, 취득세·중개보수 제외)이며, 실투자금(취득비용 포함)은 **약 97.8억 원**(시스템 산출값 인용)이다. 월 임대수입(운영비 차감 전)은 **약 2,357만 원**(월 임대료 합계 2,357만 원−월 대출이자 0원)으로, 연 임대수입 약 2.83억 원 기준 임대수익률(순투자금 대비·운영비 차감 전)은 **3.05%**이다. 운영비 실적이 제공되지 않아 연 순영업소득(NOI)은 AI 추정치인 **약 2.0억~2.4억 원**을 참고해야 하며, 매도 희망가 95억 원 기준 연 순수익률(Cap Rate, 기준: NOI)은 **2.0%~2.5%**로 추정된다; 대출이 없는 조건이므로 자기자본수익률(NOI÷순투자금)은 산식상 **(연 NOI−연 대출이자)÷순투자금**을 적용하며, 실제 운영비·공실 정상화 여부 확인 후 재산정이 필요하다. 지하 1층 소매점 78평(약 257.9㎡)이 공실(공실률 14.3%)인 현재 수입 기준이며, 해당 공간의 희망 임대조건(보증금 4,000만 원/월 400만 원)은 현 임대수입에 반영되지 않았다. 공시지가 기준 토지 평가액 비중은 **30.9%**이며, 공시지가와 실제 처분가 간 차이 및 처분 가능성은 별도 확인이 필요하다. **층별 임대 현황**\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|\n| B1 | - | 🚫 공실 | 78평(약 257.9㎡) | - | - | - | 미정 |\n| 1F | 소매점 | 소매점 | 76평(약 251.2㎡) | 8,000만 | 700만 | - | 2027-03-31 |\n| 2F | 제조업 | 제조업 | 27평(약 89.3㎡) | 2,000만 | 175만 | - | 2027-08-31 |\n| 3F | 소매점 | 소매점 | 74평(약 244.6㎡) | 5,000만 | 460만 | - | 2028-02-29 |\n| 4F | 사무소 | 사무소 | 70평(약 231.4㎡) | 2,000만 | 442만 | - | 2027-11-30 |\n| 5F | 사무소 | 사무소 | 62평(약 205㎡) | 4,000만 | 300만 | - | 2028-05-31 |\n| 6F | 기원 | 기원 | 45평(약 148.8㎡) | 3,000만 | 280만 | - | 2027-06-30 |\n| 7F | 사무소(자가) | 사무소(자가) | 15평(약 49.6㎡) | - | - | - | 미정 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 14.3% (임대중 6 · 자가사용 1 · 공실 1) | 공실 1실 |\n| **월 임대료 합계** | 2,357만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.8억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.4억 원 | 임차인 보증금 합계 |",
+     "markdown": "**수익 분석** **실투자금(취득비용 포함) 약 97.8억 원**을 기준으로, 현재 **월 임대수입(운영비 차감 전)은 약 2,357만 원**이며 대출이 없는 구조로 월 대출이자 차감은 없습니다(월 임대수입(운영비 차감 전) = 월 임대료 합계 2,357만 원 − 월 대출이자 0원). **순투자금(매매가−보증금−대출) 약 92.6억 원**은 매도 희망가 95억 원에서 보증금 합계 2.4억 원 및 대출 0원을 차감한 금액이며, **임대수익률(순투자금 대비·운영비 차감 전)은 연 3.05%**입니다(연 임대수입 약 2.83억 원 ÷ 순투자금 약 92.6억 원). 운영비 차감 후 **연 순영업소득(NOI)은 AI 추정 기준 약 2.0억~2.4억 원**, **Cap Rate(NOI÷매도 희망가)는 약 2.0%~2.5%**로 제시되며, 대출이 없으므로 자기자본수익률(NOI÷순투자금)은 산식상 약 2.16%~2.59% 범위입니다. 다만 지하 1층 78평(약 257.9㎡)이 공실(공실률 14.3%)인 현황이므로 해당 공간의 임대화 여부에 따라 NOI는 변동할 수 있습니다. 토지 공시지가 기준 평가액은 약 30.9억 원(공시지가 ㎡당 698.8만 원 × 토지면적 420.6㎡)으로, **토지 지분 가치 비중은 매도 희망가 대비 30.9%**이며, 이는 공시지가 기준 참고 지표일 뿐 실제 매각가·담보가치·투자손실을 보장하지 않습니다. **층별 임대 현황**\n| 층수 | 임차인 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|--------|------|----------|--------|-----------|--------|-----------|\n| B1 | - | 🚫 공실 | 78평(약 257.9㎡) | - | - | - | 미정 |\n| 1F | 소매점 | 소매점 | 76평(약 251.2㎡) | 8,000만 | 700만 | - | 2027-03-31 |\n| 2F | 제조업 | 제조업 | 27평(약 89.3㎡) | 2,000만 | 175만 | - | 2027-08-31 |\n| 3F | 소매점 | 소매점 | 74평(약 244.6㎡) | 5,000만 | 460만 | - | 2028-02-29 |\n| 4F | 사무소 | 사무소 | 70평(약 231.4㎡) | 2,000만 | 442만 | - | 2027-11-30 |\n| 5F | 사무소 | 사무소 | 62평(약 205㎡) | 4,000만 | 300만 | - | 2028-05-31 |\n| 6F | 기원 | 기원 | 45평(약 148.8㎡) | 3,000만 | 280만 | - | 2027-06-30 |\n| 7F | 사무소(자가) | 사무소(자가) | 15평(약 49.6㎡) | - | - | - | 미정 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 14.3% (임대중 6 · 자가사용 1 · 공실 1) | 공실 1실 |\n| **월 임대료 합계** | 2,357만 원/월 | 관리비 별도 (0만 원) |\n| **연 임대 수입** | 약 2.8억 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.4억 원 | 임차인 보증금 합계 |",
      "min_tier": "public",
-     "confidence": "confirmed",
+     "confidence": "needs_check",
      "provenance": [
       {
        "value": 6988000,
@@ -956,7 +956,7 @@
        "fieldKey": "official_land_price",
        "confidence": "confirmed",
        "sourceDetail": "국토교통부 개별공시지가 API (2026)",
-       "lastVerifiedAt": "2026-10-10T05:29:22.015Z"
+       "lastVerifiedAt": "2026-10-10T10:50:01.050Z"
       }
      ],
      "section_type": "income_analysis",
@@ -965,7 +965,7 @@
     },
     {
      "title": "위험요인 및 대응 방안",
-     "markdown": "**리스크 체크** 지하 1층 소매점 78평(약 257.9㎡)(공실률 14.3%)의 리스업 지연은 현 월 임대료 2,357만원 기반의 현금흐름을 저하시킬 수 있으므로, 역세권(도보 5분 이내)·인쇄 및 사무 수요를 활용한 적정 임대조건 설정, 업종별 수요 조사 및 단계적 렌트프리 등 사전 마케팅 전략이 필요합니다. 제3종일반주거지역 및 지구단위계획상 제조업(인쇄·고무류 등 일부), 창고, 위험물 저장시설 등의 제한 가능성이 있고 1층 지정용도 및 주차장 완화 적용 여부도 확인 대상이므로, 임대차 체결 전 관할 구청에 층별 허용용도·용도변경 및 증축 가능 여부는 관할 관청 확인이 필요합니다. 여부를 서면 확인하고 제조업 임차 부분의 적법성을 건축물대장과 함께 검증해야 합니다. 또한 건축물대장상 건폐율 59.71%, 용적률 295.68%가 제공된 토지이용계획상 기준(건폐율 50%, 용적률 250%)과 상이하므로 기존 적법성·경과조치·증축 이력 및 위반건축물 표기를 확인하고, 등기사항증명서 미연동 상태인 만큼 근저당·압류·임대 수익 존재 (NDA)의 우선순위와 대항력은 잔금 전 등기·임대차 실사 및 특약으로 관리할 필요가 있습니다. > ⚠️ 본 내용은 제한된 제공자료에 따른 예비 검토로서 법률·건축·세무 적합성, 인허가 가능성 및 임대수익을 보장하지 않으며, 최종 계약 전 관할 관청 확인 및 변호사·세무사·건축 전문가의 실사가 필요합니다.",
+     "markdown": "**리스크 체크** 월 임대료 2,357만원의 현금흐름은 지하 1층 78평(약 257.9㎡)(전체 연면적 기준 공실률 14.3%) 공실과 7층 15평(약 49.6㎡) 자가사용 공간의 향후 임대 전환 여부에 영향을 받을 수 있으므로, 지하층은 인근 인쇄·사무 관련 수요에 맞춘 업종 타기팅, 렌트프리·단계형 임대료 등 리스업 조건을 사전 설계하고 7층은 자가사용 지속 또는 임대 전환 시나리오별 수익성을 검토할 필요가 있습니다. 제3종일반주거지역 및 지구단위계획상 허용·불허 업종, 1층 지정용도, 건폐율·용적률·높이 제한이 적용될 가능성이 있으며, 특히 현재 건폐율 59.71%·용적률 295.68%와 제시된 지구단위계획 기준의 정합성, 제조업 사용 부분 및 7층 증축의 적법성은 건축물대장·토지이용계획확인서·인허가 서류를 통해 확인하고 필요 시 관할 행정청 및 건축전문가 의견을 확보해야 합니다. 등기사항증명서 자료가 미연동 상태이므로 근저당·압류·가처분 등 권리제한, 임대 수익 존재 (NDA)의 반환 범위, 임차인의 대항력 및 실제 차임 입금내역을 계약 전 실사하고, 매매계약에는 권리하자 해소·보증금 승계·미납 관리비 및 원상복구 정산 조건을 명확히 반영하는 것이 안정적 현금흐름 확보에 유리합니다. > ⚠️ 본 내용은 제공 자료에 따른 예비 검토로서 법률·세무·건축 적법성, 인허가 가능성 및 임대수익을 보장하지 않으며, 최종 투자·계약 전 등기사항증명서, 임대차계약서, 입금자료, 건축·인허가 서류 및 관할 관청 확인과 전문가 자문이 필요합니다.",
      "min_tier": "public",
      "confidence": "confirmed",
      "provenance": [
@@ -975,7 +975,7 @@
        "fieldKey": "zoning",
        "confidence": "confirmed",
        "sourceDetail": "토지이용규제정보서비스(LURIS) API",
-       "lastVerifiedAt": "2026-10-10T05:29:22.015Z"
+       "lastVerifiedAt": "2026-10-10T10:50:01.050Z"
       }
      ],
      "section_type": "risk_check",
@@ -984,7 +984,7 @@
     },
     {
      "title": "실사 안내 및 면책 조항",
-     "markdown": "**Next Steps** 관심 투자자는 **NDA 체결** 후 임대차계약서, 보증금·월세 입금자료, 공실 현황 및 건축·인허가 관련 비공개 자료를 검토할 수 있습니다. 이후 **현장 실사**를 통해 임차인 운영 현황, 공실 공간, 건물 관리 상태, 주차·승강기 및 증축·용도 관련 확인 필요 사항을 점검합니다. 실사 결과를 바탕으로 매입 희망가격과 조건을 담은 **LOI(매입의향서(LOI))**를 제출하며, 자금계획·기존 임대차계약 포괄 승계·인수 조건은 **1:1 비밀 상담**을 통해 개별적으로 협의합니다. 🔒",
+     "markdown": "**Next Steps** 관심 투자자께는 **NDA 체결 후** 임대차계약서, 임대료 입금자료, 보증금 내역 및 관련 인허가 자료 등 비공개 검토자료를 제공해 드립니다. 이후 **현장 실사**를 통해 임차 현황, 공실 공간, 건물 관리 상태 및 7층 증축 관련 서류를 확인하고, 임대수익의 지속 가능성과 운영상 확인사항을 점검합니다. 실사 완료 후에는 희망 매수가와 주요 조건을 담은 **LOI(매입의향서(LOI))**를 제출하여 거래 협의를 진행하며, 필요 시 담당자 **1:1 비밀 상담**을 통해 검토 일정 및 자료 요청 범위를 개별적으로 안내받으실 수 있습니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -994,7 +994,7 @@
     },
     {
      "title": "실사 체크리스트 및 확인사항",
-     "markdown": "월 임대료 2,357만원은 지하 1층 78평(약 257.9㎡) 공실 및 7층 일부 자가사용 면적을 제외한 기준으로, 지상부는 실질적 공실 없이 운영되고 있어 안정적인 현금흐름 기반을 갖추고 있습니다. 동대문역사문화공원역·동대입구역·충무로역 도보권의 입지와 인쇄·사무 수요가 형성된 권역 특성은 공실 해소 및 임차인 교체 시 임대수익 최적화의 배경이 됩니다. 다만 매수 전 임대차계약서·입금내역을 통한 실수익 검증, 제조업 임차공간의 허용용도 및 지구단위계획상 증축·주차장 완화 적용 가능 여부를 확인할 필요가 있습니다.",
+     "markdown": "월 임대수입 2,357만원이 발생 중이며, 지하 1층 78평(약 257.9㎡) 공실을 제외하면 임대 대상 공간은 실질적으로 안정화된 운영 상태로 파악됩니다. 공실률 14.3%는 지하층 공실에 집중되어 있어, 해당 공간의 업종 재구성 및 임대차 유치를 통해 추가 임대수익을 확보할 여지가 있습니다. 동대문역사문화공원역·동대입구역 등 복수 역세권(도보 5분 이내)과 인쇄·사무 수요 기반은 임차 수요 유지에 긍정적이나, 최종 투자 판단 전 임대차계약서·보증금·월세 입금내역 및 7층 증축 관련 인허가 서류를 확인해야 합니다.",
      "min_tier": "public",
      "confidence": "inferred",
      "provenance": [],
@@ -1010,7 +1010,7 @@
     }
    ],
    "dataGrade": "B",
-   "heroTitle": "동대문역사문화공원·충무로권역 근생빌딩 매각",
+   "heroTitle": "종로/광화문권역 근생빌딩 매각",
    "photos_v2": [
     {
      "url": "$asset-path:income-ig2-corrected/asset-01.jpg",
@@ -1099,6 +1099,7 @@
      "landArea": 436.6,
      "landShape": "사다리형",
      "roadAccess": "소로한면",
+     "limitsSource": "inferred_zoning",
      "zoningOverlap": [],
      "zoningDistrict": "제3종일반주거지역",
      "landUseSituation": "상업용",
@@ -1644,7 +1645,7 @@
     "registryData": {
      "source": "fallback_mock",
      "checked": false,
-     "fetchedAt": "2026-10-10T05:29:20.952Z",
+     "fetchedAt": "2026-10-10T10:50:00.366Z",
      "mortgages": [],
      "attachments": [],
      "rawResponse": null,
@@ -1829,7 +1830,7 @@
     "noiBaseKrw": 217786800,
     "opexSource": "assumed",
     "isBasicMode": true,
-    "pricePerSqm": 5629616,
+    "pricePerSqm": 5629596,
     "yieldOnCost": 2.98,
     "brokerFeeBil": 0.85,
     "annualRentBil": 2.8284,
@@ -1837,7 +1838,7 @@
     "equityRequired": 97.8,
     "landValueRatio": 30.9,
     "leveragedYield": 2.35,
-    "pricePerPyeong": 18610300,
+    "pricePerPyeong": 18610234,
     "totalDepositBil": 2.4,
     "negativeLeverage": true,
     "acquisitionTaxBil": 4.37,
@@ -1859,7 +1860,7 @@
     "$asset-path:income-ig2-corrected/asset-08.jpg",
     "$asset-path:income-ig2-corrected/asset-09.jpg"
    ],
-   "approved_at": "2026-10-10T05:32:53.721Z",
+   "approved_at": "2026-10-10T10:52:25.578Z",
    "askingPrice": 9500000000,
    "coordinates": {
     "lat": 37.5625772577028,
@@ -1978,8 +1979,8 @@
      "deposit_manwon": 0
     }
    ],
-   "generated_at": "2026-10-10T05:32:05.646Z",
-   "heroSubtitle": "동대문역사문화공원·충무로권역 소재, 근생빌딩, 매각 희망가 90억대",
+   "generated_at": "2026-10-10T10:52:10.905Z",
+   "heroSubtitle": "종로/광화문권역 소재, 근생빌딩, 매각 희망가 90억대",
    "ssot_summary": {
     "pnu": "1114014700101140000",
     "zoning": "제3종일반주거지역",
@@ -1988,7 +1989,7 @@
     "far_pct": 295.68,
     "asset_type": "근생빌딩",
     "price_band": "90억대",
-    "area_signal": "동대문역사문화공원·충무로권역",
+    "area_signal": "종로/광화문권역",
     "area_source": {
      "land": "broker_memo",
      "total": "broker_memo"
@@ -1999,9 +2000,9 @@
     "floors_above": 7,
     "floors_below": 1,
     "land_area_sqm": 420.59502555000006,
-    "vacancy_signal": "지하 1층 소매점 78평 공실, 공실 및 자가사용 면적을 제외한 월세 합계 2,357만원",
-    "vacancy_status": "지하 1층 소매점 78평 공실, 공실 및 자가사용 면적을 제외한 월세 합계 2,357만원",
-    "caution_summary": "건축물대장과 지구단위계획 결정도서로 증축·구조·용도 및 주차장 완화 적용 여부 확인 필요. 임대차계약서와 입금 자료를 통한 임대현황 검증 및 제조업 임차 부분의 허용용도 확인이 필요하다.",
+    "vacancy_signal": "지하 1층 78평 공실, 7층 15평 자가사용. 메모상 지하층 외 임대 대상 공간은 실질적인 공실 없음",
+    "vacancy_status": "지하 1층 78평 공실, 7층 15평 자가사용. 메모상 지하층 외 임대 대상 공간은 실질적인 공실 없음",
+    "caution_summary": "임대차계약서와 입금 자료를 통한 임대현황 확인이 필요하다. 건축물대장·토지이용계획 및 7층 증축 관련 인허가 서류 확인이 필요하다.",
     "completion_year": 2003,
     "register_main_pnu": "1114014700101140000",
     "investment_posture": "income",
@@ -2065,7 +2066,7 @@
    "external_data": {
     "errors": [],
     "address": "서울 중구 장충단로7길 56",
-    "enrichedAt": "2026-10-10T05:29:22.015Z",
+    "enrichedAt": "2026-10-10T10:50:01.050Z",
     "hasPublicData": true,
     "fallbackStatus": {
      "landPrice": null,
@@ -2074,11 +2075,11 @@
      "buildingRegister": null
     }
    },
-   "ogDescription": "동대문역사문화공원·충무로권역 · 근생빌딩 · 90억대 · 동대문역사문화공원역 도보 4분, 2003년 준공의 지하 1층~지상 7층 ",
+   "ogDescription": "종로/광화문권역 · 근생빌딩 · 90억대 · 자산 개요 동대문역사문화공원역 도보 4분, 연면적 510.5평(약 168",
    "readiness_score": 90,
    "broker_highlight": "3개 역 도보권 · 지하 외 실공실 없음 · 토지평당 7,470만원",
    "dataCompleteness": {
-    "generatedAt": "2026-10-10T05:32:05.705Z",
+    "generatedAt": "2026-10-10T10:52:10.915Z",
     "qualityGrade": "B",
     "buildingRegister": true,
     "pptxExportAllowed": true,
@@ -2088,9 +2089,9 @@
    "financialWarnings": [],
    "investmentPosture": "income",
    "investment_posture": "income",
-   "keyInvestmentPoint": "동대문역사문화공원·충무로권역 소재, 근생빌딩, 매각 희망가 90억대",
+   "keyInvestmentPoint": "종로/광화문권역 소재, 근생빌딩, 매각 희망가 90억대",
    "asking_price_manwon": 950000,
-   "approval_target_hash": "sha256:d41a0820abe509b91061b3ee1513b8cd847a09a71d3f111641956dc3b0be6492",
+   "approval_target_hash": "sha256:02ff096eafa8a59874c816692d20e2274d7d08b0ddaecaad98254496f170be62",
    "broker_physical_inputs": {
     "parking_count": 6,
     "elevator_count": 1
@@ -2098,21 +2099,23 @@
   }
  },
  "building": {
-  "id": "a8731ce0-54ab-4e04-8e02-af26e523b275",
+  "id": "3bec5187-4dee-4484-a648-e40e1e52109d",
   "created_by_role": "broker",
   "input_type": "broker_memo",
-  "raw_input": "[ 매각 IM ] 쌍림동 운남빌딩 매각 2025. 06월\n주소 중구 쌍림동 114, 대지면적 424.6㎡(128.4평), 지목 대, 3종일반\n건축면적 251.16㎡ (76.0평), 건폐율 59.7%, 연면적 1,687.51㎡ (510.5평), 용적률 295.7%\n준공 2003년, B1~7F, 주차 6대, E/V 1대\n매각가 95 억원, 토지평당가 약 72 백만원/평, 건물평당가 약 19 백만원/평\n입지: 서울 지리적 중심부에 위치, 3개 역사 10분이내 도보권, 오피스 수요 많고 인쇄 등의 특화 업종 상권 형성 (장충체육관, 신라호텔, 동국대학교, 동대문역사문화공원역, 동대입구역, 충무로역)\n사용 현황(천원): B1 소매점 78평 공실 (40,000)/(4,000) 관리비 별도 / B1 기계실 16평 / 1F 소매점 75평 임대 80,000/7,000 / 2F 주차장 47평 / 2F 제조업 27평 임대 20,000/1,750 / 3F 소매점 74평 임대 50,000/4,600 / 4F 사무소 70평 임대 20,000/4,420 / 5F 사무소 62평 임대 40,000/3,000 / 6F 기원 45평 임대 30,000/2,800 / 7F 사무소 15평 자가 (20,000)/(1,000)\n계 510평 — 공실/자가 제외 240,000/23,570 수익률 3.1%, 공실/자가 포함 300,000/28,570 수익률 3.7%\n지하층 외 실질적인 공실 없음, 입지 양호하여 사무소/인쇄관련 업종 수요 풍부, 기대 수익률 3.7%\n지구단위계획: 불허용도 제조(인쇄, 고무류), 정신병원, 창고, 위험물저장 등 / 1층 지정 소매, 휴게, 음식, 사무소, 서점, 사진, 관공/노유자 시설 / 규모 제한 건폐율 50% 이하, 기준/허용 용적률 250% 이하, 높이 20m 이하 / 제한적 주차장 설치 완화: 높이 16m 이하시 부설주차장설치 100% 완화\n7F : 연와조로 이후 증축함.",
-  "area_signal": "충무로권역",
+  "raw_input": "중구 쌍림동 114 운남빌딩 근생 매각\n매각가 95억 (토지평당 약 7,470만원, 건물평당 약 1,860만원)\n대지 420.6㎡(127.2평), 연면적 1,687.51㎡(510.5평), 제3종일반주거지역\n2003년 준공, B1~7F, 주차 6대, EV 1대\n동대문역사문화공원역·동대입구역·충무로역 3개 역 도보 10분 이내, 장충체육관·신라호텔·동국대 인접\n서울 지리적 중심부, 오피스 수요 많고 인쇄 등 특화 업종 상권 형성\n\n임대현황 (보증금/월세, 만원)\nB1 소매점 78평 공실 (희망 4,000/400)\n1F 소매점 8,000/700\n2F 제조업 2,000/175 (2F 나머지는 주차장)\n3F 소매점 5,000/460\n4F 사무소 2,000/442\n5F 사무소 4,000/300\n6F 기원 3,000/280\n7F 사무소 15평 자가사용\n합계(공실·자가 제외) 보증금 24,000 / 월세 2,357, 관리비 별도\n\n특이사항\n- 지하층 외 실질적인 공실 없음, 입지 양호하여 사무소·인쇄 관련 업종 수요 풍부\n- 지구단위계획(용도): 불허용도 제조(인쇄, 고무류)·정신병원·창고·위험물저장 등 / 1층 지정용도 소매·휴게·음식·사무소·서점·사진·관공/노유자 시설\n- 지구단위계획(규모): 건폐율 50% 이하, 기준/허용 용적률 250% 이하, 높이 20m 이하 / 높이 16m 이하 시 부설주차장 설치 100% 완화\n- 7F는 연와조(벽돌구조)로 이후 증축, 건축물대장 등재\n\n인근 시세: 거래 쌍림동 258 30억(토지평당 약 6,000만), 묵정동 27-4 18.3억(약 6,500만) / 매물 묵정동 29-6 56억(약 7,000만), 묵정동 24-13 95억(약 8,100만), 묵정동 28-6 65억(약 6,100만)",
+  "area_signal": "종로/광화문권역",
   "asset_type": "근생빌딩",
   "price_band": "90억대",
-  "size_signal": "대지 424.6㎡(128.4평), 연면적 1,687.51㎡(510.5평), 지하 1층~지상 7층, 주차 6대, 승강기 1대",
-  "current_use_signal": "소매점·사무소·제조업·기원·주차장으로 사용 중이며 7층 사무소는 자가사용",
-  "vacancy_signal": "지하 1층 소매점 78평 공실. 메모상 지하층 외 실질적인 공실 없음",
-  "fit_summary": "충무로권역 소재 근생빌딩으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.",
-  "caution_summary": "건축물대장으로 7층 증축과 현황 건폐율·용적률의 적법성 및 지구단위계획 적용 여부 확인 필요. 임대차계약서와 운영비 자료를 통한 공실 조건 및 기재 수익률 검증 필요.",
+  "size_signal": "대지 420.6㎡(127.2평), 연면적 1,687.51㎡(510.5평), 지하 1층~지상 7층",
+  "current_use_signal": "소매점·제조업·사무소·기원·주차장으로 사용 중이며 7층 일부는 자가사용",
+  "vacancy_signal": "지하 1층 78평 공실, 7층 15평 자가사용. 메모상 지하층 외 임대 대상 공간은 실질적인 공실 없음",
+  "fit_summary": "2026년 공시지가 ㎡당 698.8만원과 공시지가 데이터상 토지면적 420.6㎡를 기준으로 한 토지 평가액은 약 30.51억원으로, 희망 매도 희망가 95억원의 약 32.1%입니다. 동대문역사문화공원역 5호선 313m, 도보 4분 거리에 위치하며 소로 한 면에 접합니다.",
+  "caution_summary": "임대차계약서와 입금 자료를 통한 임대현황 확인이 필요하다. 건축물대장·토지이용계획 및 7층 증축 관련 인허가 서류 확인이 필요하다.",
   "hidden_fields": [
    "exact_address",
-   "unit_rent"
+   "unit_rent",
+   "lease_contract_raw_text",
+   "registry_detail"
   ],
   "layers": {
    "finance": {
@@ -2138,12 +2141,12 @@
     "monthly_rent_manwon": null,
     "total_deposit_manwon": null
    },
-   "land_area_pyung": 128.44,
+   "land_area_pyung": 127.23,
    "total_floor_area_pyung": 510.47
   },
   "confidence": {
-   "assetType": "ai_hypothesis",
-   "priceBand": "user_provided",
+   "assetType": "user_provided",
+   "priceBand": "confirmed",
    "areaSignal": "user_provided",
    "fitSummary": "ai_hypothesis"
   },
@@ -2151,10 +2154,10 @@
    "guard_checked": true
   },
   "status": "public_signal_ready",
-  "created_at": "2026-10-10T05:27:44.482944+00:00",
-  "updated_at": "2026-10-10T05:42:01.745343+00:00",
+  "created_at": "2026-10-10T10:48:41.207634+00:00",
+  "updated_at": "2026-10-10T10:52:28.586512+00:00",
   "promotion_score": 0.345,
-  "promotion_updated_at": "2026-10-10T05:37:56.008+00:00",
+  "promotion_updated_at": "2026-10-10T10:48:43.847+00:00",
   "matched_buyer_count": 0,
   "vacancy_inquiry_count": 0,
   "vacancy_avg_fit_score": null,
@@ -2177,10 +2180,10 @@
    },
    "status": "skipped",
    "details": {
-    "aiAddress": "충무로권역",
+    "aiAddress": "종로/광화문권역",
     "aiAssetType": "근생빌딩",
     "errorReason": "주소 파싱 실패 (시군구/법정동 분리 불가)",
-    "aiSizeSignal": "대지 424.6㎡(128.4평), 연면적 1,687.51㎡(510.5평), 지하 1층~지상 7층, 주차 6대, 승강기 1대"
+    "aiSizeSignal": "대지 420.6㎡(127.2평), 연면적 1,687.51㎡(510.5평), 지하 1층~지상 7층"
    },
    "resolvedComponents": null
   },
@@ -2792,6 +2795,7 @@
    "zoningOverlap": [],
    "buildingCoverageMax": 50,
    "floorAreaRatioMax": 250,
+   "limitsSource": "inferred_zoning",
    "landArea": 436.6,
    "landShape": "사다리형",
    "terrain": "평지",

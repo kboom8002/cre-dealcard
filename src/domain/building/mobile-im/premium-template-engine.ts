@@ -14,6 +14,7 @@ import { computeVacancyPositioning, formatVacancyPositioningRow } from './vacanc
 import { parsePriceBandKrw } from './im-context-builder';
 import { formatPyeong, formatSqm, pyeongToSqm, sqmToPyeong, SQM_RATIO, PYEONG_RATIO } from '@/lib/utils/area-conversion';
 import { normalizeGeneratedMarkdown } from './terminology-normalizer';
+import { verifiedLegalLimits } from './legal-limits';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('premium-template-engine');
@@ -721,8 +722,13 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
     // ─── 토지 현황 ──────────────────────────────────────────────────────────
     case "land_detail": {
       const zoningVal = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || (supplemental as any)?.zoning || "-");
-      const bcMaxVal = lu?.buildingCoverageMax ? `${lu.buildingCoverageMax}%` : (br?.bcRat ? `${br.bcRat}% (현황)` : "-");
-      const farMaxVal = lu?.floorAreaRatioMax ? `${lu.floorAreaRatioMax}%` : (br?.vlRat ? `${br.vlRat}% (현황)` : "-");
+      const official = verifiedLegalLimits(lu as Record<string, any> | undefined);
+      const limitRows: string[] = [];
+      if (official.bcrMax) limitRows.push(`| **건폐율 상한** | ${official.bcrMax}% | 법정 상한 |`);
+      if (official.farMax) limitRows.push(`| **용적률 상한** | ${official.farMax}% | 법정 상한 |`);
+      if (br?.bcRat) limitRows.push(`| **건폐율 (현황)** | ${br.bcRat}% | 건축물대장 |`);
+      if (br?.vlRat) limitRows.push(`| **용적률 (현황)** | ${br.vlRat}% | 건축물대장 |`);
+      const limitRowsMd = limitRows.length > 0 ? `\r\n${limitRows.join('\r\n')}` : '';
       const landAreaVal = lu?.landArea ? `${lu.landArea.toLocaleString()}㎡` : (platArea ? `${formatSqm(platArea)}㎡` : "-");
       const shapeVal = lu?.landShape || (supplemental.regulation as any)?.landShape || "-";
       const terrainVal = lu?.terrain || (supplemental.regulation as any)?.landTopography || "-";
@@ -735,9 +741,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 ### 세부 현황
 | 항목 | 내용 | 비고 |
 |------|------|------|
-| **용도지역** | ${zoningVal} | 공법 기준 |
-| **건폐율 상한** | ${bcMaxVal} | 법정 상한 |
-| **용적률 상한** | ${farMaxVal} | 법정 상한 |
+| **용도지역** | ${zoningVal} | 공법 기준 |${limitRowsMd}
 | **대지면적** | ${landAreaVal} | 공부상 면적 |
 | **형상** | ${shapeVal} | 물리적 특성 |
 | **지형** | ${terrainVal} | 물리적 특성 |

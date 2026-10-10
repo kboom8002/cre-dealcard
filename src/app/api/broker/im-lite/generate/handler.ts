@@ -30,9 +30,11 @@ import { resolvePhysicalSpecs } from '@/domain/building/mobile-im/resolve-physic
 import { sanitizeFitSummaryKeepNull } from '@/domain/building/mobile-im/fit-summary-sanitize';
 import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
 import { resolveOverviewSpecs } from '@/domain/building/mobile-im/pptx/spec-resolver';
+import { resolveDisplayAreas } from '@/domain/building/mobile-im/pptx/binder/display-areas';
+import { rewriteRejectedAreas } from '@/domain/building/mobile-im/area-authority';
 import { applyBrokerExtrasToSections, mapBrokerExtrasStrings } from '@/domain/building/mobile-im/broker-extras';
 import { sqmToPyeong, pyeongToSqm, formatPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
-import { summarizeLeaseOccupancy, isOwnerUseLeaseRow, normalizeLeaseOccupancyFields } from '@/domain/building/mobile-im/lease-vacancy';
+import { summarizeLeaseOccupancy, isOwnerUseLeaseRow, normalizeLeaseOccupancyFields, sumLeasedRentRoll } from '@/domain/building/mobile-im/lease-vacancy';
 import { supplementBrokerMemoFacts } from '@/domain/building/mobile-im/broker-financial-inputs';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -429,14 +431,22 @@ export async function generateMobileIMHandler(
     log.info({ manualLength: manualAsComps.length, total: externalData!.comparableTransactions?.length }, '[im-handler] Merged manual comps:');
   }
 
-  // ─── floor_leases 기반 임대료/보증금 자동 집계 (미입력 시) ───
-  if (!supplemental.monthly_rent_total_krw && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
-    const totalRent = supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.rent_manwon) || 0), 0);
-    if (totalRent > 0) supplemental.monthly_rent_total_krw = totalRent * 10000;
-  }
-  if (!supplemental.total_deposit_manwon && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
-    const totalDep = supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.deposit_manwon) || 0), 0);
-    if (totalDep > 0) supplemental.total_deposit_manwon = totalDep;
+  // ─── floor_leases 기반 임대료/보증금 집계 — 렌트롤이 있으면 임대중 호실 합이 정본 (PPTX 요약·A24 합계와 동일 모집단) ───
+  // 바텀시트 합계는 공실 희망임대료·자가사용분을 포함할 수 있어 수익률 분모/분자를 부풀린다 → 불일치(>0.5%) 시 렌트롤 합으로 교체.
+  if (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
+    const rr = sumLeasedRentRoll(supplemental.floor_leases);
+    const reconcile = (cur: number | undefined, sum: number, unit: number, label: string): number | undefined => {
+      if (!(sum > 0)) return cur;
+      const curNorm = Number(cur) > 0 ? Number(cur) / unit : 0;
+      if (curNorm > 0 && Math.abs(curNorm - sum) / sum > 0.005) {
+        log.warn(`[LEASE-RECONCILE] ${label}: 입력 합계 ${Math.round(curNorm).toLocaleString()}만 ≠ 렌트롤 임대중 합 ${Math.round(sum).toLocaleString()}만 — 렌트롤 합 채택`);
+      }
+      return sum * unit;
+    };
+    const rent = reconcile(supplemental.monthly_rent_total_krw, rr.rentManwon, 10000, '월 임대료');
+    if (rent != null) supplemental.monthly_rent_total_krw = rent;
+    const dep = reconcile(supplemental.total_deposit_manwon, rr.depositManwon, 1, '보증금');
+    if (dep != null) supplemental.total_deposit_manwon = dep;
   }
 
   // ─── 브로커 입력 지하철역 오버라이드 (Kakao API 좌표 검색 보정) ───
@@ -545,10 +555,32 @@ export async function generateMobileIMHandler(
     }
   }
 
-  if (userSpecifiedTotalArea > 0) {
-    const userPy = formatPyeong(userSpecifiedTotalArea, 1);
-    bssotFlat.total_area_sqm = userSpecifiedTotalArea;
-    bssotFlat.total_gross_area_sqm = userSpecifiedTotalArea;
+  // ─── 생성 경로 면적 정본 — PPTX 표시 해석기(display-areas)와 동일 규칙으로 LLM 프롬프트 입력을 정렬 (P2) ───
+  // 저장되는 ssot_summary 는 중개인 해석값(userSpecified*)을 유지해 PPTX [AREA-RECONCILE] 검토 경고가 살아 있게 한다.
+  const regForArea = (externalData?.buildingRegister ?? null) as Record<string, any> | null;
+  const displayAreas = resolveDisplayAreas({ brokerLandSqm: userSpecifiedLandArea, brokerGfaSqm: userSpecifiedTotalArea, register: regForArea });
+  const promptTotalArea = displayAreas.gfaSqm ?? userSpecifiedTotalArea;
+  const promptLandArea = displayAreas.landSqm ?? userSpecifiedLandArea;
+  const pySqm = (py: unknown) => (Number(py) > 0 ? pyeongToSqm(Number(py)) : 0);
+  const areaRewriteSpecs = [
+    {
+      authoritativeSqm: promptTotalArea,
+      rejectedSqm: [totalAreaRes.brokerSqm, Number(supplemental.total_gross_area_m2) || 0, pySqm(supplemental.total_gross_area_pyeong), ssotAreas.totalSqm, userSpecifiedTotalArea, Number(regForArea?.totalArea) || 0],
+    },
+    {
+      authoritativeSqm: promptLandArea,
+      rejectedSqm: [Number(supplemental.land_area_m2) || 0, pySqm(supplemental.land_area_pyeong), parcelSummary.totalAreaM2 ?? 0, ssotAreas.landSqm, userSpecifiedLandArea, Number(regForArea?.platArea) || 0, readVworldLandAreaSqm(externalData) ?? 0],
+    },
+  ].map(s => ({ ...s, rejectedSqm: s.rejectedSqm.map(Number).filter(n => Number.isFinite(n) && n > 0) }));
+  const areaProtectedSqm: number[] = [
+    ...((supplemental.parcels ?? []) as Array<Record<string, any>>).map(p => Number(p.areaM2 ?? p.area_m2) || 0),
+    ...((supplemental.floor_leases ?? []) as Array<Record<string, any>>).map(f => Number(f?.area_sqm) || 0),
+  ].filter(n => n > 0);
+
+  if (promptTotalArea > 0) {
+    const userPy = formatPyeong(promptTotalArea, 1);
+    bssotFlat.total_area_sqm = promptTotalArea;
+    bssotFlat.total_gross_area_sqm = promptTotalArea;
     bssotFlat.size_signal = `${userPy}평`;
     if (ssotRow.size_signal && (ssotRow.size_signal.includes('9,67') || ssotRow.size_signal.includes('967'))) {
       ssotRow.size_signal = `${userPy}평`;
@@ -574,20 +606,66 @@ export async function generateMobileIMHandler(
     log.warn('[im-handler] 원문 메모 명시값 보충 실패 (무시)', err);
   }
 
-  // ─── 7섹션 AI 생성
-  const writerResult = await generateMobileIM({
-    building_ssot_lite: bssotFlat as any,
-    supplemental,
-    readiness,
-    external_data: externalData,
-    dcfEligible,
-    dataGrade: gradeResult.grade,
-    identity: {
-      buildingUse: identity?.buildingUse,
-      assetType: identity?.assetType || String(bssotFlat.asset_type ?? ''),
-      investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || (supplemental as any).investmentPosture || 'income',
-    } as any,
-  });
+  // ─── 7섹션 AI 생성 (면적 입력은 정본 1값으로 정렬한 상태에서 호출, 호출 후 중개인 원 입력 복원) ───
+  const areaBackup = {
+    total_gross_area_m2: supplemental.total_gross_area_m2,
+    total_gross_area_pyeong: supplemental.total_gross_area_pyeong,
+    land_area_m2: supplemental.land_area_m2,
+    land_area_pyeong: supplemental.land_area_pyeong,
+  };
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  if (promptTotalArea > 0) {
+    supplemental.total_gross_area_m2 = promptTotalArea;
+    supplemental.total_gross_area_pyeong = round1(sqmToPyeong(promptTotalArea));
+  }
+  if (promptLandArea > 0) {
+    supplemental.land_area_m2 = promptLandArea;
+    supplemental.land_area_pyeong = round1(sqmToPyeong(promptLandArea));
+  }
+  let writerResult: Awaited<ReturnType<typeof generateMobileIM>>;
+  try {
+    writerResult = await generateMobileIM({
+      building_ssot_lite: bssotFlat as any,
+      supplemental,
+      readiness,
+      external_data: externalData,
+      dcfEligible,
+      dataGrade: gradeResult.grade,
+      identity: {
+        buildingUse: identity?.buildingUse,
+        assetType: identity?.assetType || String(bssotFlat.asset_type ?? ''),
+        investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || (supplemental as any).investmentPosture || 'income',
+      } as any,
+    });
+  } finally {
+    supplemental.total_gross_area_m2 = areaBackup.total_gross_area_m2;
+    supplemental.total_gross_area_pyeong = areaBackup.total_gross_area_pyeong;
+    supplemental.land_area_m2 = areaBackup.land_area_m2;
+    supplemental.land_area_pyeong = areaBackup.land_area_pyeong;
+  }
+
+  // 2차 안전망: LLM 본문에 남은 기각 면적(중개인 오기·대장 대표필지 값 등)을 정본으로 결정론적 교정
+  if (writerResult.sections) {
+    let areaFixed = 0;
+    for (const section of writerResult.sections) {
+      if (section.markdown && typeof section.markdown === 'string') {
+        const r = rewriteRejectedAreas(section.markdown, areaRewriteSpecs, areaProtectedSqm);
+        if (r.replaced > 0) { section.markdown = r.text; areaFixed += r.replaced; }
+      }
+    }
+    const hc: any = writerResult.heroCard;
+    if (hc) {
+      const fix = (s: unknown) => {
+        if (typeof s !== 'string' || !s) return s;
+        const r = rewriteRejectedAreas(s, areaRewriteSpecs, areaProtectedSqm);
+        if (r.replaced > 0) areaFixed += r.replaced;
+        return r.text;
+      };
+      if (Array.isArray(hc.keyPoints)) hc.keyPoints = hc.keyPoints.map(fix);
+      if (typeof hc.keyInvestmentPoint === 'string') hc.keyInvestmentPoint = fix(hc.keyInvestmentPoint);
+    }
+    if (areaFixed > 0) log.warn(`[AREA-RECONCILE] LLM 본문의 기각 면적 ${areaFixed}건을 정본 값으로 교정`);
+  }
 
   // ─── D4: 중개인 추가 정보 — 구조화 SSoT(sanitize 완료본) 보관 + 기존 섹션에 원문 블록 덧붙임 (AI 미관여) ───
   // sanitize 루프 이전에 덧붙여야 아래 가드레일(예: '수익률 보장' 치환)이 블록에도 적용된다.

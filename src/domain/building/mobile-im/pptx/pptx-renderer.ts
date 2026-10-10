@@ -451,6 +451,10 @@ export class MobileImPptxRenderer {
               // 불완전한 LLM 행(한쪽만 있는 경우)은 공부 값으로 교체
               dataMap['building'].left.rows = (dataMap['building'].left.rows as [string, string][]).filter(([k]) => specGroup(k) !== g);
             }
+            // 주차/승강기: LLM 이 '승강기'·'주차 대수' 를 따로 쓰는 변형이 있어(실행마다 달라짐) 리졸버 행이 있으면 표준 라벨 1행으로 통일
+            if (g === '#주차승강기' && key === '주차 / 승강기' && existing.length > 0) {
+              dataMap['building'].left.rows = (dataMap['building'].left.rows as [string, string][]).filter(([k]) => specGroup(k) !== g);
+            }
             if (existingGroupRows(g).length === 0) {
               dataMap['building'].left.rows.push([key, val]);
             }

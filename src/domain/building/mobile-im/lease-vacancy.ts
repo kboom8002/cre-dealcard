@@ -124,6 +124,24 @@ export function summarizeLeaseOccupancy(leases: ReadonlyArray<LeaseLike> | null 
 }
 
 /**
+ * 렌트롤 금액 합계 SSOT — 임대중 호실만(공실·자가사용·비임대 행 제외). A24 합계 행·PPTX 요약·생성 경로(수익률 분모/분자)가 공유한다.
+ * 월세는 rent_manwon(또는 monthly_rent_manwon), 보증금은 deposit_manwon. 단위 만원.
+ */
+export function sumLeasedRentRoll(leases: ReadonlyArray<LeaseLike> | null | undefined): { rentManwon: number; depositManwon: number; count: number } {
+  const num = (v: unknown): number => {
+    const n = typeof v === 'number' ? v : parseFloat(str(v).replace(/,/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const rows = (Array.isArray(leases) ? leases : []).filter(Boolean) as Record<string, any>[];
+  const income = rows.filter(r => !isNonLeasableLeaseRow(r) && resolveLeaseOccupancy(r) === '임대중');
+  return {
+    rentManwon: income.reduce((a, r) => a + num(r.rent_manwon ?? r.monthly_rent_manwon), 0),
+    depositManwon: income.reduce((a, r) => a + num(r.deposit_manwon), 0),
+    count: income.length,
+  };
+}
+
+/**
  * 호실 행의 is_vacant / lease_state 를 점유 상태 SSOT 로 교정한 사본.
  * 영속·LLM 입력 이전에 한 번 적용해, 월세 0 추정으로 오염된 is_vacant(자가사용·통합계약 후행)가 하류로 전파되지 않게 한다.
  * - 기존 lease_state 는 보존, 없으면 판정값을 채운다.

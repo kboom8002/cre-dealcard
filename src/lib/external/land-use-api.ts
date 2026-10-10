@@ -80,6 +80,7 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
               zoningOverlap,
               buildingCoverageMax: coverage,
               floorAreaRatioMax: far,
+              limitsSource: 'inferred_zoning',
               landArea: item.lndpclAr ? parseFloat(item.lndpclAr) : undefined,
               landShape: item.tpgrphFrmCodeNm || undefined,
               terrain: item.tpgrphHgCodeNm || undefined,
