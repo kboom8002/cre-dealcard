@@ -717,6 +717,14 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         fontSize: 8, color: '7A8794', align: 'right', valign: 'bottom', fontFace: KR, margin: 0,
       });
     }
+    // 전 호실 공통 비고(binder 가 열에서 분리) — 단위 표기 줄 왼쪽에 1회만 표기
+    const commonNote = typeof data.commonNote === 'string' ? data.commonNote.trim() : '';
+    if (commonNote) {
+      slide.addText(`비고(공통): ${commonNote}`, {
+        x: tbX, y: topY - 0.26, w: tbW * 0.62, h: 0.22,
+        fontSize: 8, color: '7A8794', align: 'left', valign: 'bottom', fontFace: KR, margin: 0,
+      });
+    }
 
     if (truncated) {
       slide.addText(`(전체 ${totalCount - 1}건 중 ${maxRowsToFit - 1}건 표시)`, {

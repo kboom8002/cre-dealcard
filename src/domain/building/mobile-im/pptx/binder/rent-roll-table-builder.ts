@@ -125,6 +125,36 @@ export function resolveLeaseNote(l: {
 }
 
 /**
+ * 호실 비고 중 3개 이상 호실에 동일하게 반복되고 비고가 있는 행의 절반 이상을 차지하는 문장을 공통 비고로 분리한다.
+ * (예: 전 호실 '후불, 말일 납부' → 표 열에서 제거, 각주 1회 표기). 고유 비고는 열에 유지. 값은 입력 그대로 (재작성 없음).
+ */
+export function extractCommonLeaseNote(notes: string[]): { common: string; notes: string[] } {
+  const commons: string[] = [];
+  let cur = notes;
+  // 1단계: 노트 전체가 여러 호실에 동일 반복
+  const counts = new Map<string, number>();
+  for (const n of cur) if (n) counts.set(n, (counts.get(n) ?? 0) + 1);
+  const withNote = cur.filter(Boolean).length;
+  let best = ''; let bestN = 0;
+  for (const [n, c] of counts) if (c > bestN) { best = n; bestN = c; }
+  if (best && bestN >= 3 && bestN * 2 >= withNote) {
+    commons.push(best);
+    cur = cur.map(n => (n === best ? '' : n));
+  }
+  // 2단계: 2개 이상 호실의 노트에 반복되는 '문장'(8자 이상, 예: 분할임대 면적 안분 안내)은 공통 각주로 1회만
+  const split = (n: string) => n.split(/(?<=[.。])\s+/).map(s => s.trim()).filter(Boolean);
+  const sentCount = new Map<string, number>();
+  for (const n of cur) for (const s of new Set(split(n))) if (s.length >= 8) sentCount.set(s, (sentCount.get(s) ?? 0) + 1);
+  const repeated = [...sentCount.entries()].filter(([, c]) => c >= 2).map(([s]) => s);
+  if (repeated.length > 0) {
+    cur = cur.map(n => (n ? split(n).filter(s => !repeated.includes(s)).join(' ').trim() : n));
+    commons.push(...repeated);
+  }
+  if (commons.length === 0) return { common: '', notes };
+  return { common: commons.join(' · '), notes: cur };
+}
+
+/**
  * A24 렌트롤 테이블 바인딩 (lease_status 섹션 처리 중 호출)
  * 1) floor_leases 기반 층별 상세 테이블 (Basic: 10열 / Pro: 7열)
  * 2) floor_leases·마크다운 표가 모두 없을 때 ssot_summary 기반 요약 합성
@@ -139,7 +169,12 @@ export function bindRentRollTable(
   if (floorLeases.length > 0 && result['rentRoll']) {
     const isBasicPreset = doc.body?.preset === 'credeal_basic' || doc.body?.tier === 'basic';
     // D6: 비고 열은 입력(비고/임대상태/갱신요구권)이 하나라도 있을 때만 11번째 열로 추가 (없으면 기존 10열 — 빈 열 금지)
-    const leaseNotes: string[] = floorLeases.map((l: any) => resolveLeaseNote(l));
+    const rawLeaseNotes: string[] = floorLeases.map((l: any) => resolveLeaseNote(l));
+    // 대다수 호실에 같은 문장이 반복되는 공통 비고는 표 열이 아닌 각주로 (Rule 4: 같은 문장 중복 렌더 금지)
+    const { common: commonLeaseNote, notes: leaseNotes } = isBasicPreset
+      ? extractCommonLeaseNote(rawLeaseNotes)
+      : { common: '', notes: rawLeaseNotes };
+    if (commonLeaseNote) (result['rentRoll'] as any).commonNote = commonLeaseNote;
     const hasNoteCol = isBasicPreset && leaseNotes.some(Boolean);
     const rrHeaders = isBasicPreset
       ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일', ...(hasNoteCol ? ['비고'] : [])]

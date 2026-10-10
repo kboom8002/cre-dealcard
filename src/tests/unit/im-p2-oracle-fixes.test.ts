@@ -13,6 +13,7 @@ import { resolveDisplayAreas, isRegisterTrustworthy } from '@/domain/building/mo
 import { normalizeAreaRowsPrecision } from '@/domain/building/mobile-im/pptx/binder/area-precision';
 import { resolveTotalAreaWithSource } from '@/domain/building/mobile-im/resolve-total-area';
 import { readBrokerExtras, dedupeBrokerPointsAgainstLocation } from '@/domain/building/mobile-im/pptx/broker-extras-slides';
+import { extractCommonLeaseNote } from '@/domain/building/mobile-im/pptx/binder/rent-roll-table-builder';
 
 describe('점유 SSOT — 명시 lease_state 우선', () => {
   it("ig3 5F: lease_state '공실' + 비고 '기존 자가사용…' → 공실", () => {
@@ -140,3 +141,34 @@ describe('투자 포인트 ↔ 입지 설명 중복 제거 (Rule 4)', () => {
     expect(x).toEqual({ investment_points: ['리모델링 완료'], location_note: loc });
   });
 });
+
+describe('렌트롤 공통 비고 → 각주 (Rule 4)', () => {
+  const C = '후불, 말일 납부';
+  it('ig4c: 9개 호실 공통 + 고유 비고 유지', () => {
+    const notes = ['지하1층 공실', ...Array(9).fill(C), '9F 분할임대(1)', '9F 분할임대(2)'];
+    const r = extractCommonLeaseNote(notes);
+    expect(r.common).toBe(C);
+    expect(r.notes.filter(Boolean)).toEqual(['지하1층 공실', '9F 분할임대(1)', '9F 분할임대(2)']);
+  });
+  it('전 행 동일이면 열이 비어 열 자체가 생략될 수 있음', () => {
+    const r = extractCommonLeaseNote([C, C, C, C]);
+    expect(r.common).toBe(C);
+    expect(r.notes.some(Boolean)).toBe(false);
+  });
+  it('전체 노트 과반 미만이어도 2행 이상 반복되는 8자 이상 문장은 각주로 1회 (중복 문장 금지)', () => {
+    const r = extractCommonLeaseNote([C, C, '', '']);
+    expect(r.common).toBe(C);
+    expect(r.notes.some(Boolean)).toBe(false);
+  });
+  it('짧은 단어·1회 문장은 공통 비고로 보지 않음', () => {
+    expect(extractCommonLeaseNote(['a', 'b', 'c', 'd']).common).toBe('');
+    expect(extractCommonLeaseNote(['자가사용', '자가사용', '']).common).toBe('');
+  });
+  it('ig4c: 분할임대 안내 문장 반복 → 각주 1회, 행 고유 문장 유지', () => {
+    const S = '면적은 월세 비례 배분(가정)';
+    const r = extractCommonLeaseNote([C, C, C, C, `9F 분할임대(1). ${S}`, `9F 분할임대(2). ${S}`]);
+    expect(r.common).toBe(`${C} · ${S}`);
+    expect(r.notes.filter(Boolean)).toEqual(['9F 분할임대(1).', '9F 분할임대(2).']);
+  });
+});
+
