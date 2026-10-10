@@ -1,6 +1,6 @@
 {
  "$comment": "운영 PostgREST OpenAPI 스키마 스냅샷(F-01). 스키마 메타데이터만 포함(PII 없음). scripts/schema-snapshot.ts 로 재생성.",
- "generatedAt": "2026-10-06T12:18:55.571Z",
+ "generatedAt": "2026-10-10T23:04:32.792Z",
  "source": "PostgREST OpenAPI /rest/v1/ (service role, read-only)",
  "appliedMigrations": [
   "20261004000001",
@@ -14,7 +14,8 @@
   "20261004000013",
   "20261004000014",
   "20261004000011",
-  "20261004000016"
+  "20261004000016",
+  "20261011000000"
  ],
  "tables": {
   "activity_events": {
@@ -1848,6 +1849,7 @@
     "current_expiry_date": "date",
     "current_start_date": "date",
     "deposit_krw": "bigint",
+    "evidence_level": "character varying",
     "exclusive_area_sqm": "numeric",
     "first_contract_date": "date",
     "id": "uuid",
@@ -1858,7 +1860,9 @@
     "monthly_rent_krw": "bigint",
     "note": "text",
     "opposing_power": "character varying",
+    "payment_status": "character varying",
     "renewal_exercised": "character varying",
+    "rent_free_months": "integer",
     "source_tier": "character varying",
     "tenant_business": "text",
     "unit_label": "text",
@@ -1870,6 +1874,32 @@
     "lease_state",
     "unit_label",
     "updated_at"
+   ]
+  },
+  "lease_ledger_meta": {
+   "columns": {
+    "area_input_unit": "character varying",
+    "area_unit_override_at": "timestamp with time zone",
+    "area_unit_override_by": "text",
+    "area_unit_override_reason": "text",
+    "asking_price_krw": "bigint",
+    "asset_id": "text",
+    "gfa_sqm": "numeric",
+    "market_rent_1f": "bigint",
+    "market_rent_1f_source": "text",
+    "market_rent_basement": "bigint",
+    "market_rent_basement_source": "text",
+    "market_rent_upper": "bigint",
+    "market_rent_upper_source": "text",
+    "other_income_krw": "bigint",
+    "other_income_note": "text",
+    "rentroll_as_of": "date",
+    "rentroll_version": "character varying",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "area_input_unit",
+    "asset_id"
    ]
   },
   "lease_match_results": {

@@ -688,5 +688,7 @@ export function formatEvictionMarkdown(analysis: EvictionAnalysis): string {
 | **반환 필요 보증금** | **약 ${depositBil}억 원** | 착공 전 즉시 유출 |
 | **예상 명도 보상 비용** | **약 ${evictionCostBil}억 원** | 이사비 + 영업합의금 추정 |
 | **명도 완료 예상 기간** | **약 ${analysis.estimatedMonths}개월** | 최장 만기일: ${analysis.latestLeaseEnd || '미정'} |
-| **명도 난이도 평가** | ${frictionLabel} | 종합 리스크 |`;
+| **명도 난이도 평가** | ${frictionLabel} | 종합 리스크 |
+
+※ 명도 보상 비용은 가정 기반 추정입니다(이사비 계약당 300만원 + 월세 6개월분 영업합의금 가정). 실제 협의 결과와 다를 수 있습니다.`;
 }

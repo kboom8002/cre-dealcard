@@ -37,7 +37,7 @@ import { logFewShotUsage, updateFewShotResultScore, promoteToGoldenCandidate } f
 import { normalizeTerminologyAsync, protectBlock, stripProtectMarkers } from "./terminology-normalizer";
 import { CrePromptRegistry } from "./cre-prompt-registry";
 import { generatePremiumTemplate, formatBasicIncomeMarkdown, getSectionTitle } from "./premium-template-engine";
-import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary } from "./lease-adapter";
+import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary, analyzeEviction, formatEvictionMarkdown } from "./lease-adapter";
 import { sumLeasedRentRoll } from "./lease-vacancy";
 import { brokerFinancialExtras } from './broker-financial-inputs';
 import { maskFabricatedBrands } from "./tenant-name-policy";
@@ -751,6 +751,24 @@ export async function generateSingleSection(
       }
     } catch (e) {
       log.warn({ e: e }, '[im-section-generator] Deterministic rent roll table failed:');
+    }
+  }
+
+  // 개발형 명도 현황: 렌트롤(floor_leases)이 있으면 결정적 계산표를 개발 타당성 섹션에 부착한다 (LLM 서술 아님).
+  // 기준일 = 렌트롤 C5(rent_roll_meta.as_of), 없으면 오늘. 이미 같은 표가 있으면 중복 부착하지 않는다.
+  if (
+    posture === 'development' && sectionType === "development_feasibility"
+    && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
+    && !markdown.includes('명도 및 철거 준비 현황')
+  ) {
+    try {
+      const evictionLeases = normalizeFloorLeases(supplemental.floor_leases);
+      if (evictionLeases.some((l) => !l.isVacant)) {
+        const eviction = analyzeEviction(evictionLeases, supplemental.rent_roll_meta?.rentroll_as_of ?? null);
+        markdown += '\n\n' + protectBlock(formatEvictionMarkdown(eviction));
+      }
+    } catch (e) {
+      log.warn({ e: e }, '[im-section-generator] Eviction analysis failed:');
     }
   }
 
