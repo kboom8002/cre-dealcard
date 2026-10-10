@@ -179,6 +179,14 @@ export function LeaseFileImport({ onImport }: LeaseFileImportProps) {
       >
         <span>📊 XLS/CSV 임포트</span>
       </button>
+      <a
+        href="/CREDEAL_rentroll_template_v1.5.xlsx"
+        download="CREDEAL_렌트롤_표준양식_v1.5.xlsx"
+        className="px-4 py-2 border border-neutral-700 text-neutral-200 hover:bg-neutral-800 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+        title="CREDEAL 렌트롤 표준양식 v1.5 (빈 양식) 다운로드"
+      >
+        📥 빈 양식
+      </a>
       {error && <span className="text-xs text-red-400 font-bold">{error}</span>}
     </div>
   );
