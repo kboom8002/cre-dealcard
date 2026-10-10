@@ -141,6 +141,26 @@ describe("projectBasicRentRollColumns — 기입한 면적만 표기", () => {
     ]);
     expect(p.headers).not.toContain("관리비");
   });
+
+  const withExpiry = (r: string[], exp: string) => { const c = [...r]; c[9] = exp; return c; };
+
+  it("만기일이 전 행 미기입('-'/빈 값/미기재)이면 만기일 열 생략, 폭은 유지, keep/colW 일치", () => {
+    const total = BASIC_RENTROLL_COL_W.reduce((a, b) => a + b, 0);
+    const rows = [withExpiry(R("1F", "100.0", "75.0"), "-"), withExpiry(R("2F", "80.0", "60.0"), ""), withExpiry(R("3F", "80.0", "60.0"), "미기재")];
+    const p = projectBasicRentRollColumns(rows);
+    expect(p.headers).not.toContain("만기일");
+    expect(p.keep).toHaveLength(p.headers.length);
+    expect(p.colW).toHaveLength(p.headers.length);
+    expect(p.colW.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 1);
+  });
+
+  it("[NEG] 한 호실이라도 만기일이 있으면 열 유지, 합계 행의 '-' 는 판정에 쓰지 않는다", () => {
+    const p = projectBasicRentRollColumns([withExpiry(R("1F", "100.0", "75.0"), "-"), R("2F", "80.0", "60.0")]);
+    expect(p.headers).toContain("만기일");
+    const q = projectBasicRentRollColumns([R("1F", "100.0", "75.0"), ["합계", "1개 호실", "-", "100.0", "75.0", "5,000", "300", "30", "330", "-"]]);
+    expect(q.headers).toContain("만기일");
+  });
+
 });
 
 // ─────────────────────────────────────────────────────────────

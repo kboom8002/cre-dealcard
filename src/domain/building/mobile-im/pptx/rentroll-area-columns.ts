@@ -27,6 +27,8 @@ export const USE_COL = 2;
 /** 관리비·월합계 열 인덱스 — 관리비가 전 행 미기입이면 두 열을 함께 생략 (월합계 = 월임대료로 중복) */
 export const MGMT_COL = 7;
 export const MONTHLY_TOTAL_COL = 8;
+/** 만기일 열 인덱스 — 전 행 미기입이면 생략 */
+export const EXPIRY_COL = 9;
 /** 비고 열 기준 폭(in) — 11열 투영 시에만 사용 */
 export const RENTROLL_NOTE_COL_W = 1.0;
 
@@ -94,8 +96,12 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
   // 관리비 열 — 모든 데이터 행이 미기입('-'/빈 값/0)이면 관리비 열과, 월임대료와 같아지는 월합계 열을 함께 생략
   const hasMgmt = dataRows.some((r) => hasMgmtValue(r[MGMT_COL]));
   const dropMgmt = dataRows.length > 0 && !hasMgmt;
+  // 만기일 열 — 전 행 미기입('-'/빈 값/미기재류)이면 정보가 없는 열이므로 생략 (P3 지면 지표: 전부 '-' 열 금지)
+  const hasExpiry = dataRows.some((r) => hasNoteValue(r[EXPIRY_COL]) && !/^(?:미기재|미상|확인\s*필요|N\/?A)$/i.test(String(r[EXPIRY_COL]).trim()));
+  const dropExpiry = dataRows.length > 0 && !hasExpiry;
   const keep = all.filter((i) => i !== dropIdx
     && !(dropUse && i === USE_COL)
+    && !(dropExpiry && i === EXPIRY_COL)
     && !(dropMgmt && (i === MGMT_COL || i === MONTHLY_TOTAL_COL)));
   // D6: 비고 열 — 데이터 행 중 하나라도 비고가 있을 때만 (헤더·열폭·셀을 같은 keep 으로 투영해 열 수 = 셀 수 유지)
   const hasNote = dataRows.some((r) => hasNoteValue(r[NOTE_COL]));
@@ -122,6 +128,16 @@ export function projectBasicRentRollColumns(rows: unknown[][]): AreaColumnProjec
     else w[1] += freedMgmt * 0.25;
     if (hasNote) w[NOTE_COL] += freedMgmt * 0.25;
     else w[9] += freedMgmt * 0.25;
+  }
+  if (dropExpiry) {
+    // 만기일 열(및 앞 단계에서 만기일로 돌려준 폭)을 임차인·용도·비고 열로 재분배 — 표 전체 폭 유지
+    const freedExp = w[EXPIRY_COL];
+    w[EXPIRY_COL] = 0;
+    w[1] += freedExp * 0.5;
+    if (!dropUse) w[USE_COL] += freedExp * 0.25;
+    else w[1] += freedExp * 0.25;
+    if (hasNote) w[NOTE_COL] += freedExp * 0.25;
+    else w[1] += freedExp * 0.25;
   }
   const colW = keep.map((i) => Math.round(w[i] * 100) / 100);
   const headerAt = (i: number): string => (i === NOTE_COL ? RENTROLL_NOTE_HEADER : BASIC_RENTROLL_HEADERS[i]);

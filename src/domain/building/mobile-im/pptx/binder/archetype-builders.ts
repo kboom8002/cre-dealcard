@@ -988,7 +988,11 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     if (vacInfo) {
       const vacMetric: { label: string; value: string; unit?: string; sub?: string } = { label: '공실 현황', value: vacInfo };
       // 원문 문장은 값 대신 sub(보조 문구)로 보존 — 값 칸 '…' 절단 방지
-      if (vacSentence && vacSentence !== vacInfo && vacSentence.length > vacInfo.length) vacMetric.sub = vacSentence;
+      // 보조 문구는 첫 문장(≤44자)만 — 긴 문장이 카드 안에서 8pt 미만으로 축소되는 것을 방지 (나머지는 뷰어/개요에 존재)
+      if (vacSentence && vacSentence !== vacInfo && vacSentence.length > vacInfo.length) {
+        const firstSentence = vacSentence.split(/(?<=[.。])\s+/)[0].replace(/[.。]\s*$/, '').trim();
+        if (firstSentence && firstSentence !== vacInfo && firstSentence.length <= 44) vacMetric.sub = firstSentence;
+      }
       metrics.push(vacMetric);
     }
     // 보충: 6개 미만이면 실투자금 추가

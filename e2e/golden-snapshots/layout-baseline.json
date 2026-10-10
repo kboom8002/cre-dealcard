@@ -1,0 +1,21 @@
+{
+  "development-jamwon-r3": [],
+  "development-sutaek-r2": [],
+  "income-dangsan-r3": [],
+  "income-ig1-as-is": [],
+  "income-ig1-corrected": [],
+  "income-ig2-as-is": [],
+  "income-ig2-corrected": [],
+  "income-ig3-as-is": [
+    "s6: 전부 '-' 열: 임대면적"
+  ],
+  "income-ig3-corrected": [],
+  "income-ig4-as-is": [
+    "s6: 전부 '-' 열: 임대면적"
+  ],
+  "income-ig4-corrected": [],
+  "income-yangpyeong-r3": [],
+  "operating-hotel-r2": [],
+  "owner-seocho-r3": [],
+  "trading-sinsa-r3": []
+}
