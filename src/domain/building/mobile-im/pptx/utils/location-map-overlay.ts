@@ -200,7 +200,7 @@ export function buildNumberedPoiLayer(placed: PlacedPoi[], canvasW: number, canv
 }
 
 /** 본건 골드 핀 (텍스트/별 문자 없음 — 라벨은 네이티브 '본건') */
-export function buildTargetPinSvg(filterId = 'goldhalo'): Buffer {
+export function buildTargetPinSvg(filterId = 'goldhalo', accent = 'B8860B', ink = '132A3A'): Buffer {
   return Buffer.from(`
     <svg width="${TARGET_PIN.w}" height="${TARGET_PIN.h}" viewBox="0 0 ${TARGET_PIN.w} ${TARGET_PIN.h}" xmlns="http://www.w3.org/2000/svg">
       <filter id="${filterId}" x="-30%" y="-30%" width="160%" height="160%">
@@ -208,8 +208,8 @@ export function buildTargetPinSvg(filterId = 'goldhalo'): Buffer {
         <feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.5"/>
       </filter>
       <g filter="url(#${filterId})">
-        <path d="M40 6 C27 6 16 17 16 30 C16 48 40 72 40 72 C40 72 64 48 64 30 C64 17 53 6 40 6 Z" fill="#B8860B" stroke="#FFFFFF" stroke-width="3"/>
-        <circle cx="40" cy="30" r="11" fill="#132A3A"/>
+        <path d="M40 6 C27 6 16 17 16 30 C16 48 40 72 40 72 C40 72 64 48 64 30 C64 17 53 6 40 6 Z" fill="#${accent}" stroke="#FFFFFF" stroke-width="3"/>
+        <circle cx="40" cy="30" r="11" fill="#${ink}"/>
         <circle cx="40" cy="30" r="4.5" fill="#FFFFFF"/>
       </g>
     </svg>
@@ -228,11 +228,12 @@ export function chooseWalkCircle(metersPerPx: number, canvasH: number): { minute
 }
 
 /** 도보 반경 원 SVG (ASCII 라벨 "Nmin") */
-export function buildWalkCircleSvg(canvasW: number, canvasH: number, cx: number, cy: number, radiusPx: number, minutes: number): Buffer {
+export function buildWalkCircleSvg(canvasW: number, canvasH: number, cx: number, cy: number, radiusPx: number, minutes: number, accent = 'B8860B'): Buffer {
+  const rgb = [0, 2, 4].map((i) => parseInt(accent.slice(i, i + 2), 16));
   return Buffer.from(`
     <svg width="${canvasW}" height="${canvasH}" viewBox="0 0 ${canvasW} ${canvasH}" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${cx}" cy="${cy}" r="${radiusPx}" fill="rgba(184, 134, 11, 0.07)" stroke="#B8860B" stroke-width="1.8" stroke-dasharray="8,5"/>
-      <rect x="${cx - 30}" y="${cy - radiusPx - 1}" width="60" height="20" rx="4" fill="#B8860B" opacity="0.9"/>
+      <circle cx="${cx}" cy="${cy}" r="${radiusPx}" fill="rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.07)" stroke="#${accent}" stroke-width="1.8" stroke-dasharray="8,5"/>
+      <rect x="${cx - 30}" y="${cy - radiusPx - 1}" width="60" height="20" rx="4" fill="#${accent}" opacity="0.9"/>
       <text x="${cx}" y="${cy - radiusPx + 13}" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial">${minutes}min</text>
     </svg>
   `);

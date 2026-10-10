@@ -6,7 +6,7 @@
  * imlib.ts 컴포넌트 + 아키타입 레지스트리 + 덱 시퀀서로 동작.
  */
 import PptxGenJS from 'pptxgenjs';
-import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens, type ThemePresetDbReader } from './pptx-theme';
+import { getPptxTheme, getPptxThemeAsync, applyBasicSkin, DEFAULT_PPTX_PRESET, type PptxThemeTokens, type ThemePresetDbReader } from './pptx-theme';
 import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, buildProDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
 import { BASIC_IM_EXCLUSION, BASIC_IM_ALLOWED } from './basic-im-contract';
@@ -55,6 +55,8 @@ export { resetFallbackTracker, addFallbackContent, parseInlineMarkdown };
 export interface MobileImPptxInput {
   buildingId: string;
   preset?: string;
+  /** Basic IM 시각 스킨(credeal_basic | minimal_clean | corporate_clean). preset 이 credeal_basic 일 때만 팔레트에 적용 */
+  visualPreset?: string;
   posture?: InvestmentPosture;
   grade?: 'A' | 'B' | 'C' | 'D';
   incomeArchetype?: IncomeArchetype;
@@ -146,10 +148,12 @@ export class MobileImPptxRenderer {
     // §2 — 반드시 슬라이드 추가 전에 설정
     pres.layout = 'LAYOUT_WIDE';
 
-    const theme: PptxThemeTokens = await getPptxThemeAsync(
+    const resolvedTheme: PptxThemeTokens = await getPptxThemeAsync(
       input.preset ?? DEFAULT_PPTX_PRESET,
       input.supabase
     );
+    // Basic IM 시각 스킨: credeal_basic 일 때만 색상 팔레트 교체 (시퀀스·레이아웃·글꼴 불변)
+    const theme: PptxThemeTokens = applyBasicSkin(resolvedTheme, input.visualPreset);
 
     // G5: 커스텀 프리셋의 logo_url을 input.logoUrl에 폴백 머지
     const resolvedLogoUrl = input.logoUrl ?? theme.logoUrl;

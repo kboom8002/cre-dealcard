@@ -161,6 +161,7 @@ export async function GET(
     const result = await renderer.render({
       buildingId,
       preset: resolvedPreset,
+      visualPreset: isBasicIM ? visualPreset : undefined,
       posture,
       grade,
       incomeArchetype,

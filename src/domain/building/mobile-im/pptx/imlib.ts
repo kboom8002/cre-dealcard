@@ -192,6 +192,7 @@ const rawC: Record<string, string> = {
   brassD: '8E6A20',
   brassL: 'F2E7CF',
   brassT: 'FBF6EC',
+  brassS: 'D4C89A',
 
   // 의미색 — 장식 금지, 의미가 있을 때만
   green:   '3A7350',
@@ -374,6 +375,7 @@ export function buildThemeContext(theme: PptxThemeTokens): ActiveThemeContext {
     brassD:  theme.accentD,
     brassL:  theme.accentL,
     brassT:  theme.accentT,
+    brassS:  theme.accentSoft || theme.accentL,
     green:   theme.green,
     greenL:  theme.greenL,
     red:     theme.red,

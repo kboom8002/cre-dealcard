@@ -30,7 +30,7 @@ for (const n of files) {
   execFileSync('python', ['-X', 'utf8', 'scripts/income-golden/layout_structure.py', path.join(OUT, `${n}.pptx`), '--json', tmp], { stdio: 'ignore' });
   const res = JSON.parse(fs.readFileSync(tmp, 'utf8'));
   const cur = res.slides.flatMap(s => s.warnings.map(w => `s${s.slide}: ${w}`));
-  const approved = new Set(base[n] ?? []);
+  const approved = new Set(base[n] ?? base[n.split('__')[0]] ?? []); // 스킨 변형(name__skin)은 기본 골든의 승인 목록을 상속
   const added = cur.filter(w => !approved.has(w));
   const gone = [...approved].filter(w => !cur.includes(w));
   next[n] = cur;

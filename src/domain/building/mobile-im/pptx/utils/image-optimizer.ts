@@ -19,6 +19,7 @@ import {
   type ViewRect,
 } from './location-map-overlay';
 import { scrubKakaoExitMarkers } from './kakao-basemap-scrub';
+import { C } from '../imlib';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('image-optimizer');
@@ -443,7 +444,7 @@ export async function generateStaticMapPlaceholder(
           // 1. 도보 반경 원 (5분=400m가 프레임을 넘으면 3분=240m) — 라벨은 ASCII "Nmin"
           const walk = chooseWalkCircle(metersPerPx, kakaoH);
           if (walk) {
-            overlays.push({ input: buildWalkCircleSvg(kakaoW, kakaoH, cx, cy, walk.radiusPx, walk.minutes), left: 0, top: 0 });
+            overlays.push({ input: buildWalkCircleSvg(kakaoW, kakaoH, cx, cy, walk.radiusPx, walk.minutes, C.brass), left: 0, top: 0 });
           }
 
           // 2. POI 정밀 선별 (포스처/자산유형 맞춤 3~5건) → 번호 마커
@@ -456,7 +457,7 @@ export async function generateStaticMapPlaceholder(
 
           // 3. 본건 위치 골드 핀 (텍스트 없음 — '본건' 라벨은 PPTX 네이티브, Rule 66)
           overlays.push({
-            input: buildTargetPinSvg('goldhalo'),
+            input: buildTargetPinSvg('goldhalo', C.brass, C.ink),
             left: Math.max(0, Math.floor(cx - TARGET_PIN.tipX)),
             top: Math.max(0, Math.floor(cy - TARGET_PIN.tipY)),
           });
@@ -547,7 +548,7 @@ export async function generateStaticMapPlaceholder(
           .toBuffer();
 
         // 건물 골드 핀 마커 SVG (80×85 고대비 백색 후광, 텍스트 없음 — '본건' 라벨은 PPTX 네이티브)
-        const pinSvg = buildTargetPinSvg('osmhalo');
+        const pinSvg = buildTargetPinSvg('osmhalo', C.brass, C.ink);
 
         const targetW = Math.max(safeW, 1120);
         const targetH = Math.max(safeH, 900);

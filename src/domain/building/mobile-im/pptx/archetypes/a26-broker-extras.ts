@@ -75,7 +75,7 @@ function renderPoints(slide: Slide, data: Record<string, any>): void {
 
   points.forEach((p, i) => {
     const y = y0 + i * rowH;
-    slide.addShape('ellipse', { x: M, y: y + (rowH - numD) / 2 - 0.02, w: numD, h: numD, fill: { color: 'B8860B' }, line: { color: 'B8860B', width: 0 } });
+    slide.addShape('ellipse', { x: M, y: y + (rowH - numD) / 2 - 0.02, w: numD, h: numD, fill: { color: C.brass }, line: { color: C.brass, width: 0 } });
     slide.addText(String(i + 1), {
       x: M, y: y + (rowH - numD) / 2 - 0.02, w: numD, h: numD,
       fontFace: KR, fontSize: 12, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', margin: 0,
@@ -93,8 +93,8 @@ function renderPoints(slide: Slide, data: Record<string, any>): void {
   if (closing) {
     slide.addShape('line', { x: M + lw + gap / 2, y: 1.50, w: 0, h: BODY_BOTTOM - 1.50, line: { color: C.brass, width: 0.7 } });
     const boxH = Math.min(3.2, avail);
-    slide.addShape('roundRect', { x: rx, y: y0, w: rw, h: boxH, rectRadius: 0.05, fill: { color: 'F6F1E4' }, line: { color: 'D4C89A', width: 0.75 } });
-    slide.addShape('rect', { x: rx, y: y0 + 0.10, w: 0.05, h: boxH - 0.20, fill: { color: 'B8860B' }, line: { color: 'B8860B', width: 0 } });
+    slide.addShape('roundRect', { x: rx, y: y0, w: rw, h: boxH, rectRadius: 0.05, fill: { color: C.brassT }, line: { color: C.brassS, width: 0.75 } });
+    slide.addShape('rect', { x: rx, y: y0 + 0.10, w: 0.05, h: boxH - 0.20, fill: { color: C.brass }, line: { color: C.brass, width: 0 } });
     slide.addText('마무리 제안', {
       x: rx + 0.22, y: y0 + 0.16, w: rw - 0.40, h: 0.26,
       fontFace: KR, fontSize: 11, bold: true, color: C.brassD || '8A6A1F', margin: 0, valign: 'middle',
@@ -193,8 +193,8 @@ function renderComps(slide: Slide, data: Record<string, any>): void {
       const isGap = c.label === '괴리율';
       slide.addShape('roundRect', {
         x, y, w: cwid, h: ch, rectRadius: 0.05,
-        fill: { color: isGap ? 'F6F1E4' : 'F3F6F7' },
-        line: { color: isGap ? 'D4C89A' : 'E2E8EC', width: 0.75 },
+        fill: { color: isGap ? C.brassT : 'F3F6F7' },
+        line: { color: isGap ? C.brassS : 'E2E8EC', width: 0.75 },
       });
       slide.addText(c.label, { x: x + 0.14, y: y + 0.06, w: cwid - 0.28, h: 0.22, fontFace: KR, fontSize: 10, bold: true, color: C.mute2, margin: 0, valign: 'middle' });
       const vf = L.fitTextToBox(c.value, cwid - 0.28, 0.34, { minFontSize: 12, maxFontSize: 20, targetLines: 1, allowTruncate: false });

@@ -141,8 +141,8 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     // 매각가 테이블 (금색 테두리 박스)
     slide.addShape('rect', {
       x: M, y: py, w: lw, h: priceBoxH,
-      fill: { color: 'F6F1E4' },
-      line: { color: 'B8860B', width: 1.2 }
+      fill: { color: C.brassT },
+      line: { color: C.brass, width: 1.2 }
     });
 
     const padX = 0.20;
@@ -167,7 +167,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       const py2 = py + 0.55;
       slide.addShape('line', {
         x: M + 0.15, y: py2, w: lw - 0.30, h: 0,
-        line: { color: 'D4C89A', width: 0.5 }
+        line: { color: C.brassS, width: 0.5 }
       });
       slide.addText(input.data.priceTable2.label, {
         x: labX, y: py2, w: labW, h: 0.50,
@@ -278,10 +278,10 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       slide.addShape('roundRect', {
         x: rx, y: boxY, w: rw, h: boxH,
         rectRadius: 0.05,
-        fill: { color: 'F6F1E4' },
-        line: { color: 'D4C89A', width: 0.75 },
+        fill: { color: C.brassT },
+        line: { color: C.brassS, width: 0.75 },
       });
-      slide.addShape('rect', { x: rx, y: boxY + 0.08, w: 0.05, h: boxH - 0.16, fill: { color: 'B8860B' }, line: { color: 'B8860B', width: 0 } });
+      slide.addShape('rect', { x: rx, y: boxY + 0.08, w: 0.05, h: boxH - 0.16, fill: { color: C.brass }, line: { color: C.brass, width: 0 } });
       slide.addText(calloutTitle, {
         x: rx + 0.20, y: boxY + 0.12, w: rw - 0.32, h: 0.26,
         fontFace: KR, fontSize: 11, bold: true, color: C.brassD || '8A6A1F', margin: 0, valign: 'middle',
@@ -289,7 +289,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       calloutLines.forEach((line, i) => {
         const ly = boxY + 0.14 + 0.26 + 0.06 + i * lineH;
         const fit = L.fitTextToBox(line, rw - 0.50, lineH, { minFontSize: 9, maxFontSize: 10.5, targetLines: 1, allowTruncate: false });
-        slide.addShape('rect', { x: rx + 0.22, y: ly + lineH / 2 - 0.03, w: 0.06, h: 0.06, fill: { color: 'B8860B' }, line: { color: 'B8860B', width: 0 } });
+        slide.addShape('rect', { x: rx + 0.22, y: ly + lineH / 2 - 0.03, w: 0.06, h: 0.06, fill: { color: C.brass }, line: { color: C.brass, width: 0 } });
         slide.addText(line, {
           x: rx + 0.36, y: ly, w: rw - 0.50, h: lineH,
           fontFace: KR, fontSize: fit.fontSize, color: C.ink, margin: 0, valign: 'middle', shrinkText: true,

@@ -165,7 +165,7 @@ function addPoiLegend(
     } else {
       slide.addText('╌', {
         x: cx, y: cy, w: 0.17, h: rowH,
-        fontSize: 10, bold: true, color: 'B8860B', align: 'center', valign: 'middle', fontFace: KR, margin: 0,
+        fontSize: 10, bold: true, color: C.brass, align: 'center', valign: 'middle', fontFace: KR, margin: 0,
       });
     }
     slide.addText(cell.text, {
@@ -318,9 +318,9 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
           rectRadius: 0.04
         });
         slide.addText([
-          { text: '★ ', options: { color: 'B8860B', fontSize: 9, bold: true } },
+          { text: '★ ', options: { color: C.brass, fontSize: 9, bold: true } },
           { text: '대상 자산(본건)   ', options: { color: '1E293B', fontSize: 8.5, bold: true } },
-          { text: '╌ ', options: { color: 'B8860B', fontSize: 10, bold: true } },
+          { text: '╌ ', options: { color: C.brass, fontSize: 10, bold: true } },
           { text: '도보 5분 반경 (약 400m)', options: { color: '475569', fontSize: 8.5 } }
         ], {
           x: M + 0.20, y: 1.62 + 4.50 - 0.43, w: 3.40, h: 0.30,

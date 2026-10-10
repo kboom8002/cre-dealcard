@@ -23,6 +23,8 @@ export interface PptxThemeTokens {
   accentD: string;
   accentL: string;
   accentT: string;
+  /** 틴트 박스 테두리용 소프트 액센트 (선택, 없으면 accentL) */
+  accentSoft?: string;
 
   // 의미색
   green: string;
@@ -383,6 +385,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     accentD: '047857',
     accentL: '34D399',
     accentT: 'D1FAE5',
+    accentSoft: 'A8D8C4',
 
     green: '16A34A',
     greenL: 'DCFCE7',
@@ -404,6 +407,56 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkAccentBg: '047857',
     darkAccentBorder: '059669',
     darkAccentText: 'D1FAE5',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'corporate_card',
+    layoutStyle: 'minimal',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+  // 미니멀 클린 — 그레이스케일 + 절제된 단일 액센트 (뷰어 PPTX 프리셋 드롭다운 '심플하고 단정한 스타일')
+  minimal_clean: {
+    presetId: 'minimal_clean',
+    presetName: 'Minimal Clean',
+    ink: '111827',
+    ink2: '1F2937',
+    ink3: '374151',
+    slate: '6B7280',
+    body: '1F2937',
+    mute: '6B7280',
+    mute2: '9CA3AF',
+    line: 'D1D5DB',
+    line2: 'E5E7EB',
+    bg: 'FFFFFF',
+    tint: 'F9FAFB',
+
+    accent: '3B5B8C',
+    accentD: '2C4670',
+    accentL: '7F9CC4',
+    accentT: 'E8EEF6',
+    accentSoft: 'BCCADF',
+
+    green: '3F6F5A',
+    greenL: 'E6F0EB',
+    red: 'A8472F',
+    redL: 'F8EAE5',
+    amber: '9A6B16',
+    amberL: 'FAF1DC',
+    blue: '3B5B8C',
+    blueL: 'E8EEF6',
+    violet: '5B5B8C',
+    violetL: 'EEEEF6',
+
+    darkCard: '111827',
+    darkBlock: '1F2937',
+    darkBorder: '374151',
+    darkBody: 'F3F4F6',
+    darkMute: '9CA3AF',
+    darkFaint: '6B7280',
+    darkAccentBg: '2C4670',
+    darkAccentBorder: '3B5B8C',
+    darkAccentText: 'E8EEF6',
 
     titleFont: 'Pretendard',
     bodyFont: 'Pretendard',
@@ -576,6 +629,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     accentD: '8B6508',
     accentL: 'C9A24B',
     accentT: 'F6F1E4',
+    accentSoft: 'D4C89A',
 
     green: '2E6E82',
     greenL: 'E8F4F8',
@@ -645,6 +699,34 @@ export function getPptxTheme(presetId?: string): PptxThemeTokens {
 
 export const CREDEAL_PPTX_THEME = PPTX_PRESET_TEMPLATES.credeal_signature;
 
+/**
+ * Basic IM 시각 스킨 (뷰어 프리셋 드롭다운의 Basic 3종).
+ * 시퀀스·레이아웃 규칙(Rule 47 9면, 키커, 표지, 스태킹)은 항상 credeal_basic 이며, 스킨은 **색상 팔레트만** 교체한다.
+ * 글꼴(맑은 고딕)·coverStyle·layoutStyle·presetId·회사 브랜딩은 유지 — 텍스트 맞춤 지표가 바뀌면 레이아웃 게이트가 무효가 되므로.
+ */
+export const BASIC_SKIN_IDS = ['credeal_basic', 'minimal_clean', 'corporate_clean'] as const;
+export type BasicSkinId = typeof BASIC_SKIN_IDS[number];
+
+export function isBasicSkinId(id: unknown): id is BasicSkinId {
+  return typeof id === 'string' && (BASIC_SKIN_IDS as readonly string[]).includes(id);
+}
+
+const PALETTE_KEYS: ReadonlyArray<keyof PptxThemeTokens> = [
+  'ink', 'ink2', 'ink3', 'slate', 'body', 'mute', 'mute2', 'line', 'line2', 'bg', 'tint',
+  'accent', 'accentD', 'accentL', 'accentT', 'accentSoft',
+  'green', 'greenL', 'red', 'redL', 'amber', 'amberL', 'blue', 'blueL', 'violet', 'violetL',
+  'darkCard', 'darkBlock', 'darkBorder', 'darkBody', 'darkMute', 'darkFaint',
+  'darkAccentBg', 'darkAccentBorder', 'darkAccentText',
+];
+
+export function applyBasicSkin(base: PptxThemeTokens, skinId: string | undefined | null): PptxThemeTokens {
+  if (!isBasicSkinId(skinId) || skinId === 'credeal_basic' || base.presetId !== 'credeal_basic') return base;
+  const skin = PPTX_PRESET_TEMPLATES[skinId];
+  if (!skin) return base;
+  const out: PptxThemeTokens = { ...base, presetName: `${base.presetName} · ${skin.presetName}` };
+  for (const k of PALETTE_KEYS) (out as any)[k] = (skin as any)[k];
+  return out;
+}
 /**
  * DB 조회를 위한 경량 인터페이스 (도메인 계층 Supabase 직접 의존 제거 — Rule 12)
  */

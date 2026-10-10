@@ -178,12 +178,14 @@ export async function buildRenderInput(snap: GoldenSnapshot): Promise<Record<str
 
   const docTier = body.tier || snap.urlTier;
   const isBasicIM = docTier === 'basic';
-  const visualPreset = body.preset || (isBasicIM ? 'credeal_basic' : 'credeal_signature');
+  const presetParam = process.env.GOLDEN_VISUAL_PRESET || null; // 뷰어 드롭다운 선택(?preset=) 시뮬레이션
+  const visualPreset = presetParam || body.preset || (isBasicIM ? 'credeal_basic' : 'credeal_signature');
   const resolvedPreset = isBasicIM ? 'credeal_basic' : visualPreset;
 
   return {
     buildingId: snap.buildingId,
     preset: resolvedPreset,
+    visualPreset: isBasicIM ? visualPreset : undefined,
     posture,
     grade,
     incomeArchetype: body.incomeArchetype ?? undefined,
@@ -346,9 +348,11 @@ export async function rerenderSnapshot(name: string, opts: { writeFiles?: boolea
     network: { stubbedKakaoStaticMap: net.stubbedKakaoStaticMap, blocked: [...net.blocked] },
   };
   if (opts.writeFiles !== false) {
+    const sfx = process.env.GOLDEN_VISUAL_PRESET ? `__${process.env.GOLDEN_VISUAL_PRESET}` : '';
+    res.pptxPath = path.join(OUT_DIR, `${name}${sfx}.pptx`);
     fs.mkdirSync(OUT_DIR, { recursive: true });
     fs.writeFileSync(res.pptxPath, out.buffer);
-    fs.writeFileSync(path.join(OUT_DIR, `${name}.slides.json`), JSON.stringify({
+    fs.writeFileSync(path.join(OUT_DIR, `${name}${sfx}.slides.json`), JSON.stringify({
       name, slideCount: out.slideCount, ms: res.ms, warnings: res.warnings, network: res.network,
       slides, viewer: { sections: viewerSections },
     }, null, 1), 'utf8');
