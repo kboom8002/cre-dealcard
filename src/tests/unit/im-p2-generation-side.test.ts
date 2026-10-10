@@ -84,3 +84,16 @@ describe('법정 한도 — 용도지역명 추정치는 프롬프트·뷰어에
   });
 
 });
+
+import { detectVacancyContradiction } from '@/domain/building/mobile-im/pptx/extract-gate-context';
+
+describe('G41 만실↔공실 모순 탐지 — 부정·완화 서술 오탐 방지', () => {
+  it('공실 리스크 낮음/없음은 공실 강조가 아님 (공실률 0%)', () => {
+    expect(detectVacancyContradiction(['병원·약국 우량 임차로 공실 리스크 낮음', '공실 0%'])).toBe(false);
+    expect(detectVacancyContradiction(['공실 우려 없음'])).toBe(false);
+  });
+  it('[NEG] 공실 리스크 강조 + 공실률 0% 는 모순, 만실 서술 + 공실률 >5% 도 모순', () => {
+    expect(detectVacancyContradiction(['공실 리스크 확대', '공실률 0%'])).toBe(true);
+    expect(detectVacancyContradiction(['만실 운영', '공실률 12%'])).toBe(true);
+  });
+});

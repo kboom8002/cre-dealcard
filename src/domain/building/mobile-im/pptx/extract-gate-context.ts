@@ -59,7 +59,7 @@ function isBleed(shape: ParsedShape): boolean {
 const FULL_OCCUPANCY_PATTERNS = /만실|전실|공실\s*(없|0%|zero)|100%\s*입주|full\s*occupancy/i;
 const VACANCY_MENTION_PATTERNS = /공실률?\s*(\d+[\d.]*)\s*%/g;
 
-function detectVacancyContradiction(allTexts: string[]): boolean {
+export function detectVacancyContradiction(allTexts: string[]): boolean {
   const fullText = allTexts.join('\n');
   const hasFull = FULL_OCCUPANCY_PATTERNS.test(fullText);
 
@@ -72,8 +72,8 @@ function detectVacancyContradiction(allTexts: string[]): boolean {
 
   // 만실 서술 + 공실률 > 5%
   if (hasFull && maxVacancy > 5) return true;
-  // 공실 강조 + 공실률 0%
-  const hasVacancyEmphasis = /높은\s*공실|공실\s*심각|공실\s*리스크|공실\s*우려/i.test(fullText);
+  // 공실 강조 + 공실률 0% — 단, '공실 리스크 낮음/없음'처럼 부정·완화하는 서술은 강조가 아니다
+  const hasVacancyEmphasis = /높은\s*공실|공실\s*심각|공실\s*(?:리스크|우려)(?!\s*(?:가\s*|는\s*|이\s*)?(?:낮|없|적|미미|거의|제한|크지|높지|작))/i.test(fullText);
   if (hasVacancyEmphasis && maxVacancy === 0) return true;
 
   return false;

@@ -348,7 +348,7 @@ export function buildBrokerCompsData(extras: BrokerExtras, opts: BrokerDataMapOp
     summaryCards.push({ label: '매물 평균', value: `${fmtNum(stats.listingAvg, 0)}만원/평`, sub: `토지평당가 · ${stats.listingCount}건` });
   }
   if (stats.subject !== undefined) {
-    summaryCards.push({ label: '본건 환산', value: `${fmtNum(stats.subject, 0)}만원/평`, sub: '매매가 ÷ 대지평수' });
+    summaryCards.push({ label: '본건 환산', value: `${fmtNum(stats.subject, 0)}만원/평`, sub: '토지평당가 · 산식은 각주' });
   }
   if (stats.gapPct !== undefined) {
     summaryCards.push({ label: '괴리율', value: formatGapPct(stats.gapPct), sub: '본건 vs 실거래 평균' });
