@@ -1044,7 +1044,15 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const yieldObj = buildYieldFromHeroCard(heroCard);
     if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;
-      metrics.push(yieldSummaryMetric(yieldObj, heroCard));
+      const proMetric = yieldSummaryMetric(yieldObj, heroCard);
+      // Pro 헤드라인 = NOI Cap Rate. V04(월세×12 ÷ (매매가−보증금))는 보조 지표로 부제에만 병기 (Basic 과 같은 정의·값).
+      if (yieldObj.basis === 'NOI') {
+        const proV04 = buildYieldSetFromBody(body).grossYieldNetOfDeposit;
+        if (proV04 != null && Number.isFinite(proV04) && proV04 > 0) {
+          proMetric.sub = `${proMetric.sub} · 임대수익률 ${proV04.toFixed(2)}% (보증금 차감)`;
+        }
+      }
+      metrics.push(proMetric);
     }
     // BL-4: 역레버리지 감지 — capRate < 조달금리(4.5% 기본)이면 ROE 단독 표시 금지 (Basic IM은 제외)
     const assumedLoanRate = heroCard.loanRatePct ?? 4.5;

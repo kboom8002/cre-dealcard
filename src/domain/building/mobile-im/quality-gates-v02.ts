@@ -311,7 +311,7 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G56', label: '내부 시스템 규칙 노출 0건', severity: 'block', check: (ctx) => (ctx.internalRuleLeakCount ?? 0) === 0 },
   // ── 렌트롤 v1.5 (스펙 §3.2 V01/V12, §6.4-7) — 생성은 허용, 승인·발행만 차단 (approval-gate 가 body.gateReport.blocked 로 차단) ──
   // V02/V03/V06~V10 은 비차단 경고(rentroll_checks)이므로 여기에 게이트로 두지 않는다.
-  { id: 'V01', label: '렌트롤 금액 판정 — 월세 누락·금액 중복 0건', severity: 'block', check: (ctx) => (ctx.rentrollAmountIssues ?? 0) === 0 },
+  { id: 'V01', label: '렌트롤 금액 판정 — 월세 누락·금액 중복 0건 (통합계약은 대표 행에만 금액 입력 후 렌트롤 재업로드, 해제 불가)', severity: 'block', check: (ctx) => (ctx.rentrollAmountIssues ?? 0) === 0 },
   {
     id: 'V12',
     label: '렌트롤 면적 단위 혼동 없음 (사유 입력 시 해제)',
