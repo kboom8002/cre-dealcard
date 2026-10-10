@@ -19,5 +19,6 @@
 | [09-subagent-hygiene](rules/09-subagent-hygiene.md) | 41~42 | 서브에이전트 위생/대형파일 금지 |
 | [10-powershell-git](rules/10-powershell-git.md) | 43~45 | PowerShell Git 규칙 |
 | [11-prompt-hygiene-cost](rules/11-prompt-hygiene-cost.md) | 46~48 | 프롬프트 위생/바이너리 제거/비용 실측 |
+| [12-im-commercial-testing](rules/12-im-commercial-testing.md) | 71~78 | 워크트리 안전 빌드/PS 도구 요령/오라클 운영·키 약화 금지/단일 면적 해석기/점유 SSOT/공식 법정한도/병합 순서 |
 
 > **Note to Agents**: This hub replaces the monolithic AGENTS.md. When you need specific rules, use the `view_file` tool to read the appropriate module in `.agents/rules/`.
