@@ -146,3 +146,17 @@ describe('deriveRentrollGateContext', () => {
     expect(d.areaUnitMismatch).toBe(false);
   });
 });
+
+// 비임대 행(기계실·주차장)·상태 미기재 행은 V01 '월세 누락' 판정 대상이 아니다 (computeRentrollChecks V01 과 동일 기준)
+describe('V01 게이트 — 비임대 행 제외', () => {
+  it('기계실·주차장 행은 월세 누락으로 세지 않고, 실제 임대중 행의 누락만 센다', () => {
+    const rows: any[] = [
+      { floor: 'B1', tenant_name: '기계실' },
+      { floor: '2F', tenant_name: '주차장' },
+      { floor: '3F', tenant_name: '소매점', lease_state: '임대중', rent_manwon: 460 },
+    ];
+    expect(deriveRentrollGateContext({ floor_leases: rows }).rentrollAmountIssues).toBe(0);
+    rows.push({ floor: '4F', tenant_name: '사무소', lease_state: '임대중' });
+    expect(deriveRentrollGateContext({ floor_leases: rows }).rentrollAmountIssues).toBe(1);
+  });
+});

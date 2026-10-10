@@ -130,6 +130,7 @@ export interface GateContext {
 import type { GateResultStatus } from '@/types/gate-result';
 import { amountCheck } from './lease-math';
 import { checkAreaUnit } from './rentroll-checks';
+import { isNonLeasableLeaseRow, resolveLeaseOccupancy } from './lease-vacancy';
 
 export interface LegacyGateResult {
   code: string;
@@ -210,7 +211,9 @@ export function deriveRentrollGateContext(
     if (rows.length === 0) return {};
     const meta = supplemental?.rent_roll_meta ?? null;
     const amountRows = rows.filter((r) => r.rent_type !== 'revenue_linked');
+    // computeRentrollChecks V01 과 동일 기준: 실제 임대중 + 임대 가능 호실만 판정 대상 (기계실·주차장 등 비임대 행은 제외)
     const rentrollAmountIssues = amountRows.filter((r) => {
+      if (resolveLeaseOccupancy(r) !== '임대중' || isNonLeasableLeaseRow(r)) return false;
       const v = amountCheck(r, amountRows);
       return v === '월세 누락' || v === '금액 중복';
     }).length;
