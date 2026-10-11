@@ -369,9 +369,9 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
   corporate_clean: {
     presetId: 'corporate_clean',
     presetName: 'Corporate Clean',
-    ink: '1E293B',
-    ink2: '334155',
-    ink3: '475569',
+    ink: '0F3D33',
+    ink2: '165244',
+    ink3: '2C6B58',
     slate: '64748B',
     body: '1E293B',
     mute: '94A3B8',
@@ -398,12 +398,12 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     violet: '8B5CF6',
     violetL: 'EDE9FE',
 
-    darkCard: '334155',
-    darkBlock: '475569',
-    darkBorder: '64748B',
+    darkCard: '0A2A23',
+    darkBlock: '2C6B58',
+    darkBorder: '3F8A72',
     darkBody: 'F8FAFC',
     darkMute: 'CBD5E1',
-    darkFaint: '94A3B8',
+    darkFaint: 'A7C4BA',
     darkAccentBg: '047857',
     darkAccentBorder: '059669',
     darkAccentText: 'D1FAE5',
@@ -419,9 +419,9 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
   minimal_clean: {
     presetId: 'minimal_clean',
     presetName: 'Minimal Clean',
-    ink: '111827',
-    ink2: '1F2937',
-    ink3: '374151',
+    ink: '1C1F26',
+    ink2: '2A2E37',
+    ink3: '454B57',
     slate: '6B7280',
     body: '1F2937',
     mute: '6B7280',
@@ -448,12 +448,12 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     violet: '5B5B8C',
     violetL: 'EEEEF6',
 
-    darkCard: '111827',
-    darkBlock: '1F2937',
-    darkBorder: '374151',
+    darkCard: '14161B',
+    darkBlock: '454B57',
+    darkBorder: '5B6270',
     darkBody: 'F3F4F6',
-    darkMute: '9CA3AF',
-    darkFaint: '6B7280',
+    darkMute: 'C3C7CF',
+    darkFaint: '9CA3AF',
     darkAccentBg: '2C4670',
     darkAccentBorder: '3B5B8C',
     darkAccentText: 'E8EEF6',
@@ -711,13 +711,22 @@ export function isBasicSkinId(id: unknown): id is BasicSkinId {
   return typeof id === 'string' && (BASIC_SKIN_IDS as readonly string[]).includes(id);
 }
 
+// 텍스트 중립색(slate/mute/mute2)은 라벨·출처 글자에 쓰이므로 Basic 값을 유지한다 (스킨별 옅은 회색이면 시인성 저하).
 const PALETTE_KEYS: ReadonlyArray<keyof PptxThemeTokens> = [
-  'ink', 'ink2', 'ink3', 'slate', 'body', 'mute', 'mute2', 'line', 'line2', 'bg', 'tint',
+  'ink', 'ink2', 'ink3', 'body', 'line', 'line2', 'bg', 'tint',
   'accent', 'accentD', 'accentL', 'accentT', 'accentSoft',
   'green', 'greenL', 'red', 'redL', 'amber', 'amberL', 'blue', 'blueL', 'violet', 'violetL',
   'darkCard', 'darkBlock', 'darkBorder', 'darkBody', 'darkMute', 'darkFaint',
   'darkAccentBg', 'darkAccentBorder', 'darkAccentText',
 ];
+
+/**
+ * 밝은 배경 위 라벨 글자(accentL)로 쓰일 때의 시인성 보정. Pro 의 어두운 배경용 원본 값은 건드리지 않는다.
+ * (corporate_clean 의 34D399 는 흰 배경 대비 ≈1.9:1 → 0EA474 ≈3.1:1, Basic 기본 C9A24B ≈2.4:1 이상)
+ */
+const BASIC_SKIN_LEGIBILITY: Partial<Record<BasicSkinId, Partial<PptxThemeTokens>>> = {
+  corporate_clean: { accentL: '0EA474', blue: '0F766E', blueL: 'E3F4EE' },
+};
 
 export function applyBasicSkin(base: PptxThemeTokens, skinId: string | undefined | null): PptxThemeTokens {
   if (!isBasicSkinId(skinId) || skinId === 'credeal_basic' || base.presetId !== 'credeal_basic') return base;
@@ -725,6 +734,7 @@ export function applyBasicSkin(base: PptxThemeTokens, skinId: string | undefined
   if (!skin) return base;
   const out: PptxThemeTokens = { ...base, presetName: `${base.presetName} · ${skin.presetName}` };
   for (const k of PALETTE_KEYS) (out as any)[k] = (skin as any)[k];
+  Object.assign(out, BASIC_SKIN_LEGIBILITY[skinId]);
   return out;
 }
 /**

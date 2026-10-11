@@ -28,18 +28,18 @@ export interface ArchetypeOutput {
 /** institutional_masses — 우상단 매스 3개 + 황동 액센트 (golden_institutional 기본) */
 function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
   const isBasic = THEME_META.presetId === 'credeal_basic';
-  // 매스 3개 (우상단 장식 블록)
+  // 매스 3개 (우상단 장식 블록) — Basic 은 스킨별 ink 계열 토큰 사용 (기본 스킨은 기존 값과 동일)
   slide.addShape('rect', {
     x: 9.05, y: 0, w: 1.55, h: 4.42,
-    fill: { color: isBasic ? '132A3A' : '1A2030' },
+    fill: { color: isBasic ? C.ink : '1A2030' },
   });
   slide.addShape('rect', {
     x: 10.70, y: 0.95, w: 1.25, h: 3.47,
-    fill: { color: isBasic ? '1A3347' : '161D2B' },
+    fill: { color: isBasic ? C.ink2 : '161D2B' },
   });
   slide.addShape('rect', {
     x: 12.05, y: 1.85, w: 1.28, h: 2.57,
-    fill: { color: isBasic ? '2B4A5E' : '2E2718' },
+    fill: { color: isBasic ? C.ink3 : '2E2718' },
   });
 
   // 워드마크
@@ -308,7 +308,7 @@ function renderCommonCoverContent(
 export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.dark(input.pres);
   if (THEME_META.presetId === 'credeal_basic') {
-    slide.background = { fill: '0A1620' };
+    slide.background = { fill: CD.card || '0A1620' };
   }
   const warnings: string[] = [];
   const style = THEME_META.coverStyle;
@@ -358,20 +358,22 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
 
   // ── Step 2: Fallback decorative graphics (BEFORE text for correct z-order) ──
   if (!imgAdded && (style === 'split' || style === 'institutional_masses')) {
+    // Basic 스킨(ink 가 기본 네이비와 다른 경우)만 토큰 사용 — 기본 스킨/Pro 는 기존 값 유지
+    const skinned = THEME_META.presetId === 'credeal_basic' && C.ink !== '132A3A';
     // Primary panel — warm dark tone (avoids PptxGenJS transparency color shift)
     slide.addShape('rect', {
       x: 8.50, y: 0, w: 4.833, h: 7.5,
-      fill: { color: '0D2233' },
+      fill: { color: skinned ? C.ink : '0D2233' },
     });
     // Accent block (upper) — subtle brass tint
     slide.addShape('rect', {
       x: 9.60, y: 0.80, w: 3.20, h: 2.60,
-      fill: { color: '1A3A4A' },
+      fill: { color: skinned ? C.ink2 : '1A3A4A' },
     });
     // Accent block (lower) — slightly lighter warm tone
     slide.addShape('rect', {
       x: 8.90, y: 4.00, w: 3.80, h: 2.80,
-      fill: { color: '132A3A' },
+      fill: { color: skinned ? C.ink3 : '132A3A' },
     });
     // Thin vertical accent line in brass
     slide.addShape('line', {

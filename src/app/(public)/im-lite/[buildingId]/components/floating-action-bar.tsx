@@ -77,13 +77,13 @@ const PPTX_PRESETS = [
   {
     id: "minimal_clean",
     label: "📄 미니멀 클린",
-    desc: "심플하고 단정한 스타일",
+    desc: "심플하고 단정한 그래파이트 & 블루",
     tier: "all" as const,
   },
   {
     id: "corporate_clean",
     label: "🏢 코퍼레이트 클린",
-    desc: "깔끔하고 세련된 네이비",
+    desc: "깔끔하고 신뢰감 있는 에메랄드 그린",
     tier: "all" as const,
   },
   {

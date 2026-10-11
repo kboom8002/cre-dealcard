@@ -49,4 +49,28 @@ describe('Basic IM 시각 스킨 (applyBasicSkin)', () => {
     const accents = new Set(BASIC_SKIN_IDS.map((id) => PPTX_PRESET_TEMPLATES[id].accent));
     expect(accents.size).toBe(3);
   });
+
+  it.each(['minimal_clean', 'corporate_clean'] as const)('%s: 라벨용 중립 글자색(slate/mute/mute2)은 Basic 값 유지', (skinId) => {
+    const out = applyBasicSkin(base, skinId);
+    expect(out.slate).toBe(base.slate);
+    expect(out.mute).toBe(base.mute);
+    expect(out.mute2).toBe(base.mute2);
+  });
+
+  it('corporate_clean: 밝은 배경 라벨색(accentL)이 흰 배경 대비 3:1 이상', () => {
+    const lum = (hex: string) => {
+      const c = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const out = applyBasicSkin(base, 'corporate_clean');
+    expect(1.05 / (lum(out.accentL) + 0.05)).toBeGreaterThanOrEqual(3);
+    // Pro 용 원본 테마는 그대로 (어두운 배경용 밝은 민트)
+    expect(PPTX_PRESET_TEMPLATES.corporate_clean.accentL).toBe('34D399');
+  });
+
+  it('표지/마지막 면용 어두운 톤(ink)이 스킨마다 다르다 (네이비 고정 아님)', () => {
+    const inks = new Set(BASIC_SKIN_IDS.map((id) => applyBasicSkin(base, id).ink));
+    expect(inks.size).toBe(3);
+  });
 });

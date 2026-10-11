@@ -305,7 +305,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         const tx = M + overlayMeta.target.x * mapW;
         const ty = MAP_Y + overlayMeta.target.y * MAP_H;
         const topY = MAP_Y + overlayMeta.targetTopY * MAP_H;
-        addTargetLabel(slide, tx, topY, ty + 0.05, slot, '132A3A');
+        addTargetLabel(slide, tx, topY, ty + 0.05, slot, C.ink);
         // 지도 하단(지도 바깥) 번호 범례: 마커 번호 = 범례 번호, 명칭 + 도보 시간
         addPoiLegend(slide, overlayMeta, M, MAP_Y + MAP_H + 0.06, mapW);
         poiLegendRendered = overlayMeta.pois.length > 0;
@@ -334,7 +334,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         const pinBadgeY = 1.62 + (4.50 / 2) + 0.22;
         slide.addShape('roundRect', {
           x: pinBadgeX, y: pinBadgeY, w: pinBadgeW, h: pinBadgeH,
-          fill: { color: '132A3A' },
+          fill: { color: C.ink },
           line: { color: 'FFFFFF', width: 1 },
           rectRadius: 0.04
         });

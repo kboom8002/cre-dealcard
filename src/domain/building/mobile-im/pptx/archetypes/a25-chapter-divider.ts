@@ -88,7 +88,7 @@ export function buildA25ChapterDivider(input: ArchetypeInput): ArchetypeOutput {
   if (isSlatePreset) {
     slide.background = { fill: '2B2F3E' };
   } else if (isBasicPreset) {
-    slide.background = { fill: '0A1620' };
+    slide.background = { fill: CD.card || '0A1620' };
   } else if (C.ink === 'FFFFFF') {
     slide.background = { fill: CD.block || '1B2531' };
   }
