@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "operating-hotel-r2",
+  "approvedAt": "2026-10-11T02:06:24.056Z",
+  "fingerprint": {
+    "renderer": "LibreOffice 26.2 (cd7284b4c)",
+    "pdfEngine": "PyMuPDF 1.26.1",
+    "os": "win32",
+    "width": 960,
+    "fonts": [
+      "Arial-BoldMT",
+      "MS-Gothic",
+      "MalgunGothic",
+      "MalgunGothicBold",
+      "NotoSansCJKkr-Bold",
+      "OpenSymbol",
+      "SegoeUIEmoji"
+    ]
+  },
+  "slides": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ]
+}

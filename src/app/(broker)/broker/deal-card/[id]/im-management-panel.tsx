@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { PptxAuditReportView, type PptxAuditData } from "@/components/im/pptx-audit-report-view";
 import { useDealcardRealtimeSync } from "@/platform/im-pipeline/realtime/use-dealcard-realtime-sync";
+import { BrandColorCard } from "./brand-color-card";
 
 interface ImManagementPanelProps {
   buildingId: string;
@@ -112,7 +113,7 @@ export function ImManagementPanel({
         const res = await fetch('/api/broker/pptx-preset');
         if (res.ok) {
           const data = await res.json();
-          setPresets(data.presets || []);
+          setPresets(data.presets || [...(data.my_presets || []), ...(data.company_presets || [])]);
         }
       } catch (err) {
         console.error("Failed to fetch presets", err);
@@ -498,6 +499,7 @@ export function ImManagementPanel({
             </Button>
           </div>
         )}
+        <BrandColorCard />
       </div>
 
     </div>

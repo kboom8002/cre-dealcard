@@ -14,11 +14,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { randomUUID } from "node:crypto";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { persistLeaseUnits, floorLeaseToPersistUnit } from "@/domain/building/mobile-im/lease-adapter";
-import { parseBrokerCount } from "@/domain/building/mobile-im/resolve-physical-specs";
-import { parseBrokerParcels, normalizePnu } from "@/domain/building/mobile-im/parcel-input";
-import { parseBrokerExtras } from "@/domain/building/mobile-im/broker-extras";
-import { parseRentRollMeta } from "@/domain/building/mobile-im/rentroll-meta-parse";
-import { sanitizeAncillaryIncomes, sanitizeGrossAreaM2, sanitizeRentrollRowFields } from "@/domain/building/mobile-im/supplemental-sanitize";
+import { parseSupplementalFromBody } from "@/domain/building/mobile-im/supplemental-whitelist";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -59,104 +55,15 @@ export async function POST(req: NextRequest) {
     directData = body.direct_data ?? body.directData ?? null;
     tier = body.tier || 'basic';
     preset = body.preset || (tier === 'basic' ? 'credeal_basic' : undefined);
-    supplemental = {
-      monthly_rent_total_krw: body.monthly_rent_total_krw,
-      vacancy_status: body.vacancy_status,
-      vacancy_pct: body.vacancy_pct,
-      resolved_address: body.resolved_address,
-      resolved_pnu: body.resolved_pnu,
-      photo_urls: body.photo_urls,
-      photo_captions: body.photo_captions,
-      photos_v2: (body.photos_v2 || []).filter((p: any) =>
-        p?.url && (
-          p.url.startsWith('http://') ||
-          p.url.startsWith('https://') ||
-          p.url.startsWith('/') ||
-          p.url.startsWith('data:') ||
-          p.url.startsWith('docs/') ||
-          p.url.includes('images/')
-        )
-      ),
-      broker_highlight: body.broker_highlight,
-      // D4: broker_extras 는 아래에서 parseBrokerExtras 검증 후 supplemental.broker_extras 로 설정 (원본 body 값 직접 전달 금지)
-      estimated_yield_pct: body.estimated_yield_pct,
-      total_deposit_manwon: body.total_deposit_manwon,
-      mgmt_fee_total_manwon: body.mgmt_fee_total_manwon,
-      loan_amount_manwon: body.loan_amount_manwon,
-      asking_price_manwon: body.asking_price_manwon,
-      floor_leases: body.floor_leases,
-      logistics: body.logistics,
-      monthly_revenue_manwon: body.monthly_revenue_manwon,
-      hospitalitySpec: body.hospitalitySpec,
-      developmentSpec: body.developmentSpec,
-      vacateSpec: body.vacateSpec,
-      permitSpec: body.permitSpec,
-      occupancySpec: body.occupancySpec,
-      sectionalSpec: body.sectionalSpec,
-      residentialSpec: body.residentialSpec,
-      manual_comps: body.manual_comps,
-      // D41 Phase D: 취득 비용
-      acquisition_tax_pct: body.acquisition_tax_pct,
-      brokerage_fee_manwon: body.brokerage_fee_manwon,
-      legal_fee_manwon: body.legal_fee_manwon,
-      other_acquisition_cost_manwon: body.other_acquisition_cost_manwon,
-      // D41 Phase D: 대출 시나리오
-      ltv_pct: body.ltv_pct,
-      loan_interest_pct: body.loan_interest_pct,
-      loan_term_years: body.loan_term_years,
-      target_irr_pct: body.target_irr_pct,
-    };
-    hospitalitySpecInput = body.hospitalitySpec ?? null;
-    loanStatusInput = body.loan_status ?? null;
-    developmentSpecInput = body.developmentSpec ?? null;
-    vacateSpecInput = body.vacateSpec ?? null;
-    permitSpecInput = body.permitSpec ?? null;
-    occupancySpecInput = body.occupancySpec ?? null;
-    sectionalSpecInput = body.sectionalSpec ?? null;
-    residentialSpecInput = body.residentialSpec ?? null;
-    investmentPostureInput = body.investment_posture ?? null;
-
-    // D4: 주차/승강기 대수 (선택) — 빈 값은 무시, 음수/소수/9999 초과는 400
-    const parkingParsed = parseBrokerCount(body.parking_count, '주차 대수');
-    if (!parkingParsed.ok) return NextResponse.json({ error: parkingParsed.error }, { status: 400 });
-    const elevatorParsed = parseBrokerCount(body.elevator_count, '승강기 대수');
-    if (!elevatorParsed.ok) return NextResponse.json({ error: elevatorParsed.error }, { status: 400 });
-    if (parkingParsed.value !== undefined) supplemental.parking_count = parkingParsed.value;
-    if (elevatorParsed.value !== undefined) supplemental.elevator_count = elevatorParsed.value;
-
-    // D4: 중개인 추가 정보 — 한도/형식 검증 (실패 시 400 + 한국어 메시지), 통과 시에만 supplemental 에 반영
-    const extrasParsed = parseBrokerExtras(body.broker_extras);
-    if (!extrasParsed.ok) return NextResponse.json({ error: extrasParsed.error }, { status: 400 });
-    if (extrasParsed.value) supplemental.broker_extras = extrasParsed.value;
-
-    // 렌트롤 v1.5: 헤더 블록·면적 입력 단위·V12 해제 사유 — enum/숫자/길이 검증 (실패 시 400 + 한국어 메시지).
-    // override.by/at 은 클라이언트 값을 무시하고 handler 가 서버에서 채운다.
-    const rentRollMetaParsed = parseRentRollMeta(body.rent_roll_meta);
-    if (!rentRollMetaParsed.ok) return NextResponse.json({ error: rentRollMetaParsed.error }, { status: 400 });
-    if (rentRollMetaParsed.value) {
-      supplemental.rent_roll_meta = rentRollMetaParsed.value;
-      hasExplicitRentRollMeta = true;
-    }
-
-    // X1: 기존 화이트리스트가 버리던 부가수입·연면적을 sanitize 후 통과 (비정상 값은 조용히 생략)
-    const ancillary = sanitizeAncillaryIncomes(body.ancillary_incomes);
-    if (ancillary) supplemental.ancillary_incomes = ancillary;
-    const grossAreaM2 = sanitizeGrossAreaM2(body.total_gross_area_m2);
-    if (grossAreaM2 !== undefined) supplemental.total_gross_area_m2 = grossAreaM2;
-    // v1.4 행 필드(근거·렌트프리·입금확인) enum/정수 정규화 — 허용값 밖은 null (추측 보정 금지)
-    if (Array.isArray(supplemental.floor_leases)) supplemental.floor_leases = sanitizeRentrollRowFields(supplemental.floor_leases);
-
-    // 다필지: 바텀시트 ParcelSection 입력(parcels/pnus)을 파이프라인으로 전달 (기존에는 여기서 유실됨)
-    // pnus 는 parcels 에서 파생한 값 + 클라이언트가 보낸 pnus(19자리 숫자만) 의 합집합
-    const parcelsParsed = parseBrokerParcels(body.parcels);
-    if (!parcelsParsed.ok) return NextResponse.json({ error: parcelsParsed.error }, { status: 400 });
-    if (parcelsParsed.warnings.length > 0) log.warn('[generate-async] parcels 일부 필드 무시', { warnings: parcelsParsed.warnings });
-    if (parcelsParsed.parcels.length > 0) supplemental.parcels = parcelsParsed.parcels as unknown as Array<Record<string, unknown>>;
-    const extraPnus = Array.isArray(body.pnus)
-      ? (body.pnus as unknown[]).map(normalizePnu).filter((p): p is string => !!p)
-      : [];
-    const mergedPnus = Array.from(new Set([...parcelsParsed.pnus, ...extraPnus]));
-    if (mergedPnus.length > 0) supplemental.pnus = mergedPnus;
+    // 화이트리스트·검증은 sync(generate) 라우트와 공유하는 단일 헬퍼 (drift 방지). 실패 시 400 + 한국어 메시지.
+    const parsed = parseSupplementalFromBody(body);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    supplemental = parsed.supplemental;
+    ({
+      hospitalitySpecInput, loanStatusInput, developmentSpecInput, vacateSpecInput, permitSpecInput,
+      occupancySpecInput, sectionalSpecInput, residentialSpecInput, investmentPostureInput, hasExplicitRentRollMeta,
+    } = parsed.side);
+    if (parsed.parcelWarnings.length > 0) log.warn('[generate-async] parcels 일부 필드 무시', { warnings: parsed.parcelWarnings });
 
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });

@@ -81,10 +81,15 @@ export async function PUT(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    // 수정 가능 필드만 허용 (user_id/company_id/is_public/use_count 등 덮어쓰기 방지)
+    const EDITABLE = ['preset_name', 'preset_desc', 'tokens', 'cover_style', 'layout_style', 'company_name', 'company_tagline', 'logo_url', 'base_preset_id', 'is_company_default'] as const;
+    const patch: Record<string, unknown> = {};
+    for (const k of EDITABLE) if (body && Object.prototype.hasOwnProperty.call(body, k)) patch[k] = (body as any)[k];
+
     const { data, error } = await supabase
       .from('pptx_custom_presets')
       .update({
-        ...body,
+        ...patch,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

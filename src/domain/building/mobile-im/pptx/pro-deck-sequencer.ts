@@ -220,9 +220,14 @@ export function buildProDeckSequence(
     data.floor_leases || data.tenantRoster || [];
   const tenantChunks = chunkTenantRoster(floorLeases, 12);
 
+  // 명도 분석(추정): Pro·개발형 + 명도 대상(임대 중 호실) 존재 시에만 1면 추가. Basic 시퀀스는 이 플래그를 읽지 않는다.
+  // 데이터는 binder/pro-eviction.ts (원천 = lease-adapter.analyzeEviction). dataKey 는 거기의 PRO_EVICTION_DATA_KEY 와 동일.
+  const addEvictionEstimate = isDevelopment && dataAvailability.hasEvictionEstimate === true;
+
   // Subsequent slides after rent roll:
   // Ch2 remaining (facility_mep 1 + gallery 1 = 2) + Ch3 (7) + Ch4 (6) + Ch5 (6) + closing (1) = 22 slides
-  const REMAINING_SUBSEQUENT_SLIDES = 22;
+  // (+ 명도 분석 1면 — 임대차 현황 직후에 들어가므로 후속 면 예산에 포함)
+  const REMAINING_SUBSEQUENT_SLIDES = 22 + (addEvictionEstimate ? 1 : 0);
   if (tenantChunks.length > 2 && sequence.length + tenantChunks.length + REMAINING_SUBSEQUENT_SLIDES <= PRO_PAGE_HARD_LIMIT) {
     tenantChunks.forEach((_, idx) => {
       sequence.push({
@@ -248,6 +253,16 @@ export function buildProDeckSequence(
       kicker: 'TENANT ROSTER (2/2)',
       title: '상세 임대차 현황 (상층부 및 만기 스케줄)',
       dataKey: 'rentRollPart2',
+      placement: 'body',
+    });
+  }
+
+  if (addEvictionEstimate) {
+    sequence.push({
+      archetype: 'A26',
+      kicker: 'EVICTION ESTIMATE',
+      title: '명도 대상 임차인 및 예상 비용 (추정)',
+      dataKey: 'evictionEstimate',
       placement: 'body',
     });
   }

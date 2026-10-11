@@ -25,6 +25,15 @@ type EditablePhoto = {
   excluded?: boolean;
 };
 
+/** body.gateReport (렌트롤 v1.5 게이트 V01·V12 범위) — 화면에 쓰는 필드만 */
+type ApprovalGateReport = {
+  blocked?: boolean;
+  failedBlocks?: Array<{ id: string; label: string }>;
+};
+
+/** V12 해제 사유 한도 — 서버(RENTROLL_META_LIMITS.overrideReasonChars)와 동일 */
+const V12_REASON_MAX = 200;
+
 interface IMSection {
   section_type: string;
   title: string;
@@ -69,6 +78,16 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [resultMsg, setResultMsg] = useState('');
   const [docStatus, setDocStatus] = useState(initialStatus);
   const [editorTab, setEditorTab] = useState<'edit' | 'preview'>('edit');
+
+  // 렌트롤 게이트(V01·V12) 리포트 — 승인 시점 V12 해제 후 서버가 돌려준 최신 리포트로 교체된다
+  const [gateReport, setGateReport] = useState<ApprovalGateReport | null>(
+    ((content as any)?.gateReport as ApprovalGateReport | undefined) ?? null
+  );
+  const [v12Reason, setV12Reason] = useState('');
+  const [v12Applying, setV12Applying] = useState(false);
+  const blockedGates = gateReport?.blocked === true && Array.isArray(gateReport.failedBlocks) ? gateReport.failedBlocks : [];
+  const hasV12Block = blockedGates.some((g) => g.id === 'V12');
+  const hasOtherBlock = blockedGates.some((g) => g.id !== 'V12');
 
   // OG Meta States
   const [ogTitle, setOgTitle] = useState((content as any)?.ogTitle || '');
@@ -453,6 +472,36 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
     }
   };
 
+  // 승인 시점 V12(렌트롤 면적 단위 혼동) 해제 — 서버가 사유 검증·by/at 기록·게이트 재평가 후 최신 gateReport/targetHash 를 돌려준다
+  const handleV12Override = async () => {
+    const reason = v12Reason.trim();
+    if (!reason) return;
+    setV12Applying(true);
+    try {
+      const res = await fetch(`/api/broker/im-lite/${docId}/approve-override`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error || 'V12 해제 처리 중 오류가 발생했습니다.');
+        return;
+      }
+      if (data.gateReport) setGateReport(data.gateReport as ApprovalGateReport);
+      if (data.targetHash) setCurrentApprovalHash(data.targetHash);
+      setV12Reason('');
+      setActionStatus('idle');
+      setResultMsg('');
+      toast.success('V12 차단이 해제되었습니다. 이제 승인할 수 있습니다.');
+    } catch (err) {
+      console.error('V12 override failed', err);
+      toast.error('V12 해제 처리 중 오류가 발생했습니다.');
+    } finally {
+      setV12Applying(false);
+    }
+  };
+
   const statusBadge = {
     pending_approval: { label: '심사 중', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
     published: { label: '공개됨', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
@@ -544,6 +593,49 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         {actionStatus === 'error' && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
             ❌ {resultMsg}
+          </div>
+        )}
+
+        {/* 렌트롤 게이트(V01·V12) 차단 패널 — V12 만 승인 시점에 사유를 적어 해제할 수 있다 */}
+        {docStatus !== 'published' && blockedGates.length > 0 && (
+          <div data-testid="approve-blocked-gates" className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm">
+            <h3 className="text-xs font-bold text-amber-400 mb-2">⛔ 승인 차단 — 렌트롤 검증 게이트</h3>
+            <ul className="space-y-1 text-[11px] text-amber-200/90">
+              {blockedGates.map((g) => (
+                <li key={g.id} data-testid={`approve-blocked-gate-${g.id}`}>
+                  <span className="font-bold">{g.id}</span> — {g.label}
+                </li>
+              ))}
+            </ul>
+            {hasV12Block && (
+              <div className="mt-3 space-y-2">
+                <label className="block text-[10px] font-semibold text-neutral-400" htmlFor="approve-v12-override-reason">
+                  V12 해제 사유 (필수, {V12_REASON_MAX}자 이하 — 예: 일부 층만 매각)
+                </label>
+                <textarea
+                  id="approve-v12-override-reason"
+                  data-testid="approve-v12-override-reason"
+                  value={v12Reason}
+                  onChange={(e) => setV12Reason(e.target.value)}
+                  maxLength={V12_REASON_MAX}
+                  rows={2}
+                  className="w-full text-xs bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1.5 text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-primary/60"
+                  placeholder="면적 단위 혼동이 아닌 이유를 적어주세요"
+                />
+                <button
+                  type="button"
+                  data-testid="approve-v12-override-apply"
+                  onClick={handleV12Override}
+                  disabled={v12Applying || !v12Reason.trim()}
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {v12Applying ? '적용 중…' : '사유 입력 후 해제'}
+                </button>
+                {hasOtherBlock && (
+                  <p className="text-[10px] text-neutral-500">V01 등 다른 차단 게이트는 해제할 수 없습니다 — 렌트롤을 수정해 재업로드해주세요.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

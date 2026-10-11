@@ -7,6 +7,7 @@
  */
 import PptxGenJS from 'pptxgenjs';
 import { getPptxTheme, getPptxThemeAsync, applyBasicSkin, DEFAULT_PPTX_PRESET, type PptxThemeTokens, type ThemePresetDbReader } from './pptx-theme';
+import { applyBasicBrand } from './brand-skin';
 import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, buildProDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
 import { BASIC_IM_EXCLUSION, BASIC_IM_ALLOWED } from './basic-im-contract';
@@ -32,6 +33,7 @@ import { validateYield, type Yield } from './yield-object';
 import { buildYieldSetFromBody } from '../yield-set';
 import { resolveAreaInputUnit } from '../rentroll-meta';
 import { buildRentrollFactsNote } from './binder/rentroll-check-facts';
+import { buildProEvictionData } from './binder/pro-eviction';
 import { summarizeLeaseOccupancy, isNonLeasableLeaseRow } from '../lease-vacancy';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
@@ -57,6 +59,8 @@ export interface MobileImPptxInput {
   preset?: string;
   /** Basic IM 시각 스킨(credeal_basic | minimal_clean | corporate_clean). preset 이 credeal_basic 일 때만 팔레트에 적용 */
   visualPreset?: string;
+  /** Basic IM 브랜드 대표색(RRGGBB). 회사 기본 프리셋의 tokens.accent — visualPreset 이 credeal_basic(기본)일 때만 팔레트 파생에 사용 */
+  brandAccent?: string;
   posture?: InvestmentPosture;
   grade?: 'A' | 'B' | 'C' | 'D';
   incomeArchetype?: IncomeArchetype;
@@ -153,7 +157,11 @@ export class MobileImPptxRenderer {
       input.supabase
     );
     // Basic IM 시각 스킨: credeal_basic 일 때만 색상 팔레트 교체 (시퀀스·레이아웃·글꼴 불변)
-    const theme: PptxThemeTokens = applyBasicSkin(resolvedTheme, input.visualPreset);
+    const skinned: PptxThemeTokens = applyBasicSkin(resolvedTheme, input.visualPreset);
+    // 브랜드 컬러: 기본 스킨(credeal_basic)일 때만 회사 기본 프리셋 대표색으로 팔레트 파생 (명시 선택한 내장 스킨이 우선)
+    const theme: PptxThemeTokens = (!input.visualPreset || input.visualPreset === 'credeal_basic')
+      ? applyBasicBrand(skinned, input.brandAccent)
+      : skinned;
 
     // G5: 커스텀 프리셋의 logo_url을 input.logoUrl에 폴백 머지
     const resolvedLogoUrl = input.logoUrl ?? theme.logoUrl;
@@ -246,6 +254,8 @@ export class MobileImPptxRenderer {
             || input.doc.sections?.some((s: any) => s.section_type === 'lease_status')
           ),
           hasStackingPlan: !!(input.doc.body?.floor_leases?.length || input.doc.body?.stackingPlan?.length),
+          // 명도 분석(추정): Pro·개발형 전용 — 명도 대상(임대 중 호실)이 있을 때만. Basic 시퀀서는 이 플래그를 읽지 않는다.
+          hasEvictionEstimate: posture === 'development' && buildProEvictionData(input.doc.body) !== null,
           // D4/D8: 중개인 제공 정보 면 (body.broker_extras + photos_v2 문서 이미지) — 입력 없으면 모두 false
           ...deriveBrokerAvailability(input.doc.body),
         },

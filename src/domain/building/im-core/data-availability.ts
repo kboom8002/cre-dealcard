@@ -34,6 +34,8 @@ export interface DataAvailability {
   hasBrokerRegulationNotes?: boolean;  // (세분) 규제·계획 메모가 있음 — 미지정 시 hasBrokerRegulation 으로 간주
   hasBrokerRegulationImages?: boolean; // (세분) 지구단위계획도/도면 이미지가 있음 → '지구단위계획·도면' 면
   hasBrokerComps?: boolean;      // 인근 시세 비교 ≥1행 → '인근 시세 비교' 면
+  // Pro·개발형 전용 — 명도 대상(임대 중 호실)이 있고 analyzeEviction 결과가 산출됨 → '명도 분석(추정)' 면. Basic 은 읽지 않는다.
+  hasEvictionEstimate?: boolean;
 }
 
 

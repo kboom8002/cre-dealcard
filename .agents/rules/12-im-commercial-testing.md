@@ -50,4 +50,16 @@
 ### 78. 병합 순서·그룹핑 주의 (개요 사양 표)
 - LLM 서술형 키(길이>20·`.,*•` 포함)는 제원 그룹(`#준공` 등)에 묶지 않는다. 서술형 필터는 그룹 병합 **이전**에 실행. 안 그러면 정크 행이 공부 값(사용승인일) 행을 막은 뒤 사라져 행이 통째로 누락된다.
 - 같은 문장이 두 면에 렌더되면 Rule 4 위반: 투자 포인트 ↔ 입지 설명은 입지 면 유지·포인트에서 제거(0개가 되면 반대로 입지 callout 생략).
+
+## D. 시각 회귀 승인 게이트 (슬라이드 이미지)
+
+### 79. `visual:check` / `visual:approve` — 이미지 diff 승인 흐름 (layout-gate.mjs 의 이미지 버전)
+- 덱 매트릭스(32): core 7 + income ig 10 + 대표 골든 3(`income-yangpyeong-r3`/`income-dangsan-r3`/`owner-seocho-r3`) × 비기본 스킨 5. `credeal_basic` 스킨 = 기본 골든과 같은 덱 → 기본 골든 기준선 상속 (`g:credeal_basic` 은 `g` 로 접힘). 나머지 5 스킨은 팔레트가 달라 각자 기준선.
+- 흐름: 오프라인 재렌더(`rerenderSnapshot`, 스킨은 `GOLDEN_VISUAL_PRESET`) → LibreOffice(`soffice --headless --convert-to pdf`, 전용 프로필 `out/visual-lo-profile`) → PyMuPDF 960px PNG(`scripts/visual-regression-render.py`) → 팔레트 PNG 정규화 → 가벼운 블러 후 `diffImages`(채널 허용 24, 슬라이드별 임계 2%) → `PASS` / `CHANGED`(슬라이드·비율·[기준|현재|diff] PNG 경로) / `NO_BASELINE`.
+- 명령: `npm run visual:check [-- core|income|skins|all|<golden>[:<skin>] ...]`, 승인 `npm run visual:approve -- <golden>[:<skin>] ...` (대상 명시 필수, `--from-last` = 방금 리뷰한 PNG 그대로 승인). `--list`, `--no-rerender`, `--threshold`, `--tolerance`, `--allow-missing-baseline`.
+- 기준선: `e2e/golden-snapshots/visual-baseline/<덱>/slide-NN.png` + `manifest.json`(환경 지문). 스크래치/diff PNG 는 `e2e/golden-snapshots/out/`(gitignore). 기준선 PNG 는 **추적** 대상(약 18KB×슬라이드 ≈ 전체 5~7MB) — 승인 커밋은 사람이 의도적으로 한다 (도구는 add/commit 하지 않음).
+- **PASS 가 아닌 변경은 수정 또는 승인**: 의도한 디자인 변경이면 diff PNG 를 눈으로 확인 후 `visual:approve`, 아니면 코드 수정. 임계값을 올려 통과시키지 않는다 (Rule 74 정신).
+- 환경 의존: LibreOffice 폰트 대체는 조용히 일어난다 → 지문(렌더러 버전·PyMuPDF·OS·폭·PDF 임베드 폰트 목록)을 기준선에 기록, 불일치는 FAIL 이 아니라 WARN. WARN 과 CHANGED 가 함께 나오면 승인 머신에서 재생성 전에 폰트부터 의심한다.
+- stale: 매트릭스에서 사라진 기준선 폴더, 매니페스트↔파일 불일치는 `STALE` 로 알린다 (종료 코드 무영향). 슬라이드 수 변화는 `missing`/`extra` 로 CHANGED.
+- Windows: `soffice --version` 은 종료하지 않는다(GUI 런처) — 스크립트는 `bootstrap.ini` 에서 버전을 읽는다. `Get-Process soffice* | Stop-Process` 는 다른 세션의 변환도 죽이므로 쓰지 않는다.
 <!-- END:cre-im-commercial-testing -->

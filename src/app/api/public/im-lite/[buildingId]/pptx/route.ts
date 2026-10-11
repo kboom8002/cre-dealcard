@@ -158,10 +158,21 @@ export async function GET(
     // Basic IM이면 시퀀스 결정용 프리셋은 항상 credeal_basic (시각 테마만 다를 수 있음)
     const resolvedPreset = isBasicIM ? 'credeal_basic' : visualPreset;
 
+    // 브랜드 컬러(Basic 전용): 기본 스킨(credeal_basic) 또는 커스텀 프리셋 UUID 요청일 때만, 소유 중개사의
+    // pptx_custom_presets 회사 기본값(또는 지정 프리셋)의 대표색을 팔레트로 파생. 실패/미설정 → 기본 팔레트 (차단 없음).
+    let brandAccent: string | undefined;
+    const isCustomPresetId = /^[0-9a-f-]{36}$/i.test(String(visualPreset));
+    if (isBasicIM && (visualPreset === 'credeal_basic' || isCustomPresetId)) {
+      const { resolveBrandAccent } = await import('@/domain/building/mobile-im/pptx/brand-skin');
+      const brand = await resolveBrandAccent({ supabase: supabase as any, ownerId, presetParam: isCustomPresetId ? String(visualPreset) : null });
+      brandAccent = brand?.accent;
+    }
+
     const result = await renderer.render({
       buildingId,
       preset: resolvedPreset,
-      visualPreset: isBasicIM ? visualPreset : undefined,
+      visualPreset: isBasicIM ? (isCustomPresetId ? 'credeal_basic' : visualPreset) : undefined,
+      brandAccent,
       posture,
       grade,
       incomeArchetype,

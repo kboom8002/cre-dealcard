@@ -13,6 +13,7 @@ import {
 import type { Comp } from '@/types/im-core';
 import type { SectionData } from './binder-types';
 import { buildProRentRollTable, detectProAreaMode } from './pro-rentroll-table';
+import { buildProEvictionData, PRO_EVICTION_DATA_KEY } from './pro-eviction';
 import { PYEONG_TO_SQM_V15, resolveAreaInputUnit } from '../../rentroll-meta';
 import { createModuleLogger } from '@/lib/logger';
 // 로그 모듈명은 분할 전과 동일하게 유지 (모니터링 쿼리 호환)
@@ -440,6 +441,17 @@ export function bindProImChapterData(
       tableRows: [],
       _derived: true,
     };
+  }
+
+  // 명도 분석(추정): 원천 = lease-adapter.analyzeEviction (뷰어 표와 동일 함수·입력). 명도 대상이 없으면 키를 만들지 않는다.
+  // 어떤 덱에 싣는지는 시퀀서가 정한다 (Pro·개발형만 — Basic 은 사실형이라 제외).
+  if (!result[PRO_EVICTION_DATA_KEY]) {
+    try {
+      const evictionData = buildProEvictionData(doc.body);
+      if (evictionData) result[PRO_EVICTION_DATA_KEY] = evictionData;
+    } catch (e) {
+      log.warn({ e }, '[data-binder] Eviction estimate binding failed (slide omitted)');
+    }
   }
 
   if (!result['facility_mep']) {

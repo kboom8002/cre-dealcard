@@ -7,7 +7,7 @@
 // 해결: 단위 정규화 어댑터를 도입하여 데이터 계층과 렌더링 계층을 분리
 
 import type { FloorLeaseInput } from "./types";
-import { createServiceClient } from '@/lib/supabase/service';
+// createServiceClient 는 persistLeaseUnits 안에서 lazy import (서버 env 검증을 import 시점에 일으키지 않기 위함)
 import { pyeongToSqm, formatPyeong, sqmToPyeong } from '@/lib/utils/area-conversion';
 import { resolveLeaseOccupancy } from './lease-vacancy';
 import { EVIDENCE_LEVELS, PAYMENT_STATUSES, areaUnitLabel, resolveAreaInputUnit, type AreaInputUnit, type RentRollMeta } from './rentroll-meta';
@@ -452,6 +452,7 @@ export async function persistLeaseUnits(
   buildingId?: string,
   opts?: PersistLeaseOptions,
 ): Promise<{ inserted: number; errors: string[] }> {
+  const { createServiceClient } = await import('@/lib/supabase/service'); // lazy: 순수 헬퍼만 쓰는 PPTX/오프라인 경로에서 서버 env 검증이 import 시점에 터지지 않도록
   const supabase = createServiceClient();
   const errors: string[] = [];
   let ledgerWritten = 0;

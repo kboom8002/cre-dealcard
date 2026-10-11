@@ -19,6 +19,8 @@
     "test:e2e": "npx playwright test",
     "test:editor": "npx playwright test e2e/editor --reporter=line",
     "test:visual": "npx tsx scripts/visual-regression.ts",
+    "visual:check": "npx tsx scripts/visual-regression-gate.ts",
+    "visual:approve": "npx tsx scripts/visual-regression-gate.ts --approve",
     "test:golden:record": "node scripts/with-env.mjs LLM_MODE=record -- npx playwright test e2e/golden/income-yangpyeong-r3.auth.spec.ts --workers=1 --timeout=600000 --reporter=line",
     "test:golden:replay": "node scripts/with-env.mjs LLM_MODE=replay -- npx playwright test e2e/golden --workers=1 --timeout=600000 --reporter=line",
     "test:flaky-report": "node scripts/flaky-report.mjs",

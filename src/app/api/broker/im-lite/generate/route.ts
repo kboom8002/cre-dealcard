@@ -9,9 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
-import { parseBrokerExtras } from "@/domain/building/mobile-im/broker-extras";
-import { parseRentRollMeta } from "@/domain/building/mobile-im/rentroll-meta-parse";
-import { sanitizeAncillaryIncomes, sanitizeGrossAreaM2 } from "@/domain/building/mobile-im/supplemental-sanitize";
+import { parseSupplementalFromBody } from "@/domain/building/mobile-im/supplemental-whitelist";
 
 // IM 생성은 7섹션 AI 생성 + 외부 데이터 수집 + Judge 검증으로 60초 이상 소요 가능
 // thresholds.ts IM_HARD_TIMEOUT_MS = 180_000 (180초)에 정렬
@@ -66,37 +64,11 @@ export async function POST(req: NextRequest) {
         message: '모바일 IM 현대화 코어 파이프라인으로 생성되었습니다.',
       });
     }
-    supplemental = {
-      monthly_rent_total_krw: body.monthly_rent_total_krw,
-      vacancy_status: body.vacancy_status,
-      vacancy_pct: body.vacancy_pct,
-      resolved_address: body.resolved_address,
-      resolved_pnu: body.resolved_pnu,
-      photo_urls: body.photo_urls,
-      photos_v2: body.photos_v2,
-      broker_highlight: body.broker_highlight,
-      estimated_yield_pct: body.estimated_yield_pct,
-      total_deposit_manwon: body.total_deposit_manwon,
-      mgmt_fee_total_manwon: body.mgmt_fee_total_manwon,
-      loan_amount_manwon: body.loan_amount_manwon,
-      asking_price_manwon: body.asking_price_manwon,
-    };
-
-    // D4: 중개인 추가 정보 — 검증 통과 시에만 supplemental.broker_extras 로 반영 (실패 시 400)
-    const extrasParsed = parseBrokerExtras(body.broker_extras);
-    if (!extrasParsed.ok) return NextResponse.json({ error: extrasParsed.error }, { status: 400 });
-    if (extrasParsed.value) supplemental.broker_extras = extrasParsed.value;
-
-    // 렌트롤 v1.5 메타 — enum/숫자/길이 검증 (실패 시 400 + 한국어 메시지). generate-async 와 동일 규칙.
-    const rentRollMetaParsed = parseRentRollMeta(body.rent_roll_meta);
-    if (!rentRollMetaParsed.ok) return NextResponse.json({ error: rentRollMetaParsed.error }, { status: 400 });
-    if (rentRollMetaParsed.value) supplemental.rent_roll_meta = rentRollMetaParsed.value;
-
-    // X1: 부가수입·연면적 통과 (sanitize)
-    const ancillary = sanitizeAncillaryIncomes(body.ancillary_incomes);
-    if (ancillary) supplemental.ancillary_incomes = ancillary;
-    const grossAreaM2 = sanitizeGrossAreaM2(body.total_gross_area_m2);
-    if (grossAreaM2 !== undefined) supplemental.total_gross_area_m2 = grossAreaM2;
+    // 화이트리스트·검증은 generate-async 와 공유하는 단일 헬퍼 (drift 방지 — 이전에는 floor_leases·parcels 등이 유실됐다).
+    // 실패 시 400 + 한국어 메시지.
+    const parsed = parseSupplementalFromBody(body);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    supplemental = parsed.supplemental;
 
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });

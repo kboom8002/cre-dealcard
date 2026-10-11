@@ -186,6 +186,7 @@ export async function buildRenderInput(snap: GoldenSnapshot): Promise<Record<str
     buildingId: snap.buildingId,
     preset: resolvedPreset,
     visualPreset: isBasicIM ? visualPreset : undefined,
+    brandAccent: isBasicIM ? (process.env.GOLDEN_BRAND_ACCENT || undefined) : undefined, // 회사 기본 프리셋 대표색 시뮬레이션
     posture,
     grade,
     incomeArchetype: body.incomeArchetype ?? undefined,
@@ -348,7 +349,9 @@ export async function rerenderSnapshot(name: string, opts: { writeFiles?: boolea
     network: { stubbedKakaoStaticMap: net.stubbedKakaoStaticMap, blocked: [...net.blocked] },
   };
   if (opts.writeFiles !== false) {
-    const sfx = process.env.GOLDEN_VISUAL_PRESET ? `__${process.env.GOLDEN_VISUAL_PRESET}` : '';
+    const sfx = process.env.GOLDEN_BRAND_ACCENT
+      ? `__brand${process.env.GOLDEN_BRAND_ACCENT.replace('#', '')}`
+      : (process.env.GOLDEN_VISUAL_PRESET ? `__${process.env.GOLDEN_VISUAL_PRESET}` : '');
     const outDir = process.env.GOLDEN_TIER === 'pro' ? path.join(OUT_DIR, 'pro-themes') : OUT_DIR;
     res.pptxPath = path.join(outDir, `${name}${sfx}.pptx`);
     fs.mkdirSync(outDir, { recursive: true });
