@@ -217,7 +217,7 @@ export function buildProDeckSequence(
 
   // Tenant Roster Chunking Integration
   const floorLeases: InstitutionalTenantRosterItem[] =
-    data.floor_leases || data.tenantRoster || [];
+    (Array.isArray(data.floor_leases) && data.floor_leases.length > 0 ? data.floor_leases : data.tenantRoster) || [];
   const tenantChunks = chunkTenantRoster(floorLeases, 12);
 
   // 명도 분석(추정): Pro·개발형 + 명도 대상(임대 중 호실) 존재 시에만 1면 추가. Basic 시퀀스는 이 플래그를 읽지 않는다.

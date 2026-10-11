@@ -14,7 +14,7 @@ import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, fin
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { areaUnitLabel, resolveAreaInputUnit } from "../../rentroll-meta";
 import { formatLeaseAreaCell } from "../../lease-area-cell";
-import { resolveLeaseOccupancy } from "../../lease-vacancy";
+import { resolveLeaseOccupancy, sumLeasedRentRoll } from "../../lease-vacancy";
 
 /** 운영 데이터 floor_leases(snake_case · 만원) → 프리미엄 바인더가 읽는 camelCase(원) 형태. 값 변환만 수행하며 없는 값은 만들지 않는다. */
 function normalizeFloorLeaseRow(l: any): Record<string, any> {
@@ -51,7 +51,9 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     const floorLeaseRows = Array.isArray(body.floor_leases) && body.floor_leases.length > 0
       ? body.floor_leases.map(normalizeFloorLeaseRow)
       : null;
-    const rawLeases = body.leases ?? body.rentRoll?.leases ?? floorLeaseRows ?? body.rentRoll ?? [];
+    // 비어 있지 않은 첫 소스 사용 — 빈 레거시 배열(leases: [])이 floor_leases 를 가리지 않게 한다
+    const nonEmpty = (v: unknown): any[] | null => (Array.isArray(v) && v.length > 0 ? v : null);
+    const rawLeases = nonEmpty(body.leases) ?? nonEmpty(body.rentRoll?.leases) ?? floorLeaseRows ?? nonEmpty(body.rentRoll) ?? [];
     const asOfDate = body.asOfDate ?? body.analysisDate ?? new Date().toISOString().slice(0, 10);
     const leaseUnits: LeaseUnit[] = [];
     if (Array.isArray(rawLeases) && rawLeases.length > 0) {
@@ -71,19 +73,39 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     }
 
     const wale: WaleResult = calculateWALE(leaseUnits, asOfDate);
-    const askingPriceKrw = Number(body.price?.askingKrw ?? heroCard.askingPriceKrw ?? body.askingPrice ?? 0);
-    const capRatePct = Number(heroCard.capRateBase ?? body.yields?.gross_price?.value ?? body.capRate ?? 0);
+    // 운영 문서 키(asking_price_manwon · 만원)도 인식 — 원 단위 키가 없을 때만
+    const askingManwon = Number(body.asking_price_manwon ?? body.ssot_summary?.asking_price_manwon ?? 0);
+    const askingPriceKrw = Number(body.price?.askingKrw ?? heroCard.askingPriceKrw ?? body.askingPrice ?? (askingManwon > 0 ? askingManwon * 10000 : 0));
+    const capRateBase = Number(heroCard.capRateBase ?? body.yields?.gross_price?.value ?? body.capRate ?? 0);
     const annualRentTotal = leaseUnits.reduce((sum, u) => sum + (u.rentAmount > 0 ? u.rentAmount * 12 : 0), 0);
-    const noiKrw = askingPriceKrw > 0 ? askingPriceKrw * (capRatePct / 100) : annualRentTotal * 0.92;
+    // Cap Rate 미제공(0/NaN)이어도 NOI 를 0 으로 두지 않는다: 임대중 렌트롤 연 임대료 × 0.92(기존 폴백 가정)에서 도출하고,
+    // 매매가가 있으면 그 NOI ÷ 매매가로 Cap Rate 를 맞춘다. 근거가 전혀 없으면 '-'.
+    const capRateGiven = Number.isFinite(capRateBase) && capRateBase > 0;
+    let capRatePct = capRateGiven ? capRateBase : 0;
+    let noiKrw: number;
+    if (askingPriceKrw > 0 && capRateGiven) {
+      noiKrw = askingPriceKrw * (capRatePct / 100);
+    } else {
+      noiKrw = annualRentTotal * 0.92;
+      if (askingPriceKrw > 0 && noiKrw > 0) capRatePct = (noiKrw / askingPriceKrw) * 100;
+    }
     const noiBil = (noiKrw / 1e8).toFixed(1);
+    const capText = capRatePct > 0 ? `${capRatePct.toFixed(2)}%` : '-';
+    const noiShort = noiKrw > 0 ? `${noiBil}억` : '-';
+    const noiLong = noiKrw > 0 ? `약 ${noiBil}억 원/년` : '-';
+    // 임대료·만기 데이터가 없으면 WALE/만기도래를 '0.0년/0.0%' 로 단정하지 않는다
+    const hasRentData = leaseUnits.some((u) => u.rentAmount > 0);
+    const waleRentText = wale.waleByRentYears > 0 ? `${wale.waleByRentYears.toFixed(1)}년` : '-';
+    const waleAreaText = wale.waleByAreaYears > 0 ? `${wale.waleByAreaYears.toFixed(1)}년` : '-';
+    const atRiskText = hasRentData ? `${wale.atRiskRentPct12m.toFixed(1)}%` : '-';
     const askingPriceDisplay = heroCard.askingPriceDisplay ?? (askingPriceKrw > 0 ? `${(askingPriceKrw / 1e8).toFixed(1)}억 원` : '-');
     const institutionalMetrics = [
             { label: '매매 희망가', value: askingPriceDisplay, unit: '' },
-            { label: '연 순수익률 (Cap Rate)', value: `${capRatePct.toFixed(2)}%`, unit: '', sub: '순영업소득(NOI) 기준' },
-            { label: '순영업소득 (NOI)', value: `약 ${noiBil}억 원/년`, unit: '', sub: '연간 실질 순영업소득' },
-            { label: 'WALE (임대료 기준)', value: `${wale.waleByRentYears.toFixed(1)}년`, unit: '', sub: '가중평균 잔여만기' },
-            { label: 'WALE (면적 기준)', value: `${wale.waleByAreaYears.toFixed(1)}년`, unit: '', sub: '전용면적 가중 기준' },
-            { label: '12개월 내 만기도래', value: `${wale.atRiskRentPct12m.toFixed(1)}%`, unit: '', sub: '단기 재계약 관리 대상' },
+            { label: '연 순수익률 (Cap Rate)', value: capText, unit: '', sub: '순영업소득(NOI) 기준' },
+            { label: '순영업소득 (NOI)', value: noiLong, unit: '', sub: '연간 실질 순영업소득' },
+            { label: 'WALE (임대료 기준)', value: `${waleRentText}`, unit: '', sub: '가중평균 잔여만기' },
+            { label: 'WALE (면적 기준)', value: `${waleAreaText}`, unit: '', sub: '전용면적 가중 기준' },
+            { label: '12개월 내 만기도래', value: `${atRiskText}`, unit: '', sub: '단기 재계약 관리 대상' },
           ];
     dataMap['summary'] = {
     title: '핵심 투자 지표 요약 (Institutional Prime)',
@@ -91,29 +113,29 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     tables: [],
     metrics: {
       askingPrice: askingPriceDisplay,
-      capRate: `${capRatePct.toFixed(2)}%`,
-      noi: `${noiBil}억`,
-      waleRent: `${wale.waleByRentYears.toFixed(1)}년`,
-      waleArea: `${wale.waleByAreaYears.toFixed(1)}년`,
-      atRisk12m: `${wale.atRiskRentPct12m.toFixed(1)}%`,
+      capRate: capText,
+      noi: noiShort,
+      waleRent: `${waleRentText}`,
+      waleArea: `${waleAreaText}`,
+      atRisk12m: `${atRiskText}`,
     },
     leadSentence: heroCard.hookText ?? '임차 포트폴리오 기반 현금흐름 분석 대상 상업용 자산',
     metricsData: institutionalMetrics,
     keyPoints: [
-      `WALE 안정성: 임대료 기준 가중평균 잔여만기 ${wale.waleByRentYears.toFixed(1)}년(면적 기준 ${wale.waleByAreaYears.toFixed(1)}년) 확보로 장기 현금흐름 안정성 견고`,
-      `순영업소득(NOI) 가치: 연간 실질 순영업소득 ${noiBil}억 원(Cap Rate ${capRatePct.toFixed(2)}%) 달성 및 안정적 임차인(우수 신용도) 위주의 임대차 구성`,
-      `렌트롤 다단 리스크 관리: 12개월 내 만기도래 비중 ${wale.atRiskRentPct12m.toFixed(1)}% 선제적 테넌트 리텐션 대응 가능`,
+      `WALE 안정성: 임대료 기준 가중평균 잔여만기 ${waleRentText}(면적 기준 ${waleAreaText}) 확보로 장기 현금흐름 안정성 견고`,
+      `순영업소득(NOI) 가치: 연간 실질 순영업소득 ${noiKrw > 0 ? `${noiBil}억 원` : '-'}(Cap Rate ${capText}) 달성 및 안정적 임차인(우수 신용도) 위주의 임대차 구성`,
+      `렌트롤 다단 리스크 관리: 12개월 내 만기도래 비중 ${atRiskText} 선제적 테넌트 리텐션 대응 가능`,
     ],
     callouts: [
       {
         kind: 'good',
         title: 'WALE 가중평균 잔여만기',
-        body: `임대료 기준 ${wale.waleByRentYears.toFixed(1)}년, 면적 기준 ${wale.waleByAreaYears.toFixed(1)}년으로 중장기 현금흐름 안정성 확보`,
+        body: `임대료 기준 ${waleRentText}, 면적 기준 ${waleAreaText}으로 중장기 현금흐름 안정성 확보`,
       },
       {
         kind: wale.atRiskRentPct12m > 20 ? 'warn' : 'info',
         title: '12개월 내 만기 비중',
-        body: `단기 만기도래 임대료 비중은 ${wale.atRiskRentPct12m.toFixed(1)}% 수준으로 사전 협의 진행 권장`,
+        body: `단기 만기도래 임대료 비중은 ${atRiskText} 수준으로 사전 협의 진행 권장`,
       },
     ],
     wale,
@@ -155,21 +177,21 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     tableHead: multiColHeaders,
     tableRows: multiColRows,
     metrics: {
-      waleRent: `${wale.waleByRentYears.toFixed(1)}년`,
-      waleArea: `${wale.waleByAreaYears.toFixed(1)}년`,
-      atRisk12m: `${wale.atRiskRentPct12m.toFixed(1)}%`,
+      waleRent: `${waleRentText}`,
+      waleArea: `${waleAreaText}`,
+      atRisk12m: `${atRiskText}`,
     },
-    note: `WALE(가중평균 잔여만기): 임대료 기준 ${wale.waleByRentYears.toFixed(1)}년 / 면적 기준 ${wale.waleByAreaYears.toFixed(1)}년 (분석 기준일: ${asOfDate})`,
+    note: `WALE(가중평균 잔여만기): 임대료 기준 ${waleRentText} / 면적 기준 ${waleAreaText} (분석 기준일: ${asOfDate})`,
     callouts: [
       {
         kind: 'good',
         title: 'WALE 렌트롤 다단 구조',
-        body: `가중평균 잔여만기 임대료 기준 ${wale.waleByRentYears.toFixed(1)}년으로 장기 임대차 안정성이 높습니다.`,
+        body: `가중평균 잔여만기 임대료 기준 ${waleRentText}으로 장기 임대차 안정성이 높습니다.`,
       },
       {
         kind: wale.atRiskRentPct12m > 20 ? 'warn' : 'info',
         title: '만기 집중도 진단',
-        body: `12개월 이내 만기도래 임대료 비중은 ${wale.atRiskRentPct12m.toFixed(1)}%입니다.`,
+        body: `12개월 이내 만기도래 임대료 비중은 ${atRiskText}입니다.`,
       },
     ],
     wale,
@@ -191,6 +213,7 @@ export function bindCorporateTemplateData(doc: any, dataMap: Record<string, Sect
             heroCard.askingPriceKrw ??
             (heroCard.askingPriceManwon ? heroCard.askingPriceManwon * 10000 : undefined) ??
             body.askingPrice ??
+            ((body.asking_price_manwon ?? body.ssot_summary?.asking_price_manwon) ? Number(body.asking_price_manwon ?? body.ssot_summary?.asking_price_manwon) * 10000 : undefined) ??
             0
           );
     const acqTaxRate = 0.046;
@@ -306,22 +329,30 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
     const areaUnit = resolveAreaInputUnit(body.rent_roll_meta);
     const areaUnitText = areaUnitLabel(areaUnit);
     const mdHeaders = ['층수', '업종', `임대면적(${areaUnitText})`, '보증금 / 월세', '비고'];
+    // 점유 상태 SSOT: 공실·자가사용 행은 임차인·업종 구성·월세 합계에서 제외 (표에는 점유 상태로 남긴다)
+    const leasedRows = floorLeases.filter((l: any) => resolveLeaseOccupancy(l) === '임대중');
     const mdRows = floorLeases.length > 0
-            ? floorLeases.map((l: any) => [
-                l.floor || '-',
-                l.tenant_type || l.tenant_name || '-',
-                formatLeaseAreaCell(l.area_sqm_is_proxy ? undefined : Number(l.area_sqm), areaUnit),
-                `${l.deposit_manwon ? (l.deposit_manwon / 10000).toFixed(1) + '억' : '-'} / ${l.rent_manwon ? l.rent_manwon + '만 원' : '-'}`,
-                l.notes || '',
-              ])
+            ? floorLeases.map((l: any) => {
+                const occ = resolveLeaseOccupancy(l);
+                const leased = occ === '임대중';
+                return [
+                  l.floor || '-',
+                  leased ? (l.tenant_type || l.tenant_name || '-') : occ,
+                  formatLeaseAreaCell(l.area_sqm_is_proxy ? undefined : Number(l.area_sqm), areaUnit),
+                  leased
+                    ? `${l.deposit_manwon ? (l.deposit_manwon / 10000).toFixed(1) + '억' : '-'} / ${l.rent_manwon ? l.rent_manwon + '만 원' : '-'}`
+                    : '- / -',
+                  l.notes || '',
+                ];
+              })
             : [['데이터 없음', '-', '-', '-', '-']];
-    const tenantNames = floorLeases
+    const tenantNames = leasedRows
             .filter((l: any) => l.tenant_name && (l.rent_manwon ?? 0) > 0)
             .sort((a: any, b: any) => (b.rent_manwon ?? 0) - (a.rent_manwon ?? 0))
             .map((l: any) => l.tenant_name)
             .slice(0, 3);
     const anchorTenantsStr = tenantNames.length > 0 ? tenantNames.join(' / ') : undefined;
-    const tenantTypes = [...new Set(floorLeases.map((l: any) => l.tenant_type).filter(Boolean))];
+    const tenantTypes = [...new Set(leasedRows.map((l: any) => l.tenant_type).filter(Boolean))];
     const primaryUse = tenantTypes.slice(0, 2).join(' / ') || '근린생활시설';
     dataMap['plan'] = {
     title: '층별 임대 현황',
@@ -367,7 +398,7 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
     },
     };
     const askingPriceEok = (body.asking_price_manwon ?? body.ssot_summary?.asking_price_manwon ?? 0) / 10000;
-    const monthlyRentManwon = floorLeases.reduce((sum: number, l: any) => sum + (l.rent_manwon ?? 0), 0);
+    const monthlyRentManwon = sumLeasedRentRoll(floorLeases).rentManwon;
     const grossYield = body.ssot_summary?.gross_yield_pct;
     const commercialMetrics = [
             anchorTenantsStr ? { label: '주요 임차인', value: anchorTenantsStr, unit: '', sub: '임대료 기준 상위 3인' } : null,

@@ -15,9 +15,56 @@ import type { SectionData } from './binder-types';
 import { buildProRentRollTable, detectProAreaMode } from './pro-rentroll-table';
 import { buildProEvictionData, PRO_EVICTION_DATA_KEY } from './pro-eviction';
 import { PYEONG_TO_SQM_V15, resolveAreaInputUnit } from '../../rentroll-meta';
+import { resolveLeaseOccupancy, sumLeasedRentRoll } from '../../lease-vacancy';
+import { formatAreaNumber, sumLeaseAreaInUnit } from '../../lease-area-cell';
 import { createModuleLogger } from '@/lib/logger';
 // 로그 모듈명은 분할 전과 동일하게 유지 (모니터링 쿼리 호환)
 const log = createModuleLogger('data-binder');
+
+/**
+ * 임대차 만기 스케줄 (A03 Part 2) — 임대중 행(공실·자가사용 제외) 중 유효한 만기일이 있는 행을 만기 연도별로 집계.
+ * 비중 = 월세(만기 연도별 월세 ÷ 만기일 보유 임대중 행 월세 합). 월세 합이 0이면 비중은 '-' (지어내지 않는다).
+ * 만기일이 있는 행이 없으면 빈 배열. 마지막에 합계 행(비중 100.0 / 누적 '-').
+ */
+function buildExpiryScheduleRows(items: InstitutionalTenantRosterItem[], unit: ReturnType<typeof resolveAreaInputUnit>): string[][] {
+  const byYear = new Map<number, InstitutionalTenantRosterItem[]>();
+  for (const t of items) {
+    if (t.occupancyType === 'vacant' || t.occupancyType === 'owner_occupied') continue;
+    const end = new Date(t.leaseEndDate);
+    if (!t.leaseEndDate || Number.isNaN(end.getTime())) continue;
+    const y = end.getUTCFullYear();
+    byYear.set(y, [...(byYear.get(y) ?? []), t]);
+  }
+  if (byYear.size === 0) return [];
+  const totalRentKrw = [...byYear.values()].flat().reduce((s, t) => s + (t.monthlyRentKrw || 0), 0);
+  const manwon = (krw: number) => Math.round(krw / 10000).toLocaleString();
+  const rows: string[][] = [];
+  let cum = 0;
+  for (const y of [...byYear.keys()].sort((a, b) => a - b)) {
+    const group = byYear.get(y) as InstitutionalTenantRosterItem[];
+    const rent = group.reduce((s, t) => s + (t.monthlyRentKrw || 0), 0);
+    const share = totalRentKrw > 0 ? (rent / totalRentKrw) * 100 : null;
+    if (share != null) cum += share;
+    rows.push([
+      `${y}년`,
+      `${group.length}개사`,
+      formatAreaNumber(sumLeaseAreaInUnit(group.map((t) => t.leasedAreaM2), unit)),
+      manwon(rent),
+      share != null ? share.toFixed(1) : '-',
+      share != null ? Math.min(cum, 100).toFixed(1) : '-',
+    ]);
+  }
+  const all = [...byYear.values()].flat();
+  rows.push([
+    '합계',
+    `${all.length}개사`,
+    formatAreaNumber(sumLeaseAreaInUnit(all.map((t) => t.leasedAreaM2), unit)),
+    manwon(totalRentKrw),
+    totalRentKrw > 0 ? '100.0' : '-',
+    '-',
+  ]);
+  return rows;
+}
 
 /**
  * Pro IM 5대 챕터 정형 데이터 바인딩 헬퍼 (Extended & Hardened)
@@ -38,10 +85,16 @@ export function bindProImChapterData(
     0
   );
 
+  // 렌트롤(floor_leases · 만원) 임대중 행 합 — 문서에 월세/보증금 합계 키가 없을 때의 폴백 (공실·자가사용 행 제외, lease-vacancy SSOT)
+  const rentRollTotals = Array.isArray(doc.body?.floor_leases) && doc.body.floor_leases.length > 0
+    ? sumLeasedRentRoll(doc.body.floor_leases)
+    : null;
+
   const annualRentKrw = Number(
     doc.body?.annual_rent_krw ||
     (doc.body?.monthly_rent_total_krw ? Number(doc.body.monthly_rent_total_krw) * 12 : 0) ||
     (doc.body?.ssot_summary?.monthly_rent_total_krw ? Number(doc.body.ssot_summary.monthly_rent_total_krw) * 12 : 0) ||
+    (rentRollTotals && rentRollTotals.rentManwon > 0 ? rentRollTotals.rentManwon * 10000 * 12 : 0) ||
     0
   );
 
@@ -49,6 +102,7 @@ export function bindProImChapterData(
     doc.body?.total_deposit_krw ||
     (doc.body?.total_deposit_manwon ? Number(doc.body.total_deposit_manwon) * 10000 : 0) ||
     (doc.body?.ssot_summary?.total_deposit_manwon ? Number(doc.body.ssot_summary.total_deposit_manwon) * 10000 : 0) ||
+    (rentRollTotals && rentRollTotals.depositManwon > 0 ? rentRollTotals.depositManwon * 10000 : 0) ||
     0
   );
 
@@ -87,8 +141,9 @@ export function bindProImChapterData(
   const exactAskText = `${(askingPriceKrw / 100000000).toLocaleString()}억 원`;
 
   // ── 2. Raw Leases & Tenant Roster Processing ──
+  const fromFloorLeases = Array.isArray(doc.body?.floor_leases) && doc.body.floor_leases.length > 0;
   const rawInputLeases =
-    (Array.isArray(doc.body?.floor_leases) && doc.body.floor_leases.length > 0)
+    fromFloorLeases
       ? doc.body.floor_leases.filter(Boolean)
       : (Array.isArray(doc.body?.tenantRoster) && doc.body.tenantRoster.length > 0)
       ? doc.body.tenantRoster.filter(Boolean)
@@ -121,33 +176,39 @@ export function bindProImChapterData(
         // 전용면적: 사용자가 기입한 값만 (임대면적으로 대체하지 않는다)
         const excM2Raw = Number(item.exclusiveAreaM2 ?? item.exclusive_area_m2 ?? item.exclusive_area_sqm ?? 0) || 0;
         const excPyRaw = Number(item.exclusiveAreaPyeong ?? item.exclusive_area_pyeong ?? (excM2Raw / PYEONG_TO_SQM_V15)) || 0;
-        const depKrw = item.deposit_manwon != null
+        // 점유 상태 SSOT (floor_leases 행만): 공실·자가사용 행은 임차인이 아니다 → 금액·만기·갱신권 없음, 임차인 수 제외
+        const occupancy = fromFloorLeases ? resolveLeaseOccupancy(item) : '임대중';
+        const notLeased = occupancy !== '임대중';
+        const depKrw = notLeased ? 0 : item.deposit_manwon != null
           ? Number(item.deposit_manwon) * 10000
           : Number(item.depositKrw ?? item.deposit_krw ?? item.deposit ?? 0);
         // X2: floor_leases 의 실제 키는 rent_manwon / mgmt_fee_manwon (monthly_rent_manwon / maintenance_manwon 은 레거시 별칭)
         const rentManwonRaw = item.monthly_rent_manwon ?? item.rent_manwon;
-        const rentKrw = rentManwonRaw != null
+        const rentKrw = notLeased ? 0 : rentManwonRaw != null
           ? Number(rentManwonRaw) * 10000
           : Number(item.monthlyRentKrw ?? item.monthly_rent_krw ?? item.monthlyRent ?? 0);
         const maintManwonRaw = item.maintenance_manwon ?? item.mgmt_fee_manwon;
-        const maintKrw = maintManwonRaw != null
+        const maintKrw = notLeased ? 0 : maintManwonRaw != null
           ? Number(maintManwonRaw) * 10000
           : Number(item.monthlyMaintenanceKrw ?? item.monthly_maintenance_krw ?? 0);
 
         const rosterItem: InstitutionalTenantRosterItem = {
           floor: String(item.floor || `${idx + 1}F`),
-          unitNumber: String(item.unitNumber || item.unit_number || `${item.floor || idx + 1}01호`),
-          tenantName: String(item.tenantName || item.tenant_name || item.name || '임차인'),
-          industry: String(item.industry || item.category || '일반업무'),
+          // 호실번호는 입력된 값만 — 층 + '01호' 같은 지어낸 호실을 만들지 않는다
+          unitNumber: String(item.unitNumber || item.unit_number || '-'),
+          tenantName: notLeased ? occupancy : String(item.tenantName || item.tenant_name || item.name || '임차인'),
+          // 업종: 입력된 값만 (floor_leases.tenant_type 포함). 없으면 '-' (기존의 '일반업무' 기본값은 지어낸 값)
+          industry: notLeased ? '-' : String(item.industry || item.category || item.tenant_type || '-'),
           leasedAreaM2: Math.round(areaM2 * 100) / 100,
           leasedAreaPyeong: Math.round(areaPy * 100) / 100,
           depositKrw: depKrw,
           monthlyRentKrw: rentKrw,
           monthlyMaintenanceKrw: maintKrw,
-          leaseStartDate: item.leaseStartDate || item.lease_start_date || item.lease_start || '',
-          leaseEndDate: item.leaseEndDate || item.lease_end_date || item.lease_end || '',
-          statutoryProtection10Y: Boolean(item.statutoryProtection10Y ?? item.statutory_protection_10y ?? true),
+          leaseStartDate: notLeased ? '' : (item.leaseStartDate || item.lease_start_date || item.lease_start || ''),
+          leaseEndDate: notLeased ? '' : (item.leaseEndDate || item.lease_end_date || item.lease_end || ''),
+          statutoryProtection10Y: notLeased ? false : Boolean(item.statutoryProtection10Y ?? item.statutory_protection_10y ?? true),
           isAnchor: Boolean(item.isAnchor ?? item.is_anchor ?? false),
+          ...(notLeased ? { renewalOption: '-', occupancyType: occupancy === '공실' ? ('vacant' as const) : ('owner_occupied' as const) } : {}),
           ...(excM2Raw > 0 ? { exclusiveAreaM2: Math.round(excM2Raw * 100) / 100, exclusiveAreaPyeong: Math.round(excPyRaw * 100) / 100 } : {}),
         };
         const grp = String(item.contract_group ?? item.contractGroup ?? '').trim();
@@ -428,9 +489,10 @@ export function bindProImChapterData(
     }
   });
 
-  // Lease Expiry Schedule Fallback when portfolio has only 1 chunk
+  // Lease Expiry Schedule when portfolio has only 1 chunk — 임대중 행의 실제 만기일로 연도별 집계 (만기일이 하나도 없으면 빈 표)
   if (totalChunks === 1 && !result['rentRollPart2']) {
-    console.warn('[data-binder] Lease expiry schedule: no real data available');
+    const expiryRows = buildExpiryScheduleRows(rawLeases, areaInputUnit);
+    if (expiryRows.length === 0) console.warn('[data-binder] Lease expiry schedule: no real data available');
     result['rentRollPart2'] = {
       title: '상세 임대차 현황 (Part 2: 만기 스케줄 및 WALE)',
       kicker: 'LEASE EXPIRY SCHEDULE',
@@ -438,7 +500,7 @@ export function bindProImChapterData(
       tables: [],
       metrics: {},
       tableHead: ['만기 연도', '해당 임차인 수', `만기 면적(${areaInputUnit === 'pyeong' ? '평' : '㎡'})`, '만기 월세(만원)', '비중 (%)', '누적 비중 (%)'],
-      tableRows: [],
+      tableRows: expiryRows,
       _derived: true,
     };
   }

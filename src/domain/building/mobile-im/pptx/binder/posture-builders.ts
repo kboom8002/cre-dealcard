@@ -13,6 +13,7 @@ import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { resolveHotelOperating } from "./broker-memo-facts";
+import { sumLeasedRentRoll } from "../../lease-vacancy";
 
 export function buildCapitalFromIncome(markdown: string, tables: ParsedTable[], body?: Record<string, any>, building?: Record<string, any>): Record<string, any> {
     return buildA16Props(markdown, tables, body, building);
@@ -161,7 +162,7 @@ export function buildLoanFromIncome(markdown: string, tables: ParsedTable[], bod
     const monthlyRentManwon = body?.monthly_rent_manwon
       ?? (body?.monthly_rent_total_krw ? Math.round(Number(body.monthly_rent_total_krw) / 10000) : undefined)
       ?? ssot.monthly_rent_manwon
-      ?? (ssot.monthly_rent_total_krw ? Math.round(Number(ssot.monthly_rent_total_krw) / 10000) : 0);
+      ?? (ssot.monthly_rent_total_krw ? Math.round(Number(ssot.monthly_rent_total_krw) / 10000) : sumLeasedRentRoll(body?.floor_leases).rentManwon);
     const annualRentManwon = monthlyRentManwon * 12;
     const netIncomeManwon = Math.max(0, annualRentManwon - annualInterest);
     const dscr = annualInterest > 0 ? (annualRentManwon / annualInterest).toFixed(2) : '-';
@@ -609,7 +610,7 @@ export function buildDevelopmentFeasibilityProps(body: Record<string, any> = {},
     const totalCostBil = totalCostManwon > 0 ? (totalCostManwon / 10000).toFixed(1) : '-';
     const targetPyeong = devSpec.targetScalePyung || devSpec.targetScalePyeong || 0;
     const salePricePerPyeong = devSpec.expectedSalePricePerPyung || devSpec.expectedSalePricePerPyeong || 0;
-    const monthlyRentTotal = floorLeases.reduce((sum: number, l: any) => sum + (l.rent_manwon || 0), 0);
+    const monthlyRentTotal = sumLeasedRentRoll(floorLeases).rentManwon;
     const annualRentManwon = monthlyRentTotal * 12;
     const isHoldMode = monthlyRentTotal > 0 && salePricePerPyeong === 0;
     const hasFloorLeases = floorLeases.length > 0 && monthlyRentTotal > 0;

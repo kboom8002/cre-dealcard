@@ -96,7 +96,8 @@ export function calculateTenantRosterSubtotal(
     monthlyRentKrw,
     monthlyMaintenanceKrw,
     annualRentKrw: monthlyRentKrw * 12,
-    tenantCount: items.length,
+    // 공실·자가사용 행(occupancyType 명시)은 임차인 수에서 제외. occupancyType 이 없는 레거시 입력은 기존처럼 전 행.
+    tenantCount: items.filter((i) => i.occupancyType !== 'vacant' && i.occupancyType !== 'owner_occupied').length,
   };
 }
 

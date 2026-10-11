@@ -98,15 +98,17 @@ export function buildProRentRollTable(input: ProRentRollTableInput): { tableHead
 
   const tableRows: string[][] = chunk.items.map((t) => {
     const follower = isGroupFollower?.(t) === true;
+    // 공실·자가사용 행: 금액 없음 → '-' ('0' 으로 임대료가 있는 것처럼 보이지 않게)
+    const nonLeased = t.occupancyType === 'vacant' || t.occupancyType === 'owner_occupied';
     return [
       t.floor,
       t.unitNumber,
       t.tenantName,
       t.industry,
       ...areaCells(mode, unit, t.leasedAreaM2, t.exclusiveAreaM2),
-      follower ? PRO_SAME_AS_ABOVE : manwon(t.depositKrw),
-      follower ? PRO_SAME_AS_ABOVE : manwon(t.monthlyRentKrw),
-      t.leaseEndDate,
+      nonLeased ? '-' : follower ? PRO_SAME_AS_ABOVE : manwon(t.depositKrw),
+      nonLeased ? '-' : follower ? PRO_SAME_AS_ABOVE : manwon(t.monthlyRentKrw),
+      nonLeased ? '-' : t.leaseEndDate,
       t.renewalOption || (t.statutoryProtection10Y ? '10년 보호' : '협의'),
     ];
   });

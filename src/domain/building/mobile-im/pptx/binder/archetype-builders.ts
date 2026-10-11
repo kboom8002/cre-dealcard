@@ -12,7 +12,7 @@ import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
-import { isVacantLeaseRow, isOwnerUseLeaseRow, isNonLeasableLeaseRow } from "../../lease-vacancy";
+import { isVacantLeaseRow, isOwnerUseLeaseRow, isNonLeasableLeaseRow, sumLeasedRentRoll } from "../../lease-vacancy";
 import { resolveBrokerMemoFacts, resolveHotelOperating, BROKER_STATED_TAG } from "./broker-memo-facts";
 import { resolveDisplayAreas } from "./display-areas";
 import { formatLeaseAreaCompact, areaUnitFromHeader } from "./lease-area-format";
@@ -1353,6 +1353,11 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
     depositWon = Number(ssot.total_deposit_krw);
     } else if (ssot.deposit_manwon) {
     depositWon = Number(ssot.deposit_manwon) * 10000;
+    } else if (ssot.total_deposit_manwon) {
+    depositWon = Number(ssot.total_deposit_manwon) * 10000;
+    } else if (sumLeasedRentRoll(body?.floor_leases).depositManwon > 0) {
+    // 렌트롤(floor_leases) 임대중 행 보증금 합 (만원 → 원)
+    depositWon = sumLeasedRentRoll(body?.floor_leases).depositManwon * 10000;
     } else {
     // 렌트롤 테이블 또는 마크다운에서 보증금 탐색
     const depMatch = markdown.match(/(?:보증금|임대보증금)[^0-9]*([\d,.]+)\s*(?:억|만\s*원)/);
@@ -1374,6 +1379,9 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
     monthlyRentWon = Number(ssot.monthly_rent_total_krw);
     } else if (ssot.monthly_rent_manwon) {
     monthlyRentWon = Number(ssot.monthly_rent_manwon) * 10000;
+    } else if (sumLeasedRentRoll(body?.floor_leases).rentManwon > 0) {
+    // 렌트롤(floor_leases) 임대중 행 월세 합 (만원 → 원) — 공실 희망 임대료 제외
+    monthlyRentWon = sumLeasedRentRoll(body?.floor_leases).rentManwon * 10000;
     } else {
     const rentMatch = markdown.match(/(?:월\s*임대료|월세)[^0-9]*([\d,.]+)\s*(?:만\s*원|억)/);
     if (rentMatch) {
