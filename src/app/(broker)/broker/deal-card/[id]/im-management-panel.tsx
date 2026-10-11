@@ -32,6 +32,10 @@ const PRESET_SWATCHES: Record<string, { accent: string; name: string }> = {
   golden_institutional: { accent: '#B98A2E', name: 'Golden Institutional' },
   executive_gold: { accent: '#B8862D', name: 'Executive Gold' },
   corporate_clean: { accent: '#059669', name: 'Corporate Clean' },
+  minimal_clean: { accent: '#3B5B8C', name: 'Minimal Clean' },
+  warm_beige: { accent: '#8C5A2B', name: 'Warm Beige' },
+  wine_burgundy: { accent: '#8E2B3C', name: 'Wine Burgundy' },
+  mono_contrast: { accent: '#595959', name: 'Mono High Contrast' },
   pro_dark_obsidian: { accent: '#0284A8', name: 'Pro Dark Obsidian' },
 };
 

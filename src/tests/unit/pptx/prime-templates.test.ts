@@ -181,6 +181,29 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         const expiredDataMap = bindInstitutionalTemplateData(expiredDoc);
         expect(expiredDataMap['summary'].wale.waleByRentYears).toBe(0);
       });
+
+      it('운영 데이터(floor_leases, snake_case·만원)로도 렌트롤·WALE 이 채워지고 공실은 WALE 에서 제외된다', () => {
+        const doc = {
+          body: {
+            asOfDate: '2026-06-01',
+            floor_leases: [
+              { floor: 'B1', area_sqm: 422.15, is_vacant: true, lease_state: '공실', rent_manwon: 0, tenant_type: '공실', deposit_manwon: 0 },
+              { floor: '2F', area_sqm: 209.59, is_vacant: false, lease_state: '임대중', rent_manwon: 507, tenant_type: '디자인 스튜디오', deposit_manwon: 5400, mgmt_fee_manwon: 66, lease_end: '2027-06-01' },
+            ],
+          },
+        };
+        const dm = bindInstitutionalTemplateData(doc);
+        const rows = dm['rentRoll'].tableRows as string[][];
+        expect(rows).toHaveLength(2);
+        expect(rows[0][0]).toBe('B1');
+        expect(rows[0][1]).toBe('공실');
+        expect(rows[1][1]).toBe('디자인 스튜디오');
+        expect(rows[1].join('|')).toContain('5,400');
+        expect(rows[1].join('|')).toContain('507');
+        // 공실(B1)은 WALE 에서 제외 → 임대중 1건 기준 약 1.0년
+        expect(dm['summary'].wale.waleByRentYears).toBeGreaterThan(0.9);
+        expect(dm['summary'].wale.waleByRentYears).toBeLessThan(1.1);
+      });
     });
 
     // 2.2 Corporate Clean White

@@ -14,6 +14,30 @@ import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, fin
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { areaUnitLabel, resolveAreaInputUnit } from "../../rentroll-meta";
 import { formatLeaseAreaCell } from "../../lease-area-cell";
+import { resolveLeaseOccupancy } from "../../lease-vacancy";
+
+/** 운영 데이터 floor_leases(snake_case · 만원) → 프리미엄 바인더가 읽는 camelCase(원) 형태. 값 변환만 수행하며 없는 값은 만들지 않는다. */
+function normalizeFloorLeaseRow(l: any): Record<string, any> {
+  const occupancy = resolveLeaseOccupancy(l);
+  const vacant = occupancy !== '임대중';
+  const manwon = (v: unknown): number | undefined => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 10000) : undefined;
+  };
+  return {
+    unitLabel: l.floor ?? l.unit,
+    tenantName: vacant ? occupancy : (l.tenant_name ?? l.tenantName ?? l.tenant_type),
+    tenantBusiness: vacant ? occupancy : (l.tenant_type ?? l.tenant_name),
+    areaSqm: l.area_sqm,
+    exclusiveAreaSqm: l.exclusive_area_sqm,
+    areaSqmIsProxy: l.area_sqm_is_proxy,
+    depositKrw: vacant ? undefined : manwon(l.deposit_manwon),
+    monthlyRentKrw: vacant ? undefined : manwon(l.rent_manwon),
+    mgmtFeeKrw: vacant ? undefined : manwon(l.mgmt_fee_manwon),
+    leaseEndDate: vacant ? undefined : (l.lease_end ?? l.contract_end),
+    vacant,
+  };
+}
 
 /**
  * 1. 기관투자자 프라임 (Institutional Dark/Gold) 특화 바인딩
@@ -24,11 +48,15 @@ import { formatLeaseAreaCell } from "../../lease-area-cell";
 export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, SectionData> = {}): Record<string, SectionData> {
     const body = doc?.body ?? {};
     const heroCard = body.heroCard ?? {};
-    const rawLeases = body.leases ?? body.rentRoll?.leases ?? body.rentRoll ?? [];
+    const floorLeaseRows = Array.isArray(body.floor_leases) && body.floor_leases.length > 0
+      ? body.floor_leases.map(normalizeFloorLeaseRow)
+      : null;
+    const rawLeases = body.leases ?? body.rentRoll?.leases ?? floorLeaseRows ?? body.rentRoll ?? [];
     const asOfDate = body.asOfDate ?? body.analysisDate ?? new Date().toISOString().slice(0, 10);
     const leaseUnits: LeaseUnit[] = [];
     if (Array.isArray(rawLeases) && rawLeases.length > 0) {
     for (const l of rawLeases) {
+      if (l.vacant) continue; // 공실·자가사용은 WALE/NOI 산정에서 제외 (표에는 공실로 표기)
       const tenantName = l.tenantName ?? l.tenant ?? l.tenantBusiness ?? l.unitLabel ?? '임차인';
       const rentAmount = Number(l.rentAmount ?? l.monthlyRentKrw ?? l.monthlyRent ?? 0);
       const areaSqm = Number(l.areaSqm ?? l.leaseAreaSqm ?? l.area ?? 0);

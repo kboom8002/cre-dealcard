@@ -176,7 +176,7 @@ export async function buildRenderInput(snap: GoldenSnapshot): Promise<Record<str
     }
   }
 
-  const docTier = body.tier || snap.urlTier;
+  const docTier = process.env.GOLDEN_TIER || body.tier || snap.urlTier; // GOLDEN_TIER=pro: Pro 테마 검증용 강제
   const isBasicIM = docTier === 'basic';
   const presetParam = process.env.GOLDEN_VISUAL_PRESET || null; // 뷰어 드롭다운 선택(?preset=) 시뮬레이션
   const visualPreset = presetParam || body.preset || (isBasicIM ? 'credeal_basic' : 'credeal_signature');
@@ -349,10 +349,11 @@ export async function rerenderSnapshot(name: string, opts: { writeFiles?: boolea
   };
   if (opts.writeFiles !== false) {
     const sfx = process.env.GOLDEN_VISUAL_PRESET ? `__${process.env.GOLDEN_VISUAL_PRESET}` : '';
-    res.pptxPath = path.join(OUT_DIR, `${name}${sfx}.pptx`);
-    fs.mkdirSync(OUT_DIR, { recursive: true });
+    const outDir = process.env.GOLDEN_TIER === 'pro' ? path.join(OUT_DIR, 'pro-themes') : OUT_DIR;
+    res.pptxPath = path.join(outDir, `${name}${sfx}.pptx`);
+    fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(res.pptxPath, out.buffer);
-    fs.writeFileSync(path.join(OUT_DIR, `${name}${sfx}.slides.json`), JSON.stringify({
+    fs.writeFileSync(path.join(outDir, `${name}${sfx}.slides.json`), JSON.stringify({
       name, slideCount: out.slideCount, ms: res.ms, warnings: res.warnings, network: res.network,
       slides, viewer: { sections: viewerSections },
     }, null, 1), 'utf8');

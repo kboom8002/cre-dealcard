@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import {
   PPTX_PRESET_TEMPLATES,
   BASIC_SKIN_IDS,
@@ -10,7 +10,7 @@ import {
 describe('Basic IM 시각 스킨 (applyBasicSkin)', () => {
   const base = PPTX_PRESET_TEMPLATES.credeal_basic;
 
-  it('Basic 3종 ID 가 모두 테마로 정의되어 있다 (minimal_clean 포함)', () => {
+  it('Basic 스킨 ID 가 모두 테마로 정의되어 있다 (minimal_clean 포함)', () => {
     for (const id of BASIC_SKIN_IDS) {
       expect(PPTX_PRESET_TEMPLATES[id], id).toBeTruthy();
       expect(isBasicSkinId(id)).toBe(true);
@@ -27,7 +27,7 @@ describe('Basic IM 시각 스킨 (applyBasicSkin)', () => {
     expect(applyBasicSkin(base, 'executive_gold')).toBe(base);
   });
 
-  it.each(['minimal_clean', 'corporate_clean'] as const)('%s: 팔레트만 교체하고 presetId·글꼴·레이아웃은 유지', (skinId) => {
+  it.each(['minimal_clean', 'corporate_clean', 'warm_beige', 'wine_burgundy', 'mono_contrast'] as const)('%s: 팔레트만 교체하고 presetId·글꼴·레이아웃은 유지', (skinId) => {
     const out = applyBasicSkin(base, skinId);
     const skin = PPTX_PRESET_TEMPLATES[skinId];
     expect(out).not.toBe(base);
@@ -45,12 +45,12 @@ describe('Basic IM 시각 스킨 (applyBasicSkin)', () => {
     expect(applyBasicSkin(pro, 'minimal_clean')).toBe(pro);
   });
 
-  it('3종의 accent 가 서로 다르다', () => {
+  it('스킨 accent 가 모두 서로 다르다', () => {
     const accents = new Set(BASIC_SKIN_IDS.map((id) => PPTX_PRESET_TEMPLATES[id].accent));
-    expect(accents.size).toBe(3);
+    expect(accents.size).toBe(BASIC_SKIN_IDS.length);
   });
 
-  it.each(['minimal_clean', 'corporate_clean'] as const)('%s: 라벨용 중립 글자색(slate/mute/mute2)은 Basic 값 유지', (skinId) => {
+  it.each(['minimal_clean', 'corporate_clean', 'warm_beige', 'wine_burgundy', 'mono_contrast'] as const)('%s: 라벨용 중립 글자색(slate/mute/mute2)은 Basic 값 유지', (skinId) => {
     const out = applyBasicSkin(base, skinId);
     expect(out.slate).toBe(base.slate);
     expect(out.mute).toBe(base.mute);
@@ -71,6 +71,6 @@ describe('Basic IM 시각 스킨 (applyBasicSkin)', () => {
 
   it('표지/마지막 면용 어두운 톤(ink)이 스킨마다 다르다 (네이비 고정 아님)', () => {
     const inks = new Set(BASIC_SKIN_IDS.map((id) => applyBasicSkin(base, id).ink));
-    expect(inks.size).toBe(3);
+    expect(inks.size).toBe(BASIC_SKIN_IDS.length);
   });
 });

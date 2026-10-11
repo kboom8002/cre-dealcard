@@ -87,6 +87,24 @@ const PPTX_PRESETS = [
     tier: "all" as const,
   },
   {
+    id: "warm_beige",
+    label: "🏠 웜 베이지",
+    desc: "따뜻하고 안정적인 브라운 (상가주택·다가구)",
+    tier: "all" as const,
+  },
+  {
+    id: "wine_burgundy",
+    label: "🍷 와인 버건디",
+    desc: "품격 있는 와인 레드 (프리미엄 매각)",
+    tier: "all" as const,
+  },
+  {
+    id: "mono_contrast",
+    label: "🖨️ 모노 고대비",
+    desc: "흑백 인쇄·팩스·메신저 전달용",
+    tier: "all" as const,
+  },
+  {
     id: "golden_institutional",
     label: "🏛️ 기관투자형 골드",
     desc: "신뢰감 있는 기관 투자용",

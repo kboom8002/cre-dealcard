@@ -465,6 +465,156 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   },
+  // 웜 베이지·브라운 — 상가주택·다가구 등 따뜻하고 안정적인 인상이 필요한 소형 매물
+  warm_beige: {
+    presetId: 'warm_beige',
+    presetName: 'Warm Beige',
+    ink: '3A2A20',
+    ink2: '4A372B',
+    ink3: '6B5444',
+    slate: '6B5E55',
+    body: '2E2A27',
+    mute: '6B5E55',
+    mute2: '9A8D82',
+    line: 'D9CFC4',
+    line2: 'EBE4DA',
+    bg: 'FFFFFF',
+    tint: 'FAF6F0',
+
+    accent: '8C5A2B',
+    accentD: '6F4520',
+    accentL: 'B07A45',
+    accentT: 'F6EEE3',
+    accentSoft: 'D9C3A5',
+
+    green: '4F7A5A',
+    greenL: 'E8F0EA',
+    red: 'A8472F',
+    redL: 'F8EAE5',
+    amber: '9A6B16',
+    amberL: 'FAF1DC',
+    blue: '8C5A2B',
+    blueL: 'F6EEE3',
+    violet: '7A5B7A',
+    violetL: 'F3ECF3',
+
+    darkCard: '241913',
+    darkBlock: '4A372B',
+    darkBorder: '6B5444',
+    darkBody: 'F6EEE3',
+    darkMute: 'D3C3B3',
+    darkFaint: 'A8957F',
+    darkAccentBg: '6F4520',
+    darkAccentBorder: '8C5A2B',
+    darkAccentText: 'F6EEE3',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'corporate_card',
+    layoutStyle: 'minimal',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+  // 와인·버건디 — 강남권 꼬마빌딩 등 프리미엄 매각 자료
+  wine_burgundy: {
+    presetId: 'wine_burgundy',
+    presetName: 'Wine Burgundy',
+    ink: '2A1A20',
+    ink2: '3A242C',
+    ink3: '5A3D47',
+    slate: '6B5B62',
+    body: '2B2326',
+    mute: '6B5B62',
+    mute2: '9A8A91',
+    line: 'DDD0D3',
+    line2: 'EEE6E8',
+    bg: 'FFFFFF',
+    tint: 'FAF6F7',
+
+    accent: '8E2B3C',
+    accentD: '6E1F2D',
+    accentL: 'B5485A',
+    accentT: 'F8ECEE',
+    accentSoft: 'DDB8BF',
+
+    green: '3F6F5A',
+    greenL: 'E6F0EB',
+    red: 'B3261E',
+    redL: 'FBE9E7',
+    amber: '9A6B16',
+    amberL: 'FAF1DC',
+    blue: '8E2B3C',
+    blueL: 'F8ECEE',
+    violet: '6B4B7A',
+    violetL: 'F1ECF4',
+
+    darkCard: '1A0F13',
+    darkBlock: '3A242C',
+    darkBorder: '5A3D47',
+    darkBody: 'F8ECEE',
+    darkMute: 'D7C3C8',
+    darkFaint: 'A58A92',
+    darkAccentBg: '6E1F2D',
+    darkAccentBorder: '8E2B3C',
+    darkAccentText: 'F8ECEE',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'corporate_card',
+    layoutStyle: 'minimal',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+  // 모노 고대비 — 인쇄·팩스·메신저 캡처용. 액센트를 중간 회색으로 두어 흑백 출력에서도 위계가 유지된다 (상태색 적/녹은 의미 보존을 위해 유지)
+  mono_contrast: {
+    presetId: 'mono_contrast',
+    presetName: 'Mono High Contrast',
+    ink: '1F1F1F',
+    ink2: '333333',
+    ink3: '4D4D4D',
+    slate: '555555',
+    body: '111111',
+    mute: '555555',
+    mute2: '8C8C8C',
+    line: 'BFBFBF',
+    line2: 'E0E0E0',
+    bg: 'FFFFFF',
+    tint: 'F5F5F5',
+
+    accent: '595959',
+    accentD: '333333',
+    accentL: '808080',
+    accentT: 'F2F2F2',
+    accentSoft: 'BFBFBF',
+
+    green: '1B6E3C',
+    greenL: 'E6F2EA',
+    red: 'B3261E',
+    redL: 'FBE9E7',
+    amber: '8A6A00',
+    amberL: 'F7F1D8',
+    blue: '333333',
+    blueL: 'F2F2F2',
+    violet: '555555',
+    violetL: 'EFEFEF',
+
+    darkCard: '000000',
+    darkBlock: '2A2A2A',
+    darkBorder: '666666',
+    darkBody: 'FFFFFF',
+    darkMute: 'D0D0D0',
+    darkFaint: 'A0A0A0',
+    darkAccentBg: '333333',
+    darkAccentBorder: 'BFBFBF',
+    darkAccentText: 'FFFFFF',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'corporate_card',
+    layoutStyle: 'minimal',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
   credeal_signature: {
     presetId: 'credeal_signature',
     presetName: 'CREDEAL Signature',
@@ -704,7 +854,7 @@ export const CREDEAL_PPTX_THEME = PPTX_PRESET_TEMPLATES.credeal_signature;
  * 시퀀스·레이아웃 규칙(Rule 47 9면, 키커, 표지, 스태킹)은 항상 credeal_basic 이며, 스킨은 **색상 팔레트만** 교체한다.
  * 글꼴(맑은 고딕)·coverStyle·layoutStyle·presetId·회사 브랜딩은 유지 — 텍스트 맞춤 지표가 바뀌면 레이아웃 게이트가 무효가 되므로.
  */
-export const BASIC_SKIN_IDS = ['credeal_basic', 'minimal_clean', 'corporate_clean'] as const;
+export const BASIC_SKIN_IDS = ['credeal_basic', 'minimal_clean', 'corporate_clean', 'warm_beige', 'wine_burgundy', 'mono_contrast'] as const;
 export type BasicSkinId = typeof BASIC_SKIN_IDS[number];
 
 export function isBasicSkinId(id: unknown): id is BasicSkinId {
