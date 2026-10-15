@@ -103,4 +103,91 @@ describe('summary-highlights', () => {
     const facts = extractSummaryFacts({ posture: 'income', body: {}, enrichment: { locationPoi: { _isFallback: true, nearestStation: { name: '가짜역', walkMinutes: 3 } } } });
     expect(facts.stationName).toBeUndefined();
   });
+
+  it('R3: synthesizes 3 value-oriented investment points (tenant quality, price vs comps, upside) and folds station into lead on ig1', () => {
+    const ig1Body = {
+      ssot_summary: {
+        asking_price_manwon: 1_150_000,
+        land_area_sqm: 506.8,
+        total_gross_area_sqm: 1479.82,
+        completion_year: 2002,
+        zoning: '준공업지역',
+        floors_above: 5,
+        floors_below: 1,
+        parcel_count: 2,
+        road_condition: '광대세각',
+      },
+      floor_leases: [
+        { floor: 'B1', tenant_type: '자가(스튜디오)', deposit_manwon: 0, rent_manwon: 0, note: '자가사용 · 보증 5,000만 / 월 458만 전환 가능' },
+        { floor: '1F', tenant_type: '고은약국', deposit_manwon: 5000, rent_manwon: 183, note: '장기 임차' },
+        { floor: '1F', tenant_type: '커피전문점(할리스)', deposit_manwon: 5000, rent_manwon: 325 },
+        { floor: '1F', tenant_type: '부동산중개사무소', deposit_manwon: 2000, rent_manwon: 110 },
+        { floor: '2F~3F', tenant_type: '로뎀나무내과(검진센터)', deposit_manwon: 10000, rent_manwon: 883, note: '임대 11년 경과' },
+        { floor: '4F', tenant_type: '로뎀나무내과(내시경센터)', deposit_manwon: 5000, rent_manwon: 165 },
+        { floor: '4F', tenant_type: '자가(사무실)', deposit_manwon: 0, rent_manwon: 0, note: '자가사용 · 보증 3,000만 / 월 144만 전환 가능' },
+        { floor: '5F', tenant_type: '세무법인', deposit_manwon: 2000, rent_manwon: 280 },
+      ],
+      broker_extras: {
+        investment_points: [
+          'B1·4F 자가사용분 임대 전환 시 월 임대료 2,548만원(연 3억 576만원), 수익률 3.1%로 상승 여력',
+        ],
+        post_acquisition_plan:
+          '지하1층 스튜디오(152.5평) 임대 전환 시 보증 5,000만 / 월 458만 추가 가능. 4층 자가사용분(48평) 임대 전환 시 보증 3,000만 / 월 144만 추가 가능.',
+        market_comps: [
+          { kind: 'listing', location: '당산동4가', land_price_per_pyeong_manwon: 13900 },
+          { kind: 'listing', location: '당산동5가', land_price_per_pyeong_manwon: 15200 },
+          { kind: 'listing', location: '당산동6가', land_price_per_pyeong_manwon: 8900 },
+          { kind: 'listing', location: '당산동5가', land_price_per_pyeong_manwon: 16200 },
+        ],
+      },
+      enrichment: {
+        locationPoi: {
+          nearestStation: { name: '당산역 2호선', walkMinutes: 5, distanceM: 406 },
+          candidateSpots: [
+            { name: '당산역 2호선', category: 'subway', distanceM: 406, walkMinutes: 5 },
+            { name: '당산역 9호선', category: 'subway', distanceM: 468, walkMinutes: 6 },
+          ],
+        },
+        landPriceHistory: {
+          cagrPct: 5.8,
+          history: Array.from({ length: 10 }, (_, i) => ({ year: String(2016 + i), pricePerSqm: 1 })),
+        },
+      },
+    };
+
+    const facts = extractSummaryFacts({
+      posture: 'income',
+      body: ig1Body,
+      building: { asset_type: '근생빌딩' },
+      enrichment: ig1Body.enrichment,
+    });
+    const r = buildSummaryHighlights(facts);
+
+    expect(r.lead).toBe('당산역(2·9호선) 도보 5분, 준공업지역의 2002년 준공 지하 1층·지상 5층 임대수익형 근생빌딩입니다.');
+    expect(r.points).toHaveLength(3);
+    // Point 1: Medical tenant quality & 11-year tenure
+    expect(r.points[0]).toContain('로뎀나무내과·고은약국');
+    expect(r.points[0]).toContain('63%(1,231만 원)');
+    expect(r.points[0]).toContain('11년째 유지');
+    // Point 2: Price vs comps discount + land CAGR
+    expect(r.points[1]).toContain('7,501만 원');
+    expect(r.points[1]).toContain('1억 3,550만 원');
+    expect(r.points[1]).toContain('45%');
+    expect(r.points[1]).toContain('5.8%');
+    // Point 3: Post-acquisition conversion upside (2.08% -> 2.75%, +0.67%p)
+    expect(r.points[2]).toContain('2.75%');
+    expect(r.points[2]).toContain('2.08%');
+    expect(r.points[2]).toContain('+0.67%p');
+
+    // Conflicting broker point (3.1%) must be excluded and recorded in warnings
+    expect(r.points.join(' ')).not.toContain('3.1%');
+    expect(r.warnings?.some(w => w.includes('[HIGHLIGHT-CONFLICT]') && w.includes('3.1%'))).toBe(true);
+    expect(r.hasBrokerInput).toBe(true);
+
+    for (const p of r.points) {
+      expect(p.length).toBeLessThanOrEqual(90);
+      expect(p).not.toContain('…');
+      expect(p).not.toMatch(/유력|보장|확실|확정|최고/);
+    }
+  });
 });

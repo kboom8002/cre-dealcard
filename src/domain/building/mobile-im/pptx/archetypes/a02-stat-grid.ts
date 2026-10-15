@@ -355,7 +355,9 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   const hlStartY = Math.max(kpiEndY + 0.10, 3.50);
 
   // D41: 남은 공간에 따라 하이라이트 행 크기 자동 조절
-  const availableH = 6.55 - hlStartY - 0.36; // 헤더(0.36) 제외
+  const hasBrokerInput = input.data.hasBrokerInput === true || Boolean(input.data.brokerProvenanceNote);
+  const hlMaxBottom = hasBrokerInput ? 6.46 : 6.55;
+  const availableH = hlMaxBottom - hlStartY - 0.36; // 헤더(0.36) 제외
   const numPoints = Math.min(3, keyPoints.length);
   // 행 높이를 남은 공간에 맞춰 동적 계산 (최소 0.40, 최대 0.64)
   const maxRowH = Math.min(0.70, availableH / Math.max(1, numPoints) - 0.06);
@@ -373,8 +375,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
 
     keyPoints.slice(0, 3).forEach((pt, idx) => {
       const ry = hlStartY + 0.36 + idx * (rowH + rowGap);
-      // D41: y 경계를 6.75까지 확장 (기존 6.5 → 6.75, 풋터 공간 0.25 확보)
-      if (ry + rowH <= 6.75) {
+      // D41: y 경계를 6.75까지 확장 (중개인 입력 출처 주석 있을 때는 6.48 이하로 유지하여 겹침 차단)
+      if (ry + rowH <= (hasBrokerInput ? 6.48 : 6.75)) {
         // 배경 박스
         slide.addShape('roundRect', {
           x: M, y: ry, w: CW, h: rowH,
@@ -408,6 +410,17 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         });
       }
     });
+
+    if (hasBrokerInput) {
+      const provNote = typeof input.data.brokerProvenanceNote === 'string' && input.data.brokerProvenanceNote.trim()
+        ? input.data.brokerProvenanceNote.trim()
+        : '● 중개인입력 · 일부 지표(시세 비교·임차 경과연수·전환 가정)는 중개인 제공 자료를 포함합니다.';
+      slide.addText(provNote, {
+        x: M, y: 6.52, w: CW, h: 0.20,
+        color: C.mute, fontFace: KR, fontSize: 8.5,
+        margin: 0, valign: 'middle',
+      });
+    }
   } else {
     // Callouts 폴백
     const callouts = input.data.callouts || [];

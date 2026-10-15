@@ -175,4 +175,81 @@ describe('Archetype A23: Yield Formula Edge Case Tests', () => {
       expect(slideXml).not.toContain('>NaN<');
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // 4. R9/R10: broker_plan 안정화 기대수익률(2.75%) + 한국부동산원(R-ONE) 10년 지가변동률(+3.90%) + 운영·자본 합산(6.65%)
+  // ─────────────────────────────────────────────────────────────
+  describe('4. R9/R10: Broker Plan Stabilized Yield & R-ONE Regional Land Price Rate Band', () => {
+    it('[Positive] income-ig1-corrected 기준 안정화 기대수익률 2.75%, 영등포구 지가변동률 +3.90%, 단순 합산 6.65% 표기 및 Cap Rate 배제', async () => {
+      const input = createBaseInput({
+        annualRent: 233_520_000,
+        askingPrice: 11_500_000_000,
+        totalDeposit: 290_000_000,
+        capRateAsIs: 2.08,
+        capRateStabilized: 2.75,
+        areaSignal: '당산권역',
+        landAreaSqm: 506.81,
+        landPriceHistory: {
+          history: Array.from({ length: 10 }, (_, i) => ({ year: String(2016 + i), pricePerSqm: 5_000_000 + i * 300_000 })),
+          latestPricePerSqm: 7_700_000,
+          cagrPct: 4.5,
+          totalGrowthPct: 54,
+        },
+        yieldSet: {
+          grossYieldOnPrice: 2.03,
+          grossYieldNetOfDeposit: 2.08,
+          grossYieldInclOtherIncome: null,
+          noiCapRate: 1.62,
+          stabilized: {
+            kind: 'broker_plan',
+            value: 2.75,
+            label: '안정화 기대수익률',
+            caption: 'B1·4F 자가사용 임대 전환 가정 (B1 보증 5,000만/월 458만, 4F 보증 3,000만/월 144만 · 보증금 +8,000만원, 월세 +602만원)',
+            addedRentKrw: 72_240_000,
+            addedDepositKrw: 80_000_000,
+            planSummary: {
+              floors: ['B1', '4F'],
+              addedDepositKrw: 80_000_000,
+              addedMonthlyRentKrw: 6_020_000,
+              newAnnualRentKrw: 305_760_000,
+              newDepositKrw: 370_000_000,
+              newNetPurchaseKrw: 11_130_000_000,
+              units: [
+                { floor: 'B1', action: 'owner_use_to_lease', deposit_manwon: 5000, rent_manwon: 458 },
+                { floor: '4F', action: 'owner_use_to_lease', deposit_manwon: 3000, rent_manwon: 144 },
+              ],
+            },
+          },
+          annualRentKrw: 233_520_000,
+          noiBaseKrw: 186_000_000,
+          assumptions: {
+            opexPct: 20,
+            opexSource: 'assumed',
+            vacancyReservePct: 5,
+            actualVacancyPct: null,
+            depositKrw: 290_000_000,
+            targetRentPerPyeongManwon: null,
+          },
+        },
+      });
+
+      buildA23YieldFormula(input);
+      const buffer = (await input.pres.write({ outputType: 'nodebuffer' })) as Buffer;
+      const zip = new AdmZip(buffer);
+      const slideXml = zip.getEntries().find(e => e.entryName.includes('slide1.xml'))?.getData().toString('utf-8') || '';
+
+      expect(slideXml).toContain('안정화 기대수익률');
+      expect(slideXml).toContain('2.75%');
+      expect(slideXml).toContain('현행 임대수익률 (매매가−보증금 대비)');
+      expect(slideXml).toContain('2.08%');
+      expect(slideXml).toContain('서울 영등포구 지가변동률 10년 연평균');
+      expect(slideXml).toContain('+3.90% (한국부동산원)');
+      expect(slideXml).toContain('A_2024_00902');
+      expect(slideXml).toContain('= 단순 합산 기대수익률 (참고)');
+      expect(slideXml).toContain('6.65%');
+      expect(slideXml).not.toContain('Cap Rate');
+      expect(slideXml).not.toContain('중개인 제공 인근 시세');
+    });
+  });
 });
+

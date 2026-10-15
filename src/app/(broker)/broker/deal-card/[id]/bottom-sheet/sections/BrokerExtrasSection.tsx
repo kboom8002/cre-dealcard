@@ -214,7 +214,18 @@ export function BrokerExtrasSection({ form, setForm }: BrokerExtrasSectionProps)
                     ...prev,
                     compRows: [
                       ...prev.compRows,
-                      { kind: "transaction", location: "", price_eok: "", land_price_per_pyeong_manwon: "", note: "" },
+                      {
+                        kind: "transaction",
+                        location: "",
+                        price_eok: "",
+                        land_price_per_pyeong_manwon: "",
+                        note: "",
+                        road_side: "",
+                        station_walk: "",
+                        land_area_pyeong: "",
+                        gfa_pyeong: "",
+                        selected: true,
+                      },
                     ],
                   }))
                 }
@@ -227,6 +238,14 @@ export function BrokerExtrasSection({ form, setForm }: BrokerExtrasSectionProps)
           {form.compRows.map((c, i) => (
             <div key={i} className="rounded-lg border border-border/30 bg-background/50 p-2 space-y-1.5">
               <div className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  data-testid={`broker-extras-comp-selected-${i}`}
+                  checked={c.selected !== false}
+                  onChange={(e) => updateComp(i, { selected: e.target.checked })}
+                  title="IM 비교표에 포함"
+                  className="h-3.5 w-3.5 accent-primary shrink-0"
+                />
                 <select
                   data-testid={`broker-extras-comp-kind-${i}`}
                   value={c.kind}
@@ -275,6 +294,46 @@ export function BrokerExtrasSection({ form, setForm }: BrokerExtrasSectionProps)
                   value={c.land_price_per_pyeong_manwon}
                   onChange={(e) => updateComp(i, { land_price_per_pyeong_manwon: e.target.value })}
                   placeholder="토지평당가 (만원)"
+                  className={INPUT_CLASS}
+                />
+                <input
+                  data-testid={`broker-extras-comp-road-${i}`}
+                  type="text"
+                  value={c.road_side ?? ""}
+                  maxLength={L.compRoadSideChars}
+                  onChange={(e) => updateComp(i, { road_side: e.target.value })}
+                  placeholder="도로 조건 (선택, 예: 대로변/이면)"
+                  className={INPUT_CLASS}
+                />
+                <input
+                  data-testid={`broker-extras-comp-station-${i}`}
+                  type="text"
+                  value={c.station_walk ?? ""}
+                  maxLength={L.compStationWalkChars}
+                  onChange={(e) => updateComp(i, { station_walk: e.target.value })}
+                  placeholder="지하철 도보 (선택, 예: 당산역 5분)"
+                  className={INPUT_CLASS}
+                />
+                <input
+                  data-testid={`broker-extras-comp-landarea-${i}`}
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="any"
+                  value={c.land_area_pyeong ?? ""}
+                  onChange={(e) => updateComp(i, { land_area_pyeong: e.target.value })}
+                  placeholder="토지면적 (평, 선택)"
+                  className={INPUT_CLASS}
+                />
+                <input
+                  data-testid={`broker-extras-comp-gfa-${i}`}
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="any"
+                  value={c.gfa_pyeong ?? ""}
+                  onChange={(e) => updateComp(i, { gfa_pyeong: e.target.value })}
+                  placeholder="연면적 (평, 선택)"
                   className={INPUT_CLASS}
                 />
                 <input

@@ -271,26 +271,66 @@ function renderRegulation(slide: Slide, data: Record<string, any>): void {
 }
 
 // ── 모드 3: 인근 시세 비교 (표 + 결정론 요약 카드 + 산식 각주) ─────────────────────
+function computeCompsColumnLayout(head: readonly string[]): {
+  colW: number[];
+  colAlign: Array<'left' | 'center' | 'right'>;
+} {
+  const fixedSpecs: Record<string, { w: number; align: 'left' | 'center' | 'right'; flex?: number }> = {
+    '구분': { w: 0.78, align: 'center' },
+    '소재지': { w: 2.60, align: 'left', flex: 2.2 },
+    '도로': { w: 0.90, align: 'center' },
+    '지하철': { w: 1.35, align: 'left', flex: 0.8 },
+    '토지면적(평)': { w: 1.05, align: 'right' },
+    '연면적(평)': { w: 1.05, align: 'right' },
+    '가격(억)': { w: 1.15, align: 'right' },
+    '토지평당가(만원)': { w: 1.55, align: 'right' },
+    '본건 대비': { w: 1.10, align: 'right' },
+    '비고': { w: 1.80, align: 'left', flex: 1.5 },
+  };
+  const specs = head.map((h) => fixedSpecs[h] ?? { w: 1.20, align: 'left' as const, flex: 1 });
+  const baseSum = specs.reduce((s, sp) => s + sp.w, 0);
+  const diff = CW - baseSum;
+  const totalFlex = specs.reduce((s, sp) => s + (sp.flex ?? 0), 0);
+  const colW = specs.map((sp) => {
+    if (Math.abs(diff) < 1e-4) return sp.w;
+    if (totalFlex > 0 && sp.flex) {
+      return Math.max(0.65, Number((sp.w + diff * (sp.flex / totalFlex)).toFixed(3)));
+    }
+    return Math.max(0.65, Number((sp.w * (CW / baseSum)).toFixed(3)));
+  });
+  // 반올림 잔차를 소재지(또는 첫 번째 열)에 보정하여 합이 정확히 CW가 되도록 보장
+  const sumW = colW.reduce((a, b) => a + b, 0);
+  const locIdx = Math.max(0, head.indexOf('소재지'));
+  colW[locIdx] = Number((colW[locIdx] + (CW - sumW)).toFixed(3));
+  return {
+    colW,
+    colAlign: specs.map((sp) => sp.align),
+  };
+}
+
 function renderComps(slide: Slide, data: Record<string, any>): void {
   const head: string[] = data.tableHead ?? ['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고'];
   const rows: string[][] = Array.isArray(data.tableRows) ? data.tableRows : [];
-  // 비고 열이 생략되면(전 행 미기입) 남는 폭은 소재지 열에 준다 — 열 수 = 셀 수 유지 (rule 68)
-  const hasNoteCol = head.length >= 5;
-  const colW = hasNoteCol
-    ? [0.85, 4.10, 1.40, 1.90, CW - (0.85 + 4.10 + 1.40 + 1.90)]
-    : [0.85, CW - (0.85 + 1.40 + 1.90), 1.40, 1.90];
-  const rh = 0.42;
+  const cards: Array<{ label: string; value: string; sub: string }> = Array.isArray(data.summaryCards) ? data.summaryCards : [];
+  const notes: string[] = Array.isArray(data.footnotes) ? data.footnotes : [];
+
+  const { colW, colAlign } = computeCompsColumnLayout(head);
+  const ch = 0.84;
+  const belowTableH = (cards.length > 0 ? ch + 0.24 : 0.12) + notes.length * 0.19;
+  const maxTableH = Math.max(1.40, BODY_BOTTOM - TOP - belowTableH);
+  const totalRows = Math.max(2, rows.length + 1);
+  const rh = Math.max(0.26, Math.min(0.40, maxTableH / totalRows));
+  const bfs = rh < 0.32 ? 8.5 : (head.length >= 7 ? 9 : 10);
+  const hfs = rh < 0.32 ? 9 : (head.length >= 7 ? 9.5 : 10);
+
   const bottom = L.styledTable(slide, M, TOP, CW, head, rows, colW, {
-    rh, bfs: 10, hfs: 10, autoPage: false,
-    colAlign: hasNoteCol ? ['center', 'left', 'right', 'right', 'left'] : ['center', 'left', 'right', 'right'],
+    rh, bfs, hfs, autoPage: false, colAlign,
   });
 
-  const cards: Array<{ label: string; value: string; sub: string }> = Array.isArray(data.summaryCards) ? data.summaryCards : [];
-  let y = bottom + 0.20;
+  let y = Math.min(bottom + 0.16, BODY_BOTTOM - belowTableH + 0.08);
   if (cards.length > 0) {
     const gap = 0.18;
     const cwid = (CW - gap * (cards.length - 1)) / cards.length;
-    const ch = 0.88;
     cards.forEach((c, i) => {
       const x = M + i * (cwid + gap);
       const isGap = c.label === '괴리율';
@@ -299,17 +339,16 @@ function renderComps(slide: Slide, data: Record<string, any>): void {
         fill: { color: isGap ? C.brassT : 'F3F6F7' },
         line: { color: isGap ? C.brassS : 'E2E8EC', width: 0.75 },
       });
-      slide.addText(c.label, { x: x + 0.14, y: y + 0.06, w: cwid - 0.28, h: 0.22, fontFace: KR, fontSize: 10, bold: true, color: C.mute2, margin: 0, valign: 'middle' });
-      const vf = L.fitTextToBox(c.value, cwid - 0.28, 0.34, { minFontSize: 12, maxFontSize: 20, targetLines: 1, allowTruncate: false });
-      slide.addText(c.value, { x: x + 0.14, y: y + 0.28, w: cwid - 0.28, h: 0.34, fontFace: KR, fontSize: vf.fontSize, bold: true, color: isGap ? (C.brassD || '8A6A1F') : C.ink, margin: 0, valign: 'middle' });
-      slide.addText(c.sub, { x: x + 0.14, y: y + 0.62, w: cwid - 0.28, h: 0.20, fontFace: KR, fontSize: 9, color: C.mute2, margin: 0, valign: 'middle' });
+      slide.addText(c.label, { x: x + 0.14, y: y + 0.05, w: cwid - 0.28, h: 0.20, fontFace: KR, fontSize: 9.5, bold: true, color: C.mute2, margin: 0, valign: 'middle' });
+      const vf = L.fitTextToBox(c.value, cwid - 0.28, 0.32, { minFontSize: 11, maxFontSize: 19, targetLines: 1, allowTruncate: false });
+      slide.addText(c.value, { x: x + 0.14, y: y + 0.26, w: cwid - 0.28, h: 0.32, fontFace: KR, fontSize: vf.fontSize, bold: true, color: isGap ? (C.brassD || '8A6A1F') : C.ink, margin: 0, valign: 'middle' });
+      slide.addText(c.sub, { x: x + 0.14, y: y + 0.59, w: cwid - 0.28, h: 0.20, fontFace: KR, fontSize: 8.5, color: C.mute2, margin: 0, valign: 'middle', shrinkText: true });
     });
-    y += ch + 0.12;
+    y += ch + 0.10;
   }
 
-  const notes: string[] = Array.isArray(data.footnotes) ? data.footnotes : [];
   notes.forEach((t, i) => {
-    slide.addText(t, { x: M, y: y + i * 0.20, w: CW, h: 0.20, fontFace: KR, fontSize: 9, color: C.mute2, margin: 0, valign: 'middle' });
+    slide.addText(t, { x: M, y: y + i * 0.19, w: CW, h: 0.19, fontFace: KR, fontSize: 8.5, color: C.mute2, margin: 0, valign: 'middle', shrinkText: true });
   });
 }
 

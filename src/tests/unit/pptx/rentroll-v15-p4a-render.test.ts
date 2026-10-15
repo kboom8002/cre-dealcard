@@ -267,8 +267,8 @@ describe('요약(A02 입력) ↔ A23 — 같은 지표는 같은 값·같은 이
     const card = (out.metrics as any[]).find(m => m.label === YIELD_LABELS.grossNetOfDeposit);
     expect(card).toBeTruthy();
     expect(card.value).toBe(`${ys.grossYieldNetOfDeposit!.toFixed(2)}%`);
-    expect(card.sub).toContain(YIELD_LABELS.noiCapRate);
-    expect(card.sub).toContain('운영비 18% 가정');
+    expect(card.sub).toBe('운영비 차감 전 · 보증금 차감 매입가 기준');
+    expect(card.sub).not.toContain('Cap Rate');
     // 수익률 카드는 한 장 (NOI 카드와 중복 표기 금지)
     expect((out.metrics as any[]).filter(m => /수익률|Cap Rate/.test(m.label))).toHaveLength(1);
     // G38: GPI 기준 헤드라인은 공제 항목 없이 유효

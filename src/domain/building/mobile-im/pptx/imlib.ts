@@ -1343,6 +1343,7 @@ export type RowEntry = [string, string, string?, string?]; // [라벨, 값, 배�
 
 export interface RowOpts {
   rh?: number;
+  rowHeights?: number[];
   fs?: number;
   onDark?: boolean;
   labRatio?: number; // 커스텀 라벨 컬럼 너비 비율 (기본: 배지 없음 0.28, 배지 있음 0.30)
@@ -1362,6 +1363,33 @@ export function rows(
   const labColor = opt.onDark ? CD.mute : C.mute;
   const valColor = opt.onDark ? 'FFFFFF' : C.ink;
 
+  // R4: 값에 '\n'(도로명+지번 2줄 병기 등)이 포함된 행은 높이를 확보하되,
+  // 전체 행 합산 높이가 기존 예산(list.length * rh)을 초과하여 하단 가격박스/SAFE_BOTTOM과 충돌하지 않도록 단줄 행 높이를 미세 조정한다.
+  let computedRowHeights: number[];
+  if (Array.isArray(opt.rowHeights) && opt.rowHeights.length > 0) {
+    computedRowHeights = list.map((_, idx) => opt.rowHeights![idx] ?? rh);
+  } else {
+    const isMulti = list.map(r => typeof r[1] === 'string' && r[1].includes('\n'));
+    const multiCount = isMulti.filter(Boolean).length;
+    const singleCount = list.length - multiCount;
+    if (multiCount > 0) {
+      const targetMultiRh = Math.max(rh, 0.42);
+      const totalBudget = list.length * rh;
+      if (singleCount > 0 && totalBudget >= 2.80) {
+        const remainForSingles = totalBudget - multiCount * targetMultiRh;
+        const singleRh = Math.max(0.26, remainForSingles / singleCount);
+        const adjustedMultiRh = singleCount * singleRh + multiCount * targetMultiRh <= totalBudget + 0.001
+          ? targetMultiRh
+          : Math.max(rh, (totalBudget - singleCount * 0.26) / multiCount);
+        computedRowHeights = isMulti.map(m => (m ? adjustedMultiRh : singleRh));
+      } else {
+        computedRowHeights = isMulti.map(m => (m ? targetMultiRh : rh));
+      }
+    } else {
+      computedRowHeights = list.map(() => rh);
+    }
+  }
+
   // 라벨 컬럼 비율 최적화: 기본 0.28로 축소하여 주소/긴 값 컬럼(0.72) 너비 최대 확보
   const hasBadge = list.some(r => r[2]);
   const labRatio = opt.labRatio ?? (hasBadge ? 0.30 : 0.28);
@@ -1372,54 +1400,58 @@ export function rows(
 
   list.forEach((row, i) => {
     const ry = currentY;
+    const rowH = computedRowHeights[i] ?? rh;
     const [label, value, badge, valCol] = row;
 
     // 값이 없는 단일 텍스트/불릿 행인 경우 전체 너비(w) 사용
     if (!value || value.trim() === '') {
       const labelW = hasBadge ? w * 0.78 : w;
-      const labelFit = fitTextToBox(label, labelW - 0.05, rh, {
+      const labelFit = fitTextToBox(label, labelW - 0.05, rowH, {
         minFontSize: 8.5,
         maxFontSize: fs,
         targetLines: 1,
         allowTruncate: true,
       });
       s.addText(labelFit.displayText, {
-        x, y: ry, w: labelW, h: rh,
+        x, y: ry, w: labelW, h: rowH,
         fontSize: labelFit.fontSize, color: opt.onDark ? 'FFFFFF' : C.ink, fontFace: KR,
         valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
         shrinkText: true,
       });
     } else {
       // 라벨
-      const labelFit = fitTextToBox(label, labW - 0.05, rh, {
+      const labelFit = fitTextToBox(label, labW - 0.05, rowH, {
         minFontSize: 8.5,
         maxFontSize: fs,
         targetLines: 1,
         allowTruncate: true,
       });
       s.addText(labelFit.displayText, {
-        x, y: ry, w: labW, h: rh,
+        x, y: ry, w: labW, h: rowH,
         fontSize: labelFit.fontSize, color: labColor, fontFace: KR,
         valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
         shrinkText: true,
       });
 
       // 값 — Dynamic font fitting (D7: 2줄 허용 후에도 넘칠 때만 '…')
-      const valOpts = { minFontSize: 8.5, maxFontSize: fs, targetLines: 2 };
-      let valFit = fitTextToBox(value, valW - 0.05, rh, { ...valOpts, allowTruncate: true });
+      const hasExplicitNewline = value.includes('\n');
+      const valMaxFs = hasExplicitNewline ? Math.min(fs, 10.0) : fs;
+      const valLineSpacing = hasExplicitNewline ? 1.12 : 1.15;
+      const valOpts = { minFontSize: 8.5, maxFontSize: valMaxFs, targetLines: 2, lineSpacingMultiple: valLineSpacing };
+      let valFit = fitTextToBox(value, valW - 0.05, rowH, { ...valOpts, allowTruncate: true });
       if (valFit.wasTruncated) {
         // 본문 말줄임('…') 금지(골든 오라클): 문장/절/단어 경계로 줄여 최소 글꼴 2줄에 들어가는 가장 긴 후보를 채택
         for (let budget = value.length - 1; budget >= 8; budget -= 4) {
           const cand = shortenWithoutEllipsis(value, budget);
           if (!cand) continue;
-          const f = fitTextToBox(cand, valW - 0.05, rh, { ...valOpts, allowTruncate: false });
-          if (f.lines.length <= 2 && f.requiredHeight <= rh + 0.01) { valFit = f; break; }
+          const f = fitTextToBox(cand, valW - 0.05, rowH, { ...valOpts, allowTruncate: false });
+          if (f.lines.length <= 2 && f.requiredHeight <= rowH + 0.01) { valFit = f; break; }
         }
       }
       s.addText(valFit.displayText, {
-        x: x + labW, y: ry, w: valW, h: rh,
+        x: x + labW, y: ry, w: valW, h: rowH,
         fontSize: valFit.fontSize, bold: true, color: valCol ?? valColor, fontFace: KR,
-        valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
+        valign: 'middle', margin: 0, lineSpacingMultiple: valLineSpacing,
         shrinkText: true,
       });
     }
@@ -1434,7 +1466,7 @@ export function rows(
         : 'assumed';
       const [, fg, bg] = PV[pvKey as ProvenanceKind] ?? PV.assumed;
       s.addText(badge, {
-        x: x + w * 0.80, y: ry + 0.04, w: w * 0.20, h: rh - 0.08,
+        x: x + w * 0.80, y: ry + 0.04, w: w * 0.20, h: rowH - 0.08,
         fontSize: 9, bold: true, color: fg, fontFace: KR,
         fill: { color: bg },
         valign: 'middle', align: 'center', margin: 0,
@@ -1444,12 +1476,12 @@ export function rows(
     // 구분선
     if (i < list.length - 1) {
       s.addShape('line', {
-        x, y: ry + rh, w, h: 0,
+        x, y: ry + rowH, w, h: 0,
         line: { color: opt.onDark ? CD.border : C.line, width: 0.3 },
       });
     }
 
-    currentY += rh;
+    currentY += rowH;
   });
 
   return currentY;

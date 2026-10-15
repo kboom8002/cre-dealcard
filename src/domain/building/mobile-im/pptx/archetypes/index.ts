@@ -21,6 +21,7 @@ import { buildA23YieldFormula } from './a23-yield-formula';
 import { buildA24RentrollStacking } from './a24-rentroll-stacking';
 import { buildA25ChapterDivider } from './a25-chapter-divider';
 import { buildA26BrokerExtras } from './a26-broker-extras';
+import { buildA27LandUsePlan } from './a27-land-use-plan';
 
 export * from './a01-cover'; // For Types
 export { buildA15Thesis, type ThesisPillar } from './a15-thesis';
@@ -29,6 +30,7 @@ export { buildA17PreCompletionMarketing } from './a17-pre-completion-marketing';
 export { buildA22StackingPlan } from './a22-stacking-plan';
 export { buildA24RentrollStacking } from './a24-rentroll-stacking';
 export { buildA25ChapterDivider, type ChapterDividerData } from './a25-chapter-divider';
+export { buildA27LandUsePlan } from './a27-land-use-plan';
 
 /** A19 Pro 개발 분석 스텁 */
 export function buildA19DevelopmentAnalysis(input: any) {
@@ -45,8 +47,8 @@ export function buildA21DueDiligenceAnnex(input: any) {
   return { slide: null as any, warnings: ['A21 부록 아키타입은 현재 예약 상태입니다.'], suppress: true };
 }
 
-/** D30 M-17: SLIDE_ARCHETYPE_REGISTRY — PPTX 빌더 레지스트리 (25종 편성 완전 지원)
- * archetype-registry.ts의 ALL_ARCHETYPES(편성 25종)와 100% 매핑 */
+/** D30 M-17: SLIDE_ARCHETYPE_REGISTRY — PPTX 빌더 레지스트리 (편성 완전 지원)
+ * archetype-registry.ts의 ALL_ARCHETYPES와 100% 매핑 */
 export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A01: buildA01Cover,
   A02: buildA02StatGrid,
@@ -73,7 +75,9 @@ export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A23: buildA23YieldFormula, // Basic IM 투자수익률 산식
   A24: buildA24RentrollStacking,
   A25: buildA25ChapterDivider,
-  A26: buildA26BrokerExtras, // D4/D8: Basic IM 중개인 제공 정보 면 (투자 포인트 / 규제·계획 / 시세 비교)
+  A26: buildA26BrokerExtras, // D4/D8: Basic IM 중개인 제공 정보 면 (시세 비교)
+  A27: buildA27LandUsePlan, // R6: Basic IM 토지이용계획확인원 양식 토지 면
+  A27_LAND_USE_PLAN: buildA27LandUsePlan,
 };
 
 /** @deprecated D30 M-17: SLIDE_ARCHETYPE_REGISTRY로 개명됨 */

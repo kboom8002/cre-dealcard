@@ -93,6 +93,22 @@ export function readBrokerExtras(body: unknown): BrokerExtras | null {
       if (price !== undefined) comp.price_eok = price;
       if (land !== undefined) comp.land_price_per_pyeong_manwon = land;
       if (str(o.note)) comp.note = str(o.note);
+      if (str(o.road_side)) comp.road_side = str(o.road_side);
+      if (str(o.station_walk)) comp.station_walk = str(o.station_walk);
+      if (str(o.station_name)) comp.station_name = str(o.station_name);
+      const walkMin = posNum(o.station_walk_min);
+      if (walkMin !== undefined) comp.station_walk_min = walkMin;
+      const landSqm = posNum(o.land_area_sqm);
+      if (landSqm !== undefined) comp.land_area_sqm = landSqm;
+      const landPy = posNum(o.land_area_pyeong);
+      if (landPy !== undefined) comp.land_area_pyeong = landPy;
+      const gfaSqm = posNum(o.gfa_sqm);
+      if (gfaSqm !== undefined) comp.gfa_sqm = gfaSqm;
+      const gfaPy = posNum(o.gfa_pyeong);
+      if (gfaPy !== undefined) comp.gfa_pyeong = gfaPy;
+      if (str(o.as_of)) comp.as_of = str(o.as_of);
+      if (typeof o.selected === 'boolean') comp.selected = o.selected;
+      if (o.source === 'broker' || o.source === 'molit_tx' || o.source === 'broker_listing') comp.source = o.source;
       comps.push(comp);
     }
     if (comps.length) out.market_comps = comps;
@@ -105,8 +121,27 @@ export function readBrokerExtras(body: unknown): BrokerExtras | null {
     const plan = r.post_acquisition_plan.map(str).filter(Boolean);
     if (plan.length) out.post_acquisition_plan = plan;
   }
+  if (Array.isArray(r.post_acquisition_units)) {
+    const units = r.post_acquisition_units
+      .filter((u): u is Record<string, unknown> => !!u && typeof u === 'object')
+      .map((u) => ({
+        floor: str(u.floor),
+        action: (u.action === 'vacant_lease' || u.action === 'owner_use_to_lease' || u.action === 'rerent'
+          ? u.action
+          : 'owner_use_to_lease') as 'vacant_lease' | 'owner_use_to_lease' | 'rerent',
+        ...(posNum(u.area_pyeong) !== undefined ? { area_pyeong: posNum(u.area_pyeong) } : {}),
+        deposit_manwon: posNum(u.deposit_manwon) ?? 0,
+        rent_manwon: posNum(u.rent_manwon) ?? 0,
+        ...(str(u.note) ? { note: str(u.note) } : {}),
+      }))
+      .filter((u) => u.floor && (u.deposit_manwon > 0 || u.rent_manwon > 0));
+    if (units.length) out.post_acquisition_units = units;
+  }
   const rent = posNum(r.target_rent_per_pyeong_manwon);
   if (rent !== undefined) out.target_rent_per_pyeong_manwon = rent;
+  if (r.summary_yield_basis === 'auto' || r.summary_yield_basis === 'current' || r.summary_yield_basis === 'stabilized') {
+    out.summary_yield_basis = r.summary_yield_basis;
+  }
 
   dedupeBrokerPointsAgainstLocation(out);
   return Object.keys(out).length > 0 ? out : null;
@@ -165,12 +200,13 @@ export function deriveBrokerAvailability(body: unknown): BrokerAvailability {
   const images = extractBrokerImages(body);
   const hasNotes = (extras?.regulatory_notes?.length ?? 0) > 0;
   const hasPlanImages = images.some(i => BROKER_PLAN_IMAGE_CATEGORIES.has(i.category));
+  const selectedComps = (extras?.market_comps ?? []).filter(c => c.selected !== false);
   return {
     hasBrokerPoints: (extras?.investment_points?.length ?? 0) > 0,
     hasBrokerRegulation: hasNotes || hasPlanImages,
     hasBrokerRegulationNotes: hasNotes,
     hasBrokerRegulationImages: hasPlanImages,
-    hasBrokerComps: (extras?.market_comps?.length ?? 0) > 0,
+    hasBrokerComps: selectedComps.length > 0,
   };
 }
 
@@ -199,7 +235,11 @@ export interface CompsStats {
   listingAvg?: number;
   listingCount: number;
   subject?: number;          // 본건 환산 토지평당가
-  gapPct?: number;           // (본건 − 실거래 평균) ÷ 실거래 평균 × 100, 소수 1자리
+  txGapPct?: number;         // (본건 − 실거래 평균) ÷ 실거래 평균 × 100, 소수 1자리
+  listingGapPct?: number;    // (본건 − 매물 평균) ÷ 매물 평균 × 100, 소수 1자리
+  gapPct?: number;           // txGapPct ?? listingGapPct
+  gapBasis?: '실거래 평균' | '매물 평균' | null;
+  levelPct?: number | null;  // 본건 환산 토지평당가가 기준 평균의 몇 % 수준인지 (예: 55.4)
 }
 
 function mean(xs: number[]): number | undefined {
@@ -207,24 +247,39 @@ function mean(xs: number[]): number | undefined {
   return Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
 }
 
-/** 토지평당가 값이 있는 행만 평균에 반영 (값 없는 행은 무시). */
+/** 토지평당가 값이 있는 선택된 행만 평균에 반영 (값 없는 행 및 selected===false 행은 무시). */
 export function computeCompsStats(comps: readonly BrokerMarketComp[], subjectPerPyeong?: number): CompsStats {
-  const tx = comps.filter(c => c.kind === 'transaction' && c.land_price_per_pyeong_manwon !== undefined)
+  const active = comps.filter(c => c.selected !== false);
+  const tx = active
+    .filter(c => c.kind === 'transaction' && c.land_price_per_pyeong_manwon !== undefined)
     .map(c => c.land_price_per_pyeong_manwon as number);
-  const ls = comps.filter(c => c.kind === 'listing' && c.land_price_per_pyeong_manwon !== undefined)
+  const ls = active
+    .filter(c => c.kind === 'listing' && c.land_price_per_pyeong_manwon !== undefined)
     .map(c => c.land_price_per_pyeong_manwon as number);
   const transactionAvg = mean(tx);
+  const listingAvg = mean(ls);
   const subject = subjectPerPyeong !== undefined && subjectPerPyeong > 0 ? subjectPerPyeong : undefined;
-  const gapPct = (transactionAvg !== undefined && transactionAvg > 0 && subject !== undefined)
+  const txGapPct = (transactionAvg !== undefined && transactionAvg > 0 && subject !== undefined)
     ? Math.round(((subject - transactionAvg) / transactionAvg) * 1000) / 10
     : undefined;
+  const listingGapPct = (listingAvg !== undefined && listingAvg > 0 && subject !== undefined)
+    ? Math.round(((subject - listingAvg) / listingAvg) * 1000) / 10
+    : undefined;
+  const gapPct = txGapPct ?? listingGapPct;
+  const gapBasis: '실거래 평균' | '매물 평균' | null =
+    txGapPct !== undefined ? '실거래 평균' : (listingGapPct !== undefined ? '매물 평균' : null);
+  const levelPct: number | null = gapPct !== undefined ? Math.round((100 + gapPct) * 10) / 10 : null;
   return {
     transactionAvg,
     transactionCount: tx.length,
-    listingAvg: mean(ls),
+    listingAvg,
     listingCount: ls.length,
     subject,
+    txGapPct,
+    listingGapPct,
     gapPct,
+    gapBasis,
+    levelPct,
   };
 }
 
@@ -323,23 +378,80 @@ export function buildBrokerRegulationImagesData(images: readonly BrokerImage[]):
   };
 }
 
+function resolveCompStationText(c: BrokerMarketComp): string {
+  if (c.station_walk?.trim()) return c.station_walk.trim();
+  if (c.station_name?.trim()) {
+    return c.station_walk_min != null && c.station_walk_min > 0
+      ? `${c.station_name.trim()} 도보 ${c.station_walk_min}분`
+      : c.station_name.trim();
+  }
+  return '';
+}
+
+function resolveCompLandPy(c: BrokerMarketComp): number | undefined {
+  if (c.land_area_pyeong !== undefined && c.land_area_pyeong > 0) return c.land_area_pyeong;
+  if (c.land_area_sqm !== undefined && c.land_area_sqm > 0) return Math.round(sqmToPyeong(c.land_area_sqm) * 10) / 10;
+  return undefined;
+}
+
+function resolveCompGfaPy(c: BrokerMarketComp): number | undefined {
+  if (c.gfa_pyeong !== undefined && c.gfa_pyeong > 0) return c.gfa_pyeong;
+  if (c.gfa_sqm !== undefined && c.gfa_sqm > 0) return Math.round(sqmToPyeong(c.gfa_sqm) * 10) / 10;
+  return undefined;
+}
+
 export function buildBrokerCompsData(extras: BrokerExtras, opts: BrokerDataMapOptions = {}): Record<string, any> | null {
-  const comps = extras.market_comps ?? [];
+  const comps = (extras.market_comps ?? []).filter(c => c.selected !== false);
   if (comps.length === 0) return null;
   const subject = subjectLandPricePerPyeongManwon(opts.ssot, opts.body);
   const stats = computeCompsStats(comps, subject);
-  // 비고가 하나도 없으면 '-'만 있는 열을 만들지 않는다 (렌더러는 head 길이로 열폭을 투영)
-  const hasNote = comps.some(c => (c.note ?? '').trim() !== '');
-  const tableHead = hasNote
-    ? ['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고']
-    : ['구분', '소재지', '가격(억)', '토지평당가(만원)'];
-  const tableRows = comps.map(c => [
-    COMP_KIND_LABELS[c.kind],
-    c.location,
-    c.price_eok !== undefined ? fmtNum(c.price_eok) : '-',
-    c.land_price_per_pyeong_manwon !== undefined ? fmtNum(c.land_price_per_pyeong_manwon) : '-',
-    ...(hasNote ? [c.note?.trim() ? c.note : '-'] : []),
-  ]);
+
+  const hasRoadSide = comps.some(c => (c.road_side ?? '').trim() !== '');
+  const hasStation = comps.some(c => resolveCompStationText(c) !== '');
+  const hasLandArea = comps.some(c => resolveCompLandPy(c) !== undefined);
+  const hasGfa = comps.some(c => resolveCompGfaPy(c) !== undefined);
+  const hasVsSubject =
+    subject !== undefined &&
+    subject > 0 &&
+    comps.some(c => c.land_price_per_pyeong_manwon !== undefined && c.land_price_per_pyeong_manwon > 0);
+  const hasNote = comps.some(c => (c.note ?? '').trim() !== '' || (c.as_of ?? '').trim() !== '');
+
+  const tableHead: string[] = [
+    '구분',
+    '소재지',
+    ...(hasRoadSide ? ['도로'] : []),
+    ...(hasStation ? ['지하철'] : []),
+    ...(hasLandArea ? ['토지면적(평)'] : []),
+    ...(hasGfa ? ['연면적(평)'] : []),
+    '가격(억)',
+    '토지평당가(만원)',
+    ...(hasVsSubject ? ['본건 대비'] : []),
+    ...(hasNote ? ['비고'] : []),
+  ];
+
+  const tableRows = comps.map(c => {
+    const landPy = resolveCompLandPy(c);
+    const gfaPy = resolveCompGfaPy(c);
+    const stationTxt = resolveCompStationText(c);
+    const vsPct =
+      subject !== undefined && c.land_price_per_pyeong_manwon !== undefined && c.land_price_per_pyeong_manwon > 0
+        ? Math.round(((subject / c.land_price_per_pyeong_manwon) - 1) * 1000) / 10
+        : undefined;
+    const noteParts = [c.as_of?.trim(), c.note?.trim()].filter(Boolean);
+    return [
+      COMP_KIND_LABELS[c.kind],
+      c.location,
+      ...(hasRoadSide ? [c.road_side?.trim() ? c.road_side.trim() : '-'] : []),
+      ...(hasStation ? [stationTxt || '-'] : []),
+      ...(hasLandArea ? [landPy !== undefined ? fmtNum(landPy, 1) : '-'] : []),
+      ...(hasGfa ? [gfaPy !== undefined ? fmtNum(gfaPy, 1) : '-'] : []),
+      c.price_eok !== undefined ? fmtNum(c.price_eok) : '-',
+      c.land_price_per_pyeong_manwon !== undefined ? fmtNum(c.land_price_per_pyeong_manwon) : '-',
+      ...(hasVsSubject ? [vsPct !== undefined ? formatGapPct(vsPct) : '-'] : []),
+      ...(hasNote ? [noteParts.length > 0 ? noteParts.join(' · ') : '-'] : []),
+    ];
+  });
+
   const summaryCards: Array<{ label: string; value: string; sub: string }> = [];
   if (stats.transactionAvg !== undefined) {
     summaryCards.push({ label: '실거래 평균', value: `${fmtNum(stats.transactionAvg, 0)}만원/평`, sub: `토지평당가 · ${stats.transactionCount}건` });
@@ -350,9 +462,19 @@ export function buildBrokerCompsData(extras: BrokerExtras, opts: BrokerDataMapOp
   if (stats.subject !== undefined) {
     summaryCards.push({ label: '본건 환산', value: `${fmtNum(stats.subject, 0)}만원/평`, sub: '토지평당가 · 산식은 각주' });
   }
-  if (stats.gapPct !== undefined) {
-    summaryCards.push({ label: '괴리율', value: formatGapPct(stats.gapPct), sub: '본건 vs 실거래 평균' });
+  if (stats.gapPct !== undefined && stats.gapBasis) {
+    const levelSub = stats.levelPct != null ? ` (평균의 ${stats.levelPct.toFixed(1)}% 수준)` : '';
+    summaryCards.push({
+      label: '괴리율',
+      value: formatGapPct(stats.gapPct),
+      sub: `본건 vs ${stats.gapBasis}${levelSub}`,
+    });
   }
+
+  const gapFormula = stats.gapBasis === '매물 평균'
+    ? '괴리율 = (본건 환산 − 매물 평균) ÷ 매물 평균'
+    : COMPS_GAP_FORMULA;
+
   return {
     title: '인근 시세 비교',
     kicker: 'Market Comps',
@@ -364,7 +486,7 @@ export function buildBrokerCompsData(extras: BrokerExtras, opts: BrokerDataMapOp
     tableRows,
     stats,
     summaryCards,
-    footnotes: stats.gapPct !== undefined ? [COMPS_FOOTNOTE, COMPS_GAP_FORMULA] : [COMPS_FOOTNOTE],
+    footnotes: stats.gapPct !== undefined ? [COMPS_FOOTNOTE, gapFormula] : [COMPS_FOOTNOTE],
     sourceTag: BROKER_SOURCE_TAG,
     unverifiedTag: BROKER_UNVERIFIED_TAG,
   };
@@ -420,8 +542,21 @@ export function applyBrokerLocation(
   }
 }
 
-/** 렌트롤 면: post_acquisition_plan → 하단 '매입 후 전략' 박스 (A24 brokerPostAcquisitionPlan). */
+/** 렌트롤 면: post_acquisition_plan 또는 post_acquisition_units → 하단 '매입 후 전략' 박스 (A24 brokerPostAcquisitionPlan). */
 export function applyBrokerRentRollPlan(rentRoll: Record<string, any> | undefined | null, extras: BrokerExtras | null): void {
-  if (!rentRoll || !extras?.post_acquisition_plan?.length) return;
-  rentRoll.brokerPostAcquisitionPlan = [...extras.post_acquisition_plan];
+  if (!rentRoll || !extras) return;
+  if (extras.post_acquisition_plan?.length) {
+    rentRoll.brokerPostAcquisitionPlan = [...extras.post_acquisition_plan];
+  } else if (extras.post_acquisition_units?.length) {
+    rentRoll.brokerPostAcquisitionPlan = extras.post_acquisition_units.map((u) => {
+      const actionLabel =
+        u.action === 'vacant_lease'
+          ? '공실 임대 전환'
+          : u.action === 'owner_use_to_lease'
+            ? '자가사용 임대 전환'
+            : '재임대(임대료 현실화)';
+      const depStr = u.deposit_manwon > 0 ? `보증 ${u.deposit_manwon.toLocaleString()}만 / ` : '';
+      return `${u.floor} ${actionLabel} (${depStr}월 ${u.rent_manwon.toLocaleString()}만)`;
+    });
+  }
 }

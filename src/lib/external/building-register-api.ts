@@ -6,6 +6,15 @@ import { createModuleLogger } from '@/lib/logger';
 
 const logger = createModuleLogger('building-register-api');
 
+export interface BuildingRegisterFloor {
+  flrGb: '지상' | '지하' | '옥탑';
+  flrNo: number;
+  flrNoNm: string;
+  mainPurpose: string;
+  etcPurpose?: string;
+  areaSqm: number;
+}
+
 export interface BuildingRegisterData {
   totalArea: number;          // 연면적 (sqm)
   platArea: number;           // 대지면적 (sqm)
@@ -17,6 +26,9 @@ export interface BuildingRegisterData {
   bcRat: number;              // 건폐율 (%)
   vlRat: number;              // 용적률 (%)
   buildingName?: string;      // 건물명
+  platPlc?: string;           // 대지위치 (지번 주소)
+  newPlatPlc?: string;        // 도로명대지위치
+  floors?: BuildingRegisterFloor[]; // 층별개요 (getBrFlrOulnInfo)
   archArea?: number;          // 건축면적 (㎡)
   elevatorCount?: number;     // 승강기 수 (대)
   passengerElevatorCount?: number; // 승용 승강기 수
@@ -34,6 +46,179 @@ export interface BuildingRegisterData {
 /** 0/NaN/Infinity 는 undefined (0을 사실처럼 노출하지 않는다 — Rule 37) */
 function posOrUndef(n: number): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * 건축물대장 층별개요(`getBrFlrOulnInfo`) 응답 배열을 정규화합니다.
+ */
+export function parseBuildingRegisterFloors(
+  rawItems: Array<Record<string, any>>,
+  targetPk?: string | number,
+): BuildingRegisterFloor[] {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) return [];
+
+  const mainItems = rawItems.filter(
+    (it) =>
+      it &&
+      (String(it.mainAtchGbCd || '') === '0' ||
+        String(it.mainAtchGbCdNm || '') === '주건축물' ||
+        (!it.mainAtchGbCd && !it.mainAtchGbCdNm)),
+  );
+  let pool = mainItems.length > 0 ? mainItems : rawItems;
+
+  if (targetPk !== undefined && targetPk !== null && String(targetPk).trim() !== '') {
+    const pkFiltered = pool.filter(
+      (it) => String(it?.mgmBldrgstPk || '').trim() === String(targetPk).trim(),
+    );
+    if (pkFiltered.length > 0) pool = pkFiltered;
+  }
+
+  const out: BuildingRegisterFloor[] = [];
+  for (const it of pool) {
+    if (!it) continue;
+    const gbCd = String(it.flrGbCd || '').trim();
+    const gbNm = String(it.flrGbCdNm || '').trim();
+    let flrGb: '지상' | '지하' | '옥탑' = '지상';
+    if (gbCd === '10' || gbNm === '지하') flrGb = '지하';
+    else if (gbCd === '30' || gbNm === '옥탑') flrGb = '옥탑';
+
+    const flrNo = parseInt(String(it.flrNo || '0'), 10) || 0;
+    const flrNoNm = String(it.flrNoNm || (flrGb === '지하' ? `지하${flrNo}층` : `${flrNo}층`)).trim();
+    const mainPurpose = String(it.mainPurpsCdNm || '').trim();
+    const etcPurpose = it.etcPurps ? String(it.etcPurps).trim() : undefined;
+    const areaSqm = parseFloat(String(it.area || '0')) || 0;
+
+    if (!mainPurpose && !etcPurpose && areaSqm <= 0) continue;
+    out.push({
+      flrGb,
+      flrNo,
+      flrNoNm,
+      mainPurpose,
+      ...(etcPurpose ? { etcPurpose } : {}),
+      areaSqm,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * 건축물대장 층별개요(`getBrFlrOulnInfo`) API 조회 (4초 타임아웃, 실패 시 빈 배열 반환)
+ */
+export async function fetchBuildingFloors(
+  sigunguCd: string,
+  bjdongCd: string,
+  bun: string,
+  ji: string,
+  platGbCd?: string,
+  targetPk?: string | number,
+): Promise<BuildingRegisterFloor[]> {
+  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  if (!apiKey) return [];
+
+  const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrFlrOulnInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=${platGbCd || '0'}&bun=${bun}&ji=${ji}&numOfRows=100&pageNo=1&_type=json`;
+  try {
+    const res = await fetchWithRetry(url, { timeoutMs: 4_000, maxRetries: 1 });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const item = data?.response?.body?.items?.item;
+    const items = Array.isArray(item) ? item : item ? [item] : [];
+    return parseBuildingRegisterFloors(items, targetPk);
+  } catch (err) {
+    logger.warn('getBrFlrOulnInfo lookup failed (graceful skip):', err);
+    return [];
+  }
+}
+
+/**
+ * 건축물대장 층별 용도 또는 렌트롤 업종/상호 문자열을
+ * 스태킹 다이어그램용 표준 건물용도 카테고리(`근린생활` / `업무` / `주거` / `판매` / `교육` / `숙박` / `산업/물류` / `의료` / `공용/주차`)로 정규화합니다.
+ */
+export function normalizeBuildingUseCategory(
+  rawUse?: string | null,
+  fallbackMainPurpose?: string | null,
+): string {
+  const raw = String(rawUse || '').trim();
+  const fb = String(fallbackMainPurpose || '').trim();
+  const combined = `${raw} ${fb}`.trim();
+
+  if (!combined) return '근린생활';
+
+  // 1) 공용 / 주차 / 설비
+  if (/(주차장|기계실|전기실|발전실|보일러실|계단실|관리실|대피공간|펌프실|물탱크|공용)/.test(raw)) {
+    return '공용/주차';
+  }
+
+  // 2) 명시적 제1·2종 근린생활시설 (또는 건축물대장 코드명 '사무소' — 제2종근생 사무소)
+  if (/(제1종근린생활|제2종근린생활|1종근생|2종근생|근린생활시설|근린생활|근생)/.test(raw)) {
+    return '근린생활';
+  }
+  if (raw === '사무소' && !/(업무시설|일반업무)/.test(fb)) {
+    return '근린생활';
+  }
+
+  // 3) 대형 의료시설 vs 근생 의원/클리닉
+  if (/(의료시설|종합병원|요양병원|정신병원|한방병원|치과병원|대학병원|의료원)/.test(raw)) {
+    return '의료';
+  }
+
+  // 4) 근린생활 업종 (음식점, 카페, 의원, 약국, 학원, 체력단련장/헬스, 소매점 등)
+  if (
+    /(일반음식점|휴게음식점|음식점|소매점|소매|음식|카페|커피|스타벅스|투썸|이디야|베이커리|제과|식당|레스토랑|주점|와인바|와인|바$|호프|약국|의원|내과|치과|한의원|클리닉|피부과|안과|소아과|정형외과|성형외과|이비인후과|재활의학과|가정의학과|산부인과|비뇨기과|신경외과|마취통증|병원|학원|교습소|독서실|스터디|체력단련장|헬스|피트니스|필라테스|요가|골프|체육|당구|볼링|탁구|미용|헤어|네일|피부관리|마사지|세탁|편의점|마트|상가|점포|매장|안경|꽃집|서점|문구|노래|PC방|게임|사진관|부동산|중개)/.test(
+      raw,
+    )
+  ) {
+    return '근린생활';
+  }
+
+  // 건물 주용도가 근린생활시설인 경우 세무/회계/사무소 등도 제2종근린생활시설(사무소)로 귀속
+  if (
+    /(근린생활|근생)/.test(fb) &&
+    /(사무소|사무실|세무|회계|법무|변호사|법률|노무|행정|설계|디자인|스튜디오|에이전시|컨설팅|오피스)/.test(raw)
+  ) {
+    return '근린생활';
+  }
+
+  // 5) 교육연구시설 / 교육기관
+  if (/(교육연구시설|교육연구|교육기관|학교|대학교|대학|연구소|교육원|도서관|유치원|어린이집)/.test(raw)) {
+    return '교육';
+  }
+
+  // 6) 판매시설
+  if (/(판매시설|백화점|복합쇼핑몰|대형마트|시장|아울렛|쇼핑몰)/.test(raw)) {
+    return '판매';
+  }
+
+  // 7) 숙박시설
+  if (/(숙박시설|숙박|호텔|모텔|리조트|생활숙박|호스텔|여관|펜션)/.test(raw)) {
+    return '숙박';
+  }
+
+  // 8) 주거시설
+  if (/(공동주택|단독주택|다가구|다세대|연립주택|연립|아파트|주택|주거|기숙사)/.test(raw)) {
+    return '주거';
+  }
+
+  // 9) 산업 / 물류 / 공장 / 창고
+  if (/(창고시설|창고|공장|운수시설|지식산업센터|물류|산업|위험물저장|자동차관련)/.test(raw)) {
+    return '산업/물류';
+  }
+
+  // 10) 업무시설 / 오피스
+  if (
+    /(업무시설|일반업무|업무|오피스텔|오피스|사옥|본사|기업|스타트업|법인|에이전시|법률사무소|회계법인|세무|컨설팅|설계사무소|스튜디오|금융|보험|은행|증권)/.test(
+      raw,
+    )
+  ) {
+    return '업무';
+  }
+
+  // 폴백: 건물 주용도(fallbackMainPurpose) 기준 분류
+  if (fb && fb !== raw) {
+    return normalizeBuildingUseCategory(fb, null);
+  }
+
+  return '근린생활';
 }
 
 /**
@@ -129,6 +314,19 @@ export async function fetchBuildingRegister(
         const selfParking = (parseInt(String(targetItem.indrAutoUtcnt || "0"), 10) || 0) + (parseInt(String(targetItem.oudrAutoUtcnt || "0"), 10) || 0);
         const mechParking = (parseInt(String(targetItem.indrMechUtcnt || "0"), 10) || 0) + (parseInt(String(targetItem.oudrMechUtcnt || "0"), 10) || 0);
 
+        const platPlc = targetItem.platPlc ? String(targetItem.platPlc).trim() : undefined;
+        const newPlatPlc = targetItem.newPlatPlc ? String(targetItem.newPlatPlc).trim() : undefined;
+        const targetPk = targetItem.mgmBldrgstPk ? String(targetItem.mgmBldrgstPk).trim() : undefined;
+
+        const floors = await fetchBuildingFloors(
+          sigunguCd,
+          bjdongCd,
+          bun,
+          ji,
+          platGbCd,
+          targetPk,
+        ).catch(() => []);
+
         return {
           totalArea: parseFloat(String(targetItem.totArea || "0")),
           platArea: platArea,
@@ -140,6 +338,9 @@ export async function fetchBuildingRegister(
           bcRat: parseFloat(String(targetItem.bcRat || "0")),
           vlRat: parseFloat(String(targetItem.vlRat || "0")),
           buildingName: String(targetItem.bldNm || ""),
+          ...(platPlc ? { platPlc } : {}),
+          ...(newPlatPlc ? { newPlatPlc } : {}),
+          ...(floors.length > 0 ? { floors } : {}),
           ...(archArea !== undefined ? { archArea } : {}),
           ...(rideElvt + emgenElvt > 0
             ? { elevatorCount: rideElvt + emgenElvt, ...(rideElvt > 0 ? { passengerElevatorCount: rideElvt } : {}), ...(emgenElvt > 0 ? { emergencyElevatorCount: emgenElvt } : {}) }

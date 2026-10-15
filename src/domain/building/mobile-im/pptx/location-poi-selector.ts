@@ -790,3 +790,199 @@ function approxDistM(lat1: number, lng1: number, lat2: number, lng2: number): nu
   const dx = (lng2 - lng1) * 111320 * Math.cos(((lat1 + lat2) / 2) * Math.PI / 180);
   return Math.sqrt(dx * dx + dy * dy);
 }
+
+export interface MergedSubwayStation {
+  baseName: string;
+  lines: string[];
+  distanceM: number;
+  walkMinutes: number;
+  formattedName: string;
+  formattedLabel: string;
+}
+
+function expandLineTokens(rawLine: string): string[] {
+  const cleaned = String(rawLine || '')
+    .replace(/^수도권\s*/, '')
+    .replace(/역$/, '')
+    .trim();
+  if (!cleaned) return [];
+
+  // 예: "2·9호선", "2, 9호선", "2/9호선"
+  const multiNumMatch = cleaned.match(/^(\d+(?:\s*[·,/]\s*\d+)+)호선$/);
+  if (multiNumMatch) {
+    return multiNumMatch[1]
+      .split(/[·,/]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((num) => `${num}호선`);
+  }
+
+  return cleaned
+    .split(/[·,/]/)
+    .map((s) => s.replace(/^수도권\s*/, '').trim())
+    .filter(Boolean)
+    .map((tok) => (/^\d+$/.test(tok) && cleaned.endsWith('호선') ? `${tok}호선` : tok));
+}
+
+function extractStationBaseAndLines(item: any): { baseName: string; lines: string[] } | null {
+  const rawName = String(item?.name || '').trim();
+  if (!rawName || rawName === '-' || rawName === '확인 필요' || rawName === '역세권') return null;
+  if (/(출구|주차장|선착장|나들목|차량기지|환승센터|지구대|파출소|우체국)/.test(rawName)) return null;
+
+  const lines: string[] = [];
+
+  // 1) 괄호 표기: "당산역(2·9호선)" / "당산역 (9호선)"
+  let working = rawName;
+  const parenMatches = working.match(/[(（]([^)）]+)[)）]/g);
+  if (parenMatches) {
+    for (const pm of parenMatches) {
+      const inner = pm.slice(1, -1).trim();
+      if (/(호선|선$|경전철|신분당|수인분당|경의중앙|공항철도|김포골드|서해선|우이신설|신림선|GTX)/i.test(inner)) {
+        lines.push(...expandLineTokens(inner));
+        working = working.replace(pm, '').trim();
+      }
+    }
+  }
+
+  // 2) 공백 표기: "당산역 9호선" / "당산역 2호선"
+  const spaceMatch = working.match(/^(.*?역)\s+(.+?)(?:역)?$/);
+  let baseName = working;
+  if (spaceMatch) {
+    baseName = spaceMatch[1].trim();
+    lines.push(...expandLineTokens(spaceMatch[2].trim()));
+  } else {
+    if (!baseName.endsWith('역')) {
+      baseName = `${baseName}역`;
+    }
+  }
+
+  // 3) 명시적 line 필드
+  if (item?.line) {
+    lines.push(...expandLineTokens(String(item.line)));
+  }
+
+  // 4) 카카오 categoryName: "교통,수송 > 지하철,전철 > 수도권9호선"
+  if (item?.categoryName) {
+    const catMatch = String(item.categoryName).match(/지하철,전철\s*>\s*(.+)$/);
+    if (catMatch) {
+      lines.push(...expandLineTokens(catMatch[1]));
+    }
+  }
+
+  const uniqueLines = Array.from(new Set(lines.filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, 'ko', { numeric: true }),
+  );
+
+  return { baseName, lines: uniqueLines };
+}
+
+function isSubwaySpotLike(item: any): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const cat = String(item.category || '').toLowerCase();
+  const cn = String(item.categoryName || '');
+  const name = String(item.name || '').trim();
+  if (cat === 'subway' || /지하철,전철/.test(cn)) return true;
+  if (item.line && /역/.test(name)) return true;
+  if (/역\s+\S*(호선|선)$/.test(name) || /역[(（][^)]*(호선|선)[)）]/.test(name)) return true;
+  return false;
+}
+
+/**
+ * 동일 역명의 다중 호선 스팟(예: "당산역 9호선" 406m + "당산역 2호선" 493m)을
+ * 최소 거리 기준 단일 역 엔트리("당산역(2·9호선) 도보 5분 (약 406m)")로 병합합니다.
+ */
+export function mergeSubwayLinesFromSpots(
+  nearestStation?: any,
+  keySpots?: any[],
+  candidateSpots?: any[],
+  poolCandidates?: any[],
+): MergedSubwayStation[] {
+  const rawSpots: any[] = [];
+  if (nearestStation && typeof nearestStation === 'object' && nearestStation.name) {
+    rawSpots.push({ ...nearestStation, category: 'subway' });
+  }
+  for (const list of [keySpots, candidateSpots, poolCandidates]) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (isSubwaySpotLike(item)) {
+        rawSpots.push(item);
+      }
+    }
+  }
+
+  const byBase = new Map<
+    string,
+    { baseName: string; lines: Set<string>; minDistanceM: number; explicitWalkMin?: number }
+  >();
+
+  for (const spot of rawSpots) {
+    const parsed = extractStationBaseAndLines(spot);
+    if (!parsed) continue;
+    const dist = Number(spot?.distanceM);
+    const validDist = Number.isFinite(dist) && dist > 0 ? Math.round(dist) : Infinity;
+
+    const existing = byBase.get(parsed.baseName);
+    if (!existing) {
+      const lineSet = new Set<string>(parsed.lines);
+      byBase.set(parsed.baseName, {
+        baseName: parsed.baseName,
+        lines: lineSet,
+        minDistanceM: validDist,
+        explicitWalkMin:
+          Number.isFinite(Number(spot?.walkMinutes)) && Number(spot.walkMinutes) > 0
+            ? Number(spot.walkMinutes)
+            : undefined,
+      });
+    } else {
+      for (const l of parsed.lines) existing.lines.add(l);
+      if (validDist < existing.minDistanceM) {
+        existing.minDistanceM = validDist;
+        if (Number.isFinite(Number(spot?.walkMinutes)) && Number(spot.walkMinutes) > 0) {
+          existing.explicitWalkMin = Number(spot.walkMinutes);
+        } else {
+          existing.explicitWalkMin = undefined;
+        }
+      }
+    }
+  }
+
+  const merged: MergedSubwayStation[] = [];
+  for (const entry of byBase.values()) {
+    const lines = Array.from(entry.lines).sort((a, b) =>
+      a.localeCompare(b, 'ko', { numeric: true }),
+    );
+    const distanceM = Number.isFinite(entry.minDistanceM) ? entry.minDistanceM : 0;
+    const walkMinutes =
+      distanceM > 0 ? walkMinutesOf(distanceM) : entry.explicitWalkMin ?? 0;
+
+    let formattedName = entry.baseName;
+    if (lines.length >= 2 && lines.every((l) => /^\d+호선$/.test(l))) {
+      formattedName = `${entry.baseName}(${lines.map((l) => l.replace(/호선$/, '')).join('·')}호선)`;
+    } else if (lines.length >= 1) {
+      formattedName = `${entry.baseName}(${lines.join('·')})`;
+    }
+
+    const formattedLabel =
+      distanceM > 0
+        ? `${formattedName} 도보 ${walkMinutes}분 (약 ${distanceM}m)`
+        : formattedName;
+
+    merged.push({
+      baseName: entry.baseName,
+      lines,
+      distanceM,
+      walkMinutes,
+      formattedName,
+      formattedLabel,
+    });
+  }
+
+  merged.sort((a, b) => {
+    const da = a.distanceM > 0 ? a.distanceM : Number.MAX_SAFE_INTEGER;
+    const db = b.distanceM > 0 ? b.distanceM : Number.MAX_SAFE_INTEGER;
+    return da - db || cmpStr(a.baseName, b.baseName);
+  });
+
+  return merged;
+}
+

@@ -992,20 +992,34 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       const scaleStr = floorsBelow ? `B${floorsBelow}/F${floorsAbove}` : `지상 ${floorsAbove}층`;
       metrics.push({ label: '건축규모', value: scaleStr });
     }
-    // v1.5 Q1: Basic IM 의 단일 수익률 헤드라인 = V04(Σ월세×12 ÷ (매매가−보증금)). A23 과 같은 YieldSet → 같은 값·같은 이름.
-    // NOI Cap Rate 는 보조 지표로 부제에만(가정 문구는 summaryCapRateSub 와 동일). V04 를 산출할 수 없으면 기존 지표로 폴백.
+    // v1.5 Q1 / R2: Basic IM 의 수익률 헤드라인 — 안정화 수익률이 산출되고 summary_yield_basis !== 'current' 이면
+    // '안정화 기대수익률' 카드로 승격하고 부제에 현행 임대수익률을 병기한다. Cap Rate(NOI)는 Basic 에서 배제(R10).
     const yieldObj = buildYieldFromHeroCard(heroCard);
     const basicYieldSet = buildYieldSetFromBody(body);
     const v04 = basicYieldSet.grossYieldNetOfDeposit;
-    if (v04 != null && Number.isFinite(v04) && v04 > 0) {
+    const summaryBasis = body?.broker_extras?.summary_yield_basis ?? 'auto';
+    const stab = basicYieldSet.stabilized;
+    if (summaryBasis !== 'current' && stab && stab.kind !== 'reserve_excluded' && Number.isFinite(stab.value) && stab.value > 0) {
+      summaryYield = { value: stab.value, basis: 'GPI', deductions: [], denominator: 'net_of_deposit' };
+      const stabSub =
+        v04 != null && Number.isFinite(v04) && v04 > 0
+          ? stab.kind === 'broker_plan'
+            ? `현행 임대수익률 ${v04.toFixed(2)}% · 매입 후 전략 반영(가정)`
+            : `현행 임대수익률 ${v04.toFixed(2)}% · 공실·자가 임대 전환(가정)`
+          : stab.kind === 'broker_plan'
+            ? '매입 후 전략 반영(가정)'
+            : '공실·자가 임대 전환(가정)';
+      metrics.push({
+        label: '안정화 기대수익률',
+        value: `${stab.value.toFixed(2)}%`,
+        sub: stabSub,
+      });
+    } else if (v04 != null && Number.isFinite(v04) && v04 > 0) {
       summaryYield = { value: v04, basis: 'GPI', deductions: [], denominator: 'net_of_deposit' };
-      const noiCap = basicYieldSet.noiCapRate;
       metrics.push({
         label: YIELD_LABELS.grossNetOfDeposit,
         value: `${v04.toFixed(2)}%`,
-        sub: noiCap != null && noiCap > 0
-          ? `${YIELD_LABELS.noiCapRate} ${noiCap.toFixed(2)}% · ${summaryCapRateSub(basicYieldSet.assumptions)}`
-          : '운영비 차감 전',
+        sub: '운영비 차감 전 · 보증금 차감 매입가 기준',
       });
     } else if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;

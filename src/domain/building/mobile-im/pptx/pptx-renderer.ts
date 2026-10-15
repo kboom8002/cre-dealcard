@@ -47,6 +47,10 @@ import { brokerMemoTextOf, parseBuildingSpecMemoFacts } from './binder/broker-me
 import { normalizeAreaRowsPrecision } from './binder/area-precision';
 import { resolveDisplayAreas, isRegisterTrustworthy } from './binder/display-areas';
 import { verifiedLegalLimitsFromSsot } from './binder/legal-limits';
+import { resolveDualLineAddress } from './address-display';
+import { buildBasicLocationRightData } from './location-facts-builder';
+import { buildBasicLandSlideData } from './archetypes/a27-land-use-plan';
+import { getRegionalLandPriceRateSeries } from '@/lib/external/rone-api';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -342,7 +346,35 @@ export class MobileImPptxRenderer {
           ?? null),
       };
 
-      // Basic IM 표지 필수 4요소 바인딩 (basic-im-guide.md §2 #1)
+      // Basic IM 표지 바인딩 (R1: 미니멀 표지 + 결정론적 작성일 + 하단 브로커 브랜딩)
+      const dualAddrForDeck = resolveDualLineAddress({
+        roadAddress: input.doc.body?.ssot_summary?.road_address
+          || input.doc.body?.ssot_summary?.address
+          || input.doc.body?.resolved_address
+          || input.building?.road_address
+          || input.building?.address
+          || input.doc.body?.heroCard?.address,
+        jibunAddress: input.doc.body?.ssot_summary?.jibun_address
+          || input.building?.jibun_address
+          || enrichment?.landUsePlan?.jibunAddress,
+        pnu: input.doc.body?.ssot_summary?.pnu
+          || input.doc.body?.pnu
+          || input.building?.pnu
+          || enrichment?.buildingRegister?.mainPnu,
+        parcelCount: Number(
+          input.doc.body?.ssot_summary?.parcel_count
+          ?? (Array.isArray(input.doc.body?.parcels) ? input.doc.body.parcels.length : 0)
+        ) || undefined,
+        landUsePlan: enrichment?.landUsePlan,
+        buildingRegister: enrichment?.buildingRegister,
+        memoTexts: [
+          brokerMemoTextOf(input.doc.body, input.building ?? {}),
+          input.doc.body?.raw_text,
+          input.doc.body?.broker_extras?.location_note,
+          ...(Array.isArray(input.doc.body?.broker_extras?.investment_points) ? input.doc.body.broker_extras.investment_points : []),
+        ],
+      });
+
       if (isBasicPreset) {
         const ssotCover = input.doc.body?.ssot_summary ?? {};
         dataMap['cover'].address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
@@ -351,7 +383,14 @@ export class MobileImPptxRenderer {
           ? `${Number((rawCoverAsk / 10000).toFixed(2))}억 원`
           : (ssotCover.price_band && !String(ssotCover.price_band).includes('Infinity') ? ssotCover.price_band : '');
         dataMap['cover'].askingPrice = safeCoverAsk;
-        dataMap['cover'].documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+        const rawDocDate = input.doc.body?.approved_at ?? input.doc.body?.generated_at ?? (input.doc as any)?.created_at;
+        const parsedDocDate = rawDocDate ? new Date(rawDocDate) : new Date();
+        const safeDocDate = Number.isNaN(parsedDocDate.getTime()) ? new Date() : parsedDocDate;
+        dataMap['cover'].documentDate = safeDocDate.toISOString().slice(0, 10).replace(/-/g, '.');
+        (dataMap['cover'] as any).isBasicIm = true;
+        (dataMap['cover'] as any).brokerPhone = input.broker?.phone ?? '';
+        (dataMap['cover'] as any).brokerEmail = input.broker?.email ?? '';
+        (dataMap['cover'] as any).registrationNo = input.broker?.registration_no ?? '';
       }
 
       // ── Basic IM 물건 개요 (building) 슬라이드 데이터 보강 ──
@@ -382,6 +421,7 @@ export class MobileImPptxRenderer {
 
         const enrichedRows: [string, string][] = [
           ['소재지', (() => {
+            if (dualAddrForDeck.twoLine) return dualAddrForDeck.twoLine;
             const addr = ssot.address || bldg.address || heroCard.address || '-';
             const cnt = Number(ssot.parcel_count ?? (Array.isArray(input.doc.body?.parcels) ? input.doc.body.parcels.length : 0));
             return addr === '-' ? addr : withParcelCountSuffix(String(addr), cnt);
@@ -693,64 +733,44 @@ export class MobileImPptxRenderer {
         // 중개인 실입력 원문(메모·입지 설명·소재지)에 언급된 대형 기관은 지도에서 누락하지 않는다 (렌더 전용 — LLM 프롬프트 무관)
         dataMap['location'].mentionTexts = collectBrokerMentionTexts(input.building, input.doc.body);
 
-        // D8: 우측 입지 조건 구조화 행 — ssot/POI 데이터에서 동적 생성 (하드코딩 금지)
+        // R5: 우측 입지 조건 구조화 행 및 입지 요약 콜아웃 자동 합성 (상투문 '주요 상업·업무 권역' 금지, 다중 호선 병합)
         const ssot = input.doc.body?.ssot_summary ?? {};
-        const locRows: Array<[string, string]> = [];
-        const locAddress = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address ?? '';
-        if (locAddress) {
-          locRows.push(['소재지', locAddress]);
-        }
-        const nearestSt = externalPoi?.nearestStation;
-        if (nearestSt?.name) {
-          locRows.push(['대중교통', `${nearestSt.name} 도보 ${nearestSt.walkMinutes ?? Math.round((nearestSt.distanceM ?? 400) / 80)}분 (약 ${nearestSt.distanceM ?? ''}m)`]);
-        } else if (ssot.station_walk_min) {
-          locRows.push(['대중교통', `지하철역 도보 ${ssot.station_walk_min}분 역세권`]);
+        const locAddress = dualAddrForDeck.singleLine || (input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address ?? '');
+        const locRight = buildBasicLocationRightData({
+          ssot,
+          building: input.building ?? {},
+          externalPoi,
+          landmarkPool: enrichment?.landmarkPool ?? (dataMap['location'].poiCandidates ? { candidates: dataMap['location'].poiCandidates } : null),
+          landUsePlan: enrichment?.landUsePlan,
+          buildingRegister: enrichment?.buildingRegister,
+          locationFacts: enrichment?.locationFacts,
+          brokerExtras: readBrokerExtras(input.doc.body),
+          twoLineAddress: dualAddrForDeck.singleLine || locAddress,
+        });
+        for (const w of locRight.warnings) warnings.push(w);
+
+        if (!dataMap['location'].right) dataMap['location'].right = { sub: locRight.sub };
+        if (locRight.rows.length >= 2) {
+          dataMap['location'].right.rows = locRight.rows.slice(0, 6);
         } else {
-          locRows.push(['대중교통', '지하철 및 간선버스 인접']);
-        }
-
-        const road = ssot.road_condition ?? input.building?.road_condition;
-        if (road) {
-          locRows.push(['도로접면', String(road)]);
-        }
-
-        const area = input.building?.area_signal ?? ssot.area_signal ?? '';
-        if (area) {
-          locRows.push(['상권권역', `${area} 주요 상업·업무 권역`]);
-        }
-
-        // 비지하철 랜드마크 행 추가
-        if (externalPoi?.keySpots && !externalPoi._isFallback) {
-          const landmarks = externalPoi.keySpots
-            .filter((s: any) => s.category !== 'subway' && s.name && s.distanceM)
-            .slice(0, 2);
-          for (const lm of landmarks) {
-            const lmWalk = Math.max(1, Math.round(lm.distanceM / 80));
-            const catLabels: Record<string, string> = { hospital: '의료시설', university: '교육시설', shopping: '상업시설', landmark: '주요시설', public: '공공기관' };
-            locRows.push([catLabels[lm.category] || '주요시설', `${lm.name} 도보 ${lmWalk}분 (약 ${lm.distanceM}m)`]);
+          const locRows: Array<[string, string]> = [];
+          if (locAddress) locRows.push(['소재지', locAddress]);
+          const nearestSt = externalPoi?.nearestStation;
+          if (nearestSt?.name) {
+            locRows.push(['대중교통', `${nearestSt.name} 도보 ${nearestSt.walkMinutes ?? Math.round((nearestSt.distanceM ?? 400) / 80)}분 (약 ${nearestSt.distanceM ?? ''}m)`]);
+          } else if (ssot.station_walk_min) {
+            locRows.push(['대중교통', `지하철역 도보 ${ssot.station_walk_min}분 역세권`]);
+          } else {
+            locRows.push(['대중교통', '지하철 및 간선버스 인접']);
           }
+          const road = ssot.road_condition ?? input.building?.road_condition;
+          if (road) locRows.push(['도로·접근성', String(road)]);
+          dataMap['location'].right.rows = locRows.slice(0, 6);
         }
 
-        if (!dataMap['location'].right) dataMap['location'].right = { sub: '입지 및 접근성 분석' };
-        dataMap['location'].right.rows = locRows.slice(0, 6);
-
-        // 입지 종합 분석 callout — 동적 데이터에서 생성 (하드코딩 금지)
-        const calloutBullets: string[] = [];
-        if (nearestSt?.name) {
-          calloutBullets.push(`• ${nearestSt.name} 도보 역세권으로 양호한 대중교통 접근성`);
-        }
-        if (road) {
-          calloutBullets.push(`• ${road} 접면 차량 진출입 양호`);
-        }
-        if (area) {
-          calloutBullets.push(`• ${area} 배후 상권 기반 안정적 임대 수요`);
-        }
-        if (calloutBullets.length > 0) {
-          dataMap['location'].right.callout = {
-            kind: 'info',
-            title: '입지 종합 분석',
-            body: calloutBullets.join('\n'),
-          };
+        if (locRight.callout) {
+          dataMap['location'].right.callout = locRight.callout;
+          (dataMap['location'].right as any)._hasAutoLocationSummary = true;
         }
       }
 
@@ -843,20 +863,34 @@ export class MobileImPptxRenderer {
           }
 
           if (!dataMap['land'].left) dataMap['land'].left = {};
-          dataMap['land'].left.source = '© V-World 국토교통부 | 2026';
+          dataMap['land'].left.source = '출처: 토지이음 · V-World 국토교통부';
         }
       }
 
-      // ── D4/D8: 중개인 제공 정보 (body.broker_extras + photos_v2 문서 이미지) — Basic IM 전용, 입력 없으면 no-op ──
-      //   · 신규 면(투자 포인트·규제·계획·도면·시세 비교): 원문 그대로 + 결정론 통계만 (AI·재작성 없음)
-      //   · 기존 면 보강(면 추가 없음): 입지 callout/위치도, 렌트롤 '매입 후 전략'
+      // ── D4/D8/R6: 중개인 제공 정보 + 토지이용계획확인원 양식 바인딩 (Basic IM 전용) ──
       if (isBasicPreset) {
         const brokerExtras = readBrokerExtras(input.doc.body);
         const brokerImages = extractBrokerImages(input.doc.body);
         const brokerMap = buildBrokerExtrasDataMap(input.doc.body, { ssot: input.doc.body?.ssot_summary ?? null, body: input.doc.body ?? null });
         for (const [k, v] of Object.entries(brokerMap)) dataMap[k] = v as any;
+        const autoLocCallout = (dataMap['location']?.right as any)?._hasAutoLocationSummary
+          ? dataMap['location']?.right?.callout
+          : undefined;
         applyBrokerLocation(dataMap['location'], brokerExtras, brokerImages);
+        if (autoLocCallout && dataMap['location']?.right) {
+          dataMap['location'].right.callout = autoLocCallout;
+        }
         applyBrokerRentRollPlan(dataMap['rentRoll'], brokerExtras);
+        if (dataMap['land']) {
+          dataMap['land'] = buildBasicLandSlideData({
+            existingLandData: dataMap['land'],
+            enrichment,
+            ssot: input.doc.body?.ssot_summary ?? {},
+            building: input.building ?? {},
+            body: input.doc.body ?? {},
+            cadastralImg,
+          }) as any;
+        }
         // 면적 행 표기 정밀도 통일: 평→㎡ 환산 잔여 소수(3,842.644㎡)는 소수 1자리로 (표시 전용, 값 불변)
         normalizeAreaRowsPrecision(dataMap, {
           totArea: Number(enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea) || null,
@@ -878,6 +912,15 @@ export class MobileImPptxRenderer {
         const regTotArea = Number(enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea);
         if (dataMap['rentRoll'] && Number.isFinite(regTotArea) && regTotArea > 0) {
           (dataMap['rentRoll'] as any).registerTotalAreaSqm = regTotArea;
+        }
+        // R8: 건축물대장 층별개요 용도 카테고리 전달
+        if (dataMap['rentRoll']) {
+          if (Array.isArray(enrichment?.buildingRegister?.floors)) {
+            (dataMap['rentRoll'] as any).buildingRegisterFloors = enrichment.buildingRegister.floors;
+          }
+          if (enrichment?.buildingRegister?.mainPurpose) {
+            (dataMap['rentRoll'] as any).mainPurpose = enrichment.buildingRegister.mainPurpose;
+          }
         }
         // 합계 행 'N개 호실' — 비임대 공용·설비 행(기계실·주차장 등)은 호실 수에서 제외 (점유 SSOT 와 동일 모집단)
         if (dataMap['rentRoll'] && Array.isArray(input.doc.body?.floor_leases)) {
@@ -917,9 +960,10 @@ export class MobileImPptxRenderer {
         ],
       };
 
-      // Basic IM: 클로징 타이틀 및 브로커 연락처 (basic-im-guide §2 #9)
+      // Basic IM: 클로징 타이틀 및 브로커 연락처 (basic-im-guide §2 #9) + D2: closing_line 보존
       if (isBasicPreset) {
         dataMap['closing'].title = '문의 및 유의사항';
+        (dataMap['closing'] as any).closingLine = readBrokerExtras(input.doc.body)?.closing_line ?? '';
         // 실제 DB 값만 사용 — 부재 필드는 '' → A10이 해당 행 생략 (Rule 34/37: 더미 플레이스홀더 금지)
         dataMap['closing'].brokerContact = {
           name: input.broker?.display_name?.trim() || '',
@@ -1038,6 +1082,14 @@ export class MobileImPptxRenderer {
             return { landPriceHistory: baseLph, landAreaSqm: 0, landPriceBasis: 'representative' };
           })(),
           areaSignal: input.building?.area_signal ?? ssot.area_signal ?? '',
+          pnu: String(ssot.pnu ?? input.doc.body?.pnu ?? input.building?.pnu ?? ''),
+          address: String(dualAddrForDeck.singleLine || ssot.address || input.building?.address || ''),
+          regionalLandPriceRates: enrichment?.regionalLandPriceRates
+            ?? input.doc.body?.enrichment?.regionalLandPriceRates
+            ?? getRegionalLandPriceRateSeries({
+              pnu: String(ssot.pnu ?? input.doc.body?.pnu ?? input.building?.pnu ?? ''),
+              address: String(dualAddrForDeck.singleLine || ssot.address || input.building?.address || ''),
+            }),
         };
       }
 
@@ -1077,9 +1129,11 @@ export class MobileImPptxRenderer {
         ].map((p: unknown) => String(p ?? ''));
         const hl = buildSummaryHighlights(summaryFacts, priorPoints);
         if (summaryFacts.lease?.reconcileWarning) warnings.push(`[LEASE-RECONCILE] ${summaryFacts.lease.reconcileWarning}`);
+        if (Array.isArray(hl.warnings)) warnings.push(...hl.warnings);
         if (hl.points.length > 0) dataMap['summary'].keyPoints = hl.points;
         if (hl.lead) dataMap['summary'].leadSentence = hl.lead;
         else if (isBoilerplateHighlight(String(dataMap['summary'].leadSentence ?? ''))) dataMap['summary'].leadSentence = '';
+        if (hl.hasBrokerInput) dataMap['summary'].hasBrokerInput = true;
         if (dataMap['building'] && hl.shortHighlights.length > 0) dataMap['building'].assetHighlights = hl.shortHighlights;
       }
 
@@ -1171,7 +1225,8 @@ export class MobileImPptxRenderer {
           || spec.archetype === 'A22'
           || spec.archetype === 'A23'
           || spec.archetype === 'A24'
-          || spec.archetype === 'A25';
+          || spec.archetype === 'A25'
+          || spec.archetype === 'A27';
         const hasContent = slideData && (
           (slideData.content && slideData.content.trim().length > 0) ||
           (slideData.tables && slideData.tables.length > 0) ||
@@ -1180,6 +1235,7 @@ export class MobileImPptxRenderer {
           // FIX-RC4: 빈 배열 []도 truthy이므로, 배열 길이를 명시적으로 검사
           ((slideData.left?.rows?.length ?? 0) > 0 || !!slideData.left?.sub) ||
           ((slideData.right?.stats?.length ?? 0) > 0 || (slideData.right?.callouts?.length ?? 0) > 0 || (slideData.right?.rows?.length ?? 0) > 0) ||
+          ((slideData.overviewRows?.length ?? 0) > 0 || slideData.landUseConfirm != null) ||
           ((slideData.blocks?.length ?? 0) > 0) ||
           ((slideData.table1?.rows?.length ?? 0) > 0) ||
           ((slideData.tableRows?.length ?? 0) > 0) ||
@@ -1206,9 +1262,10 @@ export class MobileImPptxRenderer {
           continue;
         }
 
-        const builder = SLIDE_ARCHETYPE_REGISTRY[spec.archetype];
+        const effectiveArchetype = (isBasicPreset && spec.dataKey === 'land') ? 'A27' : spec.archetype;
+        const builder = SLIDE_ARCHETYPE_REGISTRY[effectiveArchetype] ?? SLIDE_ARCHETYPE_REGISTRY[spec.archetype];
         if (!builder) {
-          warnings.push(`아키타입 ${spec.archetype} 빌더를 찾을 수 없습니다.`);
+          warnings.push(`아키타입 ${effectiveArchetype} 빌더를 찾을 수 없습니다.`);
           continue;
         }
 
@@ -1234,10 +1291,10 @@ export class MobileImPptxRenderer {
           // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략 (유령 백지 슬라이드 방지)
           // M4: Basic IM 9면 계약 준수 — A24/rentRoll 및 canonical 기본 슬라이드는 pop/drop 방지
           if (result.suppress) {
-            if (spec.archetype === 'A24' || spec.dataKey === 'rentRoll' || (isBasicPreset && ['A06', 'A14', 'A23', 'A24'].includes(spec.archetype) && !archetypeInput.data?.suppressOnEmpty)) {
-              log.warn(`[PPTX] [Suppress Prevented] ${spec.archetype}(${spec.dataKey}) — canonical basic slide preserved`);
+            if (spec.archetype === 'A24' || spec.dataKey === 'rentRoll' || (isBasicPreset && ['A06', 'A14', 'A23', 'A24', 'A27'].includes(effectiveArchetype) && !archetypeInput.data?.suppressOnEmpty)) {
+              log.warn(`[PPTX] [Suppress Prevented] ${effectiveArchetype}(${spec.dataKey}) — canonical basic slide preserved`);
             } else {
-              log.info(`[PPTX] [Suppress] ${spec.archetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${archetypeInput.data?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${archetypeInput.data?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${archetypeInput.data?.stackingPlan?.length ?? 'N/A'}`);
+              log.info(`[PPTX] [Suppress] ${effectiveArchetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${archetypeInput.data?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${archetypeInput.data?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${archetypeInput.data?.stackingPlan?.length ?? 'N/A'}`);
               if (Array.isArray((pres as unknown as { slides: PptxGenJS.Slide[] }).slides) && (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length > 0) {
                 const lastIdx = (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length - 1;
                 if ((pres as unknown as { slides: PptxGenJS.Slide[] }).slides[lastIdx] === result.slide) {
@@ -1245,7 +1302,7 @@ export class MobileImPptxRenderer {
                 }
               }
               warnings.push(...result.warnings);
-              warnings.push(`[Suppress] ${spec.archetype}(${spec.title}) 슬라이드 억제`);
+              warnings.push(`[Suppress] ${effectiveArchetype}(${spec.title}) 슬라이드 억제`);
               continue;
             }
           }

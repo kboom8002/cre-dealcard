@@ -135,19 +135,19 @@ describe('bindRentRollTable — 면적·용도·관리비/만기일 매핑 (p5 �
 });
 
 describe('A24 슬라이드 렌더 (OpenXML) — p5 렌트롤', () => {
-  it('POSITIVE: 스태킹 도식 9F 한 행(라벨 1회) + 컨설팅/세무사 세그먼트, 표는 9F-A/9F-B 행 유지', async () => {
+  it('POSITIVE: 스태킹 도식 9F 한 행(라벨 1회) + 건물용도 카테고리(업무/근린생활/교육/공실) 표시, 표는 9F-A/9F-B 및 상호/업종 유지', async () => {
     const r = await renderSlideXml(bind(p5Leases));
     expect(r.nonTableTexts.filter(t => t === '9F')).toHaveLength(1);
     expect(r.nonTableTexts).not.toContain('9F-A');
-    expect(r.nonTableTexts.some(t => t.startsWith('컨설팅'))).toBe(true);
-    expect(r.nonTableTexts.some(t => t.startsWith('세무사'))).toBe(true);
-    expect(r.tableTexts).toEqual(expect.arrayContaining(['9F-A', '9F-B']));
+    expect(r.nonTableTexts).toEqual(expect.arrayContaining(['근린생활', '업무', '교육', '공실']));
+    expect(r.nonTableTexts).not.toContain('스타벅스');
+    expect(r.tableTexts).toEqual(expect.arrayContaining(['9F-A', '9F-B', '스타벅스', '컨설팅', '세무사']));
   });
 
-  it('POSITIVE: 스태킹 라벨 단위는 ㎡ (표와 같은 숫자), 합계는 표시값의 합 · 천 단위 구분 · 평 병기 없음', async () => {
+  it('POSITIVE: 스태킹 바에는 건물용도만 표기하고 면적 수치(㎡)·합계는 우측 표에 천 단위 구분·평 병기 없이 표기', async () => {
     const r = await renderSlideXml(bind(p5Leases));
-    expect(r.nonTableTexts.some(t => /209\.59㎡$/.test(t))).toBe(true);
-    expect(r.nonTableTexts.some(t => /422\.15㎡$/.test(t))).toBe(true);
+    expect(r.tableTexts).toContain('209.59');
+    expect(r.tableTexts).toContain('422.15');
     // 합계: 행 표기값(소수 2자리)의 합 — v1.5 §9.1, '(N평)' 병기 없음
     expect(r.tableTexts).toContain('2,490.28');
     expect(r.tableTexts.some(t => /\(\d+(\.\d)?평\)/.test(t))).toBe(false);
@@ -156,14 +156,31 @@ describe('A24 슬라이드 렌더 (OpenXML) — p5 렌트롤', () => {
     expect(r.nonTableTexts).toContain('면적 ㎡ · 금액 만원');
   });
 
-  it('POSITIVE(평 모드): 머리글·라벨·합계·캡션·스트립 제목이 모두 평 단일 단위, 대장 스냅 없음', async () => {
+  it('POSITIVE(R8 ig1): 로뎀나무내과의원·세무회계사무소·학원+헬스장(5F) 등 전 층이 근린생활로 통합 표기되고 표에는 상호·면적이 그대로 보존된다', async () => {
+    const ig1Leases = [
+      { floor: 'B1', tenant_name: '퍼플와인바', tenant_type: '와인바', area_sqm: 229.97, deposit_manwon: 3000, rent_manwon: 240, mgmt_fee_manwon: 20 },
+      { floor: '1F', tenant_name: '메가MGC커피', tenant_type: '카페', area_sqm: 194.28, deposit_manwon: 10000, rent_manwon: 680, mgmt_fee_manwon: 50 },
+      { floor: '2F', tenant_name: '로뎀나무내과의원', tenant_type: '내과의원', area_sqm: 252.09, deposit_manwon: 5000, rent_manwon: 400, mgmt_fee_manwon: 40 },
+      { floor: '3F', tenant_name: '로뎀나무내과의원', tenant_type: '내과의원', area_sqm: 252.09, deposit_manwon: 5000, rent_manwon: 400, mgmt_fee_manwon: 40 },
+      { floor: '4F', tenant_name: '태성세무회계', tenant_type: '세무회계사무소', area_sqm: 252.09, deposit_manwon: 4000, rent_manwon: 350, mgmt_fee_manwon: 40 },
+      { floor: '5F-A', tenant_name: '당산수학학원', tenant_type: '학원', area_sqm: 126.05, deposit_manwon: 3000, rent_manwon: 200, mgmt_fee_manwon: 20 },
+      { floor: '5F-B', tenant_name: '바디핏짐', tenant_type: '헬스장', area_sqm: 126.04, deposit_manwon: 3000, rent_manwon: 200, mgmt_fee_manwon: 20 },
+    ];
+    const rr = bind(ig1Leases);
+    const r = await renderSlideXml({ ...rr, mainPurpose: '제2종근린생활시설' });
+    expect(r.nonTableTexts).toContain('근린생활');
+    expect(r.nonTableTexts.some(t => t.includes('로뎀나무'))).toBe(false);
+    expect(r.nonTableTexts.some(t => t.includes('252.09'))).toBe(false);
+    expect(r.tableTexts).toEqual(expect.arrayContaining(['로뎀나무내과의원', '252.09', '태성세무회계']));
+  });
+
+  it('POSITIVE(평 모드): 머리글·합계·캡션·스트립 제목이 모두 평 단일 단위, 대장 스냅 없음', async () => {
     const pyBody = { preset: 'credeal_basic', floor_leases: p5Leases, rent_roll_meta: { area_input_unit: 'pyeong' } };
     const result: Record<string, any> = { rentRoll: { title: '렌트롤', content: '', tables: [] } };
     bindRentRollTable({ body: pyBody }, '', result);
     const r = await renderSlideXml({ ...result.rentRoll, registerTotalAreaSqm: 8230.55 });
     expect(r.tableTexts).toEqual(expect.arrayContaining(['임대면적(평)', '63.40']));
     expect(r.tableTexts).not.toContain('임대면적(㎡)');
-    expect(r.nonTableTexts.some(t => /63\.40평$/.test(t))).toBe(true);
     expect(r.nonTableTexts).toContain('층별 스태킹 플랜 (평)');
     expect(r.nonTableTexts).toContain('면적 평 · 금액 만원');
     expect(r.nonTableTexts.some(t => /㎡/.test(t) && !/면적/.test(t) && !/비고/.test(t))).toBe(false);

@@ -17,8 +17,38 @@ export interface ComparableTransaction {
   pricePerPyeong: number;        // 평당 가격 (KRW)
   buildingUse: string;           // 용도
   floors: number;                // 층수
+  buildingType?: string;         // 일반 / 집합
+  landAreaSqm?: number;          // 대지면적 (plottageAr, sqm)
+  landPricePerPyeongManwon?: number; // 토지평당가 (만원/평)
   transactionType?: string;      // 매매, 전세, 월세
   _isFallback?: boolean;
+}
+
+export interface FetchComparableTransactionsOptions {
+  /** 집합건물(구분상가·오피스텔 호실 등) 제외 여부 (기본값 true) */
+  excludeStrata?: boolean;
+}
+
+/**
+ * 국토부 상업업무용 실거래 원시 항목이 일반(통건물) 거래인지 판별합니다.
+ * - buildingType === '집합' 인 구분소유 호실 제외
+ * - 대지면적(plottageAr)이 없고 건물면적(buildingAr)이 66㎡ 미만인 소형 구분호실 제외
+ */
+export function isWholeBuildingTransactionItem(t: Record<string, unknown>): boolean {
+  const bldgType = String(t.buildingType ?? '').trim();
+  if (bldgType === '집합') return false;
+  const plottage = parseFloat(String(t.plottageAr ?? '0')) || 0;
+  const bldgAr = parseFloat(String(t.buildingAr ?? t.bldgArea ?? t.totArea ?? t.area ?? '0')) || 0;
+  if (plottage <= 0 && bldgAr > 0 && bldgAr < 66) return false;
+  return true;
+}
+
+export function filterWholeBuildingTransactions(items: readonly ComparableTransaction[]): ComparableTransaction[] {
+  return items.filter((item) => {
+    if (item.buildingType === '집합') return false;
+    if ((item.landAreaSqm ?? 0) <= 0 && item.area > 0 && item.area < 66) return false;
+    return true;
+  });
 }
 
 /**
@@ -27,9 +57,11 @@ export interface ComparableTransaction {
  */
 export async function fetchComparableTransactions(
   sigunguCd: string,
-  yearMonth?: string
+  yearMonth?: string,
+  opts?: FetchComparableTransactionsOptions,
 ): Promise<ComparableTransaction[]> {
   const apiKey = process.env.DATA_GO_KR_API_KEY;
+  const excludeStrata = opts?.excludeStrata !== false;
 
   if (apiKey && apiKey !== "") {
     const months = yearMonth ? [yearMonth] : getRecentMonths(3);
@@ -50,10 +82,14 @@ export async function fetchComparableTransactions(
             .map((t: any): ComparableTransaction | null => {
               // 해제된 거래 제외 (cdealType === 'O')
               if (String(t.cdealType || "").trim() === "O") return null;
+              if (excludeStrata && !isWholeBuildingTransactionItem(t)) return null;
 
               const dealAmtTenThousand = parseInt(String(t.dealAmount || "0").replace(/,/g, "").trim(), 10) || 0;
               const dealAmount = dealAmtTenThousand * 10000;
               if (dealAmount <= 0) return null;
+
+              const plottageSqm = parseFloat(String(t.plottageAr || "0"));
+              const hasPlottage = Number.isFinite(plottageSqm) && plottageSqm > 0;
 
               // 국토부 상업업무용 API: buildingAr(건물면적) 우선, 없으면 plottageAr(대지면적)
               const rawArea = parseFloat(String(t.buildingAr || t.bldgArea || t.plottageAr || t.totArea || t.area || "0"));
@@ -66,10 +102,15 @@ export async function fetchComparableTransactions(
               // 비정상 이상치(평당 50만원 미만 또는 평당 5억원 초과) 필터링
               if (pricePerPyeong < 500_000 || pricePerPyeong > 500_000_000) return null;
 
+              const landPricePerPyeongManwon = hasPlottage
+                ? Math.round((dealAmtTenThousand / (plottageSqm / SQM_RATIO)))
+                : undefined;
+
               const sgg = String(t.sggNm || t.sigungu || "").trim();
               const umd = String(t.umdNm || t.dong || "").trim();
               const jibun = String(t.jibun || "").trim();
               const address = [sgg, umd, jibun].filter(Boolean).join(" ");
+              const bldgType = String(t.buildingType || "").trim();
 
               return {
                 address: address || "서울시 인근 상업용 자산",
@@ -82,6 +123,8 @@ export async function fetchComparableTransactions(
                 pricePerPyeong,
                 buildingUse: String(t.buildingUse || "근린생활"),
                 floors: parseInt(String(t.floor || t.flr || "0").trim(), 10) || 0,
+                ...(bldgType ? { buildingType: bldgType } : {}),
+                ...(hasPlottage ? { landAreaSqm: plottageSqm, landPricePerPyeongManwon } : {}),
                 _isFallback: false
               };
             })

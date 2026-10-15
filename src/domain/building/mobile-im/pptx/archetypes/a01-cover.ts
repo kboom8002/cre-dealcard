@@ -25,9 +25,17 @@ export interface ArchetypeOutput {
 // 커버 레이아웃 팩토리 — coverStyle에 따라 완전히 다른 시각 경험
 // ═══════════════════════════════════════════════════════
 
+function isBasicCoverMode(input: ArchetypeInput): boolean {
+  return (
+    THEME_META.presetId === 'credeal_basic' ||
+    input.data?.preset === 'credeal_basic' ||
+    input.data?.templateId === 'credeal_basic'
+  );
+}
+
 /** institutional_masses — 우상단 매스 3개 + 황동 액센트 (golden_institutional 기본) */
 function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
-  const isBasic = THEME_META.presetId === 'credeal_basic';
+  const isBasic = isBasicCoverMode(input);
   // 매스 3개 (우상단 장식 블록) — Basic 은 스킨별 ink 계열 토큰 사용 (기본 스킨은 기존 값과 동일)
   slide.addShape('rect', {
     x: 9.05, y: 0, w: 1.55, h: 4.42,
@@ -42,11 +50,13 @@ function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
     fill: { color: isBasic ? C.ink3 : '2E2718' },
   });
 
-  // 워드마크
-  slide.addText([
-    { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 15, bold: true } },
-    { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 15, bold: true } },
-  ], { x: M, y: 0.52, w: 3, h: 0.4, margin: 0 });
+  // 워드마크 (Pro IM 전용 — Basic IM은 하단 중개법인 브랜딩 블록에 집중)
+  if (!isBasic) {
+    slide.addText([
+      { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 15, bold: true } },
+      { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 15, bold: true } },
+    ], { x: M, y: 0.52, w: 3, h: 0.4, margin: 0 });
+  }
 
   renderCommonCoverContent(slide, input, 2.22);
 }
@@ -74,11 +84,13 @@ function coverSplit(slide: any, input: ArchetypeInput, imgAdded: boolean = false
     });
   }
 
-  // 워드마크 (좌측)
-  slide.addText([
-    { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 15, bold: true } },
-    { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 15, bold: true } },
-  ], { x: M, y: 0.52, w: 3, h: 0.4, margin: 0 });
+  // 워드마크 (좌측, Pro IM 전용)
+  if (!isBasicCoverMode(input)) {
+    slide.addText([
+      { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 15, bold: true } },
+      { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 15, bold: true } },
+    ], { x: M, y: 0.52, w: 3, h: 0.4, margin: 0 });
+  }
 
   // 우측 패널에 태그라인
   slide.addText(THEME_META.companyTagline, {
@@ -110,11 +122,13 @@ function coverHeroDark(slide: any, input: ArchetypeInput): void {
     line: { color: C.brass, width: 1.5 },
   });
 
-  // 워드마크 (중앙 정렬)
-  slide.addText([
-    { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 18, bold: true } },
-    { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 18, bold: true } },
-  ], { x: M, y: 0.40, w: CW, h: 0.5, margin: 0, align: 'center' });
+  // 워드마크 (중앙 정렬, Pro IM 전용)
+  if (!isBasicCoverMode(input)) {
+    slide.addText([
+      { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 18, bold: true } },
+      { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 18, bold: true } },
+    ], { x: M, y: 0.40, w: CW, h: 0.5, margin: 0, align: 'center' });
+  }
 
   renderCommonCoverContent(slide, input, 2.10, true);
 }
@@ -135,11 +149,13 @@ function coverCorporateCard(slide: any, input: ArchetypeInput): void {
     fill: { color: C.brass },
   });
 
-  // 워드마크 (카드 밖 상단)
-  slide.addText([
-    { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 13, bold: true } },
-    { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 13, bold: true } },
-  ], { x: M, y: 0.40, w: 3, h: 0.4, margin: 0 });
+  // 워드마크 (카드 밖 상단, Pro IM 전용)
+  if (!isBasicCoverMode(input)) {
+    slide.addText([
+      { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 13, bold: true } },
+      { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 13, bold: true } },
+    ], { x: M, y: 0.40, w: 3, h: 0.4, margin: 0 });
+  }
 
   renderCommonCoverContent(slide, input, 1.70, false, 2.10);
 }
@@ -160,11 +176,13 @@ function coverObsidianGlow(slide: any, input: ArchetypeInput): void {
     fill: { color: '134E5E' },
   });
 
-  // 워드마크
-  slide.addText([
-    { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 15, bold: true } },
-    { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 15, bold: true } },
-  ], { x: M, y: 0.52, w: 3, h: 0.4, margin: 0 });
+  // 워드마크 (Pro IM 전용)
+  if (!isBasicCoverMode(input)) {
+    slide.addText([
+      { text: 'CRE', options: { color: 'FFFFFF', fontFace: NUM, fontSize: 15, bold: true } },
+      { text: 'DEAL', options: { color: C.brass, fontFace: NUM, fontSize: 15, bold: true } },
+    ], { x: M, y: 0.52, w: 3, h: 0.4, margin: 0 });
+  }
 
   renderCommonCoverContent(slide, input, 2.22);
 }
@@ -180,23 +198,81 @@ function renderCommonCoverContent(
   centerAlign = false,
   contentX?: number,
 ): void {
+  const d = input.data ?? {};
   const x = contentX ?? M;
   const align = centerAlign ? 'center' as const : 'left' as const;
   const titleW = centerAlign ? CW : 8;
+  const isBasicCover = isBasicCoverMode(input);
 
-  // kicker
-  slide.addText(input.data.kicker || 'INVESTMENT MEMORANDUM', {
+  const rawKicker = d.kicker && d.kicker !== '표지' ? d.kicker : 'INVESTMENT MEMORANDUM';
+  const titleText = d.title || '투자설명서';
+  const titleLen = titleText.length;
+  const fontSize = titleLen > 35 ? 20 : titleLen > 28 ? 24 : titleLen > 20 ? 26 : titleLen > 14 ? 30 : 38;
+  const titleH = titleLen > 14 ? 1.15 : 0.80;
+
+  // R1: Basic IM 표지 — 제목 + 중개법인 브랜딩 집중 (주소·태그·매각 희망가 박스 비표시)
+  if (isBasicCover) {
+    const basicKickerY = 2.45;
+    slide.addText(rawKicker, {
+      x, y: basicKickerY, w: titleW, h: 0.30,
+      fontSize: 10, bold: true, color: C.brass,
+      fontFace: NUM, charSpacing: 2.5, margin: 0, align,
+    });
+
+    slide.addShape('rect', {
+      x: centerAlign ? (W - 0.90) / 2 : x, y: basicKickerY + 0.35, w: 0.90, h: 0.04,
+      fill: { color: C.brass },
+    });
+
+    slide.addText(titleText, {
+      x, y: basicKickerY + 0.49, w: titleW, h: titleH,
+      fontSize, bold: true, color: 'FFFFFF',
+      fontFace: TITLE_KR, margin: 0, align, shrinkText: true, lineSpacingMultiple: 1.0,
+    });
+
+    // 하단 중개법인·담당자 브랜딩 블록 (y = 5.55)
+    slide.addShape('rect', {
+      x: M, y: 5.55, w: 1.80, h: 0.025,
+      fill: { color: C.brass },
+    });
+
+    const companyName = String(d.companyName || '').trim();
+    const brokerName = String(d.brokerName || '').trim();
+    const primaryBrand = companyName || brokerName || 'INVESTMENT MEMORANDUM';
+    slide.addText(primaryBrand, {
+      x: M, y: 5.65, w: 7.50, h: 0.36,
+      fontSize: 16, bold: true, color: 'FFFFFF',
+      fontFace: KR, margin: 0,
+    });
+
+    const brokerPhone = String(d.brokerPhone || d.phone || '').trim();
+    const registrationNo = String(d.registrationNo || '').trim();
+    const docDate = String(d.documentDate || '').trim();
+    const secondaryParts = [
+      companyName && brokerName ? `담당 ${brokerName}` : '',
+      docDate,
+      brokerPhone,
+      registrationNo ? `등록번호 ${registrationNo}` : '',
+    ].filter(Boolean);
+
+    if (secondaryParts.length > 0) {
+      slide.addText(secondaryParts.join('  |  '), {
+        x: M, y: 6.05, w: 7.50, h: 0.28,
+        fontSize: 11.5, color: CD.body,
+        fontFace: KR, margin: 0,
+      });
+    }
+    return;
+  }
+
+  // kicker (Pro IM)
+  slide.addText(rawKicker, {
     x, y: kickerY, w: titleW, h: 0.3,
     fontSize: 10, bold: true, color: C.brass,
     fontFace: NUM, charSpacing: 2.5, margin: 0, align,
   });
 
-  // 대제목
-  const titleText = input.data.title || '투자설명서';
-  const titleLen = titleText.length;
-  const fontSize = titleLen > 35 ? 20 : titleLen > 28 ? 24 : titleLen > 20 ? 26 : titleLen > 14 ? 30 : 38;
-  const titleH = titleLen > 14 ? 1.15 : 0.80;
-
+  // 대제목 (Pro IM)
   slide.addText(titleText, {
     x, y: kickerY + 0.30, w: titleW, h: titleH,
     fontSize, bold: true, color: 'FFFFFF',
@@ -204,7 +280,7 @@ function renderCommonCoverContent(
   });
 
   // 부제
-  const subtitle = input.data.subtitle || input.data.assetType || '';
+  const subtitle = d.subtitle || d.assetType || '';
   let nextY = kickerY + 0.30 + titleH + 0.06;
   if (subtitle) {
     slide.addText(subtitle, {
@@ -217,8 +293,8 @@ function renderCommonCoverContent(
     nextY += 0.08;
   }
 
-  if (input.data.address) {
-    const rawAddr = String(input.data.address).slice(0, 42);
+  if (d.address) {
+    const rawAddr = String(d.address).slice(0, 42);
     const addrH = rawAddr.length > 28 ? 0.44 : 0.28;
     slide.addText(rawAddr, {
       x, y: nextY, w: titleW, h: addrH,
@@ -229,9 +305,9 @@ function renderCommonCoverContent(
   }
 
   // 강조 박스 (가격대 - HP-04: 푸터 충돌 방지 클램핑)
-  const rawAskingPrice = input.data.askingPrice;
+  const rawAskingPrice = d.askingPrice;
   const safeAskingPrice = (rawAskingPrice && !String(rawAskingPrice).includes('Infinity') && !String(rawAskingPrice).includes('NaN')) ? rawAskingPrice : '';
-  const rawPriceBand = input.data.priceBand;
+  const rawPriceBand = d.priceBand;
   const safePriceBand = (rawPriceBand && !String(rawPriceBand).includes('Infinity') && !String(rawPriceBand).includes('NaN')) ? rawPriceBand : '';
   const priceBand = safeAskingPrice ? `매각 희망가 ${safeAskingPrice}` : safePriceBand;
   const priceBoxH = priceBand ? 1.15 : 0;
@@ -239,11 +315,11 @@ function renderCommonCoverContent(
 
   // 태그 (최대 4개로 제한하여 경계 이탈 방지 - HP-03)
   let tagX = x;
-  const rawTags = Array.isArray(input.data.tags) ? input.data.tags : [];
+  const rawTags = Array.isArray(d.tags) ? d.tags : [];
   const tags = rawTags
     .filter((tag: any) => typeof tag === 'string' && tag.trim().length > 0)
     .filter((tag: string) => {
-      if (input.data.askingPrice && /\d+\s*억\s*대/.test(tag)) return false;
+      if (d.askingPrice && /\d+\s*억\s*대/.test(tag)) return false;
       return true;
     })
     .slice(0, 4);
@@ -281,7 +357,7 @@ function renderCommonCoverContent(
   }
 
   // G-01: 중개법인명 표시 — kicker 직상단에 법인명을 눈에 띄게 배치
-  const companyName = input.data.companyName || '';
+  const companyName = d.companyName || '';
   if (companyName) {
     slide.addText(companyName, {
       x, y: kickerY - 0.36, w: titleW, h: 0.28,
@@ -289,10 +365,10 @@ function renderCommonCoverContent(
     });
   }
 
-  const broker = input.data.brokerName || '';
+  const broker = d.brokerName || '';
   let infoText = [broker, companyName].filter(Boolean).join('  |  ');
-  if (input.data.documentDate) {
-    infoText = [input.data.documentDate, infoText].filter(Boolean).join('  |  ');
+  if (d.documentDate) {
+    infoText = [d.documentDate, infoText].filter(Boolean).join('  |  ');
   }
   slide.addText(infoText, {
     x: M, y: 6.50, w: CW, h: 0.22,

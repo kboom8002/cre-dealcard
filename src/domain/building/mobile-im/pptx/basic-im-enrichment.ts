@@ -11,6 +11,7 @@ const log = createModuleLogger('basic-im-enrichment');
 
 import type { LandPriceHistoryResult } from '@/lib/external/land-price-api';
 import type { LandmarkPool } from '@/lib/external/landmark-pool';
+import type { LandUsePlanData, LandUseRegulationSummary } from '@/lib/external/land-use-api';
 
 export interface EnrichmentResult {
   cadastralMapImage?: string | null;
@@ -24,7 +25,9 @@ export interface EnrichmentResult {
   /** 공시지가 10년 추이 (수익률 슬라이드용) */
   landPriceHistory?: LandPriceHistoryResult | null;
   /** 토지이용계획 (F-07) */
-  landUsePlan?: { zoningDistrict?: string; buildingCoverageMax?: number; floorAreaRatioMax?: number } | null;
+  landUsePlan?: Partial<LandUsePlanData> | null;
+  /** 토지이용계획확인원 법령별 지역·지구 지정 현황 (V-World getLandUseAttr) */
+  landUseRegulations?: LandUseRegulationSummary | null;
   /**
    * 다필지: 필지별 용도지역 (대표 필지 포함, 조회 성공분만).
    * 2필지 이상일 때만 채워진다 — 필지마다 용도지역이 다를 수 있어 대표 필지 값만 쓰면 오표기 위험.
@@ -68,6 +71,7 @@ export async function enrichForBasicIm(
     hasCadastralMap: false,
     locationPoi: null,
     landPriceHistory: null,
+    landUseRegulations: null,
   };
 
   // 오프라인 재렌더(scripts/golden-snapshot): 외부 API 호출 없이 스냅샷에 저장된 enrichment 만 사용 (기본 동작 불변)
@@ -149,16 +153,28 @@ export async function enrichForBasicIm(
     log.warn('[enrichForBasicIm] 랜드마크 후보 풀 실패 (레거시 후보 폴백):', err);
   }
 
-  // 2.5 토지이용계획 (F-07)
+  // 2.5 토지이용계획 (F-07) + 토지이용계획확인원 법령별 지역·지구 (getLandUseAttr)
   if (pnu) {
     try {
-      const { fetchLandUsePlan } = await import('@/lib/external/land-use-api');
-      const lup = await fetchLandUsePlan(pnu);
+      const { fetchLandUsePlan, fetchLandUseRegulations } = await import('@/lib/external/land-use-api');
+      const [lup, regs] = await Promise.all([
+        fetchLandUsePlan(pnu).catch((err) => {
+          console.warn('[basic-im-enrichment] landUsePlan fetch failed:', err);
+          return null;
+        }),
+        fetchLandUseRegulations(pnu).catch((err) => {
+          console.warn('[basic-im-enrichment] landUseRegulations fetch failed:', err);
+          return null;
+        }),
+      ]);
       if (lup && lup.zoningDistrict) {
         result.landUsePlan = lup;
       }
+      if (regs && (regs.nationalLaw || regs.otherLaws)) {
+        result.landUseRegulations = regs;
+      }
     } catch (err) {
-      console.warn('[basic-im-enrichment] landUsePlan fetch failed:', err);
+      console.warn('[basic-im-enrichment] landUsePlan/Regulations fetch failed:', err);
     }
   }
 

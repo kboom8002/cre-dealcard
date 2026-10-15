@@ -138,11 +138,15 @@ describe('D10 요약 부제 · 각주 문구', () => {
     expect(summaryCapRateSub({ opexPct: null, vacancyReservePct: null })).not.toMatch(/\d+%/);
   });
 
-  it('각주: 운영비율(가정/중개인 제공)·공실충당·보증금 승계·차감 전/후 정의', () => {
+  it('각주: Basic 기본값(Cap Rate 문구 배제) 및 includeCapRateInFootnote=true 옵션', () => {
     const ys = buildYieldSet({ ...BASE, opexPct: 20, opexSource: 'assumed', vacancyReservePct: 5 });
-    expect(yieldFootnote(ys.assumptions)).toBe('※ 운영비율 20%(가정), 공실충당 5%, 보증금 승계 가정. 임대수익률은 운영비 차감 전, Cap Rate는 차감 후.');
+    expect(yieldFootnote(ys.assumptions)).not.toContain('Cap Rate');
+    expect(yieldFootnote(ys.assumptions)).toContain('임대수익률은 운영비 차감 전');
+    expect(yieldFootnote(ys.assumptions, { includeCapRateInFootnote: true })).toBe(
+      '※ 운영비율 20%(가정), 공실충당 5%, 보증금 승계 가정. 임대수익률은 운영비 차감 전, Cap Rate는 차감 후.',
+    );
     const ys2 = buildYieldSet({ ...BASE, opexPct: 12, opexSource: 'user', vacancyReservePct: 5 });
-    expect(yieldFootnote(ys2.assumptions)).toContain('운영비율 12%(중개인 제공)');
+    expect(yieldFootnote(ys2.assumptions, { includeCapRateInFootnote: true })).toContain('운영비율 12%(중개인 제공)');
   });
 });
 
@@ -193,7 +197,7 @@ describe('D10 요약 ↔ 수익률 슬라이드 패리티', () => {
     expect(fin.noiBaseKrw).toBe(fin.annualNoi.base);
   });
 
-  it('같은 지표 = 같은 값 + 같은 이름 (Cap Rate NOI: 요약 카드 == 수익률 슬라이드 행)', () => {
+  it('같은 지표 = 같은 값 + 같은 이름 (Pro/레거시 Cap Rate NOI)', () => {
     const { body, heroCard, fin } = bodyFromRealFinancials();
     const ys = buildYieldSetFromBody(body);
 
@@ -207,8 +211,8 @@ describe('D10 요약 ↔ 수익률 슬라이드 패리티', () => {
     expect(summary.sub).toBe(`운영비 20% 가정 · 공실충당 ${fin.vacancyReservePct}%`);
   });
 
-  it('A23 슬라이드 XML: 3행 라벨·값이 YieldSet과 일치, 요약 슬라이드와 같은 Cap Rate 이름·값', async () => {
-    const { body, fin } = bodyFromRealFinancials();
+  it('A23 슬라이드 XML (R10): Cap Rate(NOI 기준) 행은 배제되고, 임대수익률·참고 기준이 YieldSet과 일치', async () => {
+    const { body } = bodyFromRealFinancials();
     const ys = buildYieldSetFromBody(body);
     const xml = await renderA23({
       annualRent: BASE.annualRentKrw,
@@ -221,12 +225,8 @@ describe('D10 요약 ↔ 수익률 슬라이드 패리티', () => {
     });
     expect(xml).toContain(YIELD_LABELS.grossNetOfDeposit);
     expect(xml).toContain(`${ys.grossYieldNetOfDeposit!.toFixed(2)}%`);
-    expect(xml).toContain(YIELD_LABELS.noiCapRate);
-    expect(xml).toContain(`${fin.capRate!.base.toFixed(2)}%`);
+    expect(xml).not.toContain(YIELD_LABELS.noiCapRate);
     expect(xml).toContain('공실충당 5% 제외 기준 (참고)');
-    // 요약과 같은 NOI Cap Rate 값 문자열
-    const summary = yieldSummaryMetric(buildYieldFromHeroCard(body.heroCard as any)!, body.heroCard as any);
-    expect(xml).toContain(summary.value);
   });
 
   it('레거시 문서(D10 이전 financials: 운영비율·충당률 미기록)도 보존값에서 역산해 같은 값을 낸다', () => {
@@ -256,6 +256,58 @@ describe('D10 요약 ↔ 수익률 슬라이드 패리티', () => {
     const noExtras = buildYieldSetFromBody(bodyFromRealFinancials({ floorLeases: leases }).body);
     expect(noExtras.stabilized?.kind).toBe('reserve_excluded');
     expect(() => buildYieldSetFromBody(undefined)).not.toThrow();
+  });
+});
+
+describe('R9 — broker_plan 안정화 기대수익률 (2.75% on income-ig1-corrected)', () => {
+  const IG1_BODY = {
+    preset: 'credeal_basic',
+    ssot_summary: {
+      asking_price_manwon: 1150000,
+      total_deposit_manwon: 29000,
+      monthly_rent_total_krw: 19460000,
+      land_area_sqm: 506.80989835,
+      total_gross_area_sqm: 1419.65,
+      floors_above: 4,
+      floors_below: 1,
+    },
+    floor_leases: [
+      { floor: 'B1', lease_state: '자가사용', area_sqm: 317.22 },
+      { floor: '1F', lease_state: '임대중', area_sqm: 291.77, deposit_manwon: 16000, rent_manwon: 1086 },
+      { floor: '4F', lease_state: '자가사용', area_sqm: 83.03 },
+    ],
+    broker_extras: {
+      post_acquisition_plan: [
+        '자가사용 B1 임대 전환 (현실화안 보증 5,000만 / 월 458만)',
+        '4F 자가사용분 임대 전환 (현실화안 보증 3,000만 / 월 144만)',
+      ],
+    },
+  };
+
+  it('[Positive] income-ig1-corrected에서 broker_plan 안정화 기대수익률 2.75% 산출 (현행 2.08%)', () => {
+    const ys = buildYieldSetFromBody(IG1_BODY);
+    expect(ys.grossYieldNetOfDeposit).toBe(2.08);
+    expect(ys.stabilized).not.toBeNull();
+    expect(ys.stabilized?.kind).toBe('broker_plan');
+    expect(ys.stabilized?.label).toBe('안정화 기대수익률');
+    expect(ys.stabilized?.value).toBe(2.75);
+    expect(ys.stabilized?.planSummary?.addedDepositKrw).toBe(80_000_000);
+    expect(ys.stabilized?.planSummary?.addedMonthlyRentKrw).toBe(6_020_000);
+    expect(ys.stabilized?.planSummary?.newAnnualRentKrw).toBe(305_760_000);
+    expect(ys.stabilized?.planSummary?.newDepositKrw).toBe(370_000_000);
+    expect(ys.stabilized?.planSummary?.newNetPurchaseKrw).toBe(11_130_000_000);
+  });
+
+  it('[Negative Pair] action=rerent 항목은 현행 임대료 차감분이 불명확하므로 이중계산 방지를 위해 제외', () => {
+    const ys = buildYieldSet({
+      annualRentKrw: 233_520_000,
+      askingPriceKrw: 11_500_000_000,
+      depositKrw: 290_000_000,
+      postAcquisitionUnits: [
+        { floor: '1F', action: 'rerent', deposit_manwon: 5000, rent_manwon: 300 },
+      ],
+    });
+    expect(ys.stabilized).toBeNull();
   });
 });
 
@@ -291,34 +343,33 @@ const HISTORY = {
   totalGrowthPct: 54,
 };
 
-describe('D9 — A23 하단 문구: 근거 없는 시장 비교·평가·권고 제거', () => {
-  const FORBIDDEN = ['시장 평균', '시장 평균 하회', '평균 수준', '양호한 수준', '검토 필요', '서울 소형빌딩', '4.5~5.5%', '토지가치 보존력', '감가 리스크'];
+describe('D9 / R10 — A23 하단 문구 및 운영+자본수익률 밴드: 근거 없는 비교·중복 시세 문구 제거', () => {
+  const FORBIDDEN = ['시장 평균', '시장 평균 하회', '평균 수준', '양호한 수준', '검토 필요', '서울 소형빌딩', '4.5~5.5%', '토지가치 보존력', '감가 리스크', 'Cap Rate'];
 
   for (const cap of [2.29, 4.8, 7.5]) {
-    it(`임대수익률 ${cap}% — 어떤 구간이든 시장 평균 비교/평가 문구 없음 (총수익률을 NOI 평균과 비교하던 임계값 삭제)`, async () => {
+    it(`임대수익률 ${cap}% — 시장 평균 비교/평가 문구 및 Cap Rate 문구 없음`, async () => {
       const xml = await renderA23({
         annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
         capRateAsIs: cap, landPriceHistory: HISTORY, landAreaSqm: 400,
       });
       for (const w of FORBIDDEN) expect(xml).not.toContain(w);
-      // 계산된 사실만: 수치 + 산출 기준
-      expect(xml).toContain(`임대수익률 ${cap.toFixed(2)}% (운영비 차감 전)`);
+      expect(xml).toContain(`${cap.toFixed(2)}%`);
+      expect(xml).toContain('단순 합산 기대수익률 (참고)');
     });
   }
 
-  it('공시지가 CAGR·토지 비중은 계산값으로만 서술 (방향은 부호로, 평가어 없음)', async () => {
+  it('우측 칩 및 하단 밴드에 공시지가 CAGR·지역 지가변동률·토지 비중 표기', async () => {
     const xml = await renderA23({
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
-      capRateAsIs: 3.33, landPriceHistory: HISTORY, landAreaSqm: 400,
+      capRateAsIs: 3.33, landPriceHistory: HISTORY, landAreaSqm: 400, pnu: '1156011500103370019',
     });
-    expect(xml).toContain('10년간 개별공시지가 연평균 5.2% 상승');
-    expect(xml).toMatch(/매매가 대비 토지 가치 비중 \d+\.\d%/);
-    const down = await renderA23({
-      annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
-      capRateAsIs: 3.33, landPriceHistory: { ...HISTORY, cagrPct: -1.2 }, landAreaSqm: 0,
-    });
-    expect(down).toContain('연평균 1.2% 하락');
-    expect(down).not.toContain('매매가 대비 토지 가치 비중'); // 근거(대지면적) 없는 불릿은 생략
+    expect(xml).toContain('본건 공시지가 10년 연평균(CAGR)');
+    expect(xml).toContain('+5.2% (누적 +54%)');
+    expect(xml).toContain('서울 영등포구 지가변동률 10년 연평균');
+    expect(xml).toContain('+3.90% (한국부동산원)');
+    expect(xml).toContain('매매가 대비 토지 비중');
+    expect(xml).toContain('= 단순 합산 기대수익률 (참고)');
+    expect(xml).toContain('7.23%');
   });
 
   it('[Negative Pair] 근거가 전혀 없으면 콜아웃 불릿은 수익률 사실만 (공시지가·토지 비중 불릿 없음)', async () => {
@@ -327,24 +378,19 @@ describe('D9 — A23 하단 문구: 근거 없는 시장 비교·평가·권고 
     });
     expect(xml).not.toContain('개별공시지가 연평균');
     expect(xml).not.toContain('토지 가치 비중');
+    expect(xml).toContain('임대수익률 3.33% (운영비 차감 전, 보증금 차감 매입가 기준)');
   });
 
-  it('중개인 시세(토지 평당가)는 출처 표기하여 사실 서술에만 사용, 필드 없으면 생략', async () => {
+  it('[R10] 중개인 인근 시세는 전용 시세 비교 면(A26)에서 다루므로 A23에서 중복 서술하지 않는다', async () => {
     const withComps = await renderA23({
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw, capRateAsIs: 3.33,
-      marketComps: [{ kind: 'transaction', location: '성수동1가', land_price_per_pyeong_manwon: 9500 }, { kind: 'listing', location: '성수동2가', price_eok: 80 }],
+      marketComps: [{ kind: 'transaction', location: '성수동1가', land_price_per_pyeong_manwon: 9500 }],
     });
-    expect(withComps).toContain('중개인 제공 인근 시세');
-    expect(withComps).toContain('성수동1가 토지 평당 9,500만원(실거래)');
-    expect(withComps).not.toContain('성수동2가'); // 평당가가 없는 시세는 제외
-    const without = await renderA23({
-      annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw, capRateAsIs: 3.33,
-    });
-    expect(without).not.toContain('중개인 제공 인근 시세');
+    expect(withComps).not.toContain('중개인 제공 인근 시세');
   });
 });
 
-describe('D10 — A23 안정화 라벨 정직성 / 각주 / 레이아웃', () => {
+describe('D10 / R10 — A23 안정화 라벨 정직성 / 각주 / 레이아웃', () => {
   const bodyData = () => {
     const { body } = bodyFromRealFinancials();
     return buildYieldSetFromBody(body);
@@ -377,19 +423,20 @@ describe('D10 — A23 안정화 라벨 정직성 / 각주 / 레이아웃', () =>
     expect(xml).toContain(`${ys.stabilized!.value.toFixed(2)}%`);
   });
 
-  it('각주(8pt): 운영비율·공실충당·보증금 승계·차감 전/후 — YieldSet 있을 때와 없을 때 모두 존재', async () => {
+  it('각주(8pt): 보증금 승계 및 운영비 차감 전 기준 명시, Cap Rate 문구 배제', async () => {
     const ys = bodyData();
     const xml = await renderA23({
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw, capRateAsIs: 3.33, yieldSet: ys,
     });
-    expect(xml).toContain('※ 운영비율 20%(가정), 공실충당');
-    expect(xml).toContain('보증금 승계 가정. 임대수익률은 운영비 차감 전, Cap Rate는 차감 후.');
+    expect(xml).toContain('※ 보증금 승계 가정.');
+    expect(xml).toContain('임대수익률은 운영비 차감 전');
+    expect(xml).not.toContain('Cap Rate');
     const legacy = await renderA23({ annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw, capRateAsIs: 3.33 });
     expect(legacy).toContain('임대수익률은 운영비 차감 전');
-    expect(legacy).not.toContain('Cap Rate (NOI 기준)'); // NOI 값이 없으면 행 자체를 숨김 (라벨 혼용 금지)
+    expect(legacy).not.toContain('Cap Rate');
   });
 
-  it('최대 구성(3행+캡션+KPI 6행+콜아웃 3줄)에서도 카드/콜아웃이 각주 위에서 끝나고 각주는 SAFE_BOTTOM 안', async () => {
+  it('최대 구성에서도 카드/밴드가 각주 위에서 끝나고 각주는 SAFE_BOTTOM 안', async () => {
     const { body } = bodyFromRealFinancials({
       floorLeases: [{ floor: '2F', is_vacant: true, area_pyeong: 100 }],
       extras: { target_rent_per_pyeong_manwon: 10 },
@@ -398,17 +445,16 @@ describe('D10 — A23 안정화 라벨 정직성 / 각주 / 레이아웃', () =>
     const xml = await renderA23({
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
       capRateAsIs: ys.grossYieldNetOfDeposit, capRateStabilized: ys.stabilized?.value, stabilizedAssumption: ys.stabilized?.caption ?? undefined,
-      yieldSet: ys, landPriceHistory: HISTORY, landAreaSqm: 400,
-      marketComps: [{ kind: 'transaction', location: '성수동1가', land_price_per_pyeong_manwon: 9500 }],
+      yieldSet: ys, landPriceHistory: HISTORY, landAreaSqm: 400, pnu: '1156011500103370019',
     });
     const boxes = parseBoxes(xml);
-    const foot = boxes.find((b) => b.text.startsWith('※ 운영비율'));
+    const foot = boxes.find((b) => b.text.startsWith('※ 보증금 승계 가정'));
     expect(foot).toBeDefined();
     expect(foot!.bottom).toBeLessThanOrEqual(SAFE_BOTTOM + 0.005);
     const above = boxes.filter((b) => b !== foot && b.top < foot!.top - 0.001 && b.top >= 1.3);
     for (const b of above) expect(b.bottom).toBeLessThanOrEqual(foot!.top + 0.01);
-    // 수익률 3행이 모두 같은 다크 박스 안: 값 텍스트가 존재
     expect(xml).toContain(YIELD_LABELS.grossNetOfDeposit);
-    expect(xml).toContain(YIELD_LABELS.noiCapRate);
+    expect(xml).not.toContain(YIELD_LABELS.noiCapRate);
   });
 });
+

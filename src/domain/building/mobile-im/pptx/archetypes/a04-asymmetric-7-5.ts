@@ -60,7 +60,11 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     const rowEntries: [string, string][] = (rawSourceRows.map((r: any[]) => {
       if (Array.isArray(r) && r.length >= 2) {
         const k = stripMarkdown(String(r[0] || '')).replace(/^[|:\s]+|[|:\s]+$/g, '').trim();
-        let v = stripMarkdown(String(r[1] || '')).replace(/^[|:\s]+|[|:\s]+$/g, '').trim();
+        let v = String(r[1] || '')
+          .split('\n')
+          .map(line => stripMarkdown(line).replace(/^[|:\s]+|[|:\s]+$/g, '').trim())
+          .filter(Boolean)
+          .join('\n');
         if (k === v) v = '';
         return [k, v] as [string, string];
       }
@@ -74,11 +78,9 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     if (rowEntries.length > 0) {
       // D5: 행 상한 11 (매각가 박스 동반 시에도). 11행×0.30" = 3.30" → 1.80+3.30+0.12 = 5.22 → 가격박스(최대 1.10") 하단 6.32" < SAFE_BOTTOM(6.75")
       const maxRows = 11;
-      const count = Math.min(rowEntries.length, maxRows);
       const rowHeight = rowEntries.length <= 6 ? 0.44 : rowEntries.length <= 9 ? 0.36 : 0.30;
       const fontSize = rowEntries.length <= 6 ? 13.5 : rowEntries.length <= 9 ? 12 : 11;
-      L.rows(slide, M, 1.80, lw, prioritizeSpecRows(rowEntries, maxRows), { rh: rowHeight, fs: fontSize });
-      leftContentBottom = 1.80 + count * rowHeight;
+      leftContentBottom = L.rows(slide, M, 1.80, lw, prioritizeSpecRows(rowEntries, maxRows), { rh: rowHeight, fs: fontSize });
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
       L.callout(slide, M, 1.80, lw, 1.8, 'info', fallbackTitle,

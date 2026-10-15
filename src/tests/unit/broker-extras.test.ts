@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseBrokerExtras,
+  parseLegacyPostAcquisitionPlanUnits,
   hasBrokerExtras,
   countBrokerExtrasFilled,
   mapBrokerExtrasStrings,
@@ -16,6 +17,7 @@ import {
   BROKER_EXTRAS_HEADINGS,
   type BrokerExtras,
 } from '@/domain/building/mobile-im/broker-extras';
+import { getRegionalLandPriceRateSeries, computeLandPriceRateStats } from '@/lib/external/rone-api';
 import { sanitizeComplianceText } from '@/domain/building/guardrails';
 
 function ok(input: unknown): BrokerExtras | undefined {
@@ -105,10 +107,10 @@ describe('parseBrokerExtras — 한도', () => {
     expect(v.regulatory_notes![1]).toEqual({ kind: 'district_plan', detail: '1층 근생 의무' });
     expect(err({ regulatory_notes: [{ kind: 'dev_restriction', detail: 'x', basis: '가'.repeat(81) }] })).toContain('80자');
   });
-  it('시세 비교: 6행, 소재지 40자/비고 40자, 소재지·수치 필수', () => {
+  it('시세 비교: 10행, 소재지 40자/비고 40자, 소재지·수치 필수', () => {
     const row = (i: number) => ({ kind: 'transaction', location: `서울 ${i}`, price_eok: 10 + i });
-    expect(ok({ market_comps: [0, 1, 2, 3, 4, 5].map(row) })!.market_comps).toHaveLength(6);
-    expect(err({ market_comps: [0, 1, 2, 3, 4, 5, 6].map(row) })).toContain('최대 6행');
+    expect(ok({ market_comps: Array.from({ length: 10 }, (_, i) => row(i)) })!.market_comps).toHaveLength(10);
+    expect(err({ market_comps: Array.from({ length: 11 }, (_, i) => row(i)) })).toContain('최대 10행');
     expect(err({ market_comps: [{ kind: 'listing', location: '가'.repeat(41), price_eok: 1 }] })).toContain('40자');
     expect(err({ market_comps: [{ kind: 'listing', location: 'x', price_eok: 1, note: '가'.repeat(41) }] })).toContain('40자');
     expect(err({ market_comps: [{ kind: 'listing', price_eok: 5 }] })).toContain('소재지');
@@ -306,3 +308,78 @@ describe('applyBrokerExtrasToSections — 기존 섹션에만 덧붙임', () => 
     expect(sanitized).toContain('수익률 추정 아님');
   });
 });
+
+describe('R9 — parseLegacyPostAcquisitionPlanUnits & post_acquisition_units', () => {
+  it('[Positive] income-ig1-corrected 자유서술 매입 후 전략에서 B1·4F 보증금/월세 구조화 추출', () => {
+    const planLines = [
+      '자가사용 B1 임대 전환 (현실화안 보증 5,000만 / 월 458만)',
+      '4F 자가사용분 임대 전환 (현실화안 보증 3,000만 / 월 144만)',
+    ];
+    const floorLeases = [
+      { floor: 'B1', lease_state: '자가사용', area_sqm: 317.22 },
+      { floor: '4F', lease_state: '자가사용', area_sqm: 83.03 },
+    ];
+    const units = parseLegacyPostAcquisitionPlanUnits(planLines, floorLeases);
+    expect(units).toHaveLength(2);
+    expect(units[0]).toMatchObject({
+      floor: 'B1',
+      action: 'owner_use_to_lease',
+      deposit_manwon: 5000,
+      rent_manwon: 458,
+    });
+    expect(units[0].area_pyeong).toBeCloseTo(96.0, 1);
+    expect(units[1]).toMatchObject({
+      floor: '4F',
+      action: 'owner_use_to_lease',
+      deposit_manwon: 3000,
+      rent_manwon: 144,
+    });
+    expect(units[1].area_pyeong).toBeCloseTo(25.1, 1);
+  });
+
+  it('[Negative Pair] 층·임대료 수치가 없는 일반 서술문은 전환 유닛으로 오탐하지 않는다', () => {
+    expect(parseLegacyPostAcquisitionPlanUnits(['저층부 리모델링 후 임대료 정상화', '우량 임차인 유치'])).toEqual([]);
+    expect(parseLegacyPostAcquisitionPlanUnits(null)).toEqual([]);
+  });
+
+  it('post_acquisition_units 및 summary_yield_basis 파싱 검증 (Positive / Negative)', () => {
+    const parsed = ok({
+      post_acquisition_units: [
+        { floor: 'B1', action: 'owner_use_to_lease', deposit_manwon: '5,000', rent_manwon: '458' },
+      ],
+      summary_yield_basis: 'stabilized',
+    })!;
+    expect(parsed.post_acquisition_units).toEqual([
+      { floor: 'B1', action: 'owner_use_to_lease', deposit_manwon: 5000, rent_manwon: 458 },
+    ]);
+    expect(parsed.summary_yield_basis).toBe('stabilized');
+    expect(err({ summary_yield_basis: 'invalid_basis' })).toContain('요약 수익률 기준');
+  });
+});
+
+describe('R10 — 한국부동산원(R-ONE A_2024_00902) 지역 지가변동률 조회', () => {
+  it('[Positive] 영등포구(PNU 11560 / 주소 / 당산권역) 2016~2025 10개년 지가변동률 및 기하평균 +3.90%', () => {
+    const byPnu = getRegionalLandPriceRateSeries({ pnu: '1156011500103370019' })!;
+    expect(byPnu).not.toBeNull();
+    expect(byPnu.statblId).toBe('A_2024_00902');
+    expect(byPnu.regionName).toBe('서울 영등포구');
+    expect(byPnu.points).toHaveLength(10);
+    expect(byPnu.geometricMeanPct).toBe(3.9);
+    expect(byPnu.cumulativePct).toBe(46.56);
+
+    const byAreaSignal = getRegionalLandPriceRateSeries({ address: '당산권역' })!;
+    expect(byAreaSignal.sigunguCode).toBe('11560');
+    expect(byAreaSignal.geometricMeanPct).toBe(3.9);
+  });
+
+  it('[Negative Pair] 미지원 시군구 코드 및 빈 입력은 null 반환, 빈 배열 통계는 0 반환', () => {
+    expect(getRegionalLandPriceRateSeries({ sigunguCode: '99999' })).toBeNull();
+    expect(getRegionalLandPriceRateSeries({})).toBeNull();
+    expect(computeLandPriceRateStats([])).toEqual({
+      arithmeticMeanPct: 0,
+      geometricMeanPct: 0,
+      cumulativePct: 0,
+    });
+  });
+});
+

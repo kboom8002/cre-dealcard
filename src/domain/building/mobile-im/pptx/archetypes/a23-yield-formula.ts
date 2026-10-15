@@ -10,6 +10,10 @@ import {
   yieldFootnote,
   type YieldSet,
 } from '../../yield-set';
+import {
+  getRegionalLandPriceRateSeries,
+  type RegionalLandPriceRateSeries,
+} from '@/lib/external/rone-api';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -26,19 +30,16 @@ export interface ArchetypeOutput {
   warnings: string[];
 }
 
-/** 하단 각주 높이 (8pt 1~2줄) — 콜아웃/카드는 이 위에서 끝난다 */
+/** 하단 각주 높이 (8pt 1~2줄) — 콜아웃/밴드는 이 위에서 끝난다 */
 const FOOTNOTE_H = 0.24;
 
 /**
- * A23 — 투자수익률 분석 슬라이드 (Basic IM v2.0)
+ * A23 — 투자수익률 분석 슬라이드 (Basic IM v2.1 — R9/R10)
  *
- * D10/D9 (2026-10): 수익률 3행을 같은 이름·같은 정의로 표기하고(요약 슬라이드와 동일 YieldSet), 하단에 가정 각주를 둔다.
- *  1) 임대수익률 (매매가−보증금 대비) — 운영비 차감 전 (v1.5 Q1: 전 IM 단일 수익률 헤드라인, V04). 기타수입이 있으면 V05 를 별도 줄로.
- *  2) Cap Rate (NOI 기준) — 운영비·공실충당 차감 후 (NOI 값이 있을 때만)
- *  3) 안정화 수익률 — 실제 공실·자가사용 면적 × 중개인 목표임대료일 때만 '임대 가정' 문구,
- *     아니면 '공실충당 N% 제외 기준 (참고)' (시세 임대를 가정하지 않음)
- * 하단 콜아웃은 계산된 사실(수치·공시지가 CAGR·토지 비중)만 중립적으로 서술한다.
- * 시장 평균 비교 등 출처 없는 평가·권고 문구는 생성하지 않는다.
+ *  - Cap Rate (NOI 기준) 및 중복 인근 시세 문구 완전 배제
+ *  - 좌측 패널: 안정화 기대수익률(broker_plan / market_rent / target_rent) 히어로 승격 + 현행 임대수익률 병기 + 핵심 재무 지표
+ *  - 우측 패널: 개별공시지가 10년 추이 바 차트 + 한국부동산원(R-ONE A_2024_00902) 시군구 10년 지가변동률 병기
+ *  - 하단 밴드: 운영수익률 + 자본수익률(지역 10년 지가변동률 참고) = 단순 합산 기대수익률(참고)
  */
 export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const slide = L.light(input.pres);
@@ -52,7 +53,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const askingPrice = d.askingPrice ?? 0;
   const vacancyPct = d.vacancyPct ?? 0;
   const capRateAsIs = d.capRateAsIs ?? 0;
-  const capRateStabilized = d.capRateStabilized;
+  const capRateStabilized = d.capRateStabilized ?? d.yieldSet?.stabilized?.value;
   const callerAssumption: string | undefined = typeof d.stabilizedAssumption === 'string' && d.stabilizedAssumption.trim()
     ? d.stabilizedAssumption.trim()
     : undefined;
@@ -61,7 +62,15 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const landAreaSqm = d.landAreaSqm ?? 0;
   const areaSignal = d.areaSignal ?? '';
   void vacancyPct;
-  void areaSignal;
+
+  // ── 한국부동산원(R-ONE) 지역 10년 지가변동률 조회 ──
+  const roneSeries: RegionalLandPriceRateSeries | null =
+    (d.regionalLandPriceRates as RegionalLandPriceRateSeries | null | undefined) ??
+    getRegionalLandPriceRateSeries({
+      pnu: d.pnu,
+      sigunguCode: d.sigunguCode,
+      address: d.address || areaSignal,
+    });
 
   // ── 금액 포맷터 ──
   const fmtManwon = (v: number) => {
@@ -78,64 +87,72 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const netInvestment = askingPrice - totalDeposit;
   const hasLandHistory = landPriceHistory?.history?.length >= 2;
 
-  // ── 좌우 패널 분할 ──
-  const leftW = 5.60; // F-05: 무조건 좌측 5.60 고정
-  const gap = 0.40;
-  const rightX = M + leftW + gap;
-  const rightW = CW - leftW - gap; // F-05: 우측 패널 항상 확보
+  // ── 좌우 패널 분할 (상단 카드: y = 1.45..5.60, 하단 밴드: y = 5.70..6.34, 각주: y = 6.46..6.70) ──
+  const leftW = 5.55;
+  const gap = 0.28;
+  const rightX = M + leftW + gap; // 0.62 + 5.55 + 0.28 = 6.45
+  const rightW = CW - leftW - gap; // 12.09 - 5.55 - 0.28 = 6.26
 
   const rawCap = typeof capRateAsIs === 'number' ? capRateAsIs : parseFloat(String(capRateAsIs));
-  const numCapRate = Number.isFinite(rawCap) && rawCap > 0 ? rawCap : 0;
+  const numCapRate = Number.isFinite(rawCap) && rawCap > 0
+    ? rawCap
+    : (yieldSet?.grossYieldNetOfDeposit != null && yieldSet.grossYieldNetOfDeposit > 0 ? yieldSet.grossYieldNetOfDeposit : 0);
 
-  // ── 수익률 3행 사전 산출 (이름·정의는 요약 슬라이드와 공유) ──
-  const noiCap = yieldSet?.noiCapRate != null && Number.isFinite(yieldSet.noiCapRate) && yieldSet.noiCapRate > 0
-    ? yieldSet.noiCapRate
-    : null;
   // V05 — 기타수입이 있을 때만(YieldSet이 null 이면 줄 자체를 만들지 않는다)
   const inclOther = yieldSet?.grossYieldInclOtherIncome != null && Number.isFinite(yieldSet.grossYieldInclOtherIncome) && yieldSet.grossYieldInclOtherIncome > 0
     ? yieldSet.grossYieldInclOtherIncome
     : null;
 
-  const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
-  if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
   const rawStab = typeof capRateStabilized === 'number' ? capRateStabilized : parseFloat(String(capRateStabilized));
   const stabVal = Number.isFinite(rawStab) && rawStab > 0 ? rawStab : 0;
-  // 안정화 행의 종류: YieldSet이 같은 값을 산출했으면 그 종류·라벨, 호출자가 근거 문구를 직접 준 경우는 분석가정,
-  // 둘 다 아니면 시세 임대 가정을 암시하지 않는 '공실충당 제외 기준 (참고)'.
-  const ysStab = yieldSet?.stabilized && Math.abs(yieldSet.stabilized.value - stabVal) < 0.005 ? yieldSet.stabilized : null;
+  const hasStabilized = stabVal > 0;
+  if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
+
+  const ysStab = yieldSet?.stabilized && Math.abs(yieldSet.stabilized.value - stabVal) < 0.02
+    ? yieldSet.stabilized
+    : yieldSet?.stabilized ?? null;
   let stabLabel = '';
   let stabCaption: string | null = null;
+  let hasTrueStabilized = false;
   if (hasStabilized) {
     if (ysStab && ysStab.kind !== 'reserve_excluded') {
-      // target_rent · market_rent(M5~M7 출처 인용) 모두 캡션 표기 — 가정의 근거를 숨기지 않는다
       stabLabel = ysStab.label;
-      stabCaption = ysStab.caption;
+      stabCaption = ysStab.caption ?? callerAssumption ?? null;
+      hasTrueStabilized = true;
     } else if (!ysStab && callerAssumption) {
       stabLabel = YIELD_LABELS.stabilizedTargetRent;
       stabCaption = callerAssumption;
+      hasTrueStabilized = true;
     } else {
       stabLabel = ysStab?.label ?? stabilizedReserveLabel(yieldSet?.assumptions.vacancyReservePct);
       stabCaption = null;
+      hasTrueStabilized = false;
     }
   }
 
-  // ── 좌측 KPI 행 사전 산출 (2026-10-05: 레이아웃 높이를 먼저 계산해 하단 콜아웃과의 겹침을 원천 차단) ──
-  const kpiRows: Array<[string, string, boolean]> = [
-    ['연간 임대수입', fmtManwon(annualRent), false],
-    ['승계 보증금', fmtManwon(totalDeposit), false],
-    ['매매가', fmtManwon(askingPrice), false],
-    ['보증금 차감 매입가 (매매가−보증금)', fmtManwon(netInvestment), true],
-  ];
-  // 토지평당가 (공시지가 최신값이 있을 때)
+  // ── 좌측 KPI 행 산출 ──
+  const planSummary = ysStab?.kind === 'broker_plan' ? ysStab.planSummary : undefined;
+  const kpiRows: Array<[string, string, boolean]> = planSummary
+    ? [
+        ['연간 임대수입 (현행 → 안정화)', `${fmtManwon(annualRent)} → ${fmtManwon(planSummary.newAnnualRentKrw)}`, false],
+        ['임대보증금 총액 (현행 → 안정화)', `${fmtManwon(totalDeposit)} → ${fmtManwon(planSummary.newDepositKrw)}`, false],
+        ['매각 희망가', fmtManwon(askingPrice), false],
+        ['실투자금 (매매가−보증금)', `${fmtManwon(netInvestment)} → ${fmtManwon(planSummary.newNetPurchaseKrw)}`, true],
+      ]
+    : [
+        ['연간 임대수입', fmtManwon(annualRent), false],
+        ['승계 보증금', fmtManwon(totalDeposit), false],
+        ['매각 희망가', fmtManwon(askingPrice), false],
+        ['보증금 차감 매입가 (매매가−보증금)', fmtManwon(netInvestment), true],
+      ];
+
   if (landPriceHistory?.latestPricePerSqm > 0) {
     const pricePerPyeong = Math.round(landPriceHistory.latestPricePerSqm * SQM_RATIO);
-    // 다필지: 단가 기준 명시 (면적 가중평균 / 대표 필지)
     const priceLabel = d.landPriceBasis === 'weighted' ? '토지 공시지가 (평당, 면적가중)'
       : d.landPriceBasis === 'representative' ? '토지 공시지가 (평당, 대표 필지)'
       : '토지 공시지가 (평당)';
     kpiRows.push([priceLabel, `${Math.round(pricePerPyeong / 10000).toLocaleString()}만원`, false]);
   }
-  // 매매가 대비 토지비중
   let landRatio: number | null = null;
   if (landPriceHistory?.latestPricePerSqm > 0 && landAreaSqm > 0 && askingPrice > 0) {
     const landTotalValue = landPriceHistory.latestPricePerSqm * landAreaSqm;
@@ -146,86 +163,34 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     }
   }
 
-  // ── 하단 콜아웃 (D9): 계산된 사실만 중립 서술 — 근거 없는 시장 비교·평가·권고 문구 없음 ──
-  // 근거(출처)가 있는 비교는 중개인 제공 시세(토지 평당가)뿐이며, 수익률(Cap Rate) 비교 근거는 없으므로 서술하지 않는다.
-  const calloutBullets: string[] = [];
-
-  // 수익률 사실 (수치 + 산출 기준)
-  if (numCapRate > 0) {
-    const parts = [`임대수익률 ${fmtFixed(numCapRate, 2, '%')} (운영비 차감 전)`];
-    if (noiCap != null) parts.push(`Cap Rate ${fmtFixed(noiCap, 2, '%')} (운영비·공실충당 차감 후)`);
-    if (hasStabilized && stabCaption) {
-      parts.push(`${ysStab?.kind === 'market_rent' ? '공실·자가사용 면적 시장 임대료 가정 시' : '공실·자가사용 면적 임대 가정 시'} 안정화 수익률 ${fmtFixed(stabVal, 2, '%')}`);
-    }
-    calloutBullets.push(`• ${parts.join(', ')}`);
-  }
-
-  // 공시지가 CAGR + 토지 비중 (둘 다 계산값일 때만; 방향은 값의 부호로 서술)
-  const landParts: string[] = [];
-  if (hasLandHistory && landPriceHistory.cagrPct != null && Number.isFinite(Number(landPriceHistory.cagrPct))) {
-    const cagr = Number(landPriceHistory.cagrPct);
-    const dir = cagr > 0 ? `연평균 ${cagr}% 상승` : cagr < 0 ? `연평균 ${Math.abs(cagr)}% 하락` : '연평균 변동 없음';
-    landParts.push(`${landPriceHistory.history.length}년간 개별공시지가 ${dir}`);
-  }
-  if (landRatio != null) landParts.push(`매매가 대비 토지 가치 비중 ${fmtFixed(landRatio, 1, '%')} (공시지가×대지면적 기준)`);
-  if (landParts.length > 0) calloutBullets.push(`• ${landParts.join(', ')}`);
-
-  // 중개인 제공 인근 시세 중 토지 평당가가 있는 건만 (출처 표기). 필드가 없으면 생략.
-  const marketComps: Array<Record<string, any>> = Array.isArray(d.marketComps) ? d.marketComps : [];
-  const landComps = marketComps
-    .filter((c) => c && Number.isFinite(Number(c.land_price_per_pyeong_manwon)) && Number(c.land_price_per_pyeong_manwon) > 0)
-    .slice(0, 2);
-  if (landComps.length > 0) {
-    const txt = landComps
-      .map((c) => `${String(c.location ?? '').trim() || '인근'} 토지 평당 ${Number(c.land_price_per_pyeong_manwon).toLocaleString()}만원(${c.kind === 'transaction' ? '실거래' : '매물'})`)
-      .join(', ');
-    calloutBullets.push(`• 중개인 제공 인근 시세: ${txt}`);
-  }
-
-  // ── 하단 각주 (8pt) — 운영비율/공실충당/보증금 승계 가정 ──
-  const footnoteText = yieldSet
-    ? yieldFootnote(yieldSet.assumptions)
-    : '※ 임대수익률은 운영비 차감 전 기준, 보증금 승계 가정.';
-  const footY = SAFE_BOTTOM - FOOTNOTE_H;
-  const contentBottom = footY - 0.06;
-
-  // ── 세로 레이아웃 예산 (SAFE_BOTTOM 6.75 내에서 카드 + 콜아웃 + 각주가 겹치지 않도록) ──
+  // ── 세로 레이아웃 예산 (SAFE_BOTTOM = 6.75 엄수) ──
+  const footY = SAFE_BOTTOM - FOOTNOTE_H; // 6.51
+  const bandY = 5.72;
+  const bandH = 0.64; // 5.72 + 0.64 = 6.36 <= footY(6.51)
   const cardY = 1.45;
-  const calloutGap = 0.15;
-  const padTop = 0.20;
-  const afterYield = 0.12;
-  const padBottom = 0.16;
+  const cardH = 4.15; // 1.45 + 4.15 = 5.60 <= bandY(5.72)
 
-  // 다크 박스: 수익률 3행
+  const padTop = 0.16;
+  const afterYield = 0.10;
+  const padBottom = 0.12;
   const boxPad = 0.08;
-  const primaryRowH = 0.46;
-  const secondaryRowH = 0.30;
-  const captionH = stabCaption ? 0.30 : 0;
-  const yieldBgH = boxPad * 2 + primaryRowH + (inclOther != null ? secondaryRowH : 0) + (noiCap != null ? secondaryRowH : 0) + (hasStabilized ? secondaryRowH + captionH : 0);
+  const primaryRowH = 0.44;
+  const formulaSubH = planSummary ? 0.22 : 0;
+  const secondaryRowH = 0.28;
+  const captionH = stabCaption ? 0.34 : 0;
+  const yieldBgH =
+    boxPad * 2 +
+    primaryRowH +
+    formulaSubH +
+    (inclOther != null ? secondaryRowH : 0) +
+    (hasStabilized ? secondaryRowH + captionH : 0);
 
-  const fixedH = padTop + yieldBgH + afterYield + padBottom;
-  const calloutHFor = (n: number) => (n > 0 ? 0.42 + n * 0.25 : 0);
-  let rowH = 0.38;
-  let availCardH = 0;
-  // 카드 하단이 콜아웃·각주를 침범하면 행 높이를 줄이고, 그래도 부족하면 후순위 콜아웃 불릿부터 제거한다.
-  for (;;) {
-    const calloutH = calloutHFor(calloutBullets.length);
-    availCardH = contentBottom - cardY - (calloutH > 0 ? calloutH + calloutGap : 0);
-    rowH = fixedH + kpiRows.length * 0.38 > availCardH
-      ? (availCardH - fixedH) / Math.max(1, kpiRows.length)
-      : 0.38;
-    if (rowH >= 0.27 || calloutBullets.length <= 1) break;
-    calloutBullets.pop();
-  }
-  rowH = Math.max(0.24, Math.min(0.38, rowH));
-  const calloutH = calloutHFor(calloutBullets.length);
-  // 카드는 가용 높이를 채워 좌우 패널 하단을 정렬 (최대 4.40)
-  const cardH = Math.min(4.40, Math.max(fixedH + kpiRows.length * rowH, availCardH));
+  const availForKpi = Math.max(1.2, cardH - (padTop + yieldBgH + afterYield + padBottom));
+  const rowH = Math.max(0.24, Math.min(0.36, availForKpi / Math.max(1, kpiRows.length)));
 
   // ══════════════════════════════════════════════════════════════
-  // 좌측 패널: 수익률 KPI 카드
+  // 좌측 패널: 수익률 히어로 + 핵심 재무 지표 카드
   // ══════════════════════════════════════════════════════════════
-  // 카드 배경
   slide.addShape('roundRect', {
     x: M, y: cardY, w: leftW, h: cardH,
     fill: { color: 'FFFFFF' },
@@ -233,109 +198,141 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     rectRadius: 0.08,
   });
 
-  // ── 수익률 3행 (다크 박스) ──
   const yieldBgY = cardY + padTop;
-  const boxX = M + 0.25;
-  const boxW = leftW - 0.50;
+  const boxX = M + 0.22;
+  const boxW = leftW - 0.44;
   slide.addShape('roundRect', {
     x: boxX, y: yieldBgY, w: boxW, h: yieldBgH,
     fill: { color: C.ink },
     rectRadius: 0.08,
   });
 
-  const yLabelX = boxX + 0.20;
-  const yValW = 1.55;
-  const yValX = boxX + boxW - yValW - 0.15;
+  const yLabelX = boxX + 0.18;
+  const yValW = 1.50;
+  const yValX = boxX + boxW - yValW - 0.14;
   const yLabelW = yValX - yLabelX - 0.05;
   let yRowY = yieldBgY + boxPad;
 
-  // ① 임대수익률 (Gross, 매매가−보증금 대비) — 운영비 차감 전
-  slide.addText(YIELD_LABELS.grossNetOfDeposit, {
-    x: yLabelX, y: yRowY, w: yLabelW, h: primaryRowH,
-    color: 'FFFFFF', fontFace: KR, fontSize: 10.5, bold: true, valign: 'middle', shrinkText: true, margin: 0,
-  });
-  slide.addText(fmtFixed(numCapRate, 2, '%'), {
-    x: yValX, y: yRowY, w: yValW, h: primaryRowH,
-    color: C.brass, fontFace: NUM, fontSize: 24, bold: true,
-    align: 'right', valign: 'middle', margin: 0,
-  });
-  yRowY += primaryRowH;
-
-  // ①-b 임대수익률 (기타수입 포함, 참고) — V05. 렌트롤 J8 기타수입이 있을 때만, 헤드라인 V04 와 별도 줄
-  if (inclOther != null) {
-    slide.addText(YIELD_LABELS.grossInclOtherIncome, {
-      x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
-      color: 'FFFFFF', fontFace: KR, fontSize: 10, valign: 'middle', shrinkText: true, margin: 0,
-    });
-    slide.addText(fmtFixed(inclOther, 2, '%'), {
-      x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
-      color: C.brass, fontFace: NUM, fontSize: 15, bold: true,
-      align: 'right', valign: 'middle', margin: 0,
-    });
-    yRowY += secondaryRowH;
-  }
-
-  // ② Cap Rate (NOI 기준) — 운영비·공실충당 차감 후 (요약 슬라이드와 같은 값·같은 이름)
-  if (noiCap != null) {
-    slide.addText(YIELD_LABELS.noiCapRate, {
-      x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
-      color: 'FFFFFF', fontFace: KR, fontSize: 10, valign: 'middle', shrinkText: true, margin: 0,
-    });
-    slide.addText(fmtFixed(noiCap, 2, '%'), {
-      x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
-      color: C.brass, fontFace: NUM, fontSize: 15, bold: true,
-      align: 'right', valign: 'middle', margin: 0,
-    });
-    yRowY += secondaryRowH;
-  }
-
-  // ③ 안정화 수익률 / 공실충당 N% 제외 기준 (참고)
-  if (hasStabilized) {
+  if (hasTrueStabilized) {
+    // ① 히어로: 안정화 기대수익률 (broker_plan / market_rent / target_rent)
     slide.addText(stabLabel, {
-      x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
-      color: 'FFFFFF', fontFace: KR, fontSize: 10, valign: 'middle', shrinkText: true, margin: 0,
+      x: yLabelX, y: yRowY, w: yLabelW, h: primaryRowH,
+      color: 'FFFFFF', fontFace: KR, fontSize: 11, bold: true, valign: 'middle', shrinkText: true, margin: 0,
     });
     slide.addText(fmtFixed(stabVal, 2, '%'), {
+      x: yValX, y: yRowY, w: yValW, h: primaryRowH,
+      color: C.brass, fontFace: NUM, fontSize: 24, bold: true,
+      align: 'right', valign: 'middle', margin: 0,
+    });
+    yRowY += primaryRowH;
+
+    if (planSummary) {
+      const addedRentMan = Math.round(planSummary.addedMonthlyRentKrw / 10_000);
+      const newDepBil = (planSummary.newDepositKrw / 1e8).toFixed(1);
+      const formulaLine = `산식: (현행 연임대료 + 전환 월세 ${addedRentMan.toLocaleString()}만×12) ÷ (매매가 − 전환후 보증금 ${newDepBil}억)`;
+      slide.addText(formulaLine, {
+        x: yLabelX, y: yRowY, w: boxW - 0.34, h: formulaSubH,
+        color: 'CBD5E1', fontFace: KR, fontSize: 8, valign: 'middle', shrinkText: true, margin: 0,
+      });
+      yRowY += formulaSubH;
+    }
+
+    // ② 보조: 현행 임대수익률 (매매가−보증금 대비)
+    slide.addText(`현행 ${YIELD_LABELS.grossNetOfDeposit}`, {
+      x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
+      color: 'E2E8F0', fontFace: KR, fontSize: 9.5, valign: 'middle', shrinkText: true, margin: 0,
+    });
+    slide.addText(fmtFixed(numCapRate, 2, '%'), {
       x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
-      color: C.brass, fontFace: NUM, fontSize: 15, bold: true,
+      color: 'FFFFFF', fontFace: NUM, fontSize: 14, bold: true,
       align: 'right', valign: 'middle', margin: 0,
     });
     yRowY += secondaryRowH;
+
+    if (inclOther != null) {
+      slide.addText(YIELD_LABELS.grossInclOtherIncome, {
+        x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
+        color: 'E2E8F0', fontFace: KR, fontSize: 9.5, valign: 'middle', shrinkText: true, margin: 0,
+      });
+      slide.addText(fmtFixed(inclOther, 2, '%'), {
+        x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
+        color: C.brass, fontFace: NUM, fontSize: 13.5, bold: true,
+        align: 'right', valign: 'middle', margin: 0,
+      });
+      yRowY += secondaryRowH;
+    }
+
     if (stabCaption) {
-      // 근거 캡션은 계산이 실제로 뒷받침할 때만 (중개인 목표임대료 × 실제 공실·자가사용 면적)
       slide.addText(`◇ 분석가정: ${stabCaption}`, {
-        x: yLabelX, y: yRowY, w: boxW - 0.40, h: captionH,
+        x: yLabelX, y: yRowY, w: boxW - 0.34, h: captionH,
         color: 'E8E0C8', fontFace: KR, fontSize: 8, valign: 'top', shrinkText: true, margin: 0,
+      });
+    }
+  } else {
+    // ① 히어로: 현행 임대수익률 (매매가−보증금 대비)
+    slide.addText(YIELD_LABELS.grossNetOfDeposit, {
+      x: yLabelX, y: yRowY, w: yLabelW, h: primaryRowH,
+      color: 'FFFFFF', fontFace: KR, fontSize: 10.5, bold: true, valign: 'middle', shrinkText: true, margin: 0,
+    });
+    slide.addText(fmtFixed(numCapRate, 2, '%'), {
+      x: yValX, y: yRowY, w: yValW, h: primaryRowH,
+      color: C.brass, fontFace: NUM, fontSize: 24, bold: true,
+      align: 'right', valign: 'middle', margin: 0,
+    });
+    yRowY += primaryRowH;
+
+    if (inclOther != null) {
+      slide.addText(YIELD_LABELS.grossInclOtherIncome, {
+        x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
+        color: 'FFFFFF', fontFace: KR, fontSize: 9.5, valign: 'middle', shrinkText: true, margin: 0,
+      });
+      slide.addText(fmtFixed(inclOther, 2, '%'), {
+        x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
+        color: C.brass, fontFace: NUM, fontSize: 14, bold: true,
+        align: 'right', valign: 'middle', margin: 0,
+      });
+      yRowY += secondaryRowH;
+    }
+
+    if (hasStabilized) {
+      slide.addText(stabLabel, {
+        x: yLabelX, y: yRowY, w: yLabelW, h: secondaryRowH,
+        color: 'FFFFFF', fontFace: KR, fontSize: 9.5, valign: 'middle', shrinkText: true, margin: 0,
+      });
+      slide.addText(fmtFixed(stabVal, 2, '%'), {
+        x: yValX, y: yRowY, w: yValW, h: secondaryRowH,
+        color: C.brass, fontFace: NUM, fontSize: 14, bold: true,
+        align: 'right', valign: 'middle', margin: 0,
       });
     }
   }
 
   // ── 핵심 재무 지표 행 ──
   let rowY = yieldBgY + yieldBgH + afterYield;
-  const labelX = M + 0.35;
-  const valueX = M + leftW - 2.80;
-  const rowFs = rowH < 0.34 ? 10.5 : 11;
+  const labelX = M + 0.28;
+  const valueX = M + leftW - 2.65;
+  const rowFs = rowH < 0.30 ? 9.5 : 10.5;
 
   for (const [lbl, value, highlight] of kpiRows) {
     slide.addText(lbl, {
-      x: labelX, y: rowY, w: 3.0, h: rowH,
-      color: C.mute, fontFace: KR, fontSize: rowFs, valign: 'middle',
+      x: labelX, y: rowY, w: 2.85, h: rowH,
+      color: C.mute, fontFace: KR, fontSize: rowFs, valign: 'middle', shrinkText: true, margin: 0,
     });
+    const hasKoreanGlyph = /[가-힣]/.test(value);
     slide.addText(value, {
       x: valueX, y: rowY, w: 2.40, h: rowH,
-      color: highlight ? C.brass : C.ink, fontFace: NUM, fontSize: rowFs + 1, bold: highlight,
-      align: 'right', valign: 'middle',
+      color: highlight ? C.brass : C.ink, fontFace: hasKoreanGlyph ? KR : NUM, fontSize: rowFs + 0.5, bold: highlight,
+      align: 'right', valign: 'middle', shrinkText: true, margin: 0,
     });
-    // 구분선
     slide.addShape('line', {
-      x: M + 0.25, y: rowY + rowH, w: leftW - 0.50, h: 0,
+      x: M + 0.22, y: rowY + rowH, w: leftW - 0.44, h: 0,
       line: { color: 'E8E8E8', width: 0.5 },
     });
     rowY += rowH;
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 우측 패널: 공시지가 10년 추이 바 차트
+  // 우측 패널: 공시지가 10년 추이 바 차트 + 한국부동산원(R-ONE) 지역 지가변동률
   // ══════════════════════════════════════════════════════════════
   if (!hasLandHistory) {
     const chartY = cardY;
@@ -359,7 +356,6 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     const chartH = cardH;
     const history = landPriceHistory.history;
 
-    // 차트 배경
     slide.addShape('roundRect', {
       x: rightX, y: chartY, w: rightW, h: chartH,
       fill: { color: C.bg || 'FFFFFF' },
@@ -367,85 +363,161 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       rectRadius: 0.08,
     });
 
-    // 타이틀
-    slide.addText('공시지가 추이', {
-      x: rightX + 0.20, y: chartY + 0.15, w: rightW - 0.40, h: 0.35,
-      color: C.ink, fontFace: KR, fontSize: 12, bold: true, valign: 'middle',
+    slide.addText('공시지가 추이 및 지역 지가변동률', {
+      x: rightX + 0.20, y: chartY + 0.12, w: rightW - 0.40, h: 0.30,
+      color: C.ink, fontFace: KR, fontSize: 11.5, bold: true, valign: 'middle', margin: 0,
     });
 
-    // 바 차트 영역 (하단 CAGR 2행 + 출처 1행 공간 확보 — 출처와 누적 상승률 겹침 방지)
-    const barAreaY = chartY + 0.60;
-    const barAreaH = chartH - 1.85;
+    // 상단 요약 칩 2개 (본건 개별공시지가 CAGR vs 한국부동산원 시군구 지가변동률 10년 연평균)
+    const chipY = chartY + 0.46;
+    const chipH = 0.46;
+    const chipGap = 0.12;
+    const chipW = (rightW - 0.40 - chipGap) / 2;
+
+    slide.addShape('roundRect', {
+      x: rightX + 0.20, y: chipY, w: chipW, h: chipH,
+      fill: { color: 'F8FAFC' },
+      line: { color: C.line, width: 0.5 },
+      rectRadius: 0.05,
+    });
+    const indivCagrStr = landPriceHistory.cagrPct != null ? `+${landPriceHistory.cagrPct}%` : '-';
+    const indivCumStr = landPriceHistory.totalGrowthPct != null ? ` (누적 +${landPriceHistory.totalGrowthPct}%)` : '';
+    slide.addText(`본건 공시지가 ${history.length}년 연평균(CAGR)\n${indivCagrStr}${indivCumStr}`, {
+      x: rightX + 0.28, y: chipY + 0.04, w: chipW - 0.16, h: chipH - 0.08,
+      color: C.ink, fontFace: KR, fontSize: 8.5, bold: true, valign: 'middle', shrinkText: true, margin: 0,
+    });
+
+    const chip2X = rightX + 0.20 + chipW + chipGap;
+    slide.addShape('roundRect', {
+      x: chip2X, y: chipY, w: chipW, h: chipH,
+      fill: { color: 'F8FAFC' },
+      line: { color: C.line, width: 0.5 },
+      rectRadius: 0.05,
+    });
+    const chip2Text = roneSeries
+      ? `${roneSeries.regionName} 지가변동률 10년 연평균\n+${roneSeries.geometricMeanPct.toFixed(2)}% (한국부동산원)`
+      : `토지 공시지가(평당)\n${Math.round((landPriceHistory.latestPricePerSqm * SQM_RATIO) / 10000).toLocaleString()}만원`;
+    slide.addText(chip2Text, {
+      x: chip2X + 0.08, y: chipY + 0.04, w: chipW - 0.16, h: chipH - 0.08,
+      color: C.brass, fontFace: KR, fontSize: 8.5, bold: true, valign: 'middle', shrinkText: true, margin: 0,
+    });
+
+    // 바 차트 영역
+    const barAreaY = chartY + 1.00;
+    const barAreaH = roneSeries ? 2.25 : 2.65;
     const maxPrice = Math.max(...history.map((h: { pricePerSqm: number }) => h.pricePerSqm));
     const barCount = history.length;
-    const barH = Math.min(0.32, (barAreaH - 0.1) / barCount);
-    const maxBarW = rightW - 2.20;
+    const barH = Math.min(0.24, barAreaH / Math.max(1, barCount));
+    const maxBarW = rightW - 2.15;
 
     history.forEach((item: { year: string; pricePerSqm: number }, i: number) => {
       const y = barAreaY + i * barH;
-      const ratio = item.pricePerSqm / maxPrice;
-      const bw = maxBarW * ratio;
+      const ratio = maxPrice > 0 ? item.pricePerSqm / maxPrice : 0;
+      const bw = Math.max(0.05, maxBarW * ratio);
 
-      // 연도 라벨
       slide.addText(item.year, {
         x: rightX + 0.15, y, w: 0.55, h: barH,
-        fontFace: NUM, fontSize: 9, color: C.mute, align: 'right', valign: 'middle',
+        fontFace: NUM, fontSize: 8.5, color: C.mute, align: 'right', valign: 'middle', margin: 0,
       });
 
-      // 바
       const isLatest = i === history.length - 1;
       const barColor = isLatest ? C.brass : (C.navy || C.brand || '1E3A8A');
       slide.addShape('rect', {
-        x: rightX + 0.80, y: y + 0.04, w: bw, h: barH - 0.08,
+        x: rightX + 0.78, y: y + 0.03, w: bw, h: Math.max(0.08, barH - 0.06),
         fill: { color: barColor },
       });
 
-      // 가격 라벨 (원/㎡)
       slide.addText(`${item.pricePerSqm.toLocaleString()}`, {
-        x: rightX + 0.85 + bw, y, w: 1.20, h: barH,
-        fontFace: NUM, fontSize: 8, color: C.mute, align: 'left', valign: 'middle',
+        x: rightX + 0.84 + bw, y, w: 1.15, h: barH,
+        fontFace: NUM, fontSize: 8, color: C.mute, align: 'left', valign: 'middle', margin: 0,
       });
     });
 
-    // CAGR / 누적 상승률
-    const summaryY = barAreaY + barCount * barH + 0.15;
-    if (landPriceHistory.cagrPct != null) {
-      slide.addText([
-        { text: '연평균 상승률(CAGR) ', options: { color: C.mute, fontSize: 10 } },
-        { text: `${landPriceHistory.cagrPct}%`, options: { color: C.brass, fontSize: 14, bold: true } },
-      ], {
-        x: rightX + 0.20, y: summaryY, w: rightW - 0.40, h: 0.35,
-        fontFace: KR, valign: 'middle',
-      });
-    }
-    if (landPriceHistory.totalGrowthPct != null) {
-      slide.addText([
-        { text: `${history.length}년 누적 상승률 `, options: { color: C.mute, fontSize: 10 } },
-        { text: `${landPriceHistory.totalGrowthPct}%`, options: { color: C.ink, fontSize: 12, bold: true } },
-      ], {
-        x: rightX + 0.20, y: summaryY + 0.35, w: rightW - 0.40, h: 0.30,
-        fontFace: KR, valign: 'middle',
+    // 한국부동산원 연도별 지가변동률 스트립 (우측 하단)
+    if (roneSeries && roneSeries.points.length > 0) {
+      const stripY = chartY + 3.32;
+      const stripText = roneSeries.points
+        .map((pt) => `'${String(pt.year).slice(-2)} ${pt.ratePct >= 0 ? '+' : ''}${pt.ratePct.toFixed(2)}%`)
+        .join(' · ');
+      slide.addText(`${roneSeries.regionName} 연도별 지가변동률: ${stripText}`, {
+        x: rightX + 0.20, y: stripY, w: rightW - 0.40, h: 0.42,
+        fontSize: 8, color: C.mute, fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,
       });
     }
 
     // 출처
-    slide.addText('※ 국토교통부 개별공시지가 기준 (투자 판단 참고 자료)', {
-      x: rightX + 0.15, y: chartY + chartH - 0.35, w: rightW - 0.30, h: 0.25,
-      fontSize: 8, color: '8A8A8A', fontFace: KR,
+    const srcNote = roneSeries
+      ? `※ 국토교통부 개별공시지가 · 한국부동산원 전국지가변동률조사(${roneSeries.statblId}) 기준`
+      : '※ 국토교통부 개별공시지가 기준 (투자 판단 참고 자료)';
+    slide.addText(srcNote, {
+      x: rightX + 0.18, y: chartY + chartH - 0.28, w: rightW - 0.36, h: 0.22,
+      fontSize: 8, color: '8A8A8A', fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,
     });
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 하단 콜아웃: 계산된 사실 요약 — 좌·우 카드 하단 아래에 배치 (겹침 없음)
+  // 하단 밴드: 운영수익률 + 자본수익률(지역 지가변동률 참고) = 단순 합산 기대수익률(참고)
   // ══════════════════════════════════════════════════════════════
-  if (calloutBullets.length > 0) {
-    const calloutY = cardY + cardH + calloutGap;
-    const finalH = Math.max(0.50, Math.min(calloutH, contentBottom - calloutY));
-    L.callout(slide, M, calloutY, CW, finalH, 'info', '수익률 산출 요약',
-      calloutBullets.join('\n'));
+  const opYieldPct = hasTrueStabilized ? stabVal : numCapRate;
+  const opYieldBasisLabel = hasTrueStabilized
+    ? (ysStab?.kind === 'broker_plan' ? '안정화 기대수익률' : '안정화 가정 수익률')
+    : '현행 임대수익률';
+  const capGainPct = roneSeries
+    ? roneSeries.geometricMeanPct
+    : (hasLandHistory && landPriceHistory?.cagrPct != null && Number.isFinite(Number(landPriceHistory.cagrPct))
+      ? Number(landPriceHistory.cagrPct)
+      : null);
+
+  if (opYieldPct > 0 && capGainPct != null) {
+    const combinedPct = parseFloat((opYieldPct + capGainPct).toFixed(2));
+    const capBasisLabel = roneSeries
+      ? `${roneSeries.regionName} 10년 지가변동률 연평균`
+      : '개별공시지가 10년 연평균 변동률';
+    const landRatioNote = landRatio != null ? ` · 토지가치 비중 ${fmtFixed(landRatio, 1, '%')}` : '';
+
+    slide.addShape('roundRect', {
+      x: M, y: bandY, w: CW, h: bandH,
+      fill: { color: 'F8FAFC' },
+      line: { color: C.line, width: 0.75 },
+      rectRadius: 0.06,
+    });
+
+    const segW = (CW - 0.40) / 3;
+    // Segment 1: 운영수익률
+    slide.addText(
+      `운영수익률 (${opYieldBasisLabel})\n${fmtFixed(opYieldPct, 2, '%')}${hasTrueStabilized && numCapRate > 0 ? `  [현행 ${fmtFixed(numCapRate, 2, '%')}]` : ''}`,
+      {
+        x: M + 0.20, y: bandY + 0.06, w: segW, h: bandH - 0.12,
+        fontFace: KR, fontSize: 9.0, bold: true, color: C.ink, valign: 'middle', shrinkText: true, margin: 0,
+      },
+    );
+    // Segment 2: + 자본수익률 (참고)
+    slide.addText(
+      `+ 자본수익률 (참고 · ${capBasisLabel})\n+${capGainPct.toFixed(2)}%`,
+      {
+        x: M + 0.20 + segW, y: bandY + 0.06, w: segW, h: bandH - 0.12,
+        fontFace: KR, fontSize: 9.0, bold: true, color: C.ink, valign: 'middle', align: 'center', shrinkText: true, margin: 0,
+      },
+    );
+    // Segment 3: = 단순 합산 기대수익률 (참고)
+    slide.addText(
+      `= 단순 합산 기대수익률 (참고)\n${combinedPct.toFixed(2)}%${landRatioNote}`,
+      {
+        x: M + 0.20 + segW * 2, y: bandY + 0.06, w: segW, h: bandH - 0.12,
+        fontFace: KR, fontSize: 9.5, bold: true, color: C.brass, valign: 'middle', align: 'right', shrinkText: true, margin: 0,
+      },
+    );
+  } else if (opYieldPct > 0) {
+    const summaryText = hasTrueStabilized
+      ? `• ${opYieldBasisLabel} ${fmtFixed(opYieldPct, 2, '%')} (현행 임대수익률 ${fmtFixed(numCapRate, 2, '%')}, 운영비 차감 전)`
+      : `• 임대수익률 ${fmtFixed(numCapRate, 2, '%')} (운영비 차감 전, 보증금 차감 매입가 기준)`;
+    L.callout(slide, M, bandY, CW, bandH, 'info', '수익률 산출 요약', summaryText);
   }
 
-  // ── 각주: 운영비율·공실충당·보증금 승계 가정 (8pt) ──
+  // ── 각주: 보증금 승계 및 산출 기준 (8pt, Cap Rate 문구 배제) ──
+  const footnoteText = yieldSet
+    ? yieldFootnote(yieldSet.assumptions)
+    : '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 차감 전) 기준이며, 안정화 기대수익률은 공실·자가사용 임대 전환 가정치입니다.';
   slide.addText(footnoteText, {
     x: M, y: footY, w: CW, h: FOOTNOTE_H,
     fontSize: 8, color: '8A8A8A', fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,
@@ -456,3 +528,4 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
 
   return { slide, warnings };
 }
+

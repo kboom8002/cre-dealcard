@@ -92,23 +92,33 @@ describe('brand-skin: resolveBrandAccent', () => {
     const db = mockDb({
       broker_profiles: [{ user_id: UID, company_id: 'C1' }],
       pptx_custom_presets: [
-        { id: 'p-company', user_id: 'other', company_id: 'C1', is_company_default: true, tokens: { accent: '#1F4E8C' } },
+        { id: 'p-company', user_id: 'other', company_id: 'C1', is_company_default: true, tokens: { accent: '#1F4E8C' }, logo_url: 'https://cdn.example.com/logo.png', company_name: '신화부동산중개법인' },
         { id: 'p-own', user_id: UID, company_id: null, is_company_default: true, tokens: { accent: '0F766E' } },
       ],
     });
-    expect(await resolveBrandAccent({ supabase: db, ownerId: UID })).toMatchObject({ accent: '1F4E8C', source: 'company_default' });
+    expect(await resolveBrandAccent({ supabase: db, ownerId: UID })).toMatchObject({
+      accent: '1F4E8C',
+      source: 'company_default',
+      logoUrl: 'https://cdn.example.com/logo.png',
+      companyName: '신화부동산중개법인',
+    });
 
     const db2 = mockDb({
       broker_profiles: [{ user_id: UID, company_id: null }],
       pptx_custom_presets: [{ id: 'p-own', user_id: UID, company_id: null, is_company_default: true, tokens: { accent: '0F766E' } }],
     });
-    expect(await resolveBrandAccent({ supabase: db2, ownerId: UID })).toMatchObject({ accent: '0F766E', source: 'user_default' });
+    expect(await resolveBrandAccent({ supabase: db2, ownerId: UID })).toMatchObject({ accent: '0F766E', source: 'user_default', logoUrl: null, companyName: null });
     expect(await resolveBrandAccent({ supabase: mockDb({}), ownerId: UID })).toBeNull();
   });
 
   it('explicit UUID preset: owner / same company / public only', async () => {
     const mk = (row: any) => mockDb({ broker_profiles: [{ user_id: UID, company_id: 'C1' }], pptx_custom_presets: [{ id: PID, ...row }] });
-    expect(await resolveBrandAccent({ supabase: mk({ user_id: UID, tokens: { accent: '1F4E8C' } }), ownerId: UID, presetParam: PID })).toMatchObject({ accent: '1F4E8C', source: 'preset' });
+    expect(await resolveBrandAccent({ supabase: mk({ user_id: UID, tokens: { accent: '1F4E8C' }, logo_url: 'https://cdn.example.com/u.png', company_name: '개인중개' }), ownerId: UID, presetParam: PID })).toMatchObject({
+      accent: '1F4E8C',
+      source: 'preset',
+      logoUrl: 'https://cdn.example.com/u.png',
+      companyName: '개인중개',
+    });
     expect(await resolveBrandAccent({ supabase: mk({ user_id: 'x', company_id: 'C1', tokens: { accent: '1F4E8C' } }), ownerId: UID, presetParam: PID })).not.toBeNull();
     expect(await resolveBrandAccent({ supabase: mk({ user_id: 'x', company_id: 'C2', is_public: false, tokens: { accent: '1F4E8C' } }), ownerId: UID, presetParam: PID })).toBeNull();
     expect(await resolveBrandAccent({ supabase: mk({ user_id: 'x', company_id: 'C2', is_public: true, tokens: { accent: '1F4E8C' } }), ownerId: UID, presetParam: PID })).not.toBeNull();

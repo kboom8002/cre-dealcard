@@ -40,40 +40,45 @@ function seqKeys(
   } as any).map(s => s.dataKey);
 }
 
-describe('Basic 시퀀서 — 중개인 제공 면 삽입', () => {
-  it('입력 없음 → 기본 9면 불변', () => {
-    const keys = seqKeys({});
+describe('Basic 시퀀서 — 중개인 제공 면 삽입 (R3/R7: 포인트·규제 메모는 본문 흡수, 도면·시세 비교만 별도 슬라이드)', () => {
+  it('입력 없음 → 기본 9면 불변, 표지 kicker는 INVESTMENT MEMORANDUM', () => {
+    const seq = buildDeckSequence({
+      posture: 'income',
+      preset: 'credeal_basic',
+      grade: 'B',
+      dataAvailability: { ...BASE_DA },
+    } as any);
+    const keys = seq.map(s => s.dataKey);
     expect(keys).toEqual([
       'cover', 'summary', 'building', 'location', 'land', 'rentRoll', 'yieldFormula', 'gallery', 'closing',
     ]);
+    expect(seq[0].kicker).toBe('INVESTMENT MEMORANDUM');
     for (const k of BASIC_IM_BROKER_SLIDE_KEYS) expect(keys).not.toContain(k);
   });
 
-  it('투자 포인트: 요약 바로 뒤', () => {
-    const keys = seqKeys({ hasBrokerPoints: true });
-    expect(keys.indexOf('brokerPoints')).toBe(keys.indexOf('summary') + 1);
+  it('투자 포인트(hasBrokerPoints) 및 규제 메모(hasBrokerRegulationNotes)는 A02·A04/A06에 흡수되어 별도 슬라이드를 생성하지 않음', () => {
+    const keys = seqKeys({ hasBrokerPoints: true, hasBrokerRegulation: true, hasBrokerRegulationNotes: true });
+    expect(keys).not.toContain('brokerPoints');
+    expect(keys).not.toContain('brokerRegulation');
+    expect(keys.length).toBe(9);
+  });
+
+  it('시세 비교(hasBrokerComps): 수익률 바로 뒤 삽입', () => {
+    const keys = seqKeys({ hasBrokerRegulation: true, hasBrokerRegulationNotes: true, hasBrokerComps: true });
+    expect(keys).not.toContain('brokerRegulation');
+    expect(keys.indexOf('brokerComps')).toBe(keys.indexOf('yieldFormula') + 1);
+    expect(keys).not.toContain('brokerRegulationImages');
     expect(keys.length).toBe(10);
   });
 
-  it('규제·계획: 토지 바로 뒤 / 시세 비교: 수익률 바로 뒤', () => {
-    const keys = seqKeys({ hasBrokerRegulation: true, hasBrokerRegulationNotes: true, hasBrokerComps: true });
-    expect(keys.indexOf('brokerRegulation')).toBe(keys.indexOf('land') + 1);
-    expect(keys.indexOf('brokerComps')).toBe(keys.indexOf('yieldFormula') + 1);
-    expect(keys).not.toContain('brokerRegulationImages');
-    expect(keys.length).toBe(11);
-  });
-
-  it('도면만 있으면 도면 면만, 둘 다 있으면 규제 → 도면 순서', () => {
+  it('지구단위계획·도면 이미지(hasBrokerRegulationImages): 토지 바로 뒤 삽입', () => {
     const imgOnly = seqKeys({ hasBrokerRegulation: true, hasBrokerRegulationNotes: false, hasBrokerRegulationImages: true });
     expect(imgOnly).toContain('brokerRegulationImages');
     expect(imgOnly).not.toContain('brokerRegulation');
-
-    const both = seqKeys({ hasBrokerRegulation: true, hasBrokerRegulationNotes: true, hasBrokerRegulationImages: true });
-    expect(both.indexOf('brokerRegulation')).toBe(both.indexOf('land') + 1);
-    expect(both.indexOf('brokerRegulationImages')).toBe(both.indexOf('land') + 2);
+    expect(imgOnly.indexOf('brokerRegulationImages')).toBe(imgOnly.indexOf('land') + 1);
   });
 
-  it('네 면 모두 + 지적도 + 갤러리 2장 → 최대 13면, 중개인 면·필수 면 보존', () => {
+  it('도면 + 시세 비교 + 지적도 + 갤러리 2장 → 최대 12면, 중개인 면·필수 면 보존', () => {
     const specs = [
       { dataKey: 'gallery', kicker: 'Gallery', title: '건물 사진' },
       { dataKey: 'gallery2', kicker: 'Gallery', title: '건물 사진 2' },
@@ -93,17 +98,18 @@ describe('Basic 시퀀서 — 중개인 제공 면 삽입', () => {
       },
     } as any);
     const keys = seq.map(s => s.dataKey);
-    expect(BASIC_IM_BOUNDS.maxSlides).toBe(13);
+    expect(BASIC_IM_BOUNDS.maxSlides).toBe(12);
     expect(keys.length).toBeLessThanOrEqual(BASIC_IM_BOUNDS.maxSlides);
-    for (const k of ['cover', 'summary', 'brokerPoints', 'building', 'location', 'land', 'brokerRegulation',
+    for (const k of ['cover', 'summary', 'building', 'location', 'land',
       'brokerRegulationImages', 'rentRoll', 'yieldFormula', 'brokerComps', 'closing']) {
       expect(keys).toContain(k);
     }
-    // 갤러리가 먼저 절삭되고 closing 이 마지막 유지
+    expect(keys).not.toContain('brokerPoints');
+    expect(keys).not.toContain('brokerRegulation');
     expect(keys[keys.length - 1]).toBe('closing');
   });
 
-  it('비-income 포스처: 수익률 면이 없으므로 시세 비교는 토지(규제) 뒤', () => {
+  it('비-income 포스처: 수익률 면이 없으므로 시세 비교는 토지 뒤', () => {
     const keys = seqKeys({ hasBrokerComps: true }, 'owner_occupied');
     expect(keys).not.toContain('yieldFormula');
     expect(keys.indexOf('brokerComps')).toBe(keys.indexOf('land') + 1);
@@ -126,14 +132,31 @@ describe('computeCompsStats / 본건 환산', () => {
     expect(formatGapPct(stats.gapPct!)).toBe('+20.0%');
   });
 
-  it('음수 괴리율 표기, 실거래 평균 없으면 괴리율 없음', () => {
+  it('음수 괴리율 표기, 실거래 평균 없으면 매물 평균 기준으로 괴리율 산출 (R11: income-ig1-corrected -44.6%, 55.4% 수준)', () => {
     const neg = computeCompsStats([{ kind: 'transaction', location: 'A', land_price_per_pyeong_manwon: 10000 }], 9000);
     expect(neg.gapPct).toBe(-10);
     expect(formatGapPct(neg.gapPct!)).toBe('-10.0%');
 
-    const none = computeCompsStats([{ kind: 'listing', location: 'A', land_price_per_pyeong_manwon: 10000 }], 9000);
-    expect(none.transactionAvg).toBeUndefined();
-    expect(none.gapPct).toBeUndefined();
+    const listingOnly = computeCompsStats([{ kind: 'listing', location: 'A', land_price_per_pyeong_manwon: 10000 }], 9000);
+    expect(listingOnly.transactionAvg).toBeUndefined();
+    expect(listingOnly.listingAvg).toBe(10000);
+    expect(listingOnly.gapPct).toBe(-10);
+    expect(listingOnly.gapBasis).toBe('매물 평균');
+
+    const ig1 = computeCompsStats([
+      { kind: 'listing', location: '영등포로 195 일대', land_price_per_pyeong_manwon: 13600 },
+      { kind: 'listing', location: '영등포로35길 17 일대', land_price_per_pyeong_manwon: 15000 },
+      { kind: 'listing', location: '당산로 89 일대', land_price_per_pyeong_manwon: 12000 },
+    ], 7501);
+    expect(ig1.listingAvg).toBe(13533);
+    expect(ig1.gapPct).toBe(-44.6);
+    expect(ig1.gapBasis).toBe('매물 평균');
+    expect(ig1.levelPct).toBe(55.4);
+
+    // Negative Pair: selected===false 행은 통계에서 제외
+    const unselected = computeCompsStats([{ kind: 'listing', location: 'A', land_price_per_pyeong_manwon: 12000, selected: false }], 7501);
+    expect(unselected.listingCount).toBe(0);
+    expect(unselected.gapPct).toBeUndefined();
   });
 
   it('본건 환산 = 매매가 ÷ 대지평수 (물건 개요 토지평당가와 같은 산식)', () => {
@@ -198,16 +221,16 @@ describe('dataMap 빌더 — 원문 그대로 / 입력 없으면 생략', () => 
   it('시세 비교: 표·요약 카드·각주 (괴리율 산식 포함)', () => {
     const extras = readBrokerExtras(body)!;
     const comps = buildBrokerCompsData(extras, { ssot: body.ssot_summary, body: body as any })!;
-    // 비고가 하나도 없으면 '-'만 있는 비고 열을 만들지 않는다
-    expect(comps.tableHead).toEqual(['구분', '소재지', '가격(억)', '토지평당가(만원)']);
-    expect(comps.tableRows[0]).toEqual(['실거래', '인접 필지', '80', '10,000']);
+    // 비고가 하나도 없으면 '-'만 있는 비고 열을 만들지 않는다 (본건 대비 열은 포함)
+    expect(comps.tableHead).toEqual(['구분', '소재지', '가격(억)', '토지평당가(만원)', '본건 대비']);
+    expect(comps.tableRows[0]).toEqual(['실거래', '인접 필지', '80', '10,000', '+25.0%']);
     const withNote = buildBrokerCompsData(
       { market_comps: [...extras.market_comps!, { kind: 'listing', location: '대로변', price_eok: 90, note: '호가' }] },
       { ssot: body.ssot_summary, body: body as any },
     )!;
-    expect(withNote.tableHead).toEqual(['구분', '소재지', '가격(억)', '토지평당가(만원)', '비고']);
-    expect(withNote.tableRows[0]).toEqual(['실거래', '인접 필지', '80', '10,000', '-']);
-    expect(withNote.tableRows[1][4]).toBe('호가');
+    expect(withNote.tableHead).toEqual(['구분', '소재지', '가격(억)', '토지평당가(만원)', '본건 대비', '비고']);
+    expect(withNote.tableRows[0]).toEqual(['실거래', '인접 필지', '80', '10,000', '+25.0%', '-']);
+    expect(withNote.tableRows[1][5]).toBe('호가');
     const labels = comps.summaryCards.map((c: any) => c.label);
     expect(labels).toEqual(['실거래 평균', '본건 환산', '괴리율']);
     expect(comps.summaryCards.find((c: any) => c.label === '괴리율').value).toBe('+25.0%');

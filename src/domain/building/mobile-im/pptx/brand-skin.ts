@@ -159,7 +159,11 @@ export interface ResolvedBrand {
   accent: string;
   source: 'preset' | 'company_default' | 'user_default';
   presetId: string;
+  logoUrl?: string | null;
+  companyName?: string | null;
 }
+
+export type BrandAccentResolution = ResolvedBrand;
 
 const UUID_RE = /^[0-9a-f-]{36}$/i;
 
@@ -186,13 +190,21 @@ export async function resolveBrandAccent(args: {
     if (presetParam && UUID_RE.test(presetParam)) {
       const { data } = await supabase
         .from('pptx_custom_presets')
-        .select('id, user_id, company_id, is_public, tokens')
+        .select('id, user_id, company_id, is_public, tokens, logo_url, company_name')
         .eq('id', presetParam)
         .maybeSingle();
       if (data) {
         const allowed = data.user_id === ownerId || (!!companyId && data.company_id === companyId) || data.is_public === true;
         const accent = allowed ? normalizeBrandHex((data.tokens as any)?.accent) : null;
-        if (accent) return { accent, source: 'preset', presetId: data.id };
+        if (accent) {
+          return {
+            accent,
+            source: 'preset',
+            presetId: data.id,
+            logoUrl: (data as any).logo_url ?? null,
+            companyName: (data as any).company_name ?? null,
+          };
+        }
       }
       return null;
     }
@@ -200,25 +212,41 @@ export async function resolveBrandAccent(args: {
     if (companyId) {
       const { data } = await supabase
         .from('pptx_custom_presets')
-        .select('id, tokens')
+        .select('id, tokens, logo_url, company_name')
         .eq('company_id', companyId)
         .eq('is_company_default', true)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       const accent = normalizeBrandHex((data?.tokens as any)?.accent);
-      if (data && accent) return { accent, source: 'company_default', presetId: data.id };
+      if (data && accent) {
+        return {
+          accent,
+          source: 'company_default',
+          presetId: data.id,
+          logoUrl: (data as any).logo_url ?? null,
+          companyName: (data as any).company_name ?? null,
+        };
+      }
     }
     const { data: own } = await supabase
       .from('pptx_custom_presets')
-      .select('id, tokens')
+      .select('id, tokens, logo_url, company_name')
       .eq('user_id', ownerId)
       .eq('is_company_default', true)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     const ownAccent = normalizeBrandHex((own?.tokens as any)?.accent);
-    if (own && ownAccent) return { accent: ownAccent, source: 'user_default', presetId: own.id };
+    if (own && ownAccent) {
+      return {
+        accent: ownAccent,
+        source: 'user_default',
+        presetId: own.id,
+        logoUrl: (own as any).logo_url ?? null,
+        companyName: (own as any).company_name ?? null,
+      };
+    }
   } catch {
     /* 브랜드 해석 실패 → 기본 팔레트 */
   }

@@ -110,19 +110,49 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     });
   });
   
-  // ── 우측: 중개사 문의처 카드 + 면책 박스 ──
+  // ── 우측: 한 줄 매수 제안(closingLine) + 중개사 문의처 카드 + 면책 박스 ──
   const rx = 7.10;
   const rw = 5.61;
+
+  const closingLine = String(
+    (input.data as any)?.closingLine ?? (input.data?.brokerContact as any)?.closingLine ?? ''
+  ).trim();
+
+  let brokerSectionY = sectionY;
+  if (closingLine) {
+    const quoteY = sectionY;
+    const quoteH = 0.54;
+    slide.addShape('roundRect', {
+      x: rx, y: quoteY, w: rw, h: quoteH,
+      rectRadius: 0.04,
+      fill: { color: CD.block },
+    });
+    slide.addShape('rect', {
+      x: rx, y: quoteY, w: 0.06, h: quoteH,
+      fill: { color: C.brass },
+    });
+    slide.addText(closingLine, {
+      x: rx + 0.18, y: quoteY + 0.06, w: rw - 1.15, h: quoteH - 0.12,
+      fontFace: KR, fontSize: 9.5, bold: true, color: 'FFFFFF',
+      margin: 0, valign: 'middle', shrinkText: true,
+    });
+    slide.addText('● 중개인입력', {
+      x: rx + rw - 0.95, y: quoteY + 0.06, w: 0.85, h: 0.20,
+      fontFace: KR, fontSize: 7.5, color: C.brass,
+      align: 'right', margin: 0,
+    });
+    brokerSectionY = quoteY + quoteH + 0.14;
+  }
 
   // 중개사 문의처 카드 (basic-im-guide.md §2 #9)
   const broker = input.data.brokerContact || {};
   const hasBrokerInfo = broker.name || broker.phone || broker.company;
-  let disclaimerStartY = sectionY + 0.36;
+  let disclaimerStartY = brokerSectionY + 0.36;
 
   if (hasBrokerInfo) {
-    L.sub(slide, rx, sectionY, rw, '담당 중개사', true);
-    const contactY = sectionY + 0.36;
-    const contactH = 1.10;
+    L.sub(slide, rx, brokerSectionY, rw, '담당 중개사', true);
+    const contactY = brokerSectionY + 0.34;
+    const contactH = closingLine ? 0.96 : 1.10;
 
     slide.addShape('roundRect', {
       x: rx, y: contactY, w: rw, h: contactH,
@@ -135,7 +165,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     const nameLine = [broker.name, broker.title].filter((s: unknown) => typeof s === 'string' && s.trim()).join('  ');
     if (nameLine) {
       slide.addText(nameLine, {
-        x: rx + 0.20, y: contactY + 0.08, w: rw - 0.40, h: 0.30,
+        x: rx + 0.20, y: contactY + 0.06, w: rw - 0.40, h: 0.28,
         fontFace: KR, fontSize: 11, bold: true, color: 'FFFFFF', margin: 0,
       });
     }
@@ -147,7 +177,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     ].filter(Boolean).join('    ');
     if (contactLine) {
       slide.addText(contactLine, {
-        x: rx + 0.20, y: contactY + 0.38, w: rw - 0.40, h: 0.26,
+        x: rx + 0.20, y: contactY + (closingLine ? 0.34 : 0.38), w: rw - 0.40, h: 0.26,
         fontFace: KR, fontSize: 9.5, color: CD.body, margin: 0,
       });
     }
@@ -159,14 +189,14 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     ].filter(Boolean).join('    ');
     if (companyLine) {
       slide.addText(companyLine, {
-        x: rx + 0.20, y: contactY + 0.64, w: rw - 0.40, h: 0.26,
+        x: rx + 0.20, y: contactY + (closingLine ? 0.60 : 0.64), w: rw - 0.40, h: 0.26,
         fontFace: KR, fontSize: 9, color: CD.mute, margin: 0,
       });
     }
 
-    disclaimerStartY = contactY + contactH + 0.52;
+    disclaimerStartY = contactY + contactH + (closingLine ? 0.42 : 0.52);
   } else {
-    disclaimerStartY = sectionY + 0.36;
+    disclaimerStartY = brokerSectionY + 0.36;
   }
 
   // 면책 조항

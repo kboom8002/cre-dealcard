@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseStationName, stationNameOnly, formatStationLabel } from '@/domain/building/mobile-im/pptx/binder/station-name';
 import { normalizeStationName } from '@/domain/building/mobile-im/pptx/binder/binder-utils';
 import { parseStation, extractSummaryFacts, buildSummaryHighlights } from '@/domain/building/mobile-im/pptx/summary-highlights';
+import { resolveMergedStations, formatPrimaryStationText } from '@/domain/building/mobile-im/pptx/station-lines';
 
 describe('parseStationName (D11b)', () => {
   it.each([
@@ -58,5 +59,42 @@ describe('parseStationName (D11b)', () => {
     const r = buildSummaryHighlights(facts);
     expect(r.shortHighlights[0]).toContain('동대문역사문화공원역(5호선) 도보 3분');
     expect(r.shortHighlights[0]).not.toContain('동대문역(사문화공원역');
+  });
+
+  it('resolveMergedStations merges multi-line entries for the same station (당산역 2·9호선)', () => {
+    const locationPoi = {
+      nearestStation: { name: '당산역 2호선', distanceM: 406, walkMinutes: 5 },
+      keySpots: [
+        { name: '당산역 2호선', category: 'subway', categoryName: '교통,수송 > 지하철,전철 > 수도권2호선', distanceM: 406, walkMinutes: 5 },
+      ],
+      candidateSpots: [
+        { name: '당산역 2호선', category: 'subway', categoryName: '교통,수송 > 지하철,전철 > 수도권2호선', distanceM: 406, walkMinutes: 5 },
+        { name: '당산역 9호선', category: 'subway', categoryName: '교통,수송 > 지하철,전철 > 수도권9호선', distanceM: 468, walkMinutes: 6 },
+        { name: '영등포구청역 2호선', category: 'subway', categoryName: '교통,수송 > 지하철,전철 > 수도권2호선', distanceM: 858, walkMinutes: 11 },
+      ],
+    };
+    const pool = {
+      candidates: [
+        { name: '영등포구청역 5호선', category: 'subway', categoryName: '교통,수송 > 지하철,전철 > 수도권5호선', distanceM: 944, walkMinutes: 12 },
+      ],
+    };
+
+    const merged = resolveMergedStations(locationPoi, pool);
+    expect(merged).toHaveLength(2);
+    expect(merged[0]).toEqual({
+      baseName: '당산역',
+      lines: ['2호선', '9호선'],
+      formattedName: '당산역(2·9호선)',
+      distanceM: 406,
+      walkMinutes: 5,
+    });
+    expect(merged[1]).toEqual({
+      baseName: '영등포구청역',
+      lines: ['2호선', '5호선'],
+      formattedName: '영등포구청역(2·5호선)',
+      distanceM: 858,
+      walkMinutes: 11,
+    });
+    expect(formatPrimaryStationText(locationPoi, pool)).toBe('당산역(2·9호선) 도보 5분(406m)');
   });
 });

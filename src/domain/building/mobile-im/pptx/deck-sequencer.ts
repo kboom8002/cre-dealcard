@@ -98,22 +98,16 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // 계약에서 시퀀스 선언적 생성
   const sequence: SlideSpec[] = [];
 
-  // D4/D8: 중개인 제공 정보 면 — 입력(플래그)이 있을 때만 앵커 슬롯 바로 뒤에 삽입 (미입력 시 기본 9면 불변)
-  //  투자 포인트: 요약 뒤 / 규제·계획(+도면): 토지 뒤 / 시세 비교: 수익률 뒤 (수익률 면이 없는 포스처는 토지 뒤)
-  const regOn = da.hasBrokerRegulation === true;
-  const regNotes = regOn && (da.hasBrokerRegulationNotes ?? da.hasBrokerRegulationImages !== true);
-  const regImages = regOn && da.hasBrokerRegulationImages === true;
+  // R3/R7: 중개인 투자 포인트는 A02(요약)에, 규제 메모는 A04/A06(토지)에 흡수.
+  // 별도 슬라이드는 지구단위계획·도면 이미지(A14, 토지 뒤)와 인근 시세 비교(A26, 수익률 뒤/비수익형은 토지 뒤)만 조건부 삽입.
+  const regImages = da.hasBrokerRegulationImages === true && da.hasBrokerRegulation !== false;
   const compsAfterSeq = posture === 'income'
     ? BASIC_IM_OPTIONAL_SLIDES.brokerComps.afterSeq
-    : BASIC_IM_OPTIONAL_SLIDES.brokerRegulation.afterSeq;
+    : BASIC_IM_OPTIONAL_SLIDES.brokerRegulationImages.afterSeq;
   const pushBrokerSlides = (seq: number): void => {
     const o = BASIC_IM_OPTIONAL_SLIDES;
-    if (seq === o.brokerPoints.afterSeq && da.hasBrokerPoints === true) {
-      sequence.push({ archetype: o.brokerPoints.archetype, kicker: 'Investment Points', title: o.brokerPoints.label, dataKey: o.brokerPoints.dataKey });
-    }
-    if (seq === o.brokerRegulation.afterSeq) {
-      if (regNotes) sequence.push({ archetype: o.brokerRegulation.archetype, kicker: 'Regulation & Plan', title: o.brokerRegulation.label, dataKey: o.brokerRegulation.dataKey });
-      if (regImages) sequence.push({ archetype: o.brokerRegulationImages.archetype, kicker: 'Plan Drawings', title: o.brokerRegulationImages.label, dataKey: o.brokerRegulationImages.dataKey });
+    if (seq === o.brokerRegulationImages.afterSeq && regImages) {
+      sequence.push({ archetype: o.brokerRegulationImages.archetype, kicker: 'Plan Drawings', title: o.brokerRegulationImages.label, dataKey: o.brokerRegulationImages.dataKey });
     }
     if (seq === compsAfterSeq && da.hasBrokerComps === true) {
       sequence.push({ archetype: o.brokerComps.archetype, kicker: 'Market Comps', title: o.brokerComps.label, dataKey: o.brokerComps.dataKey });
@@ -163,7 +157,7 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
     sequence.push({
       archetype: slot.archetype,
-      kicker: slot.label,
+      kicker: slot.dataKey === 'cover' ? 'INVESTMENT MEMORANDUM' : slot.label,
       title: slot.label,
       dataKey: slot.dataKey,
     });

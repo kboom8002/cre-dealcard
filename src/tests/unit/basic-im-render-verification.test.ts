@@ -121,7 +121,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // G1: 6대 핵심 지표 카드 키워드 (basic-im-guide.md §2 요약 섹션)
     expect(slideTexts[1]).toContain('요약');
     expect(slideTexts[1]).toContain('230억');
-    const statKeywords = ['희망가', 'Cap Rate'];
+    const statKeywords = ['희망가', '수익률'];
     for (const kw of statKeywords) {
       expect(slideTexts[1]).toContain(kw);
     }
@@ -159,14 +159,16 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // ═══════════════════════════════════════════════════
     console.log('Slide 4 Text:', slideTexts[3].slice(0, 200));
     expect(slideTexts[3]).toContain('입지 정보');
-    expect(slideTexts[3]).toContain('입지 종합 분석');
+    expect(slideTexts[3]).toContain('입지 요약');
     expect(slideTexts[3]).toContain('대중교통');
-    expect(slideTexts[3]).toContain('상권권역');
+    expect(slideTexts[3]).toContain('배후·상권');
 
     // ═══════════════════════════════════════════════════
-    // Slide 5: Land — 토지 현황
+    // Slide 5: Land — 토지 현황 (A27 토지이용계획확인원 양식)
     // ═══════════════════════════════════════════════════
     expect(slideTexts[4]).toContain('토지 정보');
+    expect(slideTexts[4]).toContain('■ 토지개요');
+    expect(slideTexts[4]).toContain('■ 토지이용계획');
 
     // ═══════════════════════════════════════════════════
     // Slide 6: Rent Roll + Stacking Plan (A24)

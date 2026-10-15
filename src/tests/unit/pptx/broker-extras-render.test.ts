@@ -146,24 +146,25 @@ describe('Basic IM — 중개인 제공 정보 렌더 스모크', () => {
     expect(texts).not.toContain('매입 후 전략');
   }, 60_000);
 
-  it('투자 포인트·규제·시세 + 입지/전략 입력 → 3면 추가, 원문·출처·산식 표기', async () => {
+  it('시세 + 입지/전략/클로징 입력 → 시세 비교 1면 추가, 입지·렌트롤·클로징 반영 및 산식 표기', async () => {
     const base = await renderer.render(makeInput());
     const result = await renderer.render(makeInput(BROKER_EXTRAS));
-    expect(result.slideCount).toBe(base.slideCount + 3);
+    expect(result.slideCount).toBe(base.slideCount + 1);
     expect(result.slideCount).toBeLessThanOrEqual(BASIC_IM_BOUNDS.maxSlides);
 
     const slides = await extractSlideTexts(result.buffer);
     const full = slides.map(s => s.text).join(' ');
 
-    // 원문 그대로
+    // 시세 비교·입지 요약(R5)·매입 후 전략·클로징 한줄 제안 원문 반영
     for (const s of [
-      '테헤란로 이면 코너 입지', '용적률 상향 가능성 검토 대상',
-      '국토계획법 제63조', '건축물 신축·증축', '2027-12-31까지',
-      '지구단위계획 구역', '인접 필지 A', '맞은편 매물',
-      '지하철 2호선 역삼역 도보 3분', '저층부 리모델링 후 임대료 정상화',
+      '인접 필지 A', '맞은편 매물',
+      '입지 요약', '저층부 리모델링 후 임대료 정상화',
+      '현장 방문은 사전 연락 후 가능합니다',
     ]) {
       expect(full).toContain(s);
     }
+    // R3/R7: 구형 투자 포인트·제안 및 규제·계획 별도 면은 생성되지 않음
+    expect(full).not.toContain('투자 포인트·제안');
     // 출처 / 미검증 / 산식 각주
     expect(full).toContain('중개인');
     expect(full).toContain('미검증');
@@ -183,15 +184,15 @@ describe('Basic IM — 중개인 제공 정보 렌더 스모크', () => {
     await assertZeroEvasivePhrases(result.buffer);
   }, 90_000);
 
-  it('도면 이미지 입력 → 규제·계획 + 도면 면 (오프라인 data URI)', async () => {
+  it('도면 이미지 입력 → 지구단위계획·도면 면 추가 (오프라인 data URI)', async () => {
     const result = await renderer.render(makeInput(
       { regulatory_notes: BROKER_EXTRAS.regulatory_notes },
       [{ url: TINY_PNG_DATA_URI, category: 'district_plan_map', caption: '지구단위계획도' }],
     ));
     expect(result.slideCount).toBeLessThanOrEqual(BASIC_IM_BOUNDS.maxSlides);
     const full = (await extractSlideTexts(result.buffer)).map(s => s.text).join(' ');
-    expect(full).toContain('국토계획법 제63조');
     expect(full).toContain('지구단위계획·도면');
+    expect(full).toContain('지구단위계획도');
     await assertZeroPoisonTokens(result.buffer);
     await assertZeroEvasivePhrases(result.buffer);
   }, 90_000);
