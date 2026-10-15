@@ -67,6 +67,42 @@ function resolveZoningSwatchColor(zoneName: string): { fill: string; border: str
   return { fill: 'DCE4EC', border: '64748B' };
 }
 
+function normalizeZoningShares(
+  rawShares: any,
+  fallbackTotalAreaSqm?: number,
+): ZoningShareItem[] | undefined {
+  if (!Array.isArray(rawShares) || rawShares.length < 2) return undefined;
+  const sumArea = rawShares.reduce(
+    (acc: number, item: any) => acc + (Number(item?.areaSqm || 0) || 0),
+    0,
+  );
+  const defaultTotal =
+    fallbackTotalAreaSqm && fallbackTotalAreaSqm > 0
+      ? fallbackTotalAreaSqm
+      : sumArea > 0
+        ? sumArea
+        : undefined;
+
+  const items: ZoningShareItem[] = rawShares
+    .map((item: any): ZoningShareItem | null => {
+      if (!item || typeof item !== 'object') return null;
+      const zone = String(item.zone || item.zoneName || '').trim();
+      const sharePct = Number(item.sharePct ?? item.ratioPct ?? 0);
+      if (!zone || !Number.isFinite(sharePct) || sharePct <= 0) return null;
+      const areaSqm = Number(item.areaSqm || 0) || undefined;
+      const totalAreaSqm = Number(item.totalAreaSqm || defaultTotal || 0) || undefined;
+      return {
+        zone,
+        ...(areaSqm ? { areaSqm } : {}),
+        ...(totalAreaSqm ? { totalAreaSqm } : {}),
+        sharePct,
+      };
+    })
+    .filter((x): x is ZoningShareItem => !!x);
+
+  return items.length >= 2 ? items : undefined;
+}
+
 /**
  * Basic IM Land 슬라이드용 입력 데이터 빌더.
  * 라이브 enrichment 또는 오프라인 스냅샷으로부터 토지개요 4행 + 토지이용계획확인원 2~3행 데이터를 조립합니다.
@@ -97,11 +133,57 @@ export function buildBasicLandSlideData(params: {
       '',
   ).trim();
 
-  const landUseConfirm: LandUseRegulationSummary =
-    existingLandData?.landUseConfirm &&
-    (existingLandData.landUseConfirm.nationalLaw || existingLandData.landUseConfirm.otherLaws)
-      ? existingLandData.landUseConfirm
-      : synthesizeLandUseConfirmFromSnapshot(enrichment, ssot, pnu);
+  const rawConfirmInput = existingLandData?.landUseConfirm || body?.landUseConfirm;
+  let landUseConfirm: LandUseRegulationSummary;
+  if (rawConfirmInput && (rawConfirmInput.nationalLaw || rawConfirmInput.otherLaws)) {
+    landUseConfirm = rawConfirmInput;
+  } else if (
+    rawConfirmInput &&
+    (Array.isArray(rawConfirmInput.nationalPlanItems) ||
+      Array.isArray(rawConfirmInput.otherLawItems) ||
+      Array.isArray(rawConfirmInput.implementationRuleItems))
+  ) {
+    const natItems: string[] = Array.isArray(rawConfirmInput.nationalPlanItems)
+      ? rawConfirmInput.nationalPlanItems
+      : [];
+    const othItems: string[] = Array.isArray(rawConfirmInput.otherLawItems)
+      ? rawConfirmInput.otherLawItems
+      : [];
+    const implItems: string[] = Array.isArray(rawConfirmInput.implementationRuleItems)
+      ? rawConfirmInput.implementationRuleItems
+      : [];
+    landUseConfirm = {
+      pnu,
+      jibunAddress: rawConfirmInput.jibunAddress,
+      nationalLaw: natItems.join(', '),
+      otherLaws: othItems.join(', '),
+      article9_4: implItems.length > 0 ? implItems.join(', ') : null,
+      nationalItems: natItems.map((name) => ({
+        code: 'UQA',
+        name,
+        conflict: '포함' as const,
+        formatted: name,
+      })),
+      otherItems: othItems.map((name) => ({
+        code: 'ETC',
+        name,
+        conflict: '포함' as const,
+        formatted: name,
+      })),
+      source: 'offline_snapshot',
+    };
+  } else {
+    const synth = synthesizeLandUseConfirmFromSnapshot(enrichment, ssot, pnu);
+    const fallbackArt94 =
+      rawConfirmInput?.article9_4 ||
+      (Array.isArray(rawConfirmInput?.implementationRuleItems) &&
+      rawConfirmInput.implementationRuleItems.length > 0
+        ? rawConfirmInput.implementationRuleItems.join(', ')
+        : null);
+    landUseConfirm = fallbackArt94 && !synth.article9_4
+      ? { ...synth, article9_4: fallbackArt94 }
+      : synth;
+  }
 
   const rawParcelsInput = body?.parcels ?? ssot?.parcels ?? building?.parcels ?? undefined;
   const parsedParcels = parseBrokerParcels(rawParcelsInput);
@@ -257,6 +339,19 @@ export function buildBasicLandSlideData(params: {
         }))
       : [];
 
+  // 조건부 용도지역 비율 콜아웃 (2개 이상 용도지역 비율이 명시된 경우에만 활성화)
+  const rawShares =
+    existingLandData?.zoningShares ||
+    existingLandData?.landUseConfirm?.zoningShares ||
+    body?.landUseConfirm?.zoningShares ||
+    body?.zoning_shares ||
+    body?.zoningShares ||
+    ssot?.zoning_shares ||
+    ssot?.zoningShares ||
+    enrichment?.landUsePlan?.zoningShares ||
+    undefined;
+  const zoningShares = normalizeZoningShares(rawShares, effectiveAreaSqm);
+
   // 용도지역 범례
   const zoningDistrict = String(
     enrichment?.landUsePlan?.zoningDistrict ||
@@ -268,10 +363,11 @@ export function buildBasicLandSlideData(params: {
   const zoningOverlap: string[] = Array.isArray(enrichment?.landUsePlan?.zoningOverlap)
     ? enrichment.landUsePlan.zoningOverlap.filter(Boolean)
     : [];
+  const shareZoneNames = zoningShares ? zoningShares.map((s) => s.zone) : [];
 
   const zoningLegend: ZoningLegendItem[] = [];
   const seenLegend = new Set<string>();
-  for (const z of [zoningDistrict, ...zoningOverlap]) {
+  for (const z of [zoningDistrict, ...zoningOverlap, ...shareZoneNames]) {
     if (!z || z === '도시지역' || seenLegend.has(z)) continue;
     seenLegend.add(z);
     const swatch = resolveZoningSwatchColor(z);
@@ -286,15 +382,6 @@ export function buildBasicLandSlideData(params: {
     fillColor: 'FFF3CD',
     borderColor: 'E03131',
   });
-
-  // 조건부 용도지역 비율 콜아웃 (2개 이상 용도지역 비율이 명시된 경우에만 활성화)
-  const rawShares =
-    existingLandData?.zoningShares ||
-    body?.zoning_shares ||
-    ssot?.zoning_shares ||
-    undefined;
-  const zoningShares: ZoningShareItem[] | undefined =
-    Array.isArray(rawShares) && rawShares.length >= 2 ? rawShares : undefined;
 
   const resolvedMapImg =
     cadastralImg ||
@@ -718,15 +805,33 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   }
 
   // 조건부: 2개 이상 용도지역에 걸친 필지일 때만 비율 콜아웃 표시
-  if (Array.isArray(d.zoningShares) && d.zoningShares.length >= 2) {
-    const shareLines = d.zoningShares.slice(0, 3).map((z: ZoningShareItem) => {
+  const resolvedShares = normalizeZoningShares(
+    d.zoningShares ||
+      d.landUseConfirm?.zoningShares ||
+      d.body?.landUseConfirm?.zoningShares ||
+      d.enrichment?.landUsePlan?.zoningShares,
+    Number(
+      d.ssot?.land_area_sqm ||
+        d.building?.land_area_sqm ||
+        d.enrichment?.landUsePlan?.landArea ||
+        0,
+    ) || undefined,
+  );
+  if (resolvedShares && resolvedShares.length >= 2) {
+    const shareLines = resolvedShares.slice(0, 3).map((z: ZoningShareItem) => {
+      const pctStr = Number(z.sharePct).toFixed(1);
       const tot = z.totalAreaSqm && z.totalAreaSqm > 0 ? `총 대지면적 ${fmtNum(z.totalAreaSqm, 1)}㎡ 중 ` : '';
-      return `• ${z.zone}: ${tot}${fmtNum(z.sharePct, 1)}% 구성`;
+      return `• ${z.zone}: ${tot}${pctStr}% 구성`;
     });
-    const boxX = rightX + 0.16;
-    const boxY = mapY + 0.14;
+    const ratioSummary = resolvedShares
+      .slice(0, 3)
+      .map((z) => `${z.zone} ${Number(z.sharePct).toFixed(1)}%`)
+      .join(' / ');
+    const calloutLines = [...shareLines, `(${ratioSummary})`];
     const boxW = 3.95;
-    const boxH = 0.24 + shareLines.length * 0.20;
+    const boxH = 0.24 + calloutLines.length * 0.18;
+    const boxX = rightX + rightW - boxW - 0.14;
+    const boxY = mapY + mapH - boxH - 0.12;
 
     s.addShape(input.pres.ShapeType.rect, {
       x: boxX,
@@ -736,7 +841,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
       fill: { color: 'FFFFFF' },
       line: { color: C.brass, width: 1.0 },
     });
-    s.addText(shareLines.join('\n'), {
+    s.addText(calloutLines.join('\n'), {
       x: boxX + 0.10,
       y: boxY + 0.04,
       w: boxW - 0.20,

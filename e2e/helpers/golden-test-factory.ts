@@ -648,8 +648,8 @@ export function createGoldenTest(config: GoldenTestConfig) {
           }
         }
 
-        // ── 렌트롤 입력 (R2+ income/owner_occupied 지원: RentRollImporter 텍스트 탭) ──
-        if (xlsxMode && (posture === 'income' || posture === 'owner_occupied')) {
+        // ── 렌트롤 입력 (R2+ income/owner_occupied/development 지원: RentRollImporter) ──
+        if (xlsxMode && (posture === 'income' || posture === 'owner_occupied' || posture === 'development')) {
           await uploadRentRollXlsxViaUi(page, path.join(absDataDir, String(bs.rentRollXlsx)), {
             // 렌트롤 v1.5 단위 혼동 변형(unit-confusion): bottom_sheet.json 에 v12OverrideReason 이 있으면 V12 차단을 기대하고 사유를 입력한다
             expectV12Block: !!bs.v12OverrideReason,
@@ -657,7 +657,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
           });
           await shot(page, screenshotDir, 'rentroll-xlsx-imported', stepCounter);
         }
-        if (!xlsxMode && bs.floor_leases && bs.floor_leases.length > 0 && (posture === 'income' || posture === 'owner_occupied')) {
+        if (!xlsxMode && bs.floor_leases && bs.floor_leases.length > 0 && (posture === 'income' || posture === 'owner_occupied' || posture === 'development')) {
           try {
             const textTab = page.locator('button:has-text("텍스트"), button:has-text("📝 텍스트")').first();
             if (await textTab.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -665,9 +665,12 @@ export function createGoldenTest(config: GoldenTestConfig) {
               await page.waitForTimeout(500);
               const rentRollArea = page.locator('textarea[placeholder*="층"], textarea[placeholder*="B1"], textarea[placeholder*="임차"]').first();
               if (await rentRollArea.isVisible({ timeout: 2000 }).catch(() => false)) {
-                const rentRollText = bs.floor_leases.map((l: any) =>
-                  `${l.floor} ${l.tenant_type || ''} ${l.area_pyeong ? l.area_pyeong + '평 ' : ''}보증금${l.deposit_manwon || 0} 월세${l.rent_manwon || 0} ${l.mgmt_fee_manwon != null ? `관리비${l.mgmt_fee_manwon} ` : ''}${l.lease_start || l.lease_end ? `계약 ${l.lease_start || ''}~${l.lease_end || ''} ` : ''}${l.note || ''}`
-                ).join('\n');
+                const rentRollText = bs.floor_leases.map((l: any) => {
+                  const tenantPart = l.tenant_name && l.tenant_type && l.tenant_name !== l.tenant_type && !String(l.tenant_type).includes(l.tenant_name)
+                    ? `${l.tenant_type}(${l.tenant_name})`
+                    : (l.tenant_name || l.tenant_type || '');
+                  return `${l.floor} ${tenantPart} ${l.area_pyeong ? l.area_pyeong + '평 ' : ''}보증금${l.deposit_manwon || 0} 월세${l.rent_manwon || 0} ${l.mgmt_fee_manwon != null ? `관리비${l.mgmt_fee_manwon} ` : ''}${l.lease_start || l.lease_end ? `계약 ${l.lease_start || ''}~${l.lease_end || ''} ` : ''}${l.note || ''}`;
+                }).join('\n');
                 await rentRollArea.fill(rentRollText);
                 console.log(`  📝 렌트롤 텍스트 입력 (${bs.floor_leases.length}개 층)`);
                 const aiParseBtn = page.locator('button:has-text("AI 분석")').first();
@@ -693,8 +696,9 @@ export function createGoldenTest(config: GoldenTestConfig) {
         // ── income 골든: 바텀시트 합계·공실률·한줄코멘트·사진을 실제 UI 로 입력 ──
         if (posture === 'income') {
           await fillIncomeBottomSheetExtras(page, bs);
-          await fillBrokerExtras(page, bs);
         }
+        // 모든 포스처에서 broker_extras 가 있으면 UI 입력 수행 (예: trading-sinsa-r3 market_comps)
+        await fillBrokerExtras(page, bs);
         if (photoViaUi && Array.isArray(bs.photos_v2) && bs.photos_v2.length > 0) {
           await uploadPhotosViaUi(page, bs.photos_v2);
           await shot(page, screenshotDir, 'photos-uploaded', stepCounter);

@@ -11,11 +11,12 @@
  * 실행: npx tsx docs/golden-test-data/generate-golden-test-materials.ts
  */
 
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
 const BASE_DIR = join(process.cwd(), 'docs', 'golden-test-data');
+const V15_TEMPLATE = join(process.cwd(), 'public', 'CREDEAL_rentroll_template_v1.5.xlsx');
 
 // ═══════════════════════════════════════════════════════════
 // 1. 모든 데이터셋 정의
@@ -261,87 +262,97 @@ function generateBottomSheetMd(datasetId: string, resolution: string, data: any,
 // 3. 렌트롤 XLSX 생성
 // ═══════════════════════════════════════════════════════════
 
-function generateRentRollXlsx(data: any, meta: DatasetMeta, resolution: string): Buffer | null {
+function clearFormulaCaches(wb: ExcelJS.Workbook): void {
+  wb.eachSheet((ws) => {
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        const v = cell.value as any;
+        if (v && typeof v === 'object') {
+          if (typeof v.formula === 'string') {
+            cell.value = { formula: v.formula };
+          } else if (typeof v.sharedFormula === 'string') {
+            cell.value = { sharedFormula: v.sharedFormula };
+          }
+        }
+      });
+    });
+  });
+}
+
+async function generateRentRollXlsx(data: any, meta: DatasetMeta, _resolution: string): Promise<Buffer | null> {
   if (!data.floor_leases?.length) return null;
 
   const SQM_PER_PYEONG = 3.305785;
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(V15_TEMPLATE);
+  const ws = wb.getWorksheet('렌트롤');
+  if (!ws) throw new Error('v1.5 템플릿에 렌트롤 시트가 없습니다.');
 
-  // 시트 1: 기입요령
-  const guideData = [
-    [`CREDEAL 렌트롤 표준양식 v1.2 — ${meta.name} (${resolution})`],
-    [''],
-    ['① 두 번째 시트 \'렌트롤\'에 임대차 현황을 입력하세요.'],
-    ['② 금액 단위: 만원 (예: 보증금 5,000만원 → 5000)'],
-    ['③ 면적 단위: ㎡ (전용면적 기준)'],
-    ['④ 날짜 형식: YYYY-MM-DD (예: 2024-01-01)'],
-    ['⑤ 공실인 호실은 용도/업종에 \'공실\' 또는 비고에 \'공실\'로 표기'],
-    ['⑥ 자가사용 호실은 비고에 \'자가사용\' 또는 \'오너\' 표기'],
-  ];
-  const wsGuide = XLSX.utils.aoa_to_sheet(guideData);
-  wsGuide['!cols'] = [{ wch: 60 }];
-  XLSX.utils.book_append_sheet(wb, wsGuide, '기입요령');
+  // 입력 칸(A–P, Z–AB) 초기화 — 예시 행(13행) 포함
+  for (let r = 13; r <= 112; r++) {
+    for (let c = 1; c <= 16; c++) ws.getCell(r, c).value = null;
+    for (const c of [26, 27, 28]) ws.getCell(r, c).value = null;
+  }
+  clearFormulaCaches(wb);
+  wb.calcProperties = { ...(wb.calcProperties || {}), fullCalcOnLoad: true };
 
-  // 시트 2: 렌트롤 (메인)
-  const headers = [
-    '층', '호실', '용도/업종', '임차인(상호)', '전용면적(㎡)',
-    '보증금(만원)', '월세(만원)', '관리비(만원)',
-    '계약시작일', '계약종료일', '비고',
-  ];
+  ws.getCell('C3').value = meta.name;
+  ws.getCell('C4').value = data.address || meta.address;
+  ws.getCell('C5').value = new Date(Date.UTC(2026, 9, 5));
+  ws.getCell('G9').value = '㎡';
+  ws.getCell('J3').value = (data.askingPriceManwon || meta.askingPriceManwon) * 10000;
+  if (typeof data.grossFloorAreaM2 === 'number' && data.grossFloorAreaM2 > 0) {
+    ws.getCell('J4').value = data.grossFloorAreaM2;
+  }
 
-  const rows = data.floor_leases.map((fl: any, idx: number) => {
-    const areaSqm = fl.area_pyeong ? +(fl.area_pyeong * SQM_PER_PYEONG).toFixed(1) : '';
-    const tenantName = fl.tenant_type || '';
-    const note = fl.note || (fl.is_vacant ? '공실' : '');
-    const unitNo = fl.floor.includes('F') ? `${fl.floor.replace('F', '')}01호` : `${fl.floor}01`;
+  data.floor_leases.forEach((fl: any, idx: number) => {
+    const r = 13 + idx;
+    const set = (c: number, v: any) => {
+      if (v !== undefined && v !== null && v !== '') ws.getCell(r, c).value = v;
+    };
+    const areaSqm =
+      typeof fl.area_sqm === 'number' && fl.area_sqm > 0
+        ? fl.area_sqm
+        : typeof fl.area_pyeong === 'number' && fl.area_pyeong > 0
+        ? Math.round(fl.area_pyeong * SQM_PER_PYEONG * 100) / 100
+        : undefined;
+    const isVacant = fl.is_vacant === true || /^[\s(（]*공실[\s)）]*$/.test(String(fl.tenant_type ?? ''));
+    const isOwnerUse =
+      !isVacant &&
+      !(typeof fl.rent_manwon === 'number' && fl.rent_manwon > 0) &&
+      /자가|사옥/.test(`${fl.tenant_type ?? ''} ${fl.note ?? ''}`);
+    const state = isVacant ? '공실' : isOwnerUse ? '자가사용' : '임대중';
+    const group = fl.contract_group || (String(fl.note ?? '').includes('통합계약') ? 'A' : undefined);
+    const tenantCell = isVacant
+      ? undefined
+      : fl.tenant_name && fl.tenant_type && fl.tenant_name !== fl.tenant_type && !String(fl.tenant_type).includes(fl.tenant_name)
+      ? `${fl.tenant_type}(${fl.tenant_name})`
+      : fl.tenant_name || fl.tenant_type || undefined;
 
-    return [
-      fl.floor,
-      unitNo,
-      fl.is_vacant ? '공실' : (fl.tenant_type || ''),
-      fl.is_vacant ? '' : (fl.tenant_type || ''),
-      areaSqm,
-      fl.deposit_manwon ?? '',
-      fl.rent_manwon ?? '',
-      fl.mgmt_fee_manwon ?? '',
-      fl.lease_start || '',
-      fl.lease_end || '',
-      note,
-    ];
+    set(1, fl.floor);
+    set(2, group);
+    set(3, areaSqm);
+    set(4, typeof fl.exclusive_area_sqm === 'number' && fl.exclusive_area_sqm > 0 ? fl.exclusive_area_sqm : undefined);
+    set(5, tenantCell);
+    set(7, typeof fl.deposit_manwon === 'number' && fl.deposit_manwon > 0 ? fl.deposit_manwon * 10000 : undefined);
+    set(8, typeof fl.rent_manwon === 'number' && fl.rent_manwon > 0 ? fl.rent_manwon * 10000 : undefined);
+    set(9, typeof fl.mgmt_fee_manwon === 'number' && fl.mgmt_fee_manwon > 0 ? fl.mgmt_fee_manwon * 10000 : undefined);
+    set(11, fl.lease_start ? new Date(`${fl.lease_start}T00:00:00Z`) : undefined);
+    set(12, fl.lease_end ? new Date(`${fl.lease_end}T00:00:00Z`) : undefined);
+    set(15, state);
+    set(16, fl.note || undefined);
   });
 
-  const sheetData = [headers, ...rows];
-  const ws = XLSX.utils.aoa_to_sheet(sheetData);
-  ws['!cols'] = [
-    { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
-    { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 },
-  ];
-  XLSX.utils.book_append_sheet(wb, ws, '렌트롤');
-
-  // 시트 3: 자동검증
-  const validationData = [
-    ['자동검증 결과'],
-    [''],
-    ['항목', '수식', '결과'],
-    ['총 호실 수', `=COUNTA(렌트롤!A2:A${rows.length + 1})`, ''],
-    ['총 보증금(만원)', `=SUM(렌트롤!F2:F${rows.length + 1})`, ''],
-    ['총 월세(만원)', `=SUM(렌트롤!G2:G${rows.length + 1})`, ''],
-    ['총 관리비(만원)', `=SUM(렌트롤!H2:H${rows.length + 1})`, ''],
-    ['연 임대수입(만원)', `=SUM(렌트롤!G2:G${rows.length + 1})*12`, ''],
-  ];
-  const wsVal = XLSX.utils.aoa_to_sheet(validationData);
-  wsVal['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 14 }];
-  XLSX.utils.book_append_sheet(wb, wsVal, '자동검증');
-
-  return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  const arr = await wb.xlsx.writeBuffer();
+  return Buffer.from(arr);
 }
 
 // ═══════════════════════════════════════════════════════════
 // 4. 메인 실행
 // ═══════════════════════════════════════════════════════════
 
-function main() {
-  console.log('=== 골든 테스트 E2E 자료 생성기 ===\n');
+async function main() {
+  console.log('=== 골든 테스트 E2E 자료 생성기 (v1.5) ===\n');
   let mdCount = 0;
   let xlsxCount = 0;
   let imgDirCount = 0;
@@ -371,13 +382,13 @@ function main() {
       console.log(`  ✅ ${res}/bottom_sheet_입력항목.md 생성`);
       mdCount++;
 
-      // (B) 렌트롤 XLSX 생성
+      // (B) 렌트롤 XLSX 생성 (v1.5 표준 양식)
       if (data.floor_leases?.length) {
-        const xlsxBuf = generateRentRollXlsx(data, meta, res);
+        const xlsxBuf = await generateRentRollXlsx(data, meta, res);
         if (xlsxBuf) {
           const xlsxPath = join(dir, `CREDEAL_rentroll_${meta.id}_${res}.xlsx`);
           writeFileSync(xlsxPath, xlsxBuf);
-          console.log(`  ✅ ${res}/CREDEAL_rentroll_${meta.id}_${res}.xlsx 생성 (${data.floor_leases.length}행)`);
+          console.log(`  ✅ ${res}/CREDEAL_rentroll_${meta.id}_${res}.xlsx 생성 (v1.5, ${data.floor_leases.length}행)`);
           xlsxCount++;
         }
       } else {
@@ -414,4 +425,7 @@ function main() {
   console.log(`  이미지 폴더: ${imgDirCount}개`);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

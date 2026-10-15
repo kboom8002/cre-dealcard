@@ -25,15 +25,21 @@ export interface EnrichmentResult {
   /** 공시지가 10년 추이 (수익률 슬라이드용) */
   landPriceHistory?: LandPriceHistoryResult | null;
   /** 토지이용계획 (F-07) */
-  landUsePlan?: Partial<LandUsePlanData> | null;
+  landUsePlan?: (Partial<LandUsePlanData> & {
+    zoningShares?: Array<{ zoneName: string; areaSqm?: number; ratioPct: number }>;
+  }) | null;
   /** 토지이용계획확인원 법령별 지역·지구 지정 현황 (V-World getLandUseAttr) */
   landUseRegulations?: LandUseRegulationSummary | null;
+  /** K-apt 인근 공동주택 세대수 집계 (R5 배후세대) */
+  apartmentHouseholds?: { totalHouseholds: number; complexCount: number } | null;
   /**
    * 다필지: 필지별 용도지역 (대표 필지 포함, 조회 성공분만).
    * 2필지 이상일 때만 채워진다 — 필지마다 용도지역이 다를 수 있어 대표 필지 값만 쓰면 오표기 위험.
    */
   landUseByParcel?: Array<{ pnu: string; zoningDistrict: string }> | null;
 }
+
+export type BasicImEnrichment = EnrichmentResult;
 
 /** 다필지 필지별 용도지역 조회 상한 (외부 API 호출 폭주 방지) */
 const MAX_PARCEL_LANDUSE_LOOKUPS = 10;
@@ -173,6 +179,41 @@ export async function enrichForBasicIm(
       if (regs && (regs.nationalLaw || regs.otherLaws)) {
         result.landUseRegulations = regs;
       }
+
+      // 복수 용도지역(2개 이상) 혼재 필지일 때 WFS 폴리곤 교차로 용도지역별 비율 산출
+      const candidateZones = Array.from(
+        new Set(
+          [
+            result.landUsePlan?.zoningDistrict,
+            ...(result.landUsePlan?.zoningOverlap || []),
+            ...(result.landUseRegulations?.nationalItems?.map((i) => i.name) || []),
+          ]
+            .map((z) =>
+              String(z || '')
+                .replace(/\((?:포함|저촉|접합|접함)\)$/g, '')
+                .trim(),
+            )
+            .filter(Boolean),
+        ),
+      );
+      const specificUseZones = candidateZones.filter(
+        (z) => /지역$/.test(z) && z !== '도시지역',
+      );
+      if (specificUseZones.length >= 2) {
+        try {
+          const { fetchParcelZoningShares } = await import('@/lib/external/zoning-share-wfs');
+          const shares = await fetchParcelZoningShares(pnu, candidateZones);
+          const validShares = shares.filter((s) => s.ratioPct > 0);
+          if (validShares.length >= 2) {
+            result.landUsePlan = {
+              ...(result.landUsePlan || {}),
+              zoningShares: validShares,
+            };
+          }
+        } catch (err) {
+          console.warn('[basic-im-enrichment] zoningShares WFS fetch failed:', err);
+        }
+      }
     } catch (err) {
       console.warn('[basic-im-enrichment] landUsePlan/Regulations fetch failed:', err);
     }
@@ -201,18 +242,47 @@ export async function enrichForBasicIm(
     }
   }
 
-  // 3. 공시지가 10년 추이 (수익률 슬라이드용) — PNU 필수
+  // 3. 공시지가 10년 추이 (수익률 슬라이드용) + K-apt 배후 공동주택 세대수 (입지 슬라이드용) 병렬 조회
   if (pnu) {
-    try {
-      const { fetchLandPriceHistory } = await import('@/lib/external/land-price-api');
-      const history = await fetchLandPriceHistory(pnu, 10);
-      if (history) {
-        result.landPriceHistory = history;
-        log.info(`[enrichForBasicIm] 공시지가 ${history.history.length}개년 조회 (CAGR ${history.cagrPct ?? 'N/A'}%)`);
-      }
-    } catch (err) {
-      log.warn('[enrichForBasicIm] 공시지가 추이 조회 실패 (graceful skip):', err);
-    }
+    await Promise.all([
+      (async () => {
+        try {
+          const { fetchLandPriceHistory } = await import('@/lib/external/land-price-api');
+          const history = await fetchLandPriceHistory(pnu, 10);
+          if (history) {
+            result.landPriceHistory = history;
+            log.info(`[enrichForBasicIm] 공시지가 ${history.history.length}개년 조회 (CAGR ${history.cagrPct ?? 'N/A'}%)`);
+          }
+        } catch (err) {
+          log.warn('[enrichForBasicIm] 공시지가 추이 조회 실패 (graceful skip):', err);
+        }
+      })(),
+      (async () => {
+        if (pnu.length < 10) return;
+        try {
+          const { fetchNearbyApartmentHouseholds } = await import('@/lib/external/kapt-api');
+          const kapt = await fetchNearbyApartmentHouseholds({
+            lat: coordinates.lat,
+            lng: coordinates.lng,
+            sigunguCd: pnu.slice(0, 5),
+            bjdongCd: pnu.slice(5, 10),
+          });
+          if (kapt && kapt.totalHouseholds > 0) {
+            result.apartmentHouseholds = {
+              totalHouseholds: kapt.totalHouseholds,
+              complexCount: kapt.complexCount,
+            };
+            if (result.locationPoi && typeof result.locationPoi === 'object') {
+              result.locationPoi.apartmentHouseholds = kapt.totalHouseholds;
+            } else {
+              result.locationPoi = { apartmentHouseholds: kapt.totalHouseholds };
+            }
+          }
+        } catch (err) {
+          log.warn('[enrichForBasicIm] K-apt 세대수 조회 실패 (graceful skip):', err);
+        }
+      })(),
+    ]);
   }
 
   return result;

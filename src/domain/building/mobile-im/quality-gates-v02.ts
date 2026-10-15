@@ -119,6 +119,8 @@ export interface GateContext {
   /** G30: 가정값 ◇ 표기 확인 여부 */
   assumptionMarked?: boolean;
   // 렌트롤 v1.5 (docs/RENTROLL_v1.3_to_v1.5.md §3.2, §6.4) — 생성은 막지 않고 승인·발행만 차단한다 (approval-gate: body.gateReport.blocked)
+  /** 투자 관점(포스처) — 포스처별 게이트 완화(softForPostures) 판정용 */
+  posture?: string;
   /** V01: 통합계약 금액 판정 AD 열이 '월세 누락'·'금액 중복' 인 행 수 (0이어야 통과, 미설정 = 렌트롤 없음 → 통과) */
   rentrollAmountIssues?: number;
   /** V12: 임대면적 합 ÷ 연면적(J4) > 2 또는 < 0.45 (AREA_UNIT_MISMATCH) */
@@ -171,9 +173,13 @@ export interface GateDefinition {
   check: (ctx: GateContext) => boolean;
   /** V5 감사 §5.3 시정: 이 게이트가 적용되는 포스처 목록. undefined = 전 포스처 */
   appliesTo?: ('income' | 'owner_occupied' | 'development' | 'operating' | 'trading')[];
+  /** D-DEV-3: 해당 포스처에서는 severity:'block' 실패를 'warn'(비차단 경고)으로 완화한다 */
+  softForPostures?: string[];
   /** 통과했어도 리포트에 남겨야 할 사유(예: V12 해제 사유). 없으면 undefined */
   note?: (ctx: GateContext) => string | undefined;
 }
+
+export type PublishGateRule = GateDefinition;
 
 export interface GateResult {
   id: string;
@@ -203,12 +209,14 @@ export interface GateReport {
  * 값을 추측해 보정하지 않는다 (스펙 §8). 계산 중 예외는 게이트를 막지 않도록 {} 로 흡수한다.
  */
 export function deriveRentrollGateContext(
-  supplemental: { floor_leases?: unknown; rent_roll_meta?: { gfa_sqm?: number | null; area_unit_override?: GateContext['areaUnitOverride'] } | null } | null | undefined,
-): Pick<GateContext, 'rentrollAmountIssues' | 'areaUnitMismatch' | 'areaUnitOverride'> {
+  supplemental: { floor_leases?: unknown; rent_roll_meta?: { gfa_sqm?: number | null; area_unit_override?: GateContext['areaUnitOverride'] } | null; investmentPosture?: string } | null | undefined,
+  posture?: string,
+): Pick<GateContext, 'rentrollAmountIssues' | 'areaUnitMismatch' | 'areaUnitOverride' | 'posture'> {
+  const resolvedPosture = posture ?? (typeof supplemental?.investmentPosture === 'string' && supplemental.investmentPosture ? supplemental.investmentPosture : undefined);
   try {
     const rows = (Array.isArray(supplemental?.floor_leases) ? supplemental!.floor_leases : [])
       .filter((r): r is Record<string, any> => !!r && typeof r === 'object');
-    if (rows.length === 0) return {};
+    if (rows.length === 0) return resolvedPosture ? { posture: resolvedPosture } : {};
     const meta = supplemental?.rent_roll_meta ?? null;
     const amountRows = rows.filter((r) => r.rent_type !== 'revenue_linked');
     // computeRentrollChecks V01 과 동일 기준: 실제 임대중 + 임대 가능 호실만 판정 대상 (기계실·주차장 등 비임대 행은 제외)
@@ -219,12 +227,13 @@ export function deriveRentrollGateContext(
     }).length;
     const areaIssue = checkAreaUnit(rows, meta?.gfa_sqm);
     return {
+      ...(resolvedPosture ? { posture: resolvedPosture } : {}),
       rentrollAmountIssues,
       areaUnitMismatch: areaIssue?.code === 'AREA_UNIT_MISMATCH',
       areaUnitOverride: meta?.area_unit_override ?? null,
     };
   } catch {
-    return {};
+    return resolvedPosture ? { posture: resolvedPosture } : {};
   }
 }
 
@@ -311,7 +320,13 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G56', label: '내부 시스템 규칙 노출 0건', severity: 'block', check: (ctx) => (ctx.internalRuleLeakCount ?? 0) === 0 },
   // ── 렌트롤 v1.5 (스펙 §3.2 V01/V12, §6.4-7) — 생성은 허용, 승인·발행만 차단 (approval-gate 가 body.gateReport.blocked 로 차단) ──
   // V02/V03/V06~V10 은 비차단 경고(rentroll_checks)이므로 여기에 게이트로 두지 않는다.
-  { id: 'V01', label: '렌트롤 금액 판정 — 월세 누락·금액 중복 0건 (통합계약은 대표 행에만 금액 입력 후 렌트롤 재업로드, 해제 불가)', severity: 'block', check: (ctx) => (ctx.rentrollAmountIssues ?? 0) === 0 },
+  {
+    id: 'V01',
+    label: '렌트롤 금액 판정 — 월세 누락·금액 중복 0건 (통합계약은 대표 행에만 금액 입력 후 렌트롤 재업로드, 해제 불가)',
+    severity: 'block',
+    softForPostures: ['development'],
+    check: (ctx) => (ctx.rentrollAmountIssues ?? 0) === 0,
+  },
   {
     id: 'V12',
     label: '렌트롤 면적 단위 혼동 없음 (사유 입력 시 해제)',
@@ -378,12 +393,14 @@ export function runPublishGates(ctx: GateContext, onlyIds?: readonly string[]): 
     if (passed) {
       try { note = g.note?.(ctx); } catch { note = undefined; }
     }
-    results.push({ id: g.id, label: g.label, severity: g.severity, passed, status, errorDetail: errorMsg, ...(note ? { note } : {}) });
+    const isSoftened = !passed && g.severity === 'block' && !!(ctx.posture && g.softForPostures?.includes(ctx.posture));
+    const effectiveSeverity: 'block' | 'warn' = isSoftened ? 'warn' : g.severity;
+    results.push({ id: g.id, label: g.label, severity: effectiveSeverity, passed, status, errorDetail: errorMsg, ...(note ? { note } : {}) });
 
     if (!passed && !errorMsg) {
       // 의도적 차단/경고 — system_error가 아닌 경우
       classifiedFailures.push({
-        category: g.severity === 'block' ? 'gate_block' : 'quality_warn',
+        category: effectiveSeverity === 'block' ? 'gate_block' : 'quality_warn',
         gateId: g.id,
         label: g.label,
       });

@@ -13,6 +13,8 @@ import {
 } from '@/domain/building/im-core/financial-calculator';
 
 export type { FinancialInputs, FinancialOutputs };
+import { resolveDevHoldMonthlyRentManwon } from './lease-vacancy';
+export { resolveDevHoldMonthlyRentManwon };
 
 import { ASSUMPTIONS } from './assumptions';
 import { getAssumptions } from '../assumptions';
@@ -328,8 +330,11 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
     const expectedSalesRevenueKrw = brokerSalesPricePerPyeong != null ? targetGrossPyeong * brokerSalesPricePerPyeong * 10000 : 0;
     const expectedSalesRevenueBil = expectedSalesRevenueKrw > 0 ? parseFloat((expectedSalesRevenueKrw / 1e8).toFixed(1)) : null;
 
-    // Hold 모드 분기: floor_leases 임대수익이 있으면 보유형 연 수익률 산출
-    const holdMonthlyRentManwon = inputs.devHoldMonthlyRentManwon ?? 0;
+    // Hold 모드 분기(D-DEV-1): 신축 후 stackingPlan(또는 holdMonthlyRentManwon) 임대수익이 있을 때만 보유형 연 수익률 산출 (현황 floor_leases 명도 대상 월세 제외)
+    const devSpec = (inputs as any).developmentSpec as Record<string, any> | undefined;
+    const holdMonthlyRentManwon = devSpec !== undefined
+      ? (resolveDevHoldMonthlyRentManwon(devSpec) ?? 0)
+      : ((inputs as any).floor_leases !== undefined ? 0 : (inputs.devHoldMonthlyRentManwon ?? 0));
     const holdAnnualRentKrw = holdMonthlyRentManwon * 12 * 10000;
     // 보유형 수익률은 총사업비(공사비 포함) 분모 — 공사비 미입력이면 기본 단가 추정으로 수익률을 만들지 않는다 (D2)
     const devHoldYieldPct = (brokerConstCostPerPyeong != null && holdAnnualRentKrw > 0 && totalProjectCostKrw > 0)
@@ -698,6 +703,20 @@ const STRATEGIES: Record<InvestmentPosture, PostureFinancialStrategy> = {
  * 포스처별 고급 재무 지표를 계산합니다. (domain im-core 위임)
  */
 export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
+  if (inputs.posture === 'development') {
+    const devSpec = (inputs as any).developmentSpec as Record<string, any> | undefined;
+    const resolvedHold = devSpec !== undefined
+      ? resolveDevHoldMonthlyRentManwon(devSpec)
+      : ((inputs as any).floor_leases !== undefined ? undefined : inputs.devHoldMonthlyRentManwon);
+    const out = domainCalculateFinancials({
+      ...inputs,
+      devHoldMonthlyRentManwon: resolvedHold,
+    });
+    if (out.devProfitMarginPct == null && out.devHoldYieldPct != null) {
+      out.devProfitMarginPct = out.devHoldYieldPct;
+    }
+    return out;
+  }
   return domainCalculateFinancials(inputs);
 }
 

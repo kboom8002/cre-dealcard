@@ -569,7 +569,7 @@ export async function generateMobileIMHandler(
   // 승인 게이트용 범위 한정 리포트 — 렌트롤 게이트(V01·V12)만 평가해 body.gateReport 에 영속한다.
   // 전체 PUBLISH_GATES 를 영속하면 (예: G20 사진 PII 확인 미설정) 모든 문서 승인이 막히므로 범위를 한정한다.
   // 생성은 막지 않는다 — approval-gate(approve 라우트)가 body.gateReport.blocked 로만 승인·발행을 차단한다.
-  const rentrollGateCtx = deriveRentrollGateContext(supplemental);
+  const rentrollGateCtx = deriveRentrollGateContext(supplemental, areaPosture);
   let rentrollGateReport: Record<string, unknown> | undefined;
   try {
     const rep = runPublishGates(rentrollGateCtx as unknown as GateContext, RENTROLL_GATE_IDS);

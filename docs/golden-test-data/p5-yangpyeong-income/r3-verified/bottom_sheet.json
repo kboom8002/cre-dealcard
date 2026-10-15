@@ -85,6 +85,7 @@
     {
       "floor": "1F",
       "tenant_type": "카페(스타벅스)",
+      "tenant_name": "스타벅스",
       "area_pyeong": 55,
       "deposit_manwon": 7600,
       "rent_manwon": 715,
@@ -96,6 +97,7 @@
     {
       "floor": "2F",
       "tenant_type": "디자인 스튜디오",
+      "tenant_name": "디자인 스튜디오",
       "area_pyeong": 63.4,
       "deposit_manwon": 5400,
       "rent_manwon": 507,
@@ -107,6 +109,7 @@
     {
       "floor": "3F",
       "tenant_type": "IT 기업",
+      "tenant_name": "IT 기업",
       "area_pyeong": 63.4,
       "deposit_manwon": 5000,
       "rent_manwon": 480,
@@ -118,6 +121,7 @@
     {
       "floor": "4F",
       "tenant_type": "마케팅 에이전시",
+      "tenant_name": "마케팅 에이전시",
       "area_pyeong": 63.4,
       "deposit_manwon": 5200,
       "rent_manwon": 495,
@@ -129,6 +133,7 @@
     {
       "floor": "5F",
       "tenant_type": "법률사무소",
+      "tenant_name": "법률사무소",
       "area_pyeong": 63.4,
       "deposit_manwon": 5500,
       "rent_manwon": 510,
@@ -140,6 +145,7 @@
     {
       "floor": "6F",
       "tenant_type": "회계법인",
+      "tenant_name": "회계법인",
       "area_pyeong": 63.4,
       "deposit_manwon": 5300,
       "rent_manwon": 500,
@@ -151,6 +157,7 @@
     {
       "floor": "7F",
       "tenant_type": "교육기관",
+      "tenant_name": "교육기관",
       "area_pyeong": 63.4,
       "deposit_manwon": 4800,
       "rent_manwon": 470,
@@ -162,6 +169,7 @@
     {
       "floor": "8F",
       "tenant_type": "핀테크 스타트업",
+      "tenant_name": "핀테크 스타트업",
       "area_pyeong": 63.4,
       "deposit_manwon": 5000,
       "rent_manwon": 485,
@@ -173,6 +181,7 @@
     {
       "floor": "9F-A",
       "tenant_type": "컨설팅",
+      "tenant_name": "컨설팅",
       "area_pyeong": 32,
       "deposit_manwon": 2500,
       "rent_manwon": 250,
@@ -185,6 +194,7 @@
     {
       "floor": "9F-B",
       "tenant_type": "세무사",
+      "tenant_name": "세무사",
       "area_pyeong": 31.4,
       "deposit_manwon": 2400,
       "rent_manwon": 245,
@@ -197,6 +207,7 @@
     {
       "floor": "10F",
       "tenant_type": "건축설계사무소",
+      "tenant_name": "건축설계사무소",
       "area_pyeong": 63.4,
       "deposit_manwon": 5000,
       "rent_manwon": 490,

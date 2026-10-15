@@ -38,7 +38,7 @@ import { normalizeTerminologyAsync, protectBlock, stripProtectMarkers } from "./
 import { CrePromptRegistry } from "./cre-prompt-registry";
 import { generatePremiumTemplate, formatBasicIncomeMarkdown, getSectionTitle } from "./premium-template-engine";
 import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary, analyzeEviction, formatEvictionMarkdown } from "./lease-adapter";
-import { sumLeasedRentRoll } from "./lease-vacancy";
+import { sumLeasedRentRoll, resolveDevHoldMonthlyRentManwon } from "./lease-vacancy";
 import { brokerFinancialExtras } from './broker-financial-inputs';
 import { maskFabricatedBrands } from "./tenant-name-policy";
 import { alignPlatAreaForPrompt } from "./prompt-land-area";
@@ -194,17 +194,23 @@ export async function generateSingleSection(
   // 공식 조회가 아닌 법정 한도(용도지역명 추정치)는 LLM 입력에서 제거 — '추정 법정 상한 N%' 본문 방지 (P2, legal-limits.ts)
   externalData = stripUnverifiedLimits(externalData as Record<string, any> | null) as ExternalDataSnapshot | null;
 
-  // Backfill monthly_rent_total_krw from floor_leases if empty
-  if (!supplemental.monthly_rent_total_krw && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
-    const floorSum = supplemental.floor_leases.reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0) * 10000, 0);
+  // ── 포스처별 재무 계산 라우팅 ──
+  let sectionMarketIndicators: MarketIndicators | undefined;
+  const posture = (ctx.sectionPlan?.posture ?? 'income') as any;
+
+  // P2(Rule 76): Backfill monthly_rent_total_krw from floor_leases leased rows only; exclude development posture (eviction targets only)
+  if (
+    posture !== 'development' &&
+    !supplemental.monthly_rent_total_krw &&
+    Array.isArray(supplemental.floor_leases) &&
+    supplemental.floor_leases.length > 0
+  ) {
+    const floorSum = sumLeasedRentRoll(supplemental.floor_leases).monthlyRentManwon * 10000;
     if (floorSum > 0) {
       supplemental.monthly_rent_total_krw = floorSum;
     }
   }
 
-  // ── 포스처별 재무 계산 라우팅 ──
-  let sectionMarketIndicators: MarketIndicators | undefined;
-  const posture = (ctx.sectionPlan?.posture ?? 'income') as any;
   const shouldCalculateFinancials = (() => {
     switch (posture) {
       case 'income':
@@ -234,10 +240,12 @@ export async function generateSingleSection(
       };
     } else if (ctx.purchasePriceKrw > 0) {
       try {
-        const effectiveMonthlyRentKrw = supplemental.monthly_rent_total_krw
-          || (Array.isArray(supplemental.floor_leases)
-              ? supplemental.floor_leases.reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0) * 10000, 0)
-              : 0);
+        const effectiveMonthlyRentKrw = posture === 'development'
+          ? 0
+          : (supplemental.monthly_rent_total_krw
+              || (Array.isArray(supplemental.floor_leases)
+                  ? sumLeasedRentRoll(supplemental.floor_leases).monthlyRentManwon * 10000
+                  : 0));
 
         const fin = calculateFinancials({
           posture,
@@ -261,9 +269,8 @@ export async function generateSingleSection(
           expectedSalesPricePerPyeong: (supplemental.developmentSpec as any)?.expectedSalePricePerPyung
             ?? (supplemental.developmentSpec as any)?.expectedSalePricePerPyeong
             ?? undefined,
-          devHoldMonthlyRentManwon: Array.isArray(supplemental.floor_leases)
-            ? sumLeasedRentRoll(supplemental.floor_leases as any[]).rentManwon
-            : undefined,
+          // P1(D-DEV-1): 신축 후 보유 임대수익은 developmentSpec.stackingPlan(또는 holdMonthlyRentManwon)에서만 산출 (현황 floor_leases 제외)
+          devHoldMonthlyRentManwon: resolveDevHoldMonthlyRentManwon(supplemental.developmentSpec as any),
           // 중개인 제시값(구조화 + 원문 메모 명시값) — 가정 기본값 대신 사용 (Rule 34)
           ...brokerFinancialExtras(supplemental as any, posture),
         });
@@ -300,7 +307,7 @@ export async function generateSingleSection(
     } else if (posture === 'income') {
       const mRent = supplemental.monthly_rent_total_krw
         || (Array.isArray(supplemental.floor_leases)
-            ? supplemental.floor_leases.reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0) * 10000, 0)
+            ? sumLeasedRentRoll(supplemental.floor_leases).monthlyRentManwon * 10000
             : 0);
       const annualGross = mRent * 12;
       const vPct = supplemental.vacancy_pct ?? ctx.vacancyPct;

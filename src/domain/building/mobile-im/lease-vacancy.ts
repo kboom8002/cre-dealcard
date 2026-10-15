@@ -16,6 +16,8 @@ export type LeaseOccupancy = '임대중' | '공실' | '자가사용';
 
 /** 자가사용 키워드 — handler.ts(isOwnerUse) 와 동일 집합 */
 const OWNER_USE_RE = /자가|사옥|자사|본사|직영|owner/i;
+/** 사옥 전환/입주 예정 등 미래 시점 문구 — 현 시점 자가사용이 아니라 임대중(명도·전환 대상)임을 뜻함 (P4) */
+const FUTURE_OWNER_TRANSITION_RE = /입주\s*예정|전환\s*예정|명도\s*후\s*사옥|사옥\s*사용\s*가능/i;
 const VACANT_RE = /공실|vacant/i;
 
 type LeaseLike = Record<string, any> | null | undefined;
@@ -42,7 +44,12 @@ export function resolveLeaseOccupancy(lease: LeaseLike): LeaseOccupancy {
   if (state === '공실') return '공실';
   if (state === '자가사용') return '자가사용';
   if (state === '임대중') return '임대중';
-  if (OWNER_USE_RE.test(ownerUseText(l))) return '자가사용';
+
+  const rentNum = Number(l.rent_manwon ?? l.monthly_rent_manwon ?? 0);
+  const hasPositiveRent = Number.isFinite(rentNum) && rentNum > 0;
+  const oText = ownerUseText(l);
+  const hasFutureTransition = FUTURE_OWNER_TRANSITION_RE.test(oText);
+  if (OWNER_USE_RE.test(oText) && !hasPositiveRent && !hasFutureTransition) return '자가사용';
   if (VACANT_RE.test(vacancyText(l))) return '공실';
 
   const flagged = l.is_vacant === true || l.isVacant === true;
@@ -55,7 +62,7 @@ export function resolveLeaseOccupancy(lease: LeaseLike): LeaseOccupancy {
   }
   // 레거시 추론 유지: 임차인·업종 정보가 전혀 없고 보증금·월세가 명시적 0인 행
   const noTenantInfo = !str(l.tenant_name ?? l.tenantName) && !str(l.tenant) && !str(l.tenant_type ?? l.tenantType) && !str(l.tenant_sector);
-  if (noTenantInfo && l.rent_manwon === 0 && l.deposit_manwon === 0) return '공실';
+  if (noTenantInfo && l.rent_manwon === 0 && l.deposit_manwon === 0 && !hasFutureTransition) return '공실';
   return '임대중';
 }
 
@@ -127,18 +134,56 @@ export function summarizeLeaseOccupancy(leases: ReadonlyArray<LeaseLike> | null 
  * 렌트롤 금액 합계 SSOT — 임대중 호실만(공실·자가사용·비임대 행 제외). A24 합계 행·PPTX 요약·생성 경로(수익률 분모/분자)가 공유한다.
  * 월세는 rent_manwon(또는 monthly_rent_manwon), 보증금은 deposit_manwon. 단위 만원.
  */
-export function sumLeasedRentRoll(leases: ReadonlyArray<LeaseLike> | null | undefined): { rentManwon: number; depositManwon: number; count: number } {
+export function sumLeasedRentRoll(leases: ReadonlyArray<LeaseLike> | null | undefined): { rentManwon: number; monthlyRentManwon: number; depositManwon: number; count: number } {
   const num = (v: unknown): number => {
     const n = typeof v === 'number' ? v : parseFloat(str(v).replace(/,/g, ''));
     return Number.isFinite(n) ? n : 0;
   };
   const rows = (Array.isArray(leases) ? leases : []).filter(Boolean) as Record<string, any>[];
   const income = rows.filter(r => !isNonLeasableLeaseRow(r) && resolveLeaseOccupancy(r) === '임대중');
+  const rentManwon = income.reduce((a, r) => a + num(r.rent_manwon ?? r.monthly_rent_manwon), 0);
+  const depositManwon = income.reduce((a, r) => a + num(r.deposit_manwon), 0);
   return {
-    rentManwon: income.reduce((a, r) => a + num(r.rent_manwon ?? r.monthly_rent_manwon), 0),
-    depositManwon: income.reduce((a, r) => a + num(r.deposit_manwon), 0),
+    rentManwon,
+    monthlyRentManwon: rentManwon,
+    depositManwon,
     count: income.length,
   };
+}
+
+/**
+ * D-DEV-1: 개발형(development) 신축 후 보유(Hold) 월 임대수익(만원) 산출.
+ * 현황 `floor_leases`는 철거·명도 대상 기존 임차인이므로 신축 후 보유수익에 절대 합산하지 않는다.
+ * 오직 `developmentSpec.holdMonthlyRentManwon`(명시값) 또는 `developmentSpec.stackingPlan`(신축 후 층별 임대 계획)에서만 산출한다.
+ */
+export function resolveDevHoldMonthlyRentManwon(devSpec: Record<string, any> | null | undefined): number | undefined {
+  if (!devSpec || typeof devSpec !== 'object') return undefined;
+  const explicit = Number(devSpec.holdMonthlyRentManwon ?? devSpec.devHoldMonthlyRentManwon);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const plan = Array.isArray(devSpec.stackingPlan)
+    ? devSpec.stackingPlan.filter((r: any): r is Record<string, any> => !!r && typeof r === 'object')
+    : [];
+  if (plan.length === 0) return undefined;
+  const num = (v: unknown): number => {
+    const n = typeof v === 'number' ? v : parseFloat(str(v).replace(/,/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  };
+  let sumManwon = 0;
+  for (const row of plan) {
+    if (row.isVacant === true || row.is_vacant === true) continue;
+    const state = str(row.lease_state ?? row.leaseState);
+    if (state === '공실' || state === '자가사용') continue;
+    const explicitManwon = num(row.rent_manwon ?? row.monthly_rent_manwon ?? row.monthlyRentManwon);
+    if (explicitManwon > 0) {
+      sumManwon += explicitManwon;
+      continue;
+    }
+    const rawRent = num(row.monthlyRent ?? row.rent);
+    if (rawRent > 0) {
+      sumManwon += rawRent >= 100_000 ? Math.round(rawRent / 10000) : rawRent;
+    }
+  }
+  return sumManwon > 0 ? sumManwon : undefined;
 }
 
 /**

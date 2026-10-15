@@ -1,5 +1,5 @@
 import type { SectionData } from './binder-types';
-import { isVacantLeaseRow } from '../../lease-vacancy';
+import { isVacantLeaseRow, resolveLeaseOccupancy } from '../../lease-vacancy';
 import { resolveAreaInputUnit, type AreaInputUnit } from '../../rentroll-meta';
 import {
   formatLeaseAreaFromRow,
@@ -78,11 +78,15 @@ export function resolveTenantAndUse(
     return { tenant: '공실', use, isVacant: true, isMasked: false };
   }
 
-  if (!name && biz) {
+  if (biz) {
     const m = biz.match(/^(.+?)\s*[（(]\s*([^()（）]+?)\s*[)）]$/);
     if (m) {
-      biz = m[1].trim();
-      name = m[2].trim();
+      if (!name) {
+        biz = m[1].trim();
+        name = m[2].trim();
+      } else if (name === m[2].trim()) {
+        biz = m[1].trim();
+      }
     }
   }
 
@@ -97,7 +101,10 @@ export function resolveTenantAndUse(
   const use = useCandidate && !VACANT_MARK.test(useCandidate) ? useCandidate : '-';
   if (name) return { tenant: name, use, isVacant: false, isMasked: false };
   // 자가사용 호실은 임차인이 없으므로 마스킹 라벨 대신 '자가사용' 표기 (용도 칸 중복 방지로 '-')
-  if (/^자가\s*사용?$/.test(useCandidate)) return { tenant: '자가사용', use: '-', isVacant: false, isMasked: false };
+  if (/^자가\s*사용?$/.test(useCandidate) || resolveLeaseOccupancy(l as Record<string, any>) === '자가사용') {
+    const ownerUse = /^자가\s*사용?$/.test(useCandidate) ? '-' : use;
+    return { tenant: '자가사용', use: ownerUse, isVacant: false, isMasked: false };
+  }
   const tenant = opts.maskSeq != null ? `임차인 ${maskLetter(opts.maskSeq)}` : '임차인';
   return { tenant, use, isVacant: false, isMasked: true };
 }

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "trading-sinsa-r3",
-  "approvedAt": "2026-10-15T14:44:13.484Z",
+  "approvedAt": "2026-10-15T15:47:12.349Z",
   "fingerprint": {
     "renderer": "LibreOffice 26.2 (cd7284b4c)",
     "pdfEngine": "PyMuPDF 1.26.1",
@@ -13,6 +13,7 @@
       "MalgunGothic",
       "MalgunGothicBold",
       "NotoSansCJKkr-Bold",
+      "NotoSansCJKkr-Regular",
       "OpenSymbol",
       "SegoeUIEmoji"
     ]
@@ -24,6 +25,7 @@
     4,
     5,
     6,
-    7
+    7,
+    8
   ]
 }

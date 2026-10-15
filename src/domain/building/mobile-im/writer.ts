@@ -26,7 +26,7 @@ import {
 import { runPublishGates, deriveRentrollGateContext } from './quality-gates-v02';
 import { MOBILE_IM_STANDARD_DISCLAIMER, humanizeGuardrailTokensForView } from "./guardrails";
 import type { DCFOutputs } from "./dcf-sensitivity";
-import { sumLeasedRentRoll } from "./lease-vacancy";
+import { sumLeasedRentRoll, resolveDevHoldMonthlyRentManwon } from "./lease-vacancy";
 import { runCrossValidation, type CrossValidatorAnchors } from "./cross-validator";
 import { createServiceClient } from "@/lib/supabase/service";
 import { indexIMSections } from "./im-embedding-indexer";
@@ -201,10 +201,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         expectedSalesPricePerPyeong: (input.supplemental?.developmentSpec as any)?.expectedSalePricePerPyung
           ?? (input.supplemental?.developmentSpec as any)?.expectedSalePricePerPyeong
           ?? undefined,
-        // 개발형 Hold 모드: floor_leases 월 총임대수익 합산 → 연 수익률 산출
-        devHoldMonthlyRentManwon: Array.isArray(input.supplemental?.floor_leases)
-          ? sumLeasedRentRoll(input.supplemental.floor_leases as any[]).rentManwon
-          : undefined,
+        // 개발형 Hold 모드(D-DEV-1): 신축 후 stackingPlan(또는 holdMonthlyRentManwon) 월 임대수익만 합산 (현황 floor_leases는 명도 대상이므로 제외)
+        devHoldMonthlyRentManwon: resolveDevHoldMonthlyRentManwon(input.supplemental?.developmentSpec as any),
       });
     } catch {
       return null;
@@ -479,7 +477,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       pageCountExceeded: false,           // deck-sequencer에서 절삭으로 보장
       permitZoneNotDisplayed: derivedDA.hasPermitZone === true && !sections.some(s => s.section_type === 'property_overview'),
       // 렌트롤 v1.5 V01/V12 — 생성은 막지 않고(publishBlocked 는 리포트용) 승인·발행 차단은 handler 의 body.gateReport 가 담당
-      ...deriveRentrollGateContext(input.supplemental),
+      ...deriveRentrollGateContext(input.supplemental, ctx.sectionPlan?.posture),
     };
     const gateReport = runPublishGates(gateCtx);
     if (gateReport.blocked) {

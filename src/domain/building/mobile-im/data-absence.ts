@@ -160,9 +160,9 @@ export function checkDataAbsence(
     }
   }
 
-  // 층별 임대차 (owner_occupied, development, trading는 해당 없음)
+  // 층별 임대차 (owner_occupied, development, trading, operating은 해당 없음)
   if (!input.floor_leases || input.floor_leases.length === 0) {
-    if (posture !== 'owner_occupied' && posture !== 'development' && posture !== 'trading') {
+    if (posture !== 'owner_occupied' && posture !== 'development' && posture !== 'trading' && posture !== 'operating') {
       const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'rent_roll')!;
       missingFields.push(policy);
     }

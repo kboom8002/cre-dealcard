@@ -51,8 +51,10 @@ function posNum(v: unknown): number | undefined {
  */
 export function readBrokerExtras(body: unknown): BrokerExtras | null {
   const raw = (body as { broker_extras?: unknown } | null | undefined)?.broker_extras;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const r = raw as Record<string, unknown>;
+  const manualComps = (body as { manual_comps?: unknown } | null | undefined)?.manual_comps;
+  const hasRawObj = !!raw && typeof raw === 'object' && !Array.isArray(raw);
+  if (!hasRawObj && !Array.isArray(manualComps)) return null;
+  const r = (hasRawObj ? raw : {}) as Record<string, unknown>;
   const out: BrokerExtras = {};
 
   if (Array.isArray(r.investment_points)) {
@@ -109,6 +111,30 @@ export function readBrokerExtras(body: unknown): BrokerExtras | null {
       if (str(o.as_of)) comp.as_of = str(o.as_of);
       if (typeof o.selected === 'boolean') comp.selected = o.selected;
       if (o.source === 'broker' || o.source === 'molit_tx' || o.source === 'broker_listing') comp.source = o.source;
+      comps.push(comp);
+    }
+    if (comps.length) out.market_comps = comps;
+  }
+
+  if (!out.market_comps?.length && Array.isArray(manualComps)) {
+    const comps: BrokerMarketComp[] = [];
+    for (const c of manualComps) {
+      if (!c || typeof c !== 'object') continue;
+      const o = c as Record<string, unknown>;
+      const location = str(o.address ?? o.location);
+      const priceManwon = posNum(o.priceManwon ?? o.price_manwon);
+      const priceEok = posNum(o.price_eok) ?? (priceManwon !== undefined ? Math.round((priceManwon / 10000) * 100) / 100 : undefined);
+      const landPy = posNum(o.landAreaPyeong ?? o.land_area_pyeong ?? o.area_pyeong);
+      const landPrice = posNum(o.pricePerPyeongManwon ?? o.land_price_per_pyeong_manwon)
+        ?? (priceManwon !== undefined && landPy !== undefined ? Math.round(priceManwon / landPy) : undefined);
+      if (!location || (priceEok === undefined && landPrice === undefined)) continue;
+      const comp: BrokerMarketComp = {
+        kind: 'transaction',
+        location,
+        ...(priceEok !== undefined ? { price_eok: priceEok } : {}),
+        ...(landPrice !== undefined ? { land_price_per_pyeong_manwon: landPrice } : {}),
+        ...(landPy !== undefined ? { land_area_pyeong: landPy, note: str(o.note) || `대지 ${landPy}평` } : {}),
+      };
       comps.push(comp);
     }
     if (comps.length) out.market_comps = comps;

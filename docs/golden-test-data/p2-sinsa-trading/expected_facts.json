@@ -115,8 +115,7 @@
       ],
       "where": "pptx",
       "source": "fixture",
-      "note": "bottom_sheet.manual_comps → broker_extras.market_comps (골든 팩토리 UI 입력). 재녹화 후 PPTX a26 시세비교 슬라이드로 검증",
-      "pending": "W3-rerecord"
+      "note": "bottom_sheet.manual_comps / broker_extras.market_comps → PPTX a26 시세비교 슬라이드로 검증"
     }
   ],
   "must_not_contain": [

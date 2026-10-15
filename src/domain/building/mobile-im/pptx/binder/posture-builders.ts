@@ -13,7 +13,7 @@ import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { resolveHotelOperating } from "./broker-memo-facts";
-import { sumLeasedRentRoll } from "../../lease-vacancy";
+import { sumLeasedRentRoll, resolveDevHoldMonthlyRentManwon } from "../../lease-vacancy";
 
 export function buildCapitalFromIncome(markdown: string, tables: ParsedTable[], body?: Record<string, any>, building?: Record<string, any>): Record<string, any> {
     return buildA16Props(markdown, tables, body, building);
@@ -476,17 +476,19 @@ export function buildDevelopmentScaleProps(body: Record<string, any> = {}, build
     const devSpec = body?.developmentSpec || {};
     const reg = body?.regulation || {};
     const parcels: any[] = body?.parcels || [];
-    const floorLeases: any[] = (body?.floor_leases || []).filter(Boolean);
+    const ssot = body?.ssot_summary || {};
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '해당 권역';
-    const totalLandSqm = parcels.reduce((sum: number, p: any) => sum + (p.areaSqm || 0), 0) || body?.ssot_summary?.plat_area_sqm || 0;
+    const totalLandSqm = parcels.reduce((sum: number, p: any) => sum + (p.areaSqm || 0), 0) || ssot.plat_area_sqm || 0;
     const targetScalePyeong = devSpec.targetScalePyung || devSpec.targetScalePyeong || 0;
     const targetScaleSqm = targetScalePyeong > 0 ? (pyeongToSqm(targetScalePyeong)).toFixed(1) : '-';
     const targetUse = devSpec.targetUse === 'office' ? '오피스 중심 복합 임대시설'
             : devSpec.targetUse === 'residential' ? '주거시설'
             : devSpec.targetUse === 'retail' ? '상업시설'
             : devSpec.targetUse || '복합시설';
-    const floorCount = floorLeases.length > 0
-            ? `${floorLeases[floorLeases.length - 1]?.floor || 'B1'}~${floorLeases[0]?.floor || '최상층'}`
+    // D-DEV-2: 계획 층 구성은 devSpec.newBuildFloors(없으면 ssot.floors)만 사용하며, 철거 대상인 현황 floor_leases 층 범위를 쓰지 않는다.
+    const rawNewFloors = devSpec.newBuildFloors ?? ssot.floors;
+    const floorCount = rawNewFloors != null && String(rawNewFloors).trim() !== ''
+            ? (typeof rawNewFloors === 'number' ? `${rawNewFloors}층` : String(rawNewFloors).trim())
             : '설계안 검토 중';
     const relaxedFar = reg.relaxedFarPct || reg.baseFarPct || 200;
     const buildableGross = totalLandSqm > 0 ? (totalLandSqm * relaxedFar / 100).toFixed(0) : '-';
@@ -604,20 +606,21 @@ export function buildDevelopmentCostProps(body: Record<string, any> = {}, buildi
 export function buildDevelopmentFeasibilityProps(body: Record<string, any> = {}, building: any = {}): Record<string, any> {
     const devSpec = body?.developmentSpec || {};
     const hero = body?.heroCard || {};
-    const floorLeases: any[] = (body?.floor_leases || []).filter(Boolean);
+    // D-DEV-1: 신축 후 보유(Hold) 임대수익·층수는 오직 devSpec.stackingPlan(또는 holdMonthlyRentManwon)에서만 읽는다 (현황 floor_leases는 명도 대상이므로 배제).
+    const postBuildFloors: any[] = (Array.isArray(devSpec.stackingPlan) ? devSpec.stackingPlan : []).filter(Boolean);
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '해당 권역';
     const totalCostManwon = devSpec.totalCostManwon || 0;
     const totalCostBil = totalCostManwon > 0 ? (totalCostManwon / 10000).toFixed(1) : '-';
     const targetPyeong = devSpec.targetScalePyung || devSpec.targetScalePyeong || 0;
     const salePricePerPyeong = devSpec.expectedSalePricePerPyung || devSpec.expectedSalePricePerPyeong || 0;
-    const monthlyRentTotal = sumLeasedRentRoll(floorLeases).rentManwon;
+    const monthlyRentTotal = resolveDevHoldMonthlyRentManwon(devSpec) ?? 0;
     const annualRentManwon = monthlyRentTotal * 12;
     const isHoldMode = monthlyRentTotal > 0 && salePricePerPyeong === 0;
-    const hasFloorLeases = floorLeases.length > 0 && monthlyRentTotal > 0;
+    const hasPostBuildLeases = monthlyRentTotal > 0;
     let profitLabel: string;
     let profitValue: string;
     let profitNote: string;
-    if (hasFloorLeases && totalCostManwon > 0) {
+    if (hasPostBuildLeases && totalCostManwon > 0) {
     // Hold 모드: 연 임대수익 / 총투입비 = 실질 연 순수익률
     const holdYieldPct = ((annualRentManwon / totalCostManwon) * 100).toFixed(2);
     profitLabel = '보유형 연 순수익률';
@@ -647,7 +650,7 @@ export function buildDevelopmentFeasibilityProps(body: Record<string, any> = {},
             { label: '총 사업비', value: totalCostBil !== '-' ? `약 ${totalCostBil}억원` : '-' },
             { label: profitLabel, value: profitValue },
           ];
-    if (hasFloorLeases) {
+    if (hasPostBuildLeases) {
     stats.push({ label: '예상 월 총임대수익', value: `${monthlyRentTotal.toLocaleString()}만원/월` });
     stats.push({ label: '예상 연 총임대수익', value: `약 ${(annualRentManwon / 10000).toFixed(1)}억원/년` });
     }
@@ -656,12 +659,13 @@ export function buildDevelopmentFeasibilityProps(body: Record<string, any> = {},
     stats.push({ label: '목표 분양/매각 단가', value: `${salePricePerPyeong.toLocaleString()}만원/평` });
     }
 
+    const floorPhrase = postBuildFloors.length > 0 ? `${postBuildFloors.length}개 층 ` : '';
     const callouts = [
             {
-              kind: hasFloorLeases ? 'good' as const : 'info' as const,
-              title: hasFloorLeases ? '보유형 임대 운용 수익 구조' : '사업 수지 핵심 검토',
-              body: hasFloorLeases
-                ? `• 신축 후 ${floorLeases.length}개 층 임대 운용 시 월 ${monthlyRentTotal.toLocaleString()}만원 수익 예상\n• ${profitNote}`
+              kind: hasPostBuildLeases ? 'good' as const : 'info' as const,
+              title: hasPostBuildLeases ? '보유형 임대 운용 수익 구조' : '사업 수지 핵심 검토',
+              body: hasPostBuildLeases
+                ? `• 신축 후 ${floorPhrase}임대 운용 시 월 ${monthlyRentTotal.toLocaleString()}만원 수익 예상\n• ${profitNote}`
                 : `• ${profitNote}\n• 사업 기간, 금융비용, 시장 변동성을 감안한 민감도 분석 필요`,
             },
           ];
@@ -670,6 +674,9 @@ export function buildDevelopmentFeasibilityProps(body: Record<string, any> = {},
     right: { stats, callouts },
     };
 }
+
+/** 별칭: 개발형 사업수지(Pro-Forma) 슬라이드 빌더 */
+export const buildDevelopmentProFormaProps = buildDevelopmentFeasibilityProps;
 
 // ═══════════════════════════════════════════════════════════════
 // Operating 포스처 빌더 (호텔/리조트/서비스드레지던스)

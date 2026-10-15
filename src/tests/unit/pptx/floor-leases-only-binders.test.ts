@@ -132,9 +132,22 @@ describe('floor_leases-only 문서 — Commercial(commercial_visual) 바인더',
 });
 
 describe('floor_leases-only 문서 — 개발형·대출·자본구조 빌더', () => {
-  it('개발형 사업수지: 기존 임대 월 총임대수익은 임대중 행만 합산 (공실 희망 임대료 제외)', () => {
-    const props = buildDevelopmentFeasibilityProps({ developmentSpec: { totalCostManwon: 1_000_000 }, floor_leases: floorLeases() });
-    const stat = props.right.stats.find((s: any) => s.label === '예상 월 총임대수익');
+  it('개발형 사업수지: 현황 floor_leases(명도 대상)는 보유수익에 합산하지 않고 신축 stackingPlan만 합산한다 (D-DEV-1)', () => {
+    const propsOnlyLeases = buildDevelopmentFeasibilityProps({ developmentSpec: { totalCostManwon: 1_000_000 }, floor_leases: floorLeases() });
+    const statOnlyLeases = propsOnlyLeases.right.stats.find((s: any) => s.label === '예상 월 총임대수익');
+    expect(statOnlyLeases).toBeUndefined();
+
+    const propsWithStacking = buildDevelopmentFeasibilityProps({
+      developmentSpec: {
+        totalCostManwon: 1_000_000,
+        stackingPlan: [
+          { floor: '1F', monthlyRent: 700 },
+          { floor: '2F', monthlyRent: 500 },
+        ],
+      },
+      floor_leases: floorLeases(),
+    });
+    const stat = propsWithStacking.right.stats.find((s: any) => s.label === '예상 월 총임대수익');
     expect(stat.value).toBe('1,200만원/월');
   });
 

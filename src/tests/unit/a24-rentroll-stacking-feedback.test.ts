@@ -78,7 +78,7 @@ describe('physicalFloorKey / groupStackingFloors — 같은 물리 층 묶기', 
     expect(groups).toHaveLength(11);
     expect(groups[0].key).toBe('B1'); // 바닥(지하)부터
     const nine = groups.find(g => g.key === '9F')!;
-    expect(nine.units.map(u => u.tenant)).toEqual(['임차인 H', '임차인 I']); // D6: 상호 미입력 → 마스킹 라벨
+    expect(nine.units.map(u => u.tenant)).toEqual(['컨설팅', '세무사']);
     expect(nine.totalArea).toBeCloseTo(105.8 + 103.8, 1);
     expect(groups.some(g => g.key === '9F-A' || g.key === '9F-B')).toBe(false);
   });
@@ -114,10 +114,15 @@ describe('bindRentRollTable — 면적·용도·관리비/만기일 매핑 (p5 �
     for (const r of rr.tableRows) {
       if (r[2] !== '-') expect(r[2]).not.toBe(r[1]);
     }
-    // 상호 미입력 → 임차인은 마스킹 라벨, 용도는 업종 그대로 표시
-    expect(byFloor('2F').slice(1, 3)).toEqual(['임차인 A', '디자인 스튜디오']);
-    const same = resolveTenantAndUse({ tenant_name: '세무사', tenant_type: '세무사' }, { maskSeq: 2 });
     // 오너 결정(2026-10): IM 은 실제 임차인명 — 상호==업종 동일 문자열도 임차인 칸에 그대로, 용도 칸은 중복 방지 '-'
+    expect(byFloor('2F').slice(1, 3)).toEqual(['디자인 스튜디오', '-']);
+    // 상호 미입력 폴백 → 임차인은 마스킹 라벨, 용도는 업종 그대로 표시
+    expect(resolveTenantAndUse({ tenant_type: '디자인 스튜디오' }, { maskSeq: 0 })).toMatchObject({
+      tenant: '임차인 A',
+      use: '디자인 스튜디오',
+      isMasked: true,
+    });
+    const same = resolveTenantAndUse({ tenant_name: '세무사', tenant_type: '세무사' }, { maskSeq: 2 });
     expect(same.use).toBe('-');
     expect(same.tenant).toBe('세무사');
     // 공실: 임차인 '공실', 용도에 공실 표식 반복 금지

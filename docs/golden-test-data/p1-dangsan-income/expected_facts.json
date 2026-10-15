@@ -189,7 +189,6 @@
       ],
       "where": "both",
       "source": "derived",
-      "pending": "W3",
       "note": "오너 결정: IM 전 구간 실제 임차인명 사용"
     },
     {
@@ -299,7 +298,6 @@
     "label": "임차인 실명 (렌트롤 상호 그대로)",
     "where": "both",
     "source": "fixture",
-    "pending": "W3",
     "note": "memo.txt 임대현황(Verified) 상호",
     "names": [
       "고은약국",

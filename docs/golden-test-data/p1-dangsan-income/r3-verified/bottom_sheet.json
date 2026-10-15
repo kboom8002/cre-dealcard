@@ -107,6 +107,7 @@
     {
       "floor": "1F",
       "tenant_type": "약국",
+      "tenant_name": "고은약국",
       "area_pyeong": 23.7,
       "deposit_manwon": 6000,
       "rent_manwon": 183,
@@ -119,6 +120,7 @@
     {
       "floor": "1F",
       "tenant_type": "내과",
+      "tenant_name": "로뎀나무내과",
       "area_pyeong": 31.9,
       "deposit_manwon": 14000,
       "rent_manwon": 883,
@@ -131,6 +133,7 @@
     {
       "floor": "2F",
       "tenant_type": "내과",
+      "tenant_name": "로뎀나무내과",
       "area_pyeong": 76.3,
       "deposit_manwon": 0,
       "rent_manwon": 0,
@@ -143,6 +146,7 @@
     {
       "floor": "3F",
       "tenant_type": "헬쓰장",
+      "tenant_name": "헬쓰장",
       "area_pyeong": 76.3,
       "deposit_manwon": 5000,
       "rent_manwon": 455,
@@ -154,6 +158,7 @@
     {
       "floor": "4F",
       "tenant_type": "와인매장",
+      "tenant_name": "국제와인",
       "area_pyeong": 51.1,
       "deposit_manwon": 3000,
       "rent_manwon": 260,
@@ -177,6 +182,7 @@
     {
       "floor": "5F",
       "tenant_type": "내과",
+      "tenant_name": "로뎀나무내과",
       "area_pyeong": 55.6,
       "deposit_manwon": 1000,
       "rent_manwon": 165,
