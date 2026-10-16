@@ -187,6 +187,11 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
               {errors.email}
             </p>
           ) : null}
+          {form.channel === 'kakao' && !form.email.trim() ? (
+            <p className="text-sm text-indigo-200/90 leading-relaxed pt-1">
+              💡 이메일을 함께 입력하시면 구독 확인 링크가 자동 발송됩니다 (카카오톡 단독 등록 시 중개사님의 수신 동의 확인으로 즉시 등록됩니다)
+            </p>
+          ) : null}
         </div>
 
         <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">

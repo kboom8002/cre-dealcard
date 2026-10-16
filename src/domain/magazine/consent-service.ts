@@ -499,6 +499,7 @@ export interface EmailMessage {
   subject: string;
   html: string;
   text: string;
+  fromName?: string | null;
 }
 
 export interface SendOptInDeps {
@@ -512,12 +513,21 @@ export function buildConfirmUrl(token: string, brokerSlug: string, baseUrl: stri
   return assertAbsoluteHttpsUrl(url, 'confirmUrl');
 }
 
+export function formatSenderHeader(rawFrom: string | undefined, brokerName?: string | null): string {
+  const base = (rawFrom ?? '').trim() || 'CRE 매거진 <magazine@credeal.net>';
+  const cleanName = typeof brokerName === 'string' ? brokerName.replace(/["<>]/g, '').trim() : '';
+  if (!cleanName) return base;
+  const addrMatch = base.match(/<([^>]+)>/);
+  const addr = addrMatch ? addrMatch[1].trim() : base;
+  return `"${cleanName} 매거진" <${addr}>`;
+}
+
 async function defaultSendEmail(msg: EmailMessage): Promise<{ ok: boolean; noProvider?: boolean }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, noProvider: true };
   const { Resend } = await import('resend');
   const resend = new Resend(key);
-  const from = process.env.EMAIL_FROM || 'CRE Magazine <magazine@credeal.net>';
+  const from = formatSenderHeader(process.env.EMAIL_FROM, msg.fromName);
   const { error } = await resend.emails.send({ from, to: msg.to, subject: msg.subject, html: msg.html, text: msg.text });
   if (error) {
     log.error('[consent] 확인 메일 발송 실패', { name: (error as { name?: string }).name });
@@ -568,7 +578,11 @@ export async function sendOptInConfirmation(
   }
 
   try {
-    const r = await (deps.sendEmail ?? defaultSendEmail)({ to: params.email, ...rendered });
+    const r = await (deps.sendEmail ?? defaultSendEmail)({
+      to: params.email,
+      fromName: params.brokerName ?? null,
+      ...rendered,
+    });
     if (r.noProvider) return { sent: false, reason: 'NO_PROVIDER' };
     return r.ok ? { sent: true } : { sent: false, reason: 'FAILED' };
   } catch (err) {

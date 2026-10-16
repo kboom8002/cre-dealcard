@@ -1,16 +1,21 @@
 "use client";
 
 /**
- * ViewerBottomBar — 뷰어 하단 고정 바 (U-02 T2-22 · U2-03 · U-05 CTA 위계)
- *  - 공통 `BottomBar`(safe-area, 입력 포커스/키보드 시 숨김, 중복 바 방지)로 교체
- *  - 주 1: 전화 상담 (전화 없으면 카톡·문의 대체) / 보조: IM 요청, 공유
- *  - 에디터 미리보기에서는 fixed 바가 프레임을 탈출하므로 정적 목업만 그린다
+ * ViewerBottomBar — 뷰어 하단 고정 바 (U-02 T2-22 · U2-03 · U-05 CTA 위계 · U-F1-13 · U-F1-15)
+ *  - SSR 초기 HTML에 `<nav aria-label="상담·공유 바로가기" data-magazine-bottom-bar>`와
+ *    3대 액션(전화 상담 / IM 요청 / 공유)이 즉시 렌더되도록 보장한다 (Slow 4G JS 지연 대비).
+ *  - 입력창 포커스 또는 가상키보드 활성 시(`shouldHideBottomBar`) 즉시 숨긴다.
+ *  - 360px 뷰포트에서도 3개 버튼이 한 줄(높이 48px, 바 전체 높이 56px < 60px)에 말줄임 없이 배치된다.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Script from "next/script";
 import { Check, FileText, MessageCircle, Phone, Share2 } from "lucide-react";
 import { toast } from "sonner";
-import { BottomBar } from "@/components/ui/bottom-bar";
+import {
+  computeViewportRatio,
+  isTextInputElement,
+  shouldHideBottomBar,
+} from "@/components/ui/bottom-bar-logic";
 import { shareMagazine } from "@/components/magazine/share-magazine";
 import { useViewerTrack } from "@/components/magazine/viewer-track";
 import { resolvePublicBaseUrl } from "@/lib/magazine/share-urls";
@@ -37,23 +42,87 @@ interface ViewerBottomBarProps {
 }
 
 function ActionIcon({ kind }: { kind: ViewerBarAction["kind"] }) {
-  if (kind === "call") return <Phone className="h-4 w-4" />;
-  if (kind === "contact") return <MessageCircle className="h-4 w-4" />;
-  if (kind === "im") return <FileText className="h-4 w-4" />;
-  return <Share2 className="h-4 w-4" />;
+  if (kind === "call") return <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />;
+  if (kind === "contact") return <MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" />;
+  if (kind === "im") return <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />;
+  return <Share2 className="h-4 w-4 shrink-0" aria-hidden="true" />;
 }
 
 export function ViewerBottomBar({
-  phone, kakaoUrl, brokerSlug, brokerName, brokerId, headline, date, dateLabel, target, preview = false,
+  phone,
+  kakaoUrl,
+  brokerSlug,
+  brokerName,
+  brokerId,
+  headline,
+  date,
+  target,
+  preview = false,
 }: ViewerBottomBarProps) {
-  const onTrack = useViewerTrack(); // 서버 셸이 함수를 내려줄 수 없어 ViewerTrackProvider 컨텍스트 사용
+  const onTrack = useViewerTrack();
   const [copied, setCopied] = useState(false);
+  const [hiddenByInput, setHiddenByInput] = useState(false);
   const actions = buildBottomBarActions({ phone, brokerSlug, kakaoUrl });
+
+  useEffect(() => {
+    if (preview || typeof window === "undefined") return;
+
+    let baselineHeight = window.innerHeight;
+    let focusBlurTimer: number | null = null;
+
+    const evaluate = () => {
+      const vv = window.visualViewport;
+      if (vv && vv.height > baselineHeight) baselineHeight = vv.height;
+      const ratio = vv
+        ? computeViewportRatio(vv.height, baselineHeight)
+        : 1;
+      const focused = isTextInputElement(document.activeElement);
+      setHiddenByInput(
+        shouldHideBottomBar(
+          { inputFocused: focused, viewportRatio: ratio },
+          true,
+        ),
+      );
+    };
+
+    const onFocusIn = (e: FocusEvent) => {
+      if (focusBlurTimer !== null) {
+        window.clearTimeout(focusBlurTimer);
+        focusBlurTimer = null;
+      }
+      if (isTextInputElement(e.target as Element | null)) {
+        setHiddenByInput(true);
+      } else {
+        evaluate();
+      }
+    };
+
+    const onFocusOut = () => {
+      focusBlurTimer = window.setTimeout(evaluate, 80);
+    };
+
+    const vv = window.visualViewport;
+    document.addEventListener("focusin", onFocusIn, true);
+    document.addEventListener("focusout", onFocusOut, true);
+    vv?.addEventListener("resize", evaluate);
+    window.addEventListener("resize", evaluate);
+
+    return () => {
+      if (focusBlurTimer !== null) window.clearTimeout(focusBlurTimer);
+      document.removeEventListener("focusin", onFocusIn, true);
+      document.removeEventListener("focusout", onFocusOut, true);
+      vv?.removeEventListener("resize", evaluate);
+      window.removeEventListener("resize", evaluate);
+    };
+  }, [preview]);
 
   const handleShare = async () => {
     onTrack?.("bottom_share");
     const baseUrl = resolvePublicBaseUrl(null) ?? window.location.origin;
-    const link = new URL(`/magazine/${encodeURIComponent(brokerId)}/${encodeURIComponent(date)}`, baseUrl);
+    const link = new URL(
+      `/magazine/${encodeURIComponent(brokerId)}/${encodeURIComponent(date)}`,
+      baseUrl,
+    );
     if (target !== "all") link.searchParams.set("target", target);
     const who = brokerName?.trim() || "중개사";
     const outcome = await shareMagazine(
@@ -69,7 +138,9 @@ export function ViewerBottomBar({
         kakao: (window as unknown as { Kakao?: KakaoLike }).Kakao ?? null,
         appKey: process.env.NEXT_PUBLIC_KAKAO_APP_KEY ?? null,
         share: typeof navigator.share === "function" ? (d) => navigator.share(d) : null,
-        writeClipboard: navigator.clipboard?.writeText ? (t) => navigator.clipboard.writeText(t) : null,
+        writeClipboard: navigator.clipboard?.writeText
+          ? (t) => navigator.clipboard.writeText(t)
+          : null,
       },
     );
     if (outcome === "copied") {
@@ -81,12 +152,17 @@ export function ViewerBottomBar({
     }
   };
 
-  // 에디터 미리보기: 정적 목업(클릭 불가) — 실제 fixed 바·SDK 로드 없음
   if (preview) {
     return (
-      <div aria-hidden="true" className="mt-6 flex gap-2 rounded-xl border border-white/10 bg-slate-950/80 p-3 pointer-events-none">
+      <div
+        aria-hidden="true"
+        className="mt-6 flex gap-2 rounded-xl border border-white/10 bg-slate-950/80 p-3 pointer-events-none"
+      >
         {actions.map((a) => (
-          <span key={a.target} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 text-label font-bold text-ink-muted">
+          <span
+            key={a.target}
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 text-sm font-bold text-ink-muted"
+          >
             <ActionIcon kind={a.kind} />
             {a.label}
           </span>
@@ -95,46 +171,67 @@ export function ViewerBottomBar({
     );
   }
 
+  if (hiddenByInput) {
+    return null;
+  }
+
   const primary = actions.find(
-    (a): a is Extract<ViewerBarAction, { kind: "call" | "contact" }> => a.kind === "call" || a.kind === "contact",
+    (a): a is Extract<ViewerBarAction, { kind: "call" | "contact" }> =>
+      a.kind === "call" || a.kind === "contact",
   );
   const rest = actions.filter((a) => a !== primary);
 
   return (
     <>
-      {/* Kakao SDK: 실패해도 링크 복사로 폴백된다 (shareMagazine) */}
-      <Script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" strategy="afterInteractive" />
-      <BottomBar aria-label="상담·공유 바로가기">
-        {primary && (
-          <BottomBar.Primary
-            href={primary.href}
-            icon={<ActionIcon kind={primary.kind} />}
-            onClick={() => onTrack?.(primary.target)}
-          >
-            {primary.label}
-          </BottomBar.Primary>
-        )}
-        {rest.map((a) =>
-          a.kind === "share" ? (
-            <BottomBar.Secondary
-              key={a.target}
-              icon={copied ? <Check className="h-4 w-4 text-emerald-300" /> : <ActionIcon kind="share" />}
-              onClick={handleShare}
+      <Script
+        src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+        strategy="afterInteractive"
+      />
+      <nav
+        aria-label="상담·공유 바로가기"
+        data-magazine-bottom-bar=""
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/15 bg-[#090d1a]/95 px-2.5 py-1 backdrop-blur-xl print:hidden"
+      >
+        <div className="mx-auto flex max-w-lg items-center gap-1.5">
+          {primary && (
+            <a
+              href={primary.href}
+              onClick={() => onTrack?.(primary.target)}
+              className="inline-flex h-12 min-h-12 flex-[1.25] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-600 px-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-500 active:scale-[0.99]"
             >
-              {copied ? "복사됨" : a.label}
-            </BottomBar.Secondary>
-          ) : (
-            <BottomBar.Secondary
-              key={a.target}
-              href={a.href}
-              icon={<ActionIcon kind={a.kind} />}
-              onClick={() => onTrack?.(a.target)}
-            >
-              {a.label}
-            </BottomBar.Secondary>
-          ),
-        )}
-      </BottomBar>
+              <ActionIcon kind={primary.kind} />
+              <span>{primary.label}</span>
+            </a>
+          )}
+          {rest.map((a) =>
+            a.kind === "share" ? (
+              <button
+                key={a.target}
+                type="button"
+                onClick={handleShare}
+                className="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-white/20 bg-white/[0.06] px-2.5 text-sm font-bold text-slate-100 transition-colors hover:bg-white/10 active:scale-[0.99]"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 shrink-0 text-emerald-300" aria-hidden="true" />
+                ) : (
+                  <ActionIcon kind="share" />
+                )}
+                <span>{copied ? "복사됨" : a.label}</span>
+              </button>
+            ) : (
+              <a
+                key={a.target}
+                href={a.href}
+                onClick={() => onTrack?.(a.target)}
+                className="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-white/20 bg-white/[0.06] px-2.5 text-sm font-bold text-slate-100 transition-colors hover:bg-white/10 active:scale-[0.99]"
+              >
+                <ActionIcon kind={a.kind} />
+                <span>{a.label}</span>
+              </a>
+            ),
+          )}
+        </div>
+      </nav>
     </>
   );
 }

@@ -108,9 +108,8 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const slug = state.brokerSlug ?? brokerId;
   // 표지 h1 과 동일한 제목 (T1-16). 루트 레이아웃 title.template 가 "| DealCard" 를 붙인다.
   const title = buildMagazineTitle(data.headline, broker.name);
-  const description =
-    (data.headline as string | undefined) ??
-    `${broker.name ?? "중개사"} 중개사의 ${formatKoreanDate(date)} 꼬마빌딩 시장 AI 맞춤 브리핑`;
+  const marketTempLabel = typeof data.market_temp === "string" && data.market_temp.trim() ? ` · 시장 온도: ${data.market_temp.trim()}` : "";
+  const description = `${broker.name ?? "중개사"} 중개사의 ${formatKoreanDate(date)} 주간 빌딩·상업용 부동산 브리핑${marketTempLabel}`;
   const ogImageUrl = `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}`;
   const canonical = `https://credeal.net/magazine/${slug}/${date}`;
 
@@ -129,6 +128,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
     openGraph: {
       title,
       description,
+      siteName: "CRE 매거진",
       type: "article",
       url: canonical,
       images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],

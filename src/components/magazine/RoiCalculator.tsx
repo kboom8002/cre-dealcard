@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useId, useMemo, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { formatManwonInt, formatPriceKo, formatSignedManwon } from "@/lib/magazine/view-helpers";
-import { GlossaryTerm } from "@/components/magazine/GlossaryTerm";
+import { GLOSSARY, formatManwonInt, formatPriceKo, formatSignedManwon } from "@/lib/magazine/view-helpers";
 import {
   ROI_ASSUMPTIONS,
   ROI_DEFAULTS,
@@ -25,6 +24,68 @@ interface RoiCalculatorProps {
 const pct = (v: number) => `${v.toFixed(2)}%`;
 const mgmtPct = Math.round(ROI_ASSUMPTIONS.managementCostRate * 100);
 const depositPct = Math.round(ROI_ASSUMPTIONS.depositReturnRate * 100);
+
+/**
+ * 한국어 금액 입력 파서 (U-F1-12: 억 단위 숫자 반환).
+ * - '50' → 50
+ * - '25억', '25.5억' → 25, 25.5
+ * - '1억 5천', '1억 5천만', '1억 5,000만원' → 1.5
+ * - '3,200,000,000' (1억 이상 원 단위 숫자) → 32
+ * - '3,500만원' → 0.35
+ */
+export function parseKoreanEokInput(raw: unknown): number | null {
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw) || raw < 0) return null;
+    if (raw >= 100_000_000) return Math.round((raw / 100_000_000) * 100) / 100;
+    if (raw >= 10_000) return Math.round((raw / 100_000_000) * 100) / 100;
+    return raw;
+  }
+  if (typeof raw !== "string") return null;
+  const cleaned = raw.replace(/,/g, "").replace(/원/g, "").trim();
+  if (!cleaned) return null;
+
+  // '1억 5천', '25억', '25.5억', '1억 5000만' 등
+  if (cleaned.includes("억")) {
+    const m = cleaned.match(/^(\d+(?:\.\d+)?)\s*억(?:\s*(\d+(?:\.\d+)?)\s*(천만|천|백만|백|만)?)?$/);
+    if (!m) return null;
+    let eok = Number(m[1]);
+    if (!Number.isFinite(eok)) return null;
+    if (m[2] !== undefined) {
+      const sub = Number(m[2]);
+      const unit = m[3] || "";
+      if (Number.isFinite(sub)) {
+        if (unit === "천" || unit === "천만") eok += sub * 0.1;
+        else if (unit === "백" || unit === "백만") eok += sub * 0.01;
+        else if (unit === "만" || sub >= 100) eok += sub / 10_000;
+        else eok += sub * 0.1;
+      }
+    }
+    return Math.round(eok * 100) / 100;
+  }
+
+  // '5천만', '5천' (억 없이 천만 단위)
+  const cheonMatch = cleaned.match(/^(\d+(?:\.\d+)?)\s*천만?$/);
+  if (cheonMatch) {
+    return Math.round(Number(cheonMatch[1]) * 0.1 * 100) / 100;
+  }
+
+  // '3500만' (억 없이 만 단위)
+  const manMatch = cleaned.match(/^(\d+(?:\.\d+)?)\s*만$/);
+  if (manMatch) {
+    return Math.round((Number(manMatch[1]) / 10_000) * 100) / 100;
+  }
+
+  // 순수 숫자 ('50', '25.5', '3200000000')
+  const num = Number(cleaned);
+  if (!Number.isFinite(num) || num < 0) return null;
+  if (num >= 100_000_000) {
+    return Math.round((num / 100_000_000) * 100) / 100;
+  }
+  if (num >= 10_000) {
+    return Math.round((num / 100_000_000) * 100) / 100;
+  }
+  return Math.round(num * 100) / 100;
+}
 
 export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInteract }: RoiCalculatorProps) {
   const [inputs, setInputs] = useState<RoiInputs>({
@@ -64,17 +125,17 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
     <div className="space-y-4">
       {/* 헤더: 제목은 바깥 SectionCard 가 이미 표시하므로(중복 방지) 시뮬레이션 배지만 둔다 */}
       <div className="flex items-center justify-end">
-        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-caption font-bold text-emerald-300">
+        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-caption font-bold text-emerald-300">
           실시간 시뮬레이션
         </span>
       </div>
 
       {/* 총 층수 직접 입력 (T3-46) */}
       <div className="flex items-center justify-between gap-3">
-        <label htmlFor="roi-total-floors" className="text-caption text-ink-muted">
+        <label htmlFor="roi-total-floors" className="inline-flex min-h-12 min-w-12 items-center text-label font-semibold text-ink-muted">
           전체 층수
         </label>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1.5">
           <input
             id="roi-total-floors"
             type="number"
@@ -87,14 +148,14 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
               const c = clampInput(Number(e.target.value), TOTAL_FLOORS_MIN, TOTAL_FLOORS_MAX);
               if (c !== null) setTotalFloors(c);
             }}
-            className="min-h-11 w-20 rounded-lg border border-white/15 bg-white/5 px-2 text-right text-reader font-bold text-white"
+            className="min-h-12 w-20 rounded-lg border border-white/15 bg-white/5 px-2.5 text-right text-reader font-bold text-white"
           />
           <span className="text-caption text-ink-muted">층</span>
         </span>
       </div>
 
       {/* 입력 슬라이더 */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
         <SliderInput
           id="roi-price"
           label="매입가"
@@ -107,6 +168,7 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
           unit="억"
           format={formatPriceKo}
           accent={accentColor}
+          useKoreanEokParser
         />
         <SliderInput
           id="roi-ltv"
@@ -147,6 +209,7 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
           unit="억"
           format={(v) => (v === 0 ? "0원" : formatPriceKo(v))}
           accent={accentColor}
+          useKoreanEokParser
         />
         <SliderInput
           id="roi-rent"
@@ -177,22 +240,28 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
         />
       </div>
 
-      {/* 결과 카드 */}
+      {/* 결과 카드 — 자식 순서 고정: [label p] → [값 p] → [tone p] → [<p>sub</p>] → [한글 보조 span] */}
       <div className="grid grid-cols-3 gap-2" aria-live="polite">
-        <ResultCard label="연 순수익률" sub="Cap Rate" value={pct(result.capRate)} tone={capTone} />
-        <ResultCard label="자기자본수익률" sub="Cash-on-Cash" value={pct(result.cashOnCash)} tone={cashTone} />
+        <ResultCard label="연 순수익률" sub="Cap Rate" helperKo="(연 임대수익률)" value={pct(result.capRate)} tone={capTone} />
+        <ResultCard label="자기자본수익률" sub="Cash-on-Cash" helperKo="(실투자금 대비)" value={pct(result.cashOnCash)} tone={cashTone} />
         <ResultCard
           label="월 순현금흐름"
           sub="Net Cash Flow"
+          helperKo="(이자 공제 후)"
           value={formatSignedManwon(result.monthlyCashFlow)}
           tone={flowTone}
         />
       </div>
 
-      {/* 용어 설명 (탭하면 펼침) */}
-      <p className="text-caption leading-relaxed text-ink-muted">
-        용어: <GlossaryTerm term="Cap Rate" /> · <GlossaryTerm term="Cash-on-Cash" /> · <GlossaryTerm term="NOI" />
-      </p>
+      {/* 용어 설명 (탭하면 펼침 — 48px 높이, keep-all) */}
+      <div className="space-y-2">
+        <span className="block text-caption font-semibold text-ink-muted">용어 설명 (누르면 뜻이 펼쳐집니다):</span>
+        <div className="flex flex-wrap items-start gap-2">
+          <RoiGlossaryButton term="Cap Rate" />
+          <RoiGlossaryButton term="Cash-on-Cash" />
+          <RoiGlossaryButton term="NOI" />
+        </div>
+      </div>
 
       {/* 공실 경고 (아이콘 + 텍스트) */}
       {vacancyFloors > 0 && (
@@ -210,7 +279,7 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
 
       {/* 상세 내역 */}
       <details className="group">
-        <summary className="flex min-h-11 cursor-pointer items-center text-caption text-ink-muted hover:text-white">
+        <summary className="flex min-h-12 cursor-pointer items-center text-label font-semibold text-ink-muted hover:text-white">
           상세 내역 펼치기 ▾
         </summary>
         <dl className="mt-1 space-y-1.5 text-caption text-ink-muted">
@@ -225,11 +294,42 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
         </dl>
       </details>
 
-      {/* 면책 + 핵심 가정 (12px · 대비 4.5:1 이상, T3-27) */}
-      <p className="text-caption leading-relaxed text-ink-muted" data-testid="roi-disclaimer">
+      {/* 면책 + 핵심 가정 (14px 이상 · 대비 4.5:1 이상, T3-27) */}
+      <p className="text-sm leading-relaxed text-slate-300" data-testid="roi-disclaimer">
         ※ 참고용 시뮬레이션이며 투자 자문이 아닙니다. 핵심 가정: 관리비는 임대수입의 {mgmtPct}%, 보증금 운용이자는 연{" "}
         {depositPct}%로 계산하며, 취득세·양도세 등 세금과 원금 상환은 포함하지 않습니다.
       </p>
+    </div>
+  );
+}
+
+function RoiGlossaryButton({ term }: { term: string }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const description = GLOSSARY[term];
+  if (!description) return null;
+
+  return (
+    <div className="inline-block">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        aria-label={`${term} 설명 ${open ? "닫기" : "보기"}`}
+        onClick={() => setOpen((v) => !v)}
+        style={{ wordBreak: "keep-all" }}
+        className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-3.5 py-2.5 text-[15px] font-semibold whitespace-nowrap text-indigo-200 underline decoration-dotted decoration-indigo-300/60 underline-offset-4 hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
+      >
+        {term}
+      </button>
+      <span
+        id={id}
+        role="note"
+        hidden={!open}
+        className="mt-1.5 block rounded-xl border border-white/15 bg-slate-900 px-3.5 py-2.5 text-caption font-normal leading-relaxed text-ink-muted"
+      >
+        <strong className="text-white">{term}</strong> — {description}
+      </span>
     </div>
   );
 }
@@ -243,9 +343,9 @@ function Row({ dt, dd }: { dt: React.ReactNode; dd: React.ReactNode }) {
   );
 }
 
-// ── 슬라이더 + 직접 입력 ──
+// ── 슬라이더 + 직접 입력 + 48×48 미세조절 스테퍼 ──
 function SliderInput({
-  id, label, value, onChange, min, max, step, scale, unit, decimals = 0, format, danger, accent,
+  id, label, value, onChange, min, max, step, scale, unit, decimals = 0, format, danger, accent, useKoreanEokParser = false,
 }: {
   id: string;
   label: string;
@@ -261,23 +361,78 @@ function SliderInput({
   format: (v: number) => string;
   danger?: boolean;
   accent: string;
+  useKoreanEokParser?: boolean;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const shown = draft ?? String(Number((value / scale).toFixed(decimals === 0 && scale > 1 ? 1 : decimals)));
   const fill = max > min ? Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100)) : 0;
 
   const commit = () => {
     if (draft === null) return;
-    const n = Number(draft.replace(/,/g, ""));
-    const c = clampInput(n * scale, min, max);
-    if (c !== null) onChange(c);
+    const rawTrimmed = draft.trim();
+    if (!rawTrimmed) {
+      setDraft(null);
+      return;
+    }
+
+    if (useKoreanEokParser) {
+      const parsedEok = parseKoreanEokInput(rawTrimmed);
+      if (parsedEok === null) {
+        setNotice("숫자 또는 '25억' 형식으로 입력해 주세요");
+        setDraft(null);
+        return;
+      }
+      const rawNum = Number(rawTrimmed.replace(/,/g, "").replace(/원/g, "").trim());
+      const wasWonScale = Number.isFinite(rawNum) && rawNum >= 100_000_000;
+      const targetWon = parsedEok * scale;
+      const clamped = clampInput(targetWon, min, max);
+      if (clamped !== null) {
+        onChange(clamped);
+        const minEok = min / scale;
+        const maxEok = max / scale;
+        if (targetWon < min) {
+          setNotice(`입력하신 금액을 최소 기준인 ${minEok}억 원으로 맞추었습니다`);
+        } else if (targetWon > max) {
+          setNotice(`입력하신 금액을 최대 기준인 ${maxEok}억 원으로 맞추었습니다`);
+        } else if (wasWonScale) {
+          setNotice(`원 단위 입력(${parsedEok}억 원)으로 자동 변환했습니다`);
+        } else {
+          setNotice(null);
+        }
+      }
+      setDraft(null);
+      return;
+    }
+
+    const cleaned = rawTrimmed.replace(/,/g, "").replace(/만원|만|원|%|층/g, "").trim();
+    const n = Number(cleaned);
+    if (!Number.isFinite(n)) {
+      setDraft(null);
+      return;
+    }
+    const rawScaled = unit === "만원" && n >= 100_000 ? n : n * scale;
+    const c = clampInput(rawScaled, min, max);
+    if (c !== null) {
+      onChange(c);
+      setNotice(null);
+    }
     setDraft(null);
   };
 
+  const stepBy = (delta: number) => {
+    setDraft(null);
+    setNotice(null);
+    const nextRaw = value + delta;
+    const rounded = decimals > 0 ? Number(nextRaw.toFixed(decimals)) : Math.round(nextRaw);
+    const c = clampInput(rounded, min, max);
+    if (c !== null) onChange(c);
+  };
+
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={`${id}-range`} className="text-caption text-ink-muted">
+        <label htmlFor={`${id}-range`} className="inline-flex min-h-12 min-w-12 items-center text-label font-semibold text-ink-muted">
           {label}
         </label>
         <span className="flex items-center gap-1">
@@ -292,41 +447,69 @@ function SliderInput({
             onKeyDown={(e) => {
               if (e.key === "Enter") commit();
             }}
-            className={`min-h-11 w-20 rounded-lg border bg-white/5 px-2 text-right text-reader font-bold ${
+            className={`min-h-12 w-20 rounded-lg border bg-white/5 px-2 text-right text-reader font-bold ${
               danger ? "border-red-400/50 text-red-200" : "border-white/15 text-white"
             }`}
           />
           <span className="text-caption text-ink-muted">{unit}</span>
         </span>
       </div>
-      {/* 44px 터치 트랙: 투명 h-11 input + 24px thumb, 시각적 바는 별도 레이어 */}
-      <div className="relative flex h-11 items-center">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-600">
-          <div className="h-full rounded-full" style={{ width: `${fill}%`, background: danger ? "#f87171" : accent }} />
+      {notice && (
+        <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[15px] font-medium leading-snug text-amber-200">
+          {notice}
+        </p>
+      )}
+      {/* 48px 터치 트랙 + 좌우 48×48px [−] [+] 미세조절 스테퍼 */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label={`${label} 감소`}
+          onClick={() => stepBy(-step)}
+          className="inline-flex h-12 min-h-12 w-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-title font-bold text-slate-200 hover:bg-white/10 active:scale-95"
+        >
+          −
+        </button>
+        <div className="relative flex h-12 flex-1 items-center">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-slate-600">
+            <div className="h-full rounded-full" style={{ width: `${fill}%`, background: danger ? "#f87171" : accent }} />
+          </div>
+          <input
+            id={`${id}-range`}
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            aria-label={label}
+            aria-valuetext={format(value)}
+            onChange={(e) => {
+              setDraft(null);
+              setNotice(null);
+              onChange(Number(e.target.value));
+            }}
+            className="relative z-10 h-12 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white"
+          />
         </div>
-        <input
-          id={`${id}-range`}
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          aria-label={label}
-          aria-valuetext={format(value)}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="relative z-10 h-11 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white"
-        />
+        <button
+          type="button"
+          aria-label={`${label} 증가`}
+          onClick={() => stepBy(step)}
+          className="inline-flex h-12 min-h-12 w-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-title font-bold text-slate-200 hover:bg-white/10 active:scale-95"
+        >
+          +
+        </button>
       </div>
     </div>
   );
 }
 
-// ── 결과 카드 ──
+// ── 결과 카드 — 자식 순서 고정: [값 엘리먼트] → [tone 엘리먼트] → [<p>sub</p>] → [<span>한글 보조</span>] ──
 function ResultCard({
-  label, sub, value, tone,
+  label, sub, helperKo, value, tone,
 }: {
   label: string;
   sub: React.ReactNode;
+  helperKo?: string;
   value: string;
   tone: { c: string; t: string };
 }) {
@@ -338,6 +521,7 @@ function ResultCard({
       </p>
       <p className="text-caption font-bold text-ink-muted">{tone.t}</p>
       <p className="text-caption text-ink-subtle">{sub}</p>
+      {helperKo && <span className="block text-caption text-ink-subtle">{helperKo}</span>}
     </div>
   );
 }

@@ -39,6 +39,8 @@ export interface EmailSendInput {
   html: string;
   text?: string;
   headers?: Record<string, string>;
+  senderName?: string | null;
+  fromName?: string | null;
 }
 
 export interface ProviderResult {
@@ -47,12 +49,21 @@ export interface ProviderResult {
   error?: string;
 }
 
+export function formatMagazineFromHeader(rawFrom: string | undefined, senderName?: string | null): string {
+  const base = (rawFrom ?? '').trim() || 'CRE 매거진 <magazine@credeal.net>';
+  const cleanSender = typeof senderName === 'string' ? senderName.replace(/["<>]/g, '').trim() : '';
+  if (!cleanSender) return base;
+  const addrMatch = base.match(/<([^>]+)>/);
+  const addr = addrMatch ? addrMatch[1].trim() : base;
+  return `"${cleanSender} 매거진" <${addr}>`;
+}
+
 export async function sendEmailProvider(input: EmailSendInput): Promise<ProviderResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: 'NO_PROVIDER: RESEND_API_KEY missing' };
   try {
     const resend = new Resend(key);
-    const from = process.env.EMAIL_FROM || 'CRE Magazine <magazine@credeal.net>';
+    const from = formatMagazineFromHeader(process.env.EMAIL_FROM, input.senderName ?? input.fromName);
     const { data, error } = await resend.emails.send({
       from,
       to: input.to,

@@ -34,7 +34,7 @@ export function unpublishedDescription(reason: UnpublishedReason, dateLabel: str
 }
 
 const linkBase =
-  'inline-flex min-h-11 w-full items-center justify-center rounded-xl px-4 text-body font-bold transition-colors';
+  'inline-flex min-h-12 w-full items-center justify-center rounded-xl px-4 text-body font-bold transition-colors';
 
 export function UnpublishedNotice({ reason, brokerSlug, date, latestDate }: UnpublishedNoticeProps) {
   let dateLabel: string | null = null;
@@ -55,8 +55,8 @@ export function UnpublishedNotice({ reason, brokerSlug, date, latestDate }: Unpu
       <div className="w-full max-w-md space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center shadow-xl">
         <div className="text-5xl" aria-hidden="true">📰</div>
         <h1 className="text-title font-bold text-white">아직 발행되지 않은 매거진입니다</h1>
-        <p className="text-body leading-relaxed text-ink-muted">{unpublishedDescription(reason, dateLabel)}</p>
-        <div className="space-y-2 pt-2">
+        <p className="text-body leading-relaxed text-slate-200">{unpublishedDescription(reason, dateLabel)}</p>
+        <div className="space-y-2.5 pt-2">
           {latestDate ? (
             <Link href={`/magazine/${slug}/${latestDate}`} className={`${linkBase} bg-indigo-500 text-white hover:bg-indigo-400`}>
               가장 최근 호 보기 ({formatKoreanDate(latestDate)})
@@ -65,7 +65,7 @@ export function UnpublishedNotice({ reason, brokerSlug, date, latestDate }: Unpu
           <Link href={`/magazine/${slug}`} className={`${linkBase} border border-white/20 bg-white/5 text-white hover:bg-white/10`}>
             지난 매거진 목록
           </Link>
-          <Link href={`/magazine/${slug}/subscribe`} className={`${linkBase} border border-white/20 text-ink-muted hover:bg-white/5`}>
+          <Link href={`/magazine/${slug}/subscribe`} className={`${linkBase} border border-white/20 text-slate-200 hover:bg-white/5`}>
             다음 호 구독하기
           </Link>
         </div>

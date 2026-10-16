@@ -113,6 +113,12 @@ const ORDER_SELLER: readonly ViewerSectionId[] = [
   'subscribe_cta', 'broker_profile', 'news_curation', 'auction_picks', 'reports', 'tax_clinic', 'roi_calculator', 'referral',
 ];
 
+export const DEFAULT_SECTIONS: Readonly<Record<ViewerTarget, readonly ViewerSectionId[]>> = {
+  all: ORDER_ALL,
+  buyer: ORDER_BUYER,
+  seller: ORDER_SELLER,
+};
+
 /**
  * 렌더 순서. 에디션이 `section_order` 를 가지면 그 순서(+구독·프로필을 뒤에 붙임), 없으면 타깃별 기본 순서.
  * 레퍼럴·세무는 항상 맨 뒤쪽(강등, U-05).
@@ -262,10 +268,43 @@ export function filterKeyStatsByEvidence<T extends { value?: unknown; label?: un
   });
 }
 
-/** 본문 텍스트의 'NN/100' 토큰만 제거(문장은 유지). 근거가 있거나 토큰이 없으면 원문을 그대로 돌려준다. */
-export function cleanScoreText<T extends string | null | undefined>(text: T, evidence: boolean): T | string {
-  if (evidence || typeof text !== 'string' || !hasSyntheticScore(text)) return text;
-  return stripSyntheticScore(text);
+/**
+ * 본문 텍스트의 'NN/100' 토큰만 제거(문장은 유지)하고, 점수 제거 후 남는 어색한 조사 조각
+ * (예: "시장 심리는 으로", "투심은 로", "지수는 이며", 연속 공백)을 매끄러운 한국어로 정제한다.
+ * 근거가 있거나 토큰·조사 조각이 없으면 원문을 그대로 돌려준다.
+ */
+export function cleanScoreText<T extends string | null | undefined>(text: T, evidence = false): T | string {
+  if (evidence || typeof text !== 'string') return text;
+  const orphanRe = /([은는이가])[ \t]+(?:으로|로|이며|이고|이나|이지만|에서)(?=\s|[,.;:!?]|$)/;
+  if (!hasSyntheticScore(text) && !orphanRe.test(text)) return text;
+  const preStripped = text.replace(
+    /(?<![\d./A-Za-z])\d{1,3}(?:\.\d+)?[ \t]*점?[ \t]*\/[ \t]*100[ \t]*점?(?![\d/A-Za-z])[ \t]*(?:으로|로|이며|이고|이나|이지만|에서)?(?=\s|[,.;:!?)]|$)/g,
+    '',
+  );
+  return stripSyntheticScore(preStripped)
+    .replace(/([은는이가])[ \t]+(?:으로|로|이며|이고|이나|이지만|에서)(?=\s|[,.;:!?]|$)/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([,.;:·、。!?])/g, '$1')
+    .replace(/[ \t]+$/gm, '');
+}
+
+const PRICE_ADDRESS_FRAGMENT_RE =
+  /^(?:매각가|매매가|매매|호가|분양가|보증금|임대료|월세|급매가|감정가|최저가)(?:\s*[:：]?\s*\d[\d,.]*\s*(?:억|만|천|원)?|\s*인근|\s*)$/i;
+
+/**
+ * 매물 주소 필드에 "매각가 230", "매매 150억", "매각가 인근" 등 가격 파편이 잘못 들어간 경우
+ * 주소 마스킹 전후에 감지하여 "위치 문의 시 안내"로 정제한다 (U-F1-16).
+ */
+export function sanitizeDealAddress(address: unknown): string {
+  if (typeof address !== 'string') return '위치 문의 시 안내';
+  const trimmed = address.replace(/\s+/g, ' ').trim();
+  if (!trimmed || trimmed === '-' || PRICE_ADDRESS_FRAGMENT_RE.test(trimmed)) {
+    return '위치 문의 시 안내';
+  }
+  if (/(?:매각가|매매가|매매|호가|분양가)\s*\d/.test(trimmed)) {
+    return '위치 문의 시 안내';
+  }
+  return trimmed;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -344,6 +383,34 @@ export function toTelHref(phone: unknown): string | null {
   const digits = String(phone).replace(/\D/g, '');
   if (digits.length < 8 || digits.length > 12) return null;
   return `tel:${digits}`;
+}
+
+/** 전화번호에서 숫자만 추출 (8~12자리일 때만 반환, 아니면 null). */
+export function sanitizeTelHref(phone: unknown): string | null {
+  if (typeof phone !== 'string' && typeof phone !== 'number') return null;
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 12) return null;
+  return digits;
+}
+
+/** 60대 독자 가독성용 전화번호 하이픈 포맷 (010-1234-5678, 02-1234-5678 등). */
+export function formatPhoneDisplay(phone: unknown): string | null {
+  const digits = sanitizeTelHref(phone);
+  if (!digits) return null;
+  if (digits.startsWith('02')) {
+    if (digits.length === 9) return `02-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    if (digits.length === 10) return `02-${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+  return digits;
 }
 
 export type ViewerBarAction =

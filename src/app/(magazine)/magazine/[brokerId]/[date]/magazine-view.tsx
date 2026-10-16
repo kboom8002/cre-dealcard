@@ -24,6 +24,7 @@ import { InitialAvatar } from "@/components/magazine/InitialAvatar";
 import { TrackingNotice } from "@/components/magazine/TrackingNotice";
 import { PollSection } from "@/components/magazine/PollSection";
 import { ViewerBottomBar } from "@/components/magazine/ViewerBottomBar";
+import { DealInquirySheet } from "@/components/magazine/DealInquirySheet";
 import { ViewerTrackProvider } from "@/components/magazine/viewer-track";
 import { LazyRoiCalculator, LazyForwardSection } from "@/components/magazine/LazyIslands";
 import { Section, DataBadge, SectionCard, RichBriefing } from "@/components/magazine/viewer-primitives";
@@ -37,7 +38,7 @@ import {
   buildMagazineTitle, cleanScoreText, estimateReadMinutes, filterKeyStatsByEvidence, formatPriceKo,
   hasAnyViewerContent, hasScoreEvidence, isSectionEnabled,
   MARKET_TEMP_VIEW, parseViewerTarget, pickTopNews, resolveSectionOrder,
-  taxVisibleForTarget, toTelHref, type ViewerTarget,
+  sanitizeDealAddress, taxVisibleForTarget, toTelHref, type ViewerTarget,
 } from "@/lib/magazine/view-helpers";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -173,8 +174,8 @@ export function MagazineView({
     <div className="flex items-start gap-2">
       <span className="shrink-0 text-base" aria-hidden="true">{emoji}</span>
       <div>
-        <h3 className="mb-0.5 text-caption font-bold text-ink-subtle">{label}</h3>
-        <p className="text-reader text-ink-muted">{text}</p>
+        <h3 className="mb-0.5 text-caption font-bold text-slate-300">{label}</h3>
+        <p className="text-reader text-slate-200">{text}</p>
       </div>
     </div>
   );
@@ -229,31 +230,41 @@ export function MagazineView({
         </div>
         {themeDeals.length > 0 && (
           <div className="space-y-2 px-4 pb-4">
-            <h3 className="mb-1 text-caption font-bold text-ink-subtle">테마 관련 매물</h3>
-            {themeDeals.map((deal, i) => (
-              <a
-                key={i}
-                href={`/building/${deal.id}`}
-                data-track-click="theme_deal"
-                data-track="listing_click"
-                data-track-listing-id={deal.id}
-                data-track-from="theme"
-                className="group flex min-h-11 items-center gap-3 rounded-xl border border-white/10 p-3 transition-all duration-300 hover:border-amber-500/25"
-                style={{ background: "rgba(255,255,255,0.025)" }}
-              >
-                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: DEAL_FALLBACK_BG }}>
-                  {deal.photoUrl
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={deal.photoUrl} alt="" width={48} height={48} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
-                    : <Building2 className="h-5 w-5 text-indigo-300/60" aria-hidden="true" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-1 text-label font-bold text-white">{deal.assetType} · {deal.address}</p>
-                  <p className="text-body font-extrabold" style={{ color: accent }}>{formatPriceKo(deal.price)}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-ink-subtle transition-colors group-hover:text-amber-300" aria-hidden="true" />
-              </a>
-            ))}
+            <h3 className="mb-1 text-caption font-bold text-slate-300">테마 관련 매물</h3>
+            {themeDeals.map((deal, i) => {
+              const safeAddress = sanitizeDealAddress(deal.address);
+              const priceLabel = formatPriceKo(deal.price);
+              return (
+                <a
+                  key={i}
+                  href={`#deal-inquiry-${encodeURIComponent(String(deal.id ?? i))}`}
+                  data-deal-inquiry="true"
+                  data-deal-id={String(deal.id ?? "")}
+                  data-deal-asset={String(deal.assetType ?? "상업용 부동산")}
+                  data-deal-address={safeAddress}
+                  data-deal-price={priceLabel}
+                  data-deal-signal={String(deal.areaSignal ?? "")}
+                  data-track-click="theme_deal"
+                  data-track="listing_click"
+                  data-track-listing-id={deal.id}
+                  data-track-from="theme"
+                  className="group flex min-h-12 items-center gap-3 rounded-xl border border-white/10 p-3 transition-all duration-300 hover:border-amber-500/25"
+                  style={{ background: "rgba(255,255,255,0.025)" }}
+                >
+                  <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: DEAL_FALLBACK_BG }}>
+                    {deal.photoUrl
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={deal.photoUrl} alt="" width={48} height={48} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                      : <Building2 className="h-5 w-5 text-indigo-300/60" aria-hidden="true" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-label font-bold text-white">{deal.assetType} · {safeAddress}</p>
+                    <p className="text-body font-extrabold" style={{ color: accent }}>{priceLabel}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-amber-300" aria-hidden="true" />
+                </a>
+              );
+            })}
           </div>
         )}
       </div>
@@ -263,72 +274,117 @@ export function MagazineView({
   const renderFeaturedDeals = () => (
     <Section>
       <div className="space-y-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Building2 className="h-4 w-4 text-rose-300" aria-hidden="true" />
           <h2 className="text-label font-bold text-white">주목 매물 하이라이트</h2>
-          <span className="ml-auto rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-caption font-bold text-rose-200">{featuredDeals.length}건</span>
-        </div>
-        <ul className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
-          {featuredDeals.map((deal, i) => (
-            <li
-              key={i}
-              className="block w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/20"
-              style={{ background: "rgba(255,255,255,0.03)" }}
-            >
-              <a
-                href={`/building/${deal.id}`}
-                data-track-click="featured_deal"
-                data-track="listing_click"
-                data-track-listing-id={deal.id}
-                data-track-from="featured"
-                className="block"
+          <span
+            data-deals-counter=""
+            data-deals-total={featuredDeals.length}
+            className="ml-auto rounded-full border border-rose-500/25 bg-rose-500/15 px-2.5 py-1 text-caption font-bold text-rose-200"
+          >
+            1 / {featuredDeals.length}
+          </span>
+          {featuredDeals.length > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                data-carousel-dir="prev"
+                aria-label="이전 매물 보기"
+                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-white/20 bg-white/5 px-2.5 text-sm font-bold text-slate-100 hover:bg-white/10"
               >
-                <div className="relative h-[130px] w-full overflow-hidden" style={{ background: DEAL_FALLBACK_BG }}>
-                  {deal.photoUrl
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={deal.photoUrl} alt="" width={260} height={130} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
-                    : <div className="flex h-full w-full items-center justify-center"><Building2 className="h-8 w-8 text-indigo-300/50" aria-hidden="true" /></div>}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between">
-                    {deal.areaSignal ? <span className="rounded-lg bg-black/50 px-1.5 py-0.5 text-caption font-bold text-white">{deal.areaSignal}</span> : <span />}
-                    {deal.buyerInterestCount > 0 && <span className="rounded-lg border border-rose-500/30 bg-rose-950/70 px-1.5 py-0.5 text-caption font-bold text-rose-200">관심 {deal.buyerInterestCount}명</span>}
-                  </div>
-                </div>
-                <div className="p-3">
-                  <h3 className="mb-0.5 line-clamp-1 text-label font-bold text-white">{deal.assetType}</h3>
-                  <p className="mb-2 line-clamp-1 text-caption text-ink-subtle">{deal.address}</p>
-                  <p className="text-body font-extrabold" style={{ color: accent }}>{formatPriceKo(deal.price)}</p>
-                </div>
-              </a>
-              <div className="flex gap-2 px-3 pb-3 pt-1">
+                ◀ 이전
+              </button>
+              <button
+                type="button"
+                data-carousel-dir="next"
+                aria-label="다음 매물 보기"
+                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-white/20 bg-white/5 px-2.5 text-sm font-bold text-slate-100 hover:bg-white/10"
+              >
+                다음 ▶
+              </button>
+            </div>
+          )}
+        </div>
+        <ul
+          data-deals-carousel=""
+          className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2"
+        >
+          {featuredDeals.map((deal, i) => {
+            const safeAddress = sanitizeDealAddress(deal.address);
+            const priceLabel = formatPriceKo(deal.price);
+            const dealIdStr = String(deal.id ?? i);
+            const inquiryProps = {
+              "data-deal-inquiry": "true",
+              "data-deal-id": String(deal.id ?? ""),
+              "data-deal-asset": String(deal.assetType ?? "상업용 부동산"),
+              "data-deal-address": safeAddress,
+              "data-deal-price": priceLabel,
+              "data-deal-signal": String(deal.areaSignal ?? ""),
+            };
+            return (
+              <li
+                key={i}
+                className="block w-[285px] sm:w-[300px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/15 transition-all duration-300 hover:border-white/25"
+                style={{ background: "rgba(255,255,255,0.035)" }}
+              >
                 <a
-                  href={`/im-lite/${deal.id}`}
-                  data-track-click="featured_deal_im"
-                  data-track="im_request"
-                  data-track-listing-id={deal.id}
-                  data-track-from="featured"
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-lg border text-center text-caption font-bold transition-colors"
-                  style={{ background: `${accent}15`, color: accent, borderColor: `${accent}30` }}
-                >
-                  투자설명서
-                </a>
-                <a
-                  href={`/building/${deal.id}`}
+                  href={`#deal-inquiry-${encodeURIComponent(dealIdStr)}`}
+                  {...inquiryProps}
+                  data-track-click="featured_deal"
                   data-track="listing_click"
                   data-track-listing-id={deal.id}
-                  data-track-from="featured_detail"
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-center text-caption font-bold text-white"
+                  data-track-from="featured"
+                  className="block min-h-12"
                 >
-                  상세 정보
+                  <div className="relative h-[135px] w-full overflow-hidden" style={{ background: DEAL_FALLBACK_BG }}>
+                    {deal.photoUrl
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={deal.photoUrl} alt="" width={285} height={135} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                      : <div className="flex h-full w-full items-center justify-center"><Building2 className="h-8 w-8 text-indigo-300/50" aria-hidden="true" /></div>}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
+                    <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between">
+                      {deal.areaSignal ? <span className="rounded-lg bg-black/65 px-2 py-0.5 text-caption font-bold text-white">{deal.areaSignal}</span> : <span />}
+                      {deal.buyerInterestCount > 0 && <span className="rounded-lg border border-rose-500/30 bg-rose-950/80 px-2 py-0.5 text-caption font-bold text-rose-200">관심 {deal.buyerInterestCount}명</span>}
+                    </div>
+                  </div>
+                  <div className="p-3.5">
+                    <h3 className="mb-0.5 line-clamp-1 text-label font-bold text-white">{deal.assetType}</h3>
+                    <p className="mb-2 line-clamp-1 text-caption text-slate-300">{safeAddress}</p>
+                    <p className="text-body font-extrabold" style={{ color: accent }}>{priceLabel}</p>
+                  </div>
                 </a>
-              </div>
-              {deal.actionCard && (
-                <div className="border-t border-white/5 px-3 pb-3 pt-2">
-                  <ActionCardView actionCard={deal.actionCard} />
+                <div className="flex gap-2 px-3.5 pb-3.5 pt-1">
+                  <a
+                    href={`#deal-inquiry-im-${encodeURIComponent(dealIdStr)}`}
+                    {...inquiryProps}
+                    data-track-click="featured_deal_im"
+                    data-track="im_request"
+                    data-track-listing-id={deal.id}
+                    data-track-from="featured"
+                    className="flex min-h-12 flex-1 items-center justify-center rounded-xl border px-2 text-center text-caption font-bold transition-colors"
+                    style={{ background: `${accent}18`, color: accent, borderColor: `${accent}35` }}
+                  >
+                    투자설명서 요청
+                  </a>
+                  <a
+                    href={`#deal-inquiry-detail-${encodeURIComponent(dealIdStr)}`}
+                    {...inquiryProps}
+                    data-track="listing_click"
+                    data-track-listing-id={deal.id}
+                    data-track-from="featured_detail"
+                    className="flex min-h-12 flex-1 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-2 text-center text-caption font-bold text-white hover:bg-white/10"
+                  >
+                    상세 정보 · 문의
+                  </a>
                 </div>
-              )}
-            </li>
-          ))}
+                {deal.actionCard && (
+                  <div className="border-t border-white/5 px-3.5 pb-3.5 pt-2">
+                    <ActionCardView actionCard={deal.actionCard} />
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </Section>
@@ -370,6 +426,7 @@ export function MagazineView({
               slug={brokerVibe?.slug ?? brokerSlug}
               dealCount={broker.totalDeals ?? 0}
               listingCount={broker.activeDeals ?? 0}
+              phone={typeof broker.phone === "string" ? broker.phone : null}
             />
           </Section>
         );
@@ -415,7 +472,7 @@ export function MagazineView({
       case "referral":
         return (
           <Section>
-            <LazyForwardSection brokerId={brokerId} brokerName={broker.name} preview={preview} />
+            <LazyForwardSection brokerId={brokerId} brokerName={broker.name} date={date} preview={preview} />
           </Section>
         );
       default:
@@ -428,10 +485,19 @@ export function MagazineView({
     .map((id) => ({ id, node: sectionNode(id) }))
     .filter((s): s is { id: string; node: React.ReactNode } => s.node !== null && s.node !== undefined);
 
+  const renderedIdSet = new Set(rendered.map((r) => r.id));
+
   // 본문 섹션(구독·프로필·계산기·전달하기 제외)이 하나도 그려지지 않으면 빈 상태 — 데이터 부재뿐 아니라 섹션 off/빈 설문도 포함.
   const CHROME_ONLY = new Set(["subscribe_cta", "broker_profile", "roi_calculator", "referral"]);
   const isEmpty = !hasAnyViewerContent(data) || !rendered.some((s) => !CHROME_ONLY.has(s.id));
   const Wrapper = preview ? "div" : "main";
+
+  const quickNavItems = [
+    { id: "featured_deals", label: "🏢 주목 매물" },
+    { id: "roi_calculator", label: "🧮 수익률 계산기" },
+    { id: "tax_clinic", label: "💰 세무·법률" },
+    { id: "poll", label: "📊 이번 주 투표" },
+  ].filter((item) => renderedIdSet.has(item.id));
 
   // ═══════════════════════════════════════════════════════════════════
   //  RENDER
@@ -448,7 +514,7 @@ export function MagazineView({
 
         {/* ── HERO / COVER ───────────────────────────────────── */}
         <header
-          className="relative overflow-hidden px-1 pb-8 pt-10"
+          className="relative overflow-hidden px-1 pb-6 pt-10"
           data-section-id="cover"
           style={{ background: coverImageUrl ? undefined : `linear-gradient(160deg, ${accent}18 0%, transparent 55%)` }}
         >
@@ -467,15 +533,15 @@ export function MagazineView({
             <InitialAvatar name={brokerName} size={40} decorative />
             <div>
               <p className="text-label font-bold text-white">{brokerName}</p>
-              {broker.company && <p className="text-caption text-ink-subtle">{broker.company}</p>}
+              {broker.company && <p className="text-caption text-slate-300">{broker.company}</p>}
             </div>
           </div>
 
           {/* Date + Title */}
           <div className="relative">
-            <p className="mb-1.5 flex flex-wrap items-center gap-2 text-caption text-ink-subtle">
+            <p className="mb-1.5 flex flex-wrap items-center gap-2 text-caption text-slate-300">
               <time dateTime={date}>{dateLabel}</time>
-              <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-caption text-indigo-200">⏱ {readTimeMin}분 완독</span>
+              <span className="rounded-full border border-indigo-500/25 bg-indigo-500/15 px-2.5 py-0.5 text-caption font-semibold text-indigo-200">⏱ {readTimeMin}분 완독</span>
             </p>
             <h1 className="mb-2 text-display font-extrabold leading-tight tracking-tight text-white">{title}</h1>
 
@@ -483,7 +549,7 @@ export function MagazineView({
               <div className="mb-3 inline-flex flex-wrap items-center gap-1.5 rounded-2xl border px-3 py-1.5" style={{ background: `${tempConfig.color}15`, borderColor: `${tempConfig.color}30` }}>
                 <span className="text-sm" aria-hidden="true">{tempConfig.emoji}</span>
                 <span className="text-caption font-extrabold" style={{ color: tempConfig.color }}>시장 온도 {marketTemp}</span>
-                <span className="text-caption text-ink-muted">· {tempConfig.description}</span>
+                <span className="text-caption text-slate-200">· {tempConfig.description}</span>
               </div>
             )}
 
@@ -508,9 +574,9 @@ export function MagazineView({
           {keyStats.length > 0 && (
             <ul className="relative mt-5 grid grid-cols-3 gap-2">
               {keyStats.map((stat, i) => (
-                <li key={i} className={`rounded-xl border p-2.5 text-center ${STAT_TONE[stat.accent ?? ""] ?? "text-ink-muted border-white/10 bg-white/5"}`}>
+                <li key={i} className={`rounded-xl border p-2.5 text-center ${STAT_TONE[stat.accent ?? ""] ?? "text-slate-200 border-white/10 bg-white/5"}`}>
                   <div className="mb-1 text-body font-extrabold leading-none">{stat.value}</div>
-                  <div className="text-caption text-ink-muted">{stat.label}</div>
+                  <div className="text-caption text-slate-200">{stat.label}</div>
                 </li>
               ))}
             </ul>
@@ -520,10 +586,32 @@ export function MagazineView({
           {fieldNote.comment && (
             <figure className="relative mt-4 rounded-xl border border-violet-500/15 px-3 py-2.5" style={{ background: "rgba(139,92,246,0.06)" }}>
               <blockquote className="text-label italic leading-relaxed text-violet-200">&ldquo;{fieldNote.comment}&rdquo;</blockquote>
-              <figcaption className="mt-1 text-caption text-ink-subtle">— {brokerName}</figcaption>
+              <figcaption className="mt-1 text-caption text-slate-300">— {brokerName}</figcaption>
             </figure>
           )}
         </header>
+
+        {/* ── 60대 독자용 1-탭 빠른 이동 바 (data-section-id 없음) ── */}
+        {!isEmpty && quickNavItems.length > 0 && (
+          <nav
+            aria-label="섹션 빠른 이동"
+            className="mb-5 rounded-2xl border border-white/15 bg-white/[0.03] p-3"
+          >
+            <p className="mb-2 text-sm font-bold text-slate-300">원하시는 내용을 눌러 바로 이동하세요</p>
+            <div className="grid grid-cols-2 gap-2">
+              {quickNavItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-quick-scroll={item.id}
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2.5 text-[15px] font-bold text-slate-100 transition-colors hover:bg-white/10 active:scale-[0.99]"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+        )}
 
         {/* ── SECTIONS ──────────────────────────────────────────── */}
         {isEmpty ? (
@@ -551,6 +639,14 @@ export function MagazineView({
           </div>
         </footer>
       </Wrapper>
+
+      {!preview && (
+        <DealInquirySheet
+          brokerName={brokerName}
+          brokerPhone={typeof broker.phone === "string" ? broker.phone : null}
+          brokerSlug={brokerVibe?.slug ?? brokerSlug ?? brokerId}
+        />
+      )}
 
       <ViewerBottomBar
         phone={broker.phone}

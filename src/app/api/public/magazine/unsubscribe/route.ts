@@ -29,13 +29,17 @@ const PAGE_CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 16px; background-color: #f9fafb; color: #111827; }
   /* 한글은 단어 중간에서 끊지 않고(keep-all), 긴 영문·URL 은 넘치지 않게 어디서든 줄바꿈(anywhere) */
-  .card { background: #ffffff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; border: 1px solid #e5e7eb; word-break: keep-all; overflow-wrap: anywhere; }
-  .brand { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #4b5563; }
-  h1 { margin: 0 0 12px; color: #111827; font-size: 18px; line-height: 1.4; }
-  p { color: #374151; font-size: 14px; margin: 0 0 24px; line-height: 1.6; }
-  button { background-color: #dc2626; color: #ffffff; border: 0; padding: 12px 20px; min-height: 44px; min-width: 44px; font-size: 15px; font-weight: 600; border-radius: 8px; cursor: pointer; }
+  .card { background: #ffffff; padding: 28px 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 100%; border: 1px solid #e5e7eb; word-break: keep-all; overflow-wrap: anywhere; }
+  .brand { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: #374151; }
+  h1 { margin: 0 0 14px; color: #111827; font-size: 22px; line-height: 1.4; }
+  p { color: #1f2937; font-size: 16px; margin: 0 0 24px; line-height: 1.75; }
+  button { background-color: #dc2626; color: #ffffff; border: 0; padding: 14px 20px; width: 100%; min-height: 44px; min-width: 44px; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer; }
   button:hover { background-color: #b91c1c; }
   button:focus-visible { outline: 3px solid #111827; outline-offset: 2px; }
+  .action-link { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; padding: 12px 20px; background-color: #1d4ed8; color: #ffffff; font-size: 16px; font-weight: 700; border-radius: 8px; text-decoration: none; }
+  .action-link:hover { background-color: #1e40af; }
+  .cancel-link { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; padding: 12px 20px; background-color: #f3f4f6; color: #111827; border: 1px solid #d1d5db; font-size: 16px; font-weight: 700; border-radius: 8px; text-decoration: none; }
+  .cancel-link:hover { background-color: #e5e7eb; }
   .ok h1 { color: #047857; }
 `;
 
@@ -109,7 +113,7 @@ async function brokerMatches(
   supabase: ReturnType<typeof createServiceClient>,
   tokenBrokerId: string,
   subBrokerId: string | null,
-): Promise<{ matches: boolean; brokerUserId: string | null; displayName: string | null }> {
+): Promise<{ matches: boolean; brokerUserId: string | null; brokerSlug: string; displayName: string | null }> {
   const broker = await resolveBroker(supabase, tokenBrokerId);
   const keys = new Set<string>([tokenBrokerId]);
   if (broker) {
@@ -119,6 +123,7 @@ async function brokerMatches(
   return {
     matches: !!subBrokerId && keys.has(subBrokerId),
     brokerUserId: broker?.userId ?? (isUuid(tokenBrokerId) ? tokenBrokerId : null),
+    brokerSlug: broker?.slug ?? tokenBrokerId,
     displayName: broker ? await publicNameFor(supabase, broker) : null,
   };
 }
@@ -138,27 +143,56 @@ export async function GET(request: Request) {
   const verified = verifyUnsubToken(token);
   if (!verified.ok) return failureResponse(verified.reason, false);
 
-  // 중개인 표시명(가능하면, 공개 SSOT 규칙). 실패해도 확인 화면은 보여 준다.
+  // 중개인 표시명(가능하면, 공개 SSOT 규칙) + 이미 해지 여부 확인(상태 변경 없음). 실패해도 확인 화면은 보여 준다.
   let brandHtml = "";
+  let brokerSlug = verified.brokerId;
+  let alreadyUnsubscribed = false;
   try {
     const supabase = createServiceClient();
     const broker = await resolveBroker(supabase, verified.brokerId);
+    if (broker?.slug) brokerSlug = broker.slug;
     const name = broker ? await publicNameFor(supabase, broker) : null;
     if (name) brandHtml = `<p class="brand">${escapeHtml(name)} 매거진</p>`;
-  } catch (err) {
 
-    log.warn("[Unsubscribe GET] broker lookup failed", { error: err instanceof Error ? err.message : String(err) });
+    const { data: sub } = await supabase
+      .from("magazine_subscribers")
+      .select("id, broker_id, status")
+      .eq("id", verified.subscriberId)
+      .maybeSingle();
+    if ((sub as { status?: string | null } | null)?.status === "unsubscribed") {
+      alreadyUnsubscribed = true;
+    }
+  } catch (err) {
+    log.warn("[Unsubscribe GET] broker/subscriber lookup failed", { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  const resubHref = `/magazine/${encodeURIComponent(brokerSlug)}/subscribe`;
+  const viewerHref = `/magazine/${encodeURIComponent(brokerSlug)}`;
+
+  if (alreadyUnsubscribed) {
+    return page(
+      "이미 수신 거부 완료",
+      `${brandHtml}
+        <h1>이미 수신 거부가 완료된 상태입니다</h1>
+        <p>더 이상 카카오톡과 이메일로 주간 매거진이 발송되지 않습니다.<br>다시 받아보시려면 아래 버튼을 눌러 주세요.</p>
+        <div>
+          <a class="action-link" href="${escapeHtml(resubHref)}">다시 구독 신청하기</a>
+        </div>`,
+    );
   }
 
   return page(
     "매거진 수신 거부",
     `${brandHtml}
       <h1>매거진 수신 거부</h1>
-      <p>더 이상 이 중개사의 매거진을 받지 않으시겠습니까?<br>아래 버튼을 누르면 즉시 수신 거부가 처리됩니다.</p>
+      <p>더 이상 이 중개사의 매거진을 받지 않으시겠습니까?<br>수신 거부 시 카카오톡과 이메일로 발송되는 주간 매거진이 모두 중단됩니다.<br>아래 버튼을 누르면 즉시 수신 거부가 처리됩니다.</p>
       <form method="POST" action="/api/public/magazine/unsubscribe">
         <input type="hidden" name="t" value="${escapeHtml(token)}">
         <button type="submit">수신 거부하기</button>
-      </form>`,
+      </form>
+      <div style="margin-top: 12px;">
+        <a class="cancel-link" href="${escapeHtml(viewerHref)}">취소 · 계속 매거진 받기</a>
+      </div>`,
   );
 }
 
@@ -249,11 +283,15 @@ export async function POST(request: Request) {
     if (asJson) return NextResponse.json({ ok: true });
 
     const brand = match.displayName ? `<p class="brand">${escapeHtml(match.displayName)} 매거진</p>` : "";
+    const resubHref = `/magazine/${encodeURIComponent(match.brokerSlug)}/subscribe`;
     return page(
       "수신 거부 완료",
       `${brand}
         <h1>수신 거부가 완료되었습니다</h1>
-        <p>더 이상 매거진을 발송하지 않습니다.<br>언제든 중개인 명함의 구독 링크로 다시 구독하실 수 있습니다.</p>`,
+        <p>더 이상 매거진을 발송하지 않습니다.<br>언제든 중개인 명함의 구독 링크로 다시 구독하실 수 있습니다.</p>
+        <div>
+          <a class="action-link" href="${escapeHtml(resubHref)}">실수로 누르셨나요? 다시 구독 신청하기</a>
+        </div>`,
     );
   } catch (err) {
     log.error("[Unsubscribe POST] Unexpected error:", err instanceof Error ? err.message : String(err));

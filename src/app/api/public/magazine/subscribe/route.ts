@@ -99,11 +99,31 @@ export const POST = withPublicGuard<SubscribeRequest>({
   // 4) 확인 메시지: 발송 활성 + dry-run 해제일 때만 실제 발송. 아니면 보내지 않고 pending 유지(정직).
   let sent = false;
   if (result.confirmToken) {
+    let brokerContact: string | null = broker.company ?? null;
+    if (input.email && (input.channel === 'email' || input.channel === 'both')) {
+      try {
+        const { data: profRows } = await supabase
+          .from('profiles')
+          .select('phone, company')
+          .eq('id', broker.userId)
+          .limit(1);
+        const prof = Array.isArray(profRows)
+          ? (profRows[0] as { phone?: string | null; company?: string | null } | undefined)
+          : undefined;
+        const parts = [prof?.company ?? broker.company, prof?.phone].filter(
+          (x): x is string => typeof x === 'string' && x.trim().length > 0,
+        );
+        if (parts.length > 0) brokerContact = parts.join(' · ');
+      } catch {
+        // 보조 연락처 조회 실패 시에도 확인 메일 발송은 계속 진행
+      }
+    }
     const s = await sendOptInConfirmation({
       channel: input.channel,
       email: input.email,
       brokerSlug,
       brokerName: broker.displayName,
+      brokerContact,
       subscriberName: input.name,
       token: result.confirmToken,
     });

@@ -43,14 +43,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "CRE 주간 매거진 아카이브", robots: { index: false, follow: false } };
   }
 
-  const label = (await loadDisplayName(brokerId)) || (profile.slug as string | null) || brokerId;
+  const slug = (profile.slug as string | null) || brokerId;
+  const label = (await loadDisplayName(brokerId)) || slug;
   const title = `${label}의 주간 매거진 아카이브`;
+  const description = `${label} 중개사의 CRE 주간 매거진 전체 발행 목록입니다.`;
   const entries = await loadEntries(brokerId);
+  const latestDate = entries?.[0]?.date;
+  const ogImageUrl = latestDate
+    ? `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(latestDate)}`
+    : `/api/og/magazine?brokerId=${encodeURIComponent(slug)}`;
 
   return {
     title,
-    description: `${label} 중개사의 CRE 주간 매거진 전체 발행 목록입니다.`,
-    openGraph: { title, type: "website" },
+    description,
+    openGraph: {
+      title,
+      description,
+      siteName: "CRE 매거진",
+      type: "website",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+    },
     // 발행본이 하나도 없는 빈 아카이브는 색인하지 않는다.
     ...(entries && entries.length === 0 ? { robots: { index: false, follow: true } } : {}),
   };
@@ -79,16 +91,16 @@ export default async function MagazineArchivePage({ params }: PageProps) {
         {/* 헤더 */}
         <header className="mb-8 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-600/20 text-sm" aria-hidden="true">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-600/20 text-base" aria-hidden="true">
               📰
             </div>
             <div>
               <h1 className="text-title font-extrabold text-white">주간 매거진 아카이브</h1>
-              <p className="text-caption text-ink-subtle">{displayName} · 전체 발행 목록</p>
+              <p className="text-caption text-slate-300">{displayName} · 전체 발행 목록</p>
             </div>
           </div>
           {typeof profile.bio === "string" && profile.bio && (
-            <p className="line-clamp-2 text-label leading-relaxed text-ink-muted">{profile.bio}</p>
+            <p className="line-clamp-2 text-label leading-relaxed text-slate-200">{profile.bio}</p>
           )}
         </header>
 
@@ -102,7 +114,7 @@ export default async function MagazineArchivePage({ params }: PageProps) {
             />
             <Link
               href={`/magazine/${encodeURIComponent(slug)}/subscribe`}
-              className="flex min-h-11 w-full items-center justify-center rounded-xl bg-indigo-500 px-4 text-body font-bold text-white hover:bg-indigo-400"
+              className="flex min-h-12 w-full items-center justify-center rounded-xl bg-indigo-500 px-4 text-body font-bold text-white hover:bg-indigo-400"
             >
               첫 호 알림 받기
             </Link>
@@ -116,18 +128,18 @@ export default async function MagazineArchivePage({ params }: PageProps) {
                 <li key={entry.id}>
                   <Link
                     href={`/magazine/${encodeURIComponent(slug)}/${entry.date}`}
-                    className="group block min-h-11 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all hover:border-white/20 hover:bg-white/[0.06]"
+                    className="group block min-h-12 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all hover:border-white/20 hover:bg-white/[0.06]"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-1.5">
-                        <time dateTime={entry.date} className="block text-caption text-ink-subtle">{dateLabel}</time>
+                        <time dateTime={entry.date} className="block text-caption text-slate-300">{dateLabel}</time>
                         <p className="line-clamp-2 text-body font-bold text-slate-100 transition-colors group-hover:text-white">
                           {entry.title || `${dateLabel} 매거진`}
                         </p>
                         {entry.keywords.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1.5">
                             {entry.keywords.map((kw) => (
-                              <span key={kw} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-caption text-indigo-200">
+                              <span key={kw} className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-caption text-indigo-200">
                                 #{kw}
                               </span>
                             ))}
@@ -136,7 +148,7 @@ export default async function MagazineArchivePage({ params }: PageProps) {
                       </div>
                       {tempConfig && entry.marketTemp && (
                         <span
-                          className="shrink-0 rounded-full border px-2 py-0.5 text-caption font-bold"
+                          className="shrink-0 rounded-full border px-2.5 py-1 text-caption font-bold"
                           style={{
                             color: tempConfig.color,
                             borderColor: `${tempConfig.color}40`,
@@ -159,12 +171,12 @@ export default async function MagazineArchivePage({ params }: PageProps) {
           {entries.length > 0 && (
             <Link
               href={`/magazine/${encodeURIComponent(slug)}/subscribe`}
-              className="inline-flex min-h-11 items-center justify-center text-label font-semibold text-indigo-300 transition-colors hover:text-indigo-200"
+              className="inline-flex min-h-12 items-center justify-center px-4 text-label font-semibold text-indigo-300 transition-colors hover:text-indigo-200"
             >
               다음 호 구독하기 →
             </Link>
           )}
-          <p className="text-caption text-ink-subtle">© CRE DealCard · 상업용 부동산 인텔리전스</p>
+          <p className="text-caption text-slate-300">© CRE DealCard · 상업용 부동산 인텔리전스</p>
         </footer>
       </main>
     </div>

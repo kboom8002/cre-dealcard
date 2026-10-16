@@ -15,6 +15,7 @@ import { stripSyntheticScore } from '@/lib/magazine/strip-synthetic-score';
 import { isPlausibleBrokerParam } from '@/lib/magazine/slug';
 import {
   findIssueForDate,
+  publicBrokerDisplayName,
   resolvePublicBroker,
   type MagazineContent,
 } from '@/lib/magazine/public-page-data';
@@ -155,6 +156,7 @@ export function toDateLabel(date: string): string {
 }
 
 export interface BrokerImageInfo {
+  name?: string | null;
   display_name?: string | null;
   company?: string | null;
   phone?: string | null;
@@ -216,7 +218,7 @@ export function buildImageModel(
     keywords: strArray(content.cover_keywords ?? content.coverKeywords, 4),
     themeTitle: str(content.theme_title) ?? str(content.themeTitle),
     briefing,
-    brokerName: str(broker?.display_name),
+    brokerName: publicBrokerDisplayName(broker?.name, broker?.display_name),
     company: str(broker?.company),
     phone: str(broker?.phone),
     regions: strArray(broker?.specialty_regions, 3),
@@ -238,7 +240,7 @@ export async function loadImageModel(
   brokerParam: string,
   date: string,
 ): Promise<ImageModel | null> {
-  const broker = await resolvePublicBroker(supabase, brokerParam, 'user_id, slug, specialty_regions');
+  const broker = await resolvePublicBroker(supabase, brokerParam, 'user_id, slug, name, specialty_regions');
   if (!broker) return null;
 
   const content = await findIssueForDate(supabase, broker, date);
@@ -254,6 +256,7 @@ export async function loadImageModel(
   return buildImageModel(
     content,
     {
+      name: (broker.name as string | null) ?? null,
       display_name: profile?.display_name ?? null,
       company: profile?.company ?? null,
       phone: profile?.phone ?? null,

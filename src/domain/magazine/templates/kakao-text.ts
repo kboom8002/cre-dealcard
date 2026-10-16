@@ -14,6 +14,18 @@ function plain(s: unknown, max: number): string {
   return clip(safeTemplateVar(stripTags(decodeEntities(typeof s === 'string' ? s : '')), { max: max * 2 }), max);
 }
 
+function expandKakaoCreTerms(text: string): string {
+  if (!text) return text;
+  let out = text;
+  if (!/임대수익률\s*\(\s*Cap\s*Rate\s*\)/i.test(out)) {
+    out = out.replace(/\bCap\s*Rate\b/i, '연 임대수익률(Cap Rate)');
+  }
+  if (!/순영업소득\s*\(\s*NOI\s*\)/i.test(out)) {
+    out = out.replace(/\bNOI\b/, '순영업소득(NOI)');
+  }
+  return out;
+}
+
 export function renderMagazineKakaoText(input: MagazineEmailInput): MagazineKakaoRendered {
   if (input.isAd !== true) throw new MagazineRenderError('MISSING_AD_FLAG', 'isAd must be true');
   const broker = safeTemplateVar(input.brokerName, { max: 40 });
@@ -40,7 +52,8 @@ export function renderMagazineKakaoText(input: MagazineEmailInput): MagazineKaka
 
   const fixedLen = [...head, '', ...tail].join('\n').length + 2; // 요약 앞뒤 개행 여유
   const room = Math.max(0, Math.min(160, KAKAO_MAX_LENGTH - fixedLen - 10));
-  const summary = room >= 20 ? plain(input.edition.headline, room) : '';
+  const rawHeadline = typeof input.edition.headline === 'string' ? expandKakaoCreTerms(input.edition.headline) : input.edition.headline;
+  const summary = room >= 20 ? plain(rawHeadline, room) : '';
 
   const text = [...head, ...(summary ? ['', summary] : []), '', ...tail].join('\n');
   if (text.length > KAKAO_MAX_LENGTH) {

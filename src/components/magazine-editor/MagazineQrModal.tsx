@@ -66,7 +66,7 @@ export function MagazineQrModal({
         return;
       }
       QRCode.toCanvas(canvas, subscribeUrl, {
-        width: 260,
+        width: 210,
         margin: 2,
         color: { dark: '#0f172a', light: '#ffffff' },
         errorCorrectionLevel: 'H',
@@ -139,13 +139,13 @@ export function MagazineQrModal({
       {!subscribeUrl ? (
         <ErrorState
           title="QR 주소를 만들 수 없어요"
-          description="서비스 주소(APP_BASE_URL) 설정이 필요해요. 관리자에게 문의해 주세요."
+          description="서비스 도메인 주소 설정이 아직 완료되지 않았어요. 관리자에게 문의해 주세요."
         />
       ) : (
-        <div className="space-y-4">
-          {/* QR 코드 캔버스 카드 */}
-          <div className="flex flex-col items-center justify-center space-y-3 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
-            <div className="rounded-xl bg-white p-3 shadow-xl">
+        <div className="space-y-3">
+          {/* QR 코드 캔버스 카드 — 125% 배율 노트북에서도 스크롤 없이 한눈에 보이도록 여백 축소 */}
+          <div className="flex flex-col items-center justify-center space-y-2 rounded-2xl border border-slate-800 bg-slate-950/80 p-3">
+            <div className="rounded-xl bg-white p-2 shadow-xl">
               <canvas
                 ref={canvasRef}
                 className="block"
@@ -153,13 +153,13 @@ export function MagazineQrModal({
                 aria-label={`구독 페이지로 연결되는 QR 코드: ${subscribeUrl}`}
               />
             </div>
-            <div className="w-full space-y-1 text-center">
+            <div className="w-full space-y-0.5 text-center">
               <p className="flex items-center justify-center gap-1 text-label font-bold text-white">
                 <Smartphone className="h-4 w-4 text-indigo-400" aria-hidden="true" />
                 카메라로 스캔하면 바로 구독 페이지로 이동해요
               </p>
               {/* T2-UX-5: 실제 URL 을 큰 글씨로 표시 (QR 이 안 읽힐 때 직접 입력) */}
-              <p className="break-all font-mono text-body font-bold text-indigo-200">{subscribeUrl}</p>
+              <p className="break-all font-mono text-sm font-bold text-indigo-200">{subscribeUrl}</p>
             </div>
           </div>
 

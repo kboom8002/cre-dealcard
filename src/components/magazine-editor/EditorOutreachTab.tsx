@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Users, Send, Plus, Search, RefreshCw, Filter, MessageCircle, Mail, QrCode, ChevronRight, Building2, Link2, Share2 } from 'lucide-react';
+import { Users, Send, Plus, Search, RefreshCw, Filter, MessageCircle, Mail, QrCode, ChevronRight, Building2, Link2, Share2, Zap } from 'lucide-react';
+import { toast } from 'sonner';
+import Link from 'next/link';
 import { MagazineQrModal } from './MagazineQrModal';
+import { SpecialEditionModal } from './SpecialEditionModal';
 import { ErrorState } from '@/components/ui/error-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonGroup, SkeletonText } from '@/components/ui/Skeleton';
@@ -35,6 +38,8 @@ export interface EditorOutreachTabProps {
   sendDisabled: boolean;
   editionDate?: string;
   shareTitle?: string;
+  /** 속보 발행용 매물 후보 목록 (있으면 모달에서 바로 선택·발행 가능) */
+  deals?: Array<{ id: string; title: string }>;
 }
 
 interface Subscriber extends DetailSubscriber {
@@ -69,9 +74,70 @@ const FILTER_CHIP = (on: boolean) =>
 
 export function EditorOutreachTab(props: EditorOutreachTabProps) {
   const [mainTab, setMainTab] = useState<'subscribers' | 'outreach'>('subscribers');
+  const [showSpecialModal, setShowSpecialModal] = useState(false);
+  const [selectedDealId, setSelectedDealId] = useState<string>(props.deals?.[0]?.id ?? '');
+
+  const activeDealId = selectedDealId || props.deals?.[0]?.id || '';
 
   return (
     <div className="space-y-4">
+      {/* ⚡ 긴급 매물 속보(Flash Issue) 진입 배너 (U-F1-05 / B-07) */}
+      <div
+        data-testid="outreach-flash-issue-banner"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/35 bg-gradient-to-r from-rose-950/40 to-pink-950/30 p-3.5"
+      >
+        <div className="space-y-0.5">
+          <p className="flex items-center gap-1.5 text-sm font-bold text-rose-200">
+            <Zap className="h-4 w-4 text-rose-400 fill-current" aria-hidden="true" />
+            급매·신규 매물을 관심 구독자에게 즉시 알리세요
+          </p>
+          <p className="text-xs text-slate-300">
+            매물 권역·자산유형이 일치하는 구독자에게만 타겟팅 속보 매거진을 발행할 수 있습니다.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {props.deals && props.deals.length > 1 && (
+            <select
+              aria-label="속보 발행 매물 선택"
+              value={activeDealId}
+              onChange={(e) => setSelectedDealId(e.target.value)}
+              className="min-h-11 rounded-lg border border-rose-500/40 bg-slate-900/90 px-2.5 text-xs font-semibold text-white"
+            >
+              {props.deals.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.title}
+                </option>
+              ))}
+            </select>
+          )}
+          {activeDealId ? (
+            <button
+              type="button"
+              onClick={() => setShowSpecialModal(true)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 px-3.5 py-2 text-sm font-bold text-white shadow-md shadow-rose-950/40 hover:from-rose-500 hover:to-pink-500 transition-all"
+            >
+              ⚡ 긴급 매물 속보 만들기
+            </button>
+          ) : (
+            <Link
+              href="/broker"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 px-3.5 py-2 text-sm font-bold text-white shadow-md shadow-rose-950/40 hover:from-rose-500 hover:to-pink-500 transition-all"
+            >
+              ⚡ 긴급 매물 속보 만들기
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {showSpecialModal && activeDealId && (
+        <SpecialEditionModal
+          buildingId={activeDealId}
+          isOpen={showSpecialModal}
+          onClose={() => setShowSpecialModal(false)}
+          sendDisabled={props.sendDisabled}
+        />
+      )}
+
       {/* 메인 탭 */}
       <div className="flex gap-1 rounded-xl bg-slate-800/50 p-1" role="tablist" aria-label="구독자·아웃리치">
         {[
@@ -97,7 +163,14 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
         })}
       </div>
 
-      {mainTab === 'subscribers' ? <SubscriberManagement {...props} /> : <OutreachPanel />}
+      {mainTab === 'subscribers' ? (
+        <SubscriberManagement {...props} />
+      ) : (
+        <OutreachPanel
+          activeDealId={activeDealId}
+          onOpenSpecial={() => setShowSpecialModal(true)}
+        />
+      )}
     </div>
   );
 }
@@ -118,6 +191,7 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
   const [selectedSub, setSelectedSub] = useState<Subscriber | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [deletedNotice, setDeletedNotice] = useState<string | null>(null);
 
   const fetchSubscribers = useCallback(async () => {
     setLoading(true);
@@ -155,9 +229,32 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
 
   const filteredSubs = filterSubscribers(subscribers, searchQuery, filterTemp);
   const weeklyLabel = withWeekly(sendDayLabel);
+  const pendingEmailCount = subscribers.filter(
+    (s) => !isUnsubscribedLike(s) && s.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL',
+  ).length;
 
   return (
     <div className="space-y-3">
+      {deletedNotice && (
+        <div
+          role="status"
+          data-testid="subscriber-deleted-notice"
+          className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2.5 text-sm font-semibold text-emerald-200"
+        >
+          {deletedNotice}
+        </div>
+      )}
+
+      {pendingEmailCount > 0 && (
+        <div
+          role="status"
+          data-testid="pending-email-confirm-banner"
+          className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-3.5 py-2.5 text-sm text-amber-200 leading-relaxed"
+        >
+          ⚠️ 확인 채널(이메일) 미등록 구독자가 <strong>{pendingEmailCount}명</strong> 있습니다. 구독자 이름을 눌러 이메일을 추가해 주세요.
+        </div>
+      )}
+
       {sendDisabled ? (
         <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-label text-amber-200">
           현재 발송 기능이 꺼져 있어요. 구독자를 추가해도 {weeklyLabel ? `${weeklyLabel}에도 ` : ''}매거진이 발송되지 않습니다.
@@ -352,7 +449,14 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
         onClose={() => setSelectedSub(null)}
         onUpdated={() => void fetchSubscribers()}
         onDeleted={() => {
+          const deletedName = selectedSub?.subscriber_name || '구독자';
           setSelectedSub(null);
+          const msg = `${deletedName} 구독자가 삭제되었습니다.`;
+          setDeletedNotice(msg);
+          toast.success(msg, { duration: 8000 });
+          window.setTimeout(() => {
+            setDeletedNotice((cur) => (cur === msg ? null : cur));
+          }, 8000);
           void fetchSubscribers();
         }}
       />
@@ -370,11 +474,40 @@ const PLANNED_OUTREACH = [
   { icon: Link2, title: '벤더 연결', desc: '인테리어·대출·세무 등 협력 벤더 리스트 공유' },
 ];
 
-function OutreachPanel() {
+function OutreachPanel({
+  activeDealId,
+  onOpenSpecial,
+}: {
+  activeDealId?: string;
+  onOpenSpecial?: () => void;
+} = {}) {
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-950/20 p-3">
+        <div>
+          <p className="text-sm font-bold text-rose-200">⚡ 긴급 매물 속보 (지금 바로 사용 가능)</p>
+          <p className="text-xs text-ink-muted">급매·신규 매물 소식을 관심 구독자에게 즉시 발송합니다.</p>
+        </div>
+        {activeDealId && onOpenSpecial ? (
+          <button
+            type="button"
+            onClick={onOpenSpecial}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-500 transition-colors"
+          >
+            ⚡ 긴급 매물 속보 만들기
+          </button>
+        ) : (
+          <Link
+            href="/broker"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-500 transition-colors"
+          >
+            ⚡ 긴급 매물 속보 만들기
+          </Link>
+        )}
+      </div>
+
       <EmptyState
-        title="아웃리치 기능은 준비 중이에요"
+        title="추가 아웃리치 기능은 준비 중이에요"
         description="아래 기능은 아직 제공되지 않아 버튼을 숨겼어요. 제공되면 이곳에서 바로 사용할 수 있습니다."
       />
       <ul className="space-y-2" aria-label="준비 중인 아웃리치 기능">

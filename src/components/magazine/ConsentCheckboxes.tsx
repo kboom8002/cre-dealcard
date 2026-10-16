@@ -8,6 +8,10 @@
  * 야간 수신 동의(선택)는 넣지 않는다: 기본 야간 미발송이 안전하다.
  */
 import { MAGAZINE_QUIET_HOURS_LABEL } from '@/lib/magazine/schedule-labels';
+import {
+  SUBSCRIBER_RETENTION_LEGAL_NOTE,
+  SUBSCRIBER_RETENTION_NOTICE,
+} from '@/lib/magazine/legal-constants';
 
 export interface ConsentState {
   privacy: boolean;
@@ -17,7 +21,7 @@ export interface ConsentState {
 
 export const EMPTY_CONSENT: ConsentState = { privacy: false, marketing: false, age14: false };
 
-/** 개인정보 처리방침 경로. (repo에 /privacy 페이지가 아직 없으면 정책 페이지 작성 후 연결 필요) */
+/** 개인정보 처리방침 경로. */
 export const PRIVACY_POLICY_HREF = '/privacy';
 
 export function allConsented(c: ConsentState): boolean {
@@ -36,23 +40,45 @@ interface Props {
   idPrefix: string;
 }
 
-const ROW = 'flex items-start gap-2.5 min-h-[44px] py-1.5 cursor-pointer select-none';
-const BOX = 'mt-0.5 w-5 h-5 shrink-0 rounded accent-indigo-500 cursor-pointer';
-const TEXT = 'text-xs leading-relaxed text-slate-300';
+const ROW = 'flex items-start gap-3 min-h-12 py-2 px-1 cursor-pointer select-none';
+const BOX = 'mt-0.5 h-6 w-6 shrink-0 rounded accent-indigo-500 cursor-pointer';
+const TEXT = 'text-[15px] leading-relaxed text-slate-100';
 
 export function ConsentCheckboxes({ value, onChange, idPrefix }: Props) {
+  const allDone = allConsented(value);
   const set = (k: keyof ConsentState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...value, [k]: e.target.checked });
 
+  const handleToggleAll = (checked: boolean) => {
+    onChange({ privacy: checked, marketing: checked, age14: checked });
+  };
+
   return (
-    <fieldset className="space-y-0.5 border-t border-white/10 pt-2">
+    <fieldset className="space-y-1.5 rounded-xl border border-slate-700 bg-slate-900 p-3.5 text-slate-100">
       <legend className="sr-only">필수 동의 항목</legend>
+
+      {/* 마스터 체크박스: 한 번에 모두 동의 (행 높이 ≥52px, 체크박스 24×24, 17px 굵게, 테두리 강조) */}
+      <div className="flex items-center gap-3 min-h-[52px] rounded-xl border-2 border-indigo-400/70 bg-slate-800/90 px-3.5 py-2.5">
+        <input
+          id={`${idPrefix}-all`}
+          type="checkbox"
+          checked={allDone}
+          onChange={(e) => handleToggleAll(e.target.checked)}
+          className="h-6 w-6 shrink-0 rounded accent-indigo-500 cursor-pointer"
+        />
+        <label
+          htmlFor={`${idPrefix}-all`}
+          className="flex min-h-[48px] flex-1 items-center text-[17px] font-bold leading-snug text-white cursor-pointer select-none"
+        >
+          [✓ 필수 항목 모두 동의합니다 (한 번에 체크)]
+        </label>
+      </div>
 
       <label htmlFor={`${idPrefix}-privacy`} className={ROW}>
         <input id={`${idPrefix}-privacy`} type="checkbox" checked={value.privacy} onChange={set('privacy')} className={BOX} />
         <span className={TEXT}>
-          <b className="text-white">[필수]</b> 개인정보 수집·이용에 동의합니다. (수집 항목: 연락처·이름, 목적: 매거진 발송, 보유: 수신 해지 시까지){' '}
-          <a href={PRIVACY_POLICY_HREF} target="_blank" rel="noopener noreferrer" className="underline text-indigo-300">
+          <b className="text-white">[필수]</b> 개인정보 수집·이용에 동의합니다. (수집 항목: 연락처·이름, 목적: 매거진 발송, 보유: {SUBSCRIBER_RETENTION_NOTICE} — {SUBSCRIBER_RETENTION_LEGAL_NOTE}){' '}
+          <a href={PRIVACY_POLICY_HREF} target="_blank" rel="noopener noreferrer" className="underline text-indigo-200 font-semibold">
             처리방침 보기
           </a>
         </span>

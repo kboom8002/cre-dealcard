@@ -126,6 +126,24 @@ export function EditorCoverTab({
             />
           ))}
         </div>
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="text-xs font-semibold text-ink-subtle mr-1">추천 키워드:</span>
+          {(["금리 인하", "꼬마빌딩", "공실률", "착한 임대", "역세권"] as const).map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              onClick={() => {
+                if (coverKeywords.includes(chip)) return;
+                const emptyIdx = coverKeywords.findIndex((k) => !k.trim());
+                const targetIdx = emptyIdx !== -1 ? emptyIdx : coverKeywords.length - 1;
+                if (targetIdx >= 0) updateKeyword(targetIdx, chip);
+              }}
+              className="inline-flex min-h-10 items-center rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm font-semibold text-slate-300 hover:border-indigo-500/50 hover:bg-indigo-500/15 hover:text-indigo-200 transition-colors"
+            >
+              + {chip}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 헤드라인 */}
@@ -147,6 +165,9 @@ export function EditorCoverTab({
         <label htmlFor={briefingId} className="text-label font-semibold text-slate-300 block">
           AI 브리핑
         </label>
+        <p className="text-sm text-indigo-200/90 leading-relaxed">
+          💡 한 줄 브리핑은 중개사님이 직접 적거나 [AI] 탭에서 다듬어 넣을 수 있습니다
+        </p>
         <textarea
           id={briefingId}
           value={briefing}

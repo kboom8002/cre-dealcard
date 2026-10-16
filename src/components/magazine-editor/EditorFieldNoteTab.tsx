@@ -71,22 +71,29 @@ export function EditorFieldNoteTab({
         const inputId = `${uid}-${field.key}`;
         const tipId = `${uid}-${field.key}-tip`;
         const tipOpen = activeTooltip === field.key;
+        const currentLen = (fieldNote[field.key] ?? "").length;
         return (
           <div key={field.key} className="space-y-1.5">
-            <div className="flex items-center gap-1">
-              <label htmlFor={inputId} className="text-label font-semibold text-slate-300">
-                {field.label}
-              </label>
-              <button
-                type="button"
-                aria-label={`${field.label} 작성 도움말`}
-                aria-expanded={tipOpen}
-                aria-controls={tipId}
-                onClick={() => setActiveTooltip(tipOpen ? null : field.key)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center text-ink-subtle hover:text-slate-300 transition-colors"
-              >
-                <Info className="w-3.5 h-3.5" aria-hidden="true" />
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <label htmlFor={inputId} className="text-label font-semibold text-slate-300">
+                  {field.label}
+                </label>
+                <button
+                  type="button"
+                  aria-label={`${field.label} 작성 도움말`}
+                  aria-expanded={tipOpen}
+                  aria-controls={tipId}
+                  onClick={() => setActiveTooltip(tipOpen ? null : field.key)}
+                  className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-ink-subtle hover:bg-slate-800/60 hover:text-slate-200 transition-colors"
+                >
+                  <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>작성 요령 보기</span>
+                </button>
+              </div>
+              <span className="text-xs font-medium text-ink-subtle">
+                {currentLen}자 · 권장 2~3문장
+              </span>
             </div>
             <AnimatePresence>
               {tipOpen && (
@@ -106,7 +113,7 @@ export function EditorFieldNoteTab({
               value={fieldNote[field.key]}
               onChange={(e) => updateFieldNote(field.key, e.target.value)}
               aria-describedby={tipOpen ? tipId : undefined}
-              className="w-full h-20 bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-label text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-ink-subtle"
+              className="w-full min-h-[108px] resize-y bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-base text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-ink-subtle"
               placeholder={field.placeholder}
             />
           </div>

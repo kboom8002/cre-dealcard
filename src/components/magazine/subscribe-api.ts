@@ -20,7 +20,13 @@ export interface SubscribePayload {
 }
 
 export type SubscribeOutcome =
-  | { ok: true; status: 'pending' | 'confirmed'; message?: string; notice?: string }
+  | {
+      ok: true;
+      status: 'pending' | 'confirmed';
+      message?: string;
+      notice?: string;
+      pendingReason?: 'NO_EMAIL_CONFIRM_CHANNEL';
+    }
   | { ok: false; message: string };
 
 /** pendingReason='NO_EMAIL_CONFIRM_CHANNEL' 안내 (B2 계약). */
@@ -44,11 +50,13 @@ export function interpretSubscribeResponse(
     error?: unknown;
   };
   if (res.ok && body.ok === true) {
+    const isNoEmailConfirm = body.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL';
     return {
       ok: true,
       status: body.status === 'confirmed' ? 'confirmed' : 'pending',
       message: userFacingText(body.message) ?? undefined,
-      notice: body.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL' ? NO_EMAIL_CONFIRM_NOTICE : undefined,
+      notice: isNoEmailConfirm ? NO_EMAIL_CONFIRM_NOTICE : undefined,
+      ...(isNoEmailConfirm ? { pendingReason: 'NO_EMAIL_CONFIRM_CHANNEL' as const } : {}),
     };
   }
   const err = body.error;

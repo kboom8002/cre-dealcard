@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  ANALYTICS_EVENT_RETENTION_NOTICE,
   CONFIRM_TTL_DAYS_TEXT,
   LegalList,
   LegalPage,
@@ -8,8 +9,11 @@ import {
   RECONFIRM_YEARS_TEXT,
   RETENTION_EVENTS_DAYS,
   RETENTION_UNSUBSCRIBED_DAYS,
+  SUBSCRIBER_RETENTION_LEGAL_NOTE,
+  SUBSCRIBER_RETENTION_NOTICE,
+  VISITOR_ID_RETENTION_NOTICE,
   getPrivacyContactText,
-} from './legal-shared';
+} from '../terms/legal-shared';
 
 export const metadata: Metadata = {
   title: '개인정보 수집·이용 안내 | CRE DealCard 매거진',
@@ -23,7 +27,33 @@ export default function PrivacyPage() {
   const contact = getPrivacyContactText();
   return (
     <LegalPage title="개인정보 수집·이용 안내">
-      <p>
+      {/* 상단: 매거진으로 돌아가기 버튼 (48px 높이) + 60대 독자용 큰 글씨 핵심 3줄 요약 상자 */}
+      <div className="space-y-4">
+        <div>
+          <Link
+            href="/magazine"
+            className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[16px] font-bold text-slate-900 shadow-sm hover:bg-slate-100"
+          >
+            ← 매거진으로 돌아가기
+          </Link>
+        </div>
+
+        <section
+          aria-label="핵심 3줄 요약"
+          className="rounded-2xl border-2 border-blue-200 bg-white p-5 text-slate-900 shadow-sm space-y-3"
+        >
+          <h2 className="text-[18px] font-bold leading-snug text-slate-900">
+            한눈에 보는 개인정보 안내 핵심 3줄 요약
+          </h2>
+          <ul className="space-y-2 text-[16px] leading-[1.75] text-slate-800">
+            <li>① <strong>이름·연락처는 매거진 발송에만 사용</strong>하며 다른 곳에 팔거나 넘기지 않습니다.</li>
+            <li>② <strong>언제든 &apos;수신 거부&apos; 한 번으로 해지 가능하며 30일 뒤 파기</strong>({SUBSCRIBER_RETENTION_NOTICE})됩니다.</li>
+            <li>③ <strong>쿠키나 기기 지문 없이 안전한 통계만 사용</strong>(브라우저 임의 방문자 번호 {VISITOR_ID_RETENTION_NOTICE}, 서버 통계 {ANALYTICS_EVENT_RETENTION_NOTICE})합니다.</li>
+          </ul>
+        </section>
+      </div>
+
+      <p className="text-[17px] leading-[1.85] text-slate-800">
         CRE DealCard(credeal.net, 이하 &quot;서비스&quot;)는 매거진 구독 신청 시 아래와 같이 개인정보를 수집·이용합니다.
         동의를 거부하실 수 있으나, 필수 항목에 동의하지 않으시면 매거진 구독이 제한됩니다.
       </p>
@@ -42,8 +72,7 @@ export default function PrivacyPage() {
               접속 IP의 해시값(원문 IP는 저장하지 않습니다)
             </>,
             <>
-              <strong>서비스 이용 중 자동 생성</strong>: 매거진 열람·클릭 이력(익명 자체 식별자 기반 — 이름·연락처와 직접 연결하지 않는
-              1st-party ID 사용)
+              <strong>서비스 이용 중 자동 생성</strong>: 매거진 열람·클릭 이력(브라우저 임의 방문자 번호를 <strong>{VISITOR_ID_RETENTION_NOTICE}</strong> — 이름·연락처와 직접 연결하지 않는 1st-party ID 사용)
             </>,
           ]}
         />
@@ -65,12 +94,15 @@ export default function PrivacyPage() {
           items={[
             '구독 중에는 구독 서비스 제공을 위해 보유합니다.',
             <>
-              수신을 거부(해지)하시면 해지일로부터 <strong>{RETENTION_UNSUBSCRIBED_DAYS}일이 지난 뒤</strong> 이름·휴대전화번호·이메일
-              주소·동의 IP 해시 등 개인을 식별할 수 있는 정보를 복구할 수 없는 방식으로 익명화(파기)합니다. 익명화된 기록에는 개인을
+              <strong>구독자 개인정보</strong>: <strong>{SUBSCRIBER_RETENTION_NOTICE}</strong>합니다 ({SUBSCRIBER_RETENTION_LEGAL_NOTE}). 수신을 거부(해지)하시면 해지일로부터 <strong>{RETENTION_UNSUBSCRIBED_DAYS}일이 지난 뒤</strong> 이름·휴대전화번호·이메일
+              주소·동의 IP 해시 등 개인을 식별할 수 있는 정보를 복구할 수 없는 방식으로 익명화(파기)하며, 익명화된 기록에는 개인을
               식별할 수 있는 정보가 남지 않습니다.
             </>,
             <>
-              열람·클릭 이력은 수집일로부터 <strong>{RETENTION_EVENTS_DAYS}일이 지나면</strong> 삭제합니다.
+              <strong>브라우저 임의 방문자 번호(localStorage)</strong>: <strong>{VISITOR_ID_RETENTION_NOTICE}</strong> 후 만료됩니다.
+            </>,
+            <>
+              <strong>서버 열람 통계 이벤트</strong>: 열람·클릭 이력은 <strong>{ANALYTICS_EVENT_RETENTION_NOTICE}</strong>({RETENTION_EVENTS_DAYS}일 경과 시 삭제)합니다.
             </>,
             <>
               광고성 정보 수신 동의는 동의일로부터 {RECONFIRM_YEARS_TEXT}마다 수신 의사를 다시 확인하며, 확인하지 않으면 발송이 중단될
@@ -95,34 +127,34 @@ export default function PrivacyPage() {
       <LegalSection title="5. 개인정보 처리 위탁">
         <p>서비스 제공을 위해 아래와 같이 처리를 위탁하고 있으며, 위탁 업무 범위를 넘어 개인정보를 이용하지 않도록 관리합니다.</p>
         <div className="overflow-x-auto">
-          <table className="mt-2 w-full border-collapse text-sm">
+          <table className="mt-2 w-full border-collapse text-[16px] text-slate-900">
             <thead>
-              <tr className="bg-slate-100 text-left">
-                <th className="border border-slate-300 px-3 py-2">수탁자</th>
-                <th className="border border-slate-300 px-3 py-2">위탁 업무</th>
+              <tr className="bg-slate-100 text-left text-slate-900">
+                <th className="border border-slate-300 px-3 py-2.5 font-bold">수탁자</th>
+                <th className="border border-slate-300 px-3 py-2.5 font-bold">위탁 업무</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="text-slate-800">
               <tr>
-                <td className="border border-slate-300 px-3 py-2">Supabase</td>
-                <td className="border border-slate-300 px-3 py-2">데이터베이스 저장·관리</td>
+                <td className="border border-slate-300 px-3 py-2.5">Supabase</td>
+                <td className="border border-slate-300 px-3 py-2.5">데이터베이스 저장·관리</td>
               </tr>
               <tr>
-                <td className="border border-slate-300 px-3 py-2">Vercel</td>
-                <td className="border border-slate-300 px-3 py-2">웹 서비스 호스팅·운영</td>
+                <td className="border border-slate-300 px-3 py-2.5">Vercel</td>
+                <td className="border border-slate-300 px-3 py-2.5">웹 서비스 호스팅·운영</td>
               </tr>
               <tr>
-                <td className="border border-slate-300 px-3 py-2">Resend</td>
-                <td className="border border-slate-300 px-3 py-2">이메일 발송</td>
+                <td className="border border-slate-300 px-3 py-2.5">Resend</td>
+                <td className="border border-slate-300 px-3 py-2.5">이메일 발송</td>
               </tr>
               <tr>
-                <td className="border border-slate-300 px-3 py-2">Solapi(솔라피)</td>
-                <td className="border border-slate-300 px-3 py-2">카카오 알림톡·문자 발송</td>
+                <td className="border border-slate-300 px-3 py-2.5">Solapi(솔라피)</td>
+                <td className="border border-slate-300 px-3 py-2.5">카카오 알림톡·문자 발송</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-slate-600">일부 수탁자는 국외 서버에서 정보를 처리·보관할 수 있습니다.</p>
+        <p className="text-[15px] text-slate-700">일부 수탁자는 국외 서버에서 정보를 처리·보관할 수 있습니다.</p>
       </LegalSection>
 
       <LegalSection title="6. 파기 절차 및 방법">
@@ -153,7 +185,7 @@ export default function PrivacyPage() {
       <LegalSection title="9. 안내의 변경">
         <p>
           이 안내의 내용이 변경되는 경우 서비스 내 공지 등을 통해 알려드립니다. 매거진 구독 이용 조건은{' '}
-          <Link href="/terms" className="font-medium text-blue-700 underline underline-offset-2">
+          <Link href="/terms" className="font-bold text-blue-800 underline underline-offset-2">
             매거진 구독 이용약관
           </Link>
           에서 확인하실 수 있습니다.

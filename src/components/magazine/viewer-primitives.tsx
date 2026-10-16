@@ -41,7 +41,7 @@ export function RichBriefing({ text }: { text: string }) {
       {paras.map((para, i) => {
         const isHeading = /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/u.test(para) || /^\*\*.*\*\*$/.test(para.trim());
         const html = briefingParaToSafeHtml(para);
-        const cls = isHeading ? "pt-1 text-title font-extrabold leading-snug text-white" : "text-reader text-ink-muted";
+        const cls = isHeading ? "pt-1 text-title font-extrabold leading-snug text-white" : "text-reader leading-relaxed text-slate-200";
         // html 은 escapeHtml 로 전체 이스케이프된 뒤 고정 strong/span 태그만 삽입됨
         return <p key={i} className={cls} dangerouslySetInnerHTML={{ __html: html }} />;
       })}

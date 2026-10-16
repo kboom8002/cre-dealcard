@@ -49,11 +49,22 @@ export const viewport: Viewport = {
 
 export default function MagazineGroupLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#050510] text-slate-100" style={{ colorScheme: "dark" }}>
+    <div
+      className="min-h-screen bg-[#050510] text-slate-100"
+      style={
+        {
+          colorScheme: "dark",
+          "--text-caption": "0.875rem",
+          "--text-label": "0.9375rem",
+          "--text-body": "1.0625rem",
+          "--text-reader": "1.125rem",
+        } as React.CSSProperties
+      }
+    >
       <MagazineRouteEffects />
       <a
         href="#magazine-main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2.5 focus:text-label focus:font-bold focus:text-slate-900"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:inline-flex focus:min-h-12 focus:items-center focus:rounded-lg focus:bg-white focus:px-4 focus:py-2.5 focus:text-label focus:font-bold focus:text-slate-900"
       >
         본문으로 건너뛰기
       </a>

@@ -133,9 +133,10 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
     >
       <div className="space-y-3">
         <p className="text-reader font-bold leading-snug text-white" id={`poll-q-${brokerId}`}>{view.question}</p>
-        <div role="group" aria-labelledby={`poll-q-${brokerId}`} className="space-y-2">
+        <div role="group" aria-labelledby={`poll-q-${brokerId}`} className="space-y-2.5">
           {view.options.map((opt, idx) => {
             const isSelected = voted === idx;
+            const isSubmittingThis = submitting && pending === idx;
             const pct = pollPercent(results, idx);
             return (
               <button
@@ -144,7 +145,7 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
                 onClick={() => vote(idx)}
                 disabled={hasVoted || submitting || preview}
                 aria-pressed={isSelected}
-                className={`relative min-h-11 w-full overflow-hidden rounded-xl border p-3 text-left transition-colors ${
+                className={`relative min-h-12 w-full overflow-hidden rounded-xl border p-3.5 text-left transition-colors ${
                   hasVoted
                     ? isSelected
                       ? "border-white/40 bg-white/[0.08]"
@@ -162,7 +163,10 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
                 <div className="relative flex items-center justify-between gap-2">
                   <span className="text-body font-medium text-slate-100">
                     {opt.label}
-                    {isSelected && <span className="ml-2 text-caption font-bold text-emerald-200">✓ 내 선택</span>}
+                    {isSubmittingThis && (
+                      <span className="ml-2 text-sm font-bold text-amber-300">보내는 중…</span>
+                    )}
+                    {isSelected && <span className="ml-2 text-sm font-bold text-emerald-200">✓ 내 선택</span>}
                   </span>
                   {hasVoted && pct !== null && <span className="text-body font-bold text-slate-100">{pct}%</span>}
                 </div>
@@ -173,13 +177,13 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
 
         {error && (
           <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-400/40 bg-rose-950/30 p-3">
-            <p className="flex-1 text-caption text-rose-200">{error}</p>
+            <p className="flex-1 text-sm text-rose-200">{error}</p>
             {pending !== null && (
               <button
                 type="button"
                 onClick={() => vote(pending)}
                 disabled={submitting}
-                className="min-h-11 rounded-lg bg-rose-600 px-4 text-label font-bold text-white hover:bg-rose-500 disabled:opacity-60"
+                className="min-h-12 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white hover:bg-rose-500 disabled:opacity-60"
               >
                 {submitting ? "다시 보내는 중…" : "다시 시도"}
               </button>
@@ -188,8 +192,8 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
         )}
 
         {hasVoted && (
-          <div className="space-y-2 border-t border-white/10 pt-3 text-center">
-            <p role="status" className="text-caption text-ink-muted">
+          <div className="space-y-2.5 border-t border-white/10 pt-3 text-center">
+            <p role="status" className="text-sm text-slate-300">
               {already ? "이미 응답하셨습니다." : "응답이 접수되었습니다."}
               {showResults
                 ? ` 총 ${results.total}명이 참여했습니다.`
@@ -199,7 +203,7 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
               <a
                 href={telHref}
                 onClick={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 text-label font-bold text-white hover:bg-white/10"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 text-label font-bold text-white hover:bg-white/10"
               >
                 <MessageSquare className="h-4 w-4" aria-hidden="true" />
                 {selectedIntent === "seller" ? "매도 상담 문의하기" : "이 주제로 상담하기"}

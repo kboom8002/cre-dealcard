@@ -97,14 +97,16 @@ function BrokerFooter({ m, t, scale }: { m: ImageModel; t: Translate; scale: num
   const company = m.company ? t(m.company) : '';
   const initial = (name || company).charAt(0) || 'C';
   const phone = m.phone ?? '';
+  const nameSize = Math.max(32, Math.round(34 * scale));
+  const subSize = Math.max(22, Math.round(24 * scale));
   return (
     <div
       style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderTop: '1px solid rgba(255,255,255,0.1)',
-        paddingTop: `${Math.round(28 * scale)}px`,
+        borderTop: '1px solid rgba(255,255,255,0.15)',
+        paddingTop: `${Math.round(24 * scale)}px`,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: `${Math.round(20 * scale)}px` }}>
@@ -118,23 +120,23 @@ function BrokerFooter({ m, t, scale }: { m: ImageModel; t: Translate; scale: num
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
             color: '#fff',
-            fontSize: `${Math.round(32 * scale)}px`,
+            fontSize: `${Math.max(30, Math.round(32 * scale))}px`,
             fontWeight: 900,
           }}
         >
           {initial}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {name || company ? (
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-              {name ? <span style={{ fontSize: `${Math.round(30 * scale)}px`, fontWeight: 900 }}>{name}</span> : null}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px' }}>
+              {name ? <span style={{ fontSize: `${nameSize}px`, fontWeight: 900, color: '#ffffff' }}>{name}</span> : null}
               {company ? (
-                <span style={{ fontSize: `${Math.round(20 * scale)}px`, color: '#94a3b8' }}>{company}</span>
+                <span style={{ fontSize: `${subSize}px`, color: '#e2e8f0', fontWeight: 600 }}>{company}</span>
               ) : null}
             </div>
           ) : null}
           {phone ? (
-            <span style={{ fontSize: `${Math.round(20 * scale)}px`, color: '#a5b4fc', fontWeight: 600 }}>{phone}</span>
+            <span style={{ fontSize: `${subSize}px`, color: '#c7d2fe', fontWeight: 700 }}>{phone}</span>
           ) : null}
         </div>
       </div>
@@ -146,7 +148,7 @@ function BrokerFooter({ m, t, scale }: { m: ImageModel; t: Translate; scale: num
             color: '#fff',
             padding: '10px 22px',
             borderRadius: '20px',
-            fontSize: `${Math.round(20 * scale)}px`,
+            fontSize: `${Math.max(20, Math.round(22 * scale))}px`,
             fontWeight: 800,
           }}
         >
@@ -172,15 +174,15 @@ function Stats({ m, t, size }: { m: ImageModel; t: Translate; size: number }) {
             style={{
               display: 'flex',
               flexDirection: 'column',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.12)',
               borderTop: `3px solid ${color}`,
               borderRadius: '12px',
               padding: '14px 20px',
               minWidth: '140px',
             }}
           >
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: `${size - 8}px`, fontWeight: 600, marginBottom: '6px' }}>
+            <span style={{ color: '#e2e8f0', fontSize: `${Math.max(18, size - 6)}px`, fontWeight: 700, marginBottom: '6px' }}>
               {s.label}
             </span>
             <span style={{ color, fontSize: `${size}px`, fontWeight: 800 }}>{s.value}</span>
@@ -306,15 +308,17 @@ export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; 
   const headline = clip(t(m.headline, 'CRE Market Briefing'), 60);
   return (
     <PageBg width={width} height={height}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '48px 60px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '44px 56px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <BrandMark size={14} />
-            <span style={{ color: '#a5b4fc', fontSize: '18px', fontWeight: 800, letterSpacing: '3px' }}>CRE MAGAZINE</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <BrandMark size={18} />
+            <span style={{ color: '#c7d2fe', fontSize: '24px', fontWeight: 800, letterSpacing: '2px' }}>
+              {t('CRE 매거진', 'CRE MAGAZINE')}
+            </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
             <span style={{ color: '#fff', fontSize: '26px', fontWeight: 700 }}>{m.dateLabel}</span>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '16px' }}>{t(m.dateKorean) === m.dateKorean ? m.dateKorean : ''}</span>
+            <span style={{ color: '#cbd5e1', fontSize: '18px' }}>{t(m.dateKorean) === m.dateKorean ? m.dateKorean : ''}</span>
           </div>
         </div>
 
@@ -325,19 +329,19 @@ export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; 
             flex: 1,
             justifyContent: 'center',
             alignItems: 'flex-start',
-            gap: '20px',
+            gap: '18px',
           }}
         >
-          <TempBadge m={m} t={t} size={16} />
-          <div style={{ display: 'flex', fontSize: '52px', fontWeight: 900, lineHeight: 1.3, letterSpacing: '-1px', wordBreak: 'keep-all' }}>
+          <TempBadge m={m} t={t} size={24} />
+          <div style={{ display: 'flex', fontSize: '54px', fontWeight: 900, lineHeight: 1.28, letterSpacing: '-1px', wordBreak: 'keep-all' }}>
             {headline}
           </div>
-          <Keywords m={m} t={t} size={16} />
+          <Keywords m={m} t={t} size={20} />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <Stats m={m} t={t} size={22} />
-          <BrokerFooter m={m} t={t} scale={0.8} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Stats m={m} t={t} size={24} />
+          <BrokerFooter m={m} t={t} scale={1} />
         </div>
       </div>
     </PageBg>
@@ -353,8 +357,10 @@ export function StoryImage({ m, t, width, height }: { m: ImageModel; t: Translat
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '80px 70px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <BrandMark size={22} />
-            <span style={{ color: '#a5b4fc', fontSize: '24px', fontWeight: 800, letterSpacing: '4px' }}>CRE MAGAZINE</span>
+            <BrandMark size={24} />
+            <span style={{ color: '#c7d2fe', fontSize: '26px', fontWeight: 800, letterSpacing: '3px' }}>
+              {t('CRE 매거진', 'CRE MAGAZINE')}
+            </span>
           </div>
           <div
             style={{
@@ -363,7 +369,7 @@ export function StoryImage({ m, t, width, height }: { m: ImageModel; t: Translat
               border: '1px solid rgba(255,255,255,0.12)',
               padding: '8px 20px',
               borderRadius: '30px',
-              fontSize: '22px',
+              fontSize: '24px',
               fontWeight: 700,
               color: '#e2e8f0',
             }}
@@ -376,7 +382,7 @@ export function StoryImage({ m, t, width, height }: { m: ImageModel; t: Translat
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center', gap: '40px', paddingTop: '40px', paddingBottom: '40px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
             <div style={{ display: 'flex' }}>
-              <TempBadge m={m} t={t} size={22} />
+              <TempBadge m={m} t={t} size={24} />
             </div>
             <div style={{ display: 'flex', fontSize: '68px', fontWeight: 900, lineHeight: 1.25, letterSpacing: '-1.5px', wordBreak: 'keep-all' }}>
               {headline}
@@ -422,22 +428,24 @@ export function CardImage({ m, t, width, height }: { m: ImageModel; t: Translate
     <PageBg width={width} height={height}>
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '64px 70px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#a5b4fc', fontSize: '22px', fontWeight: 800, letterSpacing: '3px' }}>CRE MAGAZINE</span>
-          <span style={{ color: '#94a3b8', fontSize: '22px' }}>{m.dateLabel}</span>
+          <span style={{ color: '#c7d2fe', fontSize: '24px', fontWeight: 800, letterSpacing: '2px' }}>
+            {t('CRE 매거진', 'CRE MAGAZINE')}
+          </span>
+          <span style={{ color: '#cbd5e1', fontSize: '24px' }}>{m.dateLabel}</span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center', gap: '26px' }}>
           <div style={{ display: 'flex' }}>
-            <TempBadge m={m} t={t} size={20} />
+            <TempBadge m={m} t={t} size={24} />
           </div>
           <div style={{ display: 'flex', fontSize: '64px', fontWeight: 900, lineHeight: 1.3, wordBreak: 'keep-all' }}>{headline}</div>
           {briefing ? (
             <div style={{ display: 'flex', fontSize: '28px', lineHeight: 1.6, color: '#cbd5e1', wordBreak: 'keep-all' }}>{briefing}</div>
           ) : null}
-          <Keywords m={m} t={t} size={20} />
+          <Keywords m={m} t={t} size={22} />
         </div>
 
-        <BrokerFooter m={m} t={t} scale={0.9} />
+        <BrokerFooter m={m} t={t} scale={1} />
       </div>
     </PageBg>
   );

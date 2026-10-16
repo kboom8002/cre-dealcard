@@ -12,8 +12,11 @@ import { BrokerAvatar } from "@/components/magazine/BrokerAvatar";
 import { GlossaryText } from "@/components/magazine/GlossaryText";
 import { DataBadge, SectionCard } from "@/components/magazine/viewer-primitives";
 import {
+  formatPhoneDisplay,
   formatPriceKo,
   newsSentimentMeta,
+  sanitizeDealAddress,
+  sanitizeTelHref,
   sentimentMeta,
   topicLabelKo,
   type NewsItemView,
@@ -54,7 +57,7 @@ export function MarketDataSection({
               <table className="w-full text-caption">
                 <caption className="sr-only">최근 실거래 내역</caption>
                 <thead>
-                  <tr className="border-b border-white/10 text-ink-subtle">
+                  <tr className="border-b border-white/10 text-slate-300">
                     <th scope="col" className="py-1.5 text-left font-medium">주소</th>
                     <th scope="col" className="py-1.5 text-right font-medium">거래가</th>
                     <th scope="col" className="py-1.5 text-right font-medium">날짜</th>
@@ -63,9 +66,9 @@ export function MarketDataSection({
                 <tbody>
                   {recentTxs.slice(0, 5).map((tx, i) => (
                     <tr key={i} className="border-b border-white/5">
-                      <td className="max-w-[140px] truncate py-1.5 text-ink-muted">{tx.dong || tx.address}</td>
+                      <td className="max-w-[140px] truncate py-1.5 text-slate-200">{tx.dong || tx.address}</td>
                       <td className="py-1.5 text-right font-bold text-emerald-200">{formatPriceKo(tx.transaction_price)}</td>
-                      <td className="py-1.5 text-right text-ink-subtle">{tx.transaction_date}</td>
+                      <td className="py-1.5 text-right text-slate-300">{tx.transaction_date}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -80,7 +83,7 @@ export function MarketDataSection({
               <Stat value={`${rentalTrend.vacancy_rate}%`} label="공실률" tone="text-sky-200" />
               <Stat value={String(rentalTrend.rental_index)} label="렌탈 인덱스" tone="text-indigo-200" />
             </div>
-            <p className="mt-1 text-caption text-ink-subtle">
+            <p className="mt-1 text-caption text-slate-300">
               <GlossaryText text={String(rentalTrend.region ?? "")} seen={seen} /> · {rentalTrend.quarter}
             </p>
           </div>
@@ -92,7 +95,7 @@ export function MarketDataSection({
               <Stat value={String(commercialDistrict.sales_volume_index)} label="매출 지수" tone="text-amber-200" />
               <Stat value={String(commercialDistrict.footfall_index)} label="유동인구 지수" tone="text-rose-200" />
             </div>
-            <p className="mt-1 text-caption text-ink-subtle">
+            <p className="mt-1 text-caption text-slate-300">
               <GlossaryText text={String(commercialDistrict.district_name ?? "")} seen={seen} />
             </p>
           </div>
@@ -127,7 +130,7 @@ export function MarketDataSection({
           </div>
         )}
         {/* 출처·기준일 (시장 데이터 신뢰 표기) */}
-        <p className="border-t border-white/10 pt-2 text-caption text-ink-subtle" data-testid="market-source">
+        <p className="border-t border-white/10 pt-2 text-caption text-slate-300" data-testid="market-source">
           출처: 공공데이터 · 기준일: {dateLabel} 발행 시점 (항목별 기준 시점은 각 항목에 표기)
         </p>
       </div>
@@ -139,7 +142,7 @@ function Stat({ value, label, tone, small }: { value: string; label: string; ton
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
       <p className={`${small ? "text-title" : "text-display"} font-extrabold leading-tight ${tone}`}>{value}</p>
-      <p className="mt-1 text-caption text-ink-muted">{label}</p>
+      <p className="mt-1 text-caption text-slate-300">{label}</p>
     </div>
   );
 }
@@ -160,14 +163,14 @@ export function NewsSection({ items }: { items: NewsItemView[] }) {
           return (
             <li key={i} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
               <div className="mb-1 flex items-center gap-2">
-                <span className="rounded-md border border-white/20 px-1.5 py-0.5 text-caption font-bold text-ink-muted">
+                <span className="rounded-md border border-white/20 px-1.5 py-0.5 text-caption font-bold text-slate-200">
                   <span aria-hidden="true">{s.symbol}</span> {s.label}
                 </span>
                 {topic && <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-caption text-indigo-200">{topic}</span>}
               </div>
               <p className="line-clamp-2 text-label font-bold leading-snug text-white">{n.title}</p>
-              {n.summary && <p className="mt-1 line-clamp-2 text-caption leading-relaxed text-ink-muted">{n.summary}</p>}
-              {n.source && <p className="mt-1 text-caption text-ink-subtle">{n.source}</p>}
+              {n.summary && <p className="mt-1 line-clamp-2 text-caption leading-relaxed text-slate-200">{n.summary}</p>}
+              {n.source && <p className="mt-1 text-caption text-slate-300">{n.source}</p>}
             </li>
           );
         })}
@@ -192,13 +195,13 @@ export function AuctionSection({ picks }: { picks: AnyRec[] }) {
       }
     >
       <div className="space-y-2">
-        <p className="text-caption leading-relaxed text-ink-subtle">
+        <p className="text-caption leading-relaxed text-slate-300">
           <GlossaryText text="NPL 기반 경매 물건 — 최저입찰가와 감정가를 비교해 보세요." seen={seen} />
         </p>
         {picks.map((a, i) => (
           <div key={i} className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5">
             <div className="mb-2 flex items-start justify-between">
-              <p className="mr-2 flex-1 text-label font-bold leading-snug text-white">{a.address}</p>
+              <p className="mr-2 flex-1 text-label font-bold leading-snug text-white">{sanitizeDealAddress(a.address)}</p>
               {a.discountPct > 0 && (
                 <span className="shrink-0 rounded-lg border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-caption font-extrabold text-rose-200">
                   -{a.discountPct}%
@@ -207,7 +210,7 @@ export function AuctionSection({ picks }: { picks: AnyRec[] }) {
             </div>
             {a.discountPct > 0 && (
               <div className="mb-2">
-                <div className="mb-1 flex justify-between text-caption text-ink-muted">
+                <div className="mb-1 flex justify-between text-caption text-slate-200">
                   <span>최저입찰가 {formatPriceKo(a.minimumBid)}</span>
                   <span>감정가 {formatPriceKo(a.appraisedValue)}</span>
                 </div>
@@ -216,7 +219,7 @@ export function AuctionSection({ picks }: { picks: AnyRec[] }) {
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-3 text-caption text-ink-muted">
+            <div className="flex items-center gap-3 text-caption text-slate-300">
               <span className="font-bold text-amber-200">{a.auctionDate}</span>
               <span aria-hidden="true">·</span>
               <span>{a.status}</span>
@@ -242,7 +245,7 @@ export function ReportsSection({ reports }: { reports: AnyRec[] }) {
             <div className="min-w-0 flex-1">
               <p className="mb-0.5 text-caption font-bold text-indigo-200">{r.institution}</p>
               <p className="line-clamp-1 text-label font-bold text-white">{r.title}</p>
-              <p className="mt-0.5 line-clamp-2 text-caption leading-relaxed text-ink-muted">{r.summary}</p>
+              <p className="mt-0.5 line-clamp-2 text-caption leading-relaxed text-slate-200">{r.summary}</p>
             </div>
           </div>
         ))}
@@ -265,20 +268,20 @@ export function SentimentSection({
     >
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-label text-ink-muted">CRE 시장 심리</span>
+          <span className="text-label text-slate-200">CRE 시장 심리</span>
           <span className="text-title font-extrabold text-white">
             {sentiment.score}
-            <span className="text-label font-normal text-ink-subtle">/100</span>
+            <span className="text-label font-normal text-slate-300">/100</span>
             <span className={`ml-2 text-caption font-bold ${meta.text}`}>{meta.label}</span>
           </span>
         </div>
         <div className="relative h-2.5 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`심리 지수 ${sentiment.score}점, ${meta.label}`}>
           <div className={`h-full rounded-full bg-gradient-to-r ${meta.bar}`} style={{ width: `${sentiment.score < 0 ? 0 : sentiment.score > 100 ? 100 : sentiment.score}%` }} />
         </div>
-        <div className="flex justify-between text-caption text-ink-subtle">
+        <div className="flex justify-between text-caption text-slate-300">
           <span>극단 위축</span><span>중립 50</span><span>극단 과열</span>
         </div>
-        {sentiment.asOf && <p className="text-caption text-ink-subtle">기준일: {sentiment.asOf}</p>}
+        {sentiment.asOf && <p className="text-caption text-slate-300">기준일: {sentiment.asOf}</p>}
       </div>
     </SectionCard>
   );
@@ -300,17 +303,17 @@ export function TaxClinicSection({
   const source: string | null = typeof taxClinic.source === "string" && taxClinic.source ? taxClinic.source : null;
 
   const Footer = (
-    <div className="space-y-1 border-t border-white/10 pt-2">
-      {source && <p className="text-caption leading-relaxed text-ink-subtle">근거: {source}</p>}
-      {asOf && <p className="text-caption text-ink-subtle">기준일: {asOf}</p>}
-      <p className="text-caption leading-relaxed text-ink-muted" data-testid="tax-disclaimer">
+    <div className="space-y-1.5 border-t border-white/10 pt-2.5">
+      {source && <p className="text-caption leading-relaxed text-slate-300">근거: {source}</p>}
+      {asOf && <p className="text-caption text-slate-300">기준일: {asOf}</p>}
+      <p className="text-caption leading-relaxed text-slate-200" data-testid="tax-disclaimer">
         ※ {disclaimer}
       </p>
       {telHref && (
         <a
           href={telHref}
           data-track="tax_inquiry"
-          className="inline-flex min-h-11 items-center text-caption font-semibold text-indigo-200 underline underline-offset-4"
+          className="inline-flex min-h-12 items-center text-caption font-semibold text-indigo-200 underline underline-offset-4"
         >
           세무 관련 문의는 중개사에게 전화하기
         </a>
@@ -326,7 +329,7 @@ export function TaxClinicSection({
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
             <p className="text-label font-bold text-amber-200">Q. {taxClinic.question}</p>
           </div>
-          <div className="whitespace-pre-line text-body leading-relaxed text-ink-muted">{taxClinic.answer}</div>
+          <div className="whitespace-pre-line text-body leading-relaxed text-slate-200">{taxClinic.answer}</div>
           {Footer}
         </div>
       </SectionCard>
@@ -345,16 +348,16 @@ export function TaxClinicSection({
       <div className="space-y-4">
         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
           <h3 className="mb-2 text-body font-bold leading-snug text-white">{taxClinic.title}</h3>
-          {taxClinic.scenario && <p className="text-label leading-relaxed text-ink-muted">{taxClinic.scenario}</p>}
+          {taxClinic.scenario && <p className="text-label leading-relaxed text-slate-200">{taxClinic.scenario}</p>}
         </div>
         {optA && optB && (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {[{ label: "대안 A", opt: optA }, { label: "대안 B", opt: optB }].map(({ label, opt }) => (
               <div key={label} className="relative overflow-hidden rounded-xl border border-white/10 bg-white/5 p-3">
                 <div aria-hidden="true" className="absolute left-0 top-0 h-full w-1 bg-slate-500" />
-                <p className="mb-1 text-caption font-bold text-ink-muted">{label}</p>
+                <p className="mb-1 text-caption font-bold text-slate-300">{label}</p>
                 <p className="mb-2 text-label font-bold text-white">{opt.name}</p>
-                <p className="mb-2 text-caption leading-relaxed text-ink-muted">{opt.description}</p>
+                <p className="mb-2 text-caption leading-relaxed text-slate-200">{opt.description}</p>
                 {opt.expectedTaxInfo && (
                   <div className="rounded-lg border border-white/10 bg-black/30 p-2">
                     <p className="text-caption font-medium text-slate-200">예상 세금(예시): {opt.expectedTaxInfo}</p>
@@ -366,7 +369,7 @@ export function TaxClinicSection({
         )}
         {taxClinic.conclusion && (
           <div className="rounded-xl border border-white/10 bg-white/5 p-3.5">
-            <p className="mb-1 text-caption font-bold text-ink-muted">요약</p>
+            <p className="mb-1 text-caption font-bold text-slate-300">요약</p>
             <p className="text-label font-medium leading-relaxed text-white">{taxClinic.conclusion}</p>
           </div>
         )}
@@ -379,9 +382,9 @@ export function TaxClinicSection({
 // ── 전달하기(ForwardSection)는 클립보드/공유 API 가 필요해 클라이언트 섬 `ForwardSection.tsx` 로 분리 (U-06) ──
 
 
-// ── 중개사 프로필 (실적 0건 숨김, 사진 실패 시 이니셜 아바타) ──────────────
+// ── 중개사 프로필 (실적 0건 숨김, 사진 실패 시 이니셜 아바타, 60대 친화 직통번호·안내 포함) ──────────────
 export function BrokerProfileSection({
-  name, company, photoUrl, specialties, slug, dealCount, listingCount, bio,
+  name, company, photoUrl, specialties, slug, dealCount, listingCount, bio, phone,
 }: {
   name: string;
   company?: string | null;
@@ -391,48 +394,80 @@ export function BrokerProfileSection({
   dealCount?: number;
   listingCount?: number;
   bio?: string | null;
+  phone?: string | null;
 }) {
   const stats = [
     dealCount && dealCount > 0 ? { label: "거래 실적", value: `${dealCount}건` } : null,
     listingCount && listingCount > 0 ? { label: "진행 매물", value: `${listingCount}건` } : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
 
+  const formattedPhone = formatPhoneDisplay(phone);
+  const telDigits = sanitizeTelHref(phone);
+
   return (
-    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="space-y-3.5 rounded-2xl border border-white/15 bg-white/[0.03] p-4" style={{ wordBreak: "keep-all" }}>
       <h2 className="sr-only">담당 중개사</h2>
       <div className="flex items-center gap-3">
         <BrokerAvatar name={name} photoUrl={photoUrl} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-body font-bold text-white">{name}</p>
-          {company && <p className="truncate text-caption text-ink-muted">{company}</p>}
+          {company && <p className="truncate text-caption text-slate-300">{company}</p>}
+          {formattedPhone && (
+            <p className="mt-1 font-mono text-[17px] font-extrabold text-amber-300 tabular-nums">
+              📞 {formattedPhone}
+            </p>
+          )}
         </div>
       </div>
       {specialties.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {specialties.slice(0, 8).map((s, i) => (
-            <span key={i} className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-caption text-ink-muted">{s}</span>
+            <span key={i} className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-caption text-slate-200">{s}</span>
           ))}
         </div>
       )}
-      {bio && <p className="line-clamp-3 text-label leading-relaxed text-ink-muted">{bio}</p>}
+      {bio && <p className="line-clamp-3 text-label leading-relaxed text-slate-200">{bio}</p>}
       {stats.length > 0 && (
         <dl className="flex gap-4 text-caption">
           {stats.map((s) => (
             <div key={s.label}>
-              <dt className="text-ink-subtle">{s.label}</dt>
+              <dt className="text-slate-300">{s.label}</dt>
               <dd className="font-bold text-white">{s.value}</dd>
             </div>
           ))}
         </dl>
       )}
-      {slug && (
-        <a
-          href={`/broker-profile/${encodeURIComponent(slug)}?ref=magazine-profile`}
-          className="inline-flex min-h-11 items-center text-label font-semibold text-indigo-200 underline underline-offset-4"
-        >
-          중개사 프로필 보기
-        </a>
-      )}
+      <div className="flex flex-wrap gap-2 pt-1">
+        {telDigits && (
+          <a
+            href={`tel:${telDigits}`}
+            data-track="cta_click"
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2.5 text-[15px] font-bold text-white hover:bg-emerald-500"
+          >
+            <span>📞 전화 걸기</span>
+          </a>
+        )}
+        {slug && (
+          <a
+            href={`/magazine/${encodeURIComponent(slug)}`}
+            className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-white/20 bg-white/5 px-3.5 py-2.5 text-[15px] font-bold text-slate-100 hover:bg-white/10"
+          >
+            지난 매거진 목록 보기
+          </a>
+        )}
+        {slug && (
+          <a
+            href={`/broker-profile/${encodeURIComponent(slug)}?ref=magazine-profile`}
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-indigo-400/30 bg-indigo-500/10 px-3.5 py-2.5 text-label font-semibold text-indigo-200 underline underline-offset-4 hover:bg-indigo-500/20"
+          >
+            중개사 프로필 보기
+          </a>
+        )}
+      </div>
+      <p className="rounded-xl border border-indigo-400/25 bg-indigo-500/10 px-3.5 py-2.5 text-sm leading-relaxed text-indigo-100">
+        💡 하단 &apos;IM 요청&apos; 버튼을 누르시면 중개사 프로필·자료 안내 페이지로 이동합니다
+      </p>
     </div>
   );
 }
+

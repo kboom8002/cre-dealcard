@@ -11,6 +11,12 @@
  * 모든 함수는 저장소/난수 생성기를 주입받을 수 있어 단위테스트가 가능하다.
  */
 
+import {
+  ANALYTICS_EVENT_RETENTION_NOTICE,
+  SUBSCRIBER_RETENTION_NOTICE,
+  VISITOR_ID_RETENTION_NOTICE,
+} from '@/lib/magazine/legal-constants';
+
 export const VISITOR_ID_STORAGE_KEY = 'cre_mag_vid';
 /** 13개월 (개인정보 보호·가이드상 상한). 만료되면 새 ID 를 발급한다. */
 export const VISITOR_ID_TTL_MS = 395 * 24 * 60 * 60 * 1000;
@@ -19,8 +25,9 @@ export const VISITOR_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 
 /** 구독/뷰어 푸터에 노출할 개인정보 고지 문구 계약 (E3 가 사용). */
 export const ANALYTICS_NOTICE_TEXT =
-  '열람 통계를 위해 이 브라우저에 임의의 방문자 번호를 13개월간 저장합니다(쿠키·기기 지문 아님). ' +
-  '서버에는 암호화(해시)된 값만 저장되며, 구독자 전용 링크로 접속하면 중개사에게 열람 현황이 구독자와 연결되어 표시될 수 있습니다.';
+  `열람 통계를 위해 이 브라우저에 임의의 방문자 번호를 ${VISITOR_ID_RETENTION_NOTICE}합니다. ` +
+  `서버에는 암호화(해시)된 값만 저장되며 열람 통계 이벤트는 ${ANALYTICS_EVENT_RETENTION_NOTICE}됩니다. ` +
+  `구독자 개인정보는 ${SUBSCRIBER_RETENTION_NOTICE}되며, 구독자 전용 링크로 접속하면 중개사에게 열람 현황이 구독자와 연결되어 표시될 수 있습니다.`;
 
 export interface StoredVisitorId {
   id: string;

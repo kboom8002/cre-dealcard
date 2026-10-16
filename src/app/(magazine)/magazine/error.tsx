@@ -39,7 +39,7 @@ export default function MagazineError({
         />
         <Link
           href="/"
-          className="flex min-h-11 w-full items-center justify-center rounded-xl border border-white/20 text-body font-bold text-ink-muted hover:bg-white/5"
+          className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white/20 text-body font-bold text-slate-200 hover:bg-white/5"
         >
           홈으로 이동
         </Link>

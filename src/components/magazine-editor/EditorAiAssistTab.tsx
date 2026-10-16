@@ -21,13 +21,16 @@ interface EditorAiAssistTabProps {
   /** 탭을 오가도 입력·결과가 유지되도록 부모가 보관하는 값(초기값) */
   memory?: AiAssistMemory;
   onMemoryChange?: (m: AiAssistMemory) => void;
+  /** 테스트/외부 주입용 초기 에러 메시지 */
+  initialError?: string | null;
 }
 
-export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiAssistTabProps = {}) {
+export function EditorAiAssistTab({ onApply, memory, onMemoryChange, initialError = null }: EditorAiAssistTabProps) {
   const [idea, setIdea] = useState(memory?.idea ?? "");
   const [result, setResult] = useState(memory?.result ?? "");
   const [warnings, setWarnings] = useState<string[]>(memory?.warnings ?? []);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialError);
 
   useEffect(() => {
     onMemoryChange?.({ idea, result, warnings });
@@ -35,9 +38,29 @@ export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idea, result, warnings]);
 
+  const scrollResultIntoView = () => {
+    const focusAndScroll = () => {
+      const el = typeof document !== "undefined" ? document.getElementById("ai-assist-result") : null;
+      if (el) {
+        if (typeof el.scrollIntoView === "function") {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        el.focus();
+      }
+    };
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        setTimeout(focusAndScroll, 60);
+      });
+    } else {
+      setTimeout(focusAndScroll, 60);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!idea.trim() || isGenerating) return;
     setIsGenerating(true);
+    setErrorMessage(null);
     try {
       const res = await fetch("/api/broker/studio/ai-comment", {
         method: "POST",
@@ -46,18 +69,25 @@ export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiA
       });
       const json = await readJsonSafe(res);
       if (!res.ok) {
-        editorToast.error(extractApiErrorMessage(json, "AI 문구 생성에 실패했습니다. 잠시 후 다시 시도해 주세요."));
+        const msg = extractApiErrorMessage(json, "AI 문구 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        setErrorMessage(msg);
+        editorToast.error(msg);
         return;
       }
       const parsed = aiCommentResponseSchema.safeParse(json);
       if (!parsed.success) {
-        editorToast.error("AI 응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.");
+        const msg = "AI 응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.";
+        setErrorMessage(msg);
+        editorToast.error(msg);
         return;
       }
       setResult(parsed.data.result.comment);
       setWarnings(parsed.data.warnings ?? []);
+      scrollResultIntoView();
     } catch {
-      editorToast.error("네트워크 오류로 생성하지 못했습니다. 다시 시도해 주세요.");
+      const msg = "네트워크 오류로 생성하지 못했습니다. 다시 시도해 주세요.";
+      setErrorMessage(msg);
+      editorToast.error(msg);
     } finally {
       setIsGenerating(false);
     }
@@ -67,6 +97,12 @@ export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiA
     const text = result.trim();
     if (!text || !onApply) return;
     onApply(text);
+  };
+
+  const handleFallbackApply = () => {
+    const raw = idea.trim();
+    if (!raw || !onApply) return;
+    onApply(raw);
   };
 
   return (
@@ -92,10 +128,45 @@ export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiA
           type="button"
           onClick={handleGenerate}
           disabled={isGenerating || !idea.trim()}
-          className="w-full min-h-11 py-2.5 bg-indigo-500/20 text-indigo-300 font-bold text-body rounded-lg hover:bg-indigo-500/30 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+          className="w-full min-h-12 py-2.5 bg-indigo-500/20 text-indigo-300 font-bold text-body rounded-lg hover:bg-indigo-500/30 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
         >
-          {isGenerating ? "생성 중..." : "✨ AI 말투 생성하기"}
+          {isGenerating ? "AI가 문장을 다듬는 중… (약 5~10초 소요)" : "✨ AI 말투 생성하기"}
         </button>
+
+        {isGenerating && (
+          <p role="status" className="text-sm font-medium text-indigo-300 text-center">
+            AI가 문장을 다듬는 중… (약 5~10초 소요)
+          </p>
+        )}
+
+        {result.trim() && !isGenerating && (
+          <div
+            role="status"
+            data-testid="ai-assist-ready-banner"
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2.5 text-sm font-semibold text-emerald-200 leading-relaxed"
+          >
+            ✅ AI가 다듬은 문장이 아래에 준비되었습니다. 확인 후 [필드노트에 넣기]를 눌러 주세요
+          </div>
+        )}
+
+        {errorMessage && (
+          <div
+            role="alert"
+            data-testid="ai-assist-error-box"
+            className="space-y-2.5 rounded-lg border border-red-500/40 bg-red-500/15 p-3.5 text-sm text-red-200"
+          >
+            <p className="font-semibold leading-relaxed">{errorMessage}</p>
+            {onApply && idea.trim() && (
+              <button
+                type="button"
+                onClick={handleFallbackApply}
+                className="w-full min-h-12 rounded-lg border border-red-400/50 bg-slate-900/90 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+              >
+                📝 입력한 메모 그대로 필드노트에 넣기
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {result && (
@@ -134,7 +205,7 @@ export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiA
                   () => editorToast.error("복사하지 못했습니다. 직접 선택해 복사해 주세요.")
                 );
               }}
-              className="flex-1 min-h-11 py-2 bg-slate-800 text-slate-300 text-label font-bold rounded-lg hover:bg-slate-700 transition-colors flex items-center justify-center gap-1.5"
+              className="flex-1 min-h-12 py-2 bg-slate-800 text-slate-300 text-label font-bold rounded-lg hover:bg-slate-700 transition-colors flex items-center justify-center gap-1.5"
             >
               <Copy className="w-3.5 h-3.5" aria-hidden="true" /> 복사
             </button>
@@ -143,7 +214,7 @@ export function EditorAiAssistTab({ onApply, memory, onMemoryChange }: EditorAiA
                 type="button"
                 onClick={handleApply}
                 disabled={!result.trim()}
-                className="flex-[2] min-h-11 py-2 bg-indigo-500 text-white text-label font-bold rounded-lg hover:bg-indigo-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                className="flex-[2] min-h-12 py-2 bg-indigo-500 text-white text-label font-bold rounded-lg hover:bg-indigo-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
               >
                 <FileInput className="w-3.5 h-3.5" aria-hidden="true" /> 필드노트에 넣기
               </button>

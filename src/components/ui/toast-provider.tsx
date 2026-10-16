@@ -4,11 +4,13 @@ import { Toaster } from 'sonner';
 export function ToastProvider() {
   return (
     <Toaster
-      position="top-center"
+      position="bottom-right"
+      duration={8000}
       richColors
       closeButton
       visibleToasts={3}
       toastOptions={{
+        duration: 8000,
         style: {
           background: '#1a2332',
           border: '1px solid #2d3748',

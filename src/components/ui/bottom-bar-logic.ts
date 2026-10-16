@@ -23,10 +23,10 @@ export function computeViewportRatio(visualViewportHeight: number, innerHeight: 
 }
 
 /**
- * 하단 바를 숨길지 결정.
- * - `<0.75` → 키보드가 열림 → 숨김
- * - 텍스트 입력에 포커스가 있고 `<0.9` → 키보드가 열리는 중 → 숨김
+ * 하단 바를 숨길지 결정 (기본 BottomBar).
  * - hideOnInputFocus=false 이면 항상 표시
+ * - `<0.75` → 키보드가 열림 → 숨김
+ * - 텍스트 입력에 포커스가 있고 `<0.9` 이면(키보드 올라오는 중) 숨김
  */
 export function shouldHideBar(opts: {
   viewportRatio: number;
@@ -36,7 +36,33 @@ export function shouldHideBar(opts: {
   const { viewportRatio, inputFocused = false, hideOnInputFocus = true } = opts;
   if (!hideOnInputFocus) return false;
   if (viewportRatio < KEYBOARD_RATIO_THRESHOLD) return true;
-  return inputFocused && viewportRatio < INPUT_FOCUS_RATIO_THRESHOLD;
+  if (inputFocused && viewportRatio < INPUT_FOCUS_RATIO_THRESHOLD) return true;
+  return false;
+}
+
+/**
+ * 매거진 독자 하단 바 숨김 판정 (U-F1-13 / R-09).
+ * - 텍스트 입력에 포커스가 있으면(inputFocused=true) viewportRatio 와 무관하게 즉시 숨김
+ *   (안드로이드 카톡 인앱 브라우저 adjustResize 환경에서 viewportRatio 가 1 로 유지되는 문제 해결)
+ * - `<0.75` → 키보드가 열림 → 숨김
+ */
+export function shouldHideBottomBar(
+  opts: {
+    viewportRatio: number;
+    inputFocused?: boolean;
+    hideOnInputFocus?: boolean;
+  },
+  hideOnInputFocusArg?: boolean,
+): boolean {
+  const {
+    viewportRatio,
+    inputFocused = false,
+    hideOnInputFocus = hideOnInputFocusArg ?? true,
+  } = opts;
+  if (!hideOnInputFocus) return false;
+  if (inputFocused) return true;
+  if (viewportRatio < KEYBOARD_RATIO_THRESHOLD) return true;
+  return false;
 }
 
 /**
@@ -74,6 +100,17 @@ export function isTextEntryElement(
     return !NON_TEXT_INPUT_TYPES.has((inputType ?? 'text').toLowerCase());
   }
   return false;
+}
+
+/** DOM Element 기반 텍스트 입력 요소 판정 헬퍼. */
+export function isTextInputElement(el: Element | null | undefined): boolean {
+  if (!el) return false;
+  const htmlEl = el as HTMLElement & { type?: string };
+  return isTextEntryElement(
+    htmlEl.tagName,
+    typeof htmlEl.type === 'string' ? htmlEl.type : htmlEl.getAttribute?.('type'),
+    Boolean(htmlEl.isContentEditable),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────

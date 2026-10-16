@@ -40,14 +40,14 @@ export function SectionCard({
             setIsOpen(next);
             onToggle?.(next);
           }}
-          className="flex min-h-11 w-full items-center gap-2 px-4 py-3 text-left"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left"
         >
           {icon}
           <span className="flex-1 text-label font-bold text-white">{title}</span>
           {badge}
           <ChevronDown
             aria-hidden="true"
-            className={`h-4 w-4 text-ink-subtle transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-slate-300 transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
           />
         </button>
       </h2>

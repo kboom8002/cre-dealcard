@@ -13,9 +13,14 @@ export const TRACKING_OPTOUT_TEXT =
 
 export function TrackingNotice({ className = '' }: { className?: string }) {
   return (
-    <p className={`text-caption leading-relaxed text-ink-muted ${className}`} data-testid="tracking-notice">
+    <p className={`text-sm leading-relaxed text-slate-300 ${className}`} data-testid="tracking-notice">
       {TRACKING_NOTICE_TEXT} {TRACKING_OPTOUT_TEXT}{' '}
-      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline text-indigo-200">
+      <a
+        href="/privacy"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex min-h-12 items-center px-1 font-semibold underline text-indigo-200 hover:text-indigo-100"
+      >
         개인정보 처리방침
       </a>
     </p>

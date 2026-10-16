@@ -92,10 +92,23 @@ function isSupportedTemp(v: string): v is MarketTemperature {
   return Object.prototype.hasOwnProperty.call(MARKET_TEMP_CONFIG, v);
 }
 
+/** 영문 CRE 약어(Cap Rate, NOI) 첫 등장 시 한글 병기 자동 확장 (C-13) */
+export function expandCreTermsFirstOccurrence(text: string): string {
+  if (!text) return text;
+  let out = text;
+  if (!/임대수익률\s*\(\s*Cap\s*Rate\s*\)/i.test(out)) {
+    out = out.replace(/\bCap\s*Rate\b/i, '연 임대수익률(Cap Rate)');
+  }
+  if (!/순영업소득\s*\(\s*NOI\s*\)/i.test(out)) {
+    out = out.replace(/\bNOI\b/, '순영업소득(NOI)');
+  }
+  return out;
+}
+
 // ───────────────────────── 섹션 빌더 ─────────────────────────
 
 function sectionTitle(label: string): string {
-  return `<tr><td style="padding:20px 28px 8px;font-family:${FONT};font-size:16px;font-weight:bold;line-height:1.5;color:${COLORS.text};">${escapeHtml(label)}</td></tr>`;
+  return `<tr><td class="mag-pad" style="padding:20px 28px 8px;font-family:${FONT};font-size:18px;font-weight:bold;line-height:1.5;color:${COLORS.text};word-break:keep-all;">${escapeHtml(label)}</td></tr>`;
 }
 
 function dealsHtml(deals: MagazineDealInput[] | undefined): { html: string; lines: string[] } {
@@ -108,12 +121,13 @@ function dealsHtml(deals: MagazineDealInput[] | undefined): { html: string; line
     const addr = d.address ? pt(maskAddress(d.address), 60) : '';
     const price = formatKrwAmount(d.price);
     const date = formatDateDots(d.date);
-    const meta = [addr, price, date ? `거래일 ${date}` : ''].filter(Boolean);
+    const kindBadge = date ? '최근 실거래 사례' : '이번 호 추천 매물';
+    const meta = [kindBadge, addr, price, date ? `거래일 ${date}` : ''].filter(Boolean);
     rows.push(
-      `<tr><td style="padding:10px 14px;border-bottom:1px solid ${COLORS.border};font-family:${FONT};">` +
-        `<div style="font-size:14px;font-weight:bold;line-height:1.5;color:${COLORS.text};">${escapeHtml(title)}</div>` +
+      `<tr><td style="padding:12px 16px;border-bottom:1px solid ${COLORS.border};font-family:${FONT};word-break:keep-all;overflow-wrap:break-word;">` +
+        `<div style="font-size:16px;font-weight:bold;line-height:1.55;color:${COLORS.text};">${escapeHtml(title)}</div>` +
         (meta.length
-          ? `<div style="font-size:13px;line-height:1.6;color:${COLORS.muted};">${meta.map((m) => escapeHtml(m)).join(' · ')}</div>`
+          ? `<div style="font-size:14px;line-height:1.65;color:${COLORS.muted};">${meta.map((m) => escapeHtml(m)).join(' · ')}</div>`
           : '') +
         `</td></tr>`,
     );
@@ -121,8 +135,8 @@ function dealsHtml(deals: MagazineDealInput[] | undefined): { html: string; line
   }
   if (!rows.length) return { html: '', lines: [] };
   const html =
-    sectionTitle('주목 매물') +
-    `<tr><td style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.panelBg}" style="background-color:${COLORS.panelBg};border:1px solid ${COLORS.border};">${rows.join('')}</table></td></tr>`;
+    sectionTitle('이번 호 주목 매물 · 최근 실거래 사례') +
+    `<tr><td class="mag-pad" style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.panelBg}" style="background-color:${COLORS.panelBg};border:1px solid ${COLORS.border};">${rows.join('')}</table></td></tr>`;
   return { html, lines };
 }
 
@@ -138,30 +152,30 @@ function taxClinicHtml(t: MagazineTaxClinicInput | null | undefined): { html: st
   const parts: string[] = [];
   const lines: string[] = ['[세무 클리닉]'];
   if (title) {
-    parts.push(`<div style="font-size:14px;font-weight:bold;line-height:1.5;color:${COLORS.text};padding-bottom:4px;">${escapeHtml(title)}</div>`);
+    parts.push(`<div style="font-size:16px;font-weight:bold;line-height:1.55;color:${COLORS.text};padding-bottom:6px;word-break:keep-all;">${escapeHtml(title)}</div>`);
     lines.push(title);
   }
   if (scenario) {
-    parts.push(`<div style="font-size:14px;line-height:1.7;color:${COLORS.text};padding-bottom:4px;">${escapeHtml(scenario)}</div>`);
+    parts.push(`<div style="font-size:16px;line-height:1.8;color:${COLORS.text};padding-bottom:6px;word-break:keep-all;">${escapeHtml(scenario)}</div>`);
     lines.push(scenario);
   }
   if (optA || optB) {
     const opts = [optA, optB].filter(Boolean).join(' / ');
-    parts.push(`<div style="font-size:13px;line-height:1.7;color:${COLORS.muted};padding-bottom:4px;">비교 대안: ${escapeHtml(opts)}</div>`);
+    parts.push(`<div style="font-size:14px;line-height:1.75;color:${COLORS.muted};padding-bottom:6px;word-break:keep-all;">비교 대안: ${escapeHtml(opts)}</div>`);
     lines.push(`비교 대안: ${opts}`);
   }
   if (conclusion) {
-    parts.push(`<div style="font-size:14px;line-height:1.7;color:${COLORS.text};padding-bottom:4px;">${escapeHtml(conclusion)}</div>`);
+    parts.push(`<div style="font-size:16px;line-height:1.8;color:${COLORS.text};padding-bottom:6px;word-break:keep-all;">${escapeHtml(conclusion)}</div>`);
     lines.push(conclusion);
   }
-  // 면책(12px 이상·4.5:1 이상). '감수/제휴 세무법인' 등 사칭 문구는 렌더하지 않는다(DC-13)
+  // 면책(14px 이상·4.5:1 이상). '감수/제휴 세무법인' 등 사칭 문구는 렌더하지 않는다(DC-13)
   const disclaimer = '일반 정보이며 세무 자문이 아닙니다. 구체적인 사항은 세무 전문가와 상담해 주세요.';
-  parts.push(`<div style="font-size:12px;line-height:1.6;color:${COLORS.muted};">${escapeHtml(disclaimer)}</div>`);
+  parts.push(`<div style="font-size:14px;line-height:1.7;color:${COLORS.muted};word-break:keep-all;">${escapeHtml(disclaimer)}</div>`);
   lines.push(disclaimer);
 
   const html =
     sectionTitle('세무·법률 클리닉') +
-    `<tr><td style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.panelBg}" style="background-color:${COLORS.panelBg};border:1px solid ${COLORS.border};"><tr><td style="padding:12px 14px;font-family:${FONT};">${parts.join('')}</td></tr></table></td></tr>`;
+    `<tr><td class="mag-pad" style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.panelBg}" style="background-color:${COLORS.panelBg};border:1px solid ${COLORS.border};"><tr><td style="padding:14px 16px;font-family:${FONT};">${parts.join('')}</td></tr></table></td></tr>`;
   return { html, lines };
 }
 
@@ -171,7 +185,7 @@ function button(href: string, label: string, bg: string, fg: string, border?: st
   return (
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="display:inline-block;margin:0 4px 8px;"><tr>` +
     `<td align="center" bgcolor="${bg}" style="${tdStyle}">` +
-    `<a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:13px 24px;font-family:${FONT};font-size:15px;font-weight:bold;line-height:1.2;color:${fg};text-decoration:none;">${escapeHtml(label)}</a>` +
+    `<a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:14px 26px;font-family:${FONT};font-size:16px;font-weight:bold;line-height:1.25;color:${fg};text-decoration:none;">${escapeHtml(label)}</a>` +
     `</td></tr></table>`
   );
 }
@@ -193,7 +207,7 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   const consentDateKo = formatDateKo(input.consentDate);
 
   const title = pt(input.edition.title, 80);
-  const headlineText = body(input.edition.headline, 600);
+  const headlineText = expandCreTermsFirstOccurrence(body(input.edition.headline, 600));
   const dateKo = formatDateKo(input.edition.date);
   const temp = typeof input.edition.marketTemp === 'string' ? input.edition.marketTemp.trim() : '';
   const tempKey: MarketTemperature | null = isSupportedTemp(temp) ? temp : null; // 미지원 라벨은 숨김
@@ -206,7 +220,7 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   const deals = dealsHtml(input.edition.deals);
   const tax = taxClinicHtml(input.edition.taxClinic);
 
-  const fieldComment = pt(input.edition.fieldNote?.comment, 300);
+  const fieldComment = expandCreTermsFirstOccurrence(pt(input.edition.fieldNote?.comment, 300));
   const fieldQ = pt(input.edition.fieldNote?.question, 120);
   const news = (input.edition.topNews ?? [])
     .slice(0, 3)
@@ -218,27 +232,27 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
 
   // 헤더
   blocks.push(
-    `<tr><td style="padding:24px 28px 8px;font-family:${FONT};">` +
-      `<div style="font-size:12px;font-weight:bold;line-height:1.4;color:${COLORS.muted};letter-spacing:1px;">(광고) ${escapeHtml(broker)} 주간 부동산 매거진</div>` +
-      `<h1 style="margin:8px 0 6px;font-size:22px;line-height:1.4;color:${COLORS.text};font-weight:bold;">${escapeHtml(title || '이번 주 부동산 매거진')}</h1>` +
-      (dateKo ? `<div style="font-size:13px;line-height:1.5;color:${COLORS.muted};">${escapeHtml(dateKo)} 발행</div>` : '') +
+    `<tr><td class="mag-pad" style="padding:24px 28px 8px;font-family:${FONT};word-break:keep-all;">` +
+      `<div style="font-size:14px;font-weight:bold;line-height:1.5;color:${COLORS.muted};letter-spacing:0.5px;">(광고) ${escapeHtml(broker)} 주간 부동산 매거진</div>` +
+      `<h1 style="margin:8px 0 6px;font-size:23px;line-height:1.4;color:${COLORS.text};font-weight:bold;word-break:keep-all;">${escapeHtml(title || '이번 주 부동산 매거진')}</h1>` +
+      (dateKo ? `<div style="font-size:14px;line-height:1.5;color:${COLORS.muted};">${escapeHtml(dateKo)} 발행</div>` : '') +
       (tempKey
-        ? `<div style="padding-top:10px;"><span style="display:inline-block;padding:4px 12px;border:1px solid ${TEMP_COLOR[tempKey]};font-size:13px;font-weight:bold;line-height:1.4;color:${TEMP_COLOR[tempKey]};background-color:${COLORS.cardBg};">시장 상태: ${escapeHtml(tempKey)}</span></div>`
+        ? `<div style="padding-top:10px;"><span style="display:inline-block;padding:5px 14px;border:1px solid ${TEMP_COLOR[tempKey]};font-size:14px;font-weight:bold;line-height:1.4;color:${TEMP_COLOR[tempKey]};background-color:${COLORS.cardBg};">시장 상태: ${escapeHtml(tempKey)}</span></div>`
         : '') +
       `</td></tr>`,
   );
 
   // 인사 + 브리핑
   blocks.push(
-    `<tr><td style="padding:12px 28px 4px;font-family:${FONT};font-size:15px;line-height:1.8;color:${COLORS.text};">` +
-      (who ? `<div style="padding-bottom:6px;">${escapeHtml(who)}님, 안녕하세요.</div>` : '') +
+    `<tr><td class="mag-pad" style="padding:12px 28px 4px;font-family:${FONT};font-size:16px;line-height:1.85;color:${COLORS.text};word-break:keep-all;overflow-wrap:break-word;">` +
+      (who ? `<div style="padding-bottom:6px;font-weight:bold;">${escapeHtml(who)}님, 안녕하세요.</div>` : '') +
       (headlineText ? `<div>${hp(headlineText)}</div>` : '') +
       `</td></tr>`,
   );
 
   // CTA: 매거진 보기 / 전화 상담 (링크 목적 분리)
   blocks.push(
-    `<tr><td align="center" style="padding:16px 28px 8px;">` +
+    `<tr><td class="mag-pad" align="center" style="padding:16px 28px 8px;">` +
       button(viewUrl, '매거진 전체 보기', COLORS.ctaBg, COLORS.ctaText) +
       (telHref ? button(telHref, `전화 상담 ${contact}`, COLORS.cardBg, COLORS.link, COLORS.link) : '') +
       `</td></tr>`,
@@ -247,8 +261,8 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   if (fieldComment) {
     blocks.push(
       sectionTitle('현장 노트') +
-        `<tr><td style="padding:0 28px 8px;font-family:${FONT};font-size:14px;line-height:1.7;color:${COLORS.text};">` +
-        (fieldQ ? `<div style="color:${COLORS.muted};padding-bottom:4px;">Q. ${escapeHtml(fieldQ)}</div>` : '') +
+        `<tr><td class="mag-pad" style="padding:0 28px 8px;font-family:${FONT};font-size:16px;line-height:1.8;color:${COLORS.text};word-break:keep-all;overflow-wrap:break-word;">` +
+        (fieldQ ? `<div style="color:${COLORS.muted};padding-bottom:4px;font-weight:bold;">Q. ${escapeHtml(fieldQ)}</div>` : '') +
         `<div>${escapeHtml(fieldComment)}</div></td></tr>`,
     );
   }
@@ -258,9 +272,9 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   if (news.length) {
     blocks.push(
       sectionTitle('주요 뉴스') +
-        `<tr><td style="padding:0 28px 8px;font-family:${FONT};font-size:14px;line-height:1.7;color:${COLORS.text};">` +
+        `<tr><td class="mag-pad" style="padding:0 28px 8px;font-family:${FONT};font-size:16px;line-height:1.8;color:${COLORS.text};word-break:keep-all;overflow-wrap:break-word;">` +
         news
-          .map((n) => `<div style="padding:4px 0;">• ${escapeHtml(n.title)}${n.source ? ` <span style="font-size:12px;color:${COLORS.muted};">(${escapeHtml(n.source)})</span>` : ''}</div>`)
+          .map((n) => `<div style="padding:4px 0;">• ${escapeHtml(n.title)}${n.source ? ` <span style="font-size:14px;color:${COLORS.muted};">(${escapeHtml(n.source)})</span>` : ''}</div>`)
           .join('') +
         `</td></tr>`,
     );
@@ -268,7 +282,7 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
 
   if (tax.html) blocks.push(tax.html);
 
-  // 푸터: 전송자 명칭·연락처·주소, 수신동의 안내, 수신거부 링크
+  // 푸터: 전송자 명칭·연락처·주소, 수신동의 안내, 수신거부 버튼(48px 이상 터치 영역)
   const footerLines: string[] = [];
   footerLines.push(`전송자: ${escapeHtml(broker)}${contact ? ` · 연락처 ${escapeHtml(contact)}` : ''}${address ? ` · ${escapeHtml(address)}` : ''}`);
   footerLines.push(
@@ -277,10 +291,11 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
       : '이 메일은 광고성 정보 수신에 동의하신 분께 발송되었습니다.',
   );
   footerLines.push(
-    `더 이상 받고 싶지 않으시면 <a href="${escapeHtml(unsubUrl)}" target="_blank" style="color:${COLORS.link};text-decoration:underline;">수신거부</a>를 눌러 주세요. 즉시 처리됩니다.`,
+    `더 이상 받고 싶지 않으시면 아래 버튼을 눌러 주세요. 즉시 처리됩니다.<br>` +
+      `<a href="${escapeHtml(unsubUrl)}" target="_blank" style="display:inline-block;margin-top:8px;padding:12px 20px;border:1px solid ${COLORS.muted};background-color:${COLORS.cardBg};color:${COLORS.link};font-family:${FONT};font-size:15px;font-weight:bold;line-height:1.4;text-decoration:underline;">수신거부</a>`,
   );
   blocks.push(
-    `<tr><td style="padding:20px 28px 24px;border-top:1px solid ${COLORS.border};font-family:${FONT};font-size:12px;line-height:1.8;color:${COLORS.muted};">${footerLines.join('<br>')}</td></tr>`,
+    `<tr><td class="mag-pad" style="padding:20px 28px 24px;border-top:1px solid ${COLORS.border};font-family:${FONT};font-size:14px;line-height:1.8;color:${COLORS.muted};word-break:keep-all;">${footerLines.join('<br>')}</td></tr>`,
   );
 
   const html = `<!DOCTYPE html>
@@ -293,6 +308,13 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
 <meta name="color-scheme" content="light only">
 <meta name="supported-color-schemes" content="light">
 <title>${escapeHtml(subject)}</title>
+<style type="text/css">
+  body, table, td, div, p, a { word-break: keep-all; overflow-wrap: break-word; }
+  @media only screen and (max-width: 600px) {
+    .mag-container { width: 100% !important; max-width: 100% !important; }
+    .mag-pad { padding-left: 18px !important; padding-right: 18px !important; }
+  }
+</style>
 <!--[if mso]>
 <xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
 <style type="text/css">table, td, div, h1, p, a { font-family: 'Malgun Gothic', Arial, sans-serif !important; }</style>
@@ -303,7 +325,7 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.pageBg}" style="background-color:${COLORS.pageBg};">
 <tr><td align="center" style="padding:20px 10px;">
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center"><tr><td><![endif]-->
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.cardBg}" style="width:100%;max-width:600px;background-color:${COLORS.cardBg};border:1px solid ${COLORS.border};">
+<table role="presentation" class="mag-container" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.cardBg}" style="width:100%;max-width:600px;background-color:${COLORS.cardBg};border:1px solid ${COLORS.border};">
 ${blocks.join('\n')}
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
@@ -324,7 +346,7 @@ ${blocks.join('\n')}
   textParts.push('', `▶ 매거진 전체 보기: ${viewUrl}`);
   if (telHref && contact) textParts.push(`▶ 전화 상담: ${contact}`);
   if (fieldComment) textParts.push('', '[현장 노트]', ...(fieldQ ? [`Q. ${fieldQ}`] : []), fieldComment);
-  if (deals.lines.length) textParts.push('', '[주목 매물]', ...deals.lines);
+  if (deals.lines.length) textParts.push('', '[이번 호 주목 매물]', ...deals.lines);
   if (news.length) textParts.push('', '[주요 뉴스]', ...news.map((n) => `- ${n.title}${n.source ? ` (${n.source})` : ''}`));
   if (tax.lines.length) textParts.push('', ...tax.lines);
   textParts.push(
@@ -381,6 +403,13 @@ export function buildMagazineHtml(p: MagazineEmailPayload): string {
   const tax = p.taxClinic && ('scenario' in p.taxClinic || 'conclusion' in p.taxClinic || 'comparison' in p.taxClinic)
     ? (p.taxClinic as MagazineTaxClinicInput)
     : null;
+  const featured = (p.featuredDeals ?? []).map((d) => ({ title: d.assetType || '이번 호 주목 매물', address: d.address, price: d.price }));
+  const recentTx = (p.recentTransactions ?? []).map((t) => ({
+    title: '최근 실거래 사례',
+    address: t.address,
+    price: t.transaction_price,
+    date: t.transaction_date,
+  }));
   return renderMagazineEmail({
     brokerName: p.brokerName,
     brokerContact: p.brokerContact,
@@ -391,7 +420,7 @@ export function buildMagazineHtml(p: MagazineEmailPayload): string {
       marketTemp: String(p.marketTemp ?? ''),
       date: p.editionDate ?? '',
       url: p.magazineUrl,
-      deals: (p.featuredDeals ?? []).map((d) => ({ title: d.assetType || '매물', address: d.address, price: d.price })),
+      deals: [...featured, ...recentTx],
       fieldNote: p.fieldNote,
       topNews: p.topNews,
       taxClinic: tax,

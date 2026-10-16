@@ -7,11 +7,17 @@
 ## 본문 (심사 제출용)
 
 ```
-(광고) [#{brokerName}] 주간 매거진 발행
-#{subscriberName}님, 이번 주 시장 브리핑이 발행되었습니다.
+(광고) #{brokerName}
+#{subscriberName}님, 이번 주 매거진이 도착했습니다.
+#{title}
+
 #{headline}
+
 ▶ 매거진 보기: #{magazineUrl}
+▶ 전화 상담: #{brokerContact}
+
 발신: #{brokerName} (#{brokerContact})
+수신 동의하신 분께 발송됩니다.
 수신거부: #{unsubscribeUrl}
 ```
 

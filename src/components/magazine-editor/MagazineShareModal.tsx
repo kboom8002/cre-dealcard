@@ -174,7 +174,7 @@ export function MagazineShareModal({
             role="alert"
             className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-label text-rose-200"
           >
-            공유 주소(APP_BASE_URL) 설정이 없어 링크를 만들 수 없어요. 관리자에게 문의해 주세요.
+            서비스 도메인 주소 설정이 아직 완료되지 않아 링크를 만들 수 없어요. 관리자에게 문의해 주세요.
           </div>
         ) : null}
 

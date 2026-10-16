@@ -42,9 +42,9 @@ function shell(title: string, bodyHtml: string, status: number, extraHeaders?: H
 <meta name="referrer" content="no-referrer">
 <title>${escapeHtml(title)}</title>
 </head>
-<body style="margin:0;background:#f1f5f9;font-family:'Malgun Gothic','Apple SD Gothic Neo',Arial,sans-serif;color:#0f172a;">
-<main style="max-width:480px;margin:48px auto;padding:28px 24px;background:#ffffff;border:1px solid #e2e8f0;">
-<h1 style="margin:0 0 12px;font-size:20px;line-height:1.4;">${escapeHtml(title)}</h1>
+<body style="margin:0;background:#f1f5f9;font-family:'Malgun Gothic','Apple SD Gothic Neo',Arial,sans-serif;color:#0f172a;word-break:keep-all;">
+<main style="max-width:480px;margin:48px auto;padding:28px 24px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;">
+<h1 style="margin:0 0 14px;font-size:22px;line-height:1.4;color:#0f172a;">${escapeHtml(title)}</h1>
 ${bodyHtml}
 </main>
 </body>
@@ -52,10 +52,22 @@ ${bodyHtml}
   return new Response(html, { status, headers: { ...HEADERS, ...(extraHeaders as Record<string, string> | undefined) } });
 }
 
-function page(title: string, message: string, status: number, extraHeaders?: HeadersInit): Response {
+function subscribeLinkHtml(brokerSlug?: string | null, label = '구독 신청 페이지로 이동하기'): string {
+  if (!brokerSlug || !BROKER_SHAPE.test(brokerSlug)) return '';
+  const href = `/magazine/${encodeURIComponent(brokerSlug)}/subscribe`;
+  return `<div style="margin-top:20px;"><a href="${escapeHtml(href)}" style="display:block;width:100%;min-height:52px;padding:14px 16px;text-align:center;font-size:17px;font-weight:700;line-height:1.4;color:#ffffff;background:#1d4ed8;border-radius:8px;text-decoration:none;box-sizing:border-box;">${escapeHtml(label)}</a></div>`;
+}
+
+function page(
+  title: string,
+  message: string,
+  status: number,
+  extraHeaders?: HeadersInit,
+  actionHtml = '',
+): Response {
   return shell(
     title,
-    `<p style="margin:0;font-size:16px;line-height:1.7;color:#334155;">${escapeHtml(message)}</p>`,
+    `<p style="margin:0;font-size:17px;line-height:1.75;color:#1e293b;">${escapeHtml(message)}</p>${actionHtml}`,
     status,
     extraHeaders,
   );
@@ -63,31 +75,54 @@ function page(title: string, message: string, status: number, extraHeaders?: Hea
 
 /** GET: 확인 버튼만. 토큰/브로커는 형식만 검사하고 DB는 조회하지 않는다. */
 function confirmFormPage(token: string, broker: string): Response {
-  const body = `<p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#334155;">아래 버튼을 누르면 매거진 구독 신청이 완료됩니다. 본인이 신청하지 않았다면 이 페이지를 닫아 주세요.</p>
+  const body = `<p style="margin:0 0 22px;font-size:17px;line-height:1.75;color:#1e293b;">아래 버튼을 누르면 매거진 구독 신청이 완료됩니다. 신청하신 채널(카카오톡·이메일)로 주간 매거진을 보내드립니다. 본인이 신청하지 않았다면 이 페이지를 닫아 주세요.</p>
 <form method="post" action="/api/public/magazine/confirm" style="margin:0;">
 <input type="hidden" name="t" value="${escapeHtml(token)}">
 <input type="hidden" name="b" value="${escapeHtml(broker)}">
-<button type="submit" style="display:block;width:100%;padding:14px 16px;font-size:16px;font-weight:700;color:#ffffff;background:#1d4ed8;border:0;border-radius:8px;cursor:pointer;">구독 확인하기</button>
+<button type="submit" style="display:block;width:100%;min-height:52px;padding:15px 18px;font-size:17px;font-weight:700;color:#ffffff;background:#1d4ed8;border:0;border-radius:8px;cursor:pointer;">구독 확인하기</button>
 </form>`;
   return shell('구독 확인', body, 200);
 }
 
-function render(r: ConfirmOptInResult): Response {
+function render(r: ConfirmOptInResult, brokerSlug?: string | null): Response {
   if (r.ok) {
+    const viewHref = brokerSlug && BROKER_SHAPE.test(brokerSlug) ? `/magazine/${encodeURIComponent(brokerSlug)}` : '';
+    const viewBtn = viewHref
+      ? `<div style="margin-top:20px;"><a href="${escapeHtml(viewHref)}" style="display:block;width:100%;min-height:52px;padding:14px 16px;text-align:center;font-size:17px;font-weight:700;line-height:1.4;color:#ffffff;background:#1d4ed8;border-radius:8px;text-decoration:none;box-sizing:border-box;">매거진 보러 가기</a></div>`
+      : '';
     return page(
       '구독이 확인되었습니다',
-      '확인해 주셔서 감사합니다. 앞으로 동의하신 채널로 매거진을 보내드립니다. 수신을 원치 않으시면 매거진 하단의 수신거부 링크를 이용해 주세요.',
+      '확인해 주셔서 감사합니다. 앞으로 신청하신 채널(카카오톡·이메일)로 매거진을 보내드립니다. 수신을 원치 않으시면 매거진 하단의 수신거부 링크를 이용해 주세요.',
       200,
+      undefined,
+      viewBtn,
     );
   }
+  const retryBtn = subscribeLinkHtml(brokerSlug, '다시 구독 신청하기');
   switch (r.reason) {
     case 'EXPIRED':
-      return page('확인 링크가 만료되었습니다', '확인 링크의 유효 기간(7일)이 지났습니다. 구독 페이지에서 다시 신청해 주세요.', 410);
+      return page(
+        '확인 링크가 만료되었습니다',
+        '확인 링크의 유효 기간(7일)이 지났습니다. 아래 버튼을 눌러 구독 페이지에서 다시 신청해 주세요.',
+        410,
+        undefined,
+        retryBtn,
+      );
     case 'UNAVAILABLE':
     case 'ERROR':
-      return page('잠시 후 다시 시도해 주세요', '일시적인 문제로 확인을 처리하지 못했습니다. 잠시 후 같은 링크를 다시 열어 주세요.', 503);
+      return page(
+        '잠시 후 다시 시도해 주세요',
+        '일시적인 문제로 확인을 처리하지 못했습니다. 잠시 후 같은 링크를 다시 열어 주세요.',
+        503,
+      );
     default:
-      return page('유효하지 않은 링크입니다', '올바르지 않거나 더 이상 사용할 수 없는 링크입니다. 구독 페이지에서 다시 신청해 주세요.', 400);
+      return page(
+        '유효하지 않은 링크입니다',
+        '올바르지 않거나 더 이상 사용할 수 없는 링크입니다. 아래 버튼을 눌러 구독 페이지에서 다시 신청해 주세요.',
+        400,
+        undefined,
+        retryBtn,
+      );
   }
 }
 
@@ -107,10 +142,17 @@ export const GET = withPublicGuard({
   const sp = req.nextUrl.searchParams;
   const t = sp.get('t') ?? '';
   const b = sp.get('b') ?? '';
-  if (!TOKEN_SHAPE.test(t) || !BROKER_SHAPE.test(b)) {
-    return page('유효하지 않은 링크입니다', '올바르지 않은 링크입니다. 구독 페이지에서 다시 신청해 주세요.', 400);
+  const safeBroker = BROKER_SHAPE.test(b) ? b : null;
+  if (!TOKEN_SHAPE.test(t) || !safeBroker) {
+    return page(
+      '유효하지 않은 링크입니다',
+      '올바르지 않은 링크입니다. 구독 페이지에서 다시 신청해 주세요.',
+      400,
+      undefined,
+      subscribeLinkHtml(safeBroker, '다시 구독 신청하기'),
+    );
   }
-  return confirmFormPage(t, b);
+  return confirmFormPage(t, safeBroker);
 });
 
 const confirmBodySchema = z.object({
@@ -127,5 +169,5 @@ export const POST = withPublicGuard<z.infer<typeof confirmBodySchema>>({
   renderError: renderGuardError,
 })(async (_req, { body }) => {
   const result = await confirmOptIn(createServiceClient(), { token: body.t, brokerSlug: body.b });
-  return render(result);
+  return render(result, body.b);
 });

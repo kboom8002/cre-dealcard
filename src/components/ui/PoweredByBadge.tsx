@@ -1,6 +1,9 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { ShieldCheck, ArrowRight } from 'lucide-react';
 
 export interface PoweredByBadgeProps {
   variant?: 'full' | 'subtle';
@@ -17,6 +20,28 @@ export function PoweredByBadge({
   brokerId,
   className = '',
 }: PoweredByBadgeProps) {
+  let pathname: string | null = null;
+  try {
+    pathname = usePathname();
+  } catch {
+    pathname = null;
+  }
+
+  const isMagazineReader =
+    context === 'magazine' ||
+    (typeof pathname === 'string' && pathname.startsWith('/magazine'));
+
+  if (isMagazineReader) {
+    return (
+      <div className={`flex items-center justify-center py-2 ${className}`}>
+        <span className="inline-flex min-h-12 items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-1.5 text-sm font-semibold text-emerald-200">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+          <span>CREDEAL 안심 매거진 · 공적장부 교차검증</span>
+        </span>
+      </div>
+    );
+  }
+
   const queryParams = new URLSearchParams();
   if (context) queryParams.set('ctx', context);
   if (buildingId) queryParams.set('ref', buildingId);
@@ -29,11 +54,11 @@ export function PoweredByBadge({
       <div className={`flex items-center justify-center py-2 ${className}`}>
         <Link
           href={href}
-          className="inline-flex min-h-11 items-center gap-1.5 text-caption text-slate-500 hover:text-slate-300 transition-colors group"
+          className="inline-flex min-h-12 items-center gap-1.5 text-sm text-slate-300 hover:text-white transition-colors group"
         >
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500/80 group-hover:text-emerald-400" />
+          <ShieldCheck className="w-4 h-4 text-emerald-400 group-hover:text-emerald-300" />
           <span>Data Verified by</span>
-          <span className="font-semibold text-slate-400 group-hover:text-white">CREDEAL</span>
+          <span className="font-semibold text-slate-200 group-hover:text-white">CREDEAL</span>
         </Link>
       </div>
     );
@@ -59,13 +84,13 @@ export function PoweredByBadge({
                   Data Verified by <span className="text-white font-extrabold">CREDEAL</span>
                 </span>
               </div>
-              <p className="text-caption text-slate-400 truncate mt-0.5">
+              <p className="text-caption text-slate-300 truncate mt-0.5">
                 나도 60초 만에 기관급 딜카드·매거진 만들기
               </p>
             </div>
           </div>
           <div className="w-6 h-6 rounded-full bg-white/5 group-hover:bg-indigo-500/20 flex items-center justify-center shrink-0 transition-colors">
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-300" />
+            <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-300" />
           </div>
         </div>
       </Link>

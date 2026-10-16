@@ -20,15 +20,24 @@ export default function TermsPage() {
   const contact = getPrivacyContactText();
   return (
     <LegalPage title="매거진 구독 이용약관">
+      <div className="mb-2">
+        <Link
+          href="/magazine/default"
+          className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[16px] font-bold text-slate-900 shadow-xs transition hover:bg-slate-100"
+        >
+          ← 매거진으로 돌아가기
+        </Link>
+      </div>
+
       <LegalSection title="제1조 (목적)">
-        <p>
+        <p className="text-slate-800">
           이 약관은 CRE DealCard(credeal.net, 이하 &quot;서비스&quot;)가 제공하는 상업용 부동산 정보 매거진(이하 &quot;매거진&quot;)의 구독 신청·이용과
           관련하여 서비스와 구독자의 권리·의무 및 기본 사항을 정함을 목적으로 합니다.
         </p>
       </LegalSection>
 
       <LegalSection title="제2조 (서비스 내용)">
-        <p>
+        <p className="text-slate-800">
           매거진은 구독자가 선택한 발행 중개사의 이름으로 지역 시장 동향, 매물·세무·시장 정보 등을 이메일 또는 카카오 알림톡으로
           정기적으로 전달하는 서비스입니다. 발송 주기와 구성은 운영 사정에 따라 달라질 수 있습니다.
         </p>
@@ -42,7 +51,7 @@ export default function TermsPage() {
               신청 후 이메일로 발송되는 확인 링크에서 &quot;구독 확인하기&quot; 버튼을 눌러야 구독이 완료됩니다. 확인 링크는 신청 후{' '}
               {CONFIRM_TTL_DAYS_TEXT} 동안 유효하며, 확인이 완료되기 전에는 매거진을 발송하지 않습니다.
             </>,
-            '이메일 주소가 없는 신청(카카오 전용 등)은 현재 확인 링크를 보낼 수 없어 구독 확인이 완료되지 않을 수 있으며, 이 경우 매거진은 발송되지 않습니다. 이메일 주소를 함께 입력해 다시 신청해 주세요.',
+            '이메일 주소가 없는 신청(카카오 전용 등)은 현재 확인 링크를 보낼 수 없어 구독 확인이 완료되지 않을 수 있으며, 신청 화면에서 확인용 이메일을 추가로 입력하시거나 발행 중개사에게 전화로 구독을 신청하실 수 있습니다.',
             '타인의 연락처를 이용한 신청은 금지되며, 본인이 신청하지 않은 확인 메일은 무시하시면 됩니다.',
           ]}
         />
@@ -84,30 +93,30 @@ export default function TermsPage() {
       </LegalSection>
 
       <LegalSection title="제7조 (서비스의 변경·중단)">
-        <p>
+        <p className="text-slate-800">
           서비스는 운영상·기술상 필요에 따라 매거진의 내용, 발송 주기, 발송 채널을 변경하거나 일시 중단할 수 있으며, 중요한 변경은 서비스 내 공지 등으로
           알립니다.
         </p>
       </LegalSection>
 
       <LegalSection title="제8조 (책임의 제한)">
-        <p>
+        <p className="text-slate-800">
           서비스는 천재지변, 통신·외부 발송 사업자의 장애 등 불가항력으로 인한 발송 지연·누락에 대해 책임을 지지 않습니다. 다만 서비스의 고의 또는 중대한
           과실이 있는 경우는 예외로 합니다.
         </p>
       </LegalSection>
 
       <LegalSection title="제9조 (약관의 변경)">
-        <p>
+        <p className="text-slate-800">
           약관이 변경되는 경우 시행일 전에 서비스 내 공지 등으로 알리며, 변경 후에도 구독을 유지하는 것은 변경된 약관에 동의하는 것으로 봅니다. 동의하지
           않으시면 언제든 구독을 해지하실 수 있습니다.
         </p>
       </LegalSection>
 
       <LegalSection title="제10조 (개인정보의 보호)">
-        <p>
+        <p className="text-slate-800">
           구독자의 개인정보는{' '}
-          <Link href="/privacy" className="font-medium text-blue-700 underline underline-offset-2">
+          <Link href="/privacy" className="font-bold text-blue-700 underline underline-offset-4">
             개인정보 수집·이용 안내
           </Link>
           에 따라 처리됩니다.

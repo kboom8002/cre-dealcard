@@ -201,8 +201,8 @@ describe('renderMagazineEmail — 표시 데이터', () => {
     expect(r.html).toContain('비교 대안: 직접 매각 / 부담부 증여');
     expect(r.html).toContain('일반 정보이며 세무 자문이 아닙니다');
     expect(r.html).not.toMatch(/감수|추천/);
-    // 면책 폰트 12px 이상
-    expect(r.html).toMatch(/font-size:12px;[^"]*">일반 정보이며/);
+    // 면책 폰트 14px 이상 (60대 가독성)
+    expect(r.html).toMatch(/font-size:1[24]px;[^"]*">일반 정보이며/);
   });
 
   it('세무 데이터가 비어 있으면 섹션 자체를 렌더하지 않는다(가짜 폴백 금지)', () => {

@@ -326,6 +326,7 @@ export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<G
           html: rendered.body,
           text: rendered.text,
           headers: rendered.headers,
+          fromName: rendered.senderName,
         })
       : await sendKakaoProvider({
           phone: sub.subscriber_phone as string,

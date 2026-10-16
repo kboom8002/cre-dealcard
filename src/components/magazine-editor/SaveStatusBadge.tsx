@@ -58,7 +58,7 @@ export function SaveStatusBadge({ status, lastSavedAt, errorMessage, onRetry, on
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-bold text-red-700 hover:bg-red-50"
         >
           다시 시도
         </button>
@@ -69,7 +69,7 @@ export function SaveStatusBadge({ status, lastSavedAt, errorMessage, onRetry, on
             <button
               type="button"
               onClick={onReload}
-              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
             >
               새로고침
             </button>
@@ -78,7 +78,7 @@ export function SaveStatusBadge({ status, lastSavedAt, errorMessage, onRetry, on
             <button
               type="button"
               onClick={onOverwrite}
-              className="rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-50"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-bold text-red-700 hover:bg-red-50"
             >
               내 변경으로 덮어쓰기
             </button>
@@ -86,7 +86,7 @@ export function SaveStatusBadge({ status, lastSavedAt, errorMessage, onRetry, on
         </>
       )}
       {(status === 'error' || status === 'conflict') && errorMessage && (
-        <span className="text-xs text-red-600">{errorMessage}</span>
+        <span className="text-sm font-medium text-red-600">{errorMessage}</span>
       )}
     </div>
   );

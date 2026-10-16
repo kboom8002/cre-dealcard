@@ -184,6 +184,8 @@ function MagazineEditorInner() {
   const [editionReady, setEditionReady] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [needsQualityAck, setNeedsQualityAck] = useState(false);
   const [sendAfterPublish, setSendAfterPublish] = useState(true);
   /** 서버 env(MAGAZINE_SEND_ENABLED)는 클라이언트에서 못 읽으므로 draft 응답 meta 로 받는다 (null = 확인 전) */
@@ -439,7 +441,11 @@ function MagazineEditorInner() {
           deals: !Array.isArray(edContent.featured_deal_ids),
         };
         profileSavedRef.current = { title: ident.magazineTitle, color: ident.magazineThemeColor ?? "" };
-        setSendEnabled(typeof draftJson.meta?.sendEnabled === "boolean" ? draftJson.meta.sendEnabled : null);
+        const initialSendEnabled = typeof draftJson.meta?.sendEnabled === "boolean" ? draftJson.meta.sendEnabled : null;
+        setSendEnabled(initialSendEnabled);
+        if (initialSendEnabled === false) {
+          setSendAfterPublish(false);
+        }
         setSubscriberCount(
           typeof draftJson.meta?.subscriberCount === "number" ? draftJson.meta.subscriberCount : null
         );
@@ -774,6 +780,7 @@ function MagazineEditorInner() {
         return;
       }
     }
+    setPublishError(null);
     setNeedsQualityAck(false);
     setShowPublishConfirm(true);
   }, [editionId, editionReady, headline, isPublished, saveNow]);
@@ -784,6 +791,7 @@ function MagazineEditorInner() {
       if (!editionId) return;
       const correction = isPublished;
       setPublishing(true);
+      setPublishError(null);
       try {
         await saveProfileSettings();
 
@@ -812,12 +820,17 @@ function MagazineEditorInner() {
           if (code === "EMPTY_HEADLINE" || code === "EMPTY_BODY") {
             setShowPublishConfirm(false);
             setActiveTab("cover");
+            editorToast.error(extractApiErrorMessage(json, "발행에 실패했습니다. 잠시 후 다시 시도해 주세요."));
+            return;
           }
-          editorToast.error(extractApiErrorMessage(json, "발행에 실패했습니다. 잠시 후 다시 시도해 주세요."));
+          const failMsg = extractApiErrorMessage(json, "발행에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+          setPublishError(failMsg);
+          editorToast.error(failMsg);
           return;
         }
 
         applyEditionRow(json.edition);
+        setPublishError(null);
         setShowPublishConfirm(false);
         const issueDate = json.issueDate || todayKst();
 
@@ -877,7 +890,9 @@ function MagazineEditorInner() {
         setShowShareModal(true);
       } catch (err) {
         console.error(err);
-        editorToast.error("발행 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        const failMsg = "발행 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+        setPublishError(failMsg);
+        editorToast.error(failMsg);
       } finally {
         setPublishing(false);
       }
@@ -1119,6 +1134,10 @@ function MagazineEditorInner() {
             sendDisabled={sendEnabled === false}
             editionDate={isPublished ? publishedIssueDate : today}
             shareTitle={magazineTitle || headline || undefined}
+            deals={dealPool.map((d: any) => ({
+              id: String(d.id),
+              title: String(d.areaSignal || d.address || d.assetType || "매물"),
+            }))}
           />
         );
 
@@ -1174,37 +1193,42 @@ function MagazineEditorInner() {
     <div className="min-h-screen bg-[#0B1120] flex flex-col lg:flex-row font-sans">
       {/* ━━━ 왼쪽 패널: 에디터 ━━━ */}
       <div className="w-full lg:w-[460px] bg-[#111827] border-r border-slate-800 flex flex-col h-[100dvh] lg:h-screen sticky top-0 overflow-hidden">
-        {/* 헤더 */}
-        <div className="p-3 lg:p-4 border-b border-slate-800 flex items-center justify-between bg-[#111827]/90 backdrop-blur-md z-10 flex-shrink-0">
-          <div className="flex items-center gap-3">
+        {/* 헤더 — 125% 배율 노트북에서도 편집 캔버스 높이를 확보하도록 밀도 최적화 */}
+        <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between gap-2 bg-[#111827]/90 backdrop-blur-md z-10 flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
             <Link
               href="/broker"
               aria-label="대시보드로 돌아가기"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-2 rounded-lg hover:bg-slate-800 text-ink-subtle transition-colors"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-1.5 rounded-lg hover:bg-slate-800 text-ink-subtle transition-colors shrink-0"
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             </Link>
-            <div>
-              <h1 className="text-body font-bold text-slate-200">Content Studio</h1>
-              {brokerSlug && (
-                <div className="mt-0.5 flex items-center gap-1.5" data-testid="my-magazine-badge">
-                  <span className="text-caption font-semibold text-indigo-300">내 매거진: {brokerSlug}</span>
-                  <button
-                    type="button"
-                    aria-label="공개 매거진 주소 복사"
-                    onClick={() => {
-                      const url = `${window.location.origin}/magazine/${brokerSlug}`;
-                      navigator.clipboard.writeText(url).then(
-                        () => editorToast.success("공개 주소가 복사되었습니다."),
-                        () => editorToast.error("복사하지 못했습니다. 주소를 직접 선택해 주세요.")
-                      );
-                    }}
-                    className="-my-2 inline-flex min-h-11 items-center rounded px-2 text-caption text-ink-subtle hover:bg-slate-800 hover:text-slate-200"
-                  >
-                    주소 복사
-                  </button>
-                </div>
-              )}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h1 className="text-body font-bold text-slate-200">Content Studio</h1>
+                <span className="rounded-md border border-indigo-500/30 bg-indigo-500/15 px-1.5 py-0.5 text-xs font-bold text-indigo-300">
+                  매거진 만들기
+                </span>
+                {brokerSlug && (
+                  <div className="flex items-center gap-1" data-testid="my-magazine-badge">
+                    <span className="text-caption font-semibold text-indigo-300">내 매거진: {brokerSlug}</span>
+                    <button
+                      type="button"
+                      aria-label="공개 매거진 주소 복사"
+                      onClick={() => {
+                        const url = `${window.location.origin}/magazine/${brokerSlug}`;
+                        navigator.clipboard.writeText(url).then(
+                          () => editorToast.success("공개 주소가 복사되었습니다."),
+                          () => editorToast.error("복사하지 못했습니다. 주소를 직접 선택해 주세요.")
+                        );
+                      }}
+                      className="-my-2 inline-flex min-h-11 items-center rounded px-1.5 text-caption text-ink-subtle hover:bg-slate-800 hover:text-slate-200"
+                    >
+                      주소 복사
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                 <p className="text-caption text-ink-subtle">
                   {editionLabel} · {editionType === "weekly" ? "위클리" : editionType === "special" ? "스페셜" : "데일리"}
@@ -1213,9 +1237,7 @@ function MagazineEditorInner() {
                 <p className="text-caption text-ink-subtle" data-testid="editor-progress">
                   작성 {progress.done}/{progress.total} 완료
                 </p>
-              </div>
-              {!isPublished && (
-                <div className="mt-1">
+                {!isPublished && (
                   <SaveStatusBadge
                     status={autosave.status}
                     lastSavedAt={autosave.lastSavedAt}
@@ -1224,8 +1246,8 @@ function MagazineEditorInner() {
                     onOverwrite={() => void autosave.overwrite()}
                     onReload={() => window.location.reload()}
                   />
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
           {!isPublished && (
@@ -1234,7 +1256,7 @@ function MagazineEditorInner() {
               whileTap={{ scale: 0.95 }}
               onClick={() => void handleManualSave()}
               disabled={autosave.status === "saving" || !editionReady}
-              className="flex min-h-11 items-center gap-1.5 text-label font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+              className="flex min-h-11 shrink-0 items-center gap-1.5 text-label font-bold px-3.5 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
             >
               {autosave.status === "saving" ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -1247,7 +1269,7 @@ function MagazineEditorInner() {
 
         </div>
 
-        {/* 탭 네비게이션 */}
+        {/* 탭 네비게이션 — 모바일(390px)에서도 8개 한글 탭명이 항상 표시되고 가로 스크롤 가능 */}
         <div
           role="tablist"
           aria-label="콘텐츠 편집 단계"
@@ -1271,14 +1293,12 @@ function MagazineEditorInner() {
                   setActiveTab(tab.key);
                   e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" });
                 }}
-                className={`flex-1 min-w-11 sm:min-w-[56px] min-h-[44px] flex flex-col sm:flex-row lg:flex-col items-center justify-center gap-0.5 sm:gap-1.5 lg:gap-0.5 px-0.5 lg:px-0 py-2 text-caption font-semibold transition-all relative ${
+                className={`shrink-0 lg:flex-1 min-h-12 flex flex-col items-center justify-center gap-0.5 px-2.5 lg:px-1 py-1.5 text-caption font-semibold transition-all relative ${
                   isActive ? "text-indigo-400" : "text-ink-subtle hover:text-ink-muted"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span
-                  className={`${isActive ? "inline" : "hidden sm:inline"} text-center leading-tight break-keep sm:whitespace-nowrap lg:tracking-tighter`}
-                >
+                <span className="inline text-center leading-tight whitespace-nowrap lg:tracking-tighter">
                   {tab.label}
                 </span>
                 {done && (
@@ -1320,28 +1340,42 @@ function MagazineEditorInner() {
         </div>
 
         {/* 하단 액션 — 발행 단일 버튼 세트 (저장은 헤더, 발행은 여기 하나) */}
-        <div className="p-3 lg:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-800 flex flex-wrap items-stretch gap-2 lg:flex-col lg:flex-nowrap flex-shrink-0 bg-[#111827]">
-          <Link
-            href={`/magazine/${brokerSlug}/${publishedIssueDate}`}
-            target="_blank"
-            className="flex-1 min-w-0 lg:flex-none lg:w-full flex min-h-11 items-center justify-center gap-2 text-label font-semibold px-3 lg:px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
-          >
-            <Eye className="hidden lg:inline-block w-3.5 h-3.5" aria-hidden="true" />
-            📱 실제 화면으로 보기
-            <ExternalLink className="hidden lg:inline-block w-3 h-3 ml-1 opacity-50" aria-hidden="true" />
-          </Link>
+        <div className="p-2.5 lg:p-3 pb-[max(0.625rem,env(safe-area-inset-bottom))] border-t border-slate-800 flex flex-wrap items-stretch gap-2 lg:flex-col lg:flex-nowrap flex-shrink-0 bg-[#111827]">
+          <div className="flex w-full gap-2">
+            <Link
+              href={
+                isPublished
+                  ? `/magazine/${brokerSlug}/${publishedIssueDate}`
+                  : `/magazine/${brokerSlug}/${publishedIssueDate}?preview=1`
+              }
+              target="_blank"
+              className="flex-1 min-w-0 flex min-h-11 items-center justify-center gap-1.5 text-label font-semibold px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
+            >
+              <Eye className="hidden lg:inline-block w-3.5 h-3.5" aria-hidden="true" />
+              📱 실제 화면으로 보기
+              <ExternalLink className="hidden lg:inline-block w-3 h-3 ml-1 opacity-50" aria-hidden="true" />
+            </Link>
+            <button
+              type="button"
+              aria-expanded={showMobilePreview}
+              onClick={() => setShowMobilePreview((v) => !v)}
+              className="lg:hidden flex min-h-11 items-center justify-center gap-1 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-3 py-2 text-xs font-bold text-indigo-200 hover:bg-indigo-500/25 transition-all"
+            >
+              📱 독자 화면 미리보기
+            </button>
+          </div>
           {isPublished && (
             <p className="basis-full order-first lg:order-none text-caption leading-relaxed text-amber-300/90" role="note">
               이미 발행된 호수입니다. 내용을 고친 뒤 &quot;정정 발행&quot;을 누르면 공개 페이지가 갱신됩니다. 초안으로 되돌릴 수 없습니다.
             </p>
           )}
-          <div className="flex gap-2 flex-1 lg:flex-none">
+          <div className="flex gap-2 flex-1 lg:flex-none w-full">
             <motion.button
               type="button"
               whileTap={{ scale: 0.95 }}
               onClick={handleOpenPublish}
               disabled={publishing || autosave.status === "saving"}
-              className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-bold px-4 py-2.5 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+              className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
             >
               {publishing ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -1355,20 +1389,25 @@ function MagazineEditorInner() {
         </div>
       </div>
 
-      {/* ━━━ 우측 패널: 미리보기 ━━━ */}
-      <MagazinePhonePreview
-        previewData={previewViewData}
-        brokerSlug={brokerSlug}
-        today={today}
-        dateLabel={formatKoreanDate(today)}
-        editionId={editionId}
-      />
+      {/* ━━━ 우측 패널: 미리보기 (모바일은 토글 시 노출, 데스크톱은 상시 노출) ━━━ */}
+      <div className={`${showMobilePreview ? "flex" : "hidden"} lg:flex flex-1`}>
+        <MagazinePhonePreview
+          previewData={previewViewData}
+          brokerSlug={brokerSlug}
+          today={today}
+          dateLabel={formatKoreanDate(today)}
+          editionId={editionId}
+        />
+      </div>
 
 
       {/* ── 발행 확인 모달 ── */}
       <PublishConfirmModal
         open={showPublishConfirm}
-        onOpenChange={setShowPublishConfirm}
+        onOpenChange={(open) => {
+          setShowPublishConfirm(open);
+          if (!open) setPublishError(null);
+        }}
         issueDate={isPublished ? publishedIssueDate : today}
         targetSegment={targetSegment}
         subscriberCount={subscriberCount}
@@ -1379,6 +1418,7 @@ function MagazineEditorInner() {
         sendAfterPublish={sendAfterPublish}
         onSendAfterPublishChange={setSendAfterPublish}
         onConfirm={handleConfirmPublish}
+        publishError={publishError}
       />
 
       {/* ── 공유 모달 ── */}
