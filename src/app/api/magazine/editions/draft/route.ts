@@ -23,6 +23,7 @@ const BodySchema = z.object({
     .trim()
     .regex(/^[A-Za-z0-9가-힣][A-Za-z0-9가-힣 _.\-]{0,39}$/)
     .optional(),
+  format: z.enum(["simple", "full"]).optional(),
 });
 
 /**
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       {
         editionType: parsed.data.edition_type,
         editionLabel: parsed.data.edition_label ?? currentWeekLabel(),
+        format: parsed.data.format,
       },
     );
 

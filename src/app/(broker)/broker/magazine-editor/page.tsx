@@ -56,6 +56,14 @@ import {
   resolveEditorPublicName,
   type EditorIdentity,
 } from "@/lib/magazine/editor-helpers";
+import { useEditorMode } from "@/hooks/useEditorMode";
+import { SimpleEditor } from "@/components/magazine-editor/simple/SimpleEditor";
+import {
+  SIMPLE_NOTE_MIN,
+  applySimplePreset,
+  deriveFallbackHeadline,
+  deriveFallbackBriefing,
+} from "@/lib/magazine/simple-format";
 import {
   Save,
   Eye,
@@ -178,7 +186,13 @@ function MagazineEditorInner() {
   const searchParams = useSearchParams();
 
   // ── 상태 관리 ──
-  const initialTab = (searchParams.get("tab") as TabKey) || "cover";
+  const queryMode = searchParams.get("mode");
+  const queryTab = searchParams.get("tab");
+  const { mode: editorMode, setMode: setEditorMode } = useEditorMode({
+    queryMode,
+    queryTab,
+  });
+  const initialTab = (queryTab as TabKey) || "cover";
   const [activeTab, setActiveTab] = useState<TabKey>(TABS.some(t => t.key === initialTab) ? initialTab : "cover");
   const [loading, setLoading] = useState(true);
   const [editionReady, setEditionReady] = useState(false);
@@ -201,6 +215,8 @@ function MagazineEditorInner() {
   const selectedNewsIdsRef = useRef<string[]>([]);
   const defaultsPendingRef = useRef({ news: false, deals: false });
   const profileSavedRef = useRef({ title: "", color: "" });
+  const editorModeRef = useRef(editorMode);
+  const brokerPublicNameRef = useRef<string>("");
 
   // Edition state
   const [editionId, setEditionId] = useState<string | null>(null);
@@ -606,11 +622,26 @@ function MagazineEditorInner() {
     formRef.current = form;
     baseContentRef.current = magazineData;
     selectedNewsIdsRef.current = Array.from(selectedNewsIds);
+    editorModeRef.current = editorMode;
+    brokerPublicNameRef.current = resolveEditorPublicName(identity, brokerSlug ?? "");
   });
-  const getPayload = useCallback(
-    () => buildPatchPayload(baseContentRef.current, formRef.current),
-    []
-  );
+  const getPayload = useCallback(() => {
+    const basePayload = buildPatchPayload(baseContentRef.current, formRef.current);
+    if (editorModeRef.current !== "simple") {
+      return basePayload;
+    }
+    const simpleContent = applySimplePreset(basePayload.content, {
+      brokerName: brokerPublicNameRef.current,
+    });
+    const resolvedTitle =
+      basePayload.title.trim() ||
+      (typeof simpleContent.headline === "string" ? simpleContent.headline : "");
+    return {
+      ...basePayload,
+      title: resolvedTitle,
+      content: simpleContent,
+    };
+  }, []);
 
   // ── 단일 저장 경로: 3초 debounce + 30초 주기, 변경분만, updated_at 낙관적 동시성 ──
   const autosave = useEditionAutosave({
@@ -624,10 +655,16 @@ function MagazineEditorInner() {
   const { saveNow, syncUpdatedAt } = autosave;
 
   // 미리보기 = 저장될 content 와 같은 변환 결과 (비어 있는 설문/세무는 섹션 자체가 사라진다)
-  const previewData = useMemo<any>(
-    () => ({ ...buildContentFromForm(magazineData, form), themeColor }),
-    [magazineData, form, themeColor]
-  );
+  const previewData = useMemo<any>(() => {
+    const baseContent = buildContentFromForm(magazineData, form);
+    const modeContent =
+      editorMode === "simple"
+        ? applySimplePreset(baseContent, {
+            brokerName: resolveEditorPublicName(identity, brokerSlug ?? ""),
+          })
+        : baseContent;
+    return { ...modeContent, themeColor };
+  }, [magazineData, form, themeColor, editorMode, identity, brokerSlug]);
 
   // 미리보기 전용: 항상 로그인한 본인 프로필로 표시 (저장되는 content에는 섞지 않는다)
   const previewViewData = useMemo(() => {
@@ -766,24 +803,71 @@ function MagazineEditorInner() {
   }, [magazineTitle, themeColor]);
 
   // ── 발행(정정 발행) 버튼: 먼저 저장 → 사전 점검 → 확인 모달 ──
-  const handleOpenPublish = useCallback(async () => {
-    if (!editionId || !editionReady) return;
-    if (!headline.trim()) {
-      editorToast.error("헤드라인을 입력해 주세요.");
-      setActiveTab("cover");
-      return;
-    }
-    if (!isPublished) {
-      const ok = await saveNow();
-      if (!ok) {
-        editorToast.error("저장하지 못해 발행을 멈췄습니다. 저장 상태를 확인한 뒤 다시 시도해 주세요.");
+  const handleOpenPublish = useCallback(
+    async (ensuredHeadlineArg?: unknown) => {
+      if (!editionId || !editionReady) return;
+      const argHeadline =
+        typeof ensuredHeadlineArg === "string" ? ensuredHeadlineArg.trim() : "";
+      let effectiveHeadline = argHeadline || headline.trim();
+
+      if (
+        !effectiveHeadline &&
+        fieldNote.comment.trim().length >= SIMPLE_NOTE_MIN
+      ) {
+        effectiveHeadline = deriveFallbackHeadline(
+          fieldNote.comment,
+          brokerPublicNameRef.current,
+        );
+        setHeadline(effectiveHeadline);
+        formRef.current = { ...formRef.current, headline: effectiveHeadline };
+      }
+
+      if (
+        editorModeRef.current === "simple" &&
+        !briefing.trim() &&
+        fieldNote.comment.trim().length >= SIMPLE_NOTE_MIN
+      ) {
+        const autoBriefing = deriveFallbackBriefing({
+          comment: fieldNote.comment,
+          dealCount: selectedDealIds.size,
+          newsTitles: topNewsSnapshot.map((n) => String(n.title ?? "")),
+          marketTemp: marketTemp ?? "선별 매수",
+        });
+        setBriefing(autoBriefing);
+        formRef.current = { ...formRef.current, briefing: autoBriefing };
+      }
+
+      if (!effectiveHeadline) {
+        editorToast.error("헤드라인을 입력해 주세요.");
+        if (editorModeRef.current === "full") {
+          setActiveTab("cover");
+        }
         return;
       }
-    }
-    setPublishError(null);
-    setNeedsQualityAck(false);
-    setShowPublishConfirm(true);
-  }, [editionId, editionReady, headline, isPublished, saveNow]);
+      if (!isPublished) {
+        const ok = await saveNow();
+        if (!ok) {
+          editorToast.error("저장하지 못해 발행을 멈췄습니다. 저장 상태를 확인한 뒤 다시 시도해 주세요.");
+          return;
+        }
+      }
+      setPublishError(null);
+      setNeedsQualityAck(false);
+      setShowPublishConfirm(true);
+    },
+    [
+      editionId,
+      editionReady,
+      headline,
+      briefing,
+      fieldNote.comment,
+      selectedDealIds.size,
+      topNewsSnapshot,
+      marketTemp,
+      isPublished,
+      saveNow,
+    ]
+  );
 
   // ── 확인 모달의 최종 발행: 서버 원자 발행 → (선택) 발송 요청 → 정직한 결과 안내 ──
   const handleConfirmPublish = useCallback(
@@ -801,7 +885,7 @@ function MagazineEditorInner() {
           body: JSON.stringify({
             correction,
             acknowledgeQualityGate: opts.acknowledgeQualityGate,
-            payload: buildPatchPayload(baseContentRef.current, formRef.current),
+            payload: getPayload(),
           }),
         });
         const json = (await readJsonSafe(res)) as {
@@ -1237,6 +1321,14 @@ function MagazineEditorInner() {
                 <p className="text-caption text-ink-subtle" data-testid="editor-progress">
                   작성 {progress.done}/{progress.total} 완료
                 </p>
+                {editorMode === "simple" && (
+                  <span
+                    data-testid="editor-simple-mode-badge"
+                    className="text-caption font-bold px-2 py-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
+                  >
+                    ⚡ 간단 모드
+                  </span>
+                )}
                 {!isPublished && (
                   <SaveStatusBadge
                     status={autosave.status}
@@ -1290,6 +1382,9 @@ function MagazineEditorInner() {
                 aria-label={done ? `${tab.label}, 작성 완료` : tab.label}
                 data-complete={done ? "true" : undefined}
                 onClick={(e) => {
+                  if (editorMode !== "full") {
+                    setEditorMode("full", { skipRemote: true });
+                  }
                   setActiveTab(tab.key);
                   e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" });
                 }}
@@ -1324,31 +1419,102 @@ function MagazineEditorInner() {
           role="tabpanel"
           id="editor-tabpanel"
           aria-labelledby={`editor-tab-${activeTab}`}
-          className="flex-1 overflow-y-auto p-4"
+          className="flex-1 overflow-y-auto p-4 space-y-3"
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.15 }}
-            >
-              {renderTabContent()}
-            </motion.div>
-          </AnimatePresence>
+          {/* 모드 전환 토글 바 */}
+          <div
+            data-testid="editor-mode-bar"
+            className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-2.5 py-1.5"
+          >
+            {editorMode === "simple" ? (
+              <>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 px-2.5 py-1 text-xs font-extrabold text-indigo-200">
+                  ⚡ 간단 모드 (5분 완성) ✓
+                </span>
+                <button
+                  type="button"
+                  data-testid="editor-mode-toggle"
+                  onClick={() => setEditorMode("full")}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700 transition-colors"
+                >
+                  🛠️ 상세 편집 (8단계)
+                </button>
+              </>
+            ) : (
+              <div className="flex w-full items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-400">
+                  🛠️ 상세 편집 모드 (8단계)
+                </span>
+                <button
+                  type="button"
+                  data-testid="editor-mode-toggle"
+                  onClick={() => setEditorMode("simple")}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1 text-xs font-bold text-indigo-200 hover:bg-indigo-500/25 transition-colors"
+                >
+                  ⚡ 간단 모드로 돌아가기 (한 화면 3단계)
+                </button>
+              </div>
+            )}
+          </div>
+
+          {editorMode === "simple" ? (
+            <SimpleEditor
+              editionId={editionId}
+              brokerName={resolveEditorPublicName(identity, brokerSlug)}
+              fieldNote={fieldNote}
+              updateFieldNote={updateFieldNote}
+              headline={headline}
+              setHeadline={setHeadline}
+              briefing={briefing}
+              setBriefing={setBriefing}
+              marketTemp={marketTemp}
+              setMarketTemp={setMarketTemp}
+              deals={dealPool}
+              selectedDealIds={selectedDealIds}
+              toggleDeal={toggleDeal}
+              fmt={fmt}
+              newsTitles={topNewsSnapshot.map((n) => String(n.title ?? ""))}
+              themeTitle={themeTitle}
+              themeBodyMd={themeBodyMd}
+              pollQuestion={pollQuestion}
+              taxQuestion={taxQuestion}
+              taxAnswer={taxAnswer}
+              isPublished={isPublished}
+              publishing={publishing}
+              saving={autosave.status === "saving"}
+              onPublish={(ensuredHeadline) => void handleOpenPublish(ensuredHeadline)}
+              onOpenTab={(tabKey) => {
+                setEditorMode("full", { skipRemote: true });
+                setActiveTab(tabKey);
+              }}
+              onSwitchToFullMode={() => setEditorMode("full")}
+            />
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.15 }}
+              >
+                {renderTabContent()}
+              </motion.div>
+            </AnimatePresence>
+          )}
         </div>
 
         {/* 하단 액션 — 발행 단일 버튼 세트 (저장은 헤더, 발행은 여기 하나) */}
         <div className="p-2.5 lg:p-3 pb-[max(0.625rem,env(safe-area-inset-bottom))] border-t border-slate-800 flex flex-wrap items-stretch gap-2 lg:flex-col lg:flex-nowrap flex-shrink-0 bg-[#111827]">
           <div className="flex w-full gap-2">
             <Link
-              href={
-                isPublished
-                  ? `/magazine/${brokerSlug}/${publishedIssueDate}`
-                  : `/magazine/${brokerSlug}/${publishedIssueDate}?preview=1`
-              }
+              href={`/magazine/${encodeURIComponent(brokerSlug)}/${isPublished ? publishedIssueDate : today}`}
               target="_blank"
+              title={
+                isPublished
+                  ? "발행된 이번 호의 공개 주소로 이동합니다"
+                  : "이번 호의 공개 주소(발행 전에는 미발행 안내가 표시되며, 편집 화면은 우측 미리보기에서 확인)"
+              }
               className="flex-1 min-w-0 flex min-h-11 items-center justify-center gap-1.5 text-label font-semibold px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
             >
               <Eye className="hidden lg:inline-block w-3.5 h-3.5" aria-hidden="true" />
@@ -1373,7 +1539,7 @@ function MagazineEditorInner() {
             <motion.button
               type="button"
               whileTap={{ scale: 0.95 }}
-              onClick={handleOpenPublish}
+              onClick={() => void handleOpenPublish()}
               disabled={publishing || autosave.status === "saving"}
               className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
             >

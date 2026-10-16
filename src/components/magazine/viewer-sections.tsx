@@ -6,11 +6,12 @@
  */
 import React from "react";
 import {
-  BarChart3, BookOpen, Globe, Hammer, Lightbulb, Newspaper, ShieldAlert, TrendingUp,
+  BarChart3, BookOpen, Globe, Hammer, Lightbulb, Newspaper, PenLine, Quote, ShieldAlert, TrendingUp,
 } from "lucide-react";
 import { BrokerAvatar } from "@/components/magazine/BrokerAvatar";
 import { GlossaryText } from "@/components/magazine/GlossaryText";
 import { DataBadge, SectionCard } from "@/components/magazine/viewer-primitives";
+import { isSingleCommentFieldNote } from "@/lib/magazine/simple-format";
 import {
   formatPhoneDisplay,
   formatPriceKo,
@@ -23,6 +24,111 @@ import {
 } from "@/lib/magazine/view-helpers";
 
 type AnyRec = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+// ── 현장 노트 / 중개사의 한마디 (단일 코멘트 시 60대 친화 18px 인용 카드로 렌더링) ──
+export function FieldNoteSection({
+  fieldNote,
+  brokerName = "중개사",
+  company,
+}: {
+  fieldNote: AnyRec | null | undefined;
+  brokerName?: string | null;
+  company?: string | null;
+}) {
+  if (!fieldNote || typeof fieldNote !== "object") return null;
+  const safeBrokerName = typeof brokerName === "string" && brokerName.trim() ? brokerName.trim() : "중개사";
+  const safeCompany = typeof company === "string" && company.trim() ? company.trim() : null;
+
+  if (isSingleCommentFieldNote(fieldNote)) {
+    const comment = String(fieldNote.comment ?? "").trim();
+    return (
+      <div
+        className="overflow-hidden rounded-2xl border border-violet-500/25"
+        style={{
+          background: "linear-gradient(135deg, rgba(139,92,246,0.10), rgba(15,15,35,0.92))",
+          wordBreak: "keep-all",
+        }}
+        data-testid="field-note-quote-card"
+      >
+        <div className="flex items-center gap-2 border-b border-violet-500/15 px-4 py-3">
+          <PenLine className="h-4 w-4 text-violet-300" aria-hidden="true" />
+          <h2 className="text-label font-bold text-violet-200">중개사의 한마디</h2>
+        </div>
+        <figure className="p-4 sm:p-5">
+          <div className="rounded-xl border-2 border-violet-400/35 bg-violet-500/[0.08] p-4">
+            <div className="mb-2 flex items-center gap-1.5 text-violet-300">
+              <Quote className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="text-caption font-bold text-violet-200">이번 주 현장 코멘트</span>
+            </div>
+            <blockquote className="whitespace-pre-line text-reader font-bold leading-[1.8] text-white">
+              {comment}
+            </blockquote>
+            <figcaption className="mt-3 flex items-center justify-end gap-1.5 border-t border-violet-400/20 pt-2.5 text-caption font-semibold text-slate-200">
+              <span>— {safeBrokerName}</span>
+              {safeCompany && <span className="text-slate-300">· {safeCompany}</span>}
+            </figcaption>
+          </div>
+        </figure>
+      </div>
+    );
+  }
+
+  const hasAny =
+    Boolean(String(fieldNote.question ?? "").trim()) ||
+    Boolean(String(fieldNote.buyerReaction ?? "").trim()) ||
+    Boolean(String(fieldNote.sellerReaction ?? "").trim()) ||
+    Boolean(String(fieldNote.marketJudgment ?? "").trim()) ||
+    Boolean(String(fieldNote.comment ?? "").trim());
+  if (!hasAny) return null;
+
+  const fieldRow = (emoji: string, label: string, text?: string) =>
+    !text ? null : (
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 text-base" aria-hidden="true">
+          {emoji}
+        </span>
+        <div>
+          <h3 className="mb-0.5 text-caption font-bold text-slate-300">{label}</h3>
+          <p className="text-reader text-slate-200">{text}</p>
+        </div>
+      </div>
+    );
+
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border border-violet-500/20"
+      style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.08), rgba(15,15,35,0.9))" }}
+    >
+      <div className="flex items-center gap-2 border-b border-violet-500/10 px-4 py-3">
+        <PenLine className="h-4 w-4 text-violet-300" aria-hidden="true" />
+        <h2 className="text-label font-bold text-violet-200">{safeBrokerName}의 현장 노트</h2>
+        {/* 현장 노트는 중개인이 직접 쓴 글 — 'AI 분석' 배지를 붙이지 않는다(허위 출처 표기 방지) */}
+      </div>
+      <div className="space-y-3.5 p-4">
+        {fieldRow("💬", "이번 주 시장", fieldNote.question)}
+        {fieldRow("📈", "매수 반응", fieldNote.buyerReaction)}
+        {fieldRow("📉", "매도 반응", fieldNote.sellerReaction)}
+        {fieldRow("🌡️", "시장 판단", fieldNote.marketJudgment)}
+        {fieldNote.comment && (
+          <div
+            className="mt-1 rounded-xl border border-violet-500/15 p-3"
+            style={{ background: "rgba(139,92,246,0.06)" }}
+          >
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 text-base" aria-hidden="true">
+                💡
+              </span>
+              <div>
+                <h3 className="mb-0.5 text-caption font-bold text-violet-300">중개인 한마디</h3>
+                <p className="text-reader font-bold text-white">{fieldNote.comment}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── 시장 데이터 ──────────────────────────────────────────────
 export function MarketDataSection({

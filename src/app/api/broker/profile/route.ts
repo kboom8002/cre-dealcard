@@ -74,6 +74,7 @@ const ProfileUpdateSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .nullable()
     .optional(),
+  magazine_editor_mode: z.enum(['simple', 'full']).nullable().optional(),
 });
 
 /** broker_profiles 테이블에 실제로 존재하는 컬럼 화이트리스트 */
@@ -196,22 +197,46 @@ export async function GET(req: NextRequest) {
     brokerProfile.slug = autoSlug;
   }
 
-  // 매거진 설정 조인 (magazine_settings: title, theme_color). 없으면 null — 가짜 기본값 없음.
+  // 매거진 설정 조인 (magazine_settings: title, theme_color, editor_mode). 없으면 null — 가짜 기본값 없음.
   let magazineTitle: string | null = null;
   let magazineThemeColor: string | null = null;
+  let magazineEditorMode: 'simple' | 'full' | null = null;
   let settingsAvailable = true;
   {
-    const { data: settings, error: settingsErr } = await supabase
+    let editorModeMigrated = true;
+    let { data: settings, error: settingsErr } = await supabase
       .from('magazine_settings')
-      .select('title, theme_color')
+      .select('title, theme_color, editor_mode')
       .eq('broker_user_id', user!.id)
       .maybeSingle();
+    if (settingsErr && isNotMigrated(settingsErr)) {
+      editorModeMigrated = false;
+      const fallback = await supabase
+        .from('magazine_settings')
+        .select('title, theme_color')
+        .eq('broker_user_id', user!.id)
+        .maybeSingle();
+      if (!fallback.error) {
+        settings = fallback.data as typeof settings;
+        settingsErr = null;
+      } else {
+        settingsErr = fallback.error;
+      }
+    }
     if (settingsErr) {
       settingsAvailable = false;
       if (!isNotMigrated(settingsErr)) log.error('[Profile GET] magazine_settings error:', settingsErr.message);
     } else if (settings) {
-      magazineTitle = (settings as { title?: string | null }).title ?? null;
-      magazineThemeColor = (settings as { theme_color?: string | null }).theme_color ?? null;
+      const row = settings as {
+        title?: string | null;
+        theme_color?: string | null;
+        editor_mode?: string | null;
+      };
+      magazineTitle = row.title ?? null;
+      magazineThemeColor = row.theme_color ?? null;
+      if (editorModeMigrated) {
+        magazineEditorMode = row.editor_mode === 'simple' || row.editor_mode === 'full' ? row.editor_mode : null;
+      }
     }
   }
 
@@ -228,6 +253,7 @@ export async function GET(req: NextRequest) {
       email: user!.email,
       magazine_title: magazineTitle,
       magazine_theme_color: magazineThemeColor,
+      magazine_editor_mode: magazineEditorMode,
       settingsAvailable,
       subscription: {
         tier: subscriptionTier,
@@ -354,9 +380,13 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // 3. 매거진 설정 → magazine_settings upsert (테이블 미존재 시 해당 필드만 건너뛰고 settingsSaved:false)
+    // 3. 매거진 설정 → magazine_settings upsert (테이블/컬럼 미존재 시 폴백하여 500 방지)
+    const hasEditorMode =
+      parsed.data.magazine_editor_mode === 'simple' || parsed.data.magazine_editor_mode === 'full';
     const settingsRequested =
-      parsed.data.magazine_title !== undefined || parsed.data.magazine_theme_color !== undefined;
+      parsed.data.magazine_title !== undefined ||
+      parsed.data.magazine_theme_color !== undefined ||
+      hasEditorMode;
     if (settingsRequested) {
       const settingsRow: Record<string, unknown> = {
         broker_user_id: user!.id,
@@ -365,10 +395,21 @@ export async function PUT(req: NextRequest) {
       };
       if (parsed.data.magazine_title !== undefined) settingsRow.title = parsed.data.magazine_title;
       if (parsed.data.magazine_theme_color !== undefined) settingsRow.theme_color = parsed.data.magazine_theme_color;
+      if (hasEditorMode) settingsRow.editor_mode = parsed.data.magazine_editor_mode;
 
-      const { error: settingsErr } = await supabase
+      let { error: settingsErr } = await supabase
         .from('magazine_settings')
         .upsert(settingsRow, { onConflict: 'broker_user_id' });
+
+      // editor_mode 컬럼 미적용 에러 시 editor_mode 를 제외하고 재시도
+      if (settingsErr && isNotMigrated(settingsErr) && 'editor_mode' in settingsRow) {
+        const { editor_mode: _omitted, ...withoutEditorMode } = settingsRow;
+        const retry = await supabase
+          .from('magazine_settings')
+          .upsert(withoutEditorMode, { onConflict: 'broker_user_id' });
+        settingsErr = retry.error;
+      }
+
       if (settingsErr) {
         const notMigrated = isNotMigrated(settingsErr);
         if (!notMigrated) log.error('[Profile PUT] magazine_settings upsert error:', settingsErr.message);

@@ -75,9 +75,9 @@
 | 순서 | 파일 | 담당 | 내용 | 선행 | 비고 |
 |:--:|:--|:--|:--|:--|:--|
 | 13 | `20261004000016_magazine_analytics_v2.sql` | E4 | 구독자별 이벤트 조회 인덱스(`metadata->>'subscriber_id'`) · `activity_events (broker_id, event_type, created_at)` 인덱스 · `increment_edition_views` 보강(search_path 고정·anon/authenticated 실행 권한 회수) · `visitor_id` 의미 주석(v2_ = 서버 HMAC) | 000011(권장) | 롤백: `_rollback/…000016_magazine_analytics_v2_rollback.sql`. 미적용 상태에서도 코드는 동작(RPC 는 기존 함수 그대로). **적용하면 anon 의 `increment_edition_views` 직접 호출이 막힌다** — 호출 경로는 `/api/public/magazine/analytics`(서비스 키)뿐인지 확인 |
-| 14 | `2026100400001x_…` | (예약) | (신규 추가 시 기입) | | |
+| 14 | `20261016000001_magazine_settings_editor_mode.sql` | S1 | `public.magazine_settings` 에 `editor_mode text not null default 'simple' check (editor_mode in ('simple', 'full'))` 컬럼 멱등 추가 | 000007(권장) | 롤백: `_rollback/20261016000001_rollback.sql`. 미적용 상태에서도 `/api/broker/profile` 은 `select('title, theme_color')` 로 자동 폴백되어 500 없이 동작 |
 
-적용 순서 요약(전체): `000001 → 000002 → 000003 → 000005 → 000006 → 000007 → 000010 → 000012 → 000013 → 000014 → 000011 → 000015(보류 가능) → 000016` 이후 `000008`/`000009`(검토 후), `000004`(보류).
+적용 순서 요약(전체): `000001 → 000002 → 000003 → 000005 → 000006 → 000007 → 000010 → 000012 → 000013 → 000014 → 000011 → 000015(보류 가능) → 000016 → 20261016000001` 이후 `000008`/`000009`(검토 후), `000004`(보류).
 
 > ✅ **000015 백필 수정됨 (2026-10-06, E5 pglite 지적 반영)**: `magazine_analytics_events` 는 운영에 `broker_id` 컬럼이 없다(컬럼: id, edition_id, visitor_id, event_type, section_id, target_url, dwell_seconds, scroll_pct, metadata, target_param, created_at, visitor_fp).
 > 수정 후 000015 는 broker_id 컬럼 유무를 검사해, 없는 테이블은 `edition_id → magazine_editions.broker_user_id` 로 매핑한다(editions 가 먼저 백필되도록 순서 고정). uuid/slug 혼재는 `::uuid` 캐스트 없이 `bp.user_id::text = lower(x.broker_id)` 텍스트 비교 후 slug 비교로 처리한다.

@@ -116,8 +116,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const issueDate =
       correction && edition.published_at ? toKstDate(new Date(edition.published_at)) : todayKst();
 
+    const rawContentSource = payloadContent !== undefined ? payloadContent : edition.content;
+    const contentForNormalize =
+      rawContentSource &&
+      typeof rawContentSource === "object" &&
+      !Array.isArray(rawContentSource) &&
+      (rawContentSource as Record<string, unknown>).format === "simple" &&
+      !(rawContentSource as Record<string, unknown>).field_note &&
+      (payloadColumns.field_note ?? edition.field_note)
+        ? {
+            ...(rawContentSource as Record<string, unknown>),
+            field_note: payloadColumns.field_note ?? edition.field_note,
+          }
+        : rawContentSource;
+
     const normalized = normalizeContentForPublish({
-      content: payloadContent !== undefined ? payloadContent : edition.content,
+      content: contentForNormalize,
       broker: {
         name: broker.displayName ?? ctx.displayName ?? "",
         slug: ctx.slug,
@@ -149,7 +163,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    const content = { ...normalized.content, id: edition.id };
+    const content: Record<string, unknown> = { ...normalized.content, id: edition.id };
 
     const editionUpdate: Record<string, unknown> = {
       ...payloadColumns,
@@ -157,6 +171,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       content,
       updated_at: nowIso,
     };
+    if (
+      content.format === "simple" &&
+      typeof editionUpdate.title !== "string" &&
+      !edition.title &&
+      typeof content.headline === "string" &&
+      content.headline.trim().length > 0
+    ) {
+      editionUpdate.title = content.headline;
+    }
     if (!alreadyPublished) editionUpdate.published_at = nowIso;
 
     const { data: updated, error: upErr } = await supabase

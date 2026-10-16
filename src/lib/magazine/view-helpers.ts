@@ -2,6 +2,7 @@
  * src/lib/magazine/view-helpers.ts — 독자 뷰어 클라이언트/서버 공용 순수 헬퍼 (node 전용 import 금지)
  */
 import { decodeEntities } from './escape';
+import { isSimpleEdition, SIMPLE_NEWS_LIMIT } from './simple-format';
 import { hasSyntheticScore, stripSyntheticScore } from './strip-synthetic-score';
 
 /**
@@ -121,6 +122,8 @@ export const DEFAULT_SECTIONS: Readonly<Record<ViewerTarget, readonly ViewerSect
 
 /**
  * 렌더 순서. 에디션이 `section_order` 를 가지면 그 순서(+구독·프로필을 뒤에 붙임), 없으면 타깃별 기본 순서.
+ * 에디터의 DEFAULT_SECTION_ORDER(12개)에는 'reports'가 누락되어 있을 수 있으므로,
+ * customOrder가 주어졌을 때 'reports'가 빠져 있으면 'auction_picks' 바로 뒤(또는 'subscribe_cta' 앞)에 보충한다.
  * 레퍼럴·세무는 항상 맨 뒤쪽(강등, U-05).
  */
 export function resolveSectionOrder(
@@ -130,8 +133,14 @@ export function resolveSectionOrder(
   if (Array.isArray(customOrder) && customOrder.length > 0) {
     const ids = customOrder.filter((x): x is string => typeof x === 'string');
     const out = ids.filter((id, i) => ids.indexOf(id) === i);
-    for (const tail of ['subscribe_cta', 'broker_profile']) if (!out.includes(tail)) out.push(tail);
-    return out;
+    if (out.length > 0) {
+      if (!out.includes('reports') && out.includes('auction_picks')) {
+        const auctionIdx = out.indexOf('auction_picks');
+        out.splice(auctionIdx + 1, 0, 'reports');
+      }
+      for (const tail of ['subscribe_cta', 'broker_profile']) if (!out.includes(tail)) out.push(tail);
+      return out;
+    }
   }
   if (target === 'buyer') return [...ORDER_BUYER];
   if (target === 'seller') return [...ORDER_SELLER];
@@ -170,7 +179,7 @@ export function estimateReadMinutes(texts: Array<string | null | undefined>): nu
 }
 
 // ─────────────────────────────────────────────────────────────
-// 뉴스·심리 (색 단독 의미 금지, 뉴스 최대 6건)
+// 뉴스·심리 (색 단독 의미 금지, 뉴스 최대 6건 / 간단 포맷은 기본 3건)
 // ─────────────────────────────────────────────────────────────
 
 export const MAX_NEWS_ITEMS = 6;
@@ -199,8 +208,9 @@ export function cleanNewsSummaryText(raw: unknown): string {
   return first.replace(/^핵심\s*팩트\s*[:：]\s*/, '').trim();
 }
 
-/** topNews / news_curation 에서 제목이 있는 항목만 최대 6건. */
-export function pickTopNews(data: Record<string, unknown>, max = MAX_NEWS_ITEMS): NewsItemView[] {
+/** topNews / news_curation 에서 제목이 있는 항목만 최대 6건 (간단 포맷은 기본 3건). */
+export function pickTopNews(data: Record<string, unknown>, max?: number): NewsItemView[] {
+  const effectiveMax = max ?? (isSimpleEdition(data) ? SIMPLE_NEWS_LIMIT : MAX_NEWS_ITEMS);
   const raw = Array.isArray(data.topNews) ? data.topNews : Array.isArray(data.news_curation) ? data.news_curation : [];
   const out: NewsItemView[] = [];
   for (const n of raw) {
@@ -216,7 +226,7 @@ export function pickTopNews(data: Record<string, unknown>, max = MAX_NEWS_ITEMS)
       topic: typeof r.topic === 'string' ? r.topic : '',
       sentiment: s,
     });
-    if (out.length >= max) break;
+    if (out.length >= effectiveMax) break;
   }
   return out;
 }

@@ -136,8 +136,9 @@ describe('U-F1-03 & U-F1-04 (B-08, B-14, B-16, B-17, B-20): 에디터 헤더·�
     expect(pageSrc).toContain('📱 독자 화면 미리보기');
   });
 
-  it('미발행 초안일 때 "📱 실제 화면으로 보기" 링크에 ?preview=1을 붙인다', () => {
-    expect(pageSrc).toContain('?preview=1');
+  it('미발행 초안일 때 "📱 실제 화면으로 보기" 링크와 모바일용 "📱 독자 화면 미리보기" 토글을 제공한다', () => {
+    expect(pageSrc).toContain('📱 실제 화면으로 보기');
+    expect(pageSrc).toContain('미발행 안내가 표시되며, 편집 화면은 우측 미리보기에서 확인');
   });
 });
 

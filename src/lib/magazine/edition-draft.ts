@@ -46,10 +46,11 @@ function pickExisting(rows: EditionRecord[]): EditionRecord | null {
 export async function getOrCreateDraftEdition(
   supabase: SupabaseClient,
   ctx: DraftCtx,
-  opts: { editionType?: string; editionLabel?: string } = {},
+  opts: { editionType?: string; editionLabel?: string; format?: 'simple' | 'full' } = {},
 ): Promise<{ edition: EditionRecord; created: boolean }> {
   const editionType = opts.editionType ?? 'weekly';
   const editionLabel = opts.editionLabel ?? currentWeekLabel();
+  const format: 'simple' | 'full' = opts.format === 'full' ? 'full' : 'simple';
 
   const lookup = async (): Promise<EditionRecord[]> => {
     const { data, error } = await supabase
@@ -83,6 +84,7 @@ export async function getOrCreateDraftEdition(
       kind: kindOfEditionType(editionType),
       issueDate: todayKst(),
       weekLabel: editionLabel,
+      format,
     },
   };
   const { data: inserted, error: insErr } = await supabase

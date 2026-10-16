@@ -11,6 +11,12 @@
  */
 import type { BrokerFieldNote } from '@/domain/magazine/types';
 import { parseEditionContent } from '@/domain/magazine/edition-content.schema';
+import {
+  applySimplePreset,
+  deriveFallbackBriefing,
+  deriveFallbackHeadline,
+  type EditionFormat,
+} from '@/lib/magazine/simple-format';
 
 // ── 상수 ───────────────────────────────────────────────────────────
 /** 입력 후 이 시간 동안 추가 입력이 없으면 저장 (debounce) */
@@ -49,6 +55,7 @@ export interface PollOptionForm {
 }
 
 export interface EditorForm {
+  format?: EditionFormat;
   headline: string;
   briefing: string;
   marketTemp: string | null;
@@ -217,6 +224,15 @@ export function buildContentFromForm(
   content.section_order = normalizeSectionOrder(form.sectionOrder);
   content.sections = buildSectionToggles(content.section_order as string[], form.sectionsEnabled);
   content.target_segment = form.targetSegment;
+
+  if (form.format === 'simple') {
+    const brokerName =
+      isRecord(content.broker) && typeof content.broker.name === 'string' ? content.broker.name : null;
+    return applySimplePreset(content, { brokerName });
+  }
+  if (form.format === 'full') {
+    content.format = 'full';
+  }
   return content;
 }
 
@@ -281,7 +297,11 @@ export function formFromEdition(row: EditionRow): EditorForm {
         ? content.featured_deal_ids.filter((x): x is string => typeof x === 'string')
         : [];
 
+  const restoredFormat: EditionFormat | undefined =
+    content.format === 'simple' ? 'simple' : content.format === 'full' ? 'full' : undefined;
+
   return {
+    ...(restoredFormat ? { format: restoredFormat } : {}),
     headline: str(content.headline) || str(row.title),
     briefing: str(content.briefing) || str(content.ai_briefing),
     marketTemp: strOrNull(row.market_temp) ?? strOrNull(content.market_temp),
@@ -326,14 +346,16 @@ export interface EditionPatchPayload {
 export function buildPatchPayload(base: Record<string, unknown> | null | undefined, form: EditorForm): EditionPatchPayload {
   const content = buildContentFromForm(base, form);
   return {
-    title: form.headline,
+    title: str(content.headline) || form.headline,
     market_temp: form.marketTemp,
     cover_keywords: content.cover_keywords as string[],
     cover_image_url: form.coverImageUrl,
     field_note: form.fieldNote,
     theme_title: form.themeTitle,
     theme_body_md: form.themeBodyMd,
-    featured_deal_ids: [...form.selectedDealIds],
+    featured_deal_ids: Array.isArray(content.featured_deal_ids)
+      ? (content.featured_deal_ids as string[])
+      : [...form.selectedDealIds],
     theme_color: form.themeColor,
     target_segments: [form.targetSegment],
     content,
@@ -343,6 +365,7 @@ export function buildPatchPayload(base: Record<string, unknown> | null | undefin
 /** 변경 감지 서명 — 폼의 의미 있는 값만(선택 스냅샷 포함). 같은 값이면 같은 문자열. */
 export function formSignature(form: EditorForm): string {
   return JSON.stringify([
+    ...(form.format ? [form.format] : []),
     form.headline,
     form.briefing,
     form.marketTemp,
@@ -418,6 +441,7 @@ const MARKET_TEMPS = ['적극 매수', '선별 매수', '관망', '조정 대기
  * 발행 직전 content 를 EditionContentV1 로 정규화한다.
  * - broker 는 항상 서버(프로필) 값으로 덮는다. 클라이언트 값 불신.
  * - 필수 필드의 빈 기본값만 채운다(가짜 수치 생성 없음). Mock 생성물은 거부.
+ * - format === 'simple' 인 경우 field_note.comment 가 있으면 헤드라인·브리핑을 결정론적 폴백으로 보충하고 applySimplePreset 을 적용한다.
  */
 export function normalizeContentForPublish(input: NormalizeForPublishInput): NormalizeForPublishResult {
   const src = isRecord(input.content) ? input.content : {};
@@ -427,10 +451,40 @@ export function normalizeContentForPublish(input: NormalizeForPublishInput): Nor
     return { ok: false, code: 'MOCK_CONTENT', issues: ['Mock(모의) 생성 콘텐츠는 발행할 수 없습니다.'] };
   }
 
-  const headline = str(src.headline).trim();
+  const isSimple = src.format === 'simple';
+  const fnRecord = isRecord(src.field_note) ? src.field_note : null;
+  const simpleComment = fnRecord ? str(fnRecord.comment).trim() : '';
+
+  let headline = str(src.headline).trim();
+  if (!headline && isSimple && simpleComment) {
+    headline = deriveFallbackHeadline(simpleComment, input.broker.name);
+  }
   if (!headline) return { ok: false, code: 'EMPTY_HEADLINE', issues: ['헤드라인을 입력해 주세요.'] };
-  const briefing = str(src.briefing).trim() || str(src.ai_briefing).trim();
-  const fn = isRecord(src.field_note) ? Object.values(src.field_note).some((v) => typeof v === 'string' && v.trim()) : false;
+
+  let briefing = str(src.briefing).trim() || str(src.ai_briefing).trim();
+  if (!briefing && isSimple && simpleComment) {
+    const dealCount = Array.isArray(src.dealHighlights)
+      ? src.dealHighlights.length
+      : Array.isArray(src.featured_deal_ids)
+        ? src.featured_deal_ids.length
+        : 0;
+    const newsTitles = Array.isArray(src.topNews)
+      ? src.topNews
+          .filter(isRecord)
+          .map((n) => str(n.title).trim())
+          .filter(Boolean)
+      : [];
+    const marketTemp =
+      typeof src.market_temp === 'string' && MARKET_TEMPS.includes(src.market_temp) ? src.market_temp : null;
+    briefing = deriveFallbackBriefing({
+      comment: simpleComment,
+      dealCount,
+      newsTitles,
+      marketTemp,
+    });
+  }
+
+  const fn = fnRecord ? Object.values(fnRecord).some((v) => typeof v === 'string' && v.trim()) : false;
   if (!briefing && !str(src.theme_body_md).trim() && !fn) {
     return { ok: false, code: 'EMPTY_BODY', issues: ['브리핑·필드노트·테마 중 하나 이상의 본문을 작성해 주세요.'] };
   }
@@ -475,7 +529,11 @@ export function normalizeContentForPublish(input: NormalizeForPublishInput): Nor
           },
   };
 
-  const parsed = parseEditionContent(normalized);
+  const finalNormalized = isSimple
+    ? applySimplePreset(normalized, { brokerName: input.broker.name })
+    : normalized;
+
+  const parsed = parseEditionContent(finalNormalized);
   if (!parsed.ok) {
     return { ok: false, code: 'INVALID_CONTENT', issues: parsed.issues.slice(0, 8) };
   }

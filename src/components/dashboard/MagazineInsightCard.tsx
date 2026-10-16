@@ -16,13 +16,21 @@ export function MagazineInsightCard({
 }: MagazineInsightCardProps) {
   return (
     <Card className="space-y-4" style={{ borderColor: '#ec489940' }}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-bold text-pink-400">
           <BarChart3 className="w-4 h-4" aria-hidden="true" /> 📰 주간 매거진 &amp; 속보 스튜디오
         </span>
-        {lastPublishDate && (
-          <span className="text-xs text-slate-400">최근 발행: {lastPublishDate}</span>
-        )}
+        <div className="flex items-center gap-2">
+          <span
+            data-testid="simple-mode-dashboard-badge"
+            className="rounded-full border border-indigo-400/35 bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-indigo-200"
+          >
+            ⚡ 한마디만 적으면 5분 완성
+          </span>
+          {lastPublishDate && (
+            <span className="text-xs text-slate-400">최근 발행: {lastPublishDate}</span>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-slate-300 leading-relaxed">
@@ -42,7 +50,7 @@ export function MagazineInsightCard({
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 pt-1">
         <Link
-          href="/broker/magazine-editor"
+          href="/broker/magazine-editor?mode=simple"
           className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 px-3 py-2.5 text-xs font-bold text-indigo-200 hover:bg-indigo-500/30 transition-all"
         >
           <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
