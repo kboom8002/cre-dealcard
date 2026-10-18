@@ -12,7 +12,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useState, useEffect } from "react";
-import { BrokerCreateFAB } from "@/components/layout/BrokerCreateFAB";
 import { BrokerMoreMenu } from "@/components/layout/BrokerMoreMenu";
 
 const NAV_ITEMS = [
@@ -66,9 +65,6 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
 
   return (
     <>
-      {/* FAB — renders its own fixed positioning */}
-      <BrokerCreateFAB />
-
       {/* More menu sheet */}
       <BrokerMoreMenu open={moreOpen} onClose={() => setMoreOpen(false)} userEmail={userEmail} />
 
@@ -76,9 +72,9 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
         role="navigation"
         aria-label="중개인 메인 탐색"
         id="broker-bottom-nav"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-[#0f172a]/95 backdrop-blur-xl border-t border-amber-500/20 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl"
+        className="relative z-30 mt-12 bg-[#0f172a]/95 backdrop-blur-xl border-t border-amber-500/20 pb-[env(safe-area-inset-bottom,0px)] shadow-lg"
       >
-        <div className="max-w-lg mx-auto flex items-stretch justify-around px-1">
+        <div className="max-w-5xl mx-auto flex items-stretch justify-around px-2 py-1">
           {/* Left 2 items */}
           {NAV_ITEMS.slice(0, 2).map((item) => {
             const baseHref = item.href.split("?")[0];
@@ -96,13 +92,13 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => haptic.light()}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1",
-                  "min-h-[58px] min-w-[56px] flex-1 px-1 py-2 rounded-none",
+                  "relative flex flex-col sm:flex-row items-center justify-center gap-1.5",
+                  "min-h-[56px] min-w-[64px] flex-1 px-2 py-2 rounded-xl",
                   "transition-colors duration-150",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-inset",
                   isActive
-                    ? "text-amber-300 font-bold"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "text-amber-300 font-extrabold"
+                    : "text-slate-300 hover:text-white"
                 )}
               >
                 {isActive && (
@@ -120,8 +116,8 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 />
                 <span
                   className={cn(
-                    "relative text-[13px] font-bold leading-none tracking-tight",
-                    isActive ? "text-amber-300" : "text-slate-400"
+                    "relative text-[15px] font-bold leading-none tracking-tight",
+                    isActive ? "text-amber-300" : "text-slate-300"
                   )}
                 >
                   {item.label}
@@ -130,8 +126,17 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
             );
           })}
 
-          {/* Center FAB placeholder slot (keeps spacing balanced) */}
-          <div className="min-w-[56px] flex-1" aria-hidden="true" />
+          {/* Center 1-Click 새 물건 등록 Button */}
+          <Link
+            href="/broker/deal-card/new"
+            id="broker-create-fab"
+            aria-label="새로 만들기"
+            onClick={() => haptic.medium()}
+            className="flex items-center justify-center gap-1.5 my-1.5 px-4 py-2.5 min-h-[48px] rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[15px] shadow-md transition-colors shrink-0"
+          >
+            <span>➕</span>
+            <span>새 물건 등록</span>
+          </Link>
 
           {/* Right 1 item (소식지) */}
           {NAV_ITEMS.slice(2).map((item) => {
@@ -148,13 +153,13 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => haptic.light()}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1",
-                  "min-h-[58px] min-w-[56px] flex-1 px-1 py-2 rounded-none",
+                  "relative flex flex-col sm:flex-row items-center justify-center gap-1.5",
+                  "min-h-[56px] min-w-[64px] flex-1 px-2 py-2 rounded-xl",
                   "transition-colors duration-150",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-inset",
                   isActive
-                    ? "text-amber-300 font-bold"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "text-amber-300 font-extrabold"
+                    : "text-slate-300 hover:text-white"
                 )}
               >
                 {isActive && (
@@ -172,8 +177,8 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 />
                 <span
                   className={cn(
-                    "relative text-[13px] font-bold leading-none tracking-tight",
-                    isActive ? "text-amber-300" : "text-slate-400"
+                    "relative text-[15px] font-bold leading-none tracking-tight",
+                    isActive ? "text-amber-300" : "text-slate-300"
                   )}
                 >
                   {item.label}
@@ -191,13 +196,13 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
               setMoreOpen(true);
             }}
             className={cn(
-              "relative flex flex-col items-center justify-center gap-1",
-              "min-h-[58px] min-w-[56px] flex-1 px-1 py-2 rounded-none",
+              "relative flex flex-col sm:flex-row items-center justify-center gap-1.5",
+              "min-h-[56px] min-w-[64px] flex-1 px-2 py-2 rounded-xl",
               "transition-colors duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-inset",
               moreOpen
-                ? "text-amber-300 font-bold"
-                : "text-slate-400 hover:text-slate-200"
+                ? "text-amber-300 font-extrabold"
+                : "text-slate-300 hover:text-white"
             )}
           >
             {moreOpen && (
@@ -215,8 +220,8 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
             />
             <span
               className={cn(
-                "relative text-[13px] font-bold leading-none tracking-tight",
-                moreOpen ? "text-amber-300" : "text-slate-400"
+                "relative text-[15px] font-bold leading-none tracking-tight",
+                moreOpen ? "text-amber-300" : "text-slate-300"
               )}
             >
               더보기

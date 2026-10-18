@@ -51,36 +51,60 @@ const POSTURES = [
 
 export function PostureSelector({ investmentPosture, setInvestmentPosture, postureProposal }: PostureSelectorProps) {
   const selectedItem = POSTURES.find((p) => p.id === investmentPosture);
+  const primaryPostures = POSTURES.slice(0, 3);
+  const secondaryPostures = POSTURES.slice(3);
+
   return (
-    <div>
-      <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
-        <span>🎯 투자 목적(포스처) 선택</span>
-        <span className="text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded font-semibold">9면 구성 자동 맞춤</span>
+    <div className="space-y-2.5">
+      <label className="block text-sm font-extrabold text-foreground flex justify-between items-center">
+        <span>🎯 1단계: 이 매물의 투자 목적 선택</span>
+        <span className="text-xs text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">맞춤형 슬라이드 자동 구성</span>
       </label>
       {/* C-2: AI 추천 배지 */}
       {postureProposal && postureProposal.confidence >= 0.7 && (
-        <div className="mb-2 p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-400 flex items-center gap-2">
-          <span className="font-semibold">💡 추천 유형:</span>
-          <span className="flex-1">{postureProposal.reason}</span>
+        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-700 dark:text-blue-400 flex items-center gap-2">
+          <span className="font-bold">💡 AI 추천 유형:</span>
+          <span className="flex-1 font-medium">{postureProposal.reason}</span>
           <button
             type="button"
             onClick={() => setInvestmentPosture(postureProposal.value)}
-            className="ml-auto px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 transition-colors"
+            className="ml-auto px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
           >
             추천 적용
           </button>
         </div>
       )}
-      <div className="grid grid-cols-5 gap-1.5">
-        {POSTURES.map((item) => (
+
+      {/* 주요 3대 유형 (임대수익 / 자가사용 / 개발형) — 큼직한 3열 버튼 */}
+      <div className="grid grid-cols-3 gap-2">
+        {primaryPostures.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setInvestmentPosture(item.id)}
-            className={`min-h-[52px] py-2 px-1 rounded-xl text-xs font-bold border transition-all flex flex-col items-center justify-center gap-0.5 ${
+            className={`min-h-[60px] py-2.5 px-2 rounded-xl text-sm font-extrabold border-2 transition-all flex flex-col items-center justify-center gap-1 ${
               investmentPosture === item.id
                 ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/40"
+                : "bg-secondary/40 text-foreground border-border hover:border-primary/40"
+            }`}
+          >
+            <span className="text-lg">{item.emoji}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 특수 목적 2대 유형 (운영형 / 단기매매) — 보조 2열 버튼 */}
+      <div className="grid grid-cols-2 gap-2">
+        {secondaryPostures.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setInvestmentPosture(item.id)}
+            className={`min-h-[46px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+              investmentPosture === item.id
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-secondary/30 text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
             }`}
           >
             <span className="text-base">{item.emoji}</span>
@@ -88,10 +112,11 @@ export function PostureSelector({ investmentPosture, setInvestmentPosture, postu
           </button>
         ))}
       </div>
-      <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed bg-secondary/30 rounded-lg px-2.5 py-1.5 border border-border/50">
+
+      <p className="text-xs text-muted-foreground leading-relaxed bg-secondary/30 rounded-xl px-3 py-2 border border-border/60 font-medium">
         {selectedItem
           ? `${selectedItem.emoji} ${selectedItem.desc}`
-          : "👆 위 5가지 투자 목적 중 이 건물에 가장 잘 맞는 항목 하나를 선택해 주세요."}
+          : "👆 위 투자 목적 중 이 매물에 가장 잘 맞는 항목 하나를 눌러주세요."}
       </p>
     </div>
   );

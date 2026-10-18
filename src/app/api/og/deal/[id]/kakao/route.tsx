@@ -79,10 +79,26 @@ export async function GET(
       .maybeSingle();
     teaserDoc = tData;
 
+    const { data: imLiteData } = await supabase
+      .from("document_objects")
+      .select("body")
+      .eq("building_id", id)
+      .eq("document_type", "im_lite")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     if (sData && building) {
       building.area_signal = building.area_signal || sData.area_signal;
       building.asset_type = building.asset_type || sData.asset_type;
       building.price_band = building.price_band || sData.price_band;
+    }
+    if (imLiteData?.body && building) {
+      const imLiteBody = imLiteData.body as Record<string, any>;
+      const imPosture = imLiteBody.investment_posture || imLiteBody.investmentPosture;
+      if (imPosture) {
+        building.investment_posture = imPosture;
+      }
     }
 
     // Try fetching broker profile if broker_id is known
@@ -111,11 +127,20 @@ export async function GET(
     price_band: "가격 협의",
   };
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
+  const bLayers = (safeBuilding.layers || {}) as Record<string, any>;
+  const assetAndUseText = `${safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
+  const rawPosture = safeBuilding.investment_posture || bLayers.investment_posture || rawAttrs.investmentPosture;
+  const inferredPosture =
+    (!rawPosture || rawPosture === "income") && /나대지|토지|신축\s*부지|개발\s*부지/.test(assetAndUseText)
+      ? "development"
+      : (rawPosture || "income");
+
   const attrs = {
     ...rawAttrs,
     areaSignal: rawAttrs.areaSignal || safeBuilding.area_signal,
     priceBand: rawAttrs.priceBand || safeBuilding.price_band,
     assetType: rawAttrs.assetType || safeBuilding.asset_type,
+    investmentPosture: inferredPosture,
   };
   const teaserView = projectToTeaser(attrs);
   const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
@@ -123,16 +148,21 @@ export async function GET(
   const regionDisplay = teaserView.region || safeBuilding.area_signal || "서울권역";
   let hookCopy = imBody.hookCopy || teaserView.hookCopy || `${regionDisplay} 프라임 꼬마빌딩`;
   const postureLabel = teaserView.postureLabel || "임대수익형";
-  const priceDisplay = teaserView.bandedPrice || safeBuilding.price_band || "가격 협의";
+  const explicitBand = typeof safeBuilding.price_band === "string" && safeBuilding.price_band.trim() && safeBuilding.price_band !== "가격 협의"
+    ? safeBuilding.price_band.trim()
+    : null;
+  const priceDisplay = explicitBand || teaserView.bandedPrice || "가격 협의";
   
   const assetTypeDisplay = teaserView.assetType || safeBuilding.asset_type || "근생·오피스";
   const brokerName = brokerProfile?.display_name || "담당 공인중개사";
   const brokerCompany = brokerProfile?.company_name || "CREDEAL 파트너스";
 
-  const rawTiles = teaserView.postureHeroTiles || [
+  const rawTiles = (teaserView.postureHeroTiles || [
     { emoji: "💰", label: "매각가", value: priceDisplay },
     { emoji: "📍", label: "권역", value: regionDisplay },
-  ];
+  ]).map((tile) =>
+    tile.label === "매각가" ? { ...tile, value: priceDisplay } : tile
+  );
   const heroTiles = filterValidTiles(rawTiles).slice(0, 2);
 
   const fontData = await getFontData();

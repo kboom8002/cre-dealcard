@@ -218,6 +218,13 @@ export function MobileIMViewer({
     return doc.sections.filter((s: MobileIMSection) => !hidden.includes(s.sectionId));
   }, [doc?.sections, (doc as any)?.hiddenSections]);
 
+  const firstCadastralSectionId = useMemo(() => {
+    const found = visibleSections.find(
+      (s: MobileIMSection) => s.sectionId?.includes("land") || s.sectionId?.includes("site")
+    );
+    return found?.sectionId ?? null;
+  }, [visibleSections]);
+
   return (
     <div className="min-h-screen bg-neutral-950">
       {/* Omni-Channel Approval Status & Verified PPTX Download Banner */}
@@ -369,7 +376,7 @@ export function MobileIMViewer({
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 pb-24">
+      <div className="max-w-2xl mx-auto px-4 pb-36">
         {/* ── Hero Header ── */}
         <div className="pt-8 pb-6">
           {/* Asset type badge */}
@@ -459,6 +466,36 @@ export function MobileIMViewer({
         />
 
         {/* ── Section Cards ── */}
+        {visibleSections.length > 1 && (
+          <div className="flex items-center justify-between mb-3 px-1">
+            <span className="text-xs font-bold text-neutral-400">
+              📑 상세 분석 섹션 ({unlockedCount}개 열람 가능)
+            </span>
+            <button
+              type="button"
+              data-testid="toggle-all-sections-btn"
+              onClick={() => {
+                const unlockedIds = visibleSections
+                  .filter((s) => !s.locked)
+                  .map((s) => s.sectionId);
+                const allOpen = unlockedIds.every((id) => openSections.has(id));
+                if (allOpen) {
+                  const firstId = visibleSections[0]?.sectionId;
+                  setOpenSections(new Set(firstId ? [firstId] : []));
+                } else {
+                  setOpenSections(new Set(unlockedIds));
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-xs font-semibold text-neutral-200 transition-colors"
+            >
+              {visibleSections
+                .filter((s) => !s.locked)
+                .every((s) => openSections.has(s.sectionId))
+                ? "📕 전체 섹션 접기"
+                : "📖 전체 섹션 펼쳐보기"}
+            </button>
+          </div>
+        )}
         <div className="space-y-3 mb-8">
           {visibleSections.map((section: MobileIMSection, index: number) => (
               <div
@@ -489,8 +526,8 @@ export function MobileIMViewer({
                     areaInputUnit={(doc as any).body?.rent_roll_meta?.area_input_unit === "pyeong" ? "pyeong" : (doc as any).body?.rent_roll_meta ? "sqm" : undefined}
                   />
                 )}
-                {/* 토지 현황 섹션 아래에 지적도 표시 */}
-                {(section.sectionId?.includes("land") || section.sectionId?.includes("site")) && (doc as any).enrichment?.cadastralMapImage && (
+                {/* 토지 현황 섹션 아래에 지적도 표시 (중복 렌더링 방지: 최초 1회만 출력) */}
+                {section.sectionId === firstCadastralSectionId && (doc as any).enrichment?.cadastralMapImage && (
                   <div className="mt-3 rounded-xl overflow-hidden border border-neutral-800 relative bg-neutral-900">
                     <img 
                       src={(doc as any).enrichment.cadastralMapImage} 

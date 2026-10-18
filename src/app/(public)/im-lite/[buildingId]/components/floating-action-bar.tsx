@@ -335,7 +335,7 @@ export function FloatingActionBar({
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom shadow-2xl">
       {/* Broker mode switcher bar */}
       {isBroker && (
-        <div className="bg-neutral-950/90 border-b border-neutral-800 px-4 py-1.5 flex items-center justify-between text-[11px]">
+        <div className="bg-neutral-950/90 border-b border-neutral-800 px-4 py-1.5 flex items-center justify-between text-xs max-w-2xl mx-auto">
           <div className="flex items-center gap-1.5">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -343,38 +343,20 @@ export function FloatingActionBar({
               } animate-pulse`}
             ></span>
             <span className="font-bold text-neutral-300">
-              {isBrokerMode ? "💼 중개인 전용 모드" : "👁️ 매수자 시점 화면"}
+              {isBrokerMode ? "💼 중개인 전용 도구" : "👁️ 매수자 열람 화면 미리보기"}
             </span>
           </div>
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/broker/deal-card/${buildingId}`}
-              className="text-neutral-400 hover:text-white transition-colors"
-            >
-              딜카드
-            </Link>
-            <Link
-              href={`/broker/matching?buildingId=${buildingId}`}
-              className="text-neutral-400 hover:text-primary transition-colors"
-            >
-              매칭
-            </Link>
-            <Link
-              href={`/broker/tenant-intents?buildingId=${buildingId}`}
-              className="text-neutral-400 hover:text-blue-400 transition-colors"
-            >
-              임차의향
-            </Link>
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsBrokerMode(!isBrokerMode)}
-              className="text-neutral-400 hover:text-white underline underline-offset-2 transition-colors font-medium"
+              className="text-neutral-300 hover:text-white underline underline-offset-2 transition-colors font-semibold"
             >
-              {isBrokerMode ? "👁️ 매수자시점" : "💼 중개인모드"}
+              {isBrokerMode ? "👁️ 매수자 시점 전환" : "💼 중개인 도구 전환"}
             </button>
             {docId && (
               <Link
                 href={`/broker/im-approval/${docId}`}
-                className="text-primary hover:underline transition-colors font-semibold"
+                className="text-primary hover:underline transition-colors font-bold"
               >
                 ✏️ IM 승인·편집
               </Link>
@@ -409,12 +391,12 @@ export function FloatingActionBar({
               <div className="flex rounded-xl overflow-hidden shadow-sm border border-neutral-700 bg-neutral-800">
                 <button
                   onClick={() => handlePptxDownload()}
-                  className="flex-1 py-3 px-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1 truncate"
+                  className="flex-1 py-3 px-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs sm:text-sm font-bold transition-colors flex items-center justify-center gap-1 truncate"
                   title="선택된 프리셋으로 PPTX 다운로드"
                   disabled={pptxLoading}
                 >
                   <span className="truncate">
-                    {pptxLoading ? "⏳ 로딩중..." : `📊 PPTX (${currentPresetInfo.label.split(" ")[1] || "다운로드"})`}
+                    {pptxLoading ? "⏳ 생성 중..." : `📊 PPTX 받기 (${currentPresetInfo.label.split(" ")[1] || "표준"})`}
                   </span>
                 </button>
                 <button

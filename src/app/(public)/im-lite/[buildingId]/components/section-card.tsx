@@ -15,9 +15,24 @@ function sanitizeHtml(html: string): string {
   });
 }
 
+function formatReadableKoreanUnits(raw: string): string {
+  return raw.replace(/(\d{1,3}(?:,\d{3}){2,})\s*원\/평/g, (match, numStr) => {
+    const n = Number(String(numStr).replace(/,/g, ""));
+    if (!Number.isFinite(n) || n < 1_000_000) return match;
+    const man = Math.round(n / 10_000);
+    if (man >= 10_000) {
+      const eok = Math.floor(man / 10_000);
+      const remMan = man % 10_000;
+      return remMan > 0 ? `약 ${eok}억 ${remMan.toLocaleString()}만 원/평` : `약 ${eok}억 원/평`;
+    }
+    return `약 ${man.toLocaleString()}만 원/평`;
+  });
+}
+
 function InlineMarkdown({ text }: { text: string }) {
+  const normalizedText = formatReadableKoreanUnits(text);
   // Convert ![alt](url) to <img src="url" alt="alt" />
-  let processed = text.replace(
+  let processed = normalizedText.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     '<img src="$2" alt="$1" />'
   );
@@ -39,11 +54,11 @@ function InlineMarkdown({ text }: { text: string }) {
 
   processed = sanitizeHtml(processed);
 
-  if (processed !== text) {
+  if (processed !== normalizedText) {
     return <SafeMarkdownRenderer as="span" html={processed} />;
   }
 
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  const parts = normalizedText.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
   return (
     <>
       {parts.map((part, i) => {
@@ -68,7 +83,7 @@ function InlineMarkdown({ text }: { text: string }) {
 }
 
 function TableFromLines({ lines }: { lines: string[] }) {
-  const rows = lines.filter((l) => !l.match(/^\|[\s-|]+\|$/));
+  const rows = lines.filter((l) => !/^\s*\|[\s-:|]+\|\s*$/.test(l));
   if (rows.length === 0) return null;
   const [header, ...body] = rows;
   const parseRow = (row: string) =>
@@ -141,44 +156,55 @@ export function MarkdownRenderer({ content }: { content: string }) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const trimmed = line.trim();
 
     // Detect table: 최소 3개 파이프 (2열 이상)
-    const isTableRow = line.startsWith("|") && (line.match(/\|/g) || []).length >= 3;
+    const isTableRow = trimmed.startsWith("|") && (trimmed.match(/\|/g) || []).length >= 3;
     if (isTableRow) {
       inTable = true;
-      tableBuffer.push(line);
+      tableBuffer.push(trimmed);
       continue;
     }
 
-    if (inTable && !line.startsWith("|")) {
+    if (inTable && !trimmed.startsWith("|")) {
       flush();
     }
 
-    if (line.startsWith("### ")) {
+    if (trimmed.startsWith("#### ")) {
+      flush();
+      elements.push(
+        <h4
+          key={key++}
+          className="text-xs sm:text-sm font-bold tracking-tight text-primary/90 mt-4 mb-2"
+        >
+          <InlineMarkdown text={trimmed.slice(5)} />
+        </h4>
+      );
+    } else if (trimmed.startsWith("### ")) {
       flush();
       elements.push(
         <h3
           key={key++}
           className="text-sm sm:text-base font-bold tracking-tight text-primary mt-5 mb-2.5"
         >
-          {line.slice(4)}
+          <InlineMarkdown text={trimmed.slice(4)} />
         </h3>
       );
-    } else if (line.startsWith("## ")) {
+    } else if (trimmed.startsWith("## ")) {
       flush();
       elements.push(
         <h2
           key={key++}
           className="text-base sm:text-lg font-bold text-white mt-5 mb-3"
         >
-          {line.slice(3)}
+          <InlineMarkdown text={trimmed.slice(3)} />
         </h2>
       );
     } else if (
-      line.startsWith("**") &&
-      line.endsWith("**") &&
-      line.length > 4 &&
-      !line.slice(2, -2).includes("**")
+      trimmed.startsWith("**") &&
+      trimmed.endsWith("**") &&
+      trimmed.length > 4 &&
+      !trimmed.slice(2, -2).includes("**")
     ) {
       flush();
       elements.push(
@@ -186,16 +212,17 @@ export function MarkdownRenderer({ content }: { content: string }) {
           key={key++}
           className="font-bold text-white text-base leading-relaxed"
         >
-          {line.slice(2, -2)}
+          {trimmed.slice(2, -2)}
         </p>
       );
     } else if (
-      line.startsWith("- ") ||
-      line.startsWith("* ") ||
-      line.startsWith("• ")
+      trimmed.startsWith("- ") ||
+      trimmed.startsWith("* ") ||
+      trimmed.startsWith("• ") ||
+      trimmed.startsWith("· ")
     ) {
       flush();
-      const bulletText = line.replace(/^[-*•]\s+/, "");
+      const bulletText = trimmed.replace(/^[-*•·]\s+/, "");
       elements.push(
         <li
           key={key++}
@@ -204,9 +231,9 @@ export function MarkdownRenderer({ content }: { content: string }) {
           <InlineMarkdown text={bulletText} />
         </li>
       );
-    } else if (/^\d+\.\s/.test(line)) {
+    } else if (/^\d+[.)]\s/.test(trimmed)) {
       flush();
-      const text = line.replace(/^\d+\.\s/, "");
+      const text = trimmed.replace(/^\d+[.)]\s+/, "");
       elements.push(
         <li
           key={key++}
@@ -215,7 +242,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
           <InlineMarkdown text={text} />
         </li>
       );
-    } else if (line.startsWith("> ")) {
+    } else if (trimmed.startsWith("> ")) {
       flush();
       elements.push(
         <blockquote
@@ -223,23 +250,26 @@ export function MarkdownRenderer({ content }: { content: string }) {
           className="border-l-3 border-primary/60 bg-primary/10 rounded-r-xl py-2 px-4 my-3"
         >
           <p className="text-neutral-300 text-sm sm:text-base leading-relaxed font-medium">
-            <InlineMarkdown text={line.slice(2)} />
+            <InlineMarkdown text={trimmed.slice(2)} />
           </p>
         </blockquote>
       );
-    } else if (line.trim() === "") {
+    } else if (trimmed === "") {
       flush();
       elements.push(<div key={key++} className="h-2" />);
     } else {
       flush();
-      elements.push(
-        <p
-          key={key++}
-          className="text-neutral-200 text-base leading-relaxed my-1"
-        >
-          <InlineMarkdown text={line} />
-        </p>
-      );
+      const cleanedLine = trimmed.replace(/\s*#{2,4}\s*/g, " ").trim();
+      if (cleanedLine) {
+        elements.push(
+          <p
+            key={key++}
+            className="text-neutral-200 text-base leading-relaxed my-1"
+          >
+            <InlineMarkdown text={cleanedLine} />
+          </p>
+        );
+      }
     }
   }
 
@@ -262,7 +292,7 @@ export function SectionCard({
 }: SectionCardProps) {
   const aiRoleBadgeMap: Record<string, { label: string; color: string }> = {
     auto: {
-      label: "SSoT 자동",
+      label: "공적장부 자동연동",
       color: "text-sky-400 bg-sky-400/10 border-sky-400/20",
     },
     ai_generated: {
@@ -270,7 +300,7 @@ export function SectionCard({
       color: "text-violet-400 bg-violet-400/10 border-violet-400/20",
     },
     static: {
-      label: "정적",
+      label: "표준 안내",
       color: "text-neutral-400 bg-neutral-400/10 border-neutral-400/20",
     },
   };
@@ -441,12 +471,12 @@ export function SectionCard({
       {/* Locked overlay */}
       {section.locked && (
         <div className="px-4 pb-4">
-          <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 p-4 text-center">
-            <p className="text-xs text-neutral-500 leading-relaxed">
+          <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 p-4 text-center space-y-1">
+            <p className="text-xs text-neutral-400 font-medium leading-relaxed">
               {section.lockedReason}
             </p>
-            <p className="text-xs text-neutral-600 mt-1">
-              데이터 확보 후 자동 공개됩니다
+            <p className="text-xs text-neutral-500 leading-relaxed">
+              임대료·보증금 등 세부 자료를 입력하거나 담당 중개인에게 상세 IM을 요청하면 열람할 수 있습니다.
             </p>
           </div>
         </div>

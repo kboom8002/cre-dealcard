@@ -123,68 +123,59 @@ export function DealCardEditor({
     <div className="rounded-2xl border border-border bg-card shadow-md overflow-hidden space-y-0">
       {/* Header & Sub-tabs */}
       <div className="p-4 bg-muted/30 border-b border-border flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary">
             <FileText className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <span>딜카드 & 공유 정보 편집</span>
+            <h2 className="text-base font-bold text-foreground flex items-center gap-1.5">
+              <span>딜카드 & 공유 문구 수정</span>
               {isDirty() && (
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="수정된 내용 있음" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" title="수정된 내용 있음" />
               )}
             </h2>
-            <p className="text-[11px] text-muted-foreground">카톡 공유 문구와 핵심 포인트를 맞춤 편집하세요.</p>
+            <p className="text-xs text-muted-foreground">AI가 자동 작성한 카톡 공유 문구와 핵심 포인트를 다듬을 수 있습니다.</p>
           </div>
         </div>
-
-        <button
-          onClick={handleSave}
-          disabled={isSaving || !isDirty()}
-          className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-3.5 py-1.5 rounded-lg font-bold disabled:opacity-40 transition-all hover:brightness-110 active:scale-95 shadow-xs"
-        >
-          <Save className="w-3.5 h-3.5" />
-          {isSaving ? "저장 중..." : "변경사항 저장"}
-        </button>
       </div>
 
       {/* 3-Sub Tabs */}
-      <div className="flex border-b border-border bg-muted/10 text-xs">
+      <div className="flex border-b border-border bg-muted/10 text-sm">
         <button
           type="button"
           onClick={() => setActiveSubTab("card")}
-          className={`flex-1 py-2.5 font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+          className={`flex-1 py-3 font-bold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
             activeSubTab === "card"
               ? "border-primary text-primary bg-background"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          딜 타이틀 & 핵심 포인트
+          <Sparkles className="w-4 h-4" />
+          제목 · 핵심 강점
         </button>
         <button
           type="button"
           onClick={() => setActiveSubTab("kakao")}
-          className={`flex-1 py-2.5 font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+          className={`flex-1 py-3 font-bold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
             activeSubTab === "kakao"
               ? "border-primary text-primary bg-background"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <MessageCircle className="w-3.5 h-3.5" />
-          카카오톡 전송 문구
+          <MessageCircle className="w-4 h-4" />
+          카톡 전송 메시지
         </button>
         <button
           type="button"
           onClick={() => setActiveSubTab("og")}
-          className={`flex-1 py-2.5 font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+          className={`flex-1 py-3 font-bold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
             activeSubTab === "og"
               ? "border-primary text-primary bg-background"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <ImageIcon className="w-3.5 h-3.5" />
-          카톡·문자 공유 카드
+          <ImageIcon className="w-4 h-4" />
+          공유 카드 요약
         </button>
       </div>
 
@@ -342,16 +333,18 @@ export function DealCardEditor({
       </div>
 
       {/* Footer Info */}
-      <div className="px-4 py-2.5 bg-muted/20 border-t border-border flex items-center justify-between text-[11px]">
-        <span className="text-muted-foreground">
-          {isDirty() ? "⚠️ 수정된 내용이 있습니다. 저장 버튼을 눌러주세요." : "✅ 모든 변경사항이 반영되었습니다."}
+      <div className="px-4 py-3.5 bg-muted/20 border-t border-border flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-muted-foreground">
+          {isDirty() ? "⚠️ 수정된 내용이 있습니다. 오른쪽 저장 버튼을 눌러주세요." : "✅ 모든 문구가 저장되어 있습니다."}
         </span>
         <button
+          type="button"
           onClick={handleSave}
           disabled={isSaving || !isDirty()}
-          className="text-primary font-bold hover:underline disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40 transition-all hover:brightness-110 active:scale-95 shadow-sm shrink-0"
         >
-          {isSaving ? "저장 중..." : "저장하기"}
+          <Save className="w-4 h-4" />
+          {isSaving ? "저장 중..." : "수정한 문구 저장"}
         </button>
       </div>
     </div>

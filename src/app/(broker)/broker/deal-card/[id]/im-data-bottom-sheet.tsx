@@ -396,85 +396,59 @@ export function ImDataBottomSheet({
       stepEl?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
+  const isDarkTheme = typeof window !== "undefined" && window.localStorage?.getItem("cre_broker_paper_theme") === "dark";
+
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4" role="presentation">
+    <div className={`fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4 ${isDarkTheme ? "" : "broker-paper-theme"}`} role="presentation">
       <div 
         role="dialog" 
         aria-modal="true" 
         aria-labelledby="bottom-sheet-title"
-        className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)]"
+        className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-2xl shadow-2xl p-5 sm:p-6 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[92vh] sm:max-h-[88vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)] border border-border"
       >
         
-        <div className="flex items-center justify-between mb-2 shrink-0">
+        <div className="flex items-center justify-between mb-3 shrink-0">
           <div>
-            <h2 id="bottom-sheet-title" className="text-lg font-bold text-foreground">
+            <h2 id="bottom-sheet-title" className="text-xl font-black text-foreground">
               {'📊 투자설명서(IM) 만들기'}
             </h2>
-            <p className="text-[12px] text-emerald-400 font-medium mt-0.5">
-              💾 입력하신 금액·임대차 내역은 창을 닫아도 자동 임시저장됩니다
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
+              💾 입력하신 금액·임대차 내역은 창을 닫아도 자동 저장됩니다
             </p>
           </div>
-          <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
-            ✕
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg border border-border bg-secondary/50 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ✕ 닫기
           </button>
         </div>
 
         {/* 3단계 빠른 이동 탭 */}
-        <div className="grid grid-cols-3 gap-1.5 mb-3 shrink-0 bg-secondary/40 p-1 rounded-xl border border-border/60">
+        <div className="grid grid-cols-3 gap-2 mb-4 shrink-0 bg-secondary/50 p-1.5 rounded-xl border border-border">
           <button
             type="button"
             onClick={() => document.getElementById("bs-step-1")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="py-1.5 px-2 rounded-lg text-xs font-bold text-foreground hover:bg-background/80 transition-colors text-center truncate"
+            className="py-2 px-2 rounded-lg text-xs sm:text-sm font-extrabold text-foreground bg-background/80 hover:bg-background shadow-2xs transition-colors text-center truncate"
           >
-            ① 유형·주소
+            ① 투자목적 · 주소
           </button>
           <button
             type="button"
             onClick={() => document.getElementById("bs-step-2")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="py-1.5 px-2 rounded-lg text-xs font-bold text-foreground hover:bg-background/80 transition-colors text-center truncate"
+            className="py-2 px-2 rounded-lg text-xs sm:text-sm font-extrabold text-foreground hover:bg-background/80 transition-colors text-center truncate"
           >
-            ② 임대·매각가
+            ② 매각가 · 임대료
           </button>
           <button
             type="button"
             onClick={() => document.getElementById("bs-step-3")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="py-1.5 px-2 rounded-lg text-xs font-bold text-foreground hover:bg-background/80 transition-colors text-center truncate"
+            className="py-2 px-2 rounded-lg text-xs sm:text-sm font-extrabold text-foreground hover:bg-background/80 transition-colors text-center truncate"
           >
-            ③ 사진·추가정보
+            ③ 사진 · 상세조건
           </button>
         </div>
-
-        {computedMissingFields.length > 0 && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 mb-3 shrink-0">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <span className="text-amber-500 text-xs shrink-0">📌</span>
-              <p className="text-xs text-amber-400 font-bold">
-                아직 입력할 필수 항목이 {computedMissingFields.length}개 남았습니다 (누르면 해당 칸으로 이동)
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {computedMissingFields.map((fieldKey) => (
-                <button
-                  key={fieldKey}
-                  type="button"
-                  onClick={() => jumpToField(fieldKey)}
-                  className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold transition-colors"
-                >
-                  {MISSING_FIELD_LABELS[fieldKey] || getKoreanFieldLabel(fieldKey)} →
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {stage === 'pro' && (currentDataGrade === 'C' || currentDataGrade === 'D') && (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5 mb-3 flex items-start gap-2 shrink-0">
-            <span className="text-yellow-500 shrink-0">⚠️</span>
-            <p className="text-xs text-yellow-600 dark:text-yellow-500 font-bold">
-              전문 IM은 B등급 이상 데이터가 필요합니다
-            </p>
-          </div>
-        )}
 
         {/* Scrollable Form Area */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-4 pb-10">
@@ -489,8 +463,8 @@ export function ImDataBottomSheet({
 
           {/* 주소 + 월세 + 렌트롤 — Basic에도 표시 */}
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-              🏠 정확한 건물 주소
+            <label className="block text-sm font-extrabold text-foreground mb-1.5">
+              🏠 2단계: 정확한 매물 주소 검색
             </label>
             <div ref={dropdownAnchorRef} className="relative">
               <div className="flex gap-2">
@@ -507,22 +481,22 @@ export function ImDataBottomSheet({
                     if (searchResults.length > 0) setShowResults(true);
                   }}
                   placeholder="동/도로명 입력 후 검색 (예: 당산동5가 11-47, 영신로 259)"
-                  className={getFieldClass('address', 'flex-1 bg-secondary/50 border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
+                  className={getFieldClass('address', 'flex-1 bg-secondary/50 border rounded-xl px-3.5 py-3 text-base text-foreground focus:outline-none focus:ring-2')}
                 />
                 <button 
                   onClick={() => handleAddressSearch()}
                   disabled={isSearching || searchKeyword.trim().length < 2}
-                  className="bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0 flex items-center gap-1.5"
+                  className="bg-primary text-primary-foreground px-5 py-3 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-xs"
                 >
                   {isSearching ? (
                     <>
-                      <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
                       <span>검색 중</span>
                     </>
-                  ) : "검색"}
+                  ) : "🔍 주소 검색"}
                 </button>
               </div>
 
@@ -537,7 +511,7 @@ export function ImDataBottomSheet({
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      주소 및 PNU 조회 중...
+                      정부 토지·건축물대장 주소 조회 중...
                     </div>
                   )}
 
@@ -548,12 +522,12 @@ export function ImDataBottomSheet({
                       className="w-full text-left px-4 py-3 hover:bg-secondary/50 transition-colors"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground truncate">
+                        <p className="text-sm font-bold text-foreground truncate">
                           {String(result.roadAddr || result.jibunAddr || "")}
                         </p>
                         {(result.pnu || result.bdMgtSn) ? (
-                          <span className="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
-                            PNU {String(result.pnu || result.bdMgtSn).slice(0, 19)}
+                          <span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20 shrink-0">
+                            대장연동 가능 (PNU)
                           </span>
                         ) : null}
                       </div>
@@ -561,7 +535,7 @@ export function ImDataBottomSheet({
                         <p className="text-xs text-muted-foreground mt-0.5">지번: {String(result.jibunAddr)}</p>
                       ) : null}
                       {result.bdNm ? (
-                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5 font-medium">건물명: {String(result.bdNm)}</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 font-semibold">건물명: {String(result.bdNm)}</p>
                       ) : null}
                     </button>
                   ))}
@@ -575,30 +549,30 @@ export function ImDataBottomSheet({
               )}
             </div>
 
-            {/* 선택된 주소 및 PNU 확인 배지 */}
+            {/* 선택된 주소 및 정부 대장 연동 확인 배지 (19자리 숫자 노출 제거) */}
             {address && (
-              <div className="mt-2.5 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-1">
-                <div className="flex items-center justify-between flex-wrap gap-1">
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+              <div className="mt-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-1">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-sm text-emerald-700 dark:text-emerald-400 font-extrabold flex items-center gap-1.5">
                     ✅ {address}
                   </span>
                   {pnu && (
-                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded font-semibold border border-emerald-500/30">
-                      PNU {pnu}
+                    <span className="text-xs bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-md font-bold border border-emerald-500/30">
+                      ✓ 정부 토지·건축물대장 연결 완료
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80">
-                  건축물대장 및 공공데이터 조회가 정상 활성화되었습니다.
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 font-medium">
+                  대지면적·용도지역·공시지가·실거래가가 제안서에 자동 반영됩니다.
                 </p>
               </div>
             )}
 
-            {/* 주소 미입력 경고 — 주소/PNU 미선택 시에만 노출 */}
+            {/* 주소 미입력 안내 */}
             {!address && !pnu && (
-              <div className="mt-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  💡 주소 검색 후 목록에서 건물을 선택하면 19자리 PNU와 건축물대장이 자동 연동됩니다.
+              <div className="mt-2 px-3.5 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                  💡 주소를 검색하여 선택하시면 정부 건축물대장·토지대장이 자동으로 연결됩니다.
                 </p>
               </div>
             )}
@@ -981,19 +955,28 @@ export function ImDataBottomSheet({
           {/* Photos */}
           {/* 사진 — Basic에도 표시 (기존 사진 + 업로드) */}
           <div id="bs-step-3">
-            <label className="block text-xs font-semibold text-muted-foreground mb-1 flex justify-between items-center">
+            <label className="block text-sm font-extrabold text-foreground mb-1 flex justify-between items-center">
               <span>📸 건물 사진 및 분류 (최대 12장)</span>
-              <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded font-bold">⭐ 대표 지정 가능 · 점수 +10</span>
+              <span className="text-xs text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">⭐ 표지·외관 사진 지정</span>
             </label>
             <p className="text-xs text-muted-foreground mb-2">
-              사진 상단의 <b className="text-amber-500">★ 대표</b>(표지용), <b className="text-blue-500">🏢 외관</b>(건물 개요용) 버튼을 눌러 지정하세요.
+              사진 상단의 <b className="text-amber-600 dark:text-amber-500">★ 대표</b>(표지용), <b className="text-blue-600 dark:text-blue-500">🏢 외관</b>(건물 개요용) 버튼을 눌러 지정하세요.
             </p>
             <div className="flex gap-3 overflow-x-auto pb-2.5 snap-x">
               {/* Existing Photos */}
-              {existingUrls.map((url, idx) => (
+              {existingUrls.map((url, idx) => {
+                const isRenderableUrl = Boolean(url && (/^(https?:\/\/|\/|data:|blob:)/i.test(url)));
+                return (
                 <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-28">
                   <div className="relative w-28 h-28">
-                    <img src={url} alt={`Existing ${idx}`} className="w-28 h-28 object-cover rounded-lg border border-border" />
+                    {isRenderableUrl ? (
+                      <img src={url} alt={`매물 사진 ${idx + 1}`} className="w-28 h-28 object-cover rounded-lg border border-border" />
+                    ) : (
+                      <div className="w-28 h-28 rounded-lg border border-border bg-secondary/50 flex flex-col items-center justify-center text-muted-foreground pt-4">
+                        <span className="text-xl">🏢</span>
+                        <span className="text-[11px] font-semibold mt-0.5">등록 사진 {idx + 1}</span>
+                      </div>
+                    )}
                     <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">기존</span>
                     <button
                       type="button"
@@ -1047,7 +1030,8 @@ export function ImDataBottomSheet({
                     className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                   />
                 </div>
-              ))}
+                );
+              })}
 
               {/* Newly Uploaded Photos */}
               {photoPreviewUrls.map((url, idx) => {

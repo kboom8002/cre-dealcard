@@ -491,13 +491,13 @@ export default function BrokerDealCardNewPage() {
   }
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-6">
+    <main className="flex flex-col items-center min-h-screen px-4 py-8">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md mx-auto space-y-5"
+        className="w-full max-w-2xl mx-auto space-y-6 bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-sm"
       >
         {/* Top Breadcrumb & Back Navigation */}
-        <div className="flex items-center justify-between pb-3 border-b border-border/40">
+        <div className="flex items-center justify-between pb-3 border-b border-border">
           <button
             type="button"
             onClick={() => {
@@ -507,47 +507,45 @@ export default function BrokerDealCardNewPage() {
                 router.push("/broker/buildings");
               }
             }}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-secondary/60"
+            className="flex items-center gap-1.5 text-[15px] font-bold text-muted-foreground hover:text-foreground transition-colors py-1.5 px-3 -ml-2 rounded-xl hover:bg-secondary/60"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
             <span>뒤로 가기</span>
           </button>
           
-          <span className="text-xs text-muted-foreground/70 font-medium">
-            딜카드 관리 &gt; 새 딜카드 등록
+          <span className="text-[14px] text-muted-foreground font-bold">
+            새 물건(딜카드) 등록
           </span>
 
           <button
             type="button"
             onClick={() => router.push("/broker/buildings")}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-secondary/60"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-secondary/60"
             title="닫고 목록으로"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Header */}
         <div className="space-y-2 pt-1">
           {handoffSuccess && (
-            <div className="mb-4 bg-emerald-50 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-              <span>📋</span> 유니버설 메모에서 텍스트가 자동 전달되었습니다.
+            <div className="mb-4 bg-emerald-50 text-emerald-700 border border-emerald-300 px-4 py-2.5 rounded-xl text-[15px] font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+              <span>📋</span> 메모에서 텍스트가 자동 전달되었습니다.
             </div>
           )}
-          <h1 className="text-2xl font-bold">
-            카톡 매물 설명을 붙여넣으세요
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            카톡 매물 설명을 그대로 붙여넣으세요
           </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            길게 정리하지 않아도 됩니다.
-            <br />
-            평소 카톡으로 보내던 문장 그대로 넣어주세요.
+          <p className="text-[16px] text-muted-foreground leading-relaxed">
+            양식에 맞춰 정리하지 않아도 됩니다. 평소 카카오톡이나 문자로 보내던 매물 메모를 넣으면 AI가 자동으로 정리합니다.
           </p>
         </div>
 
         {/* Memo Input */}
-        <div className="space-y-2.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground mr-1">예시 눌러서 채우기:</span>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[14px] font-bold text-muted-foreground mr-1">👇 예시 눌러서 바로 채우기:</span>
             {[
               {
                 label: "💰 임대수익 꼬마빌딩",
@@ -558,7 +556,7 @@ export default function BrokerDealCardNewPage() {
                 text: "성수동 6층 사옥 겸 근생 빌딩, 매매가 120억, 1층 카페 입점, 2~6층 명도 가능해 IT·디자인 사옥 즉시 입주 가능.",
               },
               {
-                label: "🏗️ 리모델링·신축",
+                label: "🏗️ 리모델링·신축부지",
                 text: "신사동 이면 코너 노후 근생, 매매가 68억, 대지 85평 제2종일반주거지역, 리모델링 또는 신축 개발 추천.",
               },
             ].map((sample) => (
@@ -566,7 +564,7 @@ export default function BrokerDealCardNewPage() {
                 key={sample.label}
                 type="button"
                 onClick={() => setMemo(sample.text)}
-                className="px-2.5 py-1.5 rounded-lg border border-border bg-secondary/50 hover:bg-secondary text-xs font-semibold text-foreground transition-colors"
+                className="px-3.5 py-2 rounded-xl border border-border bg-secondary/70 hover:bg-secondary text-[14px] font-bold text-foreground transition-colors"
               >
                 {sample.label}
               </button>
@@ -578,50 +576,40 @@ export default function BrokerDealCardNewPage() {
             onChange={(e) => setMemo(e.target.value)}
             maxLength={3000}
             placeholder={
-              "예:\n역삼동 85억 근생 빌딩, 보증금 3억 / 월세 2,800만, 만실 운영 중.\n1층 카페 성업 중, 사옥 수요도 가능.\n(지번 주소를 함께 적으시면 공부 데이터를 자동으로 불러옵니다)"
+              "예:\n역삼동 85억 근생 빌딩, 보증금 3억 / 월세 2,800만, 만실 운영 중.\n1층 카페 성업 중, 사옥 수요도 가능.\n(지번 주소를 함께 적으시면 토지·건축물대장을 자동으로 불러옵니다)"
             }
-            className="min-h-[220px] text-base leading-relaxed"
+            className="min-h-[240px] text-[17px] leading-relaxed p-4 rounded-2xl"
           />
-          <p className="text-xs text-muted-foreground pt-1">
-            💡 투자 성격(임대수익형·자가사용형·개발형 등)은 메모 내용에서 자동으로 판별됩니다.
-          </p>
-          <div className="flex justify-between items-center mt-2">
-            <p className="text-xs text-muted-foreground">
-              {memo.length > 0 ? `${memo.length.toLocaleString()} / 3,000자` : "최소 5자 이상"}
+          <div className="flex flex-wrap justify-between items-center gap-2 pt-1">
+            <p className="text-[14px] font-medium text-muted-foreground">
+              {memo.length > 0 ? `현재 ${memo.length.toLocaleString()}자 입력됨 (최대 3,000자)` : "💡 최소 5자 이상 입력해 주세요"}
             </p>
             <button
               type="button"
               onClick={() => setShowMemoModal(true)}
-              className="text-xs text-primary font-semibold hover:underline flex items-center gap-1 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors"
+              className="text-[14px] text-primary font-bold hover:underline flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 rounded-xl transition-colors"
               id="btn-import-memo"
             >
-              <StickyNote className="w-3.5 h-3.5" />
-              메모함에서 불러오기
+              <StickyNote className="w-4 h-4" />
+              저장된 메모함에서 불러오기
             </button>
           </div>
         </div>
 
-        {/* Disclosure Notice */}
-        <div className="rounded-xl bg-secondary/50 border border-border px-4 py-3 space-y-2">
-          <p className="text-xs font-medium">자동으로 숨기는 정보</p>
-          <div className="grid grid-cols-1 gap-1">
-            {[
-              "✅ 정확한 주소",
-              "✅ 임차인명",
-              "✅ 호실별 임대료",
-              "✅ 매도자 사정",
-              "✅ 협상 관련 내부 메모",
-            ].map((item) => (
-              <p key={item} className="text-xs text-muted-foreground">
-                {item}
-              </p>
-            ))}
+        {/* Disclosure Notice (한눈에 들어오는 안심 배너) */}
+        <div className="rounded-2xl bg-secondary/60 border border-border px-4 py-3.5 flex items-start gap-3">
+          <span className="text-xl shrink-0">🔒</span>
+          <div className="space-y-0.5">
+            <p className="text-[15px] font-bold text-foreground">고객 공유 시 민감 정보는 자동으로 가려집니다</p>
+            <p className="text-[14px] text-muted-foreground leading-relaxed">
+              정확한 번지 주소 · 임차인 상호 · 호실별 임대료 · 매도자 개인 사정은 외부 딜카드에 노출되지 않습니다.
+            </p>
           </div>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive whitespace-pre-wrap">
+          <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3.5 text-[15px] font-semibold text-destructive whitespace-pre-wrap">
             {error}
           </div>
         )}
@@ -630,19 +618,12 @@ export default function BrokerDealCardNewPage() {
         <Button
           type="submit"
           size="lg"
-          className="w-full"
+          className="w-full min-h-[58px] text-[18px] font-extrabold rounded-2xl shadow-md"
           disabled={memo.trim().length < 5}
           id="cta-generate-deal-card"
         >
-          1분 딜카드 만들기
+          ✨ 1분 딜카드 만들기
         </Button>
-
-        {/* Microcopy */}
-        <p className="text-xs text-muted-foreground text-center leading-relaxed">
-          정확한 주소, 임차인명, 호실별 임대료, 매도자 사정은
-          <br />
-          자동으로 숨겨집니다.
-        </p>
       </form>
 
       {/* Memo Import Modal */}

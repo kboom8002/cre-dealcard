@@ -466,85 +466,82 @@ export default async function BrokerPage() {
   );
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-28">
-      <div className="w-full max-w-md mx-auto space-y-5">
+    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-16">
+      <div className="w-full max-w-4xl mx-auto space-y-6">
 
         {/* ── 인사 & 날짜 & 로그인 상태 ── */}
         <GreetingHeader userName={userName} userPhotoUrl={userPhotoUrl} />
 
-        {/* ── 퀵액션 버튼 (PB 웰스 럭셔리 디자인 · 시니어 친화 대형 폰트 & 중앙 정렬) ── */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* ── 퀵액션 버튼 (60대 PC·모바일 친화 대형 카드 · 4열 와이드 그리드) ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             href="/broker/deal-card/new"
             id="quick-action-new-dealcard"
-            className="aspect-square flex flex-col items-center justify-center text-center rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 p-3 sm:p-4 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md group"
+            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 p-5 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md group"
           >
             <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-              <span className="text-amber-300 font-black text-[20px]">30s</span>
+              <span className="text-amber-300 font-black text-[18px]">1분</span>
             </div>
-            <p className="text-[22px] sm:text-[25px] font-black text-amber-300 leading-tight tracking-tight">딜카드 등록</p>
-            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">카톡 메모 붙여넣기</p>
+            <p className="text-[22px] font-black text-amber-300 leading-tight tracking-tight">새 물건 등록</p>
+            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">카톡 메모 붙여넣기</p>
           </Link>
 
           <Link
             href="/broker/buildings"
             id="quick-action-buildings"
-            className="aspect-square flex flex-col items-center justify-center text-center rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 p-3 sm:p-4 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md group"
+            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 p-5 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md group"
           >
             <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
               <Building2 className="w-7 h-7 text-blue-300" strokeWidth={2.4} />
             </div>
-            <p className="text-[22px] sm:text-[25px] font-black text-blue-300 leading-tight tracking-tight">내 물건 · IM</p>
-            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">PPTX 투자설명서 작성</p>
+            <p className="text-[22px] font-black text-blue-300 leading-tight tracking-tight">내 물건 · IM</p>
+            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">PPTX 투자설명서 작성</p>
           </Link>
 
-          {/* 좌하단: 매거진 편집 */}
+          {/* 매거진 편집 */}
           <Link
-            href="/broker/magazine-editor"
+            href="/broker/magazine-editor?mode=simple"
             id="quick-action-magazine-editor"
             data-testid="quick-action-clients"
-            className="aspect-square flex flex-col items-center justify-center text-center rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 p-3 sm:p-4 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md group"
+            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 p-5 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md group"
           >
             <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
               <Newspaper className="w-7 h-7 text-rose-300" strokeWidth={2.4} />
             </div>
-            <p className="text-[22px] sm:text-[25px] font-black text-rose-300 leading-tight tracking-tight">매거진 편집</p>
-            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">주간 소식지 발송</p>
+            <p className="text-[22px] font-black text-rose-300 leading-tight tracking-tight">고객 소식지</p>
+            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">5분 간편 소식지 발송</p>
           </Link>
 
-          {/* 우하단: 소통 관리함 */}
+          {/* 소통 관리함 */}
           <Link
             href="/broker/inbox"
             id="quick-action-inbox"
-            className="aspect-square flex flex-col items-center justify-center text-center rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 p-3 sm:p-4 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md group"
+            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 p-5 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md group"
           >
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
               <Bell className="w-7 h-7 text-emerald-300" strokeWidth={2.4} />
             </div>
-            <p className="text-[22px] sm:text-[25px] font-black text-emerald-300 leading-tight tracking-tight">소통 관리함</p>
-            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">고객 문의 확인</p>
+            <p className="text-[22px] font-black text-emerald-300 leading-tight tracking-tight">고객 문의함</p>
+            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">열람 · 문의 확인</p>
           </Link>
         </div>
 
         {/* ── 핵심 현황 요약 카드 (3대 핵심 중심 · 비핵심 매칭 KPI는 숨김) ── */}
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-3 gap-3">
           {[
             { label: "등록 물건", value: totalBuildings ?? 0, icon: Building2, color: "text-amber-300", border: "border-amber-500/30", href: "/broker/buildings" },
             { label: "구독 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-300", border: "border-emerald-500/30", href: "/broker/clients" },
-            { label: "소식지 열람", value: magazineViews, icon: Newspaper, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/magazine-editor" },
-            /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조
-            { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-yellow-300", border: "border-yellow-500/30", href: "/broker/matching" },
-            { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/buyer-intents" },
-            */
+            { label: "소식지 열람", value: magazineViews, icon: Newspaper, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/magazine-editor?mode=simple" },
+            /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조 */
           ].map(({ label, value, icon: Icon, color, border, href }) => (
             <Link
               key={label}
               href={href}
-              className={`rounded-2xl border ${border} bg-[#131b2e] px-3 py-4 text-center hover:bg-[#1a2540] transition-all shadow-sm`}
+              className={`rounded-2xl border ${border} bg-slate-900 px-4 py-4 text-center hover:opacity-95 transition-all shadow-sm`}
             >
               <Icon className={`w-5 h-5 mx-auto mb-1.5 ${color}`} strokeWidth={2.2} />
-              <p className="text-[22px] font-black text-slate-100 tabular-nums leading-tight">{value}</p>
-              <p className="text-[14px] font-bold text-slate-300 mt-1">{label}</p>
+              <p className="text-[24px] font-black text-slate-100 tabular-nums leading-tight">{value}</p>
+              <p className="text-[15px] font-bold text-slate-300 mt-1">{label}</p>
             </Link>
           ))}
         </div>
@@ -553,10 +550,10 @@ export default async function BrokerPage() {
         {overviewContent}
 
         {/* DORMANT: ux60-focus — 상세 통계 및 시장 브리핑 탭은 접이식으로 제공 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조) */}
-        <details className="rounded-2xl border border-slate-800 bg-[#111827] p-4">
-          <summary className="cursor-pointer text-[15px] font-bold text-slate-300 flex items-center justify-between">
+        <details className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <summary className="cursor-pointer text-[16px] font-bold text-slate-300 flex items-center justify-between">
             <span>📊 시장 브리핑 · 주간 리포트 더보기</span>
-            <span className="text-[13px] text-slate-400">펼치기 ▼</span>
+            <span className="text-[14px] text-slate-400">펼치기 ▼</span>
           </summary>
           <div className="pt-4 mt-3 border-t border-slate-800">
             <BrokerDashboardTabs
@@ -576,7 +573,7 @@ export default async function BrokerPage() {
 
       </div>
 
-      <UniversalMemoFAB />
+      {/* DORMANT: ux60-focus — UniversalMemoFAB 경쟁 플로팅 버튼 숨김 */}
       <BrokerBottomNav userEmail={user.email} />
     </main>
   );

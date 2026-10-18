@@ -13,6 +13,21 @@ function fmt(v: number | null | undefined, suffix = ""): string {
   return `${v.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}${suffix}`;
 }
 
+/** 평당 가격(만원/평 또는 원/평)을 한국 부동산 관행 단위(만/억 원/평)로 포맷 */
+function fmtPricePerPyeong(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v) || v <= 0) return "—";
+  // v >= 100,000 이면 원/평 단위, v < 100,000 이면 이미 만원/평 단위 (예: 4500 = 4,500만원/평)
+  const man = v >= 100_000 ? Math.round(v / 10_000) : Math.round(v);
+  if (man >= 10_000) {
+    const eok = Math.floor(man / 10_000);
+    const remMan = man % 10_000;
+    return remMan > 0
+      ? `약 ${eok}억 ${remMan.toLocaleString("ko-KR")}만 원/평`
+      : `약 ${eok}억 원/평`;
+  }
+  return `약 ${man.toLocaleString("ko-KR")}만 원/평`;
+}
+
 /** SSoT 완성도 점수 → 색상 */
 function readinessColor(score: number): string {
   if (score >= 80) return "text-emerald-400";
@@ -80,7 +95,7 @@ export function HeroCard({ data }: HeroCardProps) {
               <>
                 <MetricCell
                   label="토지 평당가"
-                  value={data.landPricePerPyeong ? `${data.landPricePerPyeong.toLocaleString()}원/평` : "—"}
+                  value={fmtPricePerPyeong(data.landPricePerPyeong)}
                   highlight={false}
                 />
                 <MetricCell
@@ -103,7 +118,7 @@ export function HeroCard({ data }: HeroCardProps) {
               <>
                 <MetricCell
                   label="건축 연면적"
-                  value={data.totalGrossAreaM2 ? `${data.totalGrossAreaM2.toLocaleString()}㎡ (${formatPyeong(data.totalGrossAreaM2, 1)}평)` : "—"}
+                  value={data.totalGrossAreaM2 ? `${data.totalGrossAreaM2.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}㎡ (${formatPyeong(data.totalGrossAreaM2, 1)}평)` : "—"}
                   highlight={false}
                 />
                 <MetricCell
@@ -149,7 +164,7 @@ export function HeroCard({ data }: HeroCardProps) {
               <>
                 <MetricCell
                   label="평당 매매가"
-                  value={data.pricePerPyeong ? `${data.pricePerPyeong.toLocaleString()}원/평` : "—"}
+                  value={fmtPricePerPyeong(data.pricePerPyeong)}
                   highlight={false}
                 />
                 <MetricCell
@@ -283,11 +298,14 @@ function MetricCell({
   value: string;
   highlight: boolean;
 }) {
+  const isLongValue = value.length > 10;
   return (
-    <div className="rounded-xl bg-neutral-800/60 border border-neutral-700/40 px-3.5 py-3 shadow-sm">
-      <p className="text-xs font-medium text-neutral-400 mb-1">{label}</p>
+    <div className="rounded-xl bg-neutral-800/60 border border-neutral-700/40 px-3.5 py-3 shadow-sm min-h-0 h-auto flex flex-col justify-between">
+      <p className="text-xs font-medium text-neutral-400 mb-1 leading-snug">{label}</p>
       <p
-        className={`text-xl sm:text-2xl font-black tracking-tight tabular-nums ${
+        className={`${
+          isLongValue ? "text-base sm:text-xl" : "text-xl sm:text-2xl"
+        } font-black tracking-tight tabular-nums leading-snug break-keep ${
           highlight ? "text-emerald-400" : "text-neutral-100"
         }`}
       >

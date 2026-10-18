@@ -64,22 +64,17 @@ export function DataGradeFooter({
         </div>
       )}
 
-      {/* 등급별 IM 구성 안내 */}
-      <div className="flex items-center gap-2">
-        <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${
+      {/* 제안서 준비 상태 안내 */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <span className={`text-xs px-3 py-1 rounded-full font-bold ${
           currentGrade === "C" || currentGrade === "D"
-            ? "bg-amber-500/15 text-amber-500"
-            : "bg-emerald-500/15 text-emerald-500"
+            ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+            : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
         }`}>
           {currentGrade === "C" || currentGrade === "D"
-            ? "⚠️ 기본 정보 보강 권장"
-            : `🟢 9면 표준 IM 작성 가능 (${currentGrade}등급)`}
+            ? "💡 주소와 매각가를 입력하면 제안서가 완성됩니다"
+            : "🟢 맞춤형 PPTX 제안서 작성 준비 완료"}
         </span>
-        {currentGrade !== "A" && (
-          <span className="text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-blue-500/15 text-blue-400">
-            💡 A등급 달성 시 상세 수지·가치 분석 포함
-          </span>
-        )}
       </div>
     </div>
   );

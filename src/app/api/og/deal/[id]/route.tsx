@@ -142,18 +142,33 @@ export async function GET(
   const imAskingPriceManwon = imSsot.asking_price_manwon ? Number(imSsot.asking_price_manwon) : 0;
   const askingPriceKrw = imAskingPriceManwon > 0 ? imAskingPriceManwon * 10000 : Number(rawAttrs.askingPriceKrw || 0);
 
+  const rawPosture = imBody?.investmentPosture || imBody?.investment_posture || safeBuilding.investment_posture || rawAttrs.investmentPosture;
+  const assetAndUseText = `${imSsot.asset_type || safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
+  const resolvedPosture = (!rawPosture || rawPosture === "income") && /나대지|토지|신축\s*부지|개발\s*부지/.test(assetAndUseText)
+    ? "development"
+    : (rawPosture || "income");
+
   const attrs = {
     ...rawAttrs,
     askingPriceKrw,
     areaSignal: imSsot.area_signal || rawAttrs.areaSignal || safeBuilding.area_signal,
-    priceBand: imSsot.price_band || (imAskingPriceManwon > 0 ? `${Math.ceil(imAskingPriceManwon / 10000)}억대` : null) || rawAttrs.priceBand || safeBuilding.price_band,
+    priceBand: imSsot.price_band || safeBuilding.price_band || rawAttrs.priceBand || (imAskingPriceManwon > 0 ? `${Math.floor(imAskingPriceManwon / 100000) * 10}억대` : null),
     assetType: imSsot.asset_type || rawAttrs.assetType || safeBuilding.asset_type,
+    investmentPosture: resolvedPosture,
   };
   const teaserView = projectToTeaser(attrs);
 
+  const POSTURE_KOREAN_MAP: Record<string, string> = {
+    income: "임대수익형",
+    development: "개발형",
+    owner_occupied: "자가사용형",
+    trading: "단기매매형",
+    operating: "운영형",
+  };
+
   const regionLabel = attrs.areaSignal || teaserView.region || safeBuilding.area_signal || "서울";
   const assetType = attrs.assetType || teaserView.assetType || safeBuilding.asset_type || "상업용 부동산";
-  const postureLabel = imBody?.investmentPosture || teaserView.postureLabel || "임대수익형";
+  const postureLabel = POSTURE_KOREAN_MAP[resolvedPosture] || teaserView.postureLabel || "임대수익형";
   const urgencyTag = teaserView.urgencyTag || (building?.urgency_tag as string);
   const bandedPrice = attrs.priceBand || teaserView.bandedPrice || "가격 협의";
 

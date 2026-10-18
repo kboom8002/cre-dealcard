@@ -44,12 +44,12 @@ export function DevelopmentSpecSection({
   return (
     <div className="border border-indigo-500/30 rounded-xl p-4 bg-indigo-500/5 space-y-4">
       <div className="flex justify-between items-center border-b border-indigo-500/20 pb-2">
-        <span className="text-xs font-bold text-indigo-300">🏗️ 개발 계획 &amp; 명도 조건 &amp; 인허가</span>
-        <span className="text-[10px] text-indigo-400 font-medium">개발형 위젯 및 Grade A 승격 필수</span>
+        <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">🏗️ 개발 계획 · 명도 조건 · 인허가</span>
+        <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">💡 개발 수지 자동 분석용</span>
       </div>
       
       <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80">1. 개발 계획</div>
+        <div className="col-span-2 text-xs font-bold text-foreground">1. 개발 계획</div>
         <div>
           <label className="block text-[10px] text-muted-foreground mb-1">목표 용도</label>
           <select

@@ -26,8 +26,8 @@ export function OwnerOccupiedSpecSection({
   return (
     <div className="border border-blue-500/30 rounded-xl p-4 bg-blue-500/5 space-y-3">
       <div className="flex justify-between items-center border-b border-blue-500/20 pb-2">
-        <span className="text-xs font-bold text-blue-300">🏢 사옥 입주 및 자가사용 계획</span>
-        <span className="text-[10px] text-blue-400 font-medium">자가사용 위젯 시뮬레이션</span>
+        <span className="text-sm font-bold text-blue-700 dark:text-blue-300">🏢 사옥 입주 및 자가사용 계획</span>
+        <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold">💡 사옥 입주 효과 자동 계산용</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

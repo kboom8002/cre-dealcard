@@ -160,3 +160,36 @@ describe('Wave 9.2 — 용어/마스킹 파편 방지', () => {
     expect(safe_text).not.toContain('3,700만원');
   });
 });
+
+describe('normalizeSectionMarkdown — 승인/뷰어 생(Raw) 마크다운 노출 방지', () => {
+  it('인라인 ### / ## 헤딩을 독립 줄로 분리한다', () => {
+    const raw = '권리관계 요약 ### 소유 현황\n소유자 정보가 등록되지 않았습니다. ### 설정 권리';
+    const out = lines(normalizeSectionMarkdown(raw));
+    expect(out).toEqual([
+      '권리관계 요약',
+      '### 소유 현황',
+      '소유자 정보가 등록되지 않았습니다.',
+      '### 설정 권리',
+    ]);
+  });
+
+  it('인라인 "- **라벨**:" 불릿과 인라인 ### 헤딩이 섞인 토지 현황을 분리한다', () => {
+    const raw = '토지 현황 - **지목**: 대 • **공시지가**: 7,480,000원/m² ### 이용 규제';
+    const out = lines(normalizeSectionMarkdown(raw));
+    expect(out).toEqual([
+      '토지 현황',
+      '- **지목**: 대',
+      '• **공시지가**: 7,480,000원/m²',
+      '### 이용 규제',
+    ]);
+  });
+
+  it('한 줄에 이어붙은 표 헤더와 구분선(|---|---|)을 개행 분리한다', () => {
+    const raw = '| 항목 | 내용 | |---|---|\n| 지목 | 대 |';
+    const out = lines(normalizeSectionMarkdown(raw));
+    expect(out[0]).toBe('| 항목 | 내용 |');
+    expect(out[1]).toBe('|---|---|');
+    expect(out[2]).toBe('| 지목 | 대 |');
+  });
+});
+

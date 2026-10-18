@@ -278,32 +278,75 @@ export default async function BrokerDealCardResultPage({
   const currentScore = gradeResult.scorePct;
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-6 pb-40">
-      <div className="w-full max-w-md mx-auto space-y-4">
+    <main className="flex flex-col items-center min-h-screen px-4 sm:px-6 py-6 pb-16">
+      <div className="w-full max-w-3xl mx-auto space-y-6">
         {/* Top nav bar: Back + Actions */}
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-1">
           <Link
             href="/broker/buildings"
-            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1.5 text-base font-bold text-muted-foreground hover:text-foreground transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            내 딜카드
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            내 물건 목록으로
           </Link>
           <DealCardActionsMenu buildingId={id} />
         </div>
 
         {/* Top Message Header */}
-        <div className="text-center space-y-1.5">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-0.5">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3.5 py-1">
             <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-            <span className="text-xs font-semibold text-primary">블라인드 딜카드</span>
+            <span className="text-xs font-bold text-primary">AI 블라인드 딜카드 완성</span>
           </div>
-          <h1 className="text-xl font-black leading-tight text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-black leading-tight text-foreground">
             {title || "딜카드가 준비됐습니다."}
           </h1>
-          <p className="text-xs text-muted-foreground">
-            주소와 민감정보는 매수자 보호를 위해 숨겨져 있습니다.
+          <p className="text-sm text-muted-foreground">
+            상세 지번과 매도자 민감정보는 고객 보호를 위해 자동으로 가려져 있습니다.
           </p>
+        </div>
+
+        {/* ⚡ [핵심 다음 단계 액션 바 — 상단 고정 배치로 플로팅 겹침 원천 차단] */}
+        <div className="rounded-2xl border-2 border-primary/30 bg-card p-4 sm:p-5 shadow-md space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
+              <span>🚀</span> 이 매물로 바로 작업하기
+            </span>
+            <span className="text-xs font-semibold text-muted-foreground">
+              원하시는 작업을 눌러주세요
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <CreateMobileImButton
+              buildingId={id}
+              hasBasicIM={hasBasicIM}
+              areaSignal={building.area_signal ?? bAttrs.areaSignal ?? undefined}
+              assetType={building.asset_type ?? bAttrs.assetType ?? undefined}
+              priceBand={building.price_band ?? bAttrs.priceBand ?? undefined}
+              sizeSignal={building.size_signal ?? undefined}
+              vacancySignal={building.vacancy_signal ?? bAttrs.vacancySignal ?? undefined}
+              fitSummary={building.fit_summary ?? undefined}
+              cautionSummary={building.caution_summary ?? undefined}
+              existingPhotoUrls={photoUrls}
+              initialAddress={extractedAddress}
+              initialPnu={extractedPnu}
+              currentGrade={currentGrade}
+              prefillAskingPrice={askingPriceKrw > 0 ? askingPriceKrw / 10000 : undefined}
+              prefillLoanAmount={loanAmountKrw > 0 ? loanAmountKrw / 10000 : undefined}
+              prefillTotalDeposit={totalDepositKrw > 0 ? totalDepositKrw / 10000 : undefined}
+              prefillMonthlyRent={monthlyRentKrw > 0 ? monthlyRentKrw / 10000 : undefined}
+              prefillMgmtFee={mgmtFeeKrw > 0 ? mgmtFeeKrw / 10000 : undefined}
+              prefillVacancyPct={typeof vacancyPct === 'number' && !isNaN(vacancyPct) ? vacancyPct : undefined}
+              initialInvestmentPosture={investmentPosture}
+              existingDocBody={imBody}
+            />
+            <Link
+              href={`/broker/magazine-editor?mode=simple&deals=${id}`}
+              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-4 py-3 min-h-[48px] text-[15px] font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-rose-900/20"
+            >
+              📰 고객 소식지에 넣기
+            </Link>
+          </div>
         </div>
 
         {/* 📱 [1. 핵심 딜카드 & OG 공유 실시간 미리보기 카드] */}
@@ -321,23 +364,43 @@ export default async function BrokerDealCardResultPage({
           kakaoText={kakaoText}
         />
 
-        {/* ✏️ [2. 딜카드 문구 & OG 메타 실시간 편집기] */}
-        <DealCardEditor
-          buildingId={id}
-          initialTitle={title}
-          initialSummary={shortSummary}
-          initialDealPoints={dealPoints}
-          initialCautionPoints={cautionPoints}
-          initialKakaoText={kakaoText}
-          initialOgTitle={teaser?.ogTitle || title || ""}
-          initialOgDescription={teaser?.ogDescription || teaser?.shortSummary || building.fit_summary || ""}
-          initialHookCopy={teaser?.hookCopy || building.fit_summary || ""}
-          initialStructureChips={teaser?.structureChips || []}
-          initialVacancyLabel={teaser?.vacancyLabel || ""}
-          initialCuriosityHook={teaser?.curiosityHook || ""}
-        />
+        {/* ✏️ [2. 딜카드 문구 & OG 메타 편집기 — 점진적 공개(Progressive Disclosure) 아코디언] */}
+        <details className="group rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
+          <summary className="px-5 py-4 cursor-pointer list-none flex items-center justify-between gap-3 bg-muted/20 hover:bg-muted/40 transition-colors">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">✏️</span>
+              <div>
+                <p className="text-base font-bold text-foreground">
+                  딜카드 제목 · 카톡 공유 문구 직접 다듬기
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  AI가 작성한 제목이나 카카오톡 전송 문구를 수정하고 싶을 때 눌러서 여세요
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-primary px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 group-open:rotate-180 transition-transform shrink-0">
+              펼치기 ▾
+            </span>
+          </summary>
+          <div className="p-3 sm:p-4 border-t border-border">
+            <DealCardEditor
+              buildingId={id}
+              initialTitle={title}
+              initialSummary={shortSummary}
+              initialDealPoints={dealPoints}
+              initialCautionPoints={cautionPoints}
+              initialKakaoText={kakaoText}
+              initialOgTitle={teaser?.ogTitle || title || ""}
+              initialOgDescription={teaser?.ogDescription || teaser?.shortSummary || building.fit_summary || ""}
+              initialHookCopy={teaser?.hookCopy || building.fit_summary || ""}
+              initialStructureChips={teaser?.structureChips || []}
+              initialVacancyLabel={teaser?.vacancyLabel || ""}
+              initialCuriosityHook={teaser?.curiosityHook || ""}
+            />
+          </div>
+        </details>
 
-        {/* DORMANT: ux60-focus — 하단 고정 CTA 바에 [📰 소식지에 넣기]가 통합되어 본문 중복 버튼 및 매칭 허브 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
+        {/* DORMANT: ux60-focus — 상단 액션 카드에 [📰 고객 소식지에 넣기]가 통합되어 본문 중복 버튼 및 매칭 허브 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
         <div className="pt-1">
           <Link
             href={`/broker/magazine-editor?mode=simple&deals=${id}`}
@@ -348,7 +411,7 @@ export default async function BrokerDealCardResultPage({
         </div>
         */}
 
-        {/* 🏢 [3. 세부 4-Tab 영역] */}
+        {/* 🏢 [3. 세부 2-Tab 영역 (매물 요약 / IM 제안서 관리)] */}
         <div className="pt-2">
           <DealCardTabs
 
@@ -362,8 +425,8 @@ export default async function BrokerDealCardResultPage({
                 {/* Photo Gallery */}
                 {photoUrls.length > 0 && (
                   <div className="rounded-xl border border-border bg-card overflow-hidden">
-                    <div className="px-4 py-2 bg-muted/30 border-b border-border">
-                      <h2 className="text-xs font-semibold text-muted-foreground">📷 매물 사진 ({photoUrls.length}장)</h2>
+                    <div className="px-4 py-2.5 bg-muted/30 border-b border-border">
+                      <h2 className="text-sm font-bold text-foreground">📷 매물 사진 ({photoUrls.length}장)</h2>
                     </div>
                     <div className="flex gap-2 overflow-x-auto p-3 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
                       {photoUrls.map((url: string, i: number) => (
@@ -396,12 +459,12 @@ export default async function BrokerDealCardResultPage({
                 {/* Risk / Caution Points */}
                 {cautionPoints.length > 0 && (
                   <div className="rounded-xl border border-border bg-card p-4 space-y-2.5 shadow-sm">
-                    <h2 className="text-sm font-semibold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                    <h2 className="text-sm font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
                       <span>⚠️</span> 실사 검토 필요 사항 ({cautionPoints.length}건)
                     </h2>
                     <ul className="space-y-1.5">
                       {cautionPoints.map((point, idx) => (
-                        <li key={idx} className="text-xs text-muted-foreground flex gap-1.5">
+                        <li key={idx} className="text-sm text-muted-foreground flex gap-1.5">
                           <span className="text-amber-500 font-bold">•</span>
                           <span>{point}</span>
                         </li>
@@ -412,13 +475,13 @@ export default async function BrokerDealCardResultPage({
 
                 {/* Hidden Fields Card */}
                 {hiddenFields.length > 0 && (
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 space-y-2">
-                    <h2 className="text-xs font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+                    <h2 className="text-sm font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-400">
                       <span>🔒</span> 비공개 안전 처리 항목 ({hiddenFields.length}개)
                     </h2>
                     <div className="flex flex-wrap gap-1.5">
                       {hiddenFields.map((field) => (
-                        <span key={field} className="text-[10px] bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded">
+                        <span key={field} className="text-xs bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-500/20 px-2.5 py-1 rounded-md font-semibold">
                           {hiddenFieldLabels[field] || field}
                         </span>
                       ))}
@@ -499,46 +562,7 @@ export default async function BrokerDealCardResultPage({
           }
         />
         </div>
-      </div>
 
-      {/* Streamlined 2-Column Sticky CTA Bar (Basic IM + Magazine) */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-2.5 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
-        <div className="max-w-md mx-auto">
-          <div className="grid grid-cols-2 gap-2.5">
-            <CreateMobileImButton
-              buildingId={id}
-              hasBasicIM={hasBasicIM}
-              areaSignal={building.area_signal ?? bAttrs.areaSignal ?? undefined}
-              assetType={building.asset_type ?? bAttrs.assetType ?? undefined}
-              priceBand={building.price_band ?? bAttrs.priceBand ?? undefined}
-              sizeSignal={building.size_signal ?? undefined}
-              vacancySignal={building.vacancy_signal ?? bAttrs.vacancySignal ?? undefined}
-              fitSummary={building.fit_summary ?? undefined}
-              cautionSummary={building.caution_summary ?? undefined}
-              existingPhotoUrls={photoUrls}
-              initialAddress={extractedAddress}
-              initialPnu={extractedPnu}
-              currentGrade={currentGrade}
-              prefillAskingPrice={askingPriceKrw > 0 ? askingPriceKrw / 10000 : undefined}
-              prefillLoanAmount={loanAmountKrw > 0 ? loanAmountKrw / 10000 : undefined}
-              prefillTotalDeposit={totalDepositKrw > 0 ? totalDepositKrw / 10000 : undefined}
-              prefillMonthlyRent={monthlyRentKrw > 0 ? monthlyRentKrw / 10000 : undefined}
-              prefillMgmtFee={mgmtFeeKrw > 0 ? mgmtFeeKrw / 10000 : undefined}
-              prefillVacancyPct={typeof vacancyPct === 'number' && !isNaN(vacancyPct) ? vacancyPct : undefined}
-              initialInvestmentPosture={investmentPosture}
-              existingDocBody={imBody}
-            />
-            <Link
-              href={`/broker/magazine-editor?mode=simple&deals=${id}`}
-              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-3 py-3 min-h-[48px] text-[15px] font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-rose-900/30"
-            >
-              📰 소식지에 넣기
-            </Link>
-            {/* DORMANT: ux60-focus — AI 매칭 버튼 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
-            <AiMatchCtaButton buildingId={id} matchCount={matchCount} topGrade={topGrade} />
-            */}
-          </div>
-        </div>
         <BrokerBottomNav />
       </div>
     </main>
