@@ -612,12 +612,19 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       <StaggerContainer className="max-w-5xl mx-auto px-4 py-8">
         <StaggerItem className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 p-6 shadow-md">
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">투자설명서(Basic IM) 완성 · 다운로드</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">투자설명서(Basic IM) 완성 · 슬라이드 편집</h1>
             <p className="text-[16px] text-neutral-200 leading-relaxed">
-              맞춤형 PPTX 제안서 파일을 지금 바로 PC로 내려받거나 카카오톡 링크로 고객에게 전달할 수 있습니다.
+              10면 PPTX 슬라이드와 10종 색상 테마를 실시간 미리보기로 확인·편집한 뒤 내려받거나, 지금 바로 다운로드할 수 있습니다.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link
+              href={`/broker/basic-im-studio/${buildingId}`}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[54px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] shadow-lg transition-all active:scale-[0.98]"
+            >
+              <span>📐</span>
+              <span>슬라이드 미리보기 · 편집 후 다운로드</span>
+            </Link>
             <motion.button
               type="button"
               whileHover={{ y: -1.5 }}
@@ -625,10 +632,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               onClick={handleDownloadPptx}
               disabled={isPptxDownloading}
               id="approval-top-download-pptx"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[54px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[17px] shadow-lg transition-all disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-3.5 min-h-[54px] rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold text-[15px] shadow-sm transition-all disabled:opacity-60"
             >
-              <span>📊</span>
-              <span>{isPptxDownloading ? 'PPTX 준비 중...' : 'PPTX 제안서 파일 받기'}</span>
+              <span>⚡</span>
+              <span>{isPptxDownloading ? 'PPTX 준비 중...' : 'PPTX 바로 다운로드'}</span>
             </motion.button>
             <motion.button
               type="button"
@@ -638,7 +645,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
                 toast.success("🔗 투자설명서 링크가 복사되었습니다. 카카오톡에 붙여넣으세요.");
               }}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[54px] rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-white font-bold text-[16px] transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[54px] rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-white font-bold text-[15px] transition-colors"
             >
               <span>🔗 카톡용 링크 복사</span>
             </motion.button>
@@ -647,7 +654,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}
-              className="inline-flex items-center justify-center gap-1.5 px-5 py-3.5 min-h-[54px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[16px] transition-colors shadow-md"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-3.5 min-h-[54px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[15px] transition-colors shadow-md"
             >
               <span>🖥️ 웹 화면 열기</span>
               <span>↗</span>
@@ -1373,14 +1380,21 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <Link
+                    href={`/broker/basic-im-studio/${buildingId}`}
+                    className="px-5 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black rounded-xl transition-all text-[15px] shadow-md flex items-center gap-1.5"
+                  >
+                    <span>📐</span>
+                    <span>슬라이드 미리보기 · 편집 후 다운로드</span>
+                  </Link>
                   <button
                     type="button"
                     onClick={handleDownloadPptx}
                     disabled={isPptxDownloading}
-                    className="px-5 py-3 min-h-[48px] bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl transition-colors text-[15px] shadow-md disabled:opacity-60"
+                    className="px-4 py-3 min-h-[48px] bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold rounded-xl transition-colors text-[14px] shadow-sm disabled:opacity-60"
                   >
-                    {isPptxDownloading ? '⏳ PPTX 준비 중...' : '📊 PPTX 제안서 파일 받기'}
+                    {isPptxDownloading ? '⏳ PPTX 준비 중...' : '⚡ PPTX 바로 다운로드'}
                   </button>
                   <button
                     onClick={handleApprove}
@@ -1407,13 +1421,20 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 </div>
 
                 <div className="flex items-center gap-2.5 flex-wrap">
+                  <Link
+                    href={`/broker/basic-im-studio/${buildingId}`}
+                    className="px-5 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[15px] rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                  >
+                    <span>📐</span>
+                    <span>슬라이드 미리보기 · 편집 후 다운로드</span>
+                  </Link>
                   <button
                     type="button"
                     onClick={handleDownloadPptx}
                     disabled={isPptxDownloading}
-                    className="px-5 py-3 min-h-[48px] bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[15px] rounded-xl transition-colors shadow-md disabled:opacity-60"
+                    className="px-4 py-3 min-h-[48px] bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold text-[14px] rounded-xl transition-colors shadow-sm disabled:opacity-60"
                   >
-                    {isPptxDownloading ? '⏳ PPTX 준비 중...' : '📊 PPTX 제안서 다운로드'}
+                    {isPptxDownloading ? '⏳ PPTX 준비 중...' : '⚡ PPTX 바로 다운로드'}
                   </button>
                   <button
                     onClick={() => {
@@ -1452,7 +1473,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 투자설명서 준비가 완료되었습니다!
               </h2>
               <p className="text-[15px] text-neutral-300 leading-relaxed">
-                PC에서 인쇄·편집할 수 있는 맞춤형 PPTX 제안서 파일을 내려받거나, 고객에게 카카오톡으로 웹 주소를 복사해 전달하세요.
+                슬라이드와 테마를 미리보기로 편집한 뒤 내려받거나, 지금 바로 PPTX 제안서 파일을 다운로드할 수 있습니다.
               </p>
             </div>
 
@@ -1464,14 +1485,22 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             </div>
 
             <div className="space-y-2.5 pt-2">
+              <Link
+                href={`/broker/basic-im-studio/${buildingId}`}
+                className="w-full min-h-[50px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <span>📐</span>
+                <span>슬라이드 미리보기 · 편집 후 다운로드</span>
+              </Link>
+
               <button
                 type="button"
                 onClick={handleDownloadPptx}
                 disabled={isPptxDownloading}
-                className="w-full min-h-[50px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full min-h-[48px] bg-neutral-950 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold text-[15px] rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <span>📊</span>
-                <span>{isPptxDownloading ? 'PPTX 파일 준비 중...' : 'PPTX 제안서 파일 다운로드 (PC용)'}</span>
+                <span>⚡</span>
+                <span>{isPptxDownloading ? 'PPTX 파일 준비 중...' : 'PPTX 바로 다운로드 (PC용)'}</span>
               </button>
 
               <button

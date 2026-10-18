@@ -441,22 +441,84 @@ export function ImManagementPanel({
         
         {basicDoc ? (
           <div className="space-y-3 mt-2">
-            {/* PC 중심 1순위 버튼: PPTX 파일 다운로드 */}
-            <button
-              type="button"
-              onClick={() => handleExport('pptx')}
-              disabled={!!isExporting}
-              className="flex items-center justify-center gap-2 w-full min-h-[52px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] shadow-lg transition-all active:scale-[0.99] disabled:opacity-60"
-            >
-              <span>📊</span>
-              <span>
-                {isExporting === 'pptx'
-                  ? 'PPTX 파일 생성 중... (약 10~20초)'
-                  : exportDone === 'pptx'
-                  ? '✅ PPTX 다운로드 완료!'
-                  : 'PPTX 투자설명서 다운로드 (9면 · 워터마크 없음)'}
-              </span>
-            </button>
+            {/* 1순위: 슬라이드 미리보기·편집 스튜디오 (Primary) + 바로 다운로드 (Secondary) 병렬 배치 */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+              <Link
+                href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
+                className="sm:col-span-7 flex items-center justify-center gap-2 min-h-[54px] px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[15px] sm:text-[16px] shadow-lg transition-all active:scale-[0.99]"
+              >
+                <span>📐</span>
+                <span>슬라이드 미리보기 · 편집 후 다운로드</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleExport('pptx')}
+                disabled={!!isExporting}
+                className="sm:col-span-5 flex items-center justify-center gap-1.5 min-h-[54px] px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-extrabold text-[14px] sm:text-[15px] shadow-sm transition-all active:scale-[0.99] disabled:opacity-60"
+              >
+                <span>⚡</span>
+                <span>
+                  {isExporting === 'pptx'
+                    ? '생성 중...(10~20초)'
+                    : exportDone === 'pptx'
+                    ? '✅ 다운로드 완료!'
+                    : 'PPTX 바로 다운로드'}
+                </span>
+              </button>
+            </div>
+
+            {/* 프리셋 테마 선택 + 실시간 스튜디오 안내 */}
+            <div className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-2.5 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="text-[13px] font-bold text-slate-200 shrink-0">🎨 PPTX 테마:</span>
+                  <span
+                    className="w-4 h-4 rounded-full flex-shrink-0 border border-white/30 shadow-sm"
+                    style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#B8860B' }}
+                  />
+                  <select 
+                    value={selectedPreset}
+                    onChange={(e) => setSelectedPreset(e.target.value)}
+                    aria-label="PPTX 색상 테마 프리셋 선택"
+                    className="flex-1 h-9 rounded-lg border border-slate-700 bg-slate-950 text-slate-100 text-[13px] font-semibold px-2.5 focus:ring-1 focus:ring-amber-500 outline-none"
+                  >
+                    {Object.entries(PRESET_SWATCHES).map(([id, s]) => (
+                      <option key={id} value={id}>{s.name}</option>
+                    ))}
+                    {presets.map((p: any) => (
+                      <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (내 브랜드)</option>
+                    ))}
+                  </select>
+                </div>
+                <Link 
+                  href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
+                  className="text-[12px] font-bold text-amber-300 hover:text-amber-200 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 transition-colors"
+                >
+                  ✨ 10종 테마 미리보기
+                </Link>
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                {Object.entries(PRESET_SWATCHES).map(([id, s]) => {
+                  const active = selectedPreset === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setSelectedPreset(id)}
+                      title={s.name}
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-bold shrink-0 border transition-all ${
+                        active
+                          ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                          : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.accent }} />
+                      <span>{s.name.replace(/^📋\s*/, '').split(' (')[0]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               <Link
@@ -473,37 +535,6 @@ export function ImManagementPanel({
               >
                 <span>📋</span> 카톡 공유용 주소 복사
               </button>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-[13px] font-semibold text-slate-300 shrink-0">색상 테마:</span>
-              <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-border" style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#B8860B' }} />
-              <select 
-                value={selectedPreset}
-                onChange={(e) => setSelectedPreset(e.target.value)}
-                className="flex-1 h-9 rounded-lg border border-border bg-background text-[14px] px-2.5 focus:ring-1 focus:ring-blue-500 outline-none"
-              >
-                {Object.entries(PRESET_SWATCHES).map(([id, s]) => (
-                  <option key={id} value={id}>{s.name}</option>
-                ))}
-                {presets.map((p: any) => (
-                  <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (내 브랜드)</option>
-                ))}
-              </select>
-              {/* DORMANT: ux60-focus — Pro 편집 링크 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
-              <Link 
-                href={`/broker/deal-card/${buildingId}/pptx-editor`}
-                className="text-[10px] text-amber-500 hover:text-amber-400 whitespace-nowrap"
-              >
-                ✏️ Pro 편집
-              </Link>
-              */}
-              <Link 
-                href={`/broker/basic-im-studio/${buildingId}`}
-                className="text-[13px] font-bold text-sky-300 hover:text-sky-200 whitespace-nowrap px-2 py-1 rounded bg-sky-500/10 border border-sky-500/30"
-              >
-                ✏️ 문구·수치 수정
-              </Link>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

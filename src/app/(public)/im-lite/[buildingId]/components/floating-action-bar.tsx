@@ -71,62 +71,72 @@ const PPTX_PRESETS = [
   {
     id: "credeal_basic",
     label: "📋 표준 Basic IM",
-    desc: "기본 브로커 IM (9면)",
+    desc: "기본 브로커 IM (브랜드 컬러 적용)",
+    accent: "#B8860B",
     tier: "basic" as const,
   },
   {
     id: "minimal_clean",
     label: "📄 미니멀 클린",
     desc: "심플하고 단정한 그래파이트 & 블루",
+    accent: "#3B5B8C",
     tier: "all" as const,
   },
   {
     id: "corporate_clean",
     label: "🏢 코퍼레이트 클린",
     desc: "깔끔하고 신뢰감 있는 에메랄드 그린",
+    accent: "#059669",
     tier: "all" as const,
   },
   {
     id: "warm_beige",
     label: "🏠 웜 베이지",
     desc: "따뜻하고 안정적인 브라운 (상가주택·다가구)",
+    accent: "#8C5A2B",
     tier: "all" as const,
   },
   {
     id: "wine_burgundy",
     label: "🍷 와인 버건디",
     desc: "품격 있는 와인 레드 (프리미엄 매각)",
+    accent: "#8E2B3C",
     tier: "all" as const,
   },
   {
     id: "mono_contrast",
     label: "🖨️ 모노 고대비",
     desc: "흑백 인쇄·팩스·메신저 전달용",
+    accent: "#595959",
     tier: "all" as const,
   },
   {
     id: "golden_institutional",
     label: "🏛️ 기관투자형 골드",
     desc: "신뢰감 있는 기관 투자용",
-    tier: "pro" as const,
+    accent: "#B98A2E",
+    tier: "all" as const,
   },
   {
     id: "credeal_signature",
     label: "💎 시그니처 모던",
     desc: "모던 & 트렌디 스타일",
-    tier: "pro" as const,
+    accent: "#6B8E00",
+    tier: "all" as const,
   },
   {
     id: "executive_gold",
     label: "👑 이그제큐티브 골드",
     desc: "프리미엄 네이비 & 골드",
-    tier: "pro" as const,
+    accent: "#B8862D",
+    tier: "all" as const,
   },
   {
     id: "pro_dark_obsidian",
     label: "🌑 다크 옵시디언",
     desc: "고급스러운 다크 테마",
-    tier: "pro" as const,
+    accent: "#0284A8",
+    tier: "all" as const,
   },
 ];
 
@@ -161,7 +171,7 @@ export function FloatingActionBar({
   const [pptxLoading, setPptxLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // IM 타입에 맞는 프리셋만 표시 (Basic IM → basic/all만, Pro IM → 전체)
+  // 모든 10종 프리셋을 Basic/Pro IM 스튜디오 및 다운로드에서 사용 가능
   const availablePresets = useMemo(() =>
     PPTX_PRESETS.filter(p =>
       tier === "basic" ? (p.tier === "basic" || p.tier === "all") : true
@@ -353,6 +363,12 @@ export function FloatingActionBar({
             >
               {isBrokerMode ? "👁️ 매수자 시점 전환" : "💼 중개인 도구 전환"}
             </button>
+            <Link
+              href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
+              className="text-amber-300 hover:text-amber-200 underline underline-offset-2 transition-colors font-extrabold"
+            >
+              📐 PPTX 슬라이드 스튜디오
+            </Link>
             {docId && (
               <Link
                 href={`/broker/im-approval/${docId}`}
@@ -373,7 +389,7 @@ export function FloatingActionBar({
             {/* 카카오톡 공유 버튼 */}
             <button
               onClick={handleKakaoShare}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-xs sm:text-sm font-black rounded-xl transition-all shadow-md active:scale-95"
+              className="flex items-center justify-center gap-1.5 px-3 py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-xs sm:text-sm font-black rounded-xl transition-all shadow-md active:scale-95 shrink-0"
               title="카카오톡으로 모바일 IM 공유"
             >
               <svg
@@ -383,25 +399,39 @@ export function FloatingActionBar({
               >
                 <path d="M12 2C6.48 2 2 5.82 2 10.5c0 2.95 1.95 5.55 4.88 7.04-.15.57-.78 2.96-.81 3.13 0 0-.02.12.06.17.08.04.17.01.17.01.22-.03 2.58-1.71 3.66-2.43.64.09 1.33.14 2.04.14 5.52 0 10-3.82 10-8.56C22 5.82 17.52 2 12 2z" />
               </svg>
-              <span>카카오톡 공유</span>
+              <span className="hidden sm:inline">카톡 공유</span>
             </button>
 
-            {/* PPTX 프리셋 드롭다운 & 다운로드 버튼 */}
-            <div className="relative flex-1" ref={dropdownRef}>
-              <div className="flex rounded-xl overflow-hidden shadow-sm border border-neutral-700 bg-neutral-800">
+            {/* Primary CTA: 슬라이드 미리보기 · 편집 후 다운로드 */}
+            <Link
+              href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs sm:text-sm font-black rounded-xl transition-all shadow-md active:scale-95 truncate"
+              title="10면 슬라이드 실시간 미리보기 · 편집 후 PPTX 다운로드"
+            >
+              <span>📐</span>
+              <span className="truncate">슬라이드 미리보기·편집</span>
+            </Link>
+
+            {/* Secondary CTA: PPTX 바로 다운로드 & 프리셋 드롭다운 */}
+            <div className="relative shrink-0" ref={dropdownRef}>
+              <div className="flex rounded-xl overflow-hidden shadow-sm border border-amber-500/40 bg-neutral-900">
                 <button
                   onClick={() => handlePptxDownload()}
-                  className="flex-1 py-3 px-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs sm:text-sm font-bold transition-colors flex items-center justify-center gap-1 truncate"
-                  title="선택된 프리셋으로 PPTX 다운로드"
+                  className="py-3 px-2.5 bg-neutral-900 hover:bg-neutral-800 text-amber-300 text-xs sm:text-sm font-extrabold transition-colors flex items-center justify-center gap-1 truncate"
+                  title="선택된 프리셋으로 PPTX 바로 다운로드"
                   disabled={pptxLoading}
                 >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/30"
+                    style={{ background: currentPresetInfo.accent }}
+                  />
                   <span className="truncate">
-                    {pptxLoading ? "⏳ 생성 중..." : `📊 PPTX 받기 (${currentPresetInfo.label.split(" ")[1] || "표준"})`}
+                    {pptxLoading ? "⏳" : `⚡ 바로 받기`}
                   </span>
                 </button>
                 <button
                   onClick={() => setIsPresetMenuOpen(!isPresetMenuOpen)}
-                  className="px-2.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white border-l border-neutral-600 transition-colors flex items-center justify-center"
+                  className="px-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white border-l border-neutral-700 transition-colors flex items-center justify-center"
                   title="PPTX 템플릿 프리셋 선택"
                   aria-expanded={isPresetMenuOpen}
                 >
@@ -417,13 +447,20 @@ export function FloatingActionBar({
 
               {/* 프리셋 선택 팝오버 메뉴 */}
               {isPresetMenuOpen && (
-                <div className="absolute bottom-full mb-2 right-0 w-64 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                  <div className="px-2 py-1.5 border-b border-neutral-800 mb-1 flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-neutral-400">
+                <div className="absolute bottom-full mb-2 right-0 w-72 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <div className="px-2 py-1.5 border-b border-neutral-800 mb-1.5 flex items-center justify-between">
+                    <span className="text-[12px] font-bold text-neutral-200">
                       🎨 PPTX 템플릿 프리셋
                     </span>
-                    <span className="text-[9px] text-primary">{availablePresets.length}개 스타일</span>
+                    <span className="text-[11px] font-bold text-amber-300">{availablePresets.length}개 스타일</span>
                   </div>
+                  <Link
+                    href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
+                    className="mb-2 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-extrabold transition-colors"
+                  >
+                    <span>📐</span>
+                    <span>슬라이드 스튜디오에서 미리보기 · 편집</span>
+                  </Link>
                   <div className="space-y-1 max-h-60 overflow-y-auto">
                     {availablePresets.map((preset) => (
                       <button
@@ -434,17 +471,23 @@ export function FloatingActionBar({
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex flex-col gap-0.5 ${
                           selectedPreset === preset.id
-                            ? "bg-primary/20 text-primary border border-primary/30"
-                            : "hover:bg-neutral-800 text-neutral-300"
+                            ? "bg-amber-500/15 text-amber-200 border border-amber-500/40"
+                            : "hover:bg-neutral-800 text-neutral-200"
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold">{preset.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/30"
+                              style={{ background: preset.accent }}
+                            />
+                            <span className="font-bold">{preset.label}</span>
+                          </div>
                           {selectedPreset === preset.id && (
-                            <span className="text-xs">✓</span>
+                            <span className="text-xs font-black text-amber-300">✓</span>
                           )}
                         </div>
-                        <span className="text-xs text-neutral-500">
+                        <span className="text-[11px] text-neutral-400 pl-4">
                           {preset.desc}
                         </span>
                       </button>

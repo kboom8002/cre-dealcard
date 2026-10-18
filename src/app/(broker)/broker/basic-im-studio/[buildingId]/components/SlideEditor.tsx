@@ -1,176 +1,414 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import React, { useState } from 'react';
+import type { PptxSlide } from '@/domain/building/pptx-studio/studio-service';
+import { PresetGallery } from '@/components/broker/im-studio/PresetGallery';
+import { HeaderFooterEditor } from '@/components/broker/im-studio/HeaderFooterEditor';
+import { ArchetypeSelector } from '@/components/broker/im-studio/ArchetypeSelector';
+import { AiTextGenerator } from '@/components/broker/im-studio/AiTextGenerator';
+import { GalleryCurator, type StudioPhotoItem } from '@/components/broker/im-studio/GalleryCurator';
 
-interface Slide {
-  id: string;
-  slideIndex: number;
-  layoutType: string;
-  title: string;
-  kicker: string;
-  dataKey: string;
-  slideOverrides: Record<string, any>;
+export type RightPanelTab = 'content' | 'theme' | 'branding';
+
+interface SlideEditorProps {
+  projectId: string;
+  slide: PptxSlide;
+  activeTab: RightPanelTab;
+  onTabChange: (tab: RightPanelTab) => void;
+  onChange: (key: string, value: unknown) => void;
+  onLayoutChange: (layoutType: string) => void;
+  onSave: () => void;
+  onResetSlide: () => void;
+  saving: boolean;
 }
 
-interface EditorField {
+interface FieldSpec {
   key: string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'image';
+  multiline?: boolean;
+  aiEnabled?: boolean;
   placeholder?: string;
-  rows?: number;
 }
 
-const SLIDE_FIELDS: Record<string, EditorField[]> = {
+const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
   cover: [
-    { key: 'title', label: '제목', type: 'text', placeholder: '건물명 또는 투자 제안서 제목' },
-    { key: 'subtitle', label: '부제목', type: 'text', placeholder: '예: 서울특별시 영등포구 당산동' },
-    { key: 'date', label: '날짜', type: 'text', placeholder: '2026-09-20' },
+    { key: 'title', label: '표지 메인 타이틀 (건물명·매각명)' },
+    { key: 'subtitle', label: '표지 서브타이틀 (용도·핵심 문구)' },
+    { key: 'askingPrice', label: '매매 희망가 표기 (예: 95억 원)' },
+    { key: 'address', label: '소재지 표기' },
+    { key: 'date', label: '작성 기준일 (YYYY-MM-DD)' },
+    { key: 'brokerCompany', label: '담당 중개법인 명칭' },
+    { key: 'brokerName', label: '담당 컨설턴트 성명' },
+    { key: 'brokerPhone', label: '담당자 연락처' },
   ],
   highlights: [
-    { key: 'keyInvestmentPoint', label: '투자 핵심 포인트', type: 'textarea', placeholder: '주요 투자 포인트를 입력하세요', rows: 3 },
-    { key: 'askingPrice', label: '매각 희망가 (억원)', type: 'text', placeholder: '예: 85.0' },
-    { key: 'grossYield', label: '총 수익률 (%)', type: 'text', placeholder: '예: 5.85' },
-    { key: 'vacancySignal', label: '공실 현황', type: 'text', placeholder: '예: 만실 운영' },
+    { key: 'leadSentence', label: '슬라이드 상단 핵심 리드 문장', aiEnabled: true },
+    { key: 'askingPrice', label: 'KPI 1: 매매 희망가' },
+    { key: 'grossYield', label: 'KPI 2: 현행 임대수익률 (%)' },
+    { key: 'stabilizedYield', label: 'KPI 3: 안정화 기대수익률 (%)' },
+    { key: 'vacancySignal', label: 'KPI 4: 임대 가동 현황 / 공실률' },
+    { key: 'keyInvestmentPoint', label: '투자 포인트 01 (입지·수익 구조)', aiEnabled: true },
+    { key: 'investmentPoint2', label: '투자 포인트 02 (토지·건물 제원 강점)' },
+    { key: 'investmentPoint3', label: '투자 포인트 03 (밸류애드·상승 여력)' },
   ],
   overview: [
-    { key: 'buildingOverview', label: '건물 개요', type: 'textarea', placeholder: '건물 개요 정보를 입력하세요', rows: 4 },
-    { key: 'rightCallout', label: '권리 분석 콜아웃', type: 'textarea', placeholder: '권리 분석 내용', rows: 3 },
+    { key: 'buildingName', label: '건물명' },
+    { key: 'address', label: '소재지 (도로명 · 지번)' },
+    { key: 'landArea', label: '대지면적 (㎡ / 평)' },
+    { key: 'grossArea', label: '연면적 (㎡ / 평)' },
+    { key: 'floors', label: '건축규모 (지하 / 지상 층수)' },
+    { key: 'zoning', label: '용도지역' },
+    { key: 'bcrFar', label: '건폐율 / 용적률 (%)' },
+    { key: 'completionYear', label: '사용승인연도 (준공연도)' },
+    { key: 'parkingElevator', label: '주차대수 / 승강기' },
+    { key: 'mainUse', label: '주용도' },
+    { key: 'structureType', label: '주구조' },
+    { key: 'askingPrice', label: '하단 매매 희망가' },
+    { key: 'landUnitPrice', label: '하단 토지 평당가' },
+    { key: 'rightCallout', label: '우측 자산 핵심 체크포인트 (줄바꿈 구분)', multiline: true, aiEnabled: true },
   ],
   location: [
-    { key: 'address', label: '주소', type: 'text', placeholder: '서울시 영등포구 ...' },
-    { key: 'mapImageUrl', label: '지도 이미지', type: 'image' },
-    { key: 'transitInfo', label: '대중교통', type: 'text', placeholder: '예: 당산역 2분' },
-    { key: 'roadInfo', label: '도로 접면', type: 'text', placeholder: '예: 8m 도로 2면 접면' },
-    { key: 'areaInfo', label: '상권 권역', type: 'text', placeholder: '예: 영등포/당산 업무 권역' },
+    { key: 'address', label: '소재지' },
+    { key: 'transitInfo', label: '대중교통 · 역세권 도보 시간' },
+    { key: 'roadInfo', label: '접면도로 및 차량 진입 여건' },
+    { key: 'areaInfo', label: '배후 상권 및 권역 특성' },
+    { key: 'locationCallout', label: '입지 및 상권 종합 의견', multiline: true, aiEnabled: true },
+    { key: 'mapImageUrl', label: '커스텀 위치도 이미지 URL (선택)' },
   ],
   land: [
-    { key: 'zoningInfo', label: '용도지역', type: 'text', placeholder: '예: 제2종일반주거지역' },
-    { key: 'landCallout', label: '토지 분석 내용', type: 'textarea', placeholder: '토지 관련 상세 정보', rows: 3 },
-  ],
-  gallery: [
-    { key: 'photos', label: '사진 업로드', type: 'image' },
+    { key: 'landArea', label: '대지면적 (㎡ / 평)' },
+    { key: 'landCategory', label: '지목 (예: 대)' },
+    { key: 'zoningInfo', label: '용도지역 · 지구' },
+    { key: 'bcrFar', label: '건폐율 / 용적률' },
+    { key: 'officialLandPrice', label: '개별공시지가 (원/㎡ · 평당)' },
+    { key: 'nationalLaw', label: '국토의 계획 및 이용에 관한 법률 사항' },
+    { key: 'otherLaws', label: '다른 법령 등에 따른 지역·지구' },
+    { key: 'landCallout', label: '토지 규제 및 공법 종합 검토 의견', multiline: true, aiEnabled: true },
   ],
   rentroll: [
-    { key: 'rentrollNotes', label: '렌트롤 안내', type: 'textarea', placeholder: '렌트롤 관련 안내 사항', rows: 3 },
+    { key: 'depositTotal', label: '총 보증금 합계' },
+    { key: 'monthlyRentTotal', label: '월 임대료 합계' },
+    { key: 'occupancyRate', label: '임대 가동률 (%)' },
+    { key: 'vacancySignal', label: '공실 현황 요약' },
+    { key: 'stabilizedYieldTitle', label: '하단 매입 후 전략 배너 제목' },
+    { key: 'turnaroundStrategy', label: '매입 후 임대차 재구성(Value-Add) 전략 상세', multiline: true, aiEnabled: true },
+    { key: 'rentrollNotes', label: '렌트롤 각주 / 기준 안내 문구' },
   ],
   yield: [
-    { key: 'yieldNotes', label: '수익률 안내', type: 'textarea', placeholder: '수익률 산정 방식 안내', rows: 3 },
+    { key: 'capRateBase', label: '현행 임대수익률 (%)' },
+    { key: 'capRateStabilized', label: '안정화 기대수익률 (%)' },
+    { key: 'stabilizedAssumption', label: '안정화 수익률 산출 가정 설명' },
+    { key: 'askingPrice', label: '매매 희망가 (A)' },
+    { key: 'totalDeposit', label: '총 임대보증금 (B)' },
+    { key: 'annualRent', label: '연간 임대수익 (C = 월세×12)' },
+    { key: 'pricePerPyeong', label: '토지 평당 단가' },
+    { key: 'yieldNotes', label: '수익률 및 공시지가 추이 해설', multiline: true },
+  ],
+  comps: [
+    { key: 'compsTitle', label: '시세 비교 표 제목' },
+    { key: 'targetLandPricePerPy', label: '본건 토지 평당가' },
+    { key: 'compsNotes', label: '인근 실거래 비교 시사점 코멘트', multiline: true },
+  ],
+  gallery: [
+    { key: 'galleryTitle', label: '갤러리 슬라이드 부제' },
   ],
   closing: [
-    { key: 'brokerName', label: '담당자명', type: 'text', placeholder: '홍길동' },
-    { key: 'brokerPhone', label: '연락처', type: 'text', placeholder: '010-0000-0000' },
-    { key: 'brokerCompany', label: '중개사무소·법인명', type: 'text', placeholder: '예: 강남으뜸공인중개사사무소' },
+    { key: 'closingLine', label: '매수 제안 한 줄 요약 문구', multiline: true, aiEnabled: true },
+    { key: 'brokerCompany', label: '중개법인 · 사무소 명칭' },
+    { key: 'brokerName', label: '담당자 성명 · 직책' },
+    { key: 'brokerPhone', label: '담당자 직통 연락처' },
+    { key: 'brokerEmail', label: '담당자 이메일' },
+    { key: 'brokerRegNo', label: '중개사무소 등록번호' },
+    { key: 'disclaimer', label: '법적 면책 고지 문구', multiline: true },
   ],
 };
 
 export function SlideEditor({
+  projectId,
   slide,
+  activeTab,
+  onTabChange,
+  onChange,
+  onLayoutChange,
   onSave,
-  onMapUpload,
+  onResetSlide,
   saving,
-}: {
-  slide: Slide;
-  onSave: (slideId: string, overrides: Record<string, any>) => Promise<void>;
-  onMapUpload: (slideId: string, file: File, fieldName: string) => Promise<void>;
-  saving: boolean;
-}) {
-  const [localOverrides, setLocalOverrides] = useState<Record<string, any>>({});
+}: SlideEditorProps) {
+  const dataKey = slide.dataKey || 'overview';
+  const overrides = (slide.slideOverrides || {}) as Record<string, any>;
+  const fields = SLIDE_FIELD_SPECS[dataKey] || SLIDE_FIELD_SPECS.overview;
 
-  // Reset local state when slide changes
-  useEffect(() => {
-    setLocalOverrides({ ...slide.slideOverrides });
-  }, [slide.id, slide.slideOverrides]);
+  // Quick-add comparable state for 'comps' slide
+  const [compName, setCompName] = useState('');
+  const [compDate, setCompDate] = useState('2025.12');
+  const [compPrice, setCompPrice] = useState('');
+  const [compLandPy, setCompLandPy] = useState('');
+  const [compUnitManwon, setCompUnitManwon] = useState('');
 
-  const fields = SLIDE_FIELDS[slide.dataKey] || [];
-
-  const handleFieldChange = (key: string, value: any) => {
-    setLocalOverrides(prev => ({ ...prev, [key]: value }));
+  const handleAddComp = () => {
+    if (!compName.trim()) return;
+    const existing = Array.isArray(overrides.compsRows) ? overrides.compsRows : [];
+    const next = [
+      ...existing,
+      {
+        name: compName.trim(),
+        trade_date: compDate.trim() || '-',
+        price: compPrice.trim() || '-',
+        land_pyeong: compLandPy.trim() || '-',
+        land_unit_manwon: compUnitManwon.trim() || '-',
+      },
+    ];
+    onChange('compsRows', next);
+    setCompName('');
+    setCompPrice('');
+    setCompLandPy('');
+    setCompUnitManwon('');
   };
 
-  const handleSave = async () => {
-    await onSave(slide.id, localOverrides);
-  };
-
-  const handleFileChange = async (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await onMapUpload(slide.id, file, key);
-    }
+  const handleRemoveComp = (idx: number) => {
+    const existing = Array.isArray(overrides.compsRows) ? overrides.compsRows : [];
+    onChange(
+      'compsRows',
+      existing.filter((_: any, i: number) => i !== idx)
+    );
   };
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">
-            {slide.slideIndex}. {slide.title}
-          </h2>
-          <p className="text-sm text-gray-500">{slide.kicker}</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? '저장 중...' : '💾 변경사항 저장'}
-        </Button>
+    <aside className="w-96 border-l border-[#CBD5E1] bg-white flex flex-col shrink-0 h-full overflow-hidden">
+      {/* Top 3-Tab Switcher */}
+      <div className="grid grid-cols-3 border-b border-[#CBD5E1] bg-[#F8FAFC] p-1.5 gap-1 shrink-0">
+        {([
+          { id: 'content', label: '📝 슬라이드 편집' },
+          { id: 'theme', label: '🎨 테마·프리셋' },
+          { id: 'branding', label: '🏢 헤더·푸터' },
+        ] as const).map(tab => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange(tab.id)}
+              className={`py-2 px-2 rounded-lg text-xs font-extrabold transition-all ${
+                active
+                  ? 'bg-[#0F172A] text-white shadow-xs'
+                  : 'text-[#334155] hover:text-[#0F172A] hover:bg-[#E2E8F0]/60'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="space-y-5">
-        {fields.map(field => (
-          <div key={field.key}>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              {field.label}
-            </label>
-            {field.type === 'text' && (
-              <Input
-                value={localOverrides[field.key] || ''}
-                onChange={e => handleFieldChange(field.key, e.target.value)}
-                placeholder={field.placeholder}
-              />
-            )}
-            {field.type === 'number' && (
-              <Input
-                type="number"
-                value={localOverrides[field.key] || ''}
-                onChange={e => handleFieldChange(field.key, e.target.value)}
-                placeholder={field.placeholder}
-              />
-            )}
-            {field.type === 'textarea' && (
-              <textarea
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={field.rows || 3}
-                value={localOverrides[field.key] || ''}
-                onChange={e => handleFieldChange(field.key, e.target.value)}
-                placeholder={field.placeholder}
-              />
-            )}
-            {field.type === 'image' && (
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={e => handleFileChange(field.key, e)}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {localOverrides[field.key] && typeof localOverrides[field.key] === 'string' && localOverrides[field.key].startsWith('data:') && (
-                  <img
-                    src={localOverrides[field.key]}
-                    alt={field.label}
-                    className="mt-2 rounded-md border max-h-48 object-contain"
+      {/* Scrollable Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {activeTab === 'theme' ? (
+          <PresetGallery />
+        ) : activeTab === 'branding' ? (
+          <HeaderFooterEditor />
+        ) : (
+          /* TAB 1: SLIDE CONTENT EDITOR */
+          <div className="space-y-4 text-[#0F172A]">
+            {/* Slide Common Title & Kicker */}
+            <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#1E3A8A]">
+                  슬라이드 {String(slide.slideIndex).padStart(2, '0')} 헤더 설정
+                </span>
+                <span className="text-[10px] font-mono font-bold text-[#475569]">
+                  {slide.layoutType}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#334155] mb-0.5">
+                    상단 영문 키커 (Kicker)
+                  </label>
+                  <input
+                    type="text"
+                    value={String(overrides.kicker ?? slide.kicker ?? '')}
+                    onChange={e => onChange('kicker', e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                   />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#334155] mb-0.5">
+                    슬라이드 제목 (Title)
+                  </label>
+                  <input
+                    type="text"
+                    value={String(overrides.title ?? slide.title ?? '')}
+                    onChange={e => onChange('title', e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Compatible Layout / Archetype Switcher */}
+            <ArchetypeSelector
+              dataKey={dataKey}
+              currentLayoutType={slide.layoutType}
+              onSelectLayout={onLayoutChange}
+            />
+
+            {/* Gallery Curator if Gallery Slide */}
+            {dataKey === 'gallery' && (
+              <GalleryCurator
+                photos={(overrides.photos as StudioPhotoItem[]) || []}
+                galleryLayout={String(overrides.galleryLayout || 'grid_4')}
+                onChangePhotos={nextPhotos => onChange('photos', nextPhotos)}
+                onChangeLayout={nextLayout => onChange('galleryLayout', nextLayout)}
+              />
+            )}
+
+            {/* Structured Field Inputs */}
+            <div className="space-y-3">
+              {fields.map(f => {
+                const currentVal = String(overrides[f.key] ?? '');
+                return (
+                  <div key={f.key} className="space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <label className="block text-xs font-bold text-[#0F172A]">
+                        {f.label}
+                      </label>
+                      {f.aiEnabled && (
+                        <AiTextGenerator
+                          projectId={projectId}
+                          slideId={slide.id}
+                          dataKey={dataKey}
+                          fieldKey={f.key}
+                          currentText={currentVal}
+                          onApply={refined => onChange(f.key, refined)}
+                        />
+                      )}
+                    </div>
+                    {f.multiline ? (
+                      <textarea
+                        rows={3}
+                        value={currentVal}
+                        onChange={e => onChange(f.key, e.target.value)}
+                        placeholder={f.placeholder || `${f.label} 입력`}
+                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] resize-y"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={currentVal}
+                        onChange={e => onChange(f.key, e.target.value)}
+                        placeholder={f.placeholder || `${f.label} 입력`}
+                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Market Comparables List Editor for 'comps' slide */}
+            {dataKey === 'comps' && (
+              <div className="pt-3 border-t border-[#E2E8F0] space-y-3">
+                <div className="text-xs font-extrabold text-[#0F172A]">
+                  📊 비교 사례 행 관리 ({Array.isArray(overrides.compsRows) ? overrides.compsRows.length : 0}건)
+                </div>
+                {Array.isArray(overrides.compsRows) && overrides.compsRows.length > 0 && (
+                  <div className="space-y-1.5">
+                    {overrides.compsRows.map((c: any, i: number) => (
+                      <div
+                        key={i}
+                        className="px-2.5 py-1.5 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between text-xs"
+                      >
+                        <div className="truncate pr-2">
+                          <span className="font-bold text-[#0F172A]">{c.name || c.address}</span>
+                          <span className="text-[#475569] ml-1.5">
+                            ({c.price || `${c.price_eok || '-'}억`} · 평당 {c.land_unit_manwon || '-'}만)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveComp(i)}
+                          className="text-[11px] font-bold text-[#B91C1C] hover:underline shrink-0"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
+
+                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
+                  <div className="text-xs font-bold text-[#0F172A]">➕ 인근 비교사례 직접 추가</div>
+                  <input
+                    type="text"
+                    value={compName}
+                    onChange={e => setCompName(e.target.value)}
+                    placeholder="소재지 또는 건물명 (예: 당산동4가 근생빌딩)"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                  />
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      type="text"
+                      value={compDate}
+                      onChange={e => setCompDate(e.target.value)}
+                      placeholder="거래시점 (예: 25.11)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                    <input
+                      type="text"
+                      value={compPrice}
+                      onChange={e => setCompPrice(e.target.value)}
+                      placeholder="거래가 (예: 88억)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                    <input
+                      type="text"
+                      value={compLandPy}
+                      onChange={e => setCompLandPy(e.target.value)}
+                      placeholder="대지면적(평) (예: 112)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                    <input
+                      type="text"
+                      value={compUnitManwon}
+                      onChange={e => setCompUnitManwon(e.target.value)}
+                      placeholder="토지평당가(만) (예: 7,850)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddComp}
+                    className="w-full py-1.5 text-xs font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                  >
+                    비교사례 행 추가
+                  </button>
+                </div>
               </div>
             )}
           </div>
-        ))}
-
-        {fields.length === 0 && (
-          <p className="text-gray-400 text-center py-8">
-            이 섹션은 자동으로 생성됩니다.
-          </p>
         )}
       </div>
-    </Card>
+
+      {/* Bottom Sticky Action Bar */}
+      <div className="p-3.5 border-t border-[#CBD5E1] bg-[#F8FAFC] flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={onResetSlide}
+          disabled={saving}
+          className="px-3 py-2.5 text-xs font-bold text-[#334155] hover:text-[#0F172A] bg-white hover:bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl transition-colors"
+          title="이 슬라이드의 텍스트·수치를 공부/초기 추출값으로 되돌립니다"
+        >
+          ↺ 초기값 복원
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="flex-1 py-2.5 px-4 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-extrabold rounded-xl text-xs transition-colors disabled:opacity-50 shadow-xs"
+        >
+          {saving ? '⏳ 저장 중...' : '💾 현재 슬라이드 저장'}
+        </button>
+      </div>
+    </aside>
   );
 }

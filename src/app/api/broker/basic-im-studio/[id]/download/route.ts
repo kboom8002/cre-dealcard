@@ -14,24 +14,33 @@ export async function GET(
   }
 
   const { id } = await params;
+  const searchParams = req.nextUrl.searchParams;
+  const queryVisualPreset = searchParams.get('visualPreset') || searchParams.get('preset') || undefined;
+  const queryBrandAccent = searchParams.get('brandAccent') || undefined;
+  const queryCoverStyle = searchParams.get('coverStyle') || undefined;
+  const queryLayoutStyle = searchParams.get('layoutStyle') || undefined;
+
   try {
     let project;
     try { project = await studioService.getProject(id); }
     catch { project = await studioService.findProjectByDealId(id); }
-    
+
     // P-C4: cold start로 in-memory 유실 시 DB에서 자동 복구
     if (!project) {
       try {
         const actualId = id.replace(/^basic-/, '');
         const recoverySupabase = createServiceClient();
-        const { data: recoveryDoc } = await recoverySupabase
+        const { data: recoveryDocs } = await recoverySupabase
           .from('document_objects')
           .select('id, title, body, building_id')
           .or(`building_id.eq.${actualId},id.eq.${actualId}`)
           .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(10);
+
+        const recoveryDoc = (recoveryDocs || []).find(
+          (d: any) => d?.body && !Array.isArray(d.body.slides)
+        );
         if (recoveryDoc?.body) {
           project = await studioService.createBasicImProject(actualId, recoveryDoc.title || 'Basic IM', recoveryDoc.body);
           console.warn(`[basic-im-studio/download] P-C4: cold start 복구 후 프로젝트 재생성 (${actualId})`);
@@ -40,22 +49,36 @@ export async function GET(
         console.warn('[basic-im-studio/download] P-C4: 복구 실패:', recoverErr);
       }
     }
-    
+
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
 
-    // ── B1 Fix: Build merged doc body from slide overrides (deep merge) ──
-    const mergedBody: Record<string, any> = {
-      preset: 'credeal_basic',
-    };
-    for (const slide of (project.slides || []).filter(s => !s?.hidden)) {
-      if (slide.dataKey && Object.keys(slide.slideOverrides || {}).length > 0) {
-        mergedBody[slide.dataKey] = {
-          ...(mergedBody[slide.dataKey] ?? {}),
+    // ── Collect Studio Slide Overrides, Hidden Slides, Slide Order, and Theme/HeaderFooter ──
+    const studioSlideOverrides: Record<string, Record<string, any>> = {};
+    const studioSlideTitles: Record<string, { title?: string; kicker?: string; layoutType?: string }> = {};
+    const studioHiddenDataKeys: string[] = [];
+    const studioSlideOrder: string[] = [];
+
+    for (const slide of project.slides || []) {
+      const dk = slide.dataKey || '';
+      if (!dk) continue;
+      if (slide.hidden && dk !== 'cover' && dk !== 'closing') {
+        studioHiddenDataKeys.push(dk);
+      } else {
+        studioSlideOrder.push(dk);
+      }
+      if (slide.slideOverrides && Object.keys(slide.slideOverrides).length > 0) {
+        studioSlideOverrides[dk] = {
+          ...(studioSlideOverrides[dk] ?? {}),
           ...slide.slideOverrides,
         };
       }
+      studioSlideTitles[dk] = {
+        title: slide.title,
+        kicker: slide.kicker,
+        layoutType: slide.layoutType,
+      };
     }
 
     // ── Fetch building data from Supabase for enrichment ──
@@ -65,62 +88,113 @@ export async function GET(
     let broker: Record<string, any> | null = null;
 
     try {
-      const { data: docRow } = await supabase
+      const { data: docRows } = await supabase
         .from('document_objects')
-        .select('id, title, body, building_id, broker_id, owner_id')
+        .select('id, title, body, building_id, broker_id, owner_id, document_type')
         .or(`building_id.eq.${project.dealId},id.eq.${project.dealId}`)
+        .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      doc = docRow;
+        .limit(10);
 
-      if (doc?.building_id) {
+      // Select the latest real IM document (not a PptxProject row)
+      doc = (docRows || []).find((r: any) => r?.body && !Array.isArray(r.body.slides)) ?? null;
+
+      const targetBuildingId = doc?.building_id || project.dealId;
+      if (targetBuildingId) {
         const { data: bldg } = await supabase
-          .from('building_ssot_lite') // W-6: buildings → building_ssot_lite 통일
+          .from('building_ssot_lite')
           .select('*')
-          .eq('id', doc.building_id)
+          .eq('id', targetBuildingId)
           .maybeSingle();
         building = bldg;
       }
 
       const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
-      // 브로커 연락처 SSoT resolver — 실제 DB 값만, 부재 시 생략
       const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
       broker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId)) ?? null;
     } catch (err) {
       console.warn('[basic-im-studio/download] DB lookup failed, proceeding with overrides only:', err);
     }
 
-    const body = doc?.body ?? {};
+    const baseBody = doc?.body ?? project.buildingContext ?? {};
 
-    // ── Merge Studio overrides INTO the doc body ──
-    // Studio overrides take precedence over auto-generated data
-    const fullBody: Record<string, any> = { ...body, ...mergedBody };
+    // Apply closing/cover broker overrides to broker object if specified in Studio
+    const closingOv = studioSlideOverrides['closing'] || {};
+    const coverOv = studioSlideOverrides['cover'] || {};
+    const effectiveCompanyName =
+      project.headerFooter?.companyName ||
+      closingOv.brokerCompany ||
+      coverOv.brokerCompany ||
+      broker?.company_name;
 
-    // ── Determine posture & grade ──
-    const posture = body.investment_posture
-      ?? body.investmentPosture
-      ?? body.posture
-      ?? body.identity?.investmentPosture
-      ?? body.ssot_summary?.investment_posture
+    const effectiveBroker = {
+      ...(broker || {}),
+      company_name: effectiveCompanyName || broker?.company_name || 'CRE DEAL 파트너스 중개법인',
+      display_name: closingOv.brokerName || coverOv.brokerName || broker?.display_name || '',
+      phone: closingOv.brokerPhone || coverOv.brokerPhone || broker?.phone || '',
+      email: closingOv.brokerEmail || broker?.email || '',
+      registration_no: closingOv.brokerRegNo || broker?.registration_no || '',
+    };
+
+    const effectiveVisualPreset = queryVisualPreset || project.visualPreset || 'credeal_basic';
+    const effectiveBrandAccent = queryBrandAccent || project.brandAccent || undefined;
+    const effectiveCoverStyle = (queryCoverStyle || project.coverStyle) as any;
+    const effectiveLayoutStyle = (queryLayoutStyle || project.layoutStyle) as any;
+
+    const fullBody: Record<string, any> = {
+      ...baseBody,
+      ...studioSlideOverrides,
+      preset: 'credeal_basic',
+      _studioSlideOverrides: studioSlideOverrides,
+      _studioSlideTitles: studioSlideTitles,
+      _studioHiddenDataKeys: studioHiddenDataKeys,
+      _studioSlideOrder: studioSlideOrder,
+      _studioHeaderFooter: project.headerFooter ?? null,
+      _studioThemeOverrides: {
+        visualPreset: effectiveVisualPreset,
+        brandAccent: effectiveBrandAccent,
+        coverStyle: effectiveCoverStyle,
+        layoutStyle: effectiveLayoutStyle,
+      },
+    };
+
+    // If user added/edited comps in Studio and un-hid the comps slide, ensure manual_comps is populated
+    if (
+      Array.isArray(studioSlideOverrides['comps']?.compsRows) &&
+      studioSlideOverrides['comps'].compsRows.length > 0 &&
+      !studioHiddenDataKeys.includes('comps')
+    ) {
+      fullBody.manual_comps = studioSlideOverrides['comps'].compsRows;
+      fullBody.broker_extras = {
+        ...(fullBody.broker_extras || {}),
+        market_comps: studioSlideOverrides['comps'].compsRows,
+      };
+    }
+
+    // Determine posture & grade
+    const posture = baseBody.investment_posture
+      ?? baseBody.investmentPosture
+      ?? baseBody.posture
+      ?? baseBody.identity?.investmentPosture
+      ?? baseBody.ssot_summary?.investment_posture
       ?? building?.investment_posture
       ?? 'income';
 
-    let grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.grade;
+    let grade = baseBody.dataGrade ?? baseBody.dataCompleteness?.qualityGrade ?? baseBody.grade;
     if (!grade) {
       try {
         const { computeDataQualityBadge, tierToGrade } = await import(
           '@/domain/building/mobile-im/data-quality-badge'
         );
-        const ssot = body.ssot_summary ?? {};
+        const ssot = baseBody.ssot_summary ?? {};
         const badge = computeDataQualityBadge({
           hasAddress: !!(ssot.address || ssot.raw_address),
-          hasPublicData: !!(body.external_data?.buildingRegister || ssot.building_register_source === 'api'),
-          hasMonthlyRent: !!(ssot.monthly_rent_total_krw || body.financial?.monthlyRentKrw),
+          hasPublicData: !!(baseBody.external_data?.buildingRegister || ssot.building_register_source === 'api'),
+          hasMonthlyRent: !!(ssot.monthly_rent_total_krw || baseBody.financial?.monthlyRentKrw),
           hasVacancy: ssot.vacancy_pct != null || !!ssot.vacancy_signal,
-          hasPhotos: !!(body.photos_v2?.length || body.photos?.length),
+          hasPhotos: !!(baseBody.photos_v2?.length || baseBody.photos?.length),
           hasAskingPrice: !!(ssot.asking_price_manwon || ssot.price_band),
-          hasFloorLeases: !!(body.floor_leases?.length || body.rentRoll?.length),
+          hasFloorLeases: !!(baseBody.floor_leases?.length || baseBody.rentRoll?.length),
           hasTotalGrossArea: !!(ssot.total_gross_area_sqm || ssot.size_signal),
           hasLandArea: !!(ssot.land_area_sqm),
         }, posture as any);
@@ -129,35 +203,40 @@ export async function GET(
         grade = 'B';
       }
     }
+    if (grade === 'D') grade = 'C'; // Studio preview/download fallback guard
 
-    // ── B1 Fix: Use MobileImPptxRenderer (production pipeline) ──
     const { MobileImPptxRenderer } = await import(
       '@/domain/building/mobile-im/pptx/pptx-renderer'
     );
     const renderer = new MobileImPptxRenderer();
 
+    const coverTitle = coverOv.title || project.title?.replace(/\s*Basic\s*IM$/i, '') || doc?.title || 'Basic IM';
+
     const result = await renderer.render({
       buildingId: project.dealId,
       preset: 'credeal_basic',
+      visualPreset: effectiveVisualPreset,
+      brandAccent: effectiveBrandAccent,
+      logoUrl: project.headerFooter?.logoUrl || undefined,
       posture,
       grade,
-      incomeArchetype: body.incomeArchetype ?? undefined,
-      hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
-      hasJointCollateral: body.hasJointCollateral ?? false,
-      releaseTier: (body.releaseTier as ReleaseTier) || 'decision_im', // W-7: 다른 라우트와 통일
-      docno: body.docno ?? `IM-${(project.dealId || 'UNKNOWN').substring(0, 6).toUpperCase()}`,
+      incomeArchetype: baseBody.incomeArchetype ?? undefined,
+      hasViolation: baseBody.hasViolation ?? baseBody.violationStatus === 'exists',
+      hasJointCollateral: baseBody.hasJointCollateral ?? false,
+      releaseTier: (baseBody.releaseTier as ReleaseTier) || 'decision_im',
+      docno: baseBody.docno ?? `IM-${(project.dealId || 'UNKNOWN').substring(0, 6).toUpperCase()}`,
       doc: {
-        title: project.title || doc?.title || 'Basic IM',
+        title: coverTitle,
         body: fullBody,
-        sections: body.sections,
+        sections: baseBody.sections,
       },
       building: building || undefined,
-      broker: broker || undefined,
-      provenance: body.provenance ?? {},
+      broker: effectiveBroker,
+      provenance: baseBody.provenance ?? {},
       supabase,
     });
 
-    const safeTitle = (project.title || 'Basic_IM').replace(/[^a-zA-Z0-9\u3131-\u318E\u3200-\u321E\uAC00-\uD7A3]/g, '_');
+    const safeTitle = (coverTitle || 'Basic_IM').replace(/[^a-zA-Z0-9\u3131-\u318E\u3200-\u321E\uAC00-\uD7A3]/g, '_');
 
     return new NextResponse(new Uint8Array(result.buffer), {
       status: 200,

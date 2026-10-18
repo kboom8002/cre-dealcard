@@ -51,6 +51,7 @@ import { resolveDualLineAddress } from './address-display';
 import { buildBasicLocationRightData } from './location-facts-builder';
 import { buildBasicLandSlideData } from './archetypes/a27-land-use-plan';
 import { getRegionalLandPriceRateSeries } from '@/lib/external/rone-api';
+import { applyStudioThemeOverrides, applyStudioSlideOverrides } from './studio-overrides-applier';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -163,9 +164,10 @@ export class MobileImPptxRenderer {
     // Basic IM 시각 스킨: credeal_basic 일 때만 색상 팔레트 교체 (시퀀스·레이아웃·글꼴 불변)
     const skinned: PptxThemeTokens = applyBasicSkin(resolvedTheme, input.visualPreset);
     // 브랜드 컬러: 기본 스킨(credeal_basic)일 때만 회사 기본 프리셋 대표색으로 팔레트 파생 (명시 선택한 내장 스킨이 우선)
-    const theme: PptxThemeTokens = (!input.visualPreset || input.visualPreset === 'credeal_basic')
+    const baseTheme: PptxThemeTokens = (!input.visualPreset || input.visualPreset === 'credeal_basic')
       ? applyBasicBrand(skinned, input.brandAccent)
       : skinned;
+    const theme: PptxThemeTokens = applyStudioThemeOverrides(baseTheme, input.doc?.body);
 
     // G5: 커스텀 프리셋의 logo_url을 input.logoUrl에 폴백 머지
     const resolvedLogoUrl = input.logoUrl ?? theme.logoUrl;
@@ -1273,6 +1275,9 @@ export class MobileImPptxRenderer {
       const blockedWarning = input.publishBlocked
         ? `⚠ 발행 차단 [${(input.publishBlockReasons ?? []).join(', ')}] — 내부 검토용`
         : undefined;
+
+      // Basic IM Studio 오버라이드 (표시/숨김, 슬라이드 순서, 텍스트·수치 편집) 반영 — 일반 경로에는 무영향
+      sequence = applyStudioSlideOverrides(sequence, dataMap, input.doc?.body);
 
       for (const spec of sequence) {
         if (spec.suppress) continue;
