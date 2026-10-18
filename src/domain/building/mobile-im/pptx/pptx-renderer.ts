@@ -326,18 +326,21 @@ export class MobileImPptxRenderer {
         }
       }
 
+      const rawCoverTitle = String(input.doc.title ?? '').replace(/기타\s*매각/g, '빌딩 매각');
+      const rawCoverAssetType = String(input.building?.asset_type ?? '').trim();
+      const normalizedCoverAssetType = (rawCoverAssetType === '기타' || rawCoverAssetType === '미분류') ? '빌딩' : rawCoverAssetType;
       dataMap['cover'] = {
-        title: input.doc.title ?? '',
+        title: rawCoverTitle,
         content: '',
         tables: [],
         metrics: {},
-        subtitle: input.building?.asset_type ?? '',
-        assetType: input.building?.asset_type ?? '',
+        subtitle: normalizedCoverAssetType,
+        assetType: normalizedCoverAssetType,
         priceBand: input.building?.price_band ?? '',
         areaSignal: input.building?.area_signal ?? '',
         brokerName: input.broker?.display_name ?? '',
         companyName,
-        tags: [input.building?.asset_type, input.building?.price_band].filter(Boolean) as string[],
+        tags: [normalizedCoverAssetType, input.building?.price_band].filter(Boolean) as string[],
         docno,
         logoUrl: input.logoUrl,
         coverImageUrl: isBasicPreset ? null : (heroPhoto?.url
@@ -593,6 +596,45 @@ export class MobileImPptxRenderer {
           // 도로조건
           if (!existingLabels.has('도로조건') && !existingLabels.has('접면도로') && (ssotEx.road_condition || bldg.road_condition)) {
             bldgRows.push(['도로조건', String(ssotEx.road_condition || bldg.road_condition)]);
+          }
+
+          // 신축·개발 포스처(나대지 등 대장 부재 시) 중개인 개발 검토 제원 보강
+          const devSpec = input.doc.body?.developmentSpec;
+          if (posture === 'development' && devSpec) {
+            const devMaxFar = Number(devSpec.maxFAR ?? devSpec.maxFarPct);
+            if (
+              !existingLabels.has('건폐율') &&
+              !existingLabels.has('건폐율/용적률') &&
+              !existingLabels.has('건폐율 / 용적률') &&
+              !existingLabels.has('용적률') &&
+              !existingLabels.has('허가 용적률') &&
+              Number.isFinite(devMaxFar) &&
+              devMaxFar > 0
+            ) {
+              bldgRows.push(['허가 용적률', `${devMaxFar.toLocaleString()}% (● 중개인입력)`]);
+            }
+            const rawDevUse = String(devSpec.use ?? devSpec.targetUse ?? '').trim();
+            const DEV_USE_KO: Record<string, string> = {
+              office: '업무시설(오피스)',
+              officetel: '오피스텔',
+              retail: '근린생활시설',
+              mixed: '복합개발',
+              residential: '주거시설',
+              hotel: '숙박시설',
+            };
+            const devUseLabel = rawDevUse ? (DEV_USE_KO[rawDevUse.toLowerCase()] ?? rawDevUse) : '';
+            if (!existingLabels.has('주용도') && !existingLabels.has('계획 주용도') && devUseLabel) {
+              bldgRows.push(['계획 주용도', `${devUseLabel} (● 중개인입력)`]);
+            }
+            const devTargetPy = Number(devSpec.targetScalePyeong ?? devSpec.targetScalePyung ?? bldg.layers?.planned_floor_area_pyung);
+            if (
+              !existingLabels.has('연면적') &&
+              !existingLabels.has('목표 신축규모') &&
+              Number.isFinite(devTargetPy) &&
+              devTargetPy > 0
+            ) {
+              bldgRows.push(['목표 신축규모', `약 ${devTargetPy.toLocaleString()}평 (● 중개인입력)`]);
+            }
           }
         }
 

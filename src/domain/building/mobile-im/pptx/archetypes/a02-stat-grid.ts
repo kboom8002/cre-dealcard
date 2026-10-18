@@ -345,7 +345,11 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     void area;
     for (const fb of fallbackPool) {
       if (keyPoints.length >= 3) break;
-      if (!keyPoints.some(kp => kp.startsWith(fb.substring(0, 5)))) keyPoints.push(fb);
+      const isLocFb = fb.startsWith('입지 —');
+      const alreadyHasLoc = isLocFb && keyPoints.some(kp => kp.includes('역세권') || kp.includes('입지 —') || (stationName && kp.includes(stationName)));
+      if (!alreadyHasLoc && !keyPoints.some(kp => kp.startsWith(fb.substring(0, 5)))) {
+        keyPoints.push(fb);
+      }
     }
   }
 

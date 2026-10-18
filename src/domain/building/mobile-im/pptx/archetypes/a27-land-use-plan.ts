@@ -343,11 +343,35 @@ export function buildBasicLandSlideData(params: {
   if (areaText) overviewRows.push(['면적', areaText]);
   if (officialPriceText) overviewRows.push(['개별공시지가(㎡당)', officialPriceText]);
 
-  // 다필지 개별 행 (2필지 이상일 때)
+  // 다필지 개별 행 (2필지 이상일 때) — 19자리 PNU는 법정동 + 본번-부번 지번으로 변환
+  const dongSearchSource = [
+    rawJibun,
+    roadAddress,
+    String(building?.raw_input || ''),
+    String(body?.raw_text || ''),
+  ].join('\n');
+  const dongPrefixMatch = /(?:^|[\s·,(\[])([가-힣0-9]+(?:동|읍|면|리|가))(?=\s+\d|\s+산\s*\d)/m.exec(
+    dongSearchSource,
+  );
+  const dongPrefix = dongPrefixMatch ? dongPrefixMatch[1] : '';
+  const formatParcelJibun = (rawPnu: string | undefined, idx: number): string => {
+    const s = String(rawPnu || '').trim();
+    if (!s) return `필지 ${idx + 1}`;
+    if (/^\d{19}$/.test(s)) {
+      const san = s[10] === '2' ? '산 ' : '';
+      const bon = parseInt(s.slice(11, 15), 10);
+      const bu = parseInt(s.slice(15, 19), 10);
+      if (Number.isFinite(bon) && bon > 0) {
+        const lot = bu > 0 ? `${san}${bon}-${bu}` : `${san}${bon}`;
+        return dongPrefix ? `${dongPrefix} ${lot}` : `${lot}번지`;
+      }
+    }
+    return s;
+  };
   const parcelRows: ParcelRowItem[] =
     parcelSummary.isMulti && parcels.length >= 2
       ? parcels.slice(0, 5).map((p: BrokerParcel, idx: number) => ({
-          jibun: p.pnu || `필지 ${idx + 1}`,
+          jibun: formatParcelJibun((p as any).jibun || p.pnu, idx),
           jimok: p.landCategory || '-',
           areaText:
             typeof p.areaM2 === 'number' && p.areaM2 > 0

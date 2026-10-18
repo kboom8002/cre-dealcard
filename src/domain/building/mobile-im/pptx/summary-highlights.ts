@@ -93,6 +93,9 @@ export interface SummaryFacts {
   currentYieldPct?: number;
   stabilizedYieldPct?: number;
   brokerInvestmentPoints?: string[];
+  devTargetScalePyeong?: number;
+  devMaxFarPct?: number;
+  devUse?: string;
 }
 
 export interface SummaryHighlights {
@@ -324,6 +327,26 @@ function pointSpace(f: SummaryFacts): string | null {
   return `사옥 공간 — ${yr}${body} 규모로 단독 사옥 사용이 가능한 공간 구성입니다.`;
 }
 
+function pointBuildingScale(f: SummaryFacts): string | null {
+  const fl = floorsLabel(f);
+  const gfa = f.gfaSqm && f.gfaSqm > 0
+    ? `연면적 ${fmtArea1(f.gfaSqm)}㎡(약 ${fmtArea1(f.gfaSqm * 0.3025)}평)`
+    : '';
+  if (!fl && !gfa) return null;
+  const yr = f.completionYear ? `${f.completionYear}년 준공 ` : '';
+  const body = [fl, gfa].filter(Boolean).join(', ');
+  return `건축 규모 — ${yr}${body} 규모의 자산입니다.`;
+}
+
+function pointDevPlan(f: SummaryFacts): string | null {
+  const scalePy = f.devTargetScalePyeong && f.devTargetScalePyeong > 0 ? `신축 목표 규모 약 ${fmtInt(f.devTargetScalePyeong)}평` : '';
+  const maxFar = f.devMaxFarPct && f.devMaxFarPct > 0 ? `허가 용적률 ${fmtInt(f.devMaxFarPct)}%` : '';
+  if (!scalePy && !maxFar) return null;
+  const usePart = f.devUse ? `(${f.devUse})` : '';
+  const body = [maxFar, scalePy ? `${scalePy}${usePart}` : ''].filter(Boolean).join(', ');
+  return `개발 검토 — ${body} 기준으로 신축·개발 계획이 수립된 자산입니다.`;
+}
+
 // ─── 리드 문장 ───────────────────────────────────────────────────────────────
 export function buildLeadSentence(f: SummaryFacts, includeStationInLead = false): string {
   const st = stationLabel(f);
@@ -331,7 +354,8 @@ export function buildLeadSentence(f: SummaryFacts, includeStationInLead = false)
   const yr = f.completionYear ? `${f.completionYear}년 준공` : '';
   const fl = floorsLabel(f);
   const kind = (() => {
-    const at = f.assetType || '빌딩';
+    const rawAt = f.assetType?.trim();
+    const at = (!rawAt || rawAt === '기타' || rawAt === '미분류') ? '빌딩' : rawAt;
     switch (f.posture) {
       case 'owner_occupied': return `사옥용 ${at}`;
       case 'development': return `개발 검토용 ${at}`;
@@ -524,17 +548,17 @@ export function buildSummaryHighlights(facts: SummaryFacts, aiPoints: string[] =
   const order: Array<(f: SummaryFacts) => string | null> = (() => {
     switch (facts.posture) {
       case 'owner_occupied': return [pointLocation, pointSpace, pointLand, pointFar];
-      case 'development': return [pointLand, pointFar, pointLocation, pointLease];
-      case 'operating': return [pointLocation, pointLease, pointLand, pointSpace];
-      case 'trading': return [pointLocation, pointLand, pointLease, pointFar];
-      default: return [pointLocation, pointLease, pointLand, pointFar];
+      case 'development': return [pointLand, pointFar, pointLocation, pointDevPlan, pointBuildingScale, pointLease];
+      case 'operating': return [pointLocation, pointLease, pointLand, pointSpace, pointBuildingScale];
+      case 'trading': return [pointLocation, pointLand, pointLease, pointFar, pointBuildingScale];
+      default: return [pointLocation, pointLease, pointLand, pointFar, pointBuildingScale];
     }
   })();
 
   const lead = buildLead(facts, false);
   for (const gen of order) {
     if (points.length >= 3) break;
-    pushUnique(gen(facts), false, lead);
+    pushUnique(gen(facts), gen === pointDevPlan, lead);
   }
   for (const bp of validBrokerPoints) {
     if (points.length >= 3) break;
@@ -921,6 +945,17 @@ export function extractSummaryFacts(input: ExtractFactsInput): SummaryFacts {
   const rawBrokerPoints = Array.isArray(body.broker_extras?.investment_points)
     ? body.broker_extras.investment_points.map((p: unknown) => String(p ?? '').trim()).filter(Boolean)
     : undefined;
+  const devSpec = body.developmentSpec ?? {};
+  const rawDevUse = str(devSpec.use ?? devSpec.targetUse);
+  const DEV_USE_KO: Record<string, string> = {
+    office: '업무시설(오피스)',
+    officetel: '오피스텔',
+    retail: '근린생활시설',
+    mixed: '복합개발',
+    residential: '주거시설',
+    hotel: '숙박시설',
+  };
+  const devUseKo = rawDevUse ? (DEV_USE_KO[rawDevUse.toLowerCase()] ?? rawDevUse) : undefined;
 
   return {
     posture: input.posture,
@@ -940,6 +975,9 @@ export function extractSummaryFacts(input: ExtractFactsInput): SummaryFacts {
     parcelCount: pos(ssot.parcel_count) ?? (parcels.length > 0 ? parcels.length : undefined),
     farPct: pos(ssot.far_pct ?? nbr.vlRat),
     maxFarPct: verifiedLegalLimitsFromSsot(ssot).farMax ?? verifiedLegalLimits(lup).farMax,
+    devTargetScalePyeong: pos(devSpec.targetScalePyeong ?? devSpec.targetScalePyung ?? bldg.layers?.planned_floor_area_pyung),
+    devMaxFarPct: pos(devSpec.maxFAR ?? devSpec.maxFarPct),
+    devUse: devUseKo,
     lease,
     landPriceCagrPct: num(lph?.cagrPct),
     landPriceYears: Array.isArray(lph?.history) ? lph.history.length : undefined,
