@@ -165,6 +165,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       <button
         type="button"
         onClick={() => setActiveTab("dealcard")}
+        data-active-pill={activeTab === "dealcard" ? "true" : undefined}
         className={`relative flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-extrabold transition-colors ${
           activeTab === "dealcard"
             ? "text-white"
@@ -183,6 +184,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       <button
         type="button"
         onClick={() => setActiveTab("im")}
+        data-active-pill={activeTab === "im" ? "true" : undefined}
         className={`relative flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-extrabold transition-colors ${
           activeTab === "im"
             ? "text-white"

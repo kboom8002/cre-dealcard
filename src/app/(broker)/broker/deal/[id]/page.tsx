@@ -77,18 +77,19 @@ export default function DealWorkspacePage({ params }: { params: Promise<{ id: st
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            data-active-pill={activeTab === tab.key ? "true" : undefined}
+            className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
               activeTab === tab.key
-                ? 'bg-neutral-800 text-white shadow-lg'
+                ? 'bg-blue-700 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <span>{tab.emoji}</span>
-            <span>{tab.label}</span>
+            <span className="relative z-10">{tab.emoji}</span>
+            <span className="relative z-10">{tab.label}</span>
             {activeTab === tab.key && (
               <motion.div
                 layoutId="activeTab"
-                className="absolute inset-0 bg-neutral-800 rounded-lg -z-10"
+                className="absolute inset-0 bg-blue-700 rounded-lg"
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
               />
             )}

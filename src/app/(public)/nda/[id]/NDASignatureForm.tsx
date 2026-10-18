@@ -25,7 +25,7 @@ export default function NDASignatureForm({
         </div>
         <button
           onClick={() => router.push(`/im-lite/${buildingId}?doc=${requestId}`)}
-          className="w-full bg-primary hover:bg-primary/90 text-black font-bold py-3 rounded-xl text-sm transition-colors"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl text-sm transition-colors"
         >
           📱 모바일 투자설명서 열람하기
         </button>
@@ -78,7 +78,7 @@ export default function NDASignatureForm({
       {errorMsg && <p className="text-red-400 text-xs px-1">{errorMsg}</p>}
       <button
         type="submit"
-        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-black font-bold py-3.5 rounded-xl text-sm transition-colors active:scale-[0.98]"
+        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold py-3.5 rounded-xl text-sm transition-colors active:scale-[0.98]"
         disabled={isSubmitting}
       >
         {isSubmitting ? "처리 중..." : "동의 및 서명 제출"}

@@ -107,7 +107,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={pending}
-          className="w-full bg-primary hover:bg-primary/90 text-black font-black rounded-lg px-4 py-3 text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-black rounded-lg px-4 py-3 text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
         >
           {pending ? '로그인 중...' : '로그인'}
         </button>

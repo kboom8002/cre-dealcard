@@ -136,6 +136,7 @@ function BrokerTutorialInner() {
                     type="button"
                     onClick={() => setSelectedModuleId("all")}
                     data-testid="tutorial-tab-all"
+                    data-active-pill={selectedModuleId === "all" ? "true" : undefined}
                     className={`relative px-4 py-2.5 min-h-[44px] rounded-xl text-[15px] font-extrabold border transition-colors ${
                       selectedModuleId === "all"
                         ? "text-white border-blue-700"
@@ -159,6 +160,7 @@ function BrokerTutorialInner() {
                         type="button"
                         onClick={() => setSelectedModuleId(mod.id)}
                         data-testid={`tutorial-tab-${mod.id}`}
+                        data-active-pill={isActive ? "true" : undefined}
                         className={`relative px-3.5 py-2.5 min-h-[44px] rounded-xl text-[15px] font-bold border transition-colors ${
                           isActive
                             ? "text-white border-blue-700"

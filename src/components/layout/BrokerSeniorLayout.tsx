@@ -66,6 +66,7 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-active-pill={isActive ? "true" : undefined}
                   className={
                     isActive
                       ? "relative px-3.5 py-2 min-h-[42px] inline-flex items-center rounded-xl text-[15px] sm:text-[16px] font-extrabold text-white transition-colors"

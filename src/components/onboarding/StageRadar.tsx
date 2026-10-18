@@ -91,8 +91,8 @@ export function StageRadar({ onContinue, onSkip }: StageRadarProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <div className="mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 shadow-lg shadow-cyan-500/20">
-          <Building2 className="h-8 w-8 text-black" />
+        <div className="mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-600 shadow-lg shadow-cyan-500/20">
+          <Building2 className="h-8 w-8 text-white" />
         </div>
         <h2 className="text-2xl font-black text-white">빌딩 한 채를 분석해볼까요?</h2>
         <p className="mt-2 text-sm text-neutral-400">
@@ -125,7 +125,7 @@ export function StageRadar({ onContinue, onSkip }: StageRadarProps) {
             onClick={() => void handleSearch()}
             disabled={isLoading}
             whileTap={{ scale: 0.95 }}
-            className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 text-sm font-bold text-black shadow-lg shadow-cyan-500/20 disabled:opacity-60"
+            className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 disabled:opacity-60"
           >
             {isLoading ? '...' : '조회'}
           </motion.button>
@@ -239,7 +239,7 @@ export function StageRadar({ onContinue, onSkip }: StageRadarProps) {
               <motion.button
                 onClick={handleContinue}
                 whileTap={{ scale: 0.97 }}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 py-3.5 text-sm font-black text-black shadow-lg shadow-cyan-500/20 hover:brightness-110"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 hover:brightness-110"
               >
                 이 건물로 딜카드 만들기
                 <ArrowRight className="h-4 w-4" />

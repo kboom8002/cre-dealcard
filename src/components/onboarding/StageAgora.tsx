@@ -60,8 +60,8 @@ export function StageAgora({ onComplete, onSkip }: StageAgoraProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <div className="mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-500/20">
-          <MessageCircle className="h-8 w-8 text-black" />
+        <div className="mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/20">
+          <MessageCircle className="h-8 w-8 text-white" />
         </div>
         <h2 className="text-2xl font-black text-white">매각 관련 궁금한 점이<br />있으신가요?</h2>
         <p className="mt-2 text-sm text-neutral-400">
@@ -115,7 +115,7 @@ export function StageAgora({ onComplete, onSkip }: StageAgoraProps) {
             onClick={() => void handleSubmit()}
             disabled={!question.trim() || isLoading}
             whileTap={{ scale: 0.97 }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 py-3.5 text-sm font-black text-black shadow-lg shadow-emerald-500/20 hover:brightness-110 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 hover:brightness-110 disabled:opacity-50"
           >
             {isLoading ? '전문가 배정 중...' : '질문 올리기'}
             {!isLoading && <ArrowRight className="h-4 w-4" />}
@@ -156,7 +156,7 @@ export function StageAgora({ onComplete, onSkip }: StageAgoraProps) {
           <motion.button
             onClick={onComplete}
             whileTap={{ scale: 0.97 }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 py-3.5 text-sm font-black text-black shadow-lg shadow-emerald-500/20 hover:brightness-110"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 hover:brightness-110"
           >
             완료하기
             <ArrowRight className="h-4 w-4" />

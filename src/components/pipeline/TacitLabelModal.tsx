@@ -101,7 +101,7 @@ export function TacitLabelModal({ isOpen, onClose, dealId, brokerId, buyerId, ca
               </button>
               <button onClick={handleSubmit}
                 disabled={!selectedReason || saving}
-                className="flex-1 py-2.5 bg-primary text-black text-sm font-bold rounded-xl disabled:opacity-40 hover:bg-primary/90 transition-colors">
+                className="flex-1 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-xl disabled:opacity-40 hover:bg-primary/90 transition-colors">
                 {saving ? '저장 중...' : '태깅 완료'}
               </button>
             </div>

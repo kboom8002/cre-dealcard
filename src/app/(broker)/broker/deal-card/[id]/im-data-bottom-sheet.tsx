@@ -1008,7 +1008,7 @@ export function ImDataBottomSheet({
                       type="button"
                       title="대표 사진으로 지정"
                       onClick={() => setHeroPhotoIndex(idx)}
-                      className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === idx ? 'bg-amber-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
+                      className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === idx ? 'bg-amber-500 text-slate-950' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
                     >
                       ★ 대표
                     </button>
@@ -1016,7 +1016,7 @@ export function ImDataBottomSheet({
                       type="button"
                       title="외관 사진으로 지정 (PPTX 개요 슬라이드)"
                       onClick={() => setExteriorPhotoIndex(exteriorPhotoIndex === idx ? null : idx)}
-                      className={`absolute top-1 left-12 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${exteriorPhotoIndex === idx ? 'bg-blue-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
+                      className={`absolute top-1 left-12 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${exteriorPhotoIndex === idx ? 'bg-blue-600 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
                     >
                       🏢 외관
                     </button>
@@ -1025,7 +1025,7 @@ export function ImDataBottomSheet({
                       onClick={() => {
                         setExistingUrls(prev => prev.filter((_, i) => i !== idx));
                       }}
-                      className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
+                      className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
                     >
                       ×
                     </button>
@@ -1071,7 +1071,7 @@ export function ImDataBottomSheet({
                         type="button"
                         title="대표 사진으로 지정"
                         onClick={() => setHeroPhotoIndex(totalIdx)}
-                        className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
+                        className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-slate-950' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
                       >
                         ★ 대표
                       </button>

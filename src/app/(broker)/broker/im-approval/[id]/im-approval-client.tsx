@@ -687,7 +687,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             <p className="text-sm text-emerald-500/80 mb-4">투자설명서가 성공적으로 공개되었습니다.</p>
             <a
               href={`/im-lite/${buildingId}?doc=${docId}`}
-              className="inline-block px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg transition-colors"
+              className="inline-block px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
             >
               퍼블릭 IM 확인하기
             </a>
@@ -1385,7 +1385,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   <button
                     onClick={handleApprove}
                     disabled={actionStatus === 'loading' || !allVerified}
-                    className="px-6 py-3 min-h-[48px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500 text-[15px] shadow-lg shadow-emerald-500/20"
+                    className="px-6 py-3 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500 text-[15px] shadow-lg shadow-emerald-600/20"
                   >
                     {actionStatus === 'loading' ? '처리 중...' : '🚀 승인 및 공개'}
                   </button>
@@ -1426,7 +1426,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   </button>
                   <button
                     onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}
-                    className="px-5 py-3 min-h-[48px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[15px] rounded-xl transition-colors shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
+                    className="px-5 py-3 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[15px] rounded-xl transition-colors shadow-lg shadow-emerald-600/20 flex items-center gap-1.5"
                   >
                     <span>🖥️ 웹 화면 열기</span>
                     <span>↗</span>
@@ -1479,7 +1479,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
                   toast.success("🔗 투자설명서 주소가 복사되었습니다. 카카오톡 대화창에 붙여넣으세요.");
                 }}
-                className="w-full min-h-[48px] bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-[15px] rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                className="w-full min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[15px] rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
               >
                 <span>📋 카카오톡 공유용 주소 복사</span>
               </button>

@@ -487,7 +487,7 @@ export function FloatingActionBar({
             {onInquire && (
               <button
                 onClick={onInquire}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-primary hover:bg-primary/90 text-black text-sm font-bold rounded-xl transition-colors shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl transition-colors shadow-sm"
               >
                 💬 비밀 상담
               </button>

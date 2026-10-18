@@ -129,7 +129,7 @@ export default function SnapshotViewerPage({ params }: { params: Promise<{ id: s
           <button 
             onClick={handleGenerate} 
             disabled={generating}
-            className="px-6 py-2.5 bg-primary text-black rounded-lg text-sm font-black transition-colors disabled:opacity-50 hover:bg-primary/90"
+            className="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-black transition-colors disabled:opacity-50 hover:bg-primary/90"
           >
             {generating ? '생성 중...' : '스냅샷 지금 생성하기'}
           </button>

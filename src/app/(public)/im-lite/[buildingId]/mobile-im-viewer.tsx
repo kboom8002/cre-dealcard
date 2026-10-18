@@ -198,7 +198,7 @@ export function MobileIMViewer({
           </p>
           <Link
             href="/broker/buildings"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-black text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors"
           >
             매물 관리로 돌아가기
           </Link>
@@ -253,7 +253,7 @@ export function MobileIMViewer({
             href={pptxDownloadUrl || `/api/public/im-lite/${buildingId}/pptx`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-lg transition-transform active:scale-95 shadow shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-transform active:scale-95 shadow shrink-0"
           >
             <span>📊</span> 공식 검증 PPTX 다운로드
           </a>
@@ -602,7 +602,7 @@ export function MobileIMViewer({
                       </button>
                       <button
                         onClick={() => setShowInquiry(true)}
-                        className="flex-1 py-2.5 bg-primary text-black text-xs font-black rounded-xl hover:bg-primary/90 transition-colors"
+                        className="flex-1 py-2.5 bg-primary text-primary-foreground text-xs font-black rounded-xl hover:bg-primary/90 transition-colors"
                       >
                         📄 상세 자료 요청
                       </button>
@@ -616,7 +616,7 @@ export function MobileIMViewer({
                     <button
                       id="cta-private-im-request"
                       onClick={() => setShowInquiry(true)}
-                      className="w-full py-3.5 bg-primary text-black text-sm font-black rounded-2xl hover:bg-primary/90 active:scale-95 transition-all"
+                      className="w-full py-3.5 bg-primary text-primary-foreground text-sm font-black rounded-2xl hover:bg-primary/90 active:scale-95 transition-all"
                     >
                       📄 프라이빗 투자설명서(IM) 신청
                     </button>

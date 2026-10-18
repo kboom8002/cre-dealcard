@@ -113,7 +113,7 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
           <button
             onClick={signNDA}
             disabled={!ndaForm.agreed || !ndaForm.name || signing}
-            className="w-full py-3 bg-primary text-black font-bold rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+            className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
           >
             {signing ? '처리 중...' : '동의 및 열람'}
           </button>

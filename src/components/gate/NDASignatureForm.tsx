@@ -37,7 +37,7 @@ export default function NDASignatureForm({
               router.push(`/im-pro/${requestId}`);
             }
           }}
-          className="w-full bg-primary hover:bg-primary/90 text-black font-bold py-3 rounded-xl text-sm transition-colors"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl text-sm transition-colors"
         >
           📱 Pro 투자설명서 열람하기
         </button>
@@ -176,7 +176,7 @@ export default function NDASignatureForm({
       <button
         type="submit"
         disabled={isSubmitting || !agreedToTerms || !signerName.trim()}
-        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold py-3.5 rounded-xl text-sm transition-all active:scale-[0.98] shadow-lg shadow-primary/20"
+        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground font-bold py-3.5 rounded-xl text-sm transition-all active:scale-[0.98] shadow-lg shadow-primary/20"
         data-testid="btn-submit-nda"
       >
         {isSubmitting ? "처리 중..." : "동의 및 전자 서명 제출"}

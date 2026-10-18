@@ -78,7 +78,7 @@ export default function GateRequestForm({ buildingId }: { buildingId: string }) 
       {errorMsg && <p className="text-red-400 text-xs px-1">{errorMsg}</p>}
       <button
         type="submit"
-        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-black font-bold py-3 rounded-xl text-xs transition-colors active:scale-[0.98]"
+        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold py-3 rounded-xl text-xs transition-colors active:scale-[0.98]"
         disabled={isSubmitting}
       >
         {isSubmitting ? "요청 중..." : "🔒 NDA 기반 상세자료 요청 (무료)"}

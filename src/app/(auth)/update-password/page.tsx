@@ -83,7 +83,7 @@ export default function UpdatePasswordPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-primary hover:bg-primary/90 text-black font-black rounded-lg px-4 py-3 text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-black rounded-lg px-4 py-3 text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? '변경 중...' : '비밀번호 변경'}
         </button>
