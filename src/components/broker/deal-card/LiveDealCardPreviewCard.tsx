@@ -127,11 +127,17 @@ export function LiveDealCardPreviewCard({
         toast.success("카카오톡 공유 창을 열었습니다.");
       } catch (e) {
         console.error("Kakao share failed:", e);
-        handleCopyLink();
+        navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        toast.info("딜카드 주소가 복사되었습니다. 카카오톡 대화창에 붙여넣기(Ctrl+V) 해주세요!", { duration: 5000 });
+        setTimeout(() => setCopied(false), 2000);
       }
     } else {
-      // SDK 준비 안 된 경우 링크 복사로 fallback
-      handleCopyLink();
+      // SDK 준비 안 된 경우 명시적으로 복사 안내
+      navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.info("딜카드 주소가 복사되었습니다. 카카오톡 대화창에 붙여넣기(Ctrl+V) 해주세요!", { duration: 5000 });
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 

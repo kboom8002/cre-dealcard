@@ -108,7 +108,7 @@ export default function BrokerDealCardNewPage() {
       try {
         json = await res.json();
       } catch {
-        throw new Error(`서버 오류가 발생했습니다 (HTTP ${res.status}). 잠시 후 다시 시도해주세요.`);
+        throw new Error("서버와 통신하는 중 일시적인 지연이 발생했습니다. 잠시 후 다시 시도해 주세요.");
       }
 
       if (!res.ok || !json.ok) {
@@ -138,23 +138,25 @@ export default function BrokerDealCardNewPage() {
           clearInterval(interval);
           return; // 에러가 아닌 다이얼로그로 표시
         }
-        const errMsg = typeof json.error === 'string' ? json.error
-          : typeof json.message === 'string' ? json.message
-          : json.error ? JSON.stringify(json.error)
-          : "딜카드 생성에 실패했습니다.";
+        const errMsg = typeof json.error === 'string' && !json.error.startsWith('{')
+          ? json.error
+          : typeof json.message === 'string' && !json.message.startsWith('{')
+          ? json.message
+          : "딜카드 생성에 실패했습니다. 메모 내용을 확인한 뒤 다시 시도해 주세요.";
         throw new Error(errMsg);
       }
 
-      // 비동기 작업 폴링 처리
+      // 비동기 작업 폴링 처리 (최대 90회 × 2초 = 180초, abort 타이머와 일치)
       if (json.isAsync && json.jobId) {
         const jobId = json.jobId;
         let isCompleted = false;
         let pollCount = 0;
         let buildingId: string | undefined;
 
-        while (!isCompleted && pollCount < 45) { // 최대 45번 폴링 (약 90초)
-          await new Promise(r => setTimeout(r, 2000)); // 2초 대기
+        while (!isCompleted && pollCount < 90) {
+          await new Promise(r => setTimeout(r, 2000));
           pollCount++;
+          setLoadingStep((prev) => Math.max(prev, Math.min(LOADING_STEPS.length - 1, Math.floor(pollCount / 4))));
           
           try {
             const jobRes = await fetch(`/api/broker/jobs/${jobId}`, {
@@ -168,16 +170,24 @@ export default function BrokerDealCardNewPage() {
                 isCompleted = true;
                 break;
               } else if (jobJson.job.status === "failed") {
-                throw new Error(jobJson.job.error || "비동기 작업 중 오류가 발생했습니다.");
+                const rawJobErr = jobJson.job.error;
+                throw new Error(
+                  typeof rawJobErr === "string" && !rawJobErr.startsWith("{")
+                    ? rawJobErr
+                    : "AI 분석 중 일시적인 오류가 발생했습니다. 다시 시도해 주세요."
+                );
               }
             }
           } catch (pollErr) {
+            if (pollErr instanceof Error && pollErr.message.includes("AI 분석 중")) {
+              throw pollErr;
+            }
             console.error("Polling error:", pollErr);
           }
         }
         
         if (!isCompleted || !buildingId) {
-           throw new Error("AI 처리 시간이 오래 걸리고 있습니다. 잠시 후 딜카드 목록을 확인해주세요.");
+           throw new Error("AI 분석 시간이 길어지고 있습니다. 잠시 후 [내 물건] 목록에서 완성된 딜카드를 확인해 주세요.");
         }
         
         setCreatedBuildingId(buildingId);
@@ -262,14 +272,13 @@ export default function BrokerDealCardNewPage() {
       try {
         json = await res.json() as Record<string, unknown>;
       } catch {
-        throw new Error(`서버 오류가 발생했습니다 (HTTP ${res.status}).`);
+        throw new Error("서버와 통신하는 중 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
       }
 
       if (!res.ok || !json.ok) {
         const errMsg = typeof json.error === 'string' ? json.error
           : typeof json.message === 'string' ? json.message
-          : json.error ? JSON.stringify(json.error)
-          : "딜카드 생성에 실패했습니다.";
+          : "딜카드 생성에 실패했습니다. 메모 내용을 확인한 뒤 다시 시도해 주세요.";
         throw new Error(errMsg);
       }
 
@@ -310,7 +319,7 @@ export default function BrokerDealCardNewPage() {
           {/* Duplicate Candidates */}
           <div className="space-y-3">
             {duplicateCandidates.map((candidate) => {
-              const matchLabel = candidate.matchType === "pnu" ? "PNU 일치"
+              const matchLabel = candidate.matchType === "pnu" ? "필지번호(PNU) 일치"
                 : candidate.matchType === "jibun_exact" ? "지번 일치"
                 : "유사 물건";
               const createdDate = candidate.summary.createdAt
@@ -381,38 +390,31 @@ export default function BrokerDealCardNewPage() {
           <div className="space-y-2">
             <h1 className="text-2xl font-bold">딜카드가 완성되었습니다!</h1>
             <p className="text-sm text-muted-foreground">
-              블라인드 처리된 딜카드로 안전하게 영업을 시작하세요.
+              민감한 상세 주소가 가려진 안심 딜카드로 카톡 공유나 9면 투자설명서(IM) 작성을 시작하세요.
             </p>
           </div>
 
           <div className="space-y-3 pt-4">
             <Button
               size="lg"
-              className="w-full text-base font-semibold"
+              className="w-full min-h-[52px] text-base font-bold"
               onClick={() =>
                 router.push(`/broker/deal-card/${createdBuildingId}`)
               }
             >
-              딜카드 확인 및 카톡 공유
+              딜카드 확인 및 카톡 공유 · 9면 IM 만들기
             </Button>
             <Button
               size="lg"
               variant="outline"
-              className="w-full text-base"
-              onClick={() => setShowShareSheet(true)}
-            >
-              🤝 서클에 딜 공유하기
-            </Button>
-            <Button
-              size="lg"
-              variant="ghost"
-              className="w-full text-base text-muted-foreground"
+              className="w-full min-h-[48px] text-base font-semibold"
               onClick={() =>
-                router.push(`/broker/schedule?building_id=${createdBuildingId}`)
+                router.push(`/broker/magazine-editor?mode=simple&deals=${createdBuildingId}`)
               }
             >
-              📅 임장 일정 잡기
+              📰 이번 주 고객 소식지에 이 매물 소개하기
             </Button>
+            {/* DORMANT: ux60-focus — 서클 공유 및 임장 일정 버튼 숨김 (docs/rollback/2026-10-18-dormant-features.md 참조) */}
           </div>
 
           {showShareSheet && (
@@ -424,9 +426,9 @@ export default function BrokerDealCardNewPage() {
           )}
           <button
             onClick={() => router.push("/broker/buildings")}
-            className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors pt-2"
+            className="w-full text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors pt-2"
           >
-            📋 내 딜카드 목록 보기
+            📋 내 물건 목록 보기
           </button>
         </div>
       </main>
@@ -543,19 +545,45 @@ export default function BrokerDealCardNewPage() {
         </div>
 
         {/* Memo Input */}
-        <div className="space-y-2">
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted-foreground mr-1">예시 눌러서 채우기:</span>
+            {[
+              {
+                label: "💰 임대수익 꼬마빌딩",
+                text: "역삼동 역세권 5층 근생 빌딩, 매매가 85억, 보증금 3억 / 월세 2,800만 원, 만실 운영 중. 코너 필지로 가시성 우수.",
+              },
+              {
+                label: "🏢 사옥용 빌딩",
+                text: "성수동 6층 사옥 겸 근생 빌딩, 매매가 120억, 1층 카페 입점, 2~6층 명도 가능해 IT·디자인 사옥 즉시 입주 가능.",
+              },
+              {
+                label: "🏗️ 리모델링·신축",
+                text: "신사동 이면 코너 노후 근생, 매매가 68억, 대지 85평 제2종일반주거지역, 리모델링 또는 신축 개발 추천.",
+              },
+            ].map((sample) => (
+              <button
+                key={sample.label}
+                type="button"
+                onClick={() => setMemo(sample.text)}
+                className="px-2.5 py-1.5 rounded-lg border border-border bg-secondary/50 hover:bg-secondary text-xs font-semibold text-foreground transition-colors"
+              >
+                {sample.label}
+              </button>
+            ))}
+          </div>
           <Textarea
             id="broker-memo-input"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             maxLength={3000}
             placeholder={
-              "예:\n성수동 80억대 근생, 일부 임대 중,\n1층 F&B 가능, 사옥 수요도 볼 수 있음.\n주소는 아직 비공개."
+              "예:\n역삼동 85억 근생 빌딩, 보증금 3억 / 월세 2,800만, 만실 운영 중.\n1층 카페 성업 중, 사옥 수요도 가능.\n(지번 주소를 함께 적으시면 공부 데이터를 자동으로 불러옵니다)"
             }
-            className="min-h-[220px] text-base"
+            className="min-h-[220px] text-base leading-relaxed"
           />
           <p className="text-xs text-muted-foreground pt-1">
-            💡 투자 성격(수익형, 개발형, 운영형 등)은 AI가 메모 내용에서 자동 판별합니다.
+            💡 투자 성격(임대수익형·자가사용형·개발형 등)은 메모 내용에서 자동으로 판별됩니다.
           </p>
           <div className="flex justify-between items-center mt-2">
             <p className="text-xs text-muted-foreground">

@@ -30,8 +30,25 @@ interface BrokerMoreMenuProps {
 
 const SECTIONS = [
   {
-    label: "업무 도구",
+    label: "핵심 업무 도구",
     items: [
+      {
+        href: "/broker/magazine-editor?mode=simple",
+        icon: Palette,
+        title: "주간 소식지(매거진) 만들기",
+        desc: "5분 간편 작성 · 이메일 발송 · 카톡 링크 복사",
+        color: "text-amber-400",
+        bg: "bg-amber-500/10",
+      },
+      {
+        href: "/broker/clients",
+        icon: Users,
+        title: "고객 · 구독자 명단",
+        desc: "소식지 받는 고객 관리 · 연락처 · 메모",
+        color: "text-blue-400",
+        bg: "bg-blue-500/10",
+      },
+      /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조
       {
         href: "/broker/memos",
         icon: StickyNote,
@@ -57,14 +74,6 @@ const SECTIONS = [
         bg: "bg-amber-500/10",
       },
       {
-        href: "/broker/clients",
-        icon: Users,
-        title: "고객 CRM",
-        desc: "고객 관리 · 연락처 · 메모",
-        color: "text-blue-400",
-        bg: "bg-blue-500/10",
-      },
-      {
         href: "/broker/pipeline",
         icon: GitBranch,
         title: "딜 파이프라인",
@@ -88,14 +97,7 @@ const SECTIONS = [
         color: "text-emerald-400",
         bg: "bg-emerald-500/10",
       },
-      {
-        href: "/broker/magazine-editor",
-        icon: Palette,
-        title: "콘텐츠 스튜디오",
-        desc: "매거진 편집 · AI 화법 · 발행 · 성과",
-        color: "text-amber-400",
-        bg: "bg-amber-500/10",
-      },
+      */
       /* DORMANT: leasing-studio — AI 리싱 스튜디오 (복구 시 주석 해제)
       {
         href: "/broker/leasing",
@@ -140,22 +142,22 @@ const SECTIONS = [
   },
   */
   {
-    label: "설정",
+    label: "내 정보 · 안내",
     items: [
       {
         href: "/broker/profile",
         icon: UserCircle,
-        title: "프로필 관리",
-        desc: "이름 · 전문 권역 · 소개 편집",
-        color: "text-slate-400",
+        title: "내 프로필 · 사무소 정보",
+        desc: "이름 · 상호 · 연락처 · 사진 편집",
+        color: "text-slate-300",
         bg: "bg-slate-500/10",
       },
       {
         href: "/guide",
         icon: BookOpen,
-        title: "이용 가이드",
-        desc: "플랫폼 사용법 & FAQ",
-        color: "text-slate-400",
+        title: "쉬운 이용 안내",
+        desc: "딜카드 · 투자설명서(IM) · 소식지 사용법",
+        color: "text-slate-300",
         bg: "bg-slate-500/10",
       },
     ],
@@ -214,23 +216,23 @@ export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps
 
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3">
-              <p className="text-sm font-bold text-white">더보기</p>
+              <p className="text-[16px] font-bold text-white">전체 메뉴</p>
               <button
                 onClick={onClose}
                 aria-label="닫기"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="px-4 pb-2 space-y-5">
+            <div className="px-4 pb-3 space-y-5">
               {allSections.map((section) => (
                 <div key={section.label}>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 mb-2">
+                  <p className="text-[13px] font-bold text-slate-400 px-1 mb-2">
                     {section.label}
                   </p>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {section.items.map((item) => {
                       const Icon = item.icon;
                       return (
@@ -238,18 +240,18 @@ export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps
                           key={item.href}
                           href={item.href}
                           onClick={onClose}
-                          className="flex items-center gap-3 bg-[#131b2e] border border-slate-800 rounded-xl px-4 py-3 hover:border-slate-700 transition-all group"
+                          className="flex items-center gap-3.5 bg-[#131b2e] border border-slate-800 rounded-xl px-4 py-3.5 min-h-[56px] hover:border-slate-600 transition-all group"
                         >
-                          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", item.bg)}>
-                            <Icon className={cn("w-4 h-4", item.color)} strokeWidth={2} />
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", item.bg)}>
+                            <Icon className={cn("w-5 h-5", item.color)} strokeWidth={2.2} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-white leading-none mb-0.5">
+                            <p className="text-[15px] font-bold text-white leading-snug mb-0.5">
                               {item.title}
                             </p>
-                            <p className="text-[10px] text-slate-500 leading-snug">{item.desc}</p>
+                            <p className="text-[13px] text-slate-300 leading-snug">{item.desc}</p>
                           </div>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors shrink-0" />
+                          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors shrink-0" />
                         </Link>
                       );
                     })}

@@ -20,8 +20,29 @@ import {
 } from '@/lib/external/land-use-api';
 import { resolveDisplayAreas } from '../binder/display-areas';
 import { parseBrokerParcels, summarizeParcels, type BrokerParcel } from '../../parcel-input';
+import { readBrokerExtras } from '../broker-extras-slides';
+import { REGULATORY_KIND_LABELS } from '../../broker-extras';
 
 const { C, KR, NUM, M, CW } = L;
+
+function formatBrokerRegulationNotes(body: unknown): string {
+  const extras = readBrokerExtras(body);
+  const notes = extras?.regulatory_notes ?? [];
+  if (notes.length === 0) return '';
+  return notes
+    .map((n) => {
+      const kindLabel = REGULATORY_KIND_LABELS[n.kind] || '규제·계획';
+      const head = n.title && n.title !== kindLabel ? `[${kindLabel}] ${n.title}` : `[${kindLabel}]`;
+      const metaParts: string[] = [];
+      if (n.basis) metaParts.push(`근거: ${n.basis}`);
+      if (n.restricted_acts) metaParts.push(`제한: ${n.restricted_acts}`);
+      if (n.period) metaParts.push(`기한: ${n.period}`);
+      const metaSuffix = metaParts.length > 0 ? ` (${metaParts.join(' · ')})` : '';
+      return `• ${head}: ${n.detail}${metaSuffix}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
 
 export interface ZoningShareItem {
   zone: string;
@@ -392,12 +413,15 @@ export function buildBasicLandSlideData(params: {
     existingLandData?.photoUrl ||
     null;
 
+  const brokerRegulationText = formatBrokerRegulationNotes(body);
+
   return {
     ...existingLandData,
     kicker: existingLandData?.kicker || 'LAND & ZONING',
     title: existingLandData?.title || '토지 및 용도지역',
     overviewRows,
     landUseConfirm,
+    ...(brokerRegulationText ? { brokerRegulationText } : {}),
     parcelRows: parcelRows.length >= 2 ? parcelRows : undefined,
     zoningLegend,
     zoningShares,
@@ -629,10 +653,21 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
     });
   }
 
+  const brokerRegText = String(d.brokerRegulationText || formatBrokerRegulationNotes(d.body) || '').trim();
+  if (brokerRegText) {
+    planEntries.push({
+      label: '중개인 확인 규제·계획\n(● 중개인입력)',
+      value: brokerRegText,
+      weight: brokerRegText.length > 100 ? 1.5 : 1.1,
+      fontSize: brokerRegText.length > 140 ? 8.0 : 8.5,
+    });
+  }
+
   if (planEntries.length > 0) {
     const totalWeight = planEntries.reduce((acc, e) => acc + e.weight, 0);
+    const minRowH = hasMultiParcelTable ? 0.36 : 0.44;
     const rowHeights = planEntries.map((e) =>
-      Number(Math.max(0.46, (availPlanH * e.weight) / totalWeight).toFixed(2)),
+      Number(Math.max(minRowH, (availPlanH * e.weight) / totalWeight).toFixed(2)),
     );
 
     const planTblRows = planEntries.map((entry) => [

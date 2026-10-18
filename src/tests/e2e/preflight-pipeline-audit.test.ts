@@ -320,6 +320,34 @@ describe('Layer 4: Quality Gate & Copy Standards', () => {
       expect(CRE_BAD.some(({ bad }) => bad.test('네이밍 라이츠 확보'))).toBe(true);
     });
   });
+
+  describe('4-3. Senior Broker UI Lexicon & Error Humanizer (UX60)', () => {
+    it('[Positive] 영문 필드 키(unitKind 등)는 한국어 라벨로 변환되어야 함', async () => {
+      const { getKoreanFieldLabel } = await import('@/constants/ui-lexicon');
+      expect(getKoreanFieldLabel('unitKind')).toBe('호실 구분');
+      expect(getKoreanFieldLabel('askingPriceManwon')).toBe('매매 희망가');
+    });
+
+    it('[Negative Pair] 미등록 영문 camelCase 키도 영문 그대로 노출되지 않아야 함', async () => {
+      const { getKoreanFieldLabel } = await import('@/constants/ui-lexicon');
+      const label = getKoreanFieldLabel('unmappedInternalFieldKey');
+      expect(/^[a-zA-Z]+$/.test(label)).toBe(false);
+    });
+
+    it('[Positive] PPTX Grade D / 422 에러는 한국어 이유와 해결 방법을 반환해야 함', async () => {
+      const { humanizeImExportError } = await import('@/constants/ui-lexicon');
+      const res = humanizeImExportError(422, { error: 'Grade D documents cannot be exported to PPTX [G30]', qualityGrade: 'D' }, 'pptx');
+      expect(res.title).toContain('PPTX 투자설명서');
+      expect(res.detail).not.toContain('[G30]');
+      expect(res.detail).not.toContain('Grade D');
+    });
+
+    it('[Negative Pair] 원시 HTTP 코드나 JSON 문자열이 중개인 에러 메시지에 그대로 노출되지 않아야 함', async () => {
+      const { humanizeBrokerError } = await import('@/constants/ui-lexicon');
+      expect(humanizeBrokerError('HTTP 502 Bad Gateway')).not.toContain('HTTP 502');
+      expect(humanizeBrokerError('{"code":"ERR"}')).not.toContain('{"code"');
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════

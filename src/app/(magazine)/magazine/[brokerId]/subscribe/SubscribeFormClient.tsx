@@ -124,6 +124,11 @@ export function SubscribeFormClient({
       toast.error('올바른 이메일 주소를 입력해주세요.');
       return;
     }
+    if (!consentOk) {
+      setFollowUpError('필수 동의 항목 확인이 필요합니다. 페이지를 새로고침한 뒤 필수 동의에 체크해 주세요.');
+      toast.error('필수 동의 항목을 모두 체크해주세요.');
+      return;
+    }
     setFollowUpError('');
     setLoading(true);
     const outcome = await postSubscribe({
@@ -135,7 +140,7 @@ export function SubscribeFormClient({
       source: initialSource || 'qr_card',
       tags: [...selectedRegions, ...selectedAssets],
       referrer: referrer || undefined,
-      consent: toConsentPayload(consentOk ? consent : { privacy: true, marketing: true, age14: true }),
+      consent: toConsentPayload(consent),
     });
     setLoading(false);
 
@@ -280,13 +285,13 @@ export function SubscribeFormClient({
             placeholder="010-1234-5678"
             className={`${INPUT_CLS} font-mono`}
           />
-          <p className="text-[14px] text-slate-200">알림톡 수신용 번호입니다. 숫자만 입력하면 하이픈이 자동으로 들어갑니다.</p>
+          <p className="text-[14px] text-slate-200">구독자 확인 및 중개사 안내용 번호입니다. 숫자만 입력하면 하이픈(-)이 자동으로 들어갑니다.</p>
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor="sub-email" className="text-[15px] font-semibold text-slate-100 flex items-center gap-1.5">
             <Mail className="w-4 h-4 text-amber-300" aria-hidden="true" />
-            이메일 (선택 · 확인 링크 수신 권장)
+            이메일 (정기 소식지 자동 수신용 · 권장)
           </label>
           <input
             id="sub-email"
@@ -299,7 +304,7 @@ export function SubscribeFormClient({
             className={INPUT_CLS}
           />
           <p className="text-[14px] font-medium text-amber-200 leading-snug break-keep">
-            이메일을 입력하면 확인 링크를 받아 바로 매거진 수신을 시작할 수 있어요.
+            정기 소식지는 이메일로 자동 발송됩니다. 이메일을 입력하시면 확인 링크를 받아 바로 구독이 시작됩니다.
           </p>
         </div>
       </div>

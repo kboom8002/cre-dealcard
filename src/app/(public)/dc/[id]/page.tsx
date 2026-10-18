@@ -236,17 +236,17 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           {(() => {
             const dp = Array.isArray(imBody.dealPoints) ? imBody.dealPoints.filter(Boolean) : [];
             return dp.length > 0 ? (
-              <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-3.5 space-y-2">
+              <div className="rounded-xl bg-slate-800/70 border border-slate-700/60 p-4 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-amber-400 tracking-wide flex items-center gap-1.5">
-                    <span>⭐ 핵심 딜 포인트 ({dp.length}선)</span>
+                  <p className="text-[14px] font-bold text-amber-400 tracking-wide flex items-center gap-1.5">
+                    <span>⭐ 핵심 투자 포인트 ({dp.length}선)</span>
                   </p>
-                  <span className="text-[10px] text-slate-400">매수 검토 핵심 요약</span>
+                  <span className="text-[12px] text-slate-300">매수 검토 핵심 요약</span>
                 </div>
-                <ul className="space-y-2">
+                <ul className="space-y-2.5">
                   {dp.map((pt: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-slate-200 leading-relaxed">
-                      <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    <li key={i} className="flex items-start gap-2.5 text-[15px] text-slate-100 leading-relaxed break-keep">
+                      <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                         {i + 1}
                       </span>
                       <span>{pt}</span>
@@ -290,16 +290,16 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
 
 
           {/* ⑥ 매도자 보호 및 비밀유지 안내 (접이식) */}
-          <details className="group text-xs text-slate-400 border border-slate-800 rounded-xl p-3 bg-slate-900/50">
-            <summary className="cursor-pointer font-semibold text-slate-300 flex items-center justify-between">
+          <details className="group text-[13px] text-slate-300 border border-slate-800 rounded-xl p-3.5 bg-slate-900/50">
+            <summary className="cursor-pointer font-semibold text-slate-200 flex items-center justify-between">
               <span className="flex items-center gap-2">
-                🛡️ 매도자 보호 및 정보 보안 정책
-                <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                🛡️ 매도자 보호 및 정보 보안 안내
+                <span className="inline-flex items-center gap-1 text-[12px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  보안 검증 완료 (k=20)
+                  주소 비공개 보호 적용
                 </span>
               </span>
-              <span className="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+              <span className="text-[12px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
             </summary>
             <div className="pt-2">
               <PublicPolicyBlock
@@ -310,7 +310,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             </div>
           </details>
 
-          {/* ⑦ 중개사 업무 바로가기 허브 (Broker Quick Hub) */}
+          {/* DORMANT: ux60-focus — 공개 구매자 화면에서 중개사 전용 매칭 허브 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -335,6 +335,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
               </Link>
             </div>
           </div>
+          */}
 
           {/* ⑧ Powered-by Dual Branding Badge */}
           <PoweredByBadge variant="full" context="dealcard" buildingId={id} />

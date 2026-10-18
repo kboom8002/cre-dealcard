@@ -24,10 +24,14 @@ export async function GET(
   { params }: { params: Promise<{ buildingId: string }> }
 ) {
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
-  const rateLimit = process.env.NODE_ENV === 'development' ? 1000 : 10;
+  const rateLimit = process.env.NODE_ENV === 'development' ? 1000 : 60;
   const isAllowed = await checkRateLimit(ip, 'rate_limit', rateLimit, 3600 * 1000);
   if (!isAllowed) {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    return NextResponse.json({
+      error: 'Rate limit exceeded',
+      reason: 'PPTX 다운로드 요청이 일시적으로 많습니다.',
+      suggestion: '약 1분 뒤에 다시 다운로드 버튼을 눌러주세요.',
+    }, { status: 429 });
   }
 
   const { buildingId } = await params;
@@ -143,7 +147,12 @@ export async function GET(
       }
     }
     if (grade === 'D') {
-      return NextResponse.json({ error: 'Grade D documents cannot be exported to PPTX [G30]' }, { status: 422 });
+      return NextResponse.json({
+        error: 'Grade D documents cannot be exported to PPTX [G30]',
+        reason: '건물 기본 정보(주소·매매 희망가·임대 조건 중 필수 항목)가 부족하여 슬라이드를 구성할 수 없습니다.',
+        suggestion: '[기본 IM 수정·재생성] 버튼을 눌러 건물 주소와 매매 희망가를 입력한 뒤 다시 생성해 주세요.',
+        qualityGrade: 'D',
+      }, { status: 422 });
     }
     const incomeArchetype = body.incomeArchetype ?? undefined;
     const hasViolation = body.hasViolation ?? body.violationStatus === 'exists';
@@ -181,6 +190,10 @@ export async function GET(
       }
     }
 
+    const shouldWatermark =
+      searchParams.get('watermark') === 'true' ||
+      (searchParams.get('watermark') !== 'false' && Boolean(searchParams.get('requester')));
+
     const result = await renderer.render({
       buildingId,
       preset: resolvedPreset,
@@ -201,7 +214,7 @@ export async function GET(
       },
       building: building || undefined,
       broker: effectiveBroker || undefined,
-      watermark: searchParams.get('watermark') !== 'false'
+      watermark: shouldWatermark
         ? {
             requesterName: searchParams.get('requester') || 'CREDEAL',
             phoneLast4: searchParams.get('phone4') || '0000',
@@ -228,15 +241,15 @@ export async function GET(
       log.warn('[PPTX] Storage upload failed, returning direct download:', uploadError);
     }
 
-    // 6. Return PPTX via signed URL
-    const buildingName = doc.title || body.buildingName || 'Mobile_IM';
+    // 6. Return PPTX (direct=1 요청 시 감사 헤더·한글 파일명 보존을 위해 200 응답 반환)
+    const buildingName = doc.title || body.buildingName || building?.address || '투자설명서';
     const safeName =
       buildingName.replace(
         /[^a-zA-Z0-9\u3131-\u318E\u3200-\u321E\uAC00-\uD7A3]/g,
         '_'
-      ) + `_${tier === 'pro' ? 'Pro' : 'Basic'}.pptx`;
+      ).replace(/_+/g, '_').replace(/^_|_$/g, '') + `_${tier === 'pro' ? 'Pro_IM' : 'Basic_IM'}.pptx`;
 
-    if (!uploadError) {
+    if (!uploadError && searchParams.get('direct') !== '1') {
       const { data: signedData } = await supabase.storage
         .from('Exports')
         .createSignedUrl(filePath, 1800, { download: safeName });
@@ -252,6 +265,7 @@ export async function GET(
         'Content-Type':
           'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}`,
+        'X-Safe-Filename': encodeURIComponent(safeName),
         'Cache-Control': 'no-store',
         'X-Robots-Tag': 'noindex, nofollow',
         'X-Slide-Count': String(result.slideCount),
@@ -265,7 +279,12 @@ export async function GET(
   } catch (err: any) {
     log.error(`[PPTX ${tier}] Generation failed:`, err);
     return NextResponse.json(
-      { error: 'PPTX generation failed', details: err?.message || String(err) },
+      {
+        error: 'PPTX generation failed',
+        reason: 'PPTX 슬라이드를 생성하는 중 일시적인 오류가 발생했습니다.',
+        suggestion: '잠시 후 다시 시도하거나 [기본 IM 수정·재생성]을 실행해 주세요.',
+        details: err?.message || String(err),
+      },
       { status: 500 }
     );
   }

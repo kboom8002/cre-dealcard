@@ -74,23 +74,25 @@ export function CreateMobileImButton({
   return (
     <>
       <button
-          onClick={() => { setStage('basic'); setShowBottomSheet(true); }}
-          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-3 text-xs sm:text-sm font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-blue-900/30"
-          id="cta-mobile-im-basic"
-          data-testid="generate-basic-im"
-          aria-label="기본 IM 생성"
-        >
-          {!hasBasicIM ? '⚡ 기본 IM' : '⚡ 기본 IM'}
-        </button>
-        <button
-          onClick={() => { setStage('pro'); setShowBottomSheet(true); }}
-          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-3 text-xs sm:text-sm font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-purple-900/30"
-          id="cta-mobile-im-pro"
-          data-testid="generate-pro-im"
-          aria-label="전문 IM 생성"
-        >
-          🎯 전문 IM
-        </button>
+        onClick={() => { setStage('basic'); setShowBottomSheet(true); }}
+        className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-3 min-h-[48px] text-[15px] font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-blue-900/30"
+        id="cta-mobile-im-basic"
+        data-testid="generate-basic-im"
+        aria-label="기본 IM 생성"
+      >
+        {!hasBasicIM ? '⚡ 기본 IM 만들기' : '⚡ 기본 IM 수정·재생성'}
+      </button>
+      {/* DORMANT: ux60-focus — Pro IM 버튼 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
+      <button
+        onClick={() => { setStage('pro'); setShowBottomSheet(true); }}
+        className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-3 text-xs sm:text-sm font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-purple-900/30"
+        id="cta-mobile-im-pro"
+        data-testid="generate-pro-im"
+        aria-label="전문 IM 생성"
+      >
+        🎯 전문 IM
+      </button>
+      */}
 
       <ImDataBottomSheet
         buildingId={buildingId}

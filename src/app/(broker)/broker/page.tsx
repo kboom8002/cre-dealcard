@@ -18,8 +18,8 @@ import { PipelineSnapshot } from "@/components/dashboard/PipelineSnapshot";
 import { UniversalMemoFAB } from "@/components/memo/UniversalMemoFAB";
 
 export const metadata: Metadata = {
-  title: "JS 1분 딜카드 | 중개인 코크핏",
-  description: "중개인 전용 대시보드 — 고객 관리, 매칭, 파이프라인을 한눈에.",
+  title: "JS 1분 딜카드 | 중개 업무 홈",
+  description: "중개인 전용 홈 — 딜카드 등록, 투자설명서(IM) 작성, 주간 소식지 발송을 한눈에.",
 };
 
 /**
@@ -278,8 +278,8 @@ export default async function BrokerPage() {
         break;
       case "hot_lead_alert_sent":
         icon = "🔥";
-        text = `Hot Lead 감지! (교차 채널 스코어 80점+)`;
-        href = "/broker/funnel";
+        text = `관심 높은 고객 감지! (반복 열람 고객)`;
+        href = "/broker/clients";
         color = "text-rose-400";
         break;
       case "magazine_subscribe":
@@ -323,14 +323,14 @@ export default async function BrokerPage() {
   // ── ActionQueue 실데이터 생성 ──
   const actionQueueItems: ActionItem[] = [];
 
-  // Hot Lead: hot_lead_alert_sent 이벤트
+  // 관심 높은 고객: hot_lead_alert_sent 이벤트
   rawEvents
     .filter(evt => evt.event_type === 'hot_lead_alert_sent')
     .forEach(evt => {
       actionQueueItems.push({
         id: `hot-${evt.id}`,
         type: 'hot_lead',
-        title: `Hot Lead 감지 (스코어 80+)`,
+        title: `관심 높은 고객 감지 (반복 열람)`,
         subtitle: (evt.metadata as any)?.area_signal || '매수 의향 고객',
         dealId: (evt.metadata as any)?.building_id,
         createdAt: evt.created_at,
@@ -344,7 +344,7 @@ export default async function BrokerPage() {
       actionQueueItems.push({
         id: `gate-${evt.id}`,
         type: 'pro_request',
-        title: `Pro IM 접근 요청`,
+        title: `상세 투자설명서 열람 요청`,
         subtitle: (evt.metadata as any)?.requester_name || '매수 희망 고객',
         dealId: (evt.metadata as any)?.building_id,
         createdAt: evt.created_at,
@@ -360,8 +360,8 @@ export default async function BrokerPage() {
     actionQueueItems.push({
       id: `stagnant-summary`,
       type: 'stagnant',
-      title: `${stagnantDeals.length}건의 딜이 14일 이상 정체`,
-      subtitle: '다음 액션을 취해 파이프라인을 활성화하세요',
+      title: `${stagnantDeals.length}건의 물건이 14일 이상 경과`,
+      subtitle: '투자설명서(IM) 작성이나 소식지 소개로 고객에게 알려보세요',
       createdAt: new Date().toISOString(),
     });
   }
@@ -390,10 +390,10 @@ export default async function BrokerPage() {
       {todayBookings.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" /> 오늘의 일정 ({todayBookings.length}건)
+            <p className="text-[13px] font-bold text-slate-300 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" /> 오늘의 일정 ({todayBookings.length}건)
             </p>
-            <Link href="/broker/schedule" className="text-[11px] text-primary hover:underline">전체 보기</Link>
+            <Link href="/broker/schedule" className="text-[13px] text-primary hover:underline">전체 보기</Link>
           </div>
           <div className="space-y-2">
             {todayBookings.map((bk: any) => {
@@ -402,15 +402,15 @@ export default async function BrokerPage() {
                 <Link
                   key={bk.id}
                   href={`/broker/deal-card/${bk.slot.building.id}`}
-                  className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3 hover:border-primary/30 transition-all"
+                  className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3.5 hover:border-primary/30 transition-all"
                 >
                   <div className="flex justify-between items-center">
                     <span className="text-[15px] font-bold text-white">{start} · {bk.slot.building.address || bk.slot.building.area_signal} 임장</span>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full ${bk.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
+                    <span className={`text-[13px] px-2.5 py-0.5 rounded-full ${bk.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
                       {bk.status === "confirmed" ? "예약 확정" : "승인 대기"}
                     </span>
                   </div>
-                  <p className="text-[13px] text-neutral-400">매수자: {(bk.requester as any)?.full_name || "고객"}</p>
+                  <p className="text-[14px] text-neutral-300">매수자: {(bk.requester as any)?.full_name || "고객"}</p>
                 </Link>
               );
             })}
@@ -422,10 +422,10 @@ export default async function BrokerPage() {
       {notifications.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-              <Bell className="w-3.5 h-3.5" /> 최근 알림 피드
+            <p className="text-[13px] font-bold text-slate-300 flex items-center gap-1.5">
+              <Bell className="w-4 h-4" /> 최근 알림
             </p>
-            <Link href="/broker/inbox" className="text-[11px] text-primary hover:underline">
+            <Link href="/broker/inbox" className="text-[13px] text-primary hover:underline">
               전체 보기
             </Link>
           </div>
@@ -434,57 +434,32 @@ export default async function BrokerPage() {
               <Link
                 key={i}
                 href={n.href}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 hover:border-primary/30 transition-all"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/30 transition-all"
               >
                 <span className="text-base shrink-0">{n.icon}</span>
-                <p className={`text-[13px] font-medium flex-1 line-clamp-1 ${n.color}`}>{n.text}</p>
-                <span className="text-[11px] text-muted-foreground shrink-0">{n.time}</span>
+                <p className={`text-[14px] font-medium flex-1 line-clamp-1 ${n.color}`}>{n.text}</p>
+                <span className="text-[13px] text-slate-400 shrink-0">{n.time}</span>
               </Link>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── 실시간 ROI ── */}
-      <RoiCard metrics={roiMetrics} />
-
-      {/* ── 핵심 성과 지표 미니 (한글 보정 적용) ── */}
+      {/* ── 핵심 성과 요약 ── */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-        <h2 className="text-[13px] font-bold text-primary">📈 내 파이프라인 성과 요약</h2>
-        <div className="grid grid-cols-2 gap-2 text-[13px]">
+        <h2 className="text-[14px] font-bold text-primary">📈 내 활동 요약</h2>
+        <div className="grid grid-cols-2 gap-2 text-[14px]">
           <div className="bg-card border border-border p-3 rounded-lg">
-            <p className="text-[11px] text-muted-foreground">내 딜 평균 체류일수</p>
-            <p className="text-[17px] font-extrabold">{displayAvgHoldDays}일</p>
-            {myTotalDeals > 0 ? (
-              <p className={`text-[11px] ${holdDaysDelta <= 0 ? 'text-green-500' : 'text-rose-400'}`}>
-                시장 {marketAvgHoldDays}일 대비{" "}
-                {holdDaysDelta < 0 ? holdDaysDelta : `+${holdDaysDelta}`}%
-              </p>
-            ) : (
-              <p className="text-[11px] text-muted-foreground">
-                데이터 부족
-              </p>
-            )}
+            <p className="text-[13px] text-slate-300">소식지 구독 고객</p>
+            <p className="text-[18px] font-extrabold">{magazineSubscribers}명</p>
+            <p className="text-[13px] text-orange-400">이메일 수신 고객</p>
           </div>
           <div className="bg-card border border-border p-3 rounded-lg">
-            <p className="text-[11px] text-muted-foreground">S등급 매칭 전환율</p>
-            <p className="text-[17px] font-extrabold">{sConversionRate}%</p>
-            {totalMatchCount > 0 ? (
-              <p className="text-[11px] text-primary">평균 35% 대비 {sConversionRate - 35 >= 0 ? '+' : ''}{Math.round((sConversionRate - 35) * 10) / 10}%p</p>
-            ) : (
-              <p className="text-[11px] text-muted-foreground">데이터 부족</p>
-            )}
+            <p className="text-[13px] text-slate-300">이달 소식지 열람</p>
+            <p className="text-[18px] font-extrabold">{magazineViews}회</p>
+            <p className="text-[13px] text-indigo-300">누적 조회수</p>
           </div>
-          <div className="bg-card border border-border p-3 rounded-lg">
-            <p className="text-[11px] text-muted-foreground">매거진 구독자</p>
-            <p className="text-[17px] font-extrabold">{magazineSubscribers}명</p>
-            <p className="text-[11px] text-orange-400">활성 구독자</p>
-          </div>
-          <div className="bg-card border border-border p-3 rounded-lg">
-            <p className="text-[11px] text-muted-foreground">이달 매거진 열람</p>
-            <p className="text-[17px] font-extrabold">{magazineViews}회</p>
-            <p className="text-[11px] text-indigo-400">page view 기준</p>
-          </div>
+          {/* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조 */}
         </div>
       </div>
     </div>
@@ -519,8 +494,8 @@ export default async function BrokerPage() {
             <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
               <Building2 className="w-7 h-7 text-blue-300" strokeWidth={2.4} />
             </div>
-            <p className="text-[22px] sm:text-[25px] font-black text-blue-300 leading-tight tracking-tight">내 딜카드</p>
-            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">등록 물건 목록</p>
+            <p className="text-[22px] sm:text-[25px] font-black text-blue-300 leading-tight tracking-tight">내 물건 · IM</p>
+            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">PPTX 투자설명서 작성</p>
           </Link>
 
           {/* 좌하단: 매거진 편집 */}
@@ -534,7 +509,7 @@ export default async function BrokerPage() {
               <Newspaper className="w-7 h-7 text-rose-300" strokeWidth={2.4} />
             </div>
             <p className="text-[22px] sm:text-[25px] font-black text-rose-300 leading-tight tracking-tight">매거진 편집</p>
-            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">위클리 매거진 제작</p>
+            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">주간 소식지 발송</p>
           </Link>
 
           {/* 우하단: 소통 관리함 */}
@@ -547,45 +522,57 @@ export default async function BrokerPage() {
               <Bell className="w-7 h-7 text-emerald-300" strokeWidth={2.4} />
             </div>
             <p className="text-[22px] sm:text-[25px] font-black text-emerald-300 leading-tight tracking-tight">소통 관리함</p>
-            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">인바운드 요청 확인</p>
+            <p className="text-[14px] sm:text-[15px] font-semibold text-slate-300 mt-1.5">고객 문의 확인</p>
           </Link>
         </div>
 
-        {/* ── KPI 스크롤 카드 (고대비 PB 럭셔리 스타일 · 한글 보정) ── */}
-        <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+        {/* ── 핵심 현황 요약 카드 (3대 핵심 중심 · 비핵심 매칭 KPI는 숨김) ── */}
+        <div className="grid grid-cols-3 gap-2.5">
           {[
-            { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-amber-300", border: "border-amber-500/30", href: "/broker/buildings" },
-            /* DORMANT: leasing-studio 휴면 — 임대물건 KPI 숨김 */
-            // { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-blue-300", border: "border-blue-500/30", href: "/broker/buildings" },
+            { label: "등록 물건", value: totalBuildings ?? 0, icon: Building2, color: "text-amber-300", border: "border-amber-500/30", href: "/broker/buildings" },
+            { label: "구독 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-300", border: "border-emerald-500/30", href: "/broker/clients" },
+            { label: "소식지 열람", value: magazineViews, icon: Newspaper, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/magazine-editor" },
+            /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조
             { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-yellow-300", border: "border-yellow-500/30", href: "/broker/matching" },
-            { label: "관리 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-300", border: "border-emerald-500/30", href: "/broker/clients" },
             { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/buyer-intents" },
+            */
           ].map(({ label, value, icon: Icon, color, border, href }) => (
             <Link
               key={label}
               href={href}
-              className={`shrink-0 rounded-2xl border ${border} bg-[#131b2e] px-4 py-4 text-center hover:bg-[#1a2540] transition-all min-w-[92px] shadow-sm`}
+              className={`rounded-2xl border ${border} bg-[#131b2e] px-3 py-4 text-center hover:bg-[#1a2540] transition-all shadow-sm`}
             >
               <Icon className={`w-5 h-5 mx-auto mb-1.5 ${color}`} strokeWidth={2.2} />
               <p className="text-[22px] font-black text-slate-100 tabular-nums leading-tight">{value}</p>
-              <p className="text-[13px] font-bold text-slate-400 mt-1">{label}</p>
+              <p className="text-[14px] font-bold text-slate-300 mt-1">{label}</p>
             </Link>
           ))}
         </div>
 
-        {/* ── 탭 레이아웃 연동 ── */}
-        <BrokerDashboardTabs
-          actionQueueContent={actionQueueContent}
-          overviewContent={overviewContent}
-          breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
-          weeklyReportContent={
-            <div className="space-y-4">
-              <WeeklyReportCard />
-              <MonthlyReportCard />
-            </div>
-          }
-          morningIntelligenceContent={<MorningIntelligence />}
-        />
+        {/* ── 오늘 일정 및 최근 알림 ── */}
+        {overviewContent}
+
+        {/* DORMANT: ux60-focus — 상세 통계 및 시장 브리핑 탭은 접이식으로 제공 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조) */}
+        <details className="rounded-2xl border border-slate-800 bg-[#111827] p-4">
+          <summary className="cursor-pointer text-[15px] font-bold text-slate-300 flex items-center justify-between">
+            <span>📊 시장 브리핑 · 주간 리포트 더보기</span>
+            <span className="text-[13px] text-slate-400">펼치기 ▼</span>
+          </summary>
+          <div className="pt-4 mt-3 border-t border-slate-800">
+            <BrokerDashboardTabs
+              actionQueueContent={actionQueueContent}
+              overviewContent={overviewContent}
+              breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
+              weeklyReportContent={
+                <div className="space-y-4">
+                  <WeeklyReportCard />
+                  <MonthlyReportCard />
+                </div>
+              }
+              morningIntelligenceContent={<MorningIntelligence />}
+            />
+          </div>
+        </details>
 
       </div>
 

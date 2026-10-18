@@ -183,27 +183,46 @@ export default function BasicImStudioPage() {
   if (!project) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <Card className="p-8 text-center">
-          <p className="text-red-500 text-lg">프로젝트를 불러올 수 없습니다</p>
-          <p className="text-gray-500 mt-2">buildingId: {buildingId}</p>
+        <Card className="p-8 text-center space-y-4">
+          <p className="text-red-500 text-lg font-bold">투자설명서 편집 화면을 불러올 수 없습니다</p>
+          <p className="text-gray-500 text-sm">잠시 후 다시 시도하시거나 딜카드 화면으로 돌아가 주세요.</p>
+          <Button variant="outline" onClick={() => { window.location.href = `/broker/deal-card/${buildingId}`; }}>
+            ← 딜카드 화면으로 돌아가기
+          </Button>
         </Card>
       </div>
     );
   }
 
+  const stageKorean =
+    project.stage === 'published' || project.stage === 'S70'
+      ? '발행 완료'
+      : project.stage === 'S60'
+      ? '검토 대기'
+      : '편집 중';
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b px-6 py-3 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">{project.title}</h1>
-          <p className="text-sm text-gray-500">
-            Basic IM · {project.slides.filter(s => !s.hidden).length}면 · {project.stage}
-          </p>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { window.location.href = `/broker/deal-card/${buildingId}`; }}
+          >
+            ← 딜카드로 돌아가기
+          </Button>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">{project.title}</h1>
+            <p className="text-sm text-gray-500">
+              표준 9면 투자설명서(Basic IM) · {project.slides.filter(s => !s.hidden).length}면 · {stageKorean}
+            </p>
+          </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={handleDownload} disabled={downloading}>
-            {downloading ? '다운로드 중...' : '📥 PPTX 다운로드'}
+          <Button onClick={handleDownload} disabled={downloading}>
+            {downloading ? '다운로드 중...' : '📊 PPTX 파일 다운로드'}
           </Button>
         </div>
       </header>

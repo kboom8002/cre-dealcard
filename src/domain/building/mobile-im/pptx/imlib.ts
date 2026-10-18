@@ -1301,7 +1301,8 @@ export function stat(
 
   // 보조 텍스트 — Dynamic subText Y position offset
   if (subText) {
-    const subY = Math.max(y + 0.86, valY + valH + 0.02);
+    const minSubOffset = h <= 1.10 ? 0.76 : 0.86;
+    const subY = Math.max(y + minSubOffset, valY + valH + 0.02);
     const availableSubH = Math.max(0.24, h - (subY - y) - 0.04);
     const subOpts = {
       minFontSize: 7.0,

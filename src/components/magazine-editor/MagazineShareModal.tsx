@@ -126,7 +126,7 @@ export function MagazineShareModal({
       open={showShareModal}
       onOpenChange={setShowShareModal}
       title="매거진 발행 완료!"
-      description="개인화된 링크를 통해 고객에게 매거진을 전달해보세요."
+      description="이메일 구독자에게는 자동 발송되며, 카카오톡 대화창에는 아래 링크를 복사해 붙여넣어 전달하실 수 있습니다."
       size="md"
     >
       <div className="space-y-5">
@@ -196,7 +196,7 @@ export function MagazineShareModal({
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 py-3 text-body font-bold text-white transition-all hover:bg-slate-700 disabled:opacity-50"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            개인화 매거진 링크 복사하기
+            카카오톡·문자 공유용 링크 복사하기
           </button>
         </div>
 

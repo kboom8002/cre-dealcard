@@ -6,17 +6,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 type TabKey = 'overview' | 'im' | 'buyers' | 'analytics';
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: 'overview', label: '개요', icon: '🏠' },
-  { key: 'im', label: 'IM', icon: '📱' },
+  { key: 'overview', label: '딜카드 개요', icon: '🏠' },
+  { key: 'im', label: '투자설명서 (IM)', icon: '📊' },
+  /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조
   { key: 'buyers', label: '매수자', icon: '🎯' },
   { key: 'analytics', label: '분석', icon: '📊' },
+  */
 ];
 
 interface DealCardTabsProps {
   overviewContent: React.ReactNode;
   imContent: React.ReactNode;
-  buyersContent: React.ReactNode;
-  analyticsContent: React.ReactNode;
+  buyersContent?: React.ReactNode;
+  analyticsContent?: React.ReactNode;
   buyersBadge?: { count: number; topGrade?: string };
 }
 
@@ -43,8 +45,8 @@ export function DealCardTabs({
   const contentMap: Record<TabKey, React.ReactNode> = {
     overview: overviewContent,
     im: imContent,
-    buyers: buyersContent,
-    analytics: analyticsContent,
+    buyers: buyersContent ?? null,
+    analytics: analyticsContent ?? null,
   };
 
   return (
@@ -54,7 +56,7 @@ export function DealCardTabs({
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 py-3 text-center text-xs sm:text-sm font-bold relative transition-colors ${
+            className={`flex-1 py-3.5 text-center text-[15px] font-bold relative transition-colors ${
               activeTab === tab.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
             }`}
           >

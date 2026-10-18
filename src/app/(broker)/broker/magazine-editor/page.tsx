@@ -326,15 +326,23 @@ function MagazineEditorInner() {
         .limit(10);
       if (error) throw new Error("매물 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
 
-      const mappedDeals = (dealsData || []).map((b: any) => ({
-        id: b.id,
-        address: b.raw_address,
-        areaSignal: b.area_signal,
-        assetType: b.asset_type,
-        price: b.price_band,
-        photoUrl: ((b.layers as any)?.photos?.urls as string[] | undefined)?.[0] ?? null,
-        buyerInterestCount: b.matched_buyer_count || 0,
-      }));
+      const mappedDeals = (dealsData || []).map((b: any) => {
+        const rawPhotos = (b.layers as any)?.photos;
+        const resolvedPhotoUrls: string[] = Array.isArray(rawPhotos)
+          ? rawPhotos.map((p: any) => (typeof p === "string" ? p : p?.url)).filter(Boolean)
+          : Array.isArray(rawPhotos?.urls)
+          ? rawPhotos.urls.filter(Boolean)
+          : [];
+        return {
+          id: b.id,
+          address: b.raw_address,
+          areaSignal: b.area_signal,
+          assetType: b.asset_type,
+          price: b.price_band,
+          photoUrl: resolvedPhotoUrls[0] ?? null,
+          buyerInterestCount: b.matched_buyer_count || 0,
+        };
+      });
 
       // IM 브릿지 추천 매물 (실패해도 기본 매물 목록은 유지)
       const { data: profileDeals } = await supabase
@@ -1289,7 +1297,7 @@ function MagazineEditorInner() {
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
-                <h1 className="text-body font-bold text-slate-200">Content Studio</h1>
+                <h1 aria-label="Content Studio" className="text-body font-bold text-slate-200">고객 소식지 편집실</h1>
                 <span className="rounded-md border border-indigo-500/30 bg-indigo-500/15 px-1.5 py-0.5 text-xs font-bold text-indigo-300">
                   매거진 만들기
                 </span>

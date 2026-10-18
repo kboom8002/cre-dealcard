@@ -125,10 +125,11 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
                   closeMenu(true);
                   setShowSpecialModal(true);
                 }}
-                className="w-full flex items-center gap-2 px-4 py-3 min-h-11 text-sm text-rose-400 font-bold hover:bg-rose-500/10 focus:bg-rose-500/10 focus:outline-none transition-colors text-left border-b border-border/50"
+                className="w-full flex items-center gap-2 px-4 py-3.5 min-h-[48px] text-[15px] text-amber-300 font-bold hover:bg-amber-500/10 focus:bg-amber-500/10 focus:outline-none transition-colors text-left border-b border-border"
               >
-                ⚡ 속보 매거진 발행
+                ⚡ 급매 소식지 발행
               </button>
+              {/* DORMANT: ux60-focus — 서클 공유 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
               <button
                 type="button"
                 role="menuitem"
@@ -140,6 +141,7 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
               >
                 🤝 서클에 공유
               </button>
+              */}
               <button
                 type="button"
                 role="menuitem"
@@ -147,7 +149,7 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
                   closeMenu(true);
                   setShowConfirm(true);
                 }}
-                className="w-full flex items-center gap-2.5 px-4 py-3 min-h-11 text-sm text-rose-500 hover:bg-rose-500/10 focus:bg-rose-500/10 focus:outline-none transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-4 py-3.5 min-h-[48px] text-[15px] text-rose-400 hover:bg-rose-500/10 focus:bg-rose-500/10 focus:outline-none transition-colors text-left"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polyline points="3 6 5 6 21 6" />

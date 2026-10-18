@@ -184,7 +184,7 @@ export function DealCardEditor({
           }`}
         >
           <ImageIcon className="w-3.5 h-3.5" />
-          OG 공유 메타
+          카톡·문자 공유 카드
         </button>
       </div>
 
@@ -195,9 +195,9 @@ export function DealCardEditor({
           <div className="space-y-4 animate-in fade-in duration-150">
             {/* 제목 */}
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
+              <label className="text-xs text-muted-foreground font-semibold flex items-center justify-between">
                 <span>📌 딜카드 메인 제목</span>
-                <span className="text-[10px] text-muted-foreground/70">권역·자산유형·핵심특징 반영</span>
+                <span className="text-[11px] text-muted-foreground/70">권역·자산유형·핵심특징 반영</span>
               </label>
               <input
                 type="text"
@@ -208,10 +208,10 @@ export function DealCardEditor({
               />
             </div>
 
-            {/* 한 줄 소구 (Hook Copy) */}
+            {/* 한 줄 홍보 문구 */}
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground font-semibold">
-                🎯 한 줄 소구 카피 (Hook Copy)
+              <label className="text-xs text-muted-foreground font-semibold">
+                🎯 매물 한 줄 홍보 문구
               </label>
               <input
                 type="text"
@@ -225,10 +225,10 @@ export function DealCardEditor({
             {/* 핵심 딜 포인트 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5">
+                <label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                   <span>🔑 핵심 딜 포인트 ({dealPoints.filter(Boolean).length}개 등록됨)</span>
                 </label>
-                <span className="text-[10px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">
+                <span className="text-[11px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">
                   1~3번 항목이 카톡 카드/미리보기에 우선 노출
                 </span>
               </div>
@@ -244,8 +244,8 @@ export function DealCardEditor({
                         {i + 1}
                       </span>
                       {i < 3 && (
-                        <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20 shrink-0">
-                          Top {i + 1}
+                        <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                          중요 {i + 1}
                         </span>
                       )}
                     </div>
@@ -253,7 +253,7 @@ export function DealCardEditor({
                       type="text"
                       value={point}
                       onChange={(e) => updateDealPoint(i, e.target.value)}
-                      className={`flex-1 bg-background border rounded-lg px-3 py-1.5 text-xs focus:outline-none transition-colors ${
+                      className={`flex-1 bg-background border rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors ${
                         i < 3 ? "border-primary/40 focus:border-primary" : "border-border focus:border-muted-foreground"
                       }`}
                       placeholder={`핵심 강점 ${i + 1} (예: 만실 운영 중, 월 수입 2,850만원)`}
@@ -262,10 +262,10 @@ export function DealCardEditor({
                       <button
                         type="button"
                         onClick={() => removeDealPoint(i)}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1 transition-all"
+                        className="opacity-70 hover:opacity-100 text-muted-foreground hover:text-destructive p-1.5 transition-all"
                         title="포인트 삭제"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-4 h-4" />
                       </button>
                     )}
                   </div>
@@ -275,12 +275,12 @@ export function DealCardEditor({
                 <button
                   type="button"
                   onClick={addDealPoint}
-                  className="flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
+                  className="flex items-center gap-1 text-xs text-primary hover:underline font-semibold"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   포인트 추가
                 </button>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground">
                   * 4번 이후 항목은 매수자가 상세 페이지를 열었을 때 전체 공개됩니다.
                 </span>
               </div>
@@ -292,7 +292,7 @@ export function DealCardEditor({
         {activeSubTab === "kakao" && (
           <div className="space-y-3 animate-in fade-in duration-150">
             <div className="space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground font-semibold">
+              <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
                 <span>💬 카카오톡 공유 시 함께 전송되는 메시지</span>
                 <span>{kakaoText.length.toLocaleString()}자</span>
               </div>
@@ -304,18 +304,18 @@ export function DealCardEditor({
                 placeholder="카카오톡 단톡방이나 매수자에게 보낼 메시지 원문"
               />
             </div>
-            <p className="text-[11px] text-muted-foreground bg-muted/30 p-2.5 rounded-lg leading-relaxed">
+            <p className="text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-lg leading-relaxed">
               💡 카카오톡 공유 버튼을 누르면 위 문구와 함께 하단의 블라인드 딜카드 링크가 매수자에게 전송됩니다.
             </p>
           </div>
         )}
 
-        {/* ── SUB-TAB 3: OG 공유 메타 ── */}
+        {/* ── SUB-TAB 3: 카톡·문자 공유 카드 ── */}
         {activeSubTab === "og" && (
           <div className="space-y-3 animate-in fade-in duration-150">
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground font-semibold">
-                🖼️ OG 카드 타이틀 (소셜 미리보기 제목)
+              <label className="text-xs text-muted-foreground font-semibold">
+                🖼️ 카카오톡·문자 공유 카드 제목
               </label>
               <input
                 type="text"
@@ -326,8 +326,8 @@ export function DealCardEditor({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground font-semibold">
-                📝 OG 카드 설명 (소셜 미리보기 요약)
+              <label className="text-xs text-muted-foreground font-semibold">
+                📝 카카오톡·문자 공유 카드 요약 설명
               </label>
               <textarea
                 value={ogDescription}

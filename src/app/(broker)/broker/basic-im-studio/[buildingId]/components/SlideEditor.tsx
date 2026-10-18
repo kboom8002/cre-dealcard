@@ -62,7 +62,7 @@ const SLIDE_FIELDS: Record<string, EditorField[]> = {
   closing: [
     { key: 'brokerName', label: '담당자명', type: 'text', placeholder: '홍길동' },
     { key: 'brokerPhone', label: '연락처', type: 'text', placeholder: '010-0000-0000' },
-    { key: 'brokerCompany', label: '중개법인명', type: 'text', placeholder: '주)쿠레딴' },
+    { key: 'brokerCompany', label: '중개사무소·법인명', type: 'text', placeholder: '예: 강남으뜸공인중개사사무소' },
   ],
 };
 
@@ -108,10 +108,10 @@ export function SlideEditor({
           <h2 className="text-lg font-bold text-gray-900">
             {slide.slideIndex}. {slide.title}
           </h2>
-          <p className="text-sm text-gray-400">{slide.kicker} · {slide.layoutType}</p>
+          <p className="text-sm text-gray-500">{slide.kicker}</p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? '저장 중...' : '💾 저장'}
+          {saving ? '저장 중...' : '💾 변경사항 저장'}
         </Button>
       </div>
 

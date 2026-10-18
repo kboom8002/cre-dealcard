@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import {
   LayoutDashboard,
   Building2,
-  Target,
+  Newspaper,
   MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,18 +27,28 @@ const NAV_ITEMS = [
   {
     href: "/broker/buildings",
     icon: Building2,
-    label: "딜카드",
+    label: "내 물건",
     id: "nav-buildings",
-    ariaLabel: "내 딜카드 목록",
+    ariaLabel: "내 딜카드 및 IM 목록",
     exact: false,
   },
   // Center slot is occupied by the FAB — skip index 2
+  /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조
   {
     href: "/broker/matching",
     icon: Target,
     label: "매칭",
     id: "nav-matching",
     ariaLabel: "AI 매칭 결과",
+    exact: false,
+  },
+  */
+  {
+    href: "/broker/magazine-editor?mode=simple",
+    icon: Newspaper,
+    label: "소식지",
+    id: "nav-magazine",
+    ariaLabel: "고객 소식지(매거진) 5분 간편 편집",
     exact: false,
   },
 ] as const;
@@ -71,9 +81,10 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
         <div className="max-w-lg mx-auto flex items-stretch justify-around px-1">
           {/* Left 2 items */}
           {NAV_ITEMS.slice(0, 2).map((item) => {
+            const baseHref = item.href.split("?")[0];
             const isActive = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+              ? pathname === baseHref
+              : pathname.startsWith(baseHref);
             const Icon = item.icon;
 
             return (
@@ -122,9 +133,10 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
           {/* Center FAB placeholder slot (keeps spacing balanced) */}
           <div className="min-w-[56px] flex-1" aria-hidden="true" />
 
-          {/* Right 1 item (매칭) */}
+          {/* Right 1 item (소식지) */}
           {NAV_ITEMS.slice(2).map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const baseHref = item.href.split("?")[0];
+            const isActive = pathname.startsWith(baseHref);
             const Icon = item.icon;
 
             return (

@@ -467,8 +467,85 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             if (existingDocBody.loan_term_years) setLoanTermYears(String(existingDocBody.loan_term_years));
             if (existingDocBody.target_irr_pct) setTargetIrrPct(String(existingDocBody.target_irr_pct));
           }
+
+          // ── UX60 로컬 임시저장 복원 (창 닫기·새로고침 시 입력 손실 방지) ──
+          if (buildingId && typeof window !== "undefined") {
+            try {
+              const rawDraft = window.localStorage.getItem(`cre_im_draft_${buildingId}`);
+              if (rawDraft) {
+                const draft = JSON.parse(rawDraft);
+                const isRecent = typeof draft.savedAt === "number" && (Date.now() - draft.savedAt) < 24 * 60 * 60 * 1000;
+                if (isRecent) {
+                  if (draft.investmentPosture && !initialInvestmentPosture) {
+                    setInvestmentPosture((prev) => prev || draft.investmentPosture);
+                  }
+                  if (draft.askingPrice && !prefillAskingPrice) {
+                    setAskingPrice((prev) => prev || String(draft.askingPrice));
+                  }
+                  if (draft.monthlyRent && !prefillMonthlyRent) {
+                    setMonthlyRent((prev) => prev || String(draft.monthlyRent));
+                  }
+                  if (draft.totalDeposit && !prefillTotalDeposit) {
+                    setTotalDeposit((prev) => prev || String(draft.totalDeposit));
+                  }
+                  if (draft.mgmtFeeTotal && !prefillMgmtFee) {
+                    setMgmtFeeTotal((prev) => prev || String(draft.mgmtFeeTotal));
+                  }
+                  if (draft.brokerParkingCount) {
+                    setBrokerParkingCount((prev) => prev || String(draft.brokerParkingCount));
+                  }
+                  if (draft.brokerElevatorCount) {
+                    setBrokerElevatorCount((prev) => prev || String(draft.brokerElevatorCount));
+                  }
+                  if (draft.brokerHighlight && !existingDocBody?.broker_highlight) {
+                    setBrokerHighlight((prev) => prev || String(draft.brokerHighlight));
+                  }
+                  if (Array.isArray(draft.floorLeases) && draft.floorLeases.length > 0) {
+                    setFloorLeases((prev) => (prev.length > 0 ? prev : draft.floorLeases));
+                  }
+                  if (draft.rentRollMeta && !existingDocBody?.rent_roll_meta) {
+                    setRentRollMeta((prev) => prev ?? draft.rentRollMeta);
+                  }
+                }
+              }
+            } catch {
+              // localStorage 접근 불가 시 무시
+            }
+          }
         }
       }, [isOpen, initialStage]);
+    // ── UX60 로컬 임시저장 자동 기록 ──
+    useEffect(() => {
+      if (!isOpen || !buildingId || typeof window === "undefined") return;
+      const hasAnyValue = Boolean(
+        investmentPosture || askingPrice || monthlyRent || totalDeposit || mgmtFeeTotal ||
+        brokerParkingCount || brokerElevatorCount || brokerHighlight || floorLeases.length > 0
+      );
+      if (!hasAnyValue) return;
+      try {
+        window.localStorage.setItem(
+          `cre_im_draft_${buildingId}`,
+          JSON.stringify({
+            savedAt: Date.now(),
+            investmentPosture,
+            askingPrice,
+            monthlyRent,
+            totalDeposit,
+            mgmtFeeTotal,
+            brokerParkingCount,
+            brokerElevatorCount,
+            brokerHighlight,
+            floorLeases,
+            rentRollMeta,
+          })
+        );
+      } catch {
+        // quota 등 무시
+      }
+    }, [
+      isOpen, buildingId, investmentPosture, askingPrice, monthlyRent, totalDeposit,
+      mgmtFeeTotal, brokerParkingCount, brokerElevatorCount, brokerHighlight, floorLeases, rentRollMeta,
+    ]);
     useEffect(() => {
         let score = 0;
         if (areaSignal) score += 10;
@@ -764,8 +841,9 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
               const job = await pollRes.json();
               if (job.status === "completed" && job.result) {
                 cancelled = true;
+                try { window.localStorage.removeItem(`cre_im_draft_${buildingId}`); } catch {}
                 setState("success");
-                setProgress(`✅ ${job.result.sections_count ?? 7}섹션 생성 완료!`);
+                setProgress(`✅ 투자설명서(${job.result.sections_count ?? 9}면) 생성 완료! 확인 화면으로 이동합니다...`);
                 const reviewUrl = job.result.im_lite_id
                   ? `/broker/im-approval/${job.result.im_lite_id}`
                   : job.result.url;
@@ -773,7 +851,7 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
               } else if (job.status === "failed") {
                 cancelled = true;
                 setState("error");
-                setErrorMsg(job.result?.error ?? "IM 생성 실패");
+                setErrorMsg(job.result?.error ?? "투자설명서 생성에 실패했습니다.");
                 setProgress("");
               }
             } catch (err: any) {
@@ -791,7 +869,15 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
               dotCount = (dotCount + 1) % 4;
               const dots = ".".repeat(dotCount + 1);
               const elapsed = Math.round((Date.now() - startTime) / 1000);
-              setProgress(`AI 분석 중${dots} (${elapsed}초 경과)`);
+              const stageMessage =
+                elapsed < 12
+                  ? "① 건축물대장·토지이용계획·공시지가 조회 중"
+                  : elapsed < 28
+                  ? "② 임대 현황 및 수익률·실거래 시세 계산 중"
+                  : elapsed < 55
+                  ? "③ 9면 투자설명서 해설 문구 작성 중"
+                  : "④ 도면·차트 배치 및 품질 검수 마무리 중";
+              setProgress(`${stageMessage}${dots} (${elapsed}초 경과 · 평균 45~60초 소요)`);
 
               try {
                 const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`, { signal });
@@ -800,8 +886,9 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
 
                 if (job.status === "completed" && job.result) {
                   cancelled = true;
+                  try { window.localStorage.removeItem(`cre_im_draft_${buildingId}`); } catch {}
                   setState("success");
-                  setProgress(`✅ ${job.result.sections_count ?? 7}섹션 생성 완료!`);
+                  setProgress(`✅ 투자설명서(${job.result.sections_count ?? 9}면) 생성 완료! 확인 화면으로 이동합니다...`);
                   const reviewUrl = job.result.im_lite_id
                     ? `/broker/im-approval/${job.result.im_lite_id}`
                     : job.result.url;
@@ -810,7 +897,7 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
                 } else if (job.status === "failed") {
                   cancelled = true;
                   setState("error");
-                  setErrorMsg(job.result?.error ?? "IM 생성 실패");
+                  setErrorMsg(job.result?.error ?? "투자설명서 생성에 실패했습니다.");
                   setProgress("");
                   return;
                 }
@@ -826,7 +913,7 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             if (!cancelled) {
               // 타임아웃
               setState("error");
-              setErrorMsg("생성 시간이 초과되었습니다. 잠시 후 IM 보관함에서 확인해 주세요.");
+              setErrorMsg("생성 시간이 조금 더 걸리고 있습니다. 입력하신 내용은 안전하게 보존되었으니 잠시 후 화면을 새로고침해 확인해 주세요.");
               setProgress("");
             }
           } finally {

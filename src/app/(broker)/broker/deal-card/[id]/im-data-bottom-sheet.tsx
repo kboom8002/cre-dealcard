@@ -32,6 +32,7 @@ import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
 import { hasValidBuildingNumber } from "@/domain/verification/address-resolver";
 import { useImDataForm } from "./use-im-data-form";
+import { getKoreanFieldLabel } from "@/constants/ui-lexicon";
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -65,6 +66,39 @@ interface ImDataBottomSheetProps {
 }
 
 type BottomSheetState = "idle" | "loading" | "success" | "error";
+
+/** 만원 단위 숫자를 한국어 억/만원 단위로 변환 (예: 1150000 -> "115억 원", 29000 -> "2억 9,000만 원") */
+function formatManwonToKorean(val: string | number | undefined | null): string | null {
+  const num = typeof val === "number" ? val : Number(String(val ?? "").replace(/,/g, ""));
+  if (!Number.isFinite(num) || num <= 0) return null;
+  const rounded = Math.round(num);
+  const eok = Math.floor(rounded / 10000);
+  const man = rounded % 10000;
+  if (eok > 0 && man > 0) {
+    return `${eok.toLocaleString("ko-KR")}억 ${man.toLocaleString("ko-KR")}만 원`;
+  }
+  if (eok > 0) {
+    return `${eok.toLocaleString("ko-KR")}억 원`;
+  }
+  return `${man.toLocaleString("ko-KR")}만 원`;
+}
+
+const MISSING_FIELD_LABELS: Record<string, string> = {
+  investmentPosture: "① 투자 유형(포스처) 선택",
+  address: "① 정확한 주소 검색",
+  askingPrice: "② 매각 희망가",
+  monthlyRent: "② 월 임대료 합계",
+  totalDeposit: "② 보증금 총액",
+  roomCount: "② 총 객실 수",
+  averageDailyRate: "② 1박 평균 요금(ADR)",
+  occupancyRate: "② 평균 객실 가동률",
+  unitKind: "② 운영 호실 구분",
+  devTargetUse: "② 개발 목표 용도",
+  devTargetScalePyung: "② 개발 목표 연면적(평)",
+  occHeadcount: "② 입주 예정 인원",
+  occDesiredFloors: "② 사옥 사용 희망 층수",
+  acquisitionPriceManwon: "② 매입 당시 취득가",
+};
 
 interface AddressResult {
   roadAddr?: string;
@@ -315,40 +349,53 @@ export function ImDataBottomSheet({
       prefillTotalDeposit, prefillMgmtFee, prefillAskingPrice, prefillLoanAmount, prefillVacancyPct, 
       initialInvestmentPosture, currentDataGrade, gradeUpItems, initialStage, targetTier, postureProposal, existingDocBody 
     });
+    const [showYieldCalc, setShowYieldCalc] = useState(false);
+    const [customYieldInput, setCustomYieldInput] = useState("4.0");
+
     if (!isOpen) return null;
     if (typeof window === 'undefined') return null;
-  // D37 L-3: 5종 tier → legacy stage 변환
-  // Form states
-  // ── 포스처 및 Pack Slot 신규 State ──
-  // 누락 필드 하이라이팅 헬퍼
-  // ── 물류센터 전용 필드 state ──
-  // ── 운영형 (호텔/모텔/펜션) 필드 state ──
-  // 개발형 (DevelopmentPlan, VacatePlan, PermitRisk)
-  // 자가사용형 (OccupancyPlan)
-  // 구분소유 (SectionalSpec)
-  // 주거사양 (ResidentialSpec)
-  // ── trading 포스처 (보유이력) ──
-  // ── operating 포스처 (운영실적 확장) ──
-  // ── 필지 (ParcelSection) ──
-  // ── D41 Phase D: 취득 비용 ──
-  // ── D41 Phase D: 대출 시나리오 ──
-  // Address search states
-  // Photo states
-  // floorLeases 상태 → ref 동기화 (handleCreate에서 최신 값 보장)
-  // 현재 입력 상태에 따른 필수 데이터 누락 여부 동적 계산
-  // U-6: 포스처 변경 시 조합 검증
-  // Sync props when opening/changing
-  // v3: Auto-prefill from deal card data
-  // 간이 Readiness 계산 로직 (바텀시트 내부 표시용)
-  // 드롭다운 위치 계산 (portal용)
-  // 주소 검색 (실제 API 호출)
-  // 주소 결과 선택
-  // Enter 키로 검색 (주소)
-  // Pro IM은 A등급 이상에서만 가능
-  // Basic: Grade D 차단 (basic-im-guide.md)
-  // Pro: Grade B 이상 필요
-  // Portal을 사용하여 document.body에 직접 렌더링
-  // 부모 요소의 transform/filter CSS가 fixed 포지셔닝을 깨뜨리는 문제 방지
+
+    const applyReverseYield = (capRate: number) => {
+      const rent = Number(monthlyRent) || 0;
+      const deposit = Number(totalDeposit) || 0;
+      if (rent <= 0 || capRate <= 0 || capRate >= 100) return;
+      const result = computeFinancialSummary({
+        askingPriceKrw: 0,
+        grossAnnualIncomeKrw: rent * 12,
+        totalDepositKrw: deposit,
+      });
+      const estimatedPrice = Math.round((result.noiKrw.value / (capRate / 100)) + deposit);
+      setAskingPrice(estimatedPrice.toString());
+      setShowYieldCalc(false);
+    };
+
+    const jumpToField = (fieldKey: string) => {
+      if (fieldKey === "address") {
+        searchInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (fieldKey === "askingPrice") {
+        askingPriceRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        askingPriceRef.current?.focus();
+        return;
+      }
+      if (fieldKey === "monthlyRent") {
+        monthlyRentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        monthlyRentRef.current?.focus();
+        return;
+      }
+      if (fieldKey === "totalDeposit") {
+        totalDepositRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        totalDepositRef.current?.focus();
+        return;
+      }
+      const stepEl = document.getElementById(
+        fieldKey === "investmentPosture" ? "bs-step-1" : "bs-step-2"
+      );
+      stepEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4" role="presentation">
       <div 
@@ -358,38 +405,70 @@ export function ImDataBottomSheet({
         className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)]"
       >
         
-        <div className="flex items-center justify-between mb-4 shrink-0">
-          <h2 id="bottom-sheet-title" className="text-lg font-bold text-foreground">
-            {'📊 투자설명서(IM) 만들기'}
-          </h2>
+        <div className="flex items-center justify-between mb-2 shrink-0">
+          <div>
+            <h2 id="bottom-sheet-title" className="text-lg font-bold text-foreground">
+              {'📊 투자설명서(IM) 만들기'}
+            </h2>
+            <p className="text-[12px] text-emerald-400 font-medium mt-0.5">
+              💾 입력하신 금액·임대차 내역은 창을 닫아도 자동 임시저장됩니다
+            </p>
+          </div>
           <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
             ✕
           </button>
         </div>
-        <p className="text-sm text-muted-foreground mb-4 shrink-0">
-          {'기본 정보를 입력하여 모바일 투자설명서를 생성하세요.'}
-        </p>
+
+        {/* 3단계 빠른 이동 탭 */}
+        <div className="grid grid-cols-3 gap-1.5 mb-3 shrink-0 bg-secondary/40 p-1 rounded-xl border border-border/60">
+          <button
+            type="button"
+            onClick={() => document.getElementById("bs-step-1")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="py-1.5 px-2 rounded-lg text-xs font-bold text-foreground hover:bg-background/80 transition-colors text-center truncate"
+          >
+            ① 유형·주소
+          </button>
+          <button
+            type="button"
+            onClick={() => document.getElementById("bs-step-2")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="py-1.5 px-2 rounded-lg text-xs font-bold text-foreground hover:bg-background/80 transition-colors text-center truncate"
+          >
+            ② 임대·매각가
+          </button>
+          <button
+            type="button"
+            onClick={() => document.getElementById("bs-step-3")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="py-1.5 px-2 rounded-lg text-xs font-bold text-foreground hover:bg-background/80 transition-colors text-center truncate"
+          >
+            ③ 사진·추가정보
+          </button>
+        </div>
 
         {computedMissingFields.length > 0 && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4 flex items-start gap-2 shrink-0">
-            <span className="text-red-500 shrink-0">⚠️</span>
-            <p className="text-xs text-red-500 font-medium">
-              IM 작성을 위해 필수적인 정보가 누락되었습니다. 빨간색으로 강조된 항목을 입력해주세요.
-            </p>
-          </div>
-        )}
-
-        {stage === 'basic' && currentDataGrade === 'D' && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4 flex items-start gap-2 shrink-0">
-            <span className="text-red-500 shrink-0">🚨</span>
-            <p className="text-xs text-red-500 font-bold">
-              주소와 기본 가격 정보가 필요합니다
-            </p>
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 mb-3 shrink-0">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-amber-500 text-xs shrink-0">📌</span>
+              <p className="text-xs text-amber-400 font-bold">
+                아직 입력할 필수 항목이 {computedMissingFields.length}개 남았습니다 (누르면 해당 칸으로 이동)
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {computedMissingFields.map((fieldKey) => (
+                <button
+                  key={fieldKey}
+                  type="button"
+                  onClick={() => jumpToField(fieldKey)}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold transition-colors"
+                >
+                  {MISSING_FIELD_LABELS[fieldKey] || getKoreanFieldLabel(fieldKey)} →
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {stage === 'pro' && (currentDataGrade === 'C' || currentDataGrade === 'D') && (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-4 flex items-start gap-2 shrink-0">
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5 mb-3 flex items-start gap-2 shrink-0">
             <span className="text-yellow-500 shrink-0">⚠️</span>
             <p className="text-xs text-yellow-600 dark:text-yellow-500 font-bold">
               전문 IM은 B등급 이상 데이터가 필요합니다
@@ -398,15 +477,16 @@ export function ImDataBottomSheet({
         )}
 
         {/* Scrollable Form Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-4 pb-10">
           {/* 🎯 투자 포스처 선택 */}
-          <PostureSelector
-            investmentPosture={investmentPosture}
-            setInvestmentPosture={setInvestmentPosture}
-            postureProposal={postureProposal}
-          />
+          <div id="bs-step-1">
+            <PostureSelector
+              investmentPosture={investmentPosture}
+              setInvestmentPosture={setInvestmentPosture}
+              postureProposal={postureProposal}
+            />
+          </div>
 
-          {/* 주소 + 월세 + 렌트롤 — Basic에도 표시 */}
           {/* 주소 + 월세 + 렌트롤 — Basic에도 표시 */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
@@ -547,9 +627,14 @@ export function ImDataBottomSheet({
             <BrokerTargetRentField form={brokerExtrasForm} setForm={setBrokerExtrasForm} />
 
             {/* Monthly Rent */}
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-              💰 월 임대료 총액
+          <div id="bs-step-2">
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
+              <span>💰 월 임대료 총액</span>
+              {formatManwonToKorean(monthlyRent) && (
+                <span className="text-xs font-extrabold text-emerald-500">
+                  = 월 {formatManwonToKorean(monthlyRent)}
+                </span>
+              )}
             </label>
             <div className="relative">
               <input
@@ -566,7 +651,9 @@ export function ImDataBottomSheet({
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
             </div>
             {monthlyRent && Number(monthlyRent) > 0 && (
-              <p className="text-xs text-emerald-500 mt-1.5">✅ 월 {Number(monthlyRent).toLocaleString()}만원 ({Math.round(Number(monthlyRent) * 12 / 10000 * 10) / 10}억원/년)</p>
+              <p className="text-xs text-emerald-500 mt-1.5 font-medium">
+                ✅ 월 {Number(monthlyRent).toLocaleString()}만원 (연간 약 {formatManwonToKorean(Number(monthlyRent) * 12)})
+              </p>
             )}
             {prefillMonthlyRent && monthlyRent === String(prefillMonthlyRent) && (
               <span className="text-[10px] text-blue-400 ml-1">📋 딜카드에서 자동 입력</span>
@@ -577,8 +664,13 @@ export function ImDataBottomSheet({
             {/* Total Deposit */}
             {/* 보증금 — Basic에도 표시 */}
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-                  🔒 보증금 총액
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
+                  <span>🔒 보증금 총액</span>
+                  {formatManwonToKorean(totalDeposit) && (
+                    <span className="text-[11px] font-bold text-emerald-500">
+                      = {formatManwonToKorean(totalDeposit)}
+                    </span>
+                  )}
                 </label>
               <div className="relative">
                 <input
@@ -594,6 +686,11 @@ export function ImDataBottomSheet({
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>
+              {totalDeposit && Number(totalDeposit) > 0 && (
+                <p className="text-xs text-emerald-500 mt-1 font-medium">
+                  ✅ {formatManwonToKorean(totalDeposit)}
+                </p>
+              )}
               {prefillTotalDeposit && totalDeposit === String(prefillTotalDeposit) && (
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
@@ -625,36 +722,70 @@ export function ImDataBottomSheet({
             {/* Asking Price */}
             <div className={stage === 'basic' ? 'col-span-2' : ''}>
               <div className="flex justify-between items-center mb-1.5">
-                <label className="block text-xs font-semibold text-muted-foreground">
-                  💰 매각 희망가
+                <label htmlFor="input-asking-price" className="block text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                  <span>💰 매각 희망가</span>
+                  {formatManwonToKorean(askingPrice) && (
+                    <span className="text-sm font-extrabold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                      = {formatManwonToKorean(askingPrice)}
+                    </span>
+                  )}
                 </label>
                 <button
                   type="button"
                   onClick={() => {
-                    const rent = Number(monthlyRent) || 0;
-                    const deposit = Number(totalDeposit) || 0;
-                    if (rent <= 0) return;
-                    const capRateStr = prompt("역산에 사용할 수익률(%)을 입력하세요:", "4");
-                    const capRate = parseFloat(capRateStr || "0");
-                    if (capRate > 0 && capRate < 100) {
-                      // S0-T12: Use centralized financials module instead of inline math
-                      const result = computeFinancialSummary({
-                        askingPriceKrw: 0,
-                        grossAnnualIncomeKrw: rent * 12,
-                        totalDepositKrw: deposit,
-                      });
-                      // Reverse-engineer price from cap rate: Price = NOI / (capRate/100) + deposit
-                      const estimatedPrice = Math.round((result.noiKrw.value / (capRate / 100)) + deposit);
-                      setAskingPrice(estimatedPrice.toString());
+                    if ((Number(monthlyRent) || 0) <= 0) {
+                      toast.info("월 임대료를 먼저 입력하면 수익률로 매각가를 역산할 수 있습니다.");
+                      return;
                     }
+                    setShowYieldCalc((prev) => !prev);
                   }}
-                  className="text-[10px] text-primary hover:underline"
+                  className="text-xs font-semibold text-primary hover:underline px-2 py-0.5 rounded bg-primary/10"
                 >
-                  수익률로 역산
+                  {showYieldCalc ? "역산 닫기 ▲" : "🧮 수익률로 역산"}
                 </button>
               </div>
+              {showYieldCalc && (
+                <div className="mb-2 p-2.5 rounded-xl bg-secondary/60 border border-primary/30 space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    목표 수익률을 누르면 월 임대료·보증금 기준으로 매각 희망가가 자동 계산됩니다:
+                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[3.0, 3.5, 4.0, 4.5, 5.0].map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => applyReverseYield(rate)}
+                        className="px-2.5 py-1 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 text-xs font-bold transition-colors"
+                      >
+                        {rate.toFixed(1)}%
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1 ml-auto">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.5"
+                        max="30"
+                        value={customYieldInput}
+                        onChange={(e) => setCustomYieldInput(e.target.value)}
+                        className="w-16 bg-background border border-border rounded px-2 py-1 text-xs text-foreground"
+                        aria-label="직접 입력 수익률(%)"
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
+                      <button
+                        type="button"
+                        onClick={() => applyReverseYield( parseFloat(customYieldInput || "0") )}
+                        className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
+                      >
+                        적용
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="relative">
                 <input
+                  id="input-asking-price"
                   ref={askingPriceRef}
                   type="number"
                   inputMode="numeric"
@@ -667,13 +798,55 @@ export function ImDataBottomSheet({
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>
-              {/* 자동 계산된 수익률 표시 */}
-              {Number(monthlyRent) > 0 && Number(askingPrice) > 0 && (
-                <p className="mt-1 text-[11px] text-primary/80">
-                  📊 예상 Cap Rate: <strong>{((Number(monthlyRent) * 12 / Number(askingPrice)) * 100).toFixed(1)}%</strong>
-                  <span className="text-muted-foreground ml-1">(월세×12 ÷ 매각가)</span>
-                </p>
-              )}
+              {/* 빠른 금액 입력 버튼 — 0 개수 실수 방지 */}
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-[11px] text-muted-foreground mr-1">빠른 합산:</span>
+                {[
+                  { label: "+100억", add: 1000000 },
+                  { label: "+10억", add: 100000 },
+                  { label: "+1억", add: 10000 },
+                  { label: "+1,000만", add: 1000 },
+                ].map((btn) => (
+                  <button
+                    key={btn.label}
+                    type="button"
+                    onClick={() => {
+                      const cur = Number(askingPrice) || 0;
+                      setAskingPrice(String(cur + btn.add));
+                    }}
+                    className="px-2 py-1 rounded-md bg-secondary hover:bg-secondary/80 border border-border text-xs font-semibold text-foreground transition-colors"
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+                {askingPrice && (
+                  <button
+                    type="button"
+                    onClick={() => setAskingPrice("")}
+                    className="px-2 py-1 rounded-md bg-secondary/40 hover:bg-rose-500/15 text-xs text-muted-foreground hover:text-rose-400 transition-colors ml-auto"
+                  >
+                    초기화
+                  </button>
+                )}
+              </div>
+              {/* 자동 계산된 수익률 표시 (V04 보증금 차감 기준 + 단순 수익률 병기) */}
+              {Number(monthlyRent) > 0 && Number(askingPrice) > 0 && (() => {
+                const rent = Number(monthlyRent);
+                const price = Number(askingPrice);
+                const dep = Number(totalDeposit) || 0;
+                const netPrice = price - dep;
+                const v04Yield = netPrice > 0 ? ((rent * 12) / netPrice) * 100 : null;
+                const simpleYield = ((rent * 12) / price) * 100;
+                return (
+                  <p className="mt-1.5 text-xs text-primary/90 font-medium">
+                    📊 임대수익률(보증금 차감):{" "}
+                    <strong>{v04Yield != null ? `${v04Yield.toFixed(2)}%` : `${simpleYield.toFixed(2)}%`}</strong>
+                    <span className="text-muted-foreground ml-1.5">
+                      (매매가 대비 단순 {simpleYield.toFixed(2)}%)
+                    </span>
+                  </p>
+                );
+              })()}
               {prefillAskingPrice && askingPrice === String(prefillAskingPrice) && (
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
@@ -807,40 +980,43 @@ export function ImDataBottomSheet({
 
           {/* Photos */}
           {/* 사진 — Basic에도 표시 (기존 사진 + 업로드) */}
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
+          <div id="bs-step-3">
+            <label className="block text-xs font-semibold text-muted-foreground mb-1 flex justify-between items-center">
               <span>📸 건물 사진 및 분류 (최대 12장)</span>
-              <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">⭐ 대표 지정 가능 · 점수 +10</span>
+              <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded font-bold">⭐ 대표 지정 가능 · 점수 +10</span>
             </label>
-            <div className="flex gap-2.5 overflow-x-auto pb-2.5 snap-x">
+            <p className="text-xs text-muted-foreground mb-2">
+              사진 상단의 <b className="text-amber-500">★ 대표</b>(표지용), <b className="text-blue-500">🏢 외관</b>(건물 개요용) 버튼을 눌러 지정하세요.
+            </p>
+            <div className="flex gap-3 overflow-x-auto pb-2.5 snap-x">
               {/* Existing Photos */}
               {existingUrls.map((url, idx) => (
-                <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-24">
-                  <div className="relative w-24 h-24">
-                    <img src={url} alt={`Existing ${idx}`} className="w-24 h-24 object-cover rounded-lg border border-border" />
-                    <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[8px] px-1 rounded font-bold">기존</span>
+                <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-28">
+                  <div className="relative w-28 h-28">
+                    <img src={url} alt={`Existing ${idx}`} className="w-28 h-28 object-cover rounded-lg border border-border" />
+                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">기존</span>
                     <button
                       type="button"
                       title="대표 사진으로 지정"
                       onClick={() => setHeroPhotoIndex(idx)}
-                      className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs shadow transition-colors ${heroPhotoIndex === idx ? 'bg-amber-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                      className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === idx ? 'bg-amber-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
                     >
-                      ★
+                      ★ 대표
                     </button>
                     <button
                       type="button"
                       title="외관 사진으로 지정 (PPTX 개요 슬라이드)"
                       onClick={() => setExteriorPhotoIndex(exteriorPhotoIndex === idx ? null : idx)}
-                      className={`absolute top-1 left-7 w-5 h-5 rounded-full flex items-center justify-center text-[8px] shadow transition-colors ${exteriorPhotoIndex === idx ? 'bg-blue-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                      className={`absolute top-1 left-12 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${exteriorPhotoIndex === idx ? 'bg-blue-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
                     >
-                      🏢
+                      🏢 외관
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setExistingUrls(prev => prev.filter((_, i) => i !== idx));
                       }}
-                      className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                      className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
                     >
                       ×
                     </button>
@@ -849,7 +1025,7 @@ export function ImDataBottomSheet({
                     data-testid={`photo-category-${idx}`}
                     value={photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')}
                     onChange={(e) => setPhotoCategories(prev => ({ ...prev, [idx]: e.target.value }))}
-                    className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
+                    className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
                   >
                     <option value="exterior">외관 전경</option>
                     <option value="lobby">1층 로비</option>
@@ -868,7 +1044,7 @@ export function ImDataBottomSheet({
                     placeholder="설명 (선택)"
                     value={photoCaptions[idx] || ''}
                     onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [idx]: e.target.value }))}
-                    className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                   />
                 </div>
               ))}
@@ -877,25 +1053,25 @@ export function ImDataBottomSheet({
               {photoPreviewUrls.map((url, idx) => {
                 const totalIdx = existingUrls.length + idx;
                 return (
-                  <div key={`new-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-24">
-                    <div className="relative w-24 h-24">
-                      <img src={url} alt={`Preview ${idx}`} className="w-24 h-24 object-cover rounded-lg border border-border" />
-                      <span className="absolute bottom-1 left-1 bg-indigo-600/80 text-white text-[8px] px-1 rounded font-bold">신규</span>
+                  <div key={`new-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-28">
+                    <div className="relative w-28 h-28">
+                      <img src={url} alt={`Preview ${idx}`} className="w-28 h-28 object-cover rounded-lg border border-border" />
+                      <span className="absolute bottom-1 left-1 bg-indigo-600/90 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">신규</span>
                       <button
                         type="button"
                         title="대표 사진으로 지정"
                         onClick={() => setHeroPhotoIndex(totalIdx)}
-                        className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                        className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
                       >
-                        ★
+                        ★ 대표
                       </button>
                       <button
                         type="button"
                         title="외관 사진으로 지정 (PPTX 개요 슬라이드)"
                         onClick={() => setExteriorPhotoIndex(exteriorPhotoIndex === totalIdx ? null : totalIdx)}
-                        className={`absolute top-1 left-7 w-5 h-5 rounded-full flex items-center justify-center text-[8px] shadow transition-colors ${exteriorPhotoIndex === totalIdx ? 'bg-blue-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                        className={`absolute top-1 left-12 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${exteriorPhotoIndex === totalIdx ? 'bg-blue-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
                       >
-                        🏢
+                        🏢 외관
                       </button>
                       <button
                         type="button"
@@ -916,7 +1092,7 @@ export function ImDataBottomSheet({
                           });
                           setPhotoCaptions(newCaptions);
                         }}
-                        className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                        className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
                       >
                         ×
                       </button>
@@ -925,7 +1101,7 @@ export function ImDataBottomSheet({
                       data-testid={`photo-category-${totalIdx}`}
                       value={photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')}
                       onChange={(e) => setPhotoCategories(prev => ({ ...prev, [totalIdx]: e.target.value }))}
-                      className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
+                      className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
                     >
                       <option value="exterior">외관 전경</option>
                       <option value="lobby">1층 로비</option>
@@ -944,7 +1120,7 @@ export function ImDataBottomSheet({
                       placeholder="설명 (선택)"
                       value={photoCaptions[totalIdx] || ''}
                       onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [totalIdx]: e.target.value }))}
-                      className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                      className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                     />
                   </div>
                 );
@@ -954,10 +1130,10 @@ export function ImDataBottomSheet({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-24 h-24 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
+                  className="w-28 h-28 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
                 >
-                  <span className="text-xl leading-none mb-1">+</span>
-                  <span className="text-[10px]">사진 추가</span>
+                  <span className="text-2xl leading-none mb-1">+</span>
+                  <span className="text-xs font-semibold">사진 추가</span>
                 </button>
               )}
             </div>

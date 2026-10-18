@@ -169,6 +169,11 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
         <OutreachPanel
           activeDealId={activeDealId}
           onOpenSpecial={() => setShowSpecialModal(true)}
+          brokerSlug={props.brokerSlug}
+          brokerName={props.brokerName}
+          baseUrl={props.baseUrl}
+          editionDate={props.editionDate}
+          shareTitle={props.shareTitle}
         />
       )}
     </div>
@@ -179,7 +184,7 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
 // 구독자 관리 패널
 // ══════════════════════════════════════════════════════════════
 
-function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, sendDisabled }: EditorOutreachTabProps) {
+function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, sendDisabled, editionDate, shareTitle }: EditorOutreachTabProps) {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -262,6 +267,37 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
       ) : weeklyLabel ? (
         <p className="px-1 text-caption text-ink-muted">발송 일정: {weeklyLabel} 오전 · 수신 동의가 확인된 구독자에게만 발송돼요.</p>
       ) : null}
+
+      {/* 카톡·문자 수동 공유용 인사말 + 링크 1클릭 복사 배너 */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 px-3.5 py-2.5">
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-amber-200">
+            💬 카카오톡·문자 공유 (인사말 + 소식지 주소 한 번에 복사)
+          </p>
+          <p className="text-xs text-slate-300">
+            이메일 등록 고객에게는 매주 자동 발송되며, 카톡 고객에게는 아래 버튼으로 복사해 단톡방·1:1 채팅에 붙여넣으세요.
+          </p>
+        </div>
+        <button
+          type="button"
+          data-testid="copy-kakao-greeting-btn"
+          onClick={() => {
+            const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://www.credeal.net');
+            const issueUrl = editionDate ? `${origin}/magazine/${brokerSlug}/${editionDate}` : `${origin}/magazine/${brokerSlug}`;
+            const subUrl = `${origin}/magazine/${brokerSlug}/subscribe`;
+            const titleLine = shareTitle ? `\n📌 이번 호 주제: ${shareTitle}` : '';
+            const text = `안녕하세요, ${brokerName || '담당'} 중개사입니다.${titleLine}\n이번 주 상업용 빌딩 시장 동향과 추천 매물 소식지를 보내드립니다.\n\n👉 이번 주 소식지 보기:\n${issueUrl}\n\n👉 이메일로 매주 편하게 받아보기(무료 구독):\n${subUrl}`;
+            navigator.clipboard.writeText(text).then(
+              () => toast.success('카톡·문자용 인사말과 소식지 주소가 복사되었습니다! 채팅방에 붙여넣기(Ctrl+V) 하세요.', { duration: 8000 }),
+              () => toast.error('복사에 실패했습니다. 다시 시도해 주세요.'),
+            );
+          }}
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-2 text-xs font-extrabold text-[#191919] shadow-sm hover:bg-[#FEE500]/90 transition-colors"
+        >
+          <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>인사말 + 링크 복사</span>
+        </button>
+      </div>
 
       {/* 검색 + 추가 + QR코드 */}
       <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
@@ -477,12 +513,49 @@ const PLANNED_OUTREACH = [
 function OutreachPanel({
   activeDealId,
   onOpenSpecial,
+  brokerSlug,
+  brokerName,
+  baseUrl,
+  editionDate,
+  shareTitle,
 }: {
   activeDealId?: string;
   onOpenSpecial?: () => void;
+  brokerSlug?: string;
+  brokerName?: string;
+  baseUrl?: string;
+  editionDate?: string;
+  shareTitle?: string;
 } = {}) {
   return (
     <div className="space-y-3">
+      {brokerSlug && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3">
+          <div>
+            <p className="text-sm font-bold text-amber-200">💬 카카오톡 단톡방·문자 발송용 인사말 복사</p>
+            <p className="text-xs text-ink-muted">이번 주 소식지 주소와 무료 구독 신청 링크가 포함된 안부 인사말을 복사합니다.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://www.credeal.net');
+              const issueUrl = editionDate ? `${origin}/magazine/${brokerSlug}/${editionDate}` : `${origin}/magazine/${brokerSlug}`;
+              const subUrl = `${origin}/magazine/${brokerSlug}/subscribe`;
+              const titleLine = shareTitle ? `\n📌 이번 호 주제: ${shareTitle}` : '';
+              const text = `안녕하세요, ${brokerName || '담당'} 중개사입니다.${titleLine}\n이번 주 상업용 빌딩 시장 동향과 추천 매물 소식지를 보내드립니다.\n\n👉 이번 주 소식지 보기:\n${issueUrl}\n\n👉 이메일로 매주 편하게 받아보기(무료 구독):\n${subUrl}`;
+              navigator.clipboard.writeText(text).then(
+                () => toast.success('카톡·문자용 인사말과 소식지 주소가 복사되었습니다! 채팅방에 붙여넣기(Ctrl+V) 하세요.', { duration: 8000 }),
+                () => toast.error('복사에 실패했습니다. 다시 시도해 주세요.'),
+              );
+            }}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-2 text-xs font-extrabold text-[#191919] hover:bg-[#FEE500]/90 transition-colors"
+          >
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            인사말 + 링크 복사
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-950/20 p-3">
         <div>
           <p className="text-sm font-bold text-rose-200">⚡ 긴급 매물 속보 (지금 바로 사용 가능)</p>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { PptxAuditReportView, type PptxAuditData } from "@/components/im/pptx-audit-report-view";
 import { useDealcardRealtimeSync } from "@/platform/im-pipeline/realtime/use-dealcard-realtime-sync";
 import { BrandColorCard } from "./brand-color-card";
+import { humanizeImExportError, humanizeBrokerError } from "@/constants/ui-lexicon";
 
 interface ImManagementPanelProps {
   buildingId: string;
@@ -28,16 +29,16 @@ interface ImDocument {
 
 
 const PRESET_SWATCHES: Record<string, { accent: string; name: string }> = {
-  credeal_basic: { accent: '#B8860B', name: '📋 Basic IM (표준 매각자료)' },
-  credeal_signature: { accent: '#6B8E00', name: 'CREDEAL Signature' },
-  golden_institutional: { accent: '#B98A2E', name: 'Golden Institutional' },
-  executive_gold: { accent: '#B8862D', name: 'Executive Gold' },
-  corporate_clean: { accent: '#059669', name: 'Corporate Clean' },
-  minimal_clean: { accent: '#3B5B8C', name: 'Minimal Clean' },
-  warm_beige: { accent: '#8C5A2B', name: 'Warm Beige' },
-  wine_burgundy: { accent: '#8E2B3C', name: 'Wine Burgundy' },
-  mono_contrast: { accent: '#595959', name: 'Mono High Contrast' },
-  pro_dark_obsidian: { accent: '#0284A8', name: 'Pro Dark Obsidian' },
+  credeal_basic: { accent: '#B8860B', name: '📋 기본 표준 (브랜드 색상 적용)' },
+  credeal_signature: { accent: '#6B8E00', name: '올리브 골드 (Signature)' },
+  golden_institutional: { accent: '#B98A2E', name: '골든 클래식 (Institutional)' },
+  executive_gold: { accent: '#B8862D', name: '이그제큐티브 골드' },
+  corporate_clean: { accent: '#059669', name: '에메랄드 클린' },
+  minimal_clean: { accent: '#3B5B8C', name: '네이비 미니멀' },
+  warm_beige: { accent: '#8C5A2B', name: '웜 베이지' },
+  wine_burgundy: { accent: '#8E2B3C', name: '와인 버건디' },
+  mono_contrast: { accent: '#595959', name: '모노 고대비' },
+  pro_dark_obsidian: { accent: '#0284A8', name: '다크 옵시디언' },
 };
 
 export function ImManagementPanel({
@@ -47,7 +48,7 @@ export function ImManagementPanel({
 }: ImManagementPanelProps) {
   const [docs, setDocs] = useState<ImDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPreset, setSelectedPreset] = useState("credeal_signature");
+  const [selectedPreset, setSelectedPreset] = useState("credeal_basic");
   const [presets, setPresets] = useState<any[]>([]);
 
   // 비동기 생성 + 진행률 상태 (IM-1)
@@ -125,13 +126,12 @@ export function ImManagementPanel({
   }, [buildingId]);
 
 
-  const basicDoc = docs.find(d => d.tier === 'basic');
-  const proDoc = docs.find(d => d.tier === 'pro');
+  const basicDoc = docs.find(d => d.tier === 'basic') || docs[0];
 
   const handleCopyLink = (tier: 'basic' | 'pro') => {
     const url = `${window.location.origin}/im-${tier === 'basic' ? 'lite' : 'pro'}/${buildingId}`;
     navigator.clipboard.writeText(url);
-    toast.success('링크가 복사되었습니다.');
+    toast.success('모바일 투자설명서 링크가 복사되었습니다. 카카오톡에 붙여넣으세요.');
   };
 
   // 비동기 IM 생성 핸들러 (IM-1 & IM-5)
@@ -145,14 +145,12 @@ export function ImManagementPanel({
         body: JSON.stringify({
           buildingId,
           tier,
-          // Basic IM: credeal_basic 프리셋 자동 적용, Pro: 사용자 선택 프리셋
           preset: tier === 'basic' ? 'credeal_basic' : selectedPreset,
         }),
       });
       if (!res.ok) throw new Error('Generation failed');
       const { jobId } = await res.json();
 
-      // iOS visibilitychange 핸들러 — 앱 복귀 시 즉시 상태 확인
       const onVisibilityChange = async () => {
         if (document.hidden) return;
         try {
@@ -167,7 +165,7 @@ export function ImManagementPanel({
             if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
             pollIntervalRef.current = null;
             visibilityListenerRef.current = null;
-            toast.success(`${tier.toUpperCase()} IM 생성이 완료되었습니다.`);
+            toast.success('투자설명서(IM) 생성이 완료되었습니다.');
             await fetchDocs();
             setTimeout(() => setGenerationStatus('idle'), 2500);
           }
@@ -177,7 +175,7 @@ export function ImManagementPanel({
             if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
             pollIntervalRef.current = null;
             visibilityListenerRef.current = null;
-            const errorMsg = job.result?.error || job.error || 'IM 생성 중 오류가 발생했습니다.';
+            const errorMsg = humanizeBrokerError(job.result?.error || job.error, '투자설명서 생성 중 오류가 발생했습니다.');
             toast.error(errorMsg);
             setTimeout(() => setGenerationStatus('idle'), 3000);
           }
@@ -186,17 +184,17 @@ export function ImManagementPanel({
       visibilityListenerRef.current = onVisibilityChange;
       document.addEventListener('visibilitychange', onVisibilityChange);
 
-      const MAX_POLL_MS = 300_000; // 5분 (after() 백그라운드 300s 대응)
+      const MAX_POLL_MS = 300_000;
       const pollStart = Date.now();
       const pollInterval = setInterval(async () => {
-        // 폴링 타임아웃 가드: 5분 초과 시 자동 종료
+        const elapsedSec = Math.floor((Date.now() - pollStart) / 1000);
         if (Date.now() - pollStart > MAX_POLL_MS) {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
           pollIntervalRef.current = null;
           visibilityListenerRef.current = null;
           setGenerationStatus('error');
-          toast.error('IM 생성 시간이 초과되었습니다. 다시 시도해 주세요.');
+          toast.error('투자설명서 생성 시간이 초과되었습니다. 다시 시도해 주세요.');
           setTimeout(() => setGenerationStatus('idle'), 3000);
           return;
         }
@@ -205,10 +203,12 @@ export function ImManagementPanel({
           if (!statusRes.ok) return;
           const job = await statusRes.json();
           const { status, progress } = job;
-          setGenerationProgress(progress || 50);
+          // 실제 경과 시간 기반 점진 진행률 표시 (50% 고정 현상 방지)
+          const dynamicProgress = progress || Math.min(92, 15 + Math.floor(elapsedSec * 0.8));
+          setGenerationProgress(dynamicProgress);
 
-          if (status === 'writing') setGenerationStatus('writing');
-          if (status === 'validating') setGenerationStatus('validating');
+          if (status === 'writing' || elapsedSec > 18) setGenerationStatus('writing');
+          if (status === 'validating' || elapsedSec > 55) setGenerationStatus('validating');
           if (status === 'completed' || status === 'complete') {
             setGenerationStatus('complete');
             setGenerationProgress(100);
@@ -216,7 +216,7 @@ export function ImManagementPanel({
             if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
             pollIntervalRef.current = null;
             visibilityListenerRef.current = null;
-            toast.success(`${tier.toUpperCase()} IM 생성이 완료되었습니다.`);
+            toast.success('투자설명서(IM) 생성이 완료되었습니다.');
             await fetchDocs();
             setTimeout(() => setGenerationStatus('idle'), 2500);
           }
@@ -226,7 +226,7 @@ export function ImManagementPanel({
             if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
             pollIntervalRef.current = null;
             visibilityListenerRef.current = null;
-            const errorMsg = job.result?.error || job.error || 'IM 생성 중 오류가 발생했습니다.';
+            const errorMsg = humanizeBrokerError(job.result?.error || job.error, '투자설명서 생성 중 오류가 발생했습니다.');
             toast.error(errorMsg);
             setTimeout(() => setGenerationStatus('idle'), 3000);
           }
@@ -237,7 +237,7 @@ export function ImManagementPanel({
       pollIntervalRef.current = pollInterval;
     } catch {
       setGenerationStatus('error');
-      toast.error('IM 생성 요청에 실패했습니다.');
+      toast.error('투자설명서 생성 요청에 실패했습니다.');
       setTimeout(() => setGenerationStatus('idle'), 3000);
     }
   };
@@ -245,20 +245,34 @@ export function ImManagementPanel({
   // 내보내기 진행률 핸들러 (IM-3)
   const [isExporting, setIsExporting] = useState<string | null>(null); // 'pdf' | 'pptx' | null
   const [exportDone, setExportDone] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<{ title: string; detail: string } | null>(null);
   // D35 §4: PPTX 셀프 검증 감사 결과
   const [lastAudit, setLastAudit] = useState<PptxAuditData | null>(null);
+
   const handleExport = async (format: 'export' | 'pptx') => {
-    const tier = proDoc ? 'pro' : 'basic';
+    const tier = 'basic';
     const ext = format === 'export' ? 'pdf' : 'pptx';
     setIsExporting(ext);
     setExportDone(null);
-    const toastId = toast.loading(`${ext.toUpperCase()} 문서를 생성 중입니다...`);
+    setExportError(null);
+    const toastId = toast.loading(`${ext.toUpperCase()} 투자설명서 파일을 준비하고 있습니다 (약 10~20초)...`);
     try {
-      const url = `/api/public/im-lite/${buildingId}/${format}?tier=${tier}&preset=${selectedPreset}`;
+      const url = `/api/public/im-lite/${buildingId}/${format}?tier=${tier}&preset=${selectedPreset}&watermark=false&direct=1`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Export failed');
+      if (!res.ok) {
+        let errPayload: any = null;
+        try {
+          errPayload = await res.json();
+        } catch {
+          errPayload = null;
+        }
+        const humanized = humanizeImExportError(res.status, errPayload, ext as 'pptx' | 'pdf');
+        setExportError(humanized);
+        toast.error(`${humanized.title} ${humanized.detail}`, { id: toastId, duration: 6000 });
+        return;
+      }
 
-      // D35 §4: PPTX 셀프 검증 감사 결과 추출
+      // D35 §4: PPTX 셀프 검증 감사 결과 추출 (direct=1 응답으로 헤더 보존됨)
       if (ext === 'pptx') {
         try {
           const auditViolations = parseInt(res.headers.get('X-Audit-Violations') ?? '0', 10);
@@ -279,26 +293,31 @@ export function ImManagementPanel({
         }
       }
 
+      const safeHeader = res.headers.get('X-Safe-Filename');
+      const downloadName = safeHeader
+        ? decodeURIComponent(safeHeader)
+        : `투자설명서_Basic_IM.${ext}`;
+
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `IM_${buildingId}_${selectedPreset}.${ext}`;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(blobUrl);
-      toast.success(`${ext.toUpperCase()} 다운로드가 완료되었습니다.`, { id: toastId });
+      toast.success(`${ext.toUpperCase()} 파일 다운로드가 완료되었습니다.`, { id: toastId });
       setExportDone(ext);
       setTimeout(() => setExportDone(null), 3000);
     } catch {
-      toast.error(`${ext.toUpperCase()} 생성 중 오류가 발생했습니다.`, { id: toastId });
+      const humanized = humanizeImExportError(500, null, ext as 'pptx' | 'pdf');
+      setExportError(humanized);
+      toast.error(humanized.title, { id: toastId });
     } finally {
       setIsExporting(null);
     }
   };
-
-  const isProLocked = currentGrade === 'C';
 
   if (isLoading) {
     return (
@@ -312,35 +331,34 @@ export function ImManagementPanel({
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-      <h2 className="text-base font-semibold flex items-center justify-between">
+      <h2 className="text-[16px] font-bold flex items-center justify-between">
         <span className="flex items-center gap-2">
-          <span>📄</span> IM 관리 패널
+          <span>📊</span> 투자설명서 (Basic IM) 관리
         </span>
         <div className="flex flex-col items-end text-right">
-          <span className={`text-sm font-bold ${
-            currentGrade === 'A' ? 'text-emerald-500' :
-            currentGrade === 'B' ? 'text-blue-500' :
-            currentGrade === 'C' ? 'text-amber-500' : 'text-red-500'
+          <span className={`text-[14px] font-bold ${
+            currentGrade === 'A' ? 'text-emerald-400' :
+            currentGrade === 'B' ? 'text-blue-400' :
+            currentGrade === 'C' ? 'text-amber-400' : 'text-rose-400'
           }`}>
-            현재 {currentGrade}등급 ({currentScore}점)
+            정보 충실도 {currentGrade}등급 ({currentScore}점)
           </span>
-          {isProLocked && (
-            <span className="text-[10px] text-muted-foreground mt-0.5">
-              💡 렌트롤·면적·가격 입력 시 등급 상승
+          {(currentGrade === 'C' || currentGrade === 'D') && (
+            <span className="text-[13px] text-slate-300 mt-0.5">
+              💡 주소·매매가·임대료 입력 시 품질 향상
             </span>
           )}
-          {/* D37 H-8: ReleaseTier 라벨 */}
           {docs[0]?.releaseTier && (() => {
             const TIER_LABELS: Record<string, { label: string; color: string }> = {
-              internal_only:   { label: '내부 전용',       color: 'text-neutral-400' },
-              fact_om:         { label: 'Fact OM',        color: 'text-amber-400' },
-              analysis_im:    { label: 'Analysis IM',    color: 'text-blue-400' },
-              decision_im:    { label: 'Decision IM',    color: 'text-emerald-400' },
-              expert_required: { label: '전문가 검토 필요', color: 'text-purple-400' },
+              internal_only:   { label: '내부 검토용',       color: 'text-neutral-300' },
+              fact_om:         { label: '기본 사실 요약본',  color: 'text-amber-300' },
+              analysis_im:     { label: '표준 투자설명서',   color: 'text-blue-300' },
+              decision_im:     { label: '심층 투자설명서',   color: 'text-emerald-300' },
+              expert_required: { label: '전문가 확인 권장',  color: 'text-purple-300' },
             };
-            const cfg = TIER_LABELS[docs[0].releaseTier!] ?? { label: docs[0].releaseTier, color: 'text-neutral-400' };
+            const cfg = TIER_LABELS[docs[0].releaseTier!] ?? { label: '표준 투자설명서', color: 'text-neutral-300' };
             return (
-              <span className={`text-[10px] font-medium mt-0.5 ${cfg.color}`}>
+              <span className={`text-[13px] font-medium mt-0.5 ${cfg.color}`}>
                 📋 {cfg.label}
               </span>
             );
@@ -351,20 +369,20 @@ export function ImManagementPanel({
       {/* 비동기 생성 진행률 바 (IM-1) */}
       {generationStatus !== 'idle' && (
         <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2.5 animate-fadeIn">
-          <div className="flex items-center justify-between text-xs font-medium">
+          <div className="flex items-center justify-between text-[14px] font-medium">
             <span className="flex items-center gap-2 text-primary font-bold">
               {generationStatus !== 'complete' && generationStatus !== 'error' && (
                 <span className="animate-spin inline-block">⏳</span>
               )}
-              {generationStatus === 'analyzing' && 'AI가 건물 데이터를 분석 중...'}
-              {generationStatus === 'writing' && 'IM 섹션 및 재무 모델을 작성 중...'}
-              {generationStatus === 'validating' && '품질 게이트 검증 중...'}
-              {generationStatus === 'complete' && '✅ IM 생성 완료!'}
+              {generationStatus === 'analyzing' && '건물 대장·토지·공시지가를 조회하고 있습니다...'}
+              {generationStatus === 'writing' && '표준 9면 투자설명서 문구와 수익률을 작성 중입니다...'}
+              {generationStatus === 'validating' && '수치와 면적 정확도를 최종 점검하고 있습니다...'}
+              {generationStatus === 'complete' && '✅ 투자설명서 생성 완료!'}
               {generationStatus === 'error' && '❌ 생성 실패'}
             </span>
-            <span className="text-muted-foreground font-mono">{generationProgress}%</span>
+            <span className="text-slate-300 font-mono">{generationProgress}%</span>
           </div>
-          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 generationStatus === 'error' ? 'bg-rose-500' : 'bg-primary'
@@ -375,99 +393,130 @@ export function ImManagementPanel({
         </div>
       )}
 
-      {/* Basic/Pro IM 비교 인포카드 (IM-2) */}
-      <details className="rounded-lg border border-border/80 bg-muted/20 p-3 text-xs group">
-        <summary className="font-bold text-amber-400 cursor-pointer flex items-center justify-between">
-          <span>ℹ️ 데이터 등급별 IM 구성</span>
-          <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
-        </summary>
-        <div className="mt-3 text-muted-foreground pt-2 border-t border-border/40">
-          <div className="space-y-2 text-xs text-muted-foreground">
-            <p><span className="font-bold text-foreground">🟢 A등급</span> — 건물 요약, 입지 분석, 임대 현황, 투자 하이라이트 + DCF 현금흐름, 수익률 민감도, 대출 시뮬레이션</p>
-            <p><span className="font-bold text-foreground">🟡 B등급</span> — 건물 요약, 입지 분석, 임대 현황, 기본 투자 하이라이트</p>
-            <p><span className="font-bold text-foreground">🟠 C등급</span> — 건물 기본 정보 요약 (데이터 보강 권장)</p>
-          </div>
+      {/* 다운로드 실패 시 명확한 한국어 안내 박스 */}
+      {exportError && (
+        <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
+          <p className="text-[15px] font-bold text-amber-300">⚠️ {exportError.title}</p>
+          <p className="text-[14px] text-slate-200 leading-relaxed">{exportError.detail}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setExportError(null);
+              window.dispatchEvent(new CustomEvent("open-mobile-im-sheet", { detail: { stage: "basic" } }));
+            }}
+            className="mt-1 inline-flex items-center justify-center rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-[14px] px-4 py-2 min-h-[42px] transition-colors"
+          >
+            ✏️ 건물 정보 보완하고 다시 만들기
+          </button>
         </div>
-      </details>
+      )}
 
       {/* IM Card */}
-      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-        <div className="flex justify-between items-center">
+      <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3.5">
+        <div className="flex justify-between items-center gap-2 flex-wrap">
           <div>
-            <h3 className="font-semibold text-sm">투자설명서 (IM)</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">주소 입력만으로 즉시 생성 · 모바일 웹 뷰어 + 7p PPTX/PDF</p>
+            <h3 className="font-bold text-[16px]">한국형 표준 투자설명서 (Basic IM)</h3>
+            <p className="text-[13px] text-slate-300 mt-0.5">PC 인쇄·편집용 9면 PPTX + 고객 공유용 웹 뷰어</p>
           </div>
-          <div className="text-xs font-medium">
+          <div className="text-[13px] font-medium">
             {basicDoc ? (
               basicDoc.approval_stage === 'S70_FILE_APPROVAL' || basicDoc.status === 'published' ? (
                 <span className="text-emerald-400 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-full font-bold">
-                  ✓ 공식 승인 완료 ({new Date(basicDoc.created_at).toLocaleDateString()})
+                  ✓ 공개 승인 완료 ({new Date(basicDoc.created_at).toLocaleDateString()})
                 </span>
               ) : basicDoc.approval_stage === 'S60_EDITORIAL_APPROVAL' ? (
-                <span className="text-blue-400 bg-blue-500/20 border border-blue-500/40 px-2.5 py-1 rounded-full font-bold">
-                  📋 편집 승인(S60) ({new Date(basicDoc.created_at).toLocaleDateString()})
+                <span className="text-blue-300 bg-blue-500/20 border border-blue-500/40 px-2.5 py-1 rounded-full font-bold">
+                  📋 내용 확인 완료 ({new Date(basicDoc.created_at).toLocaleDateString()})
                 </span>
               ) : (
-                <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">
-                  ✅ 생성됨 ({new Date(basicDoc.created_at).toLocaleDateString()})
+                <span className="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full font-bold">
+                  ✅ 다운로드 준비됨 ({new Date(basicDoc.created_at).toLocaleDateString()})
                 </span>
               )
             ) : (
-              <span className="text-blue-500 bg-blue-500/10 px-2 py-1 rounded-full">⚡ 즉시 생성 가능</span>
+              <span className="text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full font-bold">⚡ 생성 가능</span>
             )}
           </div>
-
         </div>
         
         {basicDoc ? (
           <div className="space-y-3 mt-2">
-            <Link
-              href={`/im-lite/${buildingId}`}
-              target="_blank"
-              className="flex items-center justify-center gap-2 w-full h-10 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-md transition-all active:scale-[0.98]"
+            {/* PC 중심 1순위 버튼: PPTX 파일 다운로드 */}
+            <button
+              type="button"
+              onClick={() => handleExport('pptx')}
+              disabled={!!isExporting}
+              className="flex items-center justify-center gap-2 w-full min-h-[52px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] shadow-lg transition-all active:scale-[0.99] disabled:opacity-60"
             >
-              <span>📱</span> IM 바로가기 (웹 뷰어 열기)
-            </Link>
+              <span>📊</span>
+              <span>
+                {isExporting === 'pptx'
+                  ? 'PPTX 파일 생성 중... (약 10~20초)'
+                  : exportDone === 'pptx'
+                  ? '✅ PPTX 다운로드 완료!'
+                  : 'PPTX 투자설명서 다운로드 (9면 · 워터마크 없음)'}
+              </span>
+            </button>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href={`/im-lite/${buildingId}`}
+                target="_blank"
+                className="flex items-center justify-center gap-1.5 min-h-[46px] rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-[14px] shadow-sm transition-all"
+              >
+                <span>🖥️</span> 웹 화면으로 보기
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleCopyLink('basic')}
+                className="flex items-center justify-center gap-1.5 min-h-[46px] rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-[14px] transition-all"
+              >
+                <span>📋</span> 카톡 공유용 주소 복사
+              </button>
+            </div>
 
             <div className="flex items-center gap-2 pt-1">
-              <span className="w-3 h-3 rounded-full flex-shrink-0 border border-border" style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#6B8E00' }} />
+              <span className="text-[13px] font-semibold text-slate-300 shrink-0">색상 테마:</span>
+              <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-border" style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#B8860B' }} />
               <select 
                 value={selectedPreset}
                 onChange={(e) => setSelectedPreset(e.target.value)}
-                className="flex-1 h-7 rounded-md border border-border bg-background text-[11px] px-2 focus:ring-1 focus:ring-blue-500 outline-none"
+                className="flex-1 h-9 rounded-lg border border-border bg-background text-[14px] px-2.5 focus:ring-1 focus:ring-blue-500 outline-none"
               >
                 {Object.entries(PRESET_SWATCHES).map(([id, s]) => (
                   <option key={id} value={id}>{s.name}</option>
                 ))}
                 {presets.map((p: any) => (
-                  <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (커스텀)</option>
+                  <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (내 브랜드)</option>
                 ))}
               </select>
+              {/* DORMANT: ux60-focus — Pro 편집 링크 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
               <Link 
                 href={`/broker/deal-card/${buildingId}/pptx-editor`}
                 className="text-[10px] text-amber-500 hover:text-amber-400 whitespace-nowrap"
               >
                 ✏️ Pro 편집
               </Link>
+              */}
               <Link 
                 href={`/broker/basic-im-studio/${buildingId}`}
-                className="text-[10px] text-sky-400 hover:text-sky-300 whitespace-nowrap"
+                className="text-[13px] font-bold text-sky-300 hover:text-sky-200 whitespace-nowrap px-2 py-1 rounded bg-sky-500/10 border border-sky-500/30"
               >
-                📐 Basic 스튜디오
+                ✏️ 문구·수치 수정
               </Link>
             </div>
-            <div className="grid grid-cols-4 gap-1.5">
-              <Button size="sm" variant="secondary" className="text-xs h-8 font-medium" onClick={() => handleExport('export')} disabled={!!isExporting}>
-                {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="sm" variant="secondary" className="text-[14px] h-10 font-semibold" onClick={() => handleExport('export')} disabled={!!isExporting}>
+                {isExporting === 'pdf' ? '⏳ PDF 준비 중...' : exportDone === 'pdf' ? '✅ PDF 완료' : '📄 PDF로 받기'}
               </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8 font-medium" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
-                {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
-              </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8 font-medium" onClick={() => handleCopyLink('basic')}>
-                🔗 링크복사
-              </Button>
-              <Button size="sm" variant="outline" className="text-xs h-8 font-medium text-muted-foreground hover:text-foreground" onClick={() => handleGenerateIM('basic')}>
-                ♻️ 재생성
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[14px] h-10 font-semibold text-slate-300 hover:text-white"
+                onClick={() => window.dispatchEvent(new CustomEvent("open-mobile-im-sheet", { detail: { stage: "basic" } }))}
+              >
+                ♻️ 입력 정보 수정 후 재생성
               </Button>
             </div>
 
@@ -479,15 +528,16 @@ export function ImManagementPanel({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="mt-2">
             <Button 
               size="sm" 
-              className="h-9 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-sm"
-              onClick={() => handleGenerateIM('basic')}
+              className="w-full min-h-[48px] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-[15px] shadow-sm"
+              onClick={() => window.dispatchEvent(new CustomEvent("open-mobile-im-sheet", { detail: { stage: "basic" } }))}
               disabled={generationStatus !== 'idle'}
             >
-              {generationStatus !== 'idle' ? '⏳ 생성 중...' : '⚡ 기본 IM'}
+              {generationStatus !== 'idle' ? '⏳ 투자설명서 생성 중...' : '⚡ 표준 투자설명서 (Basic IM) 만들기'}
             </Button>
+            {/* DORMANT: ux60-focus — Pro IM 버튼 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
             <Button 
               size="sm" 
               variant="outline"
@@ -497,6 +547,7 @@ export function ImManagementPanel({
             >
               🎯 전문 IM
             </Button>
+            */}
           </div>
         )}
         <BrandColorCard />

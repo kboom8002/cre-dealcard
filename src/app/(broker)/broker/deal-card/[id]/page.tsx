@@ -314,7 +314,7 @@ export default async function BrokerDealCardResultPage({
           hookCopy={teaser?.hookCopy || teaser?.ogDescription}
           ogTitle={teaser?.ogTitle}
           ogDescription={teaser?.ogDescription}
-          dealPoints={dealPoints.length > 0 ? dealPoints : ["안정적인 임대 수익 및 자산 가치", "우수한 대중교통 및 도로 접근성", "주변 시세 대비 경쟁력 있는 매각가"]}
+          dealPoints={dealPoints}
           areaSignal={building.area_signal || bAttrs.areaSignal || undefined}
           assetType={building.asset_type || bAttrs.assetType || undefined}
           priceBand={building.price_band || bAttrs.priceBand || undefined}
@@ -337,21 +337,16 @@ export default async function BrokerDealCardResultPage({
           initialCuriosityHook={teaser?.curiosityHook || ""}
         />
 
-        {/* 🎯 [2.5 매칭 & 임차의향 허브 바로가기] */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
+        {/* DORMANT: ux60-focus — 하단 고정 CTA 바에 [📰 소식지에 넣기]가 통합되어 본문 중복 버튼 및 매칭 허브 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
+        <div className="pt-1">
           <Link
-            href={`/broker/matching?buildingId=${id}`}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-all shadow-sm active:scale-[0.99]"
+            href={`/broker/magazine-editor?mode=simple&deals=${id}`}
+            className="flex items-center justify-center gap-2 py-3.5 px-4 min-h-[48px] rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[15px] font-bold transition-all shadow-sm active:scale-[0.99]"
           >
-            <span>🎯 매수자 매칭 {matchCount > 0 ? `(${matchCount}건)` : ""}</span>
-          </Link>
-          <Link
-            href={`/broker/tenant-intents?buildingId=${id}`}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-blue-500/20 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all shadow-sm active:scale-[0.99]"
-          >
-            <span>🏢 임차의향서 매칭</span>
+            <span>📰 이번 주 고객 소식지에 이 매물 소개하기</span>
           </Link>
         </div>
+        */}
 
         {/* 🏢 [3. 세부 4-Tab 영역] */}
         <div className="pt-2">
@@ -360,8 +355,9 @@ export default async function BrokerDealCardResultPage({
             buyersBadge={matchCount > 0 ? { count: matchCount, topGrade } : undefined}
             overviewContent={
               <div className="space-y-4 pt-2">
-                {/* Pipeline State Machine Progress */}
+                {/* DORMANT: ux60-focus — 엔터프라이즈 5단계 딜 파이프라인 상태머신 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
                 <DealCardPipelineContainer buildingId={id} />
+                */}
 
                 {/* Photo Gallery */}
                 {photoUrls.length > 0 && (
@@ -505,10 +501,10 @@ export default async function BrokerDealCardResultPage({
         </div>
       </div>
 
-      {/* Streamlined 3-Column Sticky CTA Bar */}
+      {/* Streamlined 2-Column Sticky CTA Bar (Basic IM + Magazine) */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-2.5 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
         <div className="max-w-md mx-auto">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <CreateMobileImButton
               buildingId={id}
               hasBasicIM={hasBasicIM}
@@ -532,7 +528,15 @@ export default async function BrokerDealCardResultPage({
               initialInvestmentPosture={investmentPosture}
               existingDocBody={imBody}
             />
+            <Link
+              href={`/broker/magazine-editor?mode=simple&deals=${id}`}
+              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-3 py-3 min-h-[48px] text-[15px] font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-rose-900/30"
+            >
+              📰 소식지에 넣기
+            </Link>
+            {/* DORMANT: ux60-focus — AI 매칭 버튼 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
             <AiMatchCtaButton buildingId={id} matchCount={matchCount} topGrade={topGrade} />
+            */}
           </div>
         </div>
         <BrokerBottomNav />

@@ -61,13 +61,12 @@ function versionBadgeLabel(version: RentrollVersion, unit: AreaInputUnit): strin
 }
 
 const HELP_CONTENT = [
-  { icon: "📋", text: "필수(R1): 호실/층, 업종·상호, 보증금, 월세, 만료일, 임대상태" },
-  { icon: "📐", text: "권장(R2): 임대면적·전용면적(G9에서 ㎡/평 선택)·관리비·적용법령 — 전용률은 자동 계산" },
-  { icon: "🔎", text: "R3(최초계약일·갱신요구권·대항력)는 엑셀 '자동검증' 시트의 갱신권·명도 판정용" },
-  { icon: "💰", text: "금액은 머리글의 단위(원/만원)를 읽고 만원으로 자동 변환" },
-  { icon: "📄", text: "제목·주소 행이 위에 있어도, 합계·예시·빈 행은 자동으로 건너뜀" },
-  { icon: "🏢", text: "임대상태(임대중/공실/자가사용) 열이 있으면 우선 사용, 없으면 업종·임차인 공란을 공실로 추정" },
-  { icon: "📁", text: ".xlsx, .xls, .csv 모두 지원 — 컬럼 정의는 양식의 '컬럼정의' 시트 참고" },
+  { icon: "📋", text: "기본 항목: 층·호실, 업종·상호, 보증금, 월세, 계약만료일, 임대상태(임대중/공실)" },
+  { icon: "📐", text: "권장 항목: 임대면적·전용면적(양식 상단 G9 칸에서 ㎡ 또는 평 선택) · 관리비 — 전용률은 자동 계산됩니다" },
+  { icon: "💰", text: "금액 단위: 표 머리글의 단위(원/만원)를 자동으로 읽어 만원 단위로 변환합니다" },
+  { icon: "📄", text: "편리 기능: 위쪽에 건물명·주소·합계 행이 있어도 자동으로 건너뛰고 호실 행만 읽어옵니다" },
+  { icon: "🏢", text: "공실 판별: '임대상태(임대중/공실/자가사용)' 칸을 우선 읽고, 없으면 비어 있는 호실을 공실로 자동 계산합니다" },
+  { icon: "📁", text: "지원 파일: 엑셀(.xlsx, .xls) 및 CSV 파일 모두 업로드 가능합니다" },
 ];
 
 export function RentRollImporter({ hasExistingData, onImport }: RentRollImporterProps) {
@@ -351,9 +350,9 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         <>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-primary">엑셀 렌트롤 간편 임포트</p>
+              <p className="text-sm font-semibold text-primary">엑셀 임대차 현황표(렌트롤) 자동 불러오기</p>
               <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                임대차 현황표 업로드 → 임대료·보증금·공실률 자동 계산
+                엑셀 파일 업로드 → 층별 보증금·월세·공실률 자동 합산
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
