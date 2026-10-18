@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Browser } from "@playwright/test";
+import { test, type Page, type Browser } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -9,7 +9,6 @@ const DOCS_VID_DIR = path.resolve(process.cwd(), "docs/tutorial/videos");
 
 const YANGPYEONG_BUILDING_ID = "32867a6c-04c0-4ac1-80a0-2242cbc9a1f8";
 const YANGPYEONG_DOC_ID = "4a7e0693-2fb5-4071-81e1-7a39248e48c6";
-const DANGSAN_BUILDING_ID = "f9758801-b867-4ce7-be4f-888601ef504f";
 
 interface AnnotationTarget {
   selector: string;
@@ -106,12 +105,19 @@ async function annotateElements(page: Page, targets: AnnotationTarget[]) {
   }
 
   await page.evaluate((boxes) => {
+    // Hide Next.js dev indicator portal during screenshot
+    document.querySelectorAll("nextjs-portal").forEach((el) => {
+      (el as HTMLElement).style.display = "none";
+    });
+
     document.getElementById("tutorial-annotation-layer")?.remove();
     const layer = document.createElement("div");
     layer.id = "tutorial-annotation-layer";
     layer.style.cssText =
       "position: fixed; inset: 0; pointer-events: none; z-index: 999999;";
     document.body.appendChild(layer);
+
+    const placedBadges: Array<{ left: number; top: number; right: number; bottom: number }> = [];
 
     for (const rect of boxes) {
       const box = document.createElement("div");
@@ -129,11 +135,38 @@ async function annotateElements(page: Page, targets: AnnotationTarget[]) {
       layer.appendChild(box);
 
       const badge = document.createElement("div");
-      const badgeTop =
+      const text = rect.label ? `${rect.badge} ${rect.label}` : rect.badge;
+      const approxWidth = Math.max(90, text.length * 13 + 28);
+      const approxHeight = 30;
+
+      let badgeTop =
         rect.top > 38
           ? rect.top - 32
           : Math.min(window.innerHeight - 38, rect.top + rect.height + 6);
-      const badgeLeft = Math.max(8, Math.min(window.innerWidth - 260, rect.left));
+      let badgeLeft = Math.max(8, Math.min(window.innerWidth - approxWidth - 8, rect.left));
+
+      // Check collision with previously placed badges
+      for (const prev of placedBadges) {
+        const horizOverlap = badgeLeft < prev.right + 8 && badgeLeft + approxWidth > prev.left - 8;
+        const vertOverlap = Math.abs(badgeTop - prev.top) < approxHeight + 4;
+        if (horizOverlap && vertOverlap) {
+          // Place below the target box instead of above, or shift right
+          const belowTop = Math.min(window.innerHeight - 38, rect.top + rect.height + 8);
+          if (Math.abs(belowTop - prev.top) >= approxHeight + 4) {
+            badgeTop = belowTop;
+          } else {
+            badgeLeft = Math.min(window.innerWidth - approxWidth - 8, prev.right + 10);
+          }
+        }
+      }
+
+      placedBadges.push({
+        left: badgeLeft,
+        top: badgeTop,
+        right: badgeLeft + approxWidth,
+        bottom: badgeTop + approxHeight,
+      });
+
       badge.style.cssText = [
         "position: fixed",
         `left: ${badgeLeft}px`,
@@ -149,7 +182,7 @@ async function annotateElements(page: Page, targets: AnnotationTarget[]) {
         "box-shadow: 0 4px 12px rgba(0,0,0,0.3)",
         "white-space: nowrap",
       ].join(";");
-      badge.textContent = rect.label ? `${rect.badge} ${rect.label}` : rect.badge;
+      badge.textContent = text;
       layer.appendChild(badge);
     }
   }, resolvedBoxes);
@@ -163,6 +196,11 @@ async function clearAnnotations(page: Page) {
 
 async function saveDualScreenshot(page: Page, fileName: string, targets: AnnotationTarget[] = []) {
   await clearVideoCaption(page);
+  await page.evaluate(() => {
+    document.querySelectorAll("nextjs-portal").forEach((el) => {
+      (el as HTMLElement).style.display = "none";
+    });
+  });
   if (targets.length > 0) {
     await annotateElements(page, targets);
     await page.waitForTimeout(150);
@@ -213,10 +251,10 @@ async function openRecordedPage(
   return page;
 }
 
-test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite", () => {
-  test.setTimeout(300_000);
+test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite (SOTA Edition)", () => {
+  test.setTimeout(360_000);
 
-  test("1. Video 1 & Modules 0~1: 홈 화면 · 상단/하단 메뉴바 · 큰글씨 밝은 화면 전환", async ({ browser }) => {
+  test("1. Video 1 & Modules 0~1: 홈 화면 · 상단/하단 메뉴바 · 큰글씨 밝은 화면 전환 · 설명서 조작법", async ({ browser }) => {
     await ensureDirs();
     const page = await openRecordedPage(browser);
 
@@ -255,14 +293,14 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
     // Scroll down to feed & market briefing
     await page.evaluate(() => window.scrollTo({ top: 380, behavior: "smooth" }));
     await page.waitForTimeout(700);
-    const detailsSummary = page.locator("details summary").first();
-    if (await detailsSummary.isVisible().catch(() => false)) {
-      await detailsSummary.click();
+    const briefingBtn = page.locator("button:has-text('시장 브리핑')").first();
+    if (await briefingBtn.isVisible().catch(() => false)) {
+      await briefingBtn.click();
       await page.waitForTimeout(600);
     }
 
     await saveDualScreenshot(page, "step-01-home-feed-and-briefing.png", [
-      { selector: "details summary", badge: "①", label: "시장 브리핑 · 주간 리포트 펼쳐보기" },
+      { selector: "button:has-text('시장 브리핑')", badge: "①", label: "시장 브리핑 · 주간 리포트 펼쳐보기" },
       { selector: "#broker-bottom-nav", badge: "②", label: "하단 탐색 바" },
     ]);
 
@@ -283,10 +321,19 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
       { selector: "a[href='/broker/tutorial']", badge: "③", label: "쉬운 이용 안내 (매뉴얼)" },
     ]);
 
+    // Navigate to /broker/tutorial for Screenshot 0-3
+    await page.goto("/broker/tutorial", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1000);
+    await saveDualScreenshot(page, "step-00-tutorial-controls.png", [
+      { selector: "[data-testid='tutorial-font-size-toggle']", badge: "①", label: "글자 더 크게 보기 (특대 19px)" },
+      { selector: "[data-testid='tutorial-pdf-download-btn']", badge: "②", label: "큰글씨 PDF 매뉴얼 내려받기" },
+      { selector: "[data-testid='tutorial-tab-all']", badge: "③", label: "단원별 슬라이딩 선택 탭" },
+    ]);
+
     await finalizeVideo(page, "video-01-home-and-theme.webm");
   });
 
-  test("2. Video 2 & Modules 2~3: 메모로 1분 딜카드 등록 · 문구 다듬기 · 카톡 공유", async ({ browser }) => {
+  test("2. Video 2 & Modules 2~3: 메모로 1분 딜카드 등록 · 6대 탭 · 문구 다듬기 · 카톡 공유", async ({ browser }) => {
     const page = await openRecordedPage(browser);
 
     await page.goto("/broker/deal-card/new", { waitUntil: "domcontentloaded" });
@@ -304,7 +351,7 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
       { selector: "button[type='submit'], button:has-text('딜카드')", badge: "②", label: "1분 딜카드 만들기 버튼" },
     ]);
 
-    const memoText = [
+    const memoTextYangpyeong = [
       "양평동4가 117 더레드빌딩 매각 (외 134, 125-2번지 다필지)",
       "매각가 250억 / 보증금 5.37억 / 월 임대료 5,147만",
       "대지면적 518.7㎡ (157평) / 연면적 2,490.88㎡ (753.5평)",
@@ -313,17 +360,33 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
     ].join("\n");
 
     const textarea = page.locator("textarea").first();
-    await textarea.fill(memoText);
+    await textarea.fill(memoTextYangpyeong);
     await page.waitForTimeout(700);
 
     await showVideoCaption(
       page,
-      "제2장: 양평동 다필지 수익형 빌딩 메모를 입력하고 [1분 딜카드 만들기]를 누릅니다"
+      "제2장: 양평동 다필지 수익형 빌딩(250억) 메모를 입력하고 [1분 딜카드 만들기]를 누릅니다"
     );
     await page.waitForTimeout(800);
 
     await saveDualScreenshot(page, "step-02-dealcard-new-filled.png", [
-      { selector: "textarea", badge: "①", label: "양평동 수익형 빌딩 메모 입력 완료" },
+      { selector: "textarea", badge: "①", label: "예시 A: 양평동 다필지 수익형 빌딩 메모 입력" },
+      { selector: "button[type='submit'], button:has-text('딜카드')", badge: "②", label: "클릭하여 1분 딜카드 생성" },
+    ]);
+
+    // Fill Dangsan memo for Screenshot 2-3
+    const memoTextDangsan = [
+      "영등포구 당산동5가 11-47 호산당빌딩 매각",
+      "매각가 115억 / 보증금 4억 6,000만 / 월세 2,450만 (관리비 별도)",
+      "대지 153.3평 (506.8㎡) / 연면적 307.9평 (1,017.85㎡), B1~5F",
+      "제2종일반주거지역, 2·9호선 당산역 도보 3분 역세권",
+      "1층 약국 및 1~2층 내과 의원 장기 우량 임차 성업 중",
+    ].join("\n");
+    await textarea.fill(memoTextDangsan);
+    await page.waitForTimeout(600);
+
+    await saveDualScreenshot(page, "step-02-dealcard-dangsan-filled.png", [
+      { selector: "textarea", badge: "①", label: "예시 B: 당산동 통합계약 수익형 빌딩 메모 입력" },
       { selector: "button[type='submit'], button:has-text('딜카드')", badge: "②", label: "클릭하여 1분 딜카드 생성" },
     ]);
 
@@ -367,6 +430,21 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
       { selector: "#cta-share-kakao", badge: "①", label: "카카오톡 공유 / 링크 복사 / 수신자 화면" },
       { selector: "#cta-add-to-magazine", badge: "②", label: "주간 고객 소식지에 바로 넣기" },
       { selector: "#cta-generate-im-bottom", badge: "③", label: "⚡ 기본 IM(PPTX 제안서) 만들기" },
+    ]);
+
+    // Scroll down to #deal-card-tabs-container for Screenshot 3-4
+    await page.evaluate(() => {
+      const el = document.getElementById("deal-card-tabs-container");
+      if (el) {
+        el.scrollIntoView({ behavior: "instant", block: "start" });
+        window.scrollBy(0, -80);
+      }
+    });
+    await page.waitForTimeout(600);
+
+    await saveDualScreenshot(page, "step-03-dealcard-6tabs-comps.png", [
+      { selector: "#deal-card-tabs-container button:has-text('딜카드 개요')", badge: "①", label: "🏠 딜카드 개요 탭 (추출 제원 · 보호 항목)" },
+      { selector: "#deal-card-tabs-container button:has-text('투자설명서')", badge: "②", label: "📊 투자설명서 (IM) 관리 탭" },
     ]);
 
     await finalizeVideo(page, "video-02-memo-to-dealcard.webm");
@@ -438,6 +516,26 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
       { selector: "div[role='dialog'] button:has-text('IM')", badge: "②", label: "⚡ 기본 IM 생성 시작 버튼" },
     ]);
 
+    // Scroll back to top of bottom sheet and click Owner-Use / Development posture for Screenshot 4-4
+    await page.evaluate(() => {
+      const dialog = document.querySelector("div[role='dialog']");
+      const scrollArea = dialog?.querySelector("div.overflow-y-auto");
+      if (scrollArea) {
+        scrollArea.scrollTop = 0;
+      }
+    });
+    await page.waitForTimeout(500);
+    const ownerPostureBtn = page.locator("div[role='dialog'] button:has-text('자가사용')").first();
+    if (await ownerPostureBtn.isVisible().catch(() => false)) {
+      await ownerPostureBtn.click();
+      await page.waitForTimeout(600);
+    }
+
+    await saveDualScreenshot(page, "step-04-bottomsheet-owner-dev-mode.png", [
+      { selector: "div[role='dialog'] button:has-text('자가사용')", badge: "①", label: "비수익형 사옥(자가사용) 목적 선택" },
+      { selector: "div[role='dialog'] button:has-text('신축')", badge: "②", label: "신축 · 리모델링 개발부지 목적 선택" },
+    ]);
+
     // Navigate to IM Approval page for Yangpyeong using YANGPYEONG_DOC_ID
     await showVideoCaption(
       page,
@@ -503,7 +601,7 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
             body {
               margin: 0;
               padding: 28px;
-              background: #F8FAFC;
+              background: #F3F2EE;
               font-family: Pretendard, system-ui, sans-serif;
               color: #0F172A;
             }
@@ -606,20 +704,18 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
     await finalizeVideo(page, "video-04-buyer-im-viewer.webm");
   });
 
-  test("5. Video 5 & Module 7: 주간 고객 소식지(모바일 매거진) 5분 간편 발행", async ({ browser }) => {
+  test("5. Video 5 & Module 7: 주간 고객 소식지(모바일 매거진) 5분 간단 모드 & 8단계 상세 편집", async ({ browser }) => {
     const page = await openRecordedPage(browser);
 
     await page.goto("/broker/magazine-editor?mode=simple", { waitUntil: "domcontentloaded" });
     await ensurePaperMode(page);
     await page.reload({ waitUntil: "domcontentloaded" });
 
-    // Wait for sequential API loads (/api/broker/profile -> /api/magazine/editions/draft -> analytics -> subscribers)
     const gateOrEditor = page
       .locator("[data-testid='simple-editor-root'], [data-testid='slug-setup-gate'], #simple-field-note-comment")
       .first();
     await gateOrEditor.waitFor({ state: "visible", timeout: 35000 });
 
-    // If SlugSetupGate is shown on first visit, confirm slug so SimpleEditor opens
     const slugSubmit = page.locator("[data-testid='slug-setup-submit']");
     if (await slugSubmit.isVisible().catch(() => false)) {
       await slugSubmit.click();
@@ -629,7 +725,6 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
       });
     }
 
-    // Wait for the phone-frame iframe (/magazine/[brokerId]/[date]) to finish compiling and rendering
     try {
       const frame = page.frameLocator("[data-testid='phone-frame'] iframe");
       await frame.locator("h1, h2, main, section").first().waitFor({
@@ -639,7 +734,7 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
     } catch {
       // Fallback if inline mode
     }
-    await page.waitForTimeout(1800);
+    await page.waitForTimeout(1500);
 
     await showVideoCaption(
       page,
@@ -656,7 +751,7 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
     await saveDualScreenshot(page, "step-07-magazine-simple-step1.png", [
       { selector: "[data-testid='note-starter-chips']", badge: "①", label: "한마디 시작 문장 추천 버튼" },
       { selector: "#simple-field-note-comment", badge: "②", label: "① 이번 주 한마디 입력창 (1~3문장)" },
-      { selector: "[data-testid='phone-frame']", badge: "③", label: "우측 실시간 스마트폰 미리보기" },
+      { selector: "[data-testid='phone-frame']", badge: "③", label: "우측 실시간 아이폰 14 Pro 미리보기" },
     ]);
 
     // Scroll left editor panel down to Step 2, Step 3, and Publish button
@@ -681,7 +776,7 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
       { selector: "[data-testid='simple-publish-button']", badge: "③", label: "🚀 이번 주 매거진 발행하기" },
     ]);
 
-    // Capture reader view from phone frame or public magazine route
+    // Capture reader view from phone frame
     const phoneFrame = page.locator("[data-testid='phone-frame']");
     if (await phoneFrame.isVisible().catch(() => false)) {
       const pubPath = path.join(PUBLIC_IMG_DIR, "step-07-magazine-reader-mobile.png");
@@ -693,6 +788,35 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite"
     } else {
       await saveDualScreenshot(page, "step-07-magazine-reader-mobile.png", []);
     }
+
+    // Switch to 8-step Full Mode (Field Note tab) for Screenshots 7-3 and 7-4
+    await page.evaluate(() => {
+      const panel = document.getElementById("editor-tabpanel");
+      if (panel) panel.scrollTop = 0;
+      window.scrollTo(0, 0);
+    });
+    await page.waitForTimeout(500);
+    const fieldNoteTab = page.locator("button[role='tab']:has-text('필드노트')").first();
+    if (await fieldNoteTab.isVisible().catch(() => false)) {
+      await fieldNoteTab.click();
+      await page.waitForTimeout(800);
+    }
+
+    await saveDualScreenshot(page, "step-07-magazine-full-mode-tabs.png", [
+      { selector: "div[role='tablist']", badge: "①", label: "8개 전문 편집 탭 (커버~성과)" },
+      { selector: "[data-testid='editor-mode-bar']", badge: "②", label: "간단 모드 ↔ 상세 편집(8단계) 스위처" },
+    ]);
+
+    const publishTab = page.locator("button[role='tab']:has-text('발행설정')").first();
+    if (await publishTab.isVisible().catch(() => false)) {
+      await publishTab.click();
+      await page.waitForTimeout(800);
+    }
+
+    await saveDualScreenshot(page, "step-07-magazine-full-publish-analytics.png", [
+      { selector: "button[role='tab']:has-text('발행설정')", badge: "①", label: "발행설정 탭 (섹션 포함 · 발송 대상)" },
+      { selector: "button[role='tab']:has-text('성과')", badge: "②", label: "성과 탭 (열람·클릭 통계)" },
+    ]);
 
     await finalizeVideo(page, "video-05-weekly-magazine.webm");
   });

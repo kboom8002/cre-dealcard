@@ -11,6 +11,7 @@ import {
   BROKER_FAQ_LIST,
   BROKER_GLOSSARY_LIST,
   POSTURE_GUIDE_ROWS,
+  BROKER_MESSAGE_TEMPLATES,
 } from "@/lib/tutorial/broker-tutorial-data";
 
 function BrokerTutorialInner() {
@@ -19,6 +20,19 @@ function BrokerTutorialInner() {
 
   const [selectedModuleId, setSelectedModuleId] = useState<string>("all");
   const [extraLargeText, setExtraLargeText] = useState<boolean>(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyText = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => {
+        setCopiedId((prev) => (prev === id ? null : prev));
+      }, 2500);
+    } catch {
+      // ignore clipboard error
+    }
+  };
 
   const visibleModules =
     isPrintMode || selectedModuleId === "all"
@@ -38,150 +52,157 @@ function BrokerTutorialInner() {
         <StaggerContainer className="w-full max-w-5xl mx-auto space-y-8">
           {/* ── 상단 타이틀 & 큰글씨/인쇄/PDF 다운로드 헤더 카드 ── */}
           <StaggerItem>
-          <section className="rounded-3xl border-2 border-blue-600/30 bg-white p-6 sm:p-8 shadow-sm space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-[15px] font-extrabold">
-                📖 60대 대표공인중개사 맞춤형 큰글씨 · 사진 · 동영상 사용 설명서
-              </span>
-              <div className="flex flex-wrap items-center gap-2 print:hidden">
-                <motion.button
-                  type="button"
-                  whileHover={{ y: -1 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setExtraLargeText((prev) => !prev)}
-                  data-testid="tutorial-font-size-toggle"
-                  className="px-4 py-2.5 min-h-[44px] rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-950 font-extrabold text-[15px] transition-colors"
-                >
-                  {extraLargeText ? "🔤 기본 큰글씨(17px)로 보기" : "🔎 글자 더 크게 보기 (특대 19px)"}
-                </motion.button>
-                <a
-                  href="/tutorials/CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
-                  download="CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
-                  data-testid="tutorial-pdf-download-btn"
-                  className="px-4 py-2.5 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-[15px] shadow-sm transition-colors"
-                >
-                  <span>📥 큰글씨 PDF 매뉴얼 내려받기</span>
-                </a>
-                <motion.button
-                  type="button"
-                  whileHover={{ y: -1 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => window.print()}
-                  data-testid="tutorial-print-btn"
-                  className="px-4 py-2.5 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-[15px] transition-colors"
-                >
-                  <span>🖨️ 종이로 인쇄하기</span>
-                </motion.button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h1 className="text-[28px] sm:text-[34px] font-black text-slate-900 leading-tight tracking-tight">
-                크리딜(CRE DealCard) 전 기능 스텝 바이 스텝 완전정복
-              </h1>
-              <p className="text-[17px] sm:text-[18px] text-slate-700 font-medium leading-relaxed">
-                처음 접속하신 대표님도 <strong>화면 사진에 표시된 빨간 번호(①, ②, ③)</strong>와{" "}
-                <strong>따라하기 동영상</strong>만 보시면서 그대로 누르시면{" "}
-                <strong>1분 딜카드</strong>, <strong>PPTX 투자설명서(기본 IM)</strong>,{" "}
-                <strong>주간 고객 소식지</strong>까지 막힘없이 완성하실 수 있습니다.
-              </p>
-            </div>
-
-            {/* 실전 예시 매물 안내 박스 */}
-            <div className="rounded-2xl border border-emerald-300 bg-emerald-50/70 p-4 sm:p-5 space-y-2">
-              <p className="text-[16px] font-extrabold text-emerald-950">
-                🏢 이 설명서에서 함께 따라 해보는 실전 예시 매물 2선
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[15px] text-slate-800">
-                <div className="rounded-xl bg-white border border-emerald-200 p-3.5">
-                  <p className="font-black text-emerald-900">
-                    예시 A (다필지 수익형): 영등포구 양평동4가 117, 134, 125-2번지 (더레드빌딩)
-                  </p>
-                  <p className="text-[14px] text-slate-700 mt-1">
-                    매각가 250억 · 3필지 합산 대지 157평(518.7㎡) · 연면적 753.5평(B1~10F) · 1층 스타벅스 입점
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white border border-emerald-200 p-3.5">
-                  <p className="font-black text-emerald-900">
-                    예시 B (일반 수익형·통합계약): 영등포구 당산동5가 11-47 (호산당빌딩)
-                  </p>
-                  <p className="text-[14px] text-slate-700 mt-1">
-                    매각가 115억 · 대지 153.3평 / 연면적 307.9평(B1~5F) · 1층 약국 및 1~2층 내과 통합계약
-                  </p>
+            <section className="rounded-3xl border-2 border-blue-600/30 bg-white p-6 sm:p-8 shadow-sm space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-[15px] font-extrabold">
+                  📖 60대 대표공인중개사 맞춤형 큰글씨 · 사진 · 동영상 사용 설명서 (SOTA 개정판)
+                </span>
+                <div className="flex flex-wrap items-center gap-2 print:hidden">
+                  <motion.button
+                    type="button"
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setExtraLargeText((prev) => !prev)}
+                    data-testid="tutorial-font-size-toggle"
+                    className="px-4 py-2.5 min-h-[44px] rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-950 font-extrabold text-[15px] transition-colors"
+                  >
+                    {extraLargeText ? "🔤 기본 큰글씨(17px)로 보기" : "🔎 글자 더 크게 보기 (특대 19px)"}
+                  </motion.button>
+                  <a
+                    href="/tutorials/CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
+                    download="CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
+                    data-testid="tutorial-pdf-download-btn"
+                    className="px-4 py-2.5 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-[15px] shadow-sm transition-colors"
+                  >
+                    <span>📥 큰글씨 PDF 매뉴얼 내려받기</span>
+                  </a>
+                  <motion.button
+                    type="button"
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => window.print()}
+                    data-testid="tutorial-print-btn"
+                    className="px-4 py-2.5 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-[15px] transition-colors"
+                  >
+                    <span>🖨️ 종이로 인쇄하기</span>
+                  </motion.button>
                 </div>
               </div>
-            </div>
 
-            {/* ── 장별 빠른 선택 탭 (SOTA 슬라이딩 세그먼트 필 · 인쇄 시 숨김) ── */}
-            <div className="space-y-2.5 pt-2 print:hidden">
-              <p className="text-[15px] font-extrabold text-slate-700">
-                👇 원하시는 단원을 눌러 바로 보시거나, [전체 순서대로 보기]로 처음부터 끝까지 읽어보세요
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedModuleId("all")}
-                  data-testid="tutorial-tab-all"
-                  className={`relative px-4 py-2.5 min-h-[44px] rounded-xl text-[15px] font-extrabold border transition-colors ${
-                    selectedModuleId === "all"
-                      ? "text-white border-blue-700"
-                      : "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200"
-                  }`}
-                >
-                  {selectedModuleId === "all" && (
-                    <motion.span
-                      layoutId="tutorial-chapter-active-pill"
-                      transition={SOTA_SPRING}
-                      className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
-                    />
-                  )}
-                  <span className="relative z-10">📚 전체 순서대로 보기 (제0장~부록)</span>
-                </button>
-                {BROKER_TUTORIAL_MODULES.map((mod) => {
-                  const isActive = selectedModuleId === mod.id;
-                  return (
-                    <button
-                      key={mod.id}
-                      type="button"
-                      onClick={() => setSelectedModuleId(mod.id)}
-                      data-testid={`tutorial-tab-${mod.id}`}
-                      className={`relative px-3.5 py-2.5 min-h-[44px] rounded-xl text-[15px] font-bold border transition-colors ${
-                        isActive
-                          ? "text-white border-blue-700"
-                          : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
-                      }`}
-                    >
-                      {isActive && (
-                        <motion.span
-                          layoutId="tutorial-chapter-active-pill"
-                          transition={SOTA_SPRING}
-                          className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
-                        />
-                      )}
-                      <span className="relative z-10">{mod.shortTitle}</span>
-                    </button>
-                  );
-                })}
-                <a
-                  href="#appendix-postures"
-                  onClick={() => setSelectedModuleId("all")}
-                  className="px-3.5 py-2.5 min-h-[44px] inline-flex items-center rounded-xl text-[15px] font-bold border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 transition-all"
-                >
-                  📋 부록 A: 5대 투자목적 비교표
-                </a>
-                <a
-                  href="#appendix-cheatsheet"
-                  onClick={() => setSelectedModuleId("all")}
-                  className="px-3.5 py-2.5 min-h-[44px] inline-flex items-center rounded-xl text-[15px] font-bold border border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100 transition-all"
-                >
-                  🖨️ 부록 B: A4 1장 책상 요약표
-                </a>
+              <div className="space-y-2">
+                <h1 className="text-[28px] sm:text-[34px] font-black text-slate-900 leading-tight tracking-tight">
+                  크리딜(CRE DealCard) 전 기능 스텝 바이 스텝 완전정복
+                </h1>
+                <p className="text-[17px] sm:text-[18px] text-slate-700 font-medium leading-relaxed">
+                  처음 접속하신 대표님도 <strong>화면 사진에 표시된 빨간 번호(①, ②, ③)</strong>와{" "}
+                  <strong>따라하기 동영상</strong>만 보시면서 그대로 누르시면{" "}
+                  <strong>1분 딜카드</strong>, <strong>PPTX 투자설명서(기본 IM)</strong>,{" "}
+                  <strong>주간 고객 소식지(5분 간단 모드 & 8단계 상세 편집)</strong>까지 막힘없이 완성하실 수 있습니다.
+                </p>
               </div>
-            </div>
-          </section>
+
+              {/* 실전 예시 매물 안내 박스 */}
+              <div className="rounded-2xl border border-emerald-300 bg-emerald-50/70 p-4 sm:p-5 space-y-2">
+                <p className="text-[16px] font-extrabold text-emerald-950">
+                  🏢 이 설명서에서 함께 따라 해보는 실전 예시 매물 2선
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[15px] text-slate-800">
+                  <div className="rounded-xl bg-white border border-emerald-200 p-3.5">
+                    <p className="font-black text-emerald-900">
+                      예시 A (다필지 수익형): 영등포구 양평동4가 117, 134, 125-2번지 (더레드빌딩)
+                    </p>
+                    <p className="text-[14px] text-slate-700 mt-1">
+                      매각가 250억 · 3필지 합산 대지 157평(518.7㎡) · 연면적 753.5평(B1~10F) · 1층 스타벅스 입점
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white border border-emerald-200 p-3.5">
+                    <p className="font-black text-emerald-900">
+                      예시 B (일반 수익형·통합계약): 영등포구 당산동5가 11-47 (호산당빌딩)
+                    </p>
+                    <p className="text-[14px] text-slate-700 mt-1">
+                      매각가 115억 · 대지 153.3평 / 연면적 307.9평(B1~5F) · 1층 약국 및 1~2층 내과 통합계약
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 장별 빠른 선택 탭 (SOTA 슬라이딩 세그먼트 필 · 인쇄 시 숨김) ── */}
+              <div className="space-y-2.5 pt-2 print:hidden">
+                <p className="text-[15px] font-extrabold text-slate-700">
+                  👇 원하시는 단원을 눌러 바로 보시거나, [전체 순서대로 보기]로 처음부터 끝까지 읽어보세요
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedModuleId("all")}
+                    data-testid="tutorial-tab-all"
+                    className={`relative px-4 py-2.5 min-h-[44px] rounded-xl text-[15px] font-extrabold border transition-colors ${
+                      selectedModuleId === "all"
+                        ? "text-white border-blue-700"
+                        : "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200"
+                    }`}
+                  >
+                    {selectedModuleId === "all" && (
+                      <motion.span
+                        layoutId="tutorial-chapter-active-pill"
+                        transition={SOTA_SPRING}
+                        className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
+                      />
+                    )}
+                    <span className="relative z-10">📚 전체 순서대로 보기 (제0장~부록 C)</span>
+                  </button>
+                  {BROKER_TUTORIAL_MODULES.map((mod) => {
+                    const isActive = selectedModuleId === mod.id;
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        onClick={() => setSelectedModuleId(mod.id)}
+                        data-testid={`tutorial-tab-${mod.id}`}
+                        className={`relative px-3.5 py-2.5 min-h-[44px] rounded-xl text-[15px] font-bold border transition-colors ${
+                          isActive
+                            ? "text-white border-blue-700"
+                            : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        {isActive && (
+                          <motion.span
+                            layoutId="tutorial-chapter-active-pill"
+                            transition={SOTA_SPRING}
+                            className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
+                          />
+                        )}
+                        <span className="relative z-10">{mod.shortTitle}</span>
+                      </button>
+                    );
+                  })}
+                  <a
+                    href="#appendix-postures"
+                    onClick={() => setSelectedModuleId("all")}
+                    className="px-3.5 py-2.5 min-h-[44px] inline-flex items-center rounded-xl text-[15px] font-bold border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 transition-all"
+                  >
+                    📋 부록 A: 5대 투자목적 비교표
+                  </a>
+                  <a
+                    href="#appendix-cheatsheet"
+                    onClick={() => setSelectedModuleId("all")}
+                    className="px-3.5 py-2.5 min-h-[44px] inline-flex items-center rounded-xl text-[15px] font-bold border border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100 transition-all"
+                  >
+                    🖨️ 부록 B: A4 1장 책상 요약표
+                  </a>
+                  <a
+                    href="#appendix-templates"
+                    onClick={() => setSelectedModuleId("all")}
+                    className="px-3.5 py-2.5 min-h-[44px] inline-flex items-center rounded-xl text-[15px] font-bold border border-blue-300 bg-blue-50 text-blue-950 hover:bg-blue-100 transition-all"
+                  >
+                    💬 부록 C: 카톡 인사말 템플릿 6선
+                  </a>
+                </div>
+              </div>
+            </section>
           </StaggerItem>
 
-          {/* ── 각 모듈(제0장 ~ 제9장) 스텝 바이 스텝 본문 ── */}
+          {/* ── 각 모듈(제0장 ~ 제10장) 스텝 바이 스텝 본문 ── */}
           {visibleModules.map((mod) => (
             <section
               key={mod.id}
@@ -290,7 +311,7 @@ function BrokerTutorialInner() {
                         </figcaption>
                       </figure>
 
-                      {/* 3단 설명 박스: 어디를 누르나요? / 무엇이 바뀌나요? / 왜 중요한가요? */}
+                      {/* 설명 박스: 어디를 누르나요? / 무엇이 바뀌나요? / 왜 중요한가요? / 자주 하는 실수 / 복사 예시 */}
                       <div className="grid grid-cols-1 gap-3.5">
                         <div className="rounded-xl border border-blue-200 bg-white p-4">
                           <p className="text-[15px] font-extrabold text-blue-800 mb-1">
@@ -323,19 +344,52 @@ function BrokerTutorialInner() {
                             </p>
                           )}
                         </div>
+
+                        {step.commonMistake && (
+                          <div className="rounded-xl border border-rose-300 bg-rose-50/70 p-4">
+                            <p className="text-[15px] font-extrabold text-rose-900 mb-1">
+                              ⚠️ 4. 자주 하시는 실수 & 안심 예방법
+                            </p>
+                            <p className="text-slate-900 font-medium whitespace-pre-line">
+                              {step.commonMistake}
+                            </p>
+                          </div>
+                        )}
+
+                        {step.copySample && (
+                          <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50/50 p-4 space-y-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-[15px] font-extrabold text-indigo-950">
+                                📋 바로 복사해서 따라 해보는 실전 문구 예시
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(step.id, step.copySample!.text)}
+                                className="px-3.5 py-2 min-h-[40px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[14px] font-extrabold shadow-xs print:hidden transition-colors"
+                              >
+                                {copiedId === step.id
+                                  ? "✅ 복사 완료! (입력창에 Ctrl+V 하세요)"
+                                  : `📋 ${step.copySample.label}`}
+                              </button>
+                            </div>
+                            <pre className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-white p-3.5 text-[15px] font-semibold text-slate-900 font-sans">
+                              {step.copySample.text}
+                            </pre>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* 제10장일 때: FAQ 15선 & 부동산 디지털 용어 사전 렌더링 */}
+              {/* 제10장일 때: FAQ 20선 & 부동산 디지털 용어 사전 15선 렌더링 */}
               {mod.id === "module-10" && (
                 <div id="faq-section" className="space-y-8 pt-2">
-                  {/* FAQ 15선 */}
+                  {/* FAQ 20선 */}
                   <div className="space-y-4">
                     <h3 className="text-[22px] font-black text-slate-900">
-                      🛠️ 자주 묻는 질문과 즉시 해결법 (FAQ 15선)
+                      🛠️ 자주 묻는 질문과 즉시 해결법 (FAQ 20선)
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
                       {BROKER_FAQ_LIST.map((faq) => (
@@ -365,10 +419,10 @@ function BrokerTutorialInner() {
                     </div>
                   </div>
 
-                  {/* 쉬운 용어 사전 */}
+                  {/* 쉬운 용어 사전 15선 */}
                   <div className="space-y-4 pt-4">
                     <h3 className="text-[22px] font-black text-slate-900">
-                      📖 60대 중개인을 위한 쉬운 부동산 디지털 용어 사전
+                      📖 60대 중개인을 위한 쉬운 부동산 디지털 용어 사전 (15선)
                     </h3>
                     <div className="overflow-x-auto rounded-2xl border-2 border-slate-300">
                       <table className="w-full text-left border-collapse">
@@ -535,6 +589,62 @@ function BrokerTutorialInner() {
                     </li>
                   </ul>
                 </div>
+              </div>
+            </section>
+          )}
+
+          {/* ── 부록 C: 상황별 카카오톡 발송 멘트 & 인사말 실전 템플릿 6선 ── */}
+          {(isPrintMode || selectedModuleId === "all") && (
+            <section
+              id="appendix-templates"
+              data-testid="tutorial-appendix-templates"
+              className="rounded-3xl border-2 border-blue-400 bg-white p-6 sm:p-8 shadow-sm space-y-5 break-inside-avoid-page"
+            >
+              <div className="space-y-1.5">
+                <span className="px-3.5 py-1 rounded-full bg-blue-700 text-white text-[14px] font-black">
+                  부록 C · 원터치 복사해서 바로 쓰는 실전 영업 멘트
+                </span>
+                <h2 className="text-[24px] sm:text-[28px] font-black text-slate-900 pt-1">
+                  💬 상황별 카카오톡 매물 브리핑 & 주간 소식지 발송 인사말 템플릿 6선
+                </h2>
+                <p className="text-[16px] text-slate-700">
+                  고객에게 딜카드 링크, PPTX 제안서, 또는 주간 소식지를 보내실 때 아래 <strong>[📋 인사말 복사하기]</strong> 버튼을 눌러 카카오톡 대화창에 그대로 붙여넣기(Ctrl+V) 해보세요.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {BROKER_MESSAGE_TEMPLATES.map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    className="rounded-2xl border-2 border-slate-200 bg-[#F8FAFC] p-5 flex flex-col justify-between space-y-3 break-inside-avoid"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="px-3 py-1 rounded-lg bg-blue-100 text-blue-900 text-[13px] font-black">
+                          {tpl.situation}
+                        </span>
+                        <span className="text-[13px] font-bold text-slate-600">
+                          대상: {tpl.targetAudience}
+                        </span>
+                      </div>
+                      <h3 className="text-[18px] font-black text-slate-900">
+                        {tpl.title}
+                      </h3>
+                      <p className="whitespace-pre-line rounded-xl border border-slate-300 bg-white p-3.5 text-[15px] font-medium text-slate-800 leading-relaxed">
+                        {tpl.body}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(tpl.id, tpl.body)}
+                      className="w-full py-2.5 min-h-[44px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[15px] font-extrabold shadow-xs print:hidden transition-colors"
+                    >
+                      {copiedId === tpl.id
+                        ? "✅ 복사되었습니다! 카톡방에 붙여넣기(Ctrl+V) 하세요"
+                        : "📋 이 인사말 복사하기"}
+                    </button>
+                  </div>
+                ))}
               </div>
             </section>
           )}
