@@ -1283,27 +1283,27 @@ function MagazineEditorInner() {
   // ─── 렌더링 ─────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0B1120] flex flex-col lg:flex-row font-sans">
-      {/* ━━━ 왼쪽 패널: 에디터 ━━━ */}
-      <div className="w-full lg:w-[460px] bg-[#111827] border-r border-slate-800 flex flex-col h-[100dvh] lg:h-screen sticky top-0 overflow-hidden">
+      {/* ━━━ 왼쪽 패널: 에디터 (시니어 가독성을 위해 폭 580~640px 확장) ━━━ */}
+      <div className="w-full lg:w-[580px] xl:w-[640px] bg-[#111827] border-r border-slate-800 flex flex-col h-[100dvh] lg:h-screen sticky top-0 overflow-hidden shrink-0">
         {/* 헤더 — 125% 배율 노트북에서도 편집 캔버스 높이를 확보하도록 밀도 최적화 */}
-        <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between gap-2 bg-[#111827]/90 backdrop-blur-md z-10 flex-shrink-0">
+        <div className="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2 bg-[#111827]/95 backdrop-blur-md z-10 flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Link
               href="/broker"
               aria-label="대시보드로 돌아가기"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-1.5 rounded-lg hover:bg-slate-800 text-ink-subtle transition-colors shrink-0"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-1.5 rounded-xl hover:bg-slate-800 text-ink-subtle transition-colors shrink-0"
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
-                <h1 aria-label="Content Studio" className="text-body font-bold text-slate-200">고객 소식지 편집실</h1>
-                <span className="rounded-md border border-indigo-500/30 bg-indigo-500/15 px-1.5 py-0.5 text-xs font-bold text-indigo-300">
+                <h1 aria-label="Content Studio" className="text-base font-extrabold text-slate-100 tracking-tight">고객 소식지 편집실</h1>
+                <span className="rounded-md border border-indigo-500/35 bg-indigo-500/15 px-2 py-0.5 text-xs font-extrabold text-indigo-300">
                   매거진 만들기
                 </span>
                 {brokerSlug && (
                   <div className="flex items-center gap-1" data-testid="my-magazine-badge">
-                    <span className="text-caption font-semibold text-indigo-300">내 매거진: {brokerSlug}</span>
+                    <span className="text-caption font-bold text-indigo-300">내 매거진: {brokerSlug}</span>
                     <button
                       type="button"
                       aria-label="공개 매거진 주소 복사"
@@ -1314,7 +1314,7 @@ function MagazineEditorInner() {
                           () => editorToast.error("복사하지 못했습니다. 주소를 직접 선택해 주세요.")
                         );
                       }}
-                      className="-my-2 inline-flex min-h-11 items-center rounded px-1.5 text-caption text-ink-subtle hover:bg-slate-800 hover:text-slate-200"
+                      className="-my-2 inline-flex min-h-11 items-center rounded-lg px-2 text-caption font-semibold text-ink-subtle hover:bg-slate-800 hover:text-slate-200 transition-colors"
                     >
                       주소 복사
                     </button>
@@ -1322,17 +1322,17 @@ function MagazineEditorInner() {
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                <p className="text-caption text-ink-subtle">
+                <p className="text-caption font-medium text-ink-subtle">
                   {editionLabel} · {editionType === "weekly" ? "위클리" : editionType === "special" ? "스페셜" : "데일리"}
                 </p>
                 {statusBadge(editionStatus)}
-                <p className="text-caption text-ink-subtle" data-testid="editor-progress">
+                <p className="text-caption font-semibold text-ink-subtle" data-testid="editor-progress">
                   작성 {progress.done}/{progress.total} 완료
                 </p>
                 {editorMode === "simple" && (
                   <span
                     data-testid="editor-simple-mode-badge"
-                    className="text-caption font-bold px-2 py-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
+                    className="text-caption font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/35 bg-indigo-500/15 text-indigo-300"
                   >
                     ⚡ 간단 모드
                   </span>
@@ -1353,10 +1353,11 @@ function MagazineEditorInner() {
           {!isPublished && (
             <motion.button
               type="button"
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.96 }}
               onClick={() => void handleManualSave()}
               disabled={autosave.status === "saving" || !editionReady}
-              className="flex min-h-11 shrink-0 items-center gap-1.5 text-label font-bold px-3.5 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+              className="flex min-h-11 shrink-0 items-center gap-1.5 text-label font-extrabold px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-colors"
             >
               {autosave.status === "saving" ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -1366,18 +1367,17 @@ function MagazineEditorInner() {
               저장
             </motion.button>
           )}
-
         </div>
 
         {/* 탭 네비게이션 — 모바일(390px)에서도 8개 한글 탭명이 항상 표시되고 가로 스크롤 가능 */}
         <div
           role="tablist"
           aria-label="콘텐츠 편집 단계"
-          className="flex border-b border-slate-800 flex-shrink-0 bg-[#111827] overflow-x-auto scrollbar-hide"
+          className="flex border-b border-slate-800 flex-shrink-0 bg-[#111827] overflow-x-auto scrollbar-hide px-2"
         >
           {TABS.map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
+            const isActive = editorMode === "full" && activeTab === tab.key;
             const done = completion[tab.key] === "done";
             return (
               <button
@@ -1396,17 +1396,24 @@ function MagazineEditorInner() {
                   setActiveTab(tab.key);
                   e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" });
                 }}
-                className={`shrink-0 lg:flex-1 min-h-12 flex flex-col items-center justify-center gap-0.5 px-2.5 lg:px-1 py-1.5 text-caption font-semibold transition-all relative ${
+                className={`shrink-0 lg:flex-1 min-h-12 flex flex-col items-center justify-center gap-0.5 px-2.5 lg:px-1.5 py-1.5 text-caption font-bold transition-colors relative ${
                   isActive ? "text-indigo-400" : "text-ink-subtle hover:text-ink-muted"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span className="inline text-center leading-tight whitespace-nowrap lg:tracking-tighter">
+                {isActive && (
+                  <motion.div
+                    layoutId="activeTabPill"
+                    transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
+                    className="absolute inset-x-1 inset-y-1 rounded-lg bg-indigo-500/10 border border-indigo-500/25 pointer-events-none"
+                  />
+                )}
+                <Icon className="relative z-10 w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span className="relative z-10 inline text-center leading-tight whitespace-nowrap">
                   {tab.label}
                 </span>
                 {done && (
                   <Check
-                    className="absolute top-1 right-1 w-3 h-3 text-emerald-400"
+                    className="absolute top-1 right-1 z-10 w-3 h-3 text-emerald-400"
                     aria-hidden="true"
                     data-testid={`tab-done-${tab.key}`}
                   />
@@ -1414,6 +1421,7 @@ function MagazineEditorInner() {
                 {isActive && (
                   <motion.div
                     layoutId="activeTab"
+                    transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
                     className="absolute bottom-0 left-2 right-2 h-0.5 bg-indigo-500 rounded-full"
                   />
                 )}
@@ -1427,93 +1435,123 @@ function MagazineEditorInner() {
           role="tabpanel"
           id="editor-tabpanel"
           aria-labelledby={`editor-tab-${activeTab}`}
-          className="flex-1 overflow-y-auto p-4 space-y-3"
+          className="flex-1 overflow-y-auto p-4 lg:p-5 space-y-4"
         >
-          {/* 모드 전환 토글 바 */}
+          {/* SOTA 슬라이딩 세그먼트 모드 전환 컨트롤 */}
           <div
             data-testid="editor-mode-bar"
-            className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-2.5 py-1.5"
+            className="grid grid-cols-2 gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/70 p-1.5 shadow-inner"
           >
-            {editorMode === "simple" ? (
-              <>
-                <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 px-2.5 py-1 text-xs font-extrabold text-indigo-200">
-                  ⚡ 간단 모드 (5분 완성) ✓
-                </span>
-                <button
-                  type="button"
-                  data-testid="editor-mode-toggle"
-                  onClick={() => setEditorMode("full")}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700 transition-colors"
-                >
-                  🛠️ 상세 편집 (8단계)
-                </button>
-              </>
-            ) : (
-              <div className="flex w-full items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-400">
-                  🛠️ 상세 편집 모드 (8단계)
-                </span>
-                <button
-                  type="button"
-                  data-testid="editor-mode-toggle"
-                  onClick={() => setEditorMode("simple")}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1 text-xs font-bold text-indigo-200 hover:bg-indigo-500/25 transition-colors"
-                >
-                  ⚡ 간단 모드로 돌아가기 (한 화면 3단계)
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              data-testid={editorMode === "full" ? "editor-mode-toggle" : "editor-mode-simple"}
+              data-mode-switch="simple"
+              aria-pressed={editorMode === "simple"}
+              onClick={() => {
+                if (editorMode !== "simple") setEditorMode("simple");
+              }}
+              className={`relative flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-extrabold transition-colors ${
+                editorMode === "simple"
+                  ? "text-indigo-200"
+                  : "text-slate-300 hover:text-slate-100"
+              }`}
+            >
+              {editorMode === "simple" && (
+                <motion.div
+                  layoutId="editor-mode-active-pill"
+                  transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
+                  className="absolute inset-0 rounded-xl bg-indigo-500/20 border border-indigo-500/40 shadow-sm"
+                />
+              )}
+              <span className="relative z-10">
+                {editorMode === "simple" ? "⚡ 간단 모드 (5분 완성) ✓" : "⚡ 간단 모드로 돌아가기 (한 화면 3단계)"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              data-testid={editorMode === "simple" ? "editor-mode-toggle" : "editor-mode-full"}
+              data-mode-switch="full"
+              aria-pressed={editorMode === "full"}
+              onClick={() => {
+                if (editorMode !== "full") setEditorMode("full");
+              }}
+              className={`relative flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-extrabold transition-colors ${
+                editorMode === "full"
+                  ? "text-indigo-200"
+                  : "text-slate-200 hover:text-slate-100"
+              }`}
+            >
+              {editorMode === "full" && (
+                <motion.div
+                  layoutId="editor-mode-active-pill"
+                  transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
+                  className="absolute inset-0 rounded-xl bg-indigo-500/20 border border-indigo-500/40 shadow-sm"
+                />
+              )}
+              <span className="relative z-10">
+                {editorMode === "full" ? "🛠️ 상세 편집 모드 (8단계) ✓" : "🛠️ 상세 편집 (8단계)"}
+              </span>
+            </button>
           </div>
 
-          {editorMode === "simple" ? (
-            <SimpleEditor
-              editionId={editionId}
-              brokerName={resolveEditorPublicName(identity, brokerSlug)}
-              fieldNote={fieldNote}
-              updateFieldNote={updateFieldNote}
-              headline={headline}
-              setHeadline={setHeadline}
-              briefing={briefing}
-              setBriefing={setBriefing}
-              marketTemp={marketTemp}
-              setMarketTemp={setMarketTemp}
-              deals={dealPool}
-              selectedDealIds={selectedDealIds}
-              toggleDeal={toggleDeal}
-              fmt={fmt}
-              newsTitles={topNewsSnapshot.map((n) => String(n.title ?? ""))}
-              themeTitle={themeTitle}
-              themeBodyMd={themeBodyMd}
-              pollQuestion={pollQuestion}
-              taxQuestion={taxQuestion}
-              taxAnswer={taxAnswer}
-              isPublished={isPublished}
-              publishing={publishing}
-              saving={autosave.status === "saving"}
-              onPublish={(ensuredHeadline) => void handleOpenPublish(ensuredHeadline)}
-              onOpenTab={(tabKey) => {
-                setEditorMode("full", { skipRemote: true });
-                setActiveTab(tabKey);
-              }}
-              onSwitchToFullMode={() => setEditorMode("full")}
-            />
-          ) : (
-            <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
+            {editorMode === "simple" ? (
               <motion.div
-                key={activeTab}
+                key="mode-simple"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
+              >
+                <SimpleEditor
+                  editionId={editionId}
+                  brokerName={resolveEditorPublicName(identity, brokerSlug)}
+                  fieldNote={fieldNote}
+                  updateFieldNote={updateFieldNote}
+                  headline={headline}
+                  setHeadline={setHeadline}
+                  briefing={briefing}
+                  setBriefing={setBriefing}
+                  marketTemp={marketTemp}
+                  setMarketTemp={setMarketTemp}
+                  deals={dealPool}
+                  selectedDealIds={selectedDealIds}
+                  toggleDeal={toggleDeal}
+                  fmt={fmt}
+                  newsTitles={topNewsSnapshot.map((n) => String(n.title ?? ""))}
+                  themeTitle={themeTitle}
+                  themeBodyMd={themeBodyMd}
+                  pollQuestion={pollQuestion}
+                  taxQuestion={taxQuestion}
+                  taxAnswer={taxAnswer}
+                  isPublished={isPublished}
+                  publishing={publishing}
+                  saving={autosave.status === "saving"}
+                  onPublish={(ensuredHeadline) => void handleOpenPublish(ensuredHeadline)}
+                  onOpenTab={(tabKey) => {
+                    setEditorMode("full", { skipRemote: true });
+                    setActiveTab(tabKey);
+                  }}
+                  onSwitchToFullMode={() => setEditorMode("full")}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`mode-full-${activeTab}`}
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.15 }}
+                transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
               >
                 {renderTabContent()}
               </motion.div>
-            </AnimatePresence>
-          )}
+            )}
+          </AnimatePresence>
         </div>
 
         {/* 하단 액션 — 발행 단일 버튼 세트 (저장은 헤더, 발행은 여기 하나) */}
-        <div className="p-2.5 lg:p-3 pb-[max(0.625rem,env(safe-area-inset-bottom))] border-t border-slate-800 flex flex-wrap items-stretch gap-2 lg:flex-col lg:flex-nowrap flex-shrink-0 bg-[#111827]">
+        <div className="p-3 lg:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-800 flex flex-wrap items-stretch gap-2 lg:flex-col lg:flex-nowrap flex-shrink-0 bg-[#111827]">
           <div className="flex w-full gap-2">
             <Link
               href={`/magazine/${encodeURIComponent(brokerSlug)}/${isPublished ? publishedIssueDate : today}`}
@@ -1523,33 +1561,34 @@ function MagazineEditorInner() {
                   ? "발행된 이번 호의 공개 주소로 이동합니다"
                   : "이번 호의 공개 주소(발행 전에는 미발행 안내가 표시되며, 편집 화면은 우측 미리보기에서 확인)"
               }
-              className="flex-1 min-w-0 flex min-h-11 items-center justify-center gap-1.5 text-label font-semibold px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
+              className="flex-1 min-w-0 flex min-h-11 items-center justify-center gap-1.5 text-label font-bold px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 transition-all"
             >
               <Eye className="hidden lg:inline-block w-3.5 h-3.5" aria-hidden="true" />
               📱 실제 화면으로 보기
-              <ExternalLink className="hidden lg:inline-block w-3 h-3 ml-1 opacity-50" aria-hidden="true" />
+              <ExternalLink className="hidden lg:inline-block w-3 h-3 ml-1 opacity-60" aria-hidden="true" />
             </Link>
             <button
               type="button"
               aria-expanded={showMobilePreview}
               onClick={() => setShowMobilePreview((v) => !v)}
-              className="lg:hidden flex min-h-11 items-center justify-center gap-1 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-3 py-2 text-xs font-bold text-indigo-200 hover:bg-indigo-500/25 transition-all"
+              className="lg:hidden flex min-h-11 items-center justify-center gap-1 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-3 py-2 text-xs font-extrabold text-indigo-200 hover:bg-indigo-500/25 transition-all"
             >
               📱 독자 화면 미리보기
             </button>
           </div>
           {isPublished && (
-            <p className="basis-full order-first lg:order-none text-caption leading-relaxed text-amber-300/90" role="note">
+            <p className="basis-full order-first lg:order-none text-caption font-semibold leading-relaxed text-amber-300" role="note">
               이미 발행된 호수입니다. 내용을 고친 뒤 &quot;정정 발행&quot;을 누르면 공개 페이지가 갱신됩니다. 초안으로 되돌릴 수 없습니다.
             </p>
           )}
           <div className="flex gap-2 flex-1 lg:flex-none w-full">
             <motion.button
               type="button"
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => void handleOpenPublish()}
               disabled={publishing || autosave.status === "saving"}
-              className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+              className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-extrabold px-4 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-colors"
             >
               {publishing ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -1559,7 +1598,6 @@ function MagazineEditorInner() {
               {isPublished ? "정정 발행" : "발행하기"}
             </motion.button>
           </div>
-
         </div>
       </div>
 

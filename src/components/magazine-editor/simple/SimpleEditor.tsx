@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Loader2, Users, BarChart3, Wrench, Send } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Sparkles, Loader2, Users, BarChart3, Wrench, Send, Check } from "lucide-react";
 import {
   MARKET_TEMP_CONFIG,
   type MarketTemperature,
@@ -16,6 +17,7 @@ import {
   countPreservedAdvancedItems,
 } from "@/lib/magazine/simple-format";
 import { editorToast } from "@/components/magazine-editor/editor-toaster";
+import { SOTA_SPRING, StaggerContainer, StaggerItem } from "@/components/motion/sota-motion";
 import { NoteStarterChips } from "./NoteStarterChips";
 import { SimpleDealPicker, type SimpleDealItem } from "./SimpleDealPicker";
 import { AutoFilledStrip } from "./AutoFilledStrip";
@@ -339,275 +341,309 @@ export function SimpleEditor({
   };
 
   return (
-    <div className="space-y-5" data-testid="simple-editor-root">
-      {/* 상단 안내 배너 */}
-      <div
-        data-testid="simple-mode-banner"
-        className="rounded-xl border border-indigo-500/35 bg-gradient-to-br from-indigo-500/15 via-slate-900/90 to-slate-900 p-3.5 space-y-2"
-      >
-        <p className="text-[15px] font-bold text-indigo-100 leading-snug">
-          ⚡ 5분 간단 모드 — &apos;이번 주 한마디&apos;만 적으시면 제목·요약·뉴스·계산기가 자동으로 완성됩니다
-        </p>
-        {preservedAdvanced.count > 0 && (
-          <p
-            data-testid="preserved-advanced-notice"
-            className="text-xs font-semibold text-amber-300 bg-amber-500/12 border border-amber-500/25 rounded-lg px-2.5 py-1.5"
+    <StaggerContainer className="space-y-4">
+      <div data-testid="simple-editor-root" className="space-y-4">
+        {/* 상단 안내 배너 */}
+        <StaggerItem>
+          <div
+            data-testid="simple-mode-banner"
+            className="rounded-2xl border border-blue-300 dark:border-indigo-500/35 bg-blue-50/90 dark:bg-indigo-950/40 p-4 space-y-2 shadow-2xs"
           >
-            🔒 고급 항목 {preservedAdvanced.count}개({preservedAdvanced.labels.join("·")} 등)도 함께 유지됩니다
-          </p>
-        )}
-      </div>
-
-      {/* Step 1: 이번 주 한마디 */}
-      <section
-        aria-labelledby="simple-step-1-heading"
-        className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4 space-y-3"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h2 id="simple-step-1-heading" className="text-[16px] font-extrabold text-white">
-            ① 이번 주 한마디 <span className="text-xs font-semibold text-indigo-300">(필수 · 1~3문장)</span>
-          </h2>
-          <span
-            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              isCommentReady
-                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                : "bg-slate-800 text-slate-300 border border-slate-700"
-            }`}
-          >
-            {isCommentReady ? "작성 완료 ✓" : "10자 이상 입력"}
-          </span>
-        </div>
-
-        <NoteStarterChips
-          currentComment={comment}
-          onSelectTemplate={(next) => handleCommentChange(next)}
-        />
-
-        <div className="space-y-1.5">
-          <label htmlFor="simple-field-note-comment" className="sr-only">
-            이번 주 한마디
-          </label>
-          <textarea
-            id="simple-field-note-comment"
-            value={comment}
-            maxLength={SIMPLE_NOTE_MAX}
-            onChange={(e) => handleCommentChange(e.target.value)}
-            placeholder="예: 이번 주 강남·역삼 일대는 금리 인하 기대감으로 실수요 사옥 문의가 부쩍 늘었습니다. 수익률 4% 이상 코너 건물을 눈여겨보실 타이밍입니다."
-            className="w-full min-h-[140px] rounded-xl border border-slate-600 bg-[#0B1120] px-4 py-3.5 text-[17px] text-white leading-relaxed placeholder:text-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/40 transition-all"
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-            <span
-              data-testid="simple-comment-counter"
-              className="text-xs font-semibold text-slate-300"
-            >
-              {comment.length} / {SIMPLE_NOTE_MAX}자 · 권장 1~3문장
-            </span>
-            <button
-              type="button"
-              data-testid="simple-regenerate-summary-btn"
-              disabled={generatingSummary || !isCommentReady}
-              onClick={() => void runSummaryGeneration(true)}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-bold text-indigo-200 hover:bg-indigo-500/25 disabled:opacity-45 transition-all"
-            >
-              {generatingSummary ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-              ✨ 제목·3줄 요약 다시 만들기
-            </button>
-          </div>
-          {summaryStatusText && (
-            <p
-              data-testid="simple-summary-status"
-              className="text-xs font-semibold text-emerald-300 pt-0.5"
-            >
-              {summaryStatusText}
+            <p className="text-[15px] font-extrabold text-blue-950 dark:text-indigo-100 leading-snug">
+              ⚡ 5분 간단 모드 — &apos;이번 주 한마디&apos;만 적으시면 제목·요약·뉴스·계산기가 자동으로 완성됩니다
             </p>
-          )}
-        </div>
-      </section>
-
-      {/* Step 2: 소개할 매물 확인 */}
-      <section
-        aria-labelledby="simple-step-2-heading"
-        className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4 space-y-3"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h2 id="simple-step-2-heading" className="text-[16px] font-extrabold text-white">
-            ② 소개할 매물 확인 <span className="text-xs font-semibold text-slate-300">(최대 3건)</span>
-          </h2>
-        </div>
-
-        <SimpleDealPicker
-          deals={deals}
-          selectedDealIds={selectedDealIds}
-          onToggleDeal={toggleDeal}
-          fmt={fmt}
-          onLimitReached={() =>
-            editorToast.warning("간단 모드에서는 추천 매물을 최대 3건까지 선택할 수 있습니다.")
-          }
-        />
-      </section>
-
-      {/* Step 3: 매거진 제목 & 시장 온도 확인 */}
-      <section
-        aria-labelledby="simple-step-3-heading"
-        className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4 space-y-4"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h2 id="simple-step-3-heading" className="text-[16px] font-extrabold text-white">
-            ③ 매거진 제목 &amp; 시장 온도 확인 <span className="text-xs font-semibold text-slate-300">(자동 제안됨)</span>
-          </h2>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <label
-              htmlFor="simple-headline-input"
-              className="text-sm font-bold text-slate-200"
-            >
-              매거진 제목
-            </label>
-            <button
-              type="button"
-              data-testid="simple-fill-headline-btn"
-              onClick={() => {
-                const nextH = deriveFallbackHeadline(trimmedComment, brokerName);
-                lastAutoHeadlineRef.current = nextH;
-                userEditedHeadlineRef.current = false;
-                setHeadline(nextH);
-              }}
-              className="text-xs font-semibold text-indigo-300 hover:text-indigo-200 underline underline-offset-2"
-            >
-              한마디 첫 문장으로 자동 채우기
-            </button>
+            {preservedAdvanced.count > 0 && (
+              <p
+                data-testid="preserved-advanced-notice"
+                className="text-xs font-bold text-amber-950 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 rounded-lg px-3 py-1.5"
+              >
+                🔒 고급 항목 {preservedAdvanced.count}개({preservedAdvanced.labels.join("·")} 등)도 함께 유지됩니다
+              </p>
+            )}
           </div>
-          <input
-            id="simple-headline-input"
-            type="text"
-            value={headline}
-            onChange={(e) => {
-              userEditedHeadlineRef.current = true;
-              setHeadline(e.target.value);
-            }}
-            placeholder="매거진 제목을 입력하세요"
-            className="w-full min-h-[48px] rounded-xl border border-slate-600 bg-[#0B1120] px-4 py-3 text-[17px] font-bold text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/40 transition-all"
-          />
-          <p className="text-xs text-slate-400">
-            비워두셔도 발행 시 &apos;이번 주 한마디&apos;의 첫 문장으로 자동 완성됩니다.
-          </p>
-        </div>
+        </StaggerItem>
 
-        <div className="space-y-2" data-testid="simple-market-temp-group">
-          <span className="text-sm font-bold text-slate-200 block">
-            이번 주 현장 시장 온도
-          </span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {MARKET_TEMPS.map((temp) => {
-              const cfg = MARKET_TEMP_CONFIG[temp];
-              const isSelected = effectiveMarketTemp === temp;
-              return (
-                <button
-                  key={temp}
-                  type="button"
-                  aria-pressed={isSelected}
-                  data-testid={`simple-temp-${temp}`}
-                  onClick={() => setMarketTemp(temp)}
-                  className={`flex min-h-[46px] items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[15px] font-bold transition-all ${
-                    isSelected
-                      ? "border-white/40 bg-white/12 text-white shadow-md"
-                      : "border-slate-700 bg-slate-800/40 text-slate-300 hover:border-slate-500"
-                  }`}
-                  style={
-                    isSelected
-                      ? {
-                          borderColor: cfg.color + "80",
-                          backgroundColor: cfg.color + "22",
-                        }
-                      : undefined
-                  }
-                >
-                  <span aria-hidden="true">{marketTempIcon(temp)}</span>
-                  <span>{temp}</span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs text-slate-300 pl-1">
-            {MARKET_TEMP_CONFIG[effectiveMarketTemp].description}
-          </p>
-        </div>
-      </section>
-
-      {/* 자동 포함 4종 안심 배지 */}
-      <AutoFilledStrip />
-
-      {/* 큰 발행 버튼 */}
-      <div className="pt-1">
-        <button
-          type="button"
-          data-testid="simple-publish-button"
-          aria-label={
-            isPublished
-              ? "이번 주 매거진 정정 발행 시작"
-              : "이번 주 매거진 발행 시작"
-          }
-          disabled={publishing || saving}
-          onClick={handleSimplePublishClick}
-          className="w-full min-h-[56px] rounded-2xl bg-indigo-500 hover:bg-indigo-600 active:scale-[0.99] disabled:opacity-50 text-white text-lg font-extrabold px-5 py-3.5 shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all"
-        >
-          {publishing ? (
-            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-          ) : (
-            <Send className="w-5 h-5" aria-hidden="true" />
-          )}
-          <span>
-            {isPublished ? "🚀 이번 주 매거진 정정 발행하기" : "🚀 이번 주 매거진 발행하기"}
-          </span>
-        </button>
-      </div>
-
-      {/* 보조 바로가기 바 */}
-      <div
-        data-testid="simple-shortcut-bar"
-        className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-2"
-      >
-        <p className="text-xs font-semibold text-slate-400">
-          구독자 관리·성과 확인이나 투표·세무 등 상세 편집이 필요하신가요?
-        </p>
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              data-testid="simple-shortcut-outreach"
-              onClick={() => onOpenTab("outreach")}
-              className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/12 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition-all"
-            >
-              <Users className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>👥 구독자 관리 · QR 코드</span>
-            </button>
-            <button
-              type="button"
-              data-testid="simple-shortcut-analytics"
-              onClick={() => onOpenTab("analytics")}
-              className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-pink-500/30 bg-pink-500/12 px-3 py-2 text-xs font-bold text-pink-200 hover:bg-pink-500/20 transition-all"
-            >
-              <BarChart3 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>📈 독자 반응 · 핫리드 보기</span>
-            </button>
-          </div>
-          <button
-            type="button"
-            data-testid="simple-shortcut-full-mode"
-            onClick={onSwitchToFullMode}
-            className="w-full flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700/70 transition-all"
+        {/* Step 1: 이번 주 한마디 */}
+        <StaggerItem>
+          <section
+            aria-labelledby="simple-step-1-heading"
+            className="rounded-2xl border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-900/60 p-5 space-y-3.5 shadow-[0_2px_8px_rgba(15,23,42,0.04)]"
           >
-            <Wrench className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>🛠️ 상세 편집 모드(투표·세무·테마)로 전환</span>
-          </button>
-        </div>
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="simple-step-1-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
+                ① 이번 주 한마디 <span className="text-xs font-extrabold text-blue-700 dark:text-indigo-300 ml-1">(필수 · 1~3문장)</span>
+              </h2>
+              <motion.span
+                key={isCommentReady ? "ready" : "pending"}
+                initial={{ scale: 0.9, opacity: 0.7 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={SOTA_SPRING}
+                className={`text-xs font-extrabold px-2.5 py-1 rounded-full ${
+                  isCommentReady
+                    ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
+                }`}
+              >
+                {isCommentReady ? "작성 완료 ✓" : "10자 이상 입력"}
+              </motion.span>
+            </div>
+
+            <NoteStarterChips
+              currentComment={comment}
+              onSelectTemplate={(next) => handleCommentChange(next)}
+            />
+
+            <div className="space-y-2">
+              <label htmlFor="simple-field-note-comment" className="sr-only">
+                이번 주 한마디
+              </label>
+              <textarea
+                id="simple-field-note-comment"
+                value={comment}
+                maxLength={SIMPLE_NOTE_MAX}
+                onChange={(e) => handleCommentChange(e.target.value)}
+                placeholder="예: 이번 주 강남·역삼 일대는 금리 인하 기대감으로 실수요 사옥 문의가 부쩍 늘었습니다. 수익률 4% 이상 코너 건물을 눈여겨보실 타이밍입니다."
+                className="w-full min-h-[136px] rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-[#0B1120] px-4 py-3.5 text-[17px] font-medium text-slate-900 dark:text-white leading-relaxed placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/25 transition-all"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                <span
+                  data-testid="simple-comment-counter"
+                  className="text-xs font-bold text-slate-600 dark:text-slate-300"
+                >
+                  {comment.length} / {SIMPLE_NOTE_MAX}자 · 권장 1~3문장
+                </span>
+                <motion.button
+                  type="button"
+                  data-testid="simple-regenerate-summary-btn"
+                  disabled={generatingSummary || !isCommentReady}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={SOTA_SPRING}
+                  onClick={() => void runSummaryGeneration(true)}
+                  className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-blue-300 dark:border-indigo-500/40 bg-blue-50 dark:bg-indigo-500/15 px-3.5 py-1.5 text-xs font-extrabold text-blue-900 dark:text-indigo-200 hover:bg-blue-100 dark:hover:bg-indigo-500/25 disabled:opacity-45 transition-colors shadow-2xs"
+                >
+                  {generatingSummary ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-indigo-300" aria-hidden="true" />
+                  )}
+                  ✨ 제목·3줄 요약 다시 만들기
+                </motion.button>
+              </div>
+              <AnimatePresence>
+                {summaryStatusText && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    data-testid="simple-summary-status"
+                    className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-1.5"
+                  >
+                    {summaryStatusText}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
+          </section>
+        </StaggerItem>
+
+        {/* Step 2: 소개할 매물 확인 */}
+        <StaggerItem>
+          <section
+            aria-labelledby="simple-step-2-heading"
+            className="rounded-2xl border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-900/60 p-5 space-y-3.5 shadow-[0_2px_8px_rgba(15,23,42,0.04)]"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="simple-step-2-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
+                ② 소개할 매물 확인 <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">(최대 3건)</span>
+              </h2>
+            </div>
+
+            <SimpleDealPicker
+              deals={deals}
+              selectedDealIds={selectedDealIds}
+              onToggleDeal={toggleDeal}
+              fmt={fmt}
+              onLimitReached={() =>
+                editorToast.warning("간단 모드에서는 추천 매물을 최대 3건까지 선택할 수 있습니다.")
+              }
+            />
+          </section>
+        </StaggerItem>
+
+        {/* Step 3: 매거진 제목 & 시장 온도 확인 */}
+        <StaggerItem>
+          <section
+            aria-labelledby="simple-step-3-heading"
+            className="rounded-2xl border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-900/60 p-5 space-y-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)]"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="simple-step-3-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
+                ③ 매거진 제목 &amp; 시장 온도 확인 <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">(자동 제안됨)</span>
+              </h2>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor="simple-headline-input"
+                  className="text-[15px] font-extrabold text-slate-800 dark:text-slate-200"
+                >
+                  매거진 제목
+                </label>
+                <button
+                  type="button"
+                  data-testid="simple-fill-headline-btn"
+                  onClick={() => {
+                    const nextH = deriveFallbackHeadline(trimmedComment, brokerName);
+                    lastAutoHeadlineRef.current = nextH;
+                    userEditedHeadlineRef.current = false;
+                    setHeadline(nextH);
+                  }}
+                  className="text-xs font-extrabold text-blue-700 dark:text-indigo-300 hover:underline underline-offset-2"
+                >
+                  한마디 첫 문장으로 자동 채우기
+                </button>
+              </div>
+              <input
+                id="simple-headline-input"
+                type="text"
+                value={headline}
+                onChange={(e) => {
+                  userEditedHeadlineRef.current = true;
+                  setHeadline(e.target.value);
+                }}
+                placeholder="매거진 제목을 입력하세요"
+                className="w-full min-h-[48px] rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-[#0B1120] px-4 py-3 text-[17px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/25 transition-all"
+              />
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                비워두셔도 발행 시 &apos;이번 주 한마디&apos;의 첫 문장으로 자동 완성됩니다.
+              </p>
+            </div>
+
+            <div className="space-y-2.5" data-testid="simple-market-temp-group">
+              <span className="text-[15px] font-extrabold text-slate-800 dark:text-slate-200 block">
+                이번 주 현장 시장 온도
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {MARKET_TEMPS.map((temp) => {
+                  const isSelected = effectiveMarketTemp === temp;
+                  return (
+                    <motion.button
+                      key={temp}
+                      type="button"
+                      aria-pressed={isSelected}
+                      data-testid={`simple-temp-${temp}`}
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={SOTA_SPRING}
+                      onClick={() => setMarketTemp(temp)}
+                      className={`flex min-h-[46px] items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[15px] font-extrabold transition-colors ${
+                        isSelected
+                          ? "border-2 border-blue-600 dark:border-indigo-400 bg-blue-50 dark:bg-indigo-500/25 text-blue-950 dark:text-white shadow-sm ring-2 ring-blue-500/15"
+                          : "border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 hover:border-slate-400 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span aria-hidden="true">{marketTempIcon(temp)}</span>
+                      <span>{temp}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 stroke-[3] text-blue-700 dark:text-indigo-300" />}
+                    </motion.button>
+                  );
+                })}
+              </div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 pl-1">
+                💬 {MARKET_TEMP_CONFIG[effectiveMarketTemp].description}
+              </p>
+            </div>
+          </section>
+        </StaggerItem>
+
+        {/* 자동 포함 4종 안심 배지 */}
+        <StaggerItem>
+          <AutoFilledStrip />
+        </StaggerItem>
+
+        {/* 큰 발행 버튼 */}
+        <StaggerItem className="pt-1">
+          <motion.button
+            type="button"
+            data-testid="simple-publish-button"
+            aria-label={
+              isPublished
+                ? "이번 주 매거진 정정 발행 시작"
+                : "이번 주 매거진 발행 시작"
+            }
+            disabled={publishing || saving}
+            whileHover={{ y: -1.5 }}
+            whileTap={{ scale: 0.985 }}
+            transition={SOTA_SPRING}
+            onClick={handleSimplePublishClick}
+            className="w-full min-h-[58px] rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white text-lg font-black px-5 py-3.5 shadow-[0_8px_20px_-4px_rgba(37,99,235,0.45)] flex items-center justify-center gap-2 transition-all"
+          >
+            {publishing ? (
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Send className="w-5 h-5" aria-hidden="true" />
+            )}
+            <span>
+              {isPublished ? "🚀 이번 주 매거진 정정 발행하기" : "🚀 이번 주 매거진 발행하기"}
+            </span>
+          </motion.button>
+        </StaggerItem>
+
+        {/* 보조 바로가기 바 */}
+        <StaggerItem>
+          <div
+            data-testid="simple-shortcut-bar"
+            className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 space-y-2.5 shadow-2xs"
+          >
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+              구독자 관리·성과 확인이나 투표·세무 등 상세 편집이 필요하신가요?
+            </p>
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <motion.button
+                  type="button"
+                  data-testid="simple-shortcut-outreach"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={SOTA_SPRING}
+                  onClick={() => onOpenTab("outreach")}
+                  className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/12 px-3 py-2 text-xs font-extrabold text-amber-950 dark:text-amber-200 hover:bg-amber-100 transition-colors"
+                >
+                  <Users className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>👥 구독자 관리 · QR 코드</span>
+                </motion.button>
+                <motion.button
+                  type="button"
+                  data-testid="simple-shortcut-analytics"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={SOTA_SPRING}
+                  onClick={() => onOpenTab("analytics")}
+                  className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-rose-300 dark:border-pink-500/30 bg-rose-50 dark:bg-pink-500/12 px-3 py-2 text-xs font-extrabold text-rose-950 dark:text-pink-200 hover:bg-rose-100 transition-colors"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>📈 독자 반응 · 핫리드 보기</span>
+                </motion.button>
+              </div>
+              <motion.button
+                type="button"
+                data-testid="simple-shortcut-full-mode"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.985 }}
+                transition={SOTA_SPRING}
+                onClick={onSwitchToFullMode}
+                className="w-full flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 px-3 py-2 text-xs font-extrabold text-slate-800 dark:text-slate-200 hover:bg-slate-200/80 transition-colors"
+              >
+                <Wrench className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>🛠️ 상세 편집 모드(투표·세무·테마)로 전환</span>
+              </motion.button>
+            </div>
+          </div>
+        </StaggerItem>
       </div>
-    </div>
+    </StaggerContainer>
   );
 }
+

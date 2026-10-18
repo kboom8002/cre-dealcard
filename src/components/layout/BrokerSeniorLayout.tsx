@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
+import { SOTA_SPRING } from "@/components/motion/sota-motion";
 
 const TOP_NAV_LINKS = [
   { href: "/broker", label: "🏠 홈 화면", exact: true },
@@ -40,7 +42,7 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
     <div
       className={
         isPaperMode
-          ? "broker-paper-theme min-h-screen bg-[#F8FAFC] text-[#0F172A] transition-colors"
+          ? "broker-paper-theme min-h-screen bg-[#F3F2EE] text-[#0F172A] transition-colors"
           : "min-h-screen bg-[#090D16] text-white transition-colors"
       }
     >
@@ -49,11 +51,11 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
         id="broker-senior-topbar"
         className={
           isPaperMode
-            ? "sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-2 border-slate-300 shadow-sm"
+            ? "sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-300 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
             : "sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-sm"
         }
       >
-        <div className="max-w-5xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {TOP_NAV_LINKS.map((item) => {
               const baseHref = item.href.split("?")[0];
@@ -66,13 +68,20 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
                   href={item.href}
                   className={
                     isActive
-                      ? "px-3.5 py-2 min-h-[42px] inline-flex items-center rounded-xl text-[15px] sm:text-[16px] font-extrabold bg-blue-700 text-white shadow-sm transition-colors"
+                      ? "relative px-3.5 py-2 min-h-[42px] inline-flex items-center rounded-xl text-[15px] sm:text-[16px] font-extrabold text-white transition-colors"
                       : isPaperMode
-                      ? "px-3.5 py-2 min-h-[42px] inline-flex items-center rounded-xl text-[15px] sm:text-[16px] font-bold text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors"
-                      : "px-3.5 py-2 min-h-[42px] inline-flex items-center rounded-xl text-[15px] sm:text-[16px] font-bold text-slate-200 hover:bg-slate-800 border border-slate-700 transition-colors"
+                      ? "relative px-3.5 py-2 min-h-[42px] inline-flex items-center rounded-xl text-[15px] sm:text-[16px] font-bold text-slate-800 hover:bg-slate-100 border border-slate-200/90 bg-white/80 transition-colors"
+                      : "relative px-3.5 py-2 min-h-[42px] inline-flex items-center rounded-xl text-[15px] sm:text-[16px] font-bold text-slate-200 hover:bg-slate-800 border border-slate-700 transition-colors"
                   }
                 >
-                  {item.label}
+                  {isActive && (
+                    <motion.span
+                      layoutId="broker-top-nav-active-pill"
+                      transition={SOTA_SPRING}
+                      className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
+                    />
+                  )}
+                  <span className="relative z-10">{item.label}</span>
                 </Link>
               );
             })}
@@ -95,19 +104,21 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
               <span>📖 쉬운 사용법 안내</span>
             </Link>
 
-            <button
+            <motion.button
               type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.96 }}
               onClick={toggleMode}
               data-testid="broker-theme-toggle-btn"
               className={
                 isPaperMode
-                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-colors shrink-0"
+                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 shadow-2xs transition-colors shrink-0"
                   : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 transition-colors shrink-0"
               }
               title="눈이 편안한 밝은 종이 화면과 어두운 화면을 전환합니다"
             >
               <span>{isPaperMode ? "☀️ 큰글씨 밝은 화면 (켜짐)" : "🌙 어두운 화면 (켜짐)"}</span>
-            </button>
+            </motion.button>
           </div>
         </div>
       </header>
@@ -116,3 +127,4 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
     </div>
   );
 }
+

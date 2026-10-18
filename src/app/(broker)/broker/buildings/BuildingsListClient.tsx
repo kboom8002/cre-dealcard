@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "motion/react";
+import { SOTA_SPRING, StaggerContainer, StaggerItem } from "@/components/motion/sota-motion";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 interface Building {
@@ -157,30 +159,46 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
   const totalCount = buildings.length;
 
   return (
-    <>
-    {/* Tab Navigation */}
-    <div className="flex gap-1 p-1 bg-neutral-900/80 rounded-xl border border-neutral-800">
+    <StaggerContainer className="space-y-6">
+    {/* Tab Navigation — SOTA 슬라이딩 세그먼트 필 */}
+    <StaggerItem className="grid grid-cols-2 gap-1.5 p-1.5 bg-neutral-900/80 rounded-2xl border border-neutral-800 shadow-inner">
       <button
+        type="button"
         onClick={() => setActiveTab("dealcard")}
-        className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+        className={`relative flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-extrabold transition-colors ${
           activeTab === "dealcard"
-            ? "bg-primary text-white shadow-lg shadow-primary/20"
-            : "text-neutral-400 hover:text-white hover:bg-neutral-800"
+            ? "text-white"
+            : "text-neutral-400 hover:text-white"
         }`}
       >
-        📄 딜카드 <span className="text-[10px] opacity-70">({buildings.length})</span>
+        {activeTab === "dealcard" && (
+          <motion.span
+            layoutId="buildings-tab-active-pill"
+            transition={SOTA_SPRING}
+            className="absolute inset-0 rounded-xl bg-primary shadow-sm"
+          />
+        )}
+        <span className="relative z-10">📄 딜카드 ({buildings.length})</span>
       </button>
       <button
+        type="button"
         onClick={() => setActiveTab("im")}
-        className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+        className={`relative flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-extrabold transition-colors ${
           activeTab === "im"
-            ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
-            : "text-neutral-400 hover:text-white hover:bg-neutral-800"
+            ? "text-white"
+            : "text-neutral-400 hover:text-white"
         }`}
       >
-        📱 모바일 IM <span className="text-[10px] opacity-70">({imListState.length})</span>
+        {activeTab === "im" && (
+          <motion.span
+            layoutId="buildings-tab-active-pill"
+            transition={SOTA_SPRING}
+            className="absolute inset-0 rounded-xl bg-indigo-600 shadow-sm"
+          />
+        )}
+        <span className="relative z-10">📊 투자설명서 IM ({imListState.length})</span>
       </button>
-    </div>
+    </StaggerItem>
 
     {/* IM Tab Content */}
     {activeTab === "im" && (
@@ -188,20 +206,20 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         {imListState.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             <div className="text-4xl">📱</div>
-            <p className="text-sm text-neutral-400">아직 생성된 모바일 IM이 없습니다</p>
-            <p className="text-xs text-neutral-500">딜카드에서 &apos;모바일 투자설명서 만들기&apos; 버튼을 눌러 생성하세요</p>
+            <p className="text-sm text-neutral-400">아직 생성된 투자설명서(IM)가 없습니다</p>
+            <p className="text-xs text-neutral-500">딜카드에서 &apos;기본 IM 만들기&apos; 버튼을 눌러 생성하세요</p>
           </div>
         ) : (
           imListState.map((doc) => (
             <Link
               key={doc.docId}
               href={`/im-lite/${doc.buildingId}?doc=${doc.docId}`}
-              className="block rounded-xl border border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800/60 hover:border-neutral-700 p-4 transition-all group"
+              className="block rounded-2xl border border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800/60 hover:border-neutral-700 hover:-translate-y-0.5 p-4 transition-all group shadow-xs"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-extrabold ${
                       doc.status === "approved"
                         ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                         : doc.status === "published"
@@ -210,28 +228,28 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                     }`}>
                       {doc.status === "approved" ? "승인됨" : doc.status === "published" ? "공개" : "초안"}
                     </span>
-                    <span className="text-[10px] text-neutral-500">
+                    <span className="text-xs text-neutral-500">
                       {new Date(doc.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-white truncate">
+                  <p className="text-base font-extrabold text-white truncate">
                     {doc.areaSignal} {doc.assetType}
                   </p>
                   {doc.priceBand && (
-                    <p className="text-xs text-neutral-400 mt-0.5">{doc.priceBand}</p>
+                    <p className="text-sm font-semibold text-neutral-400 mt-0.5">{doc.priceBand}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <span
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/broker/im-approval/${doc.docId}`; }}
-                    className="text-[10px] px-2 py-1 rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"
+                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"
                   >
-                    ✏️
+                    ✏️ 검토·PPTX
                   </span>
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeletingImId(doc.docId); }}
-                    className="text-xs min-w-[36px] min-h-[36px] px-2 py-1.5 rounded bg-neutral-800 text-red-400 hover:bg-red-900/30 flex items-center justify-center"
+                    className="text-xs min-w-[36px] min-h-[36px] px-2 py-1.5 rounded-lg bg-neutral-800 text-red-400 hover:bg-red-900/30 flex items-center justify-center"
                   >
                     🗑
                   </button>
@@ -249,16 +267,16 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       {/* Top Professional KPI Board */}
       <div className="grid grid-cols-2 gap-3.5">
         {/* Average Promotion Score Card */}
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-2 flex flex-col justify-between">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-2 flex flex-col justify-between shadow-xs">
           <div>
-            <span className="block text-[11px] font-bold text-neutral-400 uppercase tracking-widest">
-              AVG Promotion Score
+            <span className="block text-xs font-extrabold text-neutral-400 tracking-tight">
+              평균 홍보 완성도 점수
             </span>
-            <p className="text-3xl font-black text-primary mt-1">
-              {metrics.avgScore} <span className="text-xs font-normal text-neutral-400">점</span>
+            <p className="text-3xl font-black text-primary mt-1 tabular-nums">
+              {metrics.avgScore} <span className="text-xs font-bold text-neutral-400">점</span>
             </p>
           </div>
-          <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+          <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden">
             <div
               className="bg-primary h-full rounded-full transition-all duration-500"
               style={{ width: `${Math.min(100, metrics.avgScore)}%` }}
@@ -267,38 +285,38 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         </div>
 
         {/* Active Deals Card */}
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-1 flex flex-col justify-between">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-1 flex flex-col justify-between shadow-xs">
           <div>
-            <span className="block text-[11px] font-bold text-neutral-400 uppercase tracking-widest">
-              Active Pipeline
+            <span className="block text-xs font-extrabold text-neutral-400 tracking-tight">
+              진행 중인 매물 현황
             </span>
-            <p className="text-3xl font-black text-emerald-400 mt-1">
+            <p className="text-3xl font-black text-emerald-400 mt-1 tabular-nums">
               {metrics.activePipelineCount}{" "}
-              <span className="text-xs font-normal text-neutral-400">건 진행</span>
+              <span className="text-xs font-bold text-neutral-400">건 진행</span>
             </p>
           </div>
-          <span className="text-[10px] text-neutral-500 leading-relaxed">
-            전체 매물 {metrics.total}건 중 임대 홍보 중인 실시간 자산
+          <span className="text-xs font-medium text-neutral-500 leading-relaxed">
+            전체 매물 {metrics.total}건 중 홍보 중인 실시간 매물
           </span>
         </div>
       </div>
 
       {/* P1-3: Deal Pipeline Stage Counts */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 space-y-3">
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
-            <span>🔄 단계별 매물 파이프라인</span>
+          <h3 className="text-xs font-extrabold text-neutral-300 tracking-tight flex items-center gap-2">
+            <span>🔄 단계별 매물 진행 현황</span>
             {stageFilter && (
               <button
                 onClick={() => setStageFilter(null)}
-                className="text-[10px] text-amber-400 hover:underline font-normal normal-case"
+                className="text-xs text-amber-400 hover:underline font-bold"
               >
                 ✕ 필터 해제
               </button>
             )}
           </h3>
-          <span className="px-2 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-400 font-mono">
-            LIVE STATS
+          <span className="px-2.5 py-0.5 rounded-md bg-neutral-800 text-xs text-neutral-400 font-bold">
+            실시간 집계
           </span>
         </div>
         <div className="flex items-center gap-0 overflow-x-auto pb-1 scrollbar-thin">
@@ -448,8 +466,10 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                         </span>
                       )}
                       {b.status && (
-                        <span className="shrink-0 inline-flex items-center rounded-full bg-neutral-800 text-neutral-450 border border-neutral-700 px-2 py-0.5 text-[9.5px] font-bold uppercase">
-                          {PIPELINE_STAGES.find((s) => s.key === b.status)?.label ?? b.status}
+                        <span className="shrink-0 inline-flex items-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-extrabold">
+                          {b.status === "public_signal_ready"
+                            ? "공개 홍보 중"
+                            : PIPELINE_STAGES.find((s) => s.key === b.status)?.label ?? "등록 완료"}
                         </span>
                       )}
                     </div>
@@ -559,6 +579,6 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       </div>
     )}
     <BrokerBottomNav />
-  </>
+  </StaggerContainer>
   );
 }

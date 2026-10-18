@@ -59,9 +59,9 @@ export function EditorFieldNoteTab({
   const uid = useId();
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/15 rounded-xl">
-        <PenLine className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
-        <p className="text-caption text-amber-200/90 leading-relaxed">
+      <div className="flex items-start gap-2.5 p-3.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/25 rounded-xl shadow-2xs">
+        <PenLine className="w-4 h-4 text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="text-[14px] font-bold text-amber-950 dark:text-amber-100 leading-relaxed">
           현장 전문가로서 이번 주 시장에 대한 직접 분석을 작성하세요.
           독자들이 가장 신뢰하는 섹션입니다.
         </p>
@@ -73,10 +73,10 @@ export function EditorFieldNoteTab({
         const tipOpen = activeTooltip === field.key;
         const currentLen = (fieldNote[field.key] ?? "").length;
         return (
-          <div key={field.key} className="space-y-1.5">
+          <div key={field.key} className="space-y-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3.5 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                <label htmlFor={inputId} className="text-label font-semibold text-slate-300">
+                <label htmlFor={inputId} className="text-[15px] font-extrabold text-slate-900 dark:text-slate-200">
                   {field.label}
                 </label>
                 <button
@@ -85,13 +85,13 @@ export function EditorFieldNoteTab({
                   aria-expanded={tipOpen}
                   aria-controls={tipId}
                   onClick={() => setActiveTooltip(tipOpen ? null : field.key)}
-                  className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-ink-subtle hover:bg-slate-800/60 hover:text-slate-200 transition-colors"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-bold text-blue-700 dark:text-indigo-300 bg-blue-50 dark:bg-slate-800/80 hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   <Info className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>작성 요령 보기</span>
                 </button>
               </div>
-              <span className="text-xs font-medium text-ink-subtle">
+              <span className="text-xs font-bold text-slate-600 dark:text-ink-subtle">
                 {currentLen}자 · 권장 2~3문장
               </span>
             </div>
@@ -102,9 +102,9 @@ export function EditorFieldNoteTab({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="text-caption text-ink-subtle leading-relaxed pl-1 overflow-hidden"
+                  className="text-[13px] font-semibold text-blue-900 dark:text-indigo-200 bg-blue-50/70 dark:bg-indigo-950/40 rounded-lg px-3 py-2 leading-relaxed overflow-hidden"
                 >
-                  {field.tooltip}
+                  💡 {field.tooltip}
                 </motion.p>
               )}
             </AnimatePresence>
@@ -113,7 +113,7 @@ export function EditorFieldNoteTab({
               value={fieldNote[field.key]}
               onChange={(e) => updateFieldNote(field.key, e.target.value)}
               aria-describedby={tipOpen ? tipId : undefined}
-              className="w-full min-h-[108px] resize-y bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-base text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-ink-subtle"
+              className="w-full min-h-[108px] resize-y bg-slate-50/60 dark:bg-[#0f1523] border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-base font-medium text-slate-900 dark:text-slate-200 leading-relaxed focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-400"
               placeholder={field.placeholder}
             />
           </div>
@@ -122,3 +122,4 @@ export function EditorFieldNoteTab({
     </div>
   );
 }
+

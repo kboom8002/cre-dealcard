@@ -3,6 +3,8 @@
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { motion } from "motion/react";
+import { SOTA_SPRING, StaggerContainer, StaggerItem } from "@/components/motion/sota-motion";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 import {
   BROKER_TUTORIAL_MODULES,
@@ -33,22 +35,25 @@ function BrokerTutorialInner() {
         data-testid="broker-tutorial-page"
         className={`flex flex-col items-center min-h-screen px-4 py-8 pb-28 ${bodyTextClass}`}
       >
-        <div className="w-full max-w-5xl mx-auto space-y-8">
+        <StaggerContainer className="w-full max-w-5xl mx-auto space-y-8">
           {/* ── 상단 타이틀 & 큰글씨/인쇄/PDF 다운로드 헤더 카드 ── */}
+          <StaggerItem>
           <section className="rounded-3xl border-2 border-blue-600/30 bg-white p-6 sm:p-8 shadow-sm space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-[15px] font-extrabold">
                 📖 60대 대표공인중개사 맞춤형 큰글씨 · 사진 · 동영상 사용 설명서
               </span>
               <div className="flex flex-wrap items-center gap-2 print:hidden">
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => setExtraLargeText((prev) => !prev)}
                   data-testid="tutorial-font-size-toggle"
                   className="px-4 py-2.5 min-h-[44px] rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-950 font-extrabold text-[15px] transition-colors"
                 >
                   {extraLargeText ? "🔤 기본 큰글씨(17px)로 보기" : "🔎 글자 더 크게 보기 (특대 19px)"}
-                </button>
+                </motion.button>
                 <a
                   href="/tutorials/CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
                   download="CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
@@ -57,14 +62,16 @@ function BrokerTutorialInner() {
                 >
                   <span>📥 큰글씨 PDF 매뉴얼 내려받기</span>
                 </a>
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => window.print()}
                   data-testid="tutorial-print-btn"
                   className="px-4 py-2.5 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-[15px] transition-colors"
                 >
                   <span>🖨️ 종이로 인쇄하기</span>
-                </button>
+                </motion.button>
               </div>
             </div>
 
@@ -105,7 +112,7 @@ function BrokerTutorialInner() {
               </div>
             </div>
 
-            {/* ── 장별 빠른 선택 탭 (인쇄 시 숨김) ── */}
+            {/* ── 장별 빠른 선택 탭 (SOTA 슬라이딩 세그먼트 필 · 인쇄 시 숨김) ── */}
             <div className="space-y-2.5 pt-2 print:hidden">
               <p className="text-[15px] font-extrabold text-slate-700">
                 👇 원하시는 단원을 눌러 바로 보시거나, [전체 순서대로 보기]로 처음부터 끝까지 읽어보세요
@@ -115,29 +122,46 @@ function BrokerTutorialInner() {
                   type="button"
                   onClick={() => setSelectedModuleId("all")}
                   data-testid="tutorial-tab-all"
-                  className={`px-4 py-2.5 min-h-[44px] rounded-xl text-[15px] font-extrabold border transition-all ${
+                  className={`relative px-4 py-2.5 min-h-[44px] rounded-xl text-[15px] font-extrabold border transition-colors ${
                     selectedModuleId === "all"
-                      ? "bg-blue-700 text-white border-blue-700 shadow-sm"
+                      ? "text-white border-blue-700"
                       : "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200"
                   }`}
                 >
-                  📚 전체 순서대로 보기 (제0장~부록)
+                  {selectedModuleId === "all" && (
+                    <motion.span
+                      layoutId="tutorial-chapter-active-pill"
+                      transition={SOTA_SPRING}
+                      className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
+                    />
+                  )}
+                  <span className="relative z-10">📚 전체 순서대로 보기 (제0장~부록)</span>
                 </button>
-                {BROKER_TUTORIAL_MODULES.map((mod) => (
-                  <button
-                    key={mod.id}
-                    type="button"
-                    onClick={() => setSelectedModuleId(mod.id)}
-                    data-testid={`tutorial-tab-${mod.id}`}
-                    className={`px-3.5 py-2.5 min-h-[44px] rounded-xl text-[15px] font-bold border transition-all ${
-                      selectedModuleId === mod.id
-                        ? "bg-blue-700 text-white border-blue-700 shadow-sm"
-                        : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
-                    }`}
-                  >
-                    {mod.shortTitle}
-                  </button>
-                ))}
+                {BROKER_TUTORIAL_MODULES.map((mod) => {
+                  const isActive = selectedModuleId === mod.id;
+                  return (
+                    <button
+                      key={mod.id}
+                      type="button"
+                      onClick={() => setSelectedModuleId(mod.id)}
+                      data-testid={`tutorial-tab-${mod.id}`}
+                      className={`relative px-3.5 py-2.5 min-h-[44px] rounded-xl text-[15px] font-bold border transition-colors ${
+                        isActive
+                          ? "text-white border-blue-700"
+                          : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                      }`}
+                    >
+                      {isActive && (
+                        <motion.span
+                          layoutId="tutorial-chapter-active-pill"
+                          transition={SOTA_SPRING}
+                          className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
+                        />
+                      )}
+                      <span className="relative z-10">{mod.shortTitle}</span>
+                    </button>
+                  );
+                })}
                 <a
                   href="#appendix-postures"
                   onClick={() => setSelectedModuleId("all")}
@@ -155,6 +179,7 @@ function BrokerTutorialInner() {
               </div>
             </div>
           </section>
+          </StaggerItem>
 
           {/* ── 각 모듈(제0장 ~ 제9장) 스텝 바이 스텝 본문 ── */}
           {visibleModules.map((mod) => (
@@ -513,7 +538,7 @@ function BrokerTutorialInner() {
               </div>
             </section>
           )}
-        </div>
+        </StaggerContainer>
       </main>
       <div className="print:hidden">
         <BrokerBottomNav />

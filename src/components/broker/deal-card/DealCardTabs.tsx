@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
+import { SOTA_SPRING } from '@/components/motion/sota-motion';
 
 type TabKey = 'overview' | 'im' | 'buyers' | 'analytics';
 
@@ -51,46 +52,51 @@ export function DealCardTabs({
 
   return (
     <div className="space-y-4" id="deal-card-tabs-container">
-      <div className="flex border-b border-border sticky top-0 z-20 bg-background/95 backdrop-blur-md">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 py-3.5 text-center text-[15px] font-bold relative transition-colors ${
-              activeTab === tab.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="flex items-center justify-center gap-1">
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
-              {tab.key === 'buyers' && buyersBadge && buyersBadge.count > 0 && (
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-extrabold ${
-                  buyersBadge.topGrade === 'S' 
-                    ? 'bg-grade-s text-white shadow-sm shadow-purple-500/40' 
-                    : buyersBadge.topGrade === 'A'
-                    ? 'bg-grade-a text-white shadow-sm'
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  {buyersBadge.topGrade ? `${buyersBadge.topGrade}·${buyersBadge.count}` : buyersBadge.count}
-                </span>
+      <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-secondary/70 p-1.5 sticky top-14 z-20 backdrop-blur-md shadow-xs">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative py-3 px-4 rounded-xl text-center text-[15px] font-extrabold transition-colors ${
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="deal-tab-indicator"
+                  transition={SOTA_SPRING}
+                  className="absolute inset-0 rounded-xl bg-card border border-primary/30 shadow-sm"
+                />
               )}
-            </span>
-            {activeTab === tab.key && (
-              <motion.div
-                layoutId="deal-tab-indicator"
-                className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full"
-              />
-            )}
-          </button>
-        ))}
+              <span className="relative z-10 flex items-center justify-center gap-1.5">
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.key === 'buyers' && buyersBadge && buyersBadge.count > 0 && (
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-extrabold ${
+                    buyersBadge.topGrade === 'S'
+                      ? 'bg-grade-s text-white shadow-sm shadow-purple-500/40'
+                      : buyersBadge.topGrade === 'A'
+                      ? 'bg-grade-a text-white shadow-sm'
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {buyersBadge.topGrade ? `${buyersBadge.topGrade}·${buyersBadge.count}` : buyersBadge.count}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={SOTA_SPRING}
         >
           {contentMap[activeTab]}
         </motion.div>
@@ -98,3 +104,4 @@ export function DealCardTabs({
     </div>
   );
 }
+

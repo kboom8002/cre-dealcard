@@ -57,6 +57,7 @@ export function MagazinePhonePreview({
   const resolved = resolvePreviewMode(mode, { editionId, brokerSlug });
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const readyRef = useRef(false);
+  const [iframeReady, setIframeReady] = React.useState(false);
   const seqRef = useRef(0);
   const content = useMemo(() => toTransferableContent(previewData), [previewData]);
   const contentRef = useRef(content);
@@ -86,6 +87,7 @@ export function MagazinePhonePreview({
       if (!msg || msg.editionId !== editionId) return;
       if (msg.type === PREVIEW_MSG_READY) {
         readyRef.current = true;
+        setIframeReady(true);
         postDraft(editionId);
       }
     };
@@ -93,6 +95,7 @@ export function MagazinePhonePreview({
     return () => {
       window.removeEventListener("message", onMessage);
       readyRef.current = false;
+      setIframeReady(false);
     };
   }, [resolved, editionId]);
 
@@ -103,39 +106,68 @@ export function MagazinePhonePreview({
   }, [resolved, editionId, content]);
 
   return (
-    <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 lg:p-10 overflow-y-auto">
+    <div className="flex-1 bg-[#E8E6DF] dark:bg-slate-950 bg-[radial-gradient(#94A3B8_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:22px_22px] flex items-center justify-center p-4 lg:p-8 overflow-y-auto">
       <div className="flex flex-col items-center gap-4">
-        {/* 미리보기 라벨 */}
-        <div className="flex items-center gap-2 text-ink-subtle">
-          <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-          <span className="text-caption font-medium">실시간 미리보기</span>
-          <ChevronRight className="w-3 h-3" aria-hidden="true" />
-          <span className="text-caption text-ink-subtle">iPhone 14 Pro (375×812)</span>
+        {/* 미리보기 스튜디오 배지 */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/95 dark:bg-slate-900/90 border border-slate-300/90 dark:border-slate-700 shadow-xs text-xs font-extrabold text-slate-800 dark:text-slate-200 backdrop-blur-md">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+          <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-indigo-400" aria-hidden="true" />
+          <span>실시간 고객 화면 미리보기</span>
+          <ChevronRight className="w-3 h-3 text-slate-400" aria-hidden="true" />
+          <span className="text-slate-600 dark:text-slate-400 font-semibold">스마트폰 화면 (375×812)</span>
         </div>
 
-        {/* 폰 목업 */}
+        {/* 폰 목업 — data-theme-lock="dark"로 주간 모드에서도 아이폰 블랙 베젤·노치·다크 리더 원형 100% 보존 */}
         <div
           data-testid="phone-frame"
+          data-theme-lock="dark"
           data-preview-mode={resolved}
-          style={PHONE_FRAME_ISOLATION_STYLE}
-          className="w-[375px] h-[812px] bg-[#0B1120] border-[8px] border-slate-900 rounded-[3rem] overflow-hidden shadow-2xl relative flex flex-col shrink-0"
+          style={{
+            ...PHONE_FRAME_ISOLATION_STYLE,
+            backgroundColor: "#0B1120",
+            borderColor: "#18181B",
+          }}
+          className="w-[375px] h-[812px] bg-[#0B1120] border-[10px] border-[#18181B] rounded-[3.2rem] overflow-hidden shadow-[0_28px_60px_-12px_rgba(15,23,42,0.38),0_0_0_2px_rgba(255,255,255,0.22)] relative flex flex-col shrink-0 transition-transform duration-300"
         >
-          {/* 노치 */}
+          {/* 노치 (Dynamic Island / Notch) */}
           <div
             aria-hidden="true"
-            className="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-xl z-20 mx-auto w-40"
+            style={{ backgroundColor: "#09090B" }}
+            className="absolute top-0 inset-x-0 h-6 bg-[#09090B] rounded-b-2xl z-20 mx-auto w-36 shadow-xs"
           />
 
           {resolved === "iframe" && brokerSlug && editionId ? (
-            <iframe
-              ref={iframeRef}
-              title="매거진 실시간 미리보기"
-              src={buildPreviewSrc(brokerSlug, today, editionId)}
-              className="flex-1 w-full border-0 bg-[#0B1120]"
-            />
+            <div className="relative flex-1 w-full bg-[#0B1120] overflow-hidden flex flex-col">
+              {!iframeReady && previewData && (
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 z-0 overflow-y-auto w-full no-scrollbar bg-[#0B1120] text-white pointer-events-none"
+                >
+                  <MagazineView
+                    data={previewData}
+                    brokerId={brokerSlug}
+                    brokerSlug={brokerSlug}
+                    date={today}
+                    dateLabel={dateLabel}
+                    brokerVibe={brokerVibe}
+                    preview
+                  />
+                </div>
+              )}
+              <iframe
+                ref={iframeRef}
+                title="매거진 실시간 미리보기"
+                src={buildPreviewSrc(brokerSlug, today, editionId)}
+                style={{
+                  backgroundColor: iframeReady ? "#0B1120" : "transparent",
+                  opacity: iframeReady ? 1 : 0,
+                }}
+                className="relative z-10 flex-1 w-full border-0 transition-opacity duration-200"
+              />
+            </div>
           ) : (
             /* 매거진 뷰 (인라인 폴백) */
-            <div className="flex-1 overflow-y-auto w-full no-scrollbar relative">
+            <div className="flex-1 overflow-y-auto w-full no-scrollbar relative bg-[#0B1120] text-white">
               {previewData && brokerSlug ? (
                 <MagazineView
                   data={previewData}
@@ -154,3 +186,4 @@ export function MagazinePhonePreview({
     </div>
   );
 }
+

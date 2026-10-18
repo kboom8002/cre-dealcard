@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "motion/react";
+import { SOTA_SPRING } from "@/components/motion/sota-motion";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
 import { computeFinancialSummary } from '@/domain/building/financials';
@@ -351,6 +353,7 @@ export function ImDataBottomSheet({
     });
     const [showYieldCalc, setShowYieldCalc] = useState(false);
     const [customYieldInput, setCustomYieldInput] = useState("4.0");
+    const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3>(1);
 
     if (!isOpen) return null;
     if (typeof window === 'undefined') return null;
@@ -371,83 +374,106 @@ export function ImDataBottomSheet({
 
     const jumpToField = (fieldKey: string) => {
       if (fieldKey === "address") {
+        setActiveStepTab(1);
         searchInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         searchInputRef.current?.focus();
         return;
       }
       if (fieldKey === "askingPrice") {
+        setActiveStepTab(2);
         askingPriceRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         askingPriceRef.current?.focus();
         return;
       }
       if (fieldKey === "monthlyRent") {
+        setActiveStepTab(2);
         monthlyRentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         monthlyRentRef.current?.focus();
         return;
       }
       if (fieldKey === "totalDeposit") {
+        setActiveStepTab(2);
         totalDepositRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         totalDepositRef.current?.focus();
         return;
       }
-      const stepEl = document.getElementById(
-        fieldKey === "investmentPosture" ? "bs-step-1" : "bs-step-2"
-      );
+      const isStep1 = fieldKey === "investmentPosture";
+      setActiveStepTab(isStep1 ? 1 : 2);
+      const stepEl = document.getElementById(isStep1 ? "bs-step-1" : "bs-step-2");
       stepEl?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
-  const isDarkTheme = typeof window !== "undefined" && window.localStorage?.getItem("cre_broker_paper_theme") === "dark";
+  const isDarkTheme = typeof window !== "undefined" && window.localStorage?.getItem("credeal-broker-paper-mode") === "false";
 
   const modalContent = (
-    <div className={`fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4 ${isDarkTheme ? "" : "broker-paper-theme"}`} role="presentation">
-      <div 
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18 }}
+      className={`fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 ${isDarkTheme ? "" : "broker-paper-theme"}`}
+      role="presentation"
+    >
+      <motion.div 
         role="dialog" 
         aria-modal="true" 
         aria-labelledby="bottom-sheet-title"
-        className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-2xl shadow-2xl p-5 sm:p-6 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[92vh] sm:max-h-[88vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)] border border-border"
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={SOTA_SPRING}
+        className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-2xl shadow-2xl p-5 sm:p-6 max-h-[92vh] sm:max-h-[88vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)] border border-border"
       >
         
         <div className="flex items-center justify-between mb-3 shrink-0">
           <div>
-            <h2 id="bottom-sheet-title" className="text-xl font-black text-foreground">
+            <h2 id="bottom-sheet-title" className="text-xl font-black text-foreground tracking-tight">
               {'📊 투자설명서(IM) 만들기'}
             </h2>
             <p className="text-xs text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
               💾 입력하신 금액·임대차 내역은 창을 닫아도 자동 저장됩니다
             </p>
           </div>
-          <button
+          <motion.button
             type="button"
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.96 }}
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg border border-border bg-secondary/50 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+            className="px-3.5 py-2 rounded-xl border border-border bg-secondary/70 text-sm font-extrabold text-muted-foreground hover:text-foreground transition-colors"
           >
             ✕ 닫기
-          </button>
+          </motion.button>
         </div>
 
-        {/* 3단계 빠른 이동 탭 */}
-        <div className="grid grid-cols-3 gap-2 mb-4 shrink-0 bg-secondary/50 p-1.5 rounded-xl border border-border">
-          <button
-            type="button"
-            onClick={() => document.getElementById("bs-step-1")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="py-2 px-2 rounded-lg text-xs sm:text-sm font-extrabold text-foreground bg-background/80 hover:bg-background shadow-2xs transition-colors text-center truncate"
-          >
-            ① 투자목적 · 주소
-          </button>
-          <button
-            type="button"
-            onClick={() => document.getElementById("bs-step-2")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="py-2 px-2 rounded-lg text-xs sm:text-sm font-extrabold text-foreground hover:bg-background/80 transition-colors text-center truncate"
-          >
-            ② 매각가 · 임대료
-          </button>
-          <button
-            type="button"
-            onClick={() => document.getElementById("bs-step-3")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="py-2 px-2 rounded-lg text-xs sm:text-sm font-extrabold text-foreground hover:bg-background/80 transition-colors text-center truncate"
-          >
-            ③ 사진 · 상세조건
-          </button>
+        {/* 3단계 빠른 이동 탭 (SOTA 슬라이딩 세그먼트 컨트롤) */}
+        <div className="grid grid-cols-3 gap-1.5 mb-4 shrink-0 bg-secondary/70 p-1.5 rounded-2xl border border-border shadow-inner">
+          {([
+            { id: 1 as const, label: "① 투자목적 · 주소", targetId: "bs-step-1" },
+            { id: 2 as const, label: "② 매각가 · 임대료", targetId: "bs-step-2" },
+            { id: 3 as const, label: "③ 사진 · 상세조건", targetId: "bs-step-3" },
+          ]).map((step) => {
+            const isActive = activeStepTab === step.id;
+            return (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => {
+                  setActiveStepTab(step.id);
+                  document.getElementById(step.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className={`relative py-2.5 px-2 rounded-xl text-xs sm:text-sm font-extrabold transition-colors text-center truncate ${
+                  isActive ? "text-primary" : "text-foreground/80 hover:text-foreground"
+                }`}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="bs-step-active-pill"
+                    transition={SOTA_SPRING}
+                    className="absolute inset-0 rounded-xl bg-card border border-primary/30 shadow-xs"
+                  />
+                )}
+                <span className="relative z-10">{step.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Scrollable Form Area */}
@@ -1471,12 +1497,14 @@ export function ImDataBottomSheet({
             </button>
           ) : (
               <div className="flex flex-col gap-2">
-                <button
+                <motion.button
                   id="cta-generate-mobile-im"
                   data-testid="bottom-sheet-generate-btn"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={handleCreate}
                   disabled={state === "loading" || !canGenerate}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-md disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3.5 text-base font-extrabold shadow-md disabled:opacity-50 transition-all hover:opacity-95 flex items-center justify-center gap-2"
                 >
                 {state === "loading" ? (
                   <>
@@ -1489,12 +1517,12 @@ export function ImDataBottomSheet({
                 ) : (
                   "⚡ IM 생성"
                 )}
-              </button>
+              </motion.button>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 
   return createPortal(modalContent, document.body);

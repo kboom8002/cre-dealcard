@@ -476,8 +476,8 @@ export function MagazineView({
       editionId={data.id ?? `${brokerId}-${date}`}
       brokerId={brokerId}
       preview={preview}
-      className="min-h-screen w-full"
-      style={{ background: "linear-gradient(180deg, #050510 0%, #0a0a1a 40%, #080814 100%)", "--accent": accent } as React.CSSProperties}
+      className="dark min-h-screen w-full text-white"
+      style={{ background: "linear-gradient(180deg, #050510 0%, #0a0a1a 40%, #080814 100%)", "--accent": accent, "--foreground": "#F8FAFC" } as React.CSSProperties}
     >
       <Wrapper id={preview ? undefined : "magazine-main"} className="mx-auto max-w-[440px] px-4 pb-28">
 

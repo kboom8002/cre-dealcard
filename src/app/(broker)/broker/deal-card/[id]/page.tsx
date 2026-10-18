@@ -24,6 +24,7 @@ import { BlindDealCardPreview } from "@/components/broker/deal-card/BlindDealCar
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 import BuildingSignalEditor from "@/components/broker/deal-card/BuildingSignalEditor";
 import { extractCleanKoreanAddress, hasValidBuildingNumber } from "@/domain/verification/address-resolver";
+import { StaggerContainer, StaggerItem, AnimatedAccordion } from "@/components/motion/sota-motion";
 
 
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
@@ -279,35 +280,35 @@ export default async function BrokerDealCardResultPage({
 
   return (
     <main className="flex flex-col items-center min-h-screen px-4 sm:px-6 py-6 pb-16">
-      <div className="w-full max-w-3xl mx-auto space-y-6">
+      <StaggerContainer className="w-full max-w-3xl mx-auto space-y-6">
         {/* Top nav bar: Back + Actions */}
-        <div className="flex items-center justify-between pt-1">
+        <StaggerItem className="flex items-center justify-between pt-1">
           <Link
             href="/broker/buildings"
-            className="inline-flex items-center gap-1.5 text-base font-bold text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1.5 text-base font-extrabold text-muted-foreground hover:text-foreground transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             내 물건 목록으로
           </Link>
           <DealCardActionsMenu buildingId={id} />
-        </div>
+        </StaggerItem>
 
         {/* Top Message Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3.5 py-1">
+        <StaggerItem className="text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-3.5 py-1 shadow-2xs">
             <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-            <span className="text-xs font-bold text-primary">AI 블라인드 딜카드 완성</span>
+            <span className="text-xs font-extrabold text-primary">AI 블라인드 딜카드 완성</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black leading-tight text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-black leading-tight text-foreground tracking-tight">
             {title || "딜카드가 준비됐습니다."}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm font-medium text-muted-foreground">
             상세 지번과 매도자 민감정보는 고객 보호를 위해 자동으로 가려져 있습니다.
           </p>
-        </div>
+        </StaggerItem>
 
         {/* ⚡ [핵심 다음 단계 액션 바 — 상단 고정 배치로 플로팅 겹침 원천 차단] */}
-        <div className="rounded-2xl border-2 border-primary/30 bg-card p-4 sm:p-5 shadow-md space-y-3">
+        <StaggerItem className="rounded-2xl border-2 border-primary/30 bg-card p-4 sm:p-5 shadow-md space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
               <span>🚀</span> 이 매물로 바로 작업하기
@@ -342,47 +343,49 @@ export default async function BrokerDealCardResultPage({
             />
             <Link
               href={`/broker/magazine-editor?mode=simple&deals=${id}`}
-              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-4 py-3 min-h-[48px] text-[15px] font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-rose-900/20"
+              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 px-4 py-3 min-h-[48px] text-[15px] font-extrabold text-white whitespace-nowrap transition-all hover:-translate-y-0.5 hover:opacity-95 active:scale-[0.98] shadow-md shadow-rose-900/20"
             >
               📰 고객 소식지에 넣기
             </Link>
           </div>
-        </div>
+        </StaggerItem>
 
         {/* 📱 [1. 핵심 딜카드 & OG 공유 실시간 미리보기 카드] */}
-        <LiveDealCardPreviewCard
-          buildingId={id}
-          title={title}
-          summary={shortSummary}
-          hookCopy={teaser?.hookCopy || teaser?.ogDescription}
-          ogTitle={teaser?.ogTitle}
-          ogDescription={teaser?.ogDescription}
-          dealPoints={dealPoints}
-          areaSignal={building.area_signal || bAttrs.areaSignal || undefined}
-          assetType={building.asset_type || bAttrs.assetType || undefined}
-          priceBand={building.price_band || bAttrs.priceBand || undefined}
-          kakaoText={kakaoText}
-        />
+        <StaggerItem>
+          <LiveDealCardPreviewCard
+            buildingId={id}
+            title={title}
+            summary={shortSummary}
+            hookCopy={teaser?.hookCopy || teaser?.ogDescription}
+            ogTitle={teaser?.ogTitle}
+            ogDescription={teaser?.ogDescription}
+            dealPoints={dealPoints}
+            areaSignal={building.area_signal || bAttrs.areaSignal || undefined}
+            assetType={building.asset_type || bAttrs.assetType || undefined}
+            priceBand={building.price_band || bAttrs.priceBand || undefined}
+            kakaoText={kakaoText}
+          />
+        </StaggerItem>
 
-        {/* ✏️ [2. 딜카드 문구 & OG 메타 편집기 — 점진적 공개(Progressive Disclosure) 아코디언] */}
-        <details className="group rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
-          <summary className="px-5 py-4 cursor-pointer list-none flex items-center justify-between gap-3 bg-muted/20 hover:bg-muted/40 transition-colors">
-            <div className="flex items-center gap-2.5">
-              <span className="text-lg">✏️</span>
-              <div>
-                <p className="text-base font-bold text-foreground">
-                  딜카드 제목 · 카톡 공유 문구 직접 다듬기
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  AI가 작성한 제목이나 카카오톡 전송 문구를 수정하고 싶을 때 눌러서 여세요
-                </p>
+        {/* ✏️ [2. 딜카드 문구 & OG 메타 편집기 — SOTA 스프링 아코디언] */}
+        <StaggerItem>
+          <AnimatedAccordion
+            title={
+              <div className="flex items-center gap-2.5 text-left">
+                <span className="text-lg">✏️</span>
+                <div>
+                  <p className="text-base font-extrabold text-foreground">
+                    딜카드 제목 · 카톡 공유 문구 직접 다듬기
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                    AI가 작성한 제목이나 카카오톡 전송 문구를 수정하고 싶을 때 눌러서 여세요
+                  </p>
+                </div>
               </div>
-            </div>
-            <span className="text-xs font-bold text-primary px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 group-open:rotate-180 transition-transform shrink-0">
-              펼치기 ▾
-            </span>
-          </summary>
-          <div className="p-3 sm:p-4 border-t border-border">
+            }
+            badge="펼치기"
+            className="rounded-2xl border border-border bg-card shadow-sm px-5 py-4"
+          >
             <DealCardEditor
               buildingId={id}
               initialTitle={title}
@@ -397,8 +400,8 @@ export default async function BrokerDealCardResultPage({
               initialVacancyLabel={teaser?.vacancyLabel || ""}
               initialCuriosityHook={teaser?.curiosityHook || ""}
             />
-          </div>
-        </details>
+          </AnimatedAccordion>
+        </StaggerItem>
 
         {/* DORMANT: ux60-focus — 상단 액션 카드에 [📰 고객 소식지에 넣기]가 통합되어 본문 중복 버튼 및 매칭 허브 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
         <div className="pt-1">
@@ -412,7 +415,7 @@ export default async function BrokerDealCardResultPage({
         */}
 
         {/* 🏢 [3. 세부 2-Tab 영역 (매물 요약 / IM 제안서 관리)] */}
-        <div className="pt-2">
+        <StaggerItem className="pt-2">
           <DealCardTabs
 
             buyersBadge={matchCount > 0 ? { count: matchCount, topGrade } : undefined}
@@ -561,10 +564,10 @@ export default async function BrokerDealCardResultPage({
             </div>
           }
         />
-        </div>
+        </StaggerItem>
 
         <BrokerBottomNav />
-      </div>
+      </StaggerContainer>
     </main>
   );
 }

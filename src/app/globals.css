@@ -137,7 +137,8 @@
   --color-ink-subtle: #94a3b8;  /* slate-400 — 다크 배경 위 3차 텍스트 */
 }
 
-.dark {
+.dark,
+[data-theme-lock="dark"] {
   --background: #09090b;
   --foreground: #fafafa;
   --muted: #27272a;
@@ -218,25 +219,26 @@
   --slate-tint: #232733;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-  font-size: 17px; /* 한글 기본 사이즈 보정: 16px → 17px */
-  letter-spacing: -0.01em; /* 한글 자간 미세 보정 */
-  word-break: keep-all; /* 한글 단어 단위 줄바꿈 */
-  overflow-wrap: break-word;
-}
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+    font-size: 17px; /* 한글 기본 사이즈 보정: 16px → 17px */
+    letter-spacing: -0.01em; /* 한글 자간 미세 보정 */
+    word-break: keep-all; /* 한글 단어 단위 줄바꿈 */
+    overflow-wrap: break-word;
+  }
 
-/* Base style overrides */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--foreground);
-}
+  /* Base style overrides */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
 
-p {
-  line-height: 1.7; /* CJK 텍스트는 ascender/descender 공간이 좁아 행간 확대 필요 */
+  p {
+    line-height: 1.7; /* CJK 텍스트는 ascender/descender 공간이 좁아 행간 확대 필요 */
+  }
 }
 
 /* Utility classes for the design system */
@@ -454,13 +456,15 @@ p {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * 60대 중개인 맞춤형 고대비 주간 모드 (Warm Paper Light Theme — 노안 빛번짐 Halation 방지)
- * 안과학(Senile Miosis) 및 게슈탈트 전경-배경 분리(Figure-Ground) 기준 AAA 명도비(7:1+) 보장
+ * 60대 중개인 맞춤형 SOTA 고대비 주간 테마 (Warm Alabaster & Paper Elevation)
+ * - 4-Tier Surface Hierarchy: L0 Canvas(#F3F2EE) → L1 Panel(#FAF9F5) → L2 Card(#FFFFFF) → L3 Control(#F1F5F9)
+ * - Hardware/Preview Lock: [data-theme-lock="dark"] 내부는 다크 베젤·노치·프리뷰 원형 100% 보존
+ * - WCAG AAA(7:1~10.4:1) 명도비: 모든 Tailwind v4 투명도 수식어(/80, /90 등) 완벽 포착
  * ═══════════════════════════════════════════════════════════════════════════ */
 .broker-paper-theme {
-  --background: #F8FAFC;
+  --background: #F3F2EE;
   --foreground: #0F172A;
-  --muted: #F1F5F9;
+  --muted: #EAE8E1;
   --muted-foreground: #334155;
   --card: #FFFFFF;
   --card-foreground: #0F172A;
@@ -472,236 +476,281 @@ p {
   --accent-foreground: #1E3A8A;
   --border: #CBD5E1;
   --ring: #1D4ED8;
-  background-color: #F8FAFC !important;
+  --color-ink-muted: #1E293B;
+  --color-ink-subtle: #475569;
+  background-color: #F3F2EE !important;
   color: #0F172A !important;
   font-size: 17px;
   line-height: 1.65;
 }
 
-/* 1. 바탕 배경 (암흑 배경 → 따뜻한 종이 배경) */
-.broker-paper-theme .bg-neutral-950,
-.broker-paper-theme .bg-gray-950,
-.broker-paper-theme .bg-slate-950,
-.broker-paper-theme .bg-\[\#090D16\],
-.broker-paper-theme .bg-\[\#0A0A0A\],
-.broker-paper-theme .bg-\[\#0B0F19\],
-.broker-paper-theme .bg-\[\#0B1120\] {
-  background-color: #F8FAFC !important;
+/* L0. 전체 앱 캔버스 바탕 (따뜻한 스톤 알라바스터 — 눈부심 방지 & 흰색 카드 부각) */
+.broker-paper-theme .bg-neutral-950:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-gray-950:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-slate-950:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#090D16\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#0A0A0A\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#0B0F19\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-[#0B1120]"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  background-color: #F3F2EE !important;
   color: #0F172A !important;
 }
 
-/* 2. 카드 및 패널 표면 (어두운 카드 → 선명한 흰색 종이 카드) */
-.broker-paper-theme .bg-neutral-900,
-.broker-paper-theme .bg-gray-900,
-.broker-paper-theme .bg-slate-900,
-.broker-paper-theme .bg-neutral-900\/30,
-.broker-paper-theme .bg-neutral-900\/40,
-.broker-paper-theme .bg-neutral-900\/50,
-.broker-paper-theme .bg-neutral-900\/60,
-.broker-paper-theme .bg-neutral-900\/70,
-.broker-paper-theme .bg-neutral-900\/80,
-.broker-paper-theme .bg-neutral-900\/90,
-.broker-paper-theme .bg-neutral-900\/95,
-.broker-paper-theme .bg-gray-900\/40,
-.broker-paper-theme .bg-gray-900\/50,
-.broker-paper-theme .bg-gray-900\/60,
-.broker-paper-theme .bg-gray-900\/80,
-.broker-paper-theme .bg-gray-950\/50,
-.broker-paper-theme .bg-neutral-950\/30,
-.broker-paper-theme .bg-neutral-950\/50,
-.broker-paper-theme .bg-neutral-950\/80,
-.broker-paper-theme .bg-slate-900\/40,
-.broker-paper-theme .bg-slate-900\/50,
-.broker-paper-theme .bg-slate-900\/60,
-.broker-paper-theme .bg-slate-900\/70,
-.broker-paper-theme .bg-slate-900\/80,
-.broker-paper-theme .bg-slate-900\/90,
-.broker-paper-theme .bg-slate-900\/95,
-.broker-paper-theme .bg-\[\#0f172a\],
-.broker-paper-theme .bg-\[\#0f172a\]\/95,
-.broker-paper-theme .bg-\[\#0e1424\],
-.broker-paper-theme .bg-\[\#131b2e\],
-.broker-paper-theme .bg-\[\#111827\],
-.broker-paper-theme .bg-\[\#111827\]\/90 {
+/* L1. 워크스페이스 사이드바 및 섹션 컨테이너 (따뜻한 아이보리 페이퍼) */
+.broker-paper-theme [class*="bg-[#111827]"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  background-color: #FAF9F5 !important;
+  color: #0F172A !important;
+}
+
+/* L2. 독립 카드 및 엘리베이션 패널 (순백색 카드 + 정교한 입체 그림자) */
+.broker-paper-theme .bg-neutral-900:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-gray-900:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-slate-900:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-neutral-900/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-gray-900/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-slate-900/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-neutral-950/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-gray-950/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#0f172a\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#0f172a\]\/95:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#0f1523\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#0e1424\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#131b2e\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
   background-color: #FFFFFF !important;
   color: #0F172A !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
-/* 2-1. 어두운 그라데이션 꼬리(to-slate-900 등)를 밝은 종이 표면으로 전환 */
-.broker-paper-theme .to-slate-900,
-.broker-paper-theme .to-neutral-900,
-.broker-paper-theme .to-gray-900,
-.broker-paper-theme .via-slate-900\/90 {
+/* L2-1. 어두운 그라데이션 꼬리(to-slate-900 등)를 밝은 종이 표면으로 전환 */
+.broker-paper-theme .to-slate-900:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .to-neutral-900:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .to-gray-900:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .via-slate-900\/90:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
   --tw-gradient-to: #FFFFFF !important;
   --tw-gradient-via: #F8FAFC !important;
   background-color: #FFFFFF !important;
 }
 
-/* 3. 보조 칩/버튼 표면 */
-.broker-paper-theme .bg-neutral-800,
-.broker-paper-theme .bg-gray-800,
-.broker-paper-theme .bg-slate-800,
-.broker-paper-theme .bg-neutral-800\/50,
-.broker-paper-theme .bg-gray-800\/50,
-.broker-paper-theme .bg-gray-800\/60,
-.broker-paper-theme .bg-slate-800\/30,
-.broker-paper-theme .bg-slate-800\/35,
-.broker-paper-theme .bg-slate-800\/40,
-.broker-paper-theme .bg-slate-800\/50,
-.broker-paper-theme .bg-slate-800\/60,
-.broker-paper-theme .bg-slate-800\/70,
-.broker-paper-theme .bg-slate-800\/80,
-.broker-paper-theme .bg-white\/5,
-.broker-paper-theme .bg-white\/\[0\.03\],
-.broker-paper-theme .bg-white\/\[0\.04\] {
+/* L3. 보조 칩/버튼/인터랙티브 표면 */
+.broker-paper-theme .bg-neutral-800:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-gray-800:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-slate-800:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-neutral-800/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-gray-800/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-slate-800/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-white/5"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-white/10"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-white/12"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-white\/\[0\.03\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-white\/\[0\.04\]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
   background-color: #F1F5F9 !important;
   color: #0F172A !important;
 }
 
 /* 4. 카드 및 구획 테두리 고대비화 */
-.broker-paper-theme .border-neutral-800,
-.broker-paper-theme .border-gray-800,
-.broker-paper-theme .border-slate-800,
-.broker-paper-theme .border-neutral-700,
-.broker-paper-theme .border-gray-700,
-.broker-paper-theme .border-slate-700,
-.broker-paper-theme .border-slate-700\/60,
-.broker-paper-theme .border-slate-700\/70,
-.broker-paper-theme .border-slate-700\/80,
-.broker-paper-theme .border-slate-600,
-.broker-paper-theme .border-neutral-800\/50,
-.broker-paper-theme .border-neutral-800\/70,
-.broker-paper-theme .border-gray-800\/60,
-.broker-paper-theme .border-white\/10,
-.broker-paper-theme .border-white\/5 {
+.broker-paper-theme .border-neutral-800:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .border-gray-800:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .border-slate-800:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .border-neutral-700:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .border-gray-700:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .border-slate-700:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="border-slate-700/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="border-slate-800/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="border-neutral-800/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="border-gray-800/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .border-slate-600:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="border-white/"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
   border-color: #CBD5E1 !important;
 }
 
-/* 5. 본문 및 제목 텍스트 진한 먹색(Ink) 적용 */
-.broker-paper-theme .text-white,
-.broker-paper-theme .text-neutral-100,
-.broker-paper-theme .text-neutral-200,
-.broker-paper-theme .text-gray-100,
-.broker-paper-theme .text-gray-200,
-.broker-paper-theme .text-slate-100,
-.broker-paper-theme .text-slate-200,
-.broker-paper-theme .text-ink-muted {
+/* 5. 본문 및 제목 텍스트 진한 먹색(Ink) 적용 (투명도 수식어 포함 전수 포착) */
+.broker-paper-theme .text-white:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-neutral-100"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-neutral-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-gray-100"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-gray-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-slate-100"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-slate-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .text-ink-muted:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
   color: #0F172A !important;
 }
 
-.broker-paper-theme .text-neutral-300,
-.broker-paper-theme .text-gray-300,
-.broker-paper-theme .text-slate-300 {
+.broker-paper-theme [class*="text-neutral-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-gray-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-slate-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
   color: #1E293B !important;
 }
 
-.broker-paper-theme .text-neutral-400,
-.broker-paper-theme .text-gray-400,
-.broker-paper-theme .text-slate-400,
-.broker-paper-theme .text-neutral-500,
-.broker-paper-theme .text-gray-500,
-.broker-paper-theme .text-slate-500,
-.broker-paper-theme .text-ink-subtle {
+.broker-paper-theme [class*="text-neutral-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-gray-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-slate-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-neutral-500"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-gray-500"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-slate-500"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme .text-ink-subtle:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
   color: #334155 !important;
 }
 
-/* 6. 주간 모드용 강조 색상 명도 보정 (밝은 배경에서 형광색 글씨가 안 보이는 현상 차단) */
-.broker-paper-theme .text-amber-100,
-.broker-paper-theme .text-amber-200,
-.broker-paper-theme .text-amber-300,
-.broker-paper-theme .text-amber-400,
-.broker-paper-theme .text-yellow-300,
-.broker-paper-theme .text-yellow-400 {
-  color: #B45309 !important;
+/* 6. 주간 모드용 강조 색상 & 배지 표면 WCAG AAA 명도비(8:1~10.4:1) 보정 */
+/* 6-A. Amber / Yellow 콜아웃 및 배지 (연노랑 글씨 참사 원천 차단 → 에스프레소 브라운 #78350F) */
+.broker-paper-theme [class*="bg-amber-500/8"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-amber-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-amber-500/2"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-amber-400/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-yellow-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  background-color: #FFFBEB !important;
+  border-color: #F59E0B !important;
+  color: #78350F !important;
 }
 
-.broker-paper-theme .text-emerald-200,
-.broker-paper-theme .text-emerald-300,
-.broker-paper-theme .text-emerald-400,
-.broker-paper-theme .text-green-400 {
-  color: #047857 !important;
+.broker-paper-theme [class*="text-amber-100"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-amber-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-amber-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-amber-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-yellow-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-yellow-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-yellow-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  color: #92400E !important;
 }
 
-.broker-paper-theme .text-blue-200,
-.broker-paper-theme .text-blue-300,
-.broker-paper-theme .text-blue-400,
-.broker-paper-theme .text-sky-300,
-.broker-paper-theme .text-sky-400,
-.broker-paper-theme .text-indigo-100,
-.broker-paper-theme .text-indigo-200,
-.broker-paper-theme .text-indigo-300,
-.broker-paper-theme .text-indigo-400 {
-  color: #1D4ED8 !important;
+/* 6-B. Indigo / Blue / Sky 콜아웃 및 배지 (딥 로열 네이비 #1E3A8A) */
+.broker-paper-theme [class*="bg-indigo-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-indigo-500/2"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-blue-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-blue-500/2"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-sky-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  background-color: #EFF6FF !important;
+  border-color: #93C5FD !important;
+  color: #1E3A8A !important;
 }
 
-.broker-paper-theme .text-pink-200,
-.broker-paper-theme .text-rose-200,
-.broker-paper-theme .text-rose-300,
-.broker-paper-theme .text-rose-400,
-.broker-paper-theme .text-red-400 {
-  color: #BE123C !important;
+.broker-paper-theme [class*="text-blue-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-blue-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-blue-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-sky-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-sky-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-sky-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-indigo-100"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-indigo-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-indigo-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-indigo-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  color: #1E3A8A !important;
+}
+
+/* 6-C. Emerald / Green 콜아웃 및 배지 (딥 포레스트 에메랄드 #065F46) */
+.broker-paper-theme [class*="bg-emerald-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-emerald-500/2"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  background-color: #ECFDF5 !important;
+  border-color: #6EE7B7 !important;
+  color: #065F46 !important;
+}
+
+.broker-paper-theme [class*="text-emerald-100"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-emerald-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-emerald-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-emerald-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-green-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-green-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  color: #065F46 !important;
+}
+
+/* 6-D. Rose / Pink / Red / Purple 콜아웃 및 배지 */
+.broker-paper-theme [class*="bg-rose-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-pink-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-red-500/1"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  background-color: #FFF1F2 !important;
+  border-color: #FDA4AF !important;
+  color: #9F1239 !important;
+}
+
+.broker-paper-theme [class*="text-pink-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-pink-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-rose-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-rose-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-rose-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-red-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-red-400"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  color: #9F1239 !important;
+}
+
+.broker-paper-theme [class*="text-purple-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-purple-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-violet-200"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-violet-300"]:not([data-theme-lock="dark"]):not([data-theme-lock="dark"] *) {
+  color: #5B21B6 !important;
 }
 
 /* 7. 단색 강조 버튼 및 배지 내부의 흰색/검은색 글씨 보존 */
-.broker-paper-theme .bg-blue-600,
-.broker-paper-theme .bg-blue-500,
-.broker-paper-theme .bg-indigo-600,
-.broker-paper-theme .bg-indigo-500,
-.broker-paper-theme .bg-emerald-600,
-.broker-paper-theme .bg-red-600,
-.broker-paper-theme .bg-red-500,
-.broker-paper-theme .bg-rose-600,
-.broker-paper-theme .bg-rose-500,
-.broker-paper-theme .bg-violet-600,
-.broker-paper-theme .bg-primary,
-.broker-paper-theme .from-indigo-600,
-.broker-paper-theme .from-blue-600,
-.broker-paper-theme .from-violet-600,
-.broker-paper-theme .bg-black\/60,
-.broker-paper-theme .bg-black\/80,
-.broker-paper-theme .bg-black\/90 {
+.broker-paper-theme .bg-blue-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-blue-500:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-indigo-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-indigo-500:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-emerald-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-red-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-red-500:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-rose-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-rose-500:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-violet-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-primary:not([data-theme-lock="dark"] *),
+.broker-paper-theme .from-indigo-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .from-blue-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .from-violet-600:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-black\/60:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-black\/80:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-black\/90:not([data-theme-lock="dark"] *) {
   color: #FFFFFF !important;
 }
 
-.broker-paper-theme .bg-blue-600 *,
-.broker-paper-theme .bg-indigo-600 *,
-.broker-paper-theme .bg-emerald-600 *,
-.broker-paper-theme .bg-rose-600 *,
-.broker-paper-theme .bg-primary *,
-.broker-paper-theme .from-indigo-600 *,
-.broker-paper-theme .from-blue-600 *,
-.broker-paper-theme .bg-black\/60 * {
+.broker-paper-theme .bg-blue-600:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .bg-blue-500:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .bg-indigo-600:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .bg-indigo-500:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .bg-emerald-600:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .bg-rose-600:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .bg-primary:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .from-indigo-600:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .from-blue-600:not([data-theme-lock="dark"] *) *,
+.broker-paper-theme .bg-black\/60:not([data-theme-lock="dark"] *) * {
   color: #FFFFFF !important;
 }
 
-.broker-paper-theme .bg-amber-400,
-.broker-paper-theme .bg-amber-500,
-.broker-paper-theme .bg-emerald-500,
-.broker-paper-theme .from-amber-500 {
+.broker-paper-theme .bg-amber-400:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-amber-500:not([data-theme-lock="dark"] *),
+.broker-paper-theme .bg-emerald-500:not([data-theme-lock="dark"] *),
+.broker-paper-theme .from-amber-500:not([data-theme-lock="dark"] *) {
   color: #0F172A !important;
 }
 
-/* 8. 입력창(Input / Textarea / Select) 전경-배경(Figure-Ground) 명확화 */
-.broker-paper-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
-.broker-paper-theme textarea,
-.broker-paper-theme select {
+/* 8. 입력창(Input / Textarea / Select) 전경-배경(Figure-Ground) 명확화 & 포커스 링 */
+.broker-paper-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([data-theme-lock="dark"] *),
+.broker-paper-theme textarea:not([data-theme-lock="dark"] *),
+.broker-paper-theme select:not([data-theme-lock="dark"] *) {
   background-color: #FFFFFF !important;
   color: #0F172A !important;
   border: 1.5px solid #94A3B8 !important;
   font-size: max(16px, 1rem);
   font-weight: 500;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
-.broker-paper-theme input::placeholder,
-.broker-paper-theme textarea::placeholder {
+.broker-paper-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([data-theme-lock="dark"] *):hover,
+.broker-paper-theme textarea:not([data-theme-lock="dark"] *):hover,
+.broker-paper-theme select:not([data-theme-lock="dark"] *):hover {
+  border-color: #64748B !important;
+}
+
+.broker-paper-theme input:not([data-theme-lock="dark"] *)::placeholder,
+.broker-paper-theme textarea:not([data-theme-lock="dark"] *)::placeholder {
   color: #64748B !important;
   opacity: 1;
 }
 
-.broker-paper-theme input:focus,
-.broker-paper-theme textarea:focus,
-.broker-paper-theme select:focus {
+.broker-paper-theme input:not([data-theme-lock="dark"] *):focus,
+.broker-paper-theme textarea:not([data-theme-lock="dark"] *):focus,
+.broker-paper-theme select:not([data-theme-lock="dark"] *):focus {
   border-color: #1D4ED8 !important;
-  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.16) !important;
+  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.15) !important;
 }
+
 

@@ -1,39 +1,47 @@
 "use client";
 
 import React from "react";
+import { motion } from "motion/react";
 import { SIMPLE_AUTO_FILLED_ITEMS } from "@/lib/magazine/simple-format";
+import { SOTA_GENTLE_SPRING } from "@/components/motion/sota-motion";
 
 export function AutoFilledStrip() {
   return (
-    <div
+    <motion.div
       data-testid="simple-autofilled-strip"
-      className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3.5 space-y-2.5"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={SOTA_GENTLE_SPRING}
+      className="rounded-2xl border border-emerald-500/35 bg-emerald-500/10 p-4 space-y-3 shadow-sm"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-bold text-emerald-300">
+        <span className="text-sm font-extrabold text-emerald-300 tracking-tight">
           ✅ 아래 4가지 항목은 직접 쓰지 않으셔도 매거진에 자동으로 들어갑니다
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {SIMPLE_AUTO_FILLED_ITEMS.map((item) => (
           <div
             key={item.id}
             data-testid={`autofilled-item-${item.id}`}
-            className="flex items-start gap-2.5 rounded-lg border border-slate-700/60 bg-slate-900/60 px-3 py-2"
+            className="flex items-start gap-2.5 rounded-xl border border-slate-700/70 bg-slate-900/80 px-3.5 py-2.5 shadow-xs"
           >
             <span className="text-base leading-none mt-0.5 shrink-0" aria-hidden="true">
               {item.icon}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-slate-100">{item.label}</p>
-              <p className="text-xs text-slate-300 leading-relaxed mt-0.5">{item.detail}</p>
+              <div className="flex items-center justify-between gap-1.5">
+                <p className="text-sm font-extrabold text-slate-100 truncate">{item.label}</p>
+                <span className="shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-extrabold text-emerald-300">
+                  자동 포함
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-300 leading-relaxed mt-0.5">{item.detail}</p>
             </div>
-            <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-300">
-              자동 포함
-            </span>
           </div>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
+

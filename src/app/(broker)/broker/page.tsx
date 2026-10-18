@@ -14,6 +14,7 @@ import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
 import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
 import { ActionQueue, type ActionItem } from "@/components/dashboard/ActionQueue";
 import { PipelineSnapshot } from "@/components/dashboard/PipelineSnapshot";
+import { StaggerContainer, StaggerItem, AnimatedAccordion } from "@/components/motion/sota-motion";
 
 import { UniversalMemoFAB } from "@/components/memo/UniversalMemoFAB";
 
@@ -218,16 +219,26 @@ export default async function BrokerPage() {
 
   // Query activity_events table for real notification feed
   const rawEvents = activityEventsRes?.data || [];
+  const ENTITY_KOREAN_LABELS: Record<string, string> = {
+    building_ssot_lite: "신규 매물 기본 정보",
+    building_signal_card: "AI 1분 딜카드 요약",
+    document_objects: "투자설명서(IM) 문서",
+    buyer_intent_lite: "매수 희망 고객 조건",
+    broker_clients: "고객 명단",
+    magazine_editions: "주간 고객 소식지",
+  };
+
   const notifications = rawEvents.map((evt) => {
+    const entityLabel = ENTITY_KOREAN_LABELS[evt.entity_type || ""] || "매물 활동";
     let icon = "🔔";
-    let text = `${evt.event_type} 이벤트가 발생했습니다.`;
-    let href = "/broker";
+    let text = `${entityLabel} 내역이 갱신되었습니다`;
+    let href = "/broker/buildings";
     let color = "text-slate-300";
 
     switch (evt.event_type) {
       case "gate_request_created":
         icon = "🔒";
-        text = `신규 Gate 상세 주소 요청 접수`;
+        text = `신규 상세 주소 열람 요청 접수`;
         href = "/admin/gate-requests";
         color = "text-primary";
         break;
@@ -235,40 +246,53 @@ export default async function BrokerPage() {
         const isApproved = (evt.metadata as any)?.decision === "approved";
         const buildingId = (evt.metadata as any)?.building_id;
         icon = isApproved ? "📅" : "📋";
-        text = isApproved ? "Gate 승인 완료! 바로 임장 예약하세요" : "Gate 요청 검토 완료: 거절";
+        text = isApproved ? "상세 정보 열람 승인 완료! 바로 임장 예약하세요" : "상세 정보 열람 검토 완료: 거절";
         href = isApproved && buildingId ? `/buildings/${buildingId}/schedule` : "/admin/gate-requests";
         color = isApproved ? "text-emerald-400" : "text-rose-400";
         break;
       case "expert_note_requested":
         icon = "📝";
-        text = "전문가 노트 작성 요청 접수";
+        text = "전문가 현장 의견 작성 요청 접수";
         href = "/admin/expert-notes";
         color = "text-amber-400";
         break;
       case "buyer_intent_created":
         icon = "🎯";
-        text = "신규 매수 고객 의향서 등록";
+        text = "신규 매수 희망 고객 조건 등록";
         href = "/broker/buyer-intents";
         color = "text-emerald-400";
         break;
       case "deal_card.matched":
         const grade = (evt.metadata as any)?.grade || 'S';
         icon = "✨";
-        text = `[${grade}급 매칭] 신규 자동 매칭 발생`;
+        text = `[${grade}등급 맞춤 고객] 신규 자동 매칭 완료`;
         href = "/broker/matching";
         color = "text-amber-400";
         break;
       case "pipeline_stage_transitioned":
         icon = "📈";
-        text = "딜 파이프라인 단계 변경됨";
+        text = "매물 진행 단계가 변경되었습니다";
         href = "/broker/pipeline";
         color = "text-indigo-400";
         break;
       case "broker_memo_submitted":
         icon = "✏️";
-        text = "중개인 한줄 메모 등록 완료";
-        href = "/broker";
-        color = "text-slate-400";
+        text = "중개인 매물 한줄 메모 등록 완료";
+        href = "/broker/buildings";
+        color = "text-slate-300";
+        break;
+      case "blind_teaser_generated":
+        icon = "✨";
+        text = "AI 1분 블라인드 딜카드 자동 완성";
+        href = evt.entity_id ? `/broker/deal-card/${evt.entity_id}` : "/broker/buildings";
+        color = "text-amber-400";
+        break;
+      case "im_lite_generated":
+      case "mobile_im_generated":
+        icon = "📊";
+        text = "맞춤형 투자설명서(IM) 초안 생성 완료";
+        href = "/broker/buildings?tab=im";
+        color = "text-indigo-400";
         break;
       case "im_view_alert_sent":
         icon = "🔒";
@@ -284,17 +308,17 @@ export default async function BrokerPage() {
         break;
       case "magazine_subscribe":
         icon = "🔔";
-        text = `매거진 신규 구독자 신청 접수`;
+        text = `고객 소식지 신규 구독자 신청 접수`;
         href = "/broker/clients";
         color = "text-emerald-400";
         break;
       default:
         if (evt.event_type.includes("created")) {
           icon = "➕";
-          text = `신규 데이터 생성: ${evt.entity_type || "레코드"}`;
+          text = `${entityLabel} 등록 완료`;
         } else if (evt.event_type.includes("updated")) {
           icon = "🔄";
-          text = `데이터 업데이트: ${evt.entity_type || "레코드"}`;
+          text = `${entityLabel} 정보 업데이트 완료`;
         }
         break;
     }
@@ -472,104 +496,111 @@ export default async function BrokerPage() {
         {/* ── 인사 & 날짜 & 로그인 상태 ── */}
         <GreetingHeader userName={userName} userPhotoUrl={userPhotoUrl} />
 
-        {/* ── 퀵액션 버튼 (60대 PC·모바일 친화 대형 카드 · 4열 와이드 그리드) ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link
-            href="/broker/deal-card/new"
-            id="quick-action-new-dealcard"
-            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 p-5 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-              <span className="text-amber-300 font-black text-[18px]">1분</span>
-            </div>
-            <p className="text-[22px] font-black text-amber-300 leading-tight tracking-tight">새 물건 등록</p>
-            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">카톡 메모 붙여넣기</p>
-          </Link>
+        {/* ── 퀵액션 버튼 (60대 PC·모바일 친화 대형 카드 · 4열 와이드 그리드 · SOTA 스태거 애니메이션) ── */}
+        <StaggerContainer className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StaggerItem>
+            <Link
+              href="/broker/deal-card/new"
+              id="quick-action-new-dealcard"
+              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 p-5 hover:border-amber-400 hover:bg-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                <span className="text-amber-300 font-black text-[18px]">1분</span>
+              </div>
+              <p className="text-[22px] font-black text-amber-300 leading-tight tracking-tight">새 물건 등록</p>
+              <p className="text-[15px] font-bold text-slate-300 mt-1.5">카톡 메모 붙여넣기</p>
+            </Link>
+          </StaggerItem>
 
-          <Link
-            href="/broker/buildings"
-            id="quick-action-buildings"
-            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 p-5 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-              <Building2 className="w-7 h-7 text-blue-300" strokeWidth={2.4} />
-            </div>
-            <p className="text-[22px] font-black text-blue-300 leading-tight tracking-tight">내 물건 · IM</p>
-            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">PPTX 투자설명서 작성</p>
-          </Link>
+          <StaggerItem>
+            <Link
+              href="/broker/buildings"
+              id="quick-action-buildings"
+              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 p-5 hover:border-blue-400 hover:bg-blue-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                <Building2 className="w-7 h-7 text-blue-300" strokeWidth={2.4} />
+              </div>
+              <p className="text-[22px] font-black text-blue-300 leading-tight tracking-tight">내 물건 · IM</p>
+              <p className="text-[15px] font-bold text-slate-300 mt-1.5">PPTX 투자설명서 작성</p>
+            </Link>
+          </StaggerItem>
 
           {/* 매거진 편집 */}
-          <Link
-            href="/broker/magazine-editor?mode=simple"
-            id="quick-action-magazine-editor"
-            data-testid="quick-action-clients"
-            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 p-5 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-              <Newspaper className="w-7 h-7 text-rose-300" strokeWidth={2.4} />
-            </div>
-            <p className="text-[22px] font-black text-rose-300 leading-tight tracking-tight">고객 소식지</p>
-            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">5분 간편 소식지 발송</p>
-          </Link>
+          <StaggerItem>
+            <Link
+              href="/broker/magazine-editor?mode=simple"
+              id="quick-action-magazine-editor"
+              data-testid="quick-action-clients"
+              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 p-5 hover:border-rose-400 hover:bg-rose-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                <Newspaper className="w-7 h-7 text-rose-300" strokeWidth={2.4} />
+              </div>
+              <p className="text-[22px] font-black text-rose-300 leading-tight tracking-tight">고객 소식지</p>
+              <p className="text-[15px] font-bold text-slate-300 mt-1.5">5분 간편 소식지 발송</p>
+            </Link>
+          </StaggerItem>
 
           {/* 소통 관리함 */}
-          <Link
-            href="/broker/inbox"
-            id="quick-action-inbox"
-            className="min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 p-5 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-              <Bell className="w-7 h-7 text-emerald-300" strokeWidth={2.4} />
-            </div>
-            <p className="text-[22px] font-black text-emerald-300 leading-tight tracking-tight">고객 문의함</p>
-            <p className="text-[15px] font-semibold text-slate-300 mt-1.5">열람 · 문의 확인</p>
-          </Link>
-        </div>
+          <StaggerItem>
+            <Link
+              href="/broker/inbox"
+              id="quick-action-inbox"
+              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 p-5 hover:border-emerald-400 hover:bg-emerald-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                <Bell className="w-7 h-7 text-emerald-300" strokeWidth={2.4} />
+              </div>
+              <p className="text-[22px] font-black text-emerald-300 leading-tight tracking-tight">고객 문의함</p>
+              <p className="text-[15px] font-bold text-slate-300 mt-1.5">열람 · 문의 확인</p>
+            </Link>
+          </StaggerItem>
+        </StaggerContainer>
 
         {/* ── 핵심 현황 요약 카드 (3대 핵심 중심 · 비핵심 매칭 KPI는 숨김) ── */}
-        <div className="grid grid-cols-3 gap-3">
+        <StaggerContainer className="grid grid-cols-3 gap-3">
           {[
             { label: "등록 물건", value: totalBuildings ?? 0, icon: Building2, color: "text-amber-300", border: "border-amber-500/30", href: "/broker/buildings" },
             { label: "구독 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-300", border: "border-emerald-500/30", href: "/broker/clients" },
             { label: "소식지 열람", value: magazineViews, icon: Newspaper, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/magazine-editor?mode=simple" },
             /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조 */
           ].map(({ label, value, icon: Icon, color, border, href }) => (
-            <Link
-              key={label}
-              href={href}
-              className={`rounded-2xl border ${border} bg-slate-900 px-4 py-4 text-center hover:opacity-95 transition-all shadow-sm`}
-            >
-              <Icon className={`w-5 h-5 mx-auto mb-1.5 ${color}`} strokeWidth={2.2} />
-              <p className="text-[24px] font-black text-slate-100 tabular-nums leading-tight">{value}</p>
-              <p className="text-[15px] font-bold text-slate-300 mt-1">{label}</p>
-            </Link>
+            <StaggerItem key={label}>
+              <Link
+                href={href}
+                className={`block rounded-2xl border ${border} bg-slate-900 px-4 py-4 text-center hover:-translate-y-0.5 hover:opacity-95 transition-all shadow-sm`}
+              >
+                <Icon className={`w-5 h-5 mx-auto mb-1.5 ${color}`} strokeWidth={2.2} />
+                <p className="text-[24px] font-black text-slate-100 tabular-nums leading-tight">{value}</p>
+                <p className="text-[15px] font-bold text-slate-300 mt-1">{label}</p>
+              </Link>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
 
         {/* ── 오늘 일정 및 최근 알림 ── */}
         {overviewContent}
 
-        {/* DORMANT: ux60-focus — 상세 통계 및 시장 브리핑 탭은 접이식으로 제공 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조) */}
-        <details className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <summary className="cursor-pointer text-[16px] font-bold text-slate-300 flex items-center justify-between">
-            <span>📊 시장 브리핑 · 주간 리포트 더보기</span>
-            <span className="text-[14px] text-slate-400">펼치기 ▼</span>
-          </summary>
-          <div className="pt-4 mt-3 border-t border-slate-800">
-            <BrokerDashboardTabs
-              actionQueueContent={actionQueueContent}
-              overviewContent={overviewContent}
-              breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
-              weeklyReportContent={
-                <div className="space-y-4">
-                  <WeeklyReportCard />
-                  <MonthlyReportCard />
-                </div>
-              }
-              morningIntelligenceContent={<MorningIntelligence />}
-            />
-          </div>
-        </details>
+        {/* DORMANT: ux60-focus — 상세 통계 및 시장 브리핑 탭은 SOTA 스프링 아코디언으로 제공 */}
+        <AnimatedAccordion
+          title="📊 시장 브리핑 · 주간 리포트 더보기"
+          badge="펼치기"
+          className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm"
+        >
+          <BrokerDashboardTabs
+            actionQueueContent={actionQueueContent}
+            overviewContent={overviewContent}
+            breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
+            weeklyReportContent={
+              <div className="space-y-4">
+                <WeeklyReportCard />
+                <MonthlyReportCard />
+              </div>
+            }
+            morningIntelligenceContent={<MorningIntelligence />}
+          />
+        </AnimatedAccordion>
 
       </div>
 

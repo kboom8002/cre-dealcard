@@ -3,6 +3,8 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion } from 'motion/react';
+import { StaggerContainer, StaggerItem } from '@/components/motion/sota-motion';
 import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-quality-badge';
 import { resolveEnrichment } from '@/domain/building/im-core/resolve-enrichment';
 import { toast } from 'sonner';
@@ -607,27 +609,31 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 p-6 shadow-md">
+      <StaggerContainer className="max-w-5xl mx-auto px-4 py-8">
+        <StaggerItem className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 p-6 shadow-md">
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white">투자설명서(Basic IM) 완성 · 다운로드</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">투자설명서(Basic IM) 완성 · 다운로드</h1>
             <p className="text-[16px] text-neutral-200 leading-relaxed">
               맞춤형 PPTX 제안서 파일을 지금 바로 PC로 내려받거나 카카오톡 링크로 고객에게 전달할 수 있습니다.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <button
+            <motion.button
               type="button"
+              whileHover={{ y: -1.5 }}
+              whileTap={{ scale: 0.97 }}
               onClick={handleDownloadPptx}
               disabled={isPptxDownloading}
               id="approval-top-download-pptx"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[54px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[17px] shadow-lg transition-all active:scale-[0.99] disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[54px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[17px] shadow-lg transition-all disabled:opacity-60"
             >
               <span>📊</span>
               <span>{isPptxDownloading ? 'PPTX 준비 중...' : 'PPTX 제안서 파일 받기'}</span>
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => {
                 navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
                 toast.success("🔗 투자설명서 링크가 복사되었습니다. 카카오톡에 붙여넣으세요.");
@@ -635,17 +641,19 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[54px] rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-white font-bold text-[16px] transition-colors"
             >
               <span>🔗 카톡용 링크 복사</span>
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}
               className="inline-flex items-center justify-center gap-1.5 px-5 py-3.5 min-h-[54px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[16px] transition-colors shadow-md"
             >
               <span>🖥️ 웹 화면 열기</span>
               <span>↗</span>
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </StaggerItem>
 
         {/* Empty State */}
         {sections.length === 0 && actionStatus !== 'done' && (
@@ -1429,7 +1437,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           </div>
         </div>
 
-      </div>
+      </StaggerContainer>
 
       {/* Published Success Celebration Modal */}
       {showPublishedModal && (
