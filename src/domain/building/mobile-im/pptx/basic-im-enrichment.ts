@@ -30,8 +30,12 @@ export interface EnrichmentResult {
   }) | null;
   /** 토지이용계획확인원 법령별 지역·지구 지정 현황 (V-World getLandUseAttr) */
   landUseRegulations?: LandUseRegulationSummary | null;
-  /** K-apt 인근 공동주택 세대수 집계 (R5 배후세대) */
-  apartmentHouseholds?: { totalHouseholds: number; complexCount: number } | null;
+  /** K-apt / 건축물대장 총괄표제부 인근 공동주택 세대수 집계 (R5 배후세대) */
+  apartmentHouseholds?: {
+    totalHouseholds: number;
+    complexCount: number;
+    topComplexes?: Array<{ name: string; households: number; distanceM?: number }>;
+  } | null;
   /**
    * 다필지: 필지별 용도지역 (대표 필지 포함, 조회 성공분만).
    * 2필지 이상일 때만 채워진다 — 필지마다 용도지역이 다를 수 있어 대표 필지 값만 쓰면 오표기 위험.
@@ -271,11 +275,18 @@ export async function enrichForBasicIm(
             result.apartmentHouseholds = {
               totalHouseholds: kapt.totalHouseholds,
               complexCount: kapt.complexCount,
+              topComplexes: kapt.topComplexes,
             };
             if (result.locationPoi && typeof result.locationPoi === 'object') {
               result.locationPoi.apartmentHouseholds = kapt.totalHouseholds;
+              result.locationPoi.apartmentComplexCount = kapt.complexCount;
+              result.locationPoi.apartmentTopComplexes = kapt.topComplexes;
             } else {
-              result.locationPoi = { apartmentHouseholds: kapt.totalHouseholds };
+              result.locationPoi = {
+                apartmentHouseholds: kapt.totalHouseholds,
+                apartmentComplexCount: kapt.complexCount,
+                apartmentTopComplexes: kapt.topComplexes,
+              };
             }
           }
         } catch (err) {

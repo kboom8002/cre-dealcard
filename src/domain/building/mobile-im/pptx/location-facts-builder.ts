@@ -22,6 +22,11 @@ export interface BuildBasicLocationRightParams {
   landUsePlan?: any;
   buildingRegister?: any;
   locationFacts?: any;
+  apartmentHouseholds?: {
+    totalHouseholds?: number;
+    complexCount?: number;
+    topComplexes?: Array<{ name: string; households: number; distanceM?: number }>;
+  } | null;
   brokerExtras?: any;
   twoLineAddress?: string;
   existingRight?: any;
@@ -48,11 +53,76 @@ function cleanRoadNameFromAddress(address?: string | null): string | null {
   return match ? match[1] : null;
 }
 
+const MAJOR_ARTERIAL_ROADS = [
+  '올림픽대로',
+  '국회대로',
+  '강변북로',
+  '서부간선도로',
+  '동부간선도로',
+  '내부순환로',
+  '남부순환로',
+  '북부간선도로',
+  '경부고속도로',
+  '수도권제1순환고속도로',
+  '노들로',
+  '경인로',
+  '공항대로',
+  '강남대로',
+  '테헤란로',
+  '영동대로',
+  '도산대로',
+  '논현로',
+  '언주로',
+  '봉은사로',
+  '송파대로',
+  '천호대로',
+  '동작대로',
+  '반포대로',
+  '서초대로',
+  '한강대로',
+  '마포대로',
+  '양화로',
+  '여의대로',
+  '시흥대로',
+  '양화대교',
+  '성산대교',
+  '서강대교',
+  '마포대교',
+  '한남대교',
+  '성수대교',
+  '영동대교',
+  '잠실대교',
+];
+
+function extractArterialRoads(
+  frontingRoadName: string | null,
+  brokerNote?: string | null,
+  spots: any[] = [],
+): string[] {
+  const textPool = [
+    String(brokerNote || ''),
+    ...spots
+      .filter((s) => s && Number(s.distanceM) > 0 && Number(s.distanceM) <= 1500)
+      .map((s) => String(s.name || '')),
+  ].join(' ');
+
+  const found: string[] = [];
+  for (const road of MAJOR_ARTERIAL_ROADS) {
+    if (frontingRoadName && road === frontingRoadName) continue;
+    if (textPool.includes(road) && !found.includes(road)) {
+      found.push(road);
+      if (found.length >= 2) break;
+    }
+  }
+  return found;
+}
+
 function formatRoadAccessRow(
   address?: string | null,
   roadSideRaw?: string | null,
   spots: any[] = [],
-): { rowText: string; roadSummaryShort: string; icSpotName?: string } {
+  brokerNote?: string | null,
+): { rowText: string; roadSummaryShort: string; icSpotName?: string; arterialSummary?: string } {
   const roadName = cleanRoadNameFromAddress(address);
   const roadSide =
     roadSideRaw &&
@@ -88,7 +158,7 @@ function formatRoadAccessRow(
     roadSummaryShort = `${prefix}(${roadSide})`;
   }
 
-  // 최근접 IC / JC / 나들목 탐색 (보행 진출입로·주차장 제외)
+  // 최근접 IC / JC / 나들목 탐색 (보행 진출입로·고가차도진입로·주차장 제외)
   const icCandidates = spots
     .filter((s) => {
       if (!s || typeof s !== 'object') return false;
@@ -97,7 +167,13 @@ function formatRoadAccessRow(
       const cat = String(s.category || '');
       const dist = Number(s.distanceM);
       if (!Number.isFinite(dist) || dist <= 0 || dist > 3000) return false;
-      if (/(진출입로|출입구|육교|계단|주차장|공원|휴게소|주유소|충전소)/.test(name)) return false;
+      if (
+        /(진출입로|진입로|진출로|출입구|고가차도|지하차도|터널|교차로|사거리|삼거리|오거리|로터리|육교|계단|주차장|공원|휴게소|주유소|충전소)/.test(
+          name,
+        )
+      ) {
+        return false;
+      }
       return (
         cat === 'road' ||
         /도로시설/.test(cn) ||
@@ -117,8 +193,12 @@ function formatRoadAccessRow(
     icPart = `${icSpotName} ${distStr}`;
   }
 
-  const rowText = [roadPart, icPart].filter(Boolean).join(' · ');
-  return { rowText, roadSummaryShort, icSpotName };
+  const arterials = extractArterialRoads(roadName, brokerNote, spots);
+  const arterialSummary =
+    arterials.length > 0 ? `${arterials.join('·')} 진입 용이` : undefined;
+
+  const rowText = [roadPart, arterialSummary, icPart].filter(Boolean).join(' · ');
+  return { rowText, roadSummaryShort, icSpotName, arterialSummary };
 }
 
 function extractApartmentComplexNames(spots: any[]): string[] {
@@ -169,7 +249,7 @@ function extractApartmentComplexNames(spots: any[]): string[] {
 
 function selectMajorFacilityLabels(spots: any[]): string[] {
   const FACILITY_NOISE_RE =
-    /(주차장|출입구|진출입로|입구|출구|모텔|오피스텔|빌라|아파트|래미안|아이파크|자이|푸르지오|힐스테이트|롯데캐슬|인터넷쇼핑몰|통신판매|중고차|열쇠|축산|편의점|약국|의원|치과|한의원|내과|피부과|안과|소아과|성형외과|클리닉|동물병원|노인정|경로당|어린이집|유치원|공인중개|부동산|세탁|카페|커피|스타벅스|투썸|이디야|메가MGC|음식점|식당|베이커리|주유소|충전소|우체통|ATM|무인)/i;
+    /(주차장|출입구|진출입로|입구|출구|모텔|오피스텔|빌라|아파트|래미안|아이파크|자이|푸르지오|힐스테이트|롯데캐슬|인터넷쇼핑몰|통신판매|중고차|밧데리|배터리|타이어|카센터|공업사|정비|세차|철물|건재|열쇠|축산|편의점|약국|의원|치과|한의원|내과|피부과|안과|소아과|성형외과|클리닉|동물병원|노인정|경로당|어린이집|유치원|공인중개|부동산|세탁|카페|커피|스타벅스|투썸|이디야|메가MGC|음식점|식당|베이커리|주유소|충전소|우체통|ATM|무인)/i;
 
   const candidates = spots.filter((s) => {
     if (!s || typeof s !== 'object') return false;
@@ -180,7 +260,7 @@ function selectMajorFacilityLabels(spots: any[]): string[] {
     if (!name || !Number.isFinite(dist) || dist <= 15 || dist > 1500) return false;
     if (cat === 'subway' || /지하철,전철/.test(cn)) return false;
     if (cat === 'road' || /도로시설/.test(cn) || /(IC|JC|나들목|톨게이트)$/.test(name)) return false;
-    if (FACILITY_NOISE_RE.test(name) || /(음식점|카페|통신판매|인터넷쇼핑몰|중개|주거시설)/.test(cn)) {
+    if (FACILITY_NOISE_RE.test(name) || /(음식점|카페|통신판매|인터넷쇼핑몰|중개|주거시설|자동차)/.test(cn)) {
       return false;
     }
     return true;
@@ -191,7 +271,7 @@ function selectMajorFacilityLabels(spots: any[]): string[] {
     const cn = String(s.categoryName || '');
     const cat = String(s.category || '').toLowerCase();
     if (
-      /(백화점|롯데마트|이마트(?!24|에브리데이)|홈플러스(?!익스프레스)|코스트코|타임스퀘어|스타필드|아울렛|대형마트)/.test(
+      /(백화점|롯데마트|이마트(?!24|에브리데이)|홈플러스(?!익스프레스)|코스트코|타임스퀘어|스타필드|롯데아울렛|현대아울렛|신세계아울렛|프리미엄아울렛|패션아울렛|뉴코아아울렛|마리오아울렛|모다아울렛|W몰|대형마트)/.test(
         name,
       ) ||
       /(백화점|대형마트|복합쇼핑몰)/.test(cn)
@@ -259,11 +339,13 @@ export function buildBasicLocationRightData(
     landUsePlan = null,
     buildingRegister = null,
     locationFacts = null,
+    apartmentHouseholds = null,
     brokerExtras = null,
     twoLineAddress,
   } = params;
 
   const warnings: string[] = [];
+  const rawBrokerNote = String(brokerExtras?.location_note || '').trim();
 
   const keySpots: any[] = Array.isArray(externalPoi?.keySpots) ? externalPoi.keySpots : [];
   const candidateSpots: any[] = Array.isArray(externalPoi?.candidateSpots)
@@ -321,21 +403,58 @@ export function buildBasicLocationRightData(
     ssot?.road_condition ||
     building?.road_condition ||
     null;
-  const { rowText: roadAccessVal, roadSummaryShort, icSpotName } = formatRoadAccessRow(
+  const {
+    rowText: roadAccessVal,
+    roadSummaryShort,
+    icSpotName,
+    arterialSummary,
+  } = formatRoadAccessRow(
     roadAddress || twoLineAddress,
     roadSideRaw,
     allSpots,
+    rawBrokerNote,
   );
 
   // 4) 배후·상권 (모호한 "${area} 주요 상업·업무 권역" 문구 절대 금지)
   const catchmentParts: string[] = [];
-  const aptHouseholds = Number(locationFacts?.apartments?.households || 0);
-  const aptComplexes = Number(locationFacts?.apartments?.complexes || 0);
+  const rawPoiApt = externalPoi?.apartmentHouseholds;
+  const aptHouseholds = Number(
+    locationFacts?.apartments?.households ??
+      apartmentHouseholds?.totalHouseholds ??
+      (typeof rawPoiApt === 'number' ? rawPoiApt : rawPoiApt?.totalHouseholds) ??
+      0,
+  );
+  const aptComplexes = Number(
+    locationFacts?.apartments?.complexes ??
+      apartmentHouseholds?.complexCount ??
+      externalPoi?.apartmentComplexCount ??
+      (typeof rawPoiApt === 'object' ? rawPoiApt?.complexCount : 0) ??
+      0,
+  );
+  const topComplexes: Array<{ name: string; households: number }> = Array.isArray(
+    apartmentHouseholds?.topComplexes,
+  )
+    ? apartmentHouseholds.topComplexes
+    : Array.isArray(externalPoi?.apartmentTopComplexes)
+      ? externalPoi.apartmentTopComplexes
+      : Array.isArray(locationFacts?.apartments?.topComplexes)
+        ? locationFacts.apartments.topComplexes
+        : [];
   const aptNames = extractApartmentComplexNames(allSpots);
+
+  const leadComplex = topComplexes.find(
+    (c) => c && c.name && !c.name.endsWith('공동주택') && Number(c.households) > 0,
+  );
+  const leadComplexLabel = leadComplex
+    ? `${leadComplex.name.replace(/\s+/g, '')}(${Number(leadComplex.households).toLocaleString('ko-KR')}세대)`
+    : '';
 
   if (aptHouseholds > 0) {
     const complexTag = aptComplexes > 0 ? ` (${aptComplexes}개 단지)` : '';
-    catchmentParts.push(`반경 1km 아파트 ${aptHouseholds.toLocaleString('ko-KR')}세대${complexTag}`);
+    const leadPrefix = leadComplexLabel ? `${leadComplexLabel} 등 ` : '';
+    catchmentParts.push(
+      `${leadPrefix}반경 1km 아파트 ${aptHouseholds.toLocaleString('ko-KR')}세대${complexTag}`,
+    );
   } else if (aptNames.length > 0) {
     catchmentParts.push(`${aptNames.join('·')} 등 주거단지 인접`);
   }
@@ -368,7 +487,6 @@ export function buildBasicLocationRightData(
   if (majorFacilityVal) rows.push(['주요시설', majorFacilityVal]);
 
   // 중개인 수기 location_note 교차 검증 (호선 누락/불일치 시 [LOC-MISMATCH] 경고)
-  const rawBrokerNote = String(brokerExtras?.location_note || '').trim();
   if (rawBrokerNote && mergedStations.length > 0) {
     const primary = mergedStations[0];
     if (rawBrokerNote.includes(primary.baseName) && primary.lines.length >= 2) {
@@ -399,7 +517,8 @@ export function buildBasicLocationRightData(
 
   const roadAndFacilityTokens: string[] = [];
   if (roadSummaryShort) roadAndFacilityTokens.push(`${roadSummaryShort} 접면`);
-  if (icSpotName) roadAndFacilityTokens.push(`${icSpotName} 차량 진출입 용이`);
+  if (arterialSummary) roadAndFacilityTokens.push(arterialSummary);
+  else if (icSpotName) roadAndFacilityTokens.push(`${icSpotName} 차량 진출입 용이`);
   if (facilityLabels.length > 0) {
     const topFacilityName = facilityLabels[0].replace(/\s+도보.*$/, '').replace(/\s+\(약.*$/, '');
     roadAndFacilityTokens.push(`${topFacilityName} 등 생활편의 인접`);
@@ -408,10 +527,10 @@ export function buildBasicLocationRightData(
     bulletLines.push(`• 가로·편의성: ${roadAndFacilityTokens.join(', ')}`);
   }
 
-  if (aptNames.length > 0 || foodCount > 0) {
+  if (aptHouseholds > 0 || aptNames.length > 0 || foodCount > 0) {
     const aptPart =
       aptHouseholds > 0
-        ? `반경 1km ${aptHouseholds.toLocaleString('ko-KR')}세대 주거배후`
+        ? `${leadComplexLabel ? `${leadComplexLabel} 등 ` : ''}반경 1km ${aptHouseholds.toLocaleString('ko-KR')}세대 주거배후`
         : aptNames.length > 0
           ? `${aptNames.join('·')} 배후 주거수요`
           : '';

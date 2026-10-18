@@ -842,7 +842,11 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   }
 
   if (planBoxH > 0) {
-    L.callout(slide, M, bottomLimit + 0.10, CW, planBoxH, 'brass', '매입 후 전략 · 중개인입력', brokerPlan.join('\n'));
+    const planTitle =
+      typeof data.brokerPostAcquisitionTitle === 'string' && data.brokerPostAcquisitionTitle.trim()
+        ? data.brokerPostAcquisitionTitle.trim()
+        : '매입 후 전략 · 중개인입력';
+    L.callout(slide, M, bottomLimit + 0.10, CW, planBoxH, 'brass', planTitle, brokerPlan.join('\n'));
   }
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);

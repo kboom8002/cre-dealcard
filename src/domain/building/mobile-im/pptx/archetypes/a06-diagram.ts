@@ -372,7 +372,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const left = input.data.left || {};
   const right = input.data.right || {};
 
-  const subText = left.sub || right.sub;
+  const subText = right.sub || left.sub;
   if (subText) {
     L.sub(slide, textX, y, textW, stripMarkdown(subText));
     y += 0.35;

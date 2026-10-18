@@ -82,6 +82,84 @@ export async function fetchNearbyApartmentHouseholds(params: {
   }
 
   const encodedKey = apiKey.includes('%') ? apiKey : encodeURIComponent(apiKey);
+
+  // 1차(주 경로): 건축물대장 총괄표제부(BldRgstHubService/getBrRecapTitleInfo) — 단일 호출로 법정동 내 공동주택 단지명·세대수(hhldCnt) 정확 조회
+  // (구 AptListService3/getLegaldongAptList3 오픈API 폐기에 대응)
+  try {
+    const recapUrl =
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo` +
+      `?serviceKey=${encodedKey}&sigunguCd=${encodeURIComponent(sigunguCd)}&bjdongCd=${encodeURIComponent(bjdongCd)}&numOfRows=100&pageNo=1&_type=json`;
+
+    const recapRes = await fetch(recapUrl, {
+      signal: AbortSignal.timeout(5_000),
+    });
+
+    if (recapRes.ok) {
+      const recapJson = await recapRes.json();
+      const recapItems = normalizeItemsArray(recapJson?.response?.body?.items);
+      if (recapItems.length > 0) {
+        const seenKeys = new Set<string>();
+        const namedComplexes: NearbyApartmentComplex[] = [];
+        let totalHouseholds = 0;
+        let complexCount = 0;
+
+        for (const item of recapItems) {
+          const hhldCnt = Math.round(Number(item?.hhldCnt ?? item?.hoCnt ?? 0));
+          const mainPurps = String(item?.mainPurpsCdNm || item?.etcPurps || '').trim();
+          const bldNm = String(item?.bldNm || '').trim();
+          const platPlc = String(item?.platPlc || '').trim();
+          if (!Number.isFinite(hhldCnt) || hhldCnt < 30) continue;
+          if (!/(공동주택|아파트)/.test(mainPurps) && !/아파트/.test(bldNm)) continue;
+
+          const dedupKey = String(item?.mgmBldrgstPk || `${platPlc}:${hhldCnt}`);
+          if (seenKeys.has(dedupKey)) continue;
+          seenKeys.add(dedupKey);
+
+          totalHouseholds += hhldCnt;
+          complexCount += 1;
+
+          const fallbackName = platPlc
+            ? platPlc.replace(/^.*?\s+([가-힣0-9]+동\d*가?\s+[\d-]+).*$/, '$1 공동주택')
+            : '';
+          const displayName = bldNm || fallbackName;
+          if (displayName) {
+            namedComplexes.push({
+              name: displayName,
+              households: hhldCnt,
+            });
+          }
+        }
+
+        if (totalHouseholds > 0) {
+          // 고유 단지명이 있는 대단지를 우선 정렬
+          namedComplexes.sort((a, b) => {
+            const aNamed = a.name.endsWith('공동주택') ? 0 : 1;
+            const bNamed = b.name.endsWith('공동주택') ? 0 : 1;
+            if (aNamed !== bNamed) return bNamed - aNamed;
+            return b.households - a.households;
+          });
+
+          const result: NearbyApartmentHouseholdsResult = {
+            totalHouseholds,
+            complexCount,
+            topComplexes: namedComplexes.slice(0, 10),
+            source: 'kapt_api',
+          };
+
+          if (kaptCache.size >= MAX_CACHE_ENTRIES) {
+            const oldestKey = kaptCache.keys().next().value;
+            if (oldestKey) kaptCache.delete(oldestKey);
+          }
+          kaptCache.set(bjdCode, result);
+          return result;
+        }
+      }
+    }
+  } catch (err) {
+    log.warn({ err }, `[kapt-api] 건축물대장 총괄표제부 세대수 조회 실패 — 레거시 K-apt 폴백 시도 (${bjdCode})`);
+  }
+
+  // 2차 폴백: 레거시 K-apt 목록/기본정보 서비스
   const listUrl =
     `http://apis.data.go.kr/1613000/AptListService3/getLegaldongAptList3` +
     `?serviceKey=${encodedKey}&bjdCode=${encodeURIComponent(bjdCode)}&numOfRows=100&pageNo=1&_type=json`;

@@ -231,6 +231,46 @@ describe('R5: 다중 호선 지하철 병합 및 입지 팩트 빌더 (location-
     ]);
     expect(merged).toEqual([]);
   });
+
+  it('POSITIVE & NEGATIVE: 배후 공동주택 세대수(당산삼성래미안 1,391세대 등 4,407세대)·간선도로(올림픽대로·국회대로) 반영 및 밧데리아울렛/고가차도진입로 노이즈 제외', () => {
+    const right = buildBasicLocationRightData({
+      ssot: { address: '서울 영등포구 영신로 259', road_condition: '중로각지' },
+      externalPoi: {
+        ...ig1Poi,
+        candidateSpots: [
+          { name: '밧데리아울렛 영등포점', category: 'shopping', distanceM: 120 },
+          { name: '영등포로터리고가차도진입로', category: 'road', distanceM: 300 },
+          { name: '롯데마트 맥스 영등포점', category: 'shopping', distanceM: 308 },
+        ],
+      },
+      apartmentHouseholds: {
+        totalHouseholds: 4407,
+        complexCount: 7,
+        topComplexes: [
+          { name: '당산 삼성 래미안', households: 1391 },
+          { name: '당산센트럴아이파크', households: 802 },
+        ],
+      },
+      landUsePlan: { roadAccess: '중로각지', jibunAddress: '서울특별시 영등포구 당산동5가 11-47' },
+      brokerExtras: {
+        location_note: '당산역(2·9호선) 도보 5분, 배후 아파트 밀집, 국회대로·올림픽대로 접근 용이',
+      },
+    });
+
+    const rowMap = new Map(right.rows);
+    expect(rowMap.get('도로·접근성')).toBe(
+      '영신로(대로변·중로각지) 접면 · 올림픽대로·국회대로 진입 용이 · 여의하류IC 약 0.5km',
+    );
+    expect(rowMap.get('배후·상권')).toContain(
+      '당산삼성래미안(1,391세대) 등 반경 1km 아파트 4,407세대 (7개 단지)',
+    );
+    expect(rowMap.get('주요시설')).toContain('롯데마트 맥스 영등포점');
+    expect(rowMap.get('주요시설')).not.toContain('밧데리아울렛');
+    expect(right.callout?.body).toContain('올림픽대로·국회대로 진입 용이');
+    expect(right.callout?.body).toContain('롯데마트 맥스 영등포점 등 생활편의 인접');
+    expect(right.callout?.body).not.toContain('밧데리아울렛');
+    expect(right.callout?.body).not.toContain('고가차도진입로');
+  });
 });
 
 describe('R8: 건축물대장 층별개요 파서 및 건물용도 카테고리 정규화 (building-register-api)', () => {

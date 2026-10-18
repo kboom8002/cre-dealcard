@@ -786,6 +786,10 @@ export class MobileImPptxRenderer {
           landUsePlan: enrichment?.landUsePlan,
           buildingRegister: enrichment?.buildingRegister,
           locationFacts: enrichment?.locationFacts,
+          apartmentHouseholds:
+            (enrichment as any)?.apartmentHouseholds ??
+            (input.doc.body as any)?.enrichment?.apartmentHouseholds ??
+            null,
           brokerExtras: readBrokerExtras(input.doc.body),
           twoLineAddress: dualAddrForDeck.singleLine || locAddress,
         });
@@ -793,7 +797,11 @@ export class MobileImPptxRenderer {
 
         if (!dataMap['location'].right) dataMap['location'].right = { sub: locRight.sub };
         if (locRight.rows.length >= 2) {
+          dataMap['location'].right.sub = locRight.sub;
           dataMap['location'].right.rows = locRight.rows.slice(0, 6);
+          if (dataMap['location'].left && /중개인\s*입력/.test(String(dataMap['location'].left.sub ?? ''))) {
+            dataMap['location'].left.sub = locRight.sub;
+          }
         } else {
           const locRows: Array<[string, string]> = [];
           if (locAddress) locRows.push(['소재지', locAddress]);
@@ -923,6 +931,17 @@ export class MobileImPptxRenderer {
           dataMap['location'].right.callout = autoLocCallout;
         }
         applyBrokerRentRollPlan(dataMap['rentRoll'], brokerExtras);
+        if (dataMap['rentRoll'] && Array.isArray((dataMap['rentRoll'] as any).brokerPostAcquisitionPlan) && (dataMap['rentRoll'] as any).brokerPostAcquisitionPlan.length > 0) {
+          const rrYieldSet = buildYieldSetFromBody(input.doc.body as Record<string, any>);
+          if (rrYieldSet.stabilized && rrYieldSet.stabilized.value > 0 && rrYieldSet.stabilized.kind !== 'reserve_excluded') {
+            const asIsVal = rrYieldSet.grossYieldNetOfDeposit ?? 0;
+            const stabVal = rrYieldSet.stabilized.value;
+            const delta = stabVal - asIsVal;
+            const deltaTag = asIsVal > 0 && delta > 0 ? ` (현행 ${asIsVal.toFixed(2)}% 대비 +${delta.toFixed(2)}%p)` : '';
+            (dataMap['rentRoll'] as any).brokerPostAcquisitionTitle =
+              `매입 후 전략 — 전환 시 안정화 기대수익률 ${stabVal.toFixed(2)}%${deltaTag} · 중개인입력`;
+          }
+        }
         if (dataMap['land']) {
           dataMap['land'] = buildBasicLandSlideData({
             existingLandData: dataMap['land'],

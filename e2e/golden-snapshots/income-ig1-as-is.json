@@ -1776,7 +1776,33 @@
       "pricePerSqm": 8672367,
       "pricePerPyeong": 28668981
      }
-    ]
+    ],
+    "apartmentHouseholds": {
+     "totalHouseholds": 4407,
+     "complexCount": 7,
+     "topComplexes": [
+      {
+       "name": "당산 삼성 래미안",
+       "households": 1391
+      },
+      {
+       "name": "당산센트럴아이파크",
+       "households": 802
+      },
+      {
+       "name": "당산동1차 효성아파트",
+       "households": 480
+      },
+      {
+       "name": "당산2차 효성타운",
+       "households": 258
+      },
+      {
+       "name": "성원아파트",
+       "households": 205
+      }
+     ]
+    }
    },
    "financials": {
     "wacc": 0.07896608695652174,
@@ -2872,6 +2898,32 @@
    "roadAccess": "중로각지",
    "landUseSituation": "상업용",
    "_source": "vworld"
+  },
+  "apartmentHouseholds": {
+   "totalHouseholds": 4407,
+   "complexCount": 7,
+   "topComplexes": [
+    {
+     "name": "당산 삼성 래미안",
+     "households": 1391
+    },
+    {
+     "name": "당산센트럴아이파크",
+     "households": 802
+    },
+    {
+     "name": "당산동1차 효성아파트",
+     "households": 480
+    },
+    {
+     "name": "당산2차 효성타운",
+     "households": 258
+    },
+    {
+     "name": "성원아파트",
+     "households": 205
+    }
+   ]
   }
  },
  "urlTier": "basic"

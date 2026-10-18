@@ -1778,7 +1778,33 @@
       "pricePerSqm": 8672367,
       "pricePerPyeong": 28668981
      }
-    ]
+    ],
+    "apartmentHouseholds": {
+     "totalHouseholds": 4407,
+     "complexCount": 7,
+     "topComplexes": [
+      {
+       "name": "당산 삼성 래미안",
+       "households": 1391
+      },
+      {
+       "name": "당산센트럴아이파크",
+       "households": 802
+      },
+      {
+       "name": "당산동1차 효성아파트",
+       "households": 480
+      },
+      {
+       "name": "당산2차 효성타운",
+       "households": 258
+      },
+      {
+       "name": "성원아파트",
+       "households": 205
+      }
+     ]
+    }
    },
    "financials": {
     "wacc": 0.07896608695652174,
@@ -2048,25 +2074,41 @@
       "kind": "listing",
       "location": "당산동5가 11-30",
       "price_eok": 200,
-      "land_price_per_pyeong_manwon": 13900
+      "land_price_per_pyeong_manwon": 13900,
+      "road_side": "대로변",
+      "station_walk": "당산역(2·9호선) 도보 4분",
+      "land_area_pyeong": 144,
+      "gfa_pyeong": 818.1
      },
      {
       "kind": "listing",
       "location": "영등포3가 1",
       "price_eok": 430,
-      "land_price_per_pyeong_manwon": 15200
+      "land_price_per_pyeong_manwon": 15200,
+      "road_side": "대로변",
+      "station_walk": "신길역(1·5호선) 도보 4분",
+      "land_area_pyeong": 282.8,
+      "gfa_pyeong": 1833.3
      },
      {
       "kind": "listing",
       "location": "영등포7가 29-28",
       "price_eok": 180,
-      "land_price_per_pyeong_manwon": 8900
+      "land_price_per_pyeong_manwon": 8900,
+      "road_side": "대로변",
+      "station_walk": "영등포시장역(5호선) 도보 4분",
+      "land_area_pyeong": 192.1,
+      "gfa_pyeong": 856.3
      },
      {
       "kind": "listing",
       "location": "영등포7가 94-14",
       "price_eok": 430,
-      "land_price_per_pyeong_manwon": 16200
+      "land_price_per_pyeong_manwon": 16200,
+      "road_side": "대로변",
+      "station_walk": "영등포시장역(5호선) 도보 6분",
+      "land_area_pyeong": 170,
+      "gfa_pyeong": 1577.6
      }
     ],
     "location_note": "당산역(2·9호선) 도보 5분, 배후 아파트 밀집, 국회대로·올림픽대로 접근 용이",
@@ -2954,6 +2996,32 @@
    "roadAccess": "중로각지",
    "landUseSituation": "상업용",
    "_source": "vworld"
+  },
+  "apartmentHouseholds": {
+   "totalHouseholds": 4407,
+   "complexCount": 7,
+   "topComplexes": [
+    {
+     "name": "당산 삼성 래미안",
+     "households": 1391
+    },
+    {
+     "name": "당산센트럴아이파크",
+     "households": 802
+    },
+    {
+     "name": "당산동1차 효성아파트",
+     "households": 480
+    },
+    {
+     "name": "당산2차 효성타운",
+     "households": 258
+    },
+    {
+     "name": "성원아파트",
+     "households": 205
+    }
+   ]
   }
  },
  "urlTier": "basic"
