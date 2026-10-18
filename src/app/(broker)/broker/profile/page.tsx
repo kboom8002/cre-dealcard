@@ -77,14 +77,14 @@ interface ProfileData {
 /* ─── CSS class helpers ─── */
 
 const inputClass =
-  'w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors';
+  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[16px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors';
 
 const selectClass =
-  'w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors appearance-none';
+  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[16px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors appearance-none';
 
-const sectionClass = 'space-y-4 rounded-xl border border-border bg-card p-5';
+const sectionClass = 'space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm';
 
-const sectionTitleClass = 'text-sm font-semibold text-muted-foreground uppercase tracking-wide';
+const sectionTitleClass = 'text-[18px] font-extrabold text-foreground tracking-tight';
 
 /* ─── Component ─── */
 
@@ -426,14 +426,14 @@ export default function BrokerProfilePage() {
           key={item}
           type="button"
           onClick={() => toggleTag(selected, setSelected, item)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+          className={`px-3.5 py-2 min-h-[40px] rounded-xl text-[14px] font-bold border transition-all ${
             selected.includes(item)
-              ? 'bg-primary/10 text-primary border-primary/40'
+              ? 'bg-primary/15 text-primary border-primary/50 shadow-xs'
               : 'bg-background text-muted-foreground border-border hover:border-primary/30'
           }`}
           id={`${idPrefix}-${item}`}
         >
-          {item}
+          {selected.includes(item) ? `✓ ${item}` : item}
         </button>
       ))}
     </div>
@@ -444,7 +444,7 @@ export default function BrokerProfilePage() {
   if (loading) {
     return (
       <main className="flex flex-col items-center min-h-screen px-4 py-8">
-        <div className="w-full max-w-md mx-auto space-y-4 pt-4">
+        <div className="w-full max-w-2xl mx-auto space-y-4 pt-4">
           <div className="h-8 bg-muted rounded-lg animate-pulse w-48" />
           <div className="h-32 bg-muted rounded-xl animate-pulse" />
           <div className="h-32 bg-muted rounded-xl animate-pulse" />
@@ -458,216 +458,279 @@ export default function BrokerProfilePage() {
 
   return (<>
     <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
-      <div className="w-full max-w-md mx-auto space-y-6">
+      <div className="w-full max-w-2xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold">내 프로필</h1>
-            <p className="text-sm text-muted-foreground">
-              {profile?.email}
+            <h1 className="text-[26px] font-black tracking-tight">내 프로필 · 중개사무소 설정</h1>
+            <p className="text-[15px] text-muted-foreground font-medium">
+              로그인 계정: {profile?.email}
               {profile?.broker?.is_verified && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2 py-0.5 text-xs font-medium">
-                  ✓ 인증됨
+                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-xs font-bold">
+                  ✓ 공인중개사 인증됨
                 </span>
               )}
             </p>
           </div>
-          
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl px-5 py-3 min-h-[46px] text-[15px] shadow-sm transition-colors disabled:opacity-60"
+            data-testid="save-profile-top-btn"
+          >
+            {saving ? '저장 중...' : '💾 변경사항 저장'}
+          </button>
+        </div>
 
+        {/* 60대 중개인 친화 안내 배너: 어디에 인쇄/표시되는지 명확히 설명 */}
+        <div
+          data-testid="profile-where-it-shows-banner"
+          className="rounded-2xl border-2 border-blue-500/30 bg-blue-500/5 p-5 space-y-2.5"
+        >
+          <p className="text-[17px] font-extrabold text-primary flex items-center gap-2">
+            <span>💡</span>
+            <span>여기에 적어주신 정보는 어디에 나오나요?</span>
+          </p>
+          <ul className="space-y-1.5 text-[15px] text-foreground leading-relaxed pl-1">
+            <li>
+              • <strong>① 이름 · 연락처 · 중개사무소 상호 (필수 3대 정보)</strong>: 고객에게 보내는 <strong>카카오톡 딜카드 하단 명함</strong>, <strong>PPTX 투자설명서(IM) 표지·마지막 장 담당자란</strong>, <strong>주간 고객 소식지 상단</strong>에 자동으로 인쇄됩니다.
+            </li>
+            <li>
+              • <strong>② 자격/등록번호 · 전문 지역 · 거래 실적</strong>: 매도인·매수인이 중개사님의 프로필을 열어볼 때 신뢰도를 높여주며, AI가 제안서와 인사말을 작성할 때 근거 자료로 쓰입니다.
+            </li>
+          </ul>
         </div>
 
         {/* Error / Success */}
         {error && (
-          <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
+          <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl text-[15px] font-semibold text-destructive">
             {error}
           </div>
         )}
         {saved && (
-          <div className="p-3 bg-success/10 border border-success/30 rounded-lg text-sm text-success">
-            ✓ 프로필이 저장되었습니다.
+          <div className="p-4 bg-success/10 border border-success/30 rounded-xl text-[15px] font-bold text-success">
+            ✓ 내 프로필과 중개사무소 정보가 저장되었습니다.
           </div>
         )}
 
         {/* ─── Section 7: 프로필 완성도 게이지 (placed at top) ─── */}
         <section className={sectionClass}>
           <div className="flex items-center justify-between">
-            <h2 className={sectionTitleClass}>프로필 완성도</h2>
-            <span className={`text-sm font-bold ${completenessTextColor}`}>
+            <div>
+              <h2 className={sectionTitleClass}>프로필 신뢰도 완성 점수</h2>
+              <p className="text-[14px] text-muted-foreground mt-0.5">
+                70% 이상 채우시면 고객에게 보여지는 명함과 소식지의 신뢰도가 크게 높아집니다.
+              </p>
+            </div>
+            <span className={`text-[22px] font-black ${completenessTextColor}`}>
               {completeness}%
             </span>
           </div>
-          <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+          <div className="w-full bg-muted rounded-full h-3.5 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${completenessColor}`}
               style={{ width: `${completeness}%` }}
             />
           </div>
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <p>이름 +5% · 연락처 +5% · 자격증번호 +15% · 개업연도 +10%</p>
-            <p>전문지역 3개+ +10% · 전문자산 2개+ +10%</p>
-            <p>거래실적 +15% · 자기소개 100자+ +10%</p>
-            <p>소셜링크 1개+ +10% · 거래금액대 +10%</p>
+          <div className="text-[13px] text-muted-foreground space-y-0.5 pt-1">
+            <p>• 필수 기본정보(이름 +5% · 연락처 +5% · 사진 +10%) · 자격증번호(+15%) · 개업연도(+10%)</p>
+            <p>• 전문지역 3곳 이상(+10%) · 전문자산 2개 이상(+10%) · 거래실적(+15%) · 거래금액대(+10%) · 자기소개 100자+(+10%)</p>
           </div>
         </section>
 
-        {/* ─── Section 1: 기본 정보 ─── */}
-        <section className={sectionClass}>
-          <h2 className={sectionTitleClass}>기본 정보</h2>
+        {/* ─── Section 1: 기본 정보 (필수 3대 정보 강조) ─── */}
+        <section className="space-y-5 rounded-2xl border-2 border-amber-500/40 bg-card p-6 shadow-sm">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-[13px] font-extrabold">
+                가장 중요 · 필수 입력
+              </span>
+              <h2 className={sectionTitleClass}>① 기본 명함 정보 (이름 · 연락처 · 상호 · 사진)</h2>
+            </div>
+            <p className="text-[14px] text-muted-foreground">
+              딜카드, PPTX 제안서(IM) 표지, 고객 소식지에 대표님의 명함으로 바로 인쇄되는 항목입니다.
+            </p>
+          </div>
 
-          <div className="flex items-center gap-4 py-2">
-            <div className="relative w-20 h-20 rounded-full bg-muted border overflow-hidden flex-shrink-0 group">
+          <div className="flex flex-wrap items-center gap-5 py-2 p-4 rounded-xl bg-muted/40 border border-border">
+            <div className="relative w-24 h-24 rounded-full bg-muted border-2 border-border overflow-hidden flex-shrink-0 group">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-3xl">
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-4xl">
                   👤
                 </div>
               )}
-              <label className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                <span className="text-[10px] font-medium">사진 변경</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    
-                    const formData = new FormData();
-                    formData.append("file", file);
-                    setVibeStatus('uploading');
-                    
-                    try {
-                      const res = await fetch("/api/broker/profile/avatar", {
-                        method: "POST",
-                        body: formData,
-                      });
-                      const data = await res.json();
-                      if (data.url) {
-                        setAvatarUrl(data.url);
-                        setVibeStatus('analyzing');
-                        // Vibe 재분석은 avatar API에서 비동기 트리거됨
-                        // 3초 후 완료 표시 (실제 분석 시간에 근사)
-                        setTimeout(() => {
-                          setVibeStatus('done');
-                          setTimeout(() => setVibeStatus(null), 4000);
-                        }, 3000);
-                      } else {
-                        throw new Error(data.error || "업로드 실패");
-                      }
-                    } catch (err: any) {
-                      setError(err.message);
-                      setVibeStatus(null);
-                    }
-                  }}
-                />
-              </label>
             </div>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>신뢰를 주는 프로필 사진을 등록해보세요.</p>
-              <p className="text-xs">권장: 정방형 500x500 픽셀</p>
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <p className="text-[15px] font-bold text-foreground">대표님 인물 사진 (또는 사무소 로고)</p>
+              <p className="text-[13px] text-muted-foreground">
+                밝게 웃으시는 정장 사진이나 사무소 로고를 등록하시면 고객 소식지와 모바일 명함 상단에 표시됩니다.
+              </p>
+              <div>
+                <label className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[14px] font-extrabold cursor-pointer transition-colors">
+                  <span>📷 내 컴퓨터/폰에서 사진 선택하기</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      setVibeStatus('uploading');
+                      
+                      try {
+                        const res = await fetch("/api/broker/profile/avatar", {
+                          method: "POST",
+                          body: formData,
+                        });
+                        const data = await res.json();
+                        if (data.url) {
+                          setAvatarUrl(data.url);
+                          setVibeStatus('analyzing');
+                          setTimeout(() => {
+                            setVibeStatus('done');
+                            setTimeout(() => setVibeStatus(null), 4000);
+                          }, 3000);
+                        } else {
+                          throw new Error(data.error || "업로드 실패");
+                        }
+                      } catch (err: any) {
+                        setError(err.message);
+                        setVibeStatus(null);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
               {/* ─── Vibe 분석 피드백 ─── */}
               {vibeStatus === 'uploading' && (
-                <p className="text-xs text-blue-500 animate-pulse">📤 사진 업로드 중...</p>
+                <p className="text-[14px] text-blue-500 font-semibold animate-pulse">📤 사진을 올리고 있습니다...</p>
               )}
               {vibeStatus === 'analyzing' && (
-                <p className="text-xs text-violet-500 animate-pulse">🤖 AI가 사진을 분석하고 있습니다...</p>
+                <p className="text-[14px] text-violet-500 font-semibold animate-pulse">🤖 명함에 어울리게 사진을 다듬고 있습니다...</p>
               )}
               {vibeStatus === 'done' && (
-                <p className="text-xs text-emerald-500 font-medium">✅ Vibe AI 분석 완료! 명함에 반영됩니다.</p>
+                <p className="text-[14px] text-emerald-500 font-bold">✅ 사진 등록 완료! 아래 [프로필 저장] 버튼을 꼭 눌러주세요.</p>
               )}
             </div>
           </div>
 
           <div className="space-y-1.5 mt-2">
-            <label className="block text-sm font-medium">이름</label>
+            <label htmlFor="profile-display-name" className="block text-[16px] font-bold">
+              성함 (직함 포함 가능) <span className="text-rose-500">*</span>
+            </label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               className={inputClass}
-              placeholder="홍길동"
+              placeholder="예: 홍길동 대표공인중개사"
               id="profile-display-name"
             />
+            <p className="text-[13px] text-muted-foreground">
+              제안서(IM) 표지 하단과 카카오톡 명함에 표시될 성함입니다.
+            </p>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">연락처</label>
+            <label htmlFor="profile-phone" className="block text-[16px] font-bold">
+              휴대폰 또는 사무실 전화번호 <span className="text-rose-500">*</span>
+            </label>
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className={inputClass}
-              placeholder="010-0000-0000"
+              placeholder="예: 010-1234-5678 (숫자만 입력하셔도 자동 변환됩니다)"
               id="profile-phone"
             />
+            <p className="text-[13px] text-muted-foreground">
+              고객이 딜카드나 제안서에서 [전화 문의하기] 버튼을 누르면 이 번호로 바로 연결됩니다.
+            </p>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">소속 / 회사</label>
+            <label htmlFor="profile-company" className="block text-[16px] font-bold">
+              중개사무소 상호 (회사명) <span className="text-rose-500">*</span>
+            </label>
             <input
               type="text"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
               className={inputClass}
-              placeholder="JS 부동산 중개법인"
+              placeholder="예: 양평 삼성 공인중개사사무소 / JS 부동산중개법인"
               id="profile-company"
             />
+            <p className="text-[13px] text-muted-foreground">
+              PPTX 투자설명서(IM) 첫 장 표지와 매수자용 웹 화면 상단에 인쇄됩니다.
+            </p>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">공유 타이틀 (OG Title)</label>
+            <label htmlFor="profile-tagline" className="block text-[16px] font-bold">
+              명함 한줄 소개 문구 (카카오톡 공유 제목)
+            </label>
             <input
               type="text"
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
               className={inputClass}
-              placeholder="상업용 부동산 전문 중개사"
+              placeholder="예: 영등포·당산·양평 꼬마빌딩·수익형 빌딩 20년 전문 중개"
               id="profile-tagline"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              카카오톡 등에 명함을 공유할 때 제목으로 표시됩니다.
+            <p className="text-[13px] text-muted-foreground mt-1">
+              카카오톡으로 명함이나 소식지를 보낼 때 성함 옆에 따라붙는 한줄 소개글입니다.
             </p>
           </div>
         </section>
 
         {/* ─── Section 2: 자격/등록 정보 ─── */}
         <section className={sectionClass}>
-          <h2 className={sectionTitleClass}>자격/등록 정보</h2>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>② 공인중개사 자격 및 사무소 등록 정보</h2>
+            <p className="text-[14px] text-muted-foreground">
+              자격증 번호와 등록번호를 입력해 두시면 법인·자산가 고객이 제안서를 열람할 때 공식 등록 중개사무소로 표시되어 신뢰도가 높아집니다.
+            </p>
+          </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">공인중개사 자격증 번호</label>
+            <label htmlFor="profile-license-number" className="block text-[16px] font-bold">공인중개사 자격증 번호</label>
             <input
               type="text"
               value={licenseNumber}
               onChange={(e) => setLicenseNumber(e.target.value)}
               className={inputClass}
-              placeholder="2024-11-05432"
+              placeholder="예: 2008-11-05432"
               id="profile-license-number"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">중개사무소 등록번호</label>
+            <label htmlFor="profile-office-reg-number" className="block text-[16px] font-bold">중개사무소 개설등록번호</label>
             <input
               type="text"
               value={officeRegNumber}
               onChange={(e) => setOfficeRegNumber(e.target.value)}
               className={inputClass}
-              placeholder="제 11680-2025-00123 호"
+              placeholder="예: 제 11560-2015-00123 호"
               id="profile-office-reg-number"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">소속 협회</label>
+            <label htmlFor="profile-association" className="block text-[16px] font-bold">소속 협회</label>
             <select
               value={association}
               onChange={(e) => setAssociation(e.target.value)}
               className={selectClass}
               id="profile-association"
             >
-              <option value="">선택하세요</option>
+              <option value="">협회 선택 (선택사항)</option>
               {ASSOCIATIONS.map((a) => (
                 <option key={a} value={a}>{a}</option>
               ))}
@@ -675,71 +738,83 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">개업 연도</label>
+            <label htmlFor="profile-career-start-year" className="block text-[16px] font-bold">부동산 중개 시작 연도 (개업 연도)</label>
             <div className="flex items-center gap-3">
               <input
                 type="number"
                 value={careerStartYear}
                 onChange={(e) => setCareerStartYear(e.target.value ? Number(e.target.value) : '')}
                 className={inputClass}
-                placeholder="2015"
+                placeholder="예: 2006 (숫자 4자리)"
                 min={1970}
                 max={new Date().getFullYear()}
                 id="profile-career-start-year"
               />
               {careerYears !== null && (
-                <span className="text-sm text-primary font-medium whitespace-nowrap">
-                  경력 {careerYears}년
+                <span className="text-[16px] text-primary font-extrabold whitespace-nowrap px-3 py-2 rounded-xl bg-primary/10">
+                  경력 {careerYears}년차
                 </span>
               )}
             </div>
+            <p className="text-[13px] text-muted-foreground">
+              시작 연도를 입력하시면 &apos;경력 O년차&apos;가 자동으로 계산되어 프로필에 표시됩니다.
+            </p>
           </div>
         </section>
 
         {/* ─── Existing: 전문 지역 ─── */}
-        <section className="space-y-3 rounded-xl border border-border bg-card p-5">
+        <section className={sectionClass}>
           <div>
-            <h2 className={sectionTitleClass}>전문 지역</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">주로 활동하는 지역을 선택하세요 (복수 선택 가능)</p>
+            <h2 className={sectionTitleClass}>③ 주로 활동하시는 전문 지역 (3곳 이상 선택 권장)</h2>
+            <p className="text-[14px] text-muted-foreground mt-1">
+              해당하는 지역 버튼을 마우스로 클릭해 주세요. 한 번 더 누르면 선택이 해제됩니다.
+            </p>
           </div>
           {renderChips(SPECIALTY_REGIONS, selectedRegions, setSelectedRegions, 'region')}
         </section>
 
         {/* ─── Existing: 전문 자산 유형 ─── */}
-        <section className="space-y-3 rounded-xl border border-border bg-card p-5">
+        <section className={sectionClass}>
           <div>
-            <h2 className={sectionTitleClass}>전문 자산 유형</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">주로 다루는 자산 유형을 선택하세요</p>
+            <h2 className={sectionTitleClass}>④ 주로 취급하시는 건물·자산 종류 (2개 이상 선택 권장)</h2>
+            <p className="text-[14px] text-muted-foreground mt-1">
+              꼬마빌딩, 근린상가, 오피스빌딩 등 주로 중개하시는 물건 종류를 눌러 선택해 주세요.
+            </p>
           </div>
           {renderChips(SPECIALTY_ASSETS, selectedAssets, setSelectedAssets, 'asset')}
         </section>
 
         {/* ─── Section 3: 거래 실적 ─── */}
         <section className={sectionClass}>
-          <h2 className={sectionTitleClass}>거래 실적</h2>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>⑤ 누적 거래 경험 및 주요 고객층</h2>
+            <p className="text-[14px] text-muted-foreground">
+              대략적인 누적 중개 건수와 주요 금액대를 선택해 두시면 AI 자기소개 작성 시 큰 도움이 됩니다.
+            </p>
+          </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">총 거래 건수</label>
+            <label htmlFor="profile-total-deal-count" className="block text-[16px] font-bold">누적 매매·임대 중개 건수 (어림숫자 가능)</label>
             <input
               type="number"
               value={totalDealCount}
               onChange={(e) => setTotalDealCount(e.target.value ? Number(e.target.value) : '')}
               className={inputClass}
-              placeholder="0"
+              placeholder="예: 120"
               min={0}
               id="profile-total-deal-count"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">전문 거래 금액대</label>
+            <label htmlFor="profile-deal-size-range" className="block text-[16px] font-bold">주로 중개하시는 매물 금액대</label>
             <select
               value={dealSizeRange}
               onChange={(e) => setDealSizeRange(e.target.value)}
               className={selectClass}
               id="profile-deal-size-range"
             >
-              <option value="">선택하세요</option>
+              <option value="">금액대 선택</option>
               {DEAL_SIZE_RANGES.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -747,17 +822,17 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">딜 유형 전문성</label>
+            <label className="block text-[16px] font-bold">주로 다루시는 거래 목적 (복수 선택 가능)</label>
             {renderChips(DEAL_SPECIALTIES, dealSpecialty, setDealSpecialty, 'deal-spec')}
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">매수자 유형</label>
+            <label className="block text-[16px] font-bold">주로 상담하시는 매수 고객층 (복수 선택 가능)</label>
             {renderChips(BUYER_TYPES, buyerTypes, setBuyerTypes, 'buyer-type')}
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">선호 거래 규모</label>
+            <label htmlFor="profile-preferred-price-range" className="block text-[16px] font-bold">가장 자신 있는 주력 매물 규모</label>
             <select
               value={preferredPriceRange}
               onChange={(e) => setPreferredPriceRange(e.target.value)}
@@ -774,34 +849,39 @@ export default function BrokerProfilePage() {
 
         {/* ─── Section 4: 서비스 정책 ─── */}
         <section className={sectionClass}>
-          <h2 className={sectionTitleClass}>서비스 정책</h2>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>⑥ 고객 상담 방식 및 수수료 안내</h2>
+            <p className="text-[14px] text-muted-foreground">
+              고객이 어떤 방법으로 연락하면 좋은지 안내하는 항목입니다.
+            </p>
+          </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium">수수료 정책</label>
-            <div className="flex gap-4">
+          <div className="space-y-2">
+            <label className="block text-[16px] font-bold">중개보수(수수료) 안내 기준</label>
+            <div className="flex flex-wrap gap-4">
               {(['법정수수료 준수', '별도 협의'] as const).map((option) => (
-                <label key={option} className="flex items-center gap-2 cursor-pointer">
+                <label key={option} className="flex items-center gap-2.5 cursor-pointer px-3.5 py-2.5 rounded-xl border border-border bg-background">
                   <input
                     type="radio"
                     name="fee-policy"
                     value={option}
                     checked={feePolicy === option}
                     onChange={(e) => setFeePolicy(e.target.value)}
-                    className="accent-primary"
+                    className="accent-primary w-4 h-4"
                   />
-                  <span className="text-sm">{option}</span>
+                  <span className="text-[15px] font-semibold">{option}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">상담 방식</label>
+            <label className="block text-[16px] font-bold">선호하는 고객 상담 방식 (복수 선택 가능)</label>
             {renderChips(CONSULT_METHODS, consultMethods, setConsultMethods, 'consult')}
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">응답 보장 시간</label>
+            <label htmlFor="profile-response-time" className="block text-[16px] font-bold">문의 접수 시 평균 연락(응답) 시간</label>
             <select
               value={responseTimeHours}
               onChange={(e) => setResponseTimeHours(e.target.value ? Number(e.target.value) : '')}
@@ -810,100 +890,110 @@ export default function BrokerProfilePage() {
             >
               <option value="">선택하세요</option>
               {RESPONSE_TIME_OPTIONS.map((h) => (
-                <option key={h} value={h}>{h}시간 이내</option>
+                <option key={h} value={h}>{h}시간 이내 연락</option>
               ))}
             </select>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">소통 가능 언어</label>
+            <label className="block text-[16px] font-bold">상담 가능 언어</label>
             {renderChips(LANGUAGES, languages, setLanguages, 'lang')}
           </div>
         </section>
 
         {/* ─── Section 5: 소셜 링크 ─── */}
         <section className={sectionClass}>
-          <h2 className={sectionTitleClass}>소셜 링크</h2>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>⑦ 블로그 · 유튜브 · 카카오톡 채널 (선택사항)</h2>
+            <p className="text-[14px] text-muted-foreground">
+              운영하시는 네이버 블로그나 유튜브가 있으실 때만 적어주시면 됩니다. 없으시면 비워두셔도 전혀 지장 없습니다.
+            </p>
+          </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">카카오채널 ID</label>
+            <label htmlFor="profile-kakao-channel" className="block text-[16px] font-bold">카카오톡 채널 아이디 (있으실 경우)</label>
             <input
               type="text"
               value={kakaoChannel}
               onChange={(e) => setKakaoChannel(e.target.value)}
               className={inputClass}
-              placeholder="@credeal"
+              placeholder="예: @credeal (없으시면 비워두세요)"
               id="profile-kakao-channel"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">네이버 블로그</label>
+            <label htmlFor="profile-naver-blog" className="block text-[16px] font-bold">네이버 블로그 주소 (있으실 경우)</label>
             <input
               type="url"
               value={naverBlogUrl}
               onChange={(e) => setNaverBlogUrl(e.target.value)}
               className={inputClass}
-              placeholder="https://blog.naver.com/..."
+              placeholder="예: https://blog.naver.com/내블로그아이디"
               id="profile-naver-blog"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">유튜브 채널</label>
+            <label htmlFor="profile-youtube" className="block text-[16px] font-bold">유튜브 채널 주소 (있으실 경우)</label>
             <input
               type="url"
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
               className={inputClass}
-              placeholder="https://youtube.com/@..."
+              placeholder="예: https://youtube.com/@채널이름"
               id="profile-youtube"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium">LinkedIn</label>
+            <label htmlFor="profile-linkedin" className="block text-[16px] font-bold">기타 홈페이지 / 링크드인 주소 (선택)</label>
             <input
               type="url"
               value={linkedinUrl}
               onChange={(e) => setLinkedinUrl(e.target.value)}
               className={inputClass}
-              placeholder="https://linkedin.com/in/..."
+              placeholder="https://..."
               id="profile-linkedin"
             />
           </div>
         </section>
 
         {/* ─── Section 6: 자기소개 ─── */}
-        <section className="space-y-3 rounded-xl border border-border bg-card p-5">
-          <h2 className={sectionTitleClass}>자기소개</h2>
+        <section className={sectionClass}>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>⑧ 고객에게 전하는 인사말 (자기소개)</h2>
+            <p className="text-[14px] text-muted-foreground">
+              직접 쓰기 막막하시다면 위에서 선택하신 지역·경력을 바탕으로 아래 <strong>[✨ AI로 자기소개 자동 작성하기]</strong> 버튼을 눌러보세요!
+            </p>
+          </div>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={5}
             maxLength={1000}
-            className={`${inputClass} resize-none`}
-            placeholder="중개 경력, 전문 분야, 고객에게 전하고 싶은 메시지를 작성해주세요."
+            className={`${inputClass} resize-none leading-relaxed`}
+            placeholder="중개 경력, 전문 분야, 건물주·매수인 고객께 전하고 싶은 인사말을 적어주세요."
             id="profile-bio"
           />
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <button
               type="button"
               onClick={handleGenerateBio}
               disabled={generatingBio}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-[14px] font-extrabold border border-primary/40 text-primary bg-primary/10 hover:bg-primary/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               id="generate-bio-btn"
             >
               {generatingBio ? (
                 <>
-                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  AI가 프로필 정보를 기반으로 작성 중...
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  AI가 대표님의 경력과 지역에 맞춰 인사말을 작성 중입니다...
                 </>
               ) : (
-                '✨ AI로 자기소개 생성하기'
+                '✨ AI로 자기소개 자동 작성하기 (추천)'
               )}
             </button>
-            <p className="text-xs text-muted-foreground">{bio.length}/1000</p>
+            <p className="text-[13px] font-medium text-muted-foreground">{bio.length} / 1,000자</p>
           </div>
         </section>
 
@@ -912,17 +1002,17 @@ export default function BrokerProfilePage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-4 py-3.5 text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-2xl px-5 py-4 min-h-[56px] text-[18px] shadow-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           id="save-profile-btn"
         >
-          {saving ? '저장 중...' : '프로필 저장'}
+          {saving ? '저장 중...' : '💾 내 프로필 · 사무소 정보 저장하기'}
         </button>
 
         {/* Logout */}
         <form action={logout}>
           <button
             type="submit"
-            className="w-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 rounded-xl px-4 py-3 text-sm transition-colors"
+            className="w-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 rounded-xl px-4 py-3.5 min-h-[48px] text-[15px] font-semibold transition-colors"
             id="logout-btn"
           >
             로그아웃

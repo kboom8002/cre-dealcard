@@ -484,7 +484,8 @@ p {
 .broker-paper-theme .bg-slate-950,
 .broker-paper-theme .bg-\[\#090D16\],
 .broker-paper-theme .bg-\[\#0A0A0A\],
-.broker-paper-theme .bg-\[\#0B0F19\] {
+.broker-paper-theme .bg-\[\#0B0F19\],
+.broker-paper-theme .bg-\[\#0B1120\] {
   background-color: #F8FAFC !important;
   color: #0F172A !important;
 }
@@ -509,10 +510,31 @@ p {
 .broker-paper-theme .bg-neutral-950\/30,
 .broker-paper-theme .bg-neutral-950\/50,
 .broker-paper-theme .bg-neutral-950\/80,
+.broker-paper-theme .bg-slate-900\/40,
+.broker-paper-theme .bg-slate-900\/50,
+.broker-paper-theme .bg-slate-900\/60,
+.broker-paper-theme .bg-slate-900\/70,
+.broker-paper-theme .bg-slate-900\/80,
+.broker-paper-theme .bg-slate-900\/90,
+.broker-paper-theme .bg-slate-900\/95,
 .broker-paper-theme .bg-\[\#0f172a\],
-.broker-paper-theme .bg-\[\#0f172a\]\/95 {
+.broker-paper-theme .bg-\[\#0f172a\]\/95,
+.broker-paper-theme .bg-\[\#0e1424\],
+.broker-paper-theme .bg-\[\#131b2e\],
+.broker-paper-theme .bg-\[\#111827\],
+.broker-paper-theme .bg-\[\#111827\]\/90 {
   background-color: #FFFFFF !important;
   color: #0F172A !important;
+}
+
+/* 2-1. 어두운 그라데이션 꼬리(to-slate-900 등)를 밝은 종이 표면으로 전환 */
+.broker-paper-theme .to-slate-900,
+.broker-paper-theme .to-neutral-900,
+.broker-paper-theme .to-gray-900,
+.broker-paper-theme .via-slate-900\/90 {
+  --tw-gradient-to: #FFFFFF !important;
+  --tw-gradient-via: #F8FAFC !important;
+  background-color: #FFFFFF !important;
 }
 
 /* 3. 보조 칩/버튼 표면 */
@@ -522,6 +544,13 @@ p {
 .broker-paper-theme .bg-neutral-800\/50,
 .broker-paper-theme .bg-gray-800\/50,
 .broker-paper-theme .bg-gray-800\/60,
+.broker-paper-theme .bg-slate-800\/30,
+.broker-paper-theme .bg-slate-800\/35,
+.broker-paper-theme .bg-slate-800\/40,
+.broker-paper-theme .bg-slate-800\/50,
+.broker-paper-theme .bg-slate-800\/60,
+.broker-paper-theme .bg-slate-800\/70,
+.broker-paper-theme .bg-slate-800\/80,
 .broker-paper-theme .bg-white\/5,
 .broker-paper-theme .bg-white\/\[0\.03\],
 .broker-paper-theme .bg-white\/\[0\.04\] {
@@ -536,6 +565,10 @@ p {
 .broker-paper-theme .border-neutral-700,
 .broker-paper-theme .border-gray-700,
 .broker-paper-theme .border-slate-700,
+.broker-paper-theme .border-slate-700\/60,
+.broker-paper-theme .border-slate-700\/70,
+.broker-paper-theme .border-slate-700\/80,
+.broker-paper-theme .border-slate-600,
 .broker-paper-theme .border-neutral-800\/50,
 .broker-paper-theme .border-neutral-800\/70,
 .broker-paper-theme .border-gray-800\/60,
@@ -551,7 +584,8 @@ p {
 .broker-paper-theme .text-gray-100,
 .broker-paper-theme .text-gray-200,
 .broker-paper-theme .text-slate-100,
-.broker-paper-theme .text-slate-200 {
+.broker-paper-theme .text-slate-200,
+.broker-paper-theme .text-ink-muted {
   color: #0F172A !important;
 }
 
@@ -566,11 +600,14 @@ p {
 .broker-paper-theme .text-slate-400,
 .broker-paper-theme .text-neutral-500,
 .broker-paper-theme .text-gray-500,
-.broker-paper-theme .text-slate-500 {
+.broker-paper-theme .text-slate-500,
+.broker-paper-theme .text-ink-subtle {
   color: #334155 !important;
 }
 
 /* 6. 주간 모드용 강조 색상 명도 보정 (밝은 배경에서 형광색 글씨가 안 보이는 현상 차단) */
+.broker-paper-theme .text-amber-100,
+.broker-paper-theme .text-amber-200,
 .broker-paper-theme .text-amber-300,
 .broker-paper-theme .text-amber-400,
 .broker-paper-theme .text-yellow-300,
@@ -578,21 +615,27 @@ p {
   color: #B45309 !important;
 }
 
+.broker-paper-theme .text-emerald-200,
 .broker-paper-theme .text-emerald-300,
 .broker-paper-theme .text-emerald-400,
 .broker-paper-theme .text-green-400 {
   color: #047857 !important;
 }
 
+.broker-paper-theme .text-blue-200,
 .broker-paper-theme .text-blue-300,
 .broker-paper-theme .text-blue-400,
 .broker-paper-theme .text-sky-300,
 .broker-paper-theme .text-sky-400,
+.broker-paper-theme .text-indigo-100,
+.broker-paper-theme .text-indigo-200,
 .broker-paper-theme .text-indigo-300,
 .broker-paper-theme .text-indigo-400 {
   color: #1D4ED8 !important;
 }
 
+.broker-paper-theme .text-pink-200,
+.broker-paper-theme .text-rose-200,
 .broker-paper-theme .text-rose-300,
 .broker-paper-theme .text-rose-400,
 .broker-paper-theme .text-red-400 {

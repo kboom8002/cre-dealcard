@@ -78,19 +78,37 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={toggleMode}
-            data-testid="broker-theme-toggle-btn"
-            className={
-              isPaperMode
-                ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-colors shrink-0"
-                : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 transition-colors shrink-0"
-            }
-            title="눈이 편안한 밝은 종이 화면과 어두운 화면을 전환합니다"
-          >
-            <span>{isPaperMode ? "☀️ 큰글씨 밝은 화면 (켜짐)" : "🌙 어두운 화면 (켜짐)"}</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/broker/tutorial"
+              id="broker-top-tutorial-btn"
+              data-testid="broker-top-tutorial-btn"
+              className={
+                pathname.startsWith("/broker/tutorial")
+                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-extrabold bg-emerald-700 text-white shadow-sm transition-colors"
+                  : isPaperMode
+                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 transition-colors"
+                  : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-extrabold bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 transition-colors"
+              }
+              title="화면 캡처와 동영상으로 배우는 단계별 사용 설명서"
+            >
+              <span>📖 쉬운 사용법 안내</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={toggleMode}
+              data-testid="broker-theme-toggle-btn"
+              className={
+                isPaperMode
+                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-colors shrink-0"
+                  : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 transition-colors shrink-0"
+              }
+              title="눈이 편안한 밝은 종이 화면과 어두운 화면을 전환합니다"
+            >
+              <span>{isPaperMode ? "☀️ 큰글씨 밝은 화면 (켜짐)" : "🌙 어두운 화면 (켜짐)"}</span>
+            </button>
+          </div>
         </div>
       </header>
 
