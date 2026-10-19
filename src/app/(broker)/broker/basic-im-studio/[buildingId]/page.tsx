@@ -432,6 +432,7 @@ function BasicImStudioInner({
 
           <button
             type="button"
+            data-testid="studio-download-pptx-btn"
             onClick={handleDownload}
             disabled={downloading}
             className="px-4 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-xl text-xs sm:text-sm font-black transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5"

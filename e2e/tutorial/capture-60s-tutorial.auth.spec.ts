@@ -539,7 +539,7 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
     // Navigate to IM Approval page for Yangpyeong using YANGPYEONG_DOC_ID
     await showVideoCaption(
       page,
-      "제5장: IM 완성 확인 화면에서 [📥 PPTX 제안서 파일 받기]와 4대 필수 점검(✅)을 확인합니다"
+      "제5장: IM 완성 확인 화면에서 [📐 슬라이드 미리보기 · 편집 후 다운로드]와 4대 필수 점검(✅)을 확인합니다"
     );
     await page.goto(
       `/broker/im-approval/${YANGPYEONG_DOC_ID}`,
@@ -549,8 +549,8 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
     await page.waitForTimeout(1200);
 
     await saveDualScreenshot(page, "step-05-im-approval-checklist.png", [
-      { selector: "#approval-top-download-pptx", badge: "①", label: "📥 PPTX 제안서 파일 바로 받기" },
-      { selector: "button:has-text('웹 화면 열기')", badge: "②", label: "🖥️ 매수자용 웹 화면 열기" },
+      { selector: "#approval-top-studio-btn", badge: "①", label: "📐 슬라이드 미리보기 · 편집 후 다운로드" },
+      { selector: "#approval-top-download-pptx", badge: "②", label: "⚡ PPTX 바로 다운로드" },
       { selector: "h3:has-text('제안서 필수 데이터 자동 점검')", badge: "③", label: "필수 데이터 4항목 자동 점검 완료" },
     ]);
 
@@ -559,13 +559,60 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
 
     await showVideoCaption(
       page,
-      "제5장: 사진 역할(📌대표/🏢외관/🚫제외)을 지정하고 3대 핵심 투자 포인트를 다듬습니다"
+      "제5장: 사진 역할(📌대표/🏢외관/🚫제외)을 지정하고 3대 핵심 투자 포인트를 점검합니다"
     );
     await page.waitForTimeout(900);
 
     await saveDualScreenshot(page, "step-05-im-approval-narrative-download.png", [
       { selector: "h3:has-text('매물 사진 관리')", badge: "①", label: "사진 역할 지정 (📌대표 · 🏢외관 · 🚫제외)" },
       { selector: "h3:has-text('상단 투자 요약 편집')", badge: "②", label: "표지 제목 · 3대 핵심 투자 포인트 2줄 편집" },
+    ]);
+
+    // Navigate to Basic IM Studio (/broker/basic-im-studio/[buildingId])
+    await showVideoCaption(
+      page,
+      "제5장: [📐 슬라이드 미리보기 · 편집 후 다운로드]를 눌러 16:9 슬라이드 스튜디오를 엽니다"
+    );
+    await page.goto(
+      `/broker/basic-im-studio/${YANGPYEONG_BUILDING_ID}`,
+      { waitUntil: "domcontentloaded" }
+    );
+    await page.locator("[data-testid='studio-slide-canvas']").waitFor({ state: "visible", timeout: 25000 });
+    await page.waitForTimeout(1000);
+
+    // Click Slide 02 (투자 핵심 요약) so the 16:9 preview shows the rich summary slide & AI polish buttons
+    const slide2Btn = page.locator("[data-testid='studio-slide-navigator'] >> text=투자 핵심 요약").first();
+    if (await slide2Btn.isVisible().catch(() => false)) {
+      await slide2Btn.click();
+      await page.waitForTimeout(700);
+    }
+
+    await saveDualScreenshot(page, "step-05-studio-slide-editor.png", [
+      { selector: "[data-testid='studio-slide-navigator']", badge: "①", label: "10면 슬라이드 목록 (순서·포함/제외)" },
+      { selector: "[data-testid='studio-slide-canvas']", badge: "②", label: "16:9 실시간 캔버스 (글자 클릭 시 바로 수정)" },
+      { selector: "[data-testid='studio-slide-editor']", badge: "③", label: "슬라이드 편집 & ✨ AI 문구 다듬기" },
+    ]);
+
+    // Switch to [🎨 테마·프리셋] tab and select a theme preset
+    await showVideoCaption(
+      page,
+      "제5장: 우측 [🎨 테마·프리셋] 탭에서 10종 색상 테마를 0.1초 실시간 미리보기로 전환합니다"
+    );
+    const themeTabBtn = page.locator("[data-testid='studio-tab-theme']").first();
+    if (await themeTabBtn.isVisible().catch(() => false)) {
+      await themeTabBtn.click();
+      await page.waitForTimeout(700);
+    }
+    const presetCard = page.locator("[data-testid='studio-slide-editor'] button:has-text('코퍼레이트 에메랄드')").first();
+    if (await presetCard.isVisible().catch(() => false)) {
+      await presetCard.click();
+      await page.waitForTimeout(600);
+    }
+
+    await saveDualScreenshot(page, "step-05-studio-theme-presets.png", [
+      { selector: "[data-testid='studio-right-tabs']", badge: "①", label: "편집 · 테마프리셋 · 헤더푸터 탭" },
+      { selector: "[data-testid='studio-slide-editor']", badge: "②", label: "10종 프리셋 썸네일 & 브랜드 강조색 선택" },
+      { selector: "[data-testid='studio-download-pptx-btn']", badge: "③", label: "📥 편집 반영 PPTX 다운로드" },
     ]);
 
     await finalizeVideo(page, "video-03-basic-im-generation.webm");

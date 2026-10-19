@@ -61,7 +61,10 @@ export function SlideNavigator({
   };
 
   return (
-    <aside className="w-72 border-r border-[#CBD5E1] bg-white overflow-y-auto shrink-0 flex flex-col">
+    <aside
+      data-testid="studio-slide-navigator"
+      className="w-72 border-r border-[#CBD5E1] bg-white overflow-y-auto shrink-0 flex flex-col"
+    >
       {/* Header Summary */}
       <div className="p-3.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
         <div>

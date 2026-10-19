@@ -620,6 +620,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <Link
               href={`/broker/basic-im-studio/${buildingId}`}
+              id="approval-top-studio-btn"
               className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[54px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] shadow-lg transition-all active:scale-[0.98]"
             >
               <span>📐</span>

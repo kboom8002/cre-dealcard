@@ -357,10 +357,10 @@ export function SlidePreview({
     ];
 
     return (
-      <div className="flex-1 flex flex-col justify-between gap-3 min-h-0">
+      <div className="flex-1 flex flex-col justify-between gap-2 min-h-0">
         {/* Lead Sentence Banner */}
         <div
-          className="px-4 py-2.5 rounded-xl border-l-4 text-xs sm:text-sm font-extrabold"
+          className="px-3.5 py-2 rounded-xl border-l-4 text-xs sm:text-sm font-extrabold leading-snug"
           style={{
             backgroundColor: `#${tokens.accentT}`,
             borderColor: `#${tokens.accent}`,
@@ -376,11 +376,11 @@ export function SlidePreview({
         </div>
 
         {/* 4 KPI Stat Cards */}
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-4 gap-2">
           {kpis.map(k => (
             <div
               key={k.key}
-              className="p-3 rounded-xl border flex flex-col justify-between"
+              className="p-2.5 rounded-xl border flex flex-col justify-between"
               style={{
                 backgroundColor: k.highlight ? `#${tokens.ink}` : `#${tokens.tint}`,
                 borderColor: k.highlight ? `#${tokens.ink2}` : `#${tokens.line}`,
@@ -393,7 +393,7 @@ export function SlidePreview({
               >
                 {k.label}
               </span>
-              <div className="text-base sm:text-lg font-black mt-1 truncate">
+              <div className="text-sm sm:text-base font-black mt-0.5 truncate">
                 <InlineEditableText
                   fieldKey={k.key}
                   value={String(k.value)}
@@ -405,21 +405,21 @@ export function SlidePreview({
         </div>
 
         {/* 3 Investment Highlight Pillars */}
-        <div className="space-y-2 flex-1 flex flex-col justify-center">
+        <div className="space-y-1.5 flex-1 flex flex-col justify-center min-h-0">
           {points.map(pt => (
             <div
               key={pt.key}
-              className="px-3.5 py-2 rounded-xl border flex items-center gap-3 bg-white"
+              className="px-3 py-1.5 rounded-xl border flex items-center gap-2.5 bg-white"
               style={{ borderColor: `#${tokens.line}` }}
             >
               <span
-                className="w-6 h-6 rounded-full text-[11px] font-black flex items-center justify-center shrink-0 text-white"
-                style={{ backgroundColor: `#${tokens.accent}` }}
+                className="w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white"
+                style={{ backgroundColor: `#${tokens.accent}`, color: '#FFFFFF' }}
               >
                 {pt.num}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-[#0F172A]">
+                <div className="text-xs font-bold text-[#0F172A] leading-snug line-clamp-2">
                   <InlineEditableText
                     fieldKey={pt.key}
                     value={String(pt.text)}
@@ -1211,7 +1211,10 @@ export function SlidePreview({
       {/* Top Canvas Helper Bar */}
       <div className="w-full max-w-4xl flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#0F172A] text-white">
+          <span
+            data-active-pill="true"
+            className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#1D4ED8] text-white"
+          >
             SLIDE {String(slideNo).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}
           </span>
           <span className="text-xs font-bold text-[#334155]">
@@ -1231,6 +1234,8 @@ export function SlidePreview({
 
       {/* 16:9 Slide Canvas */}
       <div
+        data-testid="studio-slide-canvas"
+        data-theme-lock="dark"
         className="w-full max-w-4xl aspect-[16/9] rounded-2xl shadow-xl overflow-hidden border border-[#CBD5E1] relative flex flex-col transition-colors duration-150"
         style={{
           backgroundColor: isDarkSlide ? `#${tokens.darkCard}` : `#${tokens.bg}`,

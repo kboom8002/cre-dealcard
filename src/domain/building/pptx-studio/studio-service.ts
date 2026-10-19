@@ -449,7 +449,12 @@ export class PptxStudioService {
     brokerInfo?: Record<string, any>
   ): Promise<PptxProject> {
     if (!docBody || Object.keys(docBody).length === 0) return project;
-    const cleanName = String(buildingName || project.title || 'CRE 빌딩').replace(/\s*Basic\s*IM$/i, '').trim();
+    const cleanName = String(buildingName || project.title || 'CRE 빌딩')
+      .replace(/기타\s*매각/g, '빌딩 매각')
+      .replace(/소재\s*기타/g, '소재 상업용 빌딩')
+      .replace(/\s*Basic\s*IM$/i, '')
+      .trim();
+    project.title = `${cleanName} Basic IM`;
     const defaultsByKey = buildBasicImSlideDefaults(cleanName, docBody, brokerInfo);
 
     // Ensure comps slide exists if project was created with 9 slides
@@ -483,12 +488,17 @@ export class PptxStudioService {
     for (const slide of project.slides) {
       const key = slide.dataKey || '';
       const def = defaultsByKey[key];
+      if (slide.title) {
+        slide.title = slide.title.replace(/기타\s*매각/g, '빌딩 매각').replace(/소재\s*기타/g, '소재 상업용 빌딩');
+      }
       if (def) {
         slide.initialOverrides = { ...def };
         const cleanedExisting: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(slide.slideOverrides || {})) {
           if (v !== undefined && v !== null && v !== '') {
-            cleanedExisting[k] = v;
+            cleanedExisting[k] = typeof v === 'string'
+              ? v.replace(/기타\s*매각/g, '빌딩 매각').replace(/소재\s*기타/g, '소재 상업용 빌딩')
+              : v;
           }
         }
         slide.slideOverrides = {

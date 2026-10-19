@@ -174,9 +174,15 @@ export function SlideEditor({
   };
 
   return (
-    <aside className="w-96 border-l border-[#CBD5E1] bg-white flex flex-col shrink-0 h-full overflow-hidden">
+    <aside
+      data-testid="studio-slide-editor"
+      className="w-96 border-l border-[#CBD5E1] bg-white flex flex-col shrink-0 h-full overflow-hidden"
+    >
       {/* Top 3-Tab Switcher */}
-      <div className="grid grid-cols-3 border-b border-[#CBD5E1] bg-[#F8FAFC] p-1.5 gap-1 shrink-0">
+      <div
+        data-testid="studio-right-tabs"
+        className="grid grid-cols-3 border-b border-[#CBD5E1] bg-[#F8FAFC] p-1.5 gap-1 shrink-0"
+      >
         {([
           { id: 'content', label: '📝 슬라이드 편집' },
           { id: 'theme', label: '🎨 테마·프리셋' },
@@ -187,10 +193,12 @@ export function SlideEditor({
             <button
               key={tab.id}
               type="button"
+              data-testid={`studio-tab-${tab.id}`}
+              data-active-pill={active ? 'true' : undefined}
               onClick={() => onTabChange(tab.id)}
               className={`py-2 px-2 rounded-lg text-xs font-extrabold transition-all ${
                 active
-                  ? 'bg-[#0F172A] text-white shadow-xs'
+                  ? 'bg-[#1D4ED8] text-white shadow-xs'
                   : 'text-[#334155] hover:text-[#0F172A] hover:bg-[#E2E8F0]/60'
               }`}
             >
