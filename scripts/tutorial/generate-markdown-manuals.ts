@@ -16,6 +16,7 @@ const FILE_NAMES: Record<string, string> = {
   "module-01": "01-홈화면-100퍼센트-활용.md",
   "module-02": "02-메모로-1분-딜카드-등록.md",
   "module-03": "03-딜카드-다듬기-카톡공유.md",
+  "module-prep": "03-준비편-IM자료준비-렌트롤AI변환.md",
   "module-04": "04-기본IM-맞춤형-PPTX-만들기.md",
   "module-05": "05-IM완성확인-PPTX받기-웹화면.md",
   "module-06": "06-내물건-보관함-관리.md",
@@ -90,7 +91,7 @@ function renderModuleMarkdown(mod: TutorialModule, isMaster: boolean): string {
   if (mod.id === "module-10") {
     lines.push(`---`);
     lines.push("");
-    lines.push(`${subHeadingPrefix} 🛠️ 자주 묻는 질문과 즉시 해결법 (FAQ 20선)`);
+    lines.push(`${subHeadingPrefix} 🛠️ 자주 묻는 질문과 즉시 해결법 (FAQ ${BROKER_FAQ_LIST.length}선)`);
     lines.push("");
     for (const faq of BROKER_FAQ_LIST) {
       lines.push(`#### [${faq.qNumber} · ${faq.category}] ${faq.question}`);
@@ -101,7 +102,7 @@ function renderModuleMarkdown(mod: TutorialModule, isMaster: boolean): string {
 
     lines.push(`---`);
     lines.push("");
-    lines.push(`${subHeadingPrefix} 📖 60대 중개인을 위한 쉬운 부동산 디지털 용어 사전 (15선)`);
+    lines.push(`${subHeadingPrefix} 📖 60대 중개인을 위한 쉬운 부동산 디지털 용어 사전 (${BROKER_GLOSSARY_LIST.length}선)`);
     lines.push("");
     lines.push(`| 화면 용어 | 쉬운 우리말 뜻 | 어디에 나오나요? |`);
     lines.push(`|:---|:---|:---|`);
@@ -139,6 +140,12 @@ function renderAppendixBMarkdown(isMaster: boolean): string {
     `${h} 부록 B. 모니터 옆에 붙여두는 A4 1장 큰글씨 요약표 (Cheat Sheet)`,
     "",
     `> 💡 **이 페이지만 인쇄하셔서 사무실 모니터 옆에 붙여두시면 언제든 10초 만에 따라 하실 수 있습니다.**`,
+    "",
+    `### ⓪ IM 전 렌트롤 준비 — AI 챗봇으로 5분 변환 (준비편)`,
+    `1. IM 입력 시트 렌트롤 상자에서 **\`[📥 빈 양식]\`** 내려받기`,
+    `2. ChatGPT·Claude·Gemini에 매도인 자료(엑셀·PPT·사진 캡처) 올리기 → 설명서 준비편 3단계 **\`[변환 지시문]\`** 복사해 붙여넣기`,
+    `3. AI가 준 16열 표를 복사 → 빈 양식 **'렌트롤' 시트 A13 칸** 클릭 후 **\`Ctrl + V\`** → C3·C4·C5·G9(㎡/평)·J3·J4 칸 채우고 저장`,
+    `4. **\`[엑셀/CSV 업로드]\`** → **'v1.5'** 표시와 **보증금·월세·관리비 합계**를 원본과 대조 (주택 임차인 실명·연락처는 AI에 올리기 전에 지우기)`,
     "",
     `### ① 1분 딜카드 만들기 (소요시간 1분)`,
     `1. 상단 메뉴바 **\`[➕ 새 물건 등록]\`** 클릭`,
@@ -235,13 +242,14 @@ function main() {
     `- [제1장. 홈 화면(대시보드) 100% 활용하기](./01-홈화면-100퍼센트-활용.md)`,
     `- [제2장. 메모로 새 물건 등록 — 1분 딜카드 만들기 (다필지 & 통합계약 실전 예시)](./02-메모로-1분-딜카드-등록.md)`,
     `- [제3장. 딜카드 확인 · 문구 직접 다듬기 · 6대 상세 탭 · 카카오톡 공유](./03-딜카드-다듬기-카톡공유.md)`,
+    `- [★ 준비편. IM 만들기 전 10분 자료 준비 — 렌트롤 엑셀 AI 챗봇 변환 · 입력 시트 자료 체크리스트](./03-준비편-IM자료준비-렌트롤AI변환.md)`,
     `- [제4장. 기본 IM(맞춤형 PPTX 투자설명서) 만들기 — 다필지·수익률·렌트롤 완벽 지원](./04-기본IM-맞춤형-PPTX-만들기.md)`,
     `- [제5장. IM 완성 확인 · PPTX 슬라이드 스튜디오(10종 테마 미리보기·편집) · 다운로드](./05-IM완성확인-PPTX받기-웹화면.md)`,
     `- [제6장. 내 물건 목록(딜카드 & IM 보관함) 검색 · 다시 열기 · 삭제하기](./06-내물건-보관함-관리.md)`,
     `- [제7장. 주간 고객 소식지(모바일 매거진) — 5분 간단 모드 & 8단계 상세 편집 완전정복](./07-주간-고객소식지-5분발행.md)`,
     `- [제8장. 고객 · 구독자 명단 등록 및 고객 문의함(열람 알림) 확인하기](./08-고객명단-문의함-열람알림.md)`,
     `- [제9장. 내 프로필 · 중개사무소 설정 완전 정복 (어디에 어떻게 인쇄되나요?)](./09-내프로필-명함설정-완전정복.md)`,
-    `- [제10장. 당황하지 않는 문제 해결(FAQ 25선) & 쉬운 부동산 디지털 용어 사전(18선)](./10-문제해결-FAQ15-용어사전.md)`,
+    `- [제10장. 당황하지 않는 문제 해결(FAQ ${BROKER_FAQ_LIST.length}선) & 쉬운 부동산 디지털 용어 사전(${BROKER_GLOSSARY_LIST.length}선)](./10-문제해결-FAQ15-용어사전.md)`,
     `- [부록 A. 5대 투자 목적(포스처)별 추천 매물 · 필수 입력값 · 자동 생성 슬라이드 비교표](./부록A-5대투자목적별-맞춤가이드.md)`,
     `- [부록 B. 모니터 옆에 붙여두는 A4 1장 큰글씨 요약표 (Cheat Sheet)](./부록B-A4-한장-큰글씨-요약표.md)`,
     `- [부록 C. 상황별 카카오톡 매물 브리핑 & 주간 소식지 발송 인사말 템플릿 6선](./부록C-카톡발송멘트-인사말-템플릿6선.md)`,
@@ -273,7 +281,7 @@ function main() {
     "utf8"
   );
 
-  console.log("✅ Generated 14 modular markdown guides + 1 master guide in docs/tutorial/");
+  console.log(`✅ Generated ${Object.keys(FILE_NAMES).length + 3} modular markdown guides + 1 master guide in docs/tutorial/`);
 }
 
 main();

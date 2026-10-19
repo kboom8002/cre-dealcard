@@ -457,6 +457,203 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
     await mobilePage.context().close();
   });
 
+  test("2b. Video 3-준비 & 준비편: IM 전 자료 준비 · 렌트롤 AI 변환 안내도 · 빈 양식 · 업로드 검산", async ({ browser }) => {
+    await ensureDirs();
+
+    // ── (1) 설명 그림 2종: 실제 화면이 아닌 '안내도'이므로 별도(녹화 없는) 컨텍스트에서 HTML로 렌더링 ──
+    const figContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ko-KR" });
+    const fig = await figContext.newPage();
+    const FIG_BASE_CSS = `
+      @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { width: 1440px; background: #F3F2EE; color: #0F172A;
+             font-family: Pretendard, "Malgun Gothic", sans-serif; padding: 36px 44px; }
+      h1 { font-size: 34px; font-weight: 900; letter-spacing: -0.5px; }
+      .sub { font-size: 18px; font-weight: 600; color: #334155; margin-top: 6px; }
+      .card { background: #FFFFFF; border: 2px solid #CBD5E1; border-radius: 20px; padding: 20px 22px;
+              box-shadow: 0 2px 6px rgba(15,23,42,0.06); }
+      .tag { display: inline-block; font-size: 15px; font-weight: 900; padding: 4px 12px; border-radius: 999px; color: #FFFFFF; }
+      ul { list-style: none; } li { font-size: 17px; font-weight: 600; line-height: 1.55; padding-left: 22px; position: relative; }
+      li::before { content: "•"; position: absolute; left: 6px; font-weight: 900; }
+    `;
+    const renderFigure = async (fileName: string, html: string) => {
+      await fig.setContent(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>${FIG_BASE_CSS}</style></head><body>${html}</body></html>`, { waitUntil: "load" });
+      await fig.evaluate(() => (document as any).fonts?.ready);
+      await fig.waitForTimeout(300);
+      const contentHeight = await fig.evaluate(() => Math.ceil(document.body.getBoundingClientRect().height));
+      await fig.setViewportSize({ width: 1440, height: Math.max(600, contentHeight) });
+      await fig.waitForTimeout(150);
+      const pubPath = path.join(PUBLIC_IMG_DIR, fileName);
+      await fig.screenshot({ path: pubPath, fullPage: false });
+      fs.copyFileSync(pubPath, path.join(DOCS_IMG_DIR, fileName));
+      console.log(`  🖼️  Saved explanatory figure: ${fileName}`);
+    };
+
+    await renderFigure("step-prep-01-overview.png", `
+      <h1>📦 IM 만들기 전 준비물 한눈에 보기</h1>
+      <p class="sub">공적장부는 크리딜이 자동으로 가져옵니다. 대표님은 오른쪽 자료만 챙기시면 됩니다.</p>
+      <div style="display:grid;grid-template-columns:5fr 7fr;gap:22px;margin-top:22px;">
+        <div class="card" style="border-color:#93C5FD;background:#EFF6FF;">
+          <span class="tag" style="background:#1D4ED8;">① 🤖 시스템이 자동으로 가져옵니다 (준비 불필요)</span>
+          <ul style="margin-top:16px;color:#1E3A8A;">
+            <li>건축물대장 — 연면적 · 층수 · 준공연도 · 주차 · 승강기</li>
+            <li>토지대장 · 다필지 대지면적 자동 합산</li>
+            <li>토지이용계획 — 용도지역 · 지구 · 규제</li>
+            <li>개별공시지가 10년 추이</li>
+            <li>V-World 연속지적도</li>
+            <li>국토부 실거래 사례 (인근 매매)</li>
+            <li>가까운 지하철역 · 도보 시간 · 배후 아파트</li>
+          </ul>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="card" style="border-color:#FCA5A5;background:#FFF1F2;">
+            <span class="tag" style="background:#BE123C;">② ✋ 필수 — 이것만 있어도 IM 생성 (렌트롤 등급 R1)</span>
+            <ul style="margin-top:10px;color:#881337;">
+              <li>매각 희망가 · 정확한 지번</li>
+              <li>렌트롤 원본 — 층/호실 · 업종 · 보증금 · 월세 · 계약 만료일 · 임대상태(임대중/공실/자가사용)</li>
+            </ul>
+          </div>
+          <div class="card" style="border-color:#FCD34D;background:#FFFBEB;">
+            <span class="tag" style="background:#B45309;">③ 권장 — 제안서 품질이 확 올라갑니다 (R2)</span>
+            <ul style="margin-top:10px;color:#78350F;">
+              <li>임대면적 · 전용면적 · 관리비 · 적용법령(상가/주택)</li>
+              <li>건물 사진 — 외관 정면 1장 + 로비 · 내부 3~5장</li>
+              <li>투자 포인트 3줄 (한 줄 60자 이내)</li>
+            </ul>
+          </div>
+          <div class="card" style="border-color:#6EE7B7;background:#ECFDF5;">
+            <span class="tag" style="background:#047857;">④ 정밀 — 매수자 실사 수준 (R3)</span>
+            <ul style="margin-top:10px;color:#065F46;">
+              <li>최초 계약일 · 대항력(사업자등록) · 갱신요구권 행사 · 계약서 원본 확인 여부</li>
+              <li>매입 후 전략(공실·자가사용 층 전환 시 보증금·월세) · 인근 매물 3~4건 · 층별 시장 임대료</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:20px;background:#4338CA;color:#FFFFFF;border-radius:16px;padding:16px 22px;font-size:20px;font-weight:900;">
+        💡 렌트롤 엑셀은 손으로 치지 마세요 — 매도인 자료를 AI 챗봇에 올리고 [변환 지시문]을 붙여넣으면 5분이면 끝납니다 (준비편 3단계)
+      </div>
+    `);
+
+    const gridCols = "ABCDEFGHIJKLMNOP".split("");
+    const miniGrid = `
+      <table style="border-collapse:collapse;margin-top:12px;font-size:13px;font-weight:800;">
+        <tr><td style="width:30px;"></td>${gridCols.map((c) => `<td style="width:26px;text-align:center;background:#E2E8F0;border:1px solid #94A3B8;">${c}</td>`).join("")}<td style="padding-left:6px;color:#64748B;">Q~ 회색(자동)</td></tr>
+        ${[12, 13, 14, 15].map((r) => `<tr><td style="text-align:center;background:#E2E8F0;border:1px solid #94A3B8;">${r}</td>${gridCols.map((c, i) => {
+          const isA13 = r === 13 && i === 0;
+          const bg = r === 12 ? "#CBD5E1" : r >= 13 ? "#FEF9C3" : "#FFFFFF";
+          return `<td style="height:24px;border:${isA13 ? "3px solid #E11D48" : "1px solid #CBD5E1"};background:${bg};"></td>`;
+        }).join("")}<td style="background:#E5E7EB;border:1px solid #CBD5E1;width:60px;"></td></tr>`).join("")}
+      </table>
+      <p style="margin-top:8px;font-size:15px;font-weight:900;color:#BE123C;">▲ 빨간 칸 A13 클릭 → Ctrl + V (노란 칸에만 들어감)</p>
+    `;
+    await renderFigure("step-prep-03-ai-flow.png", `
+      <h1>🤖 렌트롤 엑셀, AI 챗봇으로 5분 만에 표준 양식(v1.5)으로 바꾸기</h1>
+      <p class="sub">ChatGPT · Claude · Gemini 무엇이든 됩니다. 크리딜 설명서의 [변환 지시문]만 복사해서 붙여넣으세요.</p>
+      <div style="display:grid;grid-template-columns:1fr 40px 1.15fr 40px 1.9fr 40px 1fr;align-items:stretch;margin-top:24px;">
+        <div class="card">
+          <span class="tag" style="background:#475569;">① 기존 자료</span>
+          <ul style="margin-top:14px;">
+            <li>매도인 엑셀</li><li>PPT 페이지</li><li>휴대폰 사진 · 화면 캡처</li><li>PDF</li>
+          </ul>
+          <p style="margin-top:14px;font-size:15px;font-weight:800;color:#9F1239;">🔒 주택 임차인 실명 · 연락처는 미리 지우기</p>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#64748B;">▶</div>
+        <div class="card" style="border-color:#C4B5FD;background:#F5F3FF;">
+          <span class="tag" style="background:#6D28D9;">② AI 챗봇에 올리기</span>
+          <ul style="margin-top:14px;color:#4C1D95;">
+            <li>📎 클립 버튼으로 자료 첨부</li>
+            <li>설명서의 <b>[변환 지시문]</b> 복사</li>
+            <li>입력창에 Ctrl + V → 보내기</li>
+          </ul>
+          <div style="margin-top:14px;background:#FFFFFF;border:2px dashed #8B5CF6;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:700;color:#5B21B6;line-height:1.5;">
+            [CREDEAL 렌트롤 변환 요청]<br/>■ 출력 1 머리 정보<br/>■ 출력 2 호실 표 16열<br/>■ 출력 3 검산 합계
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#64748B;">▶</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="card" style="border-color:#93C5FD;background:#EFF6FF;padding:16px 18px;">
+            <span class="tag" style="background:#1D4ED8;">③-A 권장 · 모든 챗봇 — 16열 표를 빈 양식에 붙여넣기</span>
+            ${miniGrid}
+          </div>
+          <div class="card" style="border-color:#FCD34D;background:#FFFBEB;padding:16px 18px;">
+            <span class="tag" style="background:#B45309;">③-B 빠른 방법 · 파일 기능 AI — 빈 양식째 채워 받기</span>
+            <p style="margin-top:10px;font-size:16px;font-weight:700;color:#78350F;line-height:1.5;">빈 양식 + 자료를 함께 올리고 [빈 양식 채우기 지시문] → 채워진 .xlsx 내려받기<br/>※ 'v1.5' 표시가 안 뜨면 ③-A로 다시</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#64748B;">▶</div>
+        <div class="card" style="border-color:#6EE7B7;background:#ECFDF5;">
+          <span class="tag" style="background:#047857;">④ 크리딜 업로드</span>
+          <ul style="margin-top:14px;color:#065F46;">
+            <li>[엑셀/CSV 업로드]</li>
+            <li>'v1.5 · ㎡/평 입력' 표시 확인</li>
+            <li>보증금 · 월세 · 관리비 합계를 원본과 대조</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top:22px;background:#9F1239;color:#FFFFFF;border-radius:16px;padding:16px 22px;font-size:19px;font-weight:900;">
+        ⚠ AI는 숫자를 잘못 읽을 수 있습니다 (예: 6,000만 → 600만). 업로드 화면의 합계가 원본 합계와 같은지 꼭 확인하세요.
+      </div>
+    `);
+    await figContext.close();
+
+    // ── (2) 실제 화면: IM 입력 시트 렌트롤 상자 & v1.5 업로드 직후 미리보기 ──
+    const page = await openRecordedPage(browser);
+    page.on("dialog", (d) => d.accept().catch(() => undefined)); // '기존 렌트롤 덮어쓰기' 확인창 자동 승인 (localStorage 초안에만 반영)
+
+    await page.goto(`/broker/deal-card/${YANGPYEONG_BUILDING_ID}`, { waitUntil: "domcontentloaded" });
+    await ensurePaperMode(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1200);
+
+    await showVideoCaption(page, "준비편: [⚡ 기본 IM 만들기]로 입력 시트를 열고 렌트롤 불러오기 상자를 찾습니다");
+    const openImBtn = page.locator("#cta-mobile-im-basic, [data-testid='generate-basic-im']").first();
+    await openImBtn.waitFor({ state: "visible", timeout: 15000 });
+    await openImBtn.click();
+    await page.locator("div[role='dialog']").waitFor({ state: "visible", timeout: 15000 });
+    await page.waitForTimeout(900);
+
+    const templateBtn = page.locator("[data-testid='rentroll-template-download']").first();
+    await templateBtn.waitFor({ state: "visible", timeout: 15000 });
+    await templateBtn.evaluate((el) => el.scrollIntoView({ behavior: "instant", block: "center" }));
+    await page.waitForTimeout(700);
+
+    await showVideoCaption(page, "준비편: [📥 빈 양식]으로 표준 렌트롤(v1.5)을 내려받아 AI 챗봇 변환에 사용합니다");
+    await page.waitForTimeout(900);
+    await saveDualScreenshot(page, "step-prep-02-rentroll-importer.png", [
+      { selector: "[data-testid='rentroll-template-download']", badge: "①", label: "빈 양식" },
+      { selector: "[data-testid='rentroll-upload-btn']", badge: "②", label: "엑셀 업로드" },
+      { selector: "[data-testid='rentroll-mode-text']", badge: "③", label: "텍스트 입력" },
+    ]);
+
+    await showVideoCaption(page, "준비편: AI로 변환·저장한 표준 렌트롤 엑셀을 [엑셀/CSV 업로드]로 올립니다");
+    await page.waitForTimeout(700);
+    const fixture = path.resolve(
+      process.cwd(),
+      "docs/golden-test-data/p5-yangpyeong-income/r3-verified/CREDEAL_rentroll_p5-yangpyeong-income_r3-verified.xlsx"
+    );
+    await page.locator("[data-testid='rentroll-file-input']").setInputFiles(fixture);
+    const preview = page.locator("[data-testid='rentroll-preview']").first();
+    await preview.waitFor({ state: "visible", timeout: 20000 });
+    await page.locator("[data-testid='rent-roll-version-badge']").first()
+      .evaluate((el) => el.scrollIntoView({ behavior: "instant", block: "start" }));
+    await page.evaluate(() => {
+      const dialog = document.querySelector("div[role='dialog']");
+      const scrollArea = dialog?.querySelector("div.overflow-y-auto");
+      if (scrollArea) scrollArea.scrollTop -= 90;
+    });
+    await page.waitForTimeout(800);
+
+    await showVideoCaption(page, "준비편: 'v1.5' 표시와 보증금·월세·관리비 합계를 원본과 대조해 검산합니다");
+    await page.waitForTimeout(900);
+    await saveDualScreenshot(page, "step-prep-04-upload-preview.png", [
+      { selector: "[data-testid='rent-roll-version-badge']", badge: "①", label: "v1.5 양식 · 면적 단위 확인" },
+      { selector: "[data-testid='rentroll-preview'] table", badge: "②", label: "호실별 데이터 확인 · 바로 수정" },
+    ]);
+
+    await finalizeVideo(page, "video-03p-prep-rentroll.webm");
+  });
+
   test("3. Video 3 & Modules 4~5: 기본 IM(PPTX 제안서) 만들기 & IM 완성 확인", async ({ browser }) => {
     const page = await openRecordedPage(browser);
 

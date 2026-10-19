@@ -385,13 +385,13 @@ function BrokerTutorialInner() {
                 </div>
               )}
 
-              {/* 제10장일 때: FAQ 20선 & 부동산 디지털 용어 사전 15선 렌더링 */}
+              {/* 제10장일 때: FAQ & 부동산 디지털 용어 사전 렌더링 (개수는 데이터 길이로 자동 표기) */}
               {mod.id === "module-10" && (
                 <div id="faq-section" className="space-y-8 pt-2">
-                  {/* FAQ 20선 */}
+                  {/* FAQ */}
                   <div className="space-y-4">
                     <h3 className="text-[22px] font-black text-slate-900">
-                      🛠️ 자주 묻는 질문과 즉시 해결법 (FAQ 20선)
+                      🛠️ 자주 묻는 질문과 즉시 해결법 (FAQ {BROKER_FAQ_LIST.length}선)
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
                       {BROKER_FAQ_LIST.map((faq) => (
@@ -421,10 +421,10 @@ function BrokerTutorialInner() {
                     </div>
                   </div>
 
-                  {/* 쉬운 용어 사전 15선 */}
+                  {/* 쉬운 용어 사전 */}
                   <div className="space-y-4 pt-4">
                     <h3 className="text-[22px] font-black text-slate-900">
-                      📖 60대 중개인을 위한 쉬운 부동산 디지털 용어 사전 (15선)
+                      📖 60대 중개인을 위한 쉬운 부동산 디지털 용어 사전 ({BROKER_GLOSSARY_LIST.length}선)
                     </h3>
                     <div className="overflow-x-auto rounded-2xl border-2 border-slate-300">
                       <table className="w-full text-left border-collapse">
@@ -536,6 +536,18 @@ function BrokerTutorialInner() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2 rounded-2xl border-2 border-violet-300 p-5 space-y-2 bg-[#F5F3FF]">
+                  <p className="text-[19px] font-black text-violet-900">
+                    ⓪ IM 전 렌트롤 준비 — AI 챗봇으로 5분 변환 (준비편)
+                  </p>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-[16px] font-semibold text-slate-800">
+                    <li>IM 입력 시트 렌트롤 상자에서 [📥 빈 양식] 내려받기</li>
+                    <li>ChatGPT·Claude·Gemini에 매도인 자료(엑셀·PPT·사진 캡처) 올리고 → 준비편 3단계 [변환 지시문] 붙여넣기</li>
+                    <li>AI가 준 16열 표 복사 → 빈 양식 &apos;렌트롤&apos; 시트 A13 칸 클릭 후 Ctrl+V → C3·C4·C5·G9(㎡/평)·J3·J4 채우고 저장</li>
+                    <li>[엑셀/CSV 업로드] → &apos;v1.5&apos; 표시와 보증금·월세·관리비 합계를 원본과 대조 (주택 임차인 실명·연락처는 미리 지우기)</li>
+                  </ol>
+                </div>
+
                 <div className="rounded-2xl border-2 border-slate-300 p-5 space-y-2 bg-[#F8FAFC]">
                   <p className="text-[19px] font-black text-blue-900">
                     ① 1분 딜카드 만들기 (소요시간 1분)
@@ -555,8 +567,8 @@ function BrokerTutorialInner() {
                   <ol className="list-decimal pl-5 space-y-1.5 text-[16px] font-semibold text-slate-800">
                     <li>딜카드 화면 맨 아래 노란색 [⚡ 기본 IM 만들기] 클릭</li>
                     <li>① 투자 목적(임대수익/사옥/신축) 선택 → ② 주소 검색(다필지 자동 합산)</li>
-                    <li>③ 매각가(+100억/+10억 버튼)·층별 임대료·사진 입력 후 [⚡ IM 생성]</li>
-                    <li>완성 화면에서 4대 점검(✅) 확인 후 [📥 PPTX 제안서 파일 받기] 클릭</li>
+                    <li>③ 매각가(+100억/+10억 버튼)·렌트롤 엑셀 업로드·사진 입력 후 [⚡ IM 생성]</li>
+                    <li>완성 화면 [📐 슬라이드 미리보기 · 편집 후 다운로드] → 테마·문구 확인 후 [📥 편집 반영 PPTX 다운로드]</li>
                   </ol>
                 </div>
 

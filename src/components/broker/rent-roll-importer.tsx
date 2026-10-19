@@ -335,6 +335,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         <button
           type="button"
           onClick={() => { setMode("text"); setResult(""); setIsError(false); setParsedPreview(null); }}
+          data-testid="rentroll-mode-text"
           className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
             mode === "text"
               ? "bg-background text-primary shadow-sm"
@@ -362,10 +363,12 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 className="hidden"
                 ref={fileInputRef}
                 onChange={handleFileChange}
+                data-testid="rentroll-file-input"
               />
               <button
                 type="button"
                 onClick={() => setShowHelp((v) => !v)}
+                data-testid="rentroll-help-btn"
                 className={`w-7 h-7 rounded-full border text-xs font-bold flex items-center justify-center transition-colors ${
                   showHelp
                     ? "bg-primary/20 border-primary text-primary"
@@ -379,6 +382,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
               <a
                 href={TEMPLATE_HREF}
                 download={TEMPLATE_DOWNLOAD_NAME}
+                data-testid="rentroll-template-download"
                 className="border border-primary/30 text-primary px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-primary/10 transition-colors whitespace-nowrap"
                 title="빈 엑셀 양식 다운로드 (임대면적·전용면적·전용률 포함, R1/R2/R3 컬럼 설명 시트 포함)"
               >
@@ -387,6 +391,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImporting}
+                data-testid="rentroll-upload-btn"
                 className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
               >
                 {isImporting ? "분석 중..." : "엑셀/CSV 업로드"}
@@ -450,7 +455,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
 
       {/* Parsed Preview Editable Mini-Table */}
       {parsedPreview && (
-        <div className="mt-4 bg-secondary/50 rounded-lg p-3 border border-border animate-in fade-in duration-150">
+        <div data-testid="rentroll-preview" className="mt-4 bg-secondary/50 rounded-lg p-3 border border-border animate-in fade-in duration-150">
           <h4 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-2">
             데이터 확인 및 수정
             <span
