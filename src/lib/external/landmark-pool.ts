@@ -436,7 +436,7 @@ export function poolCacheKey(center: { lat: number; lng: number }, extras: Reado
 
 function cacheDir(): string {
   if (process.env.LANDMARK_POOL_CACHE_DIR) return process.env.LANDMARK_POOL_CACHE_DIR;
-  return process.env.VERCEL ? path.join(os.tmpdir(), 'landmark-pool') : path.join(process.cwd(), '.cache', 'landmark-pool');
+  return process.env.VERCEL ? path.join(os.tmpdir(), 'landmark-pool') : path.join(/*turbopackIgnore: true*/ process.cwd(), '.cache', 'landmark-pool');
 }
 
 function cacheFile(key: string): string {
@@ -452,8 +452,8 @@ function isFresh(pool: LandmarkPool | null | undefined, now: number): pool is La
 function readFileCache(key: string, now: number): LandmarkPool | null {
   try {
     const f = cacheFile(key);
-    if (!fs.existsSync(f)) return null;
-    const pool = JSON.parse(fs.readFileSync(f, 'utf8')) as LandmarkPool;
+    if (!fs.existsSync(/*turbopackIgnore: true*/ f)) return null;
+    const pool = JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ f, 'utf8')) as LandmarkPool;
     return isFresh(pool, now) ? pool : null;
   } catch {
     return null;
@@ -478,8 +478,8 @@ export function clearLandmarkPoolMemoryCache(): void {
 /** 픽스처 JSON 로드 (유효하지 않으면 null) */
 export function loadLandmarkPoolFixture(file: string): LandmarkPool | null {
   try {
-    const p = path.isAbsolute(file) ? file : path.resolve(process.cwd(), file);
-    const pool = JSON.parse(fs.readFileSync(p, 'utf8')) as LandmarkPool;
+    const p = path.isAbsolute(file) ? file : path.resolve(/*turbopackIgnore: true*/ process.cwd(), file);
+    const pool = JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ p, 'utf8')) as LandmarkPool;
     if (!pool || !Array.isArray(pool.candidates) || !pool.center) return null;
     return pool;
   } catch (err) {

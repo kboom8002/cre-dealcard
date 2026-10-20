@@ -56,12 +56,24 @@ const nextConfig: NextConfig = {
       "./node_modules/playwright/**",
       "./node_modules/playwright-core/**",
       "./node_modules/@playwright/**",
+      "./public/tutorials/**",
+      "./e2e/**",
+      "./scripts/**",
+      "./supabase/**",
+      "./test-results/**",
+      "./playwright-report/**",
+      "./node_modules/typescript/**",
+      "./node_modules/vitest/**",
+      "./CREDEAL_IM_MODERNIZATION/**",
+      "./public/test-images/**",
+      "./public/vibe-bg/**",
     ],
   },
   outputFileTracingIncludes: {
     // OG/이미지 라우트가 fs.readFile 로 읽는 번들 한글 폰트(Noto Sans KR, OFL) — src/lib/magazine/og-fonts.ts
     "/api/og/**": ["./public/fonts/**"],
     "/api/magazine/**": ["./public/fonts/**"],
+    "/api/**": ["./credeal/ssot/**"],
   },
   async headers() {
     return [

@@ -470,13 +470,13 @@ let pageOrderCache: Record<string, string[]> | null = null;
 /** Resolves candidate paths for credeal/ssot/im.pages.yaml across CLI, tests, and build environments */
 export function resolveImPagesYamlPath(): string | null {
   const candidates = [
-    path.join(process.cwd(), 'credeal', 'ssot', 'im.pages.yaml'),
-    path.resolve(__dirname, '../../credeal/ssot/im.pages.yaml'),
-    path.resolve(__dirname, '../../../credeal/ssot/im.pages.yaml'),
+    path.join(/*turbopackIgnore: true*/ process.cwd(), 'credeal', 'ssot', 'im.pages.yaml'),
+    path.resolve(/*turbopackIgnore: true*/ __dirname, '../../credeal/ssot/im.pages.yaml'),
+    path.resolve(/*turbopackIgnore: true*/ __dirname, '../../../credeal/ssot/im.pages.yaml'),
   ];
   for (const p of candidates) {
     try {
-      if (fs.existsSync(p)) return p;
+      if (fs.existsSync(/*turbopackIgnore: true*/ p)) return p;
     } catch {
       // ignore access error
     }
@@ -523,7 +523,7 @@ export function loadPageOrder(postureOrPreset: string): string[] {
       if (!yamlPath) {
         throw new Error('[ssot-adapter] im.pages.yaml not found in candidate paths');
       }
-      const raw = fs.readFileSync(yamlPath, 'utf-8');
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ yamlPath, 'utf-8');
       const parsed = yaml.load(raw) as {
         sequence?: Array<{ key: string }>;
         presets?: Record<string, { order: string[] }>;

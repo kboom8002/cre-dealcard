@@ -11,8 +11,8 @@ import * as yaml from 'js-yaml';
 function loadSsotPageLimit(): number {
   try {
     const fs = require('fs');
-    const yamlPath = path.resolve(process.cwd(), 'credeal/ssot/im.pages.yaml');
-    const content = yaml.load(fs.readFileSync(yamlPath, 'utf8')) as any;
+    const yamlPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), 'credeal/ssot/im.pages.yaml');
+    const content = yaml.load(fs.readFileSync(/*turbopackIgnore: true*/ yamlPath, 'utf8')) as any;
     return content?.rules?.max_pages_absolute ?? 16;
   } catch {
     return 16;

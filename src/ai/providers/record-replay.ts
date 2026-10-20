@@ -42,7 +42,7 @@ export function resolveLLMMode(env: NodeJS.ProcessEnv = process.env): LLMMode {
 }
 
 export function resolveRecordingsDir(env: NodeJS.ProcessEnv = process.env): string {
-  return env.LLM_RECORDINGS_DIR || join(process.cwd(), 'e2e', 'llm-recordings');
+  return env.LLM_RECORDINGS_DIR || join(/*turbopackIgnore: true*/ process.cwd(), 'e2e', 'llm-recordings');
 }
 
 /** 실행마다 달라지는 값을 제거한 프롬프트 */
@@ -89,7 +89,7 @@ export class RecordReplayProvider implements LLMProvider {
   }
 
   private file(key: string): string {
-    return join(this.dir, `${key}.json`);
+    return join(/*turbopackIgnore: true*/ this.dir, `${key}.json`);
   }
 
   /**
@@ -100,7 +100,7 @@ export class RecordReplayProvider implements LLMProvider {
   private noteMiss(key: string, params: LLMChatParams, kind: 'replay-miss' | 'live-call'): void {
     try {
       if (process.env.VITEST && !process.env.LLM_MISS_LOG) return; // 단위 테스트에서는 저장소 파일을 더럽히지 않음
-      const logFile = process.env.LLM_MISS_LOG || join(process.cwd(), 'test-results', 'llm-replay-misses.jsonl');
+      const logFile = process.env.LLM_MISS_LOG || join(/*turbopackIgnore: true*/ process.cwd(), 'test-results', 'llm-replay-misses.jsonl');
       mkdirSync(dirname(logFile), { recursive: true });
       appendFileSync(logFile, JSON.stringify({
         at: new Date().toISOString(), mode: this.mode, kind, key, model: params.model,
@@ -122,11 +122,11 @@ export class RecordReplayProvider implements LLMProvider {
     const f = this.file(key);
 
     if (this.mode === 'replay') {
-      if (!existsSync(f)) {
+      if (!existsSync(/*turbopackIgnore: true*/ f)) {
         this.noteMiss(key, params, 'replay-miss');
         throw new LLMReplayMissError(key, normalizePrompt(params.userPrompt ?? '').slice(0, 80).replace(/\s+/g, ' '));
       }
-      const rec = JSON.parse(readFileSync(f, 'utf8')) as Recording;
+      const rec = JSON.parse(readFileSync(/*turbopackIgnore: true*/ f, 'utf8')) as Recording;
       // 사용된 녹화 키 기록 (선택) — 고아 녹화 정리(prune)용
       if (process.env.LLM_USED_LOG) { try { appendFileSync(process.env.LLM_USED_LOG, key + '\n', 'utf8'); } catch { /* 관측용 */ } }
       if (rec.failed || !rec.result) throw new LLMReplayedFailureError(key, rec.error ?? 'unknown');
@@ -134,9 +134,9 @@ export class RecordReplayProvider implements LLMProvider {
     }
 
     // record-missing: 성공 녹화가 있으면 실호출 없이 재생, 없거나 실패 녹화면 아래 record 경로로 진행
-    if (this.mode === 'record-missing' && existsSync(f)) {
+    if (this.mode === 'record-missing' && existsSync(/*turbopackIgnore: true*/ f)) {
       try {
-        const rec = JSON.parse(readFileSync(f, 'utf8')) as Recording;
+        const rec = JSON.parse(readFileSync(/*turbopackIgnore: true*/ f, 'utf8')) as Recording;
         if (!rec.failed && rec.result) {
           return { ...rec.result, provider: `${rec.result.provider}:replay`, latencyMs: 0 };
         }
@@ -154,7 +154,7 @@ export class RecordReplayProvider implements LLMProvider {
     } catch (err: any) {
       // 실패도 기록 (이미 성공 녹화가 있으면 덮어쓰지 않음)
       mkdirSync(this.dir, { recursive: true });
-      if (!existsSync(f)) {
+      if (!existsSync(/*turbopackIgnore: true*/ f)) {
         const failRec: Recording = {
           key, recordedAt: new Date().toISOString(), model: params.model,
           responseFormat: params.responseFormat ?? 'text',

@@ -84,18 +84,18 @@ export async function optimizeImageForPptx(
       const fs = await import('fs');
       const path = await import('path');
       let localPath = imageUrl;
-      if (fs.existsSync(localPath)) {
-        inputBuffer = fs.readFileSync(localPath);
+      if (fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
+        inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
       } else if (imageUrl.startsWith('/')) {
-        localPath = path.join(process.cwd(), 'public', imageUrl);
-        if (fs.existsSync(localPath)) {
-          inputBuffer = fs.readFileSync(localPath);
+        localPath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', imageUrl);
+        if (fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
+          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
         }
       }
       if (!inputBuffer!) {
-        localPath = path.resolve(process.cwd(), imageUrl);
-        if (fs.existsSync(localPath)) {
-          inputBuffer = fs.readFileSync(localPath);
+        localPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), imageUrl);
+        if (fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
+          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
         } else {
           log.warn(`[optimizeImageForPptx] Local image file not found: ${imageUrl}`);
           return null;
