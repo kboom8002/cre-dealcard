@@ -192,6 +192,7 @@ export function DealCardEditor({
               </label>
               <input
                 type="text"
+                data-testid="deal-card-headline-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-primary transition-colors"
@@ -214,7 +215,7 @@ export function DealCardEditor({
             </div>
 
             {/* 핵심 딜 포인트 */}
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="deal-card-points-input">
               <div className="flex items-center justify-between">
                 <label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                   <span>🔑 핵심 딜 포인트 ({dealPoints.filter(Boolean).length}개 등록됨)</span>
@@ -339,12 +340,13 @@ export function DealCardEditor({
         </span>
         <button
           type="button"
+          data-testid="deal-card-save-btn"
           onClick={handleSave}
           disabled={isSaving || !isDirty()}
           className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40 transition-all hover:brightness-110 active:scale-95 shadow-sm shrink-0"
         >
           <Save className="w-4 h-4" />
-          {isSaving ? "저장 중..." : "수정한 문구 저장"}
+          {isSaving ? "저장 중..." : "변경사항 저장하기"}
         </button>
       </div>
     </div>

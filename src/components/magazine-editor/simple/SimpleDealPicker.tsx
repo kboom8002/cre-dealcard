@@ -109,7 +109,7 @@ export function SimpleDealPicker({
                 }
                 onToggleDeal(dealId);
               }}
-              className={`w-full min-h-[60px] rounded-xl border p-3.5 text-left transition-colors flex items-center gap-3.5 ${
+              className={`w-full min-h-[56px] rounded-xl border p-3.5 text-left transition-colors flex items-center gap-3.5 ${
                 isSelected
                   ? "border-2 border-blue-600 dark:border-indigo-400 bg-blue-50/90 dark:bg-indigo-500/15 text-slate-900 dark:text-white shadow-[0_4px_12px_rgba(37,99,235,0.10)]"
                   : "border border-slate-300 dark:border-slate-700/70 bg-white dark:bg-slate-800/30 text-slate-800 dark:text-slate-300 hover:border-slate-400 hover:bg-slate-50/70"

@@ -550,7 +550,7 @@ export class PptxStudioService {
       .from('document_objects')
       .select('body')
       .eq('id', projectId)
-      .in('document_type', ['building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
+      .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
       .maybeSingle();
 
     if (!data?.body || !Array.isArray((data.body as any)?.slides)) {
@@ -572,7 +572,7 @@ export class PptxStudioService {
       .from('document_objects')
       .select('body')
       .eq('building_id', dealId)
-      .in('document_type', ['building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
+      .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
       .order('created_at', { ascending: false })
       .limit(10);
 
@@ -829,7 +829,7 @@ export class PptxStudioService {
       const { error } = await supabase.from('document_objects').upsert({
         id: project.id,
         building_id: project.dealId,
-        document_type: 'building_snapshot_draft',
+        document_type: 'snapshot',
         source_type: 'manual',
         title: project.title,
         body: project as any,

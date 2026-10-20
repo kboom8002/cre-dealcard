@@ -32,7 +32,7 @@ export function AutoFilledStrip() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-1.5">
                 <p className="text-sm font-extrabold text-slate-100 truncate">{item.label}</p>
-                <span className="shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-extrabold text-emerald-300">
+                <span className="shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-xs font-extrabold text-emerald-300">
                   자동 포함
                 </span>
               </div>

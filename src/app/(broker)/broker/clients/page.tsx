@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
+import { createClient } from '@/lib/supabase/client';
 
 interface BrokerClient {
   id: string;
@@ -218,11 +219,7 @@ export default function ClientsPage() {
 
 async function getToken(): Promise<string> {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ?? '';
   } catch {

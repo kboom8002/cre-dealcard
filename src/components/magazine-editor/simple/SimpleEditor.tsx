@@ -20,7 +20,10 @@ import { editorToast } from "@/components/magazine-editor/editor-toaster";
 import { SOTA_SPRING, StaggerContainer, StaggerItem } from "@/components/motion/sota-motion";
 import { NoteStarterChips } from "./NoteStarterChips";
 import { SimpleDealPicker, type SimpleDealItem } from "./SimpleDealPicker";
+import { SimpleNewsPicker } from "./SimpleNewsPicker";
 import { AutoFilledStrip } from "./AutoFilledStrip";
+import type { NewsItem } from "../NewsCurationPanel";
+import type { NewsChannelId } from "@/domain/magazine/news-channels";
 
 const MARKET_TEMPS: MarketTemperature[] = [
   "적극 매수",
@@ -148,6 +151,11 @@ export interface SimpleEditorProps {
   toggleDeal: (dealId: string) => void;
   fmt?: (price: number) => string;
   newsTitles?: string[];
+  allNews?: NewsItem[];
+  selectedNewsIds?: Set<string>;
+  toggleNews?: (newsId: string) => void;
+  onReplaceNewsSelection?: (newsIds: string[]) => void;
+  onRefreshLiveNews?: (channel: NewsChannelId) => Promise<void> | void;
   themeTitle?: string;
   themeBodyMd?: string;
   pollQuestion?: string;
@@ -157,7 +165,7 @@ export interface SimpleEditorProps {
   publishing?: boolean;
   saving?: boolean;
   onPublish: (ensuredHeadline?: string) => void;
-  onOpenTab: (tab: "outreach" | "analytics") => void;
+  onOpenTab: (tab: "outreach" | "analytics" | "news") => void;
   onSwitchToFullMode: () => void;
 }
 
@@ -177,6 +185,11 @@ export function SimpleEditor({
   toggleDeal,
   fmt,
   newsTitles = [],
+  allNews = [],
+  selectedNewsIds = new Set<string>(),
+  toggleNews = () => {},
+  onReplaceNewsSelection,
+  onRefreshLiveNews,
   themeTitle,
   themeBodyMd,
   pollQuestion,
@@ -467,6 +480,30 @@ export function SimpleEditor({
               onLimitReached={() =>
                 editorToast.warning("간단 모드에서는 추천 매물을 최대 3건까지 선택할 수 있습니다.")
               }
+            />
+          </section>
+        </StaggerItem>
+
+        {/* Step 2-B: 매수자 관심 뉴스 골라 담기 (부동산·경제·절세·문화·상권) */}
+        <StaggerItem>
+          <section
+            aria-labelledby="simple-step-news-heading"
+            data-testid="simple-step-news-section"
+            className="rounded-2xl border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-900/60 p-5 space-y-3.5 shadow-[0_2px_8px_rgba(15,23,42,0.04)]"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 id="simple-step-news-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
+                📰 함께 실을 관심 뉴스 확인 <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">(부동산·경제·절세·문화·상권 · 최대 3건)</span>
+              </h2>
+            </div>
+
+            <SimpleNewsPicker
+              news={allNews}
+              selectedNewsIds={selectedNewsIds}
+              onToggleNews={toggleNews}
+              onReplaceSelection={onReplaceNewsSelection}
+              onRefreshLive={onRefreshLiveNews}
+              onOpenFullNewsTab={() => onOpenTab("news")}
             />
           </section>
         </StaggerItem>

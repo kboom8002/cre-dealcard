@@ -6,6 +6,9 @@ import {
   BROKER_GLOSSARY_LIST,
   POSTURE_GUIDE_ROWS,
   BROKER_MESSAGE_TEMPLATES,
+  BROKER_USAGE_CHECKLIST_GROUPS,
+  BROKER_FEEDBACK_SCENARIOS,
+  BROKER_FEEDBACK_SYSTEM_GUIDE,
   type TutorialModule,
 } from "../../src/lib/tutorial/broker-tutorial-data";
 
@@ -161,8 +164,8 @@ function renderAppendixBMarkdown(isMaster: boolean): string {
     "",
     `### ③ 주간 고객 소식지 5분 발행 (매주 월·화요일 아침 추천)`,
     `1. 상단 메뉴바 **\`[📰 고객 소식지]\`** 클릭 (5분 간단 모드 자동 실행)`,
-    `2. **① 이번 주 한마디**: 시작 문장 추천 버튼 클릭 후 1~2문장 작성 (제목·3줄 요약·뉴스·계산기 자동 포함)`,
-    `3. **② 소개할 매물**: 이번 주 추천할 내 물건(최대 3건) 클릭해 체크(✓)`,
+    `2. **① 이번 주 한마디**: 시작 문장 추천 버튼 클릭 후 1~2문장 작성 (제목·3줄 요약·수익률 계산기 자동 포함)`,
+    `3. **② 소개할 매물 & 관심 뉴스 3선**: 추천 매물(최대 3건) 체크 후 **\`[✨ 부동산·경제·문화 황금배합 3선 자동 맞춤]\`** 클릭 (🏢부동산 · 📈경제/금리 · ⚖️절세/상속 · 🎨문화/라이프 · ☕상권/트렌드 5대 채널에서 자유 선택 가능)`,
     `4. 하단 파란색 **\`[🚀 이번 주 매거진 발행하기]\`** 클릭 후 카카오톡·이메일 전송`,
     "",
     `### ④ 평생 써먹는 컴퓨터 단축키 & 안심 조작법 4가지`,
@@ -194,6 +197,67 @@ function renderAppendixCMarkdown(isMaster: boolean): string {
   return lines.join("\n");
 }
 
+function renderAppendixDMarkdown(isMaster: boolean): string {
+  const h = isMaster ? "##" : "#";
+  const sub = isMaster ? "###" : "##";
+  const lines: string[] = [
+    `${h} 부록 D. 실제 중개인 현장 사용 체크리스트 (19항목) & 피드백 반영 가이드`,
+    "",
+    `> ✅ 매물을 접수해 딜카드·PPTX 제안서를 만들고, 고객의 수정 요청(피드백)에 30초 만에 대응하며, 현장 개선 의견을 전달하는 실무 점검표입니다.`,
+    "",
+  ];
+
+  for (const group of BROKER_USAGE_CHECKLIST_GROUPS) {
+    lines.push(`${sub} [${group.phaseBadge}] ${group.title}`);
+    lines.push(`> ${group.subtitle}`);
+    lines.push("");
+    for (const item of group.items) {
+      lines.push(`- [ ] **${item.checkLabel}** *(참고: ${item.relatedChapter})*`);
+      lines.push(`  - ${item.detail}`);
+      if (item.mistakeToAvoid) {
+        lines.push(`  - ⚠️ **주의**: ${item.mistakeToAvoid}`);
+      }
+    }
+    lines.push("");
+  }
+
+  lines.push(`---`);
+  lines.push("");
+  lines.push(`${sub} 💬 매수 고객 · 건물주 피드백 유형별 30초 즉시 처방표 (6대 실전 사례)`);
+  lines.push("");
+  for (const sc of BROKER_FEEDBACK_SCENARIOS) {
+    lines.push(`#### [${sc.feedbackFrom}] (소요 시간: ${sc.timeRequired})`);
+    lines.push(`- **🗣️ 고객·건물주 말씀**: ${sc.clientQuote}`);
+    lines.push(`- **👆 어디서 고치나요?**: ${sc.whereToFix}`);
+    lines.push(`- **✅ 30초 즉시 해결 방법**: ${sc.howToFixIn30Sec}`);
+    lines.push("");
+  }
+
+  lines.push(`---`);
+  lines.push("");
+  lines.push(`${sub} ${BROKER_FEEDBACK_SYSTEM_GUIDE.title}`);
+  lines.push(`> ${BROKER_FEEDBACK_SYSTEM_GUIDE.subtitle}`);
+  lines.push("");
+  lines.push(`#### 📌 오류 제보 · 기능 건의 시 이렇게 보내주시면 가장 빠르게 해결됩니다`);
+  for (const s of BROKER_FEEDBACK_SYSTEM_GUIDE.howToReportSteps) {
+    lines.push(`- ${s}`);
+  }
+  lines.push("");
+  lines.push(`#### 🌟 실제 대표님들의 현장 피드백이 크리딜 기능으로 반영된 대표 사례 4선`);
+  for (const ex of BROKER_FEEDBACK_SYSTEM_GUIDE.reflectedExamples) {
+    lines.push(`- **${ex.brokerVoice}**`);
+    lines.push(`  ${ex.systemSolution}`);
+  }
+  lines.push("");
+  lines.push(`#### 📋 [${BROKER_FEEDBACK_SYSTEM_GUIDE.copyTemplate.label}]`);
+  lines.push("```text");
+  lines.push(BROKER_FEEDBACK_SYSTEM_GUIDE.copyTemplate.text);
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.mkdirSync(path.join(OUT_DIR, "images"), { recursive: true });
@@ -220,6 +284,11 @@ function main() {
   fs.writeFileSync(
     path.join(OUT_DIR, "부록C-카톡발송멘트-인사말-템플릿6선.md"),
     renderAppendixCMarkdown(false),
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(OUT_DIR, "부록D-실전-사용체크리스트-피드백가이드.md"),
+    renderAppendixDMarkdown(false),
     "utf8"
   );
 
@@ -253,6 +322,7 @@ function main() {
     `- [부록 A. 5대 투자 목적(포스처)별 추천 매물 · 필수 입력값 · 자동 생성 슬라이드 비교표](./부록A-5대투자목적별-맞춤가이드.md)`,
     `- [부록 B. 모니터 옆에 붙여두는 A4 1장 큰글씨 요약표 (Cheat Sheet)](./부록B-A4-한장-큰글씨-요약표.md)`,
     `- [부록 C. 상황별 카카오톡 매물 브리핑 & 주간 소식지 발송 인사말 템플릿 6선](./부록C-카톡발송멘트-인사말-템플릿6선.md)`,
+    `- [부록 D. 실제 중개인 현장 사용 체크리스트 (19항목) & 피드백 반영 가이드](./부록D-실전-사용체크리스트-피드백가이드.md)`,
     "",
   ];
 
@@ -274,6 +344,10 @@ function main() {
   masterLines.push(`---`);
   masterLines.push("");
   masterLines.push(renderAppendixCMarkdown(true));
+  masterLines.push("");
+  masterLines.push(`---`);
+  masterLines.push("");
+  masterLines.push(renderAppendixDMarkdown(true));
 
   fs.writeFileSync(
     path.join(OUT_DIR, "CREDEAL_60대_중개인_완전정복_튜토리얼.md"),
@@ -281,7 +355,7 @@ function main() {
     "utf8"
   );
 
-  console.log(`✅ Generated ${Object.keys(FILE_NAMES).length + 3} modular markdown guides + 1 master guide in docs/tutorial/`);
+  console.log(`✅ Generated ${Object.keys(FILE_NAMES).length + 4} modular markdown guides + 1 master guide in docs/tutorial/`);
 }
 
 main();

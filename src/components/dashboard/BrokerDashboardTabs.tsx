@@ -1,14 +1,45 @@
 "use client";
 
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "motion/react";
+
+const LazyMorningIntelligence = dynamic(
+  () => import("@/components/dashboard/MorningIntelligence"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 rounded-xl border border-slate-800 bg-slate-900/60 animate-pulse p-4" />
+    ),
+  }
+);
+
+const LazyWeeklyReportCard = dynamic(
+  () => import("@/components/dashboard/WeeklyReportCard").then((m) => m.WeeklyReportCard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-32 rounded-xl border border-slate-800 bg-slate-900/60 animate-pulse p-4" />
+    ),
+  }
+);
+
+const LazyMonthlyReportCard = dynamic(
+  () => import("@/components/dashboard/MonthlyReportCard").then((m) => m.MonthlyReportCard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-32 rounded-xl border border-slate-800 bg-slate-900/60 animate-pulse p-4" />
+    ),
+  }
+);
 
 interface BrokerDashboardTabsProps {
   actionQueueContent?: React.ReactNode;
   overviewContent: React.ReactNode;
   breakthroughContent: React.ReactNode;
-  weeklyReportContent: React.ReactNode;
-  morningIntelligenceContent: React.ReactNode;
+  weeklyReportContent?: React.ReactNode;
+  morningIntelligenceContent?: React.ReactNode;
 }
 
 export default function BrokerDashboardTabs({
@@ -68,9 +99,14 @@ export default function BrokerDashboardTabs({
             {activeTab === "overview" && overviewContent}
             {activeTab === "intelligence" && (
               <div className="space-y-6">
-                {morningIntelligenceContent}
+                {morningIntelligenceContent ?? <LazyMorningIntelligence />}
                 {breakthroughContent}
-                {weeklyReportContent}
+                {weeklyReportContent ?? (
+                  <div className="space-y-4">
+                    <LazyWeeklyReportCard />
+                    <LazyMonthlyReportCard />
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

@@ -236,7 +236,10 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           {(() => {
             const dp = Array.isArray(imBody.dealPoints) ? imBody.dealPoints.filter(Boolean) : [];
             return dp.length > 0 ? (
-              <div className="rounded-xl bg-slate-800/70 border border-slate-700/60 p-4 space-y-2.5">
+              <div
+                data-testid="public-dealcard-points"
+                className="rounded-xl bg-slate-800/70 border border-slate-700/60 p-4 space-y-2.5"
+              >
                 <div className="flex items-center justify-between">
                   <p className="text-[14px] font-bold text-amber-400 tracking-wide flex items-center gap-1.5">
                     <span>⭐ 핵심 투자 포인트 ({dp.length}선)</span>

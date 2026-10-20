@@ -5,6 +5,7 @@ import { trackTeaserCta } from './TeaserEventTracker';
 import { ContactGateModal } from './ContactGateModal';
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useBottomSlot } from "@/components/ui/use-bottom-slot";
 
 interface CTALadderProps {
   buildingId: string;
@@ -31,6 +32,7 @@ export function CTALadder({
 
   const router = useRouter();
   const [showContactModal, setShowContactModal] = useState(false);
+  useBottomSlot(`cta-ladder-${buildingId}`);
   const fp = typeof window !== 'undefined' ? localStorage.getItem('visitorFp') || 'anon' : 'anon';
   const cleanPhone = brokerPhone ? brokerPhone.replace(/[^0-9]/g, '') : '';
 
@@ -124,7 +126,10 @@ export function CTALadder({
       </div>
 
       {/* Floating Bottom Sticky Bar: Equal-weight 2 Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0B0F14]/95 border-t border-[#252E39] backdrop-blur-md px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+      <div
+        data-testid="public-dealcard-sticky-cta"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-[#0B0F14]/95 border-t border-[#252E39] backdrop-blur-md px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]"
+      >
         <div className="max-w-md mx-auto flex items-center gap-2.5">
           <button
             onClick={handleCallPhone}

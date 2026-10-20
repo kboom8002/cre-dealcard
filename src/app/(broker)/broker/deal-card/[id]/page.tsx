@@ -342,6 +342,7 @@ export default async function BrokerDealCardResultPage({
               existingDocBody={imBody}
             />
             <Link
+              id="cta-add-to-magazine"
               href={`/broker/magazine-editor?mode=simple&deals=${id}`}
               className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 px-4 py-3 min-h-[48px] text-[15px] font-extrabold text-white whitespace-nowrap transition-all hover:-translate-y-0.5 hover:opacity-95 active:scale-[0.98] shadow-md shadow-rose-900/20"
             >
@@ -370,6 +371,7 @@ export default async function BrokerDealCardResultPage({
         {/* ✏️ [2. 딜카드 문구 & OG 메타 편집기 — SOTA 스프링 아코디언] */}
         <StaggerItem>
           <AnimatedAccordion
+            summaryTestId="deal-card-edit-toggle"
             title={
               <div className="flex items-center gap-2.5 text-left">
                 <span className="text-lg">✏️</span>
@@ -383,7 +385,6 @@ export default async function BrokerDealCardResultPage({
                 </div>
               </div>
             }
-            badge="펼치기"
             className="rounded-2xl border border-border bg-card shadow-sm px-5 py-4"
           >
             <DealCardEditor

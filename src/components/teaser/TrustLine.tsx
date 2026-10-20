@@ -24,7 +24,10 @@ function TrustLineBase({
   const cleanPhone = brokerPhone?.replace(/[^0-9]/g, "");
 
   return (
-    <div className="bg-[#141A21] border border-[#252E39] rounded-xl p-4 flex flex-col gap-3 shadow-lg">
+    <div
+      data-testid="public-dealcard-trustline"
+      className="bg-[#141A21] border border-[#252E39] rounded-xl p-4 flex flex-col gap-3 shadow-lg"
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Broker Avatar */}

@@ -1,4 +1,4 @@
-import { test, type Page, type Browser } from "@playwright/test";
+import { test, expect, type Page, type Browser } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -394,7 +394,17 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
     await page.goto(`/broker/deal-card/${YANGPYEONG_BUILDING_ID}`, {
       waitUntil: "domcontentloaded",
     });
-    await page.waitForTimeout(1200);
+    // Wait for OG thumbnail image to finish rendering
+    await page
+      .waitForFunction(
+        () => {
+          const img = document.querySelector('img[alt="OG 공유 썸네일"]') as HTMLImageElement | null;
+          return !!img && img.complete && img.naturalWidth > 0;
+        },
+        { timeout: 12000 }
+      )
+      .catch(() => {});
+    await page.waitForTimeout(800);
 
     await showVideoCaption(
       page,
@@ -403,15 +413,24 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
     await page.waitForTimeout(900);
 
     await saveDualScreenshot(page, "step-03-dealcard-detail-top.png", [
-      { selector: "#cta-generate-im-bottom", badge: "②", label: "다음 단계: 기본 IM 만들기" },
-      { selector: "[data-testid='deal-card-edit-toggle']", badge: "①", label: "딜카드 제목 · 문구 직접 다듬기" },
+      { selector: "img[alt='OG 공유 썸네일']", badge: "①", label: "완성된 1분 블라인드 딜카드 미리보기" },
+      { selector: "#cta-mobile-im-basic", badge: "②", label: "다음 단계: ⚡ 기본 IM 만들기" },
+      { selector: "#cta-add-to-magazine", badge: "③", label: "📰 고객 소식지에 바로 넣기" },
     ]);
 
     const editToggle = page.locator("[data-testid='deal-card-edit-toggle']");
-    if (await editToggle.isVisible().catch(() => false)) {
-      await editToggle.click();
-      await page.waitForTimeout(600);
-    }
+    await editToggle.scrollIntoViewIfNeeded();
+    await editToggle.waitFor({ state: "visible", timeout: 5000 });
+    await editToggle.click();
+    await page.getByTestId("deal-card-headline-input").waitFor({ state: "visible", timeout: 5000 });
+    await page.evaluate(() => {
+      const el = document.querySelector("[data-testid='deal-card-edit-toggle']");
+      if (el) {
+        el.scrollIntoView({ behavior: "instant", block: "start" });
+        window.scrollBy(0, -70);
+      }
+    });
+    await page.waitForTimeout(600);
 
     await saveDualScreenshot(page, "step-03-dealcard-editor-open.png", [
       { selector: "[data-testid='deal-card-headline-input']", badge: "①", label: "딜카드 제목 직접 수정" },
@@ -419,17 +438,16 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
       { selector: "[data-testid='deal-card-save-btn']", badge: "③", label: "변경사항 저장하기" },
     ]);
 
-    if (await editToggle.isVisible().catch(() => false)) {
-      await editToggle.click();
-      await page.waitForTimeout(400);
-    }
-    await page.evaluate(() => window.scrollTo({ top: 320, behavior: "smooth" }));
-    await page.waitForTimeout(600);
+    await editToggle.click();
+    await page.waitForTimeout(450);
+    await page.evaluate(() => window.scrollTo({ top: 410, behavior: "instant" }));
+    await page.waitForTimeout(500);
 
     await saveDualScreenshot(page, "step-03-dealcard-actions-bar.png", [
-      { selector: "#cta-share-kakao", badge: "①", label: "카카오톡 공유 / 링크 복사 / 수신자 화면" },
-      { selector: "#cta-add-to-magazine", badge: "②", label: "주간 고객 소식지에 바로 넣기" },
-      { selector: "#cta-generate-im-bottom", badge: "③", label: "⚡ 기본 IM(PPTX 제안서) 만들기" },
+      { selector: "[data-testid='deal-card-kakao-share-btn']", badge: "①", label: "카톡 공유" },
+      { selector: "[data-testid='deal-card-copy-link-btn']", badge: "②", label: "링크 복사" },
+      { selector: "[data-testid='deal-card-recipient-view-btn']", badge: "③", label: "수신자 화면 미리보기" },
+      { selector: "[data-testid='deal-card-edit-toggle']", badge: "④", label: "✏️ 딜카드 제목 · 문구 다듬기" },
     ]);
 
     // Scroll down to #deal-card-tabs-container for Screenshot 3-4
@@ -449,12 +467,55 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
 
     await finalizeVideo(page, "video-02-memo-to-dealcard.webm");
 
-    // Mobile recipient view of public deal card
-    const mobilePage = await openRecordedPage(browser, { width: 390, height: 844 });
+    // Mobile recipient view of public deal card (/dc/[id], also verifying /d/[id] redirect)
+    const mobileCtx = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      locale: "ko-KR",
+    });
+    const mobilePage = await mobileCtx.newPage();
     await mobilePage.goto(`/d/${YANGPYEONG_BUILDING_ID}`, { waitUntil: "domcontentloaded" });
-    await mobilePage.waitForTimeout(1200);
+    await expect(mobilePage).toHaveURL(new RegExp(`/dc/${YANGPYEONG_BUILDING_ID}`));
+    await expect(mobilePage.getByTestId("public-dealcard-hero")).toBeVisible({ timeout: 10000 });
+    await expect(mobilePage.getByTestId("public-dealcard-trustline")).toBeVisible({ timeout: 10000 });
+    await expect(mobilePage.locator("body")).not.toContainText("페이지를 찾을 수 없습니다");
+    // Tighten vertical spacing slightly (without CSS zoom so fixed bottom-0 stays flush at bottom)
+    // and display a realistic broker name in TrustLine for the manual screenshot
+    await mobilePage.evaluate(() => {
+      const hero = document.querySelector("[data-testid='public-dealcard-hero']") as HTMLElement | null;
+      if (hero) {
+        hero.style.paddingTop = "12px";
+        hero.style.paddingBottom = "12px";
+        hero.style.gap = "8px";
+      }
+      const points = document.querySelector("[data-testid='public-dealcard-points']") as HTMLElement | null;
+      if (points) {
+        points.style.paddingTop = "10px";
+        points.style.paddingBottom = "10px";
+      }
+      const stack = points?.parentElement as HTMLElement | null;
+      if (stack) {
+        stack.style.marginTop = "8px";
+        Array.from(stack.children).forEach((child, idx) => {
+          if (idx > 0) (child as HTMLElement).style.marginTop = "8px";
+        });
+      }
+      const trust = document.querySelector("[data-testid='public-dealcard-trustline']") as HTMLElement | null;
+      if (trust) {
+        trust.style.paddingTop = "10px";
+        trust.style.paddingBottom = "10px";
+        trust.querySelectorAll("*").forEach((el) => {
+          if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
+            const txt = el.textContent || "";
+            if (txt.includes("E2E 테스트 브로커")) el.textContent = "김성수 대표 공인중개사";
+            if (txt.includes("E2E 테스트 부동산중개법인")) el.textContent = "여의도·영등포 빌딩전담 중개법인";
+          }
+        });
+      }
+      window.scrollTo({ top: 0, behavior: "instant" });
+    });
+    await mobilePage.waitForTimeout(500);
     await saveDualScreenshot(mobilePage, "step-03-public-dealcard-mobile.png", []);
-    await mobilePage.context().close();
+    await mobileCtx.close();
   });
 
   test("2b. Video 3-준비 & 준비편: IM 전 자료 준비 · 렌트롤 AI 변환 안내도 · 빈 양식 · 업로드 검산", async ({ browser }) => {
@@ -1179,6 +1240,90 @@ test.describe.serial("60s Broker Step-by-Step Tutorial Screenshot & Video Suite 
     fs.copyFileSync(docsPdfPath, publicPdfPath);
     console.log(`  📄 Exported Large-Print PDF Manual: ${docsPdfPath}`);
 
+    await pdfContext.close();
+  });
+
+  test("Appendix D checklist & feedback interactive verification and PDF manual sync", async ({
+    page,
+    browser,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 960 });
+    await page.goto("/broker/tutorial", { waitUntil: "domcontentloaded" });
+
+    const tabAppendixD = page.getByTestId("tutorial-tab-appendix-d");
+    await expect(tabAppendixD).toBeVisible({ timeout: 20_000 });
+    await tabAppendixD.click();
+
+    const sectionD = page.getByTestId("tutorial-appendix-checklist-feedback");
+    await expect(sectionD).toBeVisible();
+    await sectionD.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
+
+    const progressBadge = page.getByTestId("checklist-progress-badge");
+    await expect(progressBadge).toContainText("0 / 19개");
+
+    // Click first checklist item & verify interactive toggle
+    await page.getByTestId("checklist-item-chk-1-1").click();
+    await expect(progressBadge).toContainText("1 / 19개");
+
+    // Click second checklist item
+    await page.getByTestId("checklist-item-chk-1-4").click();
+    await expect(progressBadge).toContainText("2 / 19개");
+
+    const appendixShotPath = path.join(PUBLIC_IMG_DIR, "step-appendix-d-checklist-feedback.png");
+    await sectionD.screenshot({ path: appendixShotPath });
+    fs.copyFileSync(
+      appendixShotPath,
+      path.join(DOCS_IMG_DIR, "step-appendix-d-checklist-feedback.png")
+    );
+
+    // Check all and reset
+    await page.getByTestId("checklist-check-all-btn").click();
+    await expect(progressBadge).toContainText("19 / 19개");
+    await page.getByTestId("checklist-reset-btn").click();
+    await expect(progressBadge).toContainText("0 / 19개");
+
+    // Verify copy feedback template button
+    const copyFeedbackBtn = page.getByTestId("copy-feedback-template-btn");
+    await expect(copyFeedbackBtn).toBeVisible();
+
+    // Regenerate Large-Print PDF Manual with Appendix D included
+    const pdfContext = await browser.newContext({
+      storageState: fs.existsSync(path.resolve(process.cwd(), "e2e/.auth/user.json"))
+        ? path.resolve(process.cwd(), "e2e/.auth/user.json")
+        : undefined,
+      viewport: { width: 1280, height: 900 },
+      locale: "ko-KR",
+    });
+    const pdfPage = await pdfContext.newPage();
+    await pdfPage.goto("/broker/tutorial?print=1", { waitUntil: "domcontentloaded" });
+    await pdfPage.waitForTimeout(1500);
+    await pdfPage.evaluate(async () => {
+      const imgs = Array.from(document.querySelectorAll("img"));
+      for (const img of imgs) {
+        img.loading = "eager";
+        img.scrollIntoView();
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      window.scrollTo(0, 0);
+    });
+    await pdfPage.waitForTimeout(600);
+
+    const docsPdfPath = path.resolve(
+      process.cwd(),
+      "docs/tutorial/CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
+    );
+    const publicPdfPath = path.resolve(
+      process.cwd(),
+      "public/tutorials/CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
+    );
+    await pdfPage.pdf({
+      path: docsPdfPath,
+      format: "A4",
+      printBackground: true,
+      margin: { top: "14mm", bottom: "14mm", left: "12mm", right: "12mm" },
+    });
+    fs.copyFileSync(docsPdfPath, publicPdfPath);
     await pdfContext.close();
   });
 });

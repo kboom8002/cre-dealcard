@@ -12,7 +12,12 @@ import {
   BROKER_GLOSSARY_LIST,
   POSTURE_GUIDE_ROWS,
   BROKER_MESSAGE_TEMPLATES,
+  BROKER_USAGE_CHECKLIST_GROUPS,
+  BROKER_FEEDBACK_SCENARIOS,
+  BROKER_FEEDBACK_SYSTEM_GUIDE,
 } from "@/lib/tutorial/broker-tutorial-data";
+
+const ALL_CHECKLIST_IDS = BROKER_USAGE_CHECKLIST_GROUPS.flatMap((g) => g.items.map((item) => item.id));
 
 function BrokerTutorialInner() {
   const searchParams = useSearchParams();
@@ -21,6 +26,11 @@ function BrokerTutorialInner() {
   const [selectedModuleId, setSelectedModuleId] = useState<string>("all");
   const [extraLargeText, setExtraLargeText] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+
+  const toggleChecklistItem = (id: string) => {
+    setCheckedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   const handleCopyText = async (id: string, text: string) => {
     try {
@@ -150,7 +160,7 @@ function BrokerTutorialInner() {
                         className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
                       />
                     )}
-                    <span className="relative z-10">📚 전체 순서대로 보기 (제0장~부록 C)</span>
+                    <span className="relative z-10">📚 전체 순서대로 보기 (제0장~부록 D)</span>
                   </button>
                   {BROKER_TUTORIAL_MODULES.map((mod) => {
                     const isActive = selectedModuleId === mod.id;
@@ -199,17 +209,30 @@ function BrokerTutorialInner() {
                   >
                     💬 부록 C: 카톡 인사말 템플릿 6선
                   </a>
+                  <a
+                    href="#appendix-checklist-feedback"
+                    onClick={() => setSelectedModuleId("all")}
+                    data-testid="tutorial-tab-appendix-d"
+                    className="px-3.5 py-2.5 min-h-[44px] inline-flex items-center rounded-xl text-[15px] font-bold border border-violet-300 bg-violet-50 text-violet-950 hover:bg-violet-100 transition-all"
+                  >
+                    ✅ 부록 D: 실전 체크리스트 & 피드백
+                  </a>
                 </div>
               </div>
             </section>
           </StaggerItem>
 
           {/* ── 각 모듈(제0장 ~ 제10장) 스텝 바이 스텝 본문 ── */}
-          {visibleModules.map((mod) => (
+          {visibleModules.map((mod, modIdx) => (
             <section
               key={mod.id}
               id={mod.id}
               data-testid={`tutorial-section-${mod.id}`}
+              style={
+                modIdx > 0
+                  ? { contentVisibility: "auto", containIntrinsicSize: "0 900px" }
+                  : undefined
+              }
               className="rounded-3xl border-2 border-slate-300 bg-white p-6 sm:p-8 shadow-sm space-y-6 break-inside-avoid-page"
             >
               {/* 모듈 헤더 */}
@@ -271,7 +294,7 @@ function BrokerTutorialInner() {
                   </div>
                   <video
                     controls
-                    preload="metadata"
+                    preload="none"
                     className="w-full max-h-[520px] rounded-xl border border-slate-300 bg-slate-900 shadow-inner"
                     src={mod.videoUrl}
                   >
@@ -306,6 +329,7 @@ function BrokerTutorialInner() {
                             alt={step.imageCaption}
                             className="w-full h-auto object-contain max-h-[680px] mx-auto"
                             loading="lazy"
+                            decoding="async"
                           />
                         </div>
                         <figcaption className="text-[14px] font-bold text-slate-600 text-center px-2">
@@ -659,6 +683,262 @@ function BrokerTutorialInner() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── 부록 D: 실제 중개인 현장 사용 체크리스트(19항목) & 고객·시스템 피드백 가이드 ── */}
+          {(isPrintMode || selectedModuleId === "all") && (
+            <section
+              id="appendix-checklist-feedback"
+              data-testid="tutorial-appendix-checklist-feedback"
+              className="rounded-3xl border-4 border-violet-600 bg-white p-6 sm:p-8 shadow-md space-y-8 break-before-page"
+            >
+              {/* 헤더 & 체크 진행률 컨트롤 */}
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-violet-200 pb-5">
+                <div className="space-y-1.5">
+                  <span className="px-3.5 py-1 rounded-full bg-violet-700 text-white text-[14px] font-black">
+                    부록 D · 발송 전 무결점 검수 & 피드백 즉시 대응
+                  </span>
+                  <h2 className="text-[24px] sm:text-[28px] font-black text-slate-900 pt-1">
+                    ✅ 실제 중개인 현장 사용 체크리스트 (19항목) & 피드백 반영 가이드
+                  </h2>
+                  <p className="text-[16px] text-slate-700">
+                    매물을 접수해 딜카드·PPTX 제안서를 만들고 고객의 수정 요청(피드백)에 30초 만에 대응하는 현장 실무 점검표입니다. 각 항목을 마우스로 눌러 직접 체크(✓)해 보세요.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 print:hidden shrink-0">
+                  <span
+                    data-testid="checklist-progress-badge"
+                    className="px-3.5 py-2 rounded-xl bg-violet-100 border border-violet-300 text-violet-950 font-black text-[15px]"
+                  >
+                    점검 완료: {checkedIds.length} / {ALL_CHECKLIST_IDS.length}개
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="checklist-check-all-btn"
+                    onClick={() => setCheckedIds(ALL_CHECKLIST_IDS)}
+                    className="px-3.5 py-2 min-h-[42px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[14px] transition-colors"
+                  >
+                    ✅ 전체 체크
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="checklist-reset-btn"
+                    onClick={() => setCheckedIds([])}
+                    className="px-3.5 py-2 min-h-[42px] rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-[14px] transition-colors"
+                  >
+                    🔄 초기화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-3.5 py-2 min-h-[42px] rounded-xl bg-violet-700 hover:bg-violet-800 text-white font-extrabold text-[14px] transition-colors"
+                  >
+                    🖨️ 체크리스트 인쇄
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. 단계별 현장 사용 체크리스트 (4단계 19항목) */}
+              <div className="space-y-6">
+                {BROKER_USAGE_CHECKLIST_GROUPS.map((group) => (
+                  <div
+                    key={group.id}
+                    className="rounded-2xl border-2 border-slate-300 bg-[#F8FAFC] p-5 sm:p-6 space-y-4 break-inside-avoid"
+                  >
+                    <div className="space-y-1 border-b border-slate-200 pb-3">
+                      <span className="inline-block px-3 py-1 rounded-lg bg-violet-700 text-white text-[13px] font-black">
+                        {group.phaseBadge}
+                      </span>
+                      <h3 className="text-[20px] sm:text-[22px] font-black text-slate-900 pt-1">
+                        {group.title}
+                      </h3>
+                      <p className="text-[15px] text-slate-700 font-medium">
+                        {group.subtitle}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {group.items.map((item) => {
+                        const isChecked = checkedIds.includes(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            data-testid={`checklist-item-${item.id}`}
+                            onClick={() => toggleChecklistItem(item.id)}
+                            role="checkbox"
+                            aria-checked={isChecked}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleChecklistItem(item.id);
+                              }
+                            }}
+                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+                              isChecked
+                                ? "border-emerald-600 bg-emerald-50/70"
+                                : "border-slate-300 bg-white hover:border-violet-400"
+                            }`}
+                          >
+                            <span
+                              className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center font-black text-[16px] shrink-0 border-2 ${
+                                isChecked
+                                  ? "bg-emerald-700 border-emerald-700 text-white"
+                                  : "bg-white border-slate-400 text-transparent"
+                              }`}
+                            >
+                              ✓
+                            </span>
+                            <div className="flex-1 space-y-1.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p
+                                  className={`text-[17px] font-black ${
+                                    isChecked ? "text-emerald-950 line-through" : "text-slate-900"
+                                  }`}
+                                >
+                                  {item.checkLabel}
+                                </p>
+                                <span className="px-2.5 py-0.5 rounded-lg bg-slate-200 text-slate-800 text-[13px] font-bold">
+                                  참고: {item.relatedChapter}
+                                </span>
+                              </div>
+                              <p className="text-[15px] text-slate-800 font-medium leading-relaxed">
+                                {item.detail}
+                              </p>
+                              {item.mistakeToAvoid && (
+                                <p className="text-[14px] font-bold text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5">
+                                  ⚠️ 주의: {item.mistakeToAvoid}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 2. 매수 고객 · 건물주 피드백 유형별 30초 즉시 처방표 */}
+              <div className="space-y-4 pt-4 border-t-2 border-slate-200">
+                <div className="space-y-1">
+                  <span className="px-3 py-1 rounded-lg bg-amber-500 text-slate-950 text-[13px] font-black">
+                    파트 2 · 고객 수정 요청 30초 해결
+                  </span>
+                  <h3 className="text-[22px] sm:text-[24px] font-black text-slate-900 pt-1">
+                    💬 매수 고객 · 건물주 피드백 유형별 30초 즉시 처방표 (6대 실전 사례)
+                  </h3>
+                  <p className="text-[16px] text-slate-700">
+                    제안서를 받아본 고객이나 건물주가 숫자·문구·색상 수정을 요청하셨을 때, 당황하지 않고 <strong>30초 만에 수정본 PPTX를 다시 내려받는 방법</strong>입니다.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {BROKER_FEEDBACK_SCENARIOS.map((sc) => (
+                    <div
+                      key={sc.id}
+                      className="rounded-2xl border-2 border-slate-200 bg-[#F8FAFC] p-5 space-y-2.5 break-inside-avoid"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="px-3 py-1 rounded-lg bg-blue-700 text-white text-[14px] font-black">
+                          {sc.feedbackFrom}
+                        </span>
+                        <span className="px-3 py-1 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-950 text-[13px] font-extrabold">
+                          ⏱️ 해결 소요 시간: {sc.timeRequired}
+                        </span>
+                      </div>
+                      <p className="text-[17px] font-black text-slate-900 bg-white border border-slate-300 rounded-xl p-3.5">
+                        🗣️ {sc.clientQuote}
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-[15px]">
+                        <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3">
+                          <p className="font-extrabold text-blue-950 text-[14px]">👆 어디서 고치나요?</p>
+                          <p className="text-slate-900 font-bold mt-0.5">{sc.whereToFix}</p>
+                        </div>
+                        <div className="md:col-span-2 rounded-xl border border-emerald-200 bg-white p-3">
+                          <p className="font-extrabold text-emerald-900 text-[14px]">✅ 30초 즉시 해결 방법</p>
+                          <p className="text-slate-800 font-medium mt-0.5 leading-relaxed">
+                            {sc.howToFixIn30Sec}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. 크리딜(CRE DealCard) 현장 사용 피드백 & 오류 제보 가이드 */}
+              <div className="rounded-2xl border-2 border-indigo-300 bg-indigo-50/60 p-5 sm:p-6 space-y-5 break-inside-avoid">
+                <div className="space-y-1.5">
+                  <h3 className="text-[22px] font-black text-indigo-950">
+                    {BROKER_FEEDBACK_SYSTEM_GUIDE.title}
+                  </h3>
+                  <p className="text-[16px] text-slate-800 font-medium">
+                    {BROKER_FEEDBACK_SYSTEM_GUIDE.subtitle}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-indigo-200 bg-white p-4 space-y-2">
+                  <p className="text-[16px] font-extrabold text-indigo-950">
+                    📌 오류 제보 · 기능 건의 시 이렇게 보내주시면 가장 빠르게 해결됩니다
+                  </p>
+                  <ul className="space-y-1.5 text-[15px] text-slate-800 font-medium">
+                    {BROKER_FEEDBACK_SYSTEM_GUIDE.howToReportSteps.map((stepStr, idx) => (
+                      <li key={idx} className="leading-relaxed">
+                        {stepStr}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-xl border border-emerald-200 bg-white p-4 space-y-2.5">
+                  <p className="text-[16px] font-extrabold text-emerald-950">
+                    🌟 실제 대표님들의 현장 피드백이 크리딜 기능으로 반영된 대표 사례 4선
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[14px]">
+                    {BROKER_FEEDBACK_SYSTEM_GUIDE.reflectedExamples.map((ex, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3.5 space-y-1.5"
+                      >
+                        <p className="font-black text-slate-900">{ex.brokerVoice}</p>
+                        <p className="font-semibold text-emerald-900 leading-relaxed">
+                          {ex.systemSolution}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 원터치 피드백 양식 복사 */}
+                <div className="rounded-xl border-2 border-indigo-300 bg-white p-4 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[16px] font-black text-indigo-950">
+                      📋 원터치 복사해서 바로 보내는 [시스템 개선 · 오류 제보 양식]
+                    </p>
+                    <button
+                      type="button"
+                      data-testid="copy-feedback-template-btn"
+                      onClick={() =>
+                        handleCopyText(
+                          "feedback-report-template",
+                          BROKER_FEEDBACK_SYSTEM_GUIDE.copyTemplate.text
+                        )
+                      }
+                      className="px-4 py-2.5 min-h-[44px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[15px] font-extrabold shadow-xs print:hidden transition-colors"
+                    >
+                      {copiedId === "feedback-report-template"
+                        ? "✅ 양식이 복사되었습니다! 카톡·이메일에 붙여넣기(Ctrl+V) 하세요"
+                        : `📋 ${BROKER_FEEDBACK_SYSTEM_GUIDE.copyTemplate.label}`}
+                    </button>
+                  </div>
+                  <pre className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-[#F8FAFC] p-3.5 text-[15px] font-semibold text-slate-900 font-sans">
+                    {BROKER_FEEDBACK_SYSTEM_GUIDE.copyTemplate.text}
+                  </pre>
+                </div>
               </div>
             </section>
           )}

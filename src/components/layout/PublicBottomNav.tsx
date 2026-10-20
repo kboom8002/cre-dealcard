@@ -57,9 +57,17 @@ export function PublicBottomNav() {
   const [visible, setVisible] = useState(true);
   const [moreOpen, setMoreOpen] = useState(false);
   const lastScrollY = useRef(0);
-  // 매거진 BottomBar 가 떠 있으면 하단 탐색을 숨겨 하단 바 중복을 막는다 (매거진 외 페이지는 count=0 이라 불변)
+  // 매거진 BottomBar 나 딜카드 수신자 화면(CTALadder)이 떠 있으면 하단 탐색을 숨겨 하단 바 중복을 막는다
   const hasBottomBar = useHasBottomBar();
-  const showNav = shouldShowPublicNav({ scrollVisible: visible, hasBottomBar });
+  const isRecipientDealPage =
+    pathname.startsWith("/dc/") ||
+    pathname.startsWith("/d/") ||
+    pathname.startsWith("/deal/") ||
+    pathname.startsWith("/im-lite/");
+  const showNav = shouldShowPublicNav({
+    scrollVisible: visible,
+    hasBottomBar: hasBottomBar || isRecipientDealPage,
+  });
 
   // Hide on scroll down, reveal on scroll up
   useEffect(() => {

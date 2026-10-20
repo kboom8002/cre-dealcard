@@ -91,13 +91,14 @@ function extractExplicitPerPyeongManwon(line: string): { value?: number; strippe
   let working = line;
   let value: number | undefined;
 
-  // 패턴 A: 평당 8,500만 / 토지평당가 1억 2,000만 / 평당 1.2억
+  // 패턴 A: 평당 8,500만 / 토지평당가 약 1.7억 / 평당가(토지) 약 60백만원/평
   const prefixRe =
-    /(?:토지\s*)?평당(?:가|가격)?\s*[:=]?\s*(?:([\d,]+(?:\.\d+)?)\s*억\s*)?(?:([\d,]+(?:\.\d+)?)\s*만(?:원)?)?(?:\s*\/\s*평)?/;
+    /(?:토지\s*)?평당(?:가|가격)?(?:\s*\(\s*토지\s*\))?\s*[:=]?\s*(?:약\s*|@\s*)?(?:([\d,]+(?:\.\d+)?)\s*억(?:원)?\s*)?(?:([\d,]+(?:\.\d+)?)\s*(백만|만)(?:원)?)?(?:\s*\/\s*평)?/;
   const mA = working.match(prefixRe);
   if (mA && (mA[1] || mA[2])) {
     const eok = parseNumeric(mA[1]) ?? 0;
-    const man = parseNumeric(mA[2]) ?? 0;
+    const unitMul = mA[3] === '백만' ? 100 : 1;
+    const man = (parseNumeric(mA[2]) ?? 0) * unitMul;
     const total = Math.round(eok * 10000 + man);
     if (total > 0) {
       value = total;
@@ -106,13 +107,14 @@ function extractExplicitPerPyeongManwon(line: string): { value?: number; strippe
     }
   }
 
-  // 패턴 B: 8,500만원/평, 8500만/평, 1.2억/평
+  // 패턴 B: 8,500만원/평, 8500만/평, 1.2억/평, 약 60백만원/평, @72백만원/평
   const suffixRe =
-    /(?:([\d,]+(?:\.\d+)?)\s*억\s*)?(?:([\d,]+(?:\.\d+)?)\s*만(?:원)?)?\s*\/\s*(?:3\.3\s*(?:㎡|m2|m²)|평)/i;
+    /(?:약\s*|@\s*)?(?:([\d,]+(?:\.\d+)?)\s*억(?:원)?\s*)?(?:([\d,]+(?:\.\d+)?)\s*(백만|만)(?:원)?)?\s*\/\s*(?:3\.3\s*(?:㎡|m2|m²)|평)/i;
   const mB = working.match(suffixRe);
   if (mB && (mB[1] || mB[2])) {
     const eok = parseNumeric(mB[1]) ?? 0;
-    const man = parseNumeric(mB[2]) ?? 0;
+    const unitMul = mB[3] === '백만' ? 100 : 1;
+    const man = (parseNumeric(mB[2]) ?? 0) * unitMul;
     const total = Math.round(eok * 10000 + man);
     if (total > 0) {
       value = total;
@@ -128,8 +130,8 @@ function extractPriceEok(workingLine: string, tokens: string[]): number | undefi
   // 보증금 표현 제거하여 매매가 오탐 방지
   const cleaned = workingLine.replace(/보증(?:금)?\s*[\d,]+(?:\.\d+)?\s*억(?:\s*[\d,]+(?:\.\d+)?\s*만(?:원)?)?/g, ' ');
 
-  // 1) 명시적 '억' 패턴: 95억, 95.5억, 115억 5,000만
-  const eokRe = /(?:매매가?|매물가?|호가|거래가?|실거래가?|가격)?\s*[:=]?\s*([\d,]+(?:\.\d+)?)\s*억(?:\s*([\d,]+(?:\.\d+)?)\s*만(?:원)?)?/;
+  // 1) 명시적 '억' 패턴: 95억, 95.5억, 115억 5,000만, 매도금액 30억
+  const eokRe = /(?:매매가?|매도금액|매물가?|호가|거래가?|실거래가?|가격)?\s*[:=]?\s*([\d,]+(?:\.\d+)?)\s*억(?:\s*([\d,]+(?:\.\d+)?)\s*만(?:원)?)?/;
   const m = cleaned.match(eokRe);
   if (m) {
     const eok = parseNumeric(m[1]) ?? 0;
@@ -226,16 +228,18 @@ function extractAreas(line: string): { land: AreaPair; gfa: AreaPair } {
 function extractLocationFromTokens(tokens: string[], fullLine: string): string {
   const cleanCandidate = (raw: string): string => {
     let s = raw
-      .replace(/^(?:매물|실거래(?:가)?|호가|매매(?:사례)?)\s*[:·\-]?\s*/g, '')
+      .replace(/^(?:매\s*물|실거래(?:가)?|거\s*래|호가|매매(?:사례)?)\s*[:·\-]?\s*/g, '')
       .replace(STATION_WALK_RE, ' ')
-      .replace(/(?:토지\s*)?평당(?:가|가격)?\s*[:=]?\s*(?:[\d,]+(?:\.\d+)?\s*억\s*)?(?:[\d,]+(?:\.\d+)?\s*만(?:원)?)?/g, ' ')
-      .replace(/(?:[\d,]+(?:\.\d+)?\s*억\s*)?(?:[\d,]+(?:\.\d+)?\s*만(?:원)?)?\s*\/\s*(?:3\.3\s*(?:㎡|m2|m²)|평)/gi, ' ')
+      .replace(/(?:토지\s*)?평당(?:가|가격)?(?:\s*\(\s*토지\s*\))?\s*[:=]?\s*(?:약\s*|@\s*)?(?:[\d,]+(?:\.\d+)?\s*억(?:원)?\s*)?(?:[\d,]+(?:\.\d+)?\s*(?:백만|만)(?:원)?)?(?:\s*\/\s*평)?/g, ' ')
+      .replace(/(?:약\s*|@\s*)?(?:[\d,]+(?:\.\d+)?\s*억(?:원)?\s*)?(?:[\d,]+(?:\.\d+)?\s*(?:백만|만)(?:원)?)?\s*\/\s*(?:3\.3\s*(?:㎡|m2|m²)|평)/gi, ' ')
       .replace(/(?:대지(?:면적)?|토지(?:면적)?|연면적|연|건물(?:면적)?)\s*[:=]?\s*[\d,]+(?:\.\d+)?\s*(?:평|㎡|m2|m²|제곱미터)(?:\s*\([^)]*\))?/gi, ' ')
-      .replace(/(?:매매가?|매물가?|호가|거래가?|실거래가?|가격)?\s*[:=]?\s*[\d,]+(?:\.\d+)?\s*억(?:\s*[\d,]+(?:\.\d+)?\s*만(?:원)?)?/g, ' ')
+      .replace(/(?:매매가?|매도금액|매물가?|호가|거래가?|실거래가?|가격)?\s*[:=]?\s*[\d,]+(?:\.\d+)?\s*억(?:\s*[\d,]+(?:\.\d+)?\s*만(?:원)?)?/g, ' ')
+      .replace(/(?:용도지역|특\s*성)\s*[:=]?\s*(?:제?[123]종일반(?:주거(?:지역)?)?|일반상업(?:\+준주거)?|준주거|준공업|근린상업)/g, ' ')
       .replace(ROAD_CONDITION_RE, ' ')
-      .replace(/(?:^|[\s,|/\t(])(?:'?20\d{2}|'?2\d)\s*[.\-/년]\s*(?:0?[1-9]|1[0-2])(?:\s*월)?(?:\s*[.\-/]\s*\d{1,2}\s*일?)?/g, ' ')
-      .replace(/\b(?:매물|실거래|호가|매매)\b/g, ' ')
-      .replace(/^[\s,|/\-:·]+|[\s,|/\-:·]+$/g, '')
+      .replace(/(?:^|[\s,|/\t(])(?:20\d{2}\s*[.\-/년]\s*|'2\d\s*[.\-/년]\s*|2\d\s*[.년]\s*)(?:0?[1-9]|1[0-2])(?:\s*월)?(?:\s*[.\-/]\s*\d{1,2}\s*일?)?/g, ' ')
+      .replace(/(?:^|[\s,|/\t(])(?:매\s*물|실거래|거\s*래|호가|매매)(?=$|[\s,|/\t:)])/g, ' ')
+      .replace(/\(\s*(?:약\s*)?\)/g, ' ')
+      .replace(/^[\s,|/\-:·()]+|[\s,|/\-:·()]+$/g, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
 
@@ -248,7 +252,7 @@ function extractLocationFromTokens(tokens: string[], fullLine: string): string {
   for (const tok of tokens) {
     const t = tok.trim();
     if (!t) continue;
-    if (/^(?:매물|실거래|호가|매매)$/.test(t)) continue;
+    if (/^(?:매\s*물|실거래|거\s*래|호가|매매)$/.test(t)) continue;
     const cleaned = cleanCandidate(t);
     if (cleaned && /[가-힣]/.test(cleaned)) {
       return cleaned;
@@ -285,9 +289,9 @@ export function parseCompsPasteText(
 
     // 1. 구분 (kind)
     let kind: 'listing' | 'transaction' = defaultKind;
-    if (/(?:매물|호가)/.test(line)) {
+    if (/(?:매\s*물|호가)/.test(line)) {
       kind = 'listing';
-    } else if (/(?:실거래|매매)/.test(line)) {
+    } else if (/(?:실거래|거래\s*사례|(?:^|[\s,|/\t])거\s*래(?=$|[\s,|/\t:])|매매)/.test(line)) {
       kind = 'transaction';
     }
 

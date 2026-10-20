@@ -3,20 +3,13 @@ import Link from "next/link";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
-import { calculateBrokerMonthlyRoi } from "@/domain/analytics/roi-calculator";
-import { RoiCard } from "@/components/dashboard/RoiCard";
 import { MarketBreakthroughMode } from "@/components/dashboard/AntifragileMode";
-import { WeeklyReportCard } from "@/components/dashboard/WeeklyReportCard";
-import { MonthlyReportCard } from "@/components/dashboard/MonthlyReportCard";
-import { Bell, TrendingUp, Users, Building2, Target, Calendar, Newspaper } from "lucide-react";
+import { Bell, Users, Building2, Calendar, Newspaper } from "lucide-react";
 import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
-import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
 import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
 import { ActionQueue, type ActionItem } from "@/components/dashboard/ActionQueue";
 import { PipelineSnapshot } from "@/components/dashboard/PipelineSnapshot";
 import { StaggerContainer, StaggerItem, AnimatedAccordion } from "@/components/motion/sota-motion";
-
-import { UniversalMemoFAB } from "@/components/memo/UniversalMemoFAB";
 
 export const metadata: Metadata = {
   title: "JS 1분 딜카드 | 중개 업무 홈",
@@ -32,48 +25,13 @@ export default async function BrokerPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // ── [C2] 최초 접속 (온보딩 미완료)인 경우 /onboarding으로 자동 리다이렉트 ──
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, display_name, photo_url")
-    .eq("id", user.id)
-    .single();
+  const todayDateKst = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const monthStartIso = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-  /* DORMANT: onboarding — Shock & Awe 온보딩 리다이렉트 비활성화 (복구 시 주석 해제)
-  // ALPHA: 온보딩 완료 여부 확인 (admin 제외)
-  // ALPHA: profile.role이 이미 broker인 직접 가입/관리자 배정 유저는 통과
-  if (profile?.role !== 'admin') {
-    const { data: onboardingSession } = await supabase
-      .from('onboarding_sessions')
-      .select('completed_at')
-      .eq('user_id', user.id)
-      .not('completed_at', 'is', null)
-      .limit(1)
-      .maybeSingle();
-
-    // 온보딩 미완료 AND 직접 broker 배정도 아닌 경우에만 온보딩으로 리다이렉트
-    // (알파: broker role이 이미 있으면 통과 — 관리자가 직접 배정한 경우)
-    if (!onboardingSession && profile?.role !== 'broker') {
-      redirect('/onboarding');
-    }
-  }
-  */
-
-  // brokerProfileData는 아래 Promise.all에서 조회됨 — 여기서는 임시 변수만 선언
-  // (실제 값은 Promise.all 이후에 설정)
-  let userName = "중개인";
-  let userPhotoUrl: string | null = null;
-
-  // ── KPI 데이터 병렬 조회 ──
+  // ── 프로필 + 핵심 KPI 데이터 단일 병렬 조회 (직렬 워터폴 및 휴면 ROI 6연속 쿼리 제거) ──
   const [
-    { count: totalBuildings },
-    { count: totalLeaseSpaces },
-    { count: totalBuyers },
-    { count: totalTenants },
+    { data: profile },
     { count: totalClients },
-    { data: matchResults },
-    { data: leaseMatchResults },
-    roiMetrics,
     marketIndicatorRes,
     activityEventsRes,
     todayBookingsRes,
@@ -83,28 +41,14 @@ export default async function BrokerPage() {
     magazineViewsRes,
   ] = await Promise.all([
     supabase
-      .from("building_ssot_lite")
-      .select("id", { count: "exact", head: true })
-      .eq("owner_id", user.id),
-    /* DORMANT: leasing-studio 휴면 — lease_spaces 쿼리 비활성화 */
-    Promise.resolve({ count: 0 }),
-    supabase
-      .from("buyer_intent_lite")
-      .select("id", { count: "exact", head: true })
-      .eq("broker_id", user.id),
-    /* DORMANT: leasing-studio 휴면 — tenant_intent 쿼리 비활성화 */
-    Promise.resolve({ count: 0 }),
+      .from("profiles")
+      .select("role, display_name, photo_url")
+      .eq("id", user.id)
+      .maybeSingle(),
     supabase
       .from("broker_clients")
       .select("id", { count: "exact", head: true })
       .eq("broker_id", user.id),
-    supabase
-      .from("match_results")
-      .select("grade")
-      .eq("broker_id", user.id),
-    /* DORMANT: leasing-studio 휴면 — lease_match_results 쿼리 비활성화 */
-    Promise.resolve({ data: [] }),
-    calculateBrokerMonthlyRoi(supabase, user.id),
     supabase
       .from("market_leading_indicators")
       .select("*")
@@ -131,7 +75,7 @@ export default async function BrokerPage() {
         )
       `)
       .in("status", ["hold", "confirmed"])
-      .eq("slot.slot_date", new Date(new Date().getTime() + 9 * 60 * 60 * 1000).toISOString().split("T")[0])
+      .eq("slot.slot_date", todayDateKst)
       .order("slot.slot_start", { ascending: true }),
     // Vibe Card slug 조회
     supabase
@@ -139,7 +83,7 @@ export default async function BrokerPage() {
       .select("slug, name, avatar_url, photo_url")
       .eq("user_id", user.id)
       .maybeSingle(),
-    // 내 딜 체류일 계산용 created_at 목록
+    // 내 딜 총 건수 및 체류일 계산용 created_at 목록 (단일 쿼리로 통합)
     supabase
       .from("building_ssot_lite")
       .select("created_at")
@@ -156,25 +100,21 @@ export default async function BrokerPage() {
       .select("id", { count: "exact", head: true })
       .eq("event_type", "magazine_view")
       .eq("actor_id", user.id)
-      .gte("created_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+      .gte("created_at", monthStartIso),
   ]);
 
   // ── 이름/사진 fallback 체인 (profiles → broker_profiles → auth metadata → email) ──
-  userName = profile?.display_name
-    || (brokerProfileData?.name as string | null)
-    || user.user_metadata?.full_name
-    || user.email?.split("@")[0]
-    || "중개인";
-  userPhotoUrl = profile?.photo_url
-    || (brokerProfileData?.avatar_url as string | null)
-    || (brokerProfileData?.photo_url as string | null)
-    || null;
-
-  const sMatchCount =
-    (matchResults?.filter((m) => m.grade === "S").length ?? 0);
-    /* DORMANT: leasing-studio 휴면 — leaseMatchResults 합산 제거 */
-  const aMatchCount =
-    (matchResults?.filter((m) => m.grade === "A").length ?? 0);
+  const userName =
+    profile?.display_name ||
+    (brokerProfileData?.name as string | null) ||
+    user.user_metadata?.full_name ||
+    user.email?.split("@")[0] ||
+    "중개인";
+  const userPhotoUrl =
+    profile?.photo_url ||
+    (brokerProfileData?.avatar_url as string | null) ||
+    (brokerProfileData?.photo_url as string | null) ||
+    null;
 
   const trend = marketIndicatorRes?.data as any;
   const breakthroughMetrics = {
@@ -189,16 +129,10 @@ export default async function BrokerPage() {
       : { min: 0.08, max: 0.15 },
   };
 
-  const totalMatchCount = matchResults?.length ?? 0;
-  const sConversionRate =
-    totalMatchCount > 0
-      ? Math.round((sMatchCount / totalMatchCount) * 1000) / 10
-      : 0;
-
-  const myTotalDeals = totalBuildings ?? 0;
-
-  // 내 딜 실 평균 체류일 계산 (building_ssot_lite.created_at 기반)
+  // 내 딜 총 건수 및 평균 체류일 (building_ssot_lite.created_at 단일 쿼리 기반)
   const dealCreatedDates = (dealDatesRes as any)?.data || [];
+  const totalBuildings = dealCreatedDates.length;
+  const myTotalDeals = totalBuildings;
   const myAvgHoldDays = dealCreatedDates.length > 0
     ? Math.round(
         dealCreatedDates.reduce((sum: number, d: any) => {
@@ -592,13 +526,6 @@ export default async function BrokerPage() {
             actionQueueContent={actionQueueContent}
             overviewContent={overviewContent}
             breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
-            weeklyReportContent={
-              <div className="space-y-4">
-                <WeeklyReportCard />
-                <MonthlyReportCard />
-              </div>
-            }
-            morningIntelligenceContent={<MorningIntelligence />}
           />
         </AnimatedAccordion>
 

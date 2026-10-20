@@ -221,9 +221,10 @@ export function LiveDealCardPreviewCard({
         )}
 
         {/* 🚀 Quick Share Actions Bar */}
-        <div className="grid grid-cols-3 gap-2 pt-1">
+        <div id="cta-share-kakao" className="grid grid-cols-3 gap-2 pt-1">
           <Button
             onClick={handleKakaoShare}
+            data-testid="deal-card-kakao-share-btn"
             className="bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-xs h-10 shadow-sm flex items-center justify-center gap-1.5"
           >
             <MessageCircle className="w-4 h-4 fill-[#191919]" />
@@ -233,6 +234,7 @@ export function LiveDealCardPreviewCard({
           <Button
             variant="outline"
             onClick={handleCopyLink}
+            data-testid="deal-card-copy-link-btn"
             className="text-xs h-10 font-semibold flex items-center justify-center gap-1.5 border-border hover:bg-muted"
           >
             {copied ? (
@@ -251,6 +253,7 @@ export function LiveDealCardPreviewCard({
           <Button
             variant="secondary"
             onClick={() => setShowPhoneModal(true)}
+            data-testid="deal-card-recipient-view-btn"
             className="text-xs h-10 font-semibold flex items-center justify-center gap-1.5"
           >
             <Smartphone className="w-3.5 h-3.5" />

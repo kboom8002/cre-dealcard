@@ -190,6 +190,8 @@ export interface NewsItemView {
   source: string;
   topic: string;
   sentiment: 'bullish' | 'bearish' | 'neutral';
+  url?: string;
+  channel?: string;
 }
 
 /** 뉴스 제목: HTML 엔티티(`&quot;` 등) 디코드 + 공백 정리 + 앞쪽 `[매체]` 제거. 결과는 React 가 다시 이스케이프한다. */
@@ -219,13 +221,20 @@ export function pickTopNews(data: Record<string, unknown>, max?: number): NewsIt
     const title = cleanNewsTitle(r.title);
     if (!title) continue;
     const s = r.sentiment === 'bullish' || r.sentiment === 'bearish' ? r.sentiment : 'neutral';
-    out.push({
+    const item: NewsItemView = {
       title,
       summary: cleanNewsSummaryText(r.summary),
       source: typeof r.source === 'string' ? r.source : '',
       topic: typeof r.topic === 'string' ? r.topic : '',
       sentiment: s,
-    });
+    };
+    if (typeof r.url === 'string' && /^https?:\/\//i.test(r.url.trim())) {
+      item.url = r.url.trim();
+    }
+    if (typeof r.channel === 'string' && r.channel.trim()) {
+      item.channel = r.channel.trim();
+    }
+    out.push(item);
     if (out.length >= effectiveMax) break;
   }
   return out;
@@ -534,6 +543,11 @@ const TOPIC_LABELS_KO: Readonly<Record<string, string>> = {
   supply: '공급', redevelopment: '재건축·재개발', development: '개발·재개발',
   finance: '금융·금리', loan: '대출', auction: '경매', npl: 'NPL',
   office: '오피스', retail: '상가', 'small-building': '꼬마빌딩', landmark: '랜드마크',
+  economy: '경제', macro: '거시경제', investment: '투자',
+  inheritance: '상속·증여', wealth: '자산관리·절세', gift_tax: '상속·증여', legal: '법률·세무',
+  culture: '문화·예술', lifestyle: '라이프·웰니스', art: '미술·전시', architecture: '건축·공간',
+  wellness: '웰니스·건강', golf: '골프·레저',
+  commercial_trend: '상권·트렌드', fnb: '미식·F&B', brand: '브랜드·리테일', tech: '테크·교양',
   other: '기타', general: '일반',
 };
 

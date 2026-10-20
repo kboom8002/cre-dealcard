@@ -24,23 +24,24 @@ export default async function BuildingsPage() {
     );
   }
 
-  const { data: buildings } = await supabase
-    .from("building_ssot_lite")
-    .select(
-      "id, area_signal, asset_type, price_band, status, matched_buyer_count, promotion_score, vacancy_signal, created_at"
-    )
-    .eq("owner_id", user.id)
-    .neq("status", "archived")
-    .order("promotion_score", { ascending: false, nullsFirst: false });
-
-  // 모바일 IM 문서 목록 조회 — 로그인한 중개인의 활성 문서만
-  const { data: imDocs } = await supabase
-    .from("document_objects")
-    .select("id, building_id, status, created_at, updated_at")
-    .in("document_type", ["im_lite_draft", "mobile_im", "blind_teaser"])
-    .eq("owner_id", user.id)
-    .neq("status", "archived")
-    .order("created_at", { ascending: false });
+  const [{ data: buildings }, { data: imDocs }] = await Promise.all([
+    supabase
+      .from("building_ssot_lite")
+      .select(
+        "id, area_signal, asset_type, price_band, status, matched_buyer_count, promotion_score, vacancy_signal, created_at"
+      )
+      .eq("owner_id", user.id)
+      .neq("status", "archived")
+      .order("promotion_score", { ascending: false, nullsFirst: false }),
+    // 모바일 IM 문서 목록 조회 — 로그인한 중개인의 활성 문서만
+    supabase
+      .from("document_objects")
+      .select("id, building_id, status, created_at, updated_at")
+      .in("document_type", ["im_lite_draft", "mobile_im", "blind_teaser"])
+      .eq("owner_id", user.id)
+      .neq("status", "archived")
+      .order("created_at", { ascending: false }),
+  ]);
 
   // IM 데이터에 빌딩 정보 매핑
   const buildingMap = new Map(

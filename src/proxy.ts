@@ -47,6 +47,27 @@ export function isSocialBotAllowedPath(pathname: string, ua: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Legacy short link redirect: /d/[id] -> /dc/[id]
+  if (pathname.startsWith('/d/')) {
+    const targetUrl = request.nextUrl.clone();
+    targetUrl.pathname = pathname.replace(/^\/d\//, '/dc/');
+    return NextResponse.redirect(targetUrl, 308);
+  }
+
+  const isBrokerRoute = pathname.startsWith(PROTECTED_BROKER);
+  const isAdminRoute = pathname.startsWith(PROTECTED_ADMIN);
+  const isAuthRoute = AUTH_ROUTES.some((r) => pathname === r);
+
+  // Strip any incoming internal verification headers so clients can never spoof them
+  request.headers.delete('x-cre-proxy-secret');
+  request.headers.delete('x-cre-verified-user');
+
+  // Public routes (/hub, /dc/*, /m/*, /magazine/*, /im-lite/*, etc.) do not require
+  // a blocking remote supabase.auth.getUser() round-trip in proxy.
+  if (!isBrokerRoute && !isAdminRoute && !isAuthRoute) {
+    return NextResponse.next({ request });
+  }
+
   // Create Supabase client with cookie-based session
   let supabaseResponse = NextResponse.next({ request });
 
@@ -78,9 +99,20 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isBrokerRoute = pathname.startsWith(PROTECTED_BROKER);
-  const isAdminRoute = pathname.startsWith(PROTECTED_ADMIN);
-  const isAuthRoute = AUTH_ROUTES.some((r) => pathname === r);
+  if (user) {
+    const g = globalThis as Record<string, unknown>;
+    const secret =
+      (g.__creProxySecret as string) ||
+      ((g.__creProxySecret =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 'cre-proxy-secret') as string);
+    request.headers.set('x-cre-proxy-secret', secret);
+    request.headers.set('x-cre-verified-user', encodeURIComponent(JSON.stringify(user)));
+    const prevCookies = supabaseResponse.cookies.getAll();
+    supabaseResponse = NextResponse.next({ request });
+    prevCookies.forEach((c) => supabaseResponse.cookies.set(c));
+  }
 
   // 1. Unauthenticated user → redirect to /login if on protected route
   //    Exception: social crawlers are allowed through to read OG meta tags

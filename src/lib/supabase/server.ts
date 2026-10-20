@@ -46,5 +46,24 @@ export async function createServerSupabaseClient() {
     logger.debug("No token in Authorization header");
   }
 
+  // Fast-path: reuse user already verified by proxy.ts in the same request lifecycle
+  // to avoid duplicate remote HTTP round-trips to Supabase Auth (/auth/v1/user).
+  const proxySecret = headerStore.get("x-cre-proxy-secret");
+  const verifiedUserRaw = headerStore.get("x-cre-verified-user");
+  const expectedSecret = (globalThis as Record<string, unknown>).__creProxySecret as string | undefined;
+
+  if (!token && proxySecret && expectedSecret && proxySecret === expectedSecret && verifiedUserRaw) {
+    try {
+      const verifiedUser = JSON.parse(decodeURIComponent(verifiedUserRaw));
+      const origGetUser = client.auth.getUser.bind(client.auth);
+      client.auth.getUser = (async (jwt?: string) => {
+        if (jwt) return origGetUser(jwt);
+        return { data: { user: verifiedUser }, error: null } as Awaited<ReturnType<typeof origGetUser>>;
+      }) as typeof client.auth.getUser;
+    } catch {
+      // Fallback to standard getUser() if parsing fails
+    }
+  }
+
   return client;
 }

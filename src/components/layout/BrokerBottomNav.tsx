@@ -87,6 +87,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 id={item.id}
                 aria-label={item.ariaLabel}
                 aria-current={isActive ? "page" : undefined}
@@ -129,6 +130,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
           {/* Center 1-Click 새 물건 등록 Button */}
           <Link
             href="/broker/deal-card/new"
+            prefetch={true}
             id="broker-create-fab"
             aria-label="새로 만들기"
             onClick={() => haptic.medium()}
@@ -148,6 +150,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 id={item.id}
                 aria-label={item.ariaLabel}
                 aria-current={isActive ? "page" : undefined}

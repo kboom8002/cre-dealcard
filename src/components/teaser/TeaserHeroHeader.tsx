@@ -75,7 +75,10 @@ export function TeaserHeroHeader({
   };
 
   return (
-    <div className={`relative bg-gradient-to-b ${getGradientStyle()} border rounded-2xl overflow-hidden text-slate-100 p-5 space-y-4 shadow-xl`}>
+    <div
+      data-testid="public-dealcard-hero"
+      className={`relative bg-gradient-to-b ${getGradientStyle()} border rounded-2xl overflow-hidden text-slate-100 p-5 space-y-4 shadow-xl`}
+    >
       {/* Background Abstract Geometric Accent */}
       <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[#D4A853]/10 to-transparent rounded-full blur-2xl pointer-events-none" />
       <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />

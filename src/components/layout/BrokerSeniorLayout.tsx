@@ -66,6 +66,7 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   data-active-pill={isActive ? "true" : undefined}
                   className={
                     isActive
@@ -91,6 +92,7 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
           <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/broker/tutorial"
+              prefetch={true}
               id="broker-top-tutorial-btn"
               data-testid="broker-top-tutorial-btn"
               className={

@@ -14,21 +14,44 @@ import { computeTabCompletion, summarizeCompletion } from "@/lib/magazine/editor
 import { cleanNewsText } from "@/lib/magazine/editor-labels";
 import type { AiAssistMemory } from "@/components/magazine-editor/EditorAiAssistTab";
 import { decodeEntities } from "@/lib/magazine/escape";
+import dynamic from "next/dynamic";
 import MagazineEditorLoading from "./loading";
 import {
-  EditorAiAssistTab,
-  EditorOutreachTab,
   NewsCurationPanel,
-  EditorCoverTab,
-  EditorFieldNoteTab,
-  EditorThemeDealsTab,
   MagazinePhonePreview,
   MagazineShareModal,
-  EditorAnalyticsTab,
 } from "@/components/magazine-editor";
 import { SlugSetupGate } from "@/components/magazine-editor/SlugSetupGate";
-import { EditorPublishTab } from "@/components/magazine-editor/EditorPublishTab";
 import { PublishConfirmModal } from "@/components/magazine-editor/PublishConfirmModal";
+
+const EditorAiAssistTab = dynamic(
+  () => import("@/components/magazine-editor/EditorAiAssistTab").then((m) => m.EditorAiAssistTab),
+  { ssr: false }
+);
+const EditorOutreachTab = dynamic(
+  () => import("@/components/magazine-editor/EditorOutreachTab").then((m) => m.EditorOutreachTab),
+  { ssr: false }
+);
+const EditorCoverTab = dynamic(
+  () => import("@/components/magazine-editor/EditorCoverTab").then((m) => m.EditorCoverTab),
+  { ssr: false }
+);
+const EditorFieldNoteTab = dynamic(
+  () => import("@/components/magazine-editor/EditorFieldNoteTab").then((m) => m.EditorFieldNoteTab),
+  { ssr: false }
+);
+const EditorThemeDealsTab = dynamic(
+  () => import("@/components/magazine-editor/EditorThemeDealsTab").then((m) => m.EditorThemeDealsTab),
+  { ssr: false }
+);
+const EditorAnalyticsTab = dynamic(
+  () => import("@/components/magazine-editor/EditorAnalyticsTab").then((m) => m.EditorAnalyticsTab),
+  { ssr: false }
+);
+const EditorPublishTab = dynamic(
+  () => import("@/components/magazine-editor/EditorPublishTab").then((m) => m.EditorPublishTab),
+  { ssr: false }
+);
 import { SaveStatusBadge } from "@/components/magazine-editor/SaveStatusBadge";
 import { useEditionAutosave } from "@/components/magazine-editor/useEditionAutosave";
 import { buildOgImageUrl } from "@/lib/magazine/view-helpers";
@@ -105,6 +128,13 @@ import {
   type EditionStatus,
   type EditionType,
 } from "@/domain/magazine/types";
+import {
+  enrichNewsPoolWithChannels,
+  recommendBalancedNewsMix,
+  resolveNewsChannel,
+  type NewsChannelId,
+  type NewsPoolItem,
+} from "@/domain/magazine/news-channels";
 
 // ─── 탭 정의 ──────────────────────────────────────────────────────
 const TABS = [
@@ -242,6 +272,7 @@ function MagazineEditorInner() {
 
   // News
   const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
+  const [extraChannelNews, setExtraChannelNews] = useState<NewsPoolItem[]>([]);
 
   // Settings
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -285,7 +316,7 @@ function MagazineEditorInner() {
 
   const today = useMemo(() => todayKst(), []);
 
-  // ── 뉴스 후보 (U-04: loading / error+retry / empty) ──
+  // ── 뉴스 후보 (U-04: loading / error+retry / empty) — 마운트 즉시 병렬 로드 ──
   const newsState = useAsyncState<any[]>(
     async () => {
       const supabase = createClient();
@@ -304,26 +335,35 @@ function MagazineEditorInner() {
       }));
     },
     [],
-    { auto: editionReady }
+    { auto: true }
   );
 
-  // ── 딜카드 후보 + IM 브릿지 추천 매물 ──
+  // ── 딜카드 후보 + IM 브릿지 추천 매물 — 마운트 즉시 병렬 로드 ──
   const dealsState = useAsyncState<any[]>(
     async () => {
       const supabase = createClient();
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user ?? (await supabase.auth.getUser()).data.user;
       if (!user) throw new Error("로그인이 필요합니다. 다시 로그인해 주세요.");
-      const { data: dealsData, error } = await supabase
-        .from("building_ssot_lite")
-        .select(
-          "id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers"
-        )
-        .eq("owner_id", user.id)
-        .in("status", ["public_signal_ready", "active"])
-        .order("updated_at", { ascending: false })
-        .limit(10);
+
+      const [{ data: dealsData, error }, { data: profileDeals }] = await Promise.all([
+        supabase
+          .from("building_ssot_lite")
+          .select(
+            "id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers"
+          )
+          .eq("owner_id", user.id)
+          .in("status", ["public_signal_ready", "active"])
+          .order("updated_at", { ascending: false })
+          .limit(10),
+        supabase
+          .from("broker_profiles")
+          .select("pending_magazine_deals")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
       if (error) throw new Error("매물 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
 
       const mappedDeals = (dealsData || []).map((b: any) => {
@@ -344,12 +384,6 @@ function MagazineEditorInner() {
         };
       });
 
-      // IM 브릿지 추천 매물 (실패해도 기본 매물 목록은 유지)
-      const { data: profileDeals } = await supabase
-        .from("broker_profiles")
-        .select("pending_magazine_deals")
-        .eq("user_id", user.id)
-        .maybeSingle();
       const pendingDeals = (profileDeals?.pending_magazine_deals || []) as any[];
       pendingDeals.forEach((pd: any) => {
         if (!mappedDeals.some((md) => md.id === pd.buildingId)) {
@@ -367,33 +401,36 @@ function MagazineEditorInner() {
       return mappedDeals;
     },
     [],
-    { auto: editionReady }
+    { auto: true }
   );
   const allNews = useMemo(() => newsState.data ?? [], [newsState.data]);
   const allDeals = useMemo(() => dealsState.data ?? [], [dealsState.data]);
 
-  // ── 데이터 로딩 ──
+  // ── 데이터 로딩 (프로필 + 이번 호 초안 동시 병렬 요청으로 직렬 워터폴 제거) ──
   useEffect(() => {
     async function loadData() {
       try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
+        const requestDraft = () =>
+          fetch("/api/magazine/editions/draft", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ edition_type: "weekly" }),
+          });
+
+        const [profileApiRes, initialDraftRes] = await Promise.all([
+          fetch("/api/broker/profile").catch(() => null),
+          requestDraft().catch(() => null),
+        ]);
+
+        if (profileApiRes?.status === 401) {
           setLoadError("로그인이 필요합니다. 다시 로그인해 주세요.");
           return;
         }
 
         // 정체성/slug는 서버 프로필 API가 단일 출처 (slug 자동 생성 포함). "demo" 폴백 없음.
         let ident: EditorIdentity | null = null;
-        try {
-          const profileApiRes = await fetch("/api/broker/profile");
-          if (profileApiRes.ok) {
-            ident = parseEditorIdentity(await readJsonSafe(profileApiRes));
-          }
-        } catch {
-          ident = null;
+        if (profileApiRes && profileApiRes.ok) {
+          ident = parseEditorIdentity(await readJsonSafe(profileApiRes));
         }
         if (!ident) {
           setLoadError("프로필을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -410,12 +447,11 @@ function MagazineEditorInner() {
         const slug = ident.slug;
         setBrokerSlug(slug);
 
-        // 1. 이번 호 초안 (없으면 서버가 빈 초안을 만들고, 이미 발행했다면 발행본을 돌려준다)
-        const draftRes = await fetch("/api/magazine/editions/draft", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ edition_type: "weekly" }),
-        });
+        // 1. 이번 호 초안 (초기 병렬 요청이 첫 진입 slug 생성 타이밍으로 실패했을 때만 1회 재시도)
+        let draftRes = initialDraftRes;
+        if (!draftRes || !draftRes.ok) {
+          draftRes = await requestDraft();
+        }
         const draftJson = (await readJsonSafe(draftRes)) as {
           edition?: EditionRow;
           created?: boolean;
@@ -526,10 +562,20 @@ function MagazineEditorInner() {
     [publishedAt, today]
   );
 
-  // 저장된 선택(스냅샷)을 후보 목록과 합쳐, 후보에서 빠진 뉴스/매물도 계속 보이게 한다
+  // 저장된 선택(스냅샷) + 실시간 추가 뉴스 + 5대 관심 채널 큐레이션 풀을 합쳐 항상 풍성한 채널 선택지를 제공한다
   const newsPool = useMemo(() => {
-    const seen = new Set(allNews.map((n: any) => String(n.id ?? n.title)));
-    const extra = savedTopNews
+    const baseMerged: any[] = [];
+    const seen = new Set<string>();
+    const pushUnique = (item: any) => {
+      const id = String(item?.id ?? item?.title ?? "");
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      baseMerged.push(item);
+    };
+
+    extraChannelNews.forEach(pushUnique);
+    allNews.forEach(pushUnique);
+    savedTopNews
       .map((n) => ({
         id: String(n.id ?? n.title ?? ""),
         title: typeof n.title === "string" ? cleanNewsText(n.title) : n.title,
@@ -537,10 +583,13 @@ function MagazineEditorInner() {
         source: typeof n.source === "string" ? cleanNewsText(n.source) : n.source,
         sentiment: n.sentiment,
         topic: n.topic,
+        channel: n.channel,
+        url: n.url,
       }))
-      .filter((n) => n.id && !seen.has(n.id));
-    return [...allNews, ...extra] as any[];
-  }, [allNews, savedTopNews]);
+      .forEach(pushUnique);
+
+    return enrichNewsPoolWithChannels(baseMerged) as any[];
+  }, [allNews, extraChannelNews, savedTopNews]);
 
   const dealPool = useMemo(() => {
     const seen = new Set(allDeals.map((d: any) => String(d.id)));
@@ -560,6 +609,8 @@ function MagazineEditorInner() {
         source: n.source,
         sentiment: n.sentiment,
         topic: n.topic,
+        channel: resolveNewsChannel(n),
+        ...(typeof n.url === "string" && n.url.trim() ? { url: n.url.trim() } : {}),
       }));
   }, [newsPool, selectedNewsIds]);
 
@@ -709,12 +760,15 @@ function MagazineEditorInner() {
   // ── 새 초안일 때만 기본 선택 (저장된 선택을 사용자가 비웠다면 다시 채우지 않는다) ──
   useEffect(() => {
     if (!defaultsPendingRef.current.news) return;
+    if (newsState.status === "idle" || newsState.status === "loading") return;
     if (newsPool.length === 0) return;
     defaultsPendingRef.current.news = false;
     if (selectedNewsIds.size === 0 && !searchParams.get("news")) {
-      setSelectedNewsIds(new Set(newsPool.slice(0, 4).map((n: any) => n.id ?? n.title)));
+      const balanced = recommendBalancedNewsMix(newsPool, 4);
+      selectedNewsIdsRef.current = balanced;
+      setSelectedNewsIds(new Set(balanced));
     }
-  }, [newsPool, searchParams, selectedNewsIds.size]);
+  }, [newsPool, newsState.status, searchParams, selectedNewsIds.size]);
 
   useEffect(() => {
     if (!defaultsPendingRef.current.deals) return;
@@ -737,6 +791,56 @@ function MagazineEditorInner() {
     selectedNewsIdsRef.current = next;
     setSelectedNewsIds(new Set(next));
   }, []);
+
+  const replaceNewsSelection = useCallback((ids: string[]) => {
+    const capped = Array.from(new Set(ids.filter(Boolean))).slice(0, MAX_NEWS_SELECTION);
+    selectedNewsIdsRef.current = capped;
+    setSelectedNewsIds(new Set(capped));
+  }, []);
+
+  const appendChannelNews = useCallback((items: NewsPoolItem[], autoSelectIds?: string[]) => {
+    if (!Array.isArray(items) || items.length === 0) return;
+    setExtraChannelNews((prev) => {
+      const seen = new Set(prev.map((x) => String(x.id ?? x.title)));
+      const fresh = items.filter((item) => {
+        const key = String(item.id ?? item.title ?? "");
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return [...fresh, ...prev];
+    });
+    if (Array.isArray(autoSelectIds) && autoSelectIds.length > 0) {
+      const merged = Array.from(new Set([...autoSelectIds, ...selectedNewsIdsRef.current])).slice(
+        0,
+        MAX_NEWS_SELECTION
+      );
+      selectedNewsIdsRef.current = merged;
+      setSelectedNewsIds(new Set(merged));
+    }
+  }, []);
+
+  const refreshLiveChannelNews = useCallback(
+    async (channel: NewsChannelId) => {
+      try {
+        const res = await fetch("/api/broker/magazine/news-channels", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "refresh", channel }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && Array.isArray(data?.items)) {
+          appendChannelNews(data.items);
+          editorToast.success("채널별 최신 뉴스를 불러왔습니다");
+        } else {
+          editorToast.warning("기본 추천 채널 뉴스를 표시합니다");
+        }
+      } catch {
+        editorToast.warning("네트워크 상태를 확인해 주세요");
+      }
+    },
+    [appendChannelNews]
+  );
 
   // ── 딜카드 토글 ──
   const toggleDeal = useCallback((dealId: string) => {
@@ -1196,6 +1300,8 @@ function MagazineEditorInner() {
                 allNews={newsPool}
                 selectedNewsIds={selectedNewsIds}
                 toggleNews={toggleNews}
+                onReplaceSelection={replaceNewsSelection}
+                onAppendNews={appendChannelNews}
               />
             )}
           </div>
@@ -1520,6 +1626,11 @@ function MagazineEditorInner() {
                   toggleDeal={toggleDeal}
                   fmt={fmt}
                   newsTitles={topNewsSnapshot.map((n) => String(n.title ?? ""))}
+                  allNews={newsPool}
+                  selectedNewsIds={selectedNewsIds}
+                  toggleNews={toggleNews}
+                  onReplaceNewsSelection={replaceNewsSelection}
+                  onRefreshLiveNews={refreshLiveChannelNews}
                   themeTitle={themeTitle}
                   themeBodyMd={themeBodyMd}
                   pollQuestion={pollQuestion}

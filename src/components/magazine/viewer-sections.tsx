@@ -22,6 +22,10 @@ import {
   topicLabelKo,
   type NewsItemView,
 } from "@/lib/magazine/view-helpers";
+import {
+  NEWS_CHANNEL_MAP,
+  resolveNewsChannel,
+} from "@/domain/magazine/news-channels";
 
 type AnyRec = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -253,7 +257,7 @@ function Stat({ value, label, tone, small }: { value: string; label: string; ton
   );
 }
 
-// ── 뉴스 큐레이션 (최대 6건, 감성은 텍스트+기호 병기) ─────────────
+// ── 뉴스 큐레이션 (최대 6건, 5대 매수자 관심 채널 배지 + 감성 텍스트·기호 병기) ─────────────
 export function NewsSection({ items }: { items: NewsItemView[] }) {
   if (items.length === 0) return null;
   return (
@@ -266,9 +270,23 @@ export function NewsSection({ items }: { items: NewsItemView[] }) {
         {items.map((n, i) => {
           const s = newsSentimentMeta(n.sentiment);
           const topic = topicLabelKo(n.topic);
+          const channelId = resolveNewsChannel(n);
+          const channelMeta = NEWS_CHANNEL_MAP[channelId];
+          const safeUrl =
+            typeof n.url === "string" && /^https?:\/\//i.test(n.url.trim())
+              ? n.url.trim()
+              : null;
           return (
             <li key={i} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-              <div className="mb-1 flex items-center gap-2">
+              <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                {channelMeta && (
+                  <span
+                    className={`rounded-md border px-1.5 py-0.5 text-caption font-bold ${channelMeta.badgeClass}`}
+                    data-testid="viewer-news-channel-badge"
+                  >
+                    <span aria-hidden="true">{channelMeta.emoji}</span> {channelMeta.shortLabel}
+                  </span>
+                )}
                 <span className="rounded-md border border-white/20 px-1.5 py-0.5 text-caption font-bold text-slate-200">
                   <span aria-hidden="true">{s.symbol}</span> {s.label}
                 </span>
@@ -276,7 +294,20 @@ export function NewsSection({ items }: { items: NewsItemView[] }) {
               </div>
               <p className="line-clamp-2 text-label font-bold leading-snug text-white">{n.title}</p>
               {n.summary && <p className="mt-1 line-clamp-2 text-caption leading-relaxed text-slate-200">{n.summary}</p>}
-              {n.source && <p className="mt-1 text-caption text-slate-300">{n.source}</p>}
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                {n.source ? <p className="text-caption text-slate-300">{n.source}</p> : <span />}
+                {safeUrl && (
+                  <a
+                    href={safeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-track="news_click"
+                    className="text-caption font-bold text-indigo-300 underline decoration-indigo-400/50 underline-offset-2 hover:text-indigo-200"
+                  >
+                    원문 보기 ↗
+                  </a>
+                )}
+              </div>
             </li>
           );
         })}

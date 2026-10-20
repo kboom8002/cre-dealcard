@@ -1,42 +1,36 @@
-import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
-
-/**
- * 콘텐츠 스튜디오(매거진 에디터) 로딩 스켈레톤 (U-04).
- * 실제 레이아웃(좌: 에디터 패널 / 우: 폰 미리보기)과 같은 골격을 유지해 레이아웃 점프를 줄인다.
- */
 export default function MagazineEditorLoading() {
   return (
-    <SkeletonGroup
-      label="콘텐츠 스튜디오를 불러오는 중"
-      className="min-h-screen bg-[#0B1120] flex flex-col lg:flex-row"
+    <div
+      role="status"
+      aria-label="고객 소식지 편집 화면을 불러오는 중입니다"
+      className="min-h-screen bg-slate-50 dark:bg-[#0B1120] px-4 sm:px-6 py-6"
     >
-      <div className="w-full lg:w-[460px] bg-[#111827] border-r border-slate-800 flex flex-col h-[55vh] lg:h-screen">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto space-y-5">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 flex items-center justify-between shadow-sm animate-pulse">
           <div className="space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-3 w-48" />
+            <div className="h-6 w-48 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+            <div className="h-4 w-64 bg-slate-100 dark:bg-slate-800/60 rounded-md" />
           </div>
-          <Skeleton className="h-11 w-20 rounded-xl" />
+          <div className="h-11 w-28 bg-blue-100 dark:bg-slate-800 rounded-xl" />
         </div>
-        <div className="flex border-b border-slate-800 gap-1 px-2 py-2">
-          {Array.from({ length: 8 }, (_, i) => (
-            <Skeleton key={i} className="h-11 flex-1 min-w-[44px]" />
-          ))}
-        </div>
-        <div className="flex-1 p-4 space-y-4">
-          <Skeleton className="h-16 w-full rounded-xl" />
-          <Skeleton className="h-11 w-full rounded-xl" />
-          <Skeleton className="h-11 w-full rounded-xl" />
-          <Skeleton className="h-40 w-full rounded-xl" />
-        </div>
-        <div className="p-4 border-t border-slate-800 space-y-2">
-          <Skeleton className="h-11 w-full rounded-xl" />
-          <Skeleton className="h-11 w-full rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7 space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-40 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3 shadow-sm animate-pulse"
+              >
+                <div className="h-6 w-44 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+                <div className="h-12 w-full bg-slate-100 dark:bg-slate-800/60 rounded-xl" />
+                <div className="h-12 w-full bg-slate-100 dark:bg-slate-800/60 rounded-xl" />
+              </div>
+            ))}
+          </div>
+          <div className="hidden lg:flex lg:col-span-5 items-start justify-center">
+            <div className="w-[360px] h-[680px] rounded-[2.5rem] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+          </div>
         </div>
       </div>
-      <div className="hidden lg:flex flex-1 items-center justify-center bg-slate-950 p-10">
-        <Skeleton className="w-[375px] h-[812px] rounded-[3rem]" />
-      </div>
-    </SkeletonGroup>
+    </div>
   );
 }
