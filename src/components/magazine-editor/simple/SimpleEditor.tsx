@@ -22,6 +22,7 @@ import { NoteStarterChips } from "./NoteStarterChips";
 import { SimpleDealPicker, type SimpleDealItem } from "./SimpleDealPicker";
 import { SimpleNewsPicker } from "./SimpleNewsPicker";
 import { AutoFilledStrip } from "./AutoFilledStrip";
+import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
 import type { NewsItem } from "../NewsCurationPanel";
 import type { NewsChannelId } from "@/domain/magazine/news-channels";
 
@@ -362,9 +363,17 @@ export function SimpleEditor({
             data-testid="simple-mode-banner"
             className="rounded-2xl border border-blue-300 dark:border-indigo-500/35 bg-blue-50/90 dark:bg-indigo-950/40 p-4 space-y-2 shadow-2xs"
           >
-            <p className="text-[15px] font-extrabold text-blue-950 dark:text-indigo-100 leading-snug">
-              ⚡ 5분 간단 모드 — &apos;이번 주 한마디&apos;만 적으시면 제목·요약·뉴스·계산기가 자동으로 완성됩니다
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[15px] font-extrabold text-blue-950 dark:text-indigo-100 leading-snug">
+                ⚡ 5분 간단 모드 — &apos;이번 주 한마디&apos;만 적으시면 제목·요약·뉴스·계산기가 자동으로 완성됩니다
+              </p>
+              <SeniorTermTooltip
+                buttonLabel="❓ 발송 후 오타를 발견하면?"
+                title="🚀 이미 카톡으로 보낸 뒤에도 언제든 고칠 수 있습니다"
+                easyMeaning="카톡으로 고객님께 링크를 보낸 뒤에 오타나 수정사항을 발견하셔도 걱정하지 마세요. 이 화면에서 글자를 고치고 맨 아래 [이번 주 매거진 정정 발행하기]만 누르시면 고객님 휴대폰 화면도 즉시 바뀝니다."
+                tip="매주 월·화요일 오전에 보내시면 빌딩 매수 고객님들의 열람률이 가장 높습니다."
+              />
+            </div>
             {preservedAdvanced.count > 0 && (
               <p
                 data-testid="preserved-advanced-notice"

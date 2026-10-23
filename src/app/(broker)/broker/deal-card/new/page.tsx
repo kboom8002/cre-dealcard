@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
 import { MemoImportModal } from "@/components/broker/deal-card/MemoImportModal";
+import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
 import { StickyNote, Loader2, CheckCircle2, Circle, AlertTriangle, RefreshCw, Plus, X, ChevronLeft } from "lucide-react";
 
 interface DuplicateCandidateUI {
@@ -534,9 +535,15 @@ export default function BrokerDealCardNewPage() {
               <span>📋</span> 메모에서 텍스트가 자동 전달되었습니다.
             </div>
           )}
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            카톡 매물 설명을 그대로 붙여넣으세요
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              카톡 매물 설명을 그대로 붙여넣으세요
+            </h1>
+            <SeniorTermTooltip
+              termKey="다필지"
+              buttonLabel="❓ 다필지(여러 번지) 입력 팁"
+            />
+          </div>
           <p className="text-[16px] text-muted-foreground leading-relaxed">
             양식에 맞춰 정리하지 않아도 됩니다. 평소 카카오톡이나 문자로 보내던 매물 메모를 넣으면 AI가 자동으로 정리합니다.
           </p>
@@ -548,8 +555,12 @@ export default function BrokerDealCardNewPage() {
             <span className="text-[14px] font-bold text-muted-foreground mr-1">👇 예시 눌러서 바로 채우기:</span>
             {[
               {
-                label: "💰 임대수익 꼬마빌딩",
-                text: "역삼동 역세권 5층 근생 빌딩, 매매가 85억, 보증금 3억 / 월세 2,800만 원, 만실 운영 중. 코너 필지로 가시성 우수.",
+                label: "💰 임대수익 꼬마빌딩 (당산동 예시)",
+                text: "서울 영등포구 당산동5가 11-47 (호산당빌딩), 매매가 115억, 대지 153.3평 / 연면적 307.9평(B1~5F), 보증금 4억 3,000만 / 월세 2,900만 원. 1층 약국 및 1~2층 내과 통합계약 성업 중.",
+              },
+              {
+                label: "🗺️ 다필지 수익형 (양평동 3필지 예시)",
+                text: "서울 영등포구 양평동4가 117, 134, 125-2번지 (더레드빌딩), 매매가 250억, 3필지 합산 대지 157평 / 연면적 753.5평(B1~10F), 1층 스타벅스 입점 코너 빌딩.",
               },
               {
                 label: "🏢 사옥용 빌딩",

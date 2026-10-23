@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { MessageCircle, Copy, Check, Eye, ExternalLink, ShieldCheck, Sparkles, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
+import { KakaoTemplatePicker } from "@/components/help/KakaoTemplatePicker";
 
 interface LiveDealCardPreviewCardProps {
   buildingId: string;
@@ -157,10 +159,16 @@ export function LiveDealCardPreviewCard({
               </span>
             )}
           </div>
-          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-            <ShieldCheck className="w-3 h-3" />
-            안심 블라인드 보호
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              <ShieldCheck className="w-3 h-3" />
+              안심 블라인드 보호
+            </span>
+            <SeniorTermTooltip
+              termKey="수신자 화면"
+              buttonLabel="❓ 수신자 화면이란?"
+            />
+          </div>
         </div>
 
         {/* 📱 Real KakaoTalk OG Card Style Preview */}
@@ -260,6 +268,14 @@ export function LiveDealCardPreviewCard({
             수신자 화면
           </Button>
         </div>
+
+        {/* 💬 60대 중개인 맞춤형 상황별 카톡 인사말 6선 1초 복사기 */}
+        <KakaoTemplatePicker
+          buildingId={buildingId}
+          dealTitle={displayTitle}
+          areaSignal={areaSignal}
+          priceBand={priceBand}
+        />
       </div>
 
       {/* ── 스마트폰 디바이스 프레임 미리보기 모달 ── */}

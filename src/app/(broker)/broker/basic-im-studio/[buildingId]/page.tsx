@@ -9,6 +9,8 @@ import { SlidePreview } from './components/SlidePreview';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { useStudioHistory, useUndoRedoShortcuts } from '@/stores/studio-edit-store';
 import type { PptxProject, PptxSlide } from '@/domain/building/pptx-studio/studio-service';
+import { QuickRemedyPopover } from '@/components/help/QuickRemedyPopover';
+import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 
 function BasicImStudioInner({
   buildingId,
@@ -392,12 +394,22 @@ function BasicImStudioInner({
                 />
                 <span>테마: {tokens.presetName}</span>
               </button>
+              <SeniorTermTooltip
+                termKey="모노 고대비"
+                buttonLabel="🖨️ 흑백 인쇄·팩스 팁"
+                actionLabel="🎨 테마 탭에서 모노 고대비 고르기"
+                onAction={() => setRightTab('theme')}
+              />
             </div>
           </div>
         </div>
 
-        {/* Right Toolbar: Undo / Redo / Save / Download */}
+        {/* Right Toolbar: Quick Remedy / Undo / Redo / Save / Download */}
         <div className="flex items-center gap-2 shrink-0">
+          <QuickRemedyPopover
+            onOpenThemeTab={() => setRightTab('theme')}
+            onOpenContentTab={() => setRightTab('content')}
+          />
           <div className="flex items-center rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] p-0.5">
             <button
               type="button"

@@ -35,6 +35,8 @@ import { validateCombination } from "@/domain/ontology/asset-identity";
 import { hasValidBuildingNumber } from "@/domain/verification/address-resolver";
 import { useImDataForm } from "./use-im-data-form";
 import { getKoreanFieldLabel } from "@/constants/ui-lexicon";
+import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
+import { RentRollAiHelperModal } from "@/components/help/RentRollAiHelperModal";
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -479,7 +481,7 @@ export function ImDataBottomSheet({
         {/* Scrollable Form Area */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-4 pb-10">
           {/* 🎯 투자 포스처 선택 */}
-          <div id="bs-step-1">
+          <div id="bs-step-1" className="space-y-2"><div className="flex items-center justify-end"><SeniorTermTooltip termKey="투자 포스처" buttonLabel="❓ 5대 투자 목적(포스처) 고르는 기준 보기" showPostureTable={true} /></div>
             <PostureSelector
               investmentPosture={investmentPosture}
               setInvestmentPosture={setInvestmentPosture}
@@ -605,6 +607,7 @@ export function ImDataBottomSheet({
           </div>
 
             {/* Rent Roll Import */}
+            <RentRollAiHelperModal />
             <RentRollImporter 
               hasExistingData={floorLeases.length > 0}
               onImport={(data) => {
@@ -624,6 +627,7 @@ export function ImDataBottomSheet({
             />
 
             {/* D4: 목표 임대료 — 렌트롤 입력 근처 (안정화 수익률 산출용, 선택) */}
+            <div className="flex items-center justify-end mb-1"><SeniorTermTooltip termKey="안정화 수익률" buttonLabel="❓ 안정화 기대수익률이란?" /></div>
             <BrokerTargetRentField form={brokerExtrasForm} setForm={setBrokerExtrasForm} />
 
             {/* Monthly Rent */}

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { SOTA_SPRING } from "@/components/motion/sota-motion";
+import { SeniorHelpProvider, useSeniorHelp } from "@/components/help/SeniorHelpContext";
+import { ContextualHelpDrawer } from "@/components/help/ContextualHelpDrawer";
 
 const TOP_NAV_LINKS = [
   { href: "/broker", label: "🏠 홈 화면", exact: true },
@@ -13,9 +15,10 @@ const TOP_NAV_LINKS = [
   { href: "/broker/magazine-editor?mode=simple", label: "📰 고객 소식지", exact: false },
 ] as const;
 
-export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) {
+function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isPaperMode, setIsPaperMode] = useState(true);
+  const { helperEnabled, toggleHelperEnabled, openHelpDrawer } = useSeniorHelp();
 
   useEffect(() => {
     try {
@@ -89,7 +92,43 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
             })}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
+            {!pathname.startsWith("/broker/tutorial") && (
+              <motion.button
+                type="button"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => openHelpDrawer()}
+                data-testid="broker-contextual-help-btn"
+                className={
+                  isPaperMode
+                    ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-blue-50 hover:bg-blue-100 text-blue-950 border border-blue-300 shadow-2xs transition-colors cursor-pointer"
+                    : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-blue-950/60 hover:bg-blue-900/60 text-blue-200 border border-blue-500/40 transition-colors cursor-pointer"
+                }
+                title="페이지를 이동하지 않고 지금 보고 계신 화면의 20초 동영상과 따라하기 사진을 바로 엽니다"
+              >
+                <span>🎬 이 화면 20초 사용법</span>
+              </motion.button>
+            )}
+
+            <motion.button
+              type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={toggleHelperEnabled}
+              data-testid="broker-helper-toggle-btn"
+              className={
+                helperEnabled
+                  ? isPaperMode
+                    ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[13px] font-extrabold bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 transition-colors cursor-pointer"
+                    : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[13px] font-extrabold bg-amber-950/50 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
+                  : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[13px] font-bold bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
+              }
+              title="화면 곳곳의 쉬운 용어 설명(❓)과 예시 도우미를 켜거나 끕니다"
+            >
+              <span>{helperEnabled ? "💡 친절 도우미 (켜짐)" : "💡 도우미 (꺼짐)"}</span>
+            </motion.button>
+
             <Link
               href="/broker/tutorial"
               prefetch={true}
@@ -104,7 +143,7 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
               }
               title="화면 캡처와 동영상으로 배우는 단계별 사용 설명서"
             >
-              <span>📖 쉬운 사용법 안내</span>
+              <span>📖 전체 설명서</span>
             </Link>
 
             <motion.button
@@ -127,7 +166,16 @@ export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) 
       </header>
 
       {children}
+      <ContextualHelpDrawer />
     </div>
+  );
+}
+
+export function BrokerSeniorLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SeniorHelpProvider>
+      <BrokerSeniorLayoutInner>{children}</BrokerSeniorLayoutInner>
+    </SeniorHelpProvider>
   );
 }
 
