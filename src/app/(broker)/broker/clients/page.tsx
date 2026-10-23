@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { createClient } from '@/lib/supabase/client';
+import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
+import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 
 interface BrokerClient {
   id: string;
@@ -89,6 +91,17 @@ export default function ClientsPage() {
           </Link>
         </div>
 
+        {/* 친절 코칭 배너 */}
+        <FieldCoachBanner
+          headline="👥 고객 명단 등록과 주간 소식지 · 매칭 연동 안내"
+          guidance="등록하신 고객님은 매주 월요일 발행되는 모바일 주간 소식지 일괄 발송 대상이 되며, 고객님이 희망하시는 매수 조건(금액·지역·용도)에 맞는 신규 딜카드가 등록되면 AI가 자동으로 매칭 추천을 연결합니다."
+          sampleText="[VIP 매수 고객 상담 메모 예시]&#10;희망 조건: 강남·서초 역세권 80억~150억 수익형 빌딩&#10;선호 수익률: 3.8% 이상 희망 (법인 사옥 겸용 가능)&#10;자금 조달: 자기자본 50억 + 대출 50억 준비 완료&#10;특이사항: 매주 월요일 주간 소식지 적극 열람 중, 급매물 발생 시 우선 연락 요망"
+          sampleButtonLabel="📋 예시 메모 복사"
+          copySample={true}
+          mistakeWarning="고객 연락처나 상담 메모에 주민등록번호 등 민감한 개인정보를 직접 적지 마세요. 등록된 고객 명단은 주간 소식지 일괄 발송과 딜 매칭에만 안전하게 연동됩니다."
+          variant="amber"
+        />
+
         {/* 검색 */}
         <input
           type="text"
@@ -100,34 +113,43 @@ export default function ClientsPage() {
         />
 
         {/* 필터 */}
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {(['all', 'seller', 'buyer', 'both'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setFilter(t)}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                filter === t
-                  ? 'bg-primary/10 text-primary border-primary/40'
-                  : 'bg-background text-muted-foreground border-border hover:border-primary/30'
-              }`}
-            >
-              {t === 'all' ? '전체' : TYPE_LABELS[t]?.label ?? t}
-            </button>
-          ))}
-          <span className="shrink-0 w-px h-6 bg-border self-center" />
-          {(['all', 'vip', 'normal', 'potential', 'dormant'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTierFilter(t)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                tierFilter === t
-                  ? 'bg-primary/10 text-primary border-primary/40'
-                  : 'bg-background text-muted-foreground border-border hover:border-primary/30'
-              }`}
-            >
-              {t === 'all' ? '전체 등급' : TIER_LABELS[t]?.label ?? t}
-            </button>
-          ))}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span className="font-semibold text-slate-700">고객 구분 필터</span>
+            <div className="flex items-center gap-1.5">
+              <SeniorTermTooltip termKey="고객 유형(매도/매수/양쪽)" buttonLabel="❓ 유형 안내" />
+              <SeniorTermTooltip termKey="고객 등급(VIP/잠재)" buttonLabel="❓ 등급 안내" />
+            </div>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {(['all', 'seller', 'buyer', 'both'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setFilter(t)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  filter === t
+                    ? 'bg-primary/10 text-primary border-primary/40'
+                    : 'bg-background text-muted-foreground border-border hover:border-primary/30'
+                }`}
+              >
+                {t === 'all' ? '전체' : TYPE_LABELS[t]?.label ?? t}
+              </button>
+            ))}
+            <span className="shrink-0 w-px h-6 bg-border self-center" />
+            {(['all', 'vip', 'normal', 'potential', 'dormant'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTierFilter(t)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  tierFilter === t
+                    ? 'bg-primary/10 text-primary border-primary/40'
+                    : 'bg-background text-muted-foreground border-border hover:border-primary/30'
+                }`}
+              >
+                {t === 'all' ? '전체 등급' : TIER_LABELS[t]?.label ?? t}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* 고객 목록 */}
@@ -173,13 +195,19 @@ export default function ClientsPage() {
                     <span className="text-xs text-muted-foreground shrink-0">→</span>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     {client.phone && <span>📞 {client.phone}</span>}
                     {buildingCount > 0 && (
-                      <span className="text-primary font-medium">🏢 {buildingCount}건</span>
+                      <span className="text-primary font-medium inline-flex items-center gap-1">
+                        <span>🏢 {buildingCount}건</span>
+                        <SeniorTermTooltip termKey="딜 매칭 연동" buttonLabel="❓" className="text-[10px]" />
+                      </span>
                     )}
                     {intentCount > 0 && (
-                      <span className="text-primary font-medium">🎯 {intentCount}건</span>
+                      <span className="text-primary font-medium inline-flex items-center gap-1">
+                        <span>🎯 {intentCount}건</span>
+                        <SeniorTermTooltip termKey="소식지 구독 연동" buttonLabel="❓" className="text-[10px]" />
+                      </span>
                     )}
                     <span className="ml-auto">
                       {new Date(client.created_at).toLocaleDateString('ko-KR', {

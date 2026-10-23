@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { logout } from '@/app/actions/auth';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
+import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
+import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 
 /* ─── Tag option constants ─── */
 
@@ -484,22 +486,29 @@ export default function BrokerProfilePage() {
         </div>
 
         {/* 60대 중개인 친화 안내 배너: 어디에 인쇄/표시되는지 명확히 설명 */}
-        <div
-          data-testid="profile-where-it-shows-banner"
-          className="rounded-2xl border-2 border-blue-500/30 bg-blue-500/5 p-5 space-y-2.5"
-        >
-          <p className="text-[17px] font-extrabold text-primary flex items-center gap-2">
-            <span>💡</span>
-            <span>여기에 적어주신 정보는 어디에 나오나요?</span>
-          </p>
-          <ul className="space-y-1.5 text-[15px] text-foreground leading-relaxed pl-1">
-            <li>
-              • <strong>① 이름 · 연락처 · 중개사무소 상호 (필수 3대 정보)</strong>: 고객에게 보내는 <strong>카카오톡 딜카드 하단 명함</strong>, <strong>PPTX 투자설명서(IM) 표지·마지막 장 담당자란</strong>, <strong>주간 고객 소식지 상단</strong>에 자동으로 인쇄됩니다.
-            </li>
-            <li>
-              • <strong>② 자격/등록번호 · 전문 지역 · 거래 실적</strong>: 매도인·매수인이 중개사님의 프로필을 열어볼 때 신뢰도를 높여주며, AI가 제안서와 인사말을 작성할 때 근거 자료로 쓰입니다.
-            </li>
-          </ul>
+        <div data-testid="profile-where-it-shows-banner">
+          <FieldCoachBanner
+            headline="🏛️ 중개사무소 정보 인쇄 위치 및 명함 등록 안내"
+            guidance={
+              <ul className="space-y-1 text-[14px] text-slate-800 leading-relaxed">
+                <li>• <strong>PPTX Slide 01 표지 &amp; Slide 10 문의/유의사항</strong>: 대표자 성함, 직통 연락처, 상호, 개설등록번호 자동 인쇄</li>
+                <li>• <strong>카카오톡 딜카드 하단 명함 &amp; 주간 고객 소식지 상단 헤더</strong>: 대표님 프로필 사진과 직통 전화 연결 배지로 표시</li>
+                <li>• 한 번만 정확히 등록해 두시면 모든 제안서와 고객용 화면에 법정 표시 규격으로 자동 반영됩니다.</li>
+              </ul>
+            }
+            sampleText="[표준 공인중개사무소 프로필 예시]&#10;상호: JS 부동산중개법인 (대표: 홍길동)&#10;직통전화: 010-1234-5678 (사무실: 02-555-1234)&#10;개설등록번호: 제 11560-2015-00123 호&#10;자격증번호: 2008-11-05432"
+            sampleButtonLabel="✨ 표준 양식 1초 예시 채우기"
+            onApplySample={() => {
+              if (!displayName) setDisplayName("홍길동 대표공인중개사");
+              if (!phone) setPhone("010-1234-5678");
+              if (!company) setCompany("JS 부동산중개법인");
+              if (!officeRegNumber) setOfficeRegNumber("제 11560-2015-00123 호");
+              if (!licenseNumber) setLicenseNumber("2008-11-05432");
+              if (!tagline) setTagline("강남·서초 꼬마빌딩 및 사옥 전문 20년 베테랑 중개");
+            }}
+            mistakeWarning="개설등록번호나 직통 연락처 오타가 나면 제안서를 받은 고객이 전화를 걸지 못하거나 공인중개사법상 표시광고 위반 소지가 생길 수 있으니, 등록증상의 번호와 정확히 일치하는지 한 번 더 확인해 주세요."
+            variant="amber"
+          />
         </div>
 
         {/* Error / Success */}
@@ -564,7 +573,10 @@ export default function BrokerProfilePage() {
               )}
             </div>
             <div className="flex-1 min-w-[200px] space-y-2">
-              <p className="text-[15px] font-bold text-foreground">대표님 인물 사진 (또는 사무소 로고)</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-[15px] font-bold text-foreground">대표님 인물 사진 (또는 사무소 로고)</p>
+                <SeniorTermTooltip termKey="프로필 사진 인쇄 위치" />
+              </div>
               <p className="text-[13px] text-muted-foreground">
                 밝게 웃으시는 정장 사진이나 사무소 로고를 등록하시면 고객 소식지와 모바일 명함 상단에 표시됩니다.
               </p>
@@ -621,9 +633,12 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5 mt-2">
-            <label htmlFor="profile-display-name" className="block text-[16px] font-bold">
-              성함 (직함 포함 가능) <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-display-name" className="block text-[16px] font-bold">
+                성함 (직함 포함 가능) <span className="text-rose-500">*</span>
+              </label>
+              <SeniorTermTooltip termKey="대표자 성함 인쇄 위치" />
+            </div>
             <input
               type="text"
               value={displayName}
@@ -638,9 +653,12 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-phone" className="block text-[16px] font-bold">
-              휴대폰 또는 사무실 전화번호 <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-phone" className="block text-[16px] font-bold">
+                휴대폰 또는 사무실 전화번호 <span className="text-rose-500">*</span>
+              </label>
+              <SeniorTermTooltip termKey="직통 연락처 인쇄 위치" />
+            </div>
             <input
               type="tel"
               value={phone}
@@ -655,9 +673,12 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-company" className="block text-[16px] font-bold">
-              중개사무소 상호 (회사명) <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-company" className="block text-[16px] font-bold">
+                중개사무소 상호 (회사명) <span className="text-rose-500">*</span>
+              </label>
+              <SeniorTermTooltip termKey="중개법인 상호 인쇄 위치" />
+            </div>
             <input
               type="text"
               value={company}
@@ -699,7 +720,10 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-license-number" className="block text-[16px] font-bold">공인중개사 자격증 번호</label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-license-number" className="block text-[16px] font-bold">공인중개사 자격증 번호</label>
+              <SeniorTermTooltip termKey="공인중개사 자격증 번호" />
+            </div>
             <input
               type="text"
               value={licenseNumber}
@@ -711,7 +735,10 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-office-reg-number" className="block text-[16px] font-bold">중개사무소 개설등록번호</label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-office-reg-number" className="block text-[16px] font-bold">중개사무소 개설등록번호</label>
+              <SeniorTermTooltip termKey="개설등록번호 인쇄 위치" />
+            </div>
             <input
               type="text"
               value={officeRegNumber}

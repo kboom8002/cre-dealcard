@@ -5,6 +5,9 @@ import Link from "next/link";
 import { ArrowLeft, Bell, Check, X, Phone, UserPlus, ExternalLink, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { FieldCoachBanner } from "@/components/help/FieldCoachBanner";
+import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
+import { KakaoTemplatePicker } from "@/components/help/KakaoTemplatePicker";
 
 type InboxFilter = "tab1" | "tab2" | "tab3";
 
@@ -167,6 +170,17 @@ export default function InboxPage() {
           ))}
         </div>
 
+        {/* 60대 친절 소통 코칭 배너 */}
+        <FieldCoachBanner
+          variant="amber"
+          headline="🔔 소통 관리함 & 핫리드(3회 이상 반복 열람) 팔로업 가이드"
+          guidance="고객님이 딜카드나 IM을 열람하거나 상세 자료(G1~G3)를 요청하면 실시간으로 기록됩니다. 특히 3회 이상 열람한 핫리드 고객에게는 전화를 걸기 전 카톡 안부 인사를 먼저 보내시면 미팅 성사율이 높아집니다."
+          sampleText="대표님 안녕하세요, 공유해 드린 매물 검토해 보시면서 혹시 추가로 궁금하신 점이나 현장 임장 필요하신 일정이 있으실까요? 편하신 시간에 말씀 주시면 상세히 브리핑 드리겠습니다."
+          sampleButtonLabel="📋 핫리드 인사말 복사"
+          copySample={true}
+          mistakeWarning="자료 요청(NDA) 승인 시 고객의 신원(성함·연락처)을 반드시 확인하신 후 [승인]을 누르세요. 승인 즉시 지번과 렌트롤이 공개됩니다."
+        />
+
         {/* List */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -213,9 +227,12 @@ export default function InboxPage() {
                                 <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />
                               )}
                               <div>
-                                <p className="text-sm font-bold text-foreground">
-                                  📋 상세 자료 요청
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-sm font-bold text-foreground">
+                                    📋 상세 자료 요청
+                                  </p>
+                                  <SeniorTermTooltip termKey="G1~G3 비밀유지 승인" buttonLabel="❓ NDA 안내" />
+                                </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   &quot;{item.building_label}&quot; — {item.requested_level} 단계
                                 </p>
@@ -345,9 +362,12 @@ export default function InboxPage() {
                               )}
                               <span className="text-base shrink-0">{item.icon || (item.type === "message" ? "💬" : item.type === "reaction" ? "❤️" : "👀")}</span>
                               <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {item.label}
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-sm font-medium text-foreground">
+                                    {item.label}
+                                  </p>
+                                  <SeniorTermTooltip termKey="열람 온도(3회 이상 열람)" />
+                                </div>
                                 {item.sub_label && (
                                   <p className="text-xs text-muted-foreground">
                                     {item.sub_label}
@@ -366,20 +386,36 @@ export default function InboxPage() {
                               </span>
                             </div>
                           )}
-                          {item.building_id && item.type === "view" && (
-                            <div className="flex gap-2 mt-1">
-                              <span className="text-[10px] text-primary flex items-center gap-0.5">
-                                딜카드 보기 <ExternalLink className="w-3 h-3" />
-                              </span>
+                          {item.type === "view" && (
+                            <div
+                              className="flex flex-wrap items-center gap-2 mt-2 pt-1 border-t border-border/40"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
+                              {item.building_id && (
+                                <span className="text-[10px] text-primary flex items-center gap-0.5">
+                                  딜카드 보기 <ExternalLink className="w-3 h-3" />
+                                </span>
+                              )}
                               <button
-                                className="text-[10px] text-emerald-500 flex items-center gap-0.5"
+                                type="button"
+                                className="text-[10px] text-emerald-500 flex items-center gap-0.5 cursor-pointer"
                                 onClick={(e) => {
                                   e.preventDefault();
+                                  e.stopPropagation();
                                   // TODO: Navigate to buyer registration with pre-filled viewer info
                                 }}
                               >
                                 <UserPlus className="w-3 h-3" /> 리드 등록
                               </button>
+                              <KakaoTemplatePicker
+                                defaultTemplateId="tpl-06"
+                                buttonLabel="💬 인사말 복사"
+                                buildingId={item.building_id || undefined}
+                                className="!w-auto !py-1 !px-2.5 !text-xs !rounded-lg"
+                              />
                             </div>
                           )}
                         </Link>

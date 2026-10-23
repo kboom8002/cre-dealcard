@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
+import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
+import { KakaoTemplatePicker } from '@/components/help/KakaoTemplatePicker';
 
 export interface ActionItem {
   id: string;
@@ -81,17 +83,24 @@ export function ActionQueue({ items: initialItems }: ActionQueueProps) {
                   <p className="text-[13px] text-neutral-400 mt-0.5">{item.subtitle}</p>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-2 mt-3">
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
                     {item.type === 'hot_lead' && (
                       <>
                         <button onClick={() => dismissItem(item.id)}
                           className="px-3 py-1.5 bg-primary/20 text-primary text-[13px] font-bold rounded-lg hover:bg-primary/30 transition-colors">
                           📞 전화
                         </button>
+                        <KakaoTemplatePicker
+                          buildingId={item.dealId || ""}
+                          defaultTemplateId="tpl-06"
+                          buttonLabel="💬 인사말 복사"
+                          className="shrink-0"
+                        />
                         <button onClick={() => dismissItem(item.id)}
                           className="px-3 py-1.5 bg-neutral-800 text-neutral-300 text-[13px] rounded-lg hover:bg-neutral-700 transition-colors">
                           ⏰ 나중에
                         </button>
+                        <SeniorTermTooltip termKey="열람 온도(3회 이상 열람)" />
                       </>
                     )}
                     {item.type === 'pro_request' && (
@@ -104,6 +113,7 @@ export function ActionQueue({ items: initialItems }: ActionQueueProps) {
                           className="px-3 py-1.5 bg-red-500/20 text-red-300 text-[13px] rounded-lg hover:bg-red-500/30 transition-colors">
                           ❌ 거부
                         </button>
+                        <SeniorTermTooltip termKey="G1~G3 비밀유지 승인" />
                       </>
                     )}
                     {item.type === 'tagging' && (

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -210,6 +211,17 @@ export default function NewClientPage() {
         {/* 메모 */}
         <section className="space-y-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">메모</h2>
+
+          <FieldCoachBanner
+            headline="💡 고객 성향 및 매수 희망 조건 메모 코칭"
+            guidance="고객의 매수 희망 가격대, 선호 지역, 자금 준비 현황을 메모해 두시면 신규 딜카드 등록 시 AI 매칭 추천과 주간 소식지 발송에 자동으로 연동됩니다."
+            sampleText="희망 조건: 강남·서초 역세권 80억~150억 수익형 빌딩&#10;선호 수익률: 3.8% 이상 희망 (법인 사옥 겸용 가능)&#10;자금 조달: 자기자본 50억 + 대출 50억 준비 완료&#10;특이사항: 매주 월요일 주간 소식지 적극 열람 중, 급매물 발생 시 우선 연락 요망"
+            sampleButtonLabel="✨ 1초 예시 채우기"
+            onApplySample={(sample) => setNotes(sample)}
+            mistakeWarning="주민등록번호나 금융계좌 등 불필요한 개인정보는 입력하지 마시고, 매수 의사결정에 필요한 예산·지역·용도 위주로 메모해 주세요."
+            variant="amber"
+          />
+
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

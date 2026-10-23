@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import { SOTA_SPRING } from "@/components/motion/sota-motion";
 import { SeniorHelpProvider, useSeniorHelp } from "@/components/help/SeniorHelpContext";
 import { ContextualHelpDrawer } from "@/components/help/ContextualHelpDrawer";
+import { QuickFeedbackReportModal } from "@/components/help/QuickFeedbackReportModal";
 
 const TOP_NAV_LINKS = [
   { href: "/broker", label: "🏠 홈 화면", exact: true },
@@ -18,6 +19,7 @@ const TOP_NAV_LINKS = [
 function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isPaperMode, setIsPaperMode] = useState(true);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const { helperEnabled, toggleHelperEnabled, openHelpDrawer } = useSeniorHelp();
 
   useEffect(() => {
@@ -115,6 +117,22 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               type="button"
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.96 }}
+              onClick={() => setIsFeedbackOpen(true)}
+              data-testid="broker-feedback-btn"
+              className={
+                isPaperMode
+                  ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs transition-colors cursor-pointer"
+                  : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-amber-950/60 hover:bg-amber-900/60 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
+              }
+              title="사용 중 불편하신 점이나 개선 건의 사항을 10초 만에 복사하여 제보합니다"
+            >
+              <span>🛠️ 10초 불편 제보</span>
+            </motion.button>
+
+            <motion.button
+              type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.96 }}
               onClick={toggleHelperEnabled}
               data-testid="broker-helper-toggle-btn"
               className={
@@ -167,6 +185,10 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
 
       {children}
       <ContextualHelpDrawer />
+      <QuickFeedbackReportModal
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+      />
     </div>
   );
 }

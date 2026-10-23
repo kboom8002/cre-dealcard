@@ -1,44 +1,68 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { BROKER_MESSAGE_TEMPLATES } from "@/lib/tutorial/broker-tutorial-data";
 import { useSeniorHelp } from "./SeniorHelpContext";
 
-interface KakaoTemplatePickerProps {
-  buildingId: string;
+export interface KakaoTemplatePickerProps {
+  /** 매물 ID (선택: 없을 경우 링크 없이 인사말만 복사) */
+  buildingId?: string;
   dealTitle?: string;
   areaSignal?: string;
   priceBand?: string;
+  /** 기본 선택/강조할 템플릿 ID (e.g. "tpl-06") */
+  defaultTemplateId?: string;
+  /** 버튼 라벨 (기본값: "💬 카톡 보낼 때 같이 적을 '상황별 인사말 6선' 1초 복사") */
+  buttonLabel?: string;
+  className?: string;
 }
 
 /**
  * 60대 대표공인중개사 맞춤형 '상황별 카톡 인사말 멘트 6선' 1초 복사기 (Tier 2)
- * - 단독 발송, 비교 발송, 급매 안내, 정식 PPTX 송부, 주간 소식지, 3회 열람 안부 팔로업
- * - 현재 매물의 블라인드 딜카드 링크(/dc/[buildingId])를 자동으로 넣어 복사합니다.
+ * - 단독 발송, 비교 발송, 급매 안내, 정식 PPTX 송부, 주간 소식지, 3회 열람 안부 팔로업(tpl-06)
+ * - buildingId가 있으면 블라인드 딜카드 링크(/dc/[buildingId])를 자동으로 포함합니다.
  */
 export function KakaoTemplatePicker({
   buildingId,
   dealTitle,
   areaSignal,
   priceBand,
+  defaultTemplateId,
+  buttonLabel = "💬 카톡 보낼 때 같이 적을 '상황별 인사말 6선' 1초 복사",
+  className = "",
 }: KakaoTemplatePickerProps) {
   const { helperEnabled } = useSeniorHelp();
   const [isOpen, setIsOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   if (!helperEnabled) return null;
 
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://credeal.net";
-  const dealUrl = `${siteUrl}/dc/${buildingId}`;
+  const dealUrl = buildingId ? `${siteUrl}/dc/${buildingId}` : "";
 
   const handleCopyTemplate = async (id: string, rawBody: string, situation: string) => {
-    const customized = `${rawBody}\n\n🔗 매물 딜카드 바로 보기: ${dealUrl}`;
+    const customized = dealUrl
+      ? `${rawBody}\n\n🔗 매물 딜카드 바로 보기: ${dealUrl}`
+      : rawBody;
+
     try {
       await navigator.clipboard.writeText(customized);
       setCopiedId(id);
-      toast.success(`✅ [${situation}] 카톡 인사말과 매물 링크가 함께 복사되었습니다! 카카오톡 창에 붙여넣기(Ctrl+V) 하세요.`);
+      const successMsg = dealUrl
+        ? `✅ [${situation}] 카톡 인사말과 매물 링크가 함께 복사되었습니다! 카카오톡 창에 붙여넣기(Ctrl+V) 하세요.`
+        : `✅ [${situation}] 카톡 인사말이 복사되었습니다! 카카오톡 창에 붙여넣기(Ctrl+V) 하세요.`;
+      toast.success(successMsg);
       setTimeout(() => {
         setCopiedId((prev) => (prev === id ? null : prev));
       }, 2500);
@@ -53,9 +77,9 @@ export function KakaoTemplatePicker({
         type="button"
         onClick={() => setIsOpen(true)}
         data-testid="kakao-template-picker-btn"
-        className="w-full py-2.5 px-3.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-950 text-[14px] font-extrabold flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
+        className={`w-full py-2.5 px-3.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-950 text-[14px] font-extrabold flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer ${className}`}
       >
-        <span>💬 카톡 보낼 때 같이 적을 '상황별 인사말 6선' 1초 복사</span>
+        <span>{buttonLabel}</span>
       </button>
 
       {isOpen &&
@@ -79,7 +103,7 @@ export function KakaoTemplatePicker({
                     부록 C · 베테랑 대표중개사 실전 카톡 문구
                   </span>
                   <h3 className="text-[19px] sm:text-[21px] font-black text-slate-900">
-                    💬 상황별 카카오톡 발송 인사말 6선 (링크 자동 포함)
+                    💬 상황별 카카오톡 발송 인사말 6선 {dealUrl ? "(링크 자동 포함)" : ""}
                   </h3>
                 </div>
                 <button
@@ -93,7 +117,7 @@ export function KakaoTemplatePicker({
 
               {/* Description */}
               <div className="px-5 py-3 bg-amber-100/70 border-b border-amber-200 text-[14px] font-bold text-amber-950 shrink-0">
-                💡 원하시는 상황의 <strong>[📋 인사말 + 딜카드 링크 한 번에 복사]</strong> 버튼을 누르신 뒤, 카카오톡 대화창에 붙여넣기(Ctrl+V)만 하시면 됩니다.
+                💡 원하시는 상황의 <strong>[📋 인사말 복사]</strong> 버튼을 누르신 뒤, 카카오톡 대화창에 붙여넣기(Ctrl+V)만 하시면 됩니다.
                 {(areaSignal || priceBand || dealTitle) && (
                   <span className="block text-[13px] text-slate-700 mt-0.5">
                     현재 연결된 매물: <strong>{dealTitle || `${areaSignal || ""} ${priceBand || ""}`}</strong>
@@ -105,16 +129,27 @@ export function KakaoTemplatePicker({
               <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
                 {BROKER_MESSAGE_TEMPLATES.map((tpl) => {
                   const isCopied = copiedId === tpl.id;
+                  const isDefaultRecommended = defaultTemplateId === tpl.id;
+
                   return (
                     <div
                       key={tpl.id}
-                      className="rounded-2xl border border-amber-300 bg-white p-4 shadow-2xs space-y-2.5"
+                      className={`rounded-2xl border p-4 shadow-2xs space-y-2.5 transition-all ${
+                        isDefaultRecommended
+                          ? "border-2 border-amber-500 bg-amber-50/50 ring-2 ring-amber-400/40"
+                          : "border-amber-300 bg-white"
+                      }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-[12px] font-extrabold mr-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-[12px] font-extrabold">
                             {tpl.situation}
                           </span>
+                          {isDefaultRecommended && (
+                            <span className="inline-block px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 border border-amber-500 text-[11px] font-black animate-pulse">
+                              ⭐ 지금 추천
+                            </span>
+                          )}
                           <span className="text-[13px] font-bold text-slate-600">
                             추천 대상: {tpl.targetAudience}
                           </span>
@@ -128,7 +163,11 @@ export function KakaoTemplatePicker({
                               : "bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] border border-amber-400"
                           }`}
                         >
-                          {isCopied ? "✅ 복사 완료! (카톡에 붙여넣으세요)" : "📋 인사말 + 딜카드 링크 한 번에 복사"}
+                          {isCopied
+                            ? "✅ 복사 완료! (카톡에 붙여넣으세요)"
+                            : dealUrl
+                            ? "📋 인사말 + 딜카드 링크 한 번에 복사"
+                            : "📋 인사말 1초 복사"}
                         </button>
                       </div>
 

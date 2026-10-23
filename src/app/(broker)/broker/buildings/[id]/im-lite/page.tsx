@@ -2,6 +2,8 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
+import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 
 interface ImLiteSection {
   sectionId: string;
@@ -89,6 +91,32 @@ export default function ImLiteViewerPage({ params }: { params: Promise<{ id: str
          </p>
       </div>
 
+      <FieldCoachBanner
+        headline="💡 IM Lite 초안 생성을 위한 80점 완성도 기준 안내"
+        guidance={
+          <div className="space-y-1">
+            <p>
+              • <strong className="text-amber-950 font-black">80점 이상</strong> 충족 시 10개 핵심 섹션 초안이 즉시 잠금 해제됩니다.
+            </p>
+            <p>
+              • 렌트롤(임대차 내역)을 등록하시면 05번 임차인 구성(Tenant Mix)과 06번 현금흐름 분석까지 모두 열립니다.
+            </p>
+          </div>
+        }
+        sampleButtonLabel="📋 점수 올리는 필수 팁 복사"
+        sampleText={`[완성도 80점 달성 팁]
+1. 현장 사진 3장 이상 등록 (외관, 대표 사진 필수)
+2. 토지·건축물 공적장부 면적 자동 연동 확인
+3. 층별 렌트롤(보증금, 월세) 1건 이상 기입`}
+        copySample
+        copyToastMessage="✅ 80점 달성 팁이 복사되었습니다!"
+        mistakeWarning="80점 미만 상태에서는 IM 초안 생성이 제한됩니다. 스튜디오로 돌아가 사진과 기본 임대료 정보를 먼저 보강해 주세요."
+        variant="amber"
+        actionExtra={
+          <SeniorTermTooltip termKey="완성도 점수" buttonLabel="완성도 점수란?" />
+        }
+      />
+
       {!plan.eligible ? (
         <div className="bg-neutral-900 border border-red-900/50 rounded-xl p-8 text-center shadow-2xl relative overflow-hidden">
            <div className="absolute top-0 left-0 w-full h-1 bg-red-500/50"></div>
@@ -97,9 +125,12 @@ export default function ImLiteViewerPage({ params }: { params: Promise<{ id: str
            <p className="text-neutral-400 mb-6 max-w-md mx-auto">
              현재 완성도 점수는 <strong className="text-red-400">{score}점</strong>입니다. IM Lite를 구성하려면 최소 <strong>80점</strong> 이상의 완성도가 필요합니다.
            </p>
-           <Link href={`/broker/buildings/${id}/studio`} className="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-sm font-bold transition-colors border border-neutral-700">
-             데이터 보강하러 가기
-           </Link>
+           <div className="flex items-center justify-center gap-3">
+             <Link href={`/broker/buildings/${id}/studio`} className="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-sm font-bold transition-colors border border-neutral-700">
+               데이터 보강하러 가기
+             </Link>
+             <SeniorTermTooltip termKey="완성도 점수" buttonLabel="완성도 점수 기준" />
+           </div>
         </div>
       ) : (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">

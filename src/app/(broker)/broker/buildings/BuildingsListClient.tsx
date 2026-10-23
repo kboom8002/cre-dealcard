@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { SOTA_SPRING, StaggerContainer, StaggerItem } from "@/components/motion/sota-motion";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
+import { FieldCoachBanner } from "@/components/help/FieldCoachBanner";
 
 interface Building {
   id: string;
@@ -179,7 +181,10 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
             className="absolute inset-0 rounded-xl bg-primary shadow-sm"
           />
         )}
-        <span className="relative z-10">📄 딜카드 ({buildings.length})</span>
+        <span className="relative z-10 flex items-center gap-1.5">
+          <span>📄 딜카드 ({buildings.length})</span>
+          <SeniorTermTooltip termKey="딜카드" buttonLabel="도움말" />
+        </span>
       </button>
       <button
         type="button"
@@ -198,8 +203,41 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
             className="absolute inset-0 rounded-xl bg-indigo-600 shadow-sm"
           />
         )}
-        <span className="relative z-10">📊 투자설명서 IM ({imListState.length})</span>
+        <span className="relative z-10 flex items-center gap-1.5">
+          <span>📊 투자설명서 IM ({imListState.length})</span>
+          <SeniorTermTooltip termKey="모바일 IM" buttonLabel="도움말" />
+        </span>
       </button>
+    </StaggerItem>
+
+    {/* Dynamic Coaching Banner for Active Tab */}
+    <StaggerItem>
+      {activeTab === "dealcard" ? (
+        <FieldCoachBanner
+          headline="⚡ 1분 딜카드 보관함 (블라인드 티저 보호)"
+          guidance="상세 지번과 건물명을 가린 첫 접촉용 딜카드입니다. 카카오톡 첫 상담 시 매물 보안을 지키며 매수자의 매수 의향과 자금력을 신속하게 검증할 수 있습니다."
+          sampleButtonLabel="📋 딜카드 카톡 전송 팁 복사"
+          sampleText={`[딜카드 첫 상담 카톡 요령]
+대표님, 요청하신 강남 역세권 빌딩 요약 딜카드 보내드립니다.
+보안상 상세 지번은 가려져 있으며, 기본 조건 검토 후 관심 있으시면 정식 투자설명서(IM)와 함께 지번을 안내해 드리겠습니다.`}
+          copySample
+          copyToastMessage="✅ 딜카드 카톡 전송 요령이 복사되었습니다!"
+          mistakeWarning="첫 상담에서 건물 실명이나 지번을 먼저 공개하시면 다른 중개업소나 매수인이 직거래를 시도할 수 있습니다. 지번이 안전하게 가려진 딜카드를 먼저 전송하세요."
+          variant="amber"
+        />
+      ) : (
+        <FieldCoachBanner
+          headline="📊 정식 모바일 IM & PPTX 제안서 보관함"
+          guidance="지적도, 층별 렌트롤, 10년 공시지가, 주변 시세 비교가 집약된 12면 정식 투자설명서입니다. 검토 후 PPTX 파일로 다운로드하거나 모바일 링크로 발송할 수 있습니다."
+          sampleButtonLabel="📋 정식 IM 발송 안내문 복사"
+          sampleText={`[정식 IM 제안서 발송 안내]
+대표님, 검토 요청하신 물건의 정식 투자설명서(IM)입니다.
+지적도, 층별 렌트롤, 10개년 공시지가 및 수익률 분석이 포함되어 있습니다. PC 파워포인트(PPTX) 또는 모바일 링크로 확인하실 수 있습니다.`}
+          copySample
+          copyToastMessage="✅ 정식 IM 발송 안내문이 복사되었습니다!"
+          variant="blue"
+        />
+      )}
     </StaggerItem>
 
     {/* IM Tab Content */}
@@ -271,8 +309,9 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         {/* Average Promotion Score Card */}
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-2 flex flex-col justify-between shadow-xs">
           <div>
-            <span className="block text-xs font-extrabold text-neutral-400 tracking-tight">
-              평균 홍보 완성도 점수
+            <span className="flex items-center gap-1.5 text-xs font-extrabold text-neutral-400 tracking-tight">
+              <span>평균 홍보 완성도 점수</span>
+              <SeniorTermTooltip termKey="완성도 점수" buttonLabel="도움말" />
             </span>
             <p className="text-3xl font-black text-primary mt-1 tabular-nums">
               {metrics.avgScore} <span className="text-xs font-bold text-neutral-400">점</span>
@@ -308,6 +347,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-extrabold text-neutral-300 tracking-tight flex items-center gap-2">
             <span>🔄 단계별 매물 진행 현황</span>
+            <SeniorTermTooltip termKey="매물 진행 단계" buttonLabel="도움말" />
             {stageFilter && (
               <button
                 onClick={() => setStageFilter(null)}
@@ -363,22 +403,25 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       {/* Search and Filters panel */}
       <div className="space-y-3.5 bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
         {/* Search */}
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="📍 권역, 유형, 가격대 검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-2.5 text-xs text-neutral-500 hover:text-neutral-300 font-semibold"
-            >
-              ×
-            </button>
-          )}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="📍 권역, 유형, 가격대 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-2.5 text-xs text-neutral-500 hover:text-neutral-300 font-semibold"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <SeniorTermTooltip termKey="권역/유형/가격 검색 팁" buttonLabel="검색 팁" />
         </div>
 
         {/* Filter buttons & Sort Select */}
@@ -534,7 +577,10 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDeletingImId(null)}>
         <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
           <h3 className="text-lg font-bold text-white mb-2">IM 삭제</h3>
-          <p className="text-sm text-neutral-400 mb-6">이 투자설명서를 삭제하시겠습니까? 삭제된 IM은 복구할 수 없습니다.</p>
+          <p className="text-sm text-neutral-400 mb-3">이 투자설명서를 삭제하시겠습니까? 삭제된 IM은 복구할 수 없습니다.</p>
+          <div className="mb-5">
+            <SeniorTermTooltip termKey="안전한 삭제 규칙" buttonLabel="💡 안전한 삭제 안내" />
+          </div>
           <div className="flex gap-3">
             <button onClick={() => setDeletingImId(null)} className="flex-1 py-2.5 bg-neutral-800 text-white text-sm font-medium rounded-xl">취소</button>
             <button onClick={() => handleDeleteIM(deletingImId)} className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-xl">삭제</button>
@@ -552,6 +598,9 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
             <p className="text-sm text-neutral-400 leading-relaxed">
               이 딜카드와 관련된 <strong className="text-neutral-200">투자설명서, 딜 신호 카드</strong>도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
             </p>
+            <div className="pt-1">
+              <SeniorTermTooltip termKey="안전한 삭제 규칙" buttonLabel="💡 안전한 삭제 안내" />
+            </div>
           </div>
           <div className="flex gap-2 pt-1">
             <button

@@ -10,6 +10,8 @@ import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
 import { ActionQueue, type ActionItem } from "@/components/dashboard/ActionQueue";
 import { PipelineSnapshot } from "@/components/dashboard/PipelineSnapshot";
 import { StaggerContainer, StaggerItem, AnimatedAccordion } from "@/components/motion/sota-motion";
+import { BrokerHomeCoachBanner } from "./_components/BrokerHomeCoachBanner";
+import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
 
 export const metadata: Metadata = {
   title: "JS 1분 딜카드 | 중개 업무 홈",
@@ -430,65 +432,88 @@ export default async function BrokerPage() {
         {/* ── 인사 & 날짜 & 로그인 상태 ── */}
         <GreetingHeader userName={userName} userPhotoUrl={userPhotoUrl} />
 
+        {/* ── 60대 대표님을 위한 초간편 3대 산출물 코칭 배너 ── */}
+        <BrokerHomeCoachBanner />
+
         {/* ── 퀵액션 버튼 (60대 PC·모바일 친화 대형 카드 · 4열 와이드 그리드 · SOTA 스태거 애니메이션) ── */}
         <StaggerContainer className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StaggerItem>
-            <Link
-              href="/broker/deal-card/new"
-              id="quick-action-new-dealcard"
-              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 p-5 hover:border-amber-400 hover:bg-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-                <span className="text-amber-300 font-black text-[18px]">1분</span>
+            <div className="relative group h-full">
+              <Link
+                href="/broker/deal-card/new"
+                id="quick-action-new-dealcard"
+                className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 p-5 hover:border-amber-400 hover:bg-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                  <span className="text-amber-300 font-black text-[18px]">1분</span>
+                </div>
+                <p className="text-[22px] font-black text-amber-300 leading-tight tracking-tight">새 물건 등록</p>
+                <p className="text-[15px] font-bold text-slate-300 mt-1.5">카톡 메모 붙여넣기</p>
+              </Link>
+              <div className="absolute top-2 right-2 z-10">
+                <SeniorTermTooltip termKey="1분 딜카드" buttonLabel="도움말" />
               </div>
-              <p className="text-[22px] font-black text-amber-300 leading-tight tracking-tight">새 물건 등록</p>
-              <p className="text-[15px] font-bold text-slate-300 mt-1.5">카톡 메모 붙여넣기</p>
-            </Link>
+            </div>
           </StaggerItem>
 
           <StaggerItem>
-            <Link
-              href="/broker/buildings"
-              id="quick-action-buildings"
-              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 p-5 hover:border-blue-400 hover:bg-blue-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-                <Building2 className="w-7 h-7 text-blue-300" strokeWidth={2.4} />
+            <div className="relative group h-full">
+              <Link
+                href="/broker/buildings"
+                id="quick-action-buildings"
+                className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 p-5 hover:border-blue-400 hover:bg-blue-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                  <Building2 className="w-7 h-7 text-blue-300" strokeWidth={2.4} />
+                </div>
+                <p className="text-[22px] font-black text-blue-300 leading-tight tracking-tight">내 물건 · IM</p>
+                <p className="text-[15px] font-bold text-slate-300 mt-1.5">PPTX 투자설명서 작성</p>
+              </Link>
+              <div className="absolute top-2 right-2 z-10">
+                <SeniorTermTooltip termKey="3분 기본 IM" buttonLabel="도움말" />
               </div>
-              <p className="text-[22px] font-black text-blue-300 leading-tight tracking-tight">내 물건 · IM</p>
-              <p className="text-[15px] font-bold text-slate-300 mt-1.5">PPTX 투자설명서 작성</p>
-            </Link>
+            </div>
           </StaggerItem>
 
           {/* 매거진 편집 */}
           <StaggerItem>
-            <Link
-              href="/broker/magazine-editor?mode=simple"
-              id="quick-action-magazine-editor"
-              data-testid="quick-action-clients"
-              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 p-5 hover:border-rose-400 hover:bg-rose-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-                <Newspaper className="w-7 h-7 text-rose-300" strokeWidth={2.4} />
+            <div className="relative group h-full">
+              <Link
+                href="/broker/magazine-editor?mode=simple"
+                id="quick-action-magazine-editor"
+                data-testid="quick-action-clients"
+                className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 p-5 hover:border-rose-400 hover:bg-rose-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                  <Newspaper className="w-7 h-7 text-rose-300" strokeWidth={2.4} />
+                </div>
+                <p className="text-[22px] font-black text-rose-300 leading-tight tracking-tight">고객 소식지</p>
+                <p className="text-[15px] font-bold text-slate-300 mt-1.5">5분 간편 소식지 발송</p>
+              </Link>
+              <div className="absolute top-2 right-2 z-10">
+                <SeniorTermTooltip termKey="5분 주간 소식지" buttonLabel="도움말" />
               </div>
-              <p className="text-[22px] font-black text-rose-300 leading-tight tracking-tight">고객 소식지</p>
-              <p className="text-[15px] font-bold text-slate-300 mt-1.5">5분 간편 소식지 발송</p>
-            </Link>
+            </div>
           </StaggerItem>
 
           {/* 소통 관리함 */}
           <StaggerItem>
-            <Link
-              href="/broker/inbox"
-              id="quick-action-inbox"
-              className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 p-5 hover:border-emerald-400 hover:bg-emerald-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
-                <Bell className="w-7 h-7 text-emerald-300" strokeWidth={2.4} />
+            <div className="relative group h-full">
+              <Link
+                href="/broker/inbox"
+                id="quick-action-inbox"
+                className="min-h-[164px] h-full flex flex-col items-center justify-center text-center rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 p-5 hover:border-emerald-400 hover:bg-emerald-500/20 hover:-translate-y-0.5 active:scale-95 transition-all shadow-md group"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mb-3 shadow-inner">
+                  <Bell className="w-7 h-7 text-emerald-300" strokeWidth={2.4} />
+                </div>
+                <p className="text-[22px] font-black text-emerald-300 leading-tight tracking-tight">고객 문의함</p>
+                <p className="text-[15px] font-bold text-slate-300 mt-1.5">열람 · 문의 확인</p>
+              </Link>
+              <div className="absolute top-2 right-2 z-10">
+                <SeniorTermTooltip termKey="고객 문의함" buttonLabel="도움말" />
               </div>
-              <p className="text-[22px] font-black text-emerald-300 leading-tight tracking-tight">고객 문의함</p>
-              <p className="text-[15px] font-bold text-slate-300 mt-1.5">열람 · 문의 확인</p>
-            </Link>
+            </div>
           </StaggerItem>
         </StaggerContainer>
 

@@ -10,6 +10,8 @@ import { resolveEnrichment } from '@/domain/building/im-core/resolve-enrichment'
 import { toast } from 'sonner';
 import { normalizeSectionMarkdown } from '@/lib/utils/markdown-normalizer';
 import { PHOTO_CATEGORY_LABELS } from '@/domain/building/mobile-im/photo-url-transformer';
+import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
+import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 
 /** 중개인 태깅용 사진 유형 (시스템 전용 'map'·'hero' 제외 15종) */
 const TAGGABLE_PHOTO_CATEGORIES = (Object.keys(PHOTO_CATEGORY_LABELS) as Array<keyof typeof PHOTO_CATEGORY_LABELS>)
@@ -610,6 +612,22 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       </div>
 
       <StaggerContainer className="max-w-5xl mx-auto px-4 py-8">
+        <StaggerItem className="mb-6">
+          <FieldCoachBanner
+            variant="blue"
+            headline="🔄 웹 화면 검토 내용이 PPTX 제안서에 실시간 자동 반영됩니다"
+            guidance="이 화면에서 사진 역할(📌대표·🏢외관·🚫제외)을 바꾸거나 텍스트 캡션, 3대 투자 포인트를 수정하시면 파워포인트(PPTX) 파일과 모바일 웹 IM에 실시간 자동 반영·저장됩니다."
+            sampleButtonLabel="📋 검토 및 동기화 안내 복사"
+            sampleText={`[웹 ↔ PPTX 실시간 동기화 안내]
+1. 웹 화면에서 수정한 사진(대표/외관/제외)과 설명은 PPTX 제안서에 즉시 반영됩니다.
+2. 검토를 마치신 후 [⚡ PPTX 바로 다운로드]를 누르시면 완성된 최신 파일이 저장됩니다.
+3. 고객께 전송 시 [🔗 카톡용 링크 복사]로 모바일 IM 링크를 바로 전달하실 수 있습니다.`}
+            copySample
+            copyToastMessage="✅ 제안서 동기화 안내가 복사되었습니다!"
+            mistakeWarning="사진의 역할(대표/외관)을 지정하지 않거나 중복/어두운 사진을 [🚫 제외]하지 않으면 슬라이드 디자인 품질이 저하될 수 있습니다. 사진 목록에서 역할을 꼭 점검해 주세요."
+          />
+        </StaggerItem>
+
         <StaggerItem className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 p-6 shadow-md">
           <div className="space-y-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">투자설명서(Basic IM) 완성 · 슬라이드 편집</h1>
@@ -768,13 +786,22 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
         {/* 📊 데이터 품질 모니터링 */}
         <div className="mb-6 p-5 rounded-2xl border border-neutral-800 bg-neutral-900/50">
-          <h3 className="text-[15px] font-bold text-neutral-300 mb-3">📊 제안서 필수 데이터 자동 점검</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[15px] font-bold text-neutral-300 flex items-center gap-2">
+              <span>📊 제안서 필수 데이터 자동 점검</span>
+              <SeniorTermTooltip termKey="필수 데이터 4항목" buttonLabel="도움말" />
+            </h3>
+            <SeniorTermTooltip termKey="준비도 점수" buttonLabel="준비도 점수 안내" />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
               <span className="text-neutral-400 font-medium">데이터 자동 연동 상태</span>
-              <p className="text-lg font-extrabold text-emerald-400 mt-1">
-                ✓ 정부 공적장부 · 입지 데이터 반영됨 ({readinessScore}점)
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-lg font-extrabold text-emerald-400">
+                  ✓ 정부 공적장부 · 입지 데이터 반영됨 ({readinessScore}점)
+                </p>
+                <SeniorTermTooltip termKey="준비도 점수" buttonLabel="점수 도움말" />
+              </div>
             </div>
             <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
               <span className="text-neutral-400 font-medium">제안서 분석 유형</span>
@@ -856,8 +883,35 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
         {/* 사진 프리뷰 + 캡션 편집 */}
         {photos.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-[16px] font-bold text-neutral-200 mb-1">📷 매물 사진 관리 ({photos.filter(p => !p.excluded).length}/{photos.length}장 사용)</h3>
+          <div className="mb-6 space-y-3">
+            <FieldCoachBanner
+              headline="📷 매물 사진 역할 배정 가이드 (📌 대표 · 🏢 외관 · 🚫 제외)"
+              guidance={
+                <div className="space-y-1">
+                  <p>• <strong className="text-amber-950 font-black">📌 대표</strong>: PPTX 01번 표지와 딜카드 메인 화면에 들어갈 정면 사진 (1장 지정)</p>
+                  <p>• <strong className="text-amber-950 font-black">🏢 외관</strong>: 04번 건물 개요 및 입지 분석 슬라이드에 들어갈 전경 사진</p>
+                  <p>• <strong className="text-amber-950 font-black">🚫 제외</strong>: 어두운 계단, 화장실, 중복된 사진 등 제안서에 부적합한 사진 숨김</p>
+                </div>
+              }
+              sampleButtonLabel="📋 사진 큐레이션 원칙 복사"
+              sampleText={`[매물 사진 3대 선정 원칙]
+1. 맑은 날 정면에서 찍은 반듯한 외관 사진을 [📌 대표]로 지정
+2. 도로와 건물이 함께 보이는 원경 사진을 [🏢 외관]으로 지정
+3. 어두운 지하, 화장실, 흔들린 사진은 [🚫 제외] 클릭`}
+              copySample
+              copyToastMessage="✅ 사진 큐레이션 원칙이 복사되었습니다!"
+              mistakeWarning="불필요한 사진을 제외하지 않으면 PPTX 슬라이드에 어두운 사진이 그대로 인쇄됩니다. 표지에 알맞은 사진 1장만 [📌 대표]로 남기고 부적합한 사진은 [🚫 제외]해 주세요."
+              variant="amber"
+              actionExtra={
+                <SeniorTermTooltip termKey="외관/대표 사진" buttonLabel="사진 지정 가이드" />
+              }
+            />
+            <div className="flex items-center justify-between">
+              <h3 className="text-[16px] font-bold text-neutral-200">
+                📷 매물 사진 관리 ({photos.filter(p => !p.excluded).length}/{photos.length}장 사용)
+              </h3>
+              <SeniorTermTooltip termKey="외관/대표 사진" buttonLabel="외관/대표 사진 안내" />
+            </div>
             <p className="text-[14px] text-neutral-400 mb-3 leading-relaxed">
               표지에 쓸 사진은 <b className="text-amber-400">📌 대표</b>, 건물 전체 모습은 <b className="text-blue-400">🏢 외관</b>을 눌러주세요. 도면·서류·명함 등은 <b className="text-rose-400">🚫 제외</b>를 누르면 IM에서 빠집니다.
             </p>
@@ -913,7 +967,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                       placeholder={`사진 ${i+1} 캡션`}
                       className="w-full text-[13px] bg-neutral-950 border border-neutral-800 rounded-lg px-2.5 py-2 text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
                     />
-                    <div className="flex gap-1.5 flex-wrap pt-0.5">
+                    <div className="flex gap-1.5 flex-wrap items-center pt-0.5">
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); 
@@ -958,6 +1012,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                           photo.excluded ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                         }`}
                       >🚫 제외</button>
+                      <SeniorTermTooltip termKey="외관/대표 사진" buttonLabel="도움말" />
                     </div>
                   </div>
                   );
