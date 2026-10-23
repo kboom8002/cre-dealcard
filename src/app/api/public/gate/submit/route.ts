@@ -10,17 +10,46 @@ import { findOrCreateParty, bindRecipientToParty } from '@/domain/identity/party
 import { insertCondition } from '@/domain/identity/condition-engine';
 import { bindViewerHistory } from '@/domain/identity/bind';
 import { createServiceClient } from '@/lib/supabase/service';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 export async function POST(req: NextRequest) {
   try {
+    if (process.env.NODE_ENV !== 'test') {
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'anonymous';
+      const allowed = await checkRateLimit(ip, 'gate_g2_submit', 15, 60_000);
+      if (!allowed) {
+        return NextResponse.json({ error: '요청 횟수가 너무 많습니다. 잠시 후 다시 시도해주세요.' }, { status: 429 });
+      }
+    }
+
     const body = await req.json();
-    const { formData, tenantId, dealId, brokerId, viewerId, shareToken, recipientId } = body;
+    const { formData, tenantId: clientTenantId, dealId, brokerId: clientBrokerId, viewerId, shareToken, recipientId } = body;
 
     // 1. 유효성 검증
     const validation = validateG2Form(formData);
     if (!validation.valid) {
       return NextResponse.json({ errors: validation.errors }, { status: 400 });
     }
+
+    const supabase = createServiceClient();
+    let resolvedBrokerId = clientBrokerId;
+    let resolvedTenantId = clientTenantId;
+
+    // dealId가 있으면 서버 측에서 실제 소유 중개사(broker_id)를 조회하여 위조 방지
+    if (dealId) {
+      const { data: dealRow } = await supabase
+        .from('deals')
+        .select('broker_id')
+        .eq('id', dealId)
+        .maybeSingle();
+      if (dealRow?.broker_id) {
+        resolvedBrokerId = dealRow.broker_id;
+        resolvedTenantId = dealRow.broker_id;
+      }
+    }
+
+    const tenantId = resolvedTenantId || resolvedBrokerId || 'default';
+    const brokerId = resolvedBrokerId || resolvedTenantId;
 
     // 2. Party 생성 (또는 기존 Party 반환)
     const party = await findOrCreateParty({
@@ -53,7 +82,6 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Track event — intent.detail_request
-    const supabase = createServiceClient();
     await supabase.from('track_event').insert({
       tenant_id: tenantId,
       deal_id: dealId,

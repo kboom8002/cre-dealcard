@@ -216,10 +216,10 @@ flowchart LR
 | 항목 | 명세 | 근거 |
 |:---|:---|:---|
 | 단계 | **G1~G3** (G4·G5는 "MVP 범위 아님"으로 거부) | `src/domain/gate/gate-request.ts:34-38` |
-| 상태 | `submitted → broker_review → approved / rejected / expired`. **자동 승인 없음** | `gate-request.ts:51,127`, `types/database.ts:55-60` |
-| 요청 | G1은 비로그인 요청 가능(`/api/gate-requests`), G2는 `/api/public/gate/submit`(매수자 정보와 조건 수집) | `dc/[id]/GateRequestForm.tsx:27` |
-| 승인 | 해당 건물을 소유한 중개사만 승인 가능 | `api/gate-requests/[id]/review/route.ts:31,52-58` |
-| NDA·Pro 권한 | `/nda/[id]`에서 서명하면 `im_pro_grants`가 활성화됨(24시간 만료, 워터마크 시드 생성). `/im-pro/[grantId]`는 만료 시 410 응답, 검색엔진 비노출(noindex) | `api/gate-requests/[id]/sign`, `api/public/im-pro/[grantId]/route.ts` |
+| 상태 | `submitted → broker_review → approved / rejected / expired`. **자동 승인 없음** + 5분 주기 크론(`hold-expiry`)에서 만료 요청 자동 전환(`expireGateRequests`) | `gate-request.ts:51,127`, `api/cron/hold-expiry/route.ts` |
+| 요청 | G1은 비로그인 요청 가능(`/api/gate-requests`), G2는 `/api/public/gate/submit`(IP 호출 제한 및 서버 측 딜 소유 중개사 조회로 `tenantId` 위조 차단) | `dc/[id]/GateRequestForm.tsx:27`, `api/public/gate/submit/route.ts` |
+| 승인 | 해당 건물·딜을 소유한 중개사만 승인 가능 (`review`, `pro-grants/[id]/approve` 소유권 검증) | `api/gate-requests/[id]/review/route.ts:31,52-58`, `api/broker/pro-grants/[id]/approve/route.ts` |
+| NDA·Pro 권한 | `/nda/[id]`에서 서명하면 `im_pro_grants`가 활성화됨(24시간 만료, `generateProIMWatermark` 표준 워터마크 생성). `/im-pro/[grantId]`는 만료 시 410 응답, 검색엔진 비노출(noindex), 열람 시 `logGateAccess` 감사 로그 기록 | `api/gate-requests/[id]/sign`, `api/public/im-pro/[grantId]/route.ts`, `domain/gate/nda-watermark.ts`, `domain/gate/gate-audit-logger.ts` |
 | 중개사 수신함 | 열람 요청, 활동 이벤트, 앱 알림 통합 | `api/broker/inbox` |
 
 ### F6. IM(투자설명서) 생성 엔진 — 핵심 자산
@@ -436,8 +436,8 @@ erDiagram
 | 사전 점검 | 파이프라인 감사, 문구 교차 비교, 적층도 테스트 | `npm run preflight` |
 | 출시 절차 | preflight → `tsc` → `next build` → `git push`(Vercel 자동 배포) | `.agents/rules/*` |
 
-> [!WARNING]
-> 골든 실행기는 `gateExpected === 'BLOCK'`인 케이스를 실행하지 않고 차단 처리합니다(`golden-runner.ts:41-47`). 그런데 케이스 파일에는 `'BLOCKER'`·`'ERROR'`가 들어 있어 이 분기가 동작하지 않습니다. 기대값 표기를 통일해야 합니다.
+> [!NOTE]
+> 골든 실행기(`golden-runner.ts:40-47`)는 `gateExpected`의 `'BLOCK'`·`'BLOCKER'`·`'ERROR'` 표기를 모두 `'BLOCK'`으로 정규화하여 12종 골든 픽스처 전체의 차단/통과 기대값을 일관되게 검증합니다(2026-10-23 보완 완료).
 
 ---
 
@@ -445,12 +445,12 @@ erDiagram
 
 | 항목 | 현재 상태 | 근거 |
 |:---|:---|:---|
-| 인증 | `/broker`, `/admin`만 Supabase 쿠키 세션 확인. 확인한 사용자 정보를 헤더로 넘기고 위조 헤더는 제거. `/api`는 각 라우트가 직접 확인 | `src/proxy.ts:61-63,102-115` |
-| 역할 | broker / admin / expert / public_user. **알파 정책: 로그인한 사용자는 자동으로 broker로 승격** | `src/lib/auth-guard.ts:14,180-210` |
+| 인증 | `/broker`, `/admin`만 Supabase 쿠키 세션 확인. 확인한 사용자 정보를 헤더로 넘기고 위조 헤더는 제거. `/api`는 각 라우트가 직접 확인(`teaser/publish` 등 브로커 전용 라우트 `requireBroker` 적용 완료) | `src/proxy.ts:61-63,102-115`, `api/broker/deal/[id]/teaser/publish/route.ts` |
+| 역할 | broker / admin / expert / public_user. 알파 테스트 기간에는 자동 승격이 동작하되, 운영 환경에서 `ALLOW_ALPHA_ROLE_UPGRADE=false` 설정 시 자동 승격을 즉시 차단(403) | `src/lib/auth-guard.ts:186-210` |
 | 행 단위 보안(RLS) | 48개 마이그레이션에서 활성화, 정책 약 233개(소유자 기준). 단, **서버 코드 대부분은 RLS를 우회하는 서비스 클라이언트 사용** | `supabase/migrations` |
 | 보안 헤더 | CSP(보고 전용), HSTS, X-Frame-Options(DENY, `/magazine`·`/dc`만 SAMEORIGIN), CORS 허용 목록 | `next.config.ts` |
-| 호출 제한 | 3개 라우트만 적용(온보딩 사진, IM PPTX, 번역) | |
-| 크론 | 6개 (§14.3). 모든 크론 라우트가 `CRON_SECRET` 확인 | `vercel.json` |
+| 호출 제한 | 4개 라우트 적용(온보딩 사진, IM PPTX, 번역, 공개 게이트 G2 제출 `/api/public/gate/submit`) | `src/lib/rate-limiter.ts` |
+| 크론 | 6개 (§14.3). 모든 크론 라우트가 `CRON_SECRET` 확인 (`hold-expiry`에서 슬롯 만료 + 게이트 요청 만료 동시 수행) | `vercel.json`, `api/cron/hold-expiry/route.ts` |
 | 기능 플래그 | 코드 내 고정 맵 + 런타임 덮어쓰기(`posture_trading`, `give_to_get` 꺼짐). 휴면 기능은 `lib/dormant-features.ts`와 리다이렉트로 관리 | `building/feature-flags.ts` |
 | 구독·과금 | 등급 free/pro/premium, 한도(free: 딜카드 3·IM 0, pro: IM 1) 정의. **사용량 차단 로직은 미연결이고 결제 연동 없음**(Stripe·토스·포트원 없음) | `subscription/tier-gate.ts:17-33` |
 | 번들 최적화 | 서버리스 함수 용량 초과 대응: 동적 파일 접근에 `turbopackIgnore` 적용, 파일 추적 제외·포함 목록 지정(2026-10-20) | `next.config.ts`, commit `c8d184f8` |
@@ -461,8 +461,8 @@ erDiagram
 
 | 구분 | 기능·모듈 |
 |:---|:---|
-| ✅ **운영 중 (핵심 3축)** | 메모 → 딜카드, `/dc` 공개·OG·카카오 공유, 열람 요청 G1~G3·NDA·Pro 권한, 렌트롤 파싱·검증, IM 비동기 생성·해시 고정 승인, PPTX 렌더러·Basic IM Studio(프리셋 10종), 모바일 IM 뷰어, 자동 매칭, 매거진 생성·발송 게이트·구매 온도, 모닝 브리핑 크론 |
-| ⚠️ **구현·테스트됐지만 운영 경로에 미연결** | 수식 그래프 평가 엔진, 유효 스냅샷, 게시 패키지(L1~L3), 채널 간 일치 검사, 모바일 컴포저(m00~m50), 단계 오케스트레이터(단계별 시간 예산), 열람 요청 만료 크론, NDA 워터마크 생성기, 게이트 감사 로거, 응답 마스커(G1~G3 필드), k-익명성 가드, 설명 가능한 매칭, 구독 한도 차단 |
+| ✅ **운영 중 (핵심 3축)** | 메모 → 딜카드, `/dc` 공개·OG·카카오 공유, 열람 요청 G1~G3·NDA·Pro 권한·만료 크론(`expireGateRequests`)·표준 워터마크(`generateProIMWatermark`)·접근 감사 로거(`logGateAccess`), 렌트롤 파싱·검증, IM 비동기 생성·해시 고정 승인·S70 파일 승인 선행 게이트, PPTX 렌더러·Basic IM Studio(프리셋 10종), 모바일 IM 뷰어, 자동 매칭, 매거진 생성·발송 게이트·구매 온도, 모닝 브리핑 크론 |
+| ⚠️ **구현·테스트됐지만 운영 경로에 미연결** | 수식 그래프 평가 엔진, 유효 스냅샷, 게시 패키지(L1~L3), 채널 간 일치 검사, 모바일 컴포저(m00~m50), 단계 오케스트레이터(단계별 시간 예산), 응답 마스커(G1~G3 필드), k-익명성 가드, 설명 가능한 매칭, 구독 한도 차단 |
 | 💤 **휴면 (메뉴 숨김 또는 리다이렉트)** | 파이프라인·퍼널, 공동중개, 캠페인, 메모 목록, 일정, 임대 카드·임대 매칭, 펀딩·마켓플레이스, 공개 pulse·insight·market·explore(`/hub`로 리다이렉트), 온보딩·바이브 카드 |
 | 🔗 **접근 가능하지만 핵심 범위 밖** | agora(커뮤니티), services(협력업체), building-radar, space, 외부 cre-aipage 연동(space-ai-handoffs) |
 
@@ -508,20 +508,20 @@ flowchart LR
 
 ---
 
-## 13. 전이 착수 전 선결 과제
+## 13. 전이 착수 전 선결 과제 및 보완 현황
 
-| 우선순위 | 과제 | 이유 | 관련 위치 |
-|:---:|:---|:---|:---|
-| P0 | **역할 자동 승격 해제**와 테넌트 경계 확립 | 로그인만 하면 broker 권한을 얻음. 산업이 늘면 권한 혼선이 생김 | `lib/auth-guard.ts:180-210` |
-| P0 | 공개 게이트·티저 발행 라우트에 **인증·호출 제한 추가** | `/api/public/gate/submit`은 tenantId를 요청 본문에서 받고, 티저 발행 라우트는 행위자를 고정값으로 기록 | `api/public/gate/submit`, `api/broker/deal/[id]/teaser/publish/route.ts:36` |
-| P0 | **LLM 숫자 허용 목록 검사**를 IM 전체에 적용 | 의료·무역은 숫자 오류의 법적 책임이 큼 | §8 |
-| P1 | 정책(덱 순서, 마스킹, 구간, 가중치)을 **YAML·DB로 분리** | 현재 TS에 고정되어 있어 산업마다 코드를 고쳐야 함 | `deck-sequencer.ts`, `teaser-rules.ts`, `matching-types.ts` |
-| P1 | 미연결 모듈 정리: 열람 요청 만료 크론, 워터마크, 감사 로그 **연결 또는 삭제** | 기밀 공개 기능의 감사 추적성 확보 | `src/domain/gate/*` |
-| P1 | **결제 연동 + 사용량 차단 연결** | 과금 모델을 검증하려면 필수 | `subscription/tier-gate.ts` |
-| P2 | 출처 신뢰도 어휘 통일(`provenance.ts` vs `provenance-lint.ts`) | 같은 개념을 두 체계로 표현 | §7.3 |
-| P2 | 골든 기대값 표기 통일(`BLOCK`/`BLOCKER`) | 회귀 테스트 신뢰성 | `golden-runner.ts:41-47` |
-| P2 | 실제 진행 단계를 보고하는 작업 상태 + 단계 오케스트레이터 연결 | 긴 생성 시간 동안 사용자 경험 개선 | `platform/im-pipeline` |
-| P2 | 관측성(APM·오류 추적) 도입 | 운영하는 버티컬이 늘수록 장애 진단이 어려워짐 | |
+| 우선순위 | 상태 | 과제 | 내용 및 보완 결과 | 관련 위치 |
+|:---:|:---:|:---|:---|:---|
+| P0 | ✅ **보완 완료** | **역할 자동 승격 제어 스위치 도입** | `ALLOW_ALPHA_ROLE_UPGRADE=false` 환경변수 설정 시 미인가 사용자의 자동 broker 승격을 차단하고 403 반환 | `lib/auth-guard.ts:186-210` |
+| P0 | ✅ **보완 완료** | 공개 게이트·티저 발행·Pro 승인 라우트 **인증·소유권·호출 제한 보강** | ① `/api/public/gate/submit` IP 호출 제한(분당 15회) 및 서버 측 딜 소유 중개사 조회로 `tenantId` 스푸핑 차단<br>② `/api/broker/deal/[id]/teaser/publish`에 `requireBroker` 인증 및 실제 행위자 ID 기록<br>③ `/api/broker/pro-grants/[id]/approve` 소유권 검증 및 `approve-file` S70 원장 기록 전 `runApprovalGate` 선행 검증 | `api/public/gate/submit`, `api/broker/deal/[id]/teaser/publish`, `api/broker/pro-grants/[id]/approve`, `approve-file/route.ts` |
+| P0 | 📋 차기 과제 | **LLM 숫자 허용 목록 검사**를 IM 전체에 적용 | 매거진에는 숫자 대조 검사가 있으나 IM은 휴리스틱 중심. 의료·무역 전이 시 전역 숫자 화이트리스트 게이트로 확장 필요 | §8 |
+| P1 | ✅ **보완 완료** | 기밀 공개 게이트 미연결 모듈(**만료 크론·워터마크·감사 로거**) 운영 연결 | ① `/api/cron/hold-expiry`에 `expireGateRequests` 연결<br>② `/api/gate-requests/[id]/sign` 및 `/api/public/im-pro/[grantId]`에 `generateProIMWatermark`·`logGateAccess` 연결<br>③ `handler.ts`의 `hasAsOf` 항진(`\|\| true`) 버그 수정 | `src/domain/gate/*`, `api/cron/hold-expiry`, `im-lite/generate/handler.ts:913` |
+| P1 | 📋 차기 과제 | 정책(덱 순서, 마스킹, 구간, 가중치)을 **YAML·DB로 분리** | 현재 TS에 고정되어 있어 신규 버티컬 추가 시 버티컬 팩 설정 파일로 분리 필요 | `deck-sequencer.ts`, `teaser-rules.ts`, `matching-types.ts` |
+| P1 | 📋 차기 과제 | **결제 연동 + 사용량 차단 연결** | 상용 과금 검증을 위해 PG(토스·Stripe) 및 `tier-gate.ts` 차단 로직 연결 필요 | `subscription/tier-gate.ts` |
+| P2 | ✅ **보완 완료** | 출처 신뢰도 어휘 통일(`provenance.ts` ↔ `provenance-lint.ts`) | `provenance-lint.ts`의 `TIER_PRIORITY`에 표준 10단계 출처 어휘(`public_api`, `expert`, `ledger`, `seller`, `broker` 등) 통합 완료 | `domain/building/provenance-lint.ts` |
+| P2 | ✅ **보완 완료** | 골든 기대값 표기 통일(`BLOCK`/`BLOCKER`/`ERROR`) | `golden-runner.ts`에서 `'BLOCK'`·`'BLOCKER'`·`'ERROR'`를 모두 차단 기대값으로 정규화 완료 | `assurance/im-harness/golden-runner.ts:40-47` |
+| P2 | 📋 차기 과제 | 실제 진행 단계를 보고하는 작업 상태 + 단계 오케스트레이터 연결 | 긴 생성 시간 동안 사용자 경험 개선 | `platform/im-pipeline` |
+| P2 | 📋 차기 과제 | 관측성(APM·오류 추적) 도입 | 운영하는 버티컬이 늘수록 장애 진단이 어려워짐 | |
 
 ---
 

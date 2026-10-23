@@ -7,8 +7,24 @@
 
 import type { Asset } from '@/types/database';
 
-/** Tier priority (higher = more trusted) */
+/**
+ * Tier priority (higher = more trusted)
+ * Unified across S1-T4 legacy tiers and canonical 10-tier provenance ontology
+ * (`src/domain/ontology/provenance.ts` & `src/constants/thresholds.ts`)
+ */
 const TIER_PRIORITY: Record<string, number> = {
+  // Canonical 10-tier provenance ontology keys
+  public_api: 95,
+  expert: 95,
+  public_api_identified: 90,
+  broker_aug: 80,
+  ledger: 70,
+  seller: 65,
+  broker: 60,
+  derived: 40,
+  assumed: 30,
+  unknown: 0,
+  // Legacy S1-T4 keys (preserved for backward compatibility)
   official_api: 100,
   registry: 90,
   broker_input: 70,

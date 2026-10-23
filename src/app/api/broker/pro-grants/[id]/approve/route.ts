@@ -23,6 +23,26 @@ export async function POST(
       return NextResponse.json({ ok: false, error: 'Missing grant ID' }, { status: 400 });
     }
 
+    // Verify ownership if broker_id is tracked on the grant (admin bypasses)
+    const { data: existingGrant } = await supabase
+      .from('im_pro_grants')
+      .select('id, broker_id, tenant_id')
+      .eq('id', grantId)
+      .maybeSingle();
+
+    const ownerBrokerId = existingGrant?.broker_id || existingGrant?.tenant_id;
+    if (
+      ownerBrokerId &&
+      auth.role !== 'admin' &&
+      auth.user?.id &&
+      ownerBrokerId !== auth.user.id
+    ) {
+      return NextResponse.json(
+        { ok: false, error: '본인 소유의 딜 권한 요청만 승인할 수 있습니다.' },
+        { status: 403 },
+      );
+    }
+
     // Approve the Pro-IM grant on the correct im_pro_grants table
     const { data: grant, error } = await supabase
       .from('im_pro_grants')

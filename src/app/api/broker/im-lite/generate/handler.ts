@@ -910,7 +910,7 @@ export async function generateMobileIMHandler(
             hasPhotos: !!(supplemental.photo_urls?.length || supplemental.photos_v2?.length),
           },
           hasExpertReview: false,
-          hasAsOf: Boolean((doc as any)?.asOf || (doc as any)?.as_of || (doc as any)?.ssot_summary?.as_of || true),
+          hasAsOf: Boolean((doc as any)?.asOf || (doc as any)?.as_of || (doc as any)?.ssot_summary?.as_of || ssotRow.updated_at || ssotRow.created_at),
           hasScenario: Boolean((doc as any)?.scenario || (doc as any)?.pro_forma || (doc as any)?.ssot_summary?.has_scenario || (supplemental.floor_leases?.length ?? 0) > 0),
         });
         // Rule 13: pro 티어 요청 시 grade가 D가 아니면 decision_im 보장

@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { GoldenCaseRunner } from '@/assurance/im-harness/golden-runner';
@@ -147,27 +147,30 @@ describe('Adversarial Challenge & Empirical Stress Harness (Challenger M1-2)', (
     expect(requiredRoles.every((r) => badRoles.includes(r))).toBe(false);
   });
 
-  // 6. Flaw Analysis: Golden runner string mismatch analysis
-  it('Challenge 4: Audit of GoldenCaseRunner gateExpected check flaw', async () => {
+  // 6. Flaw Analysis: Golden runner string normalization verification
+  it('Challenge 4: Audit of GoldenCaseRunner gateExpected check normalization', async () => {
     const fixturesDir = path.join(process.cwd(), 'tests', 'fixtures', 'golden-cases');
     const files = fs.readdirSync(fixturesDir).filter((f) => f.endsWith('.json'));
 
     const rawFixtures = files.map((f) => {
       const data = JSON.parse(fs.readFileSync(path.join(fixturesDir, f), 'utf-8'));
+      const rawGateExpected = data.expectedOutcome?.gateExpected;
       return {
         caseId: data.caseId,
-        gateExpected: data.expectedOutcome?.gateExpected,
-        evaluatedByRunner: data.expectedOutcome?.gateExpected === 'BLOCK' ? 'BLOCK' : 'PASS',
+        gateExpected: rawGateExpected,
+        evaluatedByRunner:
+          rawGateExpected === 'BLOCK' || rawGateExpected === 'BLOCKER' || rawGateExpected === 'ERROR'
+            ? 'BLOCK'
+            : 'PASS',
       };
     });
 
-    // Note the finding: Cases with "BLOCKER" or "ERROR" are evaluated by GoldenCaseRunner as "PASS"
+    // Cases with "BLOCKER" or "ERROR" are now normalized to "BLOCK" by GoldenCaseRunner
     const blockerCases = rawFixtures.filter((r) => r.gateExpected === 'BLOCKER' || r.gateExpected === 'ERROR');
     expect(blockerCases.length).toBe(5); // case-05, case-06, case-07, case-09, case-12
 
     blockerCases.forEach((c) => {
-      // Demonstrating that the runner strictly checks === 'BLOCK', so it misclassifies them as 'PASS'
-      expect(c.evaluatedByRunner).toBe('PASS');
+      expect(c.evaluatedByRunner).toBe('BLOCK');
     });
   });
 });

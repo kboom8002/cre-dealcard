@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { generateProIMWatermark } from '@/domain/gate/nda-watermark';
 
 export async function POST(
   req: NextRequest,
@@ -51,10 +52,16 @@ export async function POST(
     return NextResponse.json({ error: 'NDA already signed', grantId: id }, { status: 409 });
   }
 
-  // Update grant: activate + set NDA timestamp + 24h expiry
+  // Update grant: activate + set NDA timestamp + 24h expiry + canonical NDA watermark
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const watermarkSeed = `${trimmedSignerName}|${(signerPhone || '').slice(-4)}|${now.toISOString()}`;
+  const wm = generateProIMWatermark({
+    requesterName: trimmedSignerName,
+    requesterPhone: signerPhone || grant.requester_phone || '010-0000-0000',
+    dealId: grant.deal_id || grant.building_id || id,
+    grantId: id,
+  });
+  const watermarkSeed = `${trimmedSignerName}|${(signerPhone || '').slice(-4)}|${now.toISOString()}|${wm.watermarkSeed}`;
 
   const { error: updateError } = await supabase
     .from('im_pro_grants')

@@ -254,7 +254,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       expect(reorderJson.project.slides[0].id).toBe(reversedIds[0]);
 
       // 2. Toggle Visibility
-      const slideIdToHide = project.slides[0].id;
+      const slideIdToHide = project.slides[1].id;
       const hideReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/slides`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },

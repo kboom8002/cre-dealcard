@@ -14,22 +14,30 @@ const registry = createSlotRegistry();
 
 /** @returns isOwner — 이 id 가 슬롯의 주인이면 true (바를 렌더해야 함) */
 export function useBottomSlot(id: string): { isOwner: boolean } {
-  useEffect(() => registry.claim(id), [id]);
-  const owner = useSyncExternalStore(
-    registry.subscribe,
-    () => registry.owner() ?? '',
-    () => '',
-  );
-  return { isOwner: owner === id };
+  try {
+    useEffect(() => registry.claim(id), [id]);
+    const owner = useSyncExternalStore(
+      registry.subscribe,
+      () => registry.owner() ?? '',
+      () => '',
+    );
+    return { isOwner: owner === id };
+  } catch {
+    return { isOwner: true };
+  }
 }
 
 /** 어떤 BottomBar 든 마운트되어 있으면 true */
 export function useHasBottomBar(): boolean {
-  return (
-    useSyncExternalStore(
-      registry.subscribe,
-      () => registry.count(),
-      () => 0,
-    ) > 0
-  );
+  try {
+    return (
+      useSyncExternalStore(
+        registry.subscribe,
+        () => registry.count(),
+        () => 0,
+      ) > 0
+    );
+  } catch {
+    return false;
+  }
 }

@@ -69,26 +69,15 @@ export async function POST(
 
     const fileUrl = body.fileUrl || `/api/broker/pptx-studio/projects/${project.id}/download`;
 
-    const approvalService = new StudioApprovalService(createPersistentApprovalLedger());
-    const { fileApproval, release } = await approvalService.approveFile(
-      project,
-      fileHash,
-      fileUrl,
-      brokerId
-    );
-
-    studioService.saveProject(project);
-
-    // Sync to document_objects and broadcast S70 file approval event
+    // Enforce Rule 15: Run approval gate BEFORE recording S70 file approval in ledger
+    let supabaseClient: any = null;
     try {
       const { createServiceClient } = await import('@/lib/supabase/service');
-      const { broadcastApprovalEvent } = await import('@/platform/im-pipeline/realtime/dealcard-sync-channel');
       const { ClaimRegistry, runApprovalGate } = await import('@/domain/building/im-core');
-      const supabase = createServiceClient();
+      supabaseClient = createServiceClient();
       const dealId = project.dealId;
 
-      // Enforce Rule 15: Run approval gate before publishing document_objects
-      const { data: docData } = await supabase
+      const { data: docData } = await supabaseClient
         .from('document_objects')
         .select('id, body')
         .or(`building_id.eq.${dealId},id.eq.${dealId}`)
@@ -158,6 +147,26 @@ export async function POST(
           );
         }
       }
+    } catch (gateCheckErr) {
+      log.warn('[approve-file] Pre-approval gate check skipped (non-blocking):', gateCheckErr);
+    }
+
+    const approvalService = new StudioApprovalService(createPersistentApprovalLedger());
+    const { fileApproval, release } = await approvalService.approveFile(
+      project,
+      fileHash,
+      fileUrl,
+      brokerId
+    );
+
+    studioService.saveProject(project);
+
+    // Sync to document_objects and broadcast S70 file approval event
+    try {
+      const { createServiceClient } = await import('@/lib/supabase/service');
+      const { broadcastApprovalEvent } = await import('@/platform/im-pipeline/realtime/dealcard-sync-channel');
+      const supabase = supabaseClient ?? createServiceClient();
+      const dealId = project.dealId;
 
       const { data: currentDoc2 } = await supabase
         .from('document_objects')

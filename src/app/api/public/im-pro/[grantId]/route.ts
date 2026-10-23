@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getIMRenderPolicy } from '@/domain/building/im-render-policy';
 import { readWithMigration } from '@/lib/ssot-adapter';
+import { generateProIMWatermark } from '@/domain/gate/nda-watermark';
+import { logGateAccess } from '@/domain/gate/gate-audit-logger';
 
 export async function GET(
   req: NextRequest,
@@ -67,10 +69,26 @@ export async function GET(
       .limit(1)
       .single();
 
-    // Watermark seed
-    const watermarkSeed = `${grant.requester_name} \u00b7 ${(grant.requester_phone || '').slice(-4)} \u00b7 ${new Date().toISOString().slice(0, 16)}`;
+    // Watermark seed via nda-watermark module
+    const wm = generateProIMWatermark({
+      requesterName: grant.requester_name || 'Confidential Viewer',
+      requesterPhone: grant.requester_phone || '010-0000-0000',
+      dealId: grant.deals?.id || grant.deal_id || '',
+      grantId,
+    });
+    const watermarkSeed = wm.formattedDisplay;
 
-    // View count 증가 (비동기 — 응답 차단 없음)
+    // Gate audit log & View count 증가 (비동기 — 응답 차단 없음)
+    logGateAccess(supabase, {
+      gateRequestId: grant.gate_request_id || grantId,
+      accessorId: grant.requester_id || grantId,
+      buildingId: grant.deals?.asset_id || '',
+      accessedFields: ['im_pro', 'layers', 'lease_summary'],
+      accessType: 'view',
+      ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
+      userAgent: req.headers.get('user-agent') || undefined,
+    }).catch(() => {});
+
     supabase
       .from('activity_events')
       .insert({

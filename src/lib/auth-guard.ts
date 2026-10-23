@@ -187,8 +187,23 @@ export async function requireBroker(req: NextRequest): Promise<AuthGuardResult> 
   const result = await verifyAuth(req);
   if (result.error) return result; // 미인증만 차단
 
-  // ALPHA: role이 없거나 null이면 자동으로 broker 업그레이드
+  // ALPHA: role이 없거나 null이면 자동으로 broker 업그레이드 (ALLOW_ALPHA_ROLE_UPGRADE=false 시 엄격 차단)
   if (!result.role || !['broker', 'admin', 'public_user', 'expert'].includes(result.role)) {
+    if (process.env.ALLOW_ALPHA_ROLE_UPGRADE === 'false') {
+      return {
+        ...result,
+        error: NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: '중개사(broker) 또는 관리자(admin) 권한이 필요합니다.',
+            },
+          },
+          { status: 403 },
+        ),
+      };
+    }
     log.warn('[ALPHA] Auto-upgrading user to broker', {
       userId: result.user?.id,
       fromRole: result.role,

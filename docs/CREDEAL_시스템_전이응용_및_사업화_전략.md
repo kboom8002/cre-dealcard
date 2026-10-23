@@ -44,12 +44,12 @@
 
 | 엔진 번호 | 코어 엔진 명칭 | 현재 CREDEAL 코드베이스 핵심 모듈 | 타 산업 전이 시 역할 | 평균 코드 재사용률 |
 |:---:|:---|:---|:---|:---:|
-| **Engine 1** | **비정형 메모 & 엑셀 원장 SSOT 파서** | `src/domain/building/memo-slot-mapper.ts`<br>`src/lib/ssot-adapter.ts`<br>`src/domain/building/rent-roll-parser.ts` | 카톡 메모·엑셀 매출원장·처방전 내역·BOM 스펙시트를 단일 정규화 스키마(SSOT)로 즉시 변환 | **85%** |
-| **Engine 2** | **공공 API 결합 & 결정론적 재무/등급 엔진** | `src/domain/im-core/financial-engine.ts`<br>`src/domain/im-core/grade-engine.ts`<br>`src/lib/external/*` | LLM 환각 없이 100% 수식 검증된 수익률·권리금·회수기간(Payback)·MOQ 단가 매트릭스 산출 | **80%** |
-| **Engine 3** | **4단계 블라인드 정보공개 게이트 (G0~G3)** | `src/app/(broker)/broker/buildings/[id]/studio/disclosure/*`<br>`src/app/(public)/dc/[id]/*` | 매도자 신원·세부 원장·처방처·배합비(IP)를 단계별 인증/NDA 서명 후에만 점진적 언락 | **92%** |
-| **Engine 4** | **양방향 스코어링 매칭 & 역제안 파이프라인** | `src/domain/matching/*`<br>`src/app/(broker)/broker/MatchingTabContent.tsx` | 매수자(개원의·글로벌 바이어·투자자)의 자금·선호 스펙과 공급 물건을 0~100점 자동 매칭 및 역제안 | **88%** |
+| **Engine 1** | **비정형 메모 & 엑셀 원장 SSOT 파서** | `src/domain/building/memo-slot-mapper.ts`<br>`src/lib/ssot-adapter.ts`<br>`src/lib/rentroll/parse-rentroll-workbook.ts` | 카톡 메모·엑셀 매출원장·처방전 내역·BOM 스펙시트를 단일 정규화 스키마(SSOT)로 즉시 변환 | **85%** |
+| **Engine 2** | **공공 API 결합 & 결정론적 재무/등급 엔진** | `src/domain/building/im-core/financial-calculator.ts`<br>`src/domain/asset/grade-engine.ts`<br>`src/lib/external/*` | LLM 환각 없이 100% 수식 검증된 수익률·권리금·회수기간(Payback)·MOQ 단가 매트릭스 산출 | **80%** |
+| **Engine 3** | **4단계 블라인드 정보공개 게이트 (G0~G3)** | `src/domain/gate/gate-request.ts`<br>`src/domain/dealcard/teaser-rules.ts`<br>`src/app/(public)/dc/[id]/*` | 매도자 신원·세부 원장·처방처·배합비(IP)를 단계별 인증/NDA 서명 후에만 점진적 언락 | **92%** |
+| **Engine 4** | **양방향 스코어링 매칭 & 역제안 파이프라인** | `src/domain/matching/matching-engine.ts`<br>`src/app/(broker)/broker/MatchingTabContent.tsx` | 매수자(개원의·글로벌 바이어·투자자)의 자금·선호 스펙과 공급 물건을 0~100점 자동 매칭 및 역제안 | **88%** |
 | **Engine 5** | **16:9 PPTX IM 자동 조판 & Preflight 게이트** | `src/domain/building/mobile-im/pptx/*`<br>`src/app/(broker)/broker/basic-im-studio/*` | 포스처별 맞춤형 12~16장 PPTX 제안서 자동 조판 + Poison Token/수치 불일치 사전 차단 | **82%** |
-| **Engine 6** | **5분 완성 주간 모바일 매거진 & 시그널 CRM** | `src/app/(broker)/broker/magazine-editor/*`<br>`src/app/(magazine)/magazine/[brokerId]/*` | AI 업계 뉴스 브리프 + 추천 딜카드 결합 발송, VIP 독자의 반복 열람(Hot Lead) 실시간 감지 | **90%** |
+| **Engine 6** | **5분 완성 주간 모바일 매거진 & 시그널 CRM** | `src/domain/magazine/send-gate.ts`<br>`src/domain/magazine/buyer-temperature.ts`<br>`src/app/(broker)/broker/magazine-editor/*` | AI 업계 뉴스 브리프 + 추천 딜카드 결합 발송, VIP 독자의 반복 열람(Hot Lead) 실시간 감지 | **90%** |
 
 ---
 

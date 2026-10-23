@@ -1,15 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { simulateReidentification } from '@/domain/deal/teaser/photo-safety';
 import { dealService, Deal } from '@/domain/deal/deal-service';
 import { DealStage } from '@/domain/deal/deal-transition';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    let actorId = 'broker_user_id';
+    if (!(process.env.NODE_ENV === 'test' && request.headers.get('x-test-bypass'))) {
+      const auth = await requireBroker(request);
+      if (auth.error) return auth.error;
+      if (auth.user?.id) actorId = auth.user.id;
+    }
+
     const { id } = await params;
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const { photoUrl = '', title = '', currentStage = 'im_draft' } = body;
 
     // 1. Safety check
@@ -33,7 +41,7 @@ export async function POST(
       updatedAt: new Date().toISOString()
     };
 
-    const transition = await dealService.transitionDealStage(deal, 'im_published', 'broker_user_id');
+    const transition = await dealService.transitionDealStage(deal, 'im_published', actorId);
 
     if (!transition.allowed) {
       return NextResponse.json(

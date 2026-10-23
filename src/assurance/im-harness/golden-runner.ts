@@ -37,8 +37,13 @@ export class GoldenCaseRunner {
       let actualStatus: 'PASS' | 'BLOCK' = 'PASS';
       let notes: string | undefined;
 
+      const rawGateExpected = fixture.expectedOutcome?.gateExpected;
       const expectedStatus: 'PASS' | 'BLOCK' =
-        fixture.expectedOutcome?.gateExpected === 'BLOCK' ? 'BLOCK' : 'PASS';
+        rawGateExpected === 'BLOCK' ||
+        rawGateExpected === 'BLOCKER' ||
+        rawGateExpected === 'ERROR'
+          ? 'BLOCK'
+          : 'PASS';
 
       try {
         if (expectedStatus === 'BLOCK') {
