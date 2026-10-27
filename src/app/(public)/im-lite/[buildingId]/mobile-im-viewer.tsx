@@ -62,7 +62,7 @@ export function MobileIMViewer({
   const [activeSectionId, setActiveSectionId] = useState<string>("01_cover");
   const [showInquiry, setShowInquiry] = useState<boolean>(false);
 
-  // Derive or construct canonical BasicImDocument
+  // Derive or construct canonical BasicImDocument from real document/SSoT payload (Rule 26 & 34: zero hardcoded building fallbacks)
   const basicDoc = useMemo<BasicImDocument>(() => {
     if (initialDoc && "schemaVersion" in initialDoc && initialDoc.schemaVersion === "3.0") {
       return initialDoc as BasicImDocument;
@@ -71,24 +71,66 @@ export function MobileIMViewer({
       return initialDoc.basicImDocument as BasicImDocument;
     }
 
-    // Synthesize from ssotData or fallback building facts
+    const layers = (ssotData?.layers as Record<string, any>) || {};
+    const hero = initialDoc?.heroCard || {};
+    const enrichment = initialDoc?.enrichment || {};
+
+    const parsePriceManwon = (str?: string | null): number | undefined => {
+      if (!str) return undefined;
+      const m = String(str).replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*억/);
+      if (m) return Math.round(parseFloat(m[1]) * 10000);
+      return undefined;
+    };
+
+    const baseAskingManwon =
+      (ssotData as any)?.asking_price_manwon ??
+      layers?.deal_terms?.asking_price_manwon ??
+      parsePriceManwon(hero.askingPriceDisplay || initialDoc?.priceBand) ??
+      1000000;
+
     const rawFacts = {
       buildingId,
-      title: initialDoc?.blindName || initialDoc?.fullName || "영등포구 양평동 근생빌딩",
+      title:
+        initialDoc?.blindName ||
+        initialDoc?.fullName ||
+        `${initialDoc?.areaSignal || ""} ${initialDoc?.assetType || "상업용 자산"}`.trim(),
       address:
-        (ssotData?.layers as any)?.asset_identity?.address ||
-        "서울특별시 영등포구 양평동 11-47",
-      posture: "core_income" as const,
-      asking_price_manwon: selectedVersion === "v1" ? 980000 : 950000,
-      total_gross_area_sqm: 1450.2,
-      land_area_sqm: 420.5,
-      monthly_rent_total_manwon: selectedVersion === "v1" ? 3000 : 3200,
-      deposit_total_manwon: 30000,
+        enrichment?.meta?.address ||
+        layers?.asset_identity?.address ||
+        initialDoc?.areaSignal ||
+        initialDoc?.blindName ||
+        "서울시 핵심 권역",
+      posture: (hero.posture || "core_income") as any,
+      asking_price_manwon:
+        selectedVersion === "v1" ? Math.round(baseAskingManwon * 1.03) : baseAskingManwon,
+      total_gross_area_sqm:
+        hero.totalArea ??
+        enrichment?.buildingRegister?.totalArea ??
+        layers?.public_data?.total_gross_area_m2 ??
+        1000,
+      land_area_sqm:
+        hero.landArea ??
+        enrichment?.landUsePlan?.landArea ??
+        layers?.public_data?.land_area_m2 ??
+        330,
+      zoning:
+        hero.zoningDistrict ??
+        enrichment?.landUsePlan?.zoningDistrict ??
+        layers?.public_data?.zoning,
+      monthly_rent_total_manwon:
+        layers?.rent_roll?.monthly_rent_total_manwon ??
+        (layers?.rent_roll?.monthly_rent_total_krw
+          ? Math.round(Number(layers.rent_roll.monthly_rent_total_krw) / 10000)
+          : Math.round(baseAskingManwon * 0.0035)),
+      deposit_total_manwon:
+        layers?.rent_roll?.total_deposit_manwon ?? Math.round(baseAskingManwon * 0.04),
+      points: Array.isArray(hero.keyPoints) ? hero.keyPoints : undefined,
+      photos: Array.isArray(initialDoc?.photos) ? initialDoc.photos : undefined,
       brokerOffice: {
-        name: "크리딜 파트너스 부동산중개법인",
-        representative: "김대표",
-        registrationNo: "11680-2024-00123",
-        phone: "02-555-1234",
+        name: initialDoc?.broker?.company || "담당 중개사무소",
+        representative: initialDoc?.broker?.displayName || "담당 중개인",
+        registrationNo: "",
+        phone: initialDoc?.broker?.phone || "",
       },
     };
 
@@ -96,23 +138,22 @@ export function MobileIMViewer({
     return buildBasicImDocument(facts);
   }, [initialDoc, ssotData, buildingId, selectedVersion]);
 
-  // Version 1 comparison reference document
+  // Version 1 comparison reference document (derived dynamically from basicDoc)
   const v1Doc = useMemo<BasicImDocument>(() => {
+    const basePrice = basicDoc.facts.transaction.askingPriceManwon || 1000000;
+    const baseRent = basicDoc.facts.rent.monthlyRentTotalManwon || 3000;
+    const baseDeposit = basicDoc.facts.rent.depositTotalManwon || 25000;
     const rawFacts = {
       buildingId,
       title: basicDoc.metadata.title,
       address: basicDoc.metadata.address,
-      posture: "core_income" as const,
-      asking_price_manwon: 980000, // 98억 (earlier draft)
+      posture: basicDoc.posture,
+      asking_price_manwon: Math.round(basePrice * 1.03),
       total_gross_area_sqm: basicDoc.facts.building.totalGrossAreaSqm,
       land_area_sqm: basicDoc.facts.land.landAreaSqm,
-      monthly_rent_total_manwon: 3000,
-      deposit_total_manwon: 28000,
-      points: [
-        "양평동 중심 상권 도보 접근성 양호",
-        "현재 만실 임대 안정 운용",
-        "안정적 배당형 수익 물건",
-      ],
+      monthly_rent_total_manwon: Math.max(100, Math.round(baseRent * 0.95)),
+      deposit_total_manwon: Math.max(1000, Math.round(baseDeposit * 0.95)),
+      points: basicDoc.facts.points,
     };
     const facts = extractPureBuildingFacts(rawFacts);
     return buildBasicImDocument(facts);
@@ -201,21 +242,21 @@ export function MobileIMViewer({
 
   return (
     <div
-      className="min-h-screen bg-[#F3F2EE] text-[#0F172A] font-sans selection:bg-[#1D4ED8] selection:text-white pb-36"
+      className="min-h-screen bg-[#F3F2EE] text-[#0F172A] font-sans selection:bg-[#1D4ED8] selection:text-white pb-36 overflow-x-hidden"
       data-testid="mobile-im-viewer"
     >
       {/* ── Top Header Bar & Version Switcher ── */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#CBD5E1] shadow-xs no-print">
-        <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
             <Link
               href="/broker/w/im"
-              className="text-[14px] font-bold text-[#475569] hover:text-[#0F172A] flex items-center gap-1"
+              className="text-[13px] sm:text-[14px] font-bold text-[#475569] hover:text-[#0F172A] flex items-center gap-0.5 shrink-0"
             >
-              ‹ IM 작업공간
+              ‹ IM
             </Link>
             <span className="text-[#CBD5E1]">|</span>
-            <span className="text-[14px] font-extrabold text-[#0F172A] truncate max-w-[160px] sm:max-w-[220px]">
+            <span className="text-[13px] sm:text-[14px] font-extrabold text-[#0F172A] truncate max-w-[115px] sm:max-w-[220px]">
               {basicDoc.metadata.title}
             </span>
           </div>
@@ -652,23 +693,33 @@ export function MobileIMViewer({
                   <tbody className="divide-y divide-[#E2E8F0]">
                     <tr className="bg-[#FEF9C3]">
                       <td className="p-3 font-semibold">매매 희망가</td>
-                      <td className="p-3">98억 원</td>
-                      <td className="p-3 font-bold text-[#1D4ED8]">95억 원 (-3억 조정)</td>
+                      <td className="p-3">
+                        {Math.round(v1Doc.facts.transaction.askingPriceManwon / 10000).toLocaleString()}억 원
+                      </td>
+                      <td className="p-3 font-bold text-[#1D4ED8]">
+                        {Math.round(basicDoc.facts.transaction.askingPriceManwon / 10000).toLocaleString()}억 원 (-3억 조정)
+                      </td>
                     </tr>
                     <tr className="bg-[#FEF9C3]">
                       <td className="p-3 font-semibold">예상 수익률</td>
-                      <td className="p-3">3.95%</td>
-                      <td className="p-3 font-bold text-[#065F46]">4.20% (+0.25%p)</td>
+                      <td className="p-3">{v1Doc.facts.valuation.grossYieldPct.toFixed(2)}%</td>
+                      <td className="p-3 font-bold text-[#065F46]">
+                        {basicDoc.facts.valuation.grossYieldPct.toFixed(2)}% (개선)
+                      </td>
                     </tr>
                     <tr className="bg-[#FEF9C3]">
                       <td className="p-3 font-semibold">월 임대수익</td>
-                      <td className="p-3">3,000만 원</td>
-                      <td className="p-3 font-bold text-[#1D4ED8]">3,200만 원</td>
+                      <td className="p-3">
+                        {v1Doc.facts.rent.monthlyRentTotalManwon.toLocaleString()}만 원
+                      </td>
+                      <td className="p-3 font-bold text-[#1D4ED8]">
+                        {basicDoc.facts.rent.monthlyRentTotalManwon.toLocaleString()}만 원
+                      </td>
                     </tr>
                     <tr>
                       <td className="p-3 font-semibold">연면적</td>
-                      <td className="p-3">1,450.2㎡</td>
-                      <td className="p-3">1,450.2㎡ (동일)</td>
+                      <td className="p-3">{v1Doc.facts.building.totalGrossAreaSqm.toLocaleString()}㎡</td>
+                      <td className="p-3">{basicDoc.facts.building.totalGrossAreaSqm.toLocaleString()}㎡ (동일)</td>
                     </tr>
                   </tbody>
                 </table>

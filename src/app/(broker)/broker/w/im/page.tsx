@@ -105,6 +105,8 @@ const INITIAL_IM_LIST: ImListItem[] = [
   },
 ];
 
+const IM_STORAGE_KEY = "credeal-w-im-v3";
+
 function ImWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -116,6 +118,57 @@ function ImWorkspaceInner() {
   const [selectedId, setSelectedId] = useState<string>(items[0]?.id || "");
   const [previewTab, setPreviewTab] = useState<"mobile" | "pptx">("mobile");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const persistImItems = (next: ImListItem[]) => {
+    try {
+      window.localStorage.setItem(IM_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  // Load persisted items and sync with server workspace summary
+  useEffect(() => {
+    try {
+      const savedRaw = window.localStorage.getItem(IM_STORAGE_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const qId = searchParams.get("buildingId") || searchParams.get("id");
+    const suffix = qId ? `?buildingId=${encodeURIComponent(qId)}` : "";
+    fetch(`/api/broker/workspace/summary${suffix}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.ok && Array.isArray(data.imList) && data.imList.length > 0) {
+          setItems((prev) => {
+            const srvItems: ImListItem[] = data.imList.map((srv: any) => ({
+              ...srv,
+              rentRoll:
+                Array.isArray(srv.rentRoll) && srv.rentRoll.length > 0
+                  ? srv.rentRoll
+                  : generateFloorScaffolding(5, 1),
+            }));
+            for (const loc of prev) {
+              if (!srvItems.some((s) => s.id === loc.id || s.buildingId === loc.buildingId)) {
+                srvItems.push(loc);
+              }
+            }
+            persistImItems(srvItems);
+            return srvItems;
+          });
+        }
+      })
+      .catch(() => {
+        // Offline / test fallback
+      });
+  }, [searchParams]);
 
   // Form states for active document
   const currentItem = useMemo(() => {
@@ -212,7 +265,9 @@ function ImWorkspaceInner() {
       rentRoll: generateFloorScaffolding(4, 1),
     };
 
-    setItems([newItem, ...items]);
+    const next = [newItem, ...items];
+    setItems(next);
+    persistImItems(next);
     setSelectedId(newId);
     showUndoToast("새 IM 작업 공간이 생성되었습니다.");
   };
@@ -233,6 +288,23 @@ function ImWorkspaceInner() {
 
       if (res.ok) {
         const data = await res.json();
+        const nextItems = items.map((it) =>
+          it.id === selectedId
+            ? {
+                ...it,
+                buildingId: data?.buildingId || it.buildingId,
+                title: address.split(" ").slice(1, 3).join(" ") + " 근생빌딩",
+                address,
+                askingPriceManwon,
+                grossYieldPct: Number(calculatedYield.toFixed(2)) || it.grossYieldPct,
+                versionLabel: "v1 생성 완료",
+                updatedAt: "방금",
+                rentRoll,
+              }
+            : it
+        );
+        setItems(nextItems);
+        persistImItems(nextItems);
         showUndoToast("⚡ Basic IM과 4항목 딜카드가 자동 생성되었습니다!");
       } else {
         showUndoToast("IM 생성 완료 (오프라인 모드 반영)");
@@ -353,6 +425,7 @@ function ImWorkspaceInner() {
           </label>
           <input
             type="text"
+            data-testid="im-address-input"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="예: 서울특별시 영등포구 양평동 11-47"
@@ -370,7 +443,7 @@ function ImWorkspaceInner() {
               2. 매매 희망가 (만 원 단위 입력) <span className="text-[#991B1B]">*</span>
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-[14px] font-bold text-[#1D4ED8]">
+              <span className="text-[14px] font-bold text-[#1D4ED8]" data-testid="im-price-readout">
                 {formatKoreanCurrencyReadout(askingPriceManwon)}
               </span>
               <span className="text-[14px] font-semibold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded">
@@ -380,6 +453,7 @@ function ImWorkspaceInner() {
           </div>
           <input
             type="number"
+            data-testid="im-asking-price-input"
             value={askingPriceManwon || ""}
             onChange={(e) => setAskingPriceManwon(Number(e.target.value))}
             placeholder="예: 950000 (95억 원)"
@@ -629,6 +703,7 @@ function ImWorkspaceInner() {
   const primaryActionSlot = (
     <button
       type="button"
+      data-testid="im-quick-generate-btn"
       disabled={isGenerating}
       onClick={handleQuickGenerate}
       className="w-full min-h-[56px] px-6 py-3.5 bg-[#1D4ED8] text-white rounded-2xl font-extrabold text-[17px] hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"

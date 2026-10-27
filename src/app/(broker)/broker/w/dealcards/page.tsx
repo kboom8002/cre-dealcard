@@ -4,7 +4,9 @@ import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
-import type { Card4Data } from "@/lib/deal-card/card4-schema";
+import { KakaoBubblePreview } from "@/components/broker/deal-card/KakaoBubblePreview";
+import { PreSendConfirmationSheet } from "@/components/broker/deal-card/PreSendConfirmationSheet";
+import { computeCard4Hash, type Card4Data } from "@/lib/deal-card/card4-schema";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 
 interface BuildingListItem {
@@ -90,6 +92,8 @@ const INITIAL_BUILDINGS: BuildingListItem[] = [
   },
 ];
 
+const STORAGE_KEY = "credeal-w-dealcards-v3";
+
 function DealCardsWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,11 +102,61 @@ function DealCardsWorkspaceInner() {
   const [items, setItems] = useState<BuildingListItem[]>(INITIAL_BUILDINGS);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "sent">("all");
-  const [isSending, setIsSending] = useState(false);
+  const [isPreSendOpen, setIsPreSendOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(true);
+  const [saveStatusText, setSaveStatusText] = useState("저장됨 · 방금");
 
-  // Synchronize active building from URL search params
-  const buildingIdParam = searchParams.get("buildingId");
+  // Synchronize active building from URL search params (?buildingId= or ?id=)
+  const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
   const activeBuildingId = buildingIdParam || items[0]?.id || "";
+
+  // Load persisted local state + real server buildings on mount
+  useEffect(() => {
+    try {
+      const savedRaw = window.localStorage.getItem(STORAGE_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed);
+        }
+      }
+    } catch {
+      // ignore storage error
+    }
+
+    const querySuffix = buildingIdParam ? `?buildingId=${encodeURIComponent(buildingIdParam)}` : "";
+    fetch(`/api/broker/workspace/summary${querySuffix}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.ok && Array.isArray(data.dealcards) && data.dealcards.length > 0) {
+          setItems((prev) => {
+            // Merge server buildings while preserving any local unsynced edits by ID
+            const localMap = new Map(prev.map((it) => [it.id, it]));
+            const merged: BuildingListItem[] = data.dealcards.map((srv: BuildingListItem) => {
+              const local = localMap.get(srv.id);
+              if (local && (local.card4.card4_version || 1) > (srv.card4.card4_version || 1)) {
+                return local;
+              }
+              return srv;
+            });
+            for (const loc of prev) {
+              if (!merged.some((m) => m.id === loc.id)) {
+                merged.push(loc);
+              }
+            }
+            try {
+              window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            } catch {
+              // ignore
+            }
+            return merged;
+          });
+        }
+      })
+      .catch(() => {
+        // Offline or unauthenticated test environment fallback
+      });
+  }, [buildingIdParam]);
 
   const activeItem = useMemo(
     () => items.find((it) => it.id === activeBuildingId) || items[0],
@@ -119,21 +173,73 @@ function DealCardsWorkspaceInner() {
     }
   }, [activeItem]);
 
+  const persistItems = (nextItems: BuildingListItem[]) => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+    } catch {
+      // ignore
+    }
+  };
+
   const handleCardChange = (updated: Card4Data) => {
-    setCurrentCard4(updated);
-    setItems((prev) =>
-      prev.map((it) =>
+    const nextVersion = (updated.card4_version || 1) + 1;
+    const withMeta: Card4Data = {
+      ...updated,
+      card4_version: nextVersion,
+    };
+    setCurrentCard4(withMeta);
+    setIsSaved(false);
+    setSaveStatusText("자동저장 중...");
+
+    setItems((prev) => {
+      const next = prev.map((it) =>
         it.id === activeBuildingId
           ? {
               ...it,
-              region: updated.region,
-              use: updated.use,
-              priceBand: updated.priceBand,
-              card4: updated,
+              title: `${withMeta.region} ${withMeta.use}`.trim(),
+              region: withMeta.region,
+              use: withMeta.use,
+              priceBand: withMeta.priceBand,
+              updatedAt: "방금",
+              card4: withMeta,
             }
           : it
-      )
-    );
+      );
+      persistItems(next);
+      return next;
+    });
+  };
+
+  const handleFlushSave = async (): Promise<boolean> => {
+    setSaveStatusText("저장 중...");
+    try {
+      const res = await fetch("/api/broker/workspace/summary", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buildingId: activeBuildingId,
+          card4: currentCard4,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.card4) {
+          setCurrentCard4(data.card4);
+          setItems((prev) => {
+            const next = prev.map((it) =>
+              it.id === activeBuildingId ? { ...it, card4: data.card4, updatedAt: "방금" } : it
+            );
+            persistItems(next);
+            return next;
+          });
+        }
+      }
+    } catch {
+      // Local storage already persisted
+    }
+    setIsSaved(true);
+    setSaveStatusText("저장됨 · 방금");
+    return true;
   };
 
   const handleCreateNew = () => {
@@ -151,7 +257,7 @@ function DealCardsWorkspaceInner() {
         use: "업무시설",
         priceBand: "100~110억",
         points: [
-          "테헤란로 도보 5분",
+          "역세권 도보 5분 코너",
           "단독 사옥 활용 추천",
           "수익률 4.1% 검토 가능",
         ],
@@ -161,7 +267,11 @@ function DealCardsWorkspaceInner() {
         card4_version: 1,
       },
     };
-    setItems((prev) => [newItem, ...prev]);
+    setItems((prev) => {
+      const next = [newItem, ...prev];
+      persistItems(next);
+      return next;
+    });
     router.replace(`/broker/w/dealcards?buildingId=${newId}&tab=editor`);
     showUndoToast({
       message: "새 딜카드가 생성되었습니다.",
@@ -169,19 +279,8 @@ function DealCardsWorkspaceInner() {
     });
   };
 
-  const handleSendKakao = () => {
-    setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
-      showUndoToast({
-        message: "카카오톡으로 딜카드가 발송되었습니다.",
-        variant: "success",
-        undoAction: () => {
-          // undo simulation
-        },
-        undoLabel: "발송 취소",
-      });
-    }, 400);
+  const handleOpenPreSend = () => {
+    setIsPreSendOpen(true);
   };
 
   // Filtered list items
@@ -301,9 +400,10 @@ function DealCardsWorkspaceInner() {
       <Card4ConfirmCard
         card4={currentCard4}
         onChange={handleCardChange}
-        onSave={() => {
+        onSave={async () => {
+          await handleFlushSave();
           showUndoToast({
-            message: "딜카드 내용이 저장되었습니다.",
+            message: "딜카드 내용이 서버에 저장되었습니다.",
             variant: "success",
           });
         }}
@@ -311,47 +411,10 @@ function DealCardsWorkspaceInner() {
     </div>
   );
 
-  /* ── Column 3: ③ 확인하고 보내기 (Kakao Preview + Sole Primary Button) ── */
+  /* ── Column 3: ③ 확인하고 보내기 (KakaoBubblePreview 1:1 & 255px Toggle) ── */
   const previewSlot = (
     <div className="space-y-4">
-      {/* Kakao Bubble Live Mock Preview */}
-      <div
-        data-testid="kakao-bubble-preview"
-        className="bg-[#FEE500] p-4 rounded-2xl shadow-sm border border-amber-300/60 max-w-sm mx-auto"
-      >
-        <div className="bg-white rounded-xl overflow-hidden shadow-md border border-slate-200">
-          {/* Card Top Title Banner */}
-          <div className="bg-slate-900 text-white p-4">
-            <span className="text-sm font-extrabold text-amber-400 block tracking-wider uppercase">
-              CRE DEAL CARD
-            </span>
-            <h4 className="text-xl font-extrabold mt-1 text-white leading-snug">
-              {currentCard4.region} {currentCard4.use}
-            </h4>
-            <div className="text-2xl font-black text-amber-400 mt-2 font-mono tracking-tight">
-              {currentCard4.priceBand}
-            </div>
-          </div>
-
-          {/* 3 Bullet Points */}
-          <div className="p-4 bg-slate-50 space-y-2 border-t border-slate-200">
-            <span className="text-sm font-bold text-slate-500 block">핵심 투자 포인트</span>
-            {currentCard4.points.map((pt, i) => (
-              <div key={i} className="flex items-start gap-2 text-base font-bold text-slate-800">
-                <span className="text-blue-600 font-bold shrink-0">✓</span>
-                <span className="leading-snug">{pt}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Kakao bubble footer */}
-          <div className="p-3 bg-white text-center border-t border-slate-200">
-            <span className="text-sm font-extrabold text-blue-700">
-              상세 정보 열람하기 ›
-            </span>
-          </div>
-        </div>
-      </div>
+      <KakaoBubblePreview card4={currentCard4} dealId={activeBuildingId} />
     </div>
   );
 
@@ -359,29 +422,44 @@ function DealCardsWorkspaceInner() {
   const primaryActionSlot = (
     <button
       type="button"
-      onClick={handleSendKakao}
-      disabled={isSending}
+      onClick={handleOpenPreSend}
       data-testid="workspace-primary-send-btn"
-      className="w-full min-h-[56px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+      className="w-full min-h-[56px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
     >
       <span>💬</span>
-      <span>{isSending ? "발송 준비 중..." : "카카오톡 보내기"}</span>
+      <span>카카오톡 보내기</span>
     </button>
   );
 
   return (
-    <WorkspaceShell
-      workspace="dealcards"
-      listTitle="① 고르기"
-      editorTitle="② 채우기"
-      previewTitle="③ 확인하고 보내기"
-      listSlot={listSlot}
-      editorSlot={editorSlot}
-      previewSlot={previewSlot}
-      primaryActionSlot={primaryActionSlot}
-      saveStatus="저장됨 · 방금"
-      selectedBuildingId={activeBuildingId}
-    />
+    <>
+      <WorkspaceShell
+        workspace="dealcards"
+        listTitle="① 고르기"
+        editorTitle="② 채우기"
+        previewTitle="③ 확인하고 보내기"
+        listSlot={listSlot}
+        editorSlot={editorSlot}
+        previewSlot={previewSlot}
+        primaryActionSlot={primaryActionSlot}
+        saveStatus={saveStatusText}
+        selectedBuildingId={activeBuildingId}
+      />
+      <PreSendConfirmationSheet
+        isOpen={isPreSendOpen}
+        onClose={() => setIsPreSendOpen(false)}
+        card4={currentCard4}
+        dealId={activeBuildingId}
+        isSaved={isSaved}
+        onFlushSave={handleFlushSave}
+        onCopyLink={() => {
+          showUndoToast({
+            message: "딜카드 공개 링크가 복사되었습니다.",
+            variant: "success",
+          });
+        }}
+      />
+    </>
   );
 }
 

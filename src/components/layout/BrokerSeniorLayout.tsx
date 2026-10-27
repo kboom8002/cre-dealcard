@@ -51,8 +51,8 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
           : "min-h-screen bg-[#090D16] text-white transition-colors"
       }
     >
-      {/* 60대 PC 중개인 맞춤형 상단 글로벌 내비게이션 바 (홈 /broker에서는 집중 4대 허브 론처를 위해 GNB 숨김) */}
-      {pathname !== "/broker" && (
+      {/* 60대 PC 중개인 맞춤형 상단 글로벌 내비게이션 바 (홈 /broker 및 3열 작업공간 /broker/w/* 에서는 자체 상단바 사용을 위해 GNB 숨김) */}
+      {pathname !== "/broker" && !pathname.startsWith("/broker/w") && (
         <header
           id="broker-senior-topbar"
           className={

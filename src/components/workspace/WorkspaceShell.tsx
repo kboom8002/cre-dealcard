@@ -240,9 +240,44 @@ export function WorkspaceShell({
           </div>
 
           {/* List Content */}
-          <div className="flex-1 overflow-y-auto p-3">
-            {listSlot}
-          </div>
+          {isRailCollapsed ? (
+            <div
+              className="flex-1 flex flex-col items-center py-4 gap-3"
+              data-testid="workspace-rail-compact"
+            >
+              <button
+                type="button"
+                onClick={() => setIsRailCollapsed(false)}
+                className="w-11 h-11 rounded-xl bg-[#1D4ED8] text-white font-extrabold text-xl flex items-center justify-center shadow-xs hover:bg-[#1E40AF] transition-colors cursor-pointer"
+                title="새로 만들기 (목록 펼치기)"
+                aria-label="새로 만들기"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsRailCollapsed(false)}
+                className="w-11 h-11 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold text-base flex items-center justify-center hover:bg-slate-100 transition-colors cursor-pointer"
+                title="검색 및 필터 펼치기"
+                aria-label="검색 펼치기"
+              >
+                🔍
+              </button>
+              <div className="w-8 border-t border-slate-300 my-1" />
+              <button
+                type="button"
+                onClick={() => setIsRailCollapsed(false)}
+                className="w-11 h-11 rounded-xl bg-blue-50 border-2 border-blue-600 text-blue-900 font-extrabold text-sm flex items-center justify-center cursor-pointer"
+                title="현재 선택된 항목 (클릭하여 목록 펼치기)"
+              >
+                📄
+              </button>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-3">
+              {listSlot}
+            </div>
+          )}
         </aside>
 
         {/* ── Column 2: ② 채우기 (Editor column, min 540px, flex-1) ── */}

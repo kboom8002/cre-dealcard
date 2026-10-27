@@ -27,8 +27,8 @@ setup('authenticate', async ({ page }) => {
   console.log(`🔐 로그인 시도: ${email}`);
 
   // 1. 로그인 페이지 접속
-  await page.goto('/login');
-  await page.waitForLoadState('networkidle');
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  await page.locator('#email').waitFor({ state: 'visible', timeout: 60_000 });
 
   // 2. 이메일/비밀번호 입력
   await page.locator('#email').fill(email);

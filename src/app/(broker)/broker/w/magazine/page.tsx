@@ -314,6 +314,7 @@ function MagazineWorkspaceInner() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              data-testid="insert-dealcard-btn"
               onClick={handleInsertDealCard}
               className="min-h-[40px] px-3 py-1.5 bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] hover:bg-[#DBEAFE] font-bold text-[14px] rounded-xl cursor-pointer"
             >
@@ -321,6 +322,7 @@ function MagazineWorkspaceInner() {
             </button>
             <button
               type="button"
+              data-testid="insert-im-btn"
               onClick={handleInsertIm}
               className="min-h-[40px] px-3 py-1.5 bg-[#F0FDF4] text-[#065F46] border border-[#BBF7D0] hover:bg-[#DCFCE7] font-bold text-[14px] rounded-xl cursor-pointer"
             >

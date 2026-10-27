@@ -152,6 +152,7 @@ export function Card4ConfirmCard({
           </label>
           <input
             type="text"
+            data-testid="card4-region-input"
             value={card4.region}
             onChange={(e) => handleFieldChange('region', e.target.value)}
             className="w-full h-12 px-3.5 text-[18px] text-slate-900 bg-slate-50 rounded-xl border border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition"
@@ -166,6 +167,7 @@ export function Card4ConfirmCard({
           </label>
           <input
             type="text"
+            data-testid="card4-use-input"
             value={card4.use}
             onChange={(e) => handleFieldChange('use', e.target.value)}
             className="w-full h-12 px-3.5 text-[18px] text-slate-900 bg-slate-50 rounded-xl border border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition"
@@ -180,6 +182,7 @@ export function Card4ConfirmCard({
           </label>
           <input
             type="text"
+            data-testid="card4-priceband-input"
             value={card4.priceBand}
             onChange={(e) => handleFieldChange('priceBand', e.target.value)}
             className="w-full h-12 px-3.5 text-[20px] font-bold text-amber-900 bg-amber-50/50 rounded-xl border border-amber-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-600 focus:border-amber-600 transition"
@@ -237,6 +240,7 @@ export function Card4ConfirmCard({
               <div className="relative">
                 <input
                   type="text"
+                  data-testid={`card4-point-input-${idx}`}
                   value={ptText}
                   onChange={(e) => handlePointChange(idx, e.target.value)}
                   className={`w-full h-12 px-3.5 text-[18px] text-slate-900 rounded-xl border ${
@@ -251,15 +255,19 @@ export function Card4ConfirmCard({
               </div>
 
               {/* Point Violations Alert */}
-              {pointViolations.map((violation, vIdx) => (
-                <p
-                  key={vIdx}
-                  className="text-xs text-red-600 flex items-center gap-1 font-medium pl-1"
-                >
-                  <span>🚫</span>
-                  <span>{violation.reason}</span>
-                </p>
-              ))}
+              {pointViolations.length > 0 && (
+                <div data-testid="card4-blind-violation-alert" className="space-y-1">
+                  {pointViolations.map((violation, vIdx) => (
+                    <p
+                      key={vIdx}
+                      className="text-xs text-red-600 flex items-center gap-1 font-medium pl-1"
+                    >
+                      <span>🚫</span>
+                      <span>{violation.reason}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

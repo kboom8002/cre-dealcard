@@ -40,6 +40,53 @@ function extractPriceBand(building: Record<string, any>): string {
   return '가격 협의';
 }
 
+const DEMO_OG_BUILDINGS: Record<string, Record<string, any>> = {
+  'bld-01': {
+    id: 'bld-01',
+    address: '서울특별시 영등포구 당산동1가 72-1',
+    area_signal: '영등포구 당산동',
+    asset_type: '업무·근린생활시설',
+    price_band: '110~120억',
+    asking_price_krw: 115 * 1_0000_0000,
+    total_floor_area_pyung: 499,
+    road_contact: 'WIDE_ONE',
+    completion_year: 2019,
+  },
+  'bld-02': {
+    id: 'bld-02',
+    address: '서울특별시 강남구 신사동 540-1',
+    area_signal: '강남구 신사동',
+    asset_type: '업무·근린생활시설',
+    price_band: '140~160억',
+    asking_price_krw: 150 * 1_0000_0000,
+    total_floor_area_pyung: 520,
+    road_contact: 'WIDE_ONE',
+    completion_year: 2020,
+  },
+  'bld-03': {
+    id: 'bld-03',
+    address: '서울특별시 마포구 연남동 220-1',
+    area_signal: '마포구 연남동',
+    asset_type: '상가주택',
+    price_band: '60~70억',
+    asking_price_krw: 65 * 1_0000_0000,
+    total_floor_area_pyung: 180,
+    road_contact: 'CORNER',
+    completion_year: 2018,
+  },
+  'f1111111-1111-1111-1111-111111111111': {
+    id: 'f1111111-1111-1111-1111-111111111111',
+    address: '서울특별시 강남구 역삼동 823-1',
+    area_signal: '강남구 역삼동',
+    asset_type: '업무시설',
+    price_band: '180~200억',
+    asking_price_krw: 185 * 1_0000_0000,
+    total_floor_area_pyung: 850,
+    road_contact: 'WIDE_ONE',
+    completion_year: 2021,
+  },
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -50,7 +97,7 @@ export async function GET(
   }
 
   // Pure read: zero DB mutations
-  const building = await readBuilding(id);
+  const building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
   if (!building) {
     return new Response('Building Not Found', { status: 404 });
   }
