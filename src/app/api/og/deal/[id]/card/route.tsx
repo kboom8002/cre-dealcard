@@ -1,7 +1,8 @@
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
+import { readBuilding } from "@/domain/building/im-core/read-building";
+import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 
@@ -45,7 +46,7 @@ export async function GET(
 
   try {
     const supabase = createServiceClient();
-    const { data: bData } = await readWithMigration(id);
+    const bData = await readBuilding(id);
     building = bData as Record<string, any>;
 
     const { data: sData } = await supabase

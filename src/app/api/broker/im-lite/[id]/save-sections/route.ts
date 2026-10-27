@@ -112,7 +112,7 @@ export async function PUT(
 
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, broker_id, body, status, building_id')
+    .select('id, owner_id, broker_id, body, status, building_id, sealed_at')
     .eq('id', id)
     .maybeSingle();
 
@@ -125,8 +125,14 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
-  if (doc.status === 'published') {
-    return NextResponse.json({ error: 'Cannot edit a published document' }, { status: 400 });
+  // WP-P4a1-03: Sealed version immutability check
+  if (doc.sealed_at || doc.status === 'published' || doc.status === 'superseded') {
+    return NextResponse.json({
+      error: 'SEALED_VERSION_IMMUTABLE',
+      message: '이 버전은 승인/봉인되어 직접 수정할 수 없습니다. 새 버전으로 복사하여 수정해 주세요.',
+      canFork: true,
+      forkUrl: `/api/broker/im-lite/${id}/fork`,
+    }, { status: 409 });
   }
 
   const content = (doc.body as Record<string, unknown>) || {};

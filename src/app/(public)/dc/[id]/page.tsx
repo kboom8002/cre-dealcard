@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration } from '@/lib/ssot-adapter';
+import { readBuilding } from '@/domain/building/im-core/read-building';
 import { TeaserEventTracker } from '@/components/teaser/TeaserEventTracker';
 import { toPublicDealCard } from '@/domain/public-projection/deal-card';
 import { evaluateDealCardPublicVisibility } from '@/domain/public-projection/visibility';
@@ -30,7 +30,7 @@ const getDealCardData = cache(async (id: string) => {
   const supabase = createServiceClient();
 
   const [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
-    readWithMigration(id),
+    readBuilding(id),
     // P0-SEC: owner_id / status 는 SSoT 원천(building_ssot_lite)에서 직접 조회 (assets 에는 없음)
     supabase
       .from("building_ssot_lite")
@@ -106,7 +106,7 @@ const getDealCardData = cache(async (id: string) => {
   const pptxDownloadUrl = imDocRes.data?.pptx_download_url || `/api/public/im-lite/${id}/pptx`;
 
   return {
-    building: buildingRes.data as Record<string, any>,
+    building: (buildingRes?.data ?? buildingRes ?? {}) as Record<string, any>,
     signalCard: signalCardRes.data,
     teaserDoc: teaserDocRes.data,
     brokerProfile,

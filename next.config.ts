@@ -75,6 +75,27 @@ const nextConfig: NextConfig = {
     "/api/magazine/**": ["./public/fonts/**"],
     "/api/**": ["./credeal/ssot/**"],
   },
+  async redirects() {
+    return [
+      // WP-P1-11: 307 redirects for legacy deal card routes
+      {
+        source: '/broker/deal-card/new',
+        destination: '/broker/w/dealcards?new=true',
+        permanent: false,
+      },
+      {
+        source: '/broker/deal-card/:id',
+        destination: '/broker/w/dealcards?id=:id',
+        permanent: false,
+      },
+      // WP-P4b-05: 307 redirects for legacy IM lite routes
+      {
+        source: '/broker/buildings/:id/im-lite',
+        destination: '/broker/w/im?buildingId=:id',
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

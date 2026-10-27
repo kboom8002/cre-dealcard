@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
+import { readBuilding } from "@/domain/building/im-core/read-building";
+import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 import { createModuleLogger } from "@/lib/logger";
@@ -58,7 +59,7 @@ export async function GET(
 
   try {
     const supabase = createServiceClient();
-    const { data: bData } = await readWithMigration(id);
+    const bData = await readBuilding(id);
     building = bData as Record<string, any>;
 
     const { data: sData } = await supabase
@@ -146,12 +147,19 @@ export async function GET(
   const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
 
   const regionDisplay = teaserView.region || safeBuilding.area_signal || "서울권역";
-  let hookCopy = imBody.hookCopy || teaserView.hookCopy || `${regionDisplay} 프라임 꼬마빌딩`;
+  let hookCopy = 
+    teaserDoc?.body?.ogTitle 
+    || imBody?.ogTitle 
+    || teaserDoc?.body?.kakaoOgTitle 
+    || imBody?.kakaoOgTitle 
+    || imBody?.hookCopy 
+    || teaserView.hookCopy 
+    || `${regionDisplay} 프라임 꼬마빌딩`;
   const postureLabel = teaserView.postureLabel || "임대수익형";
   const explicitBand = typeof safeBuilding.price_band === "string" && safeBuilding.price_band.trim() && safeBuilding.price_band !== "가격 협의"
     ? safeBuilding.price_band.trim()
     : null;
-  const priceDisplay = explicitBand || teaserView.bandedPrice || "가격 협의";
+  const priceDisplay = explicitBand || (teaserView.bandedPrice && teaserView.bandedPrice !== "가격 미정" ? teaserView.bandedPrice : null) || "가격 협의";
   
   const assetTypeDisplay = teaserView.assetType || safeBuilding.asset_type || "근생·오피스";
   const brokerName = brokerProfile?.display_name || "담당 공인중개사";
@@ -163,7 +171,12 @@ export async function GET(
   ]).map((tile) =>
     tile.label === "매각가" ? { ...tile, value: priceDisplay } : tile
   );
-  const heroTiles = filterValidTiles(rawTiles).slice(0, 2);
+  // Ensure no hardcoded dummy metrics (filter out 3.6%, 35%, 1,800만원 or fake metrics)
+  const heroTiles = filterValidTiles(rawTiles)
+    .filter((t) => !/3\.6%|35%|1,800만원/.test(t.value))
+    .slice(0, 2);
+
+  const isVerified = safeBuilding.verification_status === "VERIFIED" || safeBuilding.is_verified === true;
 
   const fontData = await getFontData();
   const fallbackFontData = await getFallbackFont();
@@ -175,15 +188,15 @@ export async function GET(
     (
       <div
         style={{
-          width: "800px",
-          height: "400px",
+          width: "1200px",
+          height: "630px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
           background: "linear-gradient(135deg, #0d131f 0%, #080b12 60%, #05070a 100%)",
           color: "#FFFFFF",
           fontFamily: "'Pretendard', sans-serif",
-          padding: "36px 40px",
+          padding: "48px 56px",
           boxSizing: "border-box",
           position: "relative",
         }}
@@ -192,10 +205,10 @@ export async function GET(
         <div
           style={{
             position: "absolute",
-            top: "-50px",
-            right: "-50px",
-            width: "350px",
-            height: "350px",
+            top: "-80px",
+            right: "-80px",
+            width: "500px",
+            height: "500px",
             background: "radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, transparent 70%)",
             borderRadius: "50%",
           }}
@@ -208,67 +221,67 @@ export async function GET(
             alignItems: "center",
             justifyContent: "space-between",
             borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-            paddingBottom: "16px",
+            paddingBottom: "20px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "16px",
                 fontWeight: 800,
                 color: "#10b981",
                 background: "rgba(16, 185, 129, 0.12)",
                 border: "1px solid rgba(16, 185, 129, 0.25)",
-                padding: "3px 8px",
-                borderRadius: "6px",
+                padding: "6px 12px",
+                borderRadius: "8px",
               }}
             >
               {postureLabel}
             </span>
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "16px",
                 color: "#94a3b8",
                 background: "rgba(255, 255, 255, 0.05)",
-                padding: "3px 8px",
-                borderRadius: "6px",
+                padding: "6px 12px",
+                borderRadius: "8px",
               }}
             >
               {regionDisplay} · {assetTypeDisplay}
             </span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#cbd5e1" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "16px", fontWeight: 700, color: "#cbd5e1" }}>
               {brokerName}
             </span>
-            <span style={{ fontSize: "10px", color: "#64748b" }}>
+            <span style={{ fontSize: "14px", color: "#64748b" }}>
               ({brokerCompany})
             </span>
           </div>
         </div>
 
         {/* Middle Content */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "32px" }}>
           {/* Main Title & Price */}
           <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             <span
               style={{
-                fontSize: "26px",
+                fontSize: "36px",
                 fontWeight: 900,
                 color: "#FFFFFF",
-                lineHeight: "1.25",
-                marginBottom: "8px",
+                lineHeight: "1.3",
+                marginBottom: "12px",
               }}
             >
-              {hookCopy.length > 28 ? hookCopy.slice(0, 28) + "..." : hookCopy}
+              {hookCopy.length > 32 ? hookCopy.slice(0, 32) + "..." : hookCopy}
             </span>
 
-            <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-              <span style={{ fontSize: "14px", color: "#94a3b8" }}>희망 매각가</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
+              <span style={{ fontSize: "20px", color: "#94a3b8" }}>희망 매각가</span>
               <span
                 style={{
-                  fontSize: "38px",
+                  fontSize: "52px",
                   fontWeight: 900,
                   color: "#34d399",
                   letterSpacing: "-0.5px",
@@ -280,7 +293,7 @@ export async function GET(
           </div>
 
           {/* Key Metric Tiles */}
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "16px" }}>
             {heroTiles.map((tile, idx) => (
               <div
                 key={idx}
@@ -291,14 +304,14 @@ export async function GET(
                   justifyContent: "center",
                   background: "rgba(255, 255, 255, 0.04)",
                   border: "1px solid rgba(255, 255, 255, 0.08)",
-                  borderRadius: "12px",
-                  padding: "12px 18px",
-                  minWidth: "90px",
+                  borderRadius: "16px",
+                  padding: "18px 26px",
+                  minWidth: "120px",
                 }}
               >
-                <span style={{ fontSize: "18px", marginBottom: "4px" }}>{tile.emoji}</span>
-                <span style={{ fontSize: "11px", color: "#94a3b8" }}>{tile.label}</span>
-                <span style={{ fontSize: "13px", fontWeight: 800, color: "#f1f5f9", marginTop: "2px" }}>
+                <span style={{ fontSize: "24px", marginBottom: "6px" }}>{tile.emoji}</span>
+                <span style={{ fontSize: "14px", color: "#94a3b8" }}>{tile.label}</span>
+                <span style={{ fontSize: "18px", fontWeight: 800, color: "#f1f5f9", marginTop: "4px" }}>
                   {tile.value}
                 </span>
               </div>
@@ -313,28 +326,39 @@ export async function GET(
             alignItems: "center",
             justifyContent: "space-between",
             borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            paddingTop: "14px",
+            paddingTop: "20px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "13px" }}>🛡️</span>
-            <span style={{ fontSize: "11px", color: "#6ee7b7", fontWeight: 700 }}>
-              Data Verified by CREDEAL
-            </span>
-            <span style={{ fontSize: "10px", color: "#475569" }}>|</span>
-            <span style={{ fontSize: "10px", color: "#64748b" }}>
-              공적장부 교차검증 완료 · 매도자 정보 보안 처리
-            </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {isVerified ? (
+              <>
+                <span style={{ fontSize: "16px" }}>🛡️</span>
+                <span style={{ fontSize: "15px", color: "#6ee7b7", fontWeight: 700 }}>
+                  Data Verified by CREDEAL
+                </span>
+                <span style={{ fontSize: "14px", color: "#475569" }}>|</span>
+                <span style={{ fontSize: "14px", color: "#64748b" }}>
+                  공적장부 교차검증 완료 · 매도자 정보 보안 처리
+                </span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: "16px" }}>🔒</span>
+                <span style={{ fontSize: "14px", color: "#64748b" }}>
+                  매도자 정보 보안 처리
+                </span>
+              </>
+            )}
           </div>
 
           <span
             style={{
-              fontSize: "11px",
+              fontSize: "15px",
               fontWeight: 800,
               color: "#38bdf8",
               background: "rgba(56, 189, 248, 0.1)",
-              padding: "4px 10px",
-              borderRadius: "8px",
+              padding: "6px 14px",
+              borderRadius: "10px",
             }}
           >
             모바일 딜카드 열람 탭 →
@@ -343,8 +367,8 @@ export async function GET(
       </div>
     ),
     {
-      width: 800,
-      height: 400,
+      width: 1200,
+      height: 630,
       fonts: fontsList,
       headers: {
         "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",

@@ -59,13 +59,13 @@ export function DealReadinessPanel({
           <h2 className="text-lg font-bold text-neutral-100 flex items-center gap-2">
             📊 딜 성사 준비도 (7축 분석)
           </h2>
-          <p className="text-xs text-neutral-400 mt-1">{report.summary}</p>
+          <p className="text-sm text-neutral-400 mt-1">{report.summary}</p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* 자료등급 (A~D) - IM 발행 가능성 */}
           <div className="px-3 py-1.5 rounded-lg bg-neutral-800 border border-neutral-700 text-center">
-            <span className="text-[11px] text-neutral-400 block leading-tight">자료 등급</span>
+            <span className="text-sm text-neutral-400 block leading-tight">자료 등급</span>
             <span className="text-sm font-extrabold text-sky-400 leading-tight">
               {dataGrade}등급
             </span>
@@ -76,7 +76,7 @@ export function DealReadinessPanel({
             className={`px-3.5 py-1.5 rounded-lg border ${badge.bg} ${badge.border} text-center flex items-center gap-2`}
           >
             <div>
-              <span className="text-[11px] text-neutral-400 block leading-tight">딜 준비도</span>
+              <span className="text-sm text-neutral-400 block leading-tight">딜 준비도</span>
               <span className={`text-sm font-extrabold ${badge.text} leading-tight`}>
                 {badge.icon} {report.state} ({report.totalScore}점)
               </span>
@@ -101,7 +101,7 @@ export function DealReadinessPanel({
               key={axis.key}
               className="p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 hover:border-neutral-700 transition-colors"
             >
-              <div className="flex justify-between items-center mb-1.5 text-xs">
+              <div className="flex justify-between items-center mb-1.5 text-sm">
                 <span className="font-semibold text-neutral-200">{axis.label}</span>
                 <span className="font-mono text-neutral-400">
                   <span className="text-neutral-100 font-bold">{axis.score}</span> / {axis.maxScore}점
@@ -116,7 +116,7 @@ export function DealReadinessPanel({
                 />
               </div>
 
-              <p className="text-[11px] text-neutral-400 line-clamp-1">{axis.reasoning}</p>
+              <p className="text-sm text-neutral-400 line-clamp-1">{axis.reasoning}</p>
             </div>
           );
         })}
@@ -125,7 +125,7 @@ export function DealReadinessPanel({
       {/* ── 3. Next Best Actions (점수 상승 추천 액션 3가지) ── */}
       {report.nextBestActions.length > 0 && (
         <div className="mt-5 pt-5 border-t border-neutral-800">
-          <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <h3 className="text-sm font-bold text-neutral-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             ⚡ 점수 상승 최우선 추천 행동 (Top 3)
           </h3>
 
@@ -136,23 +136,23 @@ export function DealReadinessPanel({
                 className="flex items-center justify-between p-3 bg-neutral-950/80 border border-neutral-800 rounded-xl hover:border-amber-500/50 transition-colors"
               >
                 <div className="flex items-start gap-3">
-                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-bold shrink-0 mt-0.5">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-400 text-sm font-bold shrink-0 mt-0.5">
                     {idx + 1}
                   </span>
                   <div>
-                    <div className="text-xs font-bold text-neutral-200">{action.title}</div>
-                    <div className="text-[11px] text-neutral-400 mt-0.5">{action.description}</div>
+                    <div className="text-sm font-bold text-neutral-200">{action.title}</div>
+                    <div className="text-sm text-neutral-400 mt-0.5">{action.description}</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 ml-3">
-                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                  <span className="text-sm font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
                     +{action.potentialPointGain}점
                   </span>
                   {onActionClick && (
                     <button
                       onClick={() => onActionClick(action.axisKey)}
-                      className="text-xs px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors"
+                      className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors min-h-[36px]"
                     >
                       실행
                     </button>

@@ -165,6 +165,8 @@ export const BlindTeaserOutputSchema = z.object({
   investmentPosture: z.enum(['income', 'owner_occupied', 'development', 'operating', 'trading'])
     .describe('투자 관점. 브로커 메모의 매물 특성에서 자동 분류. income=임대수익형, owner_occupied=자가사용형(사옥), development=개발형, operating=운영형(호텔/물류 자가운영), trading=단기매매형')
     .optional(),
+  ogTitle: z.string().optional(),               // OG 카드 제목 (중개사 편집 / 커스텀)
+  ogDescription: z.string().optional(),         // OG 카드 설명
   kakaoOgTitle: z.string().optional(),          // 카카오 OG 카드 제목
   kakaoOgDescription: z.string().optional(),    // 카카오 OG 카드 설명
 });

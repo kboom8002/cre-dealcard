@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { serializeJsonLd, realEstateListing, breadcrumb } from "@/lib/schema-org";
-import { readWithMigration } from "@/lib/ssot-adapter";
+import { readBuilding } from "@/domain/building/im-core/read-building";
 
 const REGION_MAP: Record<string, string> = {
   gbd: "GBD (강남권역)", ybd: "YBD (여의도권역)", cbd: "CBD (종로/을지로)",
@@ -15,8 +15,8 @@ interface PageProps { params: Promise<{ region: string; id: string }> }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { region, id } = await params;
-  const result = await readWithMigration(id);
-  const data = result.data as Record<string, any>;
+  const result = await readBuilding(id);
+  const data = (result?.data ?? result) as Record<string, any>;
 
   const label = data?.area_signal || REGION_MAP[region] || region;
   const asset = data?.asset_type || "상업용 부동산";
@@ -37,8 +37,8 @@ export const revalidate = 3600;
 
 export default async function DealDetailPage({ params }: PageProps) {
   const { region, id } = await params;
-  const result = await readWithMigration(id);
-  const building = result.data as any;
+  const result = await readBuilding(id);
+  const building = (result?.data ?? result) as any;
 
   if (!building) return notFound();
 

@@ -97,7 +97,7 @@ export function LiveDealCardPreviewCard({
   };
 
   // 카카오톡 공유
-  const handleKakaoShare = () => {
+  const handleKakaoShare = async () => {
     const finalText = (typeof window !== "undefined" && sessionStorage.getItem(`kakao_text_${buildingId}`)) || kakaoText || displayDesc;
     const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}/kakao`;
 
@@ -109,8 +109,8 @@ export function LiveDealCardPreviewCard({
             title: displayTitle,
             description: finalText.slice(0, 200),
             imageUrl: ogImageUrl,
-            imageWidth: 800,
-            imageHeight: 400,
+            imageWidth: 1200,
+            imageHeight: 630,
             link: {
               webUrl: shareUrl,
               mobileWebUrl: shareUrl,
@@ -129,16 +129,24 @@ export function LiveDealCardPreviewCard({
         toast.success("카카오톡 공유 창을 열었습니다.");
       } catch (e) {
         console.error("Kakao share failed:", e);
-        navigator.clipboard.writeText(shareUrl);
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+        } catch {
+          // ignore clipboard errors
+        }
         setCopied(true);
-        toast.info("딜카드 주소가 복사되었습니다. 카카오톡 대화창에 붙여넣기(Ctrl+V) 해주세요!", { duration: 5000 });
+        toast.info("딜카드 링크가 복사되었습니다. 카카오톡 대화창에 붙여넣어 공유하세요.", { duration: 5000 });
         setTimeout(() => setCopied(false), 2000);
       }
     } else {
       // SDK 준비 안 된 경우 명시적으로 복사 안내
-      navigator.clipboard.writeText(shareUrl);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+      } catch {
+        // ignore clipboard errors
+      }
       setCopied(true);
-      toast.info("딜카드 주소가 복사되었습니다. 카카오톡 대화창에 붙여넣기(Ctrl+V) 해주세요!", { duration: 5000 });
+      toast.info("딜카드 링크가 복사되었습니다. 카카오톡 대화창에 붙여넣어 공유하세요.", { duration: 5000 });
       setTimeout(() => setCopied(false), 2000);
     }
   };

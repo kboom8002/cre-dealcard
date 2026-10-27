@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
+import { readBuilding } from "@/domain/building/im-core/read-building";
+import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 
@@ -89,8 +90,8 @@ export async function GET(
       }
     }
 
-    // 2. Building 데이터 조회
-    const { data: bData } = await readWithMigration(targetBuildingId);
+    // 2. Building 데이터 조회 (순수 읽기)
+    const bData = await readBuilding(targetBuildingId);
     building = bData as Record<string, any>;
 
     // 3. building_signal_cards 조회 (최신 신호 데이터)
@@ -172,22 +173,26 @@ export async function GET(
   const urgencyTag = teaserView.urgencyTag || (building?.urgency_tag as string);
   const bandedPrice = attrs.priceBand || teaserView.bandedPrice || "가격 협의";
 
-  // Hook copy & title priority: IM 메타 / 제목 우선
+  // Hook copy & title priority: broker custom edit > AI generated > fallback
   const mainHeadline = 
-    imBody?.ogTitle 
+    teaser?.ogTitle 
+    || imBody?.ogTitle 
+    || teaser?.kakaoOgTitle 
+    || imBody?.kakaoOgTitle
     || imBody?.heroTitle 
     || imDocTitle 
-    || teaser?.ogTitle 
     || teaser?.title 
     || `${regionLabel} ${assetType} 매각`;
 
   const rawSubHeadline = 
-    imBody?.ogDescription 
+    teaser?.ogDescription 
+    || imBody?.ogDescription 
+    || teaser?.kakaoOgDescription
+    || imBody?.kakaoOgDescription
     || imBody?.heroSubtitle 
     || imBody?.keyInvestmentPoint 
     || imBody?.heroCard?.keyInvestmentPoint 
     || (imBody?.sections?.[0]?.markdown ? imBody.sections[0].markdown.replace(/[#*`\n]/g, ' ').slice(0, 80).trim() : null)
-    || teaser?.ogDescription 
     || teaser?.shortSummary 
     || teaserView.hookCopy 
     || `${regionLabel} ${assetType} 핵심 투자 기회`;

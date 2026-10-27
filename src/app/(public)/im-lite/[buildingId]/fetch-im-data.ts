@@ -5,7 +5,7 @@
  * avoiding self-fetch deadlocks in Vercel serverless.
  */
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration } from "@/lib/ssot-adapter";
+import { readBuilding } from "@/domain/building/im-core/read-building";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
 import { resolveEnrichment } from "@/domain/building/im-core/resolve-enrichment";
@@ -613,9 +613,9 @@ export async function fetchIMData(
       };
     }
 
-  // 3. Fallback: SSoT Lite
-  const result = await readWithMigration(buildingId);
-  const ssot = result.data as Record<string, any>;
+  // 3. Fallback: SSoT Lite (순수 읽기)
+  const result = await readBuilding(buildingId);
+  const ssot = (result?.data ?? result ?? {}) as Record<string, any>;
 
   if (!ssot || Object.keys(ssot).length === 0) return null;
 

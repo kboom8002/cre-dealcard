@@ -143,3 +143,61 @@ export type {
   TenantRosterChunk,
   ProWaleResult,
 } from './pro-tenant-roster';
+
+// Pure Read Path (WP-P05-01)
+export { readBuilding, readBuildingPure } from './read-building';
+export type { BuildingRecord } from './read-building';
+
+// Phase P4a: Three-Tier Hash Matrix (WP-P4a1-04)
+export {
+  computeContentHash,
+  computeDocHash,
+  computeFileSha256,
+  pickContentKeys,
+  VOLATILE_CONTENT_KEYS,
+} from './hashes';
+
+// Phase P4a: Pure Domain Facts (WP-P4a2-01)
+export {
+  extractPureBuildingFacts,
+  extractLandFacts,
+  extractBuildingSpecs,
+  extractRentFacts,
+  extractTransactionFacts,
+  extractValuationFacts,
+} from './facts';
+export type {
+  PureBuildingFacts,
+  PureLandFacts,
+  PureBuildingSpecs,
+  PureRentFacts,
+  PureRentUnit,
+  PureTransactionFacts,
+  PureValuationFacts,
+  InvestmentPosture,
+} from './facts';
+
+// Phase P4a: Canonical BasicImDocument SSOT (WP-P4a2-02)
+export { buildBasicImDocument } from './basic-im-document';
+export type {
+  BasicImDocument,
+  BasicImSection,
+  ImBuildOptions,
+} from './basic-im-document';
+
+// Phase P4a: Version Resolver SSOT (WP-P4a1-07)
+export { resolveImVersion } from './version-resolver';
+export type {
+  ResolveImVersionParams,
+  ResolvedImVersion,
+} from './version-resolver';
+
+// Phase P4a: Split Write-Back Policy (WP-P4a1-08)
+export {
+  partitionWriteBackPayload,
+} from './writeback-policy';
+export type {
+  SplitWriteBackOptions,
+  SplitWriteBackResult,
+} from './writeback-policy';
+

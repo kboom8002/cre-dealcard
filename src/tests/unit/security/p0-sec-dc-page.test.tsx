@@ -61,6 +61,20 @@ vi.mock('@/lib/ssot-adapter', async (importOriginal) => {
   };
 });
 
+vi.mock('@/domain/building/im-core', async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return {
+    ...actual,
+    readBuilding: vi.fn(async () => building),
+    readBuildingPure: vi.fn(async () => building),
+  };
+});
+
+vi.mock('@/domain/building/im-core/read-building', () => ({
+  readBuilding: vi.fn(async () => building),
+  readBuildingPure: vi.fn(async () => building),
+}));
+
 import DealCardShortPage, { generateMetadata } from '@/app/(public)/dc/[id]/page';
 
 /** Collects the props of every element in the tree (what would be serialised for client components). */

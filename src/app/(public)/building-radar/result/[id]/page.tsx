@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration } from "@/lib/ssot-adapter";
+import { readBuilding } from "@/domain/building/im-core/read-building";
 import { DealCuriosityReportSchema } from "@/ai/schemas/deal-curiosity-report";
 import Link from "next/link";
 import { ReverseOnboardingForm } from "@/components/onboarding/ReverseOnboardingForm";
@@ -21,9 +21,9 @@ export default async function BuildingRadarResultPage({
   const { id } = await params;
   const supabase = createServiceClient();
 
-  // Fetch building (public-safe fields only)
-  const result = await readWithMigration(id);
-  const building = result.data as Record<string, any>;
+  // Fetch building (public-safe fields only, pure read)
+  const result = await readBuilding(id);
+  const building = (result?.data ?? result) as Record<string, any>;
 
   if (!building) return notFound();
 

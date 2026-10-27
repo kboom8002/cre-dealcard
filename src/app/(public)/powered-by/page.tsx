@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
+import { readBuilding } from "@/domain/building/im-core/read-building";
+import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import {
   ShieldCheck,
   Building2,
@@ -39,7 +40,7 @@ export default async function PoweredByPage({ searchParams }: PoweredByPageProps
 
   if (refId) {
     try {
-      const { data: bData } = await readWithMigration(refId);
+      const bData = await readBuilding(refId);
       if (bData) {
         const attrs = buildAttrsFromSsotLite(bData as Record<string, any>);
         buildingData = {

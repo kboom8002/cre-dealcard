@@ -328,6 +328,8 @@ export async function runBrokerDealCard(
         ? (parsedObj.structureChips || parsedObj.structure_chips) as string[]
         : undefined,
       curiosityHook: parsedObj.curiosityHook != null ? String(parsedObj.curiosityHook) : (parsedObj.curiosity_hook != null ? String(parsedObj.curiosity_hook) : undefined),
+      ogTitle: parsedObj.ogTitle != null ? String(parsedObj.ogTitle) : (parsedObj.og_title != null ? String(parsedObj.og_title) : undefined),
+      ogDescription: parsedObj.ogDescription != null ? String(parsedObj.ogDescription) : (parsedObj.og_description != null ? String(parsedObj.og_description) : undefined),
       kakaoOgTitle: parsedObj.kakaoOgTitle != null ? String(parsedObj.kakaoOgTitle) : (parsedObj.kakao_og_title != null ? String(parsedObj.kakao_og_title) : undefined),
       kakaoOgDescription: parsedObj.kakaoOgDescription != null ? String(parsedObj.kakaoOgDescription) : (parsedObj.kakao_og_description != null ? String(parsedObj.kakao_og_description) : undefined),
     };

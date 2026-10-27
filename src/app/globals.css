@@ -16,10 +16,30 @@
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #e4e4e7;
+  --control-border: #64748B;
   --ring: #2563eb;
   --radius: 0.75rem;
   --success: #22c55e;
   --warning: #f59e0b;
+
+  /* Senior Design Tokens (WP-P2-01) */
+  --font-scale-normal: 17px;
+  --font-scale-large: 19px;
+  --font-scale-xlarge: 21px;
+
+  /* Workspace Paper Theme & Contrast Tokens */
+  --ws-canvas: #F3F2EE;
+  --ws-panel: #FAF9F5;
+  --ws-card: #FFFFFF;
+  --ws-text: #0F172A;
+  --ws-text-2: #334155;
+  --ws-text-3: #475569;
+  --ws-control-border: #64748B;
+  --ws-divider: #CBD5E1;
+  --ws-focus-ring: #1D4ED8;
+  --ws-touch-min: 48px;
+  --ws-touch-primary: 56px;
+  --ws-caption-min: 14px;
 
   /* CRE Domain & Grade Colors */
   --deal-hot: #f43f5e;
@@ -904,6 +924,37 @@
 .broker-paper-theme select:not([data-theme-lock="dark"] *):focus {
   border-color: #1D4ED8 !important;
   box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.15) !important;
+}
+
+/* 9. Senior Typography Scaling & Touch Targets (WP-P2-01) */
+[data-font-scale="normal"] {
+  font-size: 17px;
+}
+[data-font-scale="large"] {
+  font-size: 19px;
+}
+[data-font-scale="xlarge"] {
+  font-size: 21px;
+}
+
+.ws-touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.ws-touch-primary {
+  min-height: 56px;
+}
+
+.ws-caption-min {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ws-input-senior {
+  font-size: 18px !important;
+  min-height: 48px;
+  border-color: var(--ws-control-border) !important;
 }
 
 

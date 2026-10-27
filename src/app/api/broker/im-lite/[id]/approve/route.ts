@@ -47,7 +47,7 @@ export async function POST(
   // Ensure the document belongs to this broker
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, broker_id, status, building_id')
+    .select('id, owner_id, broker_id, status, building_id, series_id, version_no')
     .eq('id', id)
     .maybeSingle();
 
@@ -84,7 +84,8 @@ export async function POST(
       }, { status: 422 });
     }
 
-    // 대상 해시 계산 및 검증 (G1 해결)
+    // 대상 해시 계산 및 검증 (WP-P4a1-04 Three-Tier Hash Matrix 연동)
+    const { computeContentHash } = await import('@/domain/building/im-core/hashes');
     const { computeTargetHash } = await import('@/domain/building/im-core/target-hash');
     const { resolveTier } = await import('@/domain/building/im-core/release-tier');
     
@@ -94,20 +95,28 @@ export async function POST(
        tier = 'fact_om'; // 모바일 Basic IM은 최소 fact_om 보장
     }
     
-    serverHash = computeTargetHash({
+    const contentHash = computeContentHash({
       body: fullDocForGate.body,
       releaseTier: tier,
       policyVersion: '2026-08-31',
     });
 
-    if (serverHash !== expectedHash) {
+    const legacyTargetHash = computeTargetHash({
+      body: fullDocForGate.body,
+      releaseTier: tier,
+      policyVersion: '2026-08-31',
+    });
+
+    if (expectedHash !== contentHash && expectedHash !== legacyTargetHash) {
       return NextResponse.json({
         error: 'IM_APPROVAL_HASH_MISMATCH',
         message: '승인 대상 문서가 변경되었습니다. 최신 상태를 확인 후 다시 승인해 주세요.',
-        serverHash,
+        serverHash: contentHash,
         expectedHash,
       }, { status: 422 });
     }
+
+    serverHash = expectedHash === legacyTargetHash ? legacyTargetHash : contentHash;
 
     // G2 해결: new ClaimRegistry() 빈 인스턴스화 제거 -> 실제 본문 claims로 재수화
     const { ClaimRegistry } = await import('@/domain/building/im-core');
@@ -224,62 +233,87 @@ export async function POST(
   }
 
   const newStatus = action === 'approve' ? 'published' : 'revision_needed';
+  const nowIso = new Date().toISOString();
 
-  // Bug 1 근본 수정: approval_target_hash, approved_at은 DB 컬럼이 아니므로
-  // body JSONB 내부에 저장한다. 별도 컬럼 update는 schema cache 에러의 원인.
-  if (action === 'approve' && serverHash) {
-    const { data: currentDoc } = await supabase
-      .from('document_objects')
-      .select('body')
-      .eq('id', id)
-      .single();
+  // WP-P4a1-02: NEVER mutate document_objects.body in-place!
+  // Write approval metadata strictly to im_approvals ledger and set sealed_at / status.
+  const updatePayload: Record<string, any> = {
+    status: newStatus,
+    updated_at: nowIso,
+  };
 
-    if (currentDoc?.body) {
-      const updatedBody = {
-        ...currentDoc.body,
-        approval_target_hash: serverHash,
-        approved_at: new Date().toISOString(),
-        releaseTier: 'fact_om', // 승인 시 tier 확정
-      };
-
-      const { error: bodyErr } = await supabase
-        .from('document_objects')
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-          body: updatedBody,
-        })
-        .eq('id', id);
-
-      if (bodyErr) {
-        return NextResponse.json({ error: bodyErr.message }, { status: 500 });
-      }
-    } else {
-      // body 없는 극단적 케이스: status만 업데이트
-      const { error: updateErr } = await supabase
-        .from('document_objects')
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (updateErr) {
-        return NextResponse.json({ error: updateErr.message }, { status: 500 });
-      }
+  if (action === 'approve') {
+    updatePayload.sealed_at = nowIso;
+    if (serverHash) {
+      updatePayload.seal_hash = serverHash;
+      updatePayload.content_hash = serverHash;
     }
-  } else {
-    // reject 케이스
-    const { error: updateErr } = await supabase
-      .from('document_objects')
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
+  }
 
-    if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  const { error: updateErr } = await supabase
+    .from('document_objects')
+    .update(updatePayload)
+    .eq('id', id);
+
+  if (updateErr) {
+    return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  }
+
+  // Record to append-only im_approvals ledger
+  if (action === 'approve' && serverHash) {
+    try {
+      await supabase
+        .from('im_approvals')
+        .insert({
+          version_id: id,
+          series_id: (doc as any).series_id || null,
+          version_no: (doc as any).version_no || null,
+          event: 'approve',
+          actor_id: guard.user!.id,
+          approved_by: guard.user!.email || guard.user!.id,
+          target_hash: serverHash,
+          content_hash: serverHash,
+          release_tier: 'fact_om',
+          policy_version: '2026-08-31',
+          notes: brokerNotes || null,
+          approved_at: nowIso,
+        });
+    } catch (apprErr) {
+      log.warn('[approve] Failed to record to im_approvals (fallback):', apprErr);
+    }
+
+    // Update series pointer & mark prior version superseded if series_id exists
+    if ((doc as any).series_id) {
+      try {
+        const { data: series } = await supabase
+          .from('im_series')
+          .select('published_version_id')
+          .eq('id', (doc as any).series_id)
+          .maybeSingle();
+
+        if (series?.published_version_id && series.published_version_id !== id) {
+          await supabase
+            .from('document_objects')
+            .update({
+              status: 'superseded',
+              superseded_by: id,
+              updated_at: nowIso,
+            })
+            .eq('id', series.published_version_id);
+        }
+
+        await supabase
+          .from('im_series')
+          .update({
+            latest_approved_version_no: (doc as any).version_no,
+            latest_approved_version_id: id,
+            published_version_id: id,
+            updated_at: nowIso,
+          })
+          .eq('id', (doc as any).series_id);
+      } catch (seriesErr) {
+        log.warn('[approve] Failed to update im_series (fallback):', seriesErr);
+      }
     }
   }
 

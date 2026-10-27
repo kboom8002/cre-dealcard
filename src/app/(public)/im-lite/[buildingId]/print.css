@@ -1,0 +1,92 @@
+/**
+ * WP-P4b-04: Print & PDF export stylesheet for /im-lite/[buildingId]
+ * Formats 10-section Mobile IM into crisp, page-divided A4 presentation.
+ */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 12mm 15mm 12mm;
+  }
+
+  /* Reset global document styles for print */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive floating bars, navigation chips, and buttons */
+  .no-print,
+  nav,
+  button,
+  .sticky,
+  header,
+  [data-testid="floating-action-bar"],
+  [data-testid="section-chips-bar"],
+  [data-testid="version-switcher-bar"],
+  [data-testid="inquiry-drawer"],
+  .share-button {
+    display: none !important;
+  }
+
+  /* Continuous sections page-break rules */
+  [data-section-id] {
+    break-inside: avoid !important;
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+    padding-top: 10mm !important;
+    padding-bottom: 10mm !important;
+    background: #ffffff !important;
+    border: none !important;
+  }
+
+  /* Ensure the last section doesn't leave trailing blank page */
+  [data-section-id="10_contact"] {
+    page-break-after: auto !important;
+  }
+
+  /* Card styling on paper */
+  .im-section-card,
+  [data-fact-card] {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    border-radius: 8px !important;
+    margin-bottom: 8mm !important;
+  }
+
+  /* Tables formatting */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    break-inside: avoid !important;
+  }
+
+  th,
+  td {
+    border: 1px solid #94a3b8 !important;
+    padding: 6px 8px !important;
+  }
+
+  th {
+    background-color: #f1f5f9 !important;
+    font-weight: bold !important;
+  }
+
+  /* High contrast numbers */
+  .tabular-nums {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-weight: 700 !important;
+  }
+
+  /* Remove shadows & fixed heights */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}

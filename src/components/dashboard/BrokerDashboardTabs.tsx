@@ -36,7 +36,7 @@ const LazyMonthlyReportCard = dynamic(
 
 interface BrokerDashboardTabsProps {
   actionQueueContent?: React.ReactNode;
-  overviewContent: React.ReactNode;
+  overviewContent?: React.ReactNode;
   breakthroughContent: React.ReactNode;
   weeklyReportContent?: React.ReactNode;
   morningIntelligenceContent?: React.ReactNode;
@@ -51,11 +51,11 @@ export default function BrokerDashboardTabs({
 }: BrokerDashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<"actionQueue" | "overview" | "intelligence">("actionQueue");
 
-  const tabs = [
+  const tabs: Array<{ id: "actionQueue" | "overview" | "intelligence"; label: string }> = [
     { id: "actionQueue", label: "⚡ 지금 처리" },
-    { id: "overview", label: "📊 현황" },
+    ...(overviewContent ? [{ id: "overview" as const, label: "📊 현황" }] : []),
     { id: "intelligence", label: "📈 인텔리전스" },
-  ] as const;
+  ];
 
   return (
     <div className="w-full space-y-4">

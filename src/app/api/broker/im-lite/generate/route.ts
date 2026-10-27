@@ -10,6 +10,7 @@ import { requireBroker } from "@/lib/auth-guard";
 import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { parseSupplementalFromBody } from "@/domain/building/mobile-im/supplemental-whitelist";
+import { getServerFeatureFlag } from "@/lib/flags";
 
 // IM 생성은 7섹션 AI 생성 + 외부 데이터 수집 + Judge 검증으로 60초 이상 소요 가능
 // thresholds.ts IM_HARD_TIMEOUT_MS = 180_000 (180초)에 정렬
@@ -45,7 +46,10 @@ export async function POST(req: NextRequest) {
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
     identity = body.identity || {};
-    const ffMobileCorePackage = body.ff_mobile_core_package === true || process.env.FF_MOBILE_CORE_PACKAGE === 'true';
+    const ffMobileCorePackage = await getServerFeatureFlag('ff_mobile_core_package', {
+      requestHeaders: req.headers,
+      userId: guard.user?.id,
+    });
     const investmentPosture = body.investment_posture ?? body.investmentPosture ?? identity?.investmentPosture;
     if (investmentPosture) {
       identity = { ...identity, investmentPosture };

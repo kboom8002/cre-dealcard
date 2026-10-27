@@ -79,7 +79,7 @@ export function OcrUploadPanel({ buildingId, onSlotsConfirmed }: OcrUploadPanelP
         {docTypes.map(dt => (
           <button key={dt.key}
             onClick={() => setDocType(dt.key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
               docType === dt.key
                 ? 'bg-primary/20 text-primary border border-primary/30'
                 : 'bg-neutral-800 text-neutral-400 border border-neutral-700 hover:border-neutral-600'
@@ -97,13 +97,13 @@ export function OcrUploadPanel({ buildingId, onSlotsConfirmed }: OcrUploadPanelP
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
               <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
-              <span className="text-xs text-neutral-400">문서 분석 중...</span>
+              <span className="text-sm text-neutral-400">문서 분석 중...</span>
             </div>
           ) : (
             <>
               <span className="text-2xl">📎</span>
               <p className="text-sm text-neutral-400 mt-2">문서 사진 또는 PDF 업로드</p>
-              <p className="text-xs text-neutral-600 mt-1">PNG, JPG, PDF · 최대 10MB</p>
+              <p className="text-sm text-neutral-500 mt-1">PNG, JPG, PDF · 최대 10MB</p>
             </>
           )}
           <input ref={fileInputRef} type="file" className="hidden" accept=".png,.jpg,.jpeg,.pdf"
@@ -115,14 +115,14 @@ export function OcrUploadPanel({ buildingId, onSlotsConfirmed }: OcrUploadPanelP
       {parsedSlots && (
         <div className="space-y-3">
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-            <p className="text-xs text-amber-300 font-bold flex items-center gap-1">
+            <p className="text-sm text-amber-300 font-bold flex items-center gap-1">
               <span>⚠️</span> 추출된 정보를 확인해 주세요. 자동 저장되지 않습니다.
             </p>
           </div>
 
           {editedSlots.map((slot, i) => (
             <div key={slot.key} className="flex items-center gap-3">
-              <label className="text-xs text-neutral-400 w-24 shrink-0 text-right">{slot.label}</label>
+              <label className="text-sm text-neutral-400 w-24 shrink-0 text-right">{slot.label}</label>
               <input
                 type="text"
                 value={slot.value}
@@ -131,7 +131,7 @@ export function OcrUploadPanel({ buildingId, onSlotsConfirmed }: OcrUploadPanelP
                   slot.confidence > 0.8 ? 'border-emerald-500/30' : slot.confidence > 0.5 ? 'border-amber-500/30' : 'border-red-500/30'
                 }`}
               />
-              <span className={`text-[10px] w-8 text-right ${
+              <span className={`text-sm w-10 text-right ${
                 slot.confidence > 0.8 ? 'text-emerald-400' : slot.confidence > 0.5 ? 'text-amber-400' : 'text-red-400'
               }`}>
                 {Math.round(slot.confidence * 100)}%
@@ -141,11 +141,11 @@ export function OcrUploadPanel({ buildingId, onSlotsConfirmed }: OcrUploadPanelP
 
           <div className="flex gap-2 justify-end">
             <button onClick={() => { setParsedSlots(null); setEditedSlots([]); }}
-              className="px-4 py-2 bg-neutral-800 text-neutral-300 text-xs rounded-lg hover:bg-neutral-700 transition-colors">
+              className="px-4 py-2 bg-neutral-800 text-neutral-300 text-sm rounded-lg hover:bg-neutral-700 transition-colors min-h-[44px]">
               취소
             </button>
             <button onClick={confirmSlots}
-              className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">
+              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors min-h-[44px]">
               ✅ 확인 및 적용
             </button>
           </div>

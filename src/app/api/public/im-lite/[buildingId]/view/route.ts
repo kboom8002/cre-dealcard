@@ -46,10 +46,11 @@ export async function POST(
       // 체류시간 이탈 기록
       await supabase.from('activity_events').insert([
         {
-          building_id: buildingId,
-          building_ssot_lite_id: buildingId,
+          entity_type: 'building',
+          entity_id: buildingId,
           event_type: 'im_lite_view',
           metadata: {
+            view_type: 'im_lite',
             referrer,
             user_agent_hash: userAgentHash,
             dwell_seconds: dwellSeconds,
@@ -76,10 +77,11 @@ export async function POST(
       // 일반 조회 기록
       await supabase.from('activity_events').insert([
         {
-          building_id: buildingId,
-          building_ssot_lite_id: buildingId,
+          entity_type: 'building',
+          entity_id: buildingId,
           event_type: 'im_lite_view',
           metadata: {
+            view_type: 'im_lite',
             referrer,
             user_agent_hash: userAgentHash,
             section_viewed: sectionViewed ?? null,

@@ -5,6 +5,7 @@ import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 import { z } from "zod/v4";
 
 import { createModuleLogger } from '@/lib/logger';
+import { updateDealCard4 } from '@/lib/deal-card/card4-schema';
 const log = createModuleLogger('route');
 
 
@@ -34,6 +35,21 @@ const UpdateSchema = z.object({
     price_band: z.string().optional(),
     current_use_signal: z.string().optional(),
   }).optional(),
+  // 4-Item Deal Card & optimistic versioning (WP-P1-03)
+  card4: z.object({
+    region: z.string(),
+    use: z.string(),
+    priceBand: z.string(),
+    points: z.tuple([z.string(), z.string(), z.string()]),
+    provenance: z.object({
+      points: z.tuple([
+        z.enum(['public', 'broker', 'ai']),
+        z.enum(['public', 'broker', 'ai']),
+        z.enum(['public', 'broker', 'ai']),
+      ]),
+    }).optional(),
+  }).optional(),
+  expectedVersion: z.number().optional(),
 });
 
 export async function PATCH(
@@ -58,6 +74,38 @@ export async function PATCH(
       role: guard.role,
     });
     if (!ownership.ok) return ownership.response;
+
+    // Handle Card4 atomic update with optimistic locking (WP-P1-03)
+    if (updateData.card4) {
+      const card4Result = await updateDealCard4(serviceClient, id, {
+        card4: updateData.card4,
+        expectedVersion: updateData.expectedVersion,
+        userId: guard.user!.id,
+      });
+
+      if (card4Result.conflict) {
+        return NextResponse.json(
+          {
+            error: card4Result.error,
+            conflict: true,
+            currentVersion: card4Result.currentVersion,
+          },
+          { status: 409 }
+        );
+      }
+
+      if (!card4Result.success) {
+        return NextResponse.json({ error: card4Result.error }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        body: { card4: card4Result.card4 },
+        card4: card4Result.card4,
+        version: card4Result.version,
+        hash: card4Result.hash,
+      });
+    }
 
     // Fetch existing document to merge updates
     const { data: teaserDoc, error: fetchError } = await serviceClient
