@@ -76,21 +76,8 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
 // (readWithMigration 의 lazy-write 부수효과 중복 방지).
 const getDealCardData = cache(async (id: string) => {
   const quickRec = getQuickImRecord(id);
-  if (!isUuid(id)) {
-    if (quickRec) {
-      return buildDealCardDataFromQuickRecord(quickRec);
-    }
-    return {
-      building: {} as Record<string, any>,
-      signalCard: null,
-      teaserDoc: null,
-      brokerProfile: null,
-      hasImDoc: false,
-      isPptxApproved: false,
-      pptxDownloadUrl: `/api/public/im-lite/${id}/pptx`,
-      ownerId: null,
-      buildingStatus: null,
-    };
+  if (quickRec && !isUuid(id)) {
+    return buildDealCardDataFromQuickRecord(quickRec);
   }
 
   const supabase = createServiceClient();
