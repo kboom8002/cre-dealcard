@@ -182,13 +182,38 @@ export async function requireRole(
  * Convenience: require broker or admin role.
  * ALPHA: 알파 테스트 기간 동안 인증된 모든 사용자 허용.
  * role이 null이거나 프로파일이 없는 경우 broker로 자동 업그레이드.
+ *
+ * P0-SEC (SEC-1): 'public_user'·'expert' 는 더 이상 통과시키지 않는다(브로커 API 전용 가드).
+ * 두 역할은 알파 자동 업그레이드 대상에서도 제외해 403 으로 차단한다 — 업그레이드를 허용하면
+ * 프로필이 broker 로 영구 변경되어 결과적으로 같은 우회가 되기 때문이다.
+ * (가입·온보딩은 모두 profiles.role='broker' 로 저장하며, 00053 마이그레이션이 기존 public_user 를 broker 로 이관했다.)
  */
+const BROKER_ALLOWED_ROLES = ['broker', 'admin'] as const;
+const BROKER_DENIED_ROLES = ['public_user', 'expert'] as const;
+
 export async function requireBroker(req: NextRequest): Promise<AuthGuardResult> {
   const result = await verifyAuth(req);
   if (result.error) return result; // 미인증만 차단
 
+  if (result.role && (BROKER_DENIED_ROLES as readonly string[]).includes(result.role)) {
+    log.warn('requireBroker denied non-broker role', { userId: result.user?.id, role: result.role });
+    return {
+      ...result,
+      error: NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: '중개사(broker) 또는 관리자(admin) 권한이 필요합니다.',
+          },
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
   // ALPHA: role이 없거나 null이면 자동으로 broker 업그레이드 (ALLOW_ALPHA_ROLE_UPGRADE=false 시 엄격 차단)
-  if (!result.role || !['broker', 'admin', 'public_user', 'expert'].includes(result.role)) {
+  if (!result.role || !(BROKER_ALLOWED_ROLES as readonly string[]).includes(result.role)) {
     if (process.env.ALLOW_ALPHA_ROLE_UPGRADE === 'false') {
       return {
         ...result,

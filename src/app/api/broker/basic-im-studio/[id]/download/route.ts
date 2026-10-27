@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireBroker } from '@/lib/auth-guard';
+import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
+import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { ReleaseTier } from '@/domain/building/im-core/release-tier';
@@ -8,9 +9,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let studioGuard: AuthGuardResult | null = null;
   if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+    studioGuard = guard;
   }
 
   const { id } = await params;
@@ -27,6 +30,9 @@ export async function GET(
 
     // P-C4: cold start로 in-memory 유실 시 DB에서 자동 복구
     if (!project) {
+      // P0-SEC: 복구(프로젝트 재생성) 전에 대상 dealId 소유권부터 확인
+      const deniedRecovery = await assertStudioDealOwner(studioGuard, id.replace(/^basic-/, ''));
+      if (deniedRecovery) return deniedRecovery;
       try {
         const actualId = id.replace(/^basic-/, '');
         const recoverySupabase = createServiceClient();
@@ -53,6 +59,10 @@ export async function GET(
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
+
+    // P0-SEC: 프로젝트 소유권 = dealId(매물/원본 문서) 소유권. 소유자·admin 만 접근.
+    const denied = await assertStudioDealOwner(studioGuard, project.dealId);
+    if (denied) return denied;
 
     // ── Collect Studio Slide Overrides, Hidden Slides, Slide Order, and Theme/HeaderFooter ──
     const studioSlideOverrides: Record<string, Record<string, any>> = {};

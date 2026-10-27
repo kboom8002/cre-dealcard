@@ -7,6 +7,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { ReleaseTier } from '@/domain/building/im-core';
+import { getServerViewer } from '@/lib/server-viewer';
+import { isOwnerOrAdmin } from '@/domain/public-projection/access';
+import {
+  isImDocStatusPublic,
+  PUBLIC_IM_DOC_STATUSES,
+  NON_PUBLIC_DOCUMENT_STATUSES,
+} from '@/domain/public-projection/visibility';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -47,30 +54,54 @@ export async function GET(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // 1. Fetch document
-  let docQuery = supabase
-    .from('document_objects')
-    .select('*')
-    .eq('building_id', buildingId)
-    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft']);
-
-  if (docId) {
-    docQuery = docQuery.eq('id', docId);
-  } else {
-    docQuery = docQuery.order('created_at', { ascending: false }).limit(1);
-  }
-
-  const { data: doc } = await docQuery.maybeSingle();
-  if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
-    return NextResponse.json({ error: 'Valid IM document not found or document has no sections' }, { status: 404 });
-  }
-
-  // 2. Fetch building info
+  // 1. Fetch building (owner) first — P0-SEC: 문서 상태/소유자 판정에 사용
   const { data: buildingRow } = await supabase
     .from('building_ssot_lite')
     .select('*')
     .eq('id', buildingId)
     .maybeSingle();
+
+  // P0-SEC: 요청자 판정 (쿠키 세션). 소유자·admin 만 비공개 상태(draft 등) 문서를 받을 수 있다.
+  const viewer = await getServerViewer();
+  const buildingOwnerId: string | null = (buildingRow?.owner_id as string | null | undefined) ?? null;
+
+  const IM_DOC_TYPES = ['mobile_im', 'im_lite', 'im_lite_draft'];
+  let doc: any = null;
+
+  if (docId) {
+    const { data: requested } = await supabase
+      .from('document_objects')
+      .select('*')
+      .eq('building_id', buildingId)
+      .in('document_type', IM_DOC_TYPES)
+      .eq('id', docId)
+      .maybeSingle();
+    // 비공개 상태 doc_id 는 소유자·admin 에게만 — 그 외에는 무시하고 최신 공개본으로 대체
+    if (requested && (isImDocStatusPublic(requested.status) || isOwnerOrAdmin(viewer, buildingOwnerId, requested.owner_id))) {
+      doc = requested;
+    }
+  }
+
+  if (!doc) {
+    const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
+    let latestQuery = supabase
+      .from('document_objects')
+      .select('*')
+      .eq('building_id', buildingId)
+      .in('document_type', IM_DOC_TYPES);
+    latestQuery = privileged
+      ? latestQuery.not('status', 'in', `(${NON_PUBLIC_DOCUMENT_STATUSES.join(',')})`)
+      : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
+    const { data: latest } = await latestQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
+    doc = latest ?? null;
+  }
+
+  if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
+    return NextResponse.json({ error: 'Valid IM document not found or document has no sections' }, { status: 404 });
+  }
+
+  // 소유자·admin 여부 (워터마크 해제 권한)
+  const isPrivilegedViewer = isOwnerOrAdmin(viewer, buildingOwnerId, doc.owner_id);
 
   const building = buildingRow ? {
     ...buildingRow,
@@ -190,9 +221,11 @@ export async function GET(
       }
     }
 
-    const shouldWatermark =
-      searchParams.get('watermark') === 'true' ||
-      (searchParams.get('watermark') !== 'false' && Boolean(searchParams.get('requester')));
+    // P0-SEC: watermark=false(워터마크 해제)는 소유자·admin 만. 비소유자는 requester 지정 시 항상 워터마크.
+    const watermarkParam = searchParams.get('watermark');
+    const shouldWatermark = isPrivilegedViewer
+      ? watermarkParam === 'true' || (watermarkParam !== 'false' && Boolean(searchParams.get('requester')))
+      : watermarkParam === 'true' || Boolean(searchParams.get('requester'));
 
     const result = await renderer.render({
       buildingId,

@@ -8,9 +8,10 @@ import { buildLeaseSummaryFromInput } from '@/domain/building/lease-normalizer';
 import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-score-engine';
 import { recordEvent } from '@/domain/analytics/record-event';
 import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
-import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { persistLeaseUnits } from '@/domain/building/mobile-im/lease-adapter';
 import { requireBroker } from '@/lib/auth-guard';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
 import { z } from 'zod';
 
@@ -38,13 +39,17 @@ export async function POST(
     { auth: { persistSession: false } },
   );
 
-  // Verify ownership
-  const result = await readWithMigration(id);
-  const building = result.data as any;
-
-  if (!building || Object.keys(building).length === 0 || building.owner_id !== user!.id) {
-    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-  }
+  // P0-SEC SEC-2: 소유권은 building_ssot_lite.owner_id 직접 판정.
+  // (이전: readWithMigration 이 assets 행을 돌려주면 owner_id 가 없어 정당한 소유자도 항상 404)
+  // 데이터도 building_ssot_lite 원본 행을 사용한다 — assets 행에는 layers 가 없어 아래 layers 병합이
+  // 기존 layers(대장·사진 등)를 통째로 지우게 되므로 readWithMigration 결과를 쓰면 안 된다.
+  const ownership = await assertBuildingOwner<Record<string, any>>(supabase, id, user!.id, {
+    allowAdmin: true,
+    role: guard.role,
+    select: '*',
+  });
+  if (!ownership.ok) return ownership.response;
+  const building = ownership.row as any;
 
   let body;
   try {

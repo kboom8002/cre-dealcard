@@ -49,7 +49,7 @@ export default function StudioFilesPage() {
   // Load existing data
   async function loadData() {
     try {
-      const token = localStorage.getItem('sb-access-token') || 'dummy-token';
+      const token = localStorage.getItem('sb-access-token') ?? '' /* SEC-6: 더미 토큰 금지 — 비어 있으면 서버가 세션 쿠키로 인증 */;
       const res = await fetch(`/api/broker/buildings/${id}/studio`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -107,7 +107,7 @@ export default function StudioFilesPage() {
     setSuccess(null);
 
     try {
-      const token = localStorage.getItem('sb-access-token') || 'dummy-token';
+      const token = localStorage.getItem('sb-access-token') ?? '' /* SEC-6: 더미 토큰 금지 — 비어 있으면 서버가 세션 쿠키로 인증 */;
       
       // Simulate presigned path & bucket
       const bucket = 'evidence';

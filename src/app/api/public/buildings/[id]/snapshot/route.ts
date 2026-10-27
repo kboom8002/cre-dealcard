@@ -4,7 +4,6 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { readWithMigration } from '@/lib/ssot-adapter';
 
 export async function GET(
   req: NextRequest,
@@ -44,9 +43,14 @@ export async function GET(
     userId = data?.user?.id ?? null;
   }
 
-  // Fetch building
-  const { data: buildingData } = await readWithMigration(id);
-  const building = buildingData as any;
+  // Fetch building — P0-SEC SEC-2: 소유자 판정은 building_ssot_lite.owner_id 직접 조회
+  // (readWithMigration 의 assets 행에는 owner_id 가 없어 정당한 소유자도 G2 미승인 403 이 되던 결함)
+  const { data: buildingData } = await supabase
+    .from('building_ssot_lite')
+    .select('id, owner_id')
+    .eq('id', id)
+    .maybeSingle();
+  const building = buildingData as { id: string; owner_id: string | null } | null;
   const bErr = !building || !building.id ? new Error('Not found') : null;
 
   if (bErr || !building) {
@@ -54,7 +58,7 @@ export async function GET(
   }
 
   // Check G2 gate approval or owner bypass
-  const isOwner = userId !== null && building.owner_id === userId;
+  const isOwner = userId !== null && !!building.owner_id && building.owner_id === userId;
   let isG2Approved = false;
 
   if (!isOwner) {

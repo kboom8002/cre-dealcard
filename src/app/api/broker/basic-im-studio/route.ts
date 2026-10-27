@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireBroker } from '@/lib/auth-guard';
+import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { createServiceClient } from '@/lib/supabase/service';
+import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 
 export async function POST(req: NextRequest) {
   let brokerId = 'broker-system';
+  let studioGuard: AuthGuardResult | null = null;
   if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+    studioGuard = guard;
     if (guard.user?.id) brokerId = guard.user.id;
   }
 
@@ -16,6 +19,11 @@ export async function POST(req: NextRequest) {
     if (!buildingId) {
       return NextResponse.json({ ok: false, error: 'buildingId is required' }, { status: 400 });
     }
+
+    // P0-SEC: 매물(또는 원본 IM 문서) 소유자만 Basic IM 스튜디오 프로젝트 생성·조회 가능
+    // (이전: 남의 buildingId 로 IM 본문·렌트롤을 내 스튜디오 프로젝트로 복제 가능)
+    const denied = await assertStudioDealOwner(studioGuard, buildingId);
+    if (denied) return denied;
 
     // Fetch building & latest IM document from Supabase (excluding studio project rows)
     let buildingName = 'CRE 빌딩';

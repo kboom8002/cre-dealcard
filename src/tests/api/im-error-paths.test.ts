@@ -186,6 +186,7 @@ describe('IM Error Paths API Routes', () => {
   test('EP06: POST generate-async D-grade + pro tier returns 422', async () => {
     mockBuildingData = {
       id: 'd-grade-building',
+      owner_id: '00000000-0000-0000-0000-000000000001', // P0-SEC: verifyAuth 테스트 토큰 사용자 = 매물 소유자
       completeness_score: 30,
       area_signal: null,
       asset_type: null,

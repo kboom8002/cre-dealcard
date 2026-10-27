@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { runBuildingSnapshotAgent } from '@/ai/agents/BuildingSnapshotAgent';
-import { readWithMigration } from '@/lib/ssot-adapter';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { validateSnapshotOutput } from '@/domain/building/snapshot-generator';
 import { recordEvent } from '@/domain/analytics/record-event';
 import { requireBroker } from '@/lib/auth-guard';
@@ -26,14 +26,14 @@ export async function POST(
     { auth: { persistSession: false } },
   );
 
-  // Fetch building
-  const { data: buildingData } = await readWithMigration(id);
-  const building = buildingData as any;
-  const bErr = !building || !building.id ? new Error('Not found') : null;
-
-  if (bErr || !building) {
-    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-  }
+  // P0-SEC SEC-1: 소유권 검사 + building_ssot_lite 원본 행 조회 (이전: 소유권 검사 없이 남의 매물로 스냅샷 생성 가능)
+  const ownership = await assertBuildingOwner<Record<string, any>>(supabase, id, user!.id, {
+    allowAdmin: true,
+    role: guard.role,
+    select: '*',
+  });
+  if (!ownership.ok) return ownership.response;
+  const building = ownership.row as any;
 
   // Check completeness score >= 60
   if (building.completeness_score < 60) {

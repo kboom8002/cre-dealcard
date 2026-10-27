@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireBroker } from '@/lib/auth-guard';
+import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { createPersistentApprovalLedger } from '@/platform/im-pipeline/supabase-approval-ledger';
+import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   let brokerId = 'broker-system';
+  let studioGuard: AuthGuardResult | null = null;
   if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+    studioGuard = guard;
     if (guard.user?.id) brokerId = guard.user.id;
   } else {
     brokerId = req.headers.get('x-broker-id') || 'broker-test';
@@ -26,6 +29,10 @@ export async function GET(
       // Check if id is dealId
       project = await studioService.findProjectByDealId(id);
     }
+
+    // P0-SEC: 프로젝트(=dealId) 소유자만 조회·온디맨드 생성 가능
+    const denied = await assertStudioDealOwner(studioGuard, project ? project.dealId : id);
+    if (denied) return denied;
 
     if (!project) {
       // If deal-card id was passed, initialize a default project on-demand

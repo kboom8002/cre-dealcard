@@ -11,23 +11,19 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { env } from '@/lib/env';
+import { isSocialBotUA } from '@/lib/social-bot';
 
 const PROTECTED_BROKER = '/broker';
 const PROTECTED_ADMIN = '/admin';
 const AUTH_ROUTES = ['/login', '/signup'];
 
 /**
- * Social crawler bot User-Agent patterns.
+ * Social crawler bot User-Agent patterns live in '@/lib/social-bot' (shared with pages).
  * These bots must be able to read OG meta tags on protected routes
  * (e.g. /broker/deal-card/[id]) without authentication.
+ * P0-SEC (SEC-3): the allowed pages themselves render only a public-safe shell for
+ * unauthenticated requests — the proxy exception never grants access to private data.
  */
-const SOCIAL_BOT_PATTERNS = [
-  'kakaotalk-scrap', 'facebookexternalhit', 'facebot',
-  'twitterbot', 'slackbot', 'linkedinbot', 'discordbot',
-  'whatsapp', 'telegrambot', 'line/',
-  'googlebot', 'bingbot', 'yandex', 'baiduspider',
-  'duckduckbot', 'ia_archiver', 'applebot',
-];
 
 /**
  * P0-02 (S2-02): 봇 예외는 OG 메타 목적의 정확히 2개 경로에만 적용한다.
@@ -39,8 +35,7 @@ const SOCIAL_BOT_ALLOWED_PATHS = [
   /^\/broker\/leasing\/(?!new$)[^/]+$/,
 ];
 export function isSocialBotAllowedPath(pathname: string, ua: string): boolean {
-  const lower = ua.toLowerCase();
-  return SOCIAL_BOT_PATTERNS.some((p) => lower.includes(p))
+  return isSocialBotUA(ua)
     && SOCIAL_BOT_ALLOWED_PATHS.some((re) => re.test(pathname));
 }
 

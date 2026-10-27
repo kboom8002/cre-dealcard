@@ -14,6 +14,8 @@ import { getTierAllowedSections, TIER_CONFIG, type ReleaseTier } from "@/domain/
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
 import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
+import { isOwnerOrAdmin, type Viewer } from "@/domain/public-projection/access";
+import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-projection/visibility";
 
 function isValidKoreanCoord(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
@@ -270,16 +272,36 @@ async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof bui
 
 /**
  * Fetch IM Lite data for a building. Returns null if not found.
+ *
+ * P0-SEC: `viewer` identifies the requester. Non-owners (anonymous or other users):
+ *  - get `null` for soft-deleted (archived) buildings;
+ *  - may open `?doc=<docId>` only when that document's status is public
+ *    (published | broker_reviewed | shared_external). Otherwise the docId is ignored and the
+ *    regular public default (latest published/broker_reviewed IM, then SSoT fallback) is used,
+ *    so previously shared links degrade gracefully instead of exposing drafts.
+ * Owners (building_ssot_lite.owner_id or document.owner_id) and admins keep full preview.
  */
 export async function fetchIMData(
   buildingId: string,
-  docId?: string
+  docId?: string,
+  viewer?: Viewer | null
 ): Promise<MobileIMDocument | null> {
   // 1. Demo data
   const demo = getDemoMobileIM(buildingId);
   if (demo) return demo;
 
   const supabase = createServiceClient();
+
+  // P0-SEC: building visibility + owner (read directly from the SSoT source table).
+  const { data: buildingAccess } = await supabase
+    .from("building_ssot_lite")
+    .select("owner_id, status")
+    .eq("id", buildingId)
+    .maybeSingle();
+  const buildingOwnerId: string | null = buildingAccess?.owner_id ?? null;
+  if (buildingAccess && !isBuildingStatusPublic(buildingAccess.status) && !isOwnerOrAdmin(viewer, buildingOwnerId)) {
+    return null;
+  }
 
   // 2. Document from document_objects (generated IM)
   let document: any = null;
@@ -294,7 +316,17 @@ export async function fetchIMData(
       .single();
     document = res.data;
     docError = res.error;
-  } else {
+
+    // P0-SEC: non-public states (draft / generating / generated / pending_approval /
+    // revision_needed / archived / ...) are owner/admin-only previews.
+    if (document && !isImDocStatusPublic(document.status) && !isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id)) {
+      document = null;
+      docError = null;
+      docId = undefined; // fall through to the public default lookup below
+    }
+  }
+
+  if (!docId) {
     // If no docId is specified, fetch the latest published/reviewed IM document for this building
     const res = await supabase
       .from("document_objects")

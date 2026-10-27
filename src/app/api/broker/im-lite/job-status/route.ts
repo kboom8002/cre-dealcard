@@ -24,11 +24,18 @@ export async function GET(req: NextRequest) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("im_generation_jobs")
-    .select("status, result, created_at, completed_at")
+    .select("status, result, created_at, completed_at, user_id")
     .eq("id", jobId)
     .maybeSingle();
 
   if (error || !data) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  // P0-SEC SEC-1: 작업은 생성한 사용자(im_generation_jobs.user_id)만 조회 가능 (admin 예외).
+  // 존재 여부를 노출하지 않도록 불일치도 404 로 응답한다.
+  const isAdmin = guard.role === "admin";
+  if (!isAdmin && (!data.user_id || data.user_id !== guard.user?.id)) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 

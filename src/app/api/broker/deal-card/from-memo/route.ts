@@ -17,6 +17,7 @@ import { classifyDealArchetype } from '@/domain/deal/archetype-classifier';
 import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
 import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -58,6 +59,15 @@ export async function POST(req: NextRequest) {
   try {
     const json = await req.json();
     const input = BrokerDealCardFromMemoRequest.parse(json);
+
+    // P0-SEC: 기존 물건 업데이트 모드는 해당 매물 소유자만 (brokerDealCardFromMemo 가 building_ssot_lite 를 덮어쓴다)
+    if (input.existingBuildingId) {
+      const ownership = await assertBuildingOwner(createServiceClient(), input.existingBuildingId, user!.id, {
+        allowAdmin: true,
+        role: guard.role,
+      });
+      if (!ownership.ok) return ownership.response;
+    }
 
     // Memo Quality Gate validation
     const quality = validateMemoQuality(input.memo);

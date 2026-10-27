@@ -4,12 +4,12 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { readWithMigration } from '@/lib/ssot-adapter';
 import { computeCompletenessAfterUpload } from '@/domain/building/evidence-upload';
 import { computeLayerScore } from '@/domain/building/layer-score-engine';
 import { recordEvent } from '@/domain/analytics/record-event';
 import { LayerCategory } from '@/types/database';
 import { requireBroker } from '@/lib/auth-guard';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
 import { z } from 'zod';
 
@@ -51,14 +51,15 @@ export async function POST(
     { auth: { persistSession: false } },
   );
 
-  // Verify ownership
-  const result = await readWithMigration(id);
-  const building = result.data as any;
-  const bErr = Object.keys(building || {}).length === 0 ? new Error("Not found") : null;
-
-  if (bErr || !building || (building.owner_id && building.owner_id !== user!.id)) {
-    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-  }
+  // P0-SEC SEC-2: 소유권은 building_ssot_lite.owner_id 직접 판정 (readWithMigration 결과로 판정하지 않음 —
+  // assets 행은 owner_id 가 없어 검사를 건너뛰던 fail-open 결함). 완성도 계산도 원본 행의 컬럼을 사용한다.
+  const ownership = await assertBuildingOwner<Record<string, any>>(supabase, id, user!.id, {
+    allowAdmin: true,
+    role: guard.role,
+    select: '*',
+  });
+  if (!ownership.ok) return ownership.response;
+  const building = ownership.row as any;
 
   let body;
   try {

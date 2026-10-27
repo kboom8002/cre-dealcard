@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { readWithMigration, buildAttrsFromSsotLite, buildProvenanceFromSsotLite } from '@/lib/ssot-adapter';
 import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { getLeaseData } from '@/domain/building/lease-data-sync';
 import { BlindTeaserOutputSchema } from "@/ai/schemas/broker-deal-card";
+import { getServerViewer } from "@/lib/server-viewer";
+import { isSocialBotUA } from "@/lib/social-bot";
+import { decideOwnerPageAccess } from "@/domain/public-projection/access";
+import { isBuildingStatusPublic } from "@/domain/public-projection/visibility";
 import Link from "next/link";
 import Image from "next/image";
 import { MatchedBuyersSection } from "./matched-buyers-section";
@@ -29,14 +34,23 @@ import { StaggerContainer, StaggerItem, AnimatedAccordion } from "@/components/m
 
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
   const { id } = await params;
-  const { data: _building } = await readWithMigration(id);
-  const building = _building as any;
+  // P0-SEC (SEC-3): 봇(비로그인)도 실행되는 경로 — 공개 안전 필드(권역/자산유형/가격대)만 조회한다.
+  // readWithMigration(쓰기 부수효과 + raw_input/raw_address 포함 전체 행)은 사용하지 않는다.
+  const { data: building } = await createServiceClient()
+    .from("building_ssot_lite")
+    .select("area_signal, asset_type, price_band, status")
+    .eq("id", id)
+    .maybeSingle();
+  const isVisible = !!building && isBuildingStatusPublic(building.status);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
-  const bMeta = (building?.attrs || {}) as Record<string, any>;
-  const title = building
-    ? `${building.area_signal ?? bMeta.areaSignal ?? ''} ${building.asset_type ?? bMeta.assetType ?? ''} ${building.price_band ?? bMeta.priceBand ?? ''} 딜카드`.trim()
+  const title = isVisible
+    ? `${building.area_signal ?? ''} ${building.asset_type ?? ''} ${building.price_band ?? ''} 딜카드`.trim()
     : "딜카드 결과";
+
+  if (!isVisible) {
+    return { title: `${title} | DealCard`, robots: { index: false, follow: false } };
+  }
 
   return {
     title: `${title} | DealCard`,
@@ -64,6 +78,41 @@ export default async function BrokerDealCardResultPage({
 }: DealCardResultPageProps) {
   const { id } = await params;
   const supabase = createServiceClient();
+
+  // ── P0-SEC (SEC-3): 접근 제어 ──
+  // proxy.ts 는 OG 스크랩을 위해 소셜봇 UA 를 비로그인 상태로 통과시킨다. 따라서 이 페이지가
+  // 직접 소유권을 확인해야 한다. owner_id 는 원천(building_ssot_lite)에서 직접 읽는다.
+  const { data: accessRow } = await supabase
+    .from("building_ssot_lite")
+    .select("owner_id, status")
+    .eq("id", id)
+    .maybeSingle();
+  const viewer = await getServerViewer();
+  const reqHeaders = await headers();
+  const ua = reqHeaders.get("user-agent") ?? "";
+  const decision = decideOwnerPageAccess({
+    viewer,
+    ownerId: accessRow?.owner_id ?? null,
+    exists: !!accessRow && (viewer.userId ? true : isBuildingStatusPublic(accessRow.status)),
+    isBot: isSocialBotUA(ua),
+    // proxy.ts 의 비프로덕션 Playwright 예외와 동일 조건 (프로덕션에서는 항상 false)
+    isNonProdE2EBypass:
+      process.env.NODE_ENV !== "production" &&
+      (reqHeaders.get("x-playwright-test") === "true" || ua.toLowerCase().includes("playwright")),
+  });
+  if (decision === "login") {
+    redirect(`/login?redirectTo=${encodeURIComponent(`/broker/deal-card/${id}`)}`);
+  }
+  if (decision === "not_found") notFound();
+  if (decision === "bot_shell") {
+    // OG 메타는 generateMetadata 가 제공. 본문에는 어떤 비공개 데이터도 렌더하지 않는다.
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen px-4 py-16 text-center">
+        <p className="text-base font-bold text-foreground">크리딜 블라인드 딜카드</p>
+        <a href={`/dc/${id}`} className="mt-3 text-sm text-primary underline">딜카드 보기</a>
+      </main>
+    );
+  }
 
   // Fetch building
   const { data: _building2 } = await readWithMigration(id);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireBroker } from '@/lib/auth-guard';
+import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
+import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { createServiceClient } from '@/lib/supabase/service';
 import { computeTargetHash } from '@/domain/building/im-core';
@@ -14,9 +15,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   let brokerId = 'broker-system';
+  let studioGuard: AuthGuardResult | null = null;
   if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+    studioGuard = guard;
     if (guard.user?.id) brokerId = guard.user.id;
   } else {
     brokerId = req.headers.get('x-broker-id') || 'broker-test';
@@ -41,6 +44,10 @@ export async function PATCH(
         { status: 404 }
       );
     }
+
+    // P0-SEC: 프로젝트 소유권 = dealId(매물/원본 문서) 소유권. 소유자·admin 만 접근.
+    const denied = await assertStudioDealOwner(studioGuard, project.dealId);
+    if (denied) return denied;
 
     const actualProjectId = project.id;
 

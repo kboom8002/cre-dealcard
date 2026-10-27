@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
   const result = await generateMobileIMHandler({
     buildingId,
     userId: user!.id,
+    actorRole: guard.role, // P0-SEC: handler 가 building_ssot_lite.owner_id 로 소유권 판정 (admin 우회만 허용)
     supplemental,
     skipApproval,
     directData,

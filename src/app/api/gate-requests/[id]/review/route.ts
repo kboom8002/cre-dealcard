@@ -16,6 +16,7 @@ import { toApiError } from "@/lib/api-error";
 import { requireBroker } from "@/lib/auth-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 
 const GateRequestReviewSchema = z.object({
   decision: z.enum(["approved", "rejected"]),
@@ -48,15 +49,12 @@ export async function PATCH(req: NextRequest, { params }: ReviewRouteParams) {
       return NextResponse.json({ error: "Gate request not found" }, { status: 404 });
     }
 
-    const { data: building, error: bldgErr } = await supabase
-      .from("building_ssot_lite")
-      .select("owner_id")
-      .eq("id", gateReq.building_id)
-      .single();
-
-    if (bldgErr || !building || building.owner_id !== guard.user!.id) {
-      return NextResponse.json({ error: "Forbidden: not your building" }, { status: 403 });
-    }
+    // P0-SEC: 매물 소유자(building_ssot_lite.owner_id) 또는 admin 만 심사 가능 (admin 심사 화면 지원)
+    const ownership = await assertBuildingOwner(supabase, gateReq.building_id, guard.user!.id, {
+      allowAdmin: true,
+      role: guard.role,
+    });
+    if (!ownership.ok) return ownership.response;
 
     const result = await reviewGateRequest(id, input, guard.user!.id);
 

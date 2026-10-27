@@ -6,10 +6,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-score-engine';
 import { requireBroker } from '@/lib/auth-guard';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { computeFinancialSummary, calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
-import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, buildFinancialInputsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, buildFinancialInputsFromSsotLite } from '@/lib/ssot-adapter';
 import { computeDerivedFields } from '@/domain/building/derived-enricher';
 
 export async function GET(
@@ -29,13 +30,16 @@ export async function GET(
       { auth: { persistSession: false } },
     );
 
-    // Verify ownership using correct DB column owner_id
-    const result = await readWithMigration(id);
-    const building = result.data as any;
-
-    if (!building || Object.keys(building).length === 0 || building.owner_id !== user!.id) {
-      return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-    }
+    // P0-SEC SEC-2: 소유권은 building_ssot_lite.owner_id 직접 판정.
+    // (이전: readWithMigration 이 assets 행을 돌려주면 owner_id 가 없어 정당한 소유자도 항상 404)
+    // 표시 데이터도 building_ssot_lite 원본 행(lease_summary·floor_plan_url·disclosure_prefs 등 보유)을 사용한다.
+    const ownership = await assertBuildingOwner<Record<string, any>>(supabase, id, user!.id, {
+      allowAdmin: true,
+      role: guard.role,
+      select: '*',
+    });
+    if (!ownership.ok) return ownership.response;
+    const building = ownership.row as any;
 
     // Fetch uploaded evidence file categories
     const { data: files } = await supabase

@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { generateDealBriefing } from '@/domain/briefing/deal-briefing-generator';
-import { readWithMigration } from '@/lib/ssot-adapter';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { requireBroker } from '@/lib/auth-guard';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -26,13 +26,13 @@ export async function GET(
     { auth: { persistSession: false } },
   );
 
-  // Verify ownership
-  const { data: buildingData } = await readWithMigration((await params).id);
-  const building = (buildingData?.id && buildingData.broker_id === user!.id ? buildingData : null) as any;
-
-  if (!building) {
-    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-  }
+  // P0-SEC SEC-2: 소유권은 building_ssot_lite.owner_id 직접 판정.
+  // (이전: readWithMigration 결과의 존재하지 않는 broker_id 컬럼과 비교해 정당한 소유자도 항상 404)
+  const ownership = await assertBuildingOwner(supabase, (await params).id, user!.id, {
+    allowAdmin: true,
+    role: guard.role,
+  });
+  if (!ownership.ok) return ownership.response;
 
   try {
     const briefing = await generateDealBriefing((await params).id, user!.id);

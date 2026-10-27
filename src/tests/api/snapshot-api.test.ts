@@ -124,7 +124,7 @@ describe('v0.3 Snapshot API Routes', () => {
   test('POST /generate - rejects building with completeness < 60', async () => {
     mockBuildingData = {
       id: 'low-score-building',
-      owner_id: 'mock-user-id',
+      owner_id: '00000000-0000-0000-0000-000000000001', // P0-SEC: verifyAuth 테스트 토큰 사용자 = 매물 소유자
       completeness_score: 55,
       lease_summary: {},
     };
@@ -149,7 +149,7 @@ describe('v0.3 Snapshot API Routes', () => {
   test('POST /generate - generates snapshot successfully for score >= 60', async () => {
     mockBuildingData = {
       id: 'ready-building',
-      owner_id: 'mock-user-id',
+      owner_id: '00000000-0000-0000-0000-000000000001', // P0-SEC: verifyAuth 테스트 토큰 사용자 = 매물 소유자
       completeness_score: 65,
       lease_summary: {},
     };

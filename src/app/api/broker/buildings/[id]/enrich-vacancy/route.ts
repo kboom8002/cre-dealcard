@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { readWithMigration } from '@/lib/ssot-adapter';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { enrichFromVacancyData } from '@/domain/matching/vacancy-signal-enricher';
 import { computePromotionScore } from '@/domain/promotion/promotion-ranker';
 import { requireBroker } from '@/lib/auth-guard';
@@ -24,17 +24,16 @@ export async function POST(
     { auth: { persistSession: false } },
   );
 
-  // Verify ownership
+  // P0-SEC SEC-2: 소유권은 building_ssot_lite.owner_id 직접 판정.
+  // (이전: readWithMigration 결과의 존재하지 않는 broker_id 로 비교 → 항상 통과하는 fail-open)
   const buildingId = (await params).id;
-  const result = await readWithMigration(buildingId);
-  const building = result.data as any;
-  if (building && building.broker_id && building.broker_id !== user!.id) {
-    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-  }
-
-  if (!building || Object.keys(building).length === 0) {
-    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-  }
+  const ownership = await assertBuildingOwner<Record<string, any>>(supabase, buildingId, user!.id, {
+    allowAdmin: true,
+    role: guard.role,
+    select: '*',
+  });
+  if (!ownership.ok) return ownership.response;
+  const building = ownership.row as any;
 
   // Enrich
   const enrichResult = await enrichFromVacancyData((await params).id);

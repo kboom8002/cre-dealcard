@@ -104,9 +104,24 @@ export function MobileIMViewer({
   // [D2] PWA Service Worker 등록
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw-im.js").catch((err) => {
-        console.warn("[mobile-im-viewer]", err);
-      });
+      // [P0-SEC / SEC-7] scope 를 '/im-lite/' 로 한정. 과거 scope '/' 로 설치된 sw-im.js 등록(사이트 전체 가로채기)은 해제한다.
+      const sw = navigator.serviceWorker;
+      sw.getRegistrations()
+        .then((regs) =>
+          Promise.all(
+            regs
+              .filter((reg) => {
+                const scriptURL = (reg.active || reg.waiting || reg.installing)?.scriptURL ?? "";
+                return new URL(reg.scope).pathname === "/" && scriptURL.endsWith("/sw-im.js");
+              })
+              .map((reg) => reg.unregister()),
+          ),
+        )
+        .catch(() => undefined)
+        .then(() => sw.register("/sw-im.js", { scope: "/im-lite/" }))
+        .catch((err) => {
+          console.warn("[mobile-im-viewer]", err);
+        });
     }
   }, []);
 

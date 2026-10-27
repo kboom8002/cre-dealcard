@@ -9,7 +9,7 @@ import { extractDealFeatures, snapshotDealFeatures } from '@/domain/prediction/d
 import { predictDealConversion } from '@/domain/prediction/deal-conversion-predictor';
 import { getNetworkRecommendations } from '@/domain/graph/property-network';
 import { findSimilarDeals } from '@/domain/graph/deal-semantic-search';
-import { readWithMigration } from '@/lib/ssot-adapter';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { requireBroker } from '@/lib/auth-guard';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -30,10 +30,15 @@ export async function GET(
     { auth: { persistSession: false } },
   );
 
-  // Verify ownership
-  const { data: buildingData } = await readWithMigration((await params).id);
-  const building = (buildingData?.id && buildingData.broker_id === user!.id ? buildingData : null) as any;
-  if (!building) return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
+  // P0-SEC SEC-2: 소유권은 building_ssot_lite.owner_id 직접 판정.
+  // (이전: readWithMigration 결과의 존재하지 않는 broker_id 컬럼과 비교해 정당한 소유자도 항상 404)
+  const ownership = await assertBuildingOwner<Record<string, any>>(supabase, (await params).id, user!.id, {
+    allowAdmin: true,
+    role: guard.role,
+    select: 'id, owner_id, area_signal, asset_type, price_band',
+  });
+  if (!ownership.ok) return ownership.response;
+  const building = ownership.row as any;
 
   try {
     // Run in parallel

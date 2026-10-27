@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { createServiceClient } from "@/lib/supabase/service";
-import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
-import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { TeaserEventTracker } from '@/components/teaser/TeaserEventTracker';
+import { toPublicDealCard } from '@/domain/public-projection/deal-card';
+import { evaluateDealCardPublicVisibility } from '@/domain/public-projection/visibility';
+import { isOwnerOrAdmin } from '@/domain/public-projection/access';
+import { getServerViewer } from '@/lib/server-viewer';
 
 // v3 Goldilocks components
 import { TeaserHeroHeader } from '@/components/teaser/TeaserHeroHeader';
@@ -20,14 +24,22 @@ interface PageProps {
 }
 
 // ── 데이터 조회 ──
-async function getDealCardData(id: string) {
+// P0-SEC: React cache() — generateMetadata 와 page 가 같은 요청에서 한 번만 조회한다
+// (readWithMigration 의 lazy-write 부수효과 중복 방지).
+const getDealCardData = cache(async (id: string) => {
   const supabase = createServiceClient();
 
-  const [buildingRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
+  const [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
     readWithMigration(id),
+    // P0-SEC: owner_id / status 는 SSoT 원천(building_ssot_lite)에서 직접 조회 (assets 에는 없음)
+    supabase
+      .from("building_ssot_lite")
+      .select("owner_id, status")
+      .eq("id", id)
+      .maybeSingle(),
     supabase
       .from("building_signal_cards")
-      .select("id, title, area_signal, asset_type, price_band, deal_points, body, status")
+      .select("id, title, area_signal, asset_type, price_band, deal_points, body, status, visibility")
       .eq("building_id", id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -37,6 +49,7 @@ async function getDealCardData(id: string) {
       .select("body")
       .eq("building_id", id)
       .eq("document_type", "blind_teaser")
+      .neq("status", "archived")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -46,21 +59,14 @@ async function getDealCardData(id: string) {
       .select("id, status, approval_stage, pptx_file_hash, pptx_download_url")
       .eq("building_id", id)
       .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
+      .neq("status", "archived")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
   ]);
 
-  // assets 테이블에는 owner_id가 없으므로 building_ssot_lite에서 보완 조회
-  let ownerId = buildingRes.data?.owner_id;
-  if (!ownerId) {
-    const { data: ssotRow } = await supabase
-      .from("building_ssot_lite")
-      .select("owner_id")
-      .eq("id", id)
-      .maybeSingle();
-    ownerId = ssotRow?.owner_id;
-  }
+  const ownerId: string | null = ssotMetaRes.data?.owner_id ?? null;
+  const buildingStatus: string | null = ssotMetaRes.data?.status ?? null;
 
   let brokerProfile: Record<string, any> | null = null;
   if (ownerId) {
@@ -107,28 +113,47 @@ async function getDealCardData(id: string) {
     hasImDoc: !!imDocRes.data,
     isPptxApproved,
     pptxDownloadUrl,
+    ownerId,
+    buildingStatus,
   };
+});
+
+type DealCardData = Awaited<ReturnType<typeof getDealCardData>>;
+
+/** Server-only → public DTO. Only this crosses into JSX / client components. */
+function projectPublic(id: string, data: DealCardData) {
+  return toPublicDealCard({
+    id,
+    building: data.building,
+    signalCard: data.signalCard,
+    teaserDoc: data.teaserDoc,
+    brokerProfile: data.brokerProfile,
+    hasImDoc: data.hasImDoc,
+    isPptxApproved: data.isPptxApproved,
+    pptxDownloadUrl: data.pptxDownloadUrl,
+  });
+}
+
+function isPublicDealCard(data: DealCardData): boolean {
+  return evaluateDealCardPublicVisibility({
+    buildingStatus: data.buildingStatus,
+    signalCardVisibility: data.signalCard?.visibility,
+    signalCardStatus: data.signalCard?.status,
+  }).isPublic;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const { building, signalCard, teaserDoc } = await getDealCardData(id);
+  const data = await getDealCardData(id);
 
-  const body = (signalCard?.body || {}) as Record<string, unknown>;
-  const imBodyOg = (teaserDoc?.body ?? {}) as Record<string, any>;
+  // P0-SEC: 비공개(archived / internal_only) 딜카드는 크롤러에 어떤 내용도 노출하지 않는다.
+  if (!isPublicDealCard(data)) {
+    return { title: "크리딜 DealCard", robots: { index: false, follow: false } };
+  }
 
-  const ogTitle = imBodyOg.kakaoOgTitle
-    || imBodyOg.ogTitle 
-    || (signalCard?.title as string)
-    || `${building?.area_signal || "상업용 부동산"} ${building?.asset_type || "매물"} 매각`;
-  
-  const rawArea = building?.area_signal || "서울 주요";
-  const areaFormatted = rawArea.endsWith("권역") ? rawArea : rawArea.endsWith("권") ? `${rawArea}역` : `${rawArea} 권역`;
-
-  const ogDescription = imBodyOg.kakaoOgDescription
-    || imBodyOg.ogDescription 
-    || (body.shortSummary as string)
-    || `${areaFormatted} 블라인드 매각 딜카드`;
+  const { og } = projectPublic(id, data);
+  const ogTitle = og.title;
+  const ogDescription = og.description;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
   const absoluteOgImage = `${siteUrl}/api/og/deal/${id}/kakao`;
@@ -164,28 +189,21 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   const { id } = await params;
   const sParams = searchParams ? await searchParams : {};
   const isPreviewMode = sParams.preview === "1" || sParams.preview === "true";
-  const { building, signalCard, teaserDoc, brokerProfile, hasImDoc, isPptxApproved, pptxDownloadUrl } =
-    await getDealCardData(id);
+  const data = await getDealCardData(id);
 
+  // P0-SEC: 비공개 상태(building archived / signal card internal_only·archived)는 공개 404.
+  // 소유 중개사(또는 admin)는 인증 쿠키로 확인되어 계속 볼 수 있다
+  // (LiveDealCardPreviewCard 의 same-origin iframe `/dc/{id}?preview=1` 포함).
+  if (!isPublicDealCard(data)) {
+    const viewer = await getServerViewer();
+    if (!isOwnerOrAdmin(viewer, data.ownerId)) notFound();
+  }
 
-  const safeBuilding = building || {
-    id,
-    area_signal: signalCard?.area_signal || "비공개 권역",
-    asset_type: signalCard?.asset_type || "근린생활시설",
-    price_band: signalCard?.price_band || "가격 협의",
-  };
-  const rawAttrs = buildAttrsFromSsotLite(safeBuilding || {});
-  const attrs = {
-    ...rawAttrs,
-    areaSignal: rawAttrs.areaSignal || signalCard?.area_signal || safeBuilding.area_signal,
-    priceBand: rawAttrs.priceBand || signalCard?.price_band || safeBuilding.price_band,
-    assetType: rawAttrs.assetType || signalCard?.asset_type || safeBuilding.asset_type,
-  };
-  const teaserView = projectToTeaser(attrs);
+  const card = projectPublic(id, data);
+  const { hero, broker, cta, policy } = card;
 
   // 데이터 최소성 검사
-  const hasMinimalData = !!(attrs.areaSignal || attrs.priceBand || attrs.assetType || teaserDoc);
-  if (!hasMinimalData && !isPreviewMode) {
+  if (!card.hasMinimalData && !isPreviewMode) {
     return (
       <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] flex items-center justify-center p-4">
         <div className="max-w-[392px] w-full bg-[#141A21] border border-[#252E39] rounded-2xl p-6 text-center space-y-4">
@@ -200,41 +218,31 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
     );
   }
 
-  const body = (signalCard?.body || {}) as Record<string, unknown>;
-  const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
-
-  const dealTitle = imBody.title || (body.title as string) || (signalCard?.title as string) || '';
-  const hookCopy = imBody.hookCopy || body.hookCopy || teaserView.hookCopy || `${teaserView.region || "비공개 권역"} ${safeBuilding.asset_type || "빌딩"} 매각`;
-  const posture = teaserView.posture || 'income';
-  const postureLabel = teaserView.postureLabel || '임대수익형';
-  const postureHeroTiles = teaserView.postureHeroTiles;
-  const requireNda = safeBuilding.disclosure?.requireNda === true;
-
   return (
     <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] pb-24">
-      <TeaserEventTracker teaserConfigId={safeBuilding?.id || id} />
+      <TeaserEventTracker teaserConfigId={card.teaserConfigId} />
 
       <div className="max-w-[392px] mx-auto">
         {/* ① TeaserHeroHeader — 관점배지 + 히어로 + 적응형 4칸(최소 2개 보장) */}
         <TeaserHeroHeader
-          archetype={teaserView.archetypeResult?.primaryArchetype}
-          regionLabel={teaserView.region}
-          bandedPrice={teaserView.bandedPrice}
-          bandedCapRate={teaserView.bandedCapRate}
-          bandedArea={teaserView.bandedArea}
-          vacancyLabel={teaserView.vacancyLabel}
-          title={dealTitle}
-          hookCopy={hookCopy}
-          posture={posture}
-          postureLabel={postureLabel}
-          postureHeroTiles={postureHeroTiles}
-          urgencyTag={teaserView.urgencyTag || (body.urgencyTag as any)}
+          archetype={hero.archetype ?? undefined}
+          regionLabel={hero.regionLabel}
+          bandedPrice={hero.bandedPrice}
+          bandedCapRate={hero.bandedCapRate}
+          bandedArea={hero.bandedArea}
+          vacancyLabel={hero.vacancyLabel ?? undefined}
+          title={hero.title}
+          hookCopy={hero.hookCopy}
+          posture={hero.posture}
+          postureLabel={hero.postureLabel}
+          postureHeroTiles={hero.postureHeroTiles}
+          urgencyTag={hero.urgencyTag ?? undefined}
         />
 
         <div className="px-4 space-y-3.5 mt-3">
           {/* ②-b 핵심 딜포인트 (blind_teaser에서 추출) */}
           {(() => {
-            const dp = Array.isArray(imBody.dealPoints) ? imBody.dealPoints.filter(Boolean) : [];
+            const dp = card.dealPoints;
             return dp.length > 0 ? (
               <div
                 data-testid="public-dealcard-points"
@@ -260,35 +268,33 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             ) : null;
           })()}
 
-          {/* ③ 포스처 특화 위젯 (결과 우선 + 접이식 슬라이더) */}
+          {/* ③ 포스처 특화 위젯 (결과 우선 + 접이식 슬라이더) — 최소 허용 필드만 전달 (P0-SEC SEC-5) */}
           <PostureWidget
-            posture={posture}
-            attrs={attrs}
-            teaserView={teaserView}
+            input={card.postureWidget}
             buildingId={id}
           />
 
           {/* ④ 담당 중개사 프로필 (TrustLine - 전화 연결 기능 탑재) */}
           <TrustLine
-            brokerName={brokerProfile?.display_name || "담당 중개사"}
-            brokerPhone={brokerProfile?.phone}
-            brokerSlug={brokerProfile?.slug}
-            brokerAvatarUrl={brokerProfile?.avatar_url}
-            specialty={brokerProfile?.specialty}
-            responseGuaranteeHours={brokerProfile?.response_guarantee_hours}
-            closedDeals={brokerProfile?.closed_deals}
-            isLicensed={brokerProfile?.is_licensed ?? true}
+            brokerName={broker.displayName}
+            brokerPhone={broker.phone ?? undefined}
+            brokerSlug={broker.slug ?? undefined}
+            brokerAvatarUrl={broker.avatarUrl ?? undefined}
+            specialty={broker.specialty ?? undefined}
+            responseGuaranteeHours={broker.responseGuaranteeHours ?? undefined}
+            closedDeals={broker.closedDeals ?? undefined}
+            isLicensed={broker.isLicensed}
           />
 
           {/* ⑤ CTALadder — Basic/Pro 이분화 & Floating Sticky Bar */}
           <CTALadder
             buildingId={id}
-            teaserConfigId={safeBuilding?.id || id}
-            brokerPhone={brokerProfile?.phone}
-            requireNda={requireNda}
-            hasImDoc={hasImDoc}
-            isPptxApproved={isPptxApproved}
-            pptxDownloadUrl={pptxDownloadUrl}
+            teaserConfigId={card.teaserConfigId}
+            brokerPhone={broker.phone ?? undefined}
+            requireNda={cta.requireNda}
+            hasImDoc={cta.hasImDoc}
+            isPptxApproved={cta.isPptxApproved}
+            pptxDownloadUrl={cta.pptxDownloadUrl}
           />
 
 
@@ -306,9 +312,9 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             </summary>
             <div className="pt-2">
               <PublicPolicyBlock
-                candidateCount={teaserView.reidentResult?.candidateCount || 0}
-                kThreshold={teaserView.reidentResult?.kThreshold || 20}
-                passed={teaserView.reidentResult?.passed ?? true}
+                candidateCount={policy.candidateCount}
+                kThreshold={policy.kThreshold}
+                passed={policy.passed}
               />
             </div>
           </details>

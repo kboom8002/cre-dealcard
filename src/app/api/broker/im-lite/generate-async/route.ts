@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 import { randomUUID } from "node:crypto";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { persistLeaseUnits, floorLeaseToPersistUnit } from "@/domain/building/mobile-im/lease-adapter";
@@ -86,9 +87,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const supabase = createServiceClient();
+
+  // ── P0-SEC SEC-1: 매물 소유권 검사 (작업 삽입·백그라운드 생성·SSoT 역류 이전) ──
+  // building_ssot_lite.owner_id 직접 판정. 남의 매물 id 로 IM 을 생성하면 렌트롤·주소가 내 문서로 복제되고
+  // 원본 building_ssot_lite 가 덮어써지는 경로를 차단한다.
+  const ownership = await assertBuildingOwner(supabase, buildingId, user.id, {
+    allowAdmin: true,
+    role: guard.role,
+  });
+  if (!ownership.ok) return ownership.response;
+
   // ── 작업 ID 생성 + DB 레코드 삽입 ──
   const jobId = `im_${buildingId}_${Date.now()}_${randomUUID().slice(0, 8)}`;
-  const supabase = createServiceClient();
 
   await supabase.from("im_generation_jobs").upsert({
     id: jobId,
@@ -108,6 +119,7 @@ export async function POST(req: NextRequest) {
       const result = await generateMobileIMHandler({
         buildingId,
         userId: user!.id,
+        actorRole: guard.role,
         supplemental,
         skipApproval,
         directData,

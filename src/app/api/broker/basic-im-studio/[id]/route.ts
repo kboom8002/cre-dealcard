@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireBroker } from '@/lib/auth-guard';
+import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
+import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let studioGuard: AuthGuardResult | null = null;
   if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+    studioGuard = guard;
   }
 
   const { id } = await params;
@@ -19,6 +22,10 @@ export async function GET(
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
+
+    // P0-SEC: 프로젝트 소유권 = dealId(매물/원본 문서) 소유권. 소유자·admin 만 접근.
+    const denied = await assertStudioDealOwner(studioGuard, project.dealId);
+    if (denied) return denied;
     return NextResponse.json({ ok: true, project });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
@@ -29,9 +36,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let studioGuard: AuthGuardResult | null = null;
   if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+    studioGuard = guard;
   }
 
   const { id } = await params;
@@ -55,6 +64,10 @@ export async function PATCH(
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
+
+    // P0-SEC: 프로젝트 소유권 = dealId(매물/원본 문서) 소유권. 소유자·admin 만 접근.
+    const denied = await assertStudioDealOwner(studioGuard, project.dealId);
+    if (denied) return denied;
 
     let updated = project;
 

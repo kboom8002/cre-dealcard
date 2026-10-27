@@ -3,6 +3,17 @@ import { generateMobileIMHandler } from '@/app/api/broker/im-lite/generate/handl
 import { runCrossValidation } from '@/domain/building/mobile-im/cross-validator';
 import type { NumericalAnchors } from '@/domain/building/mobile-im/cross-validator';
 
+// P0-SEC: 매물 소유권 판정(assertBuildingOwner)은 src/tests/security/authz-building-owner.test.ts 에서 검증한다.
+// 이 파일은 IM 생성 비즈니스 로직 회귀용이므로 소유권 판정은 통과(소유자)로 고정한다.
+vi.mock('@/lib/authz/assert-owner', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/authz/assert-owner')>();
+  return {
+    ...actual,
+    assertBuildingOwner: vi.fn(async () => ({ ok: true as const, row: {}, ownerId: null, viaAdmin: false })),
+  };
+});
+
+
 vi.mock('@supabase/supabase-js', () => {
   return {
     createClient: () => ({

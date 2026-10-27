@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration } from "@/lib/ssot-adapter";
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 import { z } from "zod/v4";
 
 import { createModuleLogger } from '@/lib/logger';
@@ -51,6 +51,14 @@ export async function PATCH(
 
     const serviceClient = createServiceClient();
 
+    // P0-SEC SEC-2: 소유권은 building_ssot_lite.owner_id 직접 판정 (readWithMigration 의 assets 행은
+    // owner_id 가 없어 검사를 건너뛰던 fail-open 결함 제거). 행 없음 404 / 불일치·owner null 403.
+    const ownership = await assertBuildingOwner(serviceClient, id, guard.user!.id, {
+      allowAdmin: true,
+      role: guard.role,
+    });
+    if (!ownership.ok) return ownership.response;
+
     // Fetch existing document to merge updates
     const { data: teaserDoc, error: fetchError } = await serviceClient
       .from("document_objects")
@@ -63,15 +71,6 @@ export async function PATCH(
 
     if (fetchError) {
       return NextResponse.json({ error: fetchError.message }, { status: 400 });
-    }
-
-    // Verify ownership (supports both legacy building_ssot_lite and assets table)
-    const result = await readWithMigration(id);
-    const building = result.data as any;
-    const ownerId = building?.owner_id ?? building?.user_id ?? (building?.attrs as any)?.ownerId;
-
-    if (!building || Object.keys(building).length === 0 || (ownerId && ownerId !== guard.user!.id)) {
-      return NextResponse.json({ error: "Forbidden: not your building" }, { status: 403 });
     }
 
     const currentBody = teaserDoc?.body ? (teaserDoc.body as Record<string, any>) : {};

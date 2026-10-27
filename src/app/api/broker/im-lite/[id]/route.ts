@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { requireBroker } from '@/lib/auth-guard';
+import { assertBuildingOwner, assertDocOwner } from '@/lib/authz/assert-owner';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -13,14 +15,34 @@ export async function GET(
   try {
     const { id } = await params;
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
-  const service = createServiceClient();
 
-    // id can be building_id or document id
-    const safeId = id.replace(/[,()"\\]/g, '');
+    // P0-SEC: 인증 + 소유권 (이전: 무인증으로 매물/문서 id 의 모든 IM 본문 반환)
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const userId = guard.user!.id;
+    const service = createServiceClient();
+
+    // id 는 매물(building_ssot_lite) id 또는 문서(document_objects) id 일 수 있다.
+    const buildingCheck = await assertBuildingOwner(service, id, userId, { allowAdmin: true, role: guard.role });
+    let scope: 'building' | 'document';
+    if (buildingCheck.ok) {
+      scope = 'building';
+    } else if (buildingCheck.status === 404) {
+      const docCheck = await assertDocOwner(service, id, userId, {
+        allowAdmin: true,
+        role: guard.role,
+        allowBuildingOwner: true,
+      });
+      if (!docCheck.ok) return docCheck.response;
+      scope = 'document';
+    } else {
+      return buildingCheck.response;
+    }
+
     const { data: docs, error } = await service
       .from('document_objects')
       .select('id, building_id, document_type, title, body, status, created_at')
-      .or(`building_id.eq.${safeId},id.eq.${safeId}`)
+      .eq(scope === 'building' ? 'building_id' : 'id', id)
       .in('document_type', ['im_lite', 'mobile_im'])
       .order('created_at', { ascending: false });
 

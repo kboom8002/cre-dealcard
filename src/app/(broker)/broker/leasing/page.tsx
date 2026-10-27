@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getServerViewer } from "@/lib/server-viewer";
 
 export const metadata: Metadata = {
   title: "리싱 관리 | DealCard Hub",
@@ -52,20 +53,34 @@ function StatusBadge({ status }: { status?: string }) {
 // ── Page ─────────────────────────────────────────────────────────
 
 export default async function LeasingStudioPage() {
+  // P0-SEC: 서비스 클라이언트(RLS 우회)로 조회하므로 반드시 본인 공간(spaces.created_by)으로 범위를 제한한다.
+  // (이전: 모든 사용자의 공간 목록·리싱 페이지가 노출됨) admin 은 전체 조회.
+  const viewer = await getServerViewer();
+  if (!viewer.userId) {
+    redirect(`/login?redirectTo=${encodeURIComponent("/broker/leasing")}`);
+  }
+
   const supabase = createServiceClient();
 
-  const [{ data: spaces }, { data: leasingPages }] = await Promise.all([
-    supabase
-      .from("spaces")
-      .select("id, display_name, blind_name, floor, area_private_py, asset_type, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("leasing_pages")
-      .select("space_id, slug, status, title"),
-  ]);
+  let spacesQuery = supabase
+    .from("spaces")
+    .select("id, display_name, blind_name, floor, area_private_py, asset_type, status, created_at");
+  if (!viewer.isAdmin) {
+    spacesQuery = spacesQuery.eq("created_by", viewer.userId);
+  }
+  const { data: spaces } = await spacesQuery
+    .order("created_at", { ascending: false })
+    .limit(50);
 
   const spaceList: SpaceRow[] = spaces ?? [];
+  const spaceIds = spaceList.map((s) => s.id);
+  const { data: leasingPages } = spaceIds.length > 0
+    ? await supabase
+        .from("leasing_pages")
+        .select("space_id, slug, status, title")
+        .in("space_id", spaceIds)
+    : { data: [] as LeasingPageRow[] };
+
   const pageMap = new Map<string, LeasingPageRow>(
     (leasingPages ?? []).map((p: LeasingPageRow) => [p.space_id, p])
   );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireBroker } from '@/lib/auth-guard';
+import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
+import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 
 type ToneOption = 'conservative' | 'balanced' | 'aggressive';
@@ -142,9 +143,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let studioGuard: AuthGuardResult | null = null;
   if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+    studioGuard = guard;
   }
 
   const { id } = await params;
@@ -167,6 +170,10 @@ export async function POST(
     let project;
     try { project = await studioService.getProject(id); }
     catch { project = await studioService.findProjectByDealId(id); }
+
+    // P0-SEC: 프로젝트 소유권 = dealId(매물/원본 문서) 소유권. 소유자·admin 만 접근.
+    const denied = await assertStudioDealOwner(studioGuard, project ? project.dealId : id);
+    if (denied) return denied;
 
     const slide = project?.slides.find(s => s.id === slideId || s.dataKey === dataKey);
     const overrides = (slide?.slideOverrides ?? {}) as Record<string, any>;

@@ -5,6 +5,7 @@
  * HTTP 레이어를 분리한 핵심 함수.
  */
 import { createServiceClient } from "@/lib/supabase/service";
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 // Readiness deprecated in favor of grade-engine
 import { generateMobileIM } from "@/domain/building/mobile-im/writer";
 import { enrichBuildingData } from "@/lib/external/external-data-orchestrator";
@@ -47,6 +48,8 @@ const log = createModuleLogger('handler');
 export interface GenerateMobileIMInput {
   buildingId: string;
   userId: string;
+  /** 요청자 역할 (admin 우회 판정용). 미지정 시 소유자만 허용. */
+  actorRole?: string | null;
   supplemental: MobileIMSupplementalInput;
   skipApproval?: boolean;
   directData?: Record<string, unknown> | null;
@@ -147,8 +150,15 @@ async function uploadDataUriPhotos(
 export async function generateMobileIMHandler(
   input: GenerateMobileIMInput
 ): Promise<GenerateMobileIMResult> {
-  const { buildingId, userId, supplemental, skipApproval = false, directData = null, identity, tier = 'basic', preset } = input;
+  const { buildingId, userId, actorRole, supplemental, skipApproval = false, directData = null, identity, tier = 'basic', preset } = input;
   const supabase = createServiceClient();
+
+  // ─── P0-SEC SEC-1: 매물 소유권 검사 (모든 진입점 공통 — route / generate-async / server action)
+  // building_ssot_lite.owner_id 직접 판정. readWithMigration 은 assets 로 lazy-write 하는 부수효과가 있으므로 반드시 그 이전에 판정한다.
+  const ownership = await assertBuildingOwner(supabase, buildingId, userId, { allowAdmin: true, role: actorRole });
+  if (!ownership.ok) {
+    return { ok: false, error: ownership.message, statusCode: ownership.status };
+  }
 
   if (identity?.assetType && identity?.investmentPosture) {
     const combo = validateCombination(identity.assetType as any, identity.investmentPosture as any);

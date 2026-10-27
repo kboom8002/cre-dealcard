@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { PptxStudioService } from '@/domain/building/pptx-studio/studio-service';
 import { StudioApprovalService } from '@/domain/building/pptx-studio/approval/studio-approval-service';
@@ -8,6 +8,26 @@ import { PATCH as patchSlides } from '@/app/api/broker/pptx-studio/projects/[id]
 import { POST as postApproveEditorial } from '@/app/api/broker/pptx-studio/projects/[id]/approve-editorial/route';
 import { POST as postApproveFile } from '@/app/api/broker/pptx-studio/projects/[id]/approve-file/route';
 import { GET as downloadPptx } from '@/app/api/broker/pptx-studio/projects/[id]/download/route';
+
+// P0-SEC: approve-file 은 승인 대상 IM 문서를 정확히 1건으로 확정해야 진행한다(fail-closed).
+// 이 파일의 가상 dealId 는 DB 에 문서가 없으므로 대상 해석기를 고정 문서로 대체한다.
+// (대상 확정·단일 행 업데이트·모호성 409 는 src/tests/security/authz-a2.test.ts 에서 검증)
+vi.mock('@/domain/building/pptx-studio/approval/resolve-approval-target', () => ({
+  resolveApprovalTargetDoc: vi.fn(async (_svc: unknown, dealId: string) => ({
+    ok: true,
+    via: 'latest_building_doc',
+    doc: {
+      id: `doc-for-${dealId}`,
+      building_id: dealId,
+      owner_id: 'test-broker',
+      status: 'draft',
+      content: {},
+      body: {
+        ssot_summary: { asking_price: 10_000_000_000, total_area: 1200, gross_yield: 4.5, investment_posture: 'income' },
+      },
+    },
+  })),
+}));
 
 describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration Test Suite', () => {
   describe('Domain Service: PptxStudioService', () => {

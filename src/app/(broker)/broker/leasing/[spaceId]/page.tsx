@@ -3,6 +3,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import SpaceWizard from "./SpaceWizard";
+import { headers } from "next/headers";
+import { getServerViewer } from "@/lib/server-viewer";
+import { isSocialBotUA } from "@/lib/social-bot";
+import { decideOwnerPageAccess } from "@/domain/public-projection/access";
 
 interface PageProps {
   params: Promise<{ spaceId: string }>;
@@ -46,6 +50,40 @@ function StatusBadge({ status }: { status?: string }) {
 }
 
 export default async function SpaceLeasingPage({ params }: PageProps) {
+  const { spaceId: accessSpaceId } = await params;
+  // ── P0-SEC (SEC-3): 접근 제어 ──
+  // proxy.ts 가 소셜봇 UA 를 비로그인으로 통과시키므로, 문의자 정보·캠페인 카피 등 비공개
+  // 데이터를 조회하기 전에 소유권(spaces.created_by)을 직접 확인한다.
+  const { data: accessRow } = await createServiceClient()
+    .from("spaces")
+    .select("id, created_by")
+    .eq("id", accessSpaceId)
+    .maybeSingle();
+  const viewer = await getServerViewer();
+  const reqHeaders = await headers();
+  const ua = reqHeaders.get("user-agent") ?? "";
+  const decision = decideOwnerPageAccess({
+    viewer,
+    ownerId: (accessRow?.created_by as string | null | undefined) ?? null,
+    exists: !!accessRow,
+    isBot: isSocialBotUA(ua),
+    // proxy.ts 의 비프로덕션 Playwright 예외와 동일 조건 (프로덕션에서는 항상 false)
+    isNonProdE2EBypass:
+      process.env.NODE_ENV !== "production" &&
+      (reqHeaders.get("x-playwright-test") === "true" || ua.toLowerCase().includes("playwright")),
+  });
+  if (decision === "login") {
+    redirect(`/login?redirectTo=${encodeURIComponent(`/broker/leasing/${accessSpaceId}`)}`);
+  }
+  if (decision === "not_found") notFound();
+  if (decision === "bot_shell") {
+    return (
+      <main className="min-h-screen bg-[#0b0f19] text-slate-100 flex items-center justify-center px-4">
+        <p className="text-sm font-semibold text-slate-300">크리딜 리싱 관리</p>
+      </main>
+    );
+  }
+
   const { spaceId } = await params;
   const supabase = createServiceClient();
 

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
 export async function GET(
   req: NextRequest,
@@ -16,6 +17,13 @@ export async function GET(
 
   const { id: buildingId } = await params;
   const supabase = createServiceClient();
+
+  // P0-SEC: 조회 이력(activity_events)은 매물 소유자(또는 admin)만
+  const ownership = await assertBuildingOwner(supabase, buildingId, guard.user!.id, {
+    allowAdmin: true,
+    role: guard.role,
+  });
+  if (!ownership.ok) return ownership.response;
 
   const { data: events, error } = await supabase
     .from('activity_events')
