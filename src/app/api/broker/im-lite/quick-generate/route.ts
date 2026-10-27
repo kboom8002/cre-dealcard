@@ -17,6 +17,7 @@ import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { Card4Schema, computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange } from '@/lib/deal-card/price-band';
+import { saveQuickImRecord } from '@/lib/im-lite/quick-generate-store';
 
 // In-memory idempotency cache for quick-generate calls
 const IDEMPOTENCY_CACHE = new Map<string, any>();
@@ -56,11 +57,15 @@ export async function POST(req: NextRequest) {
     askingPriceManwon,
     rentRoll = [],
     title,
+    buildingName,
     pnu,
     landAreaSqm,
     gfaSqm,
-    posture = 'core_income',
+    zoning,
+    completionDate,
+    handoverNote,
   } = body;
+  const posture = body.posture || body.investmentPosture || 'core_income';
 
   if (!address || typeof address !== 'string' || address.trim().length === 0) {
     return NextResponse.json(
@@ -95,8 +100,8 @@ export async function POST(req: NextRequest) {
   if (Array.isArray(rentRoll)) {
     for (const r of rentRoll) {
       if (r && r.status !== 'vacant') {
-        totalDepositManwon += Number(r.depositManwon || r.deposit || 0);
-        totalMonthlyRentManwon += Number(r.monthlyRentManwon || r.monthlyRent || r.rent || 0);
+        totalDepositManwon += Number(r.depositManwon || r.deposit_manwon || r.deposit || 0);
+        totalMonthlyRentManwon += Number(r.monthlyRentManwon || r.rent_manwon || r.monthlyRent || r.rent || 0);
       }
     }
   }
@@ -104,17 +109,40 @@ export async function POST(req: NextRequest) {
   // Generate deterministic/unique IDs
   const buildingId = crypto.randomUUID();
   const documentId = crypto.randomUUID();
+  const resolvedTitle = title || buildingName || `${derivedRegion} 근생빌딩`;
+  const effectiveMonthlyRentManwon = totalMonthlyRentManwon || Math.round(priceNum * 0.0035);
+  const effectiveDepositManwon = totalDepositManwon || Math.round(priceNum * 0.05);
+  const estimatedYieldPct = (
+    ((effectiveMonthlyRentManwon * 12) / Math.max(1, priceNum - effectiveDepositManwon)) *
+    100
+  ).toFixed(2);
+
+  const defaultPoints: [string, string, string] = [
+    `${derivedRegion} 핵심 상권 역세권`,
+    totalMonthlyRentManwon > 0
+      ? `월 임대수익 ${totalMonthlyRentManwon.toLocaleString()}만원 만실 운용`
+      : '우량 임차인 만실 안정권',
+    `연 수익률 ${estimatedYieldPct}% 안정 배당`,
+  ];
 
   // Extract pure building facts
   const rawFacts = {
-    title: title || `${derivedRegion} 근생빌딩`,
+    id: buildingId,
+    title: resolvedTitle,
+    building_name: resolvedTitle,
     address: address.trim(),
+    pnu: pnu || undefined,
     posture,
     asking_price_manwon: priceNum,
-    land_area_sqm: Number(landAreaSqm) || 330.5,
-    total_gross_area_sqm: Number(gfaSqm) || 990.0,
-    monthly_rent_total_manwon: totalMonthlyRentManwon || Math.round(priceNum * 0.0035 / 12),
-    deposit_total_manwon: totalDepositManwon || Math.round(priceNum * 0.05),
+    land_area_sqm: Number(landAreaSqm) || 280,
+    gross_floor_area_sqm: Number(gfaSqm) || 850,
+    total_gross_area_sqm: Number(gfaSqm) || 850,
+    zoning: zoning || '제2종일반주거지역',
+    completion_date: completionDate || undefined,
+    monthly_rent_total_manwon: effectiveMonthlyRentManwon,
+    deposit_total_manwon: effectiveDepositManwon,
+    rent_roll: rentRoll,
+    points: defaultPoints,
   };
 
   const facts = extractPureBuildingFacts(rawFacts);
@@ -123,10 +151,8 @@ export async function POST(req: NextRequest) {
   // Auto-generate 4-item Deal Card
   const priceBand = formatPriceRange(priceNum * 10000);
   const points: [string, string, string] = [
-    `${derivedRegion} 핵심 상권 역세권`,
-    totalMonthlyRentManwon > 0
-      ? `월 임대수익 ${totalMonthlyRentManwon.toLocaleString()}만원 만실 운용`
-      : '우량 임차인 만실 안정권',
+    defaultPoints[0],
+    defaultPoints[1],
     `연 수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% 안정 배당`,
   ];
 
@@ -147,6 +173,65 @@ export async function POST(req: NextRequest) {
     card4_hash,
   });
 
+  const nowIso = new Date().toISOString();
+  saveQuickImRecord({
+    buildingId,
+    documentId,
+    ownerId: auth.user?.id,
+    address: address.trim(),
+    buildingName: resolvedTitle,
+    askingPriceManwon: priceNum,
+    posture,
+    card4,
+    basicImDoc,
+    rentRoll: Array.isArray(rentRoll) ? rentRoll : [],
+    specs: {
+      gfaSqm: Number(gfaSqm) || 850,
+      landAreaSqm: Number(landAreaSqm) || 280,
+      zoning: zoning || '제2종일반주거지역',
+      completionDate: completionDate || undefined,
+      handoverNote: handoverNote || undefined,
+    },
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  });
+
+  // Best-effort persistence into Supabase
+  try {
+    const { createServiceClient } = await import('@/lib/supabase/service');
+    const supabase = createServiceClient();
+    if (supabase && typeof supabase.from === 'function') {
+      await supabase.from('building_ssot_lite').insert({
+        id: buildingId,
+        owner_id: auth.user?.id || '00000000-0000-0000-0000-000000000000',
+        address: address.trim(),
+        name: resolvedTitle,
+        area_signal: card4.region,
+        asset_type: card4.use,
+        price_band: card4.priceBand,
+        asking_price_manwon: priceNum,
+        status: 'public_signal_ready',
+      });
+      await supabase.from('document_objects').insert({
+        id: documentId,
+        building_id: buildingId,
+        owner_id: auth.user?.id || '00000000-0000-0000-0000-000000000000',
+        broker_id: auth.user?.id || '00000000-0000-0000-0000-000000000000',
+        document_type: 'im_lite',
+        status: 'published',
+        title: resolvedTitle,
+        body: {
+          schemaVersion: '3.0',
+          basicImDocument: basicImDoc,
+          card4,
+          rent_roll: rentRoll,
+        },
+      });
+    }
+  } catch {
+    // Ignore errors in offline or unmigrated environments
+  }
+
   const responsePayload = {
     success: true,
     buildingId,
@@ -155,7 +240,7 @@ export async function POST(req: NextRequest) {
     card4,
     basicImDocument: basicImDoc,
     status: 'succeeded',
-    created_at: new Date().toISOString(),
+    created_at: nowIso,
   };
 
   if (effectiveIdempotencyKey) {

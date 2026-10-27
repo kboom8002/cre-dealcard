@@ -49,6 +49,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(targetUrl, 308);
   }
 
+  // WP-P1-11 & [A5-02]: Legacy /broker/deal-card/:id redirect to /broker/w/dealcards?id=:id
+  // Social crawlers (kakaotalk-scrap, facebookexternalhit, etc.) are exempted so they can scrape OG metadata.
+  const dealCardMatch = pathname.match(/^\/broker\/deal-card\/(?!new$)([^/]+)$/);
+  if (dealCardMatch) {
+    const ua = (request.headers.get('user-agent') || '').toLowerCase();
+    if (!isSocialBotUA(ua)) {
+      const targetUrl = new URL(`/broker/w/dealcards?id=${encodeURIComponent(dealCardMatch[1])}`, request.nextUrl);
+      return NextResponse.redirect(targetUrl, 307);
+    }
+  }
+
   const isBrokerRoute = pathname.startsWith(PROTECTED_BROKER);
   const isAdminRoute = pathname.startsWith(PROTECTED_ADMIN);
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname === r);

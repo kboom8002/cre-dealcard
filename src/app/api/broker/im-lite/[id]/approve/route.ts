@@ -44,12 +44,25 @@ export async function POST(
 
   const supabase = createServiceClient();
 
-  // Ensure the document belongs to this broker
-  const { data: doc, error: fetchErr } = await supabase
+  // Ensure the document belongs to this broker (with unmigrated column fallback)
+  let { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
     .select('id, owner_id, broker_id, status, building_id, series_id, version_no')
     .eq('id', id)
     .maybeSingle();
+
+  if (
+    fetchErr &&
+    (fetchErr.code === '42703' || String(fetchErr.message || '').toLowerCase().includes('column'))
+  ) {
+    const fallbackRes = await supabase
+      .from('document_objects')
+      .select('id, owner_id, broker_id, status, building_id, body')
+      .eq('id', id)
+      .maybeSingle();
+    doc = fallbackRes.data as any;
+    fetchErr = fallbackRes.error;
+  }
 
   if (fetchErr || !doc) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
@@ -250,10 +263,24 @@ export async function POST(
     }
   }
 
-  const { error: updateErr } = await supabase
+  let { error: updateErr } = await supabase
     .from('document_objects')
     .update(updatePayload)
     .eq('id', id);
+
+  if (
+    updateErr &&
+    (updateErr.code === '42703' || String(updateErr.message || '').toLowerCase().includes('column'))
+  ) {
+    const fallbackUpdate = await supabase
+      .from('document_objects')
+      .update({
+        status: newStatus,
+        updated_at: nowIso,
+      })
+      .eq('id', id);
+    updateErr = fallbackUpdate.error;
+  }
 
   if (updateErr) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });

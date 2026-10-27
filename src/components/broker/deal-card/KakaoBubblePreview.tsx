@@ -77,7 +77,10 @@ export function KakaoBubblePreview({
           className={`${containerWidth} transition-all duration-200 bg-white rounded-2xl overflow-hidden shadow-md border border-slate-200/80`}
         >
           {/* OG Image Simulated Canvas (1.91:1 aspect ratio) */}
-          <div className="w-full aspect-[1.91/1] bg-slate-900 text-white p-3.5 flex flex-col justify-between relative overflow-hidden select-none">
+          <div
+            data-theme-lock="dark"
+            className="w-full aspect-[1.91/1] bg-slate-900 text-white p-3.5 flex flex-col justify-between relative overflow-hidden select-none"
+          >
             {/* Background subtle gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 opacity-90 pointer-events-none" />
 

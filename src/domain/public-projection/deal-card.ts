@@ -174,6 +174,7 @@ export function collectSensitiveNeedles(building: Record<string, any> | null | u
     for (const m of t.matchAll(/[^\s,()]{2,}(?:빌딩|타워|센터|플라자|오피스텔|스퀘어|빌라|맨션|하우스)/g)) needles.add(m[0]);
   };
   addAddress(building.raw_address);
+  addAddress(building.address);
   addAddress(attrs.address);
   addAddress(attrs.rawAddress);
   addAddress(attrs.raw_address);
@@ -237,45 +238,89 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     price_band: signalCard?.price_band || '가격 협의',
   };
 
+  const body = asRecord(signalCard?.body);
+  const imBody = asRecord(teaserDoc?.body);
+  const card4 = asRecord(imBody.card4);
+
   // Server-only intermediate values — NEVER returned.
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
   const attrs: Record<string, unknown> = {
     ...rawAttrs,
-    areaSignal: rawAttrs.areaSignal || signalCard?.area_signal || safeBuilding.area_signal,
-    priceBand: rawAttrs.priceBand || signalCard?.price_band || safeBuilding.price_band,
-    assetType: rawAttrs.assetType || signalCard?.asset_type || safeBuilding.asset_type,
+    areaSignal:
+      rawAttrs.areaSignal ||
+      signalCard?.area_signal ||
+      safeBuilding.area_signal ||
+      strOrNull(card4.region) ||
+      strOrNull(imBody.region_display),
+    priceBand:
+      rawAttrs.priceBand ||
+      signalCard?.price_band ||
+      safeBuilding.price_band ||
+      strOrNull(card4.priceBand) ||
+      strOrNull(imBody.price_band),
+    assetType:
+      rawAttrs.assetType ||
+      signalCard?.asset_type ||
+      safeBuilding.asset_type ||
+      strOrNull(card4.use),
   };
   const teaserView = projectToTeaser(attrs);
 
-  const body = asRecord(signalCard?.body);
-  const imBody = asRecord(teaserDoc?.body);
   const needles = collectSensitiveNeedles(building ?? null);
   const clean = (s: string) => maskNeedles(s, needles);
 
-  const hasMinimalData = !!(attrs.areaSignal || attrs.priceBand || attrs.assetType || teaserDoc);
+  const hasMinimalData = !!(
+    attrs.areaSignal ||
+    attrs.priceBand ||
+    attrs.assetType ||
+    teaserDoc ||
+    card4.region ||
+    card4.priceBand
+  );
 
-  // ── OG (mirrors previous generateMetadata) ──
+  // ── OG (mirrors previous generateMetadata, with card4 fallback) ──
+  const card4Headline =
+    card4.region || card4.use || card4.priceBand
+      ? `${str(card4.region || safeBuilding.area_signal || '서울시')} ${str(card4.use || safeBuilding.asset_type || '근린생활시설')} ${str(card4.priceBand || safeBuilding.price_band || '')}`.trim()
+      : '';
   const ogTitle = str(imBody.kakaoOgTitle)
     || str(imBody.ogTitle)
     || str(signalCard?.title)
+    || card4Headline
     || `${safeBuilding.area_signal || '상업용 부동산'} ${safeBuilding.asset_type || '매물'} 매각`;
-  const rawArea = str(safeBuilding.area_signal) || '서울 주요';
+  const rawArea = str(card4.region) || str(safeBuilding.area_signal) || '서울 주요';
   const areaFormatted = rawArea.endsWith('권역') ? rawArea : rawArea.endsWith('권') ? `${rawArea}역` : `${rawArea} 권역`;
+  const card4PointsList = Array.isArray(card4.points)
+    ? card4.points.filter((p: unknown): p is string => typeof p === 'string' && p.length > 0)
+    : [];
   const ogDescription = str(imBody.kakaoOgDescription)
     || str(imBody.ogDescription)
     || str(body.shortSummary)
+    || (card4PointsList.length > 0 ? card4PointsList.join(' · ') : '')
     || `${areaFormatted} 블라인드 매각 딜카드`;
 
   // ── Hero ──
-  const dealTitle = str(imBody.title) || str(body.title) || str(signalCard?.title) || '';
+  const dealTitle =
+    str(imBody.title) ||
+    str(body.title) ||
+    str(signalCard?.title) ||
+    card4Headline ||
+    '';
   const hookCopy = str(imBody.hookCopy) || str(body.hookCopy) || teaserView.hookCopy
-    || `${teaserView.region || '비공개 권역'} ${safeBuilding.asset_type || '빌딩'} 매각`;
+    || `${str(card4.region) || teaserView.region || '비공개 권역'} ${str(card4.use) || safeBuilding.asset_type || '빌딩'} 매각`;
   const posture = teaserView.posture || 'income';
   const postureLabel = teaserView.postureLabel || '임대수익형';
   const urgencyRaw = teaserView.urgencyTag || body.urgencyTag;
   const urgencyTag = urgencyRaw === 'urgent' || urgencyRaw === 'reviewing' || urgencyRaw === 'flexible' ? urgencyRaw : null;
 
-  const dealPoints = (Array.isArray(imBody.dealPoints) ? imBody.dealPoints : [])
+  const rawDealPoints = Array.isArray(imBody.dealPoints) && imBody.dealPoints.length > 0
+    ? imBody.dealPoints
+    : card4PointsList.length > 0
+    ? card4PointsList
+    : Array.isArray(imBody.key_points)
+    ? imBody.key_points
+    : [];
+  const dealPoints = rawDealPoints
     .filter((p: unknown): p is string => typeof p === 'string' && p.length > 0)
     .map(clean);
 
@@ -312,7 +357,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     og: { title: clean(ogTitle), description: clean(ogDescription) },
     hero: {
       archetype: strOrNull(teaserView.archetypeResult?.primaryArchetype),
-      regionLabel: clean(str(teaserView.region)),
+      regionLabel: clean(str(card4.region) || str(teaserView.region)),
       title: clean(dealTitle),
       hookCopy: clean(hookCopy),
       posture,
@@ -322,7 +367,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
         label: str(t.label),
         value: clean(str(t.value)),
       })),
-      bandedPrice: str(teaserView.bandedPrice),
+      bandedPrice: str(card4.priceBand) || str(teaserView.bandedPrice),
       bandedCapRate: str(teaserView.bandedCapRate),
       bandedArea: str(teaserView.bandedArea),
       vacancyLabel: strOrNull(teaserView.vacancyLabel),

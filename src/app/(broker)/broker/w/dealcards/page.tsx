@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
@@ -92,6 +92,7 @@ const INITIAL_BUILDINGS: BuildingListItem[] = [
   },
 ];
 
+const INITIAL_IDS = new Set(INITIAL_BUILDINGS.map((b) => b.id));
 const STORAGE_KEY = "credeal-w-dealcards-v3";
 
 function DealCardsWorkspaceInner() {
@@ -105,9 +106,11 @@ function DealCardsWorkspaceInner() {
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
   const [saveStatusText, setSaveStatusText] = useState("저장됨 · 방금");
+  const hasHandledNewRef = useRef(false);
 
   // Synchronize active building from URL search params (?buildingId= or ?id=)
   const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
+  const isNewParam = searchParams.get("new") === "true";
   const activeBuildingId = buildingIdParam || items[0]?.id || "";
 
   // Load persisted local state + real server buildings on mount
@@ -140,7 +143,11 @@ function DealCardsWorkspaceInner() {
               return srv;
             });
             for (const loc of prev) {
-              if (!merged.some((m) => m.id === loc.id)) {
+              const isUntouchedDemo =
+                INITIAL_IDS.has(loc.id) &&
+                (loc.card4.card4_version || 1) <= 1 &&
+                loc.id !== buildingIdParam;
+              if (!isUntouchedDemo && !merged.some((m) => m.id === loc.id)) {
                 merged.push(loc);
               }
             }
@@ -272,12 +279,19 @@ function DealCardsWorkspaceInner() {
       persistItems(next);
       return next;
     });
-    router.replace(`/broker/w/dealcards?buildingId=${newId}&tab=editor`);
+    router.replace(`/broker/w/dealcards?id=${newId}`);
     showUndoToast({
       message: "새 딜카드가 생성되었습니다.",
       variant: "success",
     });
   };
+
+  useEffect(() => {
+    if (isNewParam && !hasHandledNewRef.current) {
+      hasHandledNewRef.current = true;
+      handleCreateNew();
+    }
+  }, [isNewParam]);
 
   const handleOpenPreSend = () => {
     setIsPreSendOpen(true);

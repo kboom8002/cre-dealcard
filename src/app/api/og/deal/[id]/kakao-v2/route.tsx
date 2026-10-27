@@ -6,6 +6,7 @@ import { loadOgFonts } from '@/lib/magazine/og-fonts';
 import { computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
+import { getQuickImRecord, isUuid } from '@/lib/im-lite/quick-generate-store';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('og-kakao-v2');
@@ -96,25 +97,56 @@ export async function GET(
     return new Response('Missing Deal ID', { status: 400 });
   }
 
+  const quickRec = getQuickImRecord(id);
+
   // Pure read: zero DB mutations
-  const building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
-  if (!building) {
-    return new Response('Building Not Found', { status: 404 });
+  let building: Record<string, any> | null = null;
+  let bodyCard4: Card4Data | undefined = quickRec?.card4;
+
+  if (!isUuid(id)) {
+    building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
+    if (!building && !quickRec) {
+      return new Response('Building Not Found', { status: 404 });
+    }
+  } else {
+    const supabase = createServiceClient();
+
+    // Check building_ssot_lite status (.neq('status', 'archived')) when supported by client
+    let ssotQuery: any = supabase
+      .from('building_ssot_lite')
+      .select('id, status')
+      .eq('id', id);
+    if (typeof ssotQuery.neq === 'function') {
+      ssotQuery = ssotQuery.neq('status', 'archived');
+    }
+
+    building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
+
+    // Fetch Card4 from blind_teaser document if already created
+    let teaserQuery: any = supabase
+      .from('document_objects')
+      .select('body')
+      .eq('building_id', id)
+      .eq('document_type', 'blind_teaser');
+    if (typeof teaserQuery.neq === 'function') {
+      teaserQuery = teaserQuery.neq('status', 'archived');
+    }
+    const { data: teaserDoc } = await teaserQuery
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const dbCard4 = (teaserDoc?.body as Record<string, any>)?.card4 as Card4Data | undefined;
+    if (dbCard4) {
+      bodyCard4 = dbCard4;
+    }
+
+    if (!building && !bodyCard4) {
+      return new Response('Building Not Found', { status: 404 });
+    }
   }
 
-  const supabase = createServiceClient();
-
-  // Fetch Card4 from blind_teaser document if already created
-  const { data: teaserDoc } = await supabase
-    .from('document_objects')
-    .select('body')
-    .eq('building_id', id)
-    .eq('document_type', 'blind_teaser')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const bodyCard4 = (teaserDoc?.body as Record<string, any>)?.card4 as Card4Data | undefined;
+  const safeBuilding = building || {};
 
   let region: string;
   let use: string;
@@ -129,18 +161,18 @@ export async function GET(
     points = cleanBlindPoints(bodyCard4.points) as [string, string, string];
     card4Hash = bodyCard4.card4_hash || computeCard4Hash({ region, use, priceBand, points });
   } else {
-    region = building.area_signal || extractRegion(building.address || building.road_address);
-    use = extractUse(building);
-    priceBand = extractPriceBand(building);
+    region = safeBuilding.area_signal || extractRegion(safeBuilding.address || safeBuilding.road_address);
+    use = extractUse(safeBuilding);
+    priceBand = extractPriceBand(safeBuilding);
 
     // Default points from building facts
     const rawPoints = [
-      building.road_contact ? '대로변 위치 접근성 우수' : '역세권 상권 중심지',
-      building.total_floor_area_pyung
-        ? `연면적 약 ${Math.round(building.total_floor_area_pyung)}평 규모`
+      safeBuilding.road_contact ? '대로변 위치 접근성 우수' : '역세권 상권 중심지',
+      safeBuilding.total_floor_area_pyung
+        ? `연면적 약 ${Math.round(safeBuilding.total_floor_area_pyung)}평 규모`
         : '수익형 근생 알짜 매물',
-      building.completion_year
-        ? `${building.completion_year}년 준공 관리 상태 양호`
+      safeBuilding.completion_year
+        ? `${safeBuilding.completion_year}년 준공 관리 상태 양호`
         : '안정적 임차 수요 확보',
     ];
     points = cleanBlindPoints(rawPoints) as [string, string, string];

@@ -18,7 +18,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     .maybeSingle();
 
   if (imJob) {
-    if (!isAdmin && imJob.owner_id && imJob.owner_id !== guard.user?.id) {
+    // P0-SEC & [A5-04]: Fail-Closed when owner_id is null or mismatched (admin exempted)
+    if (!isAdmin && (!imJob.owner_id || imJob.owner_id !== guard.user?.id)) {
       return Response.json({ ok: false, message: "Job not found" }, { status: 404 });
     }
     const { owner_id: _owner, ...job } = imJob;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { RentRollGrid, generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
@@ -14,12 +14,20 @@ interface ImListItem {
   buildingId: string;
   title: string;
   address: string;
-  askingPriceManwon: number;
+  askingPriceManwon?: number;
   grossYieldPct: number;
   status: "draft" | "review" | "approved" | "published";
   versionLabel: string;
   updatedAt: string;
-  rentRoll: RentRollRowItem[];
+  rentRoll?: RentRollRowItem[];
+  investmentPosture?: string;
+  gfaSqm?: string;
+  completionDate?: string;
+  landAreaSqm?: string;
+  zoning?: string;
+  handoverNote?: string;
+  photoNames?: string[];
+  isDirty?: boolean;
 }
 
 const INITIAL_IM_LIST: ImListItem[] = [
@@ -33,6 +41,13 @@ const INITIAL_IM_LIST: ImListItem[] = [
     status: "draft",
     versionLabel: "v1 작성 중",
     updatedAt: "10분 전",
+    investmentPosture: "core_income",
+    gfaSqm: "1450.2",
+    completionDate: "2018-06-15",
+    landAreaSqm: "420.5",
+    zoning: "제3종일반주거지역",
+    handoverNote: "잔금 시 전층 명도 조건 협의 완료",
+    photoNames: [],
     rentRoll: [
       {
         id: "r-b1",
@@ -101,16 +116,25 @@ const INITIAL_IM_LIST: ImListItem[] = [
     status: "published",
     versionLabel: "v2 공개 중 ★",
     updatedAt: "어제",
+    investmentPosture: "owner_occupier",
+    gfaSqm: "1980.0",
+    completionDate: "2020-10-05",
+    landAreaSqm: "512.0",
+    zoning: "일반상업지역",
+    handoverNote: "잔금 시 전층 명도 조건 협의 완료",
+    photoNames: [],
     rentRoll: generateFloorScaffolding(6, 1),
   },
 ];
 
+const INITIAL_IM_IDS = new Set(INITIAL_IM_LIST.map((it) => it.id));
 const IM_STORAGE_KEY = "credeal-w-im-v3";
 
 function ImWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showUndoToast } = useUndoToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<ImListItem[]>(INITIAL_IM_LIST);
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,6 +143,8 @@ function ImWorkspaceInner() {
   const [previewTab, setPreviewTab] = useState<"mobile" | "pptx">("mobile");
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
+
   const persistImItems = (next: ImListItem[]) => {
     try {
       window.localStorage.setItem(IM_STORAGE_KEY, JSON.stringify(next));
@@ -126,49 +152,6 @@ function ImWorkspaceInner() {
       // ignore
     }
   };
-
-  // Load persisted items and sync with server workspace summary
-  useEffect(() => {
-    try {
-      const savedRaw = window.localStorage.getItem(IM_STORAGE_KEY);
-      if (savedRaw) {
-        const parsed = JSON.parse(savedRaw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed);
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    const qId = searchParams.get("buildingId") || searchParams.get("id");
-    const suffix = qId ? `?buildingId=${encodeURIComponent(qId)}` : "";
-    fetch(`/api/broker/workspace/summary${suffix}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.ok && Array.isArray(data.imList) && data.imList.length > 0) {
-          setItems((prev) => {
-            const srvItems: ImListItem[] = data.imList.map((srv: any) => ({
-              ...srv,
-              rentRoll:
-                Array.isArray(srv.rentRoll) && srv.rentRoll.length > 0
-                  ? srv.rentRoll
-                  : generateFloorScaffolding(5, 1),
-            }));
-            for (const loc of prev) {
-              if (!srvItems.some((s) => s.id === loc.id || s.buildingId === loc.buildingId)) {
-                srvItems.push(loc);
-              }
-            }
-            persistImItems(srvItems);
-            return srvItems;
-          });
-        }
-      })
-      .catch(() => {
-        // Offline / test fallback
-      });
-  }, [searchParams]);
 
   // Form states for active document
   const currentItem = useMemo(() => {
@@ -182,6 +165,129 @@ function ImWorkspaceInner() {
   const [rentRoll, setRentRoll] = useState<RentRollRowItem[]>(
     currentItem?.rentRoll || generateFloorScaffolding(5, 1)
   );
+  const [investmentPosture, setInvestmentPosture] = useState<string>(
+    currentItem?.investmentPosture || "core_income"
+  );
+  const [gfaSqm, setGfaSqm] = useState<string>(currentItem?.gfaSqm || "1450.2");
+  const [completionDate, setCompletionDate] = useState<string>(
+    currentItem?.completionDate || "2018-06-15"
+  );
+  const [landAreaSqm, setLandAreaSqm] = useState<string>(
+    currentItem?.landAreaSqm || "420.5"
+  );
+  const [zoning, setZoning] = useState<string>(
+    currentItem?.zoning || "제3종일반주거지역"
+  );
+  const [handoverNote, setHandoverNote] = useState<string>(
+    currentItem?.handoverNote || "잔금 시 전층 명도 조건 협의 완료"
+  );
+  const [photoNames, setPhotoNames] = useState<string[]>(
+    currentItem?.photoNames || []
+  );
+
+  const applyItemToFormState = (item: ImListItem) => {
+    setAddress(item.address || "");
+    setAskingPriceManwon(item.askingPriceManwon ?? 950000);
+    setRentRoll(item.rentRoll || generateFloorScaffolding(5, 1));
+    setInvestmentPosture(item.investmentPosture || "core_income");
+    setGfaSqm(item.gfaSqm ?? "1450.2");
+    setCompletionDate(item.completionDate ?? "2018-06-15");
+    setLandAreaSqm(item.landAreaSqm ?? "420.5");
+    setZoning(item.zoning ?? "제3종일반주거지역");
+    setHandoverNote(item.handoverNote ?? "잔금 시 전층 명도 조건 협의 완료");
+    setPhotoNames(item.photoNames ?? []);
+  };
+
+  const syncCurrentItemPatch = (patch: Partial<ImListItem>) => {
+    setItems((prev) => {
+      const targetId = currentItem?.id || selectedId;
+      const next = prev.map((it) =>
+        it.id === targetId
+          ? {
+              ...it,
+              ...patch,
+              updatedAt: "방금",
+              isDirty: true,
+            }
+          : it
+      );
+      persistImItems(next);
+      return next;
+    });
+  };
+
+  // Load persisted items and sync with server workspace summary
+  useEffect(() => {
+    try {
+      const savedRaw = window.localStorage.getItem(IM_STORAGE_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed);
+          const match =
+            parsed.find(
+              (i: ImListItem) =>
+                (buildingIdParam && (i.id === buildingIdParam || i.buildingId === buildingIdParam)) ||
+                i.id === selectedId
+            ) || parsed[0];
+          if (match) {
+            setSelectedId(match.id);
+            applyItemToFormState(match);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const suffix = buildingIdParam ? `?buildingId=${encodeURIComponent(buildingIdParam)}` : "";
+    fetch(`/api/broker/workspace/summary${suffix}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const serverList = Array.isArray(data?.ims) && data.ims.length > 0
+          ? data.ims
+          : Array.isArray(data?.imList) && data.imList.length > 0
+          ? data.imList
+          : null;
+        if (data?.ok && serverList) {
+          setItems((prev) => {
+            const localMap = new Map(prev.map((it) => [it.id, it]));
+            const srvItems: ImListItem[] = serverList.map((srv: any) => {
+              const local = localMap.get(srv.id);
+              return {
+                ...srv,
+                ...(local?.isDirty ? local : {}),
+                id: srv.id,
+                buildingId: srv.buildingId || local?.buildingId,
+                rentRoll:
+                  local?.isDirty && Array.isArray(local.rentRoll) && local.rentRoll.length > 0
+                    ? local.rentRoll
+                    : Array.isArray(srv.rentRoll) && srv.rentRoll.length > 0
+                    ? srv.rentRoll
+                    : generateFloorScaffolding(5, 1),
+              };
+            });
+            for (const loc of prev) {
+              const isExplicitlyRequested =
+                Boolean(buildingIdParam) &&
+                (loc.id === buildingIdParam || loc.buildingId === buildingIdParam);
+              const isUserCreatedOrEdited = !INITIAL_IM_IDS.has(loc.id) || Boolean(loc.isDirty);
+              if (
+                (isUserCreatedOrEdited || isExplicitlyRequested) &&
+                !srvItems.some((s) => s.id === loc.id || s.buildingId === loc.buildingId)
+              ) {
+                srvItems.push(loc);
+              }
+            }
+            persistImItems(srvItems);
+            return srvItems;
+          });
+        }
+      })
+      .catch(() => {
+        // Offline / test fallback
+      });
+  }, [buildingIdParam]);
 
   // Collapsible detail cards toggle state
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
@@ -196,18 +302,16 @@ function ImWorkspaceInner() {
     const queryId = searchParams.get("id") || searchParams.get("buildingId");
     if (queryId) {
       const match = items.find((i) => i.id === queryId || i.buildingId === queryId);
-      if (match) {
+      if (match && match.id !== selectedId) {
         setSelectedId(match.id);
       }
     }
-  }, [searchParams, items]);
+  }, [searchParams, items, selectedId]);
 
   // Sync form inputs when current item changes
   useEffect(() => {
     if (currentItem) {
-      setAddress(currentItem.address);
-      setAskingPriceManwon(currentItem.askingPriceManwon);
-      setRentRoll(currentItem.rentRoll);
+      applyItemToFormState(currentItem);
     }
   }, [currentItem?.id]);
 
@@ -246,7 +350,7 @@ function ImWorkspaceInner() {
   }, [askingPriceManwon, totalRentManwon, totalDepositManwon]);
 
   const priceBandStr = useMemo(() => {
-    return formatPriceRange(askingPriceManwon * 10000);
+    return formatPriceRange((askingPriceManwon || 0) * 10000);
   }, [askingPriceManwon]);
 
   // Create new IM
@@ -262,7 +366,15 @@ function ImWorkspaceInner() {
       status: "draft",
       versionLabel: "v1 작성 중",
       updatedAt: "방금",
+      investmentPosture: "core_income",
+      gfaSqm: "1450.2",
+      completionDate: "2018-06-15",
+      landAreaSqm: "420.5",
+      zoning: "제3종일반주거지역",
+      handoverNote: "잔금 시 전층 명도 조건 협의 완료",
+      photoNames: [],
       rentRoll: generateFloorScaffolding(4, 1),
+      isDirty: true,
     };
 
     const next = [newItem, ...items];
@@ -283,23 +395,38 @@ function ImWorkspaceInner() {
           address,
           askingPriceManwon,
           rentRoll,
+          posture: investmentPosture,
+          gfaSqm: Number(gfaSqm) || 1450.2,
+          completionDate,
+          landAreaSqm: Number(landAreaSqm) || 420.5,
+          zoning,
+          handoverNote,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
+        const targetId = currentItem?.id || selectedId;
         const nextItems = items.map((it) =>
-          it.id === selectedId
+          it.id === targetId
             ? {
                 ...it,
                 buildingId: data?.buildingId || it.buildingId,
-                title: address.split(" ").slice(1, 3).join(" ") + " 근생빌딩",
+                title: (address.split(" ").slice(1, 3).join(" ") || "신규") + " 근생빌딩",
                 address,
                 askingPriceManwon,
                 grossYieldPct: Number(calculatedYield.toFixed(2)) || it.grossYieldPct,
                 versionLabel: "v1 생성 완료",
                 updatedAt: "방금",
                 rentRoll,
+                investmentPosture,
+                gfaSqm,
+                completionDate,
+                landAreaSqm,
+                zoning,
+                handoverNote,
+                photoNames,
+                isDirty: true,
               }
             : it
         );
@@ -389,7 +516,7 @@ function ImWorkspaceInner() {
               </div>
               <p className="text-[14px] text-[#475569] truncate">{item.address}</p>
               <div className="flex items-center justify-between text-[14px] font-semibold text-[#0F172A] mt-1 pt-1 border-t border-[#F1F5F9]">
-                <span>{formatPriceRange(item.askingPriceManwon * 10000)}</span>
+                <span>{formatPriceRange((item.askingPriceManwon || 0) * 10000)}</span>
                 <span className="text-[#065F46]">수익률 {item.grossYieldPct}%</span>
               </div>
             </div>
@@ -404,7 +531,7 @@ function ImWorkspaceInner() {
     <div className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto" data-testid="im-editor-slot">
       {/* Top Essential Card (주소 + 매도가 + R1 렌트롤) */}
       <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 sm:p-6 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
             <h2 className="text-[20px] font-extrabold text-[#0F172A]">
               ⚡ IM 간편 모드 (3분 생성 필수 3항목)
@@ -427,7 +554,11 @@ function ImWorkspaceInner() {
             type="text"
             data-testid="im-address-input"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={(e) => {
+              const nextVal = e.target.value;
+              setAddress(nextVal);
+              syncCurrentItemPatch({ address: nextVal });
+            }}
             placeholder="예: 서울특별시 영등포구 양평동 11-47"
             className="w-full min-h-[48px] px-3.5 text-[17px] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
           />
@@ -438,7 +569,7 @@ function ImWorkspaceInner() {
 
         {/* 2. Asking Price */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <label className="text-[16px] font-bold text-[#0F172A]">
               2. 매매 희망가 (만 원 단위 입력) <span className="text-[#991B1B]">*</span>
             </label>
@@ -455,7 +586,11 @@ function ImWorkspaceInner() {
             type="number"
             data-testid="im-asking-price-input"
             value={askingPriceManwon || ""}
-            onChange={(e) => setAskingPriceManwon(Number(e.target.value))}
+            onChange={(e) => {
+              const nextPrice = Number(e.target.value);
+              setAskingPriceManwon(nextPrice);
+              syncCurrentItemPatch({ askingPriceManwon: nextPrice });
+            }}
             placeholder="예: 950000 (95억 원)"
             className="w-full min-h-[48px] px-3.5 text-[18px] font-bold tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
           />
@@ -463,7 +598,7 @@ function ImWorkspaceInner() {
 
         {/* 3. Interactive R1 Rent Roll Grid */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <label className="text-[16px] font-bold text-[#0F172A]">
               3. 층별 임대 현황 (R1 렌트롤) <span className="text-[#991B1B]">*</span>
             </label>
@@ -473,7 +608,10 @@ function ImWorkspaceInner() {
           </div>
           <RentRollGrid
             rows={rentRoll}
-            onChange={setRentRoll}
+            onChange={(nextRows) => {
+              setRentRoll(nextRows);
+              syncCurrentItemPatch({ rentRoll: nextRows });
+            }}
             askingPriceManwon={askingPriceManwon}
           />
         </div>
@@ -505,7 +643,13 @@ function ImWorkspaceInner() {
                 </label>
                 <input
                   type="number"
-                  defaultValue="1450.2"
+                  data-testid="im-gfa-input"
+                  value={gfaSqm}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setGfaSqm(nextVal);
+                    syncCurrentItemPatch({ gfaSqm: nextVal });
+                  }}
                   className="w-full min-h-[48px] px-3 text-[16px] rounded-xl border border-[#64748B] bg-white outline-none"
                 />
               </div>
@@ -515,7 +659,13 @@ function ImWorkspaceInner() {
                 </label>
                 <input
                   type="text"
-                  defaultValue="2018-06-15"
+                  data-testid="im-completion-date-input"
+                  value={completionDate}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setCompletionDate(nextVal);
+                    syncCurrentItemPatch({ completionDate: nextVal });
+                  }}
                   className="w-full min-h-[48px] px-3 text-[16px] rounded-xl border border-[#64748B] bg-white outline-none"
                 />
               </div>
@@ -543,7 +693,13 @@ function ImWorkspaceInner() {
                 </label>
                 <input
                   type="number"
-                  defaultValue="420.5"
+                  data-testid="im-land-area-input"
+                  value={landAreaSqm}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setLandAreaSqm(nextVal);
+                    syncCurrentItemPatch({ landAreaSqm: nextVal });
+                  }}
                   className="w-full min-h-[48px] px-3 text-[16px] rounded-xl border border-[#64748B] bg-white outline-none"
                 />
               </div>
@@ -553,7 +709,13 @@ function ImWorkspaceInner() {
                 </label>
                 <input
                   type="text"
-                  defaultValue="제3종일반주거지역"
+                  data-testid="im-zoning-input"
+                  value={zoning}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setZoning(nextVal);
+                    syncCurrentItemPatch({ zoning: nextVal });
+                  }}
                   className="w-full min-h-[48px] px-3 text-[16px] rounded-xl border border-[#64748B] bg-white outline-none"
                 />
               </div>
@@ -581,7 +743,13 @@ function ImWorkspaceInner() {
                 </label>
                 <textarea
                   rows={2}
-                  defaultValue="현 임대차 일체 포괄승계 조건 (잔금 시 임대차 계약서 원본 인계)"
+                  data-testid="im-handover-note-input"
+                  value={handoverNote}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setHandoverNote(nextVal);
+                    syncCurrentItemPatch({ handoverNote: nextVal });
+                  }}
                   className="w-full p-3 text-[15px] rounded-xl border border-[#64748B] bg-white outline-none"
                 />
               </div>
@@ -602,16 +770,57 @@ function ImWorkspaceInner() {
             </span>
           </button>
           {expandedSections.photos && (
-            <div className="p-5 border-t border-[#E2E8F0] bg-[#FAF9F5]/40 text-center py-8">
-              <p className="text-[15px] text-[#475569] mb-3">
+            <div className="p-5 border-t border-[#E2E8F0] bg-[#FAF9F5]/40 text-center py-6 space-y-3">
+              <p className="text-[15px] text-[#475569]">
                 건물 외관 사진이나 지적도 이미지를 업로드하면 모바일 IM 갤러리에 자동 반영됩니다.
               </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length === 0) return;
+                  const added = files.map((f) => f.name);
+                  const next = Array.from(new Set([...photoNames, ...added]));
+                  setPhotoNames(next);
+                  syncCurrentItemPatch({ photoNames: next });
+                  e.target.value = "";
+                }}
+              />
               <button
                 type="button"
+                onClick={() => fileInputRef.current?.click()}
                 className="px-4 py-2.5 bg-white border border-[#64748B] rounded-xl text-[15px] font-bold text-[#0F172A] hover:bg-[#F3F2EE] cursor-pointer"
               >
                 + 사진 파일 선택
               </button>
+              {photoNames.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  {photoNames.map((name) => (
+                    <span
+                      key={name}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#CBD5E1] text-[13px] font-semibold text-[#0F172A]"
+                    >
+                      <span>📷 {name}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = photoNames.filter((n) => n !== name);
+                          setPhotoNames(next);
+                          syncCurrentItemPatch({ photoNames: next });
+                        }}
+                        className="text-[#991B1B] font-extrabold hover:opacity-75 cursor-pointer"
+                        aria-label={`${name} 삭제`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -649,54 +858,162 @@ function ImWorkspaceInner() {
 
   const previewSlot = (
     <div className="p-4 space-y-4 max-w-sm mx-auto" data-testid="im-preview-slot">
-      {/* Phone container simulation */}
-      <div className="bg-[#FAF9F5] rounded-3xl border-4 border-[#334155] p-3 shadow-lg space-y-3">
-        {/* Mock phone status bar */}
-        <div className="flex items-center justify-between text-[12px] font-bold text-[#475569] px-2 pt-1">
-          <span>09:41</span>
-          <span>5G 100%</span>
-        </div>
-
-        {/* Section 01: Cover Card */}
-        <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
-          <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-            01 표지
-          </span>
-          <h3 className="text-[18px] font-extrabold text-[#0F172A]">{currentItem.title}</h3>
-          <p className="text-[13px] text-[#475569]">{address}</p>
-          <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[14px] font-bold">
-            <span className="text-[#0F172A]">{priceBandStr}</span>
-            <span className="text-[#065F46]">연 {calculatedYield.toFixed(2)}%</span>
-          </div>
-        </div>
-
-        {/* Section 02: Summary Highlights */}
-        <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
-          <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-            02 투자 하이라이트
-          </span>
-          <div className="grid grid-cols-2 gap-2 text-center text-[13px]">
-            <div className="p-2 bg-[#FAF9F5] rounded-lg">
-              <span className="text-[#64748B] block text-[11px]">매매 희망가</span>
-              <strong className="text-[#0F172A]">{(askingPriceManwon / 10000).toFixed(0)}억</strong>
-            </div>
-            <div className="p-2 bg-[#FAF9F5] rounded-lg">
-              <span className="text-[#64748B] block text-[11px]">월 임대수익</span>
-              <strong className="text-[#0F172A]">{totalRentManwon.toLocaleString()}만</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 06: Rent Roll preview */}
-        <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
-          <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-            06 층별 임대차 상세
-          </span>
-          <p className="text-[13px] text-[#475569]">
-            총 {rentRoll.length}개 층 · 만실 임대 운용 중
-          </p>
-        </div>
+      {/* Direct Link to Full 10-Section Mobile IM Viewer */}
+      <div className="flex items-center justify-between bg-white rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 shadow-xs">
+        <span className="text-[13px] font-bold text-[#334155]">
+          {previewTab === "mobile" ? "📱 모바일 IM 10섹션" : "🖥 PPTX 10면 슬라이드"}
+        </span>
+        <a
+          href={`/im-lite/${currentItem?.buildingId || "bld-01"}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="im-open-fullscreen-link"
+          className="text-[13px] font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1"
+        >
+          <span>↗ 전체화면 열기</span>
+        </a>
       </div>
+
+      {previewTab === "mobile" ? (
+        /* Phone container simulation */
+        <div className="bg-[#FAF9F5] rounded-3xl border-4 border-[#334155] p-3 shadow-lg space-y-3">
+          {/* Mock phone status bar */}
+          <div className="flex items-center justify-between text-[12px] font-bold text-[#475569] px-2 pt-1">
+            <span>09:41</span>
+            <span>5G 100%</span>
+          </div>
+
+          {/* Section 01: Cover Card */}
+          <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
+            <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+              01 표지
+            </span>
+            <h3 className="text-[18px] font-extrabold text-[#0F172A]">{currentItem?.title}</h3>
+            <p className="text-[13px] text-[#475569]">{address}</p>
+            <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[14px] font-bold">
+              <span className="text-[#0F172A]">{priceBandStr}</span>
+              <span className="text-[#065F46]">연 {calculatedYield.toFixed(2)}%</span>
+            </div>
+          </div>
+
+          {/* Section 02: Summary Highlights */}
+          <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
+            <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+              02 투자 하이라이트
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-center text-[13px]">
+              <div className="p-2 bg-[#FAF9F5] rounded-lg">
+                <span className="text-[#64748B] block text-[11px]">매매 희망가</span>
+                <strong className="text-[#0F172A]">{((askingPriceManwon || 0) / 10000).toFixed(0)}억</strong>
+              </div>
+              <div className="p-2 bg-[#FAF9F5] rounded-lg">
+                <span className="text-[#64748B] block text-[11px]">월 임대수익</span>
+                <strong className="text-[#0F172A]">{totalRentManwon.toLocaleString()}만</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 06: Rent Roll preview */}
+          <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
+            <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+              06 층별 임대차 상세
+            </span>
+            <p className="text-[13px] text-[#475569]">
+              총 {rentRoll.length}개 층 · 만실 임대 운용 중
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* 16:9 Landscape 10-Slide PPTX Deck Preview */
+        <div className="space-y-2.5" data-testid="im-pptx-deck-preview">
+          {[
+            {
+              no: "01",
+              title: "표지",
+              summary: `${currentItem?.title || "매물"} · ${address}`,
+              metric: `${priceBandStr} (${investmentPosture})`,
+            },
+            {
+              no: "02",
+              title: "투자 하이라이트",
+              summary: `매매 희망가 ${formatKoreanCurrencyReadout(askingPriceManwon)}`,
+              metric: `기대 수익률 연 ${calculatedYield.toFixed(2)}%`,
+            },
+            {
+              no: "03",
+              title: "건축물 개요",
+              summary: `연면적 ${gfaSqm}㎡ · 사용승인일 ${completionDate}`,
+              metric: `총 ${rentRoll.length}개 층 구성`,
+            },
+            {
+              no: "04",
+              title: "입지 및 상권 분석",
+              summary: address,
+              metric: "역세권 가시성 및 배후 수요 우수",
+            },
+            {
+              no: "05",
+              title: "토지 및 도시계획",
+              summary: `대지면적 ${landAreaSqm}㎡`,
+              metric: zoning,
+            },
+            {
+              no: "06",
+              title: "층별 임대차 현황 (렌트롤)",
+              summary: `보증금 합계 ${totalDepositManwon.toLocaleString()}만원`,
+              metric: `월 임대수익 ${totalRentManwon.toLocaleString()}만원`,
+            },
+            {
+              no: "07",
+              title: "수지 및 수익률 분석",
+              summary: `순투자금 ${Math.max(0, (askingPriceManwon || 0) - totalDepositManwon).toLocaleString()}만원`,
+              metric: `연 ${calculatedYield.toFixed(2)}% 배당형`,
+            },
+            {
+              no: "08",
+              title: "인근 실거래 비교",
+              summary: `${address.split(" ").slice(1, 3).join(" ") || "인근"} 유사 사례 비교`,
+              metric: `구간 ${priceBandStr}`,
+            },
+            {
+              no: "09",
+              title: "현장 사진 및 지적도",
+              summary:
+                photoNames.length > 0
+                  ? `첨부 사진 ${photoNames.length}장 (${photoNames.join(", ")})`
+                  : "외관 사진 및 공적 지적도 자동 배치",
+              metric: `${photoNames.length}개 파일`,
+            },
+            {
+              no: "10",
+              title: "문의/안내 및 명도 조건",
+              summary: handoverNote,
+              metric: "전담 중개법인 안내",
+            },
+          ].map((slide) => (
+            <div
+              key={slide.no}
+              className="aspect-video w-full bg-[#0F172A] text-white rounded-xl border border-[#334155] p-3.5 flex flex-col justify-between shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-[#93C5FD] bg-[#1E3A8A]/60 px-2 py-0.5 rounded">
+                  SLIDE {slide.no} · {slide.title}
+                </span>
+                <span className="text-[11px] text-[#94A3B8]">16:9 PPTX</span>
+              </div>
+              <div className="space-y-1 my-auto py-1">
+                <p className="text-[14px] font-bold text-white leading-snug line-clamp-2">
+                  {slide.summary}
+                </p>
+              </div>
+              <div className="flex items-center justify-between border-t border-[#1E293B] pt-1.5 text-[12px]">
+                <span className="text-[#34D399] font-bold truncate">{slide.metric}</span>
+                <span className="text-[#64748B] text-[11px]">CRE DealCard</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 

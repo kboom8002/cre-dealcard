@@ -57,10 +57,31 @@ export interface ImBuildOptions {
 }
 
 export function buildBasicImDocument(
-  facts: PureBuildingFacts,
+  factsOrInput:
+    | PureBuildingFacts
+    | {
+        facts: PureBuildingFacts;
+        buildingId?: string;
+        documentId?: string;
+        versionNo?: number;
+        releaseTier?: ImBuildOptions['releaseTier'];
+        theme?: string;
+        studioOverrides?: Record<string, any>;
+      },
   options?: ImBuildOptions
 ): BasicImDocument {
-  const releaseTier = options?.releaseTier ?? 'fact_om';
+  const isWrapped =
+    factsOrInput &&
+    typeof factsOrInput === 'object' &&
+    'facts' in factsOrInput &&
+    Boolean((factsOrInput as any).facts?.transaction);
+  const facts: PureBuildingFacts = isWrapped
+    ? (factsOrInput as any).facts
+    : (factsOrInput as PureBuildingFacts);
+  const releaseTier =
+    options?.releaseTier ??
+    (isWrapped ? (factsOrInput as any).releaseTier : undefined) ??
+    'fact_om';
   const inputHash = computeContentHash(facts);
 
   // 1. Cover (A01)
@@ -195,6 +216,19 @@ export function buildBasicImDocument(
       vacantCount: facts.rent.vacantCount,
       occupancyRatePct: facts.rent.occupancyRatePct,
       units: facts.rent.units,
+      rows: facts.rent.units.map((u) => ({
+        floor: u.floor,
+        tenantName: u.tenantName,
+        use: u.tenantName,
+        depositKrw: u.depositKrw,
+        depositManwon: Math.round(u.depositKrw / 10000),
+        rentKrw: u.rentKrw,
+        monthlyRentManwon: Math.round(u.rentKrw / 10000),
+        maintenanceFeeKrw: u.maintenanceFeeKrw,
+        status: u.status,
+        expiryDate: u.expiryDate,
+        leaseExpiry: u.expiryDate || '-',
+      })),
     },
   };
 
@@ -235,22 +269,7 @@ export function buildBasicImDocument(
     data: {
       subjectLandPricePerPyeongWon: facts.transaction.pricePerPyeongLandWon,
       subjectGfaPricePerPyeongWon: facts.transaction.pricePerPyeongGfaWon,
-      comparableTransactions: [
-        {
-          distance: '인근 200m',
-          dealDate: '2024-Q1',
-          buildingUse: '근린생활시설',
-          pricePerPyeongLandWon: Math.round(facts.transaction.pricePerPyeongLandWon * 0.95),
-          comparisonDiffPct: -5.0,
-        },
-        {
-          distance: '인근 350m',
-          dealDate: '2023-Q4',
-          buildingUse: '업무시설',
-          pricePerPyeongLandWon: Math.round(facts.transaction.pricePerPyeongLandWon * 1.02),
-          comparisonDiffPct: +2.0,
-        },
-      ],
+      comparableTransactions: Array.isArray(facts.comps) && facts.comps.length > 0 ? facts.comps : [],
     },
   };
 

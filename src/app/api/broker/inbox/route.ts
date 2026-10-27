@@ -86,12 +86,12 @@ export async function GET(req: NextRequest) {
 
     const bIds = (myBuildingIds || []).map((b) => b.id);
 
-    // 열람 이벤트 조회 — actor_id가 나 자신이 아닌 것만
+    // 열람 이벤트 조회 — actor_id가 나 자신이 아닌 것만 (익명 방문자 actor_id IS NULL 포함)
     const { data: viewEvents } = await supabase
       .from("activity_events")
       .select("id, event_type, entity_id, entity_type, metadata, created_at, actor_id")
       .in("event_type", viewEventTypes)
-      .neq("actor_id", userId)
+      .or(`actor_id.is.null,actor_id.neq.${userId}`)
       .order("created_at", { ascending: false })
       .limit(limit * 2); // 필터링 후 줄어들 수 있으므로 넉넉히
 

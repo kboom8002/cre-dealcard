@@ -16,6 +16,7 @@ import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
 import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 import { isOwnerOrAdmin, type Viewer } from "@/domain/public-projection/access";
 import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-projection/visibility";
+import { getQuickImRecord, isUuid, type StoredQuickImRecord } from "@/lib/im-lite/quick-generate-store";
 
 function isValidKoreanCoord(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
@@ -269,6 +270,109 @@ async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof bui
   }
 }
 
+function hydrateQuickRecordToMobileIM(quickRec: StoredQuickImRecord): MobileIMDocument {
+  const bDoc = quickRec.basicImDoc;
+  const facts = bDoc.facts;
+  const brokerObj = buildBrokerObject(null);
+  if (facts.brokerOffice) {
+    brokerObj.company = facts.brokerOffice.name || "";
+    brokerObj.displayName = facts.brokerOffice.representative || "담당 중개인";
+    brokerObj.phone = facts.brokerOffice.phone && facts.brokerOffice.phone !== "-" ? facts.brokerOffice.phone : "";
+  }
+
+  const doc: MobileIMDocument = {
+    buildingId: quickRec.buildingId,
+    blindName: quickRec.buildingName || `${quickRec.card4.region} ${quickRec.card4.use}`,
+    fullName: quickRec.buildingName || facts.title,
+    areaSignal: quickRec.card4.region,
+    assetType: quickRec.card4.use,
+    priceBand: quickRec.card4.priceBand,
+    sizeSignal: `연면적 ${facts.building.totalGrossAreaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
+    completenessScore: 85,
+    broker: brokerObj,
+    sections: (bDoc.sections || []).map((s) => ({
+      id: s.id,
+      sectionId: s.id || s.sectionType,
+      sectionType: s.sectionType,
+      archetype: s.archetype,
+      order: s.order,
+      title: s.title,
+      subtitle: s.subtitle,
+      data: s.data,
+      icon: "📄",
+      content: s.narrative || "",
+      dataSource: "SSoT 데이터",
+      aiRole: "auto" as const,
+      locked: false,
+    })) as any,
+    generatedAt: quickRec.updatedAt || quickRec.createdAt,
+    status: "published",
+    disclaimer:
+      "본 자료는 매도인 및 제3자(AI 분석 포함)로부터 제공받은 정보에 기반하여 작성되었으며, 참고용으로만 제공됩니다. 크리딜 및 중개법인은 자료의 정확성, 완전성을 보장하지 않으며 법적 책임을 지지 않습니다. 거래 전 반드시 직접 검증하시기 바랍니다.",
+    fullImUpgradeCta: {
+      enabled: true,
+      label: "상세 투자설명서(IM) 요청",
+      description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
+    },
+    protectedFieldsRemoved: ["상세 지번", "소유주명"],
+    photos: (facts.photos || []).map((p, i) => ({
+      url: p.url,
+      type: i === 0 ? ("exterior" as const) : ("interior" as const),
+      label: p.caption || (i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`),
+    })),
+    dataQualityBadge: computeDataQualityBadge({
+      hasAddress: Boolean(quickRec.address),
+      hasPublicData: true,
+      hasMonthlyRent: facts.rent.monthlyRentTotalKrw > 0,
+      hasVacancy: true,
+      hasPhotos: (facts.photos?.length || 0) > 0,
+      hasAskingPrice: facts.transaction.askingPriceKrw > 0,
+      hasLandArea: facts.land.landAreaSqm > 0,
+      hasTotalGrossArea: facts.building.totalGrossAreaSqm > 0,
+    }),
+    heroCard: {
+      assetType: quickRec.card4.use,
+      areaSignal: quickRec.card4.region,
+      askingPriceDisplay: quickRec.card4.priceBand,
+      capRateBase: facts.valuation.capRatePct,
+      noiBaseBil: Number((facts.valuation.netAnnualOperatingIncomeKrw / 1_0000_0000).toFixed(2)),
+      keyPoints: [...quickRec.card4.points],
+      keyInvestmentPoint: quickRec.card4.points[0],
+      keyRisk: "계약 전 법률·세무·물리적 실사를 통한 리스크 확인 권장",
+      equityRequiredBil: facts.transaction.estimatedEquityKrw
+        ? Number((facts.transaction.estimatedEquityKrw / 1_0000_0000).toFixed(2))
+        : null,
+      leveragedYieldPct: facts.valuation.cashOnCashPct ?? null,
+      readinessScore: 85,
+      dcf10YearNpvBil: null,
+      posture: quickRec.posture as any,
+      landAreaM2: facts.land.landAreaSqm,
+      totalGrossAreaM2: facts.building.totalGrossAreaSqm,
+      zoning: facts.land.zoning,
+      landPricePerPyeong: facts.transaction.pricePerPyeongLandWon,
+      farHeadroom: null,
+      devProfitMarginPct: null,
+      gopMarginPct: null,
+      adr: null,
+      occPct: facts.rent.occupancyRatePct,
+      revpar: null,
+      ownVsLeaseSavingsBil: null,
+      breakevenYears: null,
+      pricePerPyeong: facts.transaction.pricePerPyeongGfaWon,
+      marketDiscountPct: null,
+      targetHprPct: null,
+    },
+    tier: "basic",
+    releaseTier: "fact_om",
+  };
+
+  (doc as any).basicImDocument = quickRec.basicImDoc;
+  (doc as any).schemaVersion = "3.0";
+  (doc as any).card4 = quickRec.card4;
+  (doc as any).rentRoll = quickRec.rentRoll;
+  return doc;
+}
+
 
 /**
  * Fetch IM Lite data for a building. Returns null if not found.
@@ -286,6 +390,14 @@ export async function fetchIMData(
   docId?: string,
   viewer?: Viewer | null
 ): Promise<MobileIMDocument | null> {
+  // 0. Non-UUID Quick-Generate Store lookup (e.g. bld-01, bld-02, bld-03)
+  if (!isUuid(buildingId)) {
+    const quickRec = getQuickImRecord(buildingId);
+    if (quickRec) {
+      return hydrateQuickRecordToMobileIM(quickRec);
+    }
+  }
+
   // 1. Demo data
   const demo = getDemoMobileIM(buildingId);
   if (demo) return demo;
@@ -328,20 +440,25 @@ export async function fetchIMData(
 
   if (!docId) {
     // If no docId is specified, fetch the latest published/reviewed IM document for this building
+    // Allow draft status for building owner or admin
+    const allowedStatuses = isOwnerOrAdmin(viewer, buildingOwnerId)
+      ? ["published", "broker_reviewed", "draft"]
+      : ["published", "broker_reviewed"];
     const res = await supabase
       .from("document_objects")
       .select("body, owner_id, created_at, status, updated_at")
       .eq("building_id", buildingId)
       .in("document_type", ["mobile_im", "im_lite", "im_lite_draft", "blind_teaser"])
-      .in("status", ["published", "broker_reviewed"])
+      .in("status", allowedStatuses)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     document = res.data;
-    
   }
 
-  if (document?.body?.sections) {
+  const rawDocSections = document?.body?.sections || document?.body?.basicImDocument?.sections;
+
+  if (Array.isArray(rawDocSections) && rawDocSections.length > 0) {
     const brokerProfile = await fetchBrokerProfile(supabase, document.owner_id);
 
     const ssotSummary = document.body.ssot_summary || {};
@@ -403,7 +520,7 @@ export async function fetchIMData(
       }
     }
 
-    return {
+    const mappedResult: MobileIMDocument = {
       buildingId,
       blindName: document.body.heroTitle || defaultBlindName,
       fullName: defaultBlindName,
@@ -416,8 +533,8 @@ export async function fetchIMData(
       ogTitle: document.body.ogTitle || null,
       ogDescription: document.body.ogDescription || null,
       heroSubtitle: document.body.heroSubtitle || null,
-      enrichment: document.body.enrichment || null,
-      sections: (document.body.sections || []).map((s: any) => {
+      enrichment: document.body.enrichment || enriched || null,
+      sections: rawDocSections.map((s: any) => {
           if ("content" in s) {
             if (s.locked) {
               return { ...s, content: "", boundaryNote: undefined, provenance: [] };
@@ -462,10 +579,13 @@ export async function fetchIMData(
             : undefined;
 
           return {
-            sectionId: s.section_type || `section_${s.section_order}`,
+            ...(s.id ? { id: s.id } : {}),
+            ...(s.sectionType ? { sectionType: s.sectionType } : {}),
+            ...(s.data ? { data: s.data } : {}),
+            sectionId: s.section_type || s.id || s.sectionType || `section_${s.section_order ?? s.order}`,
             title: s.title || "섹션",
             icon,
-            content: isSectionLocked ? "" : stripLegacyNameMask(s.markdown || ""),
+            content: isSectionLocked ? "" : stripLegacyNameMask(s.markdown || s.narrative || ""),
             dataSource: s.confidence === "inferred" ? "AI 분석" : "SSoT 데이터",
             aiRole: s.confidence === "inferred" ? "ai_generated" : "auto",
             confidence: s.confidence,
@@ -521,7 +641,7 @@ export async function fetchIMData(
               ...(cleanedExistingPoints ? { keyPoints: cleanedExistingPoints } : {}),
             };
           }
-          const sections = document.body.sections || [];
+          const sections = rawDocSections;
           const investSection = sections.find((sec: any) => sec.section_type === 'investment_thesis' || sec.section_type === 'buyer_fit');
           const riskSection = sections.find((sec: any) => sec.section_type === 'risk_check');
           const finSection = sections.find((sec: any) => sec.section_type === 'income_analysis');
@@ -611,16 +731,35 @@ export async function fetchIMData(
         tier: document.body.tier || 'basic',
         releaseTier: document.body.releaseTier ?? 'fact_om',
       };
+
+    if (document.body?.basicImDocument || document.body?.schemaVersion === '3.0') {
+      (mappedResult as any).basicImDocument = document.body.basicImDocument || document.body;
+      (mappedResult as any).schemaVersion = '3.0';
     }
+    if (document.body?.card4) {
+      (mappedResult as any).card4 = document.body.card4;
+    }
+    if (document.body?.rent_roll || document.body?.rentRoll) {
+      (mappedResult as any).rentRoll = document.body.rent_roll || document.body.rentRoll;
+    }
+    (mappedResult as any).enrichment = document.body.enrichment || enriched || null;
+
+    return mappedResult;
+  }
 
   // 3. Fallback: SSoT Lite (순수 읽기)
   const result = await readBuilding(buildingId);
   const ssot = (result?.data ?? result ?? {}) as Record<string, any>;
 
-  if (!ssot || Object.keys(ssot).length === 0) return null;
+  if (!ssot || Object.keys(ssot).length === 0 || (ssot.completeness_score ?? 0) < 30) {
+    const quickRec = getQuickImRecord(buildingId) || (docId ? getQuickImRecord(docId) : null);
+    if (quickRec) {
+      return hydrateQuickRecordToMobileIM(quickRec);
+    }
+    return null;
+  }
 
   const score = ssot.completeness_score ?? 0;
-  if (score < 30) return null;
 
   const brokerProfile = await fetchBrokerProfile(supabase, ssot.owner_id);
 

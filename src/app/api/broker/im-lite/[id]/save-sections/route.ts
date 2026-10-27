@@ -110,11 +110,24 @@ export async function PUT(
 
   const supabase = createServiceClient();
 
-  const { data: doc, error: fetchErr } = await supabase
+  let { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
     .select('id, owner_id, broker_id, body, status, building_id, sealed_at')
     .eq('id', id)
     .maybeSingle();
+
+  if (
+    fetchErr &&
+    (fetchErr.code === '42703' || String(fetchErr.message || '').toLowerCase().includes('column'))
+  ) {
+    const fallbackRes = await supabase
+      .from('document_objects')
+      .select('id, owner_id, broker_id, body, status, building_id')
+      .eq('id', id)
+      .maybeSingle();
+    doc = fallbackRes.data as any;
+    fetchErr = fallbackRes.error;
+  }
 
   if (fetchErr || !doc) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });

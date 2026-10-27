@@ -56,6 +56,13 @@ test.describe.serial("CRE DealCard v3 Production Golden E2E & Visual QA (T1 ~ T7
     const botPublicHtml = await botPublicRes.text();
     expect(botPublicHtml).toContain("og:title");
 
+    // 2-b. Public /dc/bld-01 renders cleanly and points og:image to /api/og/deal/bld-01/kakao-v2
+    const dcPublicRes = await botCtx.get("/dc/bld-01");
+    expect(dcPublicRes.status()).toBe(200);
+    const dcPublicHtml = await dcPublicRes.text();
+    expect(dcPublicHtml).toContain("/api/og/deal/bld-01/kakao-v2");
+    expect(dcPublicHtml).not.toContain("데이터 보강 필요");
+
     await unauthCtx.dispose();
     await botCtx.dispose();
 
@@ -170,11 +177,12 @@ test.describe.serial("CRE DealCard v3 Production Golden E2E & Visual QA (T1 ~ T7
     await expect(page.getByTestId("card4-priceband-input")).toHaveValue("110~120억");
     await expect(page.getByTestId("card4-point-input-0")).toHaveValue("당산역 더블역세권 도보 3분");
 
-    // 3. Verify KakaoBubblePreview (~255px mobile mode vs 1:1 desktop mode) in Column 3 (G-4 fix)
+    // 3. Verify KakaoBubblePreview (~255px mobile mode vs 1:1 desktop mode) in Column 3 (G-4 & A1-01 fix)
     const bubblePreview = page.getByTestId("kakao-bubble-preview");
     await expect(bubblePreview).toBeVisible();
     await expect(bubblePreview).toContainText("영등포구 당산동");
     await expect(bubblePreview).toContainText("110~120억");
+    await expect(bubblePreview.locator('[data-theme-lock="dark"]')).toBeVisible();
     await shot(page, ARTIFACT_DIR, "v3-dealcard-255px-bubble", shotCounter);
 
     // 4. Verify KakaoTalk OG v2 PNG endpoint (/api/og/deal/[id]/kakao-v2 -> 302 to ?v=card4_hash -> 200 PNG)
@@ -257,11 +265,17 @@ test.describe.serial("CRE DealCard v3 Production Golden E2E & Visual QA (T1 ~ T7
       await expect(page.locator(`[data-section-id="${secId}"]`)).toBeVisible();
     }
 
-    // 2. Verify G-3 Fix: zero hardcoded "양평동 11-47" or "양평동 근생빌딩" on a 강남 테헤란로 building!
+    // 2. Verify G-3 & A2-02 Fix: zero hardcoded "양평동 11-47", "양평동 근생빌딩", or fake broker "김대표" / "02-555-1234"
     const mobileImText = await getVisibleText(page);
     expect(mobileImText).not.toContain("양평동 11-47");
     expect(mobileImText).not.toContain("양평동 근생빌딩");
+    expect(mobileImText).not.toContain("02-555-1234");
+    expect(mobileImText).not.toContain("11680-2024-00123");
     expect(mobileImText).toMatch(/테헤란|강남|역삼/);
+
+    // 2-b. Verify A4-01 Fix: Section 06_rentroll table has populated rows (>= 2 rows)
+    const rentrollRowCount = await page.locator('[data-section-id="06_rentroll"] tbody tr').count();
+    expect(rentrollRowCount).toBeGreaterThanOrEqual(2);
 
     // Verify zero horizontal overflow on 390px mobile viewport
     const hasHorizOverflowMobileIm = await page.evaluate(

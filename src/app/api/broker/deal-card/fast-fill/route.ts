@@ -7,6 +7,7 @@ import { readBuilding } from '@/domain/building/im-core/read-building';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import { computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import { isUuid, getQuickImRecord } from '@/lib/im-lite/quick-generate-store';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('deal-card-fast-fill');
@@ -187,31 +188,44 @@ export async function POST(req: NextRequest) {
     };
 
     if (input.buildingId) {
-      // 1. Verify ownership
-      const ownership = await assertBuildingOwner(supabase, input.buildingId, guard.user!.id, {
-        allowAdmin: true,
-        role: guard.role,
-      });
-      if (!ownership.ok) return ownership.response;
+      // 1. Verify ownership only when buildingId is a valid UUID (skip DB query for local/demo draft IDs)
+      if (isUuid(input.buildingId)) {
+        const ownership = await assertBuildingOwner(supabase, input.buildingId, guard.user!.id, {
+          allowAdmin: true,
+          role: guard.role,
+        });
+        if (!ownership.ok) return ownership.response;
+      }
 
-      // 2. Pure read of building facts
+      // 2. Pure read of building facts (or fallback to quick-generate store for non-UUID local drafts)
       const building = await readBuilding(input.buildingId);
-      if (!building) {
+      const quickRec = !building ? getQuickImRecord(input.buildingId) : null;
+      if (!building && !quickRec) {
         return NextResponse.json({ error: 'Building not found' }, { status: 404 });
       }
 
-      const region = extractRegionFromAddress(building.address || building.road_address);
-      const use = extractUseFromBuilding(building);
-      const priceBand = extractPriceBandFromBuilding(building);
-      const points = extractPointsFromBuilding(building);
+      if (building) {
+        const region = extractRegionFromAddress(building.address || building.road_address);
+        const use = extractUseFromBuilding(building);
+        const priceBand = extractPriceBandFromBuilding(building);
+        const points = extractPointsFromBuilding(building);
 
-      extracted = {
-        region,
-        use,
-        priceBand,
-        points,
-        provenanceSource: 'public',
-      };
+        extracted = {
+          region,
+          use,
+          priceBand,
+          points,
+          provenanceSource: 'public',
+        };
+      } else {
+        extracted = {
+          region: quickRec!.card4.region,
+          use: quickRec!.card4.use,
+          priceBand: quickRec!.card4.priceBand,
+          points: quickRec!.card4.points,
+          provenanceSource: 'public',
+        };
+      }
     } else if (input.memo) {
       const parsed = parseMemoFast(input.memo);
       extracted = {

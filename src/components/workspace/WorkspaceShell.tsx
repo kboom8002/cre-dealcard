@@ -319,7 +319,7 @@ export function WorkspaceShell({
           </div>
 
           {/* Editor Body */}
-          <div className="flex-1 p-4 sm:p-6 max-w-4xl w-full mx-auto pb-24 lg:pb-8">
+          <div className="flex-1 p-3 sm:p-5 max-w-4xl w-full mx-auto pb-24 lg:pb-8">
             {editorSlot || children}
           </div>
         </main>
@@ -330,8 +330,8 @@ export function WorkspaceShell({
           className={`shrink-0 border-l border-slate-300 bg-white flex flex-col z-20 ${
             // Mobile: only show if mobileView === 'preview'
             mobileView === "preview"
-              ? "flex w-full fixed inset-x-0 top-14 bottom-16 lg:static lg:bottom-0"
-              : "hidden xl:flex xl:w-[400px] 2xl:w-[440px]"
+              ? "flex w-full lg:w-[340px] xl:w-[380px] 2xl:w-[420px] fixed inset-x-0 top-14 bottom-16 lg:static lg:bottom-0"
+              : "hidden xl:flex lg:w-[340px] xl:w-[380px] 2xl:w-[420px]"
           } ${
             isPreviewDrawerOpen ? "lg:flex lg:fixed lg:right-0 lg:top-14 lg:bottom-0 lg:w-[420px] lg:shadow-2xl" : ""
           }`}

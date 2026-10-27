@@ -7,6 +7,11 @@ import {
   updateDealCard4,
   type Card4Data,
 } from "@/lib/deal-card/card4-schema";
+import {
+  isUuid,
+  getQuickImRecord,
+  updateQuickImCard4,
+} from "@/lib/im-lite/quick-generate-store";
 
 function formatRelativeTime(isoString?: string | null): string {
   if (!isoString) return "방금";
@@ -44,8 +49,9 @@ export async function GET(request: NextRequest) {
   const { data: buildingsData } = await bldQuery;
   const buildings = [...(buildingsData || [])];
 
-  // If a specific targetId was requested and not in top 30, fetch it if owned
-  if (targetId && !buildings.some((b) => b.id === targetId)) {
+  // If a specific targetId was requested and not in top 30, fetch it if owned (only when targetId is a valid UUID)
+  const quickTargetRec = targetId && !isUuid(targetId) ? getQuickImRecord(targetId) : null;
+  if (targetId && isUuid(targetId) && !buildings.some((b) => b.id === targetId)) {
     const check = await assertBuildingOwner(supabase, targetId, userId, {
       allowAdmin: true,
       role: auth.role,
@@ -154,6 +160,34 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  if (quickTargetRec && !dealcards.some((dc) => dc.id === quickTargetRec.buildingId)) {
+    dealcards.unshift({
+      id: quickTargetRec.buildingId,
+      title: `${quickTargetRec.card4.region} ${quickTargetRec.card4.use}`.trim(),
+      region: quickTargetRec.card4.region,
+      use: quickTargetRec.card4.use,
+      priceBand: quickTargetRec.card4.priceBand,
+      status: "draft",
+      updatedAt: formatRelativeTime(quickTargetRec.updatedAt),
+      card4: quickTargetRec.card4,
+    });
+  }
+
+  if (quickTargetRec && !imList.some((im) => im.id === quickTargetRec.documentId || im.buildingId === quickTargetRec.buildingId)) {
+    imList.unshift({
+      id: quickTargetRec.documentId,
+      buildingId: quickTargetRec.buildingId,
+      title: quickTargetRec.buildingName || `${quickTargetRec.card4.region} ${quickTargetRec.card4.use}`.trim(),
+      address: quickTargetRec.address,
+      askingPriceManwon: quickTargetRec.askingPriceManwon,
+      grossYieldPct: 4.2,
+      status: "draft",
+      versionLabel: "v1 작성 중",
+      updatedAt: formatRelativeTime(quickTargetRec.updatedAt),
+      rentRoll: quickTargetRec.rentRoll,
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     dealcards,
@@ -176,8 +210,7 @@ export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient();
 
   // Only enforce DB ownership if buildingId is a real UUID in building_ssot_lite
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(buildingId);
-  if (isUuid) {
+  if (isUuid(buildingId)) {
     const ownerCheck = await assertBuildingOwner(supabase, buildingId, auth.user.id, {
       allowAdmin: true,
       role: auth.role,
@@ -203,22 +236,28 @@ export async function PATCH(request: NextRequest) {
     }
     return NextResponse.json({
       ok: true,
+      buildingId,
+      persisted: true,
       card4: result.card4,
       version: result.version,
       hash: result.hash,
     });
   }
 
-  // Non-UUID local draft ID: compute deterministic hash & increment version
+  // Non-UUID local draft ID: compute deterministic hash & increment version, and update QuickImStore
   const nextVersion = (card4.card4_version || 1) + 1;
   const hash = computeCard4Hash(card4);
+  const nextCard4: Card4Data = {
+    ...card4,
+    card4_version: nextVersion,
+    card4_hash: hash,
+  };
+  updateQuickImCard4(buildingId, nextCard4);
   return NextResponse.json({
     ok: true,
-    card4: {
-      ...card4,
-      card4_version: nextVersion,
-      card4_hash: hash,
-    },
+    buildingId,
+    persisted: false,
+    card4: nextCard4,
     version: nextVersion,
     hash,
   });

@@ -78,14 +78,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       // WP-P1-11: 307 redirects for legacy deal card routes
+      // Note: /broker/deal-card/:id is handled in src/proxy.ts so social crawlers (kakaotalk-scrap) can read OG tags without being redirected to /broker/w/dealcards -> /login.
       {
         source: '/broker/deal-card/new',
         destination: '/broker/w/dealcards?new=true',
-        permanent: false,
-      },
-      {
-        source: '/broker/deal-card/:id',
-        destination: '/broker/w/dealcards?id=:id',
         permanent: false,
       },
       // WP-P4b-05: 307 redirects for legacy IM lite routes

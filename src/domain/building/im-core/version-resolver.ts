@@ -158,7 +158,12 @@ export async function resolveImVersion(
 
     const docOwnerId = doc.broker_id || doc.owner_id;
     const isOwner = Boolean(viewerId && (viewerId === docOwnerId || role === 'admin'));
-    const isPublic = doc.status === 'published' || doc.status === 'superseded' || doc.status === 'approved_internal';
+    const isPublic =
+      doc.status === 'published' ||
+      doc.status === 'superseded' ||
+      doc.status === 'approved_internal' ||
+      doc.status === 'broker_reviewed' ||
+      doc.status === 'shared_external';
 
     if (!isOwner && !isPublic) {
       // Unauthorized private draft
@@ -261,7 +266,7 @@ export async function resolveImVersion(
       .from('document_objects')
       .select('*')
       .eq('building_id', buildingId)
-      .in('document_type', ['mobile_im_lite', 'mobile_im', 'im_lite'])
+      .in('document_type', ['mobile_im_lite', 'mobile_im', 'im_lite', 'im_lite_draft'])
       .order('created_at', { ascending: false })
       .limit(10);
 
@@ -273,7 +278,13 @@ export async function resolveImVersion(
 
     // If viewer is not owner, find the latest published doc
     if (!isOwner) {
-      const pubDoc = docList.find((d: any) => d.status === 'published' || d.status === 'superseded');
+      const pubDoc = docList.find(
+        (d: any) =>
+          d.status === 'published' ||
+          d.status === 'superseded' ||
+          d.status === 'broker_reviewed' ||
+          d.status === 'shared_external'
+      );
       if (pubDoc) {
         return formatResolvedResult(pubDoc, null, 'public', false);
       }

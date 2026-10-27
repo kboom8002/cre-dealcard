@@ -24,6 +24,9 @@ export interface InboxThreadItem {
   buildingTitle: string;
   buildingId: string;
   latestEvent: string;
+  detail?: string;
+  gateStatus?: "pending" | "approved" | "none";
+  memo?: string;
   updatedAt: string;
   openCount: number; // View count
   isRead: boolean;
@@ -135,6 +138,8 @@ const INITIAL_THREADS: InboxThreadItem[] = [
   },
 ];
 
+const STORAGE_KEY = "credeal-w-inbox-v3";
+
 function InboxWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -146,6 +151,82 @@ function InboxWorkspaceInner() {
   const [selectedId, setSelectedId] = useState<string>(threads[0]?.id || "");
   const [cursor, setCursor] = useState<number>(3);
   const [callNote, setCallNote] = useState("");
+
+  const persistThreads = (next: InboxThreadItem[]) => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  // Load saved threads from localStorage and fetch /api/broker/inbox on mount
+  useEffect(() => {
+    try {
+      const savedRaw = window.localStorage.getItem(STORAGE_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setThreads(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    fetch("/api/broker/inbox")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.items) && data.items.length > 0) {
+          setThreads((prev) => {
+            const existingIds = new Set(prev.map((t) => t.id));
+            const mappedServerItems: InboxThreadItem[] = [];
+            for (const srv of data.items) {
+              if (!srv?.id || existingIds.has(srv.id)) continue;
+              const isGate = srv.type === "gate_request";
+              const clientName = srv.requester_name || srv.viewer_info || "관심 고객";
+              const buildingTitle = srv.building_label || srv.sub_label || srv.label || "관심 매물";
+              const latestEvent = isGate
+                ? `${srv.requested_level || "G2"} 상세자료 열람 요청 (${srv.reason || "검토 목적"})`
+                : `${srv.label || "열람"} · ${srv.sub_label || ""}`.trim();
+              mappedServerItems.push({
+                id: String(srv.id),
+                clientName,
+                clientPhone: srv.requester_phone || "010-0000-0000",
+                clientGrade: isGate ? "VIP" : "일반",
+                buildingTitle,
+                buildingId: srv.building_id || "bld-01",
+                latestEvent,
+                detail: latestEvent,
+                gateStatus: isGate && srv.status === "submitted" ? "pending" : "none",
+                updatedAt: "방금",
+                openCount: isGate ? 2 : 1,
+                isRead: !srv.is_unread,
+                status: isGate && srv.status === "submitted" ? "pending_gate" : "active",
+                shareToken: `tok-${String(srv.id).slice(0, 8)}`,
+                budget: "협의 가능",
+                preferredRegion: "주요 상권",
+                events: [
+                  {
+                    id: `ev-${srv.id}`,
+                    eventType: isGate ? "gate_request" : "open",
+                    description: latestEvent,
+                    timestamp: "방금",
+                  },
+                ],
+              });
+            }
+            if (mappedServerItems.length === 0) return prev;
+            const next = [...prev, ...mappedServerItems];
+            persistThreads(next);
+            return next;
+          });
+        }
+      })
+      .catch(() => {
+        // Offline / unauthenticated fallback
+      });
+  }, []);
 
   // Sync selection from query params
   useEffect(() => {
@@ -165,9 +246,13 @@ function InboxWorkspaceInner() {
   // Mark thread as read when selected
   useEffect(() => {
     if (activeThread && !activeThread.isRead) {
-      setThreads((prev) =>
-        prev.map((t) => (t.id === activeThread.id ? { ...t, isRead: true } : t))
-      );
+      setThreads((prev) => {
+        const next = prev.map((t) =>
+          t.id === activeThread.id ? { ...t, isRead: true } : t
+        );
+        persistThreads(next);
+        return next;
+      });
     }
   }, [activeThread?.id]);
 
@@ -198,21 +283,64 @@ function InboxWorkspaceInner() {
 
   // Gate Request actions
   const handleApproveGate = () => {
-    setThreads((prev) =>
-      prev.map((t) => (t.id === activeThread.id ? { ...t, status: "active" } : t))
-    );
+    fetch(`/api/gate-requests/${activeThread.id}/review`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved" }),
+    }).catch(() => {});
+
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.id === activeThread.id
+          ? {
+              ...t,
+              status: "active" as const,
+              gateStatus: "approved" as const,
+              detail: "자료 열람 요청이 승인되었습니다.",
+              latestEvent: "자료 열람 요청이 승인되었습니다.",
+            }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
     showUndoToast(`${activeThread.clientName}님의 자료 공개 요청을 승인했습니다.`);
   };
 
   const handleRejectGate = () => {
+    fetch(`/api/gate-requests/${activeThread.id}/review`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "rejected" }),
+    }).catch(() => {});
+
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.id === activeThread.id
+          ? {
+              ...t,
+              status: "active" as const,
+              gateStatus: "none" as const,
+              detail: "자료 열람 요청이 반려되었습니다.",
+              latestEvent: "자료 열람 요청이 반려되었습니다.",
+            }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
     showUndoToast(`${activeThread.clientName}님의 자료 공개 요청을 보류했습니다.`);
   };
 
   // Link Revocation & Correction
   const handleRevokeLink = () => {
-    setThreads((prev) =>
-      prev.map((t) => (t.id === activeThread.id ? { ...t, status: "revoked" } : t))
-    );
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.id === activeThread.id ? { ...t, status: "revoked" as const } : t
+      );
+      persistThreads(next);
+      return next;
+    });
     showUndoToast(`발송된 링크(${activeThread.shareToken})가 즉시 회수되었습니다. (404 처리)`);
   };
 
@@ -222,17 +350,22 @@ function InboxWorkspaceInner() {
 
   const handleAddCallNote = () => {
     if (!callNote.trim()) return;
+    const trimmed = callNote.trim();
     const newEvent: RecipientEvent = {
       id: `ev-${Date.now()}`,
       eventType: "dwell",
-      description: `통화 기록: ${callNote}`,
+      description: `통화 기록: ${trimmed}`,
       timestamp: "방금",
     };
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.id === activeThread.id ? { ...t, events: [newEvent, ...t.events] } : t
-      )
-    );
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.id === activeThread.id
+          ? { ...t, memo: trimmed, events: [newEvent, ...t.events] }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
     setCallNote("");
     showUndoToast("통화 메모가 저장되었습니다.");
   };
@@ -336,9 +469,9 @@ function InboxWorkspaceInner() {
     <div className="p-4 sm:p-6 space-y-6 max-w-3xl mx-auto" data-testid="inbox-editor-slot">
       {/* Header card for selected thread */}
       <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-[20px] font-extrabold text-[#0F172A]">
                 {activeThread.clientName}
               </h2>

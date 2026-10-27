@@ -145,6 +145,9 @@ export async function getAggregatedBrokerHomeData(
   const viewsCount = activities.filter(
     (a) => a.event_type === "view" || a.event_type === "open"
   ).length;
+  const magazineCount = activities.filter(
+    (a) => a.entity_type === "magazine" || a.event_type === "magazine_published"
+  ).length;
 
   const doors: AggregatedBrokerHomeData["doors"] = {
     dealcards: {
@@ -186,10 +189,10 @@ export async function getAggregatedBrokerHomeData(
       href: "/broker/w/magazine",
       icon: "📰",
       badge: {
-        count: 1,
-        label: "이번 주 발행",
+        count: magazineCount,
+        label: magazineCount > 0 ? `발행 ${magazineCount}건` : "0건",
         href: "/broker/w/magazine",
-        highlight: true,
+        highlight: magazineCount > 0,
       },
       shortcutNumber: 3,
     },

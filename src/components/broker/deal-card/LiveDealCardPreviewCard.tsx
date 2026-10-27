@@ -180,9 +180,15 @@ export function LiveDealCardPreviewCard({
         </div>
 
         {/* 📱 Real KakaoTalk OG Card Style Preview */}
-        <div className="rounded-xl border border-border/80 bg-neutral-950 overflow-hidden shadow-inner space-y-0 group">
+        <div
+          data-theme-lock="dark"
+          className="rounded-xl border border-border/80 bg-neutral-950 overflow-hidden shadow-inner space-y-0 group"
+        >
           {/* OG Image Preview */}
-          <div className="relative aspect-[1.91/1] w-full bg-neutral-900 overflow-hidden flex items-center justify-center border-b border-border/40">
+          <div
+            data-theme-lock="dark"
+            className="relative aspect-[1.91/1] w-full bg-neutral-900 overflow-hidden flex items-center justify-center border-b border-border/40"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/og/deal/${buildingId}/kakao?v=${ogTimestamp}`}
@@ -293,7 +299,10 @@ export function LiveDealCardPreviewCard({
             className="absolute inset-0 bg-black/80 backdrop-blur-md"
             onClick={() => setShowPhoneModal(false)}
           />
-          <div className="relative w-full max-w-[410px] h-[92vh] max-h-[850px] bg-[#0b0f19] rounded-[40px] border-[6px] border-slate-700 shadow-2xl overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-200">
+          <div
+            data-theme-lock="dark"
+            className="relative w-full max-w-[410px] h-[92vh] max-h-[850px] bg-[#0b0f19] rounded-[40px] border-[6px] border-slate-700 shadow-2xl overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-200"
+          >
             {/* Phone Top Notch */}
             <div className="w-full bg-[#0b0f19] pt-3 pb-2 px-6 flex items-center justify-between border-b border-slate-800/80 shrink-0">
               <div className="flex items-center gap-1.5">

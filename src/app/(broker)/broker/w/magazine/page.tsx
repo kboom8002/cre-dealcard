@@ -20,6 +20,8 @@ export interface MagazineIssueItem {
   issueNo: number;
   title: string;
   date: string;
+  publishedAt?: string;
+  dealCount?: number;
   status: "published" | "draft";
   recipientCount: number;
   openRatePct: number;
@@ -85,6 +87,8 @@ const INITIAL_ISSUES: MagazineIssueItem[] = [
   },
 ];
 
+const STORAGE_KEY = "credeal-w-magazine-v3";
+
 function MagazineWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -95,6 +99,39 @@ function MagazineWorkspaceInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [previewMode, setPreviewMode] = useState<"phone" | "web">("phone");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [publishNotice, setPublishNotice] = useState<string | null>(null);
+
+  const persistIssues = (next: MagazineIssueItem[]) => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  // Load saved issues from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedRaw = window.localStorage.getItem(STORAGE_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setIssues(parsed);
+          const qId = searchParams.get("issue") || searchParams.get("id");
+          const match = parsed.find((i: MagazineIssueItem) => i.id === (qId || selectedId)) || parsed[0];
+          if (match) {
+            setSelectedId(match.id);
+            setTitle(match.title || "");
+            setIntro(match.intro || "");
+            setCommentary(match.commentary || "");
+            setFeaturedDeals(match.featuredDeals || []);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Sync selection from query params
   useEffect(() => {
@@ -108,6 +145,17 @@ function MagazineWorkspaceInner() {
   const activeIssue = useMemo(() => {
     return issues.find((i) => i.id === selectedId) || issues[0];
   }, [issues, selectedId]);
+
+  const filteredIssues = useMemo(
+    () =>
+      issues.filter(
+        (i) =>
+          !searchQuery.trim() ||
+          i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          `제 ${i.issueNo}호`.includes(searchQuery.trim())
+      ),
+    [issues, searchQuery]
+  );
 
   // Form edit state
   const [title, setTitle] = useState(activeIssue?.title || "");
@@ -123,8 +171,31 @@ function MagazineWorkspaceInner() {
       setIntro(activeIssue.intro);
       setCommentary(activeIssue.commentary);
       setFeaturedDeals(activeIssue.featuredDeals);
+      setPublishNotice(null);
     }
   }, [activeIssue?.id]);
+
+  const syncActiveIssue = (
+    nextFields: Partial<
+      Pick<MagazineIssueItem, "title" | "intro" | "commentary" | "featuredDeals">
+    >
+  ) => {
+    setIssues((prev) => {
+      const targetId = activeIssue?.id || selectedId;
+      const next = prev.map((iss) => {
+        if (iss.id !== targetId) return iss;
+        const nextDeals = nextFields.featuredDeals ?? iss.featuredDeals;
+        return {
+          ...iss,
+          ...nextFields,
+          featuredDeals: nextDeals,
+          dealCount: nextDeals.length,
+        };
+      });
+      persistIssues(next);
+      return next;
+    });
+  };
 
   // Create new issue
   const handleCreateNewIssue = () => {
@@ -141,15 +212,50 @@ function MagazineWorkspaceInner() {
       intro: "안녕하십니까, 금주 추천 상업용 부동산 매물 브리핑입니다.",
       commentary: "최근 금리 동향과 상권별 유동인구 지표를 공유합니다.",
       featuredDeals: [],
+      dealCount: 0,
     };
-    setIssues([newIssue, ...issues]);
+    const next = [newIssue, ...issues];
+    setIssues(next);
+    persistIssues(next);
     setSelectedId(newId);
     showUndoToast(`제 ${nextNo}호 소식지 초안이 생성되었습니다.`);
   };
 
   // 1-Click Deal Card insertion (WP-P5-03)
   const handleInsertDealCard = () => {
-    const sampleDeal: FeaturedDealItem = {
+    let picked: FeaturedDealItem | null = null;
+    try {
+      const savedRaw = window.localStorage.getItem("credeal-w-dealcards-v3");
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const candidate =
+            parsed.find((b: any) => !featuredDeals.some((fd) => fd.title === b.title)) ||
+            parsed[0];
+          if (candidate) {
+            picked = {
+              id: `deal-${Date.now()}`,
+              type: "dealcard",
+              title: candidate.title || `${candidate.region || ""} ${candidate.use || "매물"}`.trim(),
+              region: candidate.region || "주요 상권",
+              use: candidate.use || "근린생활시설",
+              priceBand: candidate.priceBand || candidate.card4?.priceBand || "가격 협의",
+              points: Array.isArray(candidate.card4?.points)
+                ? candidate.card4.points
+                : [
+                    "역세권 핵심 입지",
+                    "안정적 임대수익 운영 중",
+                    "매수 검토 추천 매물",
+                  ],
+            };
+          }
+        }
+      }
+    } catch {
+      // fallback to default sampleDeal
+    }
+
+    const sampleDeal: FeaturedDealItem = picked || {
       id: `deal-${Date.now()}`,
       type: "dealcard",
       title: "마포구 서교동 올근생 꼬마빌딩",
@@ -162,13 +268,49 @@ function MagazineWorkspaceInner() {
         "연 4.5% 배당형 수익",
       ],
     };
-    setFeaturedDeals([...featuredDeals, sampleDeal]);
+    const nextDeals = [...featuredDeals, sampleDeal];
+    setFeaturedDeals(nextDeals);
+    syncActiveIssue({ featuredDeals: nextDeals });
     showUndoToast("✓ 4항목 딜카드가 소식지에 1초 삽입되었습니다!");
   };
 
   // 1-Click IM insertion (WP-P5-03)
   const handleInsertIm = () => {
-    const sampleIm: FeaturedDealItem = {
+    let picked: FeaturedDealItem | null = null;
+    try {
+      const savedRaw = window.localStorage.getItem("credeal-w-im-v3");
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const candidate =
+            parsed.find((im: any) => !featuredDeals.some((fd) => fd.title === im.title)) ||
+            parsed[0];
+          if (candidate) {
+            const manwon = Number(candidate.askingPriceManwon) || 950000;
+            const eok = Math.round(manwon / 10000);
+            picked = {
+              id: `im-${Date.now()}`,
+              type: "im",
+              title: candidate.title || "강남구 신사동 사옥형 빌딩",
+              region: candidate.address
+                ? String(candidate.address).split(" ").slice(1, 3).join(" ")
+                : "강남구 신사동",
+              use: "상업·업무용 빌딩",
+              priceBand: `${Math.max(10, eok - 5)}~${eok + 5}억`,
+              points: [
+                candidate.address || "도산대로 이면 가시성",
+                `기대 수익률 연 ${candidate.grossYieldPct || 4.2}%`,
+                candidate.handoverNote || "렌트롤 및 상세 수지분석 검증 완료",
+              ],
+            };
+          }
+        }
+      }
+    } catch {
+      // fallback to default sampleIm
+    }
+
+    const sampleIm: FeaturedDealItem = picked || {
       id: `im-${Date.now()}`,
       type: "im",
       title: "강남구 신사동 사옥형 빌딩",
@@ -181,18 +323,39 @@ function MagazineWorkspaceInner() {
         "최근 인근 평당 1.8억 거래",
       ],
     };
-    setFeaturedDeals([...featuredDeals, sampleIm]);
+    const nextDeals = [...featuredDeals, sampleIm];
+    setFeaturedDeals(nextDeals);
+    syncActiveIssue({ featuredDeals: nextDeals });
     showUndoToast("✓ 추천 Basic IM 요약 카드가 소식지에 삽입되었습니다!");
   };
 
   const handleRemoveDeal = (dealId: string) => {
-    setFeaturedDeals(featuredDeals.filter((d) => d.id !== dealId));
+    const nextDeals = featuredDeals.filter((d) => d.id !== dealId);
+    setFeaturedDeals(nextDeals);
+    syncActiveIssue({ featuredDeals: nextDeals });
   };
 
   const handlePublish = async () => {
     setIsPublishing(true);
     setTimeout(() => {
       setIsPublishing(false);
+      setIssues((prev) => {
+        const targetId = activeIssue?.id || selectedId;
+        const next = prev.map((iss) =>
+          iss.id === targetId
+            ? {
+                ...iss,
+                status: "published" as const,
+                publishedAt: "방금 발행",
+                date: "방금 발행",
+                recipientCount: iss.recipientCount || 45,
+              }
+            : iss
+        );
+        persistIssues(next);
+        return next;
+      });
+      setPublishNotice(`제 ${activeIssue.issueNo}호 소식지가 방금 발행되었습니다.`);
       showUndoToast(`🚀 제 ${activeIssue.issueNo}호 소식지가 VIP 고객 45명에게 발행되었습니다!`);
     }, 800);
   };
@@ -219,7 +382,7 @@ function MagazineWorkspaceInner() {
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-        {issues.map((issue) => {
+        {filteredIssues.map((issue) => {
           const isSelected = issue.id === selectedId;
           return (
             <div
@@ -253,7 +416,7 @@ function MagazineWorkspaceInner() {
               </div>
               <p className="text-[14px] text-[#334155] font-semibold truncate">{issue.title}</p>
               <div className="flex items-center justify-between text-[13px] text-[#64748B] mt-1 pt-1 border-t border-[#F1F5F9]">
-                <span>{issue.date}</span>
+                <span>{issue.publishedAt || issue.date}</span>
                 {issue.status === "published" && (
                   <span className="text-[#065F46] font-bold">열람률 {issue.openRatePct}%</span>
                 )}
@@ -268,13 +431,18 @@ function MagazineWorkspaceInner() {
   /* ──────── Column 2: Magazine Editor ──────── */
   const editorSlot = (
     <div className="p-4 sm:p-6 space-y-6 max-w-3xl mx-auto" data-testid="magazine-editor-slot">
+      {publishNotice && (
+        <div className="p-3.5 rounded-xl bg-[#D1FAE5] border border-[#34D399] text-[#065F46] font-bold text-[14px]">
+          {publishNotice}
+        </div>
+      )}
       {/* Title & Metadata */}
       <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <span className="text-[15px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-1 rounded-lg">
             제 {activeIssue.issueNo}호 소식지 편집
           </span>
-          <span className="text-[14px] text-[#64748B]">{activeIssue.date}</span>
+          <span className="text-[14px] text-[#64748B]">{activeIssue.publishedAt || activeIssue.date}</span>
         </div>
 
         <div>
@@ -284,7 +452,11 @@ function MagazineWorkspaceInner() {
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              const nextVal = e.target.value;
+              setTitle(nextVal);
+              syncActiveIssue({ title: nextVal });
+            }}
             className="w-full min-h-[48px] px-3.5 text-[17px] font-bold rounded-xl border border-[#64748B] focus:border-[#1D4ED8] outline-none"
           />
         </div>
@@ -296,7 +468,11 @@ function MagazineWorkspaceInner() {
           <textarea
             rows={3}
             value={intro}
-            onChange={(e) => setIntro(e.target.value)}
+            onChange={(e) => {
+              const nextVal = e.target.value;
+              setIntro(nextVal);
+              syncActiveIssue({ intro: nextVal });
+            }}
             className="w-full p-3 text-[15px] leading-relaxed rounded-xl border border-[#64748B] focus:border-[#1D4ED8] outline-none"
           />
         </div>
@@ -304,7 +480,7 @@ function MagazineWorkspaceInner() {
 
       {/* Featured Deals with 1-Click Insertion Helpers (WP-P5-03) */}
       <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
             <h3 className="text-[18px] font-extrabold text-[#0F172A]">금주 추천 매물</h3>
             <p className="text-[14px] text-[#475569]">
@@ -375,7 +551,11 @@ function MagazineWorkspaceInner() {
         <textarea
           rows={3}
           value={commentary}
-          onChange={(e) => setCommentary(e.target.value)}
+          onChange={(e) => {
+            const nextVal = e.target.value;
+            setCommentary(nextVal);
+            syncActiveIssue({ commentary: nextVal });
+          }}
           className="w-full p-3 text-[15px] leading-relaxed rounded-xl border border-[#64748B] focus:border-[#1D4ED8] outline-none"
         />
       </div>
@@ -411,8 +591,13 @@ function MagazineWorkspaceInner() {
   );
 
   const previewSlot = (
-    <div className="p-4 space-y-4 max-w-sm mx-auto" data-testid="magazine-preview-slot">
-      {/* Phone container mockup */}
+    <div
+      className={`p-4 space-y-4 mx-auto transition-all ${
+        previewMode === "phone" ? "w-[320px]" : "w-full max-w-[520px]"
+      }`}
+      data-testid="magazine-preview-slot"
+    >
+      {/* Phone/Web container mockup */}
       <div className="bg-[#FAF9F5] rounded-3xl border-4 border-[#334155] p-3 shadow-lg space-y-3">
         <div className="flex items-center justify-between text-[12px] font-bold text-[#475569] px-2 pt-1">
           <span>09:41</span>

@@ -9,6 +9,7 @@ import { toPublicDealCard } from '@/domain/public-projection/deal-card';
 import { evaluateDealCardPublicVisibility } from '@/domain/public-projection/visibility';
 import { isOwnerOrAdmin } from '@/domain/public-projection/access';
 import { getServerViewer } from '@/lib/server-viewer';
+import { getQuickImRecord, isUuid, type StoredQuickImRecord } from '@/lib/im-lite/quick-generate-store';
 
 // v3 Goldilocks components
 import { TeaserHeroHeader } from '@/components/teaser/TeaserHeroHeader';
@@ -23,31 +24,97 @@ interface PageProps {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
+  return {
+    building: {
+      id: quickRec.buildingId,
+      address: quickRec.address,
+      building_name: quickRec.buildingName,
+      area_signal: quickRec.card4.region,
+      asset_type: quickRec.card4.use,
+      main_usage: quickRec.card4.use,
+      price_band: quickRec.card4.priceBand,
+      asking_price_krw: (quickRec.askingPriceManwon || 0) * 10_000,
+      gross_floor_area_sqm: quickRec.specs?.gfaSqm,
+      land_area_sqm: quickRec.specs?.landAreaSqm,
+      total_floor_area_pyung: quickRec.specs?.gfaSqm ? Math.round(quickRec.specs.gfaSqm / 3.3058) : undefined,
+      land_area_pyung: quickRec.specs?.landAreaSqm ? Math.round(quickRec.specs.landAreaSqm / 3.3058) : undefined,
+      zoning: quickRec.specs?.zoning,
+    } as Record<string, any>,
+    signalCard: {
+      id: quickRec.buildingId,
+      title: `${quickRec.card4.region} ${quickRec.card4.use} ${quickRec.card4.priceBand}`.trim(),
+      area_signal: quickRec.card4.region,
+      asset_type: quickRec.card4.use,
+      price_band: quickRec.card4.priceBand,
+      deal_points: quickRec.card4.points,
+      body: { shortSummary: quickRec.card4.points.join(" · ") },
+      status: "published",
+      visibility: "public",
+    },
+    teaserDoc: {
+      body: {
+        card4: quickRec.card4,
+        title: `${quickRec.card4.region} ${quickRec.card4.use}`,
+        dealPoints: quickRec.card4.points,
+        price_band: quickRec.card4.priceBand,
+        region_display: quickRec.card4.region,
+        key_points: quickRec.card4.points,
+      },
+    },
+    brokerProfile: null as Record<string, any> | null,
+    hasImDoc: true,
+    isPptxApproved: true,
+    pptxDownloadUrl: `/api/public/im-lite/${quickRec.buildingId}/pptx`,
+    ownerId: quickRec.ownerId ?? null,
+    buildingStatus: "public_signal_ready" as string | null,
+  };
+}
+
 // ── 데이터 조회 ──
 // P0-SEC: React cache() — generateMetadata 와 page 가 같은 요청에서 한 번만 조회한다
 // (readWithMigration 의 lazy-write 부수효과 중복 방지).
 const getDealCardData = cache(async (id: string) => {
+  const quickRec = getQuickImRecord(id);
+  if (!isUuid(id)) {
+    if (quickRec) {
+      return buildDealCardDataFromQuickRecord(quickRec);
+    }
+    return {
+      building: {} as Record<string, any>,
+      signalCard: null,
+      teaserDoc: null,
+      brokerProfile: null,
+      hasImDoc: false,
+      isPptxApproved: false,
+      pptxDownloadUrl: `/api/public/im-lite/${id}/pptx`,
+      ownerId: null,
+      buildingStatus: null,
+    };
+  }
+
   const supabase = createServiceClient();
 
-  const [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
-    readBuilding(id),
+  let targetBuildingId = id;
+  let [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
+    readBuilding(targetBuildingId),
     // P0-SEC: owner_id / status 는 SSoT 원천(building_ssot_lite)에서 직접 조회 (assets 에는 없음)
     supabase
       .from("building_ssot_lite")
       .select("owner_id, status")
-      .eq("id", id)
+      .eq("id", targetBuildingId)
       .maybeSingle(),
     supabase
       .from("building_signal_cards")
       .select("id, title, area_signal, asset_type, price_band, deal_points, body, status, visibility")
-      .eq("building_id", id)
+      .eq("building_id", targetBuildingId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
       .from("document_objects")
       .select("body")
-      .eq("building_id", id)
+      .eq("building_id", targetBuildingId)
       .eq("document_type", "blind_teaser")
       .neq("status", "archived")
       .order("created_at", { ascending: false })
@@ -57,13 +124,61 @@ const getDealCardData = cache(async (id: string) => {
     supabase
       .from("document_objects")
       .select("id, status, approval_stage, pptx_file_hash, pptx_download_url")
-      .eq("building_id", id)
+      .eq("building_id", targetBuildingId)
       .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
       .neq("status", "archived")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
   ]);
+
+  // If id is a document_objects.id rather than a building_ssot_lite.id, resolve its building_id
+  if (!ssotMetaRes.data && !buildingRes) {
+    const { data: docLookup } = await supabase
+      .from("document_objects")
+      .select("building_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (docLookup?.building_id && isUuid(docLookup.building_id)) {
+      targetBuildingId = docLookup.building_id;
+      [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
+        readBuilding(targetBuildingId),
+        supabase
+          .from("building_ssot_lite")
+          .select("owner_id, status")
+          .eq("id", targetBuildingId)
+          .maybeSingle(),
+        supabase
+          .from("building_signal_cards")
+          .select("id, title, area_signal, asset_type, price_band, deal_points, body, status, visibility")
+          .eq("building_id", targetBuildingId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("document_objects")
+          .select("body")
+          .eq("building_id", targetBuildingId)
+          .eq("document_type", "blind_teaser")
+          .neq("status", "archived")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("document_objects")
+          .select("id, status, approval_stage, pptx_file_hash, pptx_download_url")
+          .eq("building_id", targetBuildingId)
+          .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
+          .neq("status", "archived")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+    } else if (quickRec) {
+      return buildDealCardDataFromQuickRecord(quickRec);
+    }
+  }
 
   const ownerId: string | null = ssotMetaRes.data?.owner_id ?? null;
   const buildingStatus: string | null = ssotMetaRes.data?.status ?? null;
@@ -156,7 +271,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const ogDescription = og.description;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
-  const absoluteOgImage = `${siteUrl}/api/og/deal/${id}/kakao`;
+  const card4Hash = (data.teaserDoc?.body as Record<string, any> | undefined)?.card4?.card4_hash;
+  const absoluteOgImage = `${siteUrl}/api/og/deal/${id}/kakao-v2${card4Hash ? `?v=${encodeURIComponent(card4Hash)}` : ''}`;
 
   return {
     title: `${ogTitle} | 크리딜 DealCard`,

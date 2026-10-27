@@ -28,7 +28,8 @@ export async function POST(
   // 1. Try Jobs v2 engine lookup first
   const job = await getJobStatus(jobId);
   if (job) {
-    if (!isAdmin && job.owner_id && job.owner_id !== userId) {
+    // P0-SEC & [A5-04]: Fail-Closed when owner_id is null or mismatched (admin exempted)
+    if (!isAdmin && (!job.owner_id || job.owner_id !== userId)) {
       log.warn(`[JobsCancel] Unauthorized cancel attempt by ${userId} on job ${jobId}`);
       return NextResponse.json({ ok: false, message: 'Job not found' }, { status: 404 });
     }
@@ -47,7 +48,7 @@ export async function POST(
     .maybeSingle();
 
   if (aiRun) {
-    if (!isAdmin && aiRun.user_id && aiRun.user_id !== userId) {
+    if (!isAdmin && (!aiRun.user_id || aiRun.user_id !== userId)) {
       return NextResponse.json({ ok: false, message: 'Job not found' }, { status: 404 });
     }
 

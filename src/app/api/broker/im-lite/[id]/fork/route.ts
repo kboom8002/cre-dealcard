@@ -24,25 +24,39 @@ export async function POST(
 
   const supabase = createServiceClient();
 
-  // 1. Fetch source document
-  const { data: doc, error: fetchErr } = await supabase
+  // 1. Fetch source document (with unmigrated column fallback)
+  let { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
     .select('id, owner_id, broker_id, building_id, series_id, version_no, title, body, status, sealed_at')
     .eq('id', id)
     .maybeSingle();
+
+  if (
+    fetchErr &&
+    (fetchErr.code === '42703' || String(fetchErr.message || '').toLowerCase().includes('column'))
+  ) {
+    const fallbackRes = await supabase
+      .from('document_objects')
+      .select('id, owner_id, broker_id, building_id, status, title, body')
+      .eq('id', id)
+      .maybeSingle();
+    doc = fallbackRes.data as any;
+    fetchErr = fallbackRes.error;
+  }
 
   if (fetchErr || !doc) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
   }
 
   const ownerId = doc.broker_id || doc.owner_id;
-  if (ownerId !== guard.user!.id && (guard.user as any).role !== 'admin') {
+  const isAdmin = guard.role === 'admin' || (guard.user as any)?.role === 'admin';
+  if (ownerId !== guard.user!.id && !isAdmin) {
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
   // 2. Resolve series and determine next version number
-  let seriesId = doc.series_id;
-  let nextVersionNo = (doc.version_no || 1) + 1;
+  let seriesId = (doc as any).series_id ?? (doc.body as any)?.versionMeta?.seriesId;
+  let nextVersionNo = ((doc as any).version_no || (doc.body as any)?.versionMeta?.versionNo || 1) + 1;
 
   if (seriesId) {
     try {
@@ -101,12 +115,19 @@ export async function POST(
   delete clonedBody.approval_target_hash;
   delete clonedBody.approved_at;
   delete clonedBody.targetHash;
+  clonedBody.versionMeta = {
+    seriesId: seriesId || null,
+    versionNo: nextVersionNo,
+    parentVersionId: doc.id,
+    origin: 'duplicate',
+    forkedAt: new Date().toISOString(),
+  };
 
   const insertPayload: Record<string, any> = {
     building_id: doc.building_id,
     owner_id: doc.owner_id || guard.user!.id,
     broker_id: guard.user!.id,
-    document_type: 'mobile_im_lite',
+    document_type: 'im_lite',
     title: doc.title,
     body: clonedBody,
     status: 'draft',
@@ -120,15 +141,37 @@ export async function POST(
     doc_hash: null,
   };
 
-  const { data: newDoc, error: insertErr } = await supabase
+  let { data: newDoc, error: insertErr } = await supabase
     .from('document_objects')
     .insert(insertPayload)
     .select('id, version_no')
     .single();
 
+  if (
+    insertErr &&
+    (insertErr.code === '42703' || String(insertErr.message || '').toLowerCase().includes('column'))
+  ) {
+    const standardPayload = {
+      building_id: doc.building_id,
+      owner_id: doc.owner_id || guard.user!.id,
+      broker_id: guard.user!.id,
+      document_type: 'im_lite',
+      status: 'draft',
+      title: doc.title,
+      body: clonedBody,
+    };
+    const fallbackInsert = await supabase
+      .from('document_objects')
+      .insert(standardPayload)
+      .select('id')
+      .single();
+    newDoc = fallbackInsert.data ? { id: fallbackInsert.data.id, version_no: nextVersionNo } : null;
+    insertErr = fallbackInsert.error;
+  }
+
   if (insertErr || !newDoc) {
     log.error('[fork] Failed to create forked document:', insertErr);
-    return NextResponse.json({ error: insertErr?.message || 'Failed to create fork' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create fork' }, { status: 500 });
   }
 
   // 4. Update series latest_version_no & current_draft_version_id

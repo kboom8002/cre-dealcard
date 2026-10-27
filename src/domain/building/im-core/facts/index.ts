@@ -47,6 +47,7 @@ export interface PureBuildingFacts {
   valuation: PureValuationFacts;
   photos?: Array<{ url: string; caption?: string; role?: string }>;
   points?: string[];
+  comps?: Array<Record<string, any>>;
   brokerOffice?: {
     name: string;
     representative: string;
@@ -79,16 +80,21 @@ export function extractPureBuildingFacts(raw: Record<string, any>): PureBuilding
       : 'core_income'
   ) as InvestmentPosture;
 
-  const title = String(raw?.title ?? rawBody?.title ?? raw?.building_name ?? ssot?.building_name ?? '상업용 부동산 매각');
+  const title = String(raw?.title ?? rawBody?.title ?? raw?.building_name ?? rawBody?.building_name ?? ssot?.building_name ?? '상업용 부동산 매각');
   const address = String(raw?.address ?? rawBody?.address ?? ssot?.address ?? '서울특별시 강남구 역삼동');
   const roadAddress = raw?.road_address ?? rawBody?.road_address ?? ssot?.road_address;
+
+  const normalizedTxRaw =
+    rawBody?.asking_price_manwon == null && (rawBody?.sale_price_manwon != null || raw?.sale_price_manwon != null)
+      ? { ...rawBody, asking_price_manwon: rawBody?.sale_price_manwon ?? raw?.sale_price_manwon }
+      : rawBody;
 
   // Extract layers
   const land = extractLandFacts(rawBody);
   const building = extractBuildingSpecs(rawBody);
   const rent = extractRentFacts(rawBody);
   const transaction = extractTransactionFacts(
-    rawBody,
+    normalizedTxRaw,
     land.landAreaPyeong,
     building.totalGrossAreaPyeong,
     rent.depositTotalKrw
@@ -115,11 +121,23 @@ export function extractPureBuildingFacts(raw: Record<string, any>): PureBuilding
     ? ssot.investment_points
     : [];
 
-  const brokerOffice = rawBody?.broker_office || raw?.broker_office || {
-    name: 'CRE DEAL 중개법인',
-    representative: '김대표',
-    registrationNo: '11680-2024-00001',
-    phone: '02-1234-5678',
+  const comps = Array.isArray(rawBody?.comps)
+    ? rawBody.comps
+    : Array.isArray(rawBody?.comparable_transactions)
+    ? rawBody.comparable_transactions
+    : Array.isArray(rawBody?.comparableTransactions)
+    ? rawBody.comparableTransactions
+    : Array.isArray(raw?.comps)
+    ? raw.comps
+    : [];
+
+  const rawBroker = rawBody?.brokerOffice || raw?.brokerOffice || rawBody?.broker_office || raw?.broker_office;
+  const brokerOffice = {
+    name: rawBroker?.name || rawBroker?.office_name || '담당 중개법인 (확인 중)',
+    representative: rawBroker?.representative || rawBroker?.broker_name || '담당 공인중개사',
+    registrationNo: rawBroker?.registrationNo || rawBroker?.registration_no || '-',
+    phone: rawBroker?.phone || rawBroker?.contact_phone || '-',
+    address: rawBroker?.address || undefined,
   };
 
   return {
@@ -135,6 +153,7 @@ export function extractPureBuildingFacts(raw: Record<string, any>): PureBuilding
     valuation,
     photos,
     points,
+    comps,
     brokerOffice,
   };
 }

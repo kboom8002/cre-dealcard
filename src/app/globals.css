@@ -504,6 +504,7 @@
 .broker-paper-theme .bg-neutral-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-gray-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-slate-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#090D16\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0A0A0A\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0B0F19\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -522,12 +523,20 @@
 .broker-paper-theme .bg-neutral-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-gray-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-slate-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-900\/80:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-900\/60:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-900\/50:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-900\/40:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-950\/50:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-neutral-900/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-gray-900/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-slate-900/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-zinc-900/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-slate-950/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-neutral-950/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-gray-950/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-zinc-950/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0f172a\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0f172a\]\/95:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0f1523\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -576,9 +585,11 @@
 .broker-paper-theme .bg-neutral-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-gray-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-slate-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-zinc-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-neutral-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-gray-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-slate-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="bg-zinc-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-white/5"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-white/10"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-white/12"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -592,13 +603,17 @@
 .broker-paper-theme .border-neutral-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-gray-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .border-zinc-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-neutral-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-gray-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .border-zinc-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-slate-700/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="border-zinc-700/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-slate-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-neutral-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-gray-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="border-zinc-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-600:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-white/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   border-color: #CBD5E1 !important;
@@ -612,22 +627,27 @@
 .broker-paper-theme [class*="text-gray-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-zinc-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-zinc-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .text-ink-muted:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   color: #0F172A !important;
 }
 
 .broker-paper-theme [class*="text-neutral-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-gray-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-slate-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+.broker-paper-theme [class*="text-slate-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-zinc-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   color: #1E293B !important;
 }
 
 .broker-paper-theme [class*="text-neutral-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-gray-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-zinc-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-neutral-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-gray-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme [class*="text-zinc-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .text-ink-subtle:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   color: #334155 !important;
 }
@@ -818,7 +838,7 @@
   .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800,
   .bg-indigo-500, .bg-indigo-600, .bg-indigo-700, .bg-indigo-800, .bg-indigo-600\/90,
   .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-emerald-800, .bg-emerald-600\/90,
-  .bg-green-600, .bg-green-700, .bg-green-800,
+  .bg-green-500, .bg-green-600, .bg-green-700, .bg-green-800,
   .bg-teal-600, .bg-teal-700, .bg-teal-800,
   .bg-violet-500, .bg-violet-600, .bg-violet-700, .bg-violet-800,
   .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-purple-800,
@@ -826,9 +846,10 @@
   .bg-red-500, .bg-red-600, .bg-red-700, .bg-red-800, .bg-red-600\/80,
   .bg-pink-500, .bg-pink-600, .bg-pink-700,
   .bg-amber-600, .bg-amber-700, .bg-amber-800,
-  .bg-orange-600, .bg-orange-700,
+  .bg-orange-500, .bg-orange-600, .bg-orange-700,
   .bg-cyan-600, .bg-cyan-700, .bg-sky-600, .bg-sky-700,
-  .bg-primary,
+  .bg-primary, .bg-grade-s, .bg-grade-a,
+  .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
   .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
   .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\],
   .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\],
@@ -848,7 +869,7 @@
   .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800,
   .bg-indigo-500, .bg-indigo-600, .bg-indigo-700, .bg-indigo-800, .bg-indigo-600\/90,
   .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-emerald-800, .bg-emerald-600\/90,
-  .bg-green-600, .bg-green-700, .bg-green-800,
+  .bg-green-500, .bg-green-600, .bg-green-700, .bg-green-800,
   .bg-teal-600, .bg-teal-700, .bg-teal-800,
   .bg-violet-500, .bg-violet-600, .bg-violet-700, .bg-violet-800,
   .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-purple-800,
@@ -856,9 +877,10 @@
   .bg-red-500, .bg-red-600, .bg-red-700, .bg-red-800, .bg-red-600\/80,
   .bg-pink-500, .bg-pink-600, .bg-pink-700,
   .bg-amber-600, .bg-amber-700, .bg-amber-800,
-  .bg-orange-600, .bg-orange-700,
+  .bg-orange-500, .bg-orange-600, .bg-orange-700,
   .bg-cyan-600, .bg-cyan-700, .bg-sky-600, .bg-sky-700,
-  .bg-primary,
+  .bg-primary, .bg-grade-s, .bg-grade-a,
+  .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
   .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
   .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\],
   .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\],
@@ -874,6 +896,28 @@
   .bg-black\/60, .bg-black\/65, .bg-black\/70, .bg-black\/80, .bg-black\/90,
   [data-active-pill="true"]
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) *:not(.bg-white, .bg-white *, .bg-slate-50, .bg-slate-50 *, .bg-slate-100, .bg-slate-100 *, .bg-amber-400, .bg-amber-400 *, .bg-amber-500, .bg-amber-500 *) {
+  color: #FFFFFF !important;
+}
+
+/* Dark button/badge preservation for .bg-zinc-950 / .bg-zinc-900 / .bg-zinc-800 when paired with .text-white */
+.broker-paper-theme.broker-paper-theme :is(.bg-zinc-950, .bg-zinc-900, .bg-zinc-800):is(.text-white, .text-zinc-50):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+}
+.broker-paper-theme.broker-paper-theme :is(.bg-zinc-950, .bg-zinc-900, .bg-zinc-800):is(.text-white, .text-zinc-50):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) * {
+  color: #FFFFFF !important;
+}
+
+/* Dark-locked preview canvas ([data-theme-lock="dark"]) light text preservation */
+.broker-paper-theme .bg-sky-950\/80.text-sky-400,
+.broker-paper-theme [data-theme-lock="dark"] .text-sky-400 {
+  color: #38BDF8 !important;
+}
+.broker-paper-theme [data-theme-lock="dark"] .text-slate-400 {
+  color: #94A3B8 !important;
+}
+.broker-paper-theme [data-theme-lock="dark"] .text-white,
+.broker-paper-theme [data-theme-lock="dark"].text-white {
   color: #FFFFFF !important;
 }
 
