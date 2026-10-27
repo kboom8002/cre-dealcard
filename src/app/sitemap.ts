@@ -11,6 +11,8 @@
  *  - Service pages (/services, /services/[category], /services/[category]/[id])
  *
  * Revalidated every hour via ISR.
+ * All DB queries run concurrently with a strict 4-second timeout so `next build`
+ * never hits the 60s static worker timeout on Vercel.
  */
 import type { MetadataRoute } from "next";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -31,6 +33,22 @@ const REGIONS = [
 ] as const;
 
 export const revalidate = 3600; // ISR – regenerate every hour
+
+async function withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      }),
+    ]);
+  } catch {
+    return fallback;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -139,20 +157,103 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]);
 
-  /* ── 3. Individual deal pages from Supabase ───────────────────── */
   let dealPages: MetadataRoute.Sitemap = [];
+  let brokerPages: MetadataRoute.Sitemap = [];
+  let agoraThreadPages: MetadataRoute.Sitemap = [];
+  let serviceCardPages: MetadataRoute.Sitemap = [];
+  let pulsePages: MetadataRoute.Sitemap = [];
+  let oiticlePages: MetadataRoute.Sitemap = [];
+  let leasingPages: MetadataRoute.Sitemap = [];
+
   try {
     const supabase = createServiceClient();
-    const { data: buildings } = await supabase
-      .from("building_ssot_lite")
-      .select("id, area_signal, created_at")
-      .not("area_signal", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(5000);
+    const emptyRes = { data: null as any[] | null };
 
-    if (buildings) {
-      dealPages = buildings.map((b) => {
-        // Normalise area_signal to a URL-safe slug
+    const [
+      buildingsRes,
+      brokersRes,
+      threadsRes,
+      cardsRes,
+      pulsesRes,
+      oiticlesRes,
+      lPagesRes,
+    ] = await Promise.all([
+      withTimeout(
+        supabase
+          .from("building_ssot_lite")
+          .select("id, area_signal, created_at")
+          .not("area_signal", "is", null)
+          .neq("status", "archived")
+          .order("created_at", { ascending: false })
+          .limit(500),
+        4000,
+        emptyRes,
+      ),
+      withTimeout(
+        supabase
+          .from("profiles")
+          .select("id, created_at, broker_profiles!inner ( slug, is_public )")
+          .eq("role", "broker")
+          .eq("broker_profiles.is_public", true)
+          .limit(300),
+        4000,
+        emptyRes,
+      ),
+      withTimeout(
+        supabase
+          .from("agora_threads")
+          .select("id, category, created_at")
+          .eq("status", "published")
+          .order("created_at", { ascending: false })
+          .limit(500),
+        4000,
+        emptyRes,
+      ),
+      withTimeout(
+        supabase
+          .from("service_cards")
+          .select("id, service_category, created_at")
+          .eq("status", "published")
+          .eq("visibility", "public")
+          .order("created_at", { ascending: false })
+          .limit(300),
+        4000,
+        emptyRes,
+      ),
+      withTimeout(
+        supabase
+          .from("cre_pulses")
+          .select("region, period_label, created_at")
+          .eq("status", "published")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        4000,
+        emptyRes,
+      ),
+      withTimeout(
+        supabase
+          .from("cre_oiticles")
+          .select("slug, published_at")
+          .eq("status", "published")
+          .order("published_at", { ascending: false })
+          .limit(300),
+        4000,
+        emptyRes,
+      ),
+      withTimeout(
+        supabase
+          .from("leasing_pages")
+          .select("slug, updated_at")
+          .eq("status", "published")
+          .order("updated_at", { ascending: false })
+          .limit(300),
+        4000,
+        emptyRes,
+      ),
+    ]);
+
+    if (buildingsRes?.data) {
+      dealPages = buildingsRes.data.map((b: any) => {
         const regionSlug =
           b.area_signal?.replace(/\s+/g, "-").toLowerCase() ?? "unknown";
         return {
@@ -163,31 +264,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         };
       });
     }
-  } catch (err) {
-    // If Supabase is unreachable, gracefully degrade to static-only sitemap
-    console.error("[sitemap] Failed to fetch buildings:", err);
-  }
 
-  /* ── 4. Broker profile pages ────────────────────── */
-  let brokerPages: MetadataRoute.Sitemap = [];
-  try {
-    const supabase = createServiceClient();
-    const { data: brokers } = await supabase
-      .from("profiles")
-      .select(`
-        id,
-        created_at,
-        broker_profiles!inner (
-          slug,
-          is_public
-        )
-      `)
-      .eq("role", "broker")
-      .eq("broker_profiles.is_public", true)
-      .limit(1000);
-
-    if (brokers) {
-      brokerPages = brokers.flatMap((b: any) => {
+    if (brokersRes?.data) {
+      brokerPages = brokersRes.data.flatMap((b: any) => {
         const slug = b.broker_profiles?.slug || b.id;
         return [
           {
@@ -195,120 +274,49 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             lastModified: b.created_at ? new Date(b.created_at) : now,
             changeFrequency: "monthly" as const,
             priority: 0.5,
-          }
+          },
         ];
       });
     }
-  } catch (err) {
-    console.error("[sitemap] Failed to fetch brokers:", err);
-  }
 
-  /* ── 5. Agora thread pages ──────────────────────────────────────── */
-  let agoraThreadPages: MetadataRoute.Sitemap = [];
-  try {
-    const supabase = createServiceClient();
-    const { data: threads } = await supabase
-      .from("agora_threads")
-      .select("id, category, created_at")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(2000);
-
-    if (threads) {
-      agoraThreadPages = threads.map((t) => ({
+    if (threadsRes?.data) {
+      agoraThreadPages = threadsRes.data.map((t: any) => ({
         url: `${BASE_URL}/agora/${t.category}/${t.id}`,
         lastModified: t.created_at ? new Date(t.created_at) : now,
         changeFrequency: "weekly" as const,
         priority: 0.65,
       }));
     }
-  } catch (err) {
-    console.error("[sitemap] Failed to fetch agora threads:", err);
-  }
 
-  /* ── 6. Service card pages ────────────────────────────────────── */
-  let serviceCardPages: MetadataRoute.Sitemap = [];
-  try {
-    const supabase = createServiceClient();
-    const { data: cards } = await supabase
-      .from("service_cards")
-      .select("id, service_category, created_at")
-      .eq("status", "published")
-      .eq("visibility", "public")
-      .order("created_at", { ascending: false })
-      .limit(1000);
-
-    if (cards) {
-      serviceCardPages = cards.map((c) => ({
+    if (cardsRes?.data) {
+      serviceCardPages = cardsRes.data.map((c: any) => ({
         url: `${BASE_URL}/services/${c.service_category}/${c.id}`,
         lastModified: c.created_at ? new Date(c.created_at) : now,
         changeFrequency: "weekly" as const,
         priority: 0.6,
       }));
     }
-  } catch (err) {
-    console.error("[sitemap] Failed to fetch service cards:", err);
-  }
 
-  /* ── 7. Pulse pages ────────────────────────────────────────── */
-  let pulsePages: MetadataRoute.Sitemap = [];
-  try {
-    const supabase = createServiceClient();
-    const { data: pulses } = await supabase
-      .from("cre_pulses")
-      .select("region, period_label, created_at")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    if (pulses) {
-      pulsePages = pulses.map((p) => ({
+    if (pulsesRes?.data) {
+      pulsePages = pulsesRes.data.map((p: any) => ({
         url: `${BASE_URL}/pulse/${p.region}/${p.period_label}`,
         lastModified: p.created_at ? new Date(p.created_at) : now,
         changeFrequency: "weekly" as const,
         priority: 0.7,
       }));
     }
-  } catch (err) {
-    console.error("[sitemap] Failed to fetch pulses:", err);
-  }
 
-  /* ── 8. Oiticle pages ──────────────────────────────────────── */
-  let oiticlePages: MetadataRoute.Sitemap = [];
-  try {
-    const supabase = createServiceClient();
-    const { data: oiticles } = await supabase
-      .from("cre_oiticles")
-      .select("slug, published_at")
-      .eq("status", "published")
-      .order("published_at", { ascending: false })
-      .limit(1000);
-
-    if (oiticles) {
-      oiticlePages = oiticles.map((o) => ({
+    if (oiticlesRes?.data) {
+      oiticlePages = oiticlesRes.data.map((o: any) => ({
         url: `${BASE_URL}/insight/${o.slug}`,
         lastModified: o.published_at ? new Date(o.published_at) : now,
         changeFrequency: "weekly" as const,
         priority: 0.7,
       }));
     }
-  } catch (err) {
-    console.error("[sitemap] Failed to fetch oiticles:", err);
-  }
 
-  /* ── 9. Leasing pages (/leasing/[slug]) ────────────────────── */
-  let leasingPages: MetadataRoute.Sitemap = [];
-  try {
-    const supabase = createServiceClient();
-    const { data: lPages } = await supabase
-      .from("leasing_pages")
-      .select("slug, updated_at")
-      .eq("status", "published")
-      .order("updated_at", { ascending: false })
-      .limit(2000);
-
-    if (lPages) {
-      leasingPages = lPages.map((p) => ({
+    if (lPagesRes?.data) {
+      leasingPages = lPagesRes.data.map((p: any) => ({
         url: `${BASE_URL}/leasing/${p.slug}`,
         lastModified: p.updated_at ? new Date(p.updated_at) : now,
         changeFrequency: "weekly" as const,
@@ -316,7 +324,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }));
     }
   } catch (err) {
-    console.error("[sitemap] Failed to fetch leasing pages:", err);
+    console.error("[sitemap] Degraded to static sitemap:", err);
   }
 
   return [
