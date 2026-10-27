@@ -322,7 +322,7 @@ BEGIN
     v_building_id,
     v_owner_id,
     COALESCE(p_broker_id, v_owner_id),
-    'mobile_im_lite',
+    'im_lite',
     p_title,
     p_body,
     'draft',
