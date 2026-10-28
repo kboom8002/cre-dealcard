@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import type { PptxSlide } from '@/domain/building/pptx-studio/studio-service';
 import { useTheme } from '@/contexts/ThemeContext';
 import { formatSlidePageNumber } from '@/domain/building/mobile-im/pptx/header-footer';
+import { splitFloorAndUnit } from '@/domain/building/mobile-im/floor-unit-resolver';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 
 interface SlidePreviewProps {
   slide: PptxSlide;
@@ -125,6 +127,7 @@ export function SlidePreview({
   onToggleFullscreen,
 }: SlidePreviewProps) {
   const { tokens, coverStyle, layoutStyle, headerFooterConfig } = useTheme();
+  const [galleryPreviewPage, setGalleryPreviewPage] = useState<0 | 1>(0);
   const ov = (slide.slideOverrides || {}) as Record<string, any>;
   const ssot = buildingContext?.ssot_summary ?? {};
   const enrichment = buildingContext?.enrichment ?? {};
@@ -440,6 +443,7 @@ export function SlidePreview({
     const specRows = [
       { key: 'address', label: '소재지', val: ov.address },
       { key: 'landArea', label: '대지면적', val: ov.landArea },
+      { key: 'archArea', label: '건축면적', val: ov.archArea || '-' },
       { key: 'grossArea', label: '연면적', val: ov.grossArea },
       { key: 'floors', label: '건축규모', val: ov.floors },
       { key: 'zoning', label: '용도지역', val: ov.zoning },
@@ -449,7 +453,18 @@ export function SlidePreview({
       { key: 'mainUse', label: '주용도 / 주구조', val: [ov.mainUse, ov.structureType].filter(Boolean).join(' · ') },
     ];
 
-    const firstPhoto = buildingContext?.photos?.[0]?.url || buildingContext?.photos?.[0];
+    const rawCtxPhotos: any[] =
+      Array.isArray(buildingContext?.photos_v2) && buildingContext.photos_v2.length > 0
+        ? buildingContext.photos_v2
+        : Array.isArray(buildingContext?.photos)
+        ? buildingContext.photos
+        : [];
+    const activeCtxPhotos = rawCtxPhotos.filter((p: any) => p && p.included !== false && p.excluded !== true);
+    const pickedHeroOrExt =
+      activeCtxPhotos.find((p: any) => typeof p === 'object' && (p.isHero || p.role === 'cover')) ||
+      activeCtxPhotos.find((p: any) => typeof p === 'object' && (p.role === 'exterior' || p.category === 'exterior')) ||
+      activeCtxPhotos[0];
+    const firstPhoto = typeof pickedHeroOrExt === 'string' ? pickedHeroOrExt : pickedHeroOrExt?.url;
 
     return (
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
@@ -663,7 +678,11 @@ export function SlidePreview({
 
   // ── 05 LAND & ZONING SLIDE ──
   const renderLandSlide = () => {
-    const cadastralSrc = ov.cadastralMapImage || enrichment?.cadastralMapImage;
+    const rawCad = ov.cadastralMapImage || enrichment?.cadastralMapImage;
+    const cadastralSrc = typeof rawCad === 'object' && rawCad !== null ? (rawCad as any).base64 : rawCad;
+    const hasCadastralImg =
+      typeof cadastralSrc === 'string' &&
+      (cadastralSrc.startsWith('data:image') || cadastralSrc.startsWith('http') || cadastralSrc.startsWith('/'));
     const landRows = [
       { key: 'landArea', label: '대지면적', val: ov.landArea },
       { key: 'landCategory', label: '지목', val: ov.landCategory || '대' },
@@ -679,7 +698,7 @@ export function SlidePreview({
           className="col-span-5 rounded-xl border overflow-hidden relative flex flex-col justify-between p-3"
           style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
         >
-          {typeof cadastralSrc === 'string' && cadastralSrc.startsWith('data:image') ? (
+          {hasCadastralImg ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={cadastralSrc} alt="지적도" className="w-full h-full object-cover rounded-lg" />
           ) : (
@@ -769,7 +788,52 @@ export function SlidePreview({
       ? ov.tenantData
       : (Array.isArray(buildingContext?.floor_leases) ? buildingContext.floor_leases : []);
 
-    const displayLeases = rawLeases.slice(0, 6);
+    const parsedLeases = rawLeases.map((r: any, idx: number) => {
+      const split = splitFloorAndUnit(String(r?.floor ?? `${idx + 1}F`), r?.unit_label ?? r?.unit_number ?? r?.unit);
+      const isVac = Boolean(r?.is_vacant || String(r?.status || '').includes('공실') || String(r?.tenant_name || r?.tenant || '').includes('공실'));
+      const rawPy = Number(r?.area_pyeong);
+      const rawSqm = Number(r?.area_sqm ?? r?.area);
+      const areaPy = Number.isFinite(rawPy) && rawPy > 0
+        ? rawPy
+        : Number.isFinite(rawSqm) && rawSqm > 0
+        ? sqmToPyeong(rawSqm)
+        : null;
+      const tenant = isVac
+        ? '공실'
+        : String(r?.tenant_name || r?.tenant || r?.tenant_type || r?.use || '임차 운영 중').trim();
+      return {
+        ...r,
+        floorKey: split.floorKey,
+        floorLabel: split.floorLabel,
+        floorOrder: split.order,
+        unitLabel: split.unitLabel,
+        isVac,
+        areaPy,
+        tenant,
+      };
+    });
+
+    // Floor-grouped stacking plan (top floor first)
+    const floorGroupMap = new Map<string, { floorLabel: string; floorOrder: number; tenants: string[]; vacantCount: number; unitCount: number }>();
+    for (const row of parsedLeases) {
+      const g = floorGroupMap.get(row.floorKey) || {
+        floorLabel: row.floorLabel,
+        floorOrder: row.floorOrder,
+        tenants: [] as string[],
+        vacantCount: 0,
+        unitCount: 0,
+      };
+      g.unitCount += 1;
+      if (row.isVac) g.vacantCount += 1;
+      else if (row.tenant && !g.tenants.includes(String(row.tenant))) g.tenants.push(String(row.tenant));
+      floorGroupMap.set(row.floorKey, g);
+    }
+    const stackingFloors = Array.from(floorGroupMap.values())
+      .sort((a, b) => b.floorOrder - a.floorOrder)
+      .slice(0, 7);
+
+    const displayLeases = parsedLeases.slice(0, 6);
+    const hasUnitColumn = parsedLeases.some(r => Boolean(r.unitLabel));
 
     return (
       <div className="flex-1 flex flex-col justify-between gap-2.5 min-h-0">
@@ -793,36 +857,94 @@ export function SlidePreview({
           ))}
         </div>
 
-        {/* Center Rent Roll Table */}
-        <div className="rounded-xl border overflow-hidden flex-1" style={{ borderColor: `#${tokens.line}` }}>
+        {/* Center: Left Stacking Plan (4 cols) + Right Rent Roll Table (8 cols) */}
+        <div className="grid grid-cols-12 gap-3 flex-1 min-h-0">
+          {/* Left Floor-Grouped Stacking Plan */}
           <div
-            className="grid grid-cols-12 px-3 py-1.5 text-[11px] font-extrabold text-white"
-            style={{ backgroundColor: `#${tokens.ink}` }}
+            className="col-span-4 rounded-xl border overflow-hidden flex flex-col"
+            style={{ borderColor: `#${tokens.line}`, backgroundColor: `#${tokens.tint}` }}
           >
-            <span className="col-span-2">층별</span>
-            <span className="col-span-4">임차인 · 업종</span>
-            <span className="col-span-2 text-right">면적(평)</span>
-            <span className="col-span-2 text-right">보증금</span>
-            <span className="col-span-2 text-right">월임대료</span>
+            <div
+              className="px-2.5 py-1.5 text-[10px] font-extrabold text-white flex items-center justify-between"
+              style={{ backgroundColor: `#${tokens.ink}` }}
+            >
+              <span>층별 스태킹 플랜</span>
+              <span className="opacity-80">{floorGroupMap.size}개 층</span>
+            </div>
+            {stackingFloors.length > 0 ? (
+              <div className="p-2 space-y-1 flex-1 flex flex-col justify-center">
+                {stackingFloors.map(fl => {
+                  const allVacant = fl.vacantCount === fl.unitCount;
+                  const firstTenant = fl.tenants[0] || (allVacant ? '공실' : '임차 중');
+                  const shortFirst = firstTenant.length > 7 ? `${firstTenant.slice(0, 7)}…` : firstTenant;
+                  const summaryLabel =
+                    fl.unitCount > 1
+                      ? `${shortFirst}(외${fl.unitCount - 1})`
+                      : firstTenant;
+                  return (
+                    <div
+                      key={fl.floorLabel}
+                      className="px-2 py-1 rounded border flex items-center justify-between text-[10px]"
+                      style={{
+                        backgroundColor: allVacant ? `#${tokens.redL}` : '#FFFFFF',
+                        borderColor: allVacant ? `#${tokens.red}` : `#${tokens.line}`,
+                      }}
+                    >
+                      <span className="font-mono font-extrabold text-[#0F172A] w-8">{fl.floorLabel}</span>
+                      <span
+                        className="font-bold truncate flex-1 text-right"
+                        style={{ color: allVacant ? `#${tokens.red}` : '#0F172A' }}
+                      >
+                        {summaryLabel}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-3 text-center text-[11px] text-[#475569] my-auto">층별 스태킹 자동 생성</div>
+            )}
           </div>
-          {displayLeases.length > 0 ? (
-            <div className="divide-y" style={{ borderColor: `#${tokens.line2}` }}>
-              {displayLeases.map((r: any, idx: number) => {
-                const isVac = r.is_vacant || String(r.status || '').includes('공실');
-                return (
+
+          {/* Right Rent Roll Table */}
+          <div className="col-span-8 rounded-xl border overflow-hidden flex flex-col" style={{ borderColor: `#${tokens.line}` }}>
+            <div
+              className="grid grid-cols-12 px-3 py-1.5 text-[10px] font-extrabold text-white items-center"
+              style={{ backgroundColor: `#${tokens.ink}` }}
+            >
+              <span className={hasUnitColumn ? 'col-span-1' : 'col-span-2'}>층</span>
+              {hasUnitColumn && <span className="col-span-2">호수</span>}
+              <span className={hasUnitColumn ? 'col-span-3' : 'col-span-4'}>임차인 · 업종</span>
+              <span className="col-span-2 text-right">면적(평)</span>
+              <span className="col-span-2 text-right">보증금</span>
+              <span className="col-span-2 text-right">월임대료</span>
+            </div>
+            {displayLeases.length > 0 ? (
+              <div className="divide-y flex-1" style={{ borderColor: `#${tokens.line2}` }}>
+                {displayLeases.map((r: any, idx: number) => (
                   <div
                     key={idx}
-                    className="grid grid-cols-12 px-3 py-1 text-[11px] items-center"
+                    className="grid grid-cols-12 px-3 py-1 text-[10px] items-center"
                     style={{
-                      backgroundColor: isVac ? `#${tokens.redL}` : idx % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF',
+                      backgroundColor: r.isVac ? `#${tokens.redL}` : idx % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF',
                     }}
                   >
-                    <span className="col-span-2 font-extrabold text-[#0F172A]">{r.floor || `${idx + 1}F`}</span>
-                    <span className="col-span-4 font-bold truncate" style={{ color: isVac ? `#${tokens.red}` : '#0F172A' }}>
-                      {isVac ? '공실 (즉시 입주·임대 가능)' : (r.tenant_name || r.tenant_type || r.use || '임차 운영 중')}
+                    <span className={`${hasUnitColumn ? 'col-span-1' : 'col-span-2'} font-extrabold text-[#0F172A]`}>
+                      {r.floorLabel}
+                    </span>
+                    {hasUnitColumn && (
+                      <span className="col-span-2 font-mono font-bold text-[#334155] truncate">
+                        {r.unitLabel || '-'}
+                      </span>
+                    )}
+                    <span
+                      className={`${hasUnitColumn ? 'col-span-3' : 'col-span-4'} font-bold truncate`}
+                      style={{ color: r.isVac ? `#${tokens.red}` : '#0F172A' }}
+                    >
+                      {r.isVac ? '공실 (즉시 입주)' : r.tenant}
                     </span>
                     <span className="col-span-2 text-right font-mono text-[#334155]">
-                      {r.area_pyeong ? `${Number(r.area_pyeong).toFixed(1)}평` : '-'}
+                      {r.areaPy != null ? `${r.areaPy.toFixed(1)}평` : '-'}
                     </span>
                     <span className="col-span-2 text-right font-mono font-bold text-[#0F172A]">
                       {r.deposit_manwon != null ? `${Number(r.deposit_manwon).toLocaleString()}만` : '-'}
@@ -831,14 +953,22 @@ export function SlidePreview({
                       {r.rent_manwon != null ? `${Number(r.rent_manwon).toLocaleString()}만` : '-'}
                     </span>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="p-4 text-center text-xs font-medium text-[#475569]">
-              층별 상세 임대차 내역은 우측 편집 패널 또는 딜카드 렌트롤 탭에서 연동됩니다.
-            </div>
-          )}
+                ))}
+                {parsedLeases.length > 6 && (
+                  <div className="px-3 py-1 text-[10px] font-bold text-[#1E3A8A] bg-[#EFF6FF] flex items-center justify-between">
+                    <span>외 {parsedLeases.length - 6}개 호실</span>
+                    {parsedLeases.length > 12 && (
+                      <span>📄 총 {parsedLeases.length}개 호실 — PPTX 다운로드 시 2면 분할</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-xs font-medium text-[#475569] my-auto">
+                층별 상세 임대차 내역은 우측 편집 패널 또는 딜카드 렌트롤 탭에서 연동됩니다.
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Bottom Turnaround / Value-Add Strategy Banner */}
@@ -867,6 +997,28 @@ export function SlidePreview({
 
   // ── 07 YIELD FORMULA & 10-YR LAND PRICE SLIDE ──
   const renderYieldSlide = () => {
+    const rawHistory: Array<{ year: number; pricePerSqm: number }> = Array.isArray(
+      enrichment?.landPriceHistory?.history
+    )
+      ? enrichment.landPriceHistory.history.slice(-10)
+      : [];
+    const maxHistPrice =
+      rawHistory.length >= 2
+        ? Math.max(...rawHistory.map(h => Number(h.pricePerSqm) || 0), 1)
+        : 100;
+    const chartBars =
+      rawHistory.length >= 2
+        ? rawHistory.map(h => ({
+            yearLabel: `'${String(h.year).slice(-2)}`,
+            pct: Math.max(18, Math.round(((Number(h.pricePerSqm) || 0) / maxHistPrice) * 100)),
+            tooltip: `${h.year}년: ${Number(h.pricePerSqm || 0).toLocaleString()}원/㎡`,
+          }))
+        : [42, 48, 53, 60, 68, 76, 84, 89, 94, 100].map((pct, i) => ({
+            yearLabel: `'${17 + i}`,
+            pct,
+            tooltip: `개별공시지가 추이`,
+          }));
+
     return (
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
         {/* Left 7 cols: Yield Formula Cards */}
@@ -939,21 +1091,24 @@ export function SlidePreview({
             <div className="text-[10px] font-bold text-[#475569]">국토교통부 · 한국부동산원(R-ONE) 지가변동률</div>
           </div>
           <div className="h-32 flex items-end justify-between gap-1.5 px-2 pt-4">
-            {[42, 48, 53, 60, 68, 76, 84, 89, 94, 100].map((pct, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-t transition-all"
-                  style={{
-                    height: `${pct}%`,
-                    backgroundColor: i === 9 ? `#${tokens.accent}` : `#${tokens.ink}`,
-                    opacity: i === 9 ? 1 : 0.35 + i * 0.06,
-                  }}
-                />
-                <span className="text-[8px] font-mono font-bold text-[#475569]">
-                  {`'${17 + i}`}
-                </span>
-              </div>
-            ))}
+            {chartBars.map((bar, i) => {
+              const isLast = i === chartBars.length - 1;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end" title={bar.tooltip}>
+                  <div
+                    className="w-full rounded-t transition-all"
+                    style={{
+                      height: `${bar.pct}%`,
+                      backgroundColor: isLast ? `#${tokens.accent}` : `#${tokens.ink}`,
+                      opacity: isLast ? 1 : 0.35 + i * 0.06,
+                    }}
+                  />
+                  <span className="text-[8px] font-mono font-bold text-[#475569]">
+                    {bar.yearLabel}
+                  </span>
+                </div>
+              );
+            })}
           </div>
           <div className="text-[11px] font-medium text-[#1E293B] bg-white p-2 rounded-lg border border-[#CBD5E1]">
             <InlineEditableText fieldKey="yieldNotes" value={String(ov.yieldNotes || '')} onCommit={handleFieldCommit} />
@@ -965,9 +1120,16 @@ export function SlidePreview({
 
   // ── 08 MARKET COMPARABLES SLIDE ──
   const renderCompsSlide = () => {
-    const rawComps: any[] = Array.isArray(ov.compsRows) && ov.compsRows.length > 0
-      ? ov.compsRows
-      : (Array.isArray(buildingContext?.manual_comps) ? buildingContext.manual_comps : []);
+    const rawComps: any[] =
+      Array.isArray(ov.comparables) && ov.comparables.length > 0
+        ? ov.comparables
+        : Array.isArray(ov.compsRows) && ov.compsRows.length > 0
+        ? ov.compsRows
+        : Array.isArray(buildingContext?.manual_comps) && buildingContext.manual_comps.length > 0
+        ? buildingContext.manual_comps
+        : Array.isArray(buildingContext?.broker_extras?.market_comps)
+        ? buildingContext.broker_extras.market_comps
+        : [];
 
     return (
       <div className="flex-1 flex flex-col justify-between gap-3 min-h-0">
@@ -994,29 +1156,33 @@ export function SlidePreview({
           </div>
           {rawComps.length > 0 ? (
             <div className="divide-y" style={{ borderColor: `#${tokens.line2}` }}>
-              {rawComps.slice(0, 5).map((c: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="grid grid-cols-12 px-3 py-1.5 text-xs items-center"
-                  style={{ backgroundColor: idx % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
-                >
-                  <span className="col-span-4 font-bold text-[#0F172A] truncate">
-                    {c.name || c.address || `인근 비교사례 #${idx + 1}`}
-                  </span>
-                  <span className="col-span-2 text-center font-mono text-[#475569]">
-                    {c.trade_date || c.date || '-'}
-                  </span>
-                  <span className="col-span-2 text-right font-mono font-bold text-[#0F172A]">
-                    {c.price_eok ? `${c.price_eok}억` : (c.price || '-')}
-                  </span>
-                  <span className="col-span-2 text-right font-mono text-[#334155]">
-                    {c.land_pyeong ? `${c.land_pyeong}평` : '-'}
-                  </span>
-                  <span className="col-span-2 text-right font-mono font-extrabold" style={{ color: `#${tokens.ink}` }}>
-                    {c.land_unit_manwon ? `${Number(c.land_unit_manwon).toLocaleString()}만/평` : '-'}
-                  </span>
-                </div>
-              ))}
+              {rawComps.slice(0, 5).map((c: any, idx: number) => {
+                const landPy = c.land_area_pyeong ?? c.land_pyeong;
+                const unitPrice = c.land_price_per_pyeong_manwon ?? c.land_unit_manwon;
+                return (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-12 px-3 py-1.5 text-xs items-center"
+                    style={{ backgroundColor: idx % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
+                  >
+                    <span className="col-span-4 font-bold text-[#0F172A] truncate">
+                      {c.location || c.name || c.address || `인근 비교사례 #${idx + 1}`}
+                    </span>
+                    <span className="col-span-2 text-center font-mono text-[#475569]">
+                      {c.as_of || c.trade_date || c.date || '-'}
+                    </span>
+                    <span className="col-span-2 text-right font-mono font-bold text-[#0F172A]">
+                      {c.price_eok ? `${c.price_eok}억` : (c.price || '-')}
+                    </span>
+                    <span className="col-span-2 text-right font-mono text-[#334155]">
+                      {landPy ? `${landPy}평` : '-'}
+                    </span>
+                    <span className="col-span-2 text-right font-mono font-extrabold" style={{ color: `#${tokens.ink}` }}>
+                      {unitPrice ? `${Number(String(unitPrice).replace(/,/g, '')).toLocaleString()}만/평` : '-'}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="p-6 text-center text-xs font-medium text-[#475569]">
@@ -1040,53 +1206,118 @@ export function SlidePreview({
   const renderGallerySlide = () => {
     const rawPhotos: any[] = Array.isArray(ov.photos) && ov.photos.length > 0
       ? ov.photos
-      : (Array.isArray(buildingContext?.photos) ? buildingContext.photos : []);
+      : Array.isArray(buildingContext?.photos_v2) && buildingContext.photos_v2.length > 0
+      ? buildingContext.photos_v2
+      : Array.isArray(buildingContext?.photos)
+      ? buildingContext.photos
+      : [];
 
     const activePhotos = rawPhotos
       .map((p: any, i: number) =>
         typeof p === 'string'
           ? { url: p, caption: `현장 실사 #${i + 1}`, included: true }
-          : { url: p?.url || '', caption: p?.caption || `현장 실사 #${i + 1}`, included: p?.included !== false && p?.excluded !== true }
+          : {
+              ...p,
+              url: p?.url || '',
+              caption: p?.caption || `현장 실사 #${i + 1}`,
+              included: p?.included !== false && p?.excluded !== true,
+            }
       )
       .filter(p => p.included && p.url)
-      .slice(0, 4);
+      .sort((a: any, b: any) => {
+        const rank = (p: any) => (p.isHero || p.role === 'cover') ? 0 : p.role === 'exterior' ? 1 : 2;
+        return rank(a) - rank(b);
+      })
+      .slice(0, 12);
+
+    const isTwoPage = activePhotos.length > 6;
+    const firstPageCount = isTwoPage ? Math.ceil(activePhotos.length / 2) : activePhotos.length;
+    const page1Photos = activePhotos.slice(0, firstPageCount);
+    const page2Photos = activePhotos.slice(firstPageCount);
+    const currentBatch = isTwoPage && galleryPreviewPage === 1 ? page2Photos : page1Photos;
 
     const placeholders = [
       '전면 외관 및 가시성',
       '주출입구 및 1층 근생',
       '기준층 내부 공간',
       '접면도로 및 주변 여건',
+      '주차시설 및 설비',
+      '옥상 및 주변 스카이라인',
     ];
 
+    const slotCount = Math.max(4, Math.min(6, currentBatch.length || 4));
+    const gridColsClass = slotCount >= 5 ? 'grid-cols-3 grid-rows-2' : 'grid-cols-2 grid-rows-2';
+
     return (
-      <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-3 min-h-0">
-        {[0, 1, 2, 3].map(idx => {
-          const item = activePhotos[idx];
-          return (
-            <div
-              key={idx}
-              className="rounded-xl border overflow-hidden relative flex flex-col justify-end bg-[#F8FAFC]"
-              style={{ borderColor: `#${tokens.line}` }}
-            >
-              {item?.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.url} alt={item.caption} className="absolute inset-0 w-full h-full object-cover" />
-              ) : (
-                <div className="my-auto mx-auto text-center p-2">
-                  <div className="text-lg">📷</div>
-                  <div className="text-[11px] font-bold text-[#475569]">{placeholders[idx]}</div>
-                </div>
-              )}
-              <div
-                className="relative z-10 px-2.5 py-1 text-[11px] font-bold text-white flex items-center justify-between"
-                style={{ backgroundColor: `#${tokens.ink}DD` }}
+      <div className="flex-1 flex flex-col gap-2 min-h-0">
+        {isTwoPage && (
+          <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[11px]">
+            <span className="font-bold text-[#1E3A8A]">
+              📸 총 {activePhotos.length}장 — 갤러리 2면(1/2, 2/2) 자동 확장 미리보기
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setGalleryPreviewPage(0)}
+                className={`px-2 py-0.5 rounded font-extrabold ${
+                  galleryPreviewPage === 0 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
+                }`}
               >
-                <span className="truncate">{item?.caption || placeholders[idx]}</span>
-                <span className="text-[9px] opacity-75">0{idx + 1}</span>
-              </div>
+                1/2면 ({page1Photos.length}장)
+              </button>
+              <button
+                type="button"
+                onClick={() => setGalleryPreviewPage(1)}
+                className={`px-2 py-0.5 rounded font-extrabold ${
+                  galleryPreviewPage === 1 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
+                }`}
+              >
+                2/2면 ({page2Photos.length}장)
+              </button>
             </div>
-          );
-        })}
+          </div>
+        )}
+        <div className={`flex-1 grid ${gridColsClass} gap-3 min-h-0`}>
+          {Array.from({ length: slotCount }).map((_, idx) => {
+            const item = currentBatch[idx];
+            const isHero = Boolean(item?.isHero || item?.role === 'cover');
+            const isExt = !isHero && item?.role === 'exterior';
+            const globalIdx = isTwoPage && galleryPreviewPage === 1 ? firstPageCount + idx : idx;
+            return (
+              <div
+                key={idx}
+                className="rounded-xl border overflow-hidden relative flex flex-col justify-end bg-[#F8FAFC]"
+                style={{ borderColor: `#${tokens.line}` }}
+              >
+                {item?.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.url} alt={item.caption} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <div className="my-auto mx-auto text-center p-2">
+                    <div className="text-lg">📷</div>
+                    <div className="text-[11px] font-bold text-[#475569]">{placeholders[idx]}</div>
+                  </div>
+                )}
+                {(isHero || isExt) && (
+                  <span
+                    className={`absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white ${
+                      isHero ? 'bg-[#D97706]' : 'bg-[#1D4ED8]'
+                    }`}
+                  >
+                    {isHero ? '★ 대표사진' : '외관'}
+                  </span>
+                )}
+                <div
+                  className="relative z-10 px-2.5 py-1 text-[11px] font-bold text-white flex items-center justify-between"
+                  style={{ backgroundColor: `#${tokens.ink}DD` }}
+                >
+                  <span className="truncate">{item?.caption || placeholders[idx]}</span>
+                  <span className="text-[9px] opacity-75">{String(globalIdx + 1).padStart(2, '0')}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };

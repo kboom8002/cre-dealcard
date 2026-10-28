@@ -26,6 +26,7 @@ function BasicImStudioInner({
     brandAccent,
     coverStyle,
     layoutStyle,
+    headerFooterConfig,
     hydrateFromProject,
   } = useTheme();
 
@@ -323,6 +324,7 @@ function BasicImStudioInner({
         layoutStyle,
       });
       if (brandAccent) qs.set('brandAccent', brandAccent);
+      if (headerFooterConfig) qs.set('headerFooter', JSON.stringify(headerFooterConfig));
 
       const res = await fetch(`/api/broker/basic-im-studio/${project.id}/download?${qs.toString()}`);
       if (!res.ok) {
@@ -342,7 +344,7 @@ function BasicImStudioInner({
     } finally {
       setDownloading(false);
     }
-  }, [project, dirtySlideIds.size, flushAllDirtySlides, presetId, coverStyle, layoutStyle, brandAccent]);
+  }, [project, dirtySlideIds.size, flushAllDirtySlides, presetId, coverStyle, layoutStyle, brandAccent, headerFooterConfig]);
 
   if (loading) {
     return (

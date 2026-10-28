@@ -8,6 +8,7 @@
 import { PPTX_PRESET_TEMPLATES, PRIME_TEMPLATE_ALIASES, type PptxThemeTokens } from './pptx-theme';
 import { applyBasicBrand } from './brand-skin';
 import type { SlideSpec } from './deck-sequencer';
+import { buildBrokerCompsData } from './broker-extras-slides';
 
 const PALETTE_KEYS: ReadonlyArray<keyof PptxThemeTokens> = [
   'ink', 'ink2', 'ink3', 'body', 'line', 'line2', 'bg', 'tint',
@@ -86,9 +87,34 @@ export function applyStudioThemeOverrides(
     if (hf.companyName) out.companyName = hf.companyName;
     if (hf.companyTagline) out.companyTagline = hf.companyTagline;
     if (hf.logoUrl) out.logoUrl = hf.logoUrl;
+    (out as any).headerFooter = { ...hf };
   }
 
   return out;
+}
+
+function parseKoreanCurrencyToKrw(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim();
+  if (!s) return null;
+  const parenManMatch = s.match(/\((?:[^)]*?)\b([\d,]+(?:\.\d+)?)\s*만/);
+  if (parenManMatch) {
+    const n = parseFloat(parenManMatch[1].replace(/,/g, ''));
+    if (Number.isFinite(n) && n > 0) return Math.round(n * 10_000);
+  }
+  const eokMatch = s.match(/([\d,]+(?:\.\d+)?)\s*억/);
+  if (eokMatch) {
+    const n = parseFloat(eokMatch[1].replace(/,/g, ''));
+    if (Number.isFinite(n) && n > 0) return Math.round(n * 100_000_000);
+  }
+  const manMatch = s.match(/([\d,]+(?:\.\d+)?)\s*만/);
+  if (manMatch) {
+    const n = parseFloat(manMatch[1].replace(/,/g, ''));
+    if (Number.isFinite(n) && n > 0) return Math.round(n * 10_000);
+  }
+  const plain = parseFloat(s.replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(plain) && plain > 0 ? plain : null;
 }
 
 export function applyStudioSlideOverrides(
@@ -173,6 +199,41 @@ export function applyStudioSlideOverrides(
       if (hlOv.askingPrice) {
         dataMap['summary'].askingPrice = String(hlOv.askingPrice);
       }
+
+      // Sync edited KPI metrics & heroCard stats on 02 Summary
+      const updateSummaryMetric = (labelKeywords: string[], val?: unknown) => {
+        if (!val || !String(val).trim() || String(val).trim() === '-') return;
+        const cleanVal = sanitizeAreaStr(sanitizeStation(String(val).trim()));
+        if (Array.isArray(dataMap['summary'].metrics)) {
+          const mIdx = dataMap['summary'].metrics.findIndex((m: any) =>
+            labelKeywords.some(kw => String(m?.label || '').includes(kw))
+          );
+          if (mIdx >= 0) {
+            dataMap['summary'].metrics[mIdx] = {
+              ...dataMap['summary'].metrics[mIdx],
+              value: cleanVal,
+            };
+          }
+        }
+        if (Array.isArray(dataMap['summary'].heroCard?.stats)) {
+          const sIdx = dataMap['summary'].heroCard.stats.findIndex((s: any) =>
+            labelKeywords.some(kw => String(s?.label || '').includes(kw))
+          );
+          if (sIdx >= 0) {
+            dataMap['summary'].heroCard.stats[sIdx] = {
+              ...dataMap['summary'].heroCard.stats[sIdx],
+              value: cleanVal,
+            };
+          }
+        }
+      };
+
+      updateSummaryMetric(['매매 희망가', '매매가', '희망가'], hlOv.askingPrice);
+      updateSummaryMetric(['현재 수익률', '현행 수익률', 'As-Is', '현행 Cap'], hlOv.grossYield);
+      updateSummaryMetric(['기대 수익률', '안정화 수익률', 'Stabilized', '안정화 Cap'], hlOv.stabilizedYield);
+      updateSummaryMetric(['대지면적'], hlOv.landArea);
+      updateSummaryMetric(['연면적'], hlOv.grossArea);
+      updateSummaryMetric(['임대 현황', '공실', '임대율'], hlOv.vacancySignal);
     }
 
     // 03 Overview / Building
@@ -228,10 +289,19 @@ export function applyStudioSlideOverrides(
         }
         if (idx >= 0) rows[idx] = [isFloorLabel ? '층수' : rows[idx][0], cleanVal];
         else rows.push([isFloorLabel ? '층수' : label, cleanVal]);
-        return;
-        if (idx >= 0) rows[idx] = [rows[idx][0], String(val).trim()];
-        else rows.push([label, String(val).trim()]);
       };
+
+      if (ovOv.buildingName && String(ovOv.buildingName).trim()) {
+        const bName = sanitizeStation(String(ovOv.buildingName).trim());
+        (dataMap['building'] as any).buildingName = bName;
+        const nameIdx = rows.findIndex(([k]) => {
+          const nk = k.replace(/\s+/g, '');
+          return nk === '건물명' || nk === '물건명' || nk === '명칭';
+        });
+        if (nameIdx >= 0) {
+          rows[nameIdx] = [rows[nameIdx][0], bName];
+        }
+      }
 
       upsertRow('소재지', ovOv.address);
       upsertRow('대지면적', ovOv.landArea);
@@ -313,30 +383,100 @@ export function applyStudioSlideOverrides(
     if (landOv && dataMap['land']) {
       if (Array.isArray(dataMap['land'].overviewRows)) {
         const ovRows: [string, string][] = dataMap['land'].overviewRows;
-        const updateLandRow = (label: string, val?: string) => {
+        const updateLandRow = (labelKeywords: string[], val?: string, fallbackLabel?: string) => {
           if (!val || !String(val).trim()) return;
-          const idx = ovRows.findIndex(([k]) => k.includes(label));
+          const idx = ovRows.findIndex(([k]) => labelKeywords.some(kw => k.includes(kw)));
+          let cleanLand = sanitizeAreaStr(String(val).trim());
           if (idx >= 0) {
-            let cleanLand = sanitizeAreaStr(String(val).trim());
             const exLand = String(ovRows[idx][1] || '').trim();
-            if (label === '공시지가' && exLand.includes('원/㎡') && cleanLand.includes('만원/㎡')) cleanLand = exLand;
-            if (label === '대지면적' && exLand.includes('㎡')) {
+            if (labelKeywords.includes('공시지가') && exLand.includes('원/㎡') && cleanLand.includes('만원/㎡')) cleanLand = exLand;
+            if (labelKeywords.includes('용도지역') && exLand.includes('·') && !cleanLand.includes('·') && exLand.startsWith(cleanLand)) cleanLand = exLand;
+            if (labelKeywords.includes('면적') && exLand.includes('㎡')) {
               const exSqm = parseFloat(exLand.replace(/,/g, ''));
               const clSqm = parseFloat(cleanLand.replace(/,/g, ''));
               if (exSqm > 0 && clSqm > 0 && Math.abs(exSqm - clSqm) / exSqm < 0.02) cleanLand = exLand;
             }
             ovRows[idx] = [ovRows[idx][0], cleanLand];
+          } else if (fallbackLabel) {
+            ovRows.push([fallbackLabel, cleanLand]);
           }
         };
-        updateLandRow('대지면적', landOv.landArea);
-        updateLandRow('지목', landOv.landCategory);
-        updateLandRow('용도지역', landOv.zoningInfo);
-        updateLandRow('공시지가', landOv.officialLandPrice);
+        updateLandRow(['대지면적', '면적'], landOv.landArea, '면적');
+        updateLandRow(['지목'], landOv.landCategory, '지목');
+        updateLandRow(['용도지역', '지역지구'], landOv.zoningInfo, '지역지구');
+        updateLandRow(['공시지가'], landOv.officialLandPrice, '공시지가');
+        updateLandRow(['건폐율', '용적률'], landOv.bcrFar);
+      }
+      if (landOv.nationalLaw || landOv.otherLaws) {
+        const existingConfirm = dataMap['land'].landUseConfirm || {
+          nationalLaw: '',
+          otherLaws: '',
+          nationalItems: [],
+          otherItems: [],
+        };
+        const splitLaws = (raw: unknown): string[] =>
+          String(raw || '')
+            .split(/[,·\n]+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+        const natStr = String(landOv.nationalLaw || '').trim();
+        const existingNatStr = String(
+          Array.isArray(existingConfirm.nationalLaw)
+            ? existingConfirm.nationalLaw.join(', ')
+            : existingConfirm.nationalLaw || ''
+        ).trim();
+        const natList = natStr ? splitLaws(natStr) : [];
+        const isDefaultNat =
+          !natStr ||
+          natStr === '국토의 계획 및 이용에 관한 법률 지역·지구' ||
+          (natList.length === 1 && existingNatStr.length > natStr.length && existingNatStr.includes(natStr));
+
+        const othStr = String(landOv.otherLaws || '').trim();
+        const othList = othStr ? splitLaws(othStr) : [];
+        const isDefaultOth =
+          !othStr ||
+          othStr === '건축법 · 주차장법 · 하수도법 등 관계 법령 적용';
+
+        if (!isDefaultNat || !isDefaultOth) {
+          dataMap['land'].landUseConfirm = {
+            ...existingConfirm,
+            ...(!isDefaultNat
+              ? {
+                  nationalLaw: natList.join(', '),
+                  nationalItems: natList.map(name => ({
+                    code: 'UQA',
+                    name,
+                    conflict: '포함' as const,
+                    formatted: name,
+                  })),
+                }
+              : {}),
+            ...(!isDefaultOth
+              ? {
+                  otherLaws: othList.join(', '),
+                  otherItems: othList.map(name => ({
+                    code: 'ETC',
+                    name,
+                    conflict: '포함' as const,
+                    formatted: name,
+                  })),
+                }
+              : {}),
+          };
+        }
+      }
+      if (landOv.cadastralMapImage) {
+        const cadImg = String(landOv.cadastralMapImage);
+        dataMap['land'].cadastralMapImage = cadImg;
+        dataMap['land'].cadastralImage = cadImg;
+        dataMap['land'].mapImageUrl = cadImg;
+        dataMap['land'].photoUrl = cadImg;
       }
       if (landOv.landCallout || landOv.landUsePlan) {
         const note = String(landOv.landCallout || landOv.landUsePlan).trim();
         if (note && note !== '토지이용계획확인원 및 건축물대장 기준 공법상 특이 제한사항 확인') {
           dataMap['land'].brokerConfirmNote = note;
+          dataMap['land'].brokerRegulationText = note;
           if (dataMap['land'].right) {
             dataMap['land'].right.callout = {
               kind: 'info',
@@ -348,25 +488,37 @@ export function applyStudioSlideOverrides(
       }
     }
 
-    // 06 Rent Roll
+    // 06 Rent Roll (applies to primary rentRoll and any multi-slide rentRoll_1, rentRoll_2...)
     const rrOv = slideOverrides['rentroll'] || slideOverrides['rentRoll'];
-    if (rrOv && dataMap['rentRoll']) {
-      if (rrOv.turnaroundStrategy) {
-        const lines = String(rrOv.turnaroundStrategy)
-          .split('\n')
-          .map(l => l.replace(/^[•·\-*]\s*/, '').trim())
-          .filter(Boolean);
-        if (lines.length > 0) {
-          (dataMap['rentRoll'] as any).brokerPostAcquisitionPlan = lines;
+    if (rrOv) {
+      const rrTargets = Object.keys(dataMap)
+        .filter(k => k === 'rentRoll' || k.startsWith('rentRoll_'))
+        .map(k => dataMap[k])
+        .filter(Boolean);
+
+      for (const rrTarget of rrTargets) {
+        if (rrOv.depositTotal) (rrTarget as any).depositTotal = String(rrOv.depositTotal);
+        if (rrOv.monthlyRentTotal) (rrTarget as any).monthlyRentTotal = String(rrOv.monthlyRentTotal);
+        if (rrOv.occupancyRate) (rrTarget as any).occupancyRate = String(rrOv.occupancyRate);
+        if (rrOv.vacancySignal) (rrTarget as any).vacancySignal = String(rrOv.vacancySignal);
+
+        if (rrOv.turnaroundStrategy) {
+          const lines = String(rrOv.turnaroundStrategy)
+            .split('\n')
+            .map(l => l.replace(/^[•·\-*]\s*/, '').trim())
+            .filter(Boolean);
+          if (lines.length > 0) {
+            (rrTarget as any).brokerPostAcquisitionPlan = lines;
+          }
         }
-      }
-      if (rrOv.stabilizedYieldTitle) {
-        (dataMap['rentRoll'] as any).brokerPostAcquisitionTitle = String(rrOv.stabilizedYieldTitle);
-      }
-      if (rrOv.rentrollNotes) {
-        const rrNote = String(rrOv.rentrollNotes).trim();
-        if (rrNote && rrNote !== '보증금·임대료는 현행 임대차계약 기준이며 관리비·부가세는 별도입니다.') {
-          (dataMap['rentRoll'] as any).rentrollFactsNote = rrNote;
+        if (rrOv.stabilizedYieldTitle) {
+          (rrTarget as any).brokerPostAcquisitionTitle = String(rrOv.stabilizedYieldTitle);
+        }
+        if (rrOv.rentrollNotes) {
+          const rrNote = String(rrOv.rentrollNotes).trim();
+          if (rrNote && rrNote !== '보증금·임대료는 현행 임대차계약 기준이며 관리비·부가세는 별도입니다.') {
+            (rrTarget as any).rentrollFactsNote = rrNote;
+          }
         }
       }
     }
@@ -374,58 +526,279 @@ export function applyStudioSlideOverrides(
     // 07 Yield
     const yieldOv = slideOverrides['yield'] || slideOverrides['yieldFormula'];
     if (yieldOv && dataMap['yieldFormula']) {
+      const yf = dataMap['yieldFormula'];
       if (yieldOv.capRateBase) {
         const num = parseFloat(String(yieldOv.capRateBase).replace(/[^0-9.-]/g, ''));
         if (Number.isFinite(num) && num > 0) {
-          dataMap['yieldFormula'].capRateAsIs = num;
+          yf.capRateAsIs = num;
+          if (yf.yieldSet) {
+            yf.yieldSet.grossYieldNetOfDeposit = num;
+            if (yf.yieldSet.current) {
+              yf.yieldSet.current = {
+                ...yf.yieldSet.current,
+                value: num,
+                valuePct: num,
+                formatted: `${num.toFixed(2)}%`,
+              };
+            }
+          }
         }
       }
       if (yieldOv.capRateStabilized) {
         const num = parseFloat(String(yieldOv.capRateStabilized).replace(/[^0-9.-]/g, ''));
         if (Number.isFinite(num) && num > 0) {
-          dataMap['yieldFormula'].capRateStabilized = num;
+          yf.capRateStabilized = num;
+          if (yf.yieldSet) {
+            const prevStab = yf.yieldSet.stabilized || {};
+            const isReserveOnly = !prevStab.kind || prevStab.kind === 'reserve_excluded';
+            yf.yieldSet.stabilized = {
+              ...prevStab,
+              value: num,
+              valuePct: num,
+              formatted: `${num.toFixed(2)}%`,
+              kind: isReserveOnly ? 'target_rent' : prevStab.kind,
+              label: isReserveOnly ? '안정화 기대수익률 (중개인 가정)' : (prevStab.label || '안정화 기대수익률'),
+            };
+          }
         }
       }
-      if (yieldOv.stabilizedAssumption && String(yieldOv.stabilizedAssumption).trim() !== '공실 해소 및 주변 시세 수준 재계약 가정 시 기대 수익률') {
-        dataMap['yieldFormula'].stabilizedAssumption = String(yieldOv.stabilizedAssumption);
+      const askKrw = parseKoreanCurrencyToKrw(yieldOv.askingPrice);
+      if (askKrw != null && (!yf.askingPrice || Math.abs(askKrw - yf.askingPrice) / yf.askingPrice > 0.01)) {
+        yf.askingPrice = askKrw;
+        yf.askingPriceKrw = askKrw;
+      }
+      const depKrw = parseKoreanCurrencyToKrw(yieldOv.totalDeposit);
+      if (depKrw != null && (!yf.totalDeposit || Math.abs(depKrw - yf.totalDeposit) / yf.totalDeposit > 0.01)) {
+        yf.totalDeposit = depKrw;
+        yf.depositTotalKrw = depKrw;
+      }
+      const annRentKrw = parseKoreanCurrencyToKrw(yieldOv.annualRent);
+      if (annRentKrw != null && (!yf.annualRent || Math.abs(annRentKrw - yf.annualRent) / yf.annualRent > 0.01)) {
+        yf.annualRent = annRentKrw;
+        yf.annualRentKrw = annRentKrw;
+        yf.monthlyRentTotalKrw = Math.round(annRentKrw / 12);
+      }
+      if (yieldOv.pricePerPyeong && Array.isArray(yf.unitPriceMetrics)) {
+        const pyIdx = yf.unitPriceMetrics.findIndex((m: any) =>
+          String(m?.label || '').includes('평당')
+        );
+        if (pyIdx >= 0) {
+          yf.unitPriceMetrics[pyIdx] = {
+            ...yf.unitPriceMetrics[pyIdx],
+            value: String(yieldOv.pricePerPyeong).trim(),
+          };
+        }
+      }
+      const DEFAULT_STAB_NOTES = new Set([
+        '공실 해소 및 주변 시세 수준 재계약 가정 시 기대 수익률',
+      ]);
+      const DEFAULT_YIELD_NOTES = new Set([
+        '관리비 수입 및 공실 해소 시 추가 수익 상승 여력 보유',
+        '실투자금 = 매매 희망가 − 총 보증금 기준 (취득세·중개보수 및 대출 레버리지 별도)',
+      ]);
+      const stabNote = yieldOv.stabilizedAssumption ? String(yieldOv.stabilizedAssumption).trim() : '';
+      const extraYieldNote = yieldOv.yieldNotes ? String(yieldOv.yieldNotes).trim() : '';
+      const combinedCaption = [
+        stabNote && !DEFAULT_STAB_NOTES.has(stabNote) && stabNote !== yf.yieldSet?.stabilized?.caption ? stabNote : '',
+        extraYieldNote && !DEFAULT_YIELD_NOTES.has(extraYieldNote) ? extraYieldNote : '',
+      ].filter(Boolean).join(' · ');
+      if (combinedCaption) {
+        yf.stabilizedAssumption = combinedCaption;
+        if (yf.yieldSet?.stabilized) {
+          const prevStab = yf.yieldSet.stabilized;
+          const isReserveOnly = !prevStab.kind || prevStab.kind === 'reserve_excluded';
+          yf.yieldSet.stabilized = {
+            ...prevStab,
+            kind: isReserveOnly ? 'target_rent' : prevStab.kind,
+            label: isReserveOnly ? '안정화 기대수익률 (중개인 가정)' : (prevStab.label || '안정화 기대수익률'),
+            caption: combinedCaption,
+          };
+        }
+      }
+    }
+
+    // 08 Market Comparables (brokerComps / marketComps)
+    const compsOv = slideOverrides['comps'] || slideOverrides['brokerComps'] || slideOverrides['marketComps'];
+    if (compsOv) {
+      const rawCompsList = Array.isArray(compsOv.comparables)
+        ? compsOv.comparables
+        : Array.isArray(compsOv.compsRows)
+        ? compsOv.compsRows
+        : [];
+      if (rawCompsList.length > 0) {
+        const normalizedComps = rawCompsList
+          .map((c: any) => {
+            if (!c || typeof c !== 'object') return null;
+            const location = String(c.location || c.name || c.address || '').trim();
+            if (!location) return null;
+            const as_of = String(c.as_of || c.trade_date || c.date || '').trim();
+            const parseNum = (v: unknown): number => {
+              if (typeof v === 'number' && Number.isFinite(v)) return v;
+              const n = parseFloat(String(v || '').replace(/[^0-9.-]/g, ''));
+              return Number.isFinite(n) ? n : 0;
+            };
+            const price_eok = parseNum(c.price_eok ?? c.price);
+            const land_area_pyeong = parseNum(c.land_area_pyeong ?? c.land_pyeong);
+            const gfa_pyeong = parseNum(c.gfa_pyeong ?? c.gross_area_pyeong ?? c.gross_pyeong);
+            const land_price_per_pyeong_manwon =
+              parseNum(c.land_price_per_pyeong_manwon ?? c.land_unit_manwon) ||
+              (price_eok > 0 && land_area_pyeong > 0 ? Math.round((price_eok * 10000) / land_area_pyeong) : 0);
+            if (price_eok <= 0 && land_price_per_pyeong_manwon <= 0) return null;
+            return {
+              kind: (c.kind === 'listing' ? 'listing' : 'transaction') as 'listing' | 'transaction',
+              location,
+              ...(as_of && as_of !== '-' ? { as_of } : {}),
+              ...(price_eok > 0 ? { price_eok } : {}),
+              ...(land_area_pyeong > 0 ? { land_area_pyeong } : {}),
+              ...(gfa_pyeong > 0 ? { gfa_pyeong } : {}),
+              ...(land_price_per_pyeong_manwon > 0 ? { land_price_per_pyeong_manwon } : {}),
+              ...(c.note ? { note: String(c.note) } : {}),
+            };
+          })
+          .filter(Boolean) as any[];
+
+        if (normalizedComps.length > 0) {
+          const builtComps = buildBrokerCompsData(
+            { market_comps: normalizedComps },
+            { ssot: docBody.ssot_summary ?? null, body: docBody }
+          );
+          if (builtComps) {
+            dataMap['brokerComps'] = builtComps as any;
+            if (!sequence.some(s => s.dataKey === 'brokerComps')) {
+              const afterIdx = sequence.findIndex(s => s.dataKey === 'yieldFormula');
+              const landIdx = sequence.findIndex(s => s.dataKey === 'land');
+              const insertAt = afterIdx >= 0 ? afterIdx + 1 : landIdx >= 0 ? landIdx + 1 : Math.max(0, sequence.length - 1);
+              sequence.splice(insertAt, 0, {
+                archetype: 'A26',
+                kicker: 'Market Comps',
+                title: '인근 시세 비교',
+                dataKey: 'brokerComps',
+              });
+            }
+          }
+          if (dataMap['marketComps']) {
+            dataMap['marketComps'].comparables = normalizedComps;
+          }
+        }
+      }
+      if (compsOv.compsNotes) {
+        const cNote = String(compsOv.compsNotes).trim();
+        if (cNote && cNote !== '국토교통부 실거래가 공개시스템 및 인근 중개 탐문 기준 유사 거래사례입니다.') {
+          if (dataMap['brokerComps']) {
+            const prevFn = Array.isArray((dataMap['brokerComps'] as any).footnotes)
+              ? (dataMap['brokerComps'] as any).footnotes
+              : [];
+            (dataMap['brokerComps'] as any).footnotes = [...prevFn, `※ ${cNote}`];
+          }
+          if (dataMap['marketComps']) {
+            dataMap['marketComps'].compsSummaryNote = cNote;
+          }
+        }
       }
     }
 
     // 09 Gallery
     const galOv = slideOverrides['gallery'];
-    if (galOv && Array.isArray(galOv.photos) && galOv.photos.length > 0) {
-      const includedPhotos = galOv.photos.filter((p: any) => p && p.included !== false && p.excluded !== true && p.url);
-      const hasGalleryExclusions = galOv.photos.some((p: any) => p && (p.included === false || p.excluded === true));
-      const alreadyPlannedCount = (dataMap['gallery_0']?.photos?.length ?? 0) + (dataMap['gallery_1']?.photos?.length ?? 0);
-      if (includedPhotos.length > 0 && dataMap['gallery'] && (hasGalleryExclusions || alreadyPlannedCount < Math.min(11, includedPhotos.length - 1))) {
-        const sortedPhotos = [...includedPhotos].sort((a: any, b: any) => {
-          const rank = (p: any) => (p.isHero || p.role === 'cover') ? 0 : p.role === 'exterior' ? 1 : 2;
-          return rank(a) - rank(b);
-        }).slice(0, 12);
-        dataMap['gallery'].photos = sortedPhotos;
-        dataMap['gallery'].photoUrls = sortedPhotos.map((p: any) => p.url);
-        if (sortedPhotos.length <= 6) {
-          if (dataMap['gallery_0']) {
-            dataMap['gallery_0'].photos = sortedPhotos;
-            dataMap['gallery_0'].photoUrls = sortedPhotos.map((p: any) => p.url);
+    if (galOv && dataMap['gallery']) {
+      if (galOv.galleryTitle && String(galOv.galleryTitle).trim()) {
+        const gTitle = String(galOv.galleryTitle).trim();
+        dataMap['gallery'].title = gTitle;
+        if (dataMap['gallery_0']) {
+          dataMap['gallery_0'].title = dataMap['gallery_1'] ? `${gTitle} (1/2)` : gTitle;
+        }
+        if (dataMap['gallery_1']) {
+          dataMap['gallery_1'].title = `${gTitle} (2/2)`;
+        }
+      }
+      const layoutMap: Record<string, string> = {
+        grid_4: 'GRID_2X2',
+        hero_3: 'ONE_LARGE_TWO_SMALL_H',
+        split_2: 'DUAL_LANDSCAPE',
+        GRID_2X3: 'GRID_2X3',
+        GRID_2X2: 'GRID_2X2',
+        ONE_LARGE_TWO_SMALL_H: 'ONE_LARGE_TWO_SMALL_H',
+        DUAL_LANDSCAPE: 'DUAL_LANDSCAPE',
+        FULL_WIDE: 'FULL_WIDE',
+      };
+      const mappedLayout = galOv.galleryLayout ? layoutMap[String(galOv.galleryLayout)] : undefined;
+
+      if (Array.isArray(galOv.photos) && galOv.photos.length > 0) {
+        const includedPhotos = galOv.photos.filter((p: any) => p && p.included !== false && p.excluded !== true && p.url);
+        if (includedPhotos.length > 0) {
+          const sortedPhotos = [...includedPhotos].sort((a: any, b: any) => {
+            const rank = (p: any) => (p.isHero || p.role === 'cover') ? 0 : p.role === 'exterior' ? 1 : 2;
+            return rank(a) - rank(b);
+          }).slice(0, 12);
+          if (dataMap['building'] && sortedPhotos[0]?.url) {
+            dataMap['building'].photoUrl = sortedPhotos[0].url;
           }
-        } else {
-          const firstCount = Math.ceil(sortedPhotos.length / 2);
-          const p1 = sortedPhotos.slice(0, firstCount);
-          const p2 = sortedPhotos.slice(firstCount);
-          const pickLayout = (batch: any[]) => batch.length >= 5 ? 'GRID_2X3' : batch.length === 4 ? 'GRID_2X2' : batch.length === 3 ? 'ONE_LARGE_TWO_SMALL_H' : batch.length === 2 ? 'DUAL_LANDSCAPE' : 'FULL_WIDE';
-          dataMap['gallery_0'] = { ...(dataMap['gallery_0'] || dataMap['gallery']), kicker: 'Gallery', title: '현장 사진 (1/2)', photos: p1, photoUrls: p1.map((p: any) => p.url), layout: pickLayout(p1) };
-          dataMap['gallery_1'] = { ...(dataMap['gallery_1'] || dataMap['gallery']), kicker: 'Gallery', title: '현장 사진 (2/2)', photos: p2, photoUrls: p2.map((p: any) => p.url), layout: pickLayout(p2) };
-          if (!sequence.some(s => s.dataKey === 'gallery_1')) {
-            const g0Idx = sequence.findIndex(s => s.dataKey === 'gallery_0' || s.dataKey === 'gallery');
-            if (g0Idx >= 0) {
-              sequence[g0Idx] = { ...sequence[g0Idx], title: '현장 사진 (1/2)', dataKey: 'gallery_0' };
-              sequence.splice(g0Idx + 1, 0, { archetype: 'A14', kicker: 'Gallery', title: '현장 사진 (2/2)', dataKey: 'gallery_1' });
+          dataMap['gallery'].photos = sortedPhotos;
+          dataMap['gallery'].photoUrls = sortedPhotos.map((p: any) => p.url);
+          if (mappedLayout) dataMap['gallery'].layout = mappedLayout;
+
+          const pickLayout = (batch: any[]) =>
+            mappedLayout ||
+            (batch.length >= 5
+              ? 'GRID_2X3'
+              : batch.length === 4
+              ? 'GRID_2X2'
+              : batch.length === 3
+              ? 'ONE_LARGE_TWO_SMALL_H'
+              : batch.length === 2
+              ? 'DUAL_LANDSCAPE'
+              : 'FULL_WIDE');
+
+          const baseTitle = (galOv.galleryTitle && String(galOv.galleryTitle).trim()) || '현장 사진';
+          if (sortedPhotos.length <= 6) {
+            if (dataMap['gallery_0']) {
+              dataMap['gallery_0'].photos = sortedPhotos;
+              dataMap['gallery_0'].photoUrls = sortedPhotos.map((p: any) => p.url);
+              dataMap['gallery_0'].layout = pickLayout(sortedPhotos);
+              dataMap['gallery_0'].title = baseTitle;
+            }
+            if (dataMap['gallery_1']) {
+              delete dataMap['gallery_1'];
+              const g1Idx = sequence.findIndex(s => s.dataKey === 'gallery_1');
+              if (g1Idx >= 0) sequence.splice(g1Idx, 1);
+            }
+          } else {
+            const firstCount = Math.ceil(sortedPhotos.length / 2);
+            const p1 = sortedPhotos.slice(0, firstCount);
+            const p2 = sortedPhotos.slice(firstCount);
+            dataMap['gallery_0'] = {
+              ...(dataMap['gallery_0'] || dataMap['gallery']),
+              kicker: 'Gallery',
+              title: `${baseTitle} (1/2)`,
+              photos: p1,
+              photoUrls: p1.map((p: any) => p.url),
+              layout: pickLayout(p1),
+            };
+            dataMap['gallery_1'] = {
+              ...(dataMap['gallery_1'] || dataMap['gallery']),
+              kicker: 'Gallery',
+              title: `${baseTitle} (2/2)`,
+              photos: p2,
+              photoUrls: p2.map((p: any) => p.url),
+              layout: pickLayout(p2),
+            };
+            if (!sequence.some(s => s.dataKey === 'gallery_1')) {
+              const g0Idx = sequence.findIndex(s => s.dataKey === 'gallery_0' || s.dataKey === 'gallery');
+              if (g0Idx >= 0) {
+                sequence[g0Idx] = { ...sequence[g0Idx], title: `${baseTitle} (1/2)`, dataKey: 'gallery_0' };
+                sequence.splice(g0Idx + 1, 0, {
+                  archetype: 'A14',
+                  kicker: 'Gallery',
+                  title: `${baseTitle} (2/2)`,
+                  dataKey: 'gallery_1',
+                });
+              }
             }
           }
         }
-        if (false) dataMap['gallery'].photos = includedPhotos;
-        dataMap['gallery'].photoUrls = includedPhotos.map((p: any) => p.url);
+      } else if (mappedLayout) {
+        dataMap['gallery'].layout = mappedLayout;
+        if (dataMap['gallery_0']) dataMap['gallery_0'].layout = mappedLayout;
+        if (dataMap['gallery_1']) dataMap['gallery_1'].layout = mappedLayout;
       }
     }
 
@@ -452,16 +825,29 @@ export function applyStudioSlideOverrides(
     dataMap['closing'].disclaimer = String(hf.footerDisclaimer);
   }
 
+  const normalizeDeckGroupKey = (dataKey: string): string => {
+    if (dataKey.startsWith('gallery_')) return 'gallery';
+    if (dataKey.startsWith('rentRoll_')) return 'rentRoll';
+    return dataKey;
+  };
+
   // 2. Apply slide title & kicker overrides onto sequence
   let nextSeq = sequence.map(spec => {
+    const groupKey = normalizeDeckGroupKey(spec.dataKey);
     const matchingStudioKey = Object.keys(STUDIO_KEY_TO_DECK_KEY).find(
-      sk => STUDIO_KEY_TO_DECK_KEY[sk] === spec.dataKey
-    ) || spec.dataKey;
-    const titleMeta = slideTitles?.[matchingStudioKey] || slideTitles?.[spec.dataKey];
+      sk => STUDIO_KEY_TO_DECK_KEY[sk] === groupKey
+    ) || groupKey;
+    const titleMeta = slideTitles?.[matchingStudioKey] || slideTitles?.[spec.dataKey] || slideTitles?.[groupKey];
     if (!titleMeta) return spec;
+    const suffixMatch = spec.title.match(/\(\d+\/\d+\)$/);
+    const nextTitle = titleMeta.title
+      ? suffixMatch && !titleMeta.title.includes(suffixMatch[0])
+        ? `${titleMeta.title} ${suffixMatch[0]}`
+        : titleMeta.title
+      : spec.title;
     return {
       ...spec,
-      title: titleMeta.title || spec.title,
+      title: nextTitle,
       kicker: titleMeta.kicker || spec.kicker,
     };
   });
@@ -475,10 +861,8 @@ export function applyStudioSlideOverrides(
     hiddenDeckKeys.delete('closing');
 
     nextSeq = nextSeq.filter(spec => {
-      if (spec.dataKey.startsWith('gallery_') && hiddenDeckKeys.has('gallery')) {
-        return false;
-      }
-      return !hiddenDeckKeys.has(spec.dataKey);
+      const groupKey = normalizeDeckGroupKey(spec.dataKey);
+      return !hiddenDeckKeys.has(groupKey) && !hiddenDeckKeys.has(spec.dataKey);
     });
   }
 
@@ -493,8 +877,8 @@ export function applyStudioSlideOverrides(
     });
 
     nextSeq = [...nextSeq].sort((a, b) => {
-      const keyA = a.dataKey.startsWith('gallery_') ? 'gallery' : a.dataKey;
-      const keyB = b.dataKey.startsWith('gallery_') ? 'gallery' : b.dataKey;
+      const keyA = normalizeDeckGroupKey(a.dataKey);
+      const keyB = normalizeDeckGroupKey(b.dataKey);
       const rankA = orderRank.get(keyA) ?? 999;
       const rankB = orderRank.get(keyB) ?? 999;
       return rankA - rankB;

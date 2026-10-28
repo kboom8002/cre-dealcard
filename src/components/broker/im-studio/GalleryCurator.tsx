@@ -3,10 +3,15 @@
 import React, { useState } from 'react';
 
 export interface StudioPhotoItem {
+  id?: string;
   url: string;
   caption?: string;
   category?: string;
+  role?: 'cover' | 'exterior' | 'interior' | 'context' | string;
+  isHero?: boolean;
+  sortOrder?: number;
   included?: boolean;
+  excluded?: boolean;
 }
 
 interface GalleryCuratorProps {
@@ -25,6 +30,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   parking: '주차장·설비',
 };
 
+const PRESET_CAPTIONS: readonly string[] = [
+  '전면 외관',
+  '주출입구 및 로비',
+  '1층 근생 상가',
+  '기준층 내부',
+  '승강기 및 복도',
+  '주차시설',
+  '옥상 및 설비',
+  '접면도로 및 주변 여건',
+];
+
 export function GalleryCurator({
   photos,
   galleryLayout,
@@ -38,6 +54,7 @@ export function GalleryCurator({
     typeof p === 'string'
       ? { url: p, caption: `현장 실사 사진 #${idx + 1}`, category: 'exterior', included: true }
       : {
+          ...p,
           url: p?.url || '',
           caption: p?.caption || CATEGORY_LABELS[p?.category] || `현장 사진 #${idx + 1}`,
           category: p?.category || 'exterior',
@@ -47,8 +64,45 @@ export function GalleryCurator({
 
   const toggleInclude = (idx: number) => {
     const next = normalized.map((item, i) =>
-      i === idx ? { ...item, included: !item.included } : item
+      i === idx ? { ...item, included: !item.included, excluded: item.included } : item
     );
+    onChangePhotos(next);
+  };
+
+  const setHeroPhoto = (idx: number) => {
+    const next = normalized.map((item, i) => {
+      if (i === idx) {
+        const nextHero = !(item.isHero || item.role === 'cover');
+        return {
+          ...item,
+          isHero: nextHero,
+          role: nextHero ? 'cover' : item.role === 'cover' ? 'exterior' : item.role,
+          included: true,
+          excluded: false,
+        };
+      }
+      return {
+        ...item,
+        isHero: false,
+        role: item.role === 'cover' ? 'exterior' : item.role,
+      };
+    });
+    onChangePhotos(next);
+  };
+
+  const toggleExteriorRole = (idx: number) => {
+    const next = normalized.map((item, i) => {
+      if (i !== idx) return item;
+      const isExt = item.role === 'exterior' && !item.isHero;
+      return {
+        ...item,
+        isHero: false,
+        role: isExt ? 'interior' : 'exterior',
+        category: isExt ? item.category : 'exterior',
+        included: true,
+        excluded: false,
+      };
+    });
     onChangePhotos(next);
   };
 
@@ -128,6 +182,12 @@ export function GalleryCurator({
           </span>
         </div>
 
+        {includedCount >= 7 && (
+          <div className="px-3 py-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[11px] font-bold text-[#1E3A8A]">
+            📄 7장 이상 선택됨 ({Math.min(12, includedCount)}장) — PPTX 다운로드 시 갤러리 2면(1/2, 2/2)으로 자동 확장됩니다 (최대 12장)
+          </div>
+        )}
+
         {normalized.length === 0 ? (
           <div className="p-4 rounded-xl bg-[#F8FAFC] border border-dashed border-[#CBD5E1] text-center">
             <p className="text-xs font-bold text-[#334155]">
@@ -139,85 +199,144 @@ export function GalleryCurator({
           </div>
         ) : (
           <div className="space-y-2">
-            {normalized.map((photo, idx) => (
-              <div
-                key={`${photo.url}-${idx}`}
-                className={`p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
-                  photo.included !== false
-                    ? 'border-[#CBD5E1] bg-white'
-                    : 'border-[#E2E8F0] bg-[#F8FAFC] opacity-60'
-                }`}
-              >
-                {/* Thumbnail preview */}
-                <div className="w-16 h-12 rounded-lg overflow-hidden bg-[#E2E8F0] border border-[#CBD5E1] shrink-0 flex items-center justify-center relative">
-                  {photo.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photo.url}
-                      alt={photo.caption || '매물 사진'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-[10px] font-bold text-[#475569]">NO IMG</span>
-                  )}
-                  <span className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-black/75 text-white text-[9px] font-bold">
-                    #{idx + 1}
-                  </span>
-                </div>
+            {normalized.map((photo, idx) => {
+              const isHero = Boolean(photo.isHero || photo.role === 'cover');
+              const isExterior = !isHero && (photo.role === 'exterior' || photo.category === 'exterior');
+              return (
+                <div
+                  key={`${photo.url}-${idx}`}
+                  className={`p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
+                    photo.included !== false
+                      ? isHero
+                        ? 'border-[#F59E0B] bg-[#FFFBEB]/40'
+                        : 'border-[#CBD5E1] bg-white'
+                      : 'border-[#E2E8F0] bg-[#F8FAFC] opacity-60'
+                  }`}
+                >
+                  {/* Thumbnail preview */}
+                  <div className="w-16 h-14 rounded-lg overflow-hidden bg-[#E2E8F0] border border-[#CBD5E1] shrink-0 flex items-center justify-center relative">
+                    {photo.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={photo.url}
+                        alt={photo.caption || '매물 사진'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-[10px] font-bold text-[#475569]">NO IMG</span>
+                    )}
+                    <span className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-black/75 text-white text-[9px] font-bold">
+                      #{idx + 1}
+                    </span>
+                    {isHero && (
+                      <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded bg-[#D97706] text-white text-[9px] font-extrabold">
+                        ★ 대표
+                      </span>
+                    )}
+                    {!isHero && isExterior && (
+                      <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded bg-[#1D4ED8] text-white text-[9px] font-extrabold">
+                        외관
+                      </span>
+                    )}
+                  </div>
 
-                {/* Caption & Controls */}
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <input
-                    type="text"
-                    value={photo.caption || ''}
-                    onChange={e => updateCaption(idx, e.target.value)}
-                    placeholder="사진 캡션 입력 (예: 전면 외관 및 주출입구)"
-                    className="w-full px-2 py-1 text-xs font-medium bg-white border border-[#CBD5E1] rounded-md text-[#0F172A]"
-                  />
-                  <div className="flex items-center justify-between gap-1">
-                    <button
-                      type="button"
-                      onClick={() => toggleInclude(idx)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                        photo.included !== false
-                          ? 'bg-[#D1FAE5] text-[#065F46]'
-                          : 'bg-[#E2E8F0] text-[#475569]'
-                      }`}
-                    >
-                      {photo.included !== false ? '✓ 슬라이드 포함' : '제외됨'}
-                    </button>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => movePhoto(idx, -1)}
-                        disabled={idx === 0}
-                        className="px-1.5 py-0.5 text-[10px] font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30"
-                        title="위로 이동"
+                  {/* Caption & Controls */}
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex gap-1">
+                      <select
+                        value={PRESET_CAPTIONS.includes(photo.caption || '') ? photo.caption : ''}
+                        onChange={e => {
+                          if (e.target.value) updateCaption(idx, e.target.value);
+                        }}
+                        className="w-28 shrink-0 px-1.5 py-1 text-[11px] font-bold bg-[#F8FAFC] border border-[#CBD5E1] rounded-md text-[#1E293B]"
+                        title="빠른 캡션 선택"
                       >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => movePhoto(idx, 1)}
-                        disabled={idx === normalized.length - 1}
-                        className="px-1.5 py-0.5 text-[10px] font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30"
-                        title="아래로 이동"
-                      >
-                        ▼
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removePhoto(idx)}
-                        className="px-1.5 py-0.5 text-[10px] font-bold border border-[#FECACA] rounded bg-[#FEF2F2] text-[#991B1B]"
-                        title="사진 삭제"
-                      >
-                        삭제
-                      </button>
+                        <option value="">빠른 캡션…</option>
+                        {PRESET_CAPTIONS.map(cap => (
+                          <option key={cap} value={cap}>
+                            {cap}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={photo.caption || ''}
+                        onChange={e => updateCaption(idx, e.target.value)}
+                        placeholder="사진 캡션 입력 (예: 전면 외관 및 주출입구)"
+                        className="flex-1 min-w-0 px-2 py-1 text-xs font-medium bg-white border border-[#CBD5E1] rounded-md text-[#0F172A]"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-1 flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleInclude(idx)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                            photo.included !== false
+                              ? 'bg-[#D1FAE5] text-[#065F46]'
+                              : 'bg-[#E2E8F0] text-[#475569]'
+                          }`}
+                        >
+                          {photo.included !== false ? '✓ 포함' : '제외됨'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHeroPhoto(idx)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${
+                            isHero
+                              ? 'bg-[#FEF3C7] border-[#F59E0B] text-[#92400E]'
+                              : 'bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F8FAFC]'
+                          }`}
+                          title="물건 개요 대표 사진으로 지정"
+                        >
+                          {isHero ? '★ 대표사진' : '대표 지정'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleExteriorRole(idx)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${
+                            isExterior
+                              ? 'bg-[#DBEAFE] border-[#3B82F6] text-[#1E40AF]'
+                              : 'bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F8FAFC]'
+                          }`}
+                          title="외관 사진으로 지정"
+                        >
+                          {isExterior ? '외관' : '외관 지정'}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => movePhoto(idx, -1)}
+                          disabled={idx === 0}
+                          className="px-1.5 py-0.5 text-[10px] font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30"
+                          title="위로 이동"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => movePhoto(idx, 1)}
+                          disabled={idx === normalized.length - 1}
+                          className="px-1.5 py-0.5 text-[10px] font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30"
+                          title="아래로 이동"
+                        >
+                          ▼
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(idx)}
+                          className="px-1.5 py-0.5 text-[10px] font-bold border border-[#FECACA] rounded bg-[#FEF2F2] text-[#991B1B]"
+                          title="사진 삭제"
+                        >
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

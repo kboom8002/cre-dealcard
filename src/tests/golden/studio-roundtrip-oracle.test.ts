@@ -24,7 +24,8 @@ import {
   viewerTextOf,
 } from '../../../scripts/golden-snapshot/lib';
 import { evaluateOracle, type ExpectedFacts } from './oracle-engine';
-import { buildBasicImSlideDefaults } from '../../domain/building/pptx-studio/studio-service';
+import { buildBasicImSlideDefaults, studioService } from '../../domain/building/pptx-studio/studio-service';
+import { applyStudioSlideOverrides } from '../../domain/building/mobile-im/pptx/studio-overrides-applier';
 import { setOfflineEnrichment } from '../../domain/building/mobile-im/pptx/basic-im-enrichment';
 import { MobileImPptxRenderer } from '../../domain/building/mobile-im/pptx/pptx-renderer';
 
@@ -175,5 +176,138 @@ describe('Basic IM Studio Round-Trip Fact Oracle & Universal Invariants (U1-U6)'
     const universalRes = evaluateOracle(dummyFacts, { slides, pptxText, viewerText: '' });
     const failures = universalRes.filter((r) => r.status === 'FAIL');
     expect(failures).toEqual([]);
+  }, 90_000);
+
+  it('B-1 & D-1: enrichProjectFromDocBody replaces stale unedited overrides while preserving user edits, and multi-slide rentRoll_* obeys hide/reorder', () => {
+    const mockProject: any = {
+      id: 'basic-test-b1',
+      dealId: 'test-b1',
+      title: '웰빙프라자 Basic IM',
+      slides: [
+        {
+          id: 's-overview',
+          slideIndex: 3,
+          title: '물건 개요',
+          dataKey: 'overview',
+          initialOverrides: {
+            completionYear: '1999년',
+            askingPrice: '65억 원',
+          },
+          slideOverrides: {
+            completionYear: '1999년', // unedited stale initial value -> should be replaced by fresh def
+            askingPrice: '99억 원', // genuine user edit -> must be preserved!
+          },
+        },
+      ],
+    };
+
+    const freshBody = {
+      ssot_summary: {
+        address: '경기도 용인시 기흥구 보정동 1263',
+        asking_price_manwon: 680000,
+      },
+      enrichment: {
+        buildingRegister: {
+          useAprDay: '2004.10.22',
+        },
+      },
+    };
+
+    (studioService as any).enrichProjectFromDocBody(mockProject, freshBody, undefined);
+    const updatedSlide = mockProject.slides[0];
+    expect(updatedSlide.slideOverrides.completionYear).toBe('2004년');
+    expect(updatedSlide.slideOverrides.askingPrice).toBe('99억 원');
+
+    // D-1: Multi-slide rentRoll_1 & gallery_0/gallery_1 group hide/reorder
+    const seq = [
+      { archetype: 'A01', kicker: 'COVER', title: '표지', dataKey: 'cover' },
+      { archetype: 'A24', kicker: 'RENT ROLL', title: '임대차 현황 (1/2)', dataKey: 'rentRoll' },
+      { archetype: 'A24', kicker: 'RENT ROLL', title: '임대차 현황 (2/2)', dataKey: 'rentRoll_1' },
+      { archetype: 'A10', kicker: 'CLOSING', title: '문의', dataKey: 'closing' },
+    ];
+    const filteredSeq = applyStudioSlideOverrides(seq as any, {}, {
+      _studioHiddenDataKeys: ['rentroll'],
+    });
+    expect(filteredSeq.map((s) => s.dataKey)).toEqual(['cover', 'closing']);
+  });
+
+  it('A-1~A-7: Explicit Studio user edits on slides 02~10 propagate into the rendered PPTX binary', async () => {
+    if (!hasSnapshot('income-wellbing-r3')) return;
+    resetOfflineGuardLog();
+    const snap = loadSnapshot('income-wellbing-r3');
+    setOfflineEnrichment(snap.liveEnrichment ?? null);
+
+    const initialOverrides = buildBasicImSlideDefaults(
+      snap.doc.title || 'Basic IM',
+      snap.doc.body,
+      snap.broker ?? undefined,
+    );
+    const editedOverrides = JSON.parse(JSON.stringify(initialOverrides));
+
+    editedOverrides.highlights = {
+      ...editedOverrides.highlights,
+      leadSentence: '보정역 초역세권 메디컬·학원 특화 수익형 빌딩 커스텀리드',
+      grossYield: '5.85%',
+    };
+    editedOverrides.overview = {
+      ...editedOverrides.overview,
+      archArea: '250.5㎡ (75.8평)',
+    };
+    editedOverrides.land = {
+      ...editedOverrides.land,
+      nationalLaw: '준주거지역, 지구단위계획구역(스튜디오편집)',
+      landCallout: '전면 25m 대로변 접면으로 가시성 최상(스튜디오콜아웃)',
+    };
+    editedOverrides.rentroll = {
+      ...editedOverrides.rentroll,
+      turnaroundStrategy: '1층 공실 약국 유치 시 월 450만원 추가 수익 기대',
+    };
+    editedOverrides.yield = {
+      ...editedOverrides.yield,
+      capRateStabilized: '6.45%',
+      stabilizedAssumption: '1층 약국 임대 완료 및 기준층 임대료 현실화 가정',
+    };
+    editedOverrides.comps = {
+      ...editedOverrides.comps,
+      comparables: [
+        {
+          name: '보정동 메디컬타워 비교사례',
+          trade_date: '2025.11',
+          price: '75억',
+          land_pyeong: '125',
+          land_unit_manwon: '6,000',
+        },
+      ],
+      compsNotes: '인근 보정역 대로변 실거래 평당 6,000만원 수준',
+    };
+    editedOverrides.closing = {
+      ...editedOverrides.closing,
+      closingLine: '안정적인 임대수익과 지가 상승을 동시에 기대할 수 있는 우량 자산입니다.',
+    };
+
+    snap.doc.body = {
+      ...snap.doc.body,
+      _studioInitialOverrides: initialOverrides,
+      _studioSlideOverrides: editedOverrides,
+    };
+
+    const input = await buildRenderInput(snap);
+    const pool = loadPoiPool('income-wellbing-r3');
+    if (pool) input.landmarkPoolFixture = pool;
+
+    const out = await new MobileImPptxRenderer().render(input as any);
+    const slides = extractSlideTexts(out.buffer);
+    const pptxText = slides.join('\n');
+
+    expect(pptxText).toContain('보정역 초역세권 메디컬·학원 특화 수익형 빌딩 커스텀리드');
+    expect(pptxText).toContain('250.5㎡ (75.8평)');
+    expect(pptxText).toContain('지구단위계획구역(스튜디오편집)');
+    expect(pptxText).toContain('전면 25m 대로변 접면으로 가시성 최상(스튜디오콜아웃)');
+    expect(pptxText).toContain('1층 공실 약국 유치 시 월 450만원 추가 수익 기대');
+    expect(pptxText).toContain('6.45%');
+    expect(pptxText).toContain('1층 약국 임대 완료 및 기준층 임대료 현실화 가정');
+    expect(pptxText).toContain('보정동 메디컬타워 비교사례');
+    expect(pptxText).toContain('인근 보정역 대로변 실거래 평당 6,000만원 수준');
+    expect(pptxText).toContain('안정적인 임대수익과 지가 상승을 동시에 기대할 수 있는 우량 자산입니다.');
   }, 90_000);
 });

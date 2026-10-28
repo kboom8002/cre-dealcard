@@ -493,12 +493,22 @@ export class PptxStudioService {
         slide.title = slide.title.replace(/기타\s*매각/g, '빌딩 매각').replace(/소재\s*기타/g, '소재 상업용 빌딩');
       }
       if (def) {
+        const oldInitial = (slide.initialOverrides || {}) as Record<string, unknown>;
+        const hasOldInitial = Object.keys(oldInitial).length > 0;
         slide.initialOverrides = { ...def };
         const cleanedExisting: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(slide.slideOverrides || {})) {
           if (v !== undefined && v !== null && v !== '') {
+            if (hasOldInitial && k in oldInitial && JSON.stringify(oldInitial[k]) === JSON.stringify(v)) {
+              // 사용자가 수정하지 않은 구버전 초기 추출값은 최신 def 값으로 자동 갱신되도록 건너뜀
+              continue;
+            }
             cleanedExisting[k] = typeof v === 'string'
-              ? v.replace(/기타\s*매각/g, '빌딩 매각').replace(/소재\s*기타/g, '소재 상업용 빌딩')
+              ? v
+                  .replace(/기타\s*매각/g, '빌딩 매각')
+                  .replace(/소재\s*기타/g, '소재 상업용 빌딩')
+                  .replace(/([가-힣A-Za-z0-9]+역)\s+([가-힣0-9]+(?:선|라인))역/g, '$1($2)')
+                  .replace(/(\d[\d,]*)\.(\d{2})\d+(\s*㎡)/g, '$1.$2$3')
               : v;
           }
         }

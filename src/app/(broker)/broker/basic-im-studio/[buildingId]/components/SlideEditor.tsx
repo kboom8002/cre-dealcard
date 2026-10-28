@@ -55,6 +55,7 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
     { key: 'buildingName', label: '건물명' },
     { key: 'address', label: '소재지 (도로명 · 지번)' },
     { key: 'landArea', label: '대지면적 (㎡ / 평)' },
+    { key: 'archArea', label: '건축면적 (㎡ / 평)' },
     { key: 'grossArea', label: '연면적 (㎡ / 평)' },
     { key: 'floors', label: '건축규모 (지하 / 지상 층수)' },
     { key: 'zoning', label: '용도지역' },
@@ -84,6 +85,7 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
     { key: 'nationalLaw', label: '국토의 계획 및 이용에 관한 법률 사항' },
     { key: 'otherLaws', label: '다른 법령 등에 따른 지역·지구' },
     { key: 'landCallout', label: '토지 규제 및 공법 종합 검토 의견', multiline: true, aiEnabled: true },
+    { key: 'cadastralMapImage', label: '커스텀 지적도·토지계획도 이미지 URL (선택)' },
   ],
   rentroll: [
     { key: 'depositTotal', label: '총 보증금 합계' },
@@ -144,20 +146,40 @@ export function SlideEditor({
   const [compPrice, setCompPrice] = useState('');
   const [compLandPy, setCompLandPy] = useState('');
   const [compUnitManwon, setCompUnitManwon] = useState('');
+  const [uploadingImageKey, setUploadingImageKey] = useState<string | null>(null);
+
+  const rawCompsList: any[] = Array.isArray(overrides.comparables)
+    ? overrides.comparables
+    : Array.isArray(overrides.compsRows)
+    ? overrides.compsRows
+    : [];
 
   const handleAddComp = () => {
     if (!compName.trim()) return;
-    const existing = Array.isArray(overrides.compsRows) ? overrides.compsRows : [];
-    const next = [
-      ...existing,
-      {
-        name: compName.trim(),
-        trade_date: compDate.trim() || '-',
-        price: compPrice.trim() || '-',
-        land_pyeong: compLandPy.trim() || '-',
-        land_unit_manwon: compUnitManwon.trim() || '-',
-      },
-    ];
+    const parseNum = (v: string) => {
+      const n = parseFloat(String(v || '').replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+    const priceEok = parseNum(compPrice);
+    const landPy = parseNum(compLandPy);
+    const unitManwon =
+      parseNum(compUnitManwon) ??
+      (priceEok && landPy ? Math.round((priceEok * 10000) / landPy) : undefined);
+
+    const newItem = {
+      location: compName.trim(),
+      name: compName.trim(),
+      as_of: compDate.trim() || '-',
+      trade_date: compDate.trim() || '-',
+      price_eok: priceEok,
+      price: compPrice.trim() || (priceEok ? `${priceEok}억` : '-'),
+      land_area_pyeong: landPy,
+      land_pyeong: compLandPy.trim() || (landPy ? String(landPy) : '-'),
+      land_price_per_pyeong_manwon: unitManwon,
+      land_unit_manwon: compUnitManwon.trim() || (unitManwon ? unitManwon.toLocaleString() : '-'),
+    };
+    const next = [...rawCompsList, newItem];
+    onChange('comparables', next);
     onChange('compsRows', next);
     setCompName('');
     setCompPrice('');
@@ -166,11 +188,52 @@ export function SlideEditor({
   };
 
   const handleRemoveComp = (idx: number) => {
-    const existing = Array.isArray(overrides.compsRows) ? overrides.compsRows : [];
-    onChange(
-      'compsRows',
-      existing.filter((_: any, i: number) => i !== idx)
-    );
+    const next = rawCompsList.filter((_: any, i: number) => i !== idx);
+    onChange('comparables', next);
+    onChange('compsRows', next);
+  };
+
+  const handleMapFileUpload = async (fieldName: string, file?: File | null) => {
+    if (!file) return;
+    setUploadingImageKey(fieldName);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('slideId', slide.id);
+      formData.append('fieldName', fieldName);
+
+      const res = await fetch(`/api/broker/basic-im-studio/${encodeURIComponent(projectId)}/map-upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        const updatedSlide = json.project?.slides?.find((s: any) => s.id === slide.id);
+        const savedDataUrl = updatedSlide?.slideOverrides?.[fieldName];
+        if (savedDataUrl) {
+          onChange(fieldName, savedDataUrl);
+          return;
+        }
+      }
+      // Fallback: read client-side Data URL directly so preview updates immediately
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          onChange(fieldName, reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          onChange(fieldName, reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploadingImageKey(null);
+    }
   };
 
   return (
@@ -274,6 +337,7 @@ export function SlideEditor({
             <div className="space-y-3">
               {fields.map(f => {
                 const currentVal = String(overrides[f.key] ?? '');
+                const isImageUploadField = f.key === 'mapImageUrl' || f.key === 'cadastralMapImage';
                 return (
                   <div key={f.key} className="space-y-1">
                     <div className="flex items-center justify-between gap-1">
@@ -289,6 +353,18 @@ export function SlideEditor({
                           currentText={currentVal}
                           onApply={refined => onChange(f.key, refined)}
                         />
+                      )}
+                      {isImageUploadField && (
+                        <label className="cursor-pointer px-2 py-0.5 rounded bg-[#EFF6FF] border border-[#BFDBFE] text-[10px] font-extrabold text-[#1E3A8A] hover:bg-[#DBEAFE]">
+                          {uploadingImageKey === f.key ? '업로드 중…' : '📁 이미지 파일 업로드'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingImageKey === f.key}
+                            onChange={e => handleMapFileUpload(f.key, e.target.files?.[0])}
+                          />
+                        </label>
                       )}
                     </div>
                     {f.multiline ? (
@@ -317,19 +393,19 @@ export function SlideEditor({
             {dataKey === 'comps' && (
               <div className="pt-3 border-t border-[#E2E8F0] space-y-3">
                 <div className="text-xs font-extrabold text-[#0F172A]">
-                  📊 비교 사례 행 관리 ({Array.isArray(overrides.compsRows) ? overrides.compsRows.length : 0}건)
+                  📊 비교 사례 행 관리 ({rawCompsList.length}건)
                 </div>
-                {Array.isArray(overrides.compsRows) && overrides.compsRows.length > 0 && (
+                {rawCompsList.length > 0 && (
                   <div className="space-y-1.5">
-                    {overrides.compsRows.map((c: any, i: number) => (
+                    {rawCompsList.map((c: any, i: number) => (
                       <div
                         key={i}
                         className="px-2.5 py-1.5 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between text-xs"
                       >
                         <div className="truncate pr-2">
-                          <span className="font-bold text-[#0F172A]">{c.name || c.address}</span>
+                          <span className="font-bold text-[#0F172A]">{c.location || c.name || c.address}</span>
                           <span className="text-[#475569] ml-1.5">
-                            ({c.price || `${c.price_eok || '-'}억`} · 평당 {c.land_unit_manwon || '-'}만)
+                            ({c.price || `${c.price_eok || '-'}억`} · 평당 {c.land_price_per_pyeong_manwon?.toLocaleString?.() || c.land_unit_manwon || '-'}만)
                           </span>
                         </div>
                         <button

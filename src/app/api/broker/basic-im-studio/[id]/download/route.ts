@@ -22,6 +22,16 @@ export async function GET(
   const queryBrandAccent = searchParams.get('brandAccent') || undefined;
   const queryCoverStyle = searchParams.get('coverStyle') || undefined;
   const queryLayoutStyle = searchParams.get('layoutStyle') || undefined;
+  const queryHeaderFooterRaw = searchParams.get('headerFooter') || undefined;
+  let queryHeaderFooter: Record<string, any> | undefined;
+  if (queryHeaderFooterRaw) {
+    try {
+      const parsed = JSON.parse(queryHeaderFooterRaw);
+      if (parsed && typeof parsed === 'object') queryHeaderFooter = parsed;
+    } catch {
+      // ignore invalid query JSON
+    }
+  }
 
   try {
     let project;
@@ -138,8 +148,11 @@ export async function GET(
     // Apply closing/cover broker overrides to broker object if specified in Studio
     const closingOv = studioSlideOverrides['closing'] || {};
     const coverOv = studioSlideOverrides['cover'] || {};
+    const effectiveHeaderFooter = queryHeaderFooter
+      ? { ...(project.headerFooter ?? {}), ...queryHeaderFooter }
+      : (project.headerFooter ?? null);
     const effectiveCompanyName =
-      project.headerFooter?.companyName ||
+      effectiveHeaderFooter?.companyName ||
       closingOv.brokerCompany ||
       coverOv.brokerCompany ||
       broker?.company_name;
@@ -167,7 +180,7 @@ export async function GET(
       _studioSlideTitles: studioSlideTitles,
       _studioHiddenDataKeys: studioHiddenDataKeys,
       _studioSlideOrder: studioSlideOrder,
-      _studioHeaderFooter: project.headerFooter ?? null,
+      _studioHeaderFooter: effectiveHeaderFooter,
       _studioThemeOverrides: {
         visualPreset: effectiveVisualPreset,
         brandAccent: effectiveBrandAccent,
@@ -176,17 +189,62 @@ export async function GET(
       },
     };
 
-    // If user added/edited comps in Studio and un-hid the comps slide, ensure manual_comps is populated
+    // Sync Studio gallery photo curation (hero/exterior/caption/exclusion) into fullBody.photos_v2 & photos
+    const rawStudioPhotos = studioSlideOverrides['gallery']?.photos;
+    if (Array.isArray(rawStudioPhotos) && rawStudioPhotos.length > 0) {
+      const curatedPhotos = rawStudioPhotos.filter(
+        (p: any) => p && p.included !== false && p.excluded !== true && p.url
+      );
+      if (curatedPhotos.length > 0) {
+        fullBody.photos_v2 = curatedPhotos;
+        fullBody.photos = curatedPhotos;
+      }
+    }
+
+    // If user added/edited comps in Studio and un-hid the comps slide, ensure manual_comps & broker_extras.market_comps are populated
+    const rawStudioComps =
+      studioSlideOverrides['comps']?.comparables ||
+      studioSlideOverrides['comps']?.compsRows;
     if (
-      Array.isArray(studioSlideOverrides['comps']?.compsRows) &&
-      studioSlideOverrides['comps'].compsRows.length > 0 &&
+      Array.isArray(rawStudioComps) &&
+      rawStudioComps.length > 0 &&
       !studioHiddenDataKeys.includes('comps')
     ) {
-      fullBody.manual_comps = studioSlideOverrides['comps'].compsRows;
-      fullBody.broker_extras = {
-        ...(fullBody.broker_extras || {}),
-        market_comps: studioSlideOverrides['comps'].compsRows,
-      };
+      const normalizedComps = rawStudioComps
+        .map((c: any) => {
+          if (!c || typeof c !== 'object') return null;
+          const location = String(c.location || c.name || c.address || '').trim();
+          if (!location) return null;
+          const as_of = String(c.as_of || c.trade_date || c.date || '').trim();
+          const parseNum = (v: unknown): number => {
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            const n = parseFloat(String(v || '').replace(/[^0-9.-]/g, ''));
+            return Number.isFinite(n) ? n : 0;
+          };
+          const price_eok = parseNum(c.price_eok ?? c.price);
+          const land_area_pyeong = parseNum(c.land_area_pyeong ?? c.land_pyeong);
+          const land_price_per_pyeong_manwon =
+            parseNum(c.land_price_per_pyeong_manwon ?? c.land_unit_manwon) ||
+            (price_eok > 0 && land_area_pyeong > 0 ? Math.round((price_eok * 10000) / land_area_pyeong) : 0);
+          if (price_eok <= 0 && land_price_per_pyeong_manwon <= 0) return null;
+          return {
+            kind: c.kind === 'listing' ? 'listing' : 'transaction',
+            location,
+            ...(as_of && as_of !== '-' ? { as_of } : {}),
+            ...(price_eok > 0 ? { price_eok } : {}),
+            ...(land_area_pyeong > 0 ? { land_area_pyeong } : {}),
+            ...(land_price_per_pyeong_manwon > 0 ? { land_price_per_pyeong_manwon } : {}),
+            ...(c.note ? { note: String(c.note) } : {}),
+          };
+        })
+        .filter(Boolean);
+      if (normalizedComps.length > 0) {
+        fullBody.manual_comps = normalizedComps;
+        fullBody.broker_extras = {
+          ...(fullBody.broker_extras || {}),
+          market_comps: normalizedComps,
+        };
+      }
     }
 
     // Determine posture & grade
@@ -235,7 +293,7 @@ export async function GET(
       preset: 'credeal_basic',
       visualPreset: effectiveVisualPreset,
       brandAccent: effectiveBrandAccent,
-      logoUrl: project.headerFooter?.logoUrl || undefined,
+      logoUrl: effectiveHeaderFooter?.logoUrl || undefined,
       posture,
       grade,
       incomeArchetype: baseBody.incomeArchetype ?? undefined,
