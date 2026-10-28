@@ -48,8 +48,8 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
     { key: 'stabilizedYield', label: 'KPI 3: 안정화 기대수익률 (%)' },
     { key: 'vacancySignal', label: 'KPI 4: 임대 가동 현황 / 공실률' },
     { key: 'keyInvestmentPoint', label: '투자 포인트 01 (입지·수익 구조)', aiEnabled: true },
-    { key: 'investmentPoint2', label: '투자 포인트 02 (토지·건물 제원 강점)' },
-    { key: 'investmentPoint3', label: '투자 포인트 03 (밸류애드·상승 여력)' },
+    { key: 'investmentPoint2', label: '투자 포인트 02 (토지·건물 제원 강점)', aiEnabled: true },
+    { key: 'investmentPoint3', label: '투자 포인트 03 (밸류애드·상승 여력)', aiEnabled: true },
   ],
   overview: [
     { key: 'buildingName', label: '건물명' },
@@ -99,17 +99,17 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
   yield: [
     { key: 'capRateBase', label: '현행 임대수익률 (%)' },
     { key: 'capRateStabilized', label: '안정화 기대수익률 (%)' },
-    { key: 'stabilizedAssumption', label: '안정화 수익률 산출 가정 설명' },
+    { key: 'stabilizedAssumption', label: '안정화 수익률 산출 가정 설명', aiEnabled: true },
     { key: 'askingPrice', label: '매매 희망가 (A)' },
     { key: 'totalDeposit', label: '총 임대보증금 (B)' },
     { key: 'annualRent', label: '연간 임대수익 (C = 월세×12)' },
     { key: 'pricePerPyeong', label: '토지 평당 단가' },
-    { key: 'yieldNotes', label: '수익률 및 공시지가 추이 해설', multiline: true },
+    { key: 'yieldNotes', label: '수익률 및 공시지가 추이 해설', multiline: true, aiEnabled: true },
   ],
   comps: [
     { key: 'compsTitle', label: '시세 비교 표 제목' },
     { key: 'targetLandPricePerPy', label: '본건 토지 평당가' },
-    { key: 'compsNotes', label: '인근 실거래 비교 시사점 코멘트', multiline: true },
+    { key: 'compsNotes', label: '인근 실거래 비교 시사점 코멘트', multiline: true, aiEnabled: true },
   ],
   gallery: [
     { key: 'galleryTitle', label: '갤러리 슬라이드 부제' },
@@ -138,7 +138,7 @@ export function SlideEditor({
 }: SlideEditorProps) {
   const dataKey = slide.dataKey || 'overview';
   const overrides = (slide.slideOverrides || {}) as Record<string, any>;
-  const fields = SLIDE_FIELD_SPECS[dataKey] || SLIDE_FIELD_SPECS.overview;
+  const fields = SLIDE_FIELD_SPECS[dataKey] || SLIDE_FIELD_SPECS[dataKey.toLowerCase()] || SLIDE_FIELD_SPECS.overview;
 
   // Quick-add comparable state for 'comps' slide
   const [compName, setCompName] = useState('');
@@ -147,6 +147,106 @@ export function SlideEditor({
   const [compLandPy, setCompLandPy] = useState('');
   const [compUnitManwon, setCompUnitManwon] = useState('');
   const [uploadingImageKey, setUploadingImageKey] = useState<string | null>(null);
+
+  // Quick-add tenant row state for 'rentroll' slide
+  const [rrFloor, setRrFloor] = useState('');
+  const [rrUnit, setRrUnit] = useState('');
+  const [rrTenant, setRrTenant] = useState('');
+  const [rrAreaPy, setRrAreaPy] = useState('');
+  const [rrDeposit, setRrDeposit] = useState('');
+  const [rrRent, setRrRent] = useState('');
+  const [rrIsVacant, setRrIsVacant] = useState(false);
+
+  const rawTenantList: any[] = Array.isArray(overrides.tenantData) ? overrides.tenantData : [];
+
+  const handleRecalculateRentRollTotals = () => {
+    if (rawTenantList.length === 0) return;
+    let totalDeposit = 0;
+    let totalRent = 0;
+    let occupiedCount = 0;
+    let vacantCount = 0;
+    for (const r of rawTenantList) {
+      const isVacant = Boolean(
+        r.is_vacant ||
+          r.status === '공실' ||
+          String(r.tenant_name || r.tenant || '').includes('공실')
+      );
+      if (isVacant) {
+        vacantCount += 1;
+      } else {
+        occupiedCount += 1;
+        totalDeposit += Number(r.deposit_manwon || 0) || 0;
+        totalRent += Number(r.rent_manwon || 0) || 0;
+      }
+    }
+    const totalCount = rawTenantList.length;
+    const occPct = Math.round((occupiedCount / totalCount) * 100);
+    onChange('depositTotal', `${totalDeposit.toLocaleString()}만 원`);
+    onChange('monthlyRentTotal', `${totalRent.toLocaleString()}만 원/월`);
+    onChange('occupancyRate', `${occPct}%`);
+    onChange(
+      'vacancySignal',
+      vacantCount === 0 ? '전실 임대 가동' : `공실 ${vacantCount}실 (공실률 ${100 - occPct}%)`
+    );
+  };
+
+  const handleToggleTenantVacant = (idx: number) => {
+    const next = rawTenantList.map((r: any, i: number) => {
+      if (i !== idx) return r;
+      const curVac = Boolean(r.is_vacant || r.status === '공실');
+      const nextVac = !curVac;
+      return {
+        ...r,
+        is_vacant: nextVac,
+        status: nextVac ? '공실' : '임대중',
+        tenant_name: nextVac ? '공실' : r.tenant_name === '공실' ? '임차중' : r.tenant_name,
+        tenant: nextVac ? '공실' : r.tenant === '공실' ? '임차중' : r.tenant,
+      };
+    });
+    onChange('tenantData', next);
+  };
+
+  const handleRemoveTenantRow = (idx: number) => {
+    const next = rawTenantList.filter((_: any, i: number) => i !== idx);
+    onChange('tenantData', next);
+  };
+
+  const handleAddTenantRow = () => {
+    if (!rrFloor.trim() && !rrTenant.trim()) return;
+    const parseNum = (v: string) => {
+      const n = parseFloat(String(v || '').replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(n) && n >= 0 ? n : undefined;
+    };
+    const areaPy = parseNum(rrAreaPy);
+    const depositVal = parseNum(rrDeposit) ?? 0;
+    const rentVal = parseNum(rrRent) ?? 0;
+    const floorLabel = rrFloor.trim() || '1F';
+    const unitLabel = rrUnit.trim();
+    const tenantLabel = rrIsVacant ? '공실' : rrTenant.trim() || '임차중';
+
+    const newRow = {
+      floor: floorLabel,
+      unit_label: unitLabel || undefined,
+      unit_number: unitLabel || undefined,
+      tenant_name: tenantLabel,
+      tenant: tenantLabel,
+      area_pyeong: areaPy,
+      area_sqm: areaPy ? Number((areaPy * 3.305785).toFixed(2)) : undefined,
+      deposit_manwon: depositVal,
+      rent_manwon: rentVal,
+      is_vacant: rrIsVacant,
+      status: rrIsVacant ? '공실' : '임대중',
+    };
+    const next = [...rawTenantList, newRow];
+    onChange('tenantData', next);
+    setRrFloor('');
+    setRrUnit('');
+    setRrTenant('');
+    setRrAreaPy('');
+    setRrDeposit('');
+    setRrRent('');
+    setRrIsVacant(false);
+  };
 
   const rawCompsList: any[] = Array.isArray(overrides.comparables)
     ? overrides.comparables
@@ -388,6 +488,156 @@ export function SlideEditor({
                 );
               })}
             </div>
+
+            {/* Interactive Rent Roll Row Manager for 'rentroll' slide */}
+            {(dataKey === 'rentroll' || dataKey === 'rentRoll') && (
+              <div className="pt-3 border-t border-[#E2E8F0] space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-extrabold text-[#0F172A]">
+                    🏢 층·호수별 임대차 행 관리 ({rawTenantList.length}건)
+                  </div>
+                </div>
+
+                {rawTenantList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleRecalculateRentRollTotals}
+                    className="w-full py-1.5 px-2.5 text-[11px] font-extrabold rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E3A8A] hover:bg-[#DBEAFE] transition-colors"
+                  >
+                    🔄 행 기준 보증금·월세·가동률 합계 자동 계산
+                  </button>
+                )}
+
+                {rawTenantList.length > 0 && (
+                  <div className="space-y-1.5">
+                    {rawTenantList.map((r: any, idx: number) => {
+                      const unitStr = r.unit_label || r.unit_number || r.unit || '';
+                      const isVac = Boolean(r.is_vacant || r.status === '공실');
+                      const tenantStr = isVac
+                        ? '공실'
+                        : r.tenant_name || r.tenant || r.use || '임차중';
+                      const areaStr = r.area_pyeong
+                        ? `${r.area_pyeong}평`
+                        : r.area_sqm
+                        ? `${(Number(r.area_sqm) * 0.3025).toFixed(1)}평`
+                        : '-';
+                      return (
+                        <div
+                          key={idx}
+                          className="p-2 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="font-extrabold text-[#1E3A8A] shrink-0">
+                                {r.floor || '-'}
+                                {unitStr ? ` · ${unitStr}` : ''}
+                              </span>
+                              <span className="font-bold text-[#0F172A] truncate">
+                                {tenantStr}
+                              </span>
+                              <span className="text-[11px] text-[#475569] shrink-0">
+                                ({areaStr})
+                              </span>
+                            </div>
+                            <div className="text-[11px] font-medium text-[#334155]">
+                              보증금 {(r.deposit_manwon ?? 0).toLocaleString()}만 / 월세 {(r.rent_manwon ?? 0).toLocaleString()}만
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleTenantVacant(idx)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${
+                                isVac
+                                  ? 'bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C]'
+                                  : 'bg-[#D1FAE5] border-[#A7F3D0] text-[#065F46]'
+                              }`}
+                            >
+                              {isVac ? '공실' : '임차중'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTenantRow(idx)}
+                              className="px-1.5 py-0.5 text-[11px] font-bold text-[#B91C1C] hover:underline"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
+                  <div className="text-xs font-bold text-[#0F172A]">➕ 임대차 호실 직접 추가</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      type="text"
+                      value={rrFloor}
+                      onChange={e => setRrFloor(e.target.value)}
+                      placeholder="층, 예: 1F, 2F, B1"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                    <input
+                      type="text"
+                      value={rrUnit}
+                      onChange={e => setRrUnit(e.target.value)}
+                      placeholder="호수, 예: 101호 (선택)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      type="text"
+                      value={rrTenant}
+                      onChange={e => setRrTenant(e.target.value)}
+                      placeholder="임차인·업종, 예: 메디컬의원"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                    <input
+                      type="text"
+                      value={rrAreaPy}
+                      onChange={e => setRrAreaPy(e.target.value)}
+                      placeholder="전용면적(평)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      type="text"
+                      value={rrDeposit}
+                      onChange={e => setRrDeposit(e.target.value)}
+                      placeholder="보증금(만원)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                    <input
+                      type="text"
+                      value={rrRent}
+                      onChange={e => setRrRent(e.target.value)}
+                      placeholder="월임대료(만원)"
+                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#334155] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rrIsVacant}
+                      onChange={e => setRrIsVacant(e.target.checked)}
+                      className="rounded border-[#CBD5E1]"
+                    />
+                    공실 여부 체크박스
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAddTenantRow}
+                    className="w-full py-1.5 text-xs font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                  >
+                    임대차 호실 추가
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Market Comparables List Editor for 'comps' slide */}
             {dataKey === 'comps' && (

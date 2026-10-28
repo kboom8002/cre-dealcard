@@ -9,6 +9,7 @@ import { PPTX_PRESET_TEMPLATES, PRIME_TEMPLATE_ALIASES, type PptxThemeTokens } f
 import { applyBasicBrand } from './brand-skin';
 import type { SlideSpec } from './deck-sequencer';
 import { buildBrokerCompsData } from './broker-extras-slides';
+import { bindRentRollTable } from './binder/rent-roll-table-builder';
 
 const PALETTE_KEYS: ReadonlyArray<keyof PptxThemeTokens> = [
   'ink', 'ink2', 'ink3', 'body', 'line', 'line2', 'bg', 'tint',
@@ -43,7 +44,8 @@ export function applyStudioThemeOverrides(
   if (!docBody) return baseTheme;
   const themeOv = docBody._studioThemeOverrides;
   const hf = docBody._studioHeaderFooter;
-  if (!themeOv && !hf) return baseTheme;
+  const coverLayoutType = docBody?._studioSlideTitles?.cover?.layoutType;
+  if (!themeOv && !hf && !coverLayoutType) return baseTheme;
 
   let out: PptxThemeTokens = { ...baseTheme };
 
@@ -77,6 +79,11 @@ export function applyStudioThemeOverrides(
   // 3. CoverStyle & LayoutStyle overrides
   if (themeOv?.coverStyle) {
     out.coverStyle = themeOv.coverStyle;
+  }
+  if (coverLayoutType === 'A01_SPLIT' && (!themeOv?.coverStyle || themeOv.coverStyle === 'institutional_masses')) {
+    out.coverStyle = 'split';
+  } else if (coverLayoutType === 'A01_HERO' && (!themeOv?.coverStyle || themeOv.coverStyle === 'institutional_masses')) {
+    out.coverStyle = 'hero_dark';
   }
   if (themeOv?.layoutStyle) {
     out.layoutStyle = themeOv.layoutStyle;
@@ -145,7 +152,7 @@ export function applyStudioSlideOverrides(
   const slideOrder = docBody._studioSlideOrder as string[] | undefined;
   const hf = docBody._studioHeaderFooter as Record<string, any> | undefined;
 
-  if (!slideOverrides && !hiddenKeys && !slideOrder && !hf) {
+  if (!slideOverrides && !slideTitles && !hiddenKeys && !slideOrder && !hf) {
     return sequence;
   }
 
@@ -496,11 +503,59 @@ export function applyStudioSlideOverrides(
         .map(k => dataMap[k])
         .filter(Boolean);
 
-      for (const rrTarget of rrTargets) {
+      const normalizedTenantRows =
+        Array.isArray(rrOv.tenantData) && rrOv.tenantData.length > 0
+          ? rrOv.tenantData.map((r: any) => {
+              if (!r || typeof r !== 'object') return r;
+              return {
+                ...r,
+                floor: r.floor ?? r.unit ?? '',
+                tenant_name: r.tenant_name ?? r.tenant ?? '',
+                tenant_type: r.tenant_type ?? r.use ?? r.business_type ?? '',
+                area_sqm: r.area_sqm ?? r.area ?? undefined,
+                deposit_manwon: r.deposit_manwon ?? r.deposit ?? undefined,
+                rent_manwon: r.rent_manwon ?? r.monthlyRent ?? r.rent ?? undefined,
+                mgmt_fee_manwon: r.mgmt_fee_manwon ?? r.managementFee ?? r.mgmt ?? undefined,
+                lease_end: r.lease_end ?? r.contract_end ?? r.contractEnd ?? undefined,
+                note: r.note ?? '',
+              };
+            })
+          : null;
+
+      if (
+        normalizedTenantRows &&
+        dataMap['rentRoll'] &&
+        (Array.isArray(dataMap['rentRoll'].tableRows) || Array.isArray(dataMap['rentRoll'].rows)) &&
+        JSON.stringify(rrOv.tenantData) !== JSON.stringify(docBody.floor_leases ?? docBody.rentRoll ?? docBody.ssot_summary?.floor_leases)
+      ) {
+        bindRentRollTable(
+          { body: { ...docBody, preset: docBody.preset || 'credeal_basic', floor_leases: normalizedTenantRows } },
+          '',
+          dataMap
+        );
+      }
+
+      const refreshedRrTargets = Object.keys(dataMap)
+        .filter(k => k === 'rentRoll' || k.startsWith('rentRoll_'))
+        .map(k => dataMap[k])
+        .filter(Boolean);
+
+      for (const rrTarget of refreshedRrTargets) {
         if (rrOv.depositTotal) (rrTarget as any).depositTotal = String(rrOv.depositTotal);
         if (rrOv.monthlyRentTotal) (rrTarget as any).monthlyRentTotal = String(rrOv.monthlyRentTotal);
         if (rrOv.occupancyRate) (rrTarget as any).occupancyRate = String(rrOv.occupancyRate);
         if (rrOv.vacancySignal) (rrTarget as any).vacancySignal = String(rrOv.vacancySignal);
+
+        if (normalizedTenantRows) {
+          (rrTarget as any).studioTenantData = rrOv.tenantData;
+          (rrTarget as any).leases = normalizedTenantRows;
+          (rrTarget as any).rows = normalizedTenantRows.map((r: any) => ({
+            ...r,
+            floor: r.floor,
+            unit: r.unit_label || r.unit_number || r.unit || '',
+            tenant: r.is_vacant ? '공실' : (r.tenant_name || r.tenant || ''),
+          }));
+        }
 
         if (rrOv.turnaroundStrategy) {
           const lines = String(rrOv.turnaroundStrategy)
@@ -720,7 +775,13 @@ export function applyStudioSlideOverrides(
         DUAL_LANDSCAPE: 'DUAL_LANDSCAPE',
         FULL_WIDE: 'FULL_WIDE',
       };
-      const mappedLayout = galOv.galleryLayout ? layoutMap[String(galOv.galleryLayout)] : undefined;
+      const isHero3LayoutType = slideTitles?.gallery?.layoutType === 'A14_HERO_3';
+      const mappedLayout =
+        isHero3LayoutType && (!galOv.galleryLayout || galOv.galleryLayout === 'grid_4')
+          ? 'ONE_LARGE_TWO_SMALL_H'
+          : galOv.galleryLayout
+          ? layoutMap[String(galOv.galleryLayout)]
+          : undefined;
 
       if (Array.isArray(galOv.photos) && galOv.photos.length > 0) {
         const includedPhotos = galOv.photos.filter((p: any) => p && p.included !== false && p.excluded !== true && p.url);
@@ -823,6 +884,52 @@ export function applyStudioSlideOverrides(
   // Header/Footer disclaimer override on closing slide
   if (hf?.footerDisclaimer && dataMap['closing'] && !slideOverrides?.['closing']?.disclaimer) {
     dataMap['closing'].disclaimer = String(hf.footerDisclaimer);
+  }
+
+  // Slide layoutType variant mapping from _studioSlideTitles
+  if (slideTitles) {
+    const coverLt = slideTitles.cover?.layoutType;
+    if (dataMap['cover']) {
+      if (coverLt === 'A01_SPLIT') (dataMap['cover'] as any).coverStyle = 'split';
+      else if (coverLt === 'A01_HERO') (dataMap['cover'] as any).coverStyle = 'hero_dark';
+    }
+    const hlLt = slideTitles.highlights?.layoutType || slideTitles.summary?.layoutType;
+    if (hlLt === 'A02_EXECUTIVE' && dataMap['summary']) {
+      (dataMap['summary'] as any).layoutVariant = 'executive';
+    }
+    const ovLt = slideTitles.overview?.layoutType || slideTitles.building?.layoutType;
+    if (ovLt === 'A04_WIDE_SPEC' && dataMap['building']) {
+      (dataMap['building'] as any).layoutVariant = 'wide_spec';
+    }
+    const locLt = slideTitles.location?.layoutType;
+    if (locLt === 'A06_TRANSIT_FOCUS' && dataMap['location']) {
+      (dataMap['location'] as any).layoutVariant = 'transit_focus';
+    }
+    const landLt = slideTitles.land?.layoutType;
+    if (landLt === 'A06_LAND_CADASTRAL' && dataMap['land']) {
+      (dataMap['land'] as any).layoutVariant = 'cadastral_focus';
+    }
+    const rrLt = slideTitles.rentroll?.layoutType || slideTitles.rentRoll?.layoutType;
+    if (rrLt === 'A24_TABLE_FOCUS') {
+      const rrTargets = Object.keys(dataMap)
+        .filter(k => k === 'rentRoll' || k.startsWith('rentRoll_'))
+        .map(k => dataMap[k])
+        .filter(Boolean);
+      for (const rrTarget of rrTargets) {
+        (rrTarget as any).layoutVariant = 'table_focus';
+      }
+    }
+    const yieldLt = slideTitles.yield?.layoutType || slideTitles.yieldFormula?.layoutType;
+    if (yieldLt === 'A23_DUAL_YIELD' && dataMap['yieldFormula']) {
+      (dataMap['yieldFormula'] as any).layoutVariant = 'dual_yield';
+    }
+    const galLt = slideTitles.gallery?.layoutType;
+    const galOv = slideOverrides?.['gallery'];
+    if (galLt === 'A14_HERO_3' && (!galOv?.galleryLayout || galOv.galleryLayout === 'grid_4')) {
+      if (dataMap['gallery']) dataMap['gallery'].layout = 'ONE_LARGE_TWO_SMALL_H';
+      if (dataMap['gallery_0']) dataMap['gallery_0'].layout = 'ONE_LARGE_TWO_SMALL_H';
+      if (dataMap['gallery_1']) dataMap['gallery_1'].layout = 'ONE_LARGE_TWO_SMALL_H';
+    }
   }
 
   const normalizeDeckGroupKey = (dataKey: string): string => {

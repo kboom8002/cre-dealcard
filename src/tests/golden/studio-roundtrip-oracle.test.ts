@@ -310,4 +310,67 @@ describe('Basic IM Studio Round-Trip Fact Oracle & Universal Invariants (U1-U6)'
     expect(pptxText).toContain('인근 보정역 대로변 실거래 평당 6,000만원 수준');
     expect(pptxText).toContain('안정적인 임대수익과 지가 상승을 동시에 기대할 수 있는 우량 자산입니다.');
   }, 90_000);
+
+  it('Teamwork Studio Upgrade: Rent Roll tenantData row edits and slide layoutType variants propagate cleanly', () => {
+    const mockDataMap: Record<string, any> = {
+      cover: { title: '표지' },
+      summary: { metrics: [] },
+      building: { left: { rows: [] } },
+      location: { right: { rows: [] } },
+      land: { overviewRows: [] },
+      rentRoll: {
+        rows: [
+          { floor: '1F', tenant: '기존약국', areaPyeong: 25, deposit: '5,000만', monthlyRent: '300만' },
+        ],
+      },
+      yieldFormula: {},
+      gallery: { photos: [{ url: 'https://example.com/1.jpg', included: true }] },
+      closing: {},
+    };
+    const mockSeq: any[] = [
+      { archetype: 'A01', kicker: 'COVER', title: '표지', dataKey: 'cover' },
+      { archetype: 'A02', kicker: 'HIGHLIGHTS', title: '요약', dataKey: 'summary' },
+      { archetype: 'A24', kicker: 'RENT ROLL', title: '렌트롤', dataKey: 'rentRoll' },
+      { archetype: 'A14', kicker: 'GALLERY', title: '갤러리', dataKey: 'gallery' },
+      { archetype: 'A10', kicker: 'CLOSING', title: '문의', dataKey: 'closing' },
+    ];
+    const docBody = {
+      _studioSlideTitles: {
+        cover: { layoutType: 'A01_SPLIT' },
+        highlights: { layoutType: 'A02_EXECUTIVE' },
+        overview: { layoutType: 'A04_WIDE_SPEC' },
+        location: { layoutType: 'A06_TRANSIT_FOCUS' },
+        land: { layoutType: 'A06_LAND_CADASTRAL' },
+        rentroll: { layoutType: 'A24_TABLE_FOCUS' },
+        yield: { layoutType: 'A23_DUAL_YIELD' },
+        gallery: { layoutType: 'A14_HERO_3' },
+      },
+      _studioInitialOverrides: {
+        rentroll: {
+          tenantData: [{ floor: '1F', tenant_name: '기존약국', area_pyeong: 25, deposit_manwon: 5000, rent_manwon: 300 }],
+        },
+      },
+      _studioSlideOverrides: {
+        rentroll: {
+          tenantData: [
+            { floor: '1F', unit_label: '101호', tenant_name: '스타벅스(스튜디오추가)', area_pyeong: 42, deposit_manwon: 10000, rent_manwon: 650, is_vacant: false },
+            { floor: '2F', unit_label: '201호', tenant_name: '공실', area_pyeong: 42, deposit_manwon: 0, rent_manwon: 0, is_vacant: true },
+          ],
+        },
+      },
+    };
+
+    applyStudioSlideOverrides(mockSeq, mockDataMap, docBody);
+
+    expect(mockDataMap.cover.coverStyle).toBe('split');
+    expect(mockDataMap.summary.layoutVariant).toBe('executive');
+    expect(mockDataMap.building.layoutVariant).toBe('wide_spec');
+    expect(mockDataMap.location.layoutVariant).toBe('transit_focus');
+    expect(mockDataMap.land.layoutVariant).toBe('cadastral_focus');
+    expect(mockDataMap.rentRoll.layoutVariant).toBe('table_focus');
+    expect(mockDataMap.yieldFormula.layoutVariant).toBe('dual_yield');
+    expect(mockDataMap.gallery.layout).toBe('ONE_LARGE_TWO_SMALL_H');
+    expect(mockDataMap.rentRoll.studioTenantData).toHaveLength(2);
+    expect(mockDataMap.rentRoll.rows.some((r: any) => String(r.tenant || '').includes('스타벅스(스튜디오추가)'))).toBe(true);
+  });
 });

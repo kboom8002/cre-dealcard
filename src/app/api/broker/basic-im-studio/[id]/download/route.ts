@@ -168,7 +168,14 @@ export async function GET(
 
     const effectiveVisualPreset = queryVisualPreset || project.visualPreset || 'credeal_basic';
     const effectiveBrandAccent = queryBrandAccent || project.brandAccent || undefined;
-    const effectiveCoverStyle = (queryCoverStyle || project.coverStyle) as any;
+    const coverLayoutType = studioSlideTitles['cover']?.layoutType;
+    const rawCoverStyle = (queryCoverStyle || project.coverStyle) as any;
+    const effectiveCoverStyle =
+      (!rawCoverStyle || rawCoverStyle === 'institutional_masses') && coverLayoutType === 'A01_SPLIT'
+        ? 'split'
+        : (!rawCoverStyle || rawCoverStyle === 'institutional_masses') && coverLayoutType === 'A01_HERO'
+        ? 'hero_dark'
+        : rawCoverStyle;
     const effectiveLayoutStyle = (queryLayoutStyle || project.layoutStyle) as any;
 
     const fullBody: Record<string, any> = {
@@ -188,6 +195,25 @@ export async function GET(
         layoutStyle: effectiveLayoutStyle,
       },
     };
+
+    // Sync edited Studio Rent Roll tenantData into fullBody.floor_leases & rentRoll
+    const rrSlideOv = studioSlideOverrides['rentroll'] || studioSlideOverrides['rentRoll'];
+    const rrInitOv = studioInitialOverrides['rentroll'] || studioInitialOverrides['rentRoll'];
+    if (Array.isArray(rrSlideOv?.tenantData) && rrSlideOv.tenantData.length > 0) {
+      const isTenantDataEdited =
+        !rrInitOv?.tenantData ||
+        JSON.stringify(rrSlideOv.tenantData) !== JSON.stringify(rrInitOv.tenantData);
+      if (isTenantDataEdited) {
+        fullBody.floor_leases = rrSlideOv.tenantData;
+        fullBody.rentRoll = rrSlideOv.tenantData;
+        if (fullBody.ssot_summary && typeof fullBody.ssot_summary === 'object') {
+          fullBody.ssot_summary = {
+            ...fullBody.ssot_summary,
+            floor_leases: rrSlideOv.tenantData,
+          };
+        }
+      }
+    }
 
     // Sync Studio gallery photo curation (hero/exterior/caption/exclusion) into fullBody.photos_v2 & photos
     const rawStudioPhotos = studioSlideOverrides['gallery']?.photos;

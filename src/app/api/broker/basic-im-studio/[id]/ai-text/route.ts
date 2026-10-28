@@ -30,6 +30,41 @@ function buildDeterministicRefinement(
   const landArea = overrides.landArea || '';
   const grossArea = overrides.grossArea || '';
 
+  if (fieldKey === 'investmentPoint2') {
+    const floors = overrides.floors || '';
+    const bcrFar = overrides.bcrFar || '';
+    if (tone === 'conservative') {
+      return sanitizeRefinedText(
+        `${zoning} 내 ${landArea ? `대지면적 ${landArea}` : '대지'}${grossArea ? `, 연면적 ${grossArea}` : ''}${floors ? ` (${floors})` : ''} 규모의 자산으로, 건축물대장 기준 ${bcrFar ? `건폐율·용적률(${bcrFar}) 등 ` : ''}공적 제원이 명확히 확보되어 있습니다.`
+      );
+    }
+    if (tone === 'aggressive') {
+      return sanitizeRefinedText(
+        `${zoning} 핵심 필지(${landArea || '우량 대지'}${grossArea ? ` / 연면적 ${grossArea}` : ''}${floors ? ` · ${floors}` : ''})로 ${bcrFar ? `건폐율·용적률(${bcrFar}) 활용도가 우수하며, ` : ''}향후 리모델링·증축 또는 용도 고도화를 통한 물리적 자산가치 극대화가 가능합니다.`
+      );
+    }
+    return sanitizeRefinedText(
+      `${zoning} 입지의 ${landArea ? `대지 ${landArea}` : '정형 필지'}${grossArea ? ` · 연면적 ${grossArea}` : ''}${floors ? ` (${floors})` : ''} 규모 빌딩으로, ${bcrFar ? `건폐율·용적률(${bcrFar}) 및 ` : ''}기준층 공간 효율성이 우수하여 임차 수요 확보에 유리합니다.`
+    );
+  }
+
+  if (fieldKey === 'investmentPoint3') {
+    const vacancySignal = overrides.vacancySignal || '';
+    if (tone === 'conservative') {
+      return sanitizeRefinedText(
+        `${ask ? `매매 희망가 ${ask} 기준 ` : ''}${yieldBase ? `현행 임대수익률 ${yieldBase}` : '현행 임대차 계약 구조'}를 유지하고 있으며, ${vacancySignal ? `임대 현황(${vacancySignal}) 및 ` : ''}만기 도래 호실의 재계약 조건에 따라 안정적인 현금흐름 관리가 가능합니다.`
+      );
+    }
+    if (tone === 'aggressive') {
+      return sanitizeRefinedText(
+        `${yieldBase ? `현행 수익률 ${yieldBase}에서 ` : ''}${vacancySignal ? `임대차 재편(${vacancySignal}) 및 ` : ''}공실 해소·저평가 호실 재구조화(Re-tenanting) 실행 시 ${yieldStab ? `안정화 수익률 ${yieldStab}까지 대폭 상승이 가능하며, ` : '수익률의 즉각적인 점프업이 가능하며, '}${ask ? `매매가(${ask}) 대비 ` : ''}높은 밸류애드(Value-Add) 자본차익이 기대됩니다.`
+      );
+    }
+    return sanitizeRefinedText(
+      `${ask ? `매매 희망가 ${ask} 대비 ` : ''}${yieldBase ? `현행 ${yieldBase}의 안정적 임대수익` : '안정적 임대수익 기반'}을 확보하고 있으며, ${vacancySignal ? `${vacancySignal} 관리 및 ` : ''}임대차 최적화를 통해 ${yieldStab ? `목표 수익률 ${yieldStab} 달성이` : '추가 수익률 제고가'} 기대됩니다.`
+    );
+  }
+
   if (dataKey === 'highlights' || fieldKey === 'leadSentence' || fieldKey === 'keyInvestmentPoint') {
     if (tone === 'conservative') {
       return sanitizeRefinedText(
@@ -110,6 +145,42 @@ function buildDeterministicRefinement(
     );
   }
 
+  if (dataKey === 'yield' || fieldKey === 'stabilizedAssumption' || fieldKey === 'yieldNotes') {
+    const totalDep = overrides.totalDeposit || '';
+    const annRent = overrides.annualRent || '';
+    const pricePerPy = overrides.pricePerPyeong || '';
+    if (tone === 'conservative') {
+      return sanitizeRefinedText(
+        `${ask ? `매매 희망가 ${ask}` : '매매가'}${totalDep ? `, 총 보증금 ${totalDep}` : ''}${annRent ? `, 연 임대수입 ${annRent}` : ''} 기준 ${yieldBase ? `현행 Cap Rate ${yieldBase}` : '실투자금 대비 수익률'}${pricePerPy ? ` (평당 ${pricePerPy})` : ''}로 산정되었으며, 최근 10개년 개별공시지가 추이 및 공적장부 제원을 바탕으로 보수적 원금 보존성을 검토하였습니다.`
+      );
+    }
+    if (tone === 'aggressive') {
+      return sanitizeRefinedText(
+        `${pricePerPy ? `토지 평당가 ${pricePerPy} 수준의 가격 경쟁력과 ` : ''}${ask ? `매매가 ${ask} 대비 ` : ''}최근 10개년 공시지가의 가파른 우상향 추이가 하방 경직성을 지지하며, 공실 해소 및 주변 시세 수준 재계약 시 ${yieldBase ? `현행 ${yieldBase}에서 ` : ''}${yieldStab ? `안정화 수익률 ${yieldStab}` : '목표 수익률'}까지 강력한 수익률 레버리지가 기대됩니다.`
+      );
+    }
+    return sanitizeRefinedText(
+      `${ask ? `매매 희망가 ${ask}` : '매매가'}${totalDep ? ` (보증금 ${totalDep} 차감 실투자금 기준)` : ''}${annRent ? ` · 연 임대수입 ${annRent}` : ''} 대비 ${yieldBase ? `현행 수익률 ${yieldBase}` : '안정적 현금흐름'}${yieldStab ? ` 및 안정화 기대수익률 ${yieldStab}` : ''}를 확보할 수 있으며, 최근 10년간 공시지가 상승 추세를 감안할 때 임대수익과 중장기 지가 상승을 동시에 기대할 수 있습니다.`
+    );
+  }
+
+  if (dataKey === 'comps' || fieldKey === 'compsNotes') {
+    const targetPy = overrides.targetLandPricePerPy || overrides.pricePerPyeong || '';
+    if (tone === 'conservative') {
+      return sanitizeRefinedText(
+        `국토교통부 실거래가 공개시스템 및 ${addr} 인근 ${zoning} 내 유사 거래사례를 기준으로 작성되었으며,${targetPy ? ` 본건 토지 평당가(${targetPy})와` : ''} 개별 필지의 도로 접면·용적률 조건 차이를 감안한 비교 검토가 필요합니다.`
+      );
+    }
+    if (tone === 'aggressive') {
+      return sanitizeRefinedText(
+        `${addr} 핵심 권역 내 동일 ${zoning} 실거래 사례 대비${targetPy ? ` 본건 토지 평당가(${targetPy})는` : ''} 뚜렷한 가격 메리트를 보유하고 있어, 매입 즉시 시세 차익 안전마진 확보 및 향후 매각(Exit) 시 높은 자본이득이 기대됩니다.`
+      );
+    }
+    return sanitizeRefinedText(
+      `${addr} 일대 ${zoning} 내 최근 매매 실거래 및 시장 호가 사례를 종합할 때,${targetPy ? ` 본건 토지 평당가(${targetPy})는` : ' 본건 매매 조건은'} 입지 및 건물 제원 대비 합리적인 가격 경쟁력을 갖춘 것으로 판단됩니다.`
+    );
+  }
+
   if (dataKey === 'closing' || fieldKey === 'closingLine') {
     if (tone === 'conservative') {
       return sanitizeRefinedText(
@@ -176,7 +247,12 @@ export async function POST(
     if (denied) return denied;
 
     const slide = project?.slides.find(s => s.id === slideId || s.dataKey === dataKey);
-    const overrides = (slide?.slideOverrides ?? {}) as Record<string, any>;
+    const overrides = Object.assign(
+      {},
+      ...(project?.slides || []).map(s => s.slideOverrides || {}),
+      slide?.slideOverrides || {},
+      body?.overrides && typeof body.overrides === 'object' ? body.overrides : {}
+    ) as Record<string, any>;
     const buildingName = project?.buildingContext?.buildingName || project?.title?.replace(/\s*Basic\s*IM$/i, '') || '본건 빌딩';
 
     const refinedText = buildDeterministicRefinement(

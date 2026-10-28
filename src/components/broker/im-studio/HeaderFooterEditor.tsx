@@ -48,9 +48,31 @@ export function HeaderFooterEditor() {
 
       {/* 로고 이미지 URL */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-bold text-[#0F172A]">
-          중개법인 로고 이미지 URL (선택)
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label className="block text-xs font-bold text-[#0F172A]">
+            중개법인 로고 이미지 URL (선택)
+          </label>
+          <label className="cursor-pointer px-2 py-0.5 rounded bg-[#EFF6FF] border border-[#BFDBFE] text-[10px] font-extrabold text-[#1E3A8A] hover:bg-[#DBEAFE] transition-colors">
+            📁 로고 파일 업로드
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (typeof reader.result === 'string') {
+                    setHeaderFooterConfig({ logoUrl: reader.result });
+                  }
+                };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </div>
         <input
           type="url"
           value={headerFooterConfig.logoUrl || ''}
@@ -59,10 +81,20 @@ export function HeaderFooterEditor() {
           className="w-full px-3 py-2 text-xs font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
         />
         {headerFooterConfig.logoUrl && (
-          <div className="flex items-center justify-between p-2 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
-            <span className="text-[11px] font-bold text-[#334155] truncate">
-              로고 연결됨: {headerFooterConfig.logoUrl}
-            </span>
+          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
+            <div className="flex items-center gap-2 min-w-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={headerFooterConfig.logoUrl}
+                alt="로고 미리보기"
+                className="h-7 w-auto object-contain rounded bg-white border border-[#CBD5E1] px-1.5 py-0.5 shrink-0"
+              />
+              <span className="text-[11px] font-bold text-[#334155] truncate">
+                {headerFooterConfig.logoUrl.startsWith('data:')
+                  ? '로고 이미지 파일 연결됨'
+                  : `로고 연결됨: ${headerFooterConfig.logoUrl}`}
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => setHeaderFooterConfig({ logoUrl: undefined })}

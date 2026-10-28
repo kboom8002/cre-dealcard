@@ -37,6 +37,7 @@ function BasicImStudioInner({
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showQualityPopover, setShowQualityPopover] = useState(false);
 
   const {
     slides,
@@ -346,6 +347,59 @@ function BasicImStudioInner({
     }
   }, [project, dirtySlideIds.size, flushAllDirtySlides, presetId, coverStyle, layoutStyle, brandAccent, headerFooterConfig]);
 
+  // Keyboard shortcuts: Ctrl+S (save), Alt+ArrowUp/Down/Left/Right (slide nav), Escape (exit fullscreen / close popover)
+  useEffect(() => {
+    if (loading) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (dirtySlideIds.size > 0) {
+          void flushAllDirtySlides().then(() => {
+            toast.success('💾 모든 슬라이드 변경사항이 저장되었습니다.');
+          });
+        } else {
+          void handleSaveSlide();
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (isFullscreen) setIsFullscreen(false);
+        if (showQualityPopover) setShowQualityPopover(false);
+        return;
+      }
+      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        setSelectedIndex(i => Math.max(0, i - 1));
+        return;
+      }
+      if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        setSelectedIndex(i => Math.min(slides.length - 1, i + 1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    loading,
+    dirtySlideIds.size,
+    flushAllDirtySlides,
+    handleSaveSlide,
+    isFullscreen,
+    showQualityPopover,
+    slides.length,
+  ]);
+
+  // Warn before accidentally closing browser tab when there are unsaved slide edits
+  useEffect(() => {
+    if (dirtySlideIds.size === 0) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [dirtySlideIds.size]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC] text-[#0F172A]">
@@ -366,6 +420,71 @@ function BasicImStudioInner({
       </div>
     );
   }
+
+  // 5-Point IM Quality Readiness Check
+  const findSlideIndexByKey = (keys: string[], fallbackIdx: number) => {
+    const idx = slides.findIndex(s => keys.includes(s.dataKey || ''));
+    return idx >= 0 ? idx : Math.min(fallbackIdx, Math.max(0, slides.length - 1));
+  };
+  const coverIdx = findSlideIndexByKey(['cover'], 0);
+  const overviewIdx = findSlideIndexByKey(['overview', 'building'], 2);
+  const locationIdx = findSlideIndexByKey(['location'], 3);
+  const landIdx = findSlideIndexByKey(['land'], 4);
+  const rentrollIdx = findSlideIndexByKey(['rentroll', 'rentRoll'], 5);
+  const galleryIdx = findSlideIndexByKey(['gallery'], 8);
+
+  const covOv = (slides[coverIdx]?.slideOverrides || {}) as Record<string, any>;
+  const ovOv = (slides[overviewIdx]?.slideOverrides || {}) as Record<string, any>;
+  const locOv = (slides[locationIdx]?.slideOverrides || {}) as Record<string, any>;
+  const landOv = (slides[landIdx]?.slideOverrides || {}) as Record<string, any>;
+  const rrOv = (slides[rentrollIdx]?.slideOverrides || {}) as Record<string, any>;
+  const galOv = (slides[galleryIdx]?.slideOverrides || {}) as Record<string, any>;
+
+  const qualityChecks = [
+    {
+      id: 'cover',
+      label: '표지·매매희망가',
+      passed: Boolean((covOv.title || slides[coverIdx]?.title) && covOv.askingPrice),
+      targetIdx: coverIdx,
+    },
+    {
+      id: 'overview',
+      label: '건축물 공부 제원',
+      passed: Boolean(ovOv.landArea && ovOv.grossArea),
+      targetIdx: overviewIdx,
+    },
+    {
+      id: 'location_land',
+      label: '입지·토지 공법',
+      passed: Boolean(locOv.transitInfo && landOv.zoningInfo),
+      targetIdx: !locOv.transitInfo ? locationIdx : landIdx,
+    },
+    {
+      id: 'rentroll',
+      label: '렌트롤·임대수익',
+      passed: Boolean(
+        rrOv.depositTotal ||
+          rrOv.monthlyRentTotal ||
+          (Array.isArray(rrOv.tenantData) && rrOv.tenantData.length > 0) ||
+          (Array.isArray(project.buildingContext?.floor_leases) && project.buildingContext.floor_leases.length > 0)
+      ),
+      targetIdx: rentrollIdx,
+    },
+    {
+      id: 'gallery',
+      label: '현장 실사 사진',
+      passed: Boolean(
+        (Array.isArray(galOv.photos) &&
+          galOv.photos.some((p: any) =>
+            typeof p === 'string' ? Boolean(p) : p?.included !== false && p?.excluded !== true && Boolean(p?.url)
+          )) ||
+          (Array.isArray(project.buildingContext?.photos_v2) && project.buildingContext.photos_v2.length > 0) ||
+          (Array.isArray(project.buildingContext?.photos) && project.buildingContext.photos.length > 0)
+      ),
+      targetIdx: galleryIdx,
+    },
+  ];
+  const passedCount = qualityChecks.filter(c => c.passed).length;
 
   return (
     <div className="flex flex-col h-screen bg-[#F1F5F9] text-[#0F172A]">
@@ -406,8 +525,68 @@ function BasicImStudioInner({
           </div>
         </div>
 
-        {/* Right Toolbar: Quick Remedy / Undo / Redo / Save / Download */}
+        {/* Right Toolbar: IM Quality Check / Quick Remedy / Undo / Redo / Save / Download */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Live IM Quality Readiness Checklist Popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowQualityPopover(v => !v)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-colors flex items-center gap-1.5 ${
+                passedCount === 5
+                  ? 'bg-[#ECFDF5] text-[#065F46] border-[#6EE7B7] hover:bg-[#D1FAE5]'
+                  : 'bg-[#FFFBEB] text-[#92400E] border-[#FCD34D] hover:bg-[#FEF3C7]'
+              }`}
+              title="클릭하여 5대 IM 품질 점검 항목 확인 및 바로 이동"
+            >
+              <span>{passedCount === 5 ? `✅ IM 품질 ${passedCount}/5` : `⚡ IM 점검 ${passedCount}/5`}</span>
+            </button>
+            {showQualityPopover && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-[#CBD5E1] bg-white shadow-xl p-3 z-50">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E2E8F0]">
+                  <span className="text-xs font-black text-[#0F172A]">
+                    📋 Basic IM 5대 핵심 품질 점검 ({passedCount}/5)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowQualityPopover(false)}
+                    className="text-xs font-bold text-[#64748B] hover:text-[#0F172A]"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {qualityChecks.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedIndex(item.targetIdx);
+                        setRightTab('content');
+                        setShowQualityPopover(false);
+                      }}
+                      className="w-full px-2.5 py-2 rounded-xl border border-[#E2E8F0] hover:border-[#1D4ED8] hover:bg-[#F8FAFC] flex items-center justify-between text-left transition-all"
+                    >
+                      <span className="text-xs font-extrabold text-[#0F172A]">{item.label}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                          item.passed
+                            ? 'bg-[#DCFCE7] text-[#166534]'
+                            : 'bg-[#FEF3C7] text-[#92400E]'
+                        }`}
+                      >
+                        {item.passed ? '✓ 완료' : '⚠️ 확인 필요'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-[#E2E8F0] text-[10px] font-medium text-[#475569]">
+                  💡 항목을 클릭하면 해당 슬라이드 편집 화면으로 즉시 이동합니다. (단축키: Ctrl+S 저장, Alt+↑/↓ 이동)
+                </div>
+              </div>
+            )}
+          </div>
+
           <QuickRemedyPopover
             onOpenThemeTab={() => setRightTab('theme')}
             onOpenContentTab={() => setRightTab('content')}

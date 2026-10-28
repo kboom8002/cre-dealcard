@@ -128,6 +128,7 @@ export function SlidePreview({
 }: SlidePreviewProps) {
   const { tokens, coverStyle, layoutStyle, headerFooterConfig } = useTheme();
   const [galleryPreviewPage, setGalleryPreviewPage] = useState<0 | 1>(0);
+  const [rentRollPreviewPage, setRentRollPreviewPage] = useState<0 | 1>(0);
   const ov = (slide.slideOverrides || {}) as Record<string, any>;
   const ssot = buildingContext?.ssot_summary ?? {};
   const enrichment = buildingContext?.enrichment ?? {};
@@ -171,6 +172,13 @@ export function SlidePreview({
     const askVal = String(ov.askingPrice || '');
     const dateVal = String(ov.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '.');
     const companyVal = String(headerFooterConfig.companyName || ov.brokerCompany || tokens.companyName);
+    const effectiveCoverStyle =
+      slide.layoutType === 'A01_SPLIT'
+        ? 'split'
+        : slide.layoutType === 'A01_HERO'
+        ? 'hero_dark'
+        : coverStyle;
+    const contentMaxWidthClass = effectiveCoverStyle === 'hero_dark' ? 'max-w-[88%]' : 'max-w-[64%]';
 
     return (
       <div
@@ -181,7 +189,7 @@ export function SlidePreview({
         }}
       >
         {/* Cover Style Geometric Decorations */}
-        {coverStyle === 'split' ? (
+        {effectiveCoverStyle === 'split' ? (
           <div
             className="absolute right-0 top-0 bottom-0 w-[34%] flex flex-col justify-end p-6"
             style={{ backgroundColor: `#${tokens.accent}` }}
@@ -190,7 +198,7 @@ export function SlidePreview({
               {headerFooterConfig.companyTagline || tokens.companyTagline}
             </div>
           </div>
-        ) : coverStyle === 'hero_dark' ? (
+        ) : effectiveCoverStyle === 'hero_dark' ? (
           <>
             <div className="absolute top-0 left-0 right-0 h-2" style={{ backgroundColor: `#${tokens.accent}` }} />
             <div className="absolute bottom-0 left-0 right-0 h-2" style={{ backgroundColor: `#${tokens.accent}` }} />
@@ -199,7 +207,7 @@ export function SlidePreview({
               style={{ border: `1.5px solid #${tokens.accent}66` }}
             />
           </>
-        ) : coverStyle === 'corporate_card' ? (
+        ) : effectiveCoverStyle === 'corporate_card' ? (
           <div
             className="absolute right-6 top-6 bottom-6 w-[30%] rounded-xl p-5 flex flex-col justify-between"
             style={{
@@ -235,7 +243,7 @@ export function SlidePreview({
         )}
 
         {/* Top Bar: Kicker + Confidentiality Badge */}
-        <div className="relative z-10 flex items-center justify-between max-w-[64%]">
+        <div className={`relative z-10 flex items-center justify-between ${contentMaxWidthClass}`}>
           <div className="flex items-center gap-2">
             <span
               className="px-2.5 py-0.5 rounded text-[10px] font-extrabold tracking-widest uppercase"
@@ -258,7 +266,7 @@ export function SlidePreview({
         </div>
 
         {/* Center Hero Title & Key Metadata */}
-        <div className="relative z-10 max-w-[64%] my-auto space-y-3">
+        <div className={`relative z-10 ${contentMaxWidthClass} my-auto space-y-3`}>
           <div className="w-14 h-1 rounded-full" style={{ backgroundColor: `#${tokens.accent}` }} />
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
             <InlineEditableText
@@ -311,7 +319,7 @@ export function SlidePreview({
 
         {/* Bottom Branding Footer */}
         <div
-          className="relative z-10 pt-3 border-t flex items-center justify-between text-xs max-w-[64%]"
+          className={`relative z-10 pt-3 border-t flex items-center justify-between text-xs ${contentMaxWidthClass}`}
           style={{ borderColor: `#${tokens.darkBorder}` }}
         >
           <div className="flex items-center gap-2.5">
@@ -346,6 +354,7 @@ export function SlidePreview({
 
   // ── 02 HIGHLIGHTS / SUMMARY SLIDE ──
   const renderHighlightsSlide = () => {
+    const isExecutiveLayout = slide.layoutType === 'A02_EXECUTIVE';
     const kpis = [
       { key: 'askingPrice', label: '매매 희망가', value: ov.askingPrice || '상담 요망', highlight: true },
       { key: 'grossYield', label: '현행 임대수익률', value: ov.grossYield || '-', highlight: true },
@@ -358,6 +367,36 @@ export function SlidePreview({
       { key: 'investmentPoint2', num: '02', title: '토지·건물 물리적 제원 강점', text: ov.investmentPoint2 || '' },
       { key: 'investmentPoint3', num: '03', title: '밸류애드(Value-Add) 및 수익 상승 여력', text: ov.investmentPoint3 || '' },
     ];
+
+    const kpiGridEl = (
+      <div className="grid grid-cols-4 gap-2">
+        {kpis.map(k => (
+          <div
+            key={k.key}
+            className="p-2.5 rounded-xl border flex flex-col justify-between"
+            style={{
+              backgroundColor: k.highlight ? `#${tokens.ink}` : `#${tokens.tint}`,
+              borderColor: k.highlight ? `#${tokens.ink2}` : `#${tokens.line}`,
+              color: k.highlight ? '#FFFFFF' : `#${tokens.ink}`,
+            }}
+          >
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: k.highlight ? `#${tokens.accentL}` : `#${tokens.slate}` }}
+            >
+              {k.label}
+            </span>
+            <div className="text-sm sm:text-base font-black mt-0.5 truncate">
+              <InlineEditableText
+                fieldKey={k.key}
+                value={String(k.value)}
+                onCommit={handleFieldCommit}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
 
     return (
       <div className="flex-1 flex flex-col justify-between gap-2 min-h-0">
@@ -378,68 +417,84 @@ export function SlidePreview({
           />
         </div>
 
-        {/* 4 KPI Stat Cards */}
-        <div className="grid grid-cols-4 gap-2">
-          {kpis.map(k => (
-            <div
-              key={k.key}
-              className="p-2.5 rounded-xl border flex flex-col justify-between"
-              style={{
-                backgroundColor: k.highlight ? `#${tokens.ink}` : `#${tokens.tint}`,
-                borderColor: k.highlight ? `#${tokens.ink2}` : `#${tokens.line}`,
-                color: k.highlight ? '#FFFFFF' : `#${tokens.ink}`,
-              }}
-            >
-              <span
-                className="text-[10px] font-bold uppercase tracking-wider"
-                style={{ color: k.highlight ? `#${tokens.accentL}` : `#${tokens.slate}` }}
-              >
-                {k.label}
-              </span>
-              <div className="text-sm sm:text-base font-black mt-0.5 truncate">
-                <InlineEditableText
-                  fieldKey={k.key}
-                  value={String(k.value)}
-                  onCommit={handleFieldCommit}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 3 Investment Highlight Pillars */}
-        <div className="space-y-1.5 flex-1 flex flex-col justify-center min-h-0">
-          {points.map(pt => (
-            <div
-              key={pt.key}
-              className="px-3 py-1.5 rounded-xl border flex items-center gap-2.5 bg-white"
-              style={{ borderColor: `#${tokens.line}` }}
-            >
-              <span
-                className="w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white"
-                style={{ backgroundColor: `#${tokens.accent}`, color: '#FFFFFF' }}
-              >
-                {pt.num}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-[#0F172A] leading-snug line-clamp-2">
-                  <InlineEditableText
-                    fieldKey={pt.key}
-                    value={String(pt.text)}
-                    placeholder={`${pt.title} 내용을 입력하세요`}
-                    onCommit={handleFieldCommit}
-                  />
+        {isExecutiveLayout ? (
+          <>
+            {/* Executive 3-Column Horizontal Pillar Grid */}
+            <div className="grid grid-cols-3 gap-2.5 flex-1 min-h-0">
+              {points.map(pt => (
+                <div
+                  key={pt.key}
+                  className="p-3 rounded-xl border bg-white flex flex-col justify-between min-h-0"
+                  style={{ borderColor: `#${tokens.line}`, borderTop: `3px solid #${tokens.accent}` }}
+                >
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span
+                        className="w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white"
+                        style={{ backgroundColor: `#${tokens.accent}`, color: '#FFFFFF' }}
+                      >
+                        {pt.num}
+                      </span>
+                      <span className="text-[11px] font-extrabold truncate" style={{ color: `#${tokens.ink}` }}>
+                        {pt.title}
+                      </span>
+                    </div>
+                    <div className="text-xs font-bold text-[#0F172A] leading-snug line-clamp-3">
+                      <InlineEditableText
+                        fieldKey={pt.key}
+                        value={String(pt.text)}
+                        placeholder={`${pt.title} 내용을 입력하세요`}
+                        onCommit={handleFieldCommit}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+            {/* Bottom 4 KPI Strip */}
+            {kpiGridEl}
+          </>
+        ) : (
+          <>
+            {/* 4 KPI Stat Cards */}
+            {kpiGridEl}
+
+            {/* 3 Investment Highlight Pillars */}
+            <div className="space-y-1.5 flex-1 flex flex-col justify-center min-h-0">
+              {points.map(pt => (
+                <div
+                  key={pt.key}
+                  className="px-3 py-1.5 rounded-xl border flex items-center gap-2.5 bg-white"
+                  style={{ borderColor: `#${tokens.line}` }}
+                >
+                  <span
+                    className="w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white"
+                    style={{ backgroundColor: `#${tokens.accent}`, color: '#FFFFFF' }}
+                  >
+                    {pt.num}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-[#0F172A] leading-snug line-clamp-2">
+                      <InlineEditableText
+                        fieldKey={pt.key}
+                        value={String(pt.text)}
+                        placeholder={`${pt.title} 내용을 입력하세요`}
+                        onCommit={handleFieldCommit}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     );
   };
 
   // ── 03 OVERVIEW SLIDE ──
   const renderOverviewSlide = () => {
+    const isWideSpec = slide.layoutType === 'A04_WIDE_SPEC';
     const specRows = [
       { key: 'address', label: '소재지', val: ov.address },
       { key: 'landArea', label: '대지면적', val: ov.landArea },
@@ -454,7 +509,9 @@ export function SlidePreview({
     ];
 
     const rawCtxPhotos: any[] =
-      Array.isArray(buildingContext?.photos_v2) && buildingContext.photos_v2.length > 0
+      Array.isArray(ov.photos) && ov.photos.length > 0
+        ? ov.photos
+        : Array.isArray(buildingContext?.photos_v2) && buildingContext.photos_v2.length > 0
         ? buildingContext.photos_v2
         : Array.isArray(buildingContext?.photos)
         ? buildingContext.photos
@@ -465,6 +522,104 @@ export function SlidePreview({
       activeCtxPhotos.find((p: any) => typeof p === 'object' && (p.role === 'exterior' || p.category === 'exterior')) ||
       activeCtxPhotos[0];
     const firstPhoto = typeof pickedHeroOrExt === 'string' ? pickedHeroOrExt : pickedHeroOrExt?.url;
+
+    if (isWideSpec) {
+      return (
+        <div className="flex-1 flex flex-col justify-between gap-2.5 min-h-0">
+          {/* Top Full-Width 2-Column Spec Table */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
+            <div
+              className="px-3 py-1.5 text-[11px] font-extrabold text-white flex items-center justify-between"
+              style={{ backgroundColor: `#${tokens.ink}` }}
+            >
+              <span>건축물대장 · 토지이용계획확인서 상세 제원 (와이드 비교형)</span>
+              <span className="text-[10px] opacity-80">✓ 공부확인</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 bg-white">
+              {specRows.map((r, i) => (
+                <div
+                  key={r.key}
+                  className="grid grid-cols-12 px-3 py-1 text-[11px] items-center border-b"
+                  style={{
+                    backgroundColor: Math.floor(i / 2) % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF',
+                    borderColor: `#${tokens.line2}`,
+                  }}
+                >
+                  <span className="col-span-4 font-bold" style={{ color: `#${tokens.slate}` }}>
+                    {r.label}
+                  </span>
+                  <span className="col-span-8 font-extrabold text-[#0F172A] truncate">
+                    <InlineEditableText
+                      fieldKey={r.key}
+                      value={String(r.val || '-')}
+                      onCommit={handleFieldCommit}
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom 12-Col Row: Exterior Photo (4) + Checkpoints (5) + Price Box (3) */}
+          <div className="grid grid-cols-12 gap-3 flex-1 min-h-0">
+            <div
+              className="col-span-4 rounded-xl border overflow-hidden relative flex items-center justify-center"
+              style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
+            >
+              {typeof firstPhoto === 'string' && firstPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={firstPhoto} alt="건물 외관" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center p-2">
+                  <div className="text-lg">🏢</div>
+                  <div className="text-[10px] font-bold" style={{ color: `#${tokens.ink}` }}>
+                    {ov.buildingName || buildingContext?.buildingName || '본건 외관 대표 이미지'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div
+              className="col-span-5 p-2.5 rounded-xl border flex flex-col justify-center"
+              style={{
+                backgroundColor: `#${tokens.accentT}`,
+                borderColor: `#${tokens.accentL}`,
+              }}
+            >
+              <div className="text-[11px] font-extrabold mb-0.5" style={{ color: `#${tokens.ink}` }}>
+                ✦ 자산 핵심 체크포인트
+              </div>
+              <div className="text-[11px] font-medium text-[#1E293B] whitespace-pre-line leading-snug line-clamp-3">
+                <InlineEditableText
+                  fieldKey="rightCallout"
+                  value={String(ov.rightCallout || '')}
+                  multiline
+                  onCommit={handleFieldCommit}
+                />
+              </div>
+            </div>
+
+            <div
+              className="col-span-3 p-2.5 rounded-xl flex flex-col justify-between text-xs"
+              style={{ backgroundColor: `#${tokens.ink}`, color: '#FFFFFF' }}
+            >
+              <div>
+                <span className="text-[10px] font-bold" style={{ color: `#${tokens.accentL}` }}>매매 희망가</span>
+                <div className="text-sm font-black truncate">
+                  <InlineEditableText fieldKey="askingPrice" value={String(ov.askingPrice || '상담')} onCommit={handleFieldCommit} />
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold" style={{ color: `#${tokens.accentL}` }}>토지 평당가</span>
+                <div className="text-xs font-black truncate">
+                  <InlineEditableText fieldKey="landUnitPrice" value={String(ov.landUnitPrice || '-')} onCommit={handleFieldCommit} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
@@ -567,6 +722,7 @@ export function SlidePreview({
 
   // ── 04 LOCATION SLIDE ──
   const renderLocationSlide = () => {
+    const isTransitFocus = slide.layoutType === 'A06_TRANSIT_FOCUS';
     const locRows = [
       { key: 'address', label: '소재지', val: ov.address },
       { key: 'transitInfo', label: '대중교통 · 역세권', val: ov.transitInfo },
@@ -574,110 +730,136 @@ export function SlidePreview({
       { key: 'areaInfo', label: '배후 상권 · 권역', val: ov.areaInfo },
     ];
 
+    const mapPanelEl = (
+      <div
+        className={`${isTransitFocus ? 'col-span-5' : 'col-span-6'} rounded-xl border overflow-hidden relative flex flex-col justify-between p-4`}
+        style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
+      >
+        {ov.mapImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={ov.mapImageUrl} alt="위치도" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <>
+            {/* Stylized Vector Map Radar */}
+            <svg className="absolute inset-0 w-full h-full opacity-35" viewBox="0 0 400 300">
+              <circle cx="200" cy="150" r="45" fill="none" stroke={`#${tokens.accent}`} strokeWidth="1.5" strokeDasharray="4 4" />
+              <circle cx="200" cy="150" r="95" fill="none" stroke={`#${tokens.ink}`} strokeWidth="1" strokeDasharray="4 4" />
+              <line x1="0" y1="150" x2="400" y2="150" stroke={`#${tokens.line}`} strokeWidth="2" />
+              <line x1="200" y1="0" x2="200" y2="300" stroke={`#${tokens.line}`} strokeWidth="2" />
+              <line x1="40" y1="30" x2="360" y2="270" stroke={`#${tokens.line}`} strokeWidth="6" />
+            </svg>
+            <div className="relative z-10 flex items-center justify-between">
+              <span
+                className="px-2 py-0.5 rounded text-[10px] font-extrabold text-white"
+                style={{ backgroundColor: `#${tokens.ink}` }}
+              >
+                반경 500m 입지·교통 분석도
+              </span>
+              <span className="text-[10px] font-bold text-[#475569]">© 카카오맵 · 국토부 공간정보</span>
+            </div>
+            <div className="relative z-10 my-auto mx-auto text-center">
+              <div
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black text-white shadow-md"
+                style={{ backgroundColor: `#${tokens.accent}` }}
+              >
+                <span>📍 본건 위치</span>
+              </div>
+              <div className="mt-2 text-xs font-extrabold text-[#0F172A] bg-white/90 px-2.5 py-1 rounded-md border border-[#CBD5E1]">
+                {ov.transitInfo || '역세권 핵심 입지'}
+              </div>
+            </div>
+            <div className="relative z-10 text-[10px] font-bold text-[#334155] bg-white/85 px-2.5 py-1 rounded border border-[#E2E8F0]">
+              소재지: {ov.address || '-'}
+            </div>
+          </>
+        )}
+      </div>
+    );
+
+    const summaryPanelEl = (
+      <div className={`${isTransitFocus ? 'col-span-7' : 'col-span-6'} flex flex-col justify-between gap-2.5 min-h-0`}>
+        {isTransitFocus && (
+          <div
+            className="px-3 py-1.5 rounded-xl flex items-center justify-between text-xs font-black text-white"
+            style={{ backgroundColor: `#${tokens.accent}` }}
+          >
+            <span>🚇 역세권 · 대중교통 핵심 요충지</span>
+            <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded">
+              {ov.transitInfo || '역세권 도보권'}
+            </span>
+          </div>
+        )}
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
+          <div
+            className="px-3 py-1.5 text-[11px] font-extrabold text-white"
+            style={{ backgroundColor: `#${tokens.ink}` }}
+          >
+            교통 · 도로 · 상권 여건 요약
+          </div>
+          <div className="divide-y" style={{ borderColor: `#${tokens.line2}` }}>
+            {locRows.map((r, i) => (
+              <div
+                key={r.key}
+                className="grid grid-cols-12 px-3 py-2 text-xs items-center"
+                style={{ backgroundColor: i % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
+              >
+                <span className="col-span-4 font-bold" style={{ color: `#${tokens.slate}` }}>
+                  {r.label}
+                </span>
+                <span className="col-span-8 font-extrabold text-[#0F172A]">
+                  <InlineEditableText
+                    fieldKey={r.key}
+                    value={String(r.val || '-')}
+                    onCommit={handleFieldCommit}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          className="flex-1 p-3.5 rounded-xl border flex flex-col justify-center"
+          style={{
+            backgroundColor: `#${tokens.accentT}`,
+            borderColor: `#${tokens.accent}`,
+          }}
+        >
+          <div className="text-xs font-extrabold mb-1" style={{ color: `#${tokens.ink}` }}>
+            🚇 입지 및 상권 종합 의견
+          </div>
+          <div className="text-xs font-medium text-[#1E293B] leading-relaxed">
+            <InlineEditableText
+              fieldKey="locationCallout"
+              value={String(ov.locationCallout || '')}
+              multiline
+              onCommit={handleFieldCommit}
+            />
+          </div>
+        </div>
+      </div>
+    );
+
     return (
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
-        {/* Left 6 cols: Location Map / POI Radar */}
-        <div
-          className="col-span-6 rounded-xl border overflow-hidden relative flex flex-col justify-between p-4"
-          style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
-        >
-          {ov.mapImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={ov.mapImageUrl} alt="위치도" className="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            <>
-              {/* Stylized Vector Map Radar */}
-              <svg className="absolute inset-0 w-full h-full opacity-35" viewBox="0 0 400 300">
-                <circle cx="200" cy="150" r="45" fill="none" stroke={`#${tokens.accent}`} strokeWidth="1.5" strokeDasharray="4 4" />
-                <circle cx="200" cy="150" r="95" fill="none" stroke={`#${tokens.ink}`} strokeWidth="1" strokeDasharray="4 4" />
-                <line x1="0" y1="150" x2="400" y2="150" stroke={`#${tokens.line}`} strokeWidth="2" />
-                <line x1="200" y1="0" x2="200" y2="300" stroke={`#${tokens.line}`} strokeWidth="2" />
-                <line x1="40" y1="30" x2="360" y2="270" stroke={`#${tokens.line}`} strokeWidth="6" />
-              </svg>
-              <div className="relative z-10 flex items-center justify-between">
-                <span
-                  className="px-2 py-0.5 rounded text-[10px] font-extrabold text-white"
-                  style={{ backgroundColor: `#${tokens.ink}` }}
-                >
-                  반경 500m 입지·교통 분석도
-                </span>
-                <span className="text-[10px] font-bold text-[#475569]">© 카카오맵 · 국토부 공간정보</span>
-              </div>
-              <div className="relative z-10 my-auto mx-auto text-center">
-                <div
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black text-white shadow-md"
-                  style={{ backgroundColor: `#${tokens.accent}` }}
-                >
-                  <span>📍 본건 위치</span>
-                </div>
-                <div className="mt-2 text-xs font-extrabold text-[#0F172A] bg-white/90 px-2.5 py-1 rounded-md border border-[#CBD5E1]">
-                  {ov.transitInfo || '역세권 핵심 입지'}
-                </div>
-              </div>
-              <div className="relative z-10 text-[10px] font-bold text-[#334155] bg-white/85 px-2.5 py-1 rounded border border-[#E2E8F0]">
-                소재지: {ov.address || '-'}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Right 6 cols: Location Table + Callout */}
-        <div className="col-span-6 flex flex-col justify-between gap-3 min-h-0">
-          <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
-            <div
-              className="px-3 py-1.5 text-[11px] font-extrabold text-white"
-              style={{ backgroundColor: `#${tokens.ink}` }}
-            >
-              교통 · 도로 · 상권 여건 요약
-            </div>
-            <div className="divide-y" style={{ borderColor: `#${tokens.line2}` }}>
-              {locRows.map((r, i) => (
-                <div
-                  key={r.key}
-                  className="grid grid-cols-12 px-3 py-2 text-xs items-center"
-                  style={{ backgroundColor: i % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
-                >
-                  <span className="col-span-4 font-bold" style={{ color: `#${tokens.slate}` }}>
-                    {r.label}
-                  </span>
-                  <span className="col-span-8 font-extrabold text-[#0F172A]">
-                    <InlineEditableText
-                      fieldKey={r.key}
-                      value={String(r.val || '-')}
-                      onCommit={handleFieldCommit}
-                    />
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="flex-1 p-3.5 rounded-xl border flex flex-col justify-center"
-            style={{
-              backgroundColor: `#${tokens.accentT}`,
-              borderColor: `#${tokens.accent}`,
-            }}
-          >
-            <div className="text-xs font-extrabold mb-1" style={{ color: `#${tokens.ink}` }}>
-              🚇 입지 및 상권 종합 의견
-            </div>
-            <div className="text-xs font-medium text-[#1E293B] leading-relaxed">
-              <InlineEditableText
-                fieldKey="locationCallout"
-                value={String(ov.locationCallout || '')}
-                multiline
-                onCommit={handleFieldCommit}
-              />
-            </div>
-          </div>
-        </div>
+        {isTransitFocus ? (
+          <>
+            {summaryPanelEl}
+            {mapPanelEl}
+          </>
+        ) : (
+          <>
+            {mapPanelEl}
+            {summaryPanelEl}
+          </>
+        )}
       </div>
     );
   };
 
   // ── 05 LAND & ZONING SLIDE ──
   const renderLandSlide = () => {
+    const isCadastralFocus = slide.layoutType === 'A06_LAND_CADASTRAL';
     const rawCad = ov.cadastralMapImage || enrichment?.cadastralMapImage;
     const cadastralSrc = typeof rawCad === 'object' && rawCad !== null ? (rawCad as any).base64 : rawCad;
     const hasCadastralImg =
@@ -693,9 +875,9 @@ export function SlidePreview({
 
     return (
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
-        {/* Left 5 cols: Cadastral Map */}
+        {/* Left Cadastral Map (5 cols default, 7 cols when cadastral focus) */}
         <div
-          className="col-span-5 rounded-xl border overflow-hidden relative flex flex-col justify-between p-3"
+          className={`${isCadastralFocus ? 'col-span-7' : 'col-span-5'} rounded-xl border overflow-hidden relative flex flex-col justify-between p-3`}
           style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
         >
           {hasCadastralImg ? (
@@ -723,8 +905,8 @@ export function SlidePreview({
           </div>
         </div>
 
-        {/* Right 7 cols: Land Use Plan Official Format */}
-        <div className="col-span-7 flex flex-col justify-between gap-2.5 min-h-0">
+        {/* Right Land Use Plan Official Format (7 cols default, 5 cols when cadastral focus) */}
+        <div className={`${isCadastralFocus ? 'col-span-5' : 'col-span-7'} flex flex-col justify-between gap-2.5 min-h-0`}>
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
             <div
               className="px-3 py-1.5 text-[11px] font-extrabold text-white flex justify-between"
@@ -784,6 +966,7 @@ export function SlidePreview({
 
   // ── 06 RENT ROLL & STACKING PLAN SLIDE ──
   const renderRentRollSlide = () => {
+    const isTableFocus = slide.layoutType === 'A24_TABLE_FOCUS';
     const rawLeases: any[] = Array.isArray(ov.tenantData) && ov.tenantData.length > 0
       ? ov.tenantData
       : (Array.isArray(buildingContext?.floor_leases) ? buildingContext.floor_leases : []);
@@ -832,11 +1015,42 @@ export function SlidePreview({
       .sort((a, b) => b.floorOrder - a.floorOrder)
       .slice(0, 7);
 
-    const displayLeases = parsedLeases.slice(0, 6);
+    const isMultiRentRollPage = parsedLeases.length > 6;
+    const displayLeases = isMultiRentRollPage && rentRollPreviewPage === 1
+      ? parsedLeases.slice(6, 14)
+      : parsedLeases.slice(0, 6);
     const hasUnitColumn = parsedLeases.some(r => Boolean(r.unitLabel));
 
     return (
-      <div className="flex-1 flex flex-col justify-between gap-2.5 min-h-0">
+      <div className="flex-1 flex flex-col justify-between gap-2 min-h-0">
+        {isMultiRentRollPage && (
+          <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[11px]">
+            <span className="font-bold text-[#1E3A8A]">
+              📋 총 {parsedLeases.length}개 호실 — 1/2면 · 2/2면 미리보기 전환
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setRentRollPreviewPage(0)}
+                className={`px-2 py-0.5 rounded font-extrabold ${
+                  rentRollPreviewPage === 0 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
+                }`}
+              >
+                1/2면 (1~6호실)
+              </button>
+              <button
+                type="button"
+                onClick={() => setRentRollPreviewPage(1)}
+                className={`px-2 py-0.5 rounded font-extrabold ${
+                  rentRollPreviewPage === 1 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
+                }`}
+              >
+                2/2면 (7~{Math.min(14, parsedLeases.length)}호실)
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Top Summary KPI Strip */}
         <div className="grid grid-cols-3 gap-2.5">
           {[
@@ -857,57 +1071,62 @@ export function SlidePreview({
           ))}
         </div>
 
-        {/* Center: Left Stacking Plan (4 cols) + Right Rent Roll Table (8 cols) */}
+        {/* Center: Left Stacking Plan (4 cols unless table focus) + Right Rent Roll Table (8 or 12 cols) */}
         <div className="grid grid-cols-12 gap-3 flex-1 min-h-0">
-          {/* Left Floor-Grouped Stacking Plan */}
-          <div
-            className="col-span-4 rounded-xl border overflow-hidden flex flex-col"
-            style={{ borderColor: `#${tokens.line}`, backgroundColor: `#${tokens.tint}` }}
-          >
+          {!isTableFocus && (
+            /* Left Floor-Grouped Stacking Plan */
             <div
-              className="px-2.5 py-1.5 text-[10px] font-extrabold text-white flex items-center justify-between"
-              style={{ backgroundColor: `#${tokens.ink}` }}
+              className="col-span-4 rounded-xl border overflow-hidden flex flex-col"
+              style={{ borderColor: `#${tokens.line}`, backgroundColor: `#${tokens.tint}` }}
             >
-              <span>층별 스태킹 플랜</span>
-              <span className="opacity-80">{floorGroupMap.size}개 층</span>
-            </div>
-            {stackingFloors.length > 0 ? (
-              <div className="p-2 space-y-1 flex-1 flex flex-col justify-center">
-                {stackingFloors.map(fl => {
-                  const allVacant = fl.vacantCount === fl.unitCount;
-                  const firstTenant = fl.tenants[0] || (allVacant ? '공실' : '임차 중');
-                  const shortFirst = firstTenant.length > 7 ? `${firstTenant.slice(0, 7)}…` : firstTenant;
-                  const summaryLabel =
-                    fl.unitCount > 1
-                      ? `${shortFirst}(외${fl.unitCount - 1})`
-                      : firstTenant;
-                  return (
-                    <div
-                      key={fl.floorLabel}
-                      className="px-2 py-1 rounded border flex items-center justify-between text-[10px]"
-                      style={{
-                        backgroundColor: allVacant ? `#${tokens.redL}` : '#FFFFFF',
-                        borderColor: allVacant ? `#${tokens.red}` : `#${tokens.line}`,
-                      }}
-                    >
-                      <span className="font-mono font-extrabold text-[#0F172A] w-8">{fl.floorLabel}</span>
-                      <span
-                        className="font-bold truncate flex-1 text-right"
-                        style={{ color: allVacant ? `#${tokens.red}` : '#0F172A' }}
-                      >
-                        {summaryLabel}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div
+                className="px-2.5 py-1.5 text-[10px] font-extrabold text-white flex items-center justify-between"
+                style={{ backgroundColor: `#${tokens.ink}` }}
+              >
+                <span>층별 스태킹 플랜</span>
+                <span className="opacity-80">{floorGroupMap.size}개 층</span>
               </div>
-            ) : (
-              <div className="p-3 text-center text-[11px] text-[#475569] my-auto">층별 스태킹 자동 생성</div>
-            )}
-          </div>
+              {stackingFloors.length > 0 ? (
+                <div className="p-2 space-y-1 flex-1 flex flex-col justify-center">
+                  {stackingFloors.map(fl => {
+                    const allVacant = fl.vacantCount === fl.unitCount;
+                    const firstTenant = fl.tenants[0] || (allVacant ? '공실' : '임차 중');
+                    const shortFirst = firstTenant.length > 7 ? `${firstTenant.slice(0, 7)}…` : firstTenant;
+                    const summaryLabel =
+                      fl.unitCount > 1
+                        ? `${shortFirst}(외${fl.unitCount - 1})`
+                        : firstTenant;
+                    return (
+                      <div
+                        key={fl.floorLabel}
+                        className="px-2 py-1 rounded border flex items-center justify-between text-[10px]"
+                        style={{
+                          backgroundColor: allVacant ? `#${tokens.redL}` : '#FFFFFF',
+                          borderColor: allVacant ? `#${tokens.red}` : `#${tokens.line}`,
+                        }}
+                      >
+                        <span className="font-mono font-extrabold text-[#0F172A] w-8">{fl.floorLabel}</span>
+                        <span
+                          className="font-bold truncate flex-1 text-right"
+                          style={{ color: allVacant ? `#${tokens.red}` : '#0F172A' }}
+                        >
+                          {summaryLabel}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-3 text-center text-[11px] text-[#475569] my-auto">층별 스태킹 자동 생성</div>
+              )}
+            </div>
+          )}
 
           {/* Right Rent Roll Table */}
-          <div className="col-span-8 rounded-xl border overflow-hidden flex flex-col" style={{ borderColor: `#${tokens.line}` }}>
+          <div
+            className={`${isTableFocus ? 'col-span-12' : 'col-span-8'} rounded-xl border overflow-hidden flex flex-col`}
+            style={{ borderColor: `#${tokens.line}` }}
+          >
             <div
               className="grid grid-cols-12 px-3 py-1.5 text-[10px] font-extrabold text-white items-center"
               style={{ backgroundColor: `#${tokens.ink}` }}
@@ -954,9 +1173,13 @@ export function SlidePreview({
                     </span>
                   </div>
                 ))}
-                {parsedLeases.length > 6 && (
+                {isMultiRentRollPage && (
                   <div className="px-3 py-1 text-[10px] font-bold text-[#1E3A8A] bg-[#EFF6FF] flex items-center justify-between">
-                    <span>외 {parsedLeases.length - 6}개 호실</span>
+                    <span>
+                      {rentRollPreviewPage === 0
+                        ? `외 ${parsedLeases.length - 6}개 호실`
+                        : `2/2면 상세 호실 (${parsedLeases.length}개 중 7~${Math.min(14, parsedLeases.length)}번)`}
+                    </span>
                     {parsedLeases.length > 12 && (
                       <span>📄 총 {parsedLeases.length}개 호실 — PPTX 다운로드 시 2면 분할</span>
                     )}
@@ -997,6 +1220,12 @@ export function SlidePreview({
 
   // ── 07 YIELD FORMULA & 10-YR LAND PRICE SLIDE ──
   const renderYieldSlide = () => {
+    const isDualYield = slide.layoutType === 'A23_DUAL_YIELD';
+    const rawBaseNum = parseFloat(String(ov.capRateBase || '').replace(/[^0-9.-]/g, ''));
+    const rawStabNum = parseFloat(String(ov.capRateStabilized || ov.capRateBase || '').replace(/[^0-9.-]/g, ''));
+    const yieldSpread =
+      Number.isFinite(rawStabNum) && Number.isFinite(rawBaseNum) ? rawStabNum - rawBaseNum : 0;
+
     const rawHistory: Array<{ year: number; pricePerSqm: number }> = Array.isArray(
       enrichment?.landPriceHistory?.history
     )
@@ -1022,7 +1251,19 @@ export function SlidePreview({
     return (
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
         {/* Left 7 cols: Yield Formula Cards */}
-        <div className="col-span-7 flex flex-col justify-between gap-2.5">
+        <div className="col-span-7 flex flex-col justify-between gap-2">
+          {isDualYield && (
+            <div
+              className="px-3 py-1.5 rounded-xl flex items-center justify-between text-xs font-extrabold text-white"
+              style={{ backgroundColor: `#${tokens.accent}` }}
+            >
+              <span>
+                🚀 임대차 재구성 시 기대 수익률 상승폭: {yieldSpread >= 0 ? '+' : ''}
+                {yieldSpread.toFixed(2)}%p
+              </span>
+              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">Value-Add 시나리오</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             <div
               className="p-3.5 rounded-xl border text-white"
@@ -1204,6 +1445,8 @@ export function SlidePreview({
 
   // ── 09 GALLERY SLIDE ──
   const renderGallerySlide = () => {
+    const effectiveGalleryLayout =
+      slide.layoutType === 'A14_HERO_3' ? 'hero_3' : String(ov.galleryLayout || 'grid_4');
     const rawPhotos: any[] = Array.isArray(ov.photos) && ov.photos.length > 0
       ? ov.photos
       : Array.isArray(buildingContext?.photos_v2) && buildingContext.photos_v2.length > 0
@@ -1245,6 +1488,46 @@ export function SlidePreview({
       '옥상 및 주변 스카이라인',
     ];
 
+    const renderPhotoSlot = (idx: number, extraClassName = '') => {
+      const item = currentBatch[idx];
+      const isHero = Boolean(item?.isHero || item?.role === 'cover' || (effectiveGalleryLayout === 'hero_3' && idx === 0));
+      const isExt = !isHero && item?.role === 'exterior';
+      const globalIdx = isTwoPage && galleryPreviewPage === 1 ? firstPageCount + idx : idx;
+      return (
+        <div
+          key={idx}
+          className={`rounded-xl border overflow-hidden relative flex flex-col justify-end bg-[#F8FAFC] ${extraClassName}`}
+          style={{ borderColor: `#${tokens.line}` }}
+        >
+          {item?.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.url} alt={item.caption} className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div className="my-auto mx-auto text-center p-2">
+              <div className="text-lg">📷</div>
+              <div className="text-[11px] font-bold text-[#475569]">{placeholders[idx] || `현장 실사 #${idx + 1}`}</div>
+            </div>
+          )}
+          {(isHero || isExt) && (
+            <span
+              className={`absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white ${
+                isHero ? 'bg-[#D97706]' : 'bg-[#1D4ED8]'
+              }`}
+            >
+              {isHero ? '★ 대표사진' : '외관'}
+            </span>
+          )}
+          <div
+            className="relative z-10 px-2.5 py-1 text-[11px] font-bold text-white flex items-center justify-between"
+            style={{ backgroundColor: `#${tokens.ink}DD` }}
+          >
+            <span className="truncate">{item?.caption || placeholders[idx] || `현장 실사 #${idx + 1}`}</span>
+            <span className="text-[9px] opacity-75">{String(globalIdx + 1).padStart(2, '0')}</span>
+          </div>
+        </div>
+      );
+    };
+
     const slotCount = Math.max(4, Math.min(6, currentBatch.length || 4));
     const gridColsClass = slotCount >= 5 ? 'grid-cols-3 grid-rows-2' : 'grid-cols-2 grid-rows-2';
 
@@ -1277,47 +1560,23 @@ export function SlidePreview({
             </div>
           </div>
         )}
-        <div className={`flex-1 grid ${gridColsClass} gap-3 min-h-0`}>
-          {Array.from({ length: slotCount }).map((_, idx) => {
-            const item = currentBatch[idx];
-            const isHero = Boolean(item?.isHero || item?.role === 'cover');
-            const isExt = !isHero && item?.role === 'exterior';
-            const globalIdx = isTwoPage && galleryPreviewPage === 1 ? firstPageCount + idx : idx;
-            return (
-              <div
-                key={idx}
-                className="rounded-xl border overflow-hidden relative flex flex-col justify-end bg-[#F8FAFC]"
-                style={{ borderColor: `#${tokens.line}` }}
-              >
-                {item?.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.url} alt={item.caption} className="absolute inset-0 w-full h-full object-cover" />
-                ) : (
-                  <div className="my-auto mx-auto text-center p-2">
-                    <div className="text-lg">📷</div>
-                    <div className="text-[11px] font-bold text-[#475569]">{placeholders[idx]}</div>
-                  </div>
-                )}
-                {(isHero || isExt) && (
-                  <span
-                    className={`absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white ${
-                      isHero ? 'bg-[#D97706]' : 'bg-[#1D4ED8]'
-                    }`}
-                  >
-                    {isHero ? '★ 대표사진' : '외관'}
-                  </span>
-                )}
-                <div
-                  className="relative z-10 px-2.5 py-1 text-[11px] font-bold text-white flex items-center justify-between"
-                  style={{ backgroundColor: `#${tokens.ink}DD` }}
-                >
-                  <span className="truncate">{item?.caption || placeholders[idx]}</span>
-                  <span className="text-[9px] opacity-75">{String(globalIdx + 1).padStart(2, '0')}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {effectiveGalleryLayout === 'hero_3' ? (
+          <div className="flex-1 grid grid-cols-12 grid-rows-3 gap-3 min-h-0">
+            {renderPhotoSlot(0, 'col-span-7 row-span-3')}
+            {renderPhotoSlot(1, 'col-span-5 row-span-1')}
+            {renderPhotoSlot(2, 'col-span-5 row-span-1')}
+            {renderPhotoSlot(3, 'col-span-5 row-span-1')}
+          </div>
+        ) : effectiveGalleryLayout === 'split_2' ? (
+          <div className="flex-1 grid grid-cols-2 grid-rows-1 gap-3 min-h-0">
+            {renderPhotoSlot(0)}
+            {renderPhotoSlot(1)}
+          </div>
+        ) : (
+          <div className={`flex-1 grid ${gridColsClass} gap-3 min-h-0`}>
+            {Array.from({ length: slotCount }).map((_, idx) => renderPhotoSlot(idx))}
+          </div>
+        )}
       </div>
     );
   };

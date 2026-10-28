@@ -41,6 +41,81 @@ const PRESET_CAPTIONS: readonly string[] = [
   '접면도로 및 주변 여건',
 ];
 
+const CAPTION_PRESETS = PRESET_CAPTIONS;
+
+async function readFileAsOptimizedDataUrl(file: File): Promise<string> {
+  const rawDataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+  if (!rawDataUrl) return '';
+
+  const isJsdom =
+    typeof window === 'undefined' ||
+    typeof document === 'undefined' ||
+    /jsdom/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
+
+  if (isJsdom || file.size < 300 * 1024) {
+    return rawDataUrl;
+  }
+
+  return new Promise<string>(resolve => {
+    let settled = false;
+    const finish = (val: string) => {
+      if (!settled) {
+        settled = true;
+        resolve(val);
+      }
+    };
+    const timer = setTimeout(() => finish(rawDataUrl), 1500);
+    try {
+      const img = new window.Image();
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const maxDim = 1400;
+          let { width, height } = img;
+          if (!width || !height || (width <= maxDim && height <= maxDim)) {
+            finish(rawDataUrl);
+            return;
+          }
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            finish(rawDataUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          finish(compressed || rawDataUrl);
+        } catch {
+          finish(rawDataUrl);
+        }
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        finish(rawDataUrl);
+      };
+      img.src = rawDataUrl;
+    } catch {
+      clearTimeout(timer);
+      finish(rawDataUrl);
+    }
+  });
+}
+
 export function GalleryCurator({
   photos,
   galleryLayout,
@@ -49,6 +124,7 @@ export function GalleryCurator({
 }: GalleryCuratorProps) {
   const [newUrl, setNewUrl] = useState('');
   const [newCaption, setNewCaption] = useState('');
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   const normalized: StudioPhotoItem[] = (Array.isArray(photos) ? photos : []).map((p: any, idx) =>
     typeof p === 'string'
@@ -113,18 +189,44 @@ export function GalleryCurator({
     onChangePhotos(next);
   };
 
-  const movePhoto = (idx: number, dir: -1 | 1) => {
+  const handleMovePhoto = (idx: number, dir: -1 | 1) => {
     const target = idx + dir;
     if (target < 0 || target >= normalized.length) return;
     const next = [...normalized];
     const [moved] = next.splice(idx, 1);
     next.splice(target, 0, moved);
+    onChangePhotos(next.map((item, i) => ({ ...item, sortOrder: i })));
+  };
+
+  const movePhoto = handleMovePhoto;
+
+  const removePhoto = (idx: number) => {
+    const next = normalized.filter((_, i) => i !== idx).map((item, i) => ({ ...item, sortOrder: i }));
     onChangePhotos(next);
   };
 
-  const removePhoto = (idx: number) => {
-    const next = normalized.filter((_, i) => i !== idx);
-    onChangePhotos(next);
+  const handleLocalFilesUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    setUploadingFiles(true);
+    try {
+      const files = Array.from(fileList);
+      const dataUrls = await Promise.all(files.map(file => readFileAsOptimizedDataUrl(file)));
+      const validUrls = dataUrls.filter(Boolean);
+      if (validUrls.length === 0) return;
+      const appended: StudioPhotoItem[] = validUrls.map((url, idx) => ({
+        url,
+        caption: CAPTION_PRESETS[(normalized.length + idx) % CAPTION_PRESETS.length],
+        category: 'exterior',
+        role: normalized.length === 0 && idx === 0 ? 'cover' : 'exterior',
+        isHero: normalized.length === 0 && idx === 0,
+        sortOrder: normalized.length + idx,
+        included: true,
+        excluded: false,
+      }));
+      onChangePhotos([...normalized, ...appended]);
+    } finally {
+      setUploadingFiles(false);
+    }
   };
 
   const handleAddPhoto = () => {
@@ -133,8 +235,12 @@ export function GalleryCurator({
       ...normalized,
       {
         url: newUrl.trim(),
-        caption: newCaption.trim() || `현장 사진 #${normalized.length + 1}`,
+        caption:
+          newCaption.trim() ||
+          CAPTION_PRESETS[normalized.length % CAPTION_PRESETS.length] ||
+          `현장 사진 #${normalized.length + 1}`,
         category: 'exterior',
+        sortOrder: normalized.length,
         included: true,
       },
     ];
@@ -342,8 +448,25 @@ export function GalleryCurator({
       </div>
 
       {/* 새 사진 추가 */}
-      <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
-        <div className="text-xs font-bold text-[#0F172A]">➕ 현장 사진 URL 직접 추가</div>
+      <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5">
+        <div className="text-xs font-bold text-[#0F172A]">➕ 새 현장 사진 추가</div>
+        <label className="w-full py-2 px-3 rounded-lg bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#BFDBFE] text-xs font-extrabold text-[#1E3A8A] flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+          <span>
+            {uploadingFiles ? '⏳ 사진 파일 처리 중...' : '📁 내 PC/휴대폰 사진 파일 직접 추가'}
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            disabled={uploadingFiles}
+            onChange={e => {
+              void handleLocalFilesUpload(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </label>
+        <div className="text-[11px] font-bold text-[#475569] pt-1">또는 이미지 URL로 추가</div>
         <input
           type="url"
           value={newUrl}
