@@ -179,14 +179,14 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, ''));
       const gfa = hero.totalGrossAreaPyeong
         ? `${hero.totalGrossAreaPyeong}평`
-        : (!isNaN(gfaM2) && gfaM2 > 0 ? `${formatPyeong(gfaM2, 0)}평` : '-');
+        : (!isNaN(gfaM2) && gfaM2 > 0 ? `${formatPyeong(gfaM2, 1)}평` : '-');
       metrics.push({ label: '연면적', value: gfa });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('대지면적'))) {
       const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
       const site = hero.landAreaPyeong
         ? `${hero.landAreaPyeong}평`
-        : (!isNaN(landM2) && landM2 > 0 ? `${formatPyeong(landM2, 0)}평` : '-');
+        : (!isNaN(landM2) && landM2 > 0 ? `${formatPyeong(landM2, 1)}평` : '-');
       metrics.push({ label: '대지면적', value: site });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('공실'))) {
@@ -318,8 +318,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     const area = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
     const isPosCap = hero?.capRateBase != null && Number.isFinite(Number(hero.capRateBase)) && Number(hero.capRateBase) > 0;
     const capRate = isPosCap ? `${hero.capRateBase}%` : '';
-    const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? formatPyeong(hero.totalGrossAreaM2, 0) : '');
-    const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? formatPyeong(hero.landAreaM2, 0) : '');
+    const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? formatPyeong(hero.totalGrossAreaM2, 1) : '');
+    const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? formatPyeong(hero.landAreaM2, 1) : '');
 
     // G5 앵커: 역명 및 도보분 동적 결합
     const locPoi = input.data.enrichment?.locationPoi ?? input.data.locationPoi;

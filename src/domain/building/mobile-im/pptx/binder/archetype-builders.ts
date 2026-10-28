@@ -435,25 +435,27 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
 export function buildA11Props(markdown: string, tables: ParsedTable[], plainLines: string[]): Record<string, any> {
     const roomRows: string[][] = [];
     if (tables.length > 0 && tables[0].rows.length > 0) {
-    roomRows.push(tables[0].headers.map(stripMarkdown));
-    tables[0].rows.forEach(r => roomRows.push(r.map(stripMarkdown)));
-    } else {
-    roomRows.push(['구분', '룸 타입', '전용면적', '실수', '보증금/월세']);
-    roomRows.push(['Standard', 'A타입 (1인 원룸)', '6.5평', '14실', '1,000 / 85만']);
-    roomRows.push(['Deluxe', 'B타입 (1.5룸)', '9.2평', '8실', '2,000 / 120만']);
-    roomRows.push(['Suite', 'C타입 (2룸 코너)', '14.8평', '6실', '3,000 / 180만']);
+      roomRows.push(tables[0].headers.map(stripMarkdown));
+      tables[0].rows.forEach(r => roomRows.push(r.map(stripMarkdown)));
     }
 
+    const stats: Array<{ label: string; value: string; unit?: string }> = [];
+    if (tables.length > 1) {
+      stats.push(...extractStatMetrics([tables[1]], plainLines));
+    } else {
+      stats.push(...extractStatMetrics([], plainLines));
+    }
+
+    const bulletItems = extractBulletItems(plainLines);
+    const calloutBody = bulletItems.length > 0
+      ? bulletItems.map(b => b.title ? `• ${b.title}: ${b.body}` : `• ${b.body}`).join('\n')
+      : '';
+
     return {
-    sub: '층별 룸 타입 구성 및 운영 제원',
-    roomTypes: roomRows,
-    stats: [
-      { label: '총 객실 수', value: '28', unit: '실' },
-      { label: '평균 전용면적', value: '8.4', unit: '평' },
-      { label: '평균 가동률(OCC)', value: '91.2', unit: '%' },
-      { label: '객실당 단가(ADR)', value: '14.8', unit: '만원' },
-    ],
-    calloutBody: '• 전 객실 독립 배관 및 개별 냉난방 완비로 쾌적한 주거/숙박 환경 제공\n• 1층 F&B 및 커뮤니티 라운지 연계를 통한 부가 수익 극대화 구조\n• 장단기 투숙객 비율 최적화(7:3)를 통한 비수기 하방 경직성 확보',
+      sub: '층별 룸 타입 구성 및 운영 제원',
+      roomTypes: roomRows,
+      stats: stats.slice(0, 4),
+      calloutBody,
     };
 }
 
@@ -461,22 +463,20 @@ export function buildA11Props(markdown: string, tables: ParsedTable[], plainLine
 export function buildA12Props(markdown: string, tables: ParsedTable[], plainLines: string[]): Record<string, any> {
     const rows: string[][] = [];
     if (tables.length > 0 && tables[0].rows.length > 0) {
-    tables[0].rows.forEach(r => rows.push(r.map(stripMarkdown)));
+      tables[0].rows.forEach(r => rows.push(r.map(stripMarkdown)));
     } else {
-    rows.push(['소유자', '개인 단독 소유']);
-    rows.push(['소유형태', '토지 및 건물 일체 소유']);
-    rows.push(['취득일자', '2016년 08월 (취득 후 10년 보유)']);
-    rows.push(['제한물권', '근저당권 1건 설정 (잔금 시 전액 말소 조건)']);
-    rows.push(['압류/가압류', '해당사항 없음 (권리관계 완전 무결)']);
+      const boldKVs = extractBoldKeyValues(plainLines);
+      if (boldKVs.length > 0) {
+        boldKVs.forEach(kv => rows.push([kv.key, kv.value]));
+      }
     }
 
+    const callouts = extractCallouts(plainLines);
+
     return {
-    sub: '소유권 및 등기부등본 현황 요약',
-    ownershipRows: rows,
-    callouts: [
-      { title: '근저당권 잔금 시 동시 말소 확약', body: '• 매매 잔금 시 기존 설정된 근저당권 전액 변제 및 말소 서류 동시 교부\n• 매수인 권리 확보를 위한 소유권 이전 등기 법무사 에스크로 지정 권장' },
-      { title: '소유권 분쟁 및 처분금지 가처분 전무', body: '• 등기부 갑구상 소유권 분쟁, 압류, 가압류 등 권리 제한 사항 전무 확인\n• 매도인 직접 계약 체결 및 인감증명서 실사 완료' },
-    ],
+      sub: '소유권 및 등기부등본 현황 요약',
+      ownershipRows: rows,
+      callouts,
     };
 }
 

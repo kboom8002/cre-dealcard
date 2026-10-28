@@ -470,47 +470,7 @@ export function MobileIMViewer({
     rentrollSec?.data?.units ||
     basicDoc.facts.rent.units ||
     [];
-  const rentRows =
-    rawRentRows.length > 0
-      ? rawRentRows
-      : [
-          {
-            floor: "B1~1F",
-            use: "리테일/카페",
-            depositManwon: Math.round(basicDoc.facts.rent.depositTotalManwon * 0.25),
-            monthlyRentManwon: Math.round(basicDoc.facts.rent.monthlyRentTotalManwon * 0.25),
-            leaseExpiry: "27.06",
-          },
-          {
-            floor: "2F~5F",
-            use: "메디컬/클리닉",
-            depositManwon: Math.round(basicDoc.facts.rent.depositTotalManwon * 0.25),
-            monthlyRentManwon: Math.round(basicDoc.facts.rent.monthlyRentTotalManwon * 0.25),
-            leaseExpiry: "28.03",
-          },
-          {
-            floor: "6F~10F",
-            use: "IT/디자인 오피스",
-            depositManwon: Math.round(basicDoc.facts.rent.depositTotalManwon * 0.25),
-            monthlyRentManwon: Math.round(basicDoc.facts.rent.monthlyRentTotalManwon * 0.25),
-            leaseExpiry: "27.12",
-          },
-          {
-            floor: "11F~15F",
-            use: "글로벌 법인 사옥",
-            depositManwon: Math.max(
-              0,
-              basicDoc.facts.rent.depositTotalManwon -
-                Math.round(basicDoc.facts.rent.depositTotalManwon * 0.25) * 3
-            ),
-            monthlyRentManwon: Math.max(
-              0,
-              basicDoc.facts.rent.monthlyRentTotalManwon -
-                Math.round(basicDoc.facts.rent.monthlyRentTotalManwon * 0.25) * 3
-            ),
-            leaseExpiry: "29.05",
-          },
-        ];
+  const rentRows = rawRentRows;
 
   // [A4-05] Location, Land, Yield, Comps, Photos section data bindings
   const legacyLocationContent = useMemo(() => {
@@ -990,35 +950,43 @@ export function MobileIMViewer({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0]">
-                {rentRows.slice(0, 10).map((r: any, idx: number) => {
-                  const floorLabel = r.floor || "-";
-                  const useLabel =
-                    r.use || r.tenantName || (r.status === "vacant" ? "공실" : "임대중");
-                  const depManwon =
-                    r.depositManwon !== undefined
-                      ? Number(r.depositManwon)
-                      : Math.round((Number(r.depositKrw) || 0) / 10000);
-                  const rentManwon =
-                    r.monthlyRentManwon !== undefined
-                      ? Number(r.monthlyRentManwon)
-                      : Math.round((Number(r.rentKrw) || 0) / 10000);
-                  const rawExpiry = String(r.leaseExpiry || r.expiryDate || "-");
-                  const expiryLabel = rawExpiry.replace(/^20(\d{2})-(\d{2})$/, "$1.$2");
+                {rentRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-[13px] text-[#64748B]">
+                      등록된 호실 임대차 정보가 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  rentRows.slice(0, 10).map((r: any, idx: number) => {
+                    const floorLabel = r.floor || "-";
+                    const useLabel =
+                      r.use || r.tenantName || (r.status === "vacant" ? "공실" : "임대중");
+                    const depManwon =
+                      r.depositManwon !== undefined
+                        ? Number(r.depositManwon)
+                        : Math.round((Number(r.depositKrw) || 0) / 10000);
+                    const rentManwon =
+                      r.monthlyRentManwon !== undefined
+                        ? Number(r.monthlyRentManwon)
+                        : Math.round((Number(r.rentKrw) || 0) / 10000);
+                    const rawExpiry = String(r.leaseExpiry || r.expiryDate || "-");
+                    const expiryLabel = rawExpiry.replace(/^20(\d{2})-(\d{2})$/, "$1.$2");
 
-                  return (
-                    <tr key={idx} className="hover:bg-[#F8FAFC]">
-                      <td className="py-2 px-2 sm:px-3 font-bold text-[#0F172A] whitespace-nowrap">{floorLabel}</td>
-                      <td className="py-2 px-2 sm:px-3 text-[#334155] break-keep">{useLabel}</td>
-                      <td className="py-2 px-2 sm:px-3 text-right tabular-nums font-semibold text-[#0F172A] whitespace-nowrap">
-                        {depManwon.toLocaleString()}
-                      </td>
-                      <td className="py-2 px-2 sm:px-3 text-right tabular-nums font-bold text-[#1D4ED8] whitespace-nowrap">
-                        {rentManwon.toLocaleString()}
-                      </td>
-                      <td className="py-2 px-2 sm:px-3 text-right tabular-nums text-[#475569] whitespace-nowrap">{expiryLabel}</td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr key={idx} className="hover:bg-[#F8FAFC]">
+                        <td className="py-2 px-2 sm:px-3 font-bold text-[#0F172A] whitespace-nowrap">{floorLabel}</td>
+                        <td className="py-2 px-2 sm:px-3 text-[#334155] break-keep">{useLabel}</td>
+                        <td className="py-2 px-2 sm:px-3 text-right tabular-nums font-semibold text-[#0F172A] whitespace-nowrap">
+                          {depManwon.toLocaleString()}
+                        </td>
+                        <td className="py-2 px-2 sm:px-3 text-right tabular-nums font-bold text-[#1D4ED8] whitespace-nowrap">
+                          {rentManwon.toLocaleString()}
+                        </td>
+                        <td className="py-2 px-2 sm:px-3 text-right tabular-nums text-[#475569] whitespace-nowrap">{expiryLabel}</td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

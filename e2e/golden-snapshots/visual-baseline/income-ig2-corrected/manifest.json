@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "income-ig2-corrected",
-  "approvedAt": "2026-10-15T14:44:13.973Z",
+  "approvedAt": "2026-10-28T12:52:12.831Z",
   "fingerprint": {
     "renderer": "LibreOffice 26.2 (cd7284b4c)",
     "pdfEngine": "PyMuPDF 1.26.1",
@@ -31,6 +31,7 @@
     8,
     9,
     10,
-    11
+    11,
+    12
   ]
 }

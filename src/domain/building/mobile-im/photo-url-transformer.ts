@@ -47,6 +47,29 @@ export const PHOTO_CATEGORY_LABELS: Record<PhotoCategory, string> = {
   cadastral: '지적도',
 };
 
+/**
+ * 사진 카테고리별 전문 캡션 프리셋 (11개 핵심 카테고리 SSOT)
+ */
+export const PHOTO_CAPTION_PRESETS: Record<string, string[]> = {
+  exterior: ['건물 전면 외관', '도로변 가시성 전경', '코너 외관 전경', '건물 측면 외관', '야간 외관 전경'],
+  lobby: ['1층 메인 로비', '1층 주출입구 홀', '엘리베이터 홀'],
+  interior: ['기준층 전용 내부', '1층 근생 매장 내부', '오피스 전용 공간', '채광·조망 전경', '공용 복도 및 화장실'],
+  parking: ['자주식 주차장', '기계식 주차 설비', '지하 주차장 진출입로', '옥외 주차 공간'],
+  rooftop: ['옥상 전경', '옥상 테라스·휴게공간', '옥상 방수 및 설비 현황'],
+  entrance: ['주 출입구', '차량 진출입구', '보행자 출입 동선'],
+  mechanical: ['승강기 홀', '전기·기계실 설비', '소방·공조 설비'],
+  floor_plan: ['기준층 평면도', '1층 평면도', '층별 건축도면'],
+  location_map: ['주변 입지 위치도', '역세권·상권 안내도'],
+  district_plan_map: ['지구단위계획 결정도'],
+  cadastral: ['지적도'],
+};
+
+/** 카테고리 안전 프리셋 조회 헬퍼 (미매칭 카테고리는 interior 또는 exterior로 안전 폴백) */
+export function getPhotoCaptionPresets(category?: string): string[] {
+  if (!category) return PHOTO_CAPTION_PRESETS.exterior;
+  return PHOTO_CAPTION_PRESETS[category] || PHOTO_CAPTION_PRESETS.interior || [];
+}
+
 /** 카테고리 -> 갤러리 그룹 매핑 (4대 그룹) */
 export const CATEGORY_TO_GROUP: Record<PhotoCategory, GalleryGroup | 'special'> = {
   exterior: 'G1_exterior',

@@ -18,6 +18,14 @@ export {
   extractValuationFacts,
 };
 
+export {
+  PYEONG_RATIO,
+  SQM_RATIO,
+  m2ToPyeong,
+  pyeongToM2,
+  formatPyeong,
+} from './area';
+
 export type {
   PureLandFacts,
   PureBuildingSpecs,

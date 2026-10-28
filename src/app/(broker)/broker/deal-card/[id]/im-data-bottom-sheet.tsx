@@ -37,20 +37,9 @@ import { useImDataForm } from "./use-im-data-form";
 import { getKoreanFieldLabel } from "@/constants/ui-lexicon";
 import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
 import { RentRollAiHelperModal } from "@/components/help/RentRollAiHelperModal";
+import { PHOTO_CAPTION_PRESETS, getPhotoCaptionPresets } from "@/domain/building/mobile-im/photo-url-transformer";
 
-const PHOTO_CAPTION_PRESETS: Record<string, string[]> = {
-  exterior: ['건물 전면 외관', '도로변 가시성 전경', '코너 외관 전경', '건물 측면 외관', '야간 외관 전경'],
-  lobby: ['1층 메인 로비', '1층 주출입구 홀', '엘리베이터 홀'],
-  interior: ['기준층 전용 내부', '1층 근생 매장 내부', '오피스 전용 공간', '채광·조망 전경', '공용 복도 및 화장실'],
-  parking: ['자주식 주차장', '기계식 주차 설비', '지하 주차장 진출입로', '옥외 주차 공간'],
-  rooftop: ['옥상 전경', '옥상 테라스·휴게공간', '옥상 방수 및 설비 현황'],
-  entrance: ['주 출입구', '차량 진출입구', '보행자 출입 동선'],
-  mechanical: ['승강기 홀', '전기·기계실 설비', '소방·공조 설비'],
-  floor_plan: ['기준층 평면도', '1층 평면도', '층별 건축도면'],
-  location_map: ['주변 입지 위치도', '역세권·상권 안내도'],
-  district_plan_map: ['지구단위계획 결정도'],
-  cadastral: ['지적도'],
-};
+export { PHOTO_CAPTION_PRESETS, getPhotoCaptionPresets };
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -1100,17 +1089,17 @@ export function ImDataBottomSheet({
                     className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                   />
                   <datalist id={`photo-caption-presets-${idx}`}>
-                    {(PHOTO_CAPTION_PRESETS[photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).map((opt) => (
+                    {getPhotoCaptionPresets(photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')).map((opt) => (
                       <option key={opt} value={opt} />
                     ))}
                   </datalist>
-                  <div className="w-28 flex flex-wrap gap-1">
-                    {(PHOTO_CAPTION_PRESETS[photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).slice(0, 2).map((chip) => (
+                  <div className="w-28 flex overflow-x-auto no-scrollbar gap-1 py-0.5">
+                    {getPhotoCaptionPresets(photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')).map((chip) => (
                       <button
                         key={chip}
                         type="button"
                         onClick={() => setPhotoCaptions(prev => ({ ...prev, [idx]: chip }))}
-                        className="text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary truncate max-w-full transition-colors"
+                        className="shrink-0 text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary whitespace-nowrap transition-colors"
                       >
                         {chip}
                       </button>
@@ -1198,17 +1187,17 @@ export function ImDataBottomSheet({
                       className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                     />
                     <datalist id={`photo-caption-presets-${totalIdx}`}>
-                      {(PHOTO_CAPTION_PRESETS[photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).map((opt) => (
+                      {getPhotoCaptionPresets(photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')).map((opt) => (
                         <option key={opt} value={opt} />
                       ))}
                     </datalist>
-                    <div className="w-28 flex flex-wrap gap-1">
-                      {(PHOTO_CAPTION_PRESETS[photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).slice(0, 2).map((chip) => (
+                    <div className="w-28 flex overflow-x-auto no-scrollbar gap-1 py-0.5">
+                      {getPhotoCaptionPresets(photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')).map((chip) => (
                         <button
                           key={chip}
                           type="button"
                           onClick={() => setPhotoCaptions(prev => ({ ...prev, [totalIdx]: chip }))}
-                          className="text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary truncate max-w-full transition-colors"
+                          className="shrink-0 text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary whitespace-nowrap transition-colors"
                         >
                           {chip}
                         </button>

@@ -19,6 +19,8 @@ import { CTALadder } from '@/components/teaser/CTALadder';
 import { TrustLine } from '@/components/teaser/TrustLine';
 import { PoweredByBadge } from '@/components/ui/PoweredByBadge';
 
+import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
+
 interface PageProps { 
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -37,8 +39,8 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
       asking_price_krw: (quickRec.askingPriceManwon || 0) * 10_000,
       gross_floor_area_sqm: quickRec.specs?.gfaSqm,
       land_area_sqm: quickRec.specs?.landAreaSqm,
-      total_floor_area_pyung: quickRec.specs?.gfaSqm ? Math.round(quickRec.specs.gfaSqm / 3.3058) : undefined,
-      land_area_pyung: quickRec.specs?.landAreaSqm ? Math.round(quickRec.specs.landAreaSqm / 3.3058) : undefined,
+      total_floor_area_pyung: quickRec.specs?.gfaSqm ? Math.round(m2ToPyeong(quickRec.specs.gfaSqm)) : undefined,
+      land_area_pyung: quickRec.specs?.landAreaSqm ? Math.round(m2ToPyeong(quickRec.specs.landAreaSqm)) : undefined,
       zoning: quickRec.specs?.zoning,
     } as Record<string, any>,
     signalCard: {

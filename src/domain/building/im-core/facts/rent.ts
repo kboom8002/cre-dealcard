@@ -141,44 +141,13 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
         0
       );
 
-  // Synthesize 2 realistic summary rows when units is empty but rent totals exist
-  if (units.length === 0 && monthlyRentTotalKrw > 0) {
-    const firstRentKrw = Math.round(monthlyRentTotalKrw * 0.45);
-    const secondRentKrw = monthlyRentTotalKrw - firstRentKrw;
-    const firstDepositKrw = Math.round(depositTotalKrw * 0.45);
-    const secondDepositKrw = depositTotalKrw - firstDepositKrw;
-    const firstMaintKrw = Math.round(maintenanceFeeMonthlyKrw * 0.45);
-    const secondMaintKrw = maintenanceFeeMonthlyKrw - firstMaintKrw;
-
-    units.push(
-      {
-        floor: '1F',
-        tenantName: '1F 근린생활시설 (임대중)',
-        rentKrw: firstRentKrw,
-        depositKrw: firstDepositKrw,
-        maintenanceFeeKrw: firstMaintKrw,
-        status: 'occupied',
-      },
-      {
-        floor: '2F~상층',
-        tenantName: '2F~상층 업무/근생 (임대중)',
-        rentKrw: secondRentKrw,
-        depositKrw: secondDepositKrw,
-        maintenanceFeeKrw: secondMaintKrw,
-        status: 'occupied',
-      }
-    );
-    occupiedCount = 2;
-    vacantCount = 0;
-  }
-
   const annualRentKrw = monthlyRentTotalKrw * 12;
   const unitCount = units.length > 0 ? units.length : Number(ssot?.unit_count ?? 1);
   const finalOccupiedCount = units.length > 0 ? occupiedCount : Number(ssot?.occupied_units ?? (monthlyRentTotalKrw > 0 ? 1 : 0));
   const finalVacantCount = units.length > 0 ? vacantCount : Math.max(0, unitCount - finalOccupiedCount);
   const occupancyRatePct = unitCount > 0
     ? Math.round((finalOccupiedCount / unitCount) * 1000) / 10
-    : 100;
+    : 0;
 
   return {
     depositTotalKrw,

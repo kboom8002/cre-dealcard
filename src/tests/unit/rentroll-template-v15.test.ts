@@ -108,6 +108,112 @@ describe("렌트롤 템플릿 v1.5 — 구조 계약", () => {
     expect(textOf(ws.getCell("P13"))).toMatch(/예시\s*행/);
   });
 
+  describe("인터페이스 시각 대비(Pre-attentive Contrast) & 포카요케(Poka-Yoke) 스타일 계약", () => {
+    const INPUT_COLS = [
+      "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+      "K", "L", "M", "N", "O", "P", "Z", "AA", "AB",
+    ];
+    const FORMULA_COLS = [
+      "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "AC", "AD", "AE", "AF",
+    ];
+    const DEMO_INPUT_FILL = "FFECEFF4"; // 슬레이트 그레이
+    const DEMO_AUTO_FILL = "FFE2E8F0";  // 자동계산 열 예시 배경
+    const DEMO_FONT_COLOR = "FF64748B"; // 뮤트 슬레이트 그레이
+    const SOFT_YELLOW_INPUT_FILL = "FFFFF9DB"; // 연노랑 (사용자 입력)
+    const INPUT_FONT_COLOR = "FF0F172A"; // 본문 폰트
+    const NAVY_DIVIDER = "FF1F3864";    // 13행(예시)-14행(입력) 경계선
+
+    it("13행(예시 행) A13 은 슬레이트 그레이(FFECEFF4) 및 이탤릭(true) 스타일을 가진다", () => {
+      const a13 = ws.getCell("A13");
+      const fill = a13.fill as ExcelJS.FillPattern;
+      expect(fill?.fgColor?.argb).toBe(DEMO_INPUT_FILL);
+      expect(a13.font?.italic).toBe(true);
+      expect(a13.font?.color?.argb).toBe(DEMO_FONT_COLOR);
+      expect(a13.border?.bottom?.style).toBe("medium");
+      expect(a13.border?.bottom?.color?.argb).toBe(NAVY_DIVIDER);
+    });
+
+    it("13행(예시 행)의 모든 사용자 입력 열(19개 열)은 슬레이트 그레이 및 이탤릭 폰트를 유지한다", () => {
+      for (const col of INPUT_COLS) {
+        const cell = ws.getCell(`${col}13`);
+        const fill = cell.fill as ExcelJS.FillPattern;
+        expect(fill?.fgColor?.argb, `13행 ${col}열 배경색`).toBe(DEMO_INPUT_FILL);
+        expect(cell.font?.italic, `13행 ${col}열 이탤릭`).toBe(true);
+        expect(cell.font?.color?.argb, `13행 ${col}열 폰트색`).toBe(DEMO_FONT_COLOR);
+        expect(cell.border?.bottom?.style, `13행 ${col}열 하단 보더`).toBe("medium");
+        expect(cell.border?.bottom?.color?.argb, `13행 ${col}열 하단 보더색`).toBe(NAVY_DIVIDER);
+      }
+    });
+
+    it("14행(사용자 입력 첫 행) A14 는 연노랑(FFFFF9DB) 및 비이탤릭(false/falsy) 스타일을 가진다", () => {
+      const a14 = ws.getCell("A14");
+      const fill = a14.fill as ExcelJS.FillPattern;
+      expect(fill?.fgColor?.argb).toBe(SOFT_YELLOW_INPUT_FILL);
+      expect(a14.font?.italic).toBeFalsy();
+      expect(a14.font?.color?.argb).toBe(INPUT_FONT_COLOR);
+      expect(a14.border?.top?.style).toBe("medium");
+      expect(a14.border?.top?.color?.argb).toBe(NAVY_DIVIDER);
+    });
+
+    it("14행~25행(총 228개 셀)의 모든 사용자 입력 열은 연노랑 배경 및 비이탤릭 폰트를 가진다", () => {
+      for (let r = 14; r <= 25; r++) {
+        for (const col of INPUT_COLS) {
+          const cell = ws.getCell(`${col}${r}`);
+          const fill = cell.fill as ExcelJS.FillPattern;
+          expect(fill?.fgColor?.argb, `${r}행 ${col}열 배경색`).toBe(SOFT_YELLOW_INPUT_FILL);
+          expect(cell.font?.italic, `${r}행 ${col}열 이탤릭`).toBeFalsy();
+          expect(cell.font?.color?.argb, `${r}행 ${col}열 폰트색`).toBe(INPUT_FONT_COLOR);
+        }
+      }
+    });
+
+    it("14행~25행(총 156개 셀)의 수식/자동계산 열(Q~Y, AC~AF)은 라이트 그레이(FFE2E8F0) 배경을 유지한다", () => {
+      for (let r = 14; r <= 25; r++) {
+        for (const col of FORMULA_COLS) {
+          const cell = ws.getCell(`${col}${r}`);
+          const fill = cell.fill as ExcelJS.FillPattern;
+          expect(fill?.fgColor?.argb, `${r}행 ${col}열 수식 배경색`).toBe(DEMO_AUTO_FILL);
+          expect(cell.font?.italic, `${r}행 ${col}열 수식 이탤릭`).toBeFalsy();
+          expect(cell.font?.color?.argb, `${r}행 ${col}열 수식 폰트색`).toBe(DEMO_FONT_COLOR);
+        }
+      }
+    });
+
+    it("13행과 14행은 ExcelJS 셀 스타일 객체를 공유하지 않고 독립적으로 분리되어 있다", () => {
+      const a13 = ws.getCell("A13");
+      const a14 = ws.getCell("A14");
+      expect(a13.style === a14.style).toBe(false);
+    });
+
+    it("13행과 14행 사이는 medium navy 경계선으로 시각적 차단선이 존재한다", () => {
+      const a13 = ws.getCell("A13");
+      const a14 = ws.getCell("A14");
+      expect(a13.border?.bottom?.style).toBe("medium");
+      expect(a13.border?.bottom?.color?.argb).toBe(NAVY_DIVIDER);
+      expect(a14.border?.top?.style).toBe("medium");
+      expect(a14.border?.top?.color?.argb).toBe(NAVY_DIVIDER);
+    });
+
+    it("엑셀 오픈 시 뷰의 activeCell 포커스는 사용자 작성 시작 행인 A14 로 지정되어 있다", () => {
+      expect(ws.views?.[0]?.activeCell).toBe("A14");
+    });
+
+    it("docs/ 및 public/ 양대 정본 템플릿의 13행/14행 스타일 및 파일 정합성이 100% 일치한다", async () => {
+      const docsPath = path.join(ROOT, "docs", "CREDEAL_rentroll_template_v1.5.xlsx");
+      expect(fs.existsSync(docsPath)).toBe(true);
+      const docsWb = new ExcelJS.Workbook();
+      await docsWb.xlsx.readFile(docsPath);
+      const docsWs = docsWb.getWorksheet("렌트롤")!;
+      const docsA13 = docsWs.getCell("A13");
+      const docsA14 = docsWs.getCell("A14");
+      expect((docsA13.fill as ExcelJS.FillPattern)?.fgColor?.argb).toBe(DEMO_INPUT_FILL);
+      expect(docsA13.font?.italic).toBe(true);
+      expect((docsA14.fill as ExcelJS.FillPattern)?.fgColor?.argb).toBe(SOFT_YELLOW_INPUT_FILL);
+      expect(docsA14.font?.italic).toBeFalsy();
+      expect(docsA13.style === docsA14.style).toBe(false);
+    });
+  });
+
   it("데이터 입력 범위는 13~112행 (112행에도 환산 수식, 113행 이후 없음)", () => {
     expect(formulaOf(ws.getCell("AE112"))).not.toBe("");
     expect(formulaOf(ws.getCell("AE113"))).toBe("");

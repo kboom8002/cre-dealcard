@@ -8,6 +8,11 @@
  * 기존 v1.5 수식·데이터 유효성·시트 구조 계약(src/tests/unit/rentroll-template-v15.test.ts)을 100% 보존하면서
  * 13행(예시 행)의 전주의적 시각 대비(Pre-attentive Contrast), 중심와 앵커링(Foveal Anchoring),
  * 계약그룹(B열) 오입력 방지 가이드를 적용합니다.
+ * [ExcelJS 공유 스타일 객체 변이 방지]
+ * ExcelJS에서 기존 워크시트 로드 시 동일한 xfId 스타일 인덱스를 가진 셀들은 JavaScript 힙 상에서
+ * 동일한 `cell.style` 객체 참조를 공유합니다. cell.fill이나 cell.font를 직접 수정하면 참조를 공유하는
+ * 다른 행의 셀까지 함께 변이(mutation)되므로, 반드시 독립 객체(JSON clone 기반)를 생성하여
+ * `cell.style`에 재할당해야 행 간 스타일 누수가 원천 차단됩니다.
  */
 import ExcelJS from "exceljs";
 import fs from "node:fs";
@@ -74,28 +79,68 @@ async function upgradeTemplate(filePath) {
   ws.getCell("P13").value = "← 예시 행입니다 (업로드 시 자동 제외 · 14행 노란 칸부터 입력)";
 
   // 4. 13행 전체 셀 스타일(슬레이트 그레이 배경 + 뮤트 이탤릭 폰트 + 하단 네이비 구분선) 적용
+  // ExcelJS 공유 스타일 객체 참조 분리를 위해 JSON clone 후 독립 객체 할당
   ws.getRow(13).height = 20;
   for (const col of ALL_COLS) {
     const cell = ws.getCell(`${col}13`);
     const isInput = INPUT_COLS.has(col);
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: isInput ? DEMO_INPUT_FILL : DEMO_AUTO_FILL },
+    const existing = JSON.parse(JSON.stringify(cell.style || {}));
+    cell.style = {
+      ...existing,
+      fill: {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: isInput ? DEMO_INPUT_FILL : DEMO_AUTO_FILL },
+      },
+      font: {
+        name: "맑은 고딕",
+        size: 9,
+        italic: true,
+        bold: col === "A" || col === "P",
+        color: { argb: DEMO_FONT_COLOR },
+      },
+      border: {
+        top: thinGray,
+        left: thinGray,
+        right: thinGray,
+        bottom: mediumNavy,
+      },
     };
-    cell.font = {
-      name: "맑은 고딕",
-      size: 9,
-      italic: true,
-      bold: col === "A" || col === "P",
-      color: { argb: DEMO_FONT_COLOR },
-    };
-    cell.border = {
-      top: thinGray,
-      left: thinGray,
-      right: thinGray,
-      bottom: mediumNavy,
-    };
+  }
+
+  // 4-B. 14~25행(첫 입력 영역) 연노랑 배경(#FFF9DB / FFFFF9DB) 및 일반 폰트 적용 (14행 노란 칸부터 입력 가이드와 일치)
+  // 13행 및 타 행들과의 스타일 공유 오염을 원천 차단하기 위해 셀별 독립 style 객체 할당
+  const SOFT_YELLOW_INPUT_FILL = "FFFFF9DB";
+  const INPUT_FONT_COLOR = "FF0F172A";
+  const THIN_BORDER = { style: "thin", color: { argb: "FFD9D9D9" } };
+
+  for (let r = 14; r <= 25; r++) {
+    ws.getRow(r).height = 20;
+    for (const col of ALL_COLS) {
+      const cell = ws.getCell(`${col}${r}`);
+      const isInput = INPUT_COLS.has(col);
+      const existing = JSON.parse(JSON.stringify(cell.style || {}));
+      cell.style = {
+        ...existing,
+        fill: {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: isInput ? SOFT_YELLOW_INPUT_FILL : DEMO_AUTO_FILL },
+        },
+        font: {
+          name: "맑은 고딕",
+          size: 9,
+          italic: false,
+          color: { argb: isInput ? INPUT_FONT_COLOR : DEMO_FONT_COLOR },
+        },
+        border: {
+          top: r === 14 ? mediumNavy : THIN_BORDER,
+          left: THIN_BORDER,
+          right: THIN_BORDER,
+          bottom: THIN_BORDER,
+        },
+      };
+    }
   }
 
   // 5. 오픈 시 기본 선택 셀을 A14(첫 번째 노란색 입력 행)로 지정

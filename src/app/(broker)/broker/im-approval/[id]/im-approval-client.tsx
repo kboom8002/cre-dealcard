@@ -9,7 +9,7 @@ import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-qualit
 import { resolveEnrichment } from '@/domain/building/im-core/resolve-enrichment';
 import { toast } from 'sonner';
 import { normalizeSectionMarkdown } from '@/lib/utils/markdown-normalizer';
-import { PHOTO_CATEGORY_LABELS } from '@/domain/building/mobile-im/photo-url-transformer';
+import { PHOTO_CATEGORY_LABELS, PHOTO_CAPTION_PRESETS, getPhotoCaptionPresets } from '@/domain/building/mobile-im/photo-url-transformer';
 import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
 import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 
@@ -962,11 +962,35 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                     </select>
                     <input
                       value={photo.caption || ''}
+                      list={`approval-caption-presets-${i}`}
                       onChange={(e) => updatePhotoCaption(i, e.target.value)}
                       onBlur={() => { void savePhotoCaptions(); }}
-                      placeholder={`사진 ${i+1} 캡션`}
+                      placeholder={`사진 ${i+1} 캡션 (선택 또는 아래 칩 클릭)`}
                       className="w-full text-[13px] bg-neutral-950 border border-neutral-800 rounded-lg px-2.5 py-2 text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
                     />
+                    <datalist id={`approval-caption-presets-${i}`}>
+                      {getPhotoCaptionPresets(cat).map((preset) => (
+                        <option key={preset} value={preset} />
+                      ))}
+                    </datalist>
+
+                    <div className="flex overflow-x-auto no-scrollbar gap-1 py-1">
+                      {getPhotoCaptionPresets(cat).map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            updatePhotoCaption(i, preset);
+                            const updated = photos.map((p, j) => j === i ? { ...p, caption: preset } : p);
+                            setPhotos(updated);
+                            void savePhotoCaptions(updated);
+                          }}
+                          className="shrink-0 text-[11px] px-2 py-0.5 rounded bg-neutral-800 hover:bg-primary/20 text-neutral-300 hover:text-primary transition-colors whitespace-nowrap"
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
                     <div className="flex gap-1.5 flex-wrap items-center pt-0.5">
                       <button
                         type="button"

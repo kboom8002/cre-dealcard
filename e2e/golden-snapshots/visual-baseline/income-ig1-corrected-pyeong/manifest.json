@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "income-ig1-corrected-pyeong",
-  "approvedAt": "2026-10-15T14:44:14.536Z",
+  "approvedAt": "2026-10-28T12:52:12.972Z",
   "fingerprint": {
     "renderer": "LibreOffice 26.2 (cd7284b4c)",
     "pdfEngine": "PyMuPDF 1.26.1",
@@ -30,6 +30,7 @@
     7,
     8,
     9,
-    10
+    10,
+    11
   ]
 }
