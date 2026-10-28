@@ -28,6 +28,7 @@ export const GOLDENS: GoldenDef[] = [
   { name: 'development-jamwon-r3', fixtureDir: 'docs/golden-test-data/p4-jamwon-dev/r3-verified', oracleDir: 'docs/golden-test-data/p4-jamwon-dev' },
   { name: 'development-sutaek-r2', fixtureDir: 'docs/golden-test-data/p7-sutaek-dev/r2-standard', oracleDir: 'docs/golden-test-data/p7-sutaek-dev' },
   { name: 'income-dangsan-r3', fixtureDir: 'docs/golden-test-data/p1-dangsan-income/r3-verified', oracleDir: 'docs/golden-test-data/p1-dangsan-income' },
+  { name: 'income-wellbing-r3', fixtureDir: 'docs/golden-test-data/p8-wellbing-income/r3-verified', oracleDir: 'docs/golden-test-data/p8-wellbing-income' },
   { name: 'income-yangpyeong-r3', fixtureDir: 'docs/golden-test-data/p5-yangpyeong-income/r3-verified', oracleDir: 'docs/golden-test-data/p5-yangpyeong-income' },
   { name: 'operating-hotel-r2', fixtureDir: 'docs/golden-test-data/p6-hotel-operating/r2-standard', oracleDir: 'docs/golden-test-data/p6-hotel-operating' },
   { name: 'owner-seocho-r3', fixtureDir: 'docs/golden-test-data/p3-seocho-owner/r3-verified', oracleDir: 'docs/golden-test-data/p3-seocho-owner' },

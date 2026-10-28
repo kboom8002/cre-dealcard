@@ -358,7 +358,8 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
             existing.item.tenant = '공실';
           } else if (existing.tenants.length > 0) {
             const firstT = existing.tenants[0];
-            existing.item.tenant = existing.unitCount > 1 ? `${firstT} 외 ${existing.unitCount - 1}개 호실` : firstT;
+            const shortFirst = firstT.length > 7 ? firstT.slice(0, 7) : firstT;
+            existing.item.tenant = existing.unitCount > 1 ? `${shortFirst}(외${existing.unitCount - 1})` : firstT;
           }
         }
       }

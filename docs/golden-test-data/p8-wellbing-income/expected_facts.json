@@ -1,0 +1,340 @@
+{
+  "schemaVersion": 1,
+  "golden": "income-wellbing-r3",
+  "fixture": "docs/golden-test-data/p8-wellbing-income/r3-verified",
+  "notes": [
+    "실제 중개인 생성 매물(용인시 기흥구 보정동 1323-2 웰빙프라자, PNU 4146311800113230002) 기반 8번째 코어 골든.",
+    "렌트롤 호실 단위 입력(101호~501호, 15개 호실) → 물리적 층(1F~5F) 스태킹 바 병합 및 '1F 101호' 표기, 201호 공실 '-' 표기, M7 엑셀 시리얼(46316→2026-10-21) 변환, 지구단위계획구역(제3종일반주거지역) 공법 추출, 대표사진(index 8) 분리 및 10장 사진 2면 갤러리 확장을 상시 검증한다."
+  ],
+  "must_contain": [
+    {
+      "id": "asking-price",
+      "label": "매각 희망가 28억",
+      "anyOf": [
+        "re:(?<![\\d.])28(?:\\.0+)?\\s*억",
+        "re:(?<![\\d,.])280,?000(?:\\.0+)?(?![\\d,])"
+      ],
+      "where": "both",
+      "source": "fixture"
+    },
+    {
+      "id": "gfa",
+      "label": "연면적 1,230.46㎡",
+      "anyOf": [
+        "re:(?<![\\d,.])1,?230\\.46(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "register"
+    },
+    {
+      "id": "land-area",
+      "label": "대지면적 440㎡",
+      "anyOf": [
+        "re:(?<![\\d,.])440(?:\\.0+)?(?!\\d)\\s*㎡"
+      ],
+      "where": "both",
+      "source": "register"
+    },
+    {
+      "id": "floors-above",
+      "label": "지상 5층",
+      "anyOf": [
+        "re:지상\\s*5\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "floors-below",
+      "label": "지하 1층",
+      "anyOf": [
+        "re:지하\\s*1\\s*층"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "completion-year",
+      "label": "준공/사용승인 2004.12.23",
+      "anyOf": [
+        "re:2004\\.12\\.23"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "bcr",
+      "label": "현황 건폐율 49.91%",
+      "anyOf": [
+        "re:49\\.(?:91|9)\\s*%"
+      ],
+      "where": "both",
+      "source": "register"
+    },
+    {
+      "id": "far",
+      "label": "현황 용적률 209.24%",
+      "anyOf": [
+        "re:209\\.(?:24|2)\\s*%"
+      ],
+      "where": "both",
+      "source": "register"
+    },
+    {
+      "id": "parking-elevator",
+      "label": "주차 7대 / 승강기 1대",
+      "anyOf": [
+        "re:주차[^\\d]{0,12}7\\s*대\\s*/\\s*1\\s*대"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "station",
+      "label": "최근접 역 보정역(수인분당선)",
+      "anyOf": [
+        "보정역(수인분당선)"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "id": "zoning",
+      "label": "용도지역 제3종일반주거지역",
+      "anyOf": [
+        "제3종일반주거지역"
+      ],
+      "where": "both",
+      "source": "register"
+    },
+    {
+      "id": "district-unit-plan",
+      "label": "지구단위계획구역 표기",
+      "anyOf": [
+        "지구단위계획구역"
+      ],
+      "where": "pptx",
+      "source": "register"
+    },
+    {
+      "id": "official-land-price",
+      "label": "개별공시지가 2,790,000원/㎡",
+      "anyOf": [
+        "2,790,000원/㎡"
+      ],
+      "where": "both",
+      "source": "register"
+    },
+    {
+      "id": "rent-total",
+      "label": "월 임대료 합계 809만원",
+      "anyOf": [
+        "re:(?<![\\d,])809(?!\\d)"
+      ],
+      "where": "both",
+      "source": "fixture"
+    },
+    {
+      "id": "deposit-total",
+      "label": "보증금 합계 27,950만원 (2억 7,950만원)",
+      "anyOf": [
+        "re:(?<![\\d,])27,?950(?!\\d)",
+        "re:2억\\s*7,?950"
+      ],
+      "where": "both",
+      "source": "fixture"
+    },
+    {
+      "id": "floor-unit-split",
+      "label": "층·호실 결합 표기 (1F 101호 ~ 5F 501호)",
+      "anyOf": [
+        "re:1F\\s+101호[\\s\\S]+2F\\s+201호[\\s\\S]+3F\\s+301호[\\s\\S]+4F\\s+401호[\\s\\S]+5F\\s+501호"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "id": "excel-serial-converted",
+      "label": "M7 엑셀 날짜 시리얼 46316 → 2026-10-21 변환",
+      "anyOf": [
+        "2026-10-21"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "id": "gallery-two-slides",
+      "label": "현장 사진 2면 확장 (1/2, 2/2)",
+      "anyOf": [
+        "re:현장 사진 \\(1/2\\)[\\s\\S]+현장 사진 \\(2/2\\)"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    }
+  ],
+  "must_not_contain": [
+    {
+      "label": "'0㎡' 표기 (0 면적)",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*㎡"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "'0.0평' 표기",
+      "anyOf": [
+        "re:(?<![\\d,.])0(?:\\.0+)?\\s*평"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "비정상 수치 토큰 (Infinity/NaN/undefined)",
+      "anyOf": [
+        "Infinity",
+        "NaN",
+        "undefined"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "임차인 마스킹 잔여 '[임차인'",
+      "anyOf": [
+        "[임차인"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "TARGET 플레이스홀더 노출",
+      "anyOf": [
+        "TARGET"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "본문 말줄임표 '…' (잘린 문장)",
+      "anyOf": [
+        "…"
+      ],
+      "where": "pptx",
+      "source": "derived"
+    },
+    {
+      "label": "역명 노선 이중 역 접미사 ('보정역 수인분당선역')",
+      "anyOf": [
+        "보정역 수인분당선역"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "엑셀 날짜 시리얼 원문 '46316' 노출",
+      "anyOf": [
+        "46316"
+      ],
+      "where": "both",
+      "source": "derived"
+    },
+    {
+      "label": "용도지역 '지정되지않음' 미해석 노출",
+      "anyOf": [
+        "지정되지않음"
+      ],
+      "where": "both",
+      "source": "derived"
+    }
+  ],
+  "must_not_be_dash": [
+    {
+      "label": "소재지",
+      "regexNearLabel": "re:용인시\\s*기흥구"
+    },
+    {
+      "label": "대지면적",
+      "regexNearLabel": "re:440"
+    },
+    {
+      "label": "연면적",
+      "regexNearLabel": "re:1,?230\\.46"
+    },
+    {
+      "label": "용도지역",
+      "regexNearLabel": "re:제3종일반주거지역"
+    },
+    {
+      "label": "건폐율 / 용적률",
+      "regexNearLabel": "re:49\\.91%\\s*/\\s*209\\.24%"
+    },
+    {
+      "label": "사용승인일",
+      "regexNearLabel": "re:2004\\.12\\.23"
+    },
+    {
+      "label": "주용도",
+      "regexNearLabel": "re:제2종근린생활시설"
+    },
+    {
+      "label": "주구조",
+      "regexNearLabel": "re:철근콘크리트구조"
+    },
+    {
+      "label": "개별공시지가(㎡당)",
+      "regexNearLabel": "re:2,790,000원/㎡"
+    }
+  ],
+  "landmarks": [
+    {
+      "label": "보정역(수인분당선)",
+      "anyOf": [
+        "보정역"
+      ]
+    },
+    {
+      "label": "인근 주요 랜드마크 (트레이더스/용인서부경찰서/해솔공원)",
+      "anyOf": [
+        "트레이더스",
+        "용인서부경찰서",
+        "해솔공원"
+      ]
+    }
+  ],
+  "tenants": {
+    "label": "웰빙프라자 임차인 실명/업종",
+    "names": [
+      "카페",
+      "제과점",
+      "미용실",
+      "영어학원",
+      "아이스크림전문점",
+      "학원",
+      "고시원(원룸)",
+      "스터디카페"
+    ]
+  },
+  "numeric": [
+    {
+      "label": "대지면적",
+      "value": 440,
+      "unit": "㎡",
+      "tolerancePct": 1
+    },
+    {
+      "label": "연면적",
+      "value": 1230.46,
+      "unit": "㎡",
+      "tolerancePct": 1
+    }
+  ],
+  "duplicate_sentences": {
+    "min_len": 28,
+    "ignore": [
+      "^CREDEAL",
+      "^CRE DEAL",
+      "^※ 보증금 승계 가정"
+    ]
+  }
+}

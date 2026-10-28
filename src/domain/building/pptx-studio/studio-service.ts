@@ -72,11 +72,11 @@ export function buildBasicImSlideDefaults(
     ? `${Number((askManwon / 10000).toFixed(2))}억 원`
     : (hero.askingPriceBil || ssot.price_band || '');
 
-  const landSqm = Number(ssot.land_area_sqm || br.platArea || hero.landAreaM2 || 0);
+  const landSqm = Math.round(Number(br.platArea || ssot.land_area_sqm || hero.landAreaM2 || 0) * 100) / 100;
   const landPy = landSqm > 0 ? Number((landSqm * 0.3025).toFixed(1)) : 0;
-  const grossSqm = Number(ssot.total_gross_area_sqm || br.totalArea || br.totArea || hero.totalGrossAreaSqm || 0);
+  const grossSqm = Math.round(Number(br.totalArea || br.totArea || ssot.total_gross_area_sqm || hero.totalGrossAreaSqm || 0) * 100) / 100;
   const grossPy = grossSqm > 0 ? Number((grossSqm * 0.3025).toFixed(1)) : 0;
-  const archSqm = Number(ssot.arch_area_sqm || br.archArea || 0);
+  const archSqm = Math.round(Number(br.archArea || ssot.arch_area_sqm || 0) * 100) / 100;
   const archPy = archSqm > 0 ? Number((archSqm * 0.3025).toFixed(1)) : 0;
 
   const unitPriceManwon = (askManwon > 0 && landPy > 0)
@@ -100,20 +100,20 @@ export function buildBasicImSlideDefaults(
     ? `${Number(fin.stabilizedYield).toFixed(2)}%`
     : (ssot.cap_rate_stabilized || '');
 
-  const above = ssot.floors_above ?? br.grndFlrCnt ?? ssot.total_floors ?? '';
-  const below = ssot.floors_below ?? br.ugrndFlrCnt ?? '';
+  const above = br.floorsAbove ?? br.grndFlrCnt ?? ssot.floors_above ?? ssot.total_floors ?? '';
+  const below = br.floorsBelow ?? br.ugrndFlrCnt ?? ssot.floors_below ?? '';
   const floorsStr = above
     ? (below ? `지하 ${below}층 / 지상 ${above}층` : `지상 ${above}층`)
     : '';
 
   const bcr = ssot.bcr_pct ?? br.bcRat;
   const far = ssot.far_pct ?? br.vlRat;
-  const bcrFarStr = (bcr && far) ? `건폐율 ${Number(bcr).toFixed(1)}% / 용적률 ${Number(far).toFixed(1)}%` : '';
+  const bcrFarStr = (bcr && far) ? `${Number(Number(bcr).toFixed(2))}% / ${Number(Number(far).toFixed(2))}%` : '';
 
-  const park = br.parkingCount ?? ssot.parking_count ?? br.parkingCnt;
-  const elev = br.elevatorCount ?? ssot.elevator_count ?? br.rideUseLiftCnt;
+  const park = (Number(br.parkingCount) > 0 ? br.parkingCount : null) ?? docBody.broker_physical_inputs?.parking_count ?? ssot.parking_count ?? br.parkingCount ?? br.parkingCnt;
+  const elev = (Number(br.elevatorCount) > 0 ? br.elevatorCount : null) ?? docBody.broker_physical_inputs?.elevator_count ?? ssot.elevator_count ?? br.elevatorCount ?? br.rideUseLiftCnt;
   const parkElevStr = (park != null || elev != null)
-    ? `주차 ${park ?? 0}대 / 승강기 ${elev ?? 0}대`
+    ? `${park ?? 0}대 / ${elev ?? 0}대`
     : '';
 
   const nearestStation = poi.nearestStation;
@@ -125,7 +125,7 @@ export function buildBasicImSlideDefaults(
 
   const addressStr = ssot.road_address || ssot.address || docBody.resolved_address || docBody.address || '';
   const jibunStr = ssot.jibun_address || enrichment.landUsePlan?.jibunAddress || '';
-  const zoningStr = ssot.zoning || enrichment.landUsePlan?.zoning || br.zoning || '';
+  const zoningStr = ssot.zoning || enrichment.landUsePlan?.zoningDistrict || enrichment.landUsePlan?.zoning || br.zoning || '';
 
   const invPoints: string[] = Array.isArray(brokerExtras.investment_points) && brokerExtras.investment_points.length > 0
     ? brokerExtras.investment_points
@@ -181,8 +181,8 @@ export function buildBasicImSlideDefaults(
       zoning: zoningStr,
       bcrFar: bcrFarStr,
       parkingElevator: parkElevStr,
-      mainUse: ssot.main_use || br.mainPurpsCdNm || ssot.asset_type || '근린생활시설·업무시설',
-      structureType: ssot.structure_type || br.strctCdNm || '철근콘크리트조',
+      mainUse: br.mainPurpose || br.mainPurpsCdNm || ssot.main_use || ssot.asset_type || '근린생활시설·업무시설',
+      structureType: br.structure || br.strctCdNm || ssot.structure_type || '철근콘크리트구조',
       askingPrice: askEokStr ? `${askEokStr} (VAT 별도)` : '',
       landUnitPrice: unitPriceManwon > 0 ? `약 ${unitPriceManwon.toLocaleString()}만 원/평` : '',
       rightCallout: invPoints.length > 0

@@ -97,7 +97,23 @@ export function applyStudioSlideOverrides(
   docBody?: Record<string, any>
 ): SlideSpec[] {
   if (!docBody) return sequence;
-  const slideOverrides = docBody._studioSlideOverrides as Record<string, Record<string, any>> | undefined;
+  const rawSlideOverrides = docBody._studioSlideOverrides as Record<string, Record<string, any>> | undefined;
+  const initialOverrides = docBody._studioInitialOverrides as Record<string, Record<string, any>> | undefined;
+  const slideOverrides = rawSlideOverrides && initialOverrides
+    ? Object.fromEntries(
+        Object.entries(rawSlideOverrides).map(([dk, ov]) => {
+          const init = initialOverrides[dk];
+          if (!init || !ov || typeof ov !== 'object') return [dk, ov];
+          const diff: Record<string, any> = {};
+          for (const [k, v] of Object.entries(ov)) {
+            if (!(k in init) || JSON.stringify(init[k]) !== JSON.stringify(v)) {
+              diff[k] = v;
+            }
+          }
+          return [dk, diff];
+        })
+      )
+    : rawSlideOverrides;
   const slideTitles = docBody._studioSlideTitles as Record<string, { title?: string; kicker?: string; layoutType?: string }> | undefined;
   const hiddenKeys = docBody._studioHiddenDataKeys as string[] | undefined;
   const slideOrder = docBody._studioSlideOrder as string[] | undefined;
@@ -110,11 +126,16 @@ export function applyStudioSlideOverrides(
   // 1. Apply data overrides into dataMap
   if (slideOverrides) {
     const sanitizeStation = (s: string) => s.replace(/([가-힣A-Za-z0-9]+역)\s+([가-힣0-9]+(?:선|라인))역/g, '$1($2)');
+    const sanitizeAreaStr = (s: string) => s.replace(/(\d[\d,]*)\.(\d{2})\d+(\s*㎡)/g, '$1.$2$3');
+    const heroPts: string[] = Array.isArray(docBody.heroCard?.keyPoints) ? docBody.heroCard.keyPoints : [];
+    const brokerPts: string[] = Array.isArray(docBody.broker_extras?.investment_points) ? docBody.broker_extras.investment_points : [];
+    const uneditedSummaryPts = new Set([...heroPts, ...brokerPts, docBody.heroCard?.hookText, docBody.heroCard?.keyInvestmentPoint].filter(Boolean).map((x: any) => sanitizeStation(String(x).trim())));
     const isAutoStudioHighlight = (s: string) =>
       /입지 및 안정적 임대수익 구조$/.test(s.trim())
       || /핵심 수익형 빌딩 매각 요약$/.test(s.trim())
       || /·\s*대지\s*[\d,.]+평\s*\/\s*연면적\s*[\d,.]+평$/.test(s.trim())
-      || /^현행 수익률\s*[\d.]+%/.test(s.trim());
+      || /^현행 수익률\s*[\d.]+%/.test(s.trim())
+      || uneditedSummaryPts.has(s.trim());
     // 01 Cover
     const coverOv = slideOverrides['cover'];
     if (coverOv && dataMap['cover']) {
@@ -169,10 +190,38 @@ export function applyStudioSlideOverrides(
           const nk = k.replace(/\s+/g, '');
           return isFloorLabel ? (nk === '규모' || nk === '층수' || nk === '건축규모') : nk === normLabel;
         });
-        let cleanVal = String(val).trim();
-        if (normLabel === '사용승인일' && /^\d{4}$/.test(cleanVal)) {
-          const existingApr = idx >= 0 ? String(rows[idx][1] || '').trim() : '';
-          cleanVal = existingApr.startsWith(cleanVal) && existingApr.length > 4 ? existingApr : `${cleanVal}년`;
+        let cleanVal = sanitizeAreaStr(sanitizeStation(String(val).trim()));
+        const existingVal = idx >= 0 ? String(rows[idx][1] || '').trim() : '';
+        if (normLabel === '사용승인일' && /^\d{4}년?$/.test(cleanVal)) {
+          const yr = cleanVal.slice(0, 4);
+          cleanVal = existingVal.startsWith(yr) && existingVal.length > 5 ? existingVal : `${yr}년`;
+        }
+        if (normLabel === '소재지' && existingVal.includes('지번') && !cleanVal.includes('지번')) {
+          cleanVal = existingVal;
+        }
+        if ((normLabel === '대지면적' || normLabel === '건축면적' || normLabel === '연면적') && existingVal.includes('㎡')) {
+          const exSqm = parseFloat(existingVal.replace(/,/g, ''));
+          const clSqm = parseFloat(cleanVal.replace(/,/g, ''));
+          if (exSqm > 0 && clSqm > 0 && Math.abs(exSqm - clSqm) / exSqm < 0.02) cleanVal = existingVal;
+        }
+        if (normLabel === '건폐율/용적률') {
+          cleanVal = cleanVal.replace(/건폐율\s*/g, '').replace(/용적률\s*/g, '');
+          if (existingVal.includes('%')) {
+            const exNums = [...existingVal.matchAll(/(\d+(?:\.\d+)?)\s*%/g)].map(m => Number(m[1]).toFixed(1));
+            const clNums = [...cleanVal.matchAll(/(\d+(?:\.\d+)?)\s*%/g)].map(m => Number(m[1]).toFixed(1));
+            if (exNums.length === 2 && clNums.length === 2 && exNums[0] === clNums[0] && exNums[1] === clNums[1]) {
+              cleanVal = existingVal;
+            }
+          }
+        }
+        if (normLabel === '주차/승강기') {
+          cleanVal = cleanVal.replace(/^주차\s*/, '').replace(/\/\s*승강기\s*/, '/ ');
+          if (/^0대\b/.test(cleanVal) && /^[1-9]\d*대\b/.test(existingVal)) cleanVal = existingVal;
+        }
+        if ((normLabel === '주용도' || normLabel === '주구조') && existingVal && existingVal !== '-') {
+          if (cleanVal === docBody.ssot_summary?.asset_type || cleanVal === '근린생활시설·업무시설' || (cleanVal === '철근콘크리트조' && existingVal === '철근콘크리트구조')) {
+            cleanVal = existingVal;
+          }
         }
         if (isFloorLabel && idx >= 0 && /^B\d+\/\d+F$/i.test(cleanVal) && /지하.*지상/.test(String(rows[idx][1] || ''))) {
           cleanVal = String(rows[idx][1]);
@@ -216,7 +265,7 @@ export function applyStudioSlideOverrides(
           .filter(Boolean);
         if (bullets.length > 0) {
           const cleanBullets = bullets.map(sanitizeStation);
-          const isDefaultOvCallout = cleanBullets.some(b => b.includes('건축물대장·토지이용계획확인서 공적장부 대조 완료'));
+          const isDefaultOvCallout = cleanBullets.some(b => b.includes('건축물대장·토지이용계획확인서 공적장부 대조 완료')) || cleanBullets.every(b => uneditedSummaryPts.has(b));
           if (!isDefaultOvCallout || !Array.isArray(dataMap['building'].assetHighlights) || dataMap['building'].assetHighlights.length === 0) {
             dataMap['building'].assetHighlights = cleanBullets;
           }
@@ -234,8 +283,12 @@ export function applyStudioSlideOverrides(
       const upsertLocRow = (label: string, val?: string) => {
         if (!val || !String(val).trim()) return;
         const idx = rows.findIndex(([k]) => k.includes(label));
-        if (idx >= 0) rows[idx] = [rows[idx][0], String(val).trim()];
-        else rows.push([label, String(val).trim()]);
+        let cleanLoc = String(val).trim();
+        const exLoc = idx >= 0 ? String(rows[idx][1] || '').trim() : '';
+        if (label === '소재지' && exLoc.includes('지번') && !cleanLoc.includes('지번')) cleanLoc = exLoc;
+        if (label === '대중교통' && exLoc.includes('·') && !cleanLoc.includes('·') && exLoc.startsWith(cleanLoc.split(' (')[0])) cleanLoc = exLoc;
+        if (idx >= 0) rows[idx] = [rows[idx][0], cleanLoc];
+        else rows.push([label, cleanLoc]);
       };
 
       upsertLocRow('소재지', locOv.address);
@@ -263,7 +316,17 @@ export function applyStudioSlideOverrides(
         const updateLandRow = (label: string, val?: string) => {
           if (!val || !String(val).trim()) return;
           const idx = ovRows.findIndex(([k]) => k.includes(label));
-          if (idx >= 0) ovRows[idx] = [ovRows[idx][0], String(val).trim()];
+          if (idx >= 0) {
+            let cleanLand = sanitizeAreaStr(String(val).trim());
+            const exLand = String(ovRows[idx][1] || '').trim();
+            if (label === '공시지가' && exLand.includes('원/㎡') && cleanLand.includes('만원/㎡')) cleanLand = exLand;
+            if (label === '대지면적' && exLand.includes('㎡')) {
+              const exSqm = parseFloat(exLand.replace(/,/g, ''));
+              const clSqm = parseFloat(cleanLand.replace(/,/g, ''));
+              if (exSqm > 0 && clSqm > 0 && Math.abs(exSqm - clSqm) / exSqm < 0.02) cleanLand = exLand;
+            }
+            ovRows[idx] = [ovRows[idx][0], cleanLand];
+          }
         };
         updateLandRow('대지면적', landOv.landArea);
         updateLandRow('지목', landOv.landCategory);
@@ -323,7 +386,7 @@ export function applyStudioSlideOverrides(
           dataMap['yieldFormula'].capRateStabilized = num;
         }
       }
-      if (yieldOv.stabilizedAssumption) {
+      if (yieldOv.stabilizedAssumption && String(yieldOv.stabilizedAssumption).trim() !== '공실 해소 및 주변 시세 수준 재계약 가정 시 기대 수익률') {
         dataMap['yieldFormula'].stabilizedAssumption = String(yieldOv.stabilizedAssumption);
       }
     }
@@ -332,7 +395,9 @@ export function applyStudioSlideOverrides(
     const galOv = slideOverrides['gallery'];
     if (galOv && Array.isArray(galOv.photos) && galOv.photos.length > 0) {
       const includedPhotos = galOv.photos.filter((p: any) => p && p.included !== false && p.excluded !== true && p.url);
-      if (includedPhotos.length > 0 && dataMap['gallery']) {
+      const hasGalleryExclusions = galOv.photos.some((p: any) => p && (p.included === false || p.excluded === true));
+      const alreadyPlannedCount = (dataMap['gallery_0']?.photos?.length ?? 0) + (dataMap['gallery_1']?.photos?.length ?? 0);
+      if (includedPhotos.length > 0 && dataMap['gallery'] && (hasGalleryExclusions || alreadyPlannedCount < Math.min(11, includedPhotos.length - 1))) {
         const sortedPhotos = [...includedPhotos].sort((a: any, b: any) => {
           const rank = (p: any) => (p.isHero || p.role === 'cover') ? 0 : p.role === 'exterior' ? 1 : 2;
           return rank(a) - rank(b);
@@ -370,7 +435,7 @@ export function applyStudioSlideOverrides(
       if (clOv.closingLine || clOv.closingSummary) {
         (dataMap['closing'] as any).closingLine = String(clOv.closingLine || clOv.closingSummary);
       }
-      if (clOv.disclaimer) {
+      if (clOv.disclaimer && String(clOv.disclaimer).trim() !== '본 자료는 매수인의 투자 판단을 돕기 위한 참고자료로서 법적 효력이 없으며, 최종 계약 전 공적장부 및 현장 실사를 통해 제반 사항을 직접 확인하시기 바랍니다.') {
         dataMap['closing'].disclaimer = String(clOv.disclaimer);
       }
       if (!dataMap['closing'].brokerContact) dataMap['closing'].brokerContact = {};

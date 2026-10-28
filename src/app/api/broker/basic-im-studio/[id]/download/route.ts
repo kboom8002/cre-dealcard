@@ -66,6 +66,7 @@ export async function GET(
 
     // ── Collect Studio Slide Overrides, Hidden Slides, Slide Order, and Theme/HeaderFooter ──
     const studioSlideOverrides: Record<string, Record<string, any>> = {};
+    const studioInitialOverrides: Record<string, Record<string, any>> = {};
     const studioSlideTitles: Record<string, { title?: string; kicker?: string; layoutType?: string }> = {};
     const studioHiddenDataKeys: string[] = [];
     const studioSlideOrder: string[] = [];
@@ -82,6 +83,12 @@ export async function GET(
         studioSlideOverrides[dk] = {
           ...(studioSlideOverrides[dk] ?? {}),
           ...slide.slideOverrides,
+        };
+      }
+      if (slide.initialOverrides && Object.keys(slide.initialOverrides).length > 0) {
+        studioInitialOverrides[dk] = {
+          ...(studioInitialOverrides[dk] ?? {}),
+          ...slide.initialOverrides,
         };
       }
       studioSlideTitles[dk] = {
@@ -156,6 +163,7 @@ export async function GET(
       ...studioSlideOverrides,
       preset: 'credeal_basic',
       _studioSlideOverrides: studioSlideOverrides,
+      _studioInitialOverrides: studioInitialOverrides,
       _studioSlideTitles: studioSlideTitles,
       _studioHiddenDataKeys: studioHiddenDataKeys,
       _studioSlideOrder: studioSlideOrder,

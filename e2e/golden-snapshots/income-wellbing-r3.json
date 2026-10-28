@@ -1,0 +1,3271 @@
+{
+ "schemaVersion": 1,
+ "name": "income-wellbing-r3",
+ "fixtureDir": "docs/golden-test-data/p8-wellbing-income/r3-verified",
+ "capturedAt": "2026-10-28T02:07:19.852Z",
+ "docId": "8fb3e1f2-ded3-4f19-95e0-7d5e7c667cfa",
+ "buildingId": "e080fbc3-7dcc-47fb-b1c3-889068f535a1",
+ "doc": {
+  "id": "8fb3e1f2-ded3-4f19-95e0-7d5e7c667cfa",
+  "title": "용인시 보정동 근생빌딩 매각(웰빙프라자)",
+  "document_type": "mobile_im",
+  "created_at": "2026-10-22T12:22:19.807714+00:00",
+  "body": {
+   "tier": "basic",
+   "title": "용인시 보정동 근생빌딩 매각(웰빙프라자)",
+   "claims": [
+    {
+     "id": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+     "asOf": "2026-10-22",
+     "unit": "원",
+     "value": 2800000000,
+     "status": "reconciled",
+     "subject": "asking_price",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "e7d547be-e7ea-4844-8b73-c4f27d7735fa",
+     "asOf": "2026-10-22",
+     "unit": "원/월",
+     "value": 8090000,
+     "status": "reconciled",
+     "subject": "monthly_rent_total",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+     "asOf": "2026-10-22",
+     "unit": "㎡",
+     "value": 1230.46,
+     "status": "reconciled",
+     "subject": "total_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    },
+    {
+     "id": "91fe36ad-a145-4295-b489-59c549f66c27",
+     "asOf": "2026-10-22",
+     "unit": "㎡",
+     "value": 440,
+     "status": "reconciled",
+     "subject": "land_area_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "sourceId": "public_api"
+      }
+     ],
+     "provenance": "public_api",
+     "displayLabel": "✓ 공부 확인",
+     "expertRequired": false
+    },
+    {
+     "id": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 7.1,
+     "status": "unverified",
+     "subject": "vacancy_rate_pct",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "sourceId": "assumed"
+      }
+     ],
+     "provenance": "assumed",
+     "displayLabel": "◇ 분석가정",
+     "expertRequired": false
+    },
+    {
+     "id": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+     "asOf": "2026-10-22",
+     "unit": "원",
+     "value": 279500000,
+     "status": "reconciled",
+     "subject": "total_deposit",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "sourceId": "broker"
+      }
+     ],
+     "provenance": "broker",
+     "displayLabel": "● 중개인 현장확인",
+     "expertRequired": false
+    },
+    {
+     "id": "403c607d-929d-4db4-b887-2c62fcbb1415",
+     "asOf": "2026-10-22",
+     "unit": "원",
+     "value": 80107320,
+     "status": "reconciled",
+     "subject": "noi_base",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "annual_gross * (1 - vacancy) - opex = 80107320",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "bdda51ed-2d28-4453-9a1b-1f1c9f643ab0",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 80107320,
+      "formula": "annual_gross * (1 - vacancy) - opex",
+      "deductions": [
+       {
+        "name": "관리비",
+        "amount": 10080000
+       }
+      ],
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "13595ddb-484e-4d66-898f-d49280ab4a58",
+     "asOf": "2026-10-22",
+     "unit": "원",
+     "value": 88008000,
+     "status": "reconciled",
+     "subject": "noi_best",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "annual_gross - opex_low = 88008000",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "9da29fd1-ae25-4272-9c8a-d5bf9592efb3",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 88008000,
+      "formula": "annual_gross - opex_low",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "06061d7c-272f-4506-beb8-567a11485b14",
+     "asOf": "2026-10-22",
+     "unit": "원",
+     "value": 71702640,
+     "status": "reconciled",
+     "subject": "noi_worst",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "annual_gross * (1 - vacancy_high) - opex_high = 71702640",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "a2ccbe63-203c-419a-83bc-73aa551a812d",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 71702640,
+      "formula": "annual_gross * (1 - vacancy_high) - opex_high",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "5655306b-c00d-4d4c-a0b5-0a5c56897f23",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 2.86,
+     "status": "reconciled",
+     "subject": "cap_rate_base",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "noi_base / asking_price * 100 = 2.86",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "aaccfdfe-8979-41d1-8a37-5deb776cd7fb",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 2.86,
+      "formula": "noi_base / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "ac39d0eb-063c-4e0c-8e4a-ba47ef8a6f00",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 3.14,
+     "status": "reconciled",
+     "subject": "cap_rate_best",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "noi_best / asking_price * 100 = 3.14",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "83d7055e-6dbf-439a-855c-4f213d9b2a2b",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 3.14,
+      "formula": "noi_best / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "8dd96e6c-a37a-459f-9059-4e0128e4df49",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 2.56,
+     "status": "reconciled",
+     "subject": "cap_rate_worst",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "noi_worst / asking_price * 100 = 2.56",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "530e7089-26a0-4579-9ed8-1442dc2f910a",
+      "basis": "NOI",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 2.56,
+      "formula": "noi_worst / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "41f7ea86-442d-4eb9-bfa0-c66baa4034a6",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 1.5,
+     "status": "reconciled",
+     "subject": "irr_5y_base",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "irr(cfs, hold=5) = 1.5",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "8444e707-ab86-4443-b861-9d28196ca9b6",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 1.5,
+      "formula": "irr(cfs, hold=5)",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "8afa927b-7c96-42cf-86cc-c0e03be91c9c",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 5.8,
+     "status": "reconciled",
+     "subject": "irr_5y_best",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "irr(cfs_best, hold=5) = 5.8",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "90993c8c-e863-4a35-ad3a-c9704fb26b75",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 5.8,
+      "formula": "irr(cfs_best, hold=5)",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "afb810c2-71b0-4095-8878-5433c9ee3f1e",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": -4.1,
+     "status": "reconciled",
+     "subject": "irr_5y_worst",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "irr(cfs_worst, hold=5) = -4.1",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "c4f83ae4-d66b-4571-ba41-1fbef6601fdd",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": -4.1,
+      "formula": "irr(cfs_worst, hold=5)",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "e43007da-2d1b-4fad-b354-449d43bf83e4",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 3.47,
+     "status": "reconciled",
+     "subject": "yield_on_cost",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "annual_gross / asking_price * 100 = 3.47",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "255bbcce-696e-470a-ad02-51bf89cf1840",
+      "basis": "GPI",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 3.47,
+      "formula": "annual_gross / asking_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "507a5683-684d-4b9c-848b-860d5d28a897",
+     "asOf": "2026-10-22",
+     "unit": "원/㎡",
+     "value": 2275572,
+     "status": "reconciled",
+     "subject": "price_per_sqm",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "asking_price / total_area = 2275572",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "fe6c8f2b-bd10-44c3-a5c0-701fb4ba9823",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 2275572,
+      "formula": "asking_price / total_area",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "210e1dba-ad7b-401f-b0bc-d9f28b87813b",
+     "asOf": "2026-10-22",
+     "unit": "원/평",
+     "value": 7522552,
+     "status": "reconciled",
+     "subject": "price_per_pyeong",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "price_per_sqm * 3.30578 = 7522552",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "82be10b9-220d-4d54-bbf7-656d7e88a5c1",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 7522552,
+      "formula": "price_per_sqm * 3.30578",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "6bcbc95b-0395-482e-977b-f090d7386546",
+     "asOf": "2026-10-22",
+     "unit": "억원",
+     "value": 26.7,
+     "status": "reconciled",
+     "subject": "equity_required",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "total_cost - deposit - loan = 26.7",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "b399ece9-d33b-43fa-83bc-899bc3fba5bd",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 26.7,
+      "formula": "total_cost - deposit - loan",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "bc6d9aae-5d30-4c65-a395-1c55ab0fbfb6",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 3.18,
+     "status": "reconciled",
+     "subject": "leveraged_yield",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "(noi - interest) / equity * 100 = 3.18",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "462e8afc-c1ea-4b1b-9061-2423686bd7df",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 3.18,
+      "formula": "(noi - interest) / equity * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "793673ab-8fdf-40bd-b28f-3425c090736d",
+     "asOf": "2026-10-22",
+     "unit": "억원",
+     "value": 29.5,
+     "status": "reconciled",
+     "subject": "total_acquisition_cost",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "asking + tax + broker_fee = 29.5",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "c03c7d9a-b210-454a-9e3a-6876c0eaad24",
+      "inputs": {
+       "asking_price": "a3e1c6dd-fa7c-4f65-b371-bc5a13822953",
+       "land_area_sqm": "91fe36ad-a145-4295-b489-59c549f66c27",
+       "total_deposit": "86adad29-a6cd-4d6a-a8fb-928d9383f5cb",
+       "total_area_sqm": "ff2a8018-3cf1-4372-a99e-1d4772e33a00",
+       "vacancy_rate_pct": "9b27cec4-9806-4d75-bb46-a9b988f235a4",
+       "monthly_rent_total": "e7d547be-e7ea-4844-8b73-c4f27d7735fa"
+      },
+      "result": 29.5,
+      "formula": "asking + tax + broker_fee",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "d83c9e44-94d8-44a5-aefc-11c81a456d30",
+     "asOf": "2026-10-22",
+     "unit": "",
+     "value": 1,
+     "status": "reconciled",
+     "subject": "negative_leverage",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "negative_leverage = 1",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "838f6170-03fb-46d8-b5a6-61a6e330373b",
+     "asOf": "2026-10-22",
+     "unit": "%",
+     "value": 3.73,
+     "status": "reconciled",
+     "subject": "pro_forma_cap_rate",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "만실 정상화 시 연 순수익률 예상",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "calculation": {
+      "id": "33846a1d-6a5e-4e19-92ba-6f6ad15b4be8",
+      "basis": "NOI",
+      "inputs": {},
+      "result": 3.73,
+      "formula": "full_occupancy_annual_rent / purchase_price * 100",
+      "formulaVersion": "v1.0.0"
+     },
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    },
+    {
+     "id": "8d70af92-d7c6-4344-9434-d3272b61f615",
+     "asOf": "2026-10-22",
+     "unit": "%p",
+     "value": 0.26,
+     "status": "reconciled",
+     "subject": "pro_forma_upside_cap_rate_pp",
+     "evidence": [
+      {
+       "asOf": "2026-10-22",
+       "excerpt": "공실 해소 시 연 순수익률 +0.26%p 개선",
+       "sourceId": "derived"
+      }
+     ],
+     "provenance": "derived",
+     "displayLabel": "= 계산값",
+     "expertRequired": false
+    }
+   ],
+   "photos": [
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-01.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 0,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-02.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 1,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-03.jpg",
+     "role": "general",
+     "type": "rooftop",
+     "label": "옥상/테라스",
+     "order": 2,
+     "isHero": false,
+     "category": "rooftop"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-04.jpg",
+     "role": "general",
+     "type": "rooftop",
+     "label": "옥상/테라스",
+     "order": 3,
+     "isHero": false,
+     "category": "rooftop"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-05.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 4,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-06.jpg",
+     "role": "general",
+     "type": "lobby",
+     "label": "1층 로비",
+     "order": 5,
+     "isHero": false,
+     "category": "lobby"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-07.jpg",
+     "role": "general",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 6,
+     "isHero": false,
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-08.jpg",
+     "role": "general",
+     "type": "parking",
+     "label": "주차장",
+     "order": 7,
+     "isHero": false,
+     "category": "parking"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-09.jpg",
+     "role": "cover",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 8,
+     "isHero": true,
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-10.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 9,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-11.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 10,
+     "isHero": false,
+     "category": "interior"
+    }
+   ],
+   "preset": "credeal_basic",
+   "ai_used": true,
+   "im_type": "mobile_im_lite",
+   "ogTitle": "보정권역 근생빌딩 매각",
+   "heroCard": {
+    "adr": null,
+    "occPct": null,
+    "revpar": null,
+    "zoning": null,
+    "hasLoan": false,
+    "keyRisk": "임대차계약서와 렌트롤을 통해 보증금, 월세, 공실 및 수익률 산정 기준을 확인해야 합니다. 등기부등본·건축물대장·토지이용계획과 플랫폼시티 사업 진행 현황 확인이 필요합니다.",
+    "opexPct": 10.4,
+    "posture": "income",
+    "assetType": "근생빌딩",
+    "keyPoints": [
+     "입지 가치: 용인 죽전권역 소재 안정적 주거 배후 수요",
+     "플랫폼시티 신도시급 도시개발사업 수혜 지역",
+     "실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단"
+    ],
+    "areaSignal": "보정권역",
+    "landAreaM2": 440,
+    "noiBaseBil": 0.8,
+    "opexSource": "user",
+    "yieldBasis": "NOI",
+    "capRateBase": 2.93,
+    "gopMarginPct": null,
+    "targetHprPct": null,
+    "noiDeductions": [
+     {
+      "name": "공실·운영비",
+      "amount": 14934000
+     }
+    ],
+    "breakevenYears": null,
+    "pricePerPyeong": 7522552,
+    "readinessScore": 90,
+    "dcf10YearNpvBil": null,
+    "devHoldYieldPct": null,
+    "totalGrossAreaM2": 1230.46,
+    "equityRequiredBil": 26.7,
+    "leveragedYieldPct": 3.26,
+    "marketDiscountPct": null,
+    "vacancyReservePct": 5,
+    "askingPriceDisplay": "28억 원",
+    "devProfitMarginPct": null,
+    "keyInvestmentPoint": "주거지에 인접한 근생빌딩. 현 임대수익을 기반으로 공실 리스업을 검토하는 수익형 매물. 플랫폼시티 개발 수혜 지역",
+    "landPricePerPyeong": null,
+    "ownVsLeaseSavingsBil": null
+   },
+   "sections": [
+    {
+     "title": "이 건물, 어떤 자산인가",
+     "markdown": "**자산 개요** **보정역 도보 7분, 2004년 준공의 지하 1층~지상 5층 근생 중심 수익형 빌딩**입니다. 경기도 용인시 기흥구 신촌로47번길 6(보정동)에 위치하며, 대지면적 **440㎡ (133.1평)**, 연면적 **1,230.46㎡ (372.2평)**, **철근콘크리트구조**로 구성되어 있습니다. 건축물대장상 주용도는 **제2종근린생활시설**이며, 층별로 일반음식점·소매점·체육도장·교습소·학원·고시원·주택 등으로 구성돼 다양한 임차 수요를 수용할 수 있는 구조입니다. 현재 근린생활시설 임대 운영 중으로 보증금 합계 약 **2억7,950만원**, 월세 합계 약 **809만원**이 제시되어 있고 일부 공실이 확인되는 만큼, 실임대차 현황 및 공실 면적 검증을 전제로 추가 리스업 가능성을 검토할 수 있는 자산입니다. > **자산 하이라이트**: • 보정역 도보권과 주거지 인접 입지 • 372.2평(약 1230.4㎡) 규모의 근생 중심 복합 구성 • 일부 공실 존재로 임대수요 및 수익성은 별도 검토 필요",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": 1230.46,
+       "source": "public_data",
+       "fieldKey": "total_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-22T12:19:38.917Z"
+      },
+      {
+       "value": 440,
+       "source": "public_data",
+       "fieldKey": "plat_area",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-22T12:19:38.917Z"
+      },
+      {
+       "value": "20041223",
+       "source": "public_data",
+       "fieldKey": "use_approval_date",
+       "confidence": "confirmed",
+       "sourceDetail": "국토교통부 건축물대장 API",
+       "lastVerifiedAt": "2026-10-22T12:19:38.917Z"
+      }
+     ],
+     "section_type": "property_overview",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 1
+    },
+    {
+     "title": "이 입지, 투자할 만한 곳인가",
+     "markdown": "**보정역 도보 7분, 아파트 배후를 둔 생활밀착형 근생 입지로 안정적 임대수요를 기대할 수 있는 보정권역 자산입니다.** 수인분당선 보정역이 약 566m 거리에 있어 대중교통 접근성이 우수하고, 구성역도 약 1km 내에 위치해 권역 내 이동 편의성이 뒷받침됩니다. 인근에는 더샵보정애비뉴 단지 등 주거 배후가 밀집해 있어 음식점·카페·편의점 등 생활편의 업종 수요를 흡수하기 유리하며, 이는 공실 리스업과 임대수익 최적화 측면에서 강점입니다. 또한 보정권역은 플랫폼시티 개발 기대감이 반영되는 지역으로 평가되는 만큼, 실제 사업 진행 현황 확인을 전제로 중장기적으로는 안정적 현금흐름과 자산가치 상승 여력을 함께 검토할 수 있는 입지입니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "judge_score": 4.1,
+     "section_type": "location_access",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 2
+    },
+    {
+     "title": "등기사항증명서 권리관계와 소유 구조",
+     "markdown": "## 권리관계 요약 ### 소유 현황\n> 소유자 정보가 등록되지 않았습니다. ### 설정 권리\n- 설정 권리 없음 ✅",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "title_rights",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 3
+    },
+    {
+     "title": "토지 현황과 이용 조건은 어떠한가",
+     "markdown": "## 토지 현황 - **지목**: 대\n- **대지면적**: 440㎡ (133.1평)\n- **공시지가**: 2,790,000원/㎡ ### 이용 규제\n- **용도지역**: 제3종일반주거지역 (지구단위계획구역)\n- **건폐율**: 49.91% (법정 상한 50%)\n- **용적률**: 209.24% (법정 상한 250%)\n- **필지 형상**: 가로장방\n- **지형**: 평지\n- **도로접면**: 중로각지",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [],
+     "section_type": "land_detail",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 4
+    },
+    {
+     "title": "임대차 현황과 공실은 실제로 어떠한가",
+     "markdown": "현재 **공실률 7.1%**로 일부 공실이 있으나, 나머지 면적은 근린생활시설 중심으로 임대 운영 중이며 **보증금 약 2억 7,950만 원, 월 임대료 약 809만 원**의 현금흐름이 형성되어 있습니다. 1층 카페·제과점·미용실·학원, 상층부 스터디카페 및 일부 원룸형 임차 수요가 혼재되어 있어 특정 업종 의존도를 낮춘 점은 임대수익 안정성 측면에서 긍정적입니다. 특히 확인 가능한 다수 임대차의 만기가 **2027년 12월 31일**로 제시되어 있어 단기적인 임차인 이탈 리스크는 제한적으로 보이나, **201호 공실**의 실제 리스업 조건과 일부 호실의 임대료·관리비 반영 방식은 임대차 현황표(Rent Roll) 및 임대차계약서로 재확인이 필요합니다. 📌 즉, 본 자산은 현재 수익이 발생하는 운영형 자산이면서도, 남은 공실의 임대차 안정화 여부에 따라 추가적인 임대수익 최적화를 검토할 수 있는 매물입니다. **층별 임대 현황**\n| 층수 | 임차인 | 업종 | 임대면적(㎡) | 전용면적(㎡) | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|------|------|------|------|------|------|------|\n| 1F 101호 | 카페 | 카페 | 58.21 | 33.69 | 1,000만 | 100만 | 5만 | 2027-12-31 |\n| 1F 102호 | 제과점 | 제과점 | 58.21 | 33.69 | 1,000만 | 100만 | 5만 | 2027-12-31 |\n| 1F 103호 | 미용실 | 미용실 | 58.21 | 33.69 | 3,000만 | 73만 | - | 2027-12-31 |\n| 1F 104호 | 영어학원 | 영어학원 | 58.21 | 33.69 | 3,000만 | 77만 | - | 2027-12-31 |\n| 1F 105호 | 아이스크림전문점 | 아이스크림전문점 | 58.21 | 33.69 | 3,000만 | 77만 | 15만 | 2027-12-31 |\n| 2F 201호 | - | 🚫 공실 | 177.75 | 109.52 | - | - | - | 미정 |\n| 2F 202호 | 학원 | 학원 | 107.34 | 66.12 | 2,000만 | 60만 | - | 2027-12-31 |\n| 3F 301호 | 고시원(원룸) | 고시원(원룸) | 39.95 | 23.96 | 100만 | 55만 | 5만 | 2027-12-31 |\n| 3F 302호 | 고시원(원룸) | 고시원(원룸) | 39.95 | 23.96 | 250만 | 40만 | 5만 | 2027-12-31 |\n| 3F 303호 | 고시원(원룸) | 고시원(원룸) | 39.95 | 23.96 | 1,000만 | 42만 | 7만 | 2027-12-31 |\n| 3F 304호 | 고시원(원룸) | 고시원(원룸) | 39.95 | 23.96 | 100만 | 55만 | 5만 | 2027-12-31 |\n| 3F 305호 | 고시원(원룸) | 고시원(원룸) | 39.95 | 23.96 | 5,000만 | - | 5만 | 2027-12-31 |\n| 3F 306호 | 고시원(원룸) | 고시원(원룸) | 39.95 | 23.96 | 5,500만 | - | 7만 | 2027-12-31 |\n| 4F 401호 | 스터디카페 | 스터디카페 | 218.98 | 129.22 | 3,000만 | 130만 | 25만 | 2027-12-31 |\n| 5F 501호 | 자가 | 자가 | 195.64 | 112.84 | - | - | - | 미정 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 7.1% (임대중 13 · 자가사용 1 · 공실 1) | 공실 1실 |\n| **월 임대료 합계** | 809만 원/월 | 관리비 별도 (84만 원) |\n| **연 임대 수입** | 9,708만 원/년 | 연간 총 임대료 수입 |\n| **보증금 총액** | 약 2.8억 원 | 임차인 보증금 합계 |",
+     "min_tier": "public",
+     "confidence": "confirmed",
+     "provenance": [
+      {
+       "value": 8090000,
+       "source": "broker_input",
+       "fieldKey": "monthly_rent_total",
+       "confidence": "confirmed",
+       "sourceDetail": "브로커 제공 실제 임대 정보",
+       "lastVerifiedAt": "2026-10-22T12:19:52.502Z"
+      },
+      {
+       "value": "현재 공실이 있으며 공실 면적과 호수는 미기재",
+       "source": "broker_input",
+       "fieldKey": "vacancy_rate",
+       "confidence": "confirmed",
+       "sourceDetail": "브로커 제공 실시간 수치",
+       "lastVerifiedAt": "2026-10-22T12:19:52.502Z"
+      }
+     ],
+     "section_type": "lease_status",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 5
+    },
+    {
+     "title": "투자 구조 및 현금흐름 분석",
+     "markdown": "아래 수치는 **AI 추정값**으로 참고용이며, 투자 결정의 근거로 사용할 수 없습니다. **💡 투자금 · 월 임대수입 3줄 요약 (순투자금 기준)** | 핵심 지표 | 금액 / 수익률 | 산출 기준 |\n|:---|---:|:---|\n| **① 순투자금 (매매가−보증금−대출)** | **약 25.2억 원** | 매매가(28억) - 보증금(2.8억) - 대출(0억), 취득비용 제외 |\n| **② 월 임대수입 (운영비 차감 전)** | **월 약 809만 원** | 월 임대료(809만) |\n| **③ 임대수익률 (순투자금 대비·운영비 차감 전)** | **연 3.85%** | 연 임대수입(약 0.97억 원) ÷ 순투자금 | **수익 지표 (AI 추정)**\n| 항목 | 추정값 | 비고 |\n|------|--------|------|\n| **연 순영업소득(남는 돈 NOI)** | 약 0.8억 원~**약 0.9억 원** | 운영비 차감 후 실질 순수익 |\n| **연 수익률 (Cap Rate)** | 2.7%–**3.1%** | 매매가 대비 NOI 기준 구간 추정 |\n| **총 수익률(Gross Yield)** | **3.5%** | 연 임대수입/매매가 (운영비 미차감) |\n| **평당 매매가** | **7,522,552원/평** | 참고용 |\n| **임대 보증금 합계** | **2.8억 원** | 중개인 제공 |\n| **총취득원가** | **약 29.5억 원** | 매매가 + 취득세(4.6%) + 중개보수(0.9%) |\n| **실투자금(취득비용 포함)** | **약 26.7억 원** | 총취득원가 - 보증금 - 대출금 |\n| **매도 희망가** | **28억 원** | 중개인 제공 | > ⚠️ **면책**: AI 추정값 (참고용). 실제 수익은 임대차 조건·공실률·세금에 따라 상이합니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "income_analysis",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 6
+    },
+    {
+     "title": "위험요인 및 대응 방안",
+     "markdown": "**리스크 체크** 본 자산은 제2종근린생활시설로 운영 중인 만큼, **건축물대장·토지이용계획확인서·등기사항증명서·임대차계약서 및 임대차 현황표(Rent Roll)**을 통해 용도 적합성, 위반건축물 표기 여부, 주차 7대의 적법성, 보증금 약 **2억 7,950만 원**과 월세 **809만 원**의 실제 수취 내역, 공실 **7.1%**의 정확한 면적·호수 및 관리비 정산 구조를 우선 확인할 필요가 있습니다. 다만 이러한 항목은 거래 전 실사 단계에서 상당 부분 해소 가능하며, 공실 호실별 임대조건 재정비, 업종 제한 검토, 원상복구·인도 기준 및 연체 대응 조항을 계약서에 명확히 반영하면 리스업 속도를 높이고 임대수익 최적화와 안정적 현금흐름 확보에 도움이 될 수 있습니다. 또한 본 건은 플랫폼시티 등 개발 기대감이 거론되나, 개발 수혜는 사업 진행 속도와 실제 상권 파급효과에 따라 달라질 수 있어 이를 전제로 한 과도한 수익 추정은 보수적으로 접근하는 것이 바람직합니다. 특히 현재 등기사항증명서 조회가 미연동 상태이므로 근저당·가압류·임차인 대항력 등 권리관계 확인이 선행되어야 하며, 필요 시 매도인에게 말소·정리 조건을 부여하고 잔금 전 권리정리, 임차인 승계 확인서 징구, 설비 점검 및 CAPEX 예산 반영을 병행하면 예상치 못한 비용 발생 가능성을 낮출 수 있습니다. > ⚠️ 본 내용은 제공된 제한적 자료를 바탕으로 한 예비 검토이며, 법률·세무·건축·수익성에 대한 확정적 판단이나 보장을 의미하지 않습니다. 최종 투자 및 계약 판단 전 관할 관청 확인, 등기·임대차·시설 실사 및 관련 전문가 자문이 필요합니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "judge_score": 4.4,
+     "section_type": "risk_check",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 7
+    },
+    {
+     "title": "실사 안내 및 면책 조항",
+     "markdown": "**Next Steps** 관심 투자자께는 먼저 **비밀유지약정서(NDA) 체결 후** 임대차계약서, 임대차 현황표(Rent Roll), 보증금·월세 내역, 공실 관련 자료 등 비공개 검토자료를 순차적으로 제공해 드립니다. 이후 **현장 실사**를 통해 실제 임차 현황, 공실 면적 및 호수, 건물 관리 상태, 주차 및 운영 동선, 등기·건축물대장 등 기초 권리·물리 사항을 직접 확인하는 절차로 진행됩니다. 검토가 완료되면 **LOI(매입의향서(LOI))** 제출을 통해 매입가격과 주요 거래조건 협의를 시작하며, 필요 시 **1:1 비밀 상담**을 통해 실사 범위, 제출 서류, 협상 절차를 개별 안내해 드립니다. 🔒✍️",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "next_steps",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 8
+    },
+    {
+     "title": "실사 체크리스트 및 확인사항",
+     "markdown": "보정권역 주거지 인접 입지에 위치한 본 자산은 연면적 1,230.46㎡ (372.2평), 대지 440㎡ (133.1평)의 철근콘크리트조 제2종근린생활시설로, 현재 보증금 약 2억7,950만원, 월 임대료 약 809만원과 옥상 통신장비 등 기타수입이 발생하는 수익형 근생빌딩입니다. 보정역(약 566m, 도보 7분) 접근성과 인근 아파트 배후수요를 바탕으로 임차 수요 흡수력이 기대되며, 현재 공실률 7.1%가 확인되는 만큼 공실 면적별 임대조건 재조정과 리스업을 통해 임대수익 최적화 여지가 있는 자산으로 판단됩니다. 특히 25억대 매입가 기준으로 현금흐름이 이미 형성되어 있다는 점은 안정성 측면에서 의미가 있으나, 실제 수익성 판단을 위해서는 임대차계약서·임대차 현황표(Rent Roll)을 통해 공실 호수, 관리비 수입, 임대료 지속 가능성 및 수익률 산정 기준을 반드시 재확인할 필요가 있습니다.",
+     "min_tier": "public",
+     "confidence": "inferred",
+     "provenance": [],
+     "section_type": "checklist",
+     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+     "section_order": 9
+    },
+    {
+     "title": "면책 조항",
+     "markdown": "⚠️ 본 문서의 일부 내용은 AI가 자동 생성한 정보를 포함하고 있으며, 투자 조언이 아닙니다. 실제 투자 의사결정 시 독립적인 전문가 검토를 반드시 받으시기 바랍니다.\n\n본 자료는 정보 제공 목적으로만 작성되었으며, 특정 부동산의 매수 또는 매도를 권유하지 않습니다. 부동산 투자는 원금 손실의 위험이 있으며, 과거 수익률이 미래 수익을 보장하지 않습니다.\n\n본 모바일 투자설명서(IM)는 보안을 위해 자산의 핵심 개요를 블라인드 형태로 제공합니다. 상세 지번 및 임대차 계약 원본은 담당 중개사를 통해 확인하실 수 있습니다.\n\n본 문서의 데이터는 다음 출처에서 수집되었습니다: 건축물대장(국토교통부), 토지이용계획(토지이음), 개별공시지가(국토교통부), 실거래가(국토교통부). 일부 데이터는 중개인이 직접 입력한 정보이며, 정확성을 보장하지 않습니다.\n\n예비 검토용 자료이며 현장 확인이 필요합니다. 본 자료의 수치와 분석은 참고용이며, 실제 거래 시 별도의 실사가 반드시 필요합니다.",
+     "section_type": "disclaimer"
+    }
+   ],
+   "dataGrade": "B",
+   "heroTitle": "용인시 보정동 근생빌딩 매각(웰빙프라자)",
+   "photos_v2": [
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-01.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 0,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-02.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 1,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-03.jpg",
+     "role": "general",
+     "type": "rooftop",
+     "label": "옥상/테라스",
+     "order": 2,
+     "isHero": false,
+     "category": "rooftop"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-04.jpg",
+     "role": "general",
+     "type": "rooftop",
+     "label": "옥상/테라스",
+     "order": 3,
+     "isHero": false,
+     "category": "rooftop"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-05.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 4,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-06.jpg",
+     "role": "general",
+     "type": "lobby",
+     "label": "1층 로비",
+     "order": 5,
+     "isHero": false,
+     "category": "lobby"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-07.jpg",
+     "role": "general",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 6,
+     "isHero": false,
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-08.jpg",
+     "role": "general",
+     "type": "parking",
+     "label": "주차장",
+     "order": 7,
+     "isHero": false,
+     "category": "parking"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-09.jpg",
+     "role": "cover",
+     "type": "exterior",
+     "label": "건물 외관",
+     "order": 8,
+     "isHero": true,
+     "category": "exterior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-10.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 9,
+     "isHero": false,
+     "category": "interior"
+    },
+    {
+     "url": "$asset-path:income-wellbing-r3/asset-11.jpg",
+     "role": "general",
+     "type": "interior",
+     "label": "실내 공간",
+     "order": 10,
+     "isHero": false,
+     "category": "interior"
+    }
+   ],
+   "enrichment": {
+    "landPrice": {
+     "pricePerSqm": 2790000,
+     "baseYear": "2026",
+     "landCategory": "대",
+     "landArea": 440,
+     "_source": "vworld"
+    },
+    "landUsePlan": {
+     "zoningDistrict": "제3종일반주거지역",
+     "zoningOverlap": [],
+     "buildingCoverageMax": 50,
+     "floorAreaRatioMax": 250,
+     "limitsSource": "inferred_zoning",
+     "landArea": 440,
+     "landShape": "가로장방",
+     "terrain": "평지",
+     "roadAccess": "중로각지",
+     "landUseSituation": "상업용",
+     "ldCodeNm": "경기도 용인시 기흥구 보정동",
+     "mnnmSlno": "1323-2",
+     "jibunAddress": "경기도 용인시 기흥구 보정동 1323-2",
+     "stdrYear": "2026",
+     "stdrMt": "01",
+     "pblntfPclnd": 2790000,
+     "lndcgrCodeNm": "대",
+     "_source": "vworld"
+    },
+    "locationPoi": {
+     "keySpots": [
+      {
+       "lat": 37.3127749181936,
+       "lng": 127.108336816968,
+       "name": "보정역 수인분당선",
+       "category": "subway",
+       "distanceM": 566
+      },
+      {
+       "lat": 37.298978850791976,
+       "lng": 127.10569583571818,
+       "name": "구성역 수인분당선",
+       "category": "subway",
+       "distanceM": 1072
+      },
+      {
+       "lat": 37.3077700952866,
+       "lng": 127.110797722643,
+       "name": "아토피샵",
+       "category": "landmark",
+       "distanceM": 46
+      },
+      {
+       "lat": 37.30869785511524,
+       "lng": 127.10918826544612,
+       "name": "더샵보정애비뉴2단지아파트",
+       "category": "landmark",
+       "distanceM": 131
+      },
+      {
+       "lat": 37.309664274993764,
+       "lng": 127.11153936741364,
+       "name": "더샵보정애비뉴1단지아파트 202동",
+       "category": "landmark",
+       "distanceM": 222
+      }
+     ],
+     "poiCounts": {
+      "cafe": 10,
+      "subway": 4,
+      "busStop": 0,
+      "parking": 1,
+      "restaurant": 23,
+      "convenience": 7
+     },
+     "candidateSpots": [
+      {
+       "lat": 37.3077092549672,
+       "lng": 127.110337405531,
+       "name": "연세의원",
+       "category": "hospital",
+       "distanceM": 22,
+       "categoryName": "의료,건강 > 병원 > 일반의원"
+      },
+      {
+       "lat": 37.3077700952866,
+       "lng": 127.110797722643,
+       "name": "아토피샵",
+       "category": "landmark",
+       "distanceM": 46,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.30869785511524,
+       "lng": 127.10918826544612,
+       "name": "더샵보정애비뉴2단지아파트",
+       "category": "landmark",
+       "distanceM": 131,
+       "categoryName": "부동산 > 주거시설 > 아파트"
+      },
+      {
+       "lat": 37.30905665939925,
+       "lng": 127.11091918162197,
+       "name": "보정초등학교",
+       "category": "university",
+       "distanceM": 137,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      },
+      {
+       "lat": 37.309664274993764,
+       "lng": 127.11153936741364,
+       "name": "더샵보정애비뉴1단지아파트 202동",
+       "category": "landmark",
+       "distanceM": 222,
+       "categoryName": "부동산 > 주거시설 > 아파트 > 아파트 동"
+      },
+      {
+       "lat": 37.30754637521187,
+       "lng": 127.11298234387253,
+       "name": "비스하임아파트 101동",
+       "category": "landmark",
+       "distanceM": 240,
+       "categoryName": "부동산 > 주거시설 > 아파트 > 아파트 동"
+      },
+      {
+       "lat": 37.30958357422947,
+       "lng": 127.10621603956469,
+       "name": "용인서부경찰서",
+       "category": "public",
+       "distanceM": 407,
+       "categoryName": "사회,공공기관 > 행정기관 > 경찰서"
+      },
+      {
+       "lat": 37.3078645067135,
+       "lng": 127.105086737641,
+       "name": "리싸이클시티 보정점",
+       "category": "landmark",
+       "distanceM": 462,
+       "categoryName": "가정,생활 > 중고용품"
+      },
+      {
+       "lat": 37.30519202535418,
+       "lng": 127.10509881024632,
+       "name": "노브랜드 구성TR점",
+       "category": "shopping",
+       "distanceM": 551,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 노브랜드"
+      },
+      {
+       "lat": 37.3047872854621,
+       "lng": 127.10529564099154,
+       "name": "덴아트치과의원",
+       "category": "hospital",
+       "distanceM": 563,
+       "categoryName": "의료,건강 > 병원 > 치과"
+      },
+      {
+       "lat": 37.305025379068844,
+       "lng": 127.10504781970302,
+       "name": "트레이더스 홀세일 클럽 구성점",
+       "category": "shopping",
+       "distanceM": 565,
+       "categoryName": "가정,생활 > 대형마트 > 트레이더스 홀세일 클럽"
+      },
+      {
+       "lat": 37.3127749181936,
+       "lng": 127.108336816968,
+       "name": "보정역 수인분당선",
+       "category": "subway",
+       "distanceM": 566,
+       "categoryName": "교통,수송 > 지하철,전철 > 수인분당선"
+      },
+      {
+       "lat": 37.31116655552218,
+       "lng": 127.10536094002849,
+       "name": "도드리",
+       "category": "landmark",
+       "distanceM": 567,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.3026241537826,
+       "lng": 127.109969037357,
+       "name": "마북초등학교",
+       "category": "university",
+       "distanceM": 587,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      },
+      {
+       "lat": 37.3137923864483,
+       "lng": 127.111036692988,
+       "name": "보정동물병원",
+       "category": "hospital",
+       "distanceM": 655,
+       "categoryName": "가정,생활 > 반려동물 > 동물병원"
+      },
+      {
+       "lat": 37.3019369852221,
+       "lng": 127.11059065041984,
+       "name": "연원푸른의원",
+       "category": "hospital",
+       "distanceM": 663,
+       "categoryName": "의료,건강 > 병원 > 일반의원"
+      },
+      {
+       "lat": 37.3039769246901,
+       "lng": 127.104651577514,
+       "name": "Wellness clinic 동물병원",
+       "category": "hospital",
+       "distanceM": 665,
+       "categoryName": "가정,생활 > 반려동물 > 동물병원"
+      },
+      {
+       "lat": 37.3139018062955,
+       "lng": 127.109647032337,
+       "name": "보정고등학교",
+       "category": "university",
+       "distanceM": 667,
+       "categoryName": "교육,학문 > 학교 > 고등학교"
+      },
+      {
+       "lat": 37.31398427468825,
+       "lng": 127.11107081831271,
+       "name": "이좋은치과의원",
+       "category": "hospital",
+       "distanceM": 676,
+       "categoryName": "의료,건강 > 병원 > 치과"
+      },
+      {
+       "lat": 37.3139977753564,
+       "lng": 127.111086631623,
+       "name": "홈플러스익스프레스 용인보정2점",
+       "category": "shopping",
+       "distanceM": 678,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 홈플러스익스프레스"
+      },
+      {
+       "lat": 37.3003960849656,
+       "lng": 127.107800224938,
+       "name": "수선백화점",
+       "category": "landmark",
+       "distanceM": 863,
+       "categoryName": "가정,생활 > 세탁소"
+      },
+      {
+       "lat": 37.3003020049544,
+       "lng": 127.107218094878,
+       "name": "GS더프레시 용인마북점",
+       "category": "shopping",
+       "distanceM": 888,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+      },
+      {
+       "lat": 37.2999132152389,
+       "lng": 127.108691699141,
+       "name": "베러업",
+       "category": "landmark",
+       "distanceM": 899,
+       "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+      },
+      {
+       "lat": 37.3015789750438,
+       "lng": 127.117447866518,
+       "name": "마북동행정복지센터",
+       "category": "public",
+       "distanceM": 946,
+       "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+      },
+      {
+       "lat": 37.2999744596072,
+       "lng": 127.114454197103,
+       "name": "구성중학교",
+       "category": "university",
+       "distanceM": 954,
+       "categoryName": "교육,학문 > 학교 > 중학교"
+      },
+      {
+       "lat": 37.31628427383839,
+       "lng": 127.11333047743946,
+       "name": "용인신촌중학교",
+       "category": "university",
+       "distanceM": 966,
+       "categoryName": "교육,학문 > 학교 > 중학교"
+      },
+      {
+       "lat": 37.298978850791976,
+       "lng": 127.10569583571818,
+       "name": "구성역 수인분당선",
+       "category": "subway",
+       "distanceM": 1072,
+       "categoryName": "교통,수송 > 지하철,전철 > 수인분당선"
+      },
+      {
+       "lat": 37.2991552414339,
+       "lng": 127.115562791268,
+       "name": "구성고등학교",
+       "category": "university",
+       "distanceM": 1078,
+       "categoryName": "교육,학문 > 학교 > 고등학교"
+      },
+      {
+       "lat": 37.2991066202884,
+       "lng": 127.103860952138,
+       "name": "구성역 GTX-A",
+       "category": "subway",
+       "distanceM": 1132,
+       "categoryName": "교통,수송 > 지하철,전철 > GTX-A"
+      },
+      {
+       "lat": 37.3011689214681,
+       "lng": 127.120221891512,
+       "name": "장욱진 미술문화재단",
+       "category": "landmark",
+       "distanceM": 1154,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.303829075928725,
+       "lng": 127.12256775302833,
+       "name": "이마트에브리데이 마북동점",
+       "category": "shopping",
+       "distanceM": 1177,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 이마트에브리데이"
+      },
+      {
+       "lat": 37.2973123267697,
+       "lng": 127.113069670002,
+       "name": "마성초등학교",
+       "category": "university",
+       "distanceM": 1201,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      },
+      {
+       "lat": 37.2969656913985,
+       "lng": 127.109920196871,
+       "name": "아트룸벗이",
+       "category": "landmark",
+       "distanceM": 1215,
+       "categoryName": "문화,예술 > 문화시설 > 미술관"
+      },
+      {
+       "lat": 37.3194524865336,
+       "lng": 127.113143442873,
+       "name": "힐링정원",
+       "category": "landmark",
+       "distanceM": 1304,
+       "categoryName": "여행 > 관광,명소 > 관광농원"
+      },
+      {
+       "lat": 37.3188691949147,
+       "lng": 127.116265360048,
+       "name": "독정초등학교",
+       "category": "university",
+       "distanceM": 1325,
+       "categoryName": "교육,학문 > 학교 > 초등학교"
+      },
+      {
+       "lat": 37.3198442131167,
+       "lng": 127.114312835658,
+       "name": "수협건어물백화점",
+       "category": "landmark",
+       "distanceM": 1370,
+       "categoryName": "가정,생활 > 식품판매 > 수산물판매"
+      },
+      {
+       "lat": 37.3202480250933,
+       "lng": 127.109388868359,
+       "name": "미우",
+       "category": "landmark",
+       "distanceM": 1371,
+       "categoryName": "문화,예술 > 문화시설 > 전시관"
+      },
+      {
+       "lat": 37.319507559193,
+       "lng": 127.115824094584,
+       "name": "보정지구대",
+       "category": "public",
+       "distanceM": 1376,
+       "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 지구대"
+      },
+      {
+       "lat": 37.3201877760116,
+       "lng": 127.113094904482,
+       "name": "보정동행정복지센터",
+       "category": "public",
+       "distanceM": 1384,
+       "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+      },
+      {
+       "lat": 37.3197165853276,
+       "lng": 127.115837953608,
+       "name": "보정119안전센터",
+       "category": "public",
+       "distanceM": 1398,
+       "categoryName": "사회,공공기관 > 행정기관 > 소방서 > 119안전센터"
+      },
+      {
+       "lat": 37.32030941918789,
+       "lng": 127.11496112568645,
+       "name": "GS더프레시 용인보정점",
+       "category": "shopping",
+       "distanceM": 1436,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+      },
+      {
+       "lat": 37.32028387198837,
+       "lng": 127.11528826398255,
+       "name": "와플대학 용인보정캠퍼스",
+       "category": "landmark",
+       "distanceM": 1441,
+       "categoryName": "음식점 > 간식 > 제과,베이커리 > 와플대학"
+      },
+      {
+       "lat": 37.29675869483706,
+       "lng": 127.11898777616571,
+       "name": "구성동행정복지센터",
+       "category": "public",
+       "distanceM": 1457,
+       "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+      },
+      {
+       "lat": 37.31436980592689,
+       "lng": 127.09573023128192,
+       "name": "예진산",
+       "category": "landmark",
+       "distanceM": 1477,
+       "categoryName": "여행 > 관광,명소 > 산"
+      },
+      {
+       "lat": 37.3216286487319,
+       "lng": 127.110100518138,
+       "name": "보정동카페거리",
+       "category": "landmark",
+       "distanceM": 1522,
+       "categoryName": "여행 > 관광,명소 > 테마거리 > 카페거리"
+      },
+      {
+       "lat": 37.294251488197,
+       "lng": 127.114025981565,
+       "name": "구성농협하나로마트",
+       "category": "shopping",
+       "distanceM": 1551,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 하나로마트"
+      },
+      {
+       "lat": 37.3052446783531,
+       "lng": 127.127610959399,
+       "name": "아마노 칼빈대학교 주차장",
+       "category": "landmark",
+       "distanceM": 1562,
+       "categoryName": "교통,수송 > 교통시설 > 주차장"
+      },
+      {
+       "lat": 37.3042177004449,
+       "lng": 127.127423111123,
+       "name": "칼빈대학교 바울관",
+       "category": "landmark",
+       "distanceM": 1571,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.2947063575293,
+       "lng": 127.116954476329,
+       "name": "구성파출소",
+       "category": "public",
+       "distanceM": 1579,
+       "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 파출소"
+      },
+      {
+       "lat": 37.30494526368936,
+       "lng": 127.1278619902976,
+       "name": "칼빈대학교",
+       "category": "landmark",
+       "distanceM": 1590,
+       "categoryName": "교육,학문 > 학교 > 대학교"
+      },
+      {
+       "lat": 37.3050857859388,
+       "lng": 127.127898323261,
+       "name": "칼빈대학교 대학원",
+       "category": "landmark",
+       "distanceM": 1590,
+       "categoryName": "교육,학문 > 학교 > 대학원"
+      },
+      {
+       "lat": 37.3048299362524,
+       "lng": 127.12785728317,
+       "name": "투루카 칼빈대학교 엘리야관 옆",
+       "category": "landmark",
+       "distanceM": 1593,
+       "categoryName": "교통,수송 > 교통시설 > 카셰어링 > 투루카"
+      },
+      {
+       "lat": 37.30414137604698,
+       "lng": 127.12776362503564,
+       "name": "칼빈대학교 도서관",
+       "category": "landmark",
+       "distanceM": 1603,
+       "categoryName": "교육,학문 > 학습시설 > 도서관"
+      },
+      {
+       "lat": 37.3045340604578,
+       "lng": 127.128168099695,
+       "name": "칼빈 대학교 여호수아관",
+       "category": "landmark",
+       "distanceM": 1627,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.31466758990968,
+       "lng": 127.1268733064837,
+       "name": "단국대학교 죽전캠퍼스 행복기숙사(진리관)",
+       "category": "landmark",
+       "distanceM": 1648,
+       "categoryName": "교육,학문 > 학교부속시설"
+      },
+      {
+       "lat": 37.3050561214665,
+       "lng": 127.12866529234,
+       "name": "칼빈대학교 신학대학원",
+       "category": "landmark",
+       "distanceM": 1658,
+       "categoryName": "교육,학문 > 학교 > 대학원"
+      },
+      {
+       "lat": 37.3084036779176,
+       "lng": 127.129298175151,
+       "name": "마북IC",
+       "category": "landmark",
+       "distanceM": 1684,
+       "categoryName": "교통,수송 > 도로시설 > IC"
+      },
+      {
+       "lat": 37.299661199073036,
+       "lng": 127.12654920518892,
+       "name": "경기옛길 영남길 제3길 구성현길",
+       "category": "landmark",
+       "distanceM": 1706,
+       "categoryName": "여행 > 관광,명소 > 도보여행"
+      },
+      {
+       "lat": 37.3144696473796,
+       "lng": 127.0925502141799,
+       "name": "롯데슈퍼프레시 수지점2",
+       "category": "shopping",
+       "distanceM": 1734,
+       "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 롯데슈퍼프레시"
+      },
+      {
+       "lat": 37.3120180089067,
+       "lng": 127.129863889213,
+       "name": "마골",
+       "category": "landmark",
+       "distanceM": 1792,
+       "categoryName": "여행 > 관광,명소 > 계곡"
+      }
+     ],
+     "nearestStation": {
+      "lat": 37.3127749181936,
+      "lng": 127.108336816968,
+      "name": "보정역 수인분당선",
+      "distanceM": 566,
+      "walkMinutes": 7
+     }
+    },
+    "registryData": {
+     "source": "fallback_mock",
+     "checked": false,
+     "fetchedAt": "2026-10-22T12:19:29.141Z",
+     "mortgages": [],
+     "attachments": [],
+     "rawResponse": null,
+     "displayMessage": "등기부 조회 미연동 (외부 API 미연결 또는 모의 데이터)",
+     "encumbranceRisk": "check_required"
+    },
+    "buildingRegister": {
+     "bcRat": 49.91,
+     "vlRat": 209.24,
+     "floors": [
+      {
+       "flrGb": "지하",
+       "flrNo": 1,
+       "areaSqm": 271.66,
+       "flrNoNm": "지1층",
+       "etcPurpose": "주차장",
+       "mainPurpose": "일반음식점"
+      },
+      {
+       "flrGb": "지하",
+       "flrNo": 1,
+       "areaSqm": 38.15,
+       "flrNoNm": "지1층",
+       "etcPurpose": "계단실,펌프실,물탱크실등",
+       "mainPurpose": "일반음식점"
+      },
+      {
+       "flrGb": "지상",
+       "flrNo": 1,
+       "areaSqm": 219.62,
+       "flrNoNm": "1층",
+       "etcPurpose": "소매점,일반음식점",
+       "mainPurpose": "소매점"
+      },
+      {
+       "flrGb": "지상",
+       "flrNo": 3,
+       "areaSqm": 178.67,
+       "flrNoNm": "3층",
+       "etcPurpose": "제2종근린생활시설(고시원)",
+       "mainPurpose": "고시원"
+      },
+      {
+       "flrGb": "지상",
+       "flrNo": 4,
+       "areaSqm": 164.11,
+       "flrNoNm": "4층",
+       "etcPurpose": "학원",
+       "mainPurpose": "학원"
+      },
+      {
+       "flrGb": "지상",
+       "flrNo": 5,
+       "areaSqm": 147.73,
+       "flrNoNm": "5층",
+       "etcPurpose": "단독주택(1가구)",
+       "mainPurpose": "단독주택"
+      },
+      {
+       "flrGb": "옥탑",
+       "flrNo": 1,
+       "areaSqm": 26,
+       "flrNoNm": "옥탑1",
+       "etcPurpose": "기타제2종근생 (elev기계실,계단실)",
+       "mainPurpose": "기타제2종근린생활시설"
+      },
+      {
+       "flrGb": "지상",
+       "flrNo": 2,
+       "areaSqm": 210.52,
+       "flrNoNm": "2층",
+       "etcPurpose": "제1종근린생활시설(체육도장), 제2종근린생활시설(교습소)",
+       "mainPurpose": "체육도장"
+      }
+     ],
+     "mainPnu": "4146311800113230002",
+     "platPlc": "경기도 용인시 기흥구 보정동 1323-2번지",
+     "archArea": 219.62,
+     "platArea": 440,
+     "structure": "철근콘크리트구조",
+     "totalArea": 1230.46,
+     "useAprDay": "20041223",
+     "newPlatPlc": "경기도 용인시 기흥구 신촌로47번길 6 (보정동)",
+     "floorsAbove": 5,
+     "floorsBelow": 1,
+     "mainPurpose": "제2종근린생활시설",
+     "buildingName": " ",
+     "parkingCount": 7,
+     "elevatorCount": 1,
+     "selfParkingCount": 7,
+     "passengerElevatorCount": 1
+    },
+    "locationMapImage": null,
+    "cadastralMapImage": null,
+    "commercialDistrict": null,
+    "comparableTransactions": [
+     {
+      "area": 201.87,
+      "floors": 0,
+      "address": "용인시 기흥구 구갈동 4**",
+      "dealDay": 7,
+      "dealYear": 2026,
+      "dealMonth": 10,
+      "dealAmount": 680000000,
+      "_isFallback": false,
+      "buildingUse": "제1종근린생활",
+      "landAreaSqm": 161.9,
+      "pricePerSqm": 3368504,
+      "buildingType": "일반",
+      "pricePerPyeong": 11135552,
+      "landPricePerPyeongManwon": 1388
+     },
+     {
+      "area": 2278.67,
+      "floors": 0,
+      "address": "용인시 기흥구 동백동 3**",
+      "dealDay": 29,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 9300000000,
+      "_isFallback": false,
+      "buildingUse": "기타",
+      "landAreaSqm": 3500,
+      "pricePerSqm": 4081328,
+      "buildingType": "일반",
+      "pricePerPyeong": 13491993,
+      "landPricePerPyeongManwon": 878
+     },
+     {
+      "area": 8795.71,
+      "floors": 0,
+      "address": "용인시 기흥구 중동 3*",
+      "dealDay": 18,
+      "dealYear": 2026,
+      "dealMonth": 9,
+      "dealAmount": 26527340000,
+      "_isFallback": false,
+      "buildingUse": "판매",
+      "landAreaSqm": 12777,
+      "pricePerSqm": 3015941,
+      "buildingType": "일반",
+      "pricePerPyeong": 9970052,
+      "landPricePerPyeongManwon": 686
+     },
+     {
+      "area": 597.98,
+      "floors": 0,
+      "address": "용인시 기흥구 공세동 4**",
+      "dealDay": 31,
+      "dealYear": 2026,
+      "dealMonth": 8,
+      "dealAmount": 1500000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "landAreaSqm": 608,
+      "pricePerSqm": 2508445,
+      "buildingType": "일반",
+      "pricePerPyeong": 8292380,
+      "landPricePerPyeongManwon": 816
+     },
+     {
+      "area": 420.98,
+      "floors": 0,
+      "address": "용인시 기흥구 지곡동 4**",
+      "dealDay": 6,
+      "dealYear": 2026,
+      "dealMonth": 8,
+      "dealAmount": 1500000000,
+      "_isFallback": false,
+      "buildingUse": "제2종근린생활",
+      "landAreaSqm": 985,
+      "pricePerSqm": 3563115,
+      "buildingType": "일반",
+      "pricePerPyeong": 11778891,
+      "landPricePerPyeongManwon": 503
+     }
+    ]
+   },
+   "financials": {
+    "wacc": 0.07590732142857143,
+    "capRate": {
+     "base": 2.93,
+     "best": 3.14,
+     "worst": 2.71
+    },
+    "opexPct": 10.4,
+    "posture": "income",
+    "irr5Year": {
+     "base": 1.6,
+     "best": 5.3,
+     "worst": -3.3
+    },
+    "annualNoi": {
+     "base": 82146000,
+     "best": 88008000,
+     "worst": 75780000
+    },
+    "depositKrw": 279500000,
+    "disclaimer": "AI 추정값 (참고용). 실제 수익은 임대차 조건·공실률·세금에 따라 상이합니다.",
+    "noiBaseKrw": 82146000,
+    "opexSource": "user",
+    "isBasicMode": true,
+    "pricePerSqm": 2275572,
+    "yieldOnCost": 3.47,
+    "brokerFeeBil": 0.25,
+    "annualRentBil": 0.9708,
+    "loanAmountBil": null,
+    "equityRequired": 26.7,
+    "landValueRatio": null,
+    "leveragedYield": 3.26,
+    "pricePerPyeong": 7522552,
+    "totalDepositBil": 2.8,
+    "negativeLeverage": true,
+    "acquisitionTaxBil": 1.29,
+    "vacancyReservePct": 5,
+    "grossYieldOnEquity": 3.85,
+    "landValueRatioNote": "대지가치 미산출 — 공시지가 데이터 확인 필요",
+    "grossYieldStabilized": 4.05,
+    "negativeLeverageWarning": "총수익률(3.47%)이 통상 대출금리(연 4.5%)보다 낮아, 대출 활용 시 역레버리지가 발생합니다. 무차입 기준 수익률을 표기합니다.",
+    "totalAcquisitionCostBil": 29.5
+   },
+   "gateReport": {
+    "scope": "rentroll_v15",
+    "blocked": true,
+    "results": [
+     {
+      "id": "V01",
+      "label": "렌트롤 금액 판정 — 월세 누락·금액 중복 0건 (통합계약은 대표 행에만 금액 입력 후 렌트롤 재업로드, 해제 불가)",
+      "passed": false,
+      "status": "FAIL",
+      "severity": "block"
+     },
+     {
+      "id": "V12",
+      "label": "렌트롤 면적 단위 혼동 없음 (사유 입력 시 해제)",
+      "passed": true,
+      "status": "PASS",
+      "severity": "block"
+     }
+    ],
+    "allPassed": false,
+    "evaluatedAt": "2026-10-22T12:19:40.304Z",
+    "failedWarns": [],
+    "failedBlocks": [
+     {
+      "id": "V01",
+      "label": "렌트롤 금액 판정 — 월세 누락·금액 중복 0건 (통합계약은 대표 행에만 금액 입력 후 렌트롤 재업로드, 해제 불가)",
+      "passed": false,
+      "status": "FAIL",
+      "severity": "block"
+     }
+    ]
+   },
+   "photo_urls": [
+    "$asset-path:income-wellbing-r3/asset-01.jpg",
+    "$asset-path:income-wellbing-r3/asset-02.jpg",
+    "$asset-path:income-wellbing-r3/asset-03.jpg",
+    "$asset-path:income-wellbing-r3/asset-04.jpg",
+    "$asset-path:income-wellbing-r3/asset-05.jpg",
+    "$asset-path:income-wellbing-r3/asset-06.jpg",
+    "$asset-path:income-wellbing-r3/asset-07.jpg",
+    "$asset-path:income-wellbing-r3/asset-08.jpg",
+    "$asset-path:income-wellbing-r3/asset-09.jpg",
+    "$asset-path:income-wellbing-r3/asset-10.jpg",
+    "$asset-path:income-wellbing-r3/asset-11.jpg"
+   ],
+   "targetHash": "sha256:5d0e52e2c35deb238e8dcd080ed8a32d7530873db5ffa11284b257755479a5e6",
+   "askingPrice": 2800000000,
+   "coordinates": {
+    "lat": 37.3079134604492,
+    "lng": 127.110304201949
+   },
+   "dcfEligible": false,
+   "mapImageUrl": "/api/public/map/static?lat=37.3079134604492&lng=127.110304201949&w=640&h=360&level=3",
+   "releaseTier": "decision_im",
+   "floor_leases": [
+    {
+     "floor": "101호",
+     "area_sqm": 58.21,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 100,
+     "tenant_name": "카페",
+     "tenant_type": "카페",
+     "contract_group": "근린생활",
+     "deposit_manwon": 1000,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 5,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 33.69,
+     "efficiency_ratio_pct": 57.88
+    },
+    {
+     "floor": "102호",
+     "area_sqm": 58.21,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 100,
+     "tenant_name": "제과점",
+     "tenant_type": "제과점",
+     "contract_group": "근린생활",
+     "deposit_manwon": 1000,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 5,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 33.69,
+     "efficiency_ratio_pct": 57.88
+    },
+    {
+     "floor": "103호",
+     "area_sqm": 58.21,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 73,
+     "tenant_name": "미용실",
+     "tenant_type": "미용실",
+     "contract_group": "근린생활",
+     "deposit_manwon": 3000,
+     "evidence_level": null,
+     "payment_status": null,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 33.69,
+     "efficiency_ratio_pct": 57.88
+    },
+    {
+     "floor": "104호",
+     "area_sqm": 58.21,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 77,
+     "tenant_name": "영어학원",
+     "tenant_type": "영어학원",
+     "contract_group": "근린생활",
+     "deposit_manwon": 3000,
+     "evidence_level": null,
+     "payment_status": null,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 33.69,
+     "efficiency_ratio_pct": 57.88
+    },
+    {
+     "floor": "105호",
+     "area_sqm": 58.21,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 77,
+     "tenant_name": "아이스크림전문점",
+     "tenant_type": "아이스크림전문점",
+     "contract_group": "근린생활",
+     "deposit_manwon": 3000,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 15,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 33.69,
+     "efficiency_ratio_pct": 57.88
+    },
+    {
+     "floor": "201호",
+     "area_sqm": 177.75,
+     "is_vacant": true,
+     "lease_state": "공실",
+     "legal_basis": "상가",
+     "tenant_name": "공실",
+     "tenant_type": "공실",
+     "contract_group": "근린생활",
+     "evidence_level": null,
+     "payment_status": null,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 109.52,
+     "efficiency_ratio_pct": 61.61
+    },
+    {
+     "floor": "202호",
+     "area_sqm": 107.34,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 60,
+     "tenant_name": "학원",
+     "tenant_type": "학원",
+     "contract_group": "근린생활",
+     "deposit_manwon": 2000,
+     "evidence_level": null,
+     "payment_status": null,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 66.12,
+     "efficiency_ratio_pct": 61.6
+    },
+    {
+     "floor": "301호",
+     "area_sqm": 39.95,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 55,
+     "tenant_name": "고시원(원룸)",
+     "tenant_type": "고시원(원룸)",
+     "contract_group": "근린생활",
+     "deposit_manwon": 100,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 5,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 23.96,
+     "efficiency_ratio_pct": 59.97
+    },
+    {
+     "floor": "302호",
+     "area_sqm": 39.95,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 40,
+     "tenant_name": "고시원(원룸)",
+     "tenant_type": "고시원(원룸)",
+     "contract_group": "근린생활",
+     "deposit_manwon": 250,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 5,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 23.96,
+     "efficiency_ratio_pct": 59.97
+    },
+    {
+     "floor": "303호",
+     "area_sqm": 39.95,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 42,
+     "tenant_name": "고시원(원룸)",
+     "tenant_type": "고시원(원룸)",
+     "contract_group": "근린생활",
+     "deposit_manwon": 1000,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 7,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 23.96,
+     "efficiency_ratio_pct": 59.97
+    },
+    {
+     "floor": "304호",
+     "area_sqm": 39.95,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 55,
+     "tenant_name": "고시원(원룸)",
+     "tenant_type": "고시원(원룸)",
+     "contract_group": "근린생활",
+     "deposit_manwon": 100,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 5,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 23.96,
+     "efficiency_ratio_pct": 59.97
+    },
+    {
+     "floor": "305호",
+     "area_sqm": 39.95,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "tenant_name": "고시원(원룸)",
+     "tenant_type": "고시원(원룸)",
+     "contract_group": "근린생활",
+     "deposit_manwon": 5000,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 5,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 23.96,
+     "efficiency_ratio_pct": 59.97
+    },
+    {
+     "floor": "306호",
+     "area_sqm": 39.95,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "tenant_name": "고시원(원룸)",
+     "tenant_type": "고시원(원룸)",
+     "contract_group": "근린생활",
+     "deposit_manwon": 5500,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 7,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 23.96,
+     "efficiency_ratio_pct": 59.97
+    },
+    {
+     "floor": "401호",
+     "area_sqm": 218.98,
+     "is_vacant": false,
+     "lease_end": "2027-12-31",
+     "lease_state": "임대중",
+     "legal_basis": "상가",
+     "rent_manwon": 130,
+     "tenant_name": "스터디카페",
+     "tenant_type": "스터디카페",
+     "contract_group": "근린생활",
+     "deposit_manwon": 3000,
+     "evidence_level": null,
+     "payment_status": null,
+     "mgmt_fee_manwon": 25,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 129.22,
+     "efficiency_ratio_pct": 59.01
+    },
+    {
+     "floor": "501호",
+     "area_sqm": 195.64,
+     "is_vacant": false,
+     "lease_state": "자가사용",
+     "legal_basis": "주택",
+     "tenant_name": "자가",
+     "tenant_type": "자가",
+     "contract_group": "주거",
+     "evidence_level": null,
+     "payment_status": null,
+     "rent_free_months": null,
+     "exclusive_area_sqm": 112.84,
+     "efficiency_ratio_pct": 57.68
+    }
+   ],
+   "generated_at": "2026-10-22T12:22:18.981Z",
+   "heroSubtitle": "용인 죽전권역 소재, 매각 희망가 25억대",
+   "ssot_summary": {
+    "pnu": "4146311800113230002",
+    "address": "경기도 용인시 기흥구 신촌로47번길 6 (보정동)",
+    "bcr_pct": 49.91,
+    "far_pct": 209.24,
+    "asset_type": "근생빌딩",
+    "price_band": "25억대",
+    "area_signal": "용인 죽전권역",
+    "area_source": {
+     "land": "broker_memo",
+     "total": "broker_memo"
+    },
+    "fit_summary": "주거지에 인접한 근생빌딩. 현 임대수익을 기반으로 공실 리스업을 검토하는 수익형 매물.",
+    "size_signal": "372.2평",
+    "vacancy_pct": 7.1,
+    "floors_above": 5,
+    "floors_below": 1,
+    "jibun_address": "경기도 용인시 기흥구 신촌로47번길 6 (보정동)",
+    "land_area_sqm": 439.9999835,
+    "vacancy_signal": "현재 공실이 있으며 공실 면적과 호수는 미기재",
+    "vacancy_status": "현재 공실이 있으며 공실 면적과 호수는 미기재",
+    "caution_summary": "임대차계약서와 렌트롤을 통해 보증금, 월세, 공실 및 수익률 산정 기준을 확인해야 합니다. 등기부등본·건축물대장·토지이용계획과 플랫폼시티 사업 진행 현황 확인이 필요합니다.",
+    "completion_year": 2004,
+    "register_main_pnu": "4146311800113230002",
+    "investment_posture": "income",
+    "asking_price_manwon": 280000,
+    "total_deposit_manwon": 27950,
+    "total_gross_area_sqm": 1230.51235055,
+    "monthly_rent_total_krw": 8090000
+   },
+   "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
+   "broker_extras": {
+    "target_rent_per_pyeong_manwon": 5
+   },
+   "external_data": {
+    "errors": [],
+    "address": "경기도 용인시 기흥구 신촌로47번길 6 (보정동)",
+    "enrichedAt": "2026-10-22T12:19:38.917Z",
+    "hasPublicData": true,
+    "fallbackStatus": {
+     "landPrice": null,
+     "landUsePlan": null,
+     "locationPoi": null,
+     "buildingRegister": null
+    }
+   },
+   "ogDescription": "보정권역 · 근생빌딩 · 25억대 · 자산 개요 보정역 도보 7분, 2004년 준공의 지하 1층~지상 5층 근",
+   "rent_roll_meta": {
+    "gfa_sqm": 1230.5,
+    "market_rent_1f": 120000,
+    "rentroll_as_of": "2026-10-21",
+    "area_input_unit": "sqm",
+    "asking_price_krw": 2800000000,
+    "other_income_krw": 808000,
+    "rentroll_version": "1.5",
+    "market_rent_upper": 50000,
+    "other_income_note": "통신장비(옥상)",
+    "market_rent_basement": 50000,
+    "market_rent_1f_source": "46316",
+    "market_rent_upper_source": "46316",
+    "market_rent_basement_source": "46316"
+   },
+   "hidden_sections": [],
+   "readiness_score": 90,
+   "rentroll_checks": {
+    "V01": {
+     "code": "V01",
+     "level": "block",
+     "value": {
+      "ok": 0,
+      "duplicate": 1,
+      "mgmtMissing": 0,
+      "rentMissing": 0
+     },
+     "message": "금액 중복 1건 — 통합계약은 그룹 대표 행 1개에만 보증금·월세·관리비를 적어야 발행할 수 있습니다."
+    },
+    "V02": {
+     "code": "V02",
+     "level": "ok",
+     "value": "2026-10-21",
+     "message": "평가 기준일 2026-10-21 (렌트롤 기준일)"
+    },
+    "V03": {
+     "code": "V03",
+     "level": "ok",
+     "value": 100,
+     "message": "임대면적 합 ÷ 연면적 = 100.0% (정상 범위)"
+    },
+    "V04": {
+     "code": "V04",
+     "level": "ok",
+     "value": 3.85,
+     "message": "단순 수익률 3.85% = 월세 합 8,090,000원 × 12 ÷ (매각가 − 보증금 279,500,000원)"
+    },
+    "V05": {
+     "code": "V05",
+     "level": "ok",
+     "value": {
+      "pct": 4.24,
+      "otherIncomeKrw": 808000
+     },
+     "message": "기타수입 포함 수익률 4.24% (기타수입 월 808,000원 — IM 에는 별도 줄)"
+    },
+    "V06": {
+     "code": "V06",
+     "level": "info",
+     "value": {
+      "pct": 0,
+      "expiredPct": 0,
+      "within12Pct": 0
+     },
+     "message": "12개월 내 만기·만료 경과 월세 비중 0.0% (기준일 2026-10-21)"
+    },
+    "V07": {
+     "code": "V07",
+     "level": "info",
+     "value": {
+      "oral": 0,
+      "total": 11,
+      "seller": 0,
+      "missing": 11,
+      "contract": 0
+     },
+     "message": "근거 — 계약서 원본 0 · 매도인 렌트롤 0 · 구두 0 · 미기재 11 (계약 11건)"
+    },
+    "V08": {
+     "code": "V08",
+     "level": "info",
+     "value": {
+      "normal": 0,
+      "flagged": 0,
+      "missing": 11,
+      "overdue": 0,
+      "unconfirmed": 0
+     },
+     "message": "입금 확인(최근 12개월) 미입력"
+    },
+    "V09": {
+     "code": "V09",
+     "level": "ok",
+     "value": 0,
+     "message": "렌트프리 호실 없음"
+    },
+    "V10": {
+     "code": "V10",
+     "level": "ok",
+     "value": {
+      "rates": 3,
+      "sources": 3,
+      "ratesWithSource": 3
+     },
+     "message": "시장 임대료 3개 · 출처 3개"
+    },
+    "V11": {
+     "code": "V11",
+     "level": "info",
+     "value": {
+      "ready": false,
+      "resolution": "R0",
+      "evidenceMissingRows": 13,
+      "marketRentWithSource": 3
+     },
+     "message": "R3+ 미충족 — 해상도 R0(R3 필요) · 근거 미기재 13행"
+    },
+    "V12": {
+     "code": "V12",
+     "level": "ok",
+     "value": 0.9999674928890695,
+     "message": "정상"
+    },
+    "V13": {
+     "code": "V13",
+     "level": "info",
+     "value": "sqm",
+     "message": "㎡ — C·D열 = AE·AF열(㎡)"
+    }
+   },
+   "broker_highlight": "플랫폼시티 개발 수혜, 가치 상승 가능한 수익형 근생빌딩",
+   "dataCompleteness": {
+    "generatedAt": "2026-10-22T12:22:18.986Z",
+    "qualityGrade": "B",
+    "buildingRegister": true,
+    "pptxExportAllowed": true,
+    "buildingRegisterSource": "loaded"
+   },
+   "resolved_address": "경기도 용인시 기흥구 신촌로47번길 6 (보정동)",
+   "financialWarnings": [],
+   "investmentPosture": "income",
+   "investment_posture": "income",
+   "keyInvestmentPoint": "보정권역 소재, 근생빌딩, 매각 희망가 25억대",
+   "asking_price_manwon": 280000,
+   "approval_target_hash": "sha256:5d0e52e2c35deb238e8dcd080ed8a32d7530873db5ffa11284b257755479a5e6",
+   "broker_physical_inputs": {
+    "parking_count": 7
+   }
+  }
+ },
+ "building": {
+  "id": "e080fbc3-7dcc-47fb-b1c3-889068f535a1",
+  "created_by_role": "broker",
+  "input_type": "broker_memo",
+  "raw_input": "용인시 기흥구 보정동 1323-2\n대지 440㎡\n연면적 1,230.5㎡\nB1 ~ 5F\n근생 빌딩\n소액자본으로 높은 수익률 가능\n매매가 28억원(건물분 부가세 별도)\n보증금 약 3억, 월세 약 850만원(부가세 별도)\n현재 수익률 4.0% 내외\n만실시 기대수익률 6% 이상 가능\n주거지 인접 근린생활시설 수요 양호\n플렛폼시티 신도시급 도시개발사업 수혜 지역\n자금난으로 인해 저가 매입 기회",
+  "area_signal": "용인 죽전권역",
+  "asset_type": "근생빌딩",
+  "price_band": "25억대",
+  "size_signal": "대지 440㎡(133.1평), 연면적 1,230.5㎡, 지하 1층~지상 5층",
+  "current_use_signal": "근린생활시설 임대 운영 중이며 보증금 합계 약 3억원, 월세 합계 약 850만원으로 제시됨",
+  "vacancy_signal": "현재 공실이 있으며 공실 면적과 호수는 미기재",
+  "fit_summary": "주거지에 인접한 근생빌딩. 현 임대수익을 기반으로 공실 리스업을 검토하는 수익형 매물.",
+  "caution_summary": "임대차계약서와 렌트롤을 통해 보증금, 월세, 공실 및 수익률 산정 기준을 확인해야 합니다. 등기부등본·건축물대장·토지이용계획과 플랫폼시티 사업 진행 현황 확인이 필요합니다.",
+  "hidden_fields": [
+   "exact_address",
+   "seller_motivation"
+  ],
+  "layers": {
+   "finance": {
+    "vacancy_pct": 0,
+    "loan_amount_krw": null,
+    "asking_price_krw": 2800000000,
+    "monthly_rent_krw": 8500000,
+    "total_deposit_krw": 300000000,
+    "loan_amount_manwon": null,
+    "asking_price_manwon": 280000,
+    "monthly_rent_manwon": 850,
+    "total_deposit_manwon": 30000
+   },
+   "location": {
+    "pnu": null,
+    "address": "용인시 기흥구 보정동 권역",
+    "raw_address": null
+   },
+   "lease_summary": {
+    "vacancy_pct": 0,
+    "monthly_rent_krw": 8500000,
+    "total_deposit_krw": 300000000,
+    "monthly_rent_manwon": 850,
+    "total_deposit_manwon": 30000
+   },
+   "land_area_pyung": 133.1,
+   "total_floor_area_pyung": 372.23
+  },
+  "confidence": {
+   "assetType": "user_provided",
+   "priceBand": "user_provided",
+   "areaSignal": "user_provided",
+   "fitSummary": "ai_hypothesis"
+  },
+  "disclosure": {
+   "guard_checked": true
+  },
+  "status": "public_signal_ready",
+  "created_at": "2026-10-22T11:05:47.917192+00:00",
+  "updated_at": "2026-10-22T11:20:23.221566+00:00",
+  "promotion_score": 0.345,
+  "promotion_updated_at": "2026-10-22T11:05:55.759+00:00",
+  "matched_buyer_count": 0,
+  "vacancy_inquiry_count": 0,
+  "vacancy_avg_fit_score": null,
+  "vacancy_demand_verified": false,
+  "iot_daily_footfall": null,
+  "iot_avg_dwell_minutes": null,
+  "iot_peak_hour": null,
+  "iot_footfall_trend": null,
+  "iot_monthly_energy_kwh": null,
+  "iot_energy_efficiency": null,
+  "iot_floor_occupancy": null,
+  "iot_device_id": null,
+  "iot_last_synced_at": null,
+  "verification_status": "skipped",
+  "verification_details": {
+   "checks": {
+    "purposeMatch": null,
+    "buildingExists": null,
+    "areaWithinRange": null
+   },
+   "status": "skipped",
+   "details": {
+    "aiAddress": "보정권역",
+    "aiAssetType": "근생빌딩",
+    "errorReason": "주소 파싱 실패 (시군구/법정동 분리 불가)",
+    "aiSizeSignal": "대지 440㎡(133.1평), 연면적 1,230.5㎡, 지하 1층~지상 5층"
+   },
+   "resolvedComponents": null
+  },
+  "verified_at": null,
+  "raw_address": null,
+  "canonical_property_id": null,
+  "pnu": "4146311800113230002",
+  "address": "경기도 용인시 기흥구 신촌로47번길 6 (보정동)",
+  "lat": 37.3079134604492,
+  "lng": 127.110304201949,
+  "investment_posture": "income"
+ },
+ "broker": {
+  "display_name": "서교석",
+  "company_name": "JS부동산중개법인",
+  "phone": "010-0000-0000",
+  "email": "broker@example.test"
+ },
+ "liveEnrichment": {
+  "cadastralMapImage": "$asset-data:income-wellbing-r3/asset-12.png",
+  "hasCadastralMap": true,
+  "locationPoi": {
+   "nearestStation": {
+    "name": "보정역 수인분당선",
+    "lat": 37.3127749181936,
+    "lng": 127.108336816968,
+    "distanceM": 566,
+    "walkMinutes": 7
+   },
+   "poiCounts": {
+    "subway": 4,
+    "busStop": 0,
+    "cafe": 10,
+    "parking": 1,
+    "restaurant": 23,
+    "convenience": 7
+   },
+   "keySpots": [
+    {
+     "name": "보정역 수인분당선",
+     "lat": 37.3127749181936,
+     "lng": 127.108336816968,
+     "distanceM": 566,
+     "category": "subway"
+    },
+    {
+     "name": "구성역 수인분당선",
+     "lat": 37.298978850791976,
+     "lng": 127.10569583571818,
+     "distanceM": 1072,
+     "category": "subway"
+    },
+    {
+     "name": "아토피샵",
+     "lat": 37.3077700952866,
+     "lng": 127.110797722643,
+     "distanceM": 46,
+     "category": "landmark"
+    },
+    {
+     "name": "더샵보정애비뉴2단지아파트",
+     "lat": 37.30869785511524,
+     "lng": 127.10918826544612,
+     "distanceM": 131,
+     "category": "landmark"
+    },
+    {
+     "name": "더샵보정애비뉴1단지아파트 202동",
+     "lat": 37.309664274993764,
+     "lng": 127.11153936741364,
+     "distanceM": 222,
+     "category": "landmark"
+    }
+   ],
+   "candidateSpots": [
+    {
+     "name": "연세의원",
+     "lat": 37.3077092549672,
+     "lng": 127.110337405531,
+     "distanceM": 22,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 일반의원"
+    },
+    {
+     "name": "아토피샵",
+     "lat": 37.3077700952866,
+     "lng": 127.110797722643,
+     "distanceM": 46,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "더샵보정애비뉴2단지아파트",
+     "lat": 37.30869785511524,
+     "lng": 127.10918826544612,
+     "distanceM": 131,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트"
+    },
+    {
+     "name": "보정초등학교",
+     "lat": 37.30905665939925,
+     "lng": 127.11091918162197,
+     "distanceM": 137,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "더샵보정애비뉴1단지아파트 202동",
+     "lat": 37.309664274993764,
+     "lng": 127.11153936741364,
+     "distanceM": 222,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트 > 아파트 동"
+    },
+    {
+     "name": "비스하임아파트 101동",
+     "lat": 37.30754637521187,
+     "lng": 127.11298234387253,
+     "distanceM": 240,
+     "category": "landmark",
+     "categoryName": "부동산 > 주거시설 > 아파트 > 아파트 동"
+    },
+    {
+     "name": "용인서부경찰서",
+     "lat": 37.30958357422947,
+     "lng": 127.10621603956469,
+     "distanceM": 407,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰서"
+    },
+    {
+     "name": "리싸이클시티 보정점",
+     "lat": 37.3078645067135,
+     "lng": 127.105086737641,
+     "distanceM": 462,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 중고용품"
+    },
+    {
+     "name": "노브랜드 구성TR점",
+     "lat": 37.30519202535418,
+     "lng": 127.10509881024632,
+     "distanceM": 551,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 노브랜드"
+    },
+    {
+     "name": "덴아트치과의원",
+     "lat": 37.3047872854621,
+     "lng": 127.10529564099154,
+     "distanceM": 563,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 치과"
+    },
+    {
+     "name": "트레이더스 홀세일 클럽 구성점",
+     "lat": 37.305025379068844,
+     "lng": 127.10504781970302,
+     "distanceM": 565,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 대형마트 > 트레이더스 홀세일 클럽"
+    },
+    {
+     "name": "보정역 수인분당선",
+     "lat": 37.3127749181936,
+     "lng": 127.108336816968,
+     "distanceM": 566,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수인분당선"
+    },
+    {
+     "name": "도드리",
+     "lat": 37.31116655552218,
+     "lng": 127.10536094002849,
+     "distanceM": 567,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "마북초등학교",
+     "lat": 37.3026241537826,
+     "lng": 127.109969037357,
+     "distanceM": 587,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "보정동물병원",
+     "lat": 37.3137923864483,
+     "lng": 127.111036692988,
+     "distanceM": 655,
+     "category": "hospital",
+     "categoryName": "가정,생활 > 반려동물 > 동물병원"
+    },
+    {
+     "name": "연원푸른의원",
+     "lat": 37.3019369852221,
+     "lng": 127.11059065041984,
+     "distanceM": 663,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 일반의원"
+    },
+    {
+     "name": "Wellness clinic 동물병원",
+     "lat": 37.3039769246901,
+     "lng": 127.104651577514,
+     "distanceM": 665,
+     "category": "hospital",
+     "categoryName": "가정,생활 > 반려동물 > 동물병원"
+    },
+    {
+     "name": "보정고등학교",
+     "lat": 37.3139018062955,
+     "lng": 127.109647032337,
+     "distanceM": 667,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 고등학교"
+    },
+    {
+     "name": "이좋은치과의원",
+     "lat": 37.31398427468825,
+     "lng": 127.11107081831271,
+     "distanceM": 676,
+     "category": "hospital",
+     "categoryName": "의료,건강 > 병원 > 치과"
+    },
+    {
+     "name": "홈플러스익스프레스 용인보정2점",
+     "lat": 37.3139977753564,
+     "lng": 127.111086631623,
+     "distanceM": 678,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 홈플러스익스프레스"
+    },
+    {
+     "name": "수선백화점",
+     "lat": 37.3003960849656,
+     "lng": 127.107800224938,
+     "distanceM": 863,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 세탁소"
+    },
+    {
+     "name": "GS더프레시 용인마북점",
+     "lat": 37.3003020049544,
+     "lng": 127.107218094878,
+     "distanceM": 888,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+    },
+    {
+     "name": "베러업",
+     "lat": 37.2999132152389,
+     "lng": 127.108691699141,
+     "distanceM": 899,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 통신판매 > 인터넷쇼핑몰"
+    },
+    {
+     "name": "마북동행정복지센터",
+     "lat": 37.3015789750438,
+     "lng": 127.117447866518,
+     "distanceM": 946,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+    },
+    {
+     "name": "구성중학교",
+     "lat": 37.2999744596072,
+     "lng": 127.114454197103,
+     "distanceM": 954,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 중학교"
+    },
+    {
+     "name": "용인신촌중학교",
+     "lat": 37.31628427383839,
+     "lng": 127.11333047743946,
+     "distanceM": 966,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 중학교"
+    },
+    {
+     "name": "구성역 수인분당선",
+     "lat": 37.298978850791976,
+     "lng": 127.10569583571818,
+     "distanceM": 1072,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > 수인분당선"
+    },
+    {
+     "name": "구성고등학교",
+     "lat": 37.2991552414339,
+     "lng": 127.115562791268,
+     "distanceM": 1078,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 고등학교"
+    },
+    {
+     "name": "구성역 GTX-A",
+     "lat": 37.2991066202884,
+     "lng": 127.103860952138,
+     "distanceM": 1132,
+     "category": "subway",
+     "categoryName": "교통,수송 > 지하철,전철 > GTX-A"
+    },
+    {
+     "name": "장욱진 미술문화재단",
+     "lat": 37.3011689214681,
+     "lng": 127.120221891512,
+     "distanceM": 1154,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "이마트에브리데이 마북동점",
+     "lat": 37.303829075928725,
+     "lng": 127.12256775302833,
+     "distanceM": 1177,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 이마트에브리데이"
+    },
+    {
+     "name": "마성초등학교",
+     "lat": 37.2973123267697,
+     "lng": 127.113069670002,
+     "distanceM": 1201,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "아트룸벗이",
+     "lat": 37.2969656913985,
+     "lng": 127.109920196871,
+     "distanceM": 1215,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 미술관"
+    },
+    {
+     "name": "힐링정원",
+     "lat": 37.3194524865336,
+     "lng": 127.113143442873,
+     "distanceM": 1304,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 관광농원"
+    },
+    {
+     "name": "독정초등학교",
+     "lat": 37.3188691949147,
+     "lng": 127.116265360048,
+     "distanceM": 1325,
+     "category": "university",
+     "categoryName": "교육,학문 > 학교 > 초등학교"
+    },
+    {
+     "name": "수협건어물백화점",
+     "lat": 37.3198442131167,
+     "lng": 127.114312835658,
+     "distanceM": 1370,
+     "category": "landmark",
+     "categoryName": "가정,생활 > 식품판매 > 수산물판매"
+    },
+    {
+     "name": "미우",
+     "lat": 37.3202480250933,
+     "lng": 127.109388868359,
+     "distanceM": 1371,
+     "category": "landmark",
+     "categoryName": "문화,예술 > 문화시설 > 전시관"
+    },
+    {
+     "name": "보정지구대",
+     "lat": 37.319507559193,
+     "lng": 127.115824094584,
+     "distanceM": 1376,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 지구대"
+    },
+    {
+     "name": "보정동행정복지센터",
+     "lat": 37.3201877760116,
+     "lng": 127.113094904482,
+     "distanceM": 1384,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+    },
+    {
+     "name": "보정119안전센터",
+     "lat": 37.3197165853276,
+     "lng": 127.115837953608,
+     "distanceM": 1398,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 소방서 > 119안전센터"
+    },
+    {
+     "name": "GS더프레시 용인보정점",
+     "lat": 37.32030941918789,
+     "lng": 127.11496112568645,
+     "distanceM": 1436,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > GS더프레시"
+    },
+    {
+     "name": "와플대학 용인보정캠퍼스",
+     "lat": 37.32028387198837,
+     "lng": 127.11528826398255,
+     "distanceM": 1441,
+     "category": "landmark",
+     "categoryName": "음식점 > 간식 > 제과,베이커리 > 와플대학"
+    },
+    {
+     "name": "구성동행정복지센터",
+     "lat": 37.29675869483706,
+     "lng": 127.11898777616571,
+     "distanceM": 1457,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 지방행정기관 > 행정복지센터 > 동행정복지센터"
+    },
+    {
+     "name": "예진산",
+     "lat": 37.31436980592689,
+     "lng": 127.09573023128192,
+     "distanceM": 1477,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 산"
+    },
+    {
+     "name": "보정동카페거리",
+     "lat": 37.3216286487319,
+     "lng": 127.110100518138,
+     "distanceM": 1522,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 테마거리 > 카페거리"
+    },
+    {
+     "name": "구성농협하나로마트",
+     "lat": 37.294251488197,
+     "lng": 127.114025981565,
+     "distanceM": 1551,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 하나로마트"
+    },
+    {
+     "name": "아마노 칼빈대학교 주차장",
+     "lat": 37.3052446783531,
+     "lng": 127.127610959399,
+     "distanceM": 1562,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 교통시설 > 주차장"
+    },
+    {
+     "name": "칼빈대학교 바울관",
+     "lat": 37.3042177004449,
+     "lng": 127.127423111123,
+     "distanceM": 1571,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학교부속시설"
+    },
+    {
+     "name": "구성파출소",
+     "lat": 37.2947063575293,
+     "lng": 127.116954476329,
+     "distanceM": 1579,
+     "category": "public",
+     "categoryName": "사회,공공기관 > 행정기관 > 경찰서 > 파출소"
+    },
+    {
+     "name": "칼빈대학교",
+     "lat": 37.30494526368936,
+     "lng": 127.1278619902976,
+     "distanceM": 1590,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학교 > 대학교"
+    },
+    {
+     "name": "칼빈대학교 대학원",
+     "lat": 37.3050857859388,
+     "lng": 127.127898323261,
+     "distanceM": 1590,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학교 > 대학원"
+    },
+    {
+     "name": "투루카 칼빈대학교 엘리야관 옆",
+     "lat": 37.3048299362524,
+     "lng": 127.12785728317,
+     "distanceM": 1593,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 교통시설 > 카셰어링 > 투루카"
+    },
+    {
+     "name": "칼빈대학교 도서관",
+     "lat": 37.30414137604698,
+     "lng": 127.12776362503564,
+     "distanceM": 1603,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학습시설 > 도서관"
+    },
+    {
+     "name": "칼빈 대학교 여호수아관",
+     "lat": 37.3045340604578,
+     "lng": 127.128168099695,
+     "distanceM": 1627,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학교부속시설"
+    },
+    {
+     "name": "단국대학교 죽전캠퍼스 행복기숙사(진리관)",
+     "lat": 37.31466758990968,
+     "lng": 127.1268733064837,
+     "distanceM": 1648,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학교부속시설"
+    },
+    {
+     "name": "칼빈대학교 신학대학원",
+     "lat": 37.3050561214665,
+     "lng": 127.12866529234,
+     "distanceM": 1658,
+     "category": "landmark",
+     "categoryName": "교육,학문 > 학교 > 대학원"
+    },
+    {
+     "name": "마북IC",
+     "lat": 37.3084036779176,
+     "lng": 127.129298175151,
+     "distanceM": 1684,
+     "category": "landmark",
+     "categoryName": "교통,수송 > 도로시설 > IC"
+    },
+    {
+     "name": "경기옛길 영남길 제3길 구성현길",
+     "lat": 37.299661199073036,
+     "lng": 127.12654920518892,
+     "distanceM": 1706,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 도보여행"
+    },
+    {
+     "name": "롯데슈퍼프레시 수지점2",
+     "lat": 37.3144696473796,
+     "lng": 127.0925502141799,
+     "distanceM": 1734,
+     "category": "shopping",
+     "categoryName": "가정,생활 > 슈퍼마켓 > 대형슈퍼 > 롯데슈퍼프레시"
+    },
+    {
+     "name": "마골",
+     "lat": 37.3120180089067,
+     "lng": 127.129863889213,
+     "distanceM": 1792,
+     "category": "landmark",
+     "categoryName": "여행 > 관광,명소 > 계곡"
+    }
+   ],
+   "apartmentHouseholds": 6979,
+   "apartmentComplexCount": 12,
+   "apartmentTopComplexes": [
+    {
+     "name": "행원마을동아솔레시티아파트",
+     "households": 1701
+    },
+    {
+     "name": "죽현마을 아이파크",
+     "households": 1466
+    },
+    {
+     "name": "더샵 보정애비뉴1단지",
+     "households": 884
+    },
+    {
+     "name": "상떼빌 구성역 플랫폼시티",
+     "households": 714
+    },
+    {
+     "name": "죽현마을 동원로얄듀크",
+     "households": 706
+    },
+    {
+     "name": "연원마을삼성명가타운아파트",
+     "households": 430
+    },
+    {
+     "name": "솔뫼마을 현대홈타운",
+     "households": 382
+    },
+    {
+     "name": "죽현마을 엘지자이",
+     "households": 238
+    },
+    {
+     "name": "신촌마을 상록데시앙",
+     "households": 230
+    },
+    {
+     "name": "연원마을 금호베스트빌",
+     "households": 144
+    }
+   ]
+  },
+  "landPriceHistory": {
+   "history": [
+    {
+     "year": "2017",
+     "pricePerSqm": 2480000
+    },
+    {
+     "year": "2018",
+     "pricePerSqm": 2500000
+    },
+    {
+     "year": "2019",
+     "pricePerSqm": 2560000
+    },
+    {
+     "year": "2020",
+     "pricePerSqm": 2580000
+    },
+    {
+     "year": "2021",
+     "pricePerSqm": 2710000
+    },
+    {
+     "year": "2022",
+     "pricePerSqm": 2850000
+    },
+    {
+     "year": "2023",
+     "pricePerSqm": 2642000
+    },
+    {
+     "year": "2024",
+     "pricePerSqm": 2684000
+    },
+    {
+     "year": "2025",
+     "pricePerSqm": 2719000
+    },
+    {
+     "year": "2026",
+     "pricePerSqm": 2790000
+    }
+   ],
+   "cagrPct": 1.3,
+   "totalGrowthPct": 12.5,
+   "latestPricePerSqm": 2790000,
+   "oldestPricePerSqm": 2480000
+  },
+  "landUseRegulations": {
+   "pnu": "4146311800113230002",
+   "jibunAddress": "경기도 용인시 기흥구 보정동 1323-2",
+   "lastUpdtDt": "2026-10-06",
+   "nationalLaw": "도시지역, 제3종일반주거지역, 지구단위계획구역, 중로2류(폭 15m~20m)(접합), 소로2류(폭 8m~10m)(접합)",
+   "otherLaws": "가축사육제한구역<가축분뇨의 관리 및 이용에 관한 법률>, 택지개발지구<건축법>, 비행안전제3구역(전술)<군사기지 및 군사시설 보호법>, 성장관리권역<수도권정비계획법>, 상대보호구역<교육환경 보호에 관한 법률>, 토지거래계약에관한허가구역<부동산 거래신고 등에 관한 법률>",
+   "article9_4": null,
+   "nationalItems": [
+    {
+     "code": "UQA001",
+     "name": "도시지역",
+     "conflict": "포함",
+     "formatted": "도시지역"
+    },
+    {
+     "code": "UQA123",
+     "name": "제3종일반주거지역",
+     "conflict": "포함",
+     "formatted": "제3종일반주거지역"
+    },
+    {
+     "code": "UQQ300",
+     "name": "지구단위계획구역",
+     "conflict": "포함",
+     "formatted": "지구단위계획구역"
+    },
+    {
+     "code": "UQS118",
+     "name": "중로2류(폭 15m~20m)",
+     "conflict": "접합",
+     "formatted": "중로2류(폭 15m~20m)(접합)"
+    },
+    {
+     "code": "UQS121",
+     "name": "소로2류(폭 8m~10m)",
+     "conflict": "접합",
+     "formatted": "소로2류(폭 8m~10m)(접합)"
+    }
+   ],
+   "otherItems": [
+    {
+     "code": "UMZ100",
+     "name": "가축사육제한구역",
+     "conflict": "포함",
+     "law": "가축분뇨의 관리 및 이용에 관한 법률",
+     "formatted": "가축사육제한구역<가축분뇨의 관리 및 이용에 관한 법률>"
+    },
+    {
+     "code": "UDP100",
+     "name": "택지개발지구",
+     "conflict": "포함",
+     "law": "건축법",
+     "formatted": "택지개발지구<건축법>"
+    },
+    {
+     "code": "UNE413",
+     "name": "비행안전제3구역(전술)",
+     "conflict": "포함",
+     "law": "군사기지 및 군사시설 보호법",
+     "formatted": "비행안전제3구역(전술)<군사기지 및 군사시설 보호법>"
+    },
+    {
+     "code": "UBA200",
+     "name": "성장관리권역",
+     "conflict": "포함",
+     "law": "수도권정비계획법",
+     "formatted": "성장관리권역<수도권정비계획법>"
+    },
+    {
+     "code": "UOA120",
+     "name": "상대보호구역",
+     "conflict": "포함",
+     "law": "교육환경 보호에 관한 법률",
+     "formatted": "상대보호구역<교육환경 보호에 관한 법률>"
+    },
+    {
+     "code": "UQQ600",
+     "name": "토지거래계약에관한허가구역",
+     "conflict": "포함",
+     "law": "부동산 거래신고 등에 관한 법률",
+     "formatted": "토지거래계약에관한허가구역<부동산 거래신고 등에 관한 법률>"
+    }
+   ],
+   "source": "vworld_api"
+  },
+  "landUsePlan": {
+   "zoningDistrict": "제3종일반주거지역",
+   "zoningOverlap": [],
+   "buildingCoverageMax": 50,
+   "floorAreaRatioMax": 250,
+   "limitsSource": "inferred_zoning",
+   "landArea": 440,
+   "landShape": "가로장방",
+   "terrain": "평지",
+   "roadAccess": "중로각지",
+   "landUseSituation": "상업용",
+   "ldCodeNm": "경기도 용인시 기흥구 보정동",
+   "mnnmSlno": "1323-2",
+   "jibunAddress": "경기도 용인시 기흥구 보정동 1323-2",
+   "stdrYear": "2026",
+   "stdrMt": "01",
+   "pblntfPclnd": 2790000,
+   "lndcgrCodeNm": "대",
+   "_source": "vworld"
+  },
+  "apartmentHouseholds": {
+   "totalHouseholds": 6979,
+   "complexCount": 12,
+   "topComplexes": [
+    {
+     "name": "행원마을동아솔레시티아파트",
+     "households": 1701
+    },
+    {
+     "name": "죽현마을 아이파크",
+     "households": 1466
+    },
+    {
+     "name": "더샵 보정애비뉴1단지",
+     "households": 884
+    },
+    {
+     "name": "상떼빌 구성역 플랫폼시티",
+     "households": 714
+    },
+    {
+     "name": "죽현마을 동원로얄듀크",
+     "households": 706
+    },
+    {
+     "name": "연원마을삼성명가타운아파트",
+     "households": 430
+    },
+    {
+     "name": "솔뫼마을 현대홈타운",
+     "households": 382
+    },
+    {
+     "name": "죽현마을 엘지자이",
+     "households": 238
+    },
+    {
+     "name": "신촌마을 상록데시앙",
+     "households": 230
+    },
+    {
+     "name": "연원마을 금호베스트빌",
+     "households": 144
+    }
+   ]
+  }
+ },
+ "urlTier": "basic"
+}

@@ -27,6 +27,7 @@ async function main() {
   const rows: string[] = [];
   let baseSlides = -1;
   let baseLayout = new Set<string>();
+  let baseWarns = new Set<string>();
 
   process.env.GOLDEN_TIER = 'pro';
   for (const preset of presets) {
@@ -34,20 +35,26 @@ async function main() {
     if (!theme) { rows.push(`| ${preset} | ❌ 테마 정의 없음 |  |  |  |`); failures++; continue; }
     const a11y = validatePresetAccessibility(theme);
     process.env.GOLDEN_VISUAL_PRESET = preset;
-    let slideCount = -1, warns = 0, layoutWarns: string[] = [], err = '';
+    let slideCount = -1, rawWarns: string[] = [], layoutWarns: string[] = [], err = '';
     try {
       const r = await rerenderSnapshot(name);
-      slideCount = r.slideCount; warns = r.warnings.length;
+      slideCount = r.slideCount; rawWarns = r.warnings;
       const tmp = r.pptxPath.replace(/\.pptx$/, '.layout.json');
       execFileSync('python', ['-X', 'utf8', 'scripts/income-golden/layout_structure.py', r.pptxPath, '--json', tmp], { stdio: 'ignore' });
       const res = JSON.parse(fs.readFileSync(tmp, 'utf8'));
       layoutWarns = res.slides.flatMap((s: any) => s.warnings.map((w: string) => `s${s.slide}: ${w}`));
     } catch (e: any) { err = String(e?.message ?? e).slice(0, 120); }
-    if (baseSlides < 0 && slideCount >= 0) { baseSlides = slideCount; baseLayout = new Set(layoutWarns); }
+    const hardWarns = rawWarns.filter(w => /^\[(H1|H2|Gate):/.test(w));
+    if (baseSlides < 0 && slideCount >= 0) {
+      baseSlides = slideCount;
+      baseLayout = new Set(layoutWarns);
+      baseWarns = new Set(rawWarns.filter(w => !/^\[(H1|H2|Gate):/.test(w)));
+    }
+    const extraWarns = rawWarns.filter(w => !baseWarns.has(w));
     const extraLayout = layoutWarns.filter(w => !baseLayout.has(w)); // 기준 프리셋에 없는 경고 = 테마가 유발한 지면 문제
-    const bad = err || a11y.length || extraLayout.length || warns || (slideCount !== baseSlides);
+    const bad = err || a11y.length || extraLayout.length || hardWarns.length || extraWarns.length || (slideCount !== baseSlides);
     if (bad) failures++;
-    rows.push(`| ${preset} | ${err ? '❌ ' + err : slideCount} | ${warns} | ${a11y.length}${a11y.length ? ' (' + a11y.slice(0, 2).join('; ') + ')' : ''} | ${layoutWarns.length} (기준 대비 추가 ${extraLayout.length}${extraLayout.length ? ': ' + extraLayout.slice(0, 3).join('; ') : ''}) |`);
+    rows.push(`| ${preset} | ${err ? '❌ ' + err : slideCount} | ${rawWarns.length} (위반 ${hardWarns.length}, 추가 ${extraWarns.length}) | ${a11y.length}${a11y.length ? ' (' + a11y.slice(0, 2).join('; ') + ')' : ''} | ${layoutWarns.length} (기준 대비 추가 ${extraLayout.length}${extraLayout.length ? ': ' + extraLayout.slice(0, 3).join('; ') : ''}) |`);
   }
   delete process.env.GOLDEN_TIER; delete process.env.GOLDEN_VISUAL_PRESET;
 

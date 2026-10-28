@@ -52,7 +52,7 @@ export type Status = 'PASS' | 'FAIL' | 'PENDING';
 export interface FactResult {
   golden: string;
   id: string;
-  kind: 'must_contain' | 'must_not_contain' | 'must_not_be_dash' | 'landmark' | 'tenants' | 'numeric' | 'duplicate';
+  kind: 'must_contain' | 'must_not_contain' | 'must_not_be_dash' | 'landmark' | 'tenants' | 'numeric' | 'duplicate' | 'universal';
   label: string;
   where: Where;
   source?: Source;
@@ -224,6 +224,48 @@ export function evaluateOracle(facts: ExpectedFacts, ctx: OracleContext, opts: {
     const dups = [...seenIn.entries()].filter(([, set]) => set.size >= 2);
     out.push(finalize({ ...base, detail: dups.length ? `중복 ${dups.length}건: "${dups[0][0].slice(0, 50)}…" (슬라이드 ${[...dups[0][1]].map(x => x + 1).join(',')})` : '없음' }, dups.length === 0, strict));
   }
+
+  // universal — 모든 골든 덱에 자동 적용되는 상용화 불변식 (U1~U6)
+  const pushUniversal = (id: string, label: string, badHit: string | null) => {
+    out.push(finalize({
+      golden: g,
+      id,
+      kind: 'universal',
+      label,
+      where: 'pptx',
+      detail: badHit ? `위반: ${badHit}` : '정상',
+    }, !badHit, strict));
+  };
+
+  // U1: 스태킹 플랜 바 또는 렌트롤 층 열에 물리적 층 접두사 없이 단독 호실번호('101호') 표출 금지
+  const u1Match = ctx.pptxText.match(/(?:^|\n)\s*(B?\d{3,4}호)\s*(?=\n|$)/u);
+  pushUniversal('u1-no-unit-as-floor', 'U1: 층열/스태킹 바 단독 호실번호 금지', u1Match ? u1Match[1] : null);
+
+  // U2: 공실 행 금액 열에 상동 부호('〃') 표출 금지
+  const u2Match = ctx.pptxText.match(/\n\s*공실\s*\n(?:[^\n]*\n){0,6}\s*(〃)\s*\n/u);
+  pushUniversal('u2-no-vacant-ditto', 'U2: 공실 행 상동(〃) 표기 금지', u2Match ? '공실 행 내 〃 발견' : null);
+
+  // U3: 엑셀 날짜 시리얼 정수(45000~49999) 원문 노출 금지
+  const u3Match = ctx.pptxText.match(/\b(4[5-9]\d{3}\s*기준|계약[^\n]{0,15}\b4[5-9]\d{3})/u);
+  pushUniversal('u3-no-excel-serial-date', 'U3: 엑셀 날짜 시리얼 원문 노출 금지', u3Match ? u3Match[1] : null);
+
+  // U4: 역명 노선 이중 접미사('보정역 수인분당선역') 금지
+  const u4Match = ctx.pptxText.match(/([가-힣A-Za-z0-9]+역\s+[가-힣0-9]+(?:선|라인)역)/u);
+  pushUniversal('u4-no-double-station-suffix', 'U4: 역명 노선 이중 역 접미사 금지', u4Match ? u4Match[1] : null);
+
+  // U5: 물건 개요 슬라이드 내 층수·규모 중복 행 또는 사용승인일 4자리 연도 단독 표기 금지
+  const overviewSlide = ctx.slides.find(s => /(?:^|\n)물건 개요(?:\n|$)/u.test(s)) ?? '';
+  const hasBothFloorAndScale = /(?:^|\n)\s*층수\s*(?:\n|$)/u.test(overviewSlide) && /(?:^|\n)\s*규모\s*(?:\n|$)/u.test(overviewSlide);
+  const bareYearApproval = overviewSlide.match(/(?:사용승인일|준공연도)\s*\n\s*(\d{4})\s*(?=\n|$)/u);
+  pushUniversal(
+    'u5-no-dup-floor-scale-or-bare-year',
+    'U5: 물건개요 층수·규모 중복 및 사용승인일 연도단독 금지',
+    hasBothFloorAndScale ? '층수+규모 동시 표출' : (bareYearApproval ? `사용승인일 ${bareYearApproval[1]} 단독 표출` : null),
+  );
+
+  // U6: 면적 소수점 3자리 이상('723.510㎡') 원문 표출 금지
+  const u6Match = ctx.pptxText.match(/(\d[\d,]*\.\d{3,}\s*㎡)/u);
+  pushUniversal('u6-no-three-decimal-area', 'U6: 면적 소수점 3자리 이상 표기 금지', u6Match ? u6Match[1] : null);
 
   return out;
 }

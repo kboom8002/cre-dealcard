@@ -563,7 +563,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     const maxBodyH = Math.max(0.5, bottomLimit - topY - bandH * 2);
     const targetBodyH = hasTable ? bodyRowCount * rowH : maxBodyH;
     const lo = Math.min(0.22, maxBodyH / G);
-    const hi = Math.min(0.55, maxBodyH / G);
+    const hi = Math.min(0.65, maxBodyH / G);
     const hPerFloor = Math.min(hi, Math.max(lo, targetBodyH / G));
     const bodyH = G * hPerFloor;
 
@@ -816,7 +816,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     });
 
     slide.addTable(tableData, {
-      x: tbX, y: topY, w: tbW, colW,
+      x: tbX, y: topY, w: tbW, h: totalRenderRows * rowH, colW,
       border: { type: 'solid', color: C.line, pt: 0.3 },
       rowH,
       valign: 'middle',
