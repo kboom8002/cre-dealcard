@@ -100,6 +100,50 @@ export function planGallerySlides(
   // Basic IM: 최대 6컷을 1개 슬라이드에 강제 배치 (basic-im-guide.md §2 #8)
   if (preset === 'credeal_basic') {
     if (validPhotos.length === 0) return [];
+    const prioritized = [...validPhotos].sort((a, b) => {
+      const rank = (p: PhotoMeta) => (p.isHero || (p as any).role === 'cover') ? 0 : (p as any).role === 'exterior' ? 1 : 2;
+      return rank(a) - rank(b);
+    });
+    const photos12 = prioritized.slice(0, 12);
+    const pickBasicLayout = (batch: PhotoMeta[]): GalleryLayoutType =>
+      batch.length >= 5 ? 'GRID_2X3'
+      : batch.length === 4 ? 'GRID_2X2'
+      : batch.length === 3 ? 'ONE_LARGE_TWO_SMALL_H'
+      : batch.length === 2 ? 'DUAL_LANDSCAPE'
+      : 'FULL_WIDE';
+    if (photos12.length <= 6) {
+      return [{
+        slideIndex: 0,
+        kicker: 'Gallery',
+        title: '현장 사진',
+        layout: pickBasicLayout(photos12),
+        photos: photos12,
+        dataKey: 'gallery_0',
+      }];
+    }
+    const firstCount = Math.ceil(photos12.length / 2);
+    const page1 = photos12.slice(0, firstCount);
+    const page2 = photos12.slice(firstCount);
+    return [
+      {
+        slideIndex: 0,
+        kicker: 'Gallery',
+        title: '현장 사진 (1/2)',
+        layout: pickBasicLayout(page1),
+        photos: page1,
+        dataKey: 'gallery_0',
+      },
+      {
+        slideIndex: 1,
+        kicker: 'Gallery',
+        title: '현장 사진 (2/2)',
+        layout: pickBasicLayout(page2),
+        photos: page2,
+        dataKey: 'gallery_1',
+      },
+    ];
+  }
+  if (false) {
     const photos6 = validPhotos.slice(0, 6);
     const layout: GalleryLayoutType = photos6.length >= 5 ? 'GRID_2X3' 
       : photos6.length === 4 ? 'GRID_2X2'

@@ -26,6 +26,7 @@ import { sqmToPyeong } from '@/lib/utils/area-conversion';
 import { resolveLeaseOccupancy, isNonLeasableLeaseRow } from './lease-vacancy';
 import { PYEONG_TO_SQM_V15, type RentRollMarketRent } from './rentroll-meta';
 import { parseLegacyPostAcquisitionPlanUnits, type AcquisitionPlanUnit } from './broker-extras';
+import { splitFloorAndUnit } from './floor-unit-resolver';
 
 export type OpexSource = 'user' | 'assumed';
 export type StabilizedKind = 'broker_plan' | 'market_rent' | 'target_rent' | 'reserve_excluded';
@@ -216,12 +217,13 @@ export type MarketRentClass = '1f' | 'upper' | 'basement';
 
 const MARKET_CLASS_LABEL: Record<MarketRentClass, string> = { '1f': '1층', upper: '지상층', basement: '지하층' };
 
-/** 층 구분: B*·지하 → basement, 1F·1층 → 1f, 그 외 → upper. 층 표기가 비면 null(분류 불가). */
+/** 층 구분: B*·지하·B101호 → basement, 1F·1층·101호~199호 → 1f, 그 외 → upper. 층 표기가 비면 null(분류 불가). */
 export function classifyFloorForMarketRent(floor: unknown): MarketRentClass | null {
   const f = floor == null ? '' : String(floor).trim();
   if (!f) return null;
-  if (/^(B\d*|지하)/i.test(f)) return 'basement';
-  if (/^(지상\s*)?1\s*(F|층)/i.test(f) || f === '1') return '1f';
+  const resolved = splitFloorAndUnit(f);
+  if (resolved.isSubterranean || /^(B\d*|지하)/i.test(f)) return 'basement';
+  if (resolved.order === 1 || /^(지상\s*)?1\s*(F|층)/i.test(f) || f === '1') return '1f';
   return 'upper';
 }
 
@@ -254,10 +256,20 @@ export function computeMarketRentStabilization(
     upper: pos(marketRent.market_rent_upper),
     basement: pos(marketRent.market_rent_basement),
   };
+  const normalizeSource = (raw: unknown): string => {
+    const s = String(raw ?? '').trim();
+    if (/^\d{5}$/.test(s)) {
+      const n = Number(s);
+      if (n > 30000 && n < 80000) {
+        return new Date(Math.round((n - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+      }
+    }
+    return s;
+  };
   const src: Record<MarketRentClass, string> = {
-    '1f': String(marketRent.market_rent_1f_source ?? '').trim(),
-    upper: String(marketRent.market_rent_upper_source ?? '').trim(),
-    basement: String(marketRent.market_rent_basement_source ?? '').trim(),
+    '1f': normalizeSource(marketRent.market_rent_1f_source),
+    upper: normalizeSource(marketRent.market_rent_upper_source),
+    basement: normalizeSource(marketRent.market_rent_basement_source),
   };
   const leases = (Array.isArray(floorLeases) ? floorLeases : []).filter(
     (l): l is Record<string, any> => !!l && typeof l === 'object',

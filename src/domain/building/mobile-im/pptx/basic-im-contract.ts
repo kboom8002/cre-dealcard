@@ -84,7 +84,7 @@ export const BASIC_IM_BOUNDS = {
   /** 최소 슬라이드 (렌트롤·수익률 없는 비수익형) */
   minSlides: 7,
   /** 최대 슬라이드 (9기본 + 갤러리2 + 중개인 제공 면 최대 2: 도면·시세; 지적도는 토지에 통합) */
-  maxSlides: 12,
+  maxSlides: 14,
   /** PPTX 최대 파일 크기 (KB) */
   maxFileSizeKB: 10_000,
 } as const;

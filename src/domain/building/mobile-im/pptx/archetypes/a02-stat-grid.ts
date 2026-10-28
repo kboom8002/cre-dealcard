@@ -246,9 +246,9 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
 
       L.stat(slide, x, y, cardW,
         cleanLabel,
-        String(m.value || ''),
+        String(m.value || '').replace(/\s*\([^()]*미기재[^()]*\)/g, '').trim(),
         String(m.unit || ''),
-        String(m.sub || ''),
+        String(m.sub || '').replace(/\s*\([^()]*미기재[^()]*\)/g, '').replace(/^[^()]*미기재[^()]*$/, '').trim(),
         { h: cardH }
       );
     }

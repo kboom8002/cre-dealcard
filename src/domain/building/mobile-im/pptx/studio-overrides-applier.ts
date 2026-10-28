@@ -109,6 +109,12 @@ export function applyStudioSlideOverrides(
 
   // 1. Apply data overrides into dataMap
   if (slideOverrides) {
+    const sanitizeStation = (s: string) => s.replace(/([가-힣A-Za-z0-9]+역)\s+([가-힣0-9]+(?:선|라인))역/g, '$1($2)');
+    const isAutoStudioHighlight = (s: string) =>
+      /입지 및 안정적 임대수익 구조$/.test(s.trim())
+      || /핵심 수익형 빌딩 매각 요약$/.test(s.trim())
+      || /·\s*대지\s*[\d,.]+평\s*\/\s*연면적\s*[\d,.]+평$/.test(s.trim())
+      || /^현행 수익률\s*[\d.]+%/.test(s.trim());
     // 01 Cover
     const coverOv = slideOverrides['cover'];
     if (coverOv && dataMap['cover']) {
@@ -126,7 +132,10 @@ export function applyStudioSlideOverrides(
     const hlOv = slideOverrides['highlights'] || slideOverrides['summary'];
     if (hlOv && dataMap['summary']) {
       if (hlOv.leadSentence || hlOv.keyInvestmentPoint) {
-        dataMap['summary'].leadSentence = String(hlOv.leadSentence || hlOv.keyInvestmentPoint);
+        const candLead = sanitizeStation(String(hlOv.leadSentence || hlOv.keyInvestmentPoint));
+        if (!dataMap['summary'].leadSentence || !isAutoStudioHighlight(candLead)) {
+          dataMap['summary'].leadSentence = candLead;
+        }
       }
       const pts = [
         hlOv.keyInvestmentPoint,
@@ -134,7 +143,11 @@ export function applyStudioSlideOverrides(
         hlOv.investmentPoint3,
       ].filter((p): p is string => typeof p === 'string' && p.trim().length > 0);
       if (pts.length > 0) {
-        dataMap['summary'].keyPoints = pts;
+        const cleanPts = pts.map(sanitizeStation);
+        const existingPts = Array.isArray(dataMap['summary'].keyPoints) ? dataMap['summary'].keyPoints : [];
+        if (existingPts.length === 0 || !cleanPts.every(isAutoStudioHighlight)) {
+          dataMap['summary'].keyPoints = cleanPts;
+        }
       }
       if (hlOv.askingPrice) {
         dataMap['summary'].askingPrice = String(hlOv.askingPrice);
@@ -150,7 +163,23 @@ export function applyStudioSlideOverrides(
 
       const upsertRow = (label: string, val?: string) => {
         if (!val || !String(val).trim()) return;
-        const idx = rows.findIndex(([k]) => k.replace(/\s+/g, '') === label.replace(/\s+/g, ''));
+        const normLabel = label.replace(/\s+/g, '');
+        const isFloorLabel = normLabel === '규모' || normLabel === '층수' || normLabel === '건축규모';
+        const idx = rows.findIndex(([k]) => {
+          const nk = k.replace(/\s+/g, '');
+          return isFloorLabel ? (nk === '규모' || nk === '층수' || nk === '건축규모') : nk === normLabel;
+        });
+        let cleanVal = String(val).trim();
+        if (normLabel === '사용승인일' && /^\d{4}$/.test(cleanVal)) {
+          const existingApr = idx >= 0 ? String(rows[idx][1] || '').trim() : '';
+          cleanVal = existingApr.startsWith(cleanVal) && existingApr.length > 4 ? existingApr : `${cleanVal}년`;
+        }
+        if (isFloorLabel && idx >= 0 && /^B\d+\/\d+F$/i.test(cleanVal) && /지하.*지상/.test(String(rows[idx][1] || ''))) {
+          cleanVal = String(rows[idx][1]);
+        }
+        if (idx >= 0) rows[idx] = [isFloorLabel ? '층수' : rows[idx][0], cleanVal];
+        else rows.push([isFloorLabel ? '층수' : label, cleanVal]);
+        return;
         if (idx >= 0) rows[idx] = [rows[idx][0], String(val).trim()];
         else rows.push([label, String(val).trim()]);
       };
@@ -186,7 +215,11 @@ export function applyStudioSlideOverrides(
           .map(l => l.replace(/^[•·\-*]\s*/, '').trim())
           .filter(Boolean);
         if (bullets.length > 0) {
-          dataMap['building'].assetHighlights = bullets;
+          const cleanBullets = bullets.map(sanitizeStation);
+          const isDefaultOvCallout = cleanBullets.some(b => b.includes('건축물대장·토지이용계획확인서 공적장부 대조 완료'));
+          if (!isDefaultOvCallout || !Array.isArray(dataMap['building'].assetHighlights) || dataMap['building'].assetHighlights.length === 0) {
+            dataMap['building'].assetHighlights = cleanBullets;
+          }
         }
       }
     }
@@ -206,15 +239,15 @@ export function applyStudioSlideOverrides(
       };
 
       upsertLocRow('소재지', locOv.address);
-      upsertLocRow('대중교통', locOv.transitInfo);
-      upsertLocRow('도로', locOv.roadInfo);
-      upsertLocRow('권역', locOv.areaInfo);
+      upsertLocRow('대중교통', locOv.transitInfo ? sanitizeStation(String(locOv.transitInfo)) : undefined);
+      if (locOv.roadInfo && locOv.roadInfo !== '차량 진·출입 및 보행 접근성 양호') upsertLocRow('도로', locOv.roadInfo);
+      if (locOv.areaInfo && !String(locOv.areaInfo).endsWith('핵심 상업·업무 권역') && locOv.areaInfo !== '역세권 배후 상업·업무 밀집 권역') upsertLocRow('권역', locOv.areaInfo);
 
-      if (locOv.locationCallout) {
+      if (locOv.locationCallout && !String(locOv.locationCallout).includes('중심의 유동인구 및 배후 오피스·주거 수요가 탄탄한 입지')) {
         dataMap['location'].right.callout = {
           kind: 'info',
           title: '입지 요약 및 상권 분석',
-          body: String(locOv.locationCallout),
+          body: sanitizeStation(String(locOv.locationCallout)),
         };
       }
       if (locOv.mapImageUrl) {
@@ -238,14 +271,16 @@ export function applyStudioSlideOverrides(
         updateLandRow('공시지가', landOv.officialLandPrice);
       }
       if (landOv.landCallout || landOv.landUsePlan) {
-        const note = String(landOv.landCallout || landOv.landUsePlan);
-        dataMap['land'].brokerConfirmNote = note;
-        if (dataMap['land'].right) {
-          dataMap['land'].right.callout = {
-            kind: 'info',
-            title: '토지 규제 및 공법 검토',
-            body: note,
-          };
+        const note = String(landOv.landCallout || landOv.landUsePlan).trim();
+        if (note && note !== '토지이용계획확인원 및 건축물대장 기준 공법상 특이 제한사항 확인') {
+          dataMap['land'].brokerConfirmNote = note;
+          if (dataMap['land'].right) {
+            dataMap['land'].right.callout = {
+              kind: 'info',
+              title: '토지 규제 및 공법 검토',
+              body: note,
+            };
+          }
         }
       }
     }
@@ -266,7 +301,10 @@ export function applyStudioSlideOverrides(
         (dataMap['rentRoll'] as any).brokerPostAcquisitionTitle = String(rrOv.stabilizedYieldTitle);
       }
       if (rrOv.rentrollNotes) {
-        (dataMap['rentRoll'] as any).rentrollFactsNote = String(rrOv.rentrollNotes);
+        const rrNote = String(rrOv.rentrollNotes).trim();
+        if (rrNote && rrNote !== '보증금·임대료는 현행 임대차계약 기준이며 관리비·부가세는 별도입니다.') {
+          (dataMap['rentRoll'] as any).rentrollFactsNote = rrNote;
+        }
       }
     }
 
@@ -295,7 +333,33 @@ export function applyStudioSlideOverrides(
     if (galOv && Array.isArray(galOv.photos) && galOv.photos.length > 0) {
       const includedPhotos = galOv.photos.filter((p: any) => p && p.included !== false && p.excluded !== true && p.url);
       if (includedPhotos.length > 0 && dataMap['gallery']) {
-        dataMap['gallery'].photos = includedPhotos;
+        const sortedPhotos = [...includedPhotos].sort((a: any, b: any) => {
+          const rank = (p: any) => (p.isHero || p.role === 'cover') ? 0 : p.role === 'exterior' ? 1 : 2;
+          return rank(a) - rank(b);
+        }).slice(0, 12);
+        dataMap['gallery'].photos = sortedPhotos;
+        dataMap['gallery'].photoUrls = sortedPhotos.map((p: any) => p.url);
+        if (sortedPhotos.length <= 6) {
+          if (dataMap['gallery_0']) {
+            dataMap['gallery_0'].photos = sortedPhotos;
+            dataMap['gallery_0'].photoUrls = sortedPhotos.map((p: any) => p.url);
+          }
+        } else {
+          const firstCount = Math.ceil(sortedPhotos.length / 2);
+          const p1 = sortedPhotos.slice(0, firstCount);
+          const p2 = sortedPhotos.slice(firstCount);
+          const pickLayout = (batch: any[]) => batch.length >= 5 ? 'GRID_2X3' : batch.length === 4 ? 'GRID_2X2' : batch.length === 3 ? 'ONE_LARGE_TWO_SMALL_H' : batch.length === 2 ? 'DUAL_LANDSCAPE' : 'FULL_WIDE';
+          dataMap['gallery_0'] = { ...(dataMap['gallery_0'] || dataMap['gallery']), kicker: 'Gallery', title: '현장 사진 (1/2)', photos: p1, photoUrls: p1.map((p: any) => p.url), layout: pickLayout(p1) };
+          dataMap['gallery_1'] = { ...(dataMap['gallery_1'] || dataMap['gallery']), kicker: 'Gallery', title: '현장 사진 (2/2)', photos: p2, photoUrls: p2.map((p: any) => p.url), layout: pickLayout(p2) };
+          if (!sequence.some(s => s.dataKey === 'gallery_1')) {
+            const g0Idx = sequence.findIndex(s => s.dataKey === 'gallery_0' || s.dataKey === 'gallery');
+            if (g0Idx >= 0) {
+              sequence[g0Idx] = { ...sequence[g0Idx], title: '현장 사진 (1/2)', dataKey: 'gallery_0' };
+              sequence.splice(g0Idx + 1, 0, { archetype: 'A14', kicker: 'Gallery', title: '현장 사진 (2/2)', dataKey: 'gallery_1' });
+            }
+          }
+        }
+        if (false) dataMap['gallery'].photos = includedPhotos;
         dataMap['gallery'].photoUrls = includedPhotos.map((p: any) => p.url);
       }
     }

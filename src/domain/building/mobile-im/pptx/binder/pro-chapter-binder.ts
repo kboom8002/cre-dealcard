@@ -16,6 +16,7 @@ import { buildProRentRollTable, detectProAreaMode } from './pro-rentroll-table';
 import { buildProEvictionData, PRO_EVICTION_DATA_KEY } from './pro-eviction';
 import { PYEONG_TO_SQM_V15, resolveAreaInputUnit } from '../../rentroll-meta';
 import { resolveLeaseOccupancy, sumLeasedRentRoll } from '../../lease-vacancy';
+import { splitFloorAndUnit } from '../../floor-unit-resolver';
 import { formatAreaNumber, sumLeaseAreaInUnit } from '../../lease-area-cell';
 import { createModuleLogger } from '@/lib/logger';
 // 로그 모듈명은 분할 전과 동일하게 유지 (모니터링 쿼리 호환)
@@ -193,9 +194,9 @@ export function bindProImChapterData(
           : Number(item.monthlyMaintenanceKrw ?? item.monthly_maintenance_krw ?? 0);
 
         const rosterItem: InstitutionalTenantRosterItem = {
-          floor: String(item.floor || `${idx + 1}F`),
+          floor: splitFloorAndUnit(String(item.floor || `${idx + 1}F`), item.unitNumber || item.unit_number || item.unit_label || item.unit).floorLabel,
           // 호실번호는 입력된 값만 — 층 + '01호' 같은 지어낸 호실을 만들지 않는다
-          unitNumber: String(item.unitNumber || item.unit_number || '-'),
+          unitNumber: splitFloorAndUnit(String(item.floor || `${idx + 1}F`), item.unitNumber || item.unit_number || item.unit_label || item.unit).unitLabel || String(item.unitNumber || item.unit_number || '-'),
           tenantName: notLeased ? occupancy : String(item.tenantName || item.tenant_name || item.name || '임차인'),
           // 업종: 입력된 값만 (floor_leases.tenant_type 포함). 없으면 '-' (기존의 '일반업무' 기본값은 지어낸 값)
           industry: notLeased ? '-' : String(item.industry || item.category || item.tenant_type || '-'),
@@ -212,7 +213,7 @@ export function bindProImChapterData(
           ...(excM2Raw > 0 ? { exclusiveAreaM2: Math.round(excM2Raw * 100) / 100, exclusiveAreaPyeong: Math.round(excPyRaw * 100) / 100 } : {}),
         };
         const grp = String(item.contract_group ?? item.contractGroup ?? '').trim();
-        if (grp) rosterContractGroup.set(rosterItem, grp);
+        if (grp && !notLeased && !/^(근린생활(시설)?|제?[12]종근린생활(시설)?|업무(시설)?|판매(시설)?|주거(시설)?|숙박(시설)?|창고(시설)?|공장|교육연구(시설)?|노유자(시설)?|의료(시설)?|운동(시설)?|위락(시설)?|문화(및집회)?(시설)?|종교(시설)?|자동차관련(시설)?|오피스|상가|주택|근생|점포|사무실)$/.test(grp.replace(/\s+/g, ''))) rosterContractGroup.set(rosterItem, grp);
         return rosterItem;
       })
     : (() => {

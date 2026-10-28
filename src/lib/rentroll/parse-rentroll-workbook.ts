@@ -227,7 +227,18 @@ function readHeaderBlock(ws: AnySheet, version: RentrollVersion, unit: AreaInput
       const n = cellNumber(ws, addr);
       return n != null && n > 0 ? Math.round(n) : null; // J5~J7: 원/전용평·월 — 환산 금지
     };
-    const src = (addr: string) => cellText(ws, addr) || null;
+    const src = (addr: string) => {
+      const raw = cellRaw(ws, addr);
+      if (raw == null || raw === "") return null;
+      if (raw instanceof Date || (typeof raw === "number" && raw > 30000 && raw < 80000)) {
+        return excelDateToIso(raw) ?? (cellText(ws, addr) || null);
+      }
+      const t = cellText(ws, addr);
+      if (/^\d{5}$/.test(t) && Number(t) > 30000 && Number(t) < 80000) {
+        return excelDateToIso(Number(t)) ?? t;
+      }
+      return t || null;
+    };
     meta.market_rent_1f = rent("J5");
     meta.market_rent_1f_source = src("M5");
     meta.market_rent_upper = rent("J6");

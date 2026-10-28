@@ -385,7 +385,37 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
           }
           // D4: 기존 사진 카테고리 복원(URL 매칭) — 위치도/지구단위계획도 등이 재생성 시 '실내 공간'으로 리셋되어 갤러리에 노출되는 것을 방지
           if (Array.isArray(existingDocBody?.photos_v2) && existingUrls.length > 0) {
-            const savedV2 = existingDocBody.photos_v2 as Array<{ url?: string; category?: string }>;
+            const savedV2 = existingDocBody.photos_v2 as Array<{ url?: string; category?: string; isHero?: boolean; role?: string; caption?: string }>;
+            const savedLegacy = (Array.isArray(existingDocBody?.photos) ? existingDocBody.photos : []) as Array<{ url?: string; role?: string; caption?: string }>;
+            setHeroPhotoIndex((prev) => {
+              if (prev > 0) return prev;
+              const idx = existingUrls.findIndex((u) => {
+                const m = savedV2.find((p) => p?.url === u);
+                const l = savedLegacy.find((p) => p?.url === u);
+                return m?.isHero === true || m?.role === 'cover' || l?.role === 'cover';
+              });
+              return idx >= 0 ? idx : prev;
+            });
+            setExteriorPhotoIndex((prev) => {
+              if (prev !== null) return prev;
+              const idx = existingUrls.findIndex((u) => {
+                const m = savedV2.find((p) => p?.url === u);
+                const l = savedLegacy.find((p) => p?.url === u);
+                return m?.role === 'exterior' || l?.role === 'exterior';
+              });
+              return idx >= 0 ? idx : null;
+            });
+            setPhotoCaptions((prev) => {
+              const next = { ...prev };
+              existingUrls.forEach((u, i) => {
+                if (next[i]) return;
+                const m = savedV2.find((p) => p?.url === u);
+                const l = savedLegacy.find((p) => p?.url === u);
+                const cap = (m?.caption ?? l?.caption ?? '').trim();
+                if (cap) next[i] = cap;
+              });
+              return next;
+            });
             setPhotoCategories((prev) => {
               const next = { ...prev };
               existingUrls.forEach((u, i) => {

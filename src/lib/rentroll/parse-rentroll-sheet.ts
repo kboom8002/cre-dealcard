@@ -30,6 +30,8 @@ export type RentRollOpposingPower = "사업자등록" | "주민등록" | "미확
 
 export interface ParsedRentRollRow {
   floor: string;
+  /** 구분호실 표기 (예: '101호'). 별도 호실 열이 있을 때 보존 */
+  unit_label?: string;
   tenant_type?: string;
   tenant_name?: string;
   deposit_manwon?: number;
@@ -278,6 +280,7 @@ function parseRatioCell(raw: unknown): number | undefined {
 
 const SUMMARY_LABEL = /^(합계|소계|총계|총합계|계|total|subtotal|sum)(자동)?$/i;
 const EXAMPLE_ROW_MARKER = /예시\s*행/;
+const INVALID_GROUP_USE_RE = /^(\(통합계약.*\)|근린생활(시설)?|근생|제?[12]종근린생활(시설)?|상가|상업(시설)?|주거(시설|용)?|주택|업무(시설|용)?|오피스|오피스텔|단독(계약)?|개별(계약)?|-|없음|해당없음)$/i;
 
 /** 허용값 밖의 문구는 추측하지 않고 undefined — lease_ledger CHECK 제약을 깨지 않기 위함 */
 function normalizeLegalBasis(raw: string): RentRollLegalBasis | undefined {
@@ -360,6 +363,7 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
   // 템플릿의 E열 '업종/상호'는 업종·임차인 두 필드를 겸한다 (기존 키워드 매칭과 같은 결과)
   const bizTypeIdx = fixedOr(LC?.bizTenant, () => findCol(header, ["업종", "용도", "종류", "구분"], { exclude: ["임대구분"] }));
   const floorIdx = fixedOr(LC?.floor, () => findCol(header, ["층", "층수", "floor", "호", "위치"], { exclude: ["그룹"] }));
+  const unitColIdx = layout ? -1 : findCol(header, ["호실", "호수", "호", "unit", "room"], { exclude: ["그룹", "층"], skip: floorIdx >= 0 ? new Set([floorIdx]) : undefined });
   const tenantNameIdx = fixedOr(LC?.bizTenant, () => findCol(header, ["임차인", "입주사", "tenant", "상호"]));
   const leaseStartIdx = fixedOr(LC?.leaseStart, () => findCol(header, ["계약시작", "시작일", "개시일", "start"]));
   const leaseEndIdx = fixedOr(LC?.leaseEnd, () => findCol(header, ["계약종료", "종료일", "만료일", "end", "만기"]));
@@ -446,7 +450,19 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
     // 합계/소계 행 · 예시 행은 데이터가 아님
     const labelCandidates = [cols[0], cols[1], cell(floorIdx)].map((v) => String(v ?? "").replace(/[\s()（）]/g, ""));
     if (labelCandidates.some((l) => l && SUMMARY_LABEL.test(l))) continue;
-    if (EXAMPLE_ROW_MARKER.test(text(noteIdx)) || (noteIdx < 0 && cols.some((c) => EXAMPLE_ROW_MARKER.test(String(c ?? ""))))) continue;
+    const rawFloorCell = floorIdx >= 0 ? text(floorIdx) : text(0);
+    const rawBizCell = bizTypeIdx >= 0 ? text(bizTypeIdx) : "";
+    const rawNoteCell = noteIdx >= 0 ? text(noteIdx) : "";
+    const hasExampleNote = EXAMPLE_ROW_MARKER.test(rawNoteCell) || (noteIdx < 0 && cols.some((c) => EXAMPLE_ROW_MARKER.test(String(c ?? ""))));
+    let stripExampleNotePokaYoke = false;
+    if (hasExampleNote) {
+      const isUntouchedDemoFloor = !rawFloorCell || /^\[예시\]/i.test(rawFloorCell) || rawFloorCell === "3F";
+      const isUntouchedDemoBiz = !rawBizCell || /^\[예시\]/i.test(rawBizCell) || rawBizCell === "사무실";
+      if (isUntouchedDemoFloor || isUntouchedDemoBiz) {
+        continue;
+      }
+      stripExampleNotePokaYoke = true;
+    }
 
     rowCount++;
 
@@ -496,10 +512,15 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
 
     // ── 층/업종/임차인/비고
     const floorRaw = cell(floorIdx >= 0 ? floorIdx : 0);
-    const floorVal = floorRaw != null && String(floorRaw).trim() !== "" ? String(floorRaw).trim() : `${rowCount}F`;
+    const rawFloorStr = floorRaw != null && String(floorRaw).trim() !== "" ? String(floorRaw).trim() : `${rowCount}F`;
+    const separateUnitStr = unitColIdx >= 0 ? text(unitColIdx) : "";
+    const floorVal = rawFloorStr;
     const bizVal = bizTypeIdx >= 0 && cols[bizTypeIdx] != null ? String(cols[bizTypeIdx]).trim() : undefined;
     const tName = tenantNameIdx >= 0 && cols[tenantNameIdx] != null ? String(cols[tenantNameIdx]).trim() : undefined;
-    let noteVal = noteIdx >= 0 ? text(noteIdx) : "";
+    let noteVal = stripExampleNotePokaYoke ? "" : (noteIdx >= 0 ? text(noteIdx) : "");
+    if (stripExampleNotePokaYoke) {
+      warn(`${floorVal}: 13행(예시 행)에 실제 호실 데이터가 덮어써져 있어 데이터를 보존하고 비고의 예시 문구만 자동 제거했습니다.`);
+    }
     // 자가사용은 downstream(im-lite handler isOwnerUse)이 note/업종 키워드로 만실 처리하므로 키워드를 보장한다
     if (leaseState === "자가사용" && !/자가|사옥|자사|본사|직영|owner/i.test(`${noteVal} ${bizVal ?? ""}`)) {
       noteVal = noteVal ? `자가사용 · ${noteVal}` : "자가사용";
@@ -609,7 +630,14 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
     const firstDateRaw = firstContractIdx >= 0 ? parseDate(cols[firstContractIdx]) : undefined;
     // 최초계약일은 DATE 컬럼으로 영속화되므로 ISO 형식만 허용 (그 외는 버림)
     const firstDate = firstDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(firstDateRaw) ? firstDateRaw : undefined;
-    const groupVal = groupIdx >= 0 ? text(groupIdx) : "";
+    const rawGroupVal = groupIdx >= 0 ? text(groupIdx) : "";
+    let groupVal = rawGroupVal;
+    if (groupVal && INVALID_GROUP_USE_RE.test(groupVal.replace(/\s+/g, ""))) {
+      if (!/^\(통합계약/.test(groupVal)) {
+        warn(`${floorVal}: 계약그룹(B열)에 용도명('${groupVal}')이 입력되어 통합계약 그룹에서 제외했습니다 — B열은 한 임차인이 여러 호실을 1개 계약서로 묶어 임차한 경우에만 기호(A, B)를 입력합니다.`);
+      }
+      groupVal = "";
+    }
 
     // ── v1.4+ 행 필드 (Z 근거 / AA 렌트프리 / AB 입금) — 템플릿 레이아웃일 때만. 허용값 밖은 추측하지 않고 null + 경고
     const v14Fields: Pick<ParsedRentRollRow, "evidence_level" | "rent_free_months" | "payment_status"> = {
@@ -638,6 +666,7 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
 
     parsedRows.push({
       floor: floorVal,
+      ...(separateUnitStr ? { unit_label: separateUnitStr } : {}),
       tenant_type: bizVal || undefined,
       tenant_name: tName || undefined,
       deposit_manwon: depManwon || undefined,

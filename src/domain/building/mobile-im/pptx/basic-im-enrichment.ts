@@ -177,7 +177,20 @@ export async function enrichForBasicIm(
           return null;
         }),
       ]);
-      if (lup && lup.zoningDistrict) {
+      if (lup && (lup.zoningDistrict || lup.jibunAddress || lup.pblntfPclnd)) {
+        if ((!lup.zoningDistrict || lup.zoningDistrict === '지정되지않음') && regs?.nationalItems?.length) {
+          const specificZone = regs.nationalItems.find((i) => /(주거지역|상업지역|공업지역|녹지지역|관리지역|지구단위계획구역)/.test(i.name));
+          lup.zoningDistrict = (specificZone?.name || regs.nationalItems[0]?.name || '').trim();
+        }
+        result.landUsePlan = lup;
+      } else if (regs && (regs.nationalLaw || regs.otherLaws)) {
+        const specificZone = regs.nationalItems?.find((i) => /(주거지역|상업지역|공업지역|녹지지역|관리지역|지구단위계획구역)/.test(i.name));
+        result.landUsePlan = {
+          zoningDistrict: (specificZone?.name || regs.nationalItems?.[0]?.name || '').trim(),
+          zoningOverlap: (regs.nationalItems || []).map((i) => i.formatted).filter((n) => n && n !== '도시지역'),
+          jibunAddress: regs.jibunAddress,
+        };
+      } else if (false) {
         result.landUsePlan = lup;
       }
       if (regs && (regs.nationalLaw || regs.otherLaws)) {

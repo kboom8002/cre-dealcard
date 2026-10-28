@@ -38,6 +38,20 @@ import { getKoreanFieldLabel } from "@/constants/ui-lexicon";
 import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
 import { RentRollAiHelperModal } from "@/components/help/RentRollAiHelperModal";
 
+const PHOTO_CAPTION_PRESETS: Record<string, string[]> = {
+  exterior: ['건물 전면 외관', '도로변 가시성 전경', '코너 외관 전경', '건물 측면 외관', '야간 외관 전경'],
+  lobby: ['1층 메인 로비', '1층 주출입구 홀', '엘리베이터 홀'],
+  interior: ['기준층 전용 내부', '1층 근생 매장 내부', '오피스 전용 공간', '채광·조망 전경', '공용 복도 및 화장실'],
+  parking: ['자주식 주차장', '기계식 주차 설비', '지하 주차장 진출입로', '옥외 주차 공간'],
+  rooftop: ['옥상 전경', '옥상 테라스·휴게공간', '옥상 방수 및 설비 현황'],
+  entrance: ['주 출입구', '차량 진출입구', '보행자 출입 동선'],
+  mechanical: ['승강기 홀', '전기·기계실 설비', '소방·공조 설비'],
+  floor_plan: ['기준층 평면도', '1층 평면도', '층별 건축도면'],
+  location_map: ['주변 입지 위치도', '역세권·상권 안내도'],
+  district_plan_map: ['지구단위계획 결정도'],
+  cadastral: ['지적도'],
+};
+
 interface ImDataBottomSheetProps {
   buildingId: string;
   isOpen: boolean;
@@ -987,10 +1001,35 @@ export function ImDataBottomSheet({
           <div id="bs-step-3">
             <label className="block text-sm font-extrabold text-foreground mb-1 flex justify-between items-center">
               <span>📸 건물 사진 및 분류 (최대 12장)</span>
-              <span className="text-xs text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">⭐ 표지·외관 사진 지정</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const totalCount = existingUrls.length + photoPreviewUrls.length;
+                    const catCounts: Record<string, number> = {};
+                    setPhotoCaptions((prev) => {
+                      const next = { ...prev };
+                      for (let i = 0; i < totalCount; i++) {
+                        const cat = photoCategories[i] || (i === 0 ? 'exterior' : 'interior');
+                        const idxInCat = catCounts[cat] ?? 0;
+                        catCounts[cat] = idxInCat + 1;
+                        if (!next[i] || !next[i].trim()) {
+                          const presets = PHOTO_CAPTION_PRESETS[cat] || PHOTO_CAPTION_PRESETS.interior;
+                          next[i] = presets[idxInCat % presets.length];
+                        }
+                      }
+                      return next;
+                    });
+                  }}
+                  className="text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded-md font-bold transition-colors"
+                >
+                  ⚡ 미입력 캡션 자동 채우기
+                </button>
+                <span className="text-xs text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">⭐ 표지·외관 사진 지정</span>
+              </div>
             </label>
             <p className="text-xs text-muted-foreground mb-2">
-              사진 상단의 <b className="text-amber-600 dark:text-amber-500">★ 대표</b>(표지용), <b className="text-blue-600 dark:text-blue-500">🏢 외관</b>(건물 개요용) 버튼을 눌러 지정하세요.
+              사진 상단의 <b className="text-amber-600 dark:text-amber-500">★ 대표</b>(물건 개요·표지 대표 사진), <b className="text-blue-600 dark:text-blue-500">🏢 외관</b> 버튼을 눌러 지정하세요. 7~12장 등록 시 현장 사진이 2면으로 자동 확장됩니다.
             </p>
             <div className="flex gap-3 overflow-x-auto pb-2.5 snap-x">
               {/* Existing Photos */}
@@ -1055,8 +1094,29 @@ export function ImDataBottomSheet({
                   <input
                     type="text"
                     placeholder="설명 (선택)"
+                    list={`photo-caption-presets-${idx}`}
                     value={photoCaptions[idx] || ''}
                     onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [idx]: e.target.value }))}
+                    className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                  />
+                  <datalist id={`photo-caption-presets-${idx}`}>
+                    {(PHOTO_CAPTION_PRESETS[photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).map((opt) => (
+                      <option key={opt} value={opt} />
+                    ))}
+                  </datalist>
+                  <div className="w-28 flex flex-wrap gap-1">
+                    {(PHOTO_CAPTION_PRESETS[photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).slice(0, 2).map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => setPhotoCaptions(prev => ({ ...prev, [idx]: chip }))}
+                        className="text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary truncate max-w-full transition-colors"
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                  <input type="hidden"
                     className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                   />
                 </div>
@@ -1132,8 +1192,29 @@ export function ImDataBottomSheet({
                     <input
                       type="text"
                       placeholder="설명 (선택)"
+                      list={`photo-caption-presets-${totalIdx}`}
                       value={photoCaptions[totalIdx] || ''}
                       onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [totalIdx]: e.target.value }))}
+                      className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    />
+                    <datalist id={`photo-caption-presets-${totalIdx}`}>
+                      {(PHOTO_CAPTION_PRESETS[photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).map((opt) => (
+                        <option key={opt} value={opt} />
+                      ))}
+                    </datalist>
+                    <div className="w-28 flex flex-wrap gap-1">
+                      {(PHOTO_CAPTION_PRESETS[photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')] || PHOTO_CAPTION_PRESETS.interior).slice(0, 2).map((chip) => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => setPhotoCaptions(prev => ({ ...prev, [totalIdx]: chip }))}
+                          className="text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary truncate max-w-full transition-colors"
+                        >
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="hidden"
                       className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                     />
                   </div>

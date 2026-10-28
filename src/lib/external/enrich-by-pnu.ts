@@ -203,6 +203,19 @@ export async function enrichBuildingDataCore(
     }
   }
 
+  // 지번 주소(jibunAddress) 정합성 보강: 도로명주소가 그대로 복사된 경우 토지특성·건축물대장 platPlc 지번으로 교체
+  const authenticJibun =
+    (landUsePlan as any)?.jibunAddress?.trim() ||
+    String((br as any)?.platPlc || "").trim();
+  if (
+    authenticJibun &&
+    (!resolvedAddress.jibunAddress ||
+      resolvedAddress.jibunAddress === resolvedAddress.roadAddress ||
+      resolvedAddress.jibunAddress === rawAddress)
+  ) {
+    resolvedAddress.jibunAddress = authenticJibun;
+  }
+
   const enrichmentResult: ExternalDataEnrichmentResult = {
     resolvedAddress,
     buildingRegister,
@@ -249,8 +262,6 @@ export async function enrichBuildingDataCore(
       location_fetched_at: locationPoi ? new Date().toISOString() : null,
       registry_data: registryData || {},
       registry_fetched_at: registryData ? new Date().toISOString() : null,
-      commercial_district: commercialDistrict || {},
-      commercial_fetched_at: commercialDistrict ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
 
@@ -320,21 +331,26 @@ export async function enrichBuildingDataByPNU(
       const staleSourcesInfo = Object.entries(CACHE_TTL_BY_SOURCE)
         .filter(([_, ttlDays]) => cacheAge > (ttlDays as number) * 86400000)
         .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
-      // 과거 조회 실패로 빈 대장({})이 캐시된 경우: TTL(90일) 동안 '조회 실패'가 굳지 않도록 대장만 재조회
+      // 과거 조회 실패로 빈 대장({})이나 빈 공시지가/토지이용계획({})이 캐시된 경우 자동 재조회
       const registerMissing = !(Number((cached.building_register as any)?.totalArea) > 0);
+      const landPriceMissing = !(Number((cached.official_land_price as any)?.pricePerSqm) > 0);
+      const landUseMissing = !((cached.land_use_plan as any)?.zoningDistrict || (cached.land_use_plan as any)?.jibunAddress);
 
-      if (staleSourcesInfo.length > 0 || registerMissing) {
-        logger.info(`${staleSourcesInfo.length} sources stale: ${staleSourcesInfo.map(s => s.source).join(', ')}${registerMissing ? ' (+building_register empty)' : ''}`);
+      if (staleSourcesInfo.length > 0 || registerMissing || landPriceMissing || landUseMissing) {
+        logger.info(`${staleSourcesInfo.length} sources stale: ${staleSourcesInfo.map(s => s.source).join(', ')}${registerMissing ? ' (+building_register empty)' : ''}${landPriceMissing ? ' (+land_price empty)' : ''}${landUseMissing ? ' (+land_use empty)' : ''}`);
         const staleSources = staleSourcesInfo.map(s => s.source);
         if (registerMissing && !staleSources.includes('building_register')) staleSources.push('building_register');
+        if (landPriceMissing && !staleSources.includes('land_price')) staleSources.push('land_price');
+        if (landUseMissing && !staleSources.includes('land_use_plan')) staleSources.push('land_use_plan');
         const needRegister = isSourceStale(staleSources, 'building_register', 'buildingRegister');
         const mainLot = needRegister ? await resolveLotsSafe() : null;
         const staleLotPnu = mainLot?.mainPnu ?? primaryPnu;
+        const cachedJibun = cached.jibun_address && cached.jibun_address !== rawAddress ? String(cached.jibun_address) : "";
         return await enrichBuildingDataCore(
           {
             pnu: staleLotPnu, legalDongCode: staleLotPnu.substring(0, 10), sigunguCd: staleLotPnu.substring(0, 5), bjdongCd: staleLotPnu.substring(5, 10),
             bun: staleLotPnu.substring(11, 15) || "0000", ji: staleLotPnu.substring(15, 19) || "0000",
-            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || null, lng: cached.longitude || null, buildingMgtNo: staleLotPnu + "000000",
+            roadAddress: rawAddress, jibunAddress: cachedJibun, lat: cached.latitude || null, lng: cached.longitude || null, buildingMgtNo: staleLotPnu + "000000",
             allPnus: mainLot?.orderedPnus ?? valid19Pnus
           },
           rawAddress,
@@ -398,7 +414,7 @@ export async function enrichBuildingDataByPNU(
     bun,
     ji,
     roadAddress: rawAddress,
-    jibunAddress: rawAddress,
+    jibunAddress: "",
     lat,
     lng,
     buildingMgtNo: lotPnu + "000000",

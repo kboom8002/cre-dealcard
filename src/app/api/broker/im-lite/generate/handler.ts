@@ -1009,7 +1009,13 @@ export async function generateMobileIMHandler(
         total_deposit_manwon: supplemental.total_deposit_manwon,
         vacancy_pct: supplemental.vacancy_pct,
         address: supplemental.resolved_address || ssotRow.raw_address || (ssotRow.layers as any)?.location?.raw_address || (ssotRow.layers as any)?.location?.address || null,
-        jibun_address: externalData?.resolvedAddress?.jibunAddress || (externalData?.buildingRegister as any)?.platPlc || undefined,
+        jibun_address:
+          (externalData?.landUsePlan as any)?.jibunAddress?.trim() ||
+          (externalData?.buildingRegister as any)?.platPlc?.trim() ||
+          (externalData?.resolvedAddress?.jibunAddress &&
+          externalData.resolvedAddress.jibunAddress !== externalData.resolvedAddress.roadAddress
+            ? externalData.resolvedAddress.jibunAddress
+            : undefined),
         pnu: supplemental.resolved_pnu || ssotRow.pnu || (ssotRow.layers as any)?.location?.pnu || (ssotRow.layers as any)?.pnu || null,
         own_vs_lease_savings_bil: (writerResult.financials as any)?.ownVsLeaseSavingsBil ?? undefined,
         // 건축물대장 대표지번/부속지번 provenance (다필지 조회 추적) — 값 없으면 키 생략

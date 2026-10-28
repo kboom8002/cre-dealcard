@@ -65,6 +65,8 @@ export interface DeckSequenceInput {
   preset?: string;
   /** Pro IM 덱 여부 */
   isPro?: boolean;
+  /** 렌트롤 복수 지면 확장 슬라이드 수 (15행 초과 또는 11층 이상 + 다수 호실) */
+  rentRollSlideCount?: number;
 }
 
 /** 갤러리 슬라이드 목록을 SlideSpec[]으로 생성 */
@@ -143,6 +145,19 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     }
 
     // 토지 정보 슬라이드: 지적도가 있으면 A06으로 좌측 지적도 + 우측 토지 정보 통합
+    if (slot.dataKey === 'rentRoll' && (input.rentRollSlideCount ?? 1) > 1) {
+      const rrCount = Math.min(input.rentRollSlideCount ?? 1, 3);
+      for (let p = 0; p < rrCount; p++) {
+        sequence.push({
+          archetype: slot.archetype,
+          kicker: slot.label,
+          title: `${slot.label} (${p + 1}/${rrCount})`,
+          dataKey: p === 0 ? 'rentRoll' : `rentRoll_${p}`,
+        });
+      }
+      pushBrokerSlides(slot.seq);
+      continue;
+    }
     if (slot.dataKey === 'land' && da.hasCadastralMap) {
       sequence.push({
         archetype: 'A06',
@@ -179,7 +194,8 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     const requiredDataKeys = new Set<string>([
       'cover', 'summary', 'building', 'location', 'land', 'closing',
       ...BASIC_IM_BROKER_SLIDE_KEYS,
-      ...(posture === 'income' ? ['rentRoll', 'yieldFormula'] : []),
+      ...(posture === 'income' ? ['rentRoll', 'rentRoll_1', 'rentRoll_2', 'yieldFormula'] : []),
+      'gallery_0', 'gallery_1',
     ]);
 
     while (filtered.length > BASIC_IM_BOUNDS.maxSlides) {

@@ -52,6 +52,8 @@ import { buildBasicLocationRightData } from './location-facts-builder';
 import { buildBasicLandSlideData } from './archetypes/a27-land-use-plan';
 import { getRegionalLandPriceRateSeries } from '@/lib/external/rone-api';
 import { applyStudioThemeOverrides, applyStudioSlideOverrides } from './studio-overrides-applier';
+import { splitFloorAndUnit } from '../floor-unit-resolver';
+import { parseStationName, formatStationLabel } from './binder/station-name';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -188,7 +190,9 @@ export class MobileImPptxRenderer {
       const heroPhoto = realPhotos.find(p => p.role === 'cover')
         || realPhotos.find(p => p.isHero)
         || realPhotos[0];
-      const exteriorPhoto = realPhotos.find(p => p.role === 'exterior')
+      const exteriorPhoto = (theme.presetId === 'credeal_basic'
+        ? (realPhotos.find(p => p.isHero || p.role === 'cover') || realPhotos.find(p => p.role === 'exterior'))
+        : (realPhotos.find(p => p.role === 'exterior') || realPhotos.find(p => p.isHero || p.role === 'cover')))
         || realPhotos.find(p => p.category === 'exterior' || p.type === 'exterior')
         || heroPhoto;
 
@@ -229,6 +233,7 @@ export class MobileImPptxRenderer {
             // auto 결과의 null 이 handler 단계의 유효 값을 덮어쓰지 않도록 보호
             locationPoi: autoEnrichment.locationPoi ?? enrichment.locationPoi,
             landUsePlan: enrichment.landUsePlan ?? autoEnrichment.landUsePlan,
+            landPrice: enrichment.landPrice ?? (autoEnrichment.landPriceHistory?.latestPricePerSqm ? { officialPricePerM2: autoEnrichment.landPriceHistory.latestPricePerSqm, baseYear: (autoEnrichment.landPriceHistory as any).latestYear } : undefined),
           };
         } catch (err) {
           // Graceful degradation: enrichment 실패 시 기존 데이터로 진행 (Rule 43)
@@ -270,6 +275,15 @@ export class MobileImPptxRenderer {
         // Basic IM 전용 슬라이드 편성 (A23 산식 등)
         preset: theme.presetId,
         isPro: input.isPro || input.proMode || (input.releaseTier as string) === 'pro',
+        rentRollSlideCount: (() => {
+          if (theme.presetId !== 'credeal_basic') return 1;
+          const fls = Array.isArray(input.doc.body?.floor_leases) ? input.doc.body.floor_leases : [];
+          if (fls.length === 0) return 1;
+          const physFlCnt = new Set(fls.map((l: any) => splitFloorAndUnit(String(l?.floor ?? ''), l?.unit_label ?? l?.unit_number ?? l?.unit).floorKey)).size;
+          const hasPlan = Boolean(readBrokerExtras(input.doc.body)?.post_acquisition_plan);
+          const p1Cap = (physFlCnt >= 11 && fls.length > physFlCnt && fls.length > 12) ? 12 : (hasPlan ? 12 : 15);
+          return fls.length > p1Cap ? Math.min(3, 1 + Math.ceil((fls.length - p1Cap) / 18)) : 1;
+        })(),
       };
 
       // Basic IM preset이면 모든 포스처에서 Basic 시퀀스 강제 (trading/owner_occupied 포함)
@@ -696,7 +710,7 @@ export class MobileImPptxRenderer {
         const poiData = enrichment?.locationPoi;
         let locTransit: string;
         if (poiData?.nearestStation?.name && !poiData._isFallback) {
-          const sName = poiData.nearestStation.name.replace(/역$/, '') + '역';
+          const parsedSt = parseStationName(poiData.nearestStation.name); const sName = formatStationLabel(parsedSt.name, parsedSt.lines);
           const wMin = poiData.nearestStation.walkMinutes ?? Math.max(1, Math.round((poiData.nearestStation.distanceM ?? 400) / 80));
           const dM = poiData.nearestStation.distanceM;
           locTransit = `${sName} 도보 ${wMin}분` + (dM ? ` (약 ${dM}m)` : '');
@@ -861,7 +875,8 @@ export class MobileImPptxRenderer {
           dataMap['cadastralMap'].mapImageUrl = cadastralImg;
         }
         // 지적도를 토지 슬라이드에도 전달 (좌측 이미지 영역용)
-        if (dataMap['land']) {
+        if (isBasicPreset) {
+          if (!dataMap['land']) dataMap['land'] = { title: '토지 정보', content: '', tables: [], metrics: {} };
           dataMap['land'].cadastralImage = cadastralImg;
           dataMap['land'].mapImageUrl = cadastralImg;
           dataMap['land'].photoUrl = cadastralImg;
@@ -944,7 +959,7 @@ export class MobileImPptxRenderer {
               `매입 후 전략 — 전환 시 안정화 기대수익률 ${stabVal.toFixed(2)}%${deltaTag} · 중개인입력`;
           }
         }
-        if (dataMap['land']) {
+        if (isBasicPreset) {
           dataMap['land'] = buildBasicLandSlideData({
             existingLandData: dataMap['land'],
             enrichment,
@@ -1278,6 +1293,54 @@ export class MobileImPptxRenderer {
 
       // Basic IM Studio 오버라이드 (표시/숨김, 슬라이드 순서, 텍스트·수치 편집) 반영 — 일반 경로에는 무영향
       sequence = applyStudioSlideOverrides(sequence, dataMap, input.doc?.body);
+      if (isBasicPreset) {
+        normalizeAreaRowsPrecision(dataMap, {
+          totArea: Number(enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea) || null,
+          platArea: Number(enrichment?.buildingRegister?.platArea) || null,
+          archArea: Number(enrichment?.buildingRegister?.archArea) || null,
+          gfaAuthoritative: isRegisterTrustworthy(enrichment?.buildingRegister),
+        });
+        if ((sequenceInput.rentRollSlideCount ?? 1) > 1 && dataMap['rentRoll'] && Array.isArray(dataMap['rentRoll'].tableRows)) {
+          const baseRr = dataMap['rentRoll'] as any;
+          const allRrRows = (baseRr.tableRows as any[][]).filter(r => !/합계|총계|소계|Total|Summary/i.test(String(r?.[0] ?? '').trim()));
+          const fls = Array.isArray(input.doc.body?.floor_leases) ? input.doc.body.floor_leases : [];
+          const physFlCnt = new Set(fls.map((l: any) => splitFloorAndUnit(String(l?.floor ?? ''), l?.unit_label ?? l?.unit_number ?? l?.unit).floorKey)).size;
+          const hasPlan = Array.isArray(baseRr.brokerPostAcquisitionPlan) && baseRr.brokerPostAcquisitionPlan.length > 0;
+          const p1Cap = (physFlCnt >= 11 && allRrRows.length > physFlCnt && allRrRows.length > 12) ? 12 : (hasPlan ? 12 : 15);
+          if (allRrRows.length > p1Cap) {
+            const p1Rows = allRrRows.slice(0, p1Cap);
+            const restRows = allRrRows.slice(p1Cap);
+            const rrSlideCnt = sequenceInput.rentRollSlideCount ?? 2;
+            const savedPlan = baseRr.brokerPostAcquisitionPlan;
+            const savedPlanTitle = baseRr.brokerPostAcquisitionTitle;
+            dataMap['rentRoll'] = {
+              ...baseRr,
+              title: `렌트롤 (1/${rrSlideCnt})`,
+              tableRows: p1Rows,
+              tables: [{ headers: baseRr.tableHead ?? [], rows: p1Rows }],
+              fullTableRowsForStacking: allRrRows,
+              summaryRowLabel: '소계',
+              brokerPostAcquisitionPlan: undefined,
+            } as any;
+            for (let p = 1; p < rrSlideCnt; p++) {
+              const isLastPage = p === rrSlideCnt - 1;
+              const sliceStart = (p - 1) * 18;
+              const pageRows = isLastPage ? restRows.slice(sliceStart) : restRows.slice(sliceStart, sliceStart + 18);
+              dataMap[`rentRoll_${p}`] = {
+                ...baseRr,
+                title: `렌트롤 (${p + 1}/${rrSlideCnt})`,
+                tableRows: pageRows,
+                tables: [{ headers: baseRr.tableHead ?? [], rows: pageRows }],
+                hideStackingPlan: true,
+                fullTableRowsForSummary: isLastPage ? allRrRows : undefined,
+                summaryRowLabel: isLastPage ? '합계' : '소계',
+                brokerPostAcquisitionPlan: isLastPage ? savedPlan : undefined,
+                brokerPostAcquisitionTitle: isLastPage ? savedPlanTitle : undefined,
+              } as any;
+            }
+          }
+        }
+      }
 
       for (const spec of sequence) {
         if (spec.suppress) continue;
@@ -1285,6 +1348,7 @@ export class MobileImPptxRenderer {
         const slideData = dataMap[spec.dataKey];
         const isStaticSlide = ['cover', 'closing', 'gallery', 'summary', 'yieldFormula', 'stackingPlan', 'agenda', 'rentRoll', 'land', 'location'].includes(spec.dataKey)
           || spec.dataKey.startsWith('gallery_')
+          || spec.dataKey.startsWith('rentRoll_')
           || spec.dataKey.includes('divider')
           || spec.archetype === 'A06'
           || spec.archetype === 'A14'

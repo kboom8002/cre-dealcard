@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import type { StudioStage } from './project/types';
 import type { HeaderFooterConfig } from '../mobile-im/pptx/header-footer';
 import { DEFAULT_HEADER_FOOTER } from '../mobile-im/pptx/header-footer';
+import { parseStationName, formatStationLabel } from '../mobile-im/pptx/binder/station-name';
 
 export interface PptxSlide {
   id: string;
@@ -117,7 +118,7 @@ export function buildBasicImSlideDefaults(
 
   const nearestStation = poi.nearestStation;
   const transitStr = nearestStation?.name
-    ? `${String(nearestStation.name).replace(/역$/, '')}역 도보 ${nearestStation.walkMinutes ?? Math.max(1, Math.round((nearestStation.distanceM ?? 400) / 80))}분${nearestStation.distanceM ? ` (약 ${nearestStation.distanceM}m)` : ''}`
+    ? `${(() => { const ps = parseStationName(nearestStation.name); return formatStationLabel(ps.name, ps.lines); })()} 도보 ${nearestStation.walkMinutes ?? Math.max(1, Math.round((nearestStation.distanceM ?? 400) / 80))}분${nearestStation.distanceM ? ` (약 ${nearestStation.distanceM}m)` : ''}`
     : (ssot.station_name
       ? `${ssot.station_name} 도보 ${ssot.station_walk_min ?? 5}분`
       : (ssot.station_walk_min ? `지하철역 도보 ${ssot.station_walk_min}분 역세권` : '주요 간선도로 및 대중교통 인접'));
@@ -170,13 +171,13 @@ export function buildBasicImSlideDefaults(
       grossArea: grossSqm > 0 ? `${grossSqm.toLocaleString()}㎡ (${grossPy}평)` : '',
     },
     overview: {
-      buildingName: ssot.building_name || buildingName,
+      buildingName: String(ssot.building_name || '').trim() || buildingName,
       address: jibunStr && addressStr && jibunStr !== addressStr ? `${addressStr} (${jibunStr})` : addressStr,
       landArea: landSqm > 0 ? `${landSqm.toLocaleString()}㎡ (${landPy}평)` : '',
       grossArea: grossSqm > 0 ? `${grossSqm.toLocaleString()}㎡ (${grossPy}평)` : '',
       archArea: archSqm > 0 ? `${archSqm.toLocaleString()}㎡ (${archPy}평)` : '',
       floors: floorsStr,
-      completionYear: String(ssot.completion_year || br.useAprDay?.slice(0, 4) || ''),
+      completionYear: (() => { const y = String(ssot.completion_year || br.useAprDay?.slice(0, 4) || '').trim(); return /^\d{4}$/.test(y) ? `${y}년` : y; })(),
       zoning: zoningStr,
       bcrFar: bcrFarStr,
       parkingElevator: parkElevStr,
@@ -209,7 +210,7 @@ export function buildBasicImSlideDefaults(
       otherLaws: Array.isArray(enrichment.landUsePlan?.otherLawItems)
         ? enrichment.landUsePlan.otherLawItems.join(', ')
         : '건축법 · 주차장법 · 하수도법 등 관계 법령 적용',
-      landCallout: brokerExtras.regulation_note || ssot.land_use_plan || '토지이용계획확인원 및 건축물대장 기준 공법상 특이 제한사항 확인',
+      landCallout: brokerExtras.regulation_note || ssot.land_use_plan || '',
       cadastralMapImage: typeof enrichment.cadastralMapImage === 'object'
         ? enrichment.cadastralMapImage?.base64 || ''
         : (enrichment.cadastralMapImage || ''),
@@ -225,7 +226,7 @@ export function buildBasicImSlideDefaults(
       stabilizedYieldTitle: capRateStabilized
         ? `매입 후 전략 — 전환 시 안정화 기대수익률 ${capRateStabilized}`
         : '층별 임대차 현황 및 매입 후 가치 제고(Value-Add) 포인트',
-      rentrollNotes: docBody.rentroll_notes || '보증금·임대료는 현행 임대차계약 기준이며 관리비·부가세는 별도입니다.',
+      rentrollNotes: docBody.rentroll_notes || '',
       tenantData: Array.isArray(rawLeases) ? rawLeases : [],
     },
     yield: {

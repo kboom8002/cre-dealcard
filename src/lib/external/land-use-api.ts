@@ -98,11 +98,30 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
           const items = data?.landCharacteristicss?.field;
           const item = Array.isArray(items) ? items[0] : items;
 
-          if (item && item.prposArea1Nm) {
-            const zoningDistrict = String(item.prposArea1Nm);
+          if (item && (item.prposArea1Nm || item.ldCodeNm || item.pblntfPclnd)) {
+            let zoningDistrict = item.prposArea1Nm && item.prposArea1Nm !== '지정되지않음' && item.prposArea1Nm !== '-'
+              ? String(item.prposArea1Nm).trim()
+              : '';
             const zoningOverlap = item.prposArea2Nm && item.prposArea2Nm !== '지정되지않음' && item.prposArea2Nm !== '-'
               ? [String(item.prposArea2Nm)]
               : [];
+
+            if (!zoningDistrict) {
+              try {
+                const regs = await fetchLandUseRegulations(pnu);
+                if (regs?.nationalItems?.length) {
+                  const specificZone = regs.nationalItems.find(i => /(주거지역|상업지역|공업지역|녹지지역|관리지역|지구단위계획구역)/.test(i.name));
+                  zoningDistrict = (specificZone?.name || regs.nationalItems[0].name || '').trim();
+                  for (const ni of regs.nationalItems) {
+                    if (ni.name && ni.name !== zoningDistrict && ni.name !== '도시지역' && !zoningOverlap.includes(ni.formatted)) {
+                      zoningOverlap.push(ni.formatted);
+                    }
+                  }
+                }
+              } catch {
+                // ignore fallback regulation lookup failure
+              }
+            }
 
             const { coverage, far } = inferZoningLimits(zoningDistrict);
 

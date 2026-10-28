@@ -1,6 +1,7 @@
 import type { SectionData } from './binder-types';
 import { isVacantLeaseRow, resolveLeaseOccupancy } from '../../lease-vacancy';
 import { resolveAreaInputUnit, type AreaInputUnit } from '../../rentroll-meta';
+import { splitFloorAndUnit } from '../../floor-unit-resolver';
 import {
   formatLeaseAreaFromRow,
   leaseAreaHeader,
@@ -223,7 +224,12 @@ export function bindRentRollTable(
 
     // 통합계약(계약그룹): 금액은 대표 행에만 기입하므로, 같은 그룹의 금액 없는 행은 '〃'(위와 동일 계약)로 표기해 공란 오독을 막는다.
     // 합계는 '〃' 셀을 숫자로 읽지 않으므로 대표 행 금액만 합산된다 (중복 집계 없음).
-    const groupKey = (l: any) => String(l?.contract_group ?? '').trim();
+    const USE_CATEGORY_GROUP_RE = /^(\(통합계약.*\)|근린생활(시설)?|근생|제?[12]종근린생활(시설)?|상가|상업(시설)?|주거(시설|용)?|주택|업무(시설|용)?|오피스|오피스텔|단독(계약)?|개별(계약)?|-|없음|해당없음)$/i;
+    const rawGroupStr = (l: any) => String(l?.contract_group ?? '').trim();
+    const groupKey = (l: any) => {
+      const g = rawGroupStr(l);
+      return !g || USE_CATEGORY_GROUP_RE.test(g.replace(/\s+/g, '')) ? '' : g;
+    };
     const groupsWithAmount = new Set<string>(
       floorLeases
         .filter((l: any) => groupKey(l) && (isFinitePos(l.deposit_manwon) || isFinitePos(l.rent_manwon)))
@@ -232,7 +238,13 @@ export function bindRentRollTable(
 
     let maskSeq = 0; // 상호 미기재 임차인 마스킹 라벨 순번 (임차인 A, B, C …)
     const rrRows = floorLeases.map((l: any, rowIdx: number) => {
-    const floor = l.floor || l.unit_label || '-';
+      const rawFlr = String(l.floor || '').trim();
+      const rawUnit = String(l.unit_label || l.unit || '').trim();
+      const resolvedFlr = splitFloorAndUnit(rawFlr || rawUnit, rawFlr ? rawUnit : undefined);
+      const hasExplicitFloorPrefix = /^(B\d{1,2}(?!\d)|지하\s*\d{1,2}\s*층|지상|\d{1,2}\s*(?:F|층)|옥탑|옥상|RF|PH)/i.test(rawFlr);
+      const floor = (!hasExplicitFloorPrefix && resolvedFlr.unitLabel && resolvedFlr.floor !== '-')
+        ? resolvedFlr.combinedLabel
+        : (rawUnit && rawFlr && !rawFlr.includes(rawUnit) ? `${rawFlr} ${rawUnit}` : (rawFlr || rawUnit || '-'));
       // Pro(7열 '면적' 칼럼): 입력 단위 단일 값 + 단위 꼬리표 ('209.60㎡' / '63.40평'). 면적이 없으면 '-'
       const proArea = formatLeaseAreaFromRow({ sqm: l.area_sqm, pyeong: l.area_pyeong }, areaUnit);
       const areaPyeong = proArea === '-' ? '-' : `${proArea}${stackingAreaSuffix(areaUnit)}`;
@@ -251,7 +263,8 @@ export function bindRentRollTable(
       const rentN = Number(l.rent_manwon) || 0;
       const mgmtN = Number(l.mgmt_fee_manwon) || 0;
       const totalMonthRaw = (rentN + mgmtN) > 0 ? (rentN + mgmtN).toLocaleString() : (rent !== '-' ? rent : '-');
-      const isGroupFollower = !!groupKey(l) && groupsWithAmount.has(groupKey(l))
+      const isVacantOrSelfUse = basicParty.isVacant || l.is_vacant === true || l.lease_state === '공실' || l.lease_state === '자가사용' || resolveLeaseOccupancy(l) !== '임대중';
+      const isGroupFollower = !isVacantOrSelfUse && !!groupKey(l) && groupsWithAmount.has(groupKey(l))
         && !isFinitePos(l.deposit_manwon) && !isFinitePos(l.rent_manwon) && !isFinitePos(l.mgmt_fee_manwon);
       const SAME_AS_ABOVE = '〃';
       const depositCell = isGroupFollower ? SAME_AS_ABOVE : deposit;
@@ -276,7 +289,7 @@ export function bindRentRollTable(
         ? [
             floor,
             basicParty.tenant,
-            basicParty.use,
+            (!basicParty.isVacant && basicParty.use === '-' && rawGroupStr(l) && USE_CATEGORY_GROUP_RE.test(rawGroupStr(l).replace(/\s+/g, '')) && !/^\(통합계약|단독|개별|없음|해당없음|-/.test(rawGroupStr(l))) ? rawGroupStr(l) : basicParty.use,
             areaSqmStr,
             excSqmStr,
             depositCell,

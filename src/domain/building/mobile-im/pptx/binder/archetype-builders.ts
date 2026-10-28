@@ -18,6 +18,7 @@ import { resolveDisplayAreas } from "./display-areas";
 import { formatLeaseAreaCompact, areaUnitFromHeader } from "./lease-area-format";
 import { resolveAreaInputUnit, PYEONG_TO_SQM_V15, type AreaInputUnit } from "../../rentroll-meta";
 import { buildYieldSetFromBody, YIELD_LABELS, summaryCapRateSub } from "../../yield-set";
+import { splitFloorAndUnit } from "../../floor-unit-resolver";
 
 /**
  * 아키타입별 props 변환기
@@ -327,6 +328,44 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
     };
     }
 
+    if (floors.length > 1) {
+      // 동일 물리 층(예: 101호~105호 → 1F)에 여러 호실이 있으면 Pro 스태킹 플랜(A22)을 물리 층 단위로 그룹핑
+      const byPhysFloor = new Map<string, { order: number; item: StackingPlanFloor; tenants: string[]; vacantCount: number; unitCount: number }>();
+      for (const f of floors) {
+        const res = splitFloorAndUnit(f.floor);
+        const key = res.floor && res.floor !== '-' ? res.floor : f.floor;
+        const existing = byPhysFloor.get(key);
+        if (!existing) {
+          byPhysFloor.set(key, {
+            order: res.order,
+            item: { ...f, floor: key },
+            tenants: f.tenant && f.tenant !== '-' && !f.isVacant ? [f.tenant] : [],
+            vacantCount: f.isVacant ? 1 : 0,
+            unitCount: 1,
+          });
+        } else {
+          existing.unitCount += 1;
+          if (f.isVacant) existing.vacantCount += 1;
+          else if (f.tenant && f.tenant !== '-' && !existing.tenants.includes(f.tenant)) existing.tenants.push(f.tenant);
+          existing.item.exclusiveAreaPy = (existing.item.exclusiveAreaPy || 0) + (f.exclusiveAreaPy || 0) || undefined;
+          existing.item.exclusiveAreaM2 = (existing.item.exclusiveAreaM2 || 0) + (f.exclusiveAreaM2 || 0) || undefined;
+          existing.item.leasableAreaPy = (existing.item.leasableAreaPy || 0) + (f.leasableAreaPy || 0) || undefined;
+          existing.item.leasableAreaM2 = (existing.item.leasableAreaM2 || 0) + (f.leasableAreaM2 || 0) || undefined;
+          existing.item.floorAreaPy = (existing.item.floorAreaPy || 0) + (f.floorAreaPy || 0) || undefined;
+          existing.item.floorAreaM2 = (existing.item.floorAreaM2 || 0) + (f.floorAreaM2 || 0) || undefined;
+          existing.item.isVacant = existing.vacantCount === existing.unitCount;
+          if (existing.item.isVacant) {
+            existing.item.tenant = '공실';
+          } else if (existing.tenants.length > 0) {
+            const firstT = existing.tenants[0];
+            existing.item.tenant = existing.unitCount > 1 ? `${firstT} 외 ${existing.unitCount - 1}개 호실` : firstT;
+          }
+        }
+      }
+      if (byPhysFloor.size < floors.length) {
+        floors = [...byPhysFloor.values()].sort((a, b) => a.order - b.order).map(v => v.item);
+      }
+    }
     const anchorName = body?.anchorTenant?.name
             || ((body?.floor_leases ?? []).filter(Boolean) as any[]).find((l: any) => l.tenant_name && l.rent_manwon > 0)?.tenant_name
             || '대표 임차인';

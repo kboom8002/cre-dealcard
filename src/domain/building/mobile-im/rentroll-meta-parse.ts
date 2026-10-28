@@ -44,6 +44,12 @@ function cleanString(v: unknown, label: string): string {
 function cleanText(v: unknown, label: string, max: number): string | undefined {
   const s = cleanString(v, label);
   if (!s) return undefined;
+  if (/^\d{5}$/.test(s)) {
+    const n = Number(s);
+    if (n > 30000 && n < 80000) {
+      return new Date(Math.round((n - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+    }
+  }
   if (s.length > max) throw new MetaError(`${PREFIX} — ${label}은(는) ${max}자 이하로 입력해주세요. (현재 ${s.length}자)`);
   return s;
 }

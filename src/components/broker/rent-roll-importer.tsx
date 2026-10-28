@@ -11,6 +11,7 @@ import {
   type RentRollAreaSummary,
 } from "@/lib/rentroll/parse-rentroll-sheet";
 import { parseRentRollWorkbook } from "@/lib/rentroll/parse-rentroll-workbook";
+import { splitFloorAndUnit } from "@/domain/building/mobile-im/floor-unit-resolver";
 import {
   areaUnitLabel,
   sqmToInputUnit,
@@ -194,7 +195,10 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       const data = await res.json();
       
       const rows: PreviewRow[] = (data.floorLeases || []).map((r: any) => ({
-        ...r,
+
+        ...r, floor: splitFloorAndUnit(r.floor, r.unit_label).floorLabel || r.floor,
+        unit_label: splitFloorAndUnit(r.floor, r.unit_label).unitLabel || r.unit_label || undefined,
+
         deposit_manwon: Number.isFinite(r.deposit_manwon) ? r.deposit_manwon : undefined,
         rent_manwon: Number.isFinite(r.rent_manwon) ? r.rent_manwon : undefined,
         mgmt_fee_manwon: Number.isFinite(r.mgmt_fee_manwon) ? r.mgmt_fee_manwon : undefined,
@@ -269,7 +273,10 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       const parsed = parseRentRollWorkbook(workbook);
 
       const rows: PreviewRow[] = parsed.parsedRows.map((r) => ({
-        ...r,
+
+        ...r, floor: splitFloorAndUnit(r.floor, r.unit_label).floorLabel || r.floor,
+        unit_label: splitFloorAndUnit(r.floor, r.unit_label).unitLabel || r.unit_label || undefined,
+
         // 통합계약 비대표 행은 undefined 유지 (0 으로 채우면 '0원 계약'으로 오인)
         deposit_manwon: r.deposit_manwon ?? undefined,
         rent_manwon: r.rent_manwon ?? undefined,
@@ -470,6 +477,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
               <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="px-2 py-1 font-medium">층</th>
+                  <th className="px-2 py-1 font-medium">호실</th>
                   <th className="px-2 py-1 font-medium">업종</th>
                   <th className="px-2 py-1 font-medium whitespace-nowrap" title={`임대차계약서상 계약면적(전용+공용분담), ${areaUnitLabel(parsedPreview.meta.area_input_unit)}`}>임대{areaUnitLabel(parsedPreview.meta.area_input_unit)}</th>
                   <th className="px-2 py-1 font-medium whitespace-nowrap" title={`임차인 독점 사용면적, ${areaUnitLabel(parsedPreview.meta.area_input_unit)}`}>전용{areaUnitLabel(parsedPreview.meta.area_input_unit)}</th>
@@ -493,6 +501,19 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           setParsedPreview({ ...parsedPreview, rows: newRows });
                         }}
                         className="w-12 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input
+                        type="text"
+                        value={row.unit_label || ''}
+                        placeholder="-"
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          newRows[idx].unit_label = e.target.value || undefined;
+                          updatePreviewTotals(newRows);
+                        }}
+                        className="w-14 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
                       />
                     </td>
                     <td className="px-2 py-1">

@@ -15,6 +15,7 @@ import {
   stackingStripTitle,
 } from '../binder/lease-area-format';
 import { resolveAreaInputUnit, type AreaInputUnit } from '../../rentroll-meta';
+import { splitFloorAndUnit } from '../../floor-unit-resolver';
 import { normalizeMissing } from '../missing-values';
 import {
   normalizeBuildingUseCategory,
@@ -110,6 +111,17 @@ export interface StackingFloorGroup {
 export function physicalFloorKey(label: string): { key: string; order: number; isSubterranean: boolean } {
   const s = String(label ?? '').trim();
   if (/^(RF|PH|옥탑|옥상)/i.test(s)) return { key: s, order: 99, isSubterranean: false };
+  // 병합/범위 층 라벨 ('3F~4F', '1-2F', '1~2층')은 원 라벨 그대로 유지
+  const rangeFloorMatch = s.match(/^(B|지하\s*)?(\d+)\s*(?:F|층)?\s*[~～\-–]\s*B?\d+\s*(?:F|층)$/i);
+  if (rangeFloorMatch) {
+    const isSubRange = !!rangeFloorMatch[1];
+    const nRange = parseInt(rangeFloorMatch[2], 10);
+    return { key: s, order: isSubRange ? -nRange : nRange, isSubterranean: isSubRange };
+  }
+  const resolved = splitFloorAndUnit(s);
+  if (resolved.floor && resolved.floor !== '-' && resolved.floor !== s) {
+    return { key: resolved.floor, order: resolved.order, isSubterranean: resolved.isSubterranean };
+  }
   const m = s.match(/^(B|지하\s*)?(\d+)\s*(F|층)?(.*)$/i);
   if (!m) return { key: s || '-', order: 1, isSubterranean: false };
   const isSub = !!m[1];
@@ -305,11 +317,13 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   const factsNote = typeof data.rentrollFactsNote === 'string' ? data.rentrollFactsNote.trim() : '';
   const factsH = factsNote ? 0.20 : 0;
   const bottomLimit = 6.62 - factsH - (planBoxH > 0 ? planBoxH + 0.10 : 0); // SAFE_BOTTOM(6.75) 이내
-  const spX = M;
-  const spW = 2.20;
-  const gap = 0.25;
-  const tbX = M + spW + gap;
-  const tbW = CW - spW - gap; // ≈ 9.64"
+  var spX = M;
+  const hideStackingPlan = Boolean(data.hideStackingPlan);
+  const spW = hideStackingPlan ? 0 : 2.20;
+  const gap = hideStackingPlan ? 0 : 0.25;
+  const tbX = hideStackingPlan ? M : M + spW + gap;
+  const tbW = hideStackingPlan ? CW : CW - spW - gap; // ≈ 9.64" (전폭 모드 시 12.093")
+  var spX = M;
 
   // binder(rent-roll-table-builder / core-binders)가 만든 R2 10열(+선택 비고 11열) 표인지 — 단위(㎡|평·만원)가 확정된 표
   // 면적 머리글은 '임대면적(㎡)'|'임대면적(평)' — stem 접두어로 비교 (완전 일치 금지)
@@ -347,7 +361,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
     // D7 Fix: 합계 행이 없으면 자동 합산 추가
     const hasSummaryRow = rawRows.some((r: any) => isSummaryRowOf(r));
-    if (!hasSummaryRow && rawRows.length > 0) {
+    if (!hasSummaryRow && !data.skipAutoSummaryRow && rawRows.length > 0) {
       // 숫자로 읽힌 셀이 하나라도 있으면 합계를 표기 (행이 '0'이면 합계도 '0' — 행/합계 표기 일관성)
       const sums = { area: 0, exc: 0, deposit: 0, rent: 0, mgmt: 0, month: 0 };
       const seen = { deposit: false, rent: false, mgmt: false, month: false };
@@ -356,7 +370,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         const m = String(c ?? '').match(/\d[\d,]*(?:\.\d+)?/);
         return m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
       };
-      for (const r of rawRows) {
+      const summaryRowsSource = Array.isArray(data.fullTableRowsForSummary) ? data.fullTableRowsForSummary : rawRows;
+      for (const r of summaryRowsSource) {
         const a = num(r[3]); if (!isNaN(a)) sums.area += a;
         const e = num(r[4]); if (!isNaN(e)) sums.exc += e;
         const d = num(r[5]); if (!isNaN(d)) { sums.deposit += d; seen.deposit = true; }
@@ -379,7 +394,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       // 대장 연면적이 그 오차 범위 안이면(= 행이 건물 전체 면적을 구성) 대장값을 그대로 표기해 개요 슬라이드와 일치시킨다.
       // 평 모드는 대장(㎡)과 단위가 달라 스냅하지 않는다 (환산 후 스냅하면 평 표기값의 합과 어긋남).
       const regTotal = Number(data.registerTotalAreaSqm);
-      const areaRows = rawRows.filter((r: any[]) => !isNaN(num(r[3]))).length;
+      const areaRows = summaryRowsSource.filter((r: any[]) => !isNaN(num(r[3]))).length;
       const snapToRegister = areaUnit === 'sqm' && Number.isFinite(regTotal) && regTotal > 0 && sums.area > 0
         && Math.abs(sums.area - regTotal) <= areaRows * 0.5 * 10 ** -areaDec + 1e-6;
       const totalArea = snapToRegister ? regTotal : sums.area;
@@ -388,8 +403,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         : formatLeaseAreaValue(v, { decimals: areaDec });
 
       rawRows.push([
-        '합계',
-        `${Math.max(0, rawRows.length - (Number(data.nonLeasableRowCount) > 0 && Number(data.nonLeasableRowCount) < rawRows.length ? Number(data.nonLeasableRowCount) : 0))}개 호실`,
+        data.summaryRowLabel || '합계',
+        `${Math.max(0, summaryRowsSource.length - (Number(data.nonLeasableRowCount) > 0 && Number(data.nonLeasableRowCount) < summaryRowsSource.length ? Number(data.nonLeasableRowCount) : 0))}개 호실`,
         '-',
         sums.area > 0 ? fmtTotalArea(totalArea) : '-',
         sums.exc > 0 ? formatLeaseAreaValue(sums.exc, { decimals: areaDec }) : '-',
@@ -423,7 +438,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   // --- Left Panel: Stacking Plan ---
   // R8: 스태킹 도식 바 내부에는 임차인 상호나 면적 수치 대신 정규화된 건물용도 카테고리(근린생활/업무/교육 등)만 표시
   const FLOOR_PATTERN = /^(B?\d+F?|지상|지하|옥탑|PH|RF|\d+층)/i;
-  const stackRows = rawRows.filter((r: any[]) => !isSummaryRowOf(r));
+  const stackRows = (Array.isArray(data.fullTableRowsForStacking) ? data.fullTableRowsForStacking : rawRows).filter((r: any[]) => !isSummaryRowOf(r));
   const tableIsFloorBased = stackRows.length > 0 && FLOOR_PATTERN.test(String(stackRows[0]?.[0] || '').trim());
   let units: StackingUnit[] = [];
   let unitsAreInInputUnit = false;
@@ -514,7 +529,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   // 층 패턴이 아니면 units를 빈 배열로 유지 → 좌측 스태킹 도식 생략, 우측 테이블만 렌더링
 
   // 같은 물리 층(9F-A·9F-B)은 한 행으로 묶는다 — 지하(B)부터 지상 순서로 바닥에서 위로 정렬
-  let groups = groupStackingFloors(units);
+  let groups = hideStackingPlan ? [] : groupStackingFloors(units);
   if (groups.length > 14) {
     // 초고층: 지하층을 1행으로 압축 (임의 용도 라벨을 만들지 않고 층수만 표기)
     const subs = groups.filter(g => g.isSubterranean);
