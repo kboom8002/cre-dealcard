@@ -38,7 +38,7 @@ const WS_TOPBAR_LINKS = [
   { id: "home", label: "🏠 홈", href: "/broker" },
   { id: "dealcards", label: "📄 딜카드", href: "/broker/w/dealcards" },
   { id: "im", label: "📊 IM", href: "/broker/w/im" },
-  { id: "magazine", label: "📰 뉴스레터", href: "/broker/w/magazine" },
+  { id: "magazine", label: "📰 뉴스레터", href: "/broker/magazine-editor" },
   { id: "inbox", label: "💬 소통함", href: "/broker/w/inbox" },
 ] as const;
 
@@ -146,6 +146,7 @@ export function WorkspaceShell({
             const isActive =
               link.id === workspace ||
               (link.id === "home" && pathname === "/broker") ||
+              (link.id === "magazine" && (pathname.startsWith("/broker/magazine-editor") || pathname.startsWith("/broker/w/magazine"))) ||
               pathname.startsWith(link.href);
 
             return (

@@ -196,7 +196,6 @@ describe("Simple Mode Editor (S2) — SimpleEditor UI & Summary Fallback Contrac
     expect(html).toContain("② 소개할 매물 확인");
     expect(html).toContain("③ 매거진 제목 &amp; 시장 온도 확인");
     expect(html).toContain('id="simple-field-note-comment"');
-    expect(html).toContain("🚀 이번 주 매거진 발행하기");
     expect(html).toContain("고급 항목 2개(1-Click 투표·세무·법률 클리닉 등)도 함께 유지됩니다");
     expect(html).toContain("👥 구독자 관리 · QR 코드");
     expect(html).toContain("📈 독자 반응 · 핫리드 보기");

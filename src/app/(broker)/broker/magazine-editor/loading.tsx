@@ -3,7 +3,7 @@ export default function MagazineEditorLoading() {
     <div
       role="status"
       aria-label="고객 소식지 편집 화면을 불러오는 중입니다"
-      className="min-h-screen bg-slate-50 dark:bg-[#0B1120] px-4 sm:px-6 py-6"
+      className="min-h-screen bg-[#FAF9F5] px-4 sm:px-6 py-6"
     >
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 flex items-center justify-between shadow-sm animate-pulse">

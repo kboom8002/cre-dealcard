@@ -12,6 +12,9 @@ import { buildListUnsubscribeHeaders, buildUnsubscribeUrl, issueUnsubToken } fro
 import { issueSidToken } from './sid-token';
 import {
   sendGate,
+  buildIdempotencyKey,
+  hashRecipient,
+  normalizeRecipient,
   type GateBlockReason,
   type GateChannel,
   type GateDeps,
@@ -147,6 +150,7 @@ export function addBlocked(t: Tally, reason: GateBlockReason | string, n = 1): v
  */
 export function planTargets(subs: SubscriberRow[], opts: { allowKakao: boolean }, tally: Tally): PlannedTarget[] {
   const out: PlannedTarget[] = [];
+  const seen = new Set<string>();
   for (const sub of subs) {
     const ch = sub.channel;
     const wantsEmail = ch === 'email' || ch === 'both';
@@ -156,10 +160,23 @@ export function planTargets(subs: SubscriberRow[], opts: { allowKakao: boolean }
       addBlocked(tally, 'CHANNEL_NOT_CONSENTED');
       continue;
     }
-    if (wantsEmail) out.push({ sub, channel: 'email' });
+    if (wantsEmail) {
+      const emailNorm = normalizeRecipient(sub.subscriber_email);
+      const emailKey = emailNorm ? `email:${emailNorm}` : `sub:${sub.id}:email`;
+      if (!seen.has(emailKey)) {
+        seen.add(emailKey);
+        out.push({ sub, channel: 'email' });
+      }
+    }
     if (wantsKakao) {
-      if (opts.allowKakao) out.push({ sub, channel: 'kakao' });
-      else {
+      if (opts.allowKakao) {
+        const phoneNorm = normalizeRecipient(sub.subscriber_phone);
+        const phoneKey = phoneNorm ? `kakao:${phoneNorm}` : `sub:${sub.id}:kakao`;
+        if (!seen.has(phoneKey)) {
+          seen.add(phoneKey);
+          out.push({ sub, channel: 'kakao' });
+        }
+      } else {
         tally.total += 1;
         addBlocked(tally, 'CHANNEL_NOT_AVAILABLE');
       }
@@ -229,7 +246,7 @@ function renderFor(ctx: RunContext, t: PlannedTarget, unsubscribeUrl: string): G
   };
 }
 
-async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number, tally: Tally): Promise<void> {
+async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number | undefined, tally: Tally): Promise<void> {
   tally.total += 1;
   const bucket = t.channel === 'email' ? tally.email : tally.kakao;
 
@@ -260,12 +277,21 @@ async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number, tally
     return;
   }
 
+  // Key sendGate idempotency on recipient_hash (preventing duplicate sends across slug and user_id rows)
+  const contact = t.channel === 'email' ? t.sub.subscriber_email : t.sub.subscriber_phone;
+  const normalized = normalizeRecipient(contact);
+  const recipientHash = normalized ? hashRecipient(normalized) : '';
+  const idempotencyKey = recipientHash
+    ? buildIdempotencyKey(ctx.editionKey, recipientHash, t.channel)
+    : undefined;
+
   const res = await sendGate(
     {
       subscriber: t.sub,
       channel: t.channel,
       editionId: ctx.editionId,
       editionKey: ctx.editionKey,
+      idempotencyKey,
       brokerId: ctx.broker.slug,
       brokerUserId: ctx.broker.userId,
       kind: ctx.kind,
@@ -295,7 +321,8 @@ async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number, tally
 
 /** 타깃을 BATCH_CONCURRENCY씩 병렬 처리하고 집계한다. 예외는 failed로 센다(삼키지 않고 로그). */
 export async function runTargets(ctx: RunContext, targets: PlannedTarget[], tally: Tally): Promise<void> {
-  const dailyCap = targets.length;
+  // 속보(flash / special)는 당일 추가 배포가 차단되지 않도록 dailyCap을 생략(undefined), 일반 배포는 당일 재발송/정정 허용을 위해 targets.length * 3
+  const dailyCap = ctx.kind === 'flash' ? undefined : targets.length * 3;
   for (let i = 0; i < targets.length; i += BATCH_CONCURRENCY) {
     const batch = targets.slice(i, i + BATCH_CONCURRENCY);
     const results = await Promise.allSettled(batch.map((t) => runOne(ctx, t, dailyCap, tally)));

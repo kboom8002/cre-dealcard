@@ -23,3 +23,21 @@ export function hashVisitorId(raw: unknown, secret: string | undefined = process
   const digest = createHmac('sha256', secret).update(`visitor:${raw.toLowerCase()}`).digest('hex');
   return `${VISITOR_HASH_PREFIX}${digest.slice(0, 40)}`;
 }
+
+/**
+ * IP와 User-Agent를 조합한 서버측 방문자 식별 해시.
+ * 설문 투표 조작 방지 및 레이트리밋 보호를 위해 사용된다.
+ */
+export function computeVisitorHash(
+  ip: string | null | undefined,
+  userAgent: string | null | undefined,
+  secret: string | undefined = process.env.MAGAZINE_SID_SECRET,
+): string {
+  const effectiveSecret = secret && secret.length >= 8 ? secret : 'cre-dealcard-visitor-fallback-salt';
+  const cleanIp = (ip || '').trim().toLowerCase();
+  const cleanUa = (userAgent || '').trim().slice(0, 200);
+  const rawKey = `visitor:${cleanIp}:${cleanUa}`;
+  const digest = createHmac('sha256', effectiveSecret).update(rawKey).digest('hex');
+  return `${VISITOR_HASH_PREFIX}${digest.slice(0, 40)}`;
+}
+

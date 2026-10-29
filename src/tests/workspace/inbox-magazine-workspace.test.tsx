@@ -34,9 +34,11 @@ import MagazineWorkspacePage from '@/app/(broker)/broker/w/magazine/page';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const mockReplace = vi.fn();
+
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: mockReplace, prefetch: vi.fn() }),
   usePathname: () => '/broker/w/inbox',
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -279,144 +281,19 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
   });
 
   /* ────────────────────────────────────────────────────────────────────────
-   * 2. Weekly Magazine Workspace (/broker/w/magazine) (WP-P5-03)
+   * 2. Weekly Magazine Workspace (/broker/w/magazine)
    * ──────────────────────────────────────────────────────────────────────── */
   describe('2. Weekly Magazine Workspace (/broker/w/magazine)', () => {
-    it('renders 3-column magazine workspace with past issues and editor', async () => {
+    it('redirects seamlessly to real studio /broker/magazine-editor', async () => {
+      mockReplace.mockClear();
       await act(async () => {
         root.render(<MagazineWorkspacePage />);
       });
 
-      const shell = container.querySelector('[data-testid="workspace-shell"]');
-      expect(shell).not.toBeNull();
-      expect(shell?.getAttribute('data-workspace')).toBe('magazine');
-
-      // Verify Column 1 past issues list
-      const listSlot = container.querySelector('[data-testid="magazine-list-slot"]');
-      expect(listSlot).not.toBeNull();
-      expect(listSlot?.textContent).toContain('제 42호');
-      expect(listSlot?.textContent).toContain('제 41호');
-
-      // Verify Column 2 editor
-      const editorSlot = container.querySelector('[data-testid="magazine-editor-slot"]');
-      expect(editorSlot).not.toBeNull();
-      expect(editorSlot?.textContent).toContain('소식지 제목');
-      expect(editorSlot?.textContent).toContain('금주 추천 매물');
-      expect(editorSlot?.textContent).toContain('시장 브리핑 및 중개인 코멘트');
-    });
-
-    it('switches selected past issue and loads its content into editor', async () => {
-      await act(async () => {
-        root.render(<MagazineWorkspacePage />);
-      });
-
-      const listSlot = container.querySelector('[data-testid="magazine-list-slot"]');
-      const editorSlot = container.querySelector('[data-testid="magazine-editor-slot"]');
-
-      // Initially issue 42 is selected
-      expect(editorSlot?.textContent).toContain('제 42호 소식지 편집');
-
-      // Click Issue 41
-      const issueItems = Array.from(listSlot!.querySelectorAll('[role="button"]'));
-      const issue41 = issueItems.find((el) => el.textContent?.includes('제 41호'));
-      expect(issue41).toBeDefined();
-
-      await act(async () => {
-        (issue41 as HTMLElement).click();
-      });
-
-      // Editor should now show issue 41
-      expect(editorSlot?.textContent).toContain('제 41호 소식지 편집');
-      const titleInput = editorSlot?.querySelector('input[type="text"]') as HTMLInputElement;
-      expect(titleInput?.value).toContain('제 41호: 강남 도산대로 이면 사옥 매물 특집');
-    });
-
-    it('creates a new issue draft with incremented issue number', async () => {
-      await act(async () => {
-        root.render(<MagazineWorkspacePage />);
-      });
-
-      const listSlot = container.querySelector('[data-testid="magazine-list-slot"]');
-      const newIssueBtn = Array.from(listSlot!.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('+ 새 소식지 작성')
-      );
-      expect(newIssueBtn).toBeDefined();
-
-      await act(async () => {
-        newIssueBtn?.click();
-      });
-
-      // New issue 43 should be prepended
-      expect(listSlot?.textContent).toContain('제 43호');
-      const editorSlot = container.querySelector('[data-testid="magazine-editor-slot"]');
-      expect(editorSlot?.textContent).toContain('제 43호 소식지 편집');
-    });
-
-    it('supports 1-click Deal Card & IM insertion and deal item removal', async () => {
-      await act(async () => {
-        root.render(<MagazineWorkspacePage />);
-      });
-
-      const editorSlot = container.querySelector('[data-testid="magazine-editor-slot"]');
-      expect(editorSlot).not.toBeNull();
-
-      // Find insertion buttons
-      const buttons = Array.from(container.querySelectorAll('button'));
-      const insertDealCardBtn = buttons.find((b) => b.textContent?.includes('+ 딜카드 1초 삽입'));
-      const insertImBtn = buttons.find((b) => b.textContent?.includes('+ 추천 IM 삽입'));
-
-      expect(insertDealCardBtn).toBeDefined();
-      expect(insertImBtn).toBeDefined();
-
-      // 1. Click insert Deal Card
-      await act(async () => {
-        insertDealCardBtn?.click();
-      });
-
-      expect(editorSlot?.textContent).toContain('마포구 서교동 올근생 꼬마빌딩');
-      expect(editorSlot?.textContent).toContain('60~70억');
-
-      // 2. Click insert IM
-      await act(async () => {
-        insertImBtn?.click();
-      });
-
-      expect(editorSlot?.textContent).toContain('강남구 신사동 사옥형 빌딩');
-      expect(editorSlot?.textContent).toContain('140~150억');
-
-      // 3. Test removal button
-      const removeButtons = Array.from(editorSlot!.querySelectorAll('button')).filter(
-        (b) => b.textContent?.trim() === '제거'
-      );
-      expect(removeButtons.length).toBeGreaterThan(0);
-
-      await act(async () => {
-        removeButtons[0]?.click();
-      });
-    });
-
-    it('renders live mobile phone preview and 56px primary publish action button', async () => {
-      await act(async () => {
-        root.render(<MagazineWorkspacePage />);
-      });
-
-      const previewSlot = container.querySelector('[data-testid="magazine-preview-slot"]');
-      expect(previewSlot).not.toBeNull();
-      expect(previewSlot?.textContent).toContain('주간 소식지');
-      expect(previewSlot?.textContent).toContain('크리딜 파트너스 부동산중개법인');
-
-      // Primary action button in Column 3
-      const publishBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('🚀 발행하고 보내기')
-      );
-      expect(publishBtn).toBeDefined();
-
-      // Click publish button to trigger publishing status
-      await act(async () => {
-        publishBtn?.click();
-      });
-
-      expect(publishBtn?.textContent).toContain('🚀 발행 중...');
+      const redirectEl = container.querySelector('[data-testid="magazine-workspace-redirect"]');
+      expect(redirectEl).not.toBeNull();
+      expect(redirectEl?.textContent).toContain('고객 소식지 편집실로 이동 중입니다');
+      expect(mockReplace).toHaveBeenCalledWith('/broker/magazine-editor');
     });
   });
 });

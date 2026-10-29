@@ -164,6 +164,14 @@ describe('PATCH /api/magazine/editions — 낙관적 동시성·잠금', () => {
     );
     expect(res.status).toBe(200);
   });
+
+  it('PATCH 로 status === "published" 직접 변경 시도 시 400 거부', async () => {
+    const res = await PATCH(req('/api/magazine/editions', { id: 'ed-draft', status: 'published' }, 'PATCH'));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('Direct publish via PATCH is disallowed. Use POST /api/magazine/editions/[id]/publish');
+    expect(callsOf('magazine_editions', 'update')).toHaveLength(0);
+  });
 });
 
 describe('POST /api/magazine/editions/draft', () => {

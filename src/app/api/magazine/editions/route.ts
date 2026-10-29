@@ -242,6 +242,13 @@ export async function PATCH(request: NextRequest) {
     const { id } = parsed.data;
     const expectedUpdatedAt = parsed.data.expected_updated_at;
 
+    if (parsed.data.status === "published") {
+      return NextResponse.json(
+        { error: "Direct publish via PATCH is disallowed. Use POST /api/magazine/editions/[id]/publish" },
+        { status: 400 },
+      );
+    }
+
     if (parsed.data.content !== undefined) {
       const draft = parseEditionContentDraft(parsed.data.content);
       if (!draft.ok) {
@@ -291,10 +298,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // 최초 발행 전이일 때만 published_at 기록 (이미 발행본의 재저장은 시각 유지)
-    if (updates.status === "published" && existing.status !== "published") {
-      updates.published_at = new Date().toISOString();
-    }
     updates.updated_at = new Date().toISOString();
 
     let updateQuery = supabase

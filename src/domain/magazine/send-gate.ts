@@ -79,6 +79,8 @@ export interface GateInput {
   editionId?: string | null;
   /** 멱등 키 접두: `${brokerSlug}:${issueDate}:${kind}` (속보는 `:${editionId}` 추가) */
   editionKey: string;
+  /** 명시적 멱등 키 (예: recipient_hash 기반). 생략 시 ${editionKey}:${sub.id}:${channel} */
+  idempotencyKey?: string;
   /** 구독자 broker_id 컬럼 값(slug) */
   brokerId: string;
   brokerUserId?: string | null;
@@ -126,7 +128,8 @@ function recipientOf(sub: GateSubscriber, channel: GateChannel): string {
   return channel === 'email' ? (sub.subscriber_email ?? '') : (sub.subscriber_phone ?? '');
 }
 
-function hashRecipient(normalized: string): string {
+export function hashRecipient(input: string): string {
+  const normalized = normalizeRecipient(input);
   return createHash('sha256').update(normalized).digest('hex').slice(0, 32);
 }
 
@@ -237,9 +240,9 @@ export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<G
 
   // 1~6. 순수 검사
   const verdict = evaluateGate(input, now, dryRun);
-  const key = buildIdempotencyKey(input.editionKey, sub.id, channel);
   const normalized = normalizeRecipient(recipientOf(sub, channel));
   const recipientHash = hashRecipient(normalized);
+  const key = input.idempotencyKey ?? buildIdempotencyKey(input.editionKey, sub.id, channel);
 
   if (verdict) {
     if (verdict.blocked === 'SEND_DISABLED') return { ok: false, ...verdict };

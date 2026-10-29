@@ -21,7 +21,7 @@ export default function MagazineEditorError({
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#0B1120] p-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#FAF9F5] p-6 text-[#0F172A]">
       <ErrorState
         className="w-full max-w-md"
         title="콘텐츠 스튜디오를 열지 못했습니다"
@@ -31,7 +31,7 @@ export default function MagazineEditorError({
       />
       <Link
         href="/broker"
-        className="inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-body text-ink-muted hover:text-white"
+        className="inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-body text-[#475569] hover:text-[#0F172A]"
       >
         대시보드로 돌아가기
       </Link>

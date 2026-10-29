@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import path from "path";
 
 // ── H-01 보안 헤더 (S2-27) ───────────────────────────────────────────────────
 // CSP 는 Report-Only 로만 추가(1주 관찰 후 enforce). 외부 의존은 코드 grep 기준:
@@ -31,15 +30,7 @@ const COMMON_SECURITY_HEADERS = [
   { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
 ];
 
-const projectRoot = process.env.TURBOPACK_ROOT
-  ? path.resolve(process.env.TURBOPACK_ROOT)
-  : path.resolve(__dirname);
-
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: projectRoot,
-  },
-  outputFileTracingRoot: projectRoot,
   // E2E 격리: 별도 포트 dev 서버가 사용자 dev 서버와 .next 를 공유하지 않도록 (미설정 시 기본 .next)
   distDir: process.env.NEXT_DIST_DIR || ".next",
   images: {

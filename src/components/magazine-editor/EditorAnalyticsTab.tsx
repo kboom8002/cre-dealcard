@@ -47,14 +47,19 @@ async function requestAnalytics(tier: HotLeadTier): Promise<LoadState> {
   try {
     const res = await fetch(`/api/broker/magazine/analytics?tier=${tier}`);
     if (!res.ok) {
-      // 실패를 빈 데이터로 위장하지 않는다 — ErrorState + 재시도
-      return { status: 'error', message: await messageFromResponse(res) };
+      const rawMsg = await messageFromResponse(res);
+      // Clean user-friendly fallback if raw DB error is returned
+      const isDbError = /relation|column|syntax|database|postgres|pgrst|select|from|where|null value|error:/i.test(rawMsg);
+      const message = isDbError
+        ? "성과 데이터를 일시적으로 불러올 수 없습니다. 잠시 후 다시 시도해 주세요."
+        : (rawMsg || "성과 데이터를 일시적으로 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      return { status: 'error', message };
     }
     const json = (await res.json()) as AnalyticsData;
     return { status: 'ready', data: json };
   } catch (err) {
     console.error('[EditorAnalyticsTab] fetch failed:', err);
-    return { status: 'error', message: toUserMessage(err) };
+    return { status: 'error', message: "네트워크 연결 상태를 확인하고 다시 시도해 주세요." };
   }
 }
 

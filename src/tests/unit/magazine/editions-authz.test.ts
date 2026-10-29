@@ -118,12 +118,12 @@ describe('PATCH /api/magazine/editions', () => {
     expect(upd.filters).toEqual(expect.arrayContaining([['eq', 'id', 'ed-a-draft'], ['in', 'broker_id', ['broker-a', UA]]]));
   });
 
-  it('draft → published 최초 전이 시 published_at 기록', async () => {
+  it('PATCH로 status=published 직접 전이 시 400 거부 (단일 발행 경로 강제)', async () => {
     const res = await PATCH(req('/api/magazine/editions', { method: 'PATCH', body: { id: 'ed-a-draft', status: 'published' } }));
-    expect(res.status).toBe(200);
-    const payload = callsOf('magazine_editions', 'update')[0].payload as Record<string, unknown>;
-    expect(payload.status).toBe('published');
-    expect(typeof payload.published_at).toBe('string');
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Direct publish via PATCH is disallowed. Use POST /api/magazine/editions/[id]/publish");
+    expect(callsOf('magazine_editions', 'update')).toHaveLength(0);
   });
 
   it('published 잠금: draft 복귀 PATCH → 409 PUBLISHED_LOCKED, update 미실행', async () => {
@@ -133,11 +133,12 @@ describe('PATCH /api/magazine/editions', () => {
     expect(callsOf('magazine_editions', 'update')).toHaveLength(0);
   });
 
-  it('이미 published를 published로 재저장하면 published_at을 덮어쓰지 않는다', async () => {
+  it('이미 published인 에디터에 status=published로 PATCH 시도 시에도 400 거부', async () => {
     const res = await PATCH(req('/api/magazine/editions', { method: 'PATCH', body: { id: 'ed-a-pub', status: 'published', title: '정정' } }));
-    expect(res.status).toBe(200);
-    const payload = callsOf('magazine_editions', 'update')[0].payload as Record<string, unknown>;
-    expect(payload).not.toHaveProperty('published_at');
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Direct publish via PATCH is disallowed. Use POST /api/magazine/editions/[id]/publish");
+    expect(callsOf('magazine_editions', 'update')).toHaveLength(0);
   });
 
   it('허용되지 않는 필드(broker_id)는 무시되고, 비정상 입력은 400', async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { GLOSSARY, formatManwonInt, formatPriceKo, formatSignedManwon } from "@/lib/magazine/view-helpers";
 import {
@@ -93,6 +93,94 @@ export function parseKoreanEokInput(raw: unknown): number | null {
   return Math.round(num * 100) / 100;
 }
 
+/**
+ * 한국어 월세(만원 단위) 입력 파서.
+ * - '2500', '2500만', '2500만원' → 2500 (만원)
+ * - '1천5백', '1천5백만', '1천5백만원' → 1500 (만원)
+ * - '1천만', '1천' → 1000 (만원)
+ * - '5백만', '5백' → 500 (만원)
+ * - '2천 5백' → 2500 (만원)
+ * - '25,000,000' (원 단위) → 2500 (만원)
+ */
+export function parseKoreanManwonInput(raw: unknown): number | null {
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw) || raw < 0) return null;
+    if (raw >= 100_000) return Math.round(raw / 10_000);
+    return Math.round(raw);
+  }
+  if (typeof raw !== "string") return null;
+  const cleaned = raw.replace(/,/g, "").replace(/원/g, "").trim();
+  if (!cleaned) return null;
+
+  // 1. 억 단위 포함 시 (예: '1억', '1억 2천')
+  if (cleaned.includes("억")) {
+    const eokParsed = parseKoreanEokInput(cleaned);
+    if (eokParsed !== null) {
+      return Math.round(eokParsed * 10_000);
+    }
+  }
+
+  // 2. '만' 접미사 제거 후 한글 수사(천, 백, 십) 파싱
+  const withoutMan = cleaned.replace(/만$/, "").trim();
+
+  if (/[천백십]/.test(withoutMan)) {
+    let totalMan = 0;
+    let remaining = withoutMan;
+
+    const cheonMatch = remaining.match(/(\d+(?:\.\d+)?)\s*천/);
+    if (cheonMatch) {
+      totalMan += Number(cheonMatch[1]) * 1000;
+      remaining = remaining.replace(cheonMatch[0], "");
+    } else if (remaining.includes("천")) {
+      totalMan += 1000;
+      remaining = remaining.replace("천", "");
+    }
+
+    const baekMatch = remaining.match(/(\d+(?:\.\d+)?)\s*백/);
+    if (baekMatch) {
+      totalMan += Number(baekMatch[1]) * 100;
+      remaining = remaining.replace(baekMatch[0], "");
+    } else if (remaining.includes("백")) {
+      totalMan += 100;
+      remaining = remaining.replace("백", "");
+    }
+
+    const sipMatch = remaining.match(/(\d+(?:\.\d+)?)\s*십/);
+    if (sipMatch) {
+      totalMan += Number(sipMatch[1]) * 10;
+      remaining = remaining.replace(sipMatch[0], "");
+    } else if (remaining.includes("십")) {
+      totalMan += 10;
+      remaining = remaining.replace("십", "");
+    }
+
+    const rest = remaining.trim();
+    if (rest) {
+      const restNum = Number(rest);
+      if (Number.isFinite(restNum)) {
+        totalMan += restNum;
+      }
+    }
+
+    if (totalMan > 0) return Math.round(totalMan);
+  }
+
+  // 3. '1500만' 형식
+  const manMatch = cleaned.match(/^(\d+(?:\.\d+)?)\s*만$/);
+  if (manMatch) {
+    const val = Number(manMatch[1]);
+    return Number.isFinite(val) ? Math.round(val) : null;
+  }
+
+  // 4. 순수 숫자
+  const num = Number(cleaned);
+  if (!Number.isFinite(num) || num < 0) return null;
+  if (num >= 100_000) {
+    return Math.round(num / 10_000);
+  }
+  return Math.round(num);
+}
+
 export function RoiCalculator({
   defaultPrice,
   defaultDeposit,
@@ -109,6 +197,36 @@ export function RoiCalculator({
     totalFloors: defaultTotalFloors || ROI_DEFAULTS.totalFloors,
   });
   const touched = useRef<Set<string>>(new Set());
+
+  // 추천 매물 수지분석 바로가기(cre-prefill-roi) 이벤트 수신
+  useEffect(() => {
+    const handlePrefill = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        purchasePrice?: number;
+        deposit?: number;
+        monthlyRent?: number;
+        totalFloors?: number;
+      }>;
+      if (!customEvent.detail) return;
+      const { purchasePrice, deposit, monthlyRent, totalFloors } = customEvent.detail;
+      setInputs((prev) => ({
+        ...prev,
+        ...(typeof purchasePrice === "number" && purchasePrice > 0 ? { purchasePrice } : {}),
+        ...(typeof deposit === "number" && deposit >= 0 ? { deposit } : {}),
+        ...(typeof monthlyRent === "number" && monthlyRent >= 0 ? { monthlyRent } : {}),
+        ...(typeof totalFloors === "number" && totalFloors > 0
+          ? {
+              totalFloors,
+              vacancyFloors: Math.min(prev.vacancyFloors, totalFloors),
+            }
+          : {}),
+      }));
+    };
+    window.addEventListener("cre-prefill-roi", handlePrefill);
+    return () => {
+      window.removeEventListener("cre-prefill-roi", handlePrefill);
+    };
+  }, []);
 
   // 이벤트 핸들러에서만 호출된다(렌더 중 호출 금지 — react-hooks/refs). 계산 결과 불변.
   const update = <K extends keyof RoiInputs>(key: K, v: number) => {
@@ -239,6 +357,7 @@ export function RoiCalculator({
           unit="만원"
           format={(v) => formatManwonInt(v)}
           accent={accentColor}
+          useKoreanManwonParser
         />
         <SliderInput
           id="roi-vacancy"
@@ -256,10 +375,23 @@ export function RoiCalculator({
         />
       </div>
 
-      {/* 결과 카드 — 자식 순서 고정: [label p] → [값 p] → [tone p] → [<p>sub</p>] → [한글 보조 span] */}
-      <div className="grid grid-cols-3 gap-2" aria-live="polite">
-        <ResultCard label="연 순수익률" sub="Cap Rate" helperKo="(연 임대수익률)" value={pct(result.capRate)} tone={capTone} />
-        <ResultCard label="자기자본수익률" sub="Cash-on-Cash" helperKo="(실투자금 대비)" value={pct(result.cashOnCash)} tone={cashTone} />
+      {/* 결과 카드 — 360px 모바일 1+2 반응형 그리드: [label p] → [값 p] → [tone p] → [<p>sub</p>] → [한글 보조 span] */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" aria-live="polite">
+        <ResultCard
+          label="연 순수익률"
+          sub="Cap Rate"
+          helperKo="(연 임대수익률)"
+          value={pct(result.capRate)}
+          tone={capTone}
+          prominent
+        />
+        <ResultCard
+          label="자기자본수익률"
+          sub="Cash-on-Cash"
+          helperKo="(실투자금 대비)"
+          value={pct(result.cashOnCash)}
+          tone={cashTone}
+        />
         <ResultCard
           label="월 순현금흐름"
           sub="Net Cash Flow"
@@ -365,7 +497,7 @@ function Row({ dt, dd }: { dt: React.ReactNode; dd: React.ReactNode }) {
 
 // ── 슬라이더 + 직접 입력 + 48×48 미세조절 스테퍼 ──
 function SliderInput({
-  id, label, value, onChange, min, max, step, scale, unit, decimals = 0, format, danger, accent, useKoreanEokParser = false,
+  id, label, value, onChange, min, max, step, scale, unit, decimals = 0, format, danger, accent, useKoreanEokParser = false, useKoreanManwonParser = false,
 }: {
   id: string;
   label: string;
@@ -382,6 +514,7 @@ function SliderInput({
   danger?: boolean;
   accent: string;
   useKoreanEokParser?: boolean;
+  useKoreanManwonParser?: boolean;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -417,6 +550,35 @@ function SliderInput({
           setNotice(`입력하신 금액을 최대 기준인 ${maxEok}억 원으로 맞추었습니다`);
         } else if (wasWonScale) {
           setNotice(`원 단위 입력(${parsedEok}억 원)으로 자동 변환했습니다`);
+        } else {
+          setNotice(null);
+        }
+      }
+      setDraft(null);
+      return;
+    }
+
+    if (useKoreanManwonParser) {
+      const parsedManwon = parseKoreanManwonInput(rawTrimmed);
+      if (parsedManwon === null) {
+        setNotice("숫자 또는 '1천5백만' 형식으로 입력해 주세요");
+        setDraft(null);
+        return;
+      }
+      const rawNum = Number(rawTrimmed.replace(/,/g, "").replace(/원/g, "").trim());
+      const wasWonScale = Number.isFinite(rawNum) && rawNum >= 100_000;
+      const targetWon = parsedManwon * scale;
+      const clamped = clampInput(targetWon, min, max);
+      if (clamped !== null) {
+        onChange(clamped);
+        const minMan = min / scale;
+        const maxMan = max / scale;
+        if (targetWon < min) {
+          setNotice(`입력하신 금액을 최소 기준인 ${minMan}만 원으로 맞추었습니다`);
+        } else if (targetWon > max) {
+          setNotice(`입력하신 금액을 최대 기준인 ${maxMan}만 원으로 맞추었습니다`);
+        } else if (wasWonScale) {
+          setNotice(`원 단위 입력(${parsedManwon}만 원)으로 자동 변환했습니다`);
         } else {
           setNotice(null);
         }
@@ -525,18 +687,25 @@ function SliderInput({
 
 // ── 결과 카드 — 자식 순서 고정: [값 엘리먼트] → [tone 엘리먼트] → [<p>sub</p>] → [<span>한글 보조</span>] ──
 function ResultCard({
-  label, sub, helperKo, value, tone,
+  label, sub, helperKo, value, tone, prominent = false,
 }: {
   label: string;
   sub: React.ReactNode;
   helperKo?: string;
   value: string;
   tone: { c: string; t: string };
+  prominent?: boolean;
 }) {
   return (
-    <div className="space-y-0.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5 text-center">
+    <div
+      className={`space-y-0.5 rounded-xl border p-2.5 text-center transition-all ${
+        prominent
+          ? "col-span-2 sm:col-span-1 border-emerald-500/30 bg-emerald-500/10 py-3"
+          : "col-span-1 border-white/10 bg-white/[0.03]"
+      }`}
+    >
       <p className="text-caption text-ink-muted">{label}</p>
-      <p className="text-title font-black" style={{ color: tone.c }}>
+      <p className={`font-black ${prominent ? "text-2xl sm:text-title" : "text-title"}`} style={{ color: tone.c }}>
         {value}
       </p>
       <p className="text-caption font-bold text-ink-muted">{tone.t}</p>

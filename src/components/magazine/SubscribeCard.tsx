@@ -177,25 +177,24 @@ export function SubscribeCard({ brokerId, source, accentColor = '#4f46e5', broke
       {status === 'success' && done.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL' ? (
         <div
           role="status"
-          aria-label="확인용 이메일 추가 입력"
-          className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-left text-amber-950 space-y-3"
+          aria-label="구독 접수 완료"
+          className="rounded-2xl border border-emerald-500/40 bg-emerald-950/70 p-5 text-left text-emerald-100 space-y-4 shadow-lg backdrop-blur-sm"
         >
-          <p className="text-[15px] font-semibold text-amber-900 break-keep">
-            구독 신청이 접수되었습니다. 확인 후 발송이 시작됩니다.
-          </p>
-          <p className="text-[17px] font-bold leading-snug text-amber-950 break-keep">
-            ⚠️ 아직 구독 신청이 끝나지 않았어요 — 확인용 이메일을 적어 주세요
-          </p>
-          <p className="text-[15px] leading-relaxed text-amber-900 break-keep">
-            현재 본인 확인 링크는 이메일로 발송됩니다. 아래에 이메일 주소를 적고 버튼을 누르시면 바로 구독 확인이 진행됩니다.
-          </p>
+          <div className="space-y-1.5">
+            <h3 className="text-[18px] sm:text-[19px] font-extrabold text-white leading-snug break-keep">
+              🎉 구독 신청이 접수되었습니다! (이메일을 함께 남겨주시면 매주 발행 즉시 자동 발송됩니다)
+            </h3>
+            <p className="text-[15px] leading-relaxed text-emerald-200/90 break-keep">
+              전화번호로 신청이 안전하게 완료되었습니다. 이메일 주소를 함께 남겨주시면 매주 발행 즉시 기다림 없이 자동으로 전달됩니다.
+            </p>
+          </div>
           {done.notice && (
-            <p className="text-[14px] font-semibold text-amber-900 break-keep">{done.notice}</p>
+            <p className="text-[14px] font-semibold text-emerald-300 break-keep">{done.notice}</p>
           )}
-          <form onSubmit={handleFollowUpEmailSubmit} className="space-y-2.5" noValidate>
+          <form onSubmit={handleFollowUpEmailSubmit} className="space-y-2.5 pt-1" noValidate>
             <div>
-              <label htmlFor={`${uid}-followup-email`} className="block mb-1.5 text-[15px] font-bold text-amber-950">
-                확인 링크를 받을 이메일 주소
+              <label htmlFor={`${uid}-followup-email`} className="block mb-1.5 text-[15px] font-bold text-slate-100">
+                이메일 주소 추가 등록 (선택)
               </label>
               <input
                 id={`${uid}-followup-email`}
@@ -206,26 +205,26 @@ export function SubscribeCard({ brokerId, source, accentColor = '#4f46e5', broke
                 value={followUpEmail}
                 onChange={(e) => setFollowUpEmail(e.target.value)}
                 required
-                className="w-full min-h-12 rounded-xl border-2 border-amber-400 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 outline-none focus:border-amber-700"
+                className="w-full min-h-12 rounded-xl border border-slate-500 bg-slate-900/90 px-3.5 py-2.5 text-[16px] text-white placeholder:text-slate-400 outline-none focus:border-emerald-400 transition-colors"
               />
             </div>
             {errorMsg && (
-              <p role="alert" className="text-[15px] font-bold text-rose-800">
+              <p role="alert" className="text-[15px] font-bold text-rose-300">
                 {errorMsg}
               </p>
             )}
             <button
               type="submit"
-              className="w-full min-h-[52px] rounded-xl bg-amber-900 px-4 py-3 text-[17px] font-bold text-white shadow-xs transition hover:bg-amber-950"
+              className="w-full min-h-[52px] rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-[17px] font-bold text-white shadow-md transition-colors"
             >
-              📧 이메일 입력하고 구독 완료하기
+              📧 이메일 함께 등록하고 자동 발송 받기
             </button>
           </form>
           <a
             href={phoneCallHref}
-            className="flex min-h-12 w-full items-center justify-center rounded-xl border border-amber-700 bg-white px-4 py-2.5 text-center text-[15px] font-bold text-amber-950 transition hover:bg-amber-100"
+            className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-center text-[15px] font-semibold text-slate-200 transition hover:bg-white/10"
           >
-            📞 이메일이 없으신가요? 중개사에게 전화로 구독 신청하기
+            📞 중개사에게 전화로 직접 문의하기
           </a>
         </div>
       ) : status === 'success' ? (

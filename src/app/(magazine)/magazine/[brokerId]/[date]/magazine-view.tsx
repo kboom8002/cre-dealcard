@@ -72,6 +72,8 @@ const STAT_TONE: Record<string, string> = {
 };
 
 const DEAL_FALLBACK_BG = "linear-gradient(135deg, #1e1b4b, #312e81)";
+const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+const PYEONG_RATIO = 0.3025;
 
 function strArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "") : [];
@@ -160,8 +162,12 @@ export function MagazineView({
       <div className="overflow-hidden rounded-2xl border border-indigo-500/15" style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.07) 0%, rgba(15,15,35,0.8) 100%)" }}>
         <div className="flex items-center gap-1.5 border-b border-white/5 px-4 py-3">
           <Sparkles className="h-4 w-4 text-indigo-300" aria-hidden="true" />
-          <h2 className="text-label font-bold text-indigo-200">AI 마켓 에디터 브리핑</h2>
-          <div className="ml-auto"><DataBadge type="ai" /></div>
+          <h2 className="text-label font-bold text-indigo-200">공인중개사 현장 브리핑</h2>
+          <div className="ml-auto">
+            <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-sm font-bold text-indigo-200">
+              ✍️ 공인중개사 현장 브리핑
+            </span>
+          </div>
         </div>
         <div className="p-4">
           <RichBriefing text={briefingText} />
@@ -190,14 +196,14 @@ export function MagazineView({
           {themeAssetTypes.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {themeAssetTypes.map((t, i) => (
-                <span key={i} className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-caption font-bold text-amber-300">{t}</span>
+                <span key={i} className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-sm font-bold text-amber-300">{t}</span>
               ))}
             </div>
           )}
         </div>
         {themeDeals.length > 0 && (
           <div className="space-y-2 px-4 pb-4">
-            <h3 className="mb-1 text-caption font-bold text-slate-300">테마 관련 매물</h3>
+            <h3 className="mb-1 text-sm font-bold text-slate-300">테마 관련 매물</h3>
             {themeDeals.map((deal, i) => {
               const safeAddress = sanitizeDealAddress(deal.address);
               const priceLabel = formatPriceKo(deal.price);
@@ -247,7 +253,7 @@ export function MagazineView({
           <span
             data-deals-counter=""
             data-deals-total={featuredDeals.length}
-            className="ml-auto rounded-full border border-rose-500/25 bg-rose-500/15 px-2.5 py-1 text-caption font-bold text-rose-200"
+            className="ml-auto rounded-full border border-rose-500/25 bg-rose-500/15 px-2.5 py-1 text-sm font-bold text-rose-200"
           >
             1 / {featuredDeals.length}
           </span>
@@ -278,8 +284,81 @@ export function MagazineView({
         >
           {featuredDeals.map((deal, i) => {
             const safeAddress = sanitizeDealAddress(deal.address);
-            const priceLabel = formatPriceKo(deal.price);
+            const rawPriceWon =
+              typeof deal.priceWon === "number" && deal.priceWon > 0
+                ? deal.priceWon
+                : typeof deal.price === "number" && deal.price > 0
+                ? deal.price
+                : null;
+            const priceLabel = formatPriceKo(rawPriceWon || deal.price);
+            const priceDisplay = priceLabel.endsWith("원") || priceLabel === "-" ? priceLabel : `${priceLabel} 원`;
+
+            // 실질 수익률 (보증금 차감)
+            const yieldVal =
+              typeof deal.grossYieldNetOfDeposit === "number" && deal.grossYieldNetOfDeposit > 0
+                ? deal.grossYieldNetOfDeposit
+                : typeof deal.netYieldOnDeposit === "number" && deal.netYieldOnDeposit > 0
+                ? deal.netYieldOnDeposit
+                : typeof deal.grossYieldOnPrice === "number" && deal.grossYieldOnPrice > 0
+                ? deal.grossYieldOnPrice
+                : null;
+            const yieldLabel = yieldVal !== null ? `${yieldVal.toFixed(2)}%` : null;
+
+            // 대지 및 연면적 (평) - PYEONG_RATIO = 0.3025
+            const landPyeong =
+              typeof deal.landAreaPyeong === "number"
+                ? deal.landAreaPyeong
+                : typeof deal.landAreaM2 === "number"
+                ? Math.round(deal.landAreaM2 * PYEONG_RATIO * 10) / 10
+                : null;
+            const gfaPyeong =
+              typeof deal.grossFloorAreaPyeong === "number"
+                ? deal.grossFloorAreaPyeong
+                : typeof deal.grossFloorAreaM2 === "number"
+                ? Math.round(deal.grossFloorAreaM2 * PYEONG_RATIO * 10) / 10
+                : null;
+            const areaDisplay =
+              landPyeong !== null && gfaPyeong !== null
+                ? `대지 ${landPyeong}평 · 연 ${gfaPyeong}평`
+                : gfaPyeong !== null
+                ? `연면적 ${gfaPyeong}평`
+                : landPyeong !== null
+                ? `대지 ${landPyeong}평`
+                : deal.areaSignal || null;
+
+            // 용도지역 및 층수
+            const zoning = deal.zoning ? String(deal.zoning) : null;
+            const floorsStr = deal.floors
+              ? String(deal.floors)
+              : typeof deal.totalFloors === "number"
+              ? `지상 ${deal.totalFloors}층`
+              : null;
+            const specLine = [zoning, floorsStr].filter(Boolean).join(" · ");
+
+            // 1줄 핵심 투자 포인트
+            const investmentPoint = deal.investmentPoint || deal.point || null;
+
+            // IM URL / 직결 여부
             const dealIdStr = String(deal.id ?? i);
+            const isUuidDeal = UUID_PREFIX_RE.test(String(deal.id ?? ""));
+            const directImUrl = deal.imUrl || (isUuidDeal ? `/im-lite/${encodeURIComponent(String(deal.id))}` : null);
+
+            // ROI 계산기 프리필 데이터 (원 단위)
+            const depositWon =
+              typeof deal.deposit === "number" && deal.deposit >= 0
+                ? deal.deposit
+                : undefined;
+            const rentWon =
+              typeof deal.monthlyRent === "number" && deal.monthlyRent >= 0
+                ? deal.monthlyRent
+                : undefined;
+            const floorsNum =
+              typeof deal.totalFloors === "number"
+                ? deal.totalFloors
+                : deal.floors
+                ? parseInt(String(deal.floors).replace(/\D/g, ""), 10) || undefined
+                : undefined;
+
             const inquiryProps = {
               "data-deal-inquiry": "true",
               "data-deal-id": String(deal.id ?? ""),
@@ -288,11 +367,11 @@ export function MagazineView({
               "data-deal-price": priceLabel,
               "data-deal-signal": String(deal.areaSignal ?? ""),
             };
+
             return (
               <li
                 key={i}
-                className="block w-[285px] sm:w-[300px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/15 transition-all duration-300 hover:border-white/25"
-                style={{ background: "rgba(255,255,255,0.035)" }}
+                className="block w-[300px] sm:w-[320px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/15 bg-white/[0.035] transition-all duration-300 hover:border-white/25"
               >
                 <a
                   href={`#deal-inquiry-${encodeURIComponent(dealIdStr)}`}
@@ -303,47 +382,133 @@ export function MagazineView({
                   data-track-from="featured"
                   className="block min-h-12"
                 >
-                  <div className="relative h-[135px] w-full overflow-hidden" style={{ background: DEAL_FALLBACK_BG }}>
+                  <div className="relative h-[145px] w-full overflow-hidden" style={{ background: DEAL_FALLBACK_BG }}>
                     {deal.photoUrl
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={deal.photoUrl} alt="" width={285} height={135} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                      ? <img src={deal.photoUrl} alt="" width={320} height={145} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
                       : <div className="flex h-full w-full items-center justify-center"><Building2 className="h-8 w-8 text-indigo-300/50" aria-hidden="true" /></div>}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
-                    <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between">
-                      {deal.areaSignal ? <span className="rounded-lg bg-black/65 px-2 py-0.5 text-caption font-bold text-white">{deal.areaSignal}</span> : <span />}
-                      {deal.buyerInterestCount > 0 && <span className="rounded-lg border border-rose-500/30 bg-rose-950/80 px-2 py-0.5 text-caption font-bold text-rose-200">관심 {deal.buyerInterestCount}명</span>}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between gap-1.5">
+                      {yieldLabel ? (
+                        <span className="rounded-lg bg-emerald-950/90 border border-emerald-400/40 px-2 py-0.5 text-sm font-extrabold text-emerald-300 shadow">
+                          실질 {yieldLabel}
+                        </span>
+                      ) : deal.areaSignal ? (
+                        <span className="rounded-lg bg-black/75 px-2 py-0.5 text-sm font-bold text-white">
+                          {deal.areaSignal}
+                        </span>
+                      ) : <span />}
+                      {deal.buyerInterestCount > 0 && (
+                        <span className="rounded-lg border border-rose-500/30 bg-rose-950/80 px-2 py-0.5 text-xs font-bold text-rose-200">
+                          관심 {deal.buyerInterestCount}명
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="p-3.5">
-                    <h3 className="mb-0.5 line-clamp-1 text-label font-bold text-white">{deal.assetType}</h3>
-                    <p className="mb-2 line-clamp-1 text-caption text-slate-300">{safeAddress}</p>
-                    <p className="text-body font-extrabold" style={{ color: accent }}>{priceLabel}</p>
+                  <div className="p-3.5 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="line-clamp-1 text-[16px] font-bold text-white leading-tight">
+                          {deal.assetType || "상업용 빌딩"}
+                        </h3>
+                        <p className="mt-0.5 line-clamp-1 text-sm text-slate-300">{safeAddress}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs text-slate-300 block font-medium">매매가</span>
+                        <span className="text-[17px] font-extrabold font-mono" style={{ color: accent }}>
+                          {priceDisplay}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 스펙 그리드: 면적(평) / 용도·층수 */}
+                    {(areaDisplay || specLine) && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2 space-y-1 text-sm">
+                        {areaDisplay && (
+                          <div className="flex items-center justify-between gap-2 text-slate-200">
+                            <span className="text-slate-300 shrink-0 text-xs font-medium">면적</span>
+                            <span className="font-semibold truncate text-xs sm:text-sm">{areaDisplay}</span>
+                          </div>
+                        )}
+                        {specLine && (
+                          <div className="flex items-center justify-between gap-2 text-slate-200">
+                            <span className="text-slate-300 shrink-0 text-xs font-medium">용도·층수</span>
+                            <span className="font-semibold truncate text-xs sm:text-sm">{specLine}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 1줄 핵심 투자 포인트 */}
+                    {investmentPoint && (
+                      <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 text-sm text-indigo-200 font-medium line-clamp-2">
+                        💡 {investmentPoint}
+                      </div>
+                    )}
                   </div>
                 </a>
-                <div className="flex gap-2 px-3.5 pb-3.5 pt-1">
-                  <a
-                    href={`#deal-inquiry-im-${encodeURIComponent(dealIdStr)}`}
-                    {...inquiryProps}
-                    data-track-click="featured_deal_im"
-                    data-track="im_request"
-                    data-track-listing-id={deal.id}
-                    data-track-from="featured"
-                    className="flex min-h-12 flex-1 items-center justify-center rounded-xl border px-2 text-center text-caption font-bold transition-colors"
-                    style={{ background: `${accent}18`, color: accent, borderColor: `${accent}35` }}
-                  >
-                    투자설명서 요청
-                  </a>
+
+                {/* Primary CTAs: [📄 모바일 IM 열람] + [🧮 이 매물 수지분석] */}
+                <div className="flex flex-col gap-2 px-3.5 pb-3.5 pt-1">
+                  <div className="flex gap-2">
+                    {directImUrl ? (
+                      <a
+                        href={directImUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-track="im_request"
+                        data-track-click="featured_deal_im"
+                        data-track-listing-id={deal.id}
+                        data-track-from="featured"
+                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl border border-indigo-400/40 bg-indigo-600/30 hover:bg-indigo-600/50 px-2 text-center text-sm font-extrabold text-indigo-100 transition-colors shadow-sm"
+                      >
+                        <span aria-hidden="true">📄</span>
+                        <span>모바일 IM 열람</span>
+                      </a>
+                    ) : (
+                      <a
+                        href={`#deal-inquiry-im-${encodeURIComponent(dealIdStr)}`}
+                        {...inquiryProps}
+                        data-track="im_request"
+                        data-track-click="featured_deal_im"
+                        data-track-listing-id={deal.id}
+                        data-track-from="featured"
+                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl border border-indigo-400/40 bg-indigo-600/30 hover:bg-indigo-600/50 px-2 text-center text-sm font-extrabold text-indigo-100 transition-colors shadow-sm"
+                      >
+                        <span aria-hidden="true">📄</span>
+                        <span>모바일 IM 열람</span>
+                      </a>
+                    )}
+
+                    <a
+                      href="#section-roi_calculator"
+                      data-prefill-roi="true"
+                      data-roi-price={rawPriceWon ? String(rawPriceWon) : undefined}
+                      data-roi-deposit={depositWon !== undefined ? String(depositWon) : undefined}
+                      data-roi-rent={rentWon !== undefined ? String(rentWon) : undefined}
+                      data-roi-floors={floorsNum !== undefined ? String(floorsNum) : undefined}
+                      data-track="calc_simulate"
+                      data-track-click="featured_deal_roi"
+                      data-track-listing-id={deal.id}
+                      className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 text-center text-sm font-extrabold text-emerald-200 transition-colors"
+                    >
+                      <span aria-hidden="true">🧮</span>
+                      <span>이 매물 수지분석</span>
+                    </a>
+                  </div>
+
                   <a
                     href={`#deal-inquiry-detail-${encodeURIComponent(dealIdStr)}`}
                     {...inquiryProps}
                     data-track="listing_click"
                     data-track-listing-id={deal.id}
                     data-track-from="featured_detail"
-                    className="flex min-h-12 flex-1 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-2 text-center text-caption font-bold text-white hover:bg-white/10"
+                    className="flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-2 text-center text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
                   >
                     상세 정보 · 문의
                   </a>
                 </div>
+
                 {deal.actionCard && (
                   <div className="border-t border-white/5 px-3.5 pb-3.5 pt-2">
                     <ActionCardView actionCard={deal.actionCard} />
@@ -527,30 +692,30 @@ export function MagazineView({
             <InitialAvatar name={brokerName} size={40} decorative />
             <div>
               <p className="text-label font-bold text-white">{brokerName}</p>
-              {broker.company && <p className="text-caption text-slate-300">{broker.company}</p>}
+              {broker.company && <p className="text-sm text-slate-300">{broker.company}</p>}
             </div>
           </div>
 
           {/* Date + Title */}
           <div className="relative">
-            <p className="mb-1.5 flex flex-wrap items-center gap-2 text-caption text-slate-300">
+            <p className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-300">
               <time dateTime={date}>{dateLabel}</time>
-              <span className="rounded-full border border-indigo-500/25 bg-indigo-500/15 px-2.5 py-0.5 text-caption font-semibold text-indigo-200">⏱ {readTimeMin}분 완독</span>
+              <span className="rounded-full border border-indigo-500/25 bg-indigo-500/15 px-2.5 py-0.5 text-sm font-semibold text-indigo-200">⏱ {readTimeMin}분 완독</span>
             </p>
             <h1 className="mb-2 text-display font-extrabold leading-tight tracking-tight text-white">{title}</h1>
 
             {tempConfig && (
               <div className="mb-3 inline-flex flex-wrap items-center gap-1.5 rounded-2xl border px-3 py-1.5" style={{ background: `${tempConfig.color}15`, borderColor: `${tempConfig.color}30` }}>
                 <span className="text-sm" aria-hidden="true">{tempConfig.emoji}</span>
-                <span className="text-caption font-extrabold" style={{ color: tempConfig.color }}>시장 온도 {marketTemp}</span>
-                <span className="text-caption text-slate-200">· {tempConfig.description}</span>
+                <span className="text-sm font-extrabold" style={{ color: tempConfig.color }}>시장 온도 {marketTemp}</span>
+                <span className="text-sm text-slate-200">· {tempConfig.description}</span>
               </div>
             )}
 
             {coverKeywords.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {coverKeywords.map((kw, i) => (
-                  <span key={i} className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-caption font-bold text-white"># {kw}</span>
+                  <span key={i} className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-sm font-bold text-white"># {kw}</span>
                 ))}
               </div>
             )}
@@ -558,7 +723,7 @@ export function MagazineView({
             {strArray(broker.specialtyRegions).length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {strArray(broker.specialtyRegions).map((r, i) => (
-                  <span key={i} className="rounded-full px-2.5 py-0.5 text-caption font-bold" style={{ color: accent, background: `${accent}15`, border: `1px solid ${accent}30` }}>{r}</span>
+                  <span key={i} className="rounded-full px-2.5 py-0.5 text-sm font-bold" style={{ color: accent, background: `${accent}15`, border: `1px solid ${accent}30` }}>{r}</span>
                 ))}
               </div>
             )}
@@ -570,7 +735,7 @@ export function MagazineView({
               {keyStats.map((stat, i) => (
                 <li key={i} className={`rounded-xl border p-2.5 text-center ${STAT_TONE[stat.accent ?? ""] ?? "text-slate-200 border-white/10 bg-white/5"}`}>
                   <div className="mb-1 text-body font-extrabold leading-none">{stat.value}</div>
-                  <div className="text-caption text-slate-200">{stat.label}</div>
+                  <div className="text-sm text-slate-200">{stat.label}</div>
                 </li>
               ))}
             </ul>
@@ -580,7 +745,7 @@ export function MagazineView({
           {fieldNote.comment && (
             <figure className="relative mt-4 rounded-xl border border-violet-500/15 px-3 py-2.5" style={{ background: "rgba(139,92,246,0.06)" }}>
               <blockquote className="text-label italic leading-relaxed text-violet-200">&ldquo;{fieldNote.comment}&rdquo;</blockquote>
-              <figcaption className="mt-1 text-caption text-slate-300">— {brokerName}</figcaption>
+              <figcaption className="mt-1 text-sm text-slate-300">— {brokerName}</figcaption>
             </figure>
           )}
         </header>
@@ -627,9 +792,9 @@ export function MagazineView({
 
         {/* ── Footer: 추적·개인정보 고지 + 브랜딩 ───────────────── */}
         <footer className="mt-6 space-y-3">
-          <TrackingNotice />
+          {!renderedIdSet.has("subscribe_cta") && <TrackingNotice />}
           <div className="pt-1">
-            <PoweredByBadge variant="full" context="magazine" brokerId={brokerId} />
+            <PoweredByBadge variant="subtle" context="magazine" brokerId={brokerId} />
           </div>
         </footer>
       </Wrapper>

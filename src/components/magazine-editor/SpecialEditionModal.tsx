@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Zap, Users, Flame, Building2, Tag, CheckCircle2, AlertTriangle, Info, Loader2 } from 'lucide-react';
+import { Zap, Users, Flame, Building2, Tag, CheckCircle2, AlertTriangle, Info, Loader2, Copy, Send, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '@/components/ui/modal';
 import { ErrorState } from '@/components/ui/error-state';
@@ -51,6 +51,7 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
   const [includeUntagged, setIncludeUntagged] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [outcome, setOutcome] = useState<SpecialOutcome | null>(null);
+  const [publishedEdition, setPublishedEdition] = useState<{ id?: string; editionUrl?: string } | null>(null);
   const [loadKey, setLoadKey] = useState(0);
   const [loaded, setLoaded] = useState<LoadResult | null>(null);
   const headlineTouched = useRef(false);
@@ -131,9 +132,14 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
       }
       const result = describeSpecialResult({ ok: res.ok, status: res.status, json, autoDistribute });
       setOutcome(result);
-      if (result.published && onSuccess) {
-        const edition = json && typeof json === 'object' ? (json as { edition?: unknown }).edition : undefined;
-        onSuccess(edition);
+      if (result.published) {
+        const editionObj = json && typeof json === 'object' ? (json as any).edition : null;
+        const edId = editionObj?.id || (json as any)?.editionId || '';
+        const brokerSlug = editionObj?.broker_id || '';
+        const pubDate = editionObj?.published_at ? editionObj.published_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+        const edUrl = (json as any)?.viewerUrl || (json as any)?.distributionResult?.viewerUrl || (edId && typeof window !== 'undefined' ? `${window.location.origin}/magazine/${brokerSlug || 'm'}/${pubDate}?edition=${edId}` : '');
+        setPublishedEdition({ id: edId, editionUrl: edUrl });
+        if (onSuccess) onSuccess(editionObj);
       }
       if (result.kind === 'error') toast.error(result.detail);
     } catch (err) {
@@ -157,7 +163,14 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
       closeOnEscape={!publishing}
     >
       {outcome ? (
-        <OutcomePanel outcome={outcome} onClose={onClose} onRetry={outcome.kind === 'error' ? () => setOutcome(null) : undefined} />
+        <OutcomePanel
+          outcome={outcome}
+          headline={headline}
+          urgentNote={urgentNote}
+          publishedEdition={publishedEdition}
+          onClose={onClose}
+          onRetry={outcome.kind === 'error' ? () => setOutcome(null) : undefined}
+        />
       ) : loading && !preview ? (
         <SkeletonGroup label="매물과 구독자 정보를 불러오는 중" className="space-y-3 py-2">
           <SkeletonText lines={3} />
@@ -328,11 +341,54 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
   );
 }
 
-function OutcomePanel({ outcome, onClose, onRetry }: { outcome: SpecialOutcome; onClose: () => void; onRetry?: () => void }) {
+function OutcomePanel({
+  outcome,
+  headline,
+  urgentNote,
+  publishedEdition,
+  onClose,
+  onRetry,
+}: {
+  outcome: SpecialOutcome;
+  headline?: string;
+  urgentNote?: string;
+  publishedEdition?: { id?: string; editionUrl?: string } | null;
+  onClose: () => void;
+  onRetry?: () => void;
+}) {
   const isError = outcome.kind === 'error';
   const isWarn = outcome.kind === 'send_stopped' || outcome.kind === 'dry_run' || outcome.kind === 'none_sent';
   const Icon = isError ? AlertTriangle : isWarn ? Info : CheckCircle2;
   const tone = isError ? 'text-rose-300 border-rose-500/30 bg-rose-950/20' : isWarn ? 'text-amber-200 border-amber-500/30 bg-amber-950/20' : 'text-emerald-200 border-emerald-500/30 bg-emerald-950/20';
+
+  const fallbackDate = new Date().toISOString().slice(0, 10);
+  const viewerUrl = publishedEdition?.editionUrl || (publishedEdition?.id && typeof window !== 'undefined' ? `${window.location.origin}/magazine/m/${fallbackDate}?edition=${publishedEdition.id}` : '');
+  const groupChatPackage = `[CRE DealCard 긴급 매물 속보]
+${headline || outcome.title || "긴급 추천 매물 속보"}
+
+${urgentNote ? `${urgentNote}\n\n` : ""}📌 속보 매물 전문 보기:
+${viewerUrl || (typeof window !== "undefined" ? window.location.origin : "")}`.trim();
+  const smsHref = `sms:?body=${encodeURIComponent(groupChatPackage)}`;
+
+  const handleCopyPackage = async () => {
+    try {
+      await navigator.clipboard.writeText(groupChatPackage);
+      toast.success("단톡방 문구 패키지를 복사했어요");
+    } catch {
+      toast.error("복사하지 못했어요");
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!viewerUrl) return;
+    try {
+      await navigator.clipboard.writeText(viewerUrl);
+      toast.success("속보 링크를 복사했어요");
+    } catch {
+      toast.error("링크를 복사하지 못했어요");
+    }
+  };
+
   return (
     <div className="space-y-4" role={isError ? 'alert' : 'status'}>
       <div className={`flex items-start gap-2 rounded-xl border p-4 ${tone}`}>
@@ -342,6 +398,42 @@ function OutcomePanel({ outcome, onClose, onRetry }: { outcome: SpecialOutcome; 
           {outcome.detail ? <p className="text-label opacity-90">{outcome.detail}</p> : null}
         </div>
       </div>
+
+      {outcome.published && (
+        <div className="space-y-2 p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700">
+          <p className="text-xs font-bold text-slate-300">⚡ 1초 원클릭 배포 패키지</p>
+          <button
+            type="button"
+            data-testid="special-copy-package-btn"
+            onClick={handleCopyPackage}
+            className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-sm font-extrabold text-white shadow-md transition-all cursor-pointer"
+          >
+            <Copy className="h-4 w-4" aria-hidden="true" />
+            📋 카톡 단톡방/VIP 문구 패키지 복사
+          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href={smsHref}
+              data-testid="special-sms-dispatch-link"
+              className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 py-2 text-xs font-bold text-slate-200 transition-all cursor-pointer shadow-2xs"
+            >
+              <Send className="h-3.5 w-3.5 text-rose-400" aria-hidden="true" />
+              💬 문자(SMS) 바로 보내기
+            </a>
+            {viewerUrl ? (
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 py-2 text-xs font-bold text-slate-200 transition-all cursor-pointer shadow-2xs"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                🔗 링크만 복사
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end gap-2">
         {onRetry ? (
           <button

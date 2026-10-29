@@ -187,9 +187,12 @@ export async function POST(req: NextRequest) {
       urgentNote,
     });
 
+    const issueDate = edition.published_at ? edition.published_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const viewerUrl = `/magazine/${ctx.slug}/${issueDate}?edition=${edition.id}`;
+
     // 2. 명시적 배포 요청인 경우에만 배포 수행
     if (!autoDistribute) {
-      return NextResponse.json({ success: true, edition, distributionResult: null });
+      return NextResponse.json({ success: true, edition, viewerUrl, distributionResult: null });
     }
 
     const distributionResult = await distributeSpecialEdition(supabase, {
@@ -212,6 +215,7 @@ export async function POST(req: NextRequest) {
         published: edition.status === 'published',
         sent: 0,
         edition,
+        viewerUrl,
         distributionResult,
       });
     }
@@ -219,6 +223,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       edition,
+      viewerUrl,
       dryRun: distributionResult.dryRun,
       sent: distributionResult.sent,
       failed: distributionResult.failed,

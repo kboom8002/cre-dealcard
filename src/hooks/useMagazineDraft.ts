@@ -56,15 +56,17 @@ export function useMagazineDraft(brokerSlug?: string): UseMagazineDraftReturn {
         }
         if (!slugToUse) return; // slug 미설정 → 편집기가 설정 화면을 보여준다
 
-        // Find the latest weekly draft
-        const res = await fetch(`/api/magazine/editions?broker_id=${encodeURIComponent(slugToUse)}&type=weekly&limit=1`);
+        // Find the latest weekly draft (explicitly filter status=draft)
+        const res = await fetch(`/api/magazine/editions?broker_id=${encodeURIComponent(slugToUse)}&type=weekly&status=draft&limit=1`);
         if (res.ok) {
           const json = await res.json();
           if (json.editions && json.editions.length > 0) {
             const ed = json.editions[0];
-            setEditionId(ed.id);
-            if (ed.content && ed.content.draft_blocks) {
-              setBlocks(ed.content.draft_blocks);
+            if (ed.status === 'draft') {
+              setEditionId(ed.id);
+              if (ed.content && ed.content.draft_blocks) {
+                setBlocks(ed.content.draft_blocks);
+              }
             }
           }
         }
@@ -107,23 +109,44 @@ export function useMagazineDraft(brokerSlug?: string): UseMagazineDraftReturn {
     
     setSaveStatus('saving');
     try {
-      const { data: currentEd } = await supabase
+      const { data: currentEd, error: fetchErr } = await supabase
         .from('magazine_editions')
-        .select('content')
+        .select('content, status')
         .eq('id', editionId)
-        .single();
-        
+        .eq('status', 'draft')
+        .maybeSingle();
+
+      if (fetchErr) throw fetchErr;
+      if (!currentEd || currentEd.status !== 'draft') {
+        throw new Error('Only draft editions can be modified via autosave');
+      }
+
       const updatedContent = {
         ...(currentEd?.content || {}),
         draft_blocks: currentBlocks
       };
 
-      const { error } = await supabase
-        .from('magazine_editions')
-        .update({ content: updatedContent })
-        .eq('id', editionId);
+      // Route draft autosave through PATCH API with status='draft' filtering
+      const patchRes = await fetch('/api/magazine/editions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editionId,
+          content: updatedContent,
+          status: 'draft',
+        }),
+      });
 
-      if (error) throw error;
+      if (!patchRes.ok) {
+        // Fallback to supabase update with strict status = 'draft' guard
+        const { error } = await supabase
+          .from('magazine_editions')
+          .update({ content: updatedContent })
+          .eq('id', editionId)
+          .eq('status', 'draft');
+
+        if (error) throw error;
+      }
 
       setSaveStatus('saved');
       setLastSavedAt(new Date());

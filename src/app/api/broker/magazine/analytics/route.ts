@@ -4,10 +4,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireBrokerContext, assertOwnsRow, notFoundResponse, jsonError } from "@/lib/magazine/authz";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { isUuid } from "@/lib/magazine/slug";
-import { isMagazineTrackingEnabled } from "@/lib/magazine/send-flags";
+import { toKstDate } from "@/lib/magazine/kst";
 import { VISITOR_HASH_LIKE } from "@/lib/magazine/visitor-hash";
+import { isMagazineTrackingEnabled } from '@/lib/magazine/send-flags';
 import { isMissingColumnError } from "@/lib/magazine/subscriber-view";
-import { computeTemperatures, loadSubscriberEvents } from "@/lib/magazine/subscriber-temperature";
+import { computeTemperatures, loadSubscriberEvents, TEMPERATURE_LOOKBACK_DAYS } from "@/lib/magazine/subscriber-temperature";
 import { computeBuyerTemperature, emptyTemperatureDistribution, type TemperatureEvent } from "@/domain/magazine/buyer-temperature";
 import { hotLeadThresholdMeta, parseHotLeadLimit, parseHotLeadTier, selectHotLeads } from "@/lib/magazine/hot-lead-filter";
 import {
@@ -69,8 +70,8 @@ export async function GET(req: NextRequest) {
         return notFoundResponse("해당 구독자를 찾을 수 없습니다.");
       }
 
-      // 2. 최근 30일 해당 구독자 이벤트 조회 — 내 에디션의 이벤트로만 한정
-      const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS).toISOString();
+      // 2. 최근 190일 해당 구독자 이벤트 조회 (대시보드와 lookback 통일) — 내 에디션 + v2 방문자로 한정
+      const lookbackIso = new Date(Date.now() - TEMPERATURE_LOOKBACK_DAYS * DAY_MS).toISOString();
       const { data: ownEditionRows, error: edErr } = await supabase
         .from("magazine_editions")
         .select("id")
@@ -85,10 +86,10 @@ export async function GET(req: NextRequest) {
       const { data: events, error: evErr } = await supabase
         .from("magazine_analytics_events")
         .select("id, event_type, edition_id, visitor_id, scroll_pct, dwell_seconds, section_id, target_url, target_param, metadata, created_at")
-        // sub.id는 DB에서 읽은 uuid(위에서 isUuid 검증) — 보간 안전
         .or(`visitor_id.eq.${sub.id},metadata->>subscriber_id.eq.${sub.id}`)
         .in("edition_id", ownEditionIds)
-        .gte("created_at", thirtyDaysAgo)
+        .like("visitor_id", VISITOR_HASH_LIKE)
+        .gte("created_at", lookbackIso)
         .order("created_at", { ascending: false })
         .limit(500);
       if (evErr) {
@@ -263,7 +264,7 @@ export async function GET(req: NextRequest) {
         subscriber_name: sub.subscriber_name,
         subscriber_phone: sub.subscriber_phone,
         subscriber_email: sub.subscriber_email,
-        segment: sub.segment || "investor",
+        segment: sub.segment === "investor" ? "매수·투자자" : (sub.segment || "매수·투자자"),
         channel: sub.channel,
         interest_tags: sub.interest_profile?.tags || {},
         buyerTemperature: temp.tier.label,
@@ -297,7 +298,8 @@ export async function GET(req: NextRequest) {
     let pollUnavailable: "NOT_MIGRATED" | null = null;
     if (editions.length > 0) {
       const latestEdition = editions[0];
-      const pollDate = (latestEdition.published_at as string | null | undefined)?.slice(0, 10) || (latestEdition.created_at as string | null | undefined)?.slice(0, 10);
+      const rawDate = (latestEdition.published_at as string | null | undefined) || (latestEdition.created_at as string | null | undefined);
+      const pollDate = rawDate ? toKstDate(new Date(rawDate)) : null;
 
       if (pollDate) {
         type VoteRow = { choice: number; created_at?: string | null };

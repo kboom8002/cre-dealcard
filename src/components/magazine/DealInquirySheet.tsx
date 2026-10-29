@@ -115,6 +115,44 @@ export function DealInquirySheet({
           });
           window.setTimeout(updateCarouselCounter, 260);
         }
+        return;
+      }
+
+      // 4. 추천 매물 수지분석 바로가기 클릭 → ROI 계산기로 스크롤 + 파라미터 전달
+      const roiTrigger = target.closest<HTMLElement>('[data-prefill-roi]');
+      if (roiTrigger) {
+        e.preventDefault();
+        const price = roiTrigger.getAttribute('data-roi-price');
+        const deposit = roiTrigger.getAttribute('data-roi-deposit');
+        const rent = roiTrigger.getAttribute('data-roi-rent');
+        const floors = roiTrigger.getAttribute('data-roi-floors');
+        const detail: Record<string, number> = {};
+        if (price) {
+          const p = Number(price);
+          if (Number.isFinite(p) && p > 0) detail.purchasePrice = p;
+        }
+        if (deposit) {
+          const d = Number(deposit);
+          if (Number.isFinite(d) && d >= 0) detail.deposit = d;
+        }
+        if (rent) {
+          const r = Number(rent);
+          if (Number.isFinite(r) && r >= 0) detail.monthlyRent = r;
+        }
+        if (floors) {
+          const f = Number(floors);
+          if (Number.isFinite(f) && f > 0) detail.totalFloors = f;
+        }
+        try {
+          window.dispatchEvent(new CustomEvent('cre-prefill-roi', { detail }));
+        } catch {
+          // ignore
+        }
+        const calcEl = document.querySelector<HTMLElement>('[data-section-id="roi_calculator"]');
+        if (calcEl && typeof calcEl.scrollIntoView === 'function') {
+          calcEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        return;
       }
     };
 
@@ -214,6 +252,28 @@ export function DealInquirySheet({
         </p>
 
         <div className="mt-4 space-y-2.5">
+          {/* #1 Primary Action: 모바일 IM 열람하기 */}
+          {isUuidDeal ? (
+            <a
+              href={`/im-lite/${encodeURIComponent(activeDeal.id)}`}
+              data-track="im_request"
+              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 px-4 py-3 text-[17px] font-extrabold text-white shadow-lg transition-colors"
+            >
+              <span aria-hidden="true">📄</span>
+              <span>모바일 IM 열람하기</span>
+            </a>
+          ) : (
+            <a
+              href={smsHref}
+              data-track="im_request"
+              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 px-4 py-3 text-[17px] font-extrabold text-white shadow-lg transition-colors"
+            >
+              <span aria-hidden="true">📄</span>
+              <span>모바일 IM 열람하기 (문자 즉시 요청)</span>
+            </a>
+          )}
+
+          {/* #2 중개사 전화 문의 */}
           {telDigits ? (
             <a
               href={`tel:${telDigits}`}
@@ -225,15 +285,17 @@ export function DealInquirySheet({
             </a>
           ) : null}
 
+          {/* #3 문자 투자설명서 요청 */}
           <a
             href={smsHref}
             data-track="im_request"
-            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-[17px] font-extrabold text-white shadow-lg transition-colors hover:bg-indigo-500"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-400/35 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2.5 text-[16px] font-bold text-indigo-200 transition-colors"
           >
             <span aria-hidden="true">💬</span>
             <span>문자로 투자설명서(IM)·상세자료 요청</span>
           </a>
 
+          {/* #4 중개사 프로필 보기 */}
           <a
             href={profileHref}
             data-track="cta_click"
@@ -242,16 +304,6 @@ export function DealInquirySheet({
             <span aria-hidden="true">👤</span>
             <span>중개사 프로필 보기</span>
           </a>
-
-          {isUuidDeal && (
-            <a
-              href={`/im-lite/${encodeURIComponent(activeDeal.id)}`}
-              data-track="im_request"
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-400/35 bg-indigo-500/10 px-4 py-2.5 text-[15px] font-bold text-indigo-200 transition-colors hover:bg-indigo-500/20"
-            >
-              <span>모바일 IM 열람하기</span>
-            </a>
-          )}
         </div>
       </div>
     </div>,

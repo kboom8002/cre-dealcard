@@ -54,24 +54,25 @@ export default function NewClientPage() {
 
       if (subscribeMagazine && data?.id) {
         try {
-          const { createBrowserClient } = await import('@supabase/ssr');
-          const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-          );
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const formattedPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
-            await supabase.from('magazine_subscribers').upsert({
-              broker_id: user.id,
-              client_id: data.id,
-              subscriber_phone: formattedPhone,
-              subscriber_email: email.trim() || null,
-              subscriber_name: displayName.trim(),
-              channel: formattedPhone ? 'both' : 'email',
-              status: 'active',
-              source: 'crm_sync',
-            }, { onConflict: formattedPhone ? 'broker_id,subscriber_phone' : undefined });
+          const token = await getToken();
+          const formattedPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+          const channel = formattedPhone && email.trim() ? 'both' : email.trim() ? 'email' : 'kakao';
+          if (formattedPhone || phone.trim()) {
+            await fetch('/api/broker/magazine/subscribers', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                name: displayName.trim(),
+                phone: formattedPhone || phone.trim(),
+                email: email.trim() || undefined,
+                channel,
+                client_id: data.id,
+                consentAttested: true,
+              }),
+            });
           }
         } catch (err) {
           console.error('Magazine sync failed:', err);

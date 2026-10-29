@@ -41,8 +41,9 @@ export function canonicalBrokerSlug(param: string, broker: { slug: string | null
 }
 
 /** 조회 키(과도기: slug 와 user_id 둘 다 사용). */
-export function brokerKeys(broker: { user_id: string; slug: string | null }): string[] {
-  return Array.from(new Set([broker.slug, broker.user_id].filter((v): v is string => !!v)));
+export function brokerKeys(broker: { user_id?: string | null; slug?: string | null } | string): string[] {
+  if (typeof broker === 'string') return [broker];
+  return Array.from(new Set([broker?.slug, broker?.user_id].filter((v): v is string => !!v)));
 }
 
 export type IssueDateState =
@@ -84,6 +85,7 @@ export function mergeEditionContent(row: Record<string, any>): MagazineContent {
   const content = (row.content && typeof row.content === 'object' ? row.content : {}) as MagazineContent;
   const fromColumns: MagazineContent = {
     id: row.id,
+    edition_type: row.edition_type,
     market_temp: row.market_temp,
     cover_keywords: row.cover_keywords,
     cover_image_url: row.cover_image_url,
@@ -110,10 +112,31 @@ export function mergeEditionContent(row: Record<string, any>): MagazineContent {
  */
 export async function findIssueForDate(
   supabase: Db,
-  broker: { user_id: string; slug: string | null },
+  broker: { user_id?: string | null; slug?: string | null } | string,
   date: string,
+  editionId?: string,
 ): Promise<MagazineContent | null> {
   const keys = brokerKeys(broker);
+
+  // When editionId is provided (?edition=<id>), query magazine_editions directly first.
+  // This prevents same-day Special Editions (호외) from being shadowed by Weekly issues on the same date.
+  if (editionId) {
+    let q = supabase
+      .from('magazine_editions')
+      .select(EDITION_COLUMNS);
+    if (typeof q.in === 'function') {
+      q = q.in('broker_id', keys);
+    } else if (typeof q.eq === 'function') {
+      q = q.eq('broker_id', keys[0]);
+    }
+    const byId = await q
+      .eq('id', editionId)
+      .eq('status', 'published')
+      .limit(1);
+    if (byId?.error) throw new Error(`edition lookup by id failed: ${byId.error.message}`);
+    const row = Array.isArray(byId?.data) ? byId.data[0] : (byId?.data ?? null);
+    if (row) return mergeEditionContent(row);
+  }
 
   const { data: issues, error: issueErr } = await supabase
     .from('magazine_issues')

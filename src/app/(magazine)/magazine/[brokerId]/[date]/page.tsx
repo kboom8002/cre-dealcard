@@ -42,7 +42,7 @@ type PageState =
   | { kind: "ok"; data: MagazineContent; brokerSlug: string | null; brokerVibe: Record<string, unknown> };
 
 /** metadata 와 page 가 같은 요청 안에서 1회만 조회하도록 캐시. DB 오류는 삼키지 않고 throw. */
-const loadPage = cache(async (brokerParam: string, date: string): Promise<PageState> => {
+const loadPage = cache(async (brokerParam: string, date: string, editionId?: string | null): Promise<PageState> => {
   const supabase = createServiceClient();
   const broker = await resolvePublicBroker(supabase, brokerParam, BROKER_COLUMNS);
   if (!broker) return { kind: "no-broker" };
@@ -67,7 +67,7 @@ const loadPage = cache(async (brokerParam: string, date: string): Promise<PageSt
   if (state.kind !== "ok") return unpublished(state.kind);
 
   // T3-08: 정확한 날짜의 발행본만. 다른 날짜의 최신본으로 폴백하지 않는다.
-  const issue = await findIssueForDate(supabase, broker, state.date);
+  const issue = await findIssueForDate(supabase, broker, state.date, editionId ?? undefined);
   if (!issue) return unpublished("missing");
   // 초안/검수대기 표시가 남은 콘텐츠는 공개하지 않는다.
   if (isUnpublishedContent(issue)) return unpublished("draft");
@@ -90,11 +90,12 @@ const loadPage = cache(async (brokerParam: string, date: string): Promise<PageSt
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { brokerId, date } = await params;
-  // 에디터 미리보기는 항상 noindex — 공개 데이터 조회도 하지 않는다.
+  const sp = await searchParams;
   if (readPreviewParams(await searchParams).preview) {
     return { title: "CRE 매거진 미리보기", robots: { index: false, follow: false } };
   }
-  const state = await loadPage(brokerId, date);
+  const { edition } = readPreviewParams(sp);
+  const state = await loadPage(brokerId, date, edition);
 
   if (state.kind !== "ok") {
     return {
@@ -148,7 +149,7 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
   const { brokerId, date } = await params;
   const sp = await searchParams;
   const { preview: isPreview, edition } = readPreviewParams(sp);
-  const state = await loadPage(brokerId, date);
+  const state = await loadPage(brokerId, date, edition);
 
   if (state.kind === "no-broker") notFound();
   // uuid 로 접근했고 slug 가 있으면 정규 URL(slug)로 308 (I-02) — 미리보기 쿼리는 유지

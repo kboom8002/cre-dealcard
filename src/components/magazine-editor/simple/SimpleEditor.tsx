@@ -45,15 +45,19 @@ export async function requestSimpleSummary(input: {
   comment: string;
   brokerName?: string | null;
   dealCount?: number;
+  dealHighlights?: Array<Record<string, unknown>>;
   newsTitles?: string[];
+  topNews?: Array<Record<string, unknown>>;
   marketTemp?: string | null;
   fetchImpl?: typeof fetch;
 }): Promise<SimpleSummaryApiResult> {
   const fallbackHeadline = deriveFallbackHeadline(input.comment, input.brokerName);
   const fallbackBriefing = deriveFallbackBriefing({
     comment: input.comment,
-    dealCount: input.dealCount,
-    newsTitles: input.newsTitles,
+    dealCount: input.dealHighlights?.length ?? input.dealCount,
+    newsTitles: input.topNews && input.topNews.length > 0
+      ? input.topNews.map((n) => String(n.title ?? ""))
+      : input.newsTitles,
     marketTemp: input.marketTemp ?? "선별 매수",
   });
 
@@ -73,8 +77,12 @@ export async function requestSimpleSummary(input: {
           body: JSON.stringify({
             comment: input.comment,
             brokerName: input.brokerName,
-            dealCount: input.dealCount ?? 0,
-            newsTitles: input.newsTitles ?? [],
+            dealCount: input.dealHighlights?.length ?? input.dealCount ?? 0,
+            dealHighlights: input.dealHighlights ?? [],
+            newsTitles: input.topNews && input.topNews.length > 0
+              ? input.topNews.map((n) => String(n.title ?? ""))
+              : input.newsTitles ?? [],
+            topNews: input.topNews ?? [],
             marketTemp: input.marketTemp ?? "선별 매수",
           }),
         },
@@ -205,7 +213,7 @@ export function SimpleEditor({
 }: SimpleEditorProps) {
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [summaryStatusText, setSummaryStatusText] = useState<string | null>(null);
-  const autoSummaryDoneRef = useRef(false);
+  const lastSummaryKeyRef = useRef("");
   const userEditedHeadlineRef = useRef(false);
   const lastAutoHeadlineRef = useRef("");
 
@@ -232,14 +240,39 @@ export function SimpleEditor({
         return;
       }
 
+      const selectedDealHighlights = deals
+        .filter((d) => selectedDealIds.has(String(d.id)))
+        .map((d) => ({
+          id: String(d.id),
+          title: d.areaSignal || d.address || "추천 매물",
+          address: d.address,
+          areaSignal: d.areaSignal,
+          assetType: d.assetType || "매물",
+          price: d.price,
+          photoUrl: d.photoUrl,
+          grossYieldNetOfDeposit: d.grossYieldNetOfDeposit,
+          imUrl: d.imUrl,
+        }));
+
+      const selectedTopNews = (allNews || [])
+        .filter((n) => selectedNewsIds.has(String(n.id ?? n.title)))
+        .map((n) => ({
+          id: String(n.id ?? n.title),
+          title: n.title,
+          summary: n.summary,
+          source: n.source,
+        }));
+
       setGeneratingSummary(true);
       try {
         const res = await requestSimpleSummary({
           editionId,
           comment: trimmedComment,
           brokerName,
-          dealCount: selectedDealIds.size,
-          newsTitles,
+          dealCount: selectedDealHighlights.length || selectedDealIds.size,
+          dealHighlights: selectedDealHighlights,
+          newsTitles: selectedTopNews.map((n) => n.title).length > 0 ? selectedTopNews.map((n) => n.title) : newsTitles,
+          topNews: selectedTopNews,
           marketTemp: effectiveMarketTemp,
         });
 
@@ -251,7 +284,7 @@ export function SimpleEditor({
         setBriefing(res.briefing);
         setSummaryStatusText(
           res.source === "api"
-            ? "✨ 한마디를 바탕으로 제목과 3줄 요약이 자동 완성되었습니다."
+            ? "✨ 한마디와 매물·뉴스를 바탕으로 제목과 3줄 요약이 자동 완성되었습니다."
             : "✨ 작성하신 한마디로 제목과 3줄 요약이 정리되었습니다.",
         );
       } finally {
@@ -262,7 +295,10 @@ export function SimpleEditor({
       trimmedComment,
       editionId,
       brokerName,
-      selectedDealIds.size,
+      deals,
+      selectedDealIds,
+      allNews,
+      selectedNewsIds,
       newsTitles,
       effectiveMarketTemp,
       headline,
@@ -271,7 +307,7 @@ export function SimpleEditor({
     ],
   );
 
-  // 한마디 입력 시: 10자 이상이면 빈 제목·브리핑 즉시 결정론적 제안 + 1.8초 debounce 후 초안당 1회 자동 요약 생성
+  // 한마디·매물·뉴스 변경 시: 10자 이상이면 결정론적 제안 + 1.5초 debounce 후 실시간 요약 생성 (조기 1회 잠금 해제)
   useEffect(() => {
     if (trimmedComment.length < SIMPLE_NOTE_MIN) return;
 
@@ -294,12 +330,13 @@ export function SimpleEditor({
       );
     }
 
-    if (autoSummaryDoneRef.current) return;
+    const currentKey = `${trimmedComment}|${Array.from(selectedDealIds).sort().join(",")}|${Array.from(selectedNewsIds).sort().join(",")}|${effectiveMarketTemp}`;
+    if (lastSummaryKeyRef.current === currentKey) return;
 
     const timer = setTimeout(() => {
-      autoSummaryDoneRef.current = true;
+      lastSummaryKeyRef.current = currentKey;
       void runSummaryGeneration(false);
-    }, 1800);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [
@@ -307,7 +344,8 @@ export function SimpleEditor({
     brokerName,
     headline,
     briefing,
-    selectedDealIds.size,
+    selectedDealIds,
+    selectedNewsIds,
     newsTitles,
     effectiveMarketTemp,
     setHeadline,
@@ -607,34 +645,6 @@ export function SimpleEditor({
         {/* 자동 포함 4종 안심 배지 */}
         <StaggerItem>
           <AutoFilledStrip />
-        </StaggerItem>
-
-        {/* 큰 발행 버튼 */}
-        <StaggerItem className="pt-1">
-          <motion.button
-            type="button"
-            data-testid="simple-publish-button"
-            aria-label={
-              isPublished
-                ? "이번 주 매거진 정정 발행 시작"
-                : "이번 주 매거진 발행 시작"
-            }
-            disabled={publishing || saving}
-            whileHover={{ y: -1.5 }}
-            whileTap={{ scale: 0.985 }}
-            transition={SOTA_SPRING}
-            onClick={handleSimplePublishClick}
-            className="w-full min-h-[58px] rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white text-lg font-black px-5 py-3.5 shadow-[0_8px_20px_-4px_rgba(37,99,235,0.45)] flex items-center justify-center gap-2 transition-all"
-          >
-            {publishing ? (
-              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-            ) : (
-              <Send className="w-5 h-5" aria-hidden="true" />
-            )}
-            <span>
-              {isPublished ? "🚀 이번 주 매거진 정정 발행하기" : "🚀 이번 주 매거진 발행하기"}
-            </span>
-          </motion.button>
         </StaggerItem>
 
         {/* 보조 바로가기 바 */}

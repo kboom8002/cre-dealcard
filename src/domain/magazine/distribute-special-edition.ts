@@ -174,7 +174,7 @@ export async function distributeSpecialEdition(
           headline,
           marketTemp: '',
           date: issueDate,
-          url: `${baseUrl}/magazine/${broker.slug}/${issueDate}`,
+          url: `${baseUrl}/magazine/${broker.slug}/${issueDate}${edition.id ? `?edition=${edition.id}` : ''}`,
         },
         kakaoTemplateId: KAKAO_TEMPLATE_FLASH_ISSUE,
         gateDeps: deps,

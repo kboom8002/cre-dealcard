@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod/v4";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createModuleLogger } from '@/lib/logger';
 import { parseIssueDate } from "@/lib/magazine/kst";
-import { hashIp } from "@/lib/magazine/pii";
+import { withPublicGuard } from "@/lib/magazine/public-guard";
+import { computeVisitorHash } from "@/lib/magazine/visitor-hash";
 import {
   isMissingRelationError,
   isSellerChoice,
@@ -24,33 +26,54 @@ function fail(status: number, code: string, message: string) {
 const UNAVAILABLE = () =>
   fail(503, "POLL_UNAVAILABLE", "설문을 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
 
+const PollBodySchema = z
+  .object({
+    brokerId: z.string().min(1, "brokerId, editionDate가 필요합니다.").max(100),
+    editionDate: z.string().min(1, "brokerId, editionDate가 필요합니다.").refine((d) => parseIssueDate(d) !== null, {
+      message: "brokerId, editionDate가 필요합니다.",
+    }),
+    choice: z.number().int({ message: "선택지가 올바르지 않습니다." }).min(0).max(5),
+    visitorId: z.string().max(200).optional().nullable(),
+    subscriberPhone: z.string().max(100).optional().nullable(),
+    phone: z.string().max(100).optional().nullable(),
+  })
+  .passthrough();
+
+type PollBody = z.infer<typeof PollBodySchema>;
+
 /**
  * POST /api/public/magazine/poll
  * Records a reader's vote on a magazine poll question.
+ *  - withPublicGuard 로 IP 및 방문자 레이트리밋 보호
+ *  - server-side computeVisitorHash(IP + UserAgent) 로 투표 조작 방지
  *  - 서버가 실제로 저장한 경우에만 ok:true (가짜 결과 반환 금지)
  *  - 결과 집계는 total >= MIN_POLL_RESULTS 일 때만 `results`로 돌려준다 (아니면 null)
- *  - 전화번호 등 클라이언트가 보낸 식별정보는 신뢰하지 않는다 (visitor_id 만 sanitize 후 사용)
  */
-export async function POST(request: NextRequest) {
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return fail(400, "BAD_REQUEST", "요청 형식이 올바르지 않습니다.");
-  }
+export const POST = withPublicGuard<PollBody>({
+  name: "magazine-poll",
+  schema: PollBodySchema,
+  maxBodyBytes: 8 * 1024,
+  rateLimit: {
+    ip: { max: 60, windowSec: 60 },
+    target: {
+      key: (b: PollBody) => b.visitorId ?? (b.brokerId ? `${b.brokerId}:${b.editionDate}` : null),
+      max: 20,
+      windowSec: 60,
+    },
+  },
+})(async (request, { body, ip }) => {
+  const brokerParam = body.brokerId;
+  const editionDate = body.editionDate;
 
-  const brokerParam = typeof body.brokerId === "string" ? body.brokerId : "";
-  const editionDate = typeof body.editionDate === "string" ? body.editionDate : "";
-  if (!brokerParam || !parseIssueDate(editionDate)) {
-    return fail(400, "BAD_REQUEST", "brokerId, editionDate가 필요합니다.");
-  }
+  // IP + UserAgent 기반 서버측 방문자 해시 산출 (조작 방지 및 rate limiting 보강)
+  const userAgent = request.headers.get("user-agent");
+  const serverVisitorHash = computeVisitorHash(ip, userAgent);
 
-  // visitor_id: 바디(`visitorId`) 또는 헤더(`x-visitor-id`)에서 sanitize. 없으면 IP 해시.
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
   const visitorId =
     sanitizeVisitorId(body.visitorId) ??
     sanitizeVisitorId(request.headers.get("x-visitor-id")) ??
-    (hashIp(forwarded) ? `ip-${hashIp(forwarded)}` : null);
+    serverVisitorHash;
+
   if (!visitorId) return fail(400, "BAD_REQUEST", "방문자를 확인할 수 없습니다.");
 
   try {
@@ -99,13 +122,18 @@ export async function POST(request: NextRequest) {
     log.error("[api/public/magazine/poll] POST Error:", err);
     return fail(500, "SERVER_ERROR", "서버 오류가 발생했습니다.");
   }
-}
+});
 
 /**
  * GET /api/public/magazine/poll?brokerId=xxx&editionDate=yyyy-mm-dd
  * 실제 집계가 최소 표본(MIN_POLL_RESULTS) 이상일 때만 results 를 돌려준다. 아니면 results:null.
  */
-export async function GET(request: NextRequest) {
+export const GET = withPublicGuard({
+  name: "magazine-poll-get",
+  rateLimit: {
+    ip: { max: 120, windowSec: 60 },
+  },
+})(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
     const brokerParam = searchParams.get("brokerId") ?? "";
@@ -126,7 +154,7 @@ export async function GET(request: NextRequest) {
     log.error("[api/public/magazine/poll] GET Error:", err);
     return fail(500, "SERVER_ERROR", "서버 오류가 발생했습니다.");
   }
-}
+});
 
 /** 실제 집계. 오류 시 가짜 값 대신 { results:null, error:true }. 표본 부족 시 results:null. */
 async function getResults(

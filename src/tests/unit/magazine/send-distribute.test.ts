@@ -35,6 +35,7 @@ vi.mock('@/domain/magazine/email-template', () => ({
 import { distributeMagazine } from '@/domain/magazine/distribute-magazine';
 import { distributeSpecialEdition } from '@/domain/magazine/distribute-special-edition';
 import { verifySidToken } from '@/domain/magazine/sid-token';
+import { hashRecipient } from '@/domain/magazine/send-gate';
 
 const ENV_KEYS = ['MAGAZINE_SEND_ENABLED', 'MAGAZINE_SEND_DRY_RUN', 'MAGAZINE_SEND_ALLOWLIST', 'MAGAZINE_DAILY_CAP', 'APP_BASE_URL', 'UNSUBSCRIBE_SECRET'];
 
@@ -319,7 +320,7 @@ describe('distributeSpecialEdition — 태그 매칭·주 2회 상한', () => {
     ]);
     const r = await distributeSpecialEdition(db as never, baseInput, { now: DAYTIME, dryRun: true });
     expect(r).toMatchObject({ ok: true, total: 1, recorded: 1, sent: 0 });
-    expect(db.rows('magazine_dispatch_logs')[0].idempotency_key).toBe(`kim-broker:2026-10-06:flash:ed-flash-1:${uuidN(1)}:email`);
+    expect(db.rows('magazine_dispatch_logs')[0].idempotency_key).toBe(`kim-broker:2026-10-06:flash:ed-flash-1:${hashRecipient('s1@example.com')}:email`);
     expect(db.rows('magazine_dispatch_logs')[0].kind).toBe('flash');
   });
 

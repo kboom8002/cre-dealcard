@@ -57,11 +57,8 @@ try {
   Set-Location $wt
   cmd /c "mklink /J node_modules `"$repo\node_modules`"" | Out-Null
   Get-ChildItem $repo -Filter '.env*' -File | ForEach-Object { Copy-Item $_.FullName $wt }
-  if (Test-Path "$repo\next.config.ts") {
-    Copy-Item "$repo\next.config.ts" $wt -Force
-  }
   Write-Output "--- build ($Ref) ---"
-  npm run build -- --webpack
+  npm run build
   $code = $LASTEXITCODE
   Write-Output "BUILD_EXIT=$code"
 } finally {

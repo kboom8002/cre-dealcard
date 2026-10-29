@@ -15,6 +15,11 @@ export interface SimpleDealItem {
   asset_type?: string;
   price?: number | string;
   buyerInterestCount?: number;
+  photoUrl?: string | null;
+  grossYieldNetOfDeposit?: number | string | null;
+  imUrl?: string | null;
+  investmentPoint?: string | null;
+  [k: string]: unknown;
 }
 
 export interface SimpleDealPickerProps {
