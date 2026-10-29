@@ -1,10 +1,12 @@
 /**
- * IM 생성 완료 시 매거진 소재 카드를 자동 생성하는 브릿지.
- * IM 7섹션 중 property_overview + investment_thesis를 요약하여
- * magazine_editions.featured_deal_ids에 자동 추가하기 위해
- * 임시 적재할 스니펫을 추출합니다.
+ * @deprecated [Wave 1 SOTA Deprecation]
+ * 이 브릿지는 레거시 프로토타입 브릿지로 활성 코드 호출자가 없습니다.
+ * 매거진 매물 변환은 `@/domain/magazine/deal-adapter`의 `adaptBuildingToMagazineDeal`을 사용하세요.
  */
 import type { MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
+import type { MagazineDealItem } from "@/domain/magazine/deal-adapter";
+
+export type { MagazineDealItem };
 
 export interface MagazineDealSnippet {
   buildingId: string;

@@ -126,7 +126,8 @@ describe('U-F1-03 & U-F1-04 (B-08, B-14, B-16, B-17, B-20): 에디터 헤더·�
   const pageSrc = readSrc('app/(broker)/broker/magazine-editor/page.tsx');
 
   it('Content Studio h1을 유지하면서 한글 부제 [매거진 만들기]를 함께 표시한다', () => {
-    expect(pageSrc).toContain('<h1 className="text-body font-bold text-slate-200">Content Studio</h1>');
+    expect(pageSrc).toContain('aria-label="Content Studio"');
+    expect(pageSrc).toContain('고객 소식지 편집실');
     expect(pageSrc).toContain('매거진 만들기');
   });
 
@@ -246,9 +247,8 @@ describe('U-F1-06 (B-04, B-05, B-09, B-10, B-12, B-15, B-18, B-19, B-21, B-22, B
 
   it('AddSubscriberForm에서 카카오톡 단독 선택 + 이메일 미입력 시 14px 안내 문구를 표시한다 (B-12)', () => {
     const src = readSrc('components/magazine-editor/outreach/AddSubscriberForm.tsx');
-    expect(src).toContain(
-      '💡 이메일을 함께 입력하시면 구독 확인 링크가 자동 발송됩니다 (카카오톡 단독 등록 시 중개사님의 수신 동의 확인으로 즉시 등록됩니다)',
-    );
+    expect(src).toContain('💡 <strong>이메일</strong>을 함께 입력하시면');
+    expect(src).toContain('카카오톡 단독 선택 시');
   });
 
   it('SlugSetupGate가 추천 슬러그 칩 3종과 한글·띄어쓰기 입력 시 구체적 안내 문구를 제공한다 (B-19, B-23)', () => {

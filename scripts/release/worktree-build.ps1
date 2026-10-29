@@ -57,11 +57,16 @@ try {
   Set-Location $wt
   cmd /c "mklink /J node_modules `"$repo\node_modules`"" | Out-Null
   Get-ChildItem $repo -Filter '.env*' -File | ForEach-Object { Copy-Item $_.FullName $wt }
+  if (Test-Path "$repo\next.config.ts") {
+    Copy-Item "$repo\next.config.ts" $wt -Force
+  }
+  $env:TURBOPACK_ROOT = $wt
   Write-Output "--- build ($Ref) ---"
   npm run build
   $code = $LASTEXITCODE
   Write-Output "BUILD_EXIT=$code"
 } finally {
+  Remove-Item Env:\TURBOPACK_ROOT -ErrorAction SilentlyContinue
   Set-Location $repo
   Remove-Worktree
 }

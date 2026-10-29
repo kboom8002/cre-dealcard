@@ -10,12 +10,27 @@ import React from "react";
 import { RoiCalculator } from "@/components/magazine/RoiCalculator";
 import { useViewerTrack } from "@/components/magazine/viewer-track";
 
-export default function RoiIsland({ accentColor, defaultPrice }: { accentColor: string; defaultPrice?: number }) {
+export default function RoiIsland({
+  accentColor,
+  defaultPrice,
+  defaultDeposit,
+  defaultMonthlyRent,
+  defaultTotalFloors,
+}: {
+  accentColor: string;
+  defaultPrice?: number;
+  defaultDeposit?: number;
+  defaultMonthlyRent?: number;
+  defaultTotalFloors?: number;
+}) {
   const onTrack = useViewerTrack();
   return (
     <RoiCalculator
       accentColor={accentColor}
       defaultPrice={defaultPrice}
+      defaultDeposit={defaultDeposit}
+      defaultMonthlyRent={defaultMonthlyRent}
+      defaultTotalFloors={defaultTotalFloors}
       onInteract={(field) => onTrack("calc_simulate", { field })}
     />
   );

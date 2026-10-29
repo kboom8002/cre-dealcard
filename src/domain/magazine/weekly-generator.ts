@@ -42,6 +42,11 @@ import {
   pulsePeriodLabelCandidates,
   type PulseRegionCode,
 } from '@/lib/magazine/period-label';
+import {
+  adaptBuildingToMagazineDeal,
+  resolveDealCoverPhoto,
+  resolveDealPhotoUrls,
+} from './deal-adapter';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('weekly-generator');
@@ -101,6 +106,7 @@ export interface DealItem {
   status: string;
   photo_urls: string[] | null;
   attrs: Record<string, unknown>;
+  imDoc?: Record<string, unknown> | null;
 }
 
 export interface PulseData {
@@ -254,16 +260,46 @@ const fetchActiveDeals = async (supabase: Db, userId: string, errors: string[]):
     .from('building_ssot_lite')
     .select('id, raw_address, area_signal, asset_type, price_band, status, layers')
     .eq('owner_id', userId)
-    .in('status', ['public_signal_ready', 'active'])
+    .in('status', ['public_signal_ready', 'snapshot_draft_ready', 'draft'])
     .order('updated_at', { ascending: false })
     .limit(10);
   if (error) {
     errors.push(`building_ssot_lite: ${error.message}`);
     return [];
   }
-  return (data ?? []).map((b: Record<string, unknown>) => {
+  const dealsData = (data ?? []) as Array<Record<string, unknown>>;
+  const dealIds = dealsData.map((b) => b.id).filter(Boolean);
+
+  const docMap = new Map<string, any>();
+  if (dealIds.length > 0) {
+    try {
+      const { data: docData, error: docErr } = await supabase
+        .from('document_objects')
+        .select('building_id, doc_type, body')
+        .in('building_id', dealIds)
+        .in('doc_type', ['im_lite', 'im_lite_draft', 'mobile_im']);
+      if (docErr) {
+        errors.push(`document_objects: ${docErr.message}`);
+      } else if (Array.isArray(docData)) {
+        for (const doc of docData) {
+          if (doc.building_id && !docMap.has(doc.building_id)) {
+            docMap.set(doc.building_id, doc);
+          }
+        }
+      }
+    } catch (e: any) {
+      errors.push(`document_objects: ${e?.message ?? 'unknown'}`);
+    }
+  }
+
+  return dealsData.map((b: Record<string, unknown>) => {
     const layers = (b.layers && typeof b.layers === 'object' ? b.layers : {}) as Record<string, unknown>;
-    const photos = (layers.photos && typeof layers.photos === 'object' ? layers.photos : {}) as { urls?: unknown };
+    const imDoc = docMap.get(String(b.id)) ?? null;
+    const body = (imDoc?.body && typeof imDoc.body === 'object' ? imDoc.body : {}) as Record<string, unknown>;
+    const photoSource = body.photos_v2 ?? body.photos ?? layers.photos;
+    const photoUrls = resolveDealPhotoUrls(photoSource);
+    const coverPhoto = resolveDealCoverPhoto(photoSource);
+    const resolvedUrls = coverPhoto ? [coverPhoto, ...photoUrls.filter((u) => u !== coverPhoto)] : photoUrls;
     return {
       id: String(b.id),
       address: str(b.raw_address) ?? '',
@@ -271,8 +307,9 @@ const fetchActiveDeals = async (supabase: Db, userId: string, errors: string[]):
       asset_type: str(b.asset_type),
       price: str(b.price_band),
       status: String(b.status ?? ''),
-      photo_urls: toStringArray(photos.urls),
+      photo_urls: resolvedUrls,
       attrs: layers,
+      imDoc,
     };
   });
 };
@@ -1070,14 +1107,23 @@ export const generateWeeklyMagazine = async (params: GenerateWeeklyParams): Prom
     };
   }
   if (deals.length) {
-    content.dealHighlights = deals.slice(0, 5).map((d) => ({
-      id: d.id,
-      address: d.address, // DB 원본 보존 — 공개 응답 직전에 maskAddress 로 마스킹
-      areaSignal: d.area_signal,
-      assetType: d.asset_type,
-      price: d.price,
-      photoUrl: d.photo_urls?.[0] ?? null,
-    }));
+    const adaptedDeals = deals.slice(0, 5).map((d) => {
+      const adapted = adaptBuildingToMagazineDeal({
+        building: {
+          id: d.id,
+          raw_address: d.address,
+          area_signal: d.area_signal,
+          asset_type: d.asset_type,
+          price_band: d.price,
+          layers: d.attrs,
+          status: d.status,
+        },
+        imDoc: d.imDoc,
+      });
+      return adapted as unknown as Record<string, unknown>;
+    });
+    content.dealHighlights = adaptedDeals;
+    (content as unknown as Record<string, unknown>).featured_deals = adaptedDeals;
     content.teaserCards = teaserCards;
   }
   if (sources.auctionPicks.length) content.auctionPicks = sources.auctionPicks as unknown as Array<Record<string, unknown>>;

@@ -13,9 +13,15 @@ import {
   type RoiInputs,
 } from "@/components/magazine/roi-calc";
 
-interface RoiCalculatorProps {
+export interface RoiCalculatorProps {
   /** 매물 기본 매입가 (원, optional prefill) */
   defaultPrice?: number;
+  /** 매물 기본 보증금 합계 (원, optional prefill) */
+  defaultDeposit?: number;
+  /** 매물 기본 월세 합계 (원, optional prefill) */
+  defaultMonthlyRent?: number;
+  /** 매물 전체 층수 (optional prefill) */
+  defaultTotalFloors?: number;
   accentColor?: string;
   /** 사용자가 입력 필드를 처음 조작할 때(필드별 1회) 호출 — 분석 trackClick 연결용 */
   onInteract?: (field: string) => void;
@@ -87,10 +93,20 @@ export function parseKoreanEokInput(raw: unknown): number | null {
   return Math.round(num * 100) / 100;
 }
 
-export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInteract }: RoiCalculatorProps) {
+export function RoiCalculator({
+  defaultPrice,
+  defaultDeposit,
+  defaultMonthlyRent,
+  defaultTotalFloors,
+  accentColor = "#6366f1",
+  onInteract,
+}: RoiCalculatorProps) {
   const [inputs, setInputs] = useState<RoiInputs>({
     ...ROI_DEFAULTS,
     purchasePrice: defaultPrice || ROI_DEFAULTS.purchasePrice,
+    deposit: defaultDeposit !== undefined ? defaultDeposit : ROI_DEFAULTS.deposit,
+    monthlyRent: defaultMonthlyRent !== undefined ? defaultMonthlyRent : ROI_DEFAULTS.monthlyRent,
+    totalFloors: defaultTotalFloors || ROI_DEFAULTS.totalFloors,
   });
   const touched = useRef<Set<string>>(new Set());
 
@@ -285,6 +301,10 @@ export function RoiCalculator({ defaultPrice, accentColor = "#6366f1", onInterac
         <dl className="mt-1 space-y-1.5 text-caption text-ink-muted">
           <Row dt="대출금" dd={formatPriceKo(result.loanAmount)} />
           <Row dt="자기자본" dd={formatPriceKo(result.equity)} />
+          <Row
+            dt="실질 임대수익률 (보증금 차감)"
+            dd={<span className="font-bold text-emerald-300">{pct(result.netYieldOnDeposit)}</span>}
+          />
           <Row dt="연 임대수입 (공실 반영)" dd={formatPriceKo(result.annualRent)} />
           <Row dt="연 대출이자" dd={formatPriceKo(result.annualInterest)} />
           <Row

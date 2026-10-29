@@ -12,6 +12,9 @@
  */
 import { createServiceClient } from "@/lib/supabase/service";
 import type { HeroCardData } from "@/domain/building/mobile-im/types";
+import { resolveDealCoverPhoto } from "./deal-adapter";
+
+export * from "./deal-adapter";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('im-to-magazine-bridge');
@@ -87,7 +90,7 @@ export async function extractAndAppendDealSnippet(opts: {
     investmentPoint: heroCard.keyInvestmentPoint || "",
     assetType: heroCard.assetType || ssot.asset_type || "",
     priceBand: heroCard.askingPriceDisplay || ssot.price_band || "",
-    photoUrl: photoUrls?.[0] ?? null,
+    photoUrl: resolveDealCoverPhoto(photoUrls),
     imUrl: `/im-lite/${buildingId}`,
     createdAt: new Date().toISOString(),
   };

@@ -26,6 +26,7 @@ import {
   DEFAULT_THEME_COLOR,
 } from '@/domain/magazine/weekly-generator';
 import { runMagazineQualityGate } from '@/domain/magazine/quality-gate';
+import { adaptBuildingToMagazineDeal, resolveDealCoverPhoto } from '@/domain/magazine/deal-adapter';
 
 const log = createModuleLogger('api-magazine-broker');
 
@@ -90,7 +91,7 @@ async function generateDailyContent(
       .from('building_ssot_lite')
       .select('id, raw_address, area_signal, asset_type, price_band, matched_buyer_count, layers')
       .eq('owner_id', broker.userId)
-      .in('status', ['public_signal_ready', 'active'])
+      .in('status', ['public_signal_ready', 'snapshot_draft_ready', 'draft'])
       .order('updated_at', { ascending: false })
       .limit(5),
     supabase
@@ -215,15 +216,32 @@ ${who ? `브로커 "${who}"를 위한 ` : ''}오늘의 CRE 데일리 브리핑�
 
   const deals = (dealsRes.error ? [] : dealsRes.data ?? []) as Array<Record<string, unknown>>;
   if (deals.length) {
-    content.dealHighlights = deals.map((d) => ({
-      id: d.id,
-      address: d.raw_address, // DB 원본 보존 — 응답 직전 마스킹
-      areaSignal: d.area_signal,
-      assetType: d.asset_type,
-      price: d.price_band,
-      photoUrl: ((d.layers as { photos?: { urls?: string[] } } | null)?.photos?.urls ?? [])[0] ?? null,
-      buyerInterestCount: typeof d.matched_buyer_count === 'number' ? d.matched_buyer_count : 0,
-    }));
+    content.dealHighlights = deals.map((d) => {
+      const adapted = adaptBuildingToMagazineDeal({
+        building: {
+          id: d.id as string,
+          raw_address: d.raw_address as string,
+          area_signal: d.area_signal as string,
+          asset_type: d.asset_type as string,
+          price_band: d.price_band as string,
+          matched_buyer_count: d.matched_buyer_count as number,
+          layers: d.layers as Record<string, unknown>,
+        },
+      });
+      return {
+        id: d.id,
+        address: d.raw_address, // DB 원본 보존 — 응답 직전 마스킹
+        areaSignal: d.area_signal,
+        assetType: d.asset_type,
+        price: d.price_band,
+        photoUrl: adapted.photoUrl,
+        buyerInterestCount: typeof d.matched_buyer_count === 'number' ? d.matched_buyer_count : 0,
+        investmentPoint: adapted.investmentPoint,
+        imUrl: adapted.imUrl,
+        grossYieldNetOfDeposit: adapted.grossYieldNetOfDeposit,
+        noiCapRate: adapted.noiCapRate,
+      };
+    });
   }
 
   return { kind: 'ok' as const, content, qg, isMock: response.isMock };

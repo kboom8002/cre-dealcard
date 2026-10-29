@@ -42,6 +42,8 @@ export interface RoiResult {
   cashOnCash: number;
   monthlyCashFlow: number;
   occupancyRate: number;
+  /** 보증금 차감 실질 임대수익률 (%) — 연임대료 ÷ (매매가 − 보증금) */
+  netYieldOnDeposit: number;
 }
 
 export function computeRoi(i: RoiInputs): RoiResult {
@@ -64,6 +66,10 @@ export function computeRoi(i: RoiInputs): RoiResult {
   // Cap Rate
   const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
 
+  // 보증금 차감 실질 임대수익률 (Basic IM YieldSet SSOT: 연임대료 ÷ (매매가 − 보증금))
+  const netPurchase = purchasePrice - deposit;
+  const netYieldOnDeposit = netPurchase > 0 ? (effectiveRent / netPurchase) * 100 : 0;
+
   // Cash-on-Cash Return (자기자본수익률)
   const netCashFlow = noi - annualInterest;
   const actualEquity = Math.max(purchasePrice - loanAmount - effectiveDeposit, 1);
@@ -82,6 +88,7 @@ export function computeRoi(i: RoiInputs): RoiResult {
     cashOnCash,
     monthlyCashFlow,
     occupancyRate: occupancyRate * 100,
+    netYieldOnDeposit,
   };
 }
 

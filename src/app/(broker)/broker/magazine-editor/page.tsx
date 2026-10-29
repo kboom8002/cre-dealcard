@@ -88,6 +88,10 @@ import {
   deriveFallbackBriefing,
 } from "@/lib/magazine/simple-format";
 import {
+  adaptBuildingToMagazineDeal,
+  resolveDealCoverPhoto,
+} from "@/domain/magazine/deal-adapter";
+import {
   Save,
   Eye,
   ArrowLeft,
@@ -322,7 +326,7 @@ function MagazineEditorInner() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("external_news")
-        .select("id, title, summary, source, sentiment, importance_score, topic")
+        .select("id, title, summary, source, sentiment, importance_score, topic, url")
         .order("importance_score", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(20);
@@ -355,7 +359,7 @@ function MagazineEditorInner() {
             "id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers"
           )
           .eq("owner_id", user.id)
-          .in("status", ["public_signal_ready", "active"])
+          .in("status", ["public_signal_ready", "snapshot_draft_ready", "draft"])
           .order("updated_at", { ascending: false })
           .limit(10),
         supabase
@@ -366,21 +370,42 @@ function MagazineEditorInner() {
       ]);
       if (error) throw new Error("매물 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
 
+      const candidateBuildingIds = (dealsData || []).map((b: any) => b.id).filter(Boolean);
+      const docMap = new Map<string, any>();
+      if (candidateBuildingIds.length > 0) {
+        try {
+          const { data: docData } = await supabase
+            .from("document_objects")
+            .select("building_id, doc_type, body")
+            .in("building_id", candidateBuildingIds)
+            .in("doc_type", ["im_lite", "im_lite_draft", "mobile_im"]);
+          if (Array.isArray(docData)) {
+            for (const doc of docData) {
+              if (doc.building_id && !docMap.has(doc.building_id)) {
+                docMap.set(doc.building_id, doc);
+              }
+            }
+          }
+        } catch {
+          // ignore doc loading failure, fallback gracefully
+        }
+      }
+
       const mappedDeals = (dealsData || []).map((b: any) => {
-        const rawPhotos = (b.layers as any)?.photos;
-        const resolvedPhotoUrls: string[] = Array.isArray(rawPhotos)
-          ? rawPhotos.map((p: any) => (typeof p === "string" ? p : p?.url)).filter(Boolean)
-          : Array.isArray(rawPhotos?.urls)
-          ? rawPhotos.urls.filter(Boolean)
-          : [];
+        const imDoc = docMap.get(b.id) ?? null;
+        const adapted = adaptBuildingToMagazineDeal({ building: b, imDoc });
         return {
           id: b.id,
           address: b.raw_address,
           areaSignal: b.area_signal,
           assetType: b.asset_type,
           price: b.price_band,
-          photoUrl: resolvedPhotoUrls[0] ?? null,
+          photoUrl: adapted.photoUrl,
           buyerInterestCount: b.matched_buyer_count || 0,
+          investmentPoint: adapted.investmentPoint,
+          imUrl: adapted.imUrl,
+          grossYieldNetOfDeposit: adapted.grossYieldNetOfDeposit,
+          noiCapRate: adapted.noiCapRate,
         };
       });
 
@@ -395,6 +420,10 @@ function MagazineEditorInner() {
             price: pd.priceBand || "",
             photoUrl: pd.photoUrl,
             buyerInterestCount: 0,
+            investmentPoint: pd.investmentPoint || "",
+            imUrl: pd.imUrl || `/im-lite/${pd.buildingId}`,
+            grossYieldNetOfDeposit: null,
+            noiCapRate: null,
           });
         }
       });

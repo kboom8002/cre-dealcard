@@ -422,14 +422,39 @@ export function MagazineView({
             <SentimentSection sentiment={{ score: sentimentScore, status: sentiment?.status, asOf: sentiment?.asOf }} />
           </Section>
         ) : null;
-      case "roi_calculator":
+      case "roi_calculator": {
+        const primaryDeal = featuredDeals[0];
+        const defaultPrice =
+          typeof primaryDeal?.priceWon === "number" && primaryDeal.priceWon > 0
+            ? primaryDeal.priceWon
+            : typeof primaryDeal?.price === "number" && primaryDeal.price > 0
+            ? primaryDeal.price
+            : undefined;
+        const defaultDeposit =
+          typeof primaryDeal?.deposit === "number" && primaryDeal.deposit >= 0
+            ? primaryDeal.deposit
+            : undefined;
+        const defaultMonthlyRent =
+          typeof primaryDeal?.monthlyRent === "number" && primaryDeal.monthlyRent >= 0
+            ? primaryDeal.monthlyRent
+            : undefined;
+        const rawFloors = primaryDeal?.floors ? String(primaryDeal.floors).replace(/[^\d]/g, "") : "";
+        const defaultTotalFloors = rawFloors ? parseInt(rawFloors, 10) || undefined : undefined;
+
         return (
           <Section>
             <SectionCard title="수지분석 계산기" icon={<Calculator className="h-4 w-4 text-emerald-300" aria-hidden="true" />} defaultOpen>
-              <LazyRoiCalculator accentColor={accent} />
+              <LazyRoiCalculator
+                defaultPrice={defaultPrice}
+                defaultDeposit={defaultDeposit}
+                defaultMonthlyRent={defaultMonthlyRent}
+                defaultTotalFloors={defaultTotalFloors}
+                accentColor={accent}
+              />
             </SectionCard>
           </Section>
         );
+      }
       case "tax_clinic":
         return hasTaxClinic && taxVisibleForTarget(target) ? (
           <Section>

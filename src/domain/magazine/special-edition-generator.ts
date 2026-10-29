@@ -26,6 +26,7 @@ import { runMagazineQualityGate } from './quality-gate';
 import { callMagazineJson, zReaderText } from '@/lib/magazine/llm-guard';
 import { todayKst } from '@/lib/magazine/kst';
 import { SLUG_RE, isUuid } from '@/lib/magazine/slug';
+import { adaptBuildingToMagazineDeal, resolveDealCoverPhoto } from './deal-adapter';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('special-edition-generator');
@@ -110,8 +111,23 @@ export async function generateSpecialEdition(params: GenerateSpecialEditionParam
     throw new Error(`매물을 찾을 수 없습니다: ${buildingId}`);
   }
 
+  // document_objects SSOT 조회 (있을 경우 투자포인트/YieldSet 연동)
+  const { data: imDoc } = await supabase
+    .from('document_objects')
+    .select('doc_type, body')
+    .eq('building_id', buildingId)
+    .in('doc_type', ['im_lite', 'im_lite_draft', 'mobile_im'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const adaptedDeal = adaptBuildingToMagazineDeal({
+    building: rawData,
+    imDoc,
+  });
+
   const layers = (rawData.layers ?? {}) as Record<string, unknown>;
-  const photoUrls = arr(((layers.photos ?? {}) as { urls?: unknown }).urls);
+  const photoUrls = adaptedDeal.photoUrls.length > 0 ? adaptedDeal.photoUrls : arr(((layers.photos ?? {}) as { urls?: unknown }).urls);
   const building = {
     id: rawData.id as string,
     address: nonEmpty(rawData.raw_address),
@@ -176,7 +192,7 @@ export async function generateSpecialEdition(params: GenerateSpecialEditionParam
   const editionLabel = `FLASH-${issueDate.replace(/-/g, '')}-${buildingId}`;
   const keywords = ['단독속보', building.areaSignal, building.assetType].filter((k): k is string => !!k);
   const assetTypes = building.assetType ? [building.assetType] : [];
-  const coverImage = photoUrls[0] ?? bp.magazine_cover_image ?? null;
+  const coverImage = adaptedDeal.photoUrl ?? photoUrls[0] ?? bp.magazine_cover_image ?? null;
 
   const content: EditionContentV1 & Record<string, unknown> = {
     schemaVersion: 1,
@@ -204,6 +220,8 @@ export async function generateSpecialEdition(params: GenerateSpecialEditionParam
     theme_body_md: briefing,
     theme_asset_types: assetTypes,
     featured_deal_ids: [buildingId],
+    featured_deals: [adaptedDeal],
+    dealHighlights: [adaptedDeal],
     theme_color: SPECIAL_THEME_COLOR,
     teaserCards,
     generation: {
@@ -230,7 +248,7 @@ export async function generateSpecialEdition(params: GenerateSpecialEditionParam
       areaSignal: building.areaSignal,
       assetType: building.assetType,
       price: building.priceDisplay,
-      photoUrl: photoUrls[0] ?? null,
+      photoUrl: adaptedDeal.photoUrl ?? photoUrls[0] ?? null,
       teaser: primaryTeaser ?? null,
     },
     urgentNote: brokerNote,
