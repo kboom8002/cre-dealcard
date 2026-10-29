@@ -621,3 +621,66 @@ im-core의 원본 데이터가 모바일 IM 렌더링 바인더 모델로 전달
 - [ ] 입력된 원본 도메인 데이터와 최종 생성된 섹션 콘텐츠(문자열/구조)가 완벽히 일치하는지 교차 대조하는 새로운 '단언(Assert) 테스트' 또는 스크립트를 작성하여 데이터 유실이 없음을 증명해야 합니다.
 - [ ] 정적 분석 도구(또는 의존성 검사 스크립트)를 가동하여, 뷰 계층이 도메인 계층을 역으로 오염시키는 아키텍처 위반(역참조) 사례가 '0건'임을 기계적으로 확인하고 단언해야 합니다.
 
+
+
+## 2026-10-29T01:13:33Z
+
+Upgrade and remediate the CRE DealCard Newsletter (Mobile Magazine) system to SOTA commercial quality across all 4 axes: (1) Basic IM & Studio SSOT data bridge and financial yield parity, (2) unified Broker Workspace routing and Warm Paper Light high-contrast frictionless editor UX, (3) mobile Reader Viewer IM conversion, 1-step subscription, and interactive ROI simulation, and (4) database schema, migration, RLS, and API contract integrity.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development
+
+Reference audit & design specification:
+- C:\Users\User\.gemini\antigravity\brain\81c019a6-0303-44db-bc94-8a1277019cc0\newsletter_audit_and_sota_plan.md
+- Project rules in c:\Users\User\cre-dealcard\.agents\AGENTS.md and c:\Users\User\cre-dealcard\.agents\rules\12-im-commercial-testing.md (specifically Rules 41–45 and 71–78)
+
+## Requirements
+
+### R1. Basic IM & Studio ↔ Magazine SSOT Data Bridge & Financial Parity (Wave 1)
+- Unify the IM-to-Magazine data pipeline so Weekly, Simple, and Special Edition (`호외`) generators and the Magazine Editor consume the full Basic IM & Studio SSOT (`building_ssot_lite` + `document_objects` where `doc_type = 'im_lite'` + `_studioSlideOverrides` + `im_custom_data`), removing orphaned duplicate bridge code.
+- Ensure candidate deal queries include valid `building_ssot_lite` statuses (`public_signal_ready`, `snapshot_draft_ready`, and `draft` when an IM or deal exists), preserve `external_news.url`, resolve cover photos in `isCover` → `isExterior` → first photo order across both array and object photo schemas, and project rich CRE deal metrics (`grossYieldNetOfDeposit` security-deposit-adjusted yield, `noiCapRate`, floor/land area in ㎡ and 평 using `PYEONG_RATIO = 0.3025`, floors, zoning, `investmentPoint`, and `/im-lite/[id]` `imUrl`) into `dealHighlights`, `featured_deals`, and `teaserCards`.
+- Ensure Special Edition (`호외`) generation populates `featured_deals` and `dealHighlights` (alongside `specialDeal`) so published Special Editions render their featured building card on the reader view, and align the Reader ROI Calculator (`roi-calc.ts` / `RoiCalculator.tsx`) with Basic IM `YieldSet` SSOT formulas (`연임대료 ÷ (매매가 − 보증금)` net-of-deposit yield, transparent NOI/CoC) seeded with the featured deal's actual price, deposit, and monthly rent.
+
+### R2. Unified Broker Workspace & Zero-Friction Warm Paper Light Editor UX (Wave 2)
+- Eliminate the disconnected `localStorage` mock prototype at `/broker/w/magazine` and unify the Workspace navigation (`WorkspaceShell` / `WorkspaceBottomNav` `'📰 뉴스레터'`) with the real DB-backed Magazine Editor under a cohesive, senior-friendly **Warm Paper Light** high-contrast theme (eliminating the dark `#0B1120`/`#111827` vs. white card hybrid theme clash).
+- Eliminate broker authoring and outreach friction:
+  1. When in Simple Mode (`editorMode === 'simple'`), hide the 8-step Full Mode tab bar, provide a clean sticky mode switcher (`⚡ 간단 모드` vs. `🛠️ 상세 편집`) plus quick access to Subscriber Management and Analytics, and consolidate duplicate publish buttons into a single primary CTA.
+  2. Fix the unpublished preview link (`📱 실제 화면으로 보기`) to include `?preview=1&edition=${editionId}` so brokers never hit the unpublished error screen when previewing a draft.
+  3. Remove the one-shot premature lock (`autoSummaryDoneRef`) in `SimpleEditor`, pass the full `dealHighlights` and `topNews` snapshots to `POST /api/magazine/editions/[id]/simple-summary`, and seed newly created weekly drafts with the broker's top deals and curated news rather than a blank skeleton.
+  4. Fix string price formatting in `EditorThemeDealsTab` so string `price_band` values (e.g., `"50억"`, `"225억 원"`) and deal thumbnails/yields/IM badges display cleanly.
+  5. Promote 1-click Kakao group-chat copy package (`인사말 + 소식지 링크 + 무료 구독 링크`) and `sms:` text dispatch to the top of `MagazineShareModal` and `SpecialEditionModal`, and add bulk subscriber paste (multi-line name/phone/email import) in the subscriber addition flow.
+
+### R3. SOTA Mobile Reader Viewer & Frictionless Subscription / IM Conversion (Wave 3)
+- Upgrade the mobile reader viewer (`360px~430px`) to display rich CRE deal specs (cover photo, sale price, security-deposit-adjusted yield, land/gross floor area in 평, zoning, 1-line investment thesis) on featured deal cards, and provide direct primary actions for **`[📄 모바일 IM 열람]`** (linking directly to `/im-lite/[id]` or ranked #1 in `DealInquirySheet`) and **`[🧮 이 매물 수지분석]`** (scrolling to and pre-filling the ROI Calculator with that deal's financials).
+- Improve mobile readability and trust signals: upgrade 12px (`text-caption`) body/table/card copy to 14px–17px, refactor the ROI Calculator result cards from a cramped 3-column row into a responsive `1 + 2` grid on 360px screens with Korean amount parsing on monthly rent (`만원`), replace forced `"🟣 AI 분석"` labels on broker-authored briefings with `"✍️ 공인중개사 현장 브리핑"`, deduplicate `TrackingNotice`, and compact `PoweredByBadge`.
+- Remove the `SubscribeCard` phone-only error trap (`NO_EMAIL_CONFIRM_CHANNEL` warning screen) by completing phone-only Kakao/SMS subscription requests with a positive confirmation state and an optional 1-step email input for instant automated delivery.
+
+### R4. Database, Migration, RLS, and API Contract Lockdown (Wave 4)
+- Add a SQL migration to lock down `public.append_magazine_deal_snippet(UUID, JSONB)` (`SET search_path = public`, `REVOKE EXECUTE FROM public, anon, authenticated`, `GRANT EXECUTE TO service_role`) and move superseded conflicting `20260828_magazine_*.sql` files out of the active `supabase/migrations/` sequence into `supabase/migrations/_archive/`.
+- Lock down dual-table (`magazine_editions` ↔ `magazine_issues`) consistency: disallow `status: "published"` in `PATCH /api/magazine/editions` (enforcing `POST /api/magazine/editions/[id]/publish` as the single publish path), route `useMagazineDraft` updates through the API with `status = 'draft'` filtering, and support `?edition=<editionId>` in `public-page-data.ts` and Special Edition distribution links so same-day Special Editions are never shadowed by Weekly issues in `magazine_issues`.
+- Protect `POST/GET /api/public/magazine/poll` with `withPublicGuard` and server-side `computeVisitorHash`, fix UTC vs. KST date slicing (`toKstDate`) for poll aggregation in `GET /api/broker/magazine/analytics`, unify subscriber temperature lookback windows (190 days, `v2_` hash) between the main dashboard and subscriber drilldown, localize raw English segment badges (`"investor"` → `"매수·투자자"`), remove raw developer DB error banners from `EditorAnalyticsTab`, route CRM client subscriber sync through the server API or canonical `slug` + `broker_user_id`, key `sendGate` idempotency on `recipient_hash` (preventing duplicate sends across `slug`/`user_id` rows), and ensure default `dailyCap` in `send-batch.ts` does not block second same-day distributions (corrections or flash issues).
+
+### R5. Safe Workspace & Build Hygiene Constraints
+- Never run `npx next build` or `npm run build` directly in the main working tree; always use `powershell -ExecutionPolicy Bypass -File scripts/release/worktree-build.ps1` (Rule 71).
+- Do not leave temporary `.log`, `.txt`, or `.png` dump files in the repository root (Rule 41).
+
+## Verification Resources
+
+- Existing Magazine unit & UX regression suites: `src/tests/unit/magazine/*.test.{ts,tsx}`, `src/tests/unit/magazine-distribution-tier.test.ts`, `src/tests/workspace/inbox-magazine-workspace.test.tsx`
+- Pipeline preflight suite: `npm run preflight`
+- Isolated worktree production build script: `scripts/release/worktree-build.ps1`
+
+## Acceptance Criteria
+
+### 1. Functional, Bridge & UX Regression Test Suite
+- [ ] All existing Magazine unit and workspace tests (`npx vitest run src/tests/unit/magazine src/tests/unit/magazine-distribution-tier.test.ts src/tests/workspace/inbox-magazine-workspace.test.tsx`) pass 100% (`0` failed tests across all 83+ test files, resolving the 2 failures in `ux60-broker-editor.test.ts` and updating any theme/routing assertions to match the unified Warm Paper Light studio).
+- [ ] New unit/integration tests verify:
+  1. `BuildingToMagazineDealAdapter` / IM-to-Magazine bridge accurately projects `document_objects` + `_studioSlideOverrides` + `isCover` photo + `YieldSet` (`grossYieldNetOfDeposit`, `noiCapRate`) + `imUrl` into Weekly and Special Edition deals.
+  2. Special Edition (`호외`) output populates `featured_deals` / `dealHighlights` and resolves via `?edition=<editionId>` even when a Weekly issue exists on the same KST date.
+  3. `roi-calc.ts` matches Basic IM net-of-deposit yield (`연임대료 ÷ (매매가 − 보증금)`) and `RoiCalculator` accepts and applies featured deal parameters.
+  4. `PATCH /api/magazine/editions` rejects direct `status: "published"` transitions, `/api/public/magazine/poll` enforces `withPublicGuard` + `computeVisitorHash`, and `sendGate` blocks duplicate sends for the same `recipient_hash` across `slug` and `user_id` subscriber rows.
+
+### 2. Static Analysis, Preflight & Production Build Gate
+- [ ] `npm run preflight` passes 100% (`112/112` assertions).
+- [ ] `npx tsc --noEmit` exits with code `0` (0 TypeScript errors).
+- [ ] `powershell -ExecutionPolicy Bypass -File scripts/release/worktree-build.ps1` completes with `BUILD_EXIT=0` and sentinel packages (`pino`, `sharp`, `jsdom`) intact.
