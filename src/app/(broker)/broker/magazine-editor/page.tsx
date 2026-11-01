@@ -91,6 +91,8 @@ import {
   adaptBuildingToMagazineDeal,
   resolveDealCoverPhoto,
 } from "@/domain/magazine/deal-adapter";
+import { WS_TOPBAR_LINKS } from "@/components/workspace/WorkspaceShell";
+import { WorkspaceBottomNav } from "@/components/workspace/WorkspaceBottomNav";
 import {
   Save,
   Eye,
@@ -1428,9 +1430,68 @@ function MagazineEditorInner() {
 
   // ─── 렌더링 ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#FAF9F5] text-[#0F172A] flex flex-col lg:flex-row font-sans">
-      {/* ━━━ 왼쪽 패널: 에디터 (시니어 가독성을 위해 폭 580~640px 확장) ━━━ */}
-      <div className="w-full lg:w-[580px] xl:w-[640px] bg-[#FAF9F5] border-r border-[#CBD5E1] flex flex-col h-[100dvh] lg:h-screen sticky top-0 overflow-hidden shrink-0">
+    <div
+      data-testid="workspace-shell"
+      data-workspace="magazine"
+      className="flex flex-col h-[100dvh] bg-[#FAF9F5] text-[#0F172A] overflow-hidden font-sans"
+    >
+      {/* ━━━ 통일 상단 글로벌 워크스페이스 내비게이션 바 (56px, 딜카드·IM·뉴스레터·소통함 100% 동일) ━━━ */}
+      <header
+        data-testid="workspace-topbar"
+        className="h-14 shrink-0 bg-white border-b border-slate-300 px-4 flex items-center justify-between z-30 shadow-2xs"
+      >
+        <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
+          {WS_TOPBAR_LINKS.map((link) => {
+            const isActive = link.id === "magazine";
+            return (
+              <Link
+                key={link.id}
+                href={link.href}
+                data-testid={`workspace-nav-${link.id}`}
+                className={`px-3 py-1.5 min-h-[40px] rounded-lg text-sm sm:text-base font-extrabold flex items-center transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "bg-blue-700 text-white shadow-2xs"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* 모바일 채우기/미리보기 전환 스위치 (<1024px) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300">
+            <button
+              type="button"
+              onClick={() => setShowMobilePreview(false)}
+              className={`px-2.5 py-1 text-sm font-bold rounded-md transition-colors ${
+                !showMobilePreview
+                  ? "bg-white text-blue-700 shadow-2xs"
+                  : "text-slate-600"
+              }`}
+            >
+              ✏️ 채우기
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMobilePreview(true)}
+              className={`px-2.5 py-1 text-sm font-bold rounded-md transition-colors ${
+                showMobilePreview
+                  ? "bg-white text-blue-700 shadow-2xs"
+                  : "text-slate-600"
+              }`}
+            >
+              👁 미리보기
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+        {/* ━━━ 왼쪽 패널: 에디터 (시니어 가독성을 위해 폭 580~640px 확장) ━━━ */}
+        <div className={`w-full lg:w-[580px] xl:w-[640px] bg-[#FAF9F5] border-r border-[#CBD5E1] ${showMobilePreview ? "hidden lg:flex" : "flex"} flex-col h-full overflow-hidden shrink-0`}>
         {/* 헤더 — 125% 배율 노트북에서도 편집 캔버스 높이를 확보하도록 밀도 최적화 */}
         <div className="px-4 py-2.5 border-b border-[#CBD5E1] flex items-center justify-between gap-2 bg-white/95 backdrop-blur-md z-10 flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -1785,7 +1846,7 @@ function MagazineEditorInner() {
       </div>
 
       {/* ━━━ 우측 패널: 미리보기 (모바일은 토글 시 노출, 데스크톱은 상시 노출) ━━━ */}
-      <div className={`${showMobilePreview ? "flex" : "hidden"} lg:flex flex-1`}>
+      <div className={`${showMobilePreview ? "flex" : "hidden"} lg:flex flex-1 h-full overflow-hidden`}>
         <MagazinePhonePreview
           previewData={previewViewData}
           brokerSlug={brokerSlug}
@@ -1794,6 +1855,10 @@ function MagazineEditorInner() {
           editionId={editionId}
         />
       </div>
+      </div>
+
+      {/* ── 모바일 5탭 하단 내비게이션 (<1024px) ── */}
+      <WorkspaceBottomNav activeTabId="magazine" hideOnDetail={false} />
 
 
       {/* ── 발행 확인 모달 ── */}

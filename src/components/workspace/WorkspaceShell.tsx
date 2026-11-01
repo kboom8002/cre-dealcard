@@ -34,7 +34,7 @@ export interface WorkspaceShellProps {
   children?: React.ReactNode;
 }
 
-const WS_TOPBAR_LINKS = [
+export const WS_TOPBAR_LINKS = [
   { id: "home", label: "🏠 홈", href: "/broker" },
   { id: "dealcards", label: "📄 딜카드", href: "/broker/w/dealcards" },
   { id: "im", label: "📊 IM", href: "/broker/w/im" },
