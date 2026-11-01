@@ -43,10 +43,13 @@ export async function GET(
 
   const { buildingId } = await params;
   const searchParams = req.nextUrl.searchParams;
-  const docId = searchParams.get('doc_id');
+  const docId = searchParams.get('doc_id') || searchParams.get('docId');
   /** @deprecated 골디락스 전환 후 렌더에 영향 없음 — 파일명 호환용 */
   const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
   const presetParam = searchParams.get('preset');
+
+  const { getQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
+  const quickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
 
   // Create Supabase client
   const supabase = createClient(
@@ -54,46 +57,61 @@ export async function GET(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // 1. Fetch building (owner) first — P0-SEC: 문서 상태/소유자 판정에 사용
-  const { data: buildingRow } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', buildingId)
-    .maybeSingle();
-
-  // P0-SEC: 요청자 판정 (쿠키 세션). 소유자·admin 만 비공개 상태(draft 등) 문서를 받을 수 있다.
-  const viewer = await getServerViewer();
-  const buildingOwnerId: string | null = (buildingRow?.owner_id as string | null | undefined) ?? null;
-
+  let buildingRow: any = null;
+  let viewer: any = null;
+  let buildingOwnerId: string | null = null;
   const IM_DOC_TYPES = ['mobile_im', 'im_lite', 'im_lite_draft'];
   let doc: any = null;
 
-  if (docId) {
-    const { data: requested } = await supabase
-      .from('document_objects')
+  if (quickRec?.fullDocBody) {
+    doc = {
+      id: quickRec.documentId,
+      building_id: quickRec.buildingId,
+      owner_id: quickRec.ownerId ?? null,
+      title: quickRec.buildingName,
+      status: 'published',
+      body: quickRec.fullDocBody,
+    };
+  } else {
+    // 1. Fetch building (owner) first — P0-SEC: 문서 상태/소유자 판정에 사용
+    const { data: bRow } = await supabase
+      .from('building_ssot_lite')
       .select('*')
-      .eq('building_id', buildingId)
-      .in('document_type', IM_DOC_TYPES)
-      .eq('id', docId)
+      .eq('id', buildingId)
       .maybeSingle();
-    // 비공개 상태 doc_id 는 소유자·admin 에게만 — 그 외에는 무시하고 최신 공개본으로 대체
-    if (requested && (isImDocStatusPublic(requested.status) || isOwnerOrAdmin(viewer, buildingOwnerId, requested.owner_id))) {
-      doc = requested;
-    }
-  }
+    buildingRow = bRow;
 
-  if (!doc) {
-    const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
-    let latestQuery = supabase
-      .from('document_objects')
-      .select('*')
-      .eq('building_id', buildingId)
-      .in('document_type', IM_DOC_TYPES);
-    latestQuery = privileged
-      ? latestQuery.not('status', 'in', `(${NON_PUBLIC_DOCUMENT_STATUSES.join(',')})`)
-      : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
-    const { data: latest } = await latestQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
-    doc = latest ?? null;
+    // P0-SEC: 요청자 판정 (쿠키 세션). 소유자·admin 만 비공개 상태(draft 등) 문서를 받을 수 있다.
+    viewer = await getServerViewer();
+    buildingOwnerId = (buildingRow?.owner_id as string | null | undefined) ?? null;
+
+    if (docId) {
+      const { data: requested } = await supabase
+        .from('document_objects')
+        .select('*')
+        .eq('building_id', buildingId)
+        .in('document_type', IM_DOC_TYPES)
+        .eq('id', docId)
+        .maybeSingle();
+      // 비공개 상태 doc_id 는 소유자·admin 에게만 — 그 외에는 무시하고 최신 공개본으로 대체
+      if (requested && (isImDocStatusPublic(requested.status) || isOwnerOrAdmin(viewer, buildingOwnerId, requested.owner_id))) {
+        doc = requested;
+      }
+    }
+
+    if (!doc) {
+      const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
+      let latestQuery = supabase
+        .from('document_objects')
+        .select('*')
+        .eq('building_id', buildingId)
+        .in('document_type', IM_DOC_TYPES);
+      latestQuery = privileged
+        ? latestQuery.not('status', 'in', `(${NON_PUBLIC_DOCUMENT_STATUSES.join(',')})`)
+        : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
+      const { data: latest } = await latestQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
+      doc = latest ?? null;
+    }
   }
 
   if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
@@ -101,7 +119,7 @@ export async function GET(
   }
 
   // 소유자·admin 여부 (워터마크 해제 권한)
-  const isPrivilegedViewer = isOwnerOrAdmin(viewer, buildingOwnerId, doc.owner_id);
+  const isPrivilegedViewer = Boolean(quickRec?.fullDocBody) || isOwnerOrAdmin(viewer, buildingOwnerId, doc.owner_id);
 
   const building = buildingRow ? {
     ...buildingRow,
@@ -110,12 +128,30 @@ export async function GET(
     lat: doc.body?.coordinates?.lat || doc.body?.ssot_summary?.coordinates?.lat,
     lng: doc.body?.coordinates?.lng || doc.body?.ssot_summary?.coordinates?.lng,
     investment_posture: doc.body?.ssot_summary?.investment_posture || doc.body?.investmentPosture || 'income',
-  } : null;
+  } : (doc.body?.ssot_summary ? {
+    id: buildingId,
+    owner_id: doc.owner_id ?? null,
+    raw_address: doc.body.ssot_summary.address || doc.body.resolved_address,
+    address: doc.body.ssot_summary.address || doc.body.resolved_address,
+    pnu: doc.body.ssot_summary.pnu || doc.body.pnu,
+    lat: doc.body.coordinates?.lat || doc.body.ssot_summary?.coordinates?.lat,
+    lng: doc.body.coordinates?.lng || doc.body.ssot_summary?.coordinates?.lng,
+    investment_posture: doc.body.ssot_summary?.investment_posture || doc.body.investmentPosture || 'income',
+  } : null);
 
   // 3. Fetch broker profile (SSoT resolver — 실제 DB 값만, 부재 시 생략)
   const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
   const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
-  const broker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId));
+  const broker = quickRec?.fullDocBody?.broker_contact
+    ? {
+        display_name: quickRec.fullDocBody.broker_contact.name as string | undefined,
+        company_name: quickRec.fullDocBody.broker_contact.company as string | undefined,
+        phone: quickRec.fullDocBody.broker_contact.phone as string | undefined,
+        email: undefined as string | undefined,
+        registration_no: quickRec.fullDocBody.broker_contact.registration_no as string | undefined,
+        specialty: undefined as string | undefined,
+      }
+    : toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId));
 
   // 4. Import and run renderer
   try {
@@ -203,6 +239,19 @@ export async function GET(
     let brandAccent: string | undefined;
     let brandLogoUrl: string | undefined;
     let effectiveBroker = broker;
+    const bodyBroker = body.broker_contact || body.basicImDocument?.facts?.brokerOffice;
+    if (bodyBroker && (bodyBroker.brokerName || bodyBroker.brokerageName || bodyBroker.brokerPhone || bodyBroker.name || bodyBroker.representative)) {
+      effectiveBroker = {
+        display_name: bodyBroker.brokerName || bodyBroker.representative || effectiveBroker?.display_name,
+        company_name: bodyBroker.brokerageName || bodyBroker.name || effectiveBroker?.company_name,
+        phone: bodyBroker.brokerPhone || bodyBroker.phone || effectiveBroker?.phone,
+        email: bodyBroker.email || effectiveBroker?.email,
+        registration_no: bodyBroker.registrationNo && bodyBroker.registrationNo !== '-'
+          ? bodyBroker.registrationNo
+          : effectiveBroker?.registration_no,
+        specialty: effectiveBroker?.specialty,
+      };
+    }
     const isCustomPresetId = /^[0-9a-f-]{36}$/i.test(String(visualPreset));
     if (isBasicIM && (visualPreset === 'credeal_basic' || isCustomPresetId)) {
       const { resolveBrandAccent } = await import('@/domain/building/mobile-im/pptx/brand-skin');
@@ -255,26 +304,10 @@ export async function GET(
           }
         : undefined,
       provenance: body.provenance ?? {},
-      supabase,
+      supabase: quickRec?.fullDocBody ? undefined : supabase,
     });
 
-    // 5. Upload to Supabase Storage (Direct-to-Storage 패턴)
-    const timestamp = Date.now();
-    const filePath = `im-pptx/${buildingId}/${tier}_${timestamp}.pptx`;
-
-    const { data: upload, error: uploadError } = await supabase.storage
-      .from('Exports')
-      .upload(filePath, result.buffer, {
-        contentType:
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      log.warn('[PPTX] Storage upload failed, returning direct download:', uploadError);
-    }
-
-    // 6. Return PPTX (direct=1 요청 시 감사 헤더·한글 파일명 보존을 위해 200 응답 반환)
+    // 6. Return PPTX (direct=1 또는 quick-generate 메모리 레코드 요청 시 감사 헤더·한글 파일명 보존을 위해 즉시 200 응답 반환)
     const buildingName = doc.title || body.buildingName || building?.address || '투자설명서';
     const safeName =
       buildingName.replace(
@@ -282,13 +315,28 @@ export async function GET(
         '_'
       ).replace(/_+/g, '_').replace(/^_|_$/g, '') + `_${tier === 'pro' ? 'Pro_IM' : 'Basic_IM'}.pptx`;
 
-    if (!uploadError && searchParams.get('direct') !== '1') {
-      const { data: signedData } = await supabase.storage
+    if (!quickRec?.fullDocBody && searchParams.get('direct') !== '1') {
+      const timestamp = Date.now();
+      const filePath = `im-pptx/${buildingId}/${tier}_${timestamp}.pptx`;
+
+      const { error: uploadError } = await supabase.storage
         .from('Exports')
-        .createSignedUrl(filePath, 1800, { download: safeName });
-        
-      if (signedData?.signedUrl) {
-        return NextResponse.redirect(signedData.signedUrl, 302);
+        .upload(filePath, result.buffer, {
+          contentType:
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        log.warn('[PPTX] Storage upload failed, returning direct download:', uploadError);
+      } else {
+        const { data: signedData } = await supabase.storage
+          .from('Exports')
+          .createSignedUrl(filePath, 1800, { download: safeName });
+
+        if (signedData?.signedUrl) {
+          return NextResponse.redirect(signedData.signedUrl, 302);
+        }
       }
     }
 

@@ -33,6 +33,7 @@ export interface StoredQuickImRecord {
     completionDate?: string;
     handoverNote?: string;
   };
+  fullDocBody?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }

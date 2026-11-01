@@ -14,6 +14,7 @@ const authFile = path.resolve(__dirname, '.auth/user.json');
 
 setup('authenticate', async ({ page }) => {
   setup.setTimeout(120_000); // Dev 서버 콜드 스타트 및 첫 컴파일 대기
+
   const email = process.env.E2E_TEST_EMAIL;
   const password = process.env.E2E_TEST_PASSWORD;
 
@@ -26,9 +27,10 @@ setup('authenticate', async ({ page }) => {
 
   console.log(`🔐 로그인 시도: ${email}`);
 
-  // 1. 로그인 페이지 접속
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  // 1. 로그인 페이지 접속 (React 19 useActionState 하이드레이션 완료 대기)
+  await page.goto('/login', { waitUntil: 'networkidle' });
   await page.locator('#email').waitFor({ state: 'visible', timeout: 60_000 });
+  await page.waitForTimeout(500);
 
   // 2. 이메일/비밀번호 입력
   await page.locator('#email').fill(email);

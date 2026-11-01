@@ -61,13 +61,14 @@ export function countBrokerExtrasFormFilled(f: BrokerExtrasFormState): number {
 interface BrokerExtrasSectionProps {
   form: BrokerExtrasFormState;
   setForm: SetForm;
+  defaultOpen?: boolean;
 }
 
 /**
  * D4: 중개인 추가 정보 (선택) — 접이식 그룹. 입력한 내용은 원문 그대로 IM 에 반영된다(AI 미관여).
  * 한도는 broker-extras.ts (BROKER_EXTRAS_LIMITS) 단일 소스.
  */
-export function BrokerExtrasSection({ form, setForm }: BrokerExtrasSectionProps) {
+export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtrasSectionProps) {
   const extForm = form as ExtendedBrokerExtrasFormState;
   const [isPasteOpen, setIsPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
@@ -215,6 +216,7 @@ export function BrokerExtrasSection({ form, setForm }: BrokerExtrasSectionProps)
 
   return (
     <details
+      open={defaultOpen}
       data-testid="broker-extras-section"
       className="col-span-2 rounded-xl border border-border/40 bg-secondary/10 p-3 group"
     >

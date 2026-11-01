@@ -465,7 +465,7 @@ function ImWorkspaceInner() {
         floor: r.floor || `${idx + 1}F`,
         unit: r.unit_label || `${idx + 1}01호`,
         use:
-          [r.tenant_name, r.tenant_type].filter(Boolean).join(" / ") ||
+          Array.from(new Set([r.tenant_name?.trim(), r.tenant_type?.trim()].filter(Boolean))).join(" / ") ||
           (r.is_vacant ? "공실" : "근린생활시설"),
         depositManwon: Number(r.deposit_manwon ?? 0),
         monthlyRentManwon: Number(r.rent_manwon ?? 0),
@@ -833,7 +833,9 @@ function ImWorkspaceInner() {
             data-testid="im-rentroll-xlsx-importer"
           >
             <RentRollImporter
-              hasExistingData={rentRoll.length > 0}
+              hasExistingData={rentRoll.some(
+                (r) => (r.depositManwon || 0) > 0 || (r.monthlyRentManwon || 0) > 0
+              )}
               onImport={handleExcelRentRollImport}
             />
           </div>
@@ -931,6 +933,7 @@ function ImWorkspaceInner() {
                 <BrokerExtrasSection
                   form={brokerExtrasForm}
                   setForm={handleBrokerExtrasChange}
+                  defaultOpen
                 />
               </div>
             </div>
@@ -1172,20 +1175,29 @@ function ImWorkspaceInner() {
 
   const previewSlot = (
     <div className="p-4 space-y-4 max-w-sm mx-auto" data-testid="im-preview-slot">
-      {/* Direct Link to Full 10-Section Mobile IM Viewer */}
-      <div className="flex items-center justify-between bg-white rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 shadow-xs">
+      {/* Direct Link to Full 10-Section Mobile IM Viewer & 1-Click PPTX Download */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 shadow-xs">
         <span className="text-[13px] font-bold text-[#334155]">
           {previewTab === "mobile" ? "📱 모바일 IM 10섹션" : "🖥 PPTX 10면 슬라이드"}
         </span>
-        <a
-          href={`/im-lite/${currentItem?.buildingId || "bld-01"}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid="im-open-fullscreen-link"
-          className="text-[13px] font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1"
-        >
-          <span>↗ 전체화면 열기</span>
-        </a>
+        <div className="flex items-center gap-2.5">
+          <a
+            href={`/api/public/im-lite/${currentItem?.buildingId || "bld-01"}/pptx?direct=1`}
+            data-testid="im-download-pptx-btn"
+            className="text-[13px] font-extrabold text-[#065F46] bg-[#D1FAE5] px-2.5 py-1 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors"
+          >
+            <span>📥 PPTX 다운로드</span>
+          </a>
+          <a
+            href={`/im-lite/${currentItem?.buildingId || "bld-01"}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="im-open-fullscreen-link"
+            className="text-[13px] font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1"
+          >
+            <span>↗ 전체화면 열기</span>
+          </a>
+        </div>
       </div>
 
       {previewTab === "mobile" ? (
@@ -1205,7 +1217,7 @@ function ImWorkspaceInner() {
             <h3 className="text-[18px] font-extrabold text-[#0F172A]">{currentItem?.title}</h3>
             <p className="text-[13px] text-[#475569]">{address}</p>
             <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[14px] font-bold">
-              <span className="text-[#0F172A]">{priceBandStr}</span>
+              <span className="text-[#0F172A]">{formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}</span>
               <span className="text-[#065F46]">연 {calculatedYield.toFixed(2)}%</span>
             </div>
           </div>
@@ -1233,7 +1245,7 @@ function ImWorkspaceInner() {
               06 층별 임대차 상세
             </span>
             <p className="text-[13px] text-[#475569]">
-              총 {rentRoll.length}개 층 · 만실 임대 운용 중
+              총 {rentRoll.length}개 층 · {rentRoll.some((r) => r.status === "vacant") ? "일부 공실 포함" : "만실 임대 운용 중"}
             </p>
           </div>
         </div>
@@ -1245,12 +1257,12 @@ function ImWorkspaceInner() {
               no: "01",
               title: "표지",
               summary: `${currentItem?.title || "매물"} · ${address}`,
-              metric: `${priceBandStr} (${postureKoreanLabel})`,
+              metric: `${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")} (${postureKoreanLabel})`,
             },
             {
               no: "02",
               title: "투자 하이라이트",
-              summary: `매매 희망가 ${formatKoreanCurrencyReadout(askingPriceManwon)}`,
+              summary: `매매 희망가 ${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}`,
               metric: `기대 수익률 연 ${calculatedYield.toFixed(2)}%`,
             },
             {
@@ -1287,7 +1299,7 @@ function ImWorkspaceInner() {
               no: "08",
               title: "인근 실거래 비교",
               summary: `${address.split(" ").slice(1, 3).join(" ") || "인근"} 유사 사례 비교`,
-              metric: `구간 ${priceBandStr}`,
+              metric: `매각 희망가 ${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}`,
             },
             {
               no: "09",
@@ -1374,6 +1386,7 @@ function ImWorkspaceInner() {
         onBuildingSelect={setSelectedId}
       />
       <ImDataBottomSheet
+        key={bottomSheetBuildingId}
         buildingId={bottomSheetBuildingId}
         isOpen={isBottomSheetOpen}
         onClose={() => setIsBottomSheetOpen(false)}

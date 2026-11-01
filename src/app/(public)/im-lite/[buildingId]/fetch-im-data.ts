@@ -370,6 +370,8 @@ function hydrateQuickRecordToMobileIM(quickRec: StoredQuickImRecord): MobileIMDo
   (doc as any).schemaVersion = "3.0";
   (doc as any).card4 = quickRec.card4;
   (doc as any).rentRoll = quickRec.rentRoll;
+  (doc as any).floor_leases = quickRec.fullDocBody?.floor_leases || quickRec.rentRoll;
+  (doc as any).ssotSummary = quickRec.fullDocBody?.ssot_summary;
   return doc;
 }
 
@@ -390,12 +392,10 @@ export async function fetchIMData(
   docId?: string,
   viewer?: Viewer | null
 ): Promise<MobileIMDocument | null> {
-  // 0. Non-UUID Quick-Generate Store lookup (e.g. bld-01, bld-02, bld-03)
-  if (!isUuid(buildingId)) {
-    const quickRec = getQuickImRecord(buildingId);
-    if (quickRec) {
-      return hydrateQuickRecordToMobileIM(quickRec);
-    }
+  // 0. Quick-Generate Store lookup (non-UUID or matching quick-generate document)
+  const earlyQuickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
+  if (earlyQuickRec && (!docId || earlyQuickRec.documentId === docId || !isUuid(buildingId))) {
+    return hydrateQuickRecordToMobileIM(earlyQuickRec);
   }
 
   // 1. Demo data
@@ -739,9 +739,27 @@ export async function fetchIMData(
     if (document.body?.card4) {
       (mappedResult as any).card4 = document.body.card4;
     }
-    if (document.body?.rent_roll || document.body?.rentRoll) {
-      (mappedResult as any).rentRoll = document.body.rent_roll || document.body.rentRoll;
+    const resolvedRentRoll =
+      document.body?.rent_roll ||
+      document.body?.rentRoll ||
+      document.body?.floor_leases;
+    if (resolvedRentRoll) {
+      (mappedResult as any).rentRoll = resolvedRentRoll;
+      (mappedResult as any).floor_leases = document.body?.floor_leases || resolvedRentRoll;
     }
+    if (document.body?.broker_contact) {
+      const bc = document.body.broker_contact;
+      const prevBroker = (mappedResult.broker || {}) as any;
+      mappedResult.broker = {
+        ...prevBroker,
+        displayName: bc.brokerName || prevBroker.displayName || prevBroker.name || '담당 공인중개사',
+        company: bc.brokerageName || prevBroker.company || prevBroker.office || '전담 중개법인',
+        name: bc.brokerName || prevBroker.name || prevBroker.displayName || '담당 공인중개사',
+        office: bc.brokerageName || prevBroker.office || prevBroker.company || '전담 중개법인',
+        phone: bc.brokerPhone || prevBroker.phone || '-',
+      } as any;
+    }
+    (mappedResult as any).ssotSummary = ssotSummary;
     (mappedResult as any).enrichment = document.body.enrichment || enriched || null;
 
     return mappedResult;

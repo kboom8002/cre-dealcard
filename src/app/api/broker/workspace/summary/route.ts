@@ -69,29 +69,36 @@ export async function GET(request: NextRequest) {
   const buildingIds = buildings.map((b) => b.id);
 
   // 2. Fetch latest blind_teaser and IM document_objects for these buildings
-  const { data: docsData } =
+  // Projection excludes multi-MB base64 images inside full `body` JSONB (e.g. cadastralMapImage)
+  const docQuery =
     buildingIds.length > 0
-      ? await supabase
+      ? supabase
           .from("document_objects")
-          .select("id, building_id, document_type, title, status, body, updated_at, created_at")
+          .select(
+            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll"
+          )
           .in("building_id", buildingIds)
           .order("created_at", { ascending: false })
-      : { data: [] as any[] };
+      : null;
+  const { data: docsData } = docQuery
+    ? await (typeof (docQuery as any).limit === "function" ? (docQuery as any).limit(40) : docQuery)
+    : { data: [] as any[] };
 
-  const docs = docsData || [];
+  const docs = (docsData || []) as any[];
 
   const dealcards = buildings.map((b) => {
     const teaserDoc = docs.find(
       (d) => d.building_id === b.id && d.document_type === "blind_teaser"
     );
-    const bodyCard4 = teaserDoc?.body?.card4 as Partial<Card4Data> | undefined;
+    const bodyCard4 = (teaserDoc?.card4 ?? teaserDoc?.body?.card4) as Partial<Card4Data> | undefined;
+    const teaserDealPoints = teaserDoc?.dealPoints ?? teaserDoc?.body?.dealPoints;
     const region = bodyCard4?.region || b.area_signal || "서울시 핵심 권역";
     const use = bodyCard4?.use || b.asset_type || "근린생활시설";
     const priceBand = bodyCard4?.priceBand || b.price_band || "가격 협의";
     const rawPoints: string[] = Array.isArray(bodyCard4?.points)
       ? bodyCard4!.points
-      : Array.isArray(teaserDoc?.body?.dealPoints)
-      ? teaserDoc.body.dealPoints
+      : Array.isArray(teaserDealPoints)
+      ? teaserDealPoints
       : [
           b.fit_summary ? String(b.fit_summary).slice(0, 18) : `${region} 핵심 입지`,
           `${use} 추천 매물`,
@@ -133,7 +140,7 @@ export async function GET(request: NextRequest) {
   );
 
   const imList = imDocs.map((d, idx) => {
-    const ssotSummary = d.body?.ssot_summary || {};
+    const ssotSummary = d.ssot_summary || d.body?.ssot_summary || {};
     const bld = buildings.find((b) => b.id === d.building_id);
     const layers = (bld?.layers as Record<string, any>) || {};
     const address =
@@ -143,8 +150,9 @@ export async function GET(request: NextRequest) {
       "서울시 핵심 상권";
     const askingPriceManwon =
       Number(ssotSummary.asking_price_manwon || layers.deal_terms?.asking_price_manwon) || 950000;
-    const versionNo = Number(d.body?.version_no || 1);
+    const versionNo = Number(d.version_no ?? d.body?.version_no ?? 1);
     const isPublished = d.status === "published" || d.status === "broker_reviewed";
+    const docRentRoll = d.rent_roll ?? d.body?.rent_roll;
 
     return {
       id: d.id,
@@ -156,7 +164,7 @@ export async function GET(request: NextRequest) {
       status: isPublished ? "published" : "draft",
       versionLabel: isPublished ? `v${versionNo} 공개 중 ★` : `v${versionNo} 작성 중`,
       updatedAt: formatRelativeTime(d.updated_at || d.created_at),
-      rentRoll: Array.isArray(d.body?.rent_roll) && d.body.rent_roll.length > 0 ? d.body.rent_roll : undefined,
+      rentRoll: Array.isArray(docRentRoll) && docRentRoll.length > 0 ? docRentRoll : undefined,
     };
   });
 

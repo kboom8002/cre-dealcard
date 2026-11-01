@@ -435,7 +435,7 @@ function filterBrokerInvestmentPoints(
     let cleaned = String(raw || '')
       .replace(RULE77_FORBIDDEN_RE, '법정 상한')
       .replace(/\*\*/g, '')
-      .replace(/^[-•·\d.)\s]+/, '')
+      .replace(/^(?:[-•·*]+\s*|\d+[.)]\s+)/, '')
       .trim();
     if (!cleaned || FORBIDDEN_GUARANTEE_RE.test(cleaned)) continue;
 
@@ -528,7 +528,7 @@ export function buildSummaryHighlights(facts: SummaryFacts, aiPoints: string[] =
     }
     for (const ai of aiPoints) {
       if (points.length >= 3) break;
-      const cleaned = String(ai || '').replace(/\*\*/g, '').replace(/^[-•·\d.)\s]+/, '');
+      const cleaned = String(ai || '').replace(/\*\*/g, '').replace(/^(?:[-•·*]+\s*|\d+[.)]\s+)/, '');
       pushUnique(cleaned, false, candidateLead);
     }
 
@@ -566,7 +566,7 @@ export function buildSummaryHighlights(facts: SummaryFacts, aiPoints: string[] =
   }
   for (const ai of aiPoints) {
     if (points.length >= 3) break;
-    pushUnique(String(ai || '').replace(/\*\*/g, '').replace(/^[-•·\d.)\s]+/, ''), false, lead);
+    pushUnique(String(ai || '').replace(/\*\*/g, '').replace(/^(?:[-•·*]+\s*|\d+[.)]\s+)/, ''), false, lead);
   }
 
   return {

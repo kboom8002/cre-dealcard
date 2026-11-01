@@ -66,14 +66,20 @@ export function MobileIMViewer({
 
   // Base (v2) canonical BasicImDocument from real document/SSoT payload (Rule 26 & 34: zero hardcoded building fallbacks)
   const v2Doc = useMemo<BasicImDocument>(() => {
-    if (initialDoc && "schemaVersion" in initialDoc && initialDoc.schemaVersion === "3.0") {
-      return initialDoc as BasicImDocument;
-    }
-    if (initialDoc && initialDoc.basicImDocument) {
+    if (initialDoc && initialDoc.basicImDocument && initialDoc.basicImDocument.facts) {
       return initialDoc.basicImDocument as BasicImDocument;
+    }
+    if (
+      initialDoc &&
+      "schemaVersion" in initialDoc &&
+      initialDoc.schemaVersion === "3.0" &&
+      initialDoc.facts
+    ) {
+      return initialDoc as BasicImDocument;
     }
 
     const layers = (ssotData?.layers as Record<string, any>) || {};
+    const ssotSummary = (initialDoc as any)?.ssotSummary || (initialDoc as any)?.ssot_summary || {};
     const hero = initialDoc?.heroCard || {};
     const enrichment = initialDoc?.enrichment || {};
     const br = enrichment?.buildingRegister || {};
@@ -96,18 +102,10 @@ export function MobileIMViewer({
 
     const baseAskingManwon =
       (ssotData as any)?.asking_price_manwon ??
+      ssotSummary?.asking_price_manwon ??
       layers?.deal_terms?.asking_price_manwon ??
       parsePriceManwon(hero.askingPriceDisplay || initialDoc?.priceBand) ??
       1000000;
-
-    const monthlyRentManwon =
-      layers?.rent_roll?.monthly_rent_total_manwon ??
-      (layers?.rent_roll?.monthly_rent_total_krw
-        ? Math.round(Number(layers.rent_roll.monthly_rent_total_krw) / 10000)
-        : Math.round(baseAskingManwon * 0.0035));
-
-    const depositManwon =
-      layers?.rent_roll?.total_deposit_manwon ?? Math.round(baseAskingManwon * 0.04);
 
     // Extract explicit rent roll units if present, or synthesize realistic 4-row floor breakdown
     const legacyRentSec = Array.isArray(initialDoc?.sections)
@@ -120,37 +118,113 @@ export function MobileIMViewer({
     const explicitUnits =
       initialDoc?.rentRoll ||
       initialDoc?.rent_roll ||
+      (initialDoc as any)?.floor_leases ||
       initialDoc?.facts?.rent?.units ||
       layers?.rent_roll?.units ||
       layers?.lease_units ||
       legacyRentSec?.data?.rows ||
       legacyRentSec?.data?.units;
 
+    const explicitRentSumManwon =
+      Array.isArray(explicitUnits) && explicitUnits.length > 0
+        ? explicitUnits.reduce((sum: number, u: any) => {
+            const isVacant =
+              u?.status === "vacant" ||
+              u?.is_vacant === true ||
+              u?.lease_state === "공실" ||
+              u?.tenant_name === "공실" ||
+              u?.use === "공실";
+            if (isVacant) return sum;
+            const r =
+              u?.monthlyRentManwon ??
+              u?.rent_manwon ??
+              (u?.rentKrw !== undefined
+                ? Math.round(Number(u.rentKrw) / 10000)
+                : u?.rent_krw !== undefined
+                ? Math.round(Number(u.rent_krw) / 10000)
+                : 0);
+            return sum + Number(r || 0);
+          }, 0)
+        : undefined;
+
+    const explicitDepositSumManwon =
+      Array.isArray(explicitUnits) && explicitUnits.length > 0
+        ? explicitUnits.reduce((sum: number, u: any) => {
+            const d =
+              u?.depositManwon ??
+              u?.deposit_manwon ??
+              (u?.depositKrw !== undefined
+                ? Math.round(Number(u.depositKrw) / 10000)
+                : u?.deposit_krw !== undefined
+                ? Math.round(Number(u.deposit_krw) / 10000)
+                : 0);
+            return sum + Number(d || 0);
+          }, 0)
+        : undefined;
+
+    const monthlyRentManwon =
+      explicitRentSumManwon ??
+      ssotSummary?.monthly_rent_total_manwon ??
+      (ssotSummary?.monthly_rent_total_krw
+        ? Math.round(Number(ssotSummary.monthly_rent_total_krw) / 10000)
+        : undefined) ??
+      layers?.rent_roll?.monthly_rent_total_manwon ??
+      (layers?.rent_roll?.monthly_rent_total_krw
+        ? Math.round(Number(layers.rent_roll.monthly_rent_total_krw) / 10000)
+        : Math.round(baseAskingManwon * 0.0035));
+
+    const depositManwon =
+      explicitDepositSumManwon ??
+      ssotSummary?.total_deposit_manwon ??
+      (ssotSummary?.total_deposit_krw
+        ? Math.round(Number(ssotSummary.total_deposit_krw) / 10000)
+        : undefined) ??
+      layers?.rent_roll?.total_deposit_manwon ??
+      Math.round(baseAskingManwon * 0.04);
+
     const synthesizedRentRoll = (() => {
       if (Array.isArray(explicitUnits) && explicitUnits.length > 0) {
-        return explicitUnits.map((u: any, idx: number) => ({
-          floor: u.floor || `${idx + 1}F`,
-          tenant_name: u.use || u.tenantName || u.tenant_name || u.tenant || "임대중",
-          use: u.use || u.tenantName || u.tenant_name || u.tenant || "임대중",
-          deposit_manwon:
-            u.depositManwon ??
-            u.deposit_manwon ??
-            (u.depositKrw !== undefined
-              ? Math.round(Number(u.depositKrw) / 10000)
-              : u.deposit_krw !== undefined
-              ? Math.round(Number(u.deposit_krw) / 10000)
-              : 0),
-          rent_manwon:
-            u.monthlyRentManwon ??
-            u.rent_manwon ??
-            (u.rentKrw !== undefined
-              ? Math.round(Number(u.rentKrw) / 10000)
-              : u.rent_krw !== undefined
-              ? Math.round(Number(u.rent_krw) / 10000)
-              : 0),
-          status: u.status || "occupied",
-          expiry_date: u.leaseExpiry || u.expiryDate || u.expiry_date || "2027-12",
-        }));
+        return explicitUnits.map((u: any, idx: number) => {
+          const isVacant =
+            u.status === "vacant" ||
+            u.is_vacant === true ||
+            u.lease_state === "공실" ||
+            u.tenant_name === "공실" ||
+            u.use === "공실";
+          const isOwner =
+            u.status === "owner" ||
+            u.lease_state === "자가사용" ||
+            u.use === "자가사용";
+          const label =
+            u.use ||
+            [u.tenantName || u.tenant_name, u.tenant_type].filter(Boolean).join(" / ") ||
+            u.tenant ||
+            (isVacant ? "공실" : "임대중");
+          return {
+            floor: u.floor || `${idx + 1}F`,
+            tenant_name: label,
+            use: label,
+            area_sqm: Number(u.area_sqm ?? u.area_m2 ?? u.areaSqm ?? 0) || undefined,
+            deposit_manwon:
+              u.depositManwon ??
+              u.deposit_manwon ??
+              (u.depositKrw !== undefined
+                ? Math.round(Number(u.depositKrw) / 10000)
+                : u.deposit_krw !== undefined
+                ? Math.round(Number(u.deposit_krw) / 10000)
+                : 0),
+            rent_manwon:
+              u.monthlyRentManwon ??
+              u.rent_manwon ??
+              (u.rentKrw !== undefined
+                ? Math.round(Number(u.rentKrw) / 10000)
+                : u.rent_krw !== undefined
+                ? Math.round(Number(u.rent_krw) / 10000)
+                : 0),
+            status: isVacant ? "vacant" : isOwner ? "owner" : u.status || "occupied",
+            expiry_date: u.leaseExpiry || u.expiryDate || u.expiry_date || u.lease_end || "2027-12",
+          };
+        });
       }
       const d1 = Math.round(depositManwon * 0.25);
       const d2 = Math.round(depositManwon * 0.25);
@@ -200,6 +274,31 @@ export function MobileIMViewer({
       ];
     })();
 
+    const derivedFloorsAbove = (() => {
+      if (!Array.isArray(explicitUnits) || explicitUnits.length === 0) return undefined;
+      let maxAbove = 0;
+      for (const u of explicitUnits) {
+        const f = String(u?.floor || "").trim().toUpperCase();
+        if (f.startsWith("B") || f.includes("지하")) continue;
+        const m = f.match(/(\d+)/);
+        if (m) maxAbove = Math.max(maxAbove, parseInt(m[1], 10));
+      }
+      return maxAbove > 0 ? maxAbove : undefined;
+    })();
+
+    const derivedFloorsBelow = (() => {
+      if (!Array.isArray(explicitUnits) || explicitUnits.length === 0) return undefined;
+      let maxBelow = 0;
+      for (const u of explicitUnits) {
+        const f = String(u?.floor || "").trim().toUpperCase();
+        if (f.startsWith("B") || f.includes("지하")) {
+          const m = f.match(/(\d+)/);
+          maxBelow = Math.max(maxBelow, m ? parseInt(m[1], 10) : 1);
+        }
+      }
+      return maxBelow;
+    })();
+
     const brokerInfo = {
       name:
         initialDoc?.broker?.office ||
@@ -220,14 +319,17 @@ export function MobileIMViewer({
         initialDoc?.fullName ||
         `${initialDoc?.areaSignal || ""} ${initialDoc?.assetType || "상업용 자산"}`.trim(),
       address:
+        ssotSummary?.address ||
         enrichment?.meta?.address ||
         layers?.asset_identity?.address ||
         initialDoc?.areaSignal ||
         initialDoc?.blindName ||
         "서울시 핵심 권역",
-      posture: (hero.posture || "core_income") as any,
+      posture: (hero.posture || ssotSummary?.investment_posture || "core_income") as any,
       asking_price_manwon: baseAskingManwon,
       total_gross_area_sqm:
+        ssotSummary?.total_gross_area_sqm ??
+        ssotSummary?.total_gross_area_m2 ??
         hero.totalArea ??
         hero.totalGrossAreaM2 ??
         br.total_gross_area_sqm ??
@@ -236,6 +338,8 @@ export function MobileIMViewer({
         parsedSizeSqm ??
         8500,
       land_area_sqm:
+        ssotSummary?.land_area_sqm ??
+        ssotSummary?.land_area_m2 ??
         hero.landArea ??
         hero.landAreaM2 ??
         landEnrich.land_area_sqm ??
@@ -243,6 +347,7 @@ export function MobileIMViewer({
         layers?.public_data?.land_area_m2 ??
         1070,
       zoning:
+        ssotSummary?.zoning ??
         hero.zoningDistrict ??
         hero.zoning ??
         landEnrich.zoning ??
@@ -250,65 +355,78 @@ export function MobileIMViewer({
         layers?.public_data?.zoning ??
         "일반상업지역",
       official_land_price_won_sqm:
+        ssotSummary?.official_land_price_per_sqm ??
         landEnrich.official_land_price_per_sqm ??
         landEnrich.official_land_price_won_sqm ??
         landEnrich.officialLandPricePerSqm ??
         enrichment?.officialLandPrice?.pricePerSqm ??
+        enrichment?.landPriceHistory?.latestPricePerSqm ??
         layers?.public_data?.official_land_price_won_sqm ??
         8350000,
       floors_above:
+        ssotSummary?.floors_above ??
         br.floors_above ??
         br.floorsAbove ??
         br.grndFlrCnt ??
         layers?.public_data?.floors_above ??
+        derivedFloorsAbove ??
         15,
       floors_below:
+        ssotSummary?.floors_below ??
         br.floors_below ??
         br.floorsBelow ??
         br.ugrndFlrCnt ??
         layers?.public_data?.floors_below ??
+        derivedFloorsBelow ??
         4,
       building_coverage_ratio_pct:
+        ssotSummary?.bcr_pct ??
         br.building_coverage_ratio_pct ??
         br.buildingCoverageRatioPct ??
         br.bcRat ??
         layers?.public_data?.building_coverage_ratio_pct ??
         58.5,
       floor_area_ratio_pct:
+        ssotSummary?.far_pct ??
         br.floor_area_ratio_pct ??
         br.floorAreaRatioPct ??
         br.vlRat ??
         layers?.public_data?.floor_area_ratio_pct ??
-        795.2,
+        320.0,
       parking_spaces:
+        ssotSummary?.parking_count ??
         br.parking_spaces ??
         br.parkingSpaces ??
         br.totPkngCnt ??
         layers?.public_data?.parking_spaces ??
-        120,
+        12,
       elevators:
+        ssotSummary?.elevator_count ??
         br.elevators ??
         br.rideUseElvtCnt ??
         layers?.public_data?.elevators ??
-        4,
+        1,
       main_usage:
+        ssotSummary?.main_usage ??
         br.main_usage ??
         br.mainUsage ??
         br.mainPurpsCdNm ??
         layers?.public_data?.main_usage ??
         initialDoc?.assetType ??
-        "업무시설 (오피스)",
+        "제1·2종 근린생활시설",
       structure:
+        ssotSummary?.structure ??
         br.structure ??
         br.strctCdNm ??
         layers?.public_data?.structure ??
-        "철골철근콘크리트조",
+        "철근콘크리트구조",
       completion_date:
+        ssotSummary?.completion_date ??
         br.completion_date ??
         br.completionDate ??
         br.useAprDay ??
         layers?.public_data?.completion_date ??
-        "2007-06",
+        "2016-05",
       monthly_rent_total_manwon: monthlyRentManwon,
       deposit_total_manwon: depositManwon,
       rent_roll: synthesizedRentRoll,
@@ -1312,6 +1430,14 @@ export function MobileIMViewer({
           >
             <span>💬</span> 카톡 문의
           </button>
+          <a
+            href={`/api/public/im-lite/${buildingId}/pptx?direct=1`}
+            data-testid="mobile-im-download-pptx-btn"
+            className="min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-[14px] whitespace-nowrap"
+            title="PPTX 투자설명서 다운로드"
+          >
+            <span>📥 PPTX</span>
+          </a>
           <button
             type="button"
             onClick={() => window.print()}
