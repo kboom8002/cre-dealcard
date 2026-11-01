@@ -680,13 +680,16 @@ export function MobileIMViewer({
     contactSec?.data?.brokerOffice ||
     basicDoc.facts.brokerOffice ||
     initialDoc?.broker;
-  const brokerOfficeName =
+  const rawBrokerOfficeName =
     rawBroker?.name ||
     rawBroker?.office ||
     rawBroker?.company ||
     initialDoc?.broker?.office ||
     initialDoc?.broker?.company ||
     "전담 중개법인";
+  const brokerOfficeName = String(rawBrokerOfficeName)
+    .replace(/\s*\(확인\s*중\)/g, "")
+    .trim() || "전담 중개법인";
   const rawRepresentative =
     rawBroker?.representative ||
     rawBroker?.displayName ||
@@ -719,6 +722,49 @@ export function MobileIMViewer({
       (v1Doc.facts.transaction.askingPriceManwon || 0)) /
     10000
   ).toFixed(1);
+
+  const isRevoked = Boolean((initialDoc as any)?.isRevoked);
+  const correctionNotice = (initialDoc as any)?.correctionNotice as
+    | { message: string; updatedAt?: string }
+    | null
+    | undefined;
+
+  if (isRevoked) {
+    return (
+      <div
+        className="min-h-screen bg-[#F3F2EE] text-[#0F172A] flex items-center justify-center px-4 py-12"
+        data-testid="revoked-im-screen"
+      >
+        <div className="max-w-md w-full bg-white rounded-3xl border-2 border-[#FECACA] p-6 sm:p-8 text-center space-y-4 shadow-md">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#FEE2E2] text-[#991B1B] rounded-full font-extrabold text-[13px]">
+            🚫 404 · 열람 권한 회수됨
+          </div>
+          <h1 className="text-[22px] font-black text-[#0F172A] leading-snug">
+            담당 중개인에 의해 회수된 투자설명서(IM) 링크입니다
+          </h1>
+          <p className="text-[15px] text-[#475569] leading-relaxed">
+            매매 조건 변경, 가격 조정 또는 보안 정책에 따라 이전 공유 링크의 열람이 중단되었습니다. 최신 투자설명서 링크는 담당 공인중개사에게 요청해 주세요.
+          </p>
+          <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#E2E8F0] text-left space-y-1 text-[14px]">
+            <p className="font-bold text-[#0F172A]">
+              담당: {brokerRepresentative} ({brokerOfficeName})
+            </p>
+            {brokerPhone && brokerPhone !== "-" && (
+              <p className="text-[#475569]">연락처: {brokerPhone}</p>
+            )}
+          </div>
+          {brokerPhone && brokerPhone !== "-" && (
+            <a
+              href={`tel:${brokerPhone}`}
+              className="w-full min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#1E293B] cursor-pointer text-[15px]"
+            >
+              📞 담당 중개사에게 최신본 요청하기
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -791,6 +837,27 @@ export function MobileIMViewer({
           })}
         </div>
       </header>
+
+      {/* ── Live Correction Notice Banner (Synced from Broker Inbox) ── */}
+      {correctionNotice?.message && (
+        <div
+          className="bg-[#FEF3C7] border-b-2 border-[#F59E0B] px-4 py-3 text-[#92400E] shadow-xs"
+          data-testid="im-correction-banner"
+          role="status"
+        >
+          <div className="max-w-2xl mx-auto flex items-start gap-2.5">
+            <span className="text-[18px] leading-none pt-0.5">⚠️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] sm:text-[15px] font-extrabold text-[#92400E]">
+                매물 정보가 정정되었습니다
+              </p>
+              <p className="text-[13px] sm:text-[14px] text-[#78350F] mt-0.5 leading-snug">
+                {correctionNotice.message}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Continuous 10-Section Scroll Content (WP-P4b-01 & WP-P4b-02) ── */}
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-8" data-testid="continuous-scroll-content">

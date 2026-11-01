@@ -143,7 +143,14 @@ export async function getAggregatedBrokerHomeData(
 
   const activities = activityRes.data || [];
   const viewsCount = activities.filter(
-    (a) => a.event_type === "view" || a.event_type === "open"
+    (a) =>
+      a.event_type === "view" ||
+      a.event_type === "open" ||
+      a.event_type === "mobile_im_view" ||
+      a.event_type === "im_lite_view" ||
+      a.event_type === "deal_card_view" ||
+      a.event_type === "blind_teaser_view" ||
+      a.event_type === "magazine_view"
   ).length;
   const magazineCount = activities.filter(
     (a) => a.entity_type === "magazine" || a.event_type === "magazine_published"

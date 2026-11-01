@@ -34,8 +34,45 @@ export interface StoredQuickImRecord {
     handoverNote?: string;
   };
   fullDocBody?: Record<string, any>;
+  isRevoked?: boolean;
+  revokedTokens?: string[];
+  correctionNotice?: {
+    message: string;
+    updatedAt: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StoredInboxState {
+  revokedBuildings: Record<
+    string,
+    { revoked: boolean; revokedAt: string; shareToken?: string }
+  >;
+  correctionNotices: Record<
+    string,
+    { message: string; updatedAt: string }
+  >;
+  gateDecisions: Record<
+    string,
+    { status: 'approved' | 'rejected'; shareToken: string; updatedAt: string; buildingId?: string }
+  >;
+  callNotes: Record<
+    string,
+    Array<{ id: string; description: string; timestamp: string }>
+  >;
+  customClients: Array<{
+    id: string;
+    clientName: string;
+    clientGrade: 'VIP' | '일반' | '잠재';
+    clientPhone: string;
+    budget: string;
+    preferredRegion: string;
+    buildingId: string;
+    buildingTitle: string;
+    newsletterSubscribed?: boolean;
+    createdAt: string;
+  }>;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -279,4 +316,184 @@ export function updateQuickImCard4(idOrDocId: string, card4: Card4Data): StoredQ
   };
   saveQuickImRecord(updated);
   return updated;
+}
+
+export function listAllQuickImRecords(): StoredQuickImRecord[] {
+  const store = getStoreMap();
+  const uniqueByBuilding = new Map<string, StoredQuickImRecord>();
+  for (const val of store.values()) {
+    if (val?.buildingId) {
+      uniqueByBuilding.set(val.buildingId, val);
+    }
+  }
+  return Array.from(uniqueByBuilding.values());
+}
+
+const INBOX_STATE_FILE = path.join(os.tmpdir(), 'cre-v3-inbox-state-store.json');
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __CRE_INBOX_STATE_STORE__: StoredInboxState | undefined;
+}
+
+function createEmptyInboxState(): StoredInboxState {
+  return {
+    revokedBuildings: {},
+    correctionNotices: {},
+    gateDecisions: {},
+    callNotes: {},
+    customClients: [],
+  };
+}
+
+export function getInboxState(): StoredInboxState {
+  if (!globalThis.__CRE_INBOX_STATE_STORE__) {
+    globalThis.__CRE_INBOX_STATE_STORE__ = createEmptyInboxState();
+  }
+  try {
+    if (fs.existsSync(INBOX_STATE_FILE)) {
+      const raw = fs.readFileSync(INBOX_STATE_FILE, 'utf-8');
+      const parsed = JSON.parse(raw) as Partial<StoredInboxState>;
+      globalThis.__CRE_INBOX_STATE_STORE__ = {
+        revokedBuildings: parsed.revokedBuildings || {},
+        correctionNotices: parsed.correctionNotices || {},
+        gateDecisions: parsed.gateDecisions || {},
+        callNotes: parsed.callNotes || {},
+        customClients: Array.isArray(parsed.customClients) ? parsed.customClients : [],
+      };
+    }
+  } catch {
+    // ignore file read error
+  }
+  return globalThis.__CRE_INBOX_STATE_STORE__;
+}
+
+export function saveInboxState(state: StoredInboxState): void {
+  globalThis.__CRE_INBOX_STATE_STORE__ = state;
+  try {
+    fs.writeFileSync(INBOX_STATE_FILE, JSON.stringify(state), 'utf-8');
+  } catch {
+    // ignore file write error
+  }
+}
+
+export function setBuildingRevokedState(
+  buildingId: string,
+  revoked: boolean,
+  shareToken?: string
+): StoredInboxState {
+  const state = getInboxState();
+  const now = new Date().toISOString();
+  state.revokedBuildings[buildingId] = {
+    revoked,
+    revokedAt: now,
+    shareToken,
+  };
+  saveInboxState(state);
+
+  const quickRec = getQuickImRecord(buildingId);
+  if (quickRec) {
+    saveQuickImRecord({
+      ...quickRec,
+      isRevoked: revoked,
+      updatedAt: now,
+    });
+  }
+  return state;
+}
+
+export function setBuildingCorrectionNotice(
+  buildingId: string,
+  message: string | null
+): StoredInboxState {
+  const state = getInboxState();
+  const now = new Date().toISOString();
+  if (message) {
+    state.correctionNotices[buildingId] = { message, updatedAt: now };
+  } else {
+    delete state.correctionNotices[buildingId];
+  }
+  saveInboxState(state);
+
+  const quickRec = getQuickImRecord(buildingId);
+  if (quickRec) {
+    saveQuickImRecord({
+      ...quickRec,
+      correctionNotice: message ? { message, updatedAt: now } : null,
+      updatedAt: now,
+    });
+  }
+  return state;
+}
+
+export function recordGateDecision(
+  threadOrRequestId: string,
+  status: 'approved' | 'rejected' | 'pending',
+  shareToken: string,
+  buildingId?: string
+): StoredInboxState {
+  const state = getInboxState();
+  if (status === 'pending') {
+    delete state.gateDecisions[threadOrRequestId];
+    if (buildingId) delete state.gateDecisions[buildingId];
+  } else {
+    state.gateDecisions[threadOrRequestId] = {
+      status,
+      shareToken,
+      updatedAt: new Date().toISOString(),
+      buildingId,
+    };
+  }
+  saveInboxState(state);
+  return state;
+}
+
+export function appendInboxCallNote(
+  threadId: string,
+  description: string,
+  timestamp = '방금 전'
+): StoredInboxState {
+  const state = getInboxState();
+  const existing = state.callNotes[threadId] || [];
+  state.callNotes[threadId] = [
+    { id: `note-${Date.now()}`, description, timestamp },
+    ...existing,
+  ];
+  saveInboxState(state);
+  return state;
+}
+
+export function upsertCustomInboxClient(client: {
+  id?: string;
+  clientName: string;
+  clientGrade: 'VIP' | '일반' | '잠재';
+  clientPhone: string;
+  budget: string;
+  preferredRegion: string;
+  buildingId: string;
+  buildingTitle: string;
+  newsletterSubscribed?: boolean;
+}): StoredInboxState {
+  const state = getInboxState();
+  const id = client.id || `cli-${Date.now()}`;
+  const existingIdx = state.customClients.findIndex((c) => c.id === id);
+  const entry = {
+    id,
+    clientName: client.clientName,
+    clientGrade: client.clientGrade,
+    clientPhone: client.clientPhone,
+    budget: client.budget,
+    preferredRegion: client.preferredRegion,
+    buildingId: client.buildingId,
+    buildingTitle: client.buildingTitle,
+    newsletterSubscribed: client.newsletterSubscribed ?? true,
+    createdAt: new Date().toISOString(),
+  };
+  if (existingIdx >= 0) {
+    state.customClients[existingIdx] = entry;
+  } else {
+    state.customClients.unshift(entry);
+  }
+  saveInboxState(state);
+  return state;
 }

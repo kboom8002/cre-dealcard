@@ -278,6 +278,72 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
       // Verify new note appears in timeline
       expect(editorSlot?.textContent).toContain('통화 기록: 고객 희망 매입가 95억 협의 완료');
     });
+
+    it('renders 4-workspace cross-action bridge, section dwell badges, and matched alternative deals (M4~M6)', async () => {
+      await act(async () => {
+        root.render(<InboxWorkspacePage />);
+      });
+
+      const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
+      const previewSlot = container.querySelector('[data-testid="inbox-preview-slot"]');
+
+      // M5: Cross-Workspace Bridge
+      const bridge = editorSlot?.querySelector('[data-testid="cross-workspace-bridge"]');
+      expect(bridge).not.toBeNull();
+      expect(bridge?.textContent).toContain('딜카드 편집');
+      expect(bridge?.textContent).toContain('IM 편집');
+      expect(bridge?.textContent).toContain('고객 화면 열기');
+      expect(bridge?.textContent).toContain('PPTX 다운로드');
+
+      // M4: Section Dwell Intelligence
+      const dwellBadges = editorSlot?.querySelector('[data-testid="section-dwell-badges"]');
+      expect(dwellBadges).not.toBeNull();
+      expect(dwellBadges?.textContent).toContain('고객 집중 검토 섹션');
+      expect(dwellBadges?.textContent).toContain('06 렌트롤');
+
+      // M6: Auto-Matched Alternative Deals Panel
+      const matchedPanel = previewSlot?.querySelector('[data-testid="matched-deals-panel"]');
+      expect(matchedPanel).not.toBeNull();
+      expect(matchedPanel?.textContent).toContain('예산·권역 맞춤 대체 매물 추천');
+      expect(matchedPanel?.textContent).toContain('대체 매물 제안 복사');
+    });
+
+    it('supports inline quick VIP client registration in Column 1 (M3)', async () => {
+      await act(async () => {
+        root.render(<InboxWorkspacePage />);
+      });
+
+      const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
+      const toggleBtn = listSlot?.querySelector('[data-testid="toggle-new-client-btn"]') as HTMLButtonElement;
+      expect(toggleBtn).not.toBeNull();
+
+      await act(async () => {
+        toggleBtn.click();
+      });
+
+      const regForm = listSlot?.querySelector('[data-testid="quick-client-register"]');
+      expect(regForm).not.toBeNull();
+
+      const nameInput = regForm?.querySelector('[data-testid="new-client-name-input"]') as HTMLInputElement;
+      const submitBtn = regForm?.querySelector('[data-testid="submit-new-client-btn"]') as HTMLButtonElement;
+
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        nativeSetter?.call(nameInput, '정태영 부회장');
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      await act(async () => {
+        submitBtn.click();
+      });
+
+      const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
+      expect(editorSlot?.textContent).toContain('정태영 부회장');
+    });
   });
 
   /* ────────────────────────────────────────────────────────────────────────

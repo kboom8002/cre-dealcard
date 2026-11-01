@@ -16,7 +16,7 @@ import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
 import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 import { isOwnerOrAdmin, type Viewer } from "@/domain/public-projection/access";
 import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-projection/visibility";
-import { getQuickImRecord, isUuid, type StoredQuickImRecord } from "@/lib/im-lite/quick-generate-store";
+import { getInboxState, getQuickImRecord, isUuid, type StoredQuickImRecord } from "@/lib/im-lite/quick-generate-store";
 
 function isValidKoreanCoord(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
@@ -372,6 +372,29 @@ function hydrateQuickRecordToMobileIM(quickRec: StoredQuickImRecord): MobileIMDo
   (doc as any).rentRoll = quickRec.rentRoll;
   (doc as any).floor_leases = quickRec.fullDocBody?.floor_leases || quickRec.rentRoll;
   (doc as any).ssotSummary = quickRec.fullDocBody?.ssot_summary;
+  return attachInboxGovernanceOverlay(doc, quickRec.buildingId, quickRec);
+}
+
+function attachInboxGovernanceOverlay(
+  doc: MobileIMDocument,
+  buildingId: string,
+  sourceMeta?: Record<string, any>
+): MobileIMDocument {
+  const inboxState = getInboxState();
+  const revokedInfo = inboxState.revokedBuildings[buildingId];
+  const isRevoked =
+    Boolean(revokedInfo?.revoked) ||
+    Boolean(sourceMeta?.isRevoked) ||
+    Boolean(sourceMeta?.is_revoked);
+  const correctionNotice =
+    inboxState.correctionNotices[buildingId] ||
+    sourceMeta?.correctionNotice ||
+    sourceMeta?.correction_notice ||
+    null;
+
+  (doc as any).isRevoked = isRevoked;
+  (doc as any).revokedAt = revokedInfo?.revokedAt || sourceMeta?.revoked_at || null;
+  (doc as any).correctionNotice = correctionNotice;
   return doc;
 }
 
@@ -400,7 +423,7 @@ export async function fetchIMData(
 
   // 1. Demo data
   const demo = getDemoMobileIM(buildingId);
-  if (demo) return demo;
+  if (demo) return attachInboxGovernanceOverlay(demo, buildingId);
 
   const supabase = createServiceClient();
 
@@ -762,7 +785,7 @@ export async function fetchIMData(
     (mappedResult as any).ssotSummary = ssotSummary;
     (mappedResult as any).enrichment = document.body.enrichment || enriched || null;
 
-    return mappedResult;
+    return attachInboxGovernanceOverlay(mappedResult, buildingId, document.body);
   }
 
   // 3. Fallback: SSoT Lite (순수 읽기)
@@ -859,7 +882,7 @@ export async function fetchIMData(
   await injectLatestMagazine(supabase, brokerObj2);
   await injectBrokerStats(supabase, brokerObj2);
 
-  return {
+  return attachInboxGovernanceOverlay({
     buildingId: ssot.id,
     blindName: `${ssot.area_signal} ${ssot.asset_type}`,
     fullName: `${ssot.area_signal} ${ssot.asset_type}`,
@@ -898,5 +921,5 @@ export async function fetchIMData(
       hasVacancy: !!ssot.vacancy_signal,
       hasPhotos: (Array.isArray(layers.photos) && layers.photos.length > 0) || (Array.isArray(ssot.photo_urls) && ssot.photo_urls.length > 0),
     }),
-  };
+  }, buildingId);
 }
