@@ -121,6 +121,26 @@ export async function POST(req: NextRequest) {
 
     results.eventsPurged = eventsPurged || 0;
 
+    // 4. 90일 초과 activity_events 파기 및 고아/구버전 document_objects 정리 (Disk IO 보호)
+    try {
+      const activityCutoff = new Date(Date.now() - 90 * 86400000).toISOString();
+      const { count: activityPurged } = await supabase
+        .from('activity_events')
+        .delete({ count: 'exact' })
+        .lt('created_at', activityCutoff);
+      results.activityEventsPurged = activityPurged || 0;
+
+      const orphanCutoff = new Date(Date.now() - 86400000).toISOString();
+      const { count: orphanDocsPurged } = await supabase
+        .from('document_objects')
+        .delete({ count: 'exact' })
+        .is('building_id', null)
+        .lt('created_at', orphanCutoff);
+      results.orphanDocsPurged = orphanDocsPurged || 0;
+    } catch {
+      // Non-blocking if table/columns unavailable in mock environments
+    }
+
     return NextResponse.json({
       ok: Object.values(magazine).every((m) => m.ok),
       results,

@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     .select("id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers")
     .neq("status", "archived")
     .order("updated_at", { ascending: false })
-    .limit(30);
+    .limit(20);
 
   if (!isAdmin) {
     bldQuery = bldQuery.eq("owner_id", userId);
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
   // 2. Fetch latest blind_teaser and IM document_objects for these buildings
   // Projection excludes multi-MB base64 images inside full `body` JSONB (e.g. cadastralMapImage)
-  const docQuery =
+  let docQuery: any =
     buildingIds.length > 0
       ? supabase
           .from("document_objects")
@@ -79,10 +79,18 @@ export async function GET(request: NextRequest) {
             "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll"
           )
           .in("building_id", buildingIds)
-          .order("created_at", { ascending: false })
       : null;
+  if (docQuery && typeof docQuery.in === "function") {
+    docQuery = docQuery.in("document_type", ["blind_teaser", "mobile_im", "im_lite", "im_lite_draft"]);
+  }
+  if (docQuery && typeof docQuery.neq === "function") {
+    docQuery = docQuery.neq("status", "archived");
+  }
+  if (docQuery && typeof docQuery.order === "function") {
+    docQuery = docQuery.order("created_at", { ascending: false });
+  }
   const { data: docsData } = docQuery
-    ? await (typeof (docQuery as any).limit === "function" ? (docQuery as any).limit(40) : docQuery)
+    ? await (typeof docQuery.limit === "function" ? docQuery.limit(25) : docQuery)
     : { data: [] as any[] };
 
   const docs = (docsData || []) as any[];

@@ -899,6 +899,10 @@ export async function POST(req: NextRequest) {
               title: resolvedTitle,
               body: dbDocBody,
             });
+            const { pruneSupersededDocumentObjects } = await import(
+              '@/lib/supabase/prune-document-objects'
+            );
+            await pruneSupersededDocumentObjects(supabase, buildingId, 'mobile_im', 2);
           })(),
           new Promise((resolve) => setTimeout(resolve, 3500)),
         ]);

@@ -120,12 +120,17 @@ export async function GET(req: NextRequest) {
 
     const bIds = (myBuildingIds || []).map((b) => b.id);
 
-    // 열람 이벤트 조회 — actor_id가 나 자신이 아닌 것만 (익명 방문자 actor_id IS NULL 포함)
-    const { data: viewEvents } = await supabase
+    // 열람 이벤트 조회 — 최근 30일 이내 & actor_id가 나 자신이 아닌 것만 (익명 방문자 actor_id IS NULL 포함)
+    const thirtyDaysAgoIso = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    let viewQuery: any = supabase
       .from("activity_events")
       .select("id, event_type, entity_id, entity_type, metadata, created_at, actor_id")
       .in("event_type", viewEventTypes)
-      .or(`actor_id.is.null,actor_id.neq.${userId}`)
+      .or(`actor_id.is.null,actor_id.neq.${userId}`);
+    if (typeof viewQuery.gte === "function") {
+      viewQuery = viewQuery.gte("created_at", thirtyDaysAgoIso);
+    }
+    const { data: viewEvents } = await viewQuery
       .order("created_at", { ascending: false })
       .limit(limit * 2); // 필터링 후 줄어들 수 있으므로 넉넉히
 

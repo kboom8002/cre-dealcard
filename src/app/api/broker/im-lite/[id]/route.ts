@@ -39,12 +39,16 @@ export async function GET(
       return buildingCheck.response;
     }
 
-    const { data: docs, error } = await service
+    let docsQuery: any = service
       .from('document_objects')
       .select('id, building_id, document_type, title, body, status, created_at')
       .eq(scope === 'building' ? 'building_id' : 'id', id)
       .in('document_type', ['im_lite', 'mobile_im'])
       .order('created_at', { ascending: false });
+    if (typeof docsQuery.limit === 'function') {
+      docsQuery = docsQuery.limit(5);
+    }
+    const { data: docs, error } = await docsQuery;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -52,7 +56,7 @@ export async function GET(
 
     return NextResponse.json({
       ok: true,
-      documents: (docs || []).map((d) => ({
+      documents: (docs || []).map((d: any) => ({
         id: d.id,
         created_at: d.created_at,
         status: d.status,

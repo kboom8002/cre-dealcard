@@ -32,7 +32,7 @@
     },
     {
       "path": "/api/cron/hold-expiry",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/retention-purge",

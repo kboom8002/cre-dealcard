@@ -1183,6 +1183,7 @@ export async function generateMobileIMHandler(
       };
     } else {
       savedDocId = savedDoc?.id;
+      void import("@/lib/supabase/prune-document-objects").then(({ pruneSupersededDocumentObjects }) => pruneSupersededDocumentObjects(supabase, buildingId, "mobile_im", 2)).catch(() => {});
       
       // ── IM 저장 성공 후: 매거진 브릿지 자동 추출 ──
       try {

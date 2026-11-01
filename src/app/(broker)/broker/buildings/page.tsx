@@ -40,7 +40,8 @@ export default async function BuildingsPage() {
       .in("document_type", ["im_lite_draft", "mobile_im", "blind_teaser"])
       .eq("owner_id", user.id)
       .neq("status", "archived")
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   // IM 데이터에 빌딩 정보 매핑
