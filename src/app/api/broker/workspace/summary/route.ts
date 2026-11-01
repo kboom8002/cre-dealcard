@@ -10,6 +10,7 @@ import {
 import {
   isUuid,
   getQuickImRecord,
+  listAllQuickImRecords,
   updateQuickImCard4,
 } from "@/lib/im-lite/quick-generate-store";
 
@@ -165,35 +166,91 @@ export async function GET(request: NextRequest) {
       versionLabel: isPublished ? `v${versionNo} 공개 중 ★` : `v${versionNo} 작성 중`,
       updatedAt: formatRelativeTime(d.updated_at || d.created_at),
       rentRoll: Array.isArray(docRentRoll) && docRentRoll.length > 0 ? docRentRoll : undefined,
+      investmentPosture: ssotSummary.investment_posture || d.body?.investment_posture || "core_income",
+      gfaSqm: ssotSummary.total_gross_area_sqm ? String(ssotSummary.total_gross_area_sqm) : undefined,
+      landAreaSqm: ssotSummary.land_area_sqm ? String(ssotSummary.land_area_sqm) : undefined,
+      zoning: ssotSummary.zoning || undefined,
+      completionDate: ssotSummary.completion_date || undefined,
+      brokerName: d.body?.broker_contact?.brokerName || d.body?.broker_contact?.name || undefined,
+      brokerageName: d.body?.broker_contact?.brokerageName || d.body?.broker_contact?.company || undefined,
+      brokerPhone: d.body?.broker_contact?.brokerPhone || d.body?.broker_contact?.phone || undefined,
     };
   });
 
-  if (quickTargetRec && !dealcards.some((dc) => dc.id === quickTargetRec.buildingId)) {
-    dealcards.unshift({
-      id: quickTargetRec.buildingId,
-      title: `${quickTargetRec.card4.region} ${quickTargetRec.card4.use}`.trim(),
-      region: quickTargetRec.card4.region,
-      use: quickTargetRec.card4.use,
-      priceBand: quickTargetRec.card4.priceBand,
-      status: "draft",
-      updatedAt: formatRelativeTime(quickTargetRec.updatedAt),
-      card4: quickTargetRec.card4,
+  // Merge QuickImStore records owned by this user (and requested quickTargetRec / default seeds)
+  const allQuickRecords = listAllQuickImRecords()
+    .filter((rec) => rec.ownerId === userId || !rec.ownerId || (targetId && (rec.buildingId === targetId || rec.documentId === targetId)))
+    .sort((a, b) => {
+      // User-owned records always come before unowned default seeds
+      const aOwned = a.ownerId === userId ? 1 : 0;
+      const bOwned = b.ownerId === userId ? 1 : 0;
+      if (aOwned !== bOwned) return bOwned - aOwned;
+      return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
     });
+
+  if (quickTargetRec && !allQuickRecords.some((r) => r.buildingId === quickTargetRec.buildingId)) {
+    allQuickRecords.unshift(quickTargetRec);
   }
 
-  if (quickTargetRec && !imList.some((im) => im.id === quickTargetRec.documentId || im.buildingId === quickTargetRec.buildingId)) {
-    imList.unshift({
-      id: quickTargetRec.documentId,
-      buildingId: quickTargetRec.buildingId,
-      title: quickTargetRec.buildingName || `${quickTargetRec.card4.region} ${quickTargetRec.card4.use}`.trim(),
-      address: quickTargetRec.address,
-      askingPriceManwon: quickTargetRec.askingPriceManwon,
-      grossYieldPct: 4.2,
-      status: "draft",
-      versionLabel: "v1 작성 중",
-      updatedAt: formatRelativeTime(quickTargetRec.updatedAt),
-      rentRoll: quickTargetRec.rentRoll,
-    });
+  for (const qRec of [...allQuickRecords].reverse()) {
+    const existingDcIdx = dealcards.findIndex((dc) => dc.id === qRec.buildingId);
+    const mappedDc = {
+      id: qRec.buildingId,
+      title: `${qRec.card4.region} ${qRec.card4.use}`.trim(),
+      region: qRec.card4.region,
+      use: qRec.card4.use,
+      priceBand: qRec.card4.priceBand,
+      status: (qRec.ownerId === userId ? "draft" : "draft") as "draft" | "sent",
+      updatedAt: formatRelativeTime(qRec.updatedAt),
+      card4: qRec.card4,
+    };
+    if (existingDcIdx >= 0) {
+      if (qRec.ownerId === userId) {
+        dealcards[existingDcIdx] = mappedDc;
+      }
+    } else if (qRec.ownerId === userId || dealcards.length < 3 || (targetId && qRec.buildingId === targetId)) {
+      if (qRec.ownerId === userId || (targetId && qRec.buildingId === targetId)) {
+        dealcards.unshift(mappedDc);
+      } else {
+        dealcards.push(mappedDc);
+      }
+    }
+
+    const existingImIdx = imList.findIndex(
+      (im) => im.id === qRec.documentId || im.buildingId === qRec.buildingId
+    );
+    const mappedIm = {
+      id: qRec.documentId,
+      buildingId: qRec.buildingId,
+      title: qRec.buildingName || `${qRec.card4.region} ${qRec.card4.use}`.trim(),
+      address: qRec.address,
+      askingPriceManwon: qRec.askingPriceManwon,
+      grossYieldPct: Number(qRec.basicImDoc?.facts?.valuation?.grossYieldPct || 4.2),
+      status: (qRec.ownerId === userId ? "published" : "draft") as "draft" | "published",
+      versionLabel: qRec.ownerId === userId ? "v1 생성 완료" : "v1 작성 중",
+      updatedAt: formatRelativeTime(qRec.updatedAt),
+      rentRoll: qRec.rentRoll,
+      investmentPosture: qRec.posture || "core_income",
+      gfaSqm: qRec.specs?.gfaSqm ? String(qRec.specs.gfaSqm) : undefined,
+      landAreaSqm: qRec.specs?.landAreaSqm ? String(qRec.specs.landAreaSqm) : undefined,
+      zoning: qRec.specs?.zoning || undefined,
+      completionDate: qRec.specs?.completionDate || undefined,
+      handoverNote: qRec.specs?.handoverNote || undefined,
+      brokerName: qRec.brokerProfile?.displayName || qRec.basicImDoc?.facts?.brokerOffice?.representative || undefined,
+      brokerageName: qRec.brokerProfile?.company || qRec.basicImDoc?.facts?.brokerOffice?.name || undefined,
+      brokerPhone: qRec.brokerProfile?.phone || qRec.basicImDoc?.facts?.brokerOffice?.phone || undefined,
+    };
+    if (existingImIdx >= 0) {
+      if (qRec.ownerId === userId) {
+        imList[existingImIdx] = mappedIm;
+      }
+    } else if (qRec.ownerId === userId || imList.length < 3 || (targetId && (qRec.buildingId === targetId || qRec.documentId === targetId))) {
+      if (qRec.ownerId === userId || (targetId && (qRec.buildingId === targetId || qRec.documentId === targetId))) {
+        imList.unshift(mappedIm);
+      } else {
+        imList.push(mappedIm);
+      }
+    }
   }
 
   return NextResponse.json({
@@ -216,6 +273,44 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
+
+  // Fetch broker profile for attaching to QuickImStore record
+  let brokerProfileMeta: {
+    displayName?: string;
+    company?: string;
+    phone?: string;
+    registrationNo?: string;
+    slug?: string;
+    photoUrl?: string;
+  } | undefined;
+  try {
+    if (supabase && typeof supabase.from === "function") {
+      const [{ data: pRow }, { data: bpRow }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("display_name, company, phone, photo_url")
+          .eq("id", auth.user.id)
+          .maybeSingle(),
+        supabase
+          .from("broker_profiles")
+          .select("office_reg_number, slug, avatar_url")
+          .eq("user_id", auth.user.id)
+          .maybeSingle(),
+      ]);
+      if (pRow || bpRow) {
+        brokerProfileMeta = {
+          displayName: pRow?.display_name || undefined,
+          company: pRow?.company || undefined,
+          phone: pRow?.phone || undefined,
+          registrationNo: bpRow?.office_reg_number || undefined,
+          slug: bpRow?.slug || undefined,
+          photoUrl: bpRow?.avatar_url || pRow?.photo_url || undefined,
+        };
+      }
+    }
+  } catch {
+    // Non-blocking
+  }
 
   // Only enforce DB ownership if buildingId is a real UUID in building_ssot_lite
   if (isUuid(buildingId)) {
@@ -242,6 +337,12 @@ export async function PATCH(request: NextRequest) {
         { status: result.conflict ? 409 : 500 }
       );
     }
+    if (result.card4 && getQuickImRecord(buildingId)) {
+      updateQuickImCard4(buildingId, result.card4, {
+        ownerId: auth.user.id,
+        brokerProfile: brokerProfileMeta,
+      });
+    }
     return NextResponse.json({
       ok: true,
       buildingId,
@@ -260,7 +361,10 @@ export async function PATCH(request: NextRequest) {
     card4_version: nextVersion,
     card4_hash: hash,
   };
-  updateQuickImCard4(buildingId, nextCard4);
+  updateQuickImCard4(buildingId, nextCard4, {
+    ownerId: auth.user.id,
+    brokerProfile: brokerProfileMeta,
+  });
   return NextResponse.json({
     ok: true,
     buildingId,

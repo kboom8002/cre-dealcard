@@ -317,23 +317,80 @@ export async function POST(req: NextRequest) {
     parsedExtras?.investment_points?.[2] || `연 수익률 ${estimatedYieldPct}% 기대 배당 자산`,
   ];
 
+  // Fetch authenticated broker's saved profile from Supabase if available
+  let dbBrokerProfile: {
+    displayName?: string;
+    company?: string;
+    phone?: string;
+    registrationNo?: string;
+    licenseNo?: string;
+    tagline?: string;
+    slug?: string;
+    photoUrl?: string;
+    specialtyRegions?: string[];
+    specialtyAssets?: string[];
+    bio?: string | null;
+  } | null = null;
+
+  if (auth.user?.id && process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+    try {
+      const { createServiceClient } = await import('@/lib/supabase/service');
+      const supabase = createServiceClient();
+      if (supabase && typeof supabase.from === 'function') {
+        const [{ data: pRow }, { data: bpRow }] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('display_name, company, phone, tagline, photo_url')
+            .eq('id', auth.user.id)
+            .maybeSingle(),
+          supabase
+            .from('broker_profiles')
+            .select('office_reg_number, license_number, slug, specialty_regions, specialty_assets, bio, avatar_url')
+            .eq('user_id', auth.user.id)
+            .maybeSingle(),
+        ]);
+        if (pRow || bpRow) {
+          dbBrokerProfile = {
+            displayName: pRow?.display_name || undefined,
+            company: pRow?.company || undefined,
+            phone: pRow?.phone || undefined,
+            registrationNo: bpRow?.office_reg_number || undefined,
+            licenseNo: bpRow?.license_number || undefined,
+            tagline: pRow?.tagline || undefined,
+            slug: bpRow?.slug || undefined,
+            photoUrl: bpRow?.avatar_url || pRow?.photo_url || undefined,
+            specialtyRegions: Array.isArray(bpRow?.specialty_regions) ? bpRow.specialty_regions : undefined,
+            specialtyAssets: Array.isArray(bpRow?.specialty_assets) ? bpRow.specialty_assets : undefined,
+            bio: bpRow?.bio ?? null,
+          };
+        }
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+  }
+
   const brokerOfficeObj = {
     name:
       brokerageName ||
       body.brokerOffice?.company ||
       body.brokerOffice?.name ||
+      dbBrokerProfile?.company ||
       '크리딜 파트너 중개법인',
     representative:
       brokerName ||
       body.brokerOffice?.representative ||
+      dbBrokerProfile?.displayName ||
       '담당 공인중개사',
     registrationNo:
       body.brokerRegNo ||
       body.brokerOffice?.registrationNo ||
+      dbBrokerProfile?.registrationNo ||
       '11560-2023-00412',
     phone:
       brokerPhone ||
       body.brokerOffice?.phone ||
+      dbBrokerProfile?.phone ||
       '02-558-7700',
   };
 
@@ -734,6 +791,10 @@ export async function POST(req: NextRequest) {
     sections: pptxSections,
     ...(parsedExtras ? { broker_extras: parsedExtras } : {}),
     broker_contact: {
+      name: brokerOfficeObj.representative,
+      company: brokerOfficeObj.name,
+      phone: brokerOfficeObj.phone,
+      registration_no: brokerOfficeObj.registrationNo,
       brokerName: brokerOfficeObj.representative,
       brokerageName: brokerOfficeObj.name,
       brokerPhone: brokerOfficeObj.phone,
@@ -760,6 +821,19 @@ export async function POST(req: NextRequest) {
       zoning: effectiveZoning,
       completionDate: effectiveCompletionDate,
       handoverNote: handoverNote || undefined,
+    },
+    brokerProfile: {
+      displayName: brokerOfficeObj.representative,
+      company: brokerOfficeObj.name,
+      phone: brokerOfficeObj.phone,
+      registrationNo: brokerOfficeObj.registrationNo,
+      licenseNo: dbBrokerProfile?.licenseNo,
+      tagline: dbBrokerProfile?.tagline,
+      slug: dbBrokerProfile?.slug,
+      photoUrl: dbBrokerProfile?.photoUrl,
+      specialtyRegions: dbBrokerProfile?.specialtyRegions,
+      specialtyAssets: dbBrokerProfile?.specialtyAssets,
+      bio: dbBrokerProfile?.bio,
     },
     fullDocBody,
     createdAt: nowIso,

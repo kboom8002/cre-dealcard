@@ -209,6 +209,7 @@ export async function POST(req: NextRequest) {
 
       const state = upsertCustomInboxClient({
         id: body?.clientId,
+        ownerId: userId || undefined,
         clientName,
         clientGrade,
         clientPhone,

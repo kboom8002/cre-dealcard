@@ -106,6 +106,14 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
             진행하실 중개 업무를 선택하세요. (숫자키 1~4 단축키)
           </p>
         </div>
+
+        <Link
+          href="/broker/profile"
+          data-testid="home-profile-settings-btn"
+          className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-xl bg-white hover:bg-slate-50 border-2 border-slate-300 text-slate-900 font-extrabold text-base shadow-2xs transition-colors shrink-0"
+        >
+          <span>👤 내 프로필 · 사무소 설정</span>
+        </Link>
       </header>
 
       {/* ── 2. WP-P2-05: 1-Line "이어서 하기" Resume Bar ── */}

@@ -238,6 +238,15 @@ function ImWorkspaceInner() {
     currentItem?.buildingId || "bld-01"
   );
   const [isProvisioningSheet, setIsProvisioningSheet] = useState(false);
+  const profileDefaultsRef = useRef<{
+    brokerName: string;
+    brokerageName: string;
+    brokerPhone: string;
+  }>({
+    brokerName: "",
+    brokerageName: "",
+    brokerPhone: "",
+  });
 
   const applyItemToFormState = (item: ImListItem) => {
     setAddress(item.address || "");
@@ -250,14 +259,38 @@ function ImWorkspaceInner() {
     setZoning(item.zoning ?? "제3종일반주거지역");
     setHandoverNote(item.handoverNote ?? "잔금 시 전층 명도 조건 협의 완료");
     setPhotoNames(item.photoNames ?? []);
-    setBrokerName(item.brokerName ?? "");
-    setBrokerageName(item.brokerageName ?? "");
-    setBrokerPhone(item.brokerPhone ?? "");
+    setBrokerName(item.brokerName || profileDefaultsRef.current.brokerName || "");
+    setBrokerageName(item.brokerageName || profileDefaultsRef.current.brokerageName || "");
+    setBrokerPhone(item.brokerPhone || profileDefaultsRef.current.brokerPhone || "");
     setBrokerExtrasForm(
       item.brokerExtrasForm || { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [] }
     );
     setBottomSheetBuildingId(item.buildingId || "bld-01");
   };
+
+  // Auto-load logged-in broker profile so IM fields default to their saved profile
+  useEffect(() => {
+    fetch("/api/broker/profile")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const p = json?.data;
+        if (!p) return;
+        const pName = p.display_name || p.broker?.name || "";
+        const pCompany = p.company || "";
+        const pPhone = p.phone || "";
+        profileDefaultsRef.current = {
+          brokerName: pName,
+          brokerageName: pCompany,
+          brokerPhone: pPhone,
+        };
+        setBrokerName((prev) => prev || pName);
+        setBrokerageName((prev) => prev || pCompany);
+        setBrokerPhone((prev) => prev || pPhone);
+      })
+      .catch(() => {
+        // Non-blocking fallback
+      });
+  }, []);
 
   const syncCurrentItemPatch = (patch: Partial<ImListItem>) => {
     setItems((prev) => {
@@ -279,19 +312,20 @@ function ImWorkspaceInner() {
 
   // Load persisted items and sync with server workspace summary
   useEffect(() => {
+    let initialTargetId: string | null = null;
     try {
       const savedRaw = window.localStorage.getItem(IM_STORAGE_KEY);
       if (savedRaw) {
         const parsed = JSON.parse(savedRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setItems(parsed);
-          const match =
-            parsed.find(
-              (i: ImListItem) =>
-                (buildingIdParam && (i.id === buildingIdParam || i.buildingId === buildingIdParam)) ||
-                i.id === selectedId
-            ) || parsed[0];
+          const match = buildingIdParam
+            ? parsed.find(
+                (i: ImListItem) => i.id === buildingIdParam || i.buildingId === buildingIdParam
+              ) || parsed[0]
+            : parsed[0];
           if (match) {
+            initialTargetId = match.id;
             setSelectedId(match.id);
             applyItemToFormState(match);
           }
@@ -328,6 +362,7 @@ function ImWorkspaceInner() {
                     : generateFloorScaffolding(5, 1),
               };
             });
+            const localOnlyItems: ImListItem[] = [];
             for (const loc of prev) {
               const isExplicitlyRequested =
                 Boolean(buildingIdParam) &&
@@ -337,11 +372,19 @@ function ImWorkspaceInner() {
                 (isUserCreatedOrEdited || isExplicitlyRequested) &&
                 !srvItems.some((s) => s.id === loc.id || s.buildingId === loc.buildingId)
               ) {
-                srvItems.push(loc);
+                localOnlyItems.push(loc);
               }
             }
-            persistImItems(srvItems);
-            return srvItems;
+            const merged = [...localOnlyItems, ...srvItems];
+            persistImItems(merged);
+            const targetMatch = buildingIdParam
+              ? merged.find((i) => i.id === buildingIdParam || i.buildingId === buildingIdParam) || merged[0]
+              : (initialTargetId && merged.find((i) => i.id === initialTargetId)) || merged[0];
+            if (targetMatch) {
+              setSelectedId(targetMatch.id);
+              applyItemToFormState(targetMatch);
+            }
+            return merged;
           });
         }
       })
@@ -435,7 +478,55 @@ function ImWorkspaceInner() {
       zoning: "제3종일반주거지역",
       handoverNote: "잔금 시 전층 명도 조건 협의 완료",
       photoNames: [],
-      rentRoll: generateFloorScaffolding(4, 1),
+      rentRoll: [
+        {
+          id: "r-new-b1",
+          floor: "B1",
+          unit: "B101호",
+          use: "스튜디오 / 창고",
+          depositManwon: 3000,
+          monthlyRentManwon: 250,
+          maintenanceManwon: 30,
+          leaseExpiry: "27.06",
+          status: "occupied",
+        },
+        {
+          id: "r-new-1f",
+          floor: "1F",
+          unit: "101호",
+          use: "프랜차이즈 카페 · 베이커리",
+          depositManwon: 10000,
+          monthlyRentManwon: 1200,
+          maintenanceManwon: 100,
+          leaseExpiry: "28.03",
+          status: "occupied",
+        },
+        {
+          id: "r-new-2f",
+          floor: "2F",
+          unit: "201호",
+          use: "전문의원 (피부과·치과)",
+          depositManwon: 5000,
+          monthlyRentManwon: 900,
+          maintenanceManwon: 80,
+          leaseExpiry: "27.12",
+          status: "occupied",
+        },
+        {
+          id: "r-new-3f",
+          floor: "3F~4F",
+          unit: "301~401호",
+          use: "IT · 디자인 법인 사옥",
+          depositManwon: 7000,
+          monthlyRentManwon: 1500,
+          maintenanceManwon: 140,
+          leaseExpiry: "28.09",
+          status: "occupied",
+        },
+      ],
+      brokerName: profileDefaultsRef.current.brokerName || "",
+      brokerageName: profileDefaultsRef.current.brokerageName || "",
+      brokerPhone: profileDefaultsRef.current.brokerPhone || "",
       isDirty: true,
     };
 
@@ -444,6 +535,40 @@ function ImWorkspaceInner() {
     persistImItems(next);
     setSelectedId(newId);
     showUndoToast("새 IM 작업 공간이 생성되었습니다.");
+  };
+
+  // Explicit Draft Save handler (persists intermediate edits to localStorage & server)
+  const handleSaveDraft = async () => {
+    const targetId = currentItem?.id || selectedId;
+    const derivedTitle = (address.split(" ").slice(1, 3).join(" ") || "매물") + " 근생빌딩";
+    const nextItems = items.map((it) =>
+      it.id === targetId
+        ? {
+            ...it,
+            title: derivedTitle,
+            address,
+            askingPriceManwon,
+            grossYieldPct: Number(calculatedYield.toFixed(2)) || it.grossYieldPct,
+            updatedAt: "방금",
+            rentRoll,
+            investmentPosture,
+            gfaSqm,
+            completionDate,
+            landAreaSqm,
+            zoning,
+            handoverNote,
+            photoNames,
+            brokerName,
+            brokerageName,
+            brokerPhone,
+            brokerExtrasForm,
+            isDirty: true,
+          }
+        : it
+    );
+    setItems(nextItems);
+    persistImItems(nextItems);
+    showUndoToast("💾 IM 초안이 안전하게 저장되었습니다.");
   };
 
   // Broker extras state updater with localStorage sync
@@ -719,6 +844,14 @@ function ImWorkspaceInner() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            data-testid="im-save-draft-btn"
+            onClick={handleSaveDraft}
+            className="min-h-[48px] px-3.5 py-2.5 bg-white text-[#0F172A] border border-[#64748B] rounded-xl font-extrabold text-[14px] hover:bg-[#F3F2EE] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <span>💾 초안 저장</span>
+          </button>
           <button
             type="button"
             data-testid="im-open-bottom-sheet-btn"

@@ -182,10 +182,22 @@ export function collectSensitiveNeedles(building: Record<string, any> | null | u
   addAddress(location.exact_address);
   addAddress(location.address);
 
+  const publicArea = str(building.area_signal || attrs.areaSignal || '').trim();
+  const publicAsset = str(building.asset_type || building.main_usage || attrs.assetType || '').trim();
+  const genericCombo = `${publicArea} ${publicAsset}`.trim();
+
   const addName = (v: unknown) => {
     if (typeof v !== 'string') return;
     const t = v.trim();
-    if (t.length >= 3) needles.add(t);
+    if (
+      t.length >= 3 &&
+      t !== publicArea &&
+      t !== publicAsset &&
+      t !== genericCombo &&
+      t !== `${genericCombo} 매각`
+    ) {
+      needles.add(t);
+    }
   };
   const register = asRecord(layers.building_register);
   addName(building.building_name);
@@ -365,7 +377,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
       postureHeroTiles: (teaserView.postureHeroTiles || []).map((t) => ({
         emoji: str(t.emoji),
         label: str(t.label),
-        value: clean(str(t.value)),
+        value: clean(str(t.label) === '매각가' && str(card4.priceBand) ? str(card4.priceBand) : str(t.value)),
       })),
       bandedPrice: str(card4.priceBand) || str(teaserView.bandedPrice),
       bandedCapRate: str(teaserView.bandedCapRate),

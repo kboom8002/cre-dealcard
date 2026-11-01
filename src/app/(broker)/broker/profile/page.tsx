@@ -155,7 +155,7 @@ export default function BrokerProfilePage() {
     if (hasSocialLink) score += 10;
     if (dealSizeRange) score += 10;
     if (avatarUrl) score += 10;
-    return score;
+    return Math.min(100, score);
   }, [displayName, phone, licenseNumber, careerStartYear, selectedRegions, selectedAssets, totalDealCount, bio, kakaoChannel, naverBlogUrl, youtubeUrl, linkedinUrl, dealSizeRange, avatarUrl]);
 
   const completenessColor =
@@ -174,13 +174,14 @@ export default function BrokerProfilePage() {
 
   /* ─── Fetch profile ─── */
 
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = useCallback(async (isCancelled?: () => boolean) => {
     try {
       const res = await fetch('/api/broker/profile', {
         headers: {
           Authorization: `Bearer ${await getToken()}`,
         },
       });
+      if (isCancelled?.()) return;
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
           router.push('/login');
@@ -189,6 +190,7 @@ export default function BrokerProfilePage() {
         throw new Error('프로필을 불러오는데 실패했습니다.');
       }
       const { data } = await res.json();
+      if (isCancelled?.()) return;
       setProfile(data);
 
       // Section 1
@@ -230,14 +232,18 @@ export default function BrokerProfilePage() {
       // Section 6
       setBio(data.broker?.bio ?? '');
     } catch (e: any) {
-      setError(e.message);
+      if (!isCancelled?.()) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!isCancelled?.()) setLoading(false);
     }
   }, [router]);
 
   useEffect(() => {
-    fetchProfile();
+    let cancelled = false;
+    fetchProfile(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
   }, [fetchProfile]);
 
   /* ─── Save profile ─── */
@@ -662,7 +668,15 @@ export default function BrokerProfilePage() {
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const digits = raw.replace(/[^\d]/g, '');
+                if (digits.length === 11 && digits.startsWith('010')) {
+                  setPhone(`${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`);
+                } else {
+                  setPhone(raw);
+                }
+              }}
               className={inputClass}
               placeholder="예: 010-1234-5678 (숫자만 입력하셔도 자동 변환됩니다)"
               id="profile-phone"

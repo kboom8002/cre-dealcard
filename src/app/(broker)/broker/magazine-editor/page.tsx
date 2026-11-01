@@ -429,6 +429,36 @@ function MagazineEditorInner() {
           });
         }
       });
+
+      // Also merge deals from Workspace Summary (/api/broker/workspace/summary) so newly created DealCards/IMs appear immediately
+      try {
+        const wsRes = await fetch("/api/broker/workspace/summary");
+        if (wsRes.ok) {
+          const wsData = await wsRes.json();
+          const wsDealcards = Array.isArray(wsData?.dealcards) ? wsData.dealcards : [];
+          for (const dc of wsDealcards) {
+            if (dc?.id && !mappedDeals.some((md) => md.id === dc.id)) {
+              const pts = Array.isArray(dc.card4?.points) ? dc.card4.points : [];
+              mappedDeals.push({
+                id: dc.id,
+                address: `${dc.region || ""} ${dc.use || ""}`.trim() || dc.title,
+                areaSignal: dc.region || dc.title || "핵심 상권",
+                assetType: dc.use || "근린생활시설",
+                price: dc.priceBand || "",
+                photoUrl: "/test-images/01_exterior.jpg",
+                buyerInterestCount: 0,
+                investmentPoint: pts.join(" · ") || "핵심 투자 매물",
+                imUrl: `/im-lite/${dc.id}`,
+                grossYieldNetOfDeposit: null,
+                noiCapRate: null,
+              });
+            }
+          }
+        }
+      } catch {
+        // Non-blocking fallback
+      }
+
       return mappedDeals;
     },
     [],
@@ -1460,7 +1490,7 @@ function MagazineEditorInner() {
           })}
         </div>
 
-        {/* 모바일 채우기/미리보기 전환 스위치 (<1024px) */}
+        {/* 모바일 채우기/미리보기 전환 스위치 (<1024px) & 내 프로필 */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300">
             <button
@@ -1486,6 +1516,13 @@ function MagazineEditorInner() {
               👁 미리보기
             </button>
           </div>
+          <Link
+            href="/broker/profile"
+            data-testid="workspace-nav-profile"
+            className="inline-flex items-center gap-1 px-3 py-1.5 min-h-[40px] rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-sm font-extrabold text-slate-800 transition-colors whitespace-nowrap"
+          >
+            <span>👤 내 프로필</span>
+          </Link>
         </div>
       </header>
 

@@ -203,6 +203,14 @@ export function WorkspaceShell({
           >
             <span>{isPreviewDrawerOpen ? "미리보기 닫기 ✕" : "미리보기 열기 👁"}</span>
           </button>
+
+          <Link
+            href="/broker/profile"
+            data-testid="workspace-nav-profile"
+            className="inline-flex items-center gap-1 px-3 py-1.5 min-h-[40px] rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-sm font-extrabold text-slate-800 transition-colors whitespace-nowrap"
+          >
+            <span>👤 내 프로필</span>
+          </Link>
         </div>
       </header>
 

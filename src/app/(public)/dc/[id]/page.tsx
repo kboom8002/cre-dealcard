@@ -64,7 +64,28 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
         key_points: quickRec.card4.points,
       },
     },
-    brokerProfile: null as Record<string, any> | null,
+    brokerProfile: (quickRec.brokerProfile || quickRec.basicImDoc?.facts?.brokerOffice
+      ? {
+          display_name:
+            quickRec.brokerProfile?.displayName ||
+            quickRec.basicImDoc?.facts?.brokerOffice?.representative ||
+            "담당 중개사",
+          phone:
+            quickRec.brokerProfile?.phone ||
+            (quickRec.basicImDoc?.facts?.brokerOffice?.phone !== "-"
+              ? quickRec.basicImDoc?.facts?.brokerOffice?.phone
+              : null),
+          specialty:
+            quickRec.brokerProfile?.company ||
+            quickRec.basicImDoc?.facts?.brokerOffice?.name ||
+            "검증 공인중개사",
+          avatar_url: quickRec.brokerProfile?.photoUrl || null,
+          is_licensed: true,
+          response_guarantee_hours: 1,
+          closed_deals: null,
+          slug: quickRec.brokerProfile?.slug || null,
+        }
+      : null) as Record<string, any> | null,
     hasImDoc: true,
     isPptxApproved: true,
     pptxDownloadUrl: `/api/public/im-lite/${quickRec.buildingId}/pptx`,
@@ -78,7 +99,7 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
 // (readWithMigration 의 lazy-write 부수효과 중복 방지).
 const getDealCardData = cache(async (id: string) => {
   const quickRec = getQuickImRecord(id);
-  if (quickRec && !isUuid(id)) {
+  if (quickRec) {
     return buildDealCardDataFromQuickRecord(quickRec);
   }
 
@@ -177,30 +198,40 @@ const getDealCardData = cache(async (id: string) => {
     const [{ data: bProfile }, { data: baseProfile }] = await Promise.all([
       supabase
         .from("broker_profiles")
-        .select("display_name, specialty, response_guarantee_hours, closed_deals, is_licensed, slug, phone, avatar_url")
+        .select("*")
         .eq("user_id", ownerId)
         .maybeSingle(),
       supabase
         .from("profiles")
-        .select("display_name, phone, company, photo_url, role")
+        .select("display_name, phone, company, tagline, photo_url, role")
         .eq("id", ownerId)
         .maybeSingle(),
     ]);
 
-    const avatarUrl = bProfile?.avatar_url || baseProfile?.photo_url || (baseProfile as any)?.avatar_url || null;
-    const displayName = bProfile?.display_name || baseProfile?.display_name || "담당 중개사";
-    const phone = bProfile?.phone || baseProfile?.phone || null;
-    const specialty = bProfile?.specialty || (baseProfile?.company ? `${baseProfile.company} 소속` : "검증 공인중개사");
+    const avatarUrl =
+      (bProfile as any)?.avatar_url ||
+      baseProfile?.photo_url ||
+      (baseProfile as any)?.avatar_url ||
+      null;
+    const displayName =
+      baseProfile?.display_name || (bProfile as any)?.name || (bProfile as any)?.display_name || "담당 중개사";
+    const phone = baseProfile?.phone || (bProfile as any)?.phone || null;
+    const specialty =
+      baseProfile?.company ||
+      (bProfile as any)?.specialty ||
+      ((baseProfile as any)?.tagline ? (baseProfile as any).tagline : "검증 공인중개사");
 
     brokerProfile = {
       display_name: displayName,
       phone,
       specialty,
       avatar_url: avatarUrl,
-      is_licensed: bProfile?.is_licensed ?? true,
-      response_guarantee_hours: bProfile?.response_guarantee_hours ?? null,
-      closed_deals: bProfile?.closed_deals ?? null,
-      slug: bProfile?.slug ?? null,
+      is_licensed: Boolean((bProfile as any)?.license_number || (bProfile as any)?.office_reg_number || true),
+      response_guarantee_hours:
+        (bProfile as any)?.response_time_hours ?? (bProfile as any)?.response_guarantee_hours ?? null,
+      closed_deals:
+        (bProfile as any)?.total_deal_count_self ?? (bProfile as any)?.closed_deals ?? null,
+      slug: (bProfile as any)?.slug ?? null,
     };
   }
 

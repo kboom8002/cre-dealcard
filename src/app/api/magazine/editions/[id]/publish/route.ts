@@ -216,6 +216,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return jsonError("PUBLISH_FAILED", "발행 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
     }
 
+    if (!correction) {
+      await supabase
+        .from("activity_events")
+        .insert({
+          actor_id: ctx.userId,
+          entity_type: "magazine",
+          entity_id: edition.id,
+          event_type: "magazine_published",
+          metadata: { issue_date: issueDate, slug: ctx.slug, broker_id: ctx.userId },
+        })
+        .then(() => undefined, () => undefined);
+    }
+
     return NextResponse.json({ ok: true, edition: updated, issueDate, correction });
   } catch (err: unknown) {
     log.error("[api/magazine/editions/publish]", err instanceof Error ? err.message : String(err));

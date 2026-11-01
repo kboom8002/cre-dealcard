@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { listAllQuickImRecords } from "@/lib/im-lite/quick-generate-store";
 
 export interface BrokerHomeResumeItem {
   id: string;
@@ -72,21 +73,25 @@ export async function getAggregatedBrokerHomeData(
   supabase: SupabaseClient,
   userId: string
 ): Promise<AggregatedBrokerHomeData> {
-  // 1. Try single roundtrip RPC if available
-  try {
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
-      "get_broker_home_summary",
-      { p_user_id: userId }
-    );
+  const hasQuickOwned = listAllQuickImRecords().some((r) => r.ownerId === userId);
 
-    if (!rpcError && rpcData && typeof rpcData === "object") {
-      const typed = rpcData as Partial<AggregatedBrokerHomeData>;
-      if (typed.profile && typed.doors) {
-        return typed as AggregatedBrokerHomeData;
+  // 1. Try single roundtrip RPC if available (skip if user has local quick-generate items to merge)
+  if (!hasQuickOwned) {
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "get_broker_home_summary",
+        { p_user_id: userId }
+      );
+
+      if (!rpcError && rpcData && typeof rpcData === "object") {
+        const typed = rpcData as Partial<AggregatedBrokerHomeData>;
+        if (typed.profile && typed.doors) {
+          return typed as AggregatedBrokerHomeData;
+        }
       }
+    } catch {
+      // Graceful fallback to aggregated multi-table query budget <= 3
     }
-  } catch {
-    // Graceful fallback to aggregated multi-table query budget <= 3
   }
 
   // 2. Fallback: strictly at most 3 coordinated queries
@@ -119,7 +124,33 @@ export async function getAggregatedBrokerHomeData(
     role: profileRes.data?.role || "broker",
   };
 
-  const buildings = buildingsRes.data || [];
+  const dbBuildings = buildingsRes.data || [];
+  const quickOwned = listAllQuickImRecords()
+    .filter((r) => r.ownerId === userId)
+    .map((r) => ({
+      id: r.buildingId,
+      address: r.address,
+      name: r.buildingName || `${r.card4.region} ${r.card4.use}`.trim(),
+      area_signal: r.card4.region,
+      created_at: r.createdAt,
+      updated_at: r.updatedAt,
+      status: "public_signal_ready",
+    }));
+
+  const mergedBuildingMap = new Map<string, any>();
+  for (const qb of quickOwned) {
+    mergedBuildingMap.set(qb.id, qb);
+  }
+  for (const dbB of dbBuildings) {
+    if (!mergedBuildingMap.has(dbB.id)) {
+      mergedBuildingMap.set(dbB.id, dbB);
+    }
+  }
+  const buildings = Array.from(mergedBuildingMap.values()).sort(
+    (a, b) =>
+      new Date(b.updated_at || b.created_at || 0).getTime() -
+      new Date(a.updated_at || a.created_at || 0).getTime()
+  );
   const totalBuildings = buildings.length;
   const recentBuilding = buildings[0] || null;
 

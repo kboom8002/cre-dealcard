@@ -289,6 +289,7 @@ export function Card4ConfirmCard({
           {onSave && (
             <button
               type="button"
+              data-testid="card4-save-btn"
               onClick={onSave}
               disabled={isSaving}
               className="min-h-[48px] px-5 py-2.5 rounded-xl border border-slate-400 text-slate-800 text-[17px] font-medium hover:bg-slate-50 transition active:scale-[0.98] disabled:opacity-50"

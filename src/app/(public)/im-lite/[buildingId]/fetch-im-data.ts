@@ -274,10 +274,28 @@ function hydrateQuickRecordToMobileIM(quickRec: StoredQuickImRecord): MobileIMDo
   const bDoc = quickRec.basicImDoc;
   const facts = bDoc.facts;
   const brokerObj = buildBrokerObject(null);
+  if (quickRec.ownerId) {
+    brokerObj.userId = quickRec.ownerId;
+  }
   if (facts.brokerOffice) {
     brokerObj.company = facts.brokerOffice.name || "";
     brokerObj.displayName = facts.brokerOffice.representative || "담당 중개인";
     brokerObj.phone = facts.brokerOffice.phone && facts.brokerOffice.phone !== "-" ? facts.brokerOffice.phone : "";
+  }
+  if (quickRec.brokerProfile) {
+    if (quickRec.brokerProfile.displayName) brokerObj.displayName = quickRec.brokerProfile.displayName;
+    if (quickRec.brokerProfile.company) brokerObj.company = quickRec.brokerProfile.company;
+    if (quickRec.brokerProfile.phone) brokerObj.phone = quickRec.brokerProfile.phone;
+    if (quickRec.brokerProfile.tagline) brokerObj.tagline = quickRec.brokerProfile.tagline;
+    if (quickRec.brokerProfile.photoUrl) brokerObj.photoUrl = quickRec.brokerProfile.photoUrl;
+    if (quickRec.brokerProfile.slug) brokerObj.slug = quickRec.brokerProfile.slug;
+    if (Array.isArray(quickRec.brokerProfile.specialtyRegions)) {
+      brokerObj.specialtyRegions = quickRec.brokerProfile.specialtyRegions;
+    }
+    if (Array.isArray(quickRec.brokerProfile.specialtyAssets)) {
+      brokerObj.specialtyAssets = quickRec.brokerProfile.specialtyAssets;
+    }
+    if (quickRec.brokerProfile.bio) brokerObj.bio = quickRec.brokerProfile.bio;
   }
 
   const doc: MobileIMDocument = {

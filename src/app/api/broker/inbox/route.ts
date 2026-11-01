@@ -22,7 +22,13 @@ export async function GET(req: NextRequest) {
   if (guard.error && !isWorkspaceCall) return guard.error;
   const userId = guard.user?.id || null;
 
-  const inboxState = getInboxState();
+  const rawInboxState = getInboxState();
+  const inboxState = {
+    ...rawInboxState,
+    customClients: (rawInboxState.customClients || []).filter(
+      (c) => !userId || !c.ownerId || c.ownerId === userId
+    ),
+  };
   const quickRecords = listAllQuickImRecords();
   const quickInventory = quickRecords.map((r) => ({
     buildingId: r.buildingId,

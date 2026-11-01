@@ -352,10 +352,17 @@ function InboxWorkspaceInner() {
           const existingIds = new Set(updatedPrev.map((t) => t.id));
           const appended: InboxThreadItem[] = [];
 
-          // 2. Append custom registered clients from server inbox state
+          // 2. Append custom registered clients from server inbox state (with callNotes merged)
           for (const cli of customClients) {
             if (!cli?.id || existingIds.has(cli.id)) continue;
             existingIds.add(cli.id);
+            const cliNotes = callNotes[cli.id] || [];
+            const noteEvents = cliNotes.map((n: any) => ({
+              id: n.id,
+              eventType: "dwell" as const,
+              description: n.description,
+              timestamp: n.timestamp || "방금",
+            }));
             appended.push({
               id: cli.id,
               clientName: cli.clientName,
@@ -363,7 +370,8 @@ function InboxWorkspaceInner() {
               clientGrade: cli.clientGrade || "VIP",
               buildingTitle: cli.buildingTitle || "관심 매물 상담",
               buildingId: cli.buildingId || "p1-dangsan",
-              latestEvent: "신규 매수 고객 등록 및 소식지 구독 연동 완료",
+              latestEvent:
+                noteEvents[0]?.description || "신규 매수 고객 등록 및 소식지 구독 연동 완료",
               updatedAt: "방금",
               openCount: 1,
               isRead: false,
@@ -374,6 +382,7 @@ function InboxWorkspaceInner() {
               focusedSections: ["02 투자 하이라이트"],
               newsletterSubscribed: cli.newsletterSubscribed !== false,
               events: [
+                ...noteEvents,
                 {
                   id: `ev-${cli.id}`,
                   eventType: "share",
@@ -499,7 +508,12 @@ function InboxWorkspaceInner() {
       if (!matchQuery) return false;
 
       if (activeFilter === "action") {
-        return t.status === "pending_gate" || t.openCount >= 3;
+        return (
+          t.status === "pending_gate" ||
+          t.openCount >= 3 ||
+          t.id.startsWith("cli-") ||
+          t.id === selectedId
+        );
       }
       if (activeFilter === "today") {
         return (

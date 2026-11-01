@@ -33,6 +33,19 @@ export interface StoredQuickImRecord {
     completionDate?: string;
     handoverNote?: string;
   };
+  brokerProfile?: {
+    displayName?: string;
+    company?: string;
+    phone?: string;
+    registrationNo?: string;
+    licenseNo?: string;
+    tagline?: string;
+    slug?: string;
+    photoUrl?: string;
+    specialtyRegions?: string[];
+    specialtyAssets?: string[];
+    bio?: string | null;
+  };
   fullDocBody?: Record<string, any>;
   isRevoked?: boolean;
   revokedTokens?: string[];
@@ -63,6 +76,7 @@ export interface StoredInboxState {
   >;
   customClients: Array<{
     id: string;
+    ownerId?: string;
     clientName: string;
     clientGrade: 'VIP' | '일반' | '잠재';
     clientPhone: string;
@@ -306,16 +320,69 @@ export function getQuickImRecord(idOrDocId: string): StoredQuickImRecord | null 
   return store.get(idOrDocId) || null;
 }
 
-export function updateQuickImCard4(idOrDocId: string, card4: Card4Data): StoredQuickImRecord | null {
+export function updateQuickImCard4(
+  idOrDocId: string,
+  card4: Card4Data,
+  opts?: {
+    ownerId?: string;
+    brokerProfile?: StoredQuickImRecord['brokerProfile'];
+  }
+): StoredQuickImRecord | null {
   const existing = getQuickImRecord(idOrDocId);
-  if (!existing) return null;
-  const updated: StoredQuickImRecord = {
-    ...existing,
-    card4,
-    updatedAt: new Date().toISOString(),
-  };
-  saveQuickImRecord(updated);
-  return updated;
+  const now = new Date().toISOString();
+  if (existing) {
+    const updated: StoredQuickImRecord = {
+      ...existing,
+      buildingName: `${card4.region} ${card4.use}`,
+      ownerId: opts?.ownerId || existing.ownerId,
+      brokerProfile: opts?.brokerProfile || existing.brokerProfile,
+      card4,
+      updatedAt: now,
+    };
+    saveQuickImRecord(updated);
+    return updated;
+  }
+
+  // Upsert a new record for newly created DealCards (e.g., bld-xxxx)
+  const priceMatch = String(card4.priceBand || '').match(/(\d+)/);
+  const askingPriceManwon = priceMatch ? Number(priceMatch[1]) * 10000 + 5000 : 850000;
+  const created = buildSeedRecord({
+    buildingId: idOrDocId,
+    documentId: idOrDocId.startsWith('im-doc-') ? idOrDocId : `im-doc-${idOrDocId}`,
+    address: `서울시 ${card4.region} 100-1`,
+    buildingName: `${card4.region} ${card4.use}`,
+    region: card4.region,
+    use: card4.use,
+    priceBand: card4.priceBand,
+    askingPriceManwon,
+    posture: 'core_income',
+    points: card4.points,
+    gfaSqm: 1200.0,
+    landAreaSqm: 360.0,
+    zoning: '제3종일반주거지역',
+    completionDate: '2019-05-10',
+    floorsAbove: 5,
+    floorsBelow: 1,
+    rentRoll: [
+      { floor: '1F', unit: '101', use: card4.use || '근린생활시설', depositManwon: 8000, monthlyRentManwon: 650, maintenanceManwon: 60, leaseExpiry: '2027-06', status: 'occupied' },
+      { floor: '2F~5F', unit: '전층', use: '오피스 및 근생', depositManwon: 15000, monthlyRentManwon: 1850, maintenanceManwon: 150, leaseExpiry: '2027-12', status: 'occupied' },
+    ],
+  });
+  created.card4 = card4;
+  if (opts?.ownerId) created.ownerId = opts.ownerId;
+  if (opts?.brokerProfile) {
+    created.brokerProfile = opts.brokerProfile;
+    if (created.basicImDoc?.facts) {
+      created.basicImDoc.facts.brokerOffice = {
+        name: opts.brokerProfile.company || '담당 중개사무소',
+        representative: opts.brokerProfile.displayName || '담당 공인중개사',
+        registrationNo: opts.brokerProfile.registrationNo || '-',
+        phone: opts.brokerProfile.phone || '-',
+      };
+    }
+  }
+  saveQuickImRecord(created);
+  return created;
 }
 
 export function listAllQuickImRecords(): StoredQuickImRecord[] {
@@ -465,6 +532,7 @@ export function appendInboxCallNote(
 
 export function upsertCustomInboxClient(client: {
   id?: string;
+  ownerId?: string;
   clientName: string;
   clientGrade: 'VIP' | '일반' | '잠재';
   clientPhone: string;
@@ -479,6 +547,7 @@ export function upsertCustomInboxClient(client: {
   const existingIdx = state.customClients.findIndex((c) => c.id === id);
   const entry = {
     id,
+    ownerId: client.ownerId,
     clientName: client.clientName,
     clientGrade: client.clientGrade,
     clientPhone: client.clientPhone,

@@ -184,6 +184,19 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
             >
               <span>{isPaperMode ? "☀️ 큰글씨 밝은 화면 (켜짐)" : "🌙 어두운 화면 (켜짐)"}</span>
             </motion.button>
+            <Link
+              href="/broker/profile"
+              data-testid="workspace-nav-profile"
+              className={
+                pathname.startsWith("/broker/profile")
+                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-blue-700 text-white shadow-sm transition-colors"
+                  : isPaperMode
+                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-slate-50 hover:bg-slate-100 text-slate-900 border border-slate-300 transition-colors"
+                  : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition-colors"
+              }
+            >
+              <span>👤 내 프로필</span>
+            </Link>
           </div>
         </div>
       </header>

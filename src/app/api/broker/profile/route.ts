@@ -249,7 +249,15 @@ export async function GET(req: NextRequest) {
     ok: true,
     data: {
       ...profile,
-      broker: brokerProfile ?? null,
+      broker: brokerProfile
+        ? {
+            ...brokerProfile,
+            avatar_url:
+              (brokerProfile as Record<string, unknown>).avatar_url ||
+              profile?.photo_url ||
+              null,
+          }
+        : null,
       email: user!.email,
       magazine_title: magazineTitle,
       magazine_theme_color: magazineThemeColor,
