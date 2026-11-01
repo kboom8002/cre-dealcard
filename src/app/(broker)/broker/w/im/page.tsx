@@ -8,6 +8,39 @@ import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout } from "@/lib/rent-roll/tsv-parser";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
+import { ImDataBottomSheet } from "@/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet";
+import {
+  PostureSelector,
+  BrokerExtrasSection,
+} from "@/app/(broker)/broker/deal-card/[id]/bottom-sheet/sections";
+import {
+  RentRollImporter,
+  type RentRollImportPayload,
+} from "@/components/broker/rent-roll-importer";
+import {
+  EMPTY_BROKER_EXTRAS_FORM,
+  brokerExtrasFormToInput,
+  parseBrokerExtras,
+  type BrokerExtrasFormState,
+} from "@/domain/building/mobile-im/broker-extras";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizePostureForSelector(raw?: string): string {
+  if (!raw || raw === "core_income") return "income";
+  if (raw === "owner_occupier") return "owner_occupied";
+  return raw;
+}
+
+const POSTURE_KOREAN_LABELS: Record<string, string> = {
+  income: "임대수익형",
+  core_income: "임대수익형",
+  owner_occupied: "자가사용(사옥형)",
+  owner_occupier: "자가사용(사옥형)",
+  development: "개발·신축형",
+  operating: "직접운영형",
+  trading: "단기매매·밸류애드",
+};
 
 interface ImListItem {
   id: string;
@@ -27,6 +60,10 @@ interface ImListItem {
   zoning?: string;
   handoverNote?: string;
   photoNames?: string[];
+  brokerName?: string;
+  brokerageName?: string;
+  brokerPhone?: string;
+  brokerExtrasForm?: BrokerExtrasFormState;
   isDirty?: boolean;
 }
 
@@ -184,6 +221,23 @@ function ImWorkspaceInner() {
   const [photoNames, setPhotoNames] = useState<string[]>(
     currentItem?.photoNames || []
   );
+  const [brokerName, setBrokerName] = useState<string>(
+    currentItem?.brokerName || ""
+  );
+  const [brokerageName, setBrokerageName] = useState<string>(
+    currentItem?.brokerageName || ""
+  );
+  const [brokerPhone, setBrokerPhone] = useState<string>(
+    currentItem?.brokerPhone || ""
+  );
+  const [brokerExtrasForm, setBrokerExtrasForm] = useState<BrokerExtrasFormState>(
+    currentItem?.brokerExtrasForm || { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [] }
+  );
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [bottomSheetBuildingId, setBottomSheetBuildingId] = useState<string>(
+    currentItem?.buildingId || "bld-01"
+  );
+  const [isProvisioningSheet, setIsProvisioningSheet] = useState(false);
 
   const applyItemToFormState = (item: ImListItem) => {
     setAddress(item.address || "");
@@ -196,6 +250,13 @@ function ImWorkspaceInner() {
     setZoning(item.zoning ?? "제3종일반주거지역");
     setHandoverNote(item.handoverNote ?? "잔금 시 전층 명도 조건 협의 완료");
     setPhotoNames(item.photoNames ?? []);
+    setBrokerName(item.brokerName ?? "");
+    setBrokerageName(item.brokerageName ?? "");
+    setBrokerPhone(item.brokerPhone ?? "");
+    setBrokerExtrasForm(
+      item.brokerExtrasForm || { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [] }
+    );
+    setBottomSheetBuildingId(item.buildingId || "bld-01");
   };
 
   const syncCurrentItemPatch = (patch: Partial<ImListItem>) => {
@@ -291,6 +352,7 @@ function ImWorkspaceInner() {
 
   // Collapsible detail cards toggle state
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
+    brokerInfo: true,
     buildingDetail: false,
     landDetail: false,
     dealTerms: false,
@@ -384,14 +446,112 @@ function ImWorkspaceInner() {
     showUndoToast("새 IM 작업 공간이 생성되었습니다.");
   };
 
-  // Quick Generate trigger
-  const handleQuickGenerate = async () => {
-    setIsGenerating(true);
+  // Broker extras state updater with localStorage sync
+  const handleBrokerExtrasChange: React.Dispatch<React.SetStateAction<BrokerExtrasFormState>> = (
+    updater
+  ) => {
+    setBrokerExtrasForm((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      syncCurrentItemPatch({ brokerExtrasForm: next });
+      return next;
+    });
+  };
+
+  // Excel (.xlsx/.xls/.csv) Rent Roll import handler -> syncs directly into RentRollGrid
+  const handleExcelRentRollImport = (payload: RentRollImportPayload) => {
+    if (Array.isArray(payload.floorLeases) && payload.floorLeases.length > 0) {
+      const mappedRows: RentRollRowItem[] = payload.floorLeases.map((r, idx) => ({
+        id: `r-xlsx-${Date.now()}-${idx}`,
+        floor: r.floor || `${idx + 1}F`,
+        unit: r.unit_label || `${idx + 1}01호`,
+        use:
+          [r.tenant_name, r.tenant_type].filter(Boolean).join(" / ") ||
+          (r.is_vacant ? "공실" : "근린생활시설"),
+        depositManwon: Number(r.deposit_manwon ?? 0),
+        monthlyRentManwon: Number(r.rent_manwon ?? 0),
+        maintenanceManwon: Number(r.mgmt_fee_manwon ?? 0),
+        leaseExpiry: r.lease_end || "-",
+        status:
+          r.lease_state === "자가사용"
+            ? "owner"
+            : r.lease_state === "공실" || r.is_vacant
+            ? "vacant"
+            : "occupied",
+      }));
+      setRentRoll(mappedRows);
+      const patch: Partial<ImListItem> = { rentRoll: mappedRows };
+      if (payload.askingPriceManwon && payload.askingPriceManwon > 0) {
+        setAskingPriceManwon(payload.askingPriceManwon);
+        patch.askingPriceManwon = payload.askingPriceManwon;
+      }
+      syncCurrentItemPatch(patch);
+      showUndoToast(
+        `📊 엑셀 렌트롤 ${mappedRows.length}개 호실이 층별 임대 현황 표에 자동 반영되었습니다.`
+      );
+    }
+  };
+
+  // Open Full ImDataBottomSheet (auto-provisions UUID buildingId if item is local draft)
+  const handleOpenBottomSheet = async () => {
+    const existingBid = currentItem?.buildingId || "";
+    if (UUID_REGEX.test(existingBid)) {
+      setBottomSheetBuildingId(existingBid);
+      setIsBottomSheetOpen(true);
+      return;
+    }
+
+    setIsProvisioningSheet(true);
     try {
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          address: address || "서울특별시 영등포구 양평동 11-47",
+          askingPriceManwon: askingPriceManwon || 950000,
+          rentRoll,
+          posture: investmentPosture,
+          gfaSqm: Number(gfaSqm) || 1450.2,
+          completionDate,
+          landAreaSqm: Number(landAreaSqm) || 420.5,
+          zoning,
+          handoverNote,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.buildingId && UUID_REGEX.test(data.buildingId)) {
+          setBottomSheetBuildingId(data.buildingId);
+          syncCurrentItemPatch({ buildingId: data.buildingId });
+          setIsBottomSheetOpen(true);
+          return;
+        }
+      }
+    } catch {
+      // Fallback for offline/test
+    } finally {
+      setIsProvisioningSheet(false);
+    }
+
+    // Fallback deterministic v4 UUID so bottom sheet opens cleanly even offline
+    const fallbackUuid = "00000000-0000-4000-8000-000000000001";
+    setBottomSheetBuildingId(fallbackUuid);
+    setIsBottomSheetOpen(true);
+  };
+
+  // Quick Generate trigger
+  const handleQuickGenerate = async () => {
+    setIsGenerating(true);
+    try {
+      const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
+      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
+
+      const res = await fetch("/api/broker/im-lite/quick-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buildingId: UUID_REGEX.test(currentItem?.buildingId || "")
+            ? currentItem?.buildingId
+            : undefined,
           address,
           askingPriceManwon,
           rentRoll,
@@ -401,6 +561,10 @@ function ImWorkspaceInner() {
           landAreaSqm: Number(landAreaSqm) || 420.5,
           zoning,
           handoverNote,
+          brokerName,
+          brokerageName,
+          brokerPhone,
+          brokerExtras: brokerExtrasPayload,
         }),
       });
 
@@ -426,12 +590,19 @@ function ImWorkspaceInner() {
                 zoning,
                 handoverNote,
                 photoNames,
+                brokerName,
+                brokerageName,
+                brokerPhone,
+                brokerExtrasForm,
                 isDirty: true,
               }
             : it
         );
         setItems(nextItems);
         persistImItems(nextItems);
+        if (data?.buildingId) {
+          setBottomSheetBuildingId(data.buildingId);
+        }
         showUndoToast("⚡ Basic IM과 4항목 딜카드가 자동 생성되었습니다!");
       } else {
         showUndoToast("IM 생성 완료 (오프라인 모드 반영)");
@@ -526,23 +697,72 @@ function ImWorkspaceInner() {
     </div>
   );
 
+  const normalizedPosture = normalizePostureForSelector(investmentPosture);
+  const postureKoreanLabel = POSTURE_KOREAN_LABELS[investmentPosture] || investmentPosture;
+
   /* ──────── Column 2: Single Progressive-Disclosure Form ──────── */
   const editorSlot = (
     <div className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto" data-testid="im-editor-slot">
-      {/* Top Essential Card (주소 + 매도가 + R1 렌트롤) */}
-      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 sm:p-6 shadow-sm space-y-5">
+      {/* Top Banner: Direct Launcher for Full Bottom-Sheet IM Creation & Slide Studio */}
+      <div className="bg-gradient-to-r from-[#EFF6FF] to-[#FAF9F5] rounded-2xl border-2 border-[#1D4ED8]/30 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-extrabold text-white bg-[#1D4ED8] px-2.5 py-0.5 rounded-full">
+              바텀시트 상세 모드 연동
+            </span>
+            <span className="text-[14px] font-bold text-[#1E3A8A]">
+              포스처 · 엑셀 렌트롤 · 중개인 의견 · Pro 항목
+            </span>
+          </div>
+          <p className="text-[14px] text-[#334155]">
+            아래 화면에서 바로 입력하거나, 기존 방식의 <strong>상세 IM 입력 바텀시트</strong>를 열어 전체 고급 항목을 한 번에 작성할 수 있습니다.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            data-testid="im-open-bottom-sheet-btn"
+            disabled={isProvisioningSheet}
+            onClick={handleOpenBottomSheet}
+            className="min-h-[48px] px-4 py-2.5 bg-[#0F172A] text-white rounded-xl font-extrabold text-[15px] hover:bg-[#1E293B] transition-colors flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            <span>🎯 {isProvisioningSheet ? "시트 준비 중..." : "상세 IM 바텀시트 열기"}</span>
+          </button>
+          <a
+            href={`/broker/basic-im-studio/${currentItem?.buildingId || "bld-01"}`}
+            data-testid="im-open-studio-btn"
+            className="min-h-[48px] px-3.5 py-2.5 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-extrabold text-[14px] hover:bg-[#EFF6FF] transition-colors flex items-center gap-1.5"
+          >
+            <span>🎨 PPTX 스튜디오</span>
+          </a>
+        </div>
+      </div>
+
+      {/* Top Essential Card (포스처 + 주소 + 매도가 + 엑셀 렌트롤 & R1 그리드) */}
+      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 sm:p-6 shadow-sm space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
             <h2 className="text-[20px] font-extrabold text-[#0F172A]">
-              ⚡ IM 간편 모드 (3분 생성 필수 3항목)
+              ⚡ IM 작성 (투자 포스처 · 필수 3항목 · 엑셀 렌트롤)
             </h2>
             <p className="text-[14px] text-[#475569]">
-              주소, 희망 매도가, 층별 렌트롤만 입력하면 상용화 수준의 10개 섹션 IM이 자동 완성됩니다.
+              투자 목적(포스처) 선택 후 주소, 희망 매도가, 층별 렌트롤(엑셀 업로드 또는 직접 입력)을 채우면 10개 섹션 IM이 완성됩니다.
             </p>
           </div>
           <span className="text-[14px] font-bold text-[#065F46] bg-[#D1FAE5] px-2.5 py-1 rounded-full">
             필수 입력
           </span>
+        </div>
+
+        {/* 0. Investment Posture Selector (5대 포스처) */}
+        <div className="p-4 rounded-xl bg-[#FAF9F5] border border-[#CBD5E1]" data-testid="im-posture-selector-section">
+          <PostureSelector
+            investmentPosture={normalizedPosture}
+            setInvestmentPosture={(nextPosture) => {
+              setInvestmentPosture(nextPosture);
+              syncCurrentItemPatch({ investmentPosture: nextPosture });
+            }}
+          />
         </div>
 
         {/* 1. Address */}
@@ -596,16 +816,28 @@ function ImWorkspaceInner() {
           />
         </div>
 
-        {/* 3. Interactive R1 Rent Roll Grid */}
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        {/* 3. Excel RentRollImporter + Interactive R1 Rent Roll Grid */}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="text-[16px] font-bold text-[#0F172A]">
-              3. 층별 임대 현황 (R1 렌트롤) <span className="text-[#991B1B]">*</span>
+              3. 층별 임대 현황 (R1 렌트롤 · 엑셀 양식 다운로드/업로드 지원) <span className="text-[#991B1B]">*</span>
             </label>
             <span className="text-[14px] text-[#475569]">
               총 월세: <strong className="text-[#1D4ED8]">{totalRentManwon.toLocaleString()}만원</strong>
             </span>
           </div>
+
+          {/* Standard Excel (.xlsx) Template Download & File Upload */}
+          <div
+            className="p-3.5 rounded-xl bg-[#FAF9F5] border border-[#CBD5E1]"
+            data-testid="im-rentroll-xlsx-importer"
+          >
+            <RentRollImporter
+              hasExistingData={rentRoll.length > 0}
+              onImport={handleExcelRentRollImport}
+            />
+          </div>
+
           <RentRollGrid
             rows={rentRoll}
             onChange={(nextRows) => {
@@ -620,8 +852,90 @@ function ImWorkspaceInner() {
       {/* Collapsible Detail Cards Below */}
       <div className="space-y-3">
         <h3 className="text-[17px] font-extrabold text-[#0F172A] px-1">
-          선택 상세 카드 (필요 시 확장)
+          중개인 정보 및 선택 상세 카드 (필요 시 확장)
         </h3>
+
+        {/* Card 0: 중개인 정보 및 투자 의견 (Broker Contact + BrokerExtrasSection) */}
+        <div
+          className="bg-white rounded-2xl border-2 border-[#1D4ED8]/30 overflow-hidden shadow-xs"
+          data-testid="im-broker-info-card"
+        >
+          <button
+            type="button"
+            onClick={() => toggleSection("brokerInfo")}
+            className="w-full min-h-[52px] px-5 py-3 flex items-center justify-between text-left font-bold text-[16px] text-[#0F172A] bg-[#EFF6FF]/50 hover:bg-[#EFF6FF] cursor-pointer"
+          >
+            <span>👤 중개인 정보 및 핵심 의견 입력 (표지 · 투자포인트 · 규제 · 시세비교 · 매입후전략)</span>
+            <span className="text-[14px] font-semibold text-[#1D4ED8]">
+              {expandedSections.brokerInfo ? "▲ 접기" : "▼ 펼치기"}
+            </span>
+          </button>
+          {expandedSections.brokerInfo && (
+            <div className="p-5 border-t border-[#E2E8F0] bg-white space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[14px] font-semibold text-[#334155] mb-1">
+                    중개법인 / 사무소명
+                  </label>
+                  <input
+                    type="text"
+                    data-testid="im-brokerage-name-input"
+                    value={brokerageName}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      setBrokerageName(nextVal);
+                      syncCurrentItemPatch({ brokerageName: nextVal });
+                    }}
+                    placeholder="예: 크리딜 부동산중개법인"
+                    className="w-full min-h-[48px] px-3 text-[15px] rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[14px] font-semibold text-[#334155] mb-1">
+                    담당 공인중개사 성명 / 직책
+                  </label>
+                  <input
+                    type="text"
+                    data-testid="im-broker-name-input"
+                    value={brokerName}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      setBrokerName(nextVal);
+                      syncCurrentItemPatch({ brokerName: nextVal });
+                    }}
+                    placeholder="예: 홍길동 대표공인중개사"
+                    className="w-full min-h-[48px] px-3 text-[15px] rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[14px] font-semibold text-[#334155] mb-1">
+                    문의 연락처 (전화번호)
+                  </label>
+                  <input
+                    type="tel"
+                    data-testid="im-broker-phone-input"
+                    value={brokerPhone}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      setBrokerPhone(nextVal);
+                      syncCurrentItemPatch({ brokerPhone: nextVal });
+                    }}
+                    placeholder="예: 010-1234-5678"
+                    className="w-full min-h-[48px] px-3 text-[15px] rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
+                  />
+                </div>
+              </div>
+
+              {/* Canonical BrokerExtrasSection from Bottom Sheet */}
+              <div className="pt-2 border-t border-[#E2E8F0]">
+                <BrokerExtrasSection
+                  form={brokerExtrasForm}
+                  setForm={handleBrokerExtrasChange}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Card 1: 건물 상세 */}
         <div className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden">
@@ -931,7 +1245,7 @@ function ImWorkspaceInner() {
               no: "01",
               title: "표지",
               summary: `${currentItem?.title || "매물"} · ${address}`,
-              metric: `${priceBandStr} (${investmentPosture})`,
+              metric: `${priceBandStr} (${postureKoreanLabel})`,
             },
             {
               no: "02",
@@ -987,8 +1301,12 @@ function ImWorkspaceInner() {
             {
               no: "10",
               title: "문의/안내 및 명도 조건",
-              summary: handoverNote,
-              metric: "전담 중개법인 안내",
+              summary: brokerExtrasForm.closingLine
+                ? `${brokerExtrasForm.closingLine} · ${handoverNote}`
+                : handoverNote,
+              metric:
+                [brokerageName, brokerName, brokerPhone].filter(Boolean).join(" · ") ||
+                "전담 중개법인 안내",
             },
           ].map((slide) => (
             <div
@@ -1018,32 +1336,54 @@ function ImWorkspaceInner() {
   );
 
   const primaryActionSlot = (
-    <button
-      type="button"
-      data-testid="im-quick-generate-btn"
-      disabled={isGenerating}
-      onClick={handleQuickGenerate}
-      className="w-full min-h-[56px] px-6 py-3.5 bg-[#1D4ED8] text-white rounded-2xl font-extrabold text-[17px] hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-    >
-      <span>{isGenerating ? "⏳ IM 생성 중..." : "⚡ Basic IM 만들기 · 약 20초"}</span>
-    </button>
+    <div className="flex flex-col gap-2 w-full">
+      <button
+        type="button"
+        data-testid="im-quick-generate-btn"
+        disabled={isGenerating}
+        onClick={handleQuickGenerate}
+        className="w-full min-h-[56px] px-6 py-3.5 bg-[#1D4ED8] text-white rounded-2xl font-extrabold text-[17px] hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+      >
+        <span>{isGenerating ? "⏳ IM 생성 중..." : "⚡ Basic IM 만들기 · 약 20초"}</span>
+      </button>
+      <button
+        type="button"
+        disabled={isProvisioningSheet}
+        onClick={handleOpenBottomSheet}
+        className="w-full min-h-[44px] px-4 py-2 bg-white text-[#0F172A] border border-[#64748B] rounded-xl font-bold text-[14px] hover:bg-[#FAF9F5] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+      >
+        <span>🎯 상세 IM 바텀시트 열기 (전체 항목·Pro 입력)</span>
+      </button>
+    </div>
   );
 
   return (
-    <WorkspaceShell
-      workspace="im"
-      listTitle="① IM 고르기"
-      editorTitle="② 간편 입력 및 렌트롤 채우기"
-      previewTitle="③ 실시간 IM 미리보기"
-      listSlot={listSlot}
-      editorSlot={editorSlot}
-      previewSlot={previewSlot}
-      previewTabSlot={previewTabSlot}
-      primaryActionSlot={primaryActionSlot}
-      saveStatus={<span className="text-[14px] text-[#065F46] font-semibold">저장됨 · 방금</span>}
-      selectedBuildingId={selectedId}
-      onBuildingSelect={setSelectedId}
-    />
+    <>
+      <WorkspaceShell
+        workspace="im"
+        listTitle="① IM 고르기"
+        editorTitle="② 간편 입력 및 렌트롤 채우기"
+        previewTitle="③ 실시간 IM 미리보기"
+        listSlot={listSlot}
+        editorSlot={editorSlot}
+        previewSlot={previewSlot}
+        previewTabSlot={previewTabSlot}
+        primaryActionSlot={primaryActionSlot}
+        saveStatus={<span className="text-[14px] text-[#065F46] font-semibold">저장됨 · 방금</span>}
+        selectedBuildingId={selectedId}
+        onBuildingSelect={setSelectedId}
+      />
+      <ImDataBottomSheet
+        buildingId={bottomSheetBuildingId}
+        isOpen={isBottomSheetOpen}
+        onClose={() => setIsBottomSheetOpen(false)}
+        initialAddress={address}
+        prefillAskingPrice={askingPriceManwon}
+        prefillTotalDeposit={totalDepositManwon}
+        prefillMonthlyRent={totalRentManwon}
+        initialInvestmentPosture={normalizedPosture}
+      />
+    </>
   );
 }
 

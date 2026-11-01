@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
     zoning,
     completionDate,
     handoverNote,
+    brokerExtras,
+    brokerName,
+    brokerageName,
+    brokerPhone,
   } = body;
   const posture = body.posture || body.investmentPosture || 'core_income';
 
@@ -106,8 +110,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Generate deterministic/unique IDs
-  const buildingId = crypto.randomUUID();
+  // Generate deterministic/unique IDs (reuse valid UUID buildingId if supplied)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const requestedBuildingId = typeof body.buildingId === 'string' && uuidRegex.test(body.buildingId)
+    ? body.buildingId
+    : null;
+  const buildingId = requestedBuildingId || crypto.randomUUID();
   const documentId = crypto.randomUUID();
   const resolvedTitle = title || buildingName || `${derivedRegion} 근생빌딩`;
   const effectiveMonthlyRentManwon = totalMonthlyRentManwon || Math.round(priceNum * 0.0035);
@@ -204,7 +212,7 @@ export async function POST(req: NextRequest) {
       if (supabase && typeof supabase.from === 'function') {
         await Promise.race([
           (async () => {
-            await supabase.from('building_ssot_lite').insert({
+            await supabase.from('building_ssot_lite').upsert({
               id: buildingId,
               owner_id: auth.user?.id || '00000000-0000-0000-0000-000000000000',
               address: address.trim(),
@@ -228,6 +236,16 @@ export async function POST(req: NextRequest) {
                 basicImDocument: basicImDoc,
                 card4,
                 rent_roll: rentRoll,
+                ...(brokerExtras ? { broker_extras: brokerExtras } : {}),
+                ...(brokerName || brokerageName || brokerPhone
+                  ? {
+                      broker_contact: {
+                        brokerName: brokerName || '',
+                        brokerageName: brokerageName || '',
+                        brokerPhone: brokerPhone || '',
+                      },
+                    }
+                  : {}),
               },
             });
           })(),
