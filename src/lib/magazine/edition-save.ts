@@ -9,7 +9,7 @@
  *
  * 임시저장은 magazine_editions 에만 쓴다. 공개 행(magazine_issues)은 발행 엔드포인트만 기록한다.
  */
-import type { BrokerFieldNote } from '@/domain/magazine/types';
+import type { AxiosUnitIssue, BrokerFieldNote, MonthlyRegionalChart } from '@/domain/magazine/types';
 import { parseEditionContent } from '@/domain/magazine/edition-content.schema';
 import {
   applySimplePreset,
@@ -71,6 +71,12 @@ export interface EditorForm {
   /** 선택된 뉴스/딜의 스냅샷(콘텐츠에 저장되는 값) */
   topNews: Array<Record<string, unknown>>;
   dealHighlights: Array<Record<string, unknown>>;
+  /** AXIOS형 5대 단위 이슈 (와이드 포스트잇 메모 카드) */
+  unitIssues?: AxiosUnitIssue[];
+  /** 월간 뉴스레터용 권역별 국토부·통계청 핵심 통계 차트 2건 */
+  monthlyCharts?: MonthlyRegionalChart[];
+  /** 월간 뉴스레터 선택 권역 키 */
+  monthlyRegion?: string;
   pollQuestion: string;
   pollOptions: PollOptionForm[];
   taxQuestion: string;
@@ -198,6 +204,18 @@ export function buildContentFromForm(
   else delete content.topNews;
   if (form.dealHighlights.length > 0) content.dealHighlights = form.dealHighlights;
   else delete content.dealHighlights;
+  if (Array.isArray(form.unitIssues)) {
+    if (form.unitIssues.length > 0) content.unitIssues = form.unitIssues;
+    else delete content.unitIssues;
+  }
+  if (Array.isArray(form.monthlyCharts)) {
+    if (form.monthlyCharts.length > 0) content.monthlyCharts = form.monthlyCharts;
+    else delete content.monthlyCharts;
+  }
+  if (typeof form.monthlyRegion === 'string') {
+    if (form.monthlyRegion.trim()) content.monthlyRegion = form.monthlyRegion.trim();
+    else delete content.monthlyRegion;
+  }
 
   const options = cleanPollOptions(form.pollOptions);
   if (form.pollQuestion.trim() && options.length >= MIN_POLL_OPTIONS) {
@@ -315,6 +333,11 @@ export function formFromEdition(row: EditionRow): EditorForm {
     selectedNewsIds: savedNewsIds,
     topNews,
     dealHighlights: recArr(content.dealHighlights),
+    ...(Array.isArray(content.unitIssues) ? { unitIssues: content.unitIssues as AxiosUnitIssue[] } : {}),
+    ...(Array.isArray(content.monthlyCharts) ? { monthlyCharts: content.monthlyCharts as MonthlyRegionalChart[] } : {}),
+    ...(typeof content.monthlyRegion === 'string' && content.monthlyRegion.trim()
+      ? { monthlyRegion: content.monthlyRegion.trim() }
+      : {}),
     pollQuestion: isRecord(content.poll) ? str(content.poll.question) : '',
     pollOptions: pollOptionsFromContent(content.poll),
     taxQuestion: taxRaw ? str(taxRaw.question) : '',
@@ -377,6 +400,9 @@ export function formSignature(form: EditorForm): string {
     form.themeColor,
     form.selectedDealIds,
     form.selectedNewsIds,
+    ...(form.unitIssues ? [form.unitIssues] : []),
+    ...(form.monthlyCharts ? [form.monthlyCharts] : []),
+    ...(form.monthlyRegion ? [form.monthlyRegion] : []),
     form.pollQuestion,
     form.pollOptions,
     form.taxQuestion,
@@ -424,7 +450,7 @@ export interface PublishBrokerIdentity {
 export interface NormalizeForPublishInput {
   content: unknown;
   broker: PublishBrokerIdentity;
-  kind: 'weekly' | 'special' | 'daily';
+  kind: 'weekly' | 'special' | 'daily' | 'monthly';
   issueDate: string;
   weekLabel?: string;
   nowIso: string;
@@ -485,8 +511,10 @@ export function normalizeContentForPublish(input: NormalizeForPublishInput): Nor
   }
 
   const fn = fnRecord ? Object.values(fnRecord).some((v) => typeof v === 'string' && v.trim()) : false;
-  if (!briefing && !str(src.theme_body_md).trim() && !fn) {
-    return { ok: false, code: 'EMPTY_BODY', issues: ['브리핑·필드노트·테마 중 하나 이상의 본문을 작성해 주세요.'] };
+  const hasUnitIssues = Array.isArray(src.unitIssues) && src.unitIssues.length > 0;
+  const hasMonthlyCharts = Array.isArray(src.monthlyCharts) && src.monthlyCharts.length > 0;
+  if (!briefing && !str(src.theme_body_md).trim() && !fn && !hasUnitIssues && !hasMonthlyCharts) {
+    return { ok: false, code: 'EMPTY_BODY', issues: ['브리핑·필드노트·테마·이슈 중 하나 이상의 본문을 작성해 주세요.'] };
   }
 
   const prevBroker = isRecord(src.broker) ? src.broker : {};

@@ -6,7 +6,7 @@ import { requireBrokerContext, jsonError } from "@/lib/magazine/authz";
 import { currentWeekLabel } from "@/lib/magazine/kst";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { isMagazineSendEnabled, isMagazineSendDryRun } from "@/lib/magazine/send-flags";
-import { getOrCreateDraftEdition } from "@/lib/magazine/edition-draft";
+import { getOrCreateDraftEdition, defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-editions-draft");
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       { slug: ctx.slug, brokerKeys: ctx.brokerKeys },
       {
         editionType: parsed.data.edition_type,
-        editionLabel: parsed.data.edition_label ?? currentWeekLabel(),
+        editionLabel: parsed.data.edition_label ?? defaultLabelForEditionType(parsed.data.edition_type),
         format: parsed.data.format,
       },
     );

@@ -376,29 +376,82 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
         />
 
         <div className="px-4 space-y-3.5 mt-3">
-          {/* ②-b 핵심 딜포인트 (blind_teaser에서 추출) */}
+          {/* ②-b 핵심 딜포인트 (blind_teaser에서 추출) — AXIOS형 와이드 포스트잇 카드 */}
           {(() => {
             const dp = card.dealPoints;
+            const postItStyles = [
+              {
+                bg: "#FEF9C3",
+                border: "#FDE047",
+                badgeBg: "#FEF08A",
+                badgeText: "#854D0E",
+                label: "POINT 01 · 입지·상권",
+                defaultBrief: "역세권 접근성과 주동선 가시성이 검증된 핵심 입지 포인트입니다.",
+              },
+              {
+                bg: "#E0F2FE",
+                border: "#7DD3FC",
+                badgeBg: "#BAE6FD",
+                badgeText: "#075985",
+                label: "POINT 02 · 임차·안정성",
+                defaultBrief: "임차 구성의 안정성과 공간 활용도가 우수한 핵심 운영 포인트입니다.",
+              },
+              {
+                bg: "#DCFCE7",
+                border: "#86EFAC",
+                badgeBg: "#BBF7D0",
+                badgeText: "#166534",
+                label: "POINT 03 · 수익·밸류업",
+                defaultBrief: "인근 실거래 및 수익률 관점에서 하방경직성과 상승 여력을 갖춘 포인트입니다.",
+              },
+            ];
             return dp.length > 0 ? (
               <div
                 data-testid="public-dealcard-points"
-                className="rounded-xl bg-slate-800/70 border border-slate-700/60 p-4 space-y-2.5"
+                className="rounded-2xl bg-slate-900/80 border border-slate-700/70 p-4 space-y-3"
               >
                 <div className="flex items-center justify-between">
                   <p className="text-[14px] font-bold text-amber-400 tracking-wide flex items-center gap-1.5">
-                    <span>⭐ 핵심 투자 포인트 ({dp.length}선)</span>
+                    <span>📌 핵심 투자 포인트 ({dp.length}선 · AXIOS 포스트잇)</span>
                   </p>
                   <span className="text-[12px] text-slate-300">매수 검토 핵심 요약</span>
                 </div>
                 <ul className="space-y-2.5">
-                  {dp.map((pt: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2.5 text-[15px] text-slate-100 leading-relaxed break-keep">
-                      <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                        {i + 1}
-                      </span>
-                      <span>{pt}</span>
-                    </li>
-                  ))}
+                  {dp.map((pt: string, i: number) => {
+                    const tone = postItStyles[i % postItStyles.length];
+                    const [headlinePart, ...restParts] = pt.split(" — ");
+                    const briefPart = restParts.join(" — ").trim() || tone.defaultBrief;
+                    return (
+                      <li
+                        key={i}
+                        data-testid={`public-dealcard-postit-${i}`}
+                        style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+                        className="rounded-xl border-2 p-3.5 shadow-sm text-slate-900 space-y-1"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            style={{ backgroundColor: tone.badgeBg, color: tone.badgeText }}
+                            className="text-[11px] font-extrabold px-2 py-0.5 rounded-md tracking-tight"
+                          >
+                            {tone.label}
+                          </span>
+                          <span className="w-5 h-5 rounded-full bg-slate-900/10 text-slate-800 text-xs font-extrabold flex items-center justify-center shrink-0">
+                            {i + 1}
+                          </span>
+                        </div>
+                        <p
+                          data-single-line-title="true"
+                          title={headlinePart}
+                          className="text-[16px] font-extrabold text-slate-950 leading-snug whitespace-nowrap overflow-hidden text-ellipsis truncate"
+                        >
+                          {headlinePart}
+                        </p>
+                        <p className="text-[13px] font-medium text-slate-700 leading-relaxed break-keep">
+                          {briefPart}
+                        </p>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ) : null;

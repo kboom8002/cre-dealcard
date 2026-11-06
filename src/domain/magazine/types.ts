@@ -293,7 +293,58 @@ export function getEditionUrl(brokerId: string, editionLabel: string): string {
 // zod 스키마: ./edition-content.schema.ts — 생성기 3종(weekly/special/daily)의 출력을 점진적으로 이 계약으로 통일한다.
 // 현재는 weekly 가 기준이며, 뷰어가 읽는 기존 키(briefing, headline, tax_clinic, recentTransactions …)를 그대로 유지한다.
 
-export type EditionContentKind = 'weekly' | 'special' | 'daily';
+export type EditionContentKind = 'weekly' | 'special' | 'daily' | 'monthly';
+
+export type PostItTone = 'amber' | 'sky' | 'mint' | 'lavender' | 'peach';
+
+/** AXIOS형 단위 이슈 (와이드 포스트잇 메모 카드 1건) */
+export interface AxiosUnitIssue {
+  id: string;
+  /** 이슈 제목 1줄 (큰 폰트, 한 줄 표시) */
+  title: string;
+  /** 클러스터링 AI 재구성 요약 브리프 (2~4문장) */
+  brief: string;
+  /** 와이드 포스트잇 박스 배경 색상 톤 */
+  memoTone: PostItTone;
+  channel?: string;
+  topic?: string;
+  sentiment?: 'bullish' | 'bearish' | 'neutral';
+  /** 클러스터링된 원문 매체 목록 */
+  sources?: string[];
+  url?: string;
+  /** 클러스터에 묶인 기사 수 */
+  articleCount?: number;
+}
+
+export interface MonthlyChartSeriesPoint {
+  label: string;
+  primaryValue: number;
+  secondaryValue?: number;
+  displayPrimary: string;
+  displaySecondary?: string;
+}
+
+/** 월간 뉴스레터용 권역별 국토부·통계청 핵심 통계 그래프 카드 */
+export interface MonthlyRegionalChart {
+  id: string;
+  regionKey: string;
+  regionLabel: string;
+  chartType: 'molit_tx_price_trend' | 'reb_vacancy_cap_spread' | 'kosis_commercial_vitality';
+  title: string;
+  subtitle: string;
+  authorityLabel: string;
+  asOf: string;
+  unit: string;
+  secondaryUnit?: string;
+  highlightMetric: {
+    label: string;
+    value: string;
+    deltaText: string;
+    tone: 'positive' | 'neutral' | 'caution';
+  };
+  series: MonthlyChartSeriesPoint[];
+  buyerImplication: string;
+}
 
 export interface EditionContentBroker {
   name: string;
@@ -362,6 +413,9 @@ export interface EditionContentV1 {
   rentalTrend?: Record<string, unknown>;
   commercialDistrict?: Record<string, unknown>;
   monthlySummary?: Record<string, unknown> | Array<Record<string, unknown>>;
+  unitIssues?: AxiosUnitIssue[];
+  monthlyCharts?: MonthlyRegionalChart[];
+  monthlyRegion?: string;
   /** 세무 클리닉 — 근거·면책이 있을 때만 존재. 없으면 키 자체가 없다(섹션 생략). */
   tax_clinic?: import('./tax-clinic-generator').TaxClinicScenario;
   generation: EditionGenerationMeta;

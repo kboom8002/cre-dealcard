@@ -13,6 +13,8 @@ import { GlossaryText } from "@/components/magazine/GlossaryText";
 import { DataBadge, SectionCard } from "@/components/magazine/viewer-primitives";
 import { isSingleCommentFieldNote } from "@/lib/magazine/simple-format";
 import {
+  cleanNewsSummaryText,
+  cleanNewsTitle,
   formatPhoneDisplay,
   formatPriceKo,
   newsSentimentMeta,
@@ -26,6 +28,12 @@ import {
   NEWS_CHANNEL_MAP,
   resolveNewsChannel,
 } from "@/domain/magazine/news-channels";
+import {
+  POST_IT_TONES,
+  POST_IT_TONE_META,
+  formatAxiosBrief,
+} from "@/domain/magazine/issue-clustering";
+import type { AxiosUnitIssue, MonthlyRegionalChart, PostItTone } from "@/domain/magazine/types";
 
 type AnyRec = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -257,52 +265,303 @@ function Stat({ value, label, tone, small }: { value: string; label: string; ton
   );
 }
 
-// ── 뉴스 큐레이션 (최대 6건, 5대 매수자 관심 채널 배지 + 감성 텍스트·기호 병기) ─────────────
-export function NewsSection({ items }: { items: NewsItemView[] }) {
-  if (items.length === 0) return null;
+// ── 월간 권역별 유용한 통계 2건 그래프 섹션 (국토교통부 실거래가 공개시스템 · 한국부동산원 · 통계청 KOSIS) ──
+export function MonthlyRegionalChartsSection({
+  charts,
+}: {
+  charts: MonthlyRegionalChart[];
+}) {
+  if (!Array.isArray(charts) || charts.length === 0) return null;
+  const topTwo = charts.slice(0, 2);
+
   return (
     <SectionCard
-      title="뉴스 큐레이션"
-      icon={<Newspaper className="h-4 w-4 text-slate-300" aria-hidden="true" />}
-      badge={<DataBadge type="realtime" />}
+      title="권역별 핵심 통계 브리핑 (2건)"
+      icon={<BarChart3 className="h-4 w-4 text-sky-300" aria-hidden="true" />}
+      badge={<DataBadge type="public" />}
+      defaultOpen
     >
-      <ul className="space-y-2">
-        {items.map((n, i) => {
-          const s = newsSentimentMeta(n.sentiment);
-          const topic = topicLabelKo(n.topic);
-          const channelId = resolveNewsChannel(n);
-          const channelMeta = NEWS_CHANNEL_MAP[channelId];
-          const safeUrl =
-            typeof n.url === "string" && /^https?:\/\//i.test(n.url.trim())
-              ? n.url.trim()
-              : null;
+      <div className="space-y-4" data-testid="monthly-regional-charts-section">
+        {topTwo.map((chart, idx) => {
+          let maxPrimary = 1;
+          for (const p of chart.series) {
+            if (p.primaryValue > maxPrimary) maxPrimary = p.primaryValue;
+          }
+          const authority = chart.authorityLabel || (chart as AnyRec).agencySource || "공공통계";
           return (
-            <li key={i} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-              <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                {channelMeta && (
+            <div
+              key={chart.id || idx}
+              data-testid="monthly-regional-chart-card"
+              className="rounded-2xl border border-sky-500/25 bg-slate-900/80 p-4 space-y-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-md border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-caption font-extrabold text-sky-200">
+                  📊 그래프 {idx + 1} · {chart.regionLabel}
+                </span>
+                <span
+                  data-testid="monthly-chart-source"
+                  className="text-caption font-semibold text-slate-300"
+                >
+                  {authority} ({chart.asOf})
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-extrabold text-white leading-snug">
+                    {chart.title}
+                  </h3>
+                  <p className="mt-0.5 text-caption text-slate-300">
+                    {chart.subtitle} · 단위: {chart.unit}
+                  </p>
+                </div>
+                {chart.highlightMetric && (
+                  <div className="shrink-0 rounded-xl border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-right">
+                    <span className="block text-xs font-semibold text-slate-300">
+                      {chart.highlightMetric.label}
+                    </span>
+                    <span className="block text-sm font-extrabold text-sky-200">
+                      {chart.highlightMetric.value}
+                    </span>
+                    <span className="block text-xs font-bold text-emerald-300">
+                      {chart.highlightMetric.deltaText}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* 막대 그래프 시각화 */}
+              <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                <div className="grid grid-cols-6 gap-2 items-end h-28 pt-4">
+                  {chart.series.map((pt, i) => {
+                    const rawPct = Math.round((pt.primaryValue / maxPrimary) * 100);
+                    const ratio = rawPct < 18 ? 18 : rawPct > 100 ? 100 : rawPct;
+                    const isLatest = i === chart.series.length - 1;
+                    const periodLabel = pt.label || (pt as AnyRec).period || "";
+                    const primaryText = pt.displayPrimary || String(pt.primaryValue);
+                    const secondaryText =
+                      pt.displaySecondary ||
+                      (pt.secondaryValue !== undefined ? String(pt.secondaryValue) : "");
+                    return (
+                      <div key={i} className="flex flex-col items-center gap-1 h-full justify-end">
+                        <span className="text-xs font-extrabold text-white tabular-nums">
+                          {primaryText}
+                        </span>
+                        <div
+                          className={`w-full rounded-t-md ${
+                            isLatest ? "bg-sky-400" : "bg-indigo-500/60"
+                          }`}
+                          style={{ height: `${ratio}%` }}
+                        />
+                        <span className="text-xs font-bold text-slate-300">
+                          {periodLabel}
+                        </span>
+                        {secondaryText && (
+                          <span className="text-xs font-semibold text-amber-300 tabular-nums">
+                            {secondaryText}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 매수자 시사점 */}
+              {chart.buyerImplication && (
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-caption leading-relaxed text-emerald-100 font-medium">
+                  💡 <strong className="font-extrabold text-emerald-200">매수자 시사점:</strong>{" "}
+                  {chart.buyerImplication}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </SectionCard>
+  );
+}
+
+// ── AI 클러스터링 AXIOS형 와이드 포스트잇 이슈 카드 뉴스 (1줄 큰 폰트 제목 + 2~4문장 해설 + 파스텔 포스트잇 배경) ──
+export function NewsSection({
+  items,
+  unitIssues,
+  cadence = "weekly",
+}: {
+  items: NewsItemView[];
+  unitIssues?: AxiosUnitIssue[];
+  cadence?: string;
+}) {
+  const hasExplicitUnitIssues = Array.isArray(unitIssues) && unitIssues.length > 0;
+  if (!hasExplicitUnitIssues && items.length === 0) return null;
+
+  // unitIssues가 있으면 우선 사용하고, 없으면 items를 와이드 포스트잇 카드 형식으로 변환
+  const cards = hasExplicitUnitIssues
+    ? unitIssues!.slice(0, 5).map((u, idx) => {
+        const rawTone = (u.memoTone || (u as AnyRec).tone) as PostItTone;
+        const tone: PostItTone = POST_IT_TONES.includes(rawTone)
+          ? rawTone
+          : POST_IT_TONES[idx % POST_IT_TONES.length];
+        const cleanedTitle = cleanNewsTitle(u.title) || u.title;
+        const cleanedBrief = formatAxiosBrief(u.brief);
+        const rawTopic = u.topic || (u as AnyRec).category || "";
+        const topic = rawTopic ? topicLabelKo(rawTopic) : "";
+        const channelId = resolveNewsChannel({
+          title: cleanedTitle,
+          summary: cleanedBrief,
+          topic: rawTopic,
+          channel: u.channel || rawTopic,
+        });
+        const channelMeta = NEWS_CHANNEL_MAP[channelId];
+        const safeUrl =
+          typeof u.url === "string" && /^https?:\/\//i.test(u.url.trim())
+            ? u.url.trim()
+            : null;
+        const sourceText =
+          (Array.isArray(u.sources) && u.sources.length > 0 ? u.sources.join(", ") : "") ||
+          (u as AnyRec).sourceLabel ||
+          "AI 클러스터링 종합";
+        return {
+          id: u.id || `issue-${idx + 1}`,
+          tone,
+          title: cleanedTitle,
+          brief: cleanedBrief,
+          topic,
+          channelMeta,
+          sentiment: newsSentimentMeta(u.sentiment || "neutral"),
+          source: sourceText,
+          clusterCount: u.articleCount || (u as AnyRec).clusterCount || 1,
+          safeUrl,
+        };
+      })
+    : items.map((n, idx) => {
+        const tone: PostItTone = POST_IT_TONES[idx % POST_IT_TONES.length];
+        const s = newsSentimentMeta(n.sentiment);
+        const topic = topicLabelKo(n.topic);
+        const channelId = resolveNewsChannel(n);
+        const channelMeta = NEWS_CHANNEL_MAP[channelId];
+        const safeUrl =
+          typeof n.url === "string" && /^https?:\/\//i.test(n.url.trim())
+            ? n.url.trim()
+            : null;
+        return {
+          id: `news-${idx + 1}`,
+          tone,
+          title: n.title,
+          brief: cleanNewsSummaryText(n.summary),
+          topic,
+          channelMeta,
+          sentiment: s,
+          source: n.source,
+          clusterCount: 1,
+          safeUrl,
+        };
+      });
+
+  const sectionTitle =
+    cadence === "monthly"
+      ? "월간 핵심 이슈 5선 (AXIOS 브리프)"
+      : cadence === "daily"
+      ? "일간 핵심 이슈 5선 (AXIOS 브리프)"
+      : "핵심 이슈 브리프";
+
+  return (
+    <SectionCard
+      title={sectionTitle}
+      icon={<Newspaper className="h-4 w-4 text-amber-300" aria-hidden="true" />}
+      badge={<DataBadge type="realtime" />}
+      defaultOpen
+    >
+      <ul className="space-y-3" data-testid="axios-postit-list">
+        {cards.map((card, i) => {
+          const toneMeta = POST_IT_TONE_META[card.tone] ?? POST_IT_TONE_META.amber;
+          return (
+            <li
+              key={card.id || i}
+              data-testid="axios-postit-card"
+              data-postit-tone={card.tone}
+              className="relative overflow-hidden rounded-2xl border-2 p-4 shadow-sm"
+              style={{
+                backgroundColor: toneMeta.cardBg,
+                borderColor: toneMeta.cardBorder,
+              }}
+            >
+              {/* 상단 와이드 포스트잇 핀/배지 바 */}
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span
-                    className={`rounded-md border px-1.5 py-0.5 text-caption font-bold ${channelMeta.badgeClass}`}
-                    data-testid="viewer-news-channel-badge"
+                    className="inline-flex items-center rounded-md border px-2 py-0.5 text-caption font-extrabold"
+                    style={{
+                      backgroundColor: toneMeta.badgeBg,
+                      color: toneMeta.badgeText,
+                      borderColor: toneMeta.cardBorder,
+                    }}
                   >
-                    <span aria-hidden="true">{channelMeta.emoji}</span> {channelMeta.shortLabel}
+                    ISSUE 0{i + 1}
+                  </span>
+                  {card.channelMeta && (
+                    <span
+                      className="rounded-md border border-slate-900/15 bg-white/80 px-2 py-0.5 text-caption font-bold text-slate-900"
+                      data-testid="viewer-news-channel-badge"
+                    >
+                      <span aria-hidden="true">{card.channelMeta.emoji}</span>{" "}
+                      {card.channelMeta.shortLabel}
+                    </span>
+                  )}
+                  <span className="rounded-md border border-slate-900/15 bg-white/75 px-1.5 py-0.5 text-caption font-bold text-slate-800">
+                    <span aria-hidden="true">{card.sentiment.symbol}</span>{" "}
+                    {card.sentiment.label}
+                  </span>
+                  {card.topic && (
+                    <span className="rounded-md bg-slate-900/10 px-2 py-0.5 text-caption font-bold text-slate-900">
+                      {card.topic}
+                    </span>
+                  )}
+                </div>
+                {card.clusterCount > 1 && (
+                  <span className="text-caption font-bold" style={{ color: toneMeta.metaColor }}>
+                    AI 클러스터링 {card.clusterCount}건
                   </span>
                 )}
-                <span className="rounded-md border border-white/20 px-1.5 py-0.5 text-caption font-bold text-slate-200">
-                  <span aria-hidden="true">{s.symbol}</span> {s.label}
-                </span>
-                {topic && <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-caption text-indigo-200">{topic}</span>}
               </div>
-              <p className="line-clamp-2 text-label font-bold leading-snug text-white">{n.title}</p>
-              {n.summary && <p className="mt-1 line-clamp-2 text-caption leading-relaxed text-slate-200">{n.summary}</p>}
-              <div className="mt-1.5 flex items-center justify-between gap-2">
-                {n.source ? <p className="text-caption text-slate-300">{n.source}</p> : <span />}
-                {safeUrl && (
+
+              {/* 1줄 큰 폰트 이슈 제목 (와이드 포스트잇 헤드라인) */}
+              <h3
+                data-testid="axios-postit-title"
+                title={card.title}
+                className="whitespace-nowrap overflow-hidden text-ellipsis truncate text-lg sm:text-xl font-extrabold leading-snug tracking-tight"
+                style={{ color: toneMeta.titleColor }}
+              >
+                {card.title}
+              </h3>
+
+              {/* 2~4문장 AXIOS 요약 브리프 해설 */}
+              {card.brief && (
+                <p
+                  data-testid="axios-postit-brief"
+                  className="mt-2 text-sm sm:text-[15px] font-medium leading-relaxed"
+                  style={{ color: toneMeta.bodyColor, wordBreak: "keep-all" }}
+                >
+                  {card.brief}
+                </p>
+              )}
+
+              {/* 하단 출처 & 원문 링크 */}
+              <div className="mt-2.5 pt-2 border-t border-slate-900/10 flex items-center justify-between gap-2">
+                {card.source ? (
+                  <p className="text-caption font-semibold" style={{ color: toneMeta.metaColor }}>
+                    출처: {card.source}
+                  </p>
+                ) : (
+                  <span />
+                )}
+                {card.safeUrl && (
                   <a
-                    href={safeUrl}
+                    href={card.safeUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     data-track="news_click"
-                    className="text-caption font-bold text-indigo-300 underline decoration-indigo-400/50 underline-offset-2 hover:text-indigo-200"
+                    className="text-caption font-extrabold text-slate-900 underline decoration-slate-900/50 underline-offset-2 hover:opacity-80"
                   >
                     원문 보기 ↗
                   </a>

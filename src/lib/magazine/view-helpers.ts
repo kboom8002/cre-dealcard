@@ -517,6 +517,10 @@ export function hasAnyViewerContent(data: Record<string, unknown>): boolean {
     nonEmptyArr(data.dealHighlights) ||
     nonEmptyArr(data.topNews) ||
     nonEmptyArr(data.news_curation) ||
+    nonEmptyArr(data.unit_issues) ||
+    nonEmptyArr(data.unitIssues) ||
+    nonEmptyArr(data.monthly_charts) ||
+    nonEmptyArr(data.monthlyCharts) ||
     nonEmptyArr(data.recentTransactions) ||
     nonEmptyArr(data.auctionPicks) ||
     nonEmptyArr(data.reports) ||

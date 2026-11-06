@@ -12,7 +12,13 @@
  */
 
 import React, { useMemo } from 'react';
-import type { Card4Data, ProvenanceSource } from '@/lib/deal-card/card4-schema';
+import {
+  reclusterDealCardPointsAsAxios,
+  type Card4Data,
+  type DealCardPointTone,
+  type DealCardPosture,
+  type ProvenanceSource,
+} from '@/lib/deal-card/card4-schema';
 import { validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import { formatPriceRangeTooltip } from '@/lib/deal-card/price-band';
 
@@ -47,6 +53,75 @@ const PROVENANCE_LABELS: Record<ProvenanceSource, { label: string; bg: string; t
   },
 };
 
+export const POSTIT_TONE_STYLES: Record<
+  DealCardPointTone,
+  {
+    label: string;
+    bgHex: string;
+    borderHex: string;
+    badgeBgHex: string;
+    badgeTextHex: string;
+    dotHex: string;
+  }
+> = {
+  amber: {
+    label: '앰버 포스트잇',
+    bgHex: '#FEF9C3',
+    borderHex: '#FDE047',
+    badgeBgHex: '#FEF08A',
+    badgeTextHex: '#854D0E',
+    dotHex: '#EAB308',
+  },
+  sky: {
+    label: '스카이 포스트잇',
+    bgHex: '#E0F2FE',
+    borderHex: '#7DD3FC',
+    badgeBgHex: '#BAE6FD',
+    badgeTextHex: '#075985',
+    dotHex: '#0284C7',
+  },
+  mint: {
+    label: '민트 포스트잇',
+    bgHex: '#DCFCE7',
+    borderHex: '#86EFAC',
+    badgeBgHex: '#BBF7D0',
+    badgeTextHex: '#166534',
+    dotHex: '#16A34A',
+  },
+  lavender: {
+    label: '라벤더 포스트잇',
+    bgHex: '#F3E8FF',
+    borderHex: '#D8B4FE',
+    badgeBgHex: '#E9D5FF',
+    badgeTextHex: '#6B21A8',
+    dotHex: '#9333EA',
+  },
+  peach: {
+    label: '피치 포스트잇',
+    bgHex: '#FFEDD5',
+    borderHex: '#FDBA74',
+    badgeBgHex: '#FED7AA',
+    badgeTextHex: '#9A3412',
+    dotHex: '#EA580C',
+  },
+};
+
+const DEFAULT_TONES: [DealCardPointTone, DealCardPointTone, DealCardPointTone] = [
+  'amber',
+  'sky',
+  'mint',
+];
+
+const POSTURE_OPTIONS: Array<{
+  id: DealCardPosture;
+  label: string;
+  desc: string;
+}> = [
+  { id: 'income', label: '🏦 임대수익형', desc: '안정 배당·만실 현금흐름' },
+  { id: 'owner_occupied', label: '🏢 사옥·자가사용형', desc: '즉시 입주·가시성·주차' },
+  { id: 'value_add', label: '🔨 밸류애드·신축형', desc: '증축·리모델링·토지가치' },
+];
+
 export function Card4ConfirmCard({
   card4,
   onChange,
@@ -63,6 +138,26 @@ export function Card4ConfirmCard({
       assetType: card4.use,
     });
   }, [card4.points, card4.region, card4.use]);
+
+  const currentHeadline =
+    card4.headline ??
+    `${card4.region || '서울 핵심권역'} ${card4.use || '근린생활시설'} ${card4.priceBand || '매매'}`.trim();
+
+  const currentPosture: DealCardPosture = card4.posture || 'income';
+
+  const handleHeadlineChange = (headline: string) => {
+    onChange({
+      ...card4,
+      headline,
+    });
+  };
+
+  const handlePostureChange = (posture: DealCardPosture) => {
+    onChange({
+      ...card4,
+      posture,
+    });
+  };
 
   const handlePointChange = (index: 0 | 1 | 2, text: string) => {
     const nextPoints: [string, string, string] = [...card4.points];
@@ -83,6 +178,32 @@ export function Card4ConfirmCard({
     });
   };
 
+  const handlePointBriefChange = (index: 0 | 1 | 2, brief: string) => {
+    const currentBriefs: [string, string, string] = card4.pointBriefs
+      ? [...card4.pointBriefs]
+      : ['', '', ''];
+    currentBriefs[index] = brief;
+    onChange({
+      ...card4,
+      pointBriefs: currentBriefs,
+    });
+  };
+
+  const handlePointToneChange = (index: 0 | 1 | 2, tone: DealCardPointTone) => {
+    const currentTones: [DealCardPointTone, DealCardPointTone, DealCardPointTone] =
+      card4.pointTones ? [...card4.pointTones] : [...DEFAULT_TONES];
+    currentTones[index] = tone;
+    onChange({
+      ...card4,
+      pointTones: currentTones,
+    });
+  };
+
+  const handleAiRecluster = () => {
+    const reclustered = reclusterDealCardPointsAsAxios(card4);
+    onChange(reclustered);
+  };
+
   const handleFieldChange = (field: 'region' | 'use' | 'priceBand', value: string) => {
     onChange({
       ...card4,
@@ -94,15 +215,21 @@ export function Card4ConfirmCard({
     <div
       className={`bg-white rounded-2xl border border-slate-300 shadow-sm p-6 space-y-6 ${className}`}
       data-testid="card4-confirm-card"
+      data-canvas-mode="zero-tab-single"
     >
-      {/* Header */}
+      {/* Header — 매매 딜카드 전용 원스크린 즉시 편집 (탭 없음) */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-            📄 4항목 안심 딜카드
-          </span>
-          <h2 className="text-[20px] font-bold text-slate-900 mt-1">
-            카카오톡 첫 연락용 4대 정보
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              📄 매매 전용 · 4항목 안심 딜카드
+            </span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+              ⚡ 탭 없는 한 화면 즉시 편집
+            </span>
+          </div>
+          <h2 className="text-[20px] font-bold text-slate-900 mt-1.5">
+            카카오톡 첫 연락용 매매 딜카드 (1줄 제목 + 포스트잇 3선)
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -114,6 +241,74 @@ export function Card4ConfirmCard({
           <span className="text-xs text-slate-500 font-mono">
             버전 {card4.card4_version || 1}
           </span>
+        </div>
+      </div>
+
+      {/* 매수 타깃 포스처 선택 칩 + 1줄 딜카드 제목 (Single-Line Title Guard) */}
+      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
+        <div className="space-y-2" data-testid="card4-posture-chips">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-bold text-slate-800">
+              매수 타깃 포스처 (딜카드 핵심 소구점)
+            </label>
+            <span className="text-xs text-slate-500">선택 포스처에 맞춰 AI 포스트잇 브리프가 최적화됩니다</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {POSTURE_OPTIONS.map((opt) => {
+              const active = currentPosture === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  data-testid={`card4-posture-chip-${opt.id}`}
+                  onClick={() => handlePostureChange(opt.id)}
+                  className={`px-3 py-2.5 rounded-xl border text-left transition cursor-pointer ${
+                    active
+                      ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
+                      : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="text-sm font-extrabold">{opt.label}</div>
+                  <div className={`text-xs mt-0.5 ${active ? 'text-blue-100' : 'text-slate-500'}`}>
+                    {opt.desc}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 1줄 딜카드 제목 */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-bold text-slate-800">
+              딜카드 1줄 대표 제목 (한 줄 고정 표시)
+            </label>
+            <span
+              className={`text-xs font-mono font-bold ${
+                currentHeadline.length > 28 ? 'text-amber-700' : 'text-slate-500'
+              }`}
+            >
+              {currentHeadline.length}/28자 권장 · 1줄 보장
+            </span>
+          </div>
+          <input
+            type="text"
+            data-testid="card4-headline-input"
+            value={currentHeadline}
+            onChange={(e) => handleHeadlineChange(e.target.value)}
+            className="w-full h-12 px-3.5 text-[18px] font-extrabold text-slate-900 bg-white rounded-xl border border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap overflow-hidden text-ellipsis"
+            placeholder="예: [양평동 역세권 코너] 연 4.2% 우량 프랜차이즈 만실 빌딩"
+          />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm">
+            <span className="text-amber-400 font-bold shrink-0">1줄 노출 프리뷰:</span>
+            <span
+              data-single-line-title="true"
+              className="font-bold whitespace-nowrap overflow-hidden text-ellipsis truncate"
+            >
+              {currentHeadline}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -194,19 +389,33 @@ export function Card4ConfirmCard({
         </div>
       </div>
 
-      {/* Item 4: 3 Deal Points */}
+      {/* Item 4: 3 Deal Points — AXIOS-Style Wide Post-it Memo Cards */}
       <div className="space-y-3 pt-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-slate-800">
-            ④ 핵심 특징 3가지 (각 18자 권장 · 지번/건물명/PII 차단)
-          </label>
-          <span className="text-xs text-slate-500">
-            카카오톡 공유 이미지 및 말풍선에 표시됩니다
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <label className="text-base font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>📌 ④ AXIOS형 와이드 포스트잇 포인트 3선</span>
+            </label>
+            <p className="text-xs text-slate-600 mt-0.5">
+              1줄 핵심 제목(큰 폰트, 18자 권장) + 요약 브리프 2~3문장으로 와이드 포스트잇 메모처럼 구성됩니다 (지번/건물명 차단)
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="card4-ai-recluster-btn"
+            onClick={handleAiRecluster}
+            className="px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+          >
+            <span>✨</span>
+            <span>AI 포스트잇 3선 자동 재구성</span>
+          </button>
         </div>
 
         {([0, 1, 2] as const).map((idx) => {
           const ptText = card4.points[idx] || '';
+          const ptBrief = card4.pointBriefs?.[idx] || '';
+          const ptTone: DealCardPointTone = card4.pointTones?.[idx] || DEFAULT_TONES[idx];
+          const toneStyle = POSTIT_TONE_STYLES[ptTone] || POSTIT_TONE_STYLES.amber;
           const charCount = ptText.length;
           const isOverLimit = charCount > 18;
           const provSource = card4.provenance?.points?.[idx] || 'broker';
@@ -217,10 +426,26 @@ export function Card4ConfirmCard({
           );
 
           return (
-            <div key={idx} className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-slate-700">포인트 {idx + 1}</span>
+            <div
+              key={idx}
+              data-testid={`card4-postit-card-${idx}`}
+              style={{
+                backgroundColor: toneStyle.bgHex,
+                borderColor: toneStyle.borderHex,
+              }}
+              className="rounded-2xl border-2 p-4 space-y-2.5 shadow-xs transition-colors"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    style={{
+                      backgroundColor: toneStyle.badgeBgHex,
+                      color: toneStyle.badgeTextHex,
+                    }}
+                    className="font-extrabold px-2.5 py-0.5 rounded-md text-xs"
+                  >
+                    POINT 0{idx + 1}
+                  </span>
                   <span
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${badge.bg} ${badge.text}`}
                   >
@@ -228,29 +453,61 @@ export function Card4ConfirmCard({
                     <span>{badge.label}</span>
                   </span>
                 </div>
-                <span
-                  className={`font-mono text-xs font-medium ${
-                    isOverLimit ? 'text-red-600 font-bold' : 'text-slate-400'
-                  }`}
-                >
-                  {charCount}/18자 {isOverLimit && '(말풍선 말줄임 위험)'}
-                </span>
+
+                <div className="flex items-center gap-2">
+                  {/* Post-it Tone Picker */}
+                  <div className="flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-full border border-slate-300/70">
+                    {(Object.keys(POSTIT_TONE_STYLES) as DealCardPointTone[]).map((toneKey) => (
+                      <button
+                        key={toneKey}
+                        type="button"
+                        title={POSTIT_TONE_STYLES[toneKey].label}
+                        onClick={() => handlePointToneChange(idx, toneKey)}
+                        style={{ backgroundColor: POSTIT_TONE_STYLES[toneKey].dotHex }}
+                        className={`w-3.5 h-3.5 rounded-full transition-transform cursor-pointer ${
+                          ptTone === toneKey ? 'scale-125 ring-2 ring-slate-900' : 'opacity-65 hover:opacity-100'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  <span
+                    className={`font-mono text-xs font-bold ${
+                      isOverLimit ? 'text-red-700' : 'text-slate-700'
+                    }`}
+                  >
+                    {charCount}/18자 {isOverLimit && '(말줄임 주의)'}
+                  </span>
+                </div>
               </div>
 
+              {/* 1줄 큰 폰트 핵심 제목 */}
               <div className="relative">
                 <input
                   type="text"
                   data-testid={`card4-point-input-${idx}`}
                   value={ptText}
                   onChange={(e) => handlePointChange(idx, e.target.value)}
-                  className={`w-full h-12 px-3.5 text-[18px] text-slate-900 rounded-xl border ${
+                  className={`w-full h-12 px-3.5 text-[18px] font-extrabold text-slate-950 rounded-xl border ${
                     pointViolations.length > 0
-                      ? 'border-red-400 bg-red-50/30 focus:ring-red-500'
+                      ? 'border-red-400 bg-red-50/60 focus:ring-red-500'
                       : isOverLimit
-                      ? 'border-amber-400 bg-white focus:ring-amber-500'
-                      : 'border-slate-400 bg-white focus:ring-blue-600'
-                  } focus:outline-none focus:ring-2 transition`}
-                  placeholder={`특징 ${idx + 1}을 입력하세요 (예: 대로변 코너 각지 시인성 우수)`}
+                      ? 'border-amber-500 bg-white/95 focus:ring-amber-500'
+                      : 'border-slate-400/80 bg-white/95 focus:ring-blue-600'
+                  } focus:outline-none focus:ring-2 transition whitespace-nowrap overflow-hidden text-ellipsis`}
+                  placeholder={`포인트 ${idx + 1} 1줄 핵심 제목 (예: 역세권 도보 3분 코너 가시성 우수)`}
+                />
+              </div>
+
+              {/* AXIOS 요약 브리프 2~3문장 */}
+              <div>
+                <textarea
+                  rows={2}
+                  data-testid={`card4-point-brief-${idx}`}
+                  value={ptBrief}
+                  onChange={(e) => handlePointBriefChange(idx, e.target.value)}
+                  className="w-full px-3.5 py-2 text-[14px] font-medium text-slate-800 bg-white/85 rounded-xl border border-slate-300/90 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition leading-relaxed"
+                  placeholder={`[AXIOS 요약 브리프 2~3문장] 매수자가 왜 주목해야 하는지 핵심 해설을 적어주세요 (상세 포스트잇 카드에 표시)`}
                 />
               </div>
 
@@ -260,7 +517,7 @@ export function Card4ConfirmCard({
                   {pointViolations.map((violation, vIdx) => (
                     <p
                       key={vIdx}
-                      className="text-xs text-red-600 flex items-center gap-1 font-medium pl-1"
+                      className="text-xs text-red-700 flex items-center gap-1 font-bold pl-1"
                     >
                       <span>🚫</span>
                       <span>{violation.reason}</span>

@@ -20,9 +20,16 @@ import {
   NewsCurationPanel,
   MagazinePhonePreview,
   MagazineShareModal,
+  EditionAirtableList,
+  AxiosIssuesEditorPanel,
+  MonthlyStatsEditorPanel,
+  type AirtableEditionItem,
+  type CadenceType,
 } from "@/components/magazine-editor";
 import { SlugSetupGate } from "@/components/magazine-editor/SlugSetupGate";
 import { PublishConfirmModal } from "@/components/magazine-editor/PublishConfirmModal";
+import { clusterArticlesIntoFiveIssues } from "@/domain/magazine/issue-clustering";
+import { getMonthlyChartsForRegion } from "@/domain/magazine/monthly-stats-charts";
 
 const EditorAiAssistTab = dynamic(
   () => import("@/components/magazine-editor/EditorAiAssistTab").then((m) => m.EditorAiAssistTab),
@@ -133,6 +140,8 @@ import {
   type MagazineEdition,
   type EditionStatus,
   type EditionType,
+  type AxiosUnitIssue,
+  type MonthlyRegionalChart,
 } from "@/domain/magazine/types";
 import {
   enrichNewsPoolWithChannels,
@@ -142,12 +151,13 @@ import {
   type NewsPoolItem,
 } from "@/domain/magazine/news-channels";
 
-// ─── 탭 정의 ──────────────────────────────────────────────────────
+// ─── 주기별 ≤4개 미니멀 상단 탭 정의 (일간 3탭 / 주간 4탭 / 월간 4탭) ──────────────────────
 const TABS = [
-  { key: "cover" as const, label: "커버", icon: Newspaper },
-  { key: "field_note" as const, label: "필드노트", icon: PenLine },
-  { key: "theme_deals" as const, label: "테마&매물", icon: Target },
-  { key: "news" as const, label: "뉴스", icon: BookOpen },
+  { key: "cover" as const, label: "헤더·제목", icon: Newspaper },
+  { key: "field_note" as const, label: "중개인 브리핑", icon: PenLine },
+  { key: "monthly_stats" as const, label: "권역 통계 2건", icon: BarChart3 },
+  { key: "news" as const, label: "AI 이슈 5선", icon: BookOpen },
+  { key: "theme_deals" as const, label: "딜카드·발행", icon: Target },
   { key: "ai_assist" as const, label: "AI비서", icon: Wand2 },
   { key: "outreach" as const, label: "아웃리치", icon: Users },
   { key: "publish" as const, label: "발행설정", icon: Settings },
@@ -155,6 +165,31 @@ const TABS = [
 ];
 
 type TabKey = (typeof TABS)[number]["key"];
+
+export function getPrimaryTabsForCadence(editionType: EditionType) {
+  if (editionType === "daily") {
+    return [
+      { key: "cover" as const, label: "① 헤더·제목", icon: Newspaper },
+      { key: "news" as const, label: "② AI 이슈 5선", icon: BookOpen },
+      { key: "theme_deals" as const, label: "③ 딜카드·발행", icon: Target },
+    ];
+  }
+  if (editionType === "monthly") {
+    return [
+      { key: "cover" as const, label: "① 헤더·제목", icon: Newspaper },
+      { key: "monthly_stats" as const, label: "② 권역 통계 2건", icon: BarChart3 },
+      { key: "news" as const, label: "③ 월간 이슈 5선", icon: BookOpen },
+      { key: "theme_deals" as const, label: "④ 딜카드·발행", icon: Target },
+    ];
+  }
+  // weekly / special 기본 4탭
+  return [
+    { key: "cover" as const, label: "① 헤더·제목", icon: Newspaper },
+    { key: "field_note" as const, label: "② 중개인 브리핑", icon: PenLine },
+    { key: "news" as const, label: "③ AI 이슈 5선", icon: BookOpen },
+    { key: "theme_deals" as const, label: "④ 딜카드·발행", icon: Target },
+  ];
+}
 
 const MARKET_TEMPS: MarketTemperature[] = [
   "적극 매수",
@@ -276,9 +311,22 @@ function MagazineEditorInner() {
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set());
   // allDeals / allNews 는 newsState·dealsState(useAsyncState)에서 파생된다 (아래)
 
-  // News
+  // News & AXIOS 5-Issue Post-it Cards
   const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
   const [extraChannelNews, setExtraChannelNews] = useState<NewsPoolItem[]>([]);
+  const [unitIssues, setUnitIssues] = useState<AxiosUnitIssue[]>([]);
+
+  // Monthly Regional Statistics 2-Chart Config
+  const [monthlyRegion, setMonthlyRegion] = useState<string>("gbd");
+  const [monthlyCharts, setMonthlyCharts] = useState<MonthlyRegionalChart[]>(() =>
+    getMonthlyChartsForRegion("gbd")
+  );
+
+  // Column 1 Airtable Editions List & Cadence Switcher
+  const [editionsList, setEditionsList] = useState<AirtableEditionItem[]>([]);
+  const [switchingCadence, setSwitchingCadence] = useState(false);
+  const [showInlineAiAssist, setShowInlineAiAssist] = useState(false);
+  const editionRowsMapRef = useRef<Map<string, EditionRow>>(new Map());
 
   // Settings
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -467,20 +515,189 @@ function MagazineEditorInner() {
   const allNews = useMemo(() => newsState.data ?? [], [newsState.data]);
   const allDeals = useMemo(() => dealsState.data ?? [], [dealsState.data]);
 
+  // ── EditionRow -> Airtable 목록 아이템 변환 ──
+  const toAirtableItem = useCallback((ed: EditionRow): AirtableEditionItem => {
+    const f = formFromEdition(ed);
+    const fn = f.fieldNote;
+    const hasBriefing = Boolean(
+      f.briefing.trim() ||
+        fn.comment.trim() ||
+        fn.question.trim() ||
+        fn.buyerReaction.trim() ||
+        fn.sellerReaction.trim() ||
+        fn.marketJudgment.trim()
+    );
+    const issueCount =
+      (f.unitIssues?.filter((u) => u.title.trim() || u.brief.trim()).length ?? 0) ||
+      Math.min(5, Math.max(f.selectedNewsIds.length, f.topNews.length));
+    const chartCount =
+      ed.edition_type === "monthly"
+        ? Math.min(2, f.monthlyCharts?.length || 2)
+        : f.monthlyCharts?.length ?? 0;
+    const dealCount = Math.max(f.selectedDealIds.length, f.dealHighlights.length);
+    return {
+      id: ed.id,
+      edition_type: (ed.edition_type as EditionType) || "weekly",
+      edition_label: ed.edition_label || getWeekLabel(),
+      status: (ed.status as EditionStatus) || "draft",
+      title: f.headline || ed.title || "",
+      market_temp: (f.marketTemp as MarketTemperature | null) ?? null,
+      updated_at: ed.updated_at ?? null,
+      published_at: ed.published_at ?? null,
+      hasBriefing,
+      issueCount: issueCount > 0 ? issueCount : 5,
+      chartCount,
+      dealCount,
+    };
+  }, []);
+
+  // ── 에디션 행을 에디터 폼 상태에 일괄 반영 ──
+  const hydrateEditorFromEdition = useCallback(
+    (
+      ed: EditionRow,
+      opts?: { created?: boolean; ident?: EditorIdentity | null; preserveQuerySelection?: boolean }
+    ) => {
+      editionRowsMapRef.current.set(ed.id, ed);
+      const f = formFromEdition(ed);
+      const edType = ((ed.edition_type as EditionType) || "weekly") as EditionType;
+      const edContent: Record<string, unknown> =
+        ed.content && typeof ed.content === "object" ? (ed.content as Record<string, unknown>) : {};
+
+      setEditionId(ed.id);
+      if (ed.edition_label) setEditionLabel(ed.edition_label);
+      setEditionType(edType);
+      setEditionStatus((ed.status as EditionStatus) || "draft");
+      setPublishedAt(ed.published_at ?? null);
+      setEditionUpdatedAt(ed.updated_at ?? null);
+      setMagazineData({
+        ...edContent,
+        kind: edType === "monthly" ? "monthly" : edType === "daily" ? "daily" : edType === "special" ? "special" : "weekly",
+      });
+      setHeadline(f.headline);
+      setBriefing(f.briefing);
+      setMarketTemp((f.marketTemp as MarketTemperature | null) ?? "선별 매수");
+      setCoverKeywords(f.coverKeywords);
+      setCoverImageUrl(f.coverImageUrl);
+      setFieldNote(f.fieldNote);
+      setThemeTitle(f.themeTitle);
+      setThemeBodyMd(f.themeBodyMd);
+      if (opts?.created && opts?.ident?.magazineThemeColor) {
+        setThemeColor(opts.ident.magazineThemeColor);
+      } else {
+        setThemeColor(f.themeColor);
+      }
+      if (!opts?.preserveQuerySelection || !searchParams.get("deals")) {
+        setSelectedDealIds(new Set(f.selectedDealIds));
+      }
+      if (!opts?.preserveQuerySelection || !searchParams.get("news")) {
+        setSelectedNewsIds(new Set(f.selectedNewsIds.slice(0, MAX_NEWS_SELECTION)));
+      }
+      setSavedTopNews(f.topNews);
+      setSavedDealHighlights(f.dealHighlights);
+      setPollQuestion(f.pollQuestion);
+      setPollOptions(padPollOptions(f.pollOptions));
+      setTaxQuestion(f.taxQuestion);
+      setTaxAnswer(f.taxAnswer);
+      setTaxSource(f.taxSource);
+      setSectionOrder(f.sectionOrder);
+
+      // 주기별 구조 공식 자동 정렬:
+      // - 일간(daily): 헤더+제목+이슈 5건+딜카드 (브리핑 비활성)
+      // - 주간(weekly): 헤더+제목+중개인 브리핑+이슈 5건+딜카드
+      // - 월간(monthly): 헤더+제목+권역별 유용한 통계 2건 그래프+월간 이슈 5건+딜카드
+      const nextSectionsEnabled = { ...f.sectionsEnabled };
+      if (edType === "daily") {
+        nextSectionsEnabled.field_note = false;
+        nextSectionsEnabled.ai_briefing = false;
+        nextSectionsEnabled.news_curation = true;
+        nextSectionsEnabled.featured_deals = true;
+      } else if (edType === "monthly") {
+        nextSectionsEnabled.field_note = false;
+        nextSectionsEnabled.ai_briefing = false;
+        nextSectionsEnabled.market_data = true;
+        nextSectionsEnabled.news_curation = true;
+        nextSectionsEnabled.featured_deals = true;
+      } else {
+        if (nextSectionsEnabled.field_note === undefined) nextSectionsEnabled.field_note = true;
+        if (nextSectionsEnabled.ai_briefing === undefined) nextSectionsEnabled.ai_briefing = true;
+      }
+      setSectionsEnabled(nextSectionsEnabled);
+      setTargetSegment(f.targetSegment);
+
+      // 월간 권역 통계 2건 초기화
+      const nextRegion = f.monthlyRegion || "gbd";
+      setMonthlyRegion(nextRegion);
+      if (Array.isArray(f.monthlyCharts) && f.monthlyCharts.length >= 2) {
+        setMonthlyCharts(f.monthlyCharts.slice(0, 2));
+      } else {
+        setMonthlyCharts(getMonthlyChartsForRegion(nextRegion));
+      }
+
+      // AXIOS 단위 이슈 5건 초기화
+      if (Array.isArray(f.unitIssues) && f.unitIssues.length > 0) {
+        setUnitIssues(f.unitIssues);
+      } else {
+        setUnitIssues([]);
+      }
+
+      const isDraftNewOrEmpty = Boolean(opts?.created || ed.status === "draft");
+      defaultsPendingRef.current = {
+        news:
+          isDraftNewOrEmpty &&
+          (!Array.isArray(edContent.selected_news_ids) ||
+            edContent.selected_news_ids.length === 0 ||
+            f.selectedNewsIds.length === 0),
+        deals:
+          isDraftNewOrEmpty &&
+          (!Array.isArray(ed.featured_deal_ids) ||
+            ed.featured_deal_ids.length === 0 ||
+            f.selectedDealIds.length === 0),
+      };
+
+      if (!f.headline) {
+        const fallbackName =
+          opts?.ident?.magazineTitle ||
+          opts?.ident?.brokerName ||
+          opts?.ident?.displayName ||
+          brokerPublicNameRef.current;
+        const cadencePrefix =
+          edType === "daily"
+            ? "[일간 브리핑] "
+            : edType === "monthly"
+            ? "[월간 리포트] "
+            : "";
+        setHeadline(`${cadencePrefix}${deriveFallbackHeadline("", fallbackName)}`.trim());
+      }
+
+      // 목록 상태 갱신
+      setEditionsList((prev) => {
+        const item = toAirtableItem(ed);
+        const exists = prev.some((x) => x.id === item.id);
+        if (exists) {
+          return prev.map((x) => (x.id === item.id ? item : x));
+        }
+        return [item, ...prev];
+      });
+    },
+    [searchParams, toAirtableItem]
+  );
+
   // ── 데이터 로딩 (프로필 + 이번 호 초안 동시 병렬 요청으로 직렬 워터폴 제거) ──
   useEffect(() => {
     async function loadData() {
       try {
-        const requestDraft = () =>
+        const initialCadence = (searchParams.get("cadence") as EditionType) || "weekly";
+        const requestDraft = (cadence: EditionType = initialCadence) =>
           fetch("/api/magazine/editions/draft", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ edition_type: "weekly" }),
+            body: JSON.stringify({ edition_type: cadence }),
           });
 
-        const [profileApiRes, initialDraftRes] = await Promise.all([
+        const [profileApiRes, initialDraftRes, allEditionsRes] = await Promise.all([
           fetch("/api/broker/profile").catch(() => null),
           requestDraft().catch(() => null),
+          fetch("/api/magazine/editions?type=all&limit=40").catch(() => null),
         ]);
 
         if (profileApiRes?.status === 401) {
@@ -508,6 +725,15 @@ function MagazineEditorInner() {
         const slug = ident.slug;
         setBrokerSlug(slug);
 
+        // 0. 전체 호수 목록 (에어테이블 그리드용)
+        if (allEditionsRes && allEditionsRes.ok) {
+          const allJson = (await readJsonSafe(allEditionsRes)) as { editions?: EditionRow[] } | null;
+          if (Array.isArray(allJson?.editions)) {
+            allJson.editions.forEach((row) => editionRowsMapRef.current.set(row.id, row));
+            setEditionsList(allJson.editions.map((row) => toAirtableItem(row)));
+          }
+        }
+
         // 1. 이번 호 초안 (초기 병렬 요청이 첫 진입 slug 생성 타이밍으로 실패했을 때만 1회 재시도)
         let draftRes = initialDraftRes;
         if (!draftRes || !draftRes.ok) {
@@ -523,55 +749,12 @@ function MagazineEditorInner() {
           return;
         }
         const ed = draftJson.edition;
-        const f = formFromEdition(ed);
-        const edContent: Record<string, unknown> =
-          ed.content && typeof ed.content === "object" ? (ed.content as Record<string, unknown>) : {};
+        hydrateEditorFromEdition(ed, {
+          created: draftJson.created,
+          ident,
+          preserveQuerySelection: true,
+        });
 
-        setEditionId(ed.id);
-        if (ed.edition_label) setEditionLabel(ed.edition_label);
-        if (ed.edition_type) setEditionType(ed.edition_type as EditionType);
-        setEditionStatus((ed.status as EditionStatus) || "draft");
-        setPublishedAt(ed.published_at ?? null);
-        setEditionUpdatedAt(ed.updated_at ?? null);
-        setMagazineData(edContent);
-        setHeadline(f.headline);
-        setBriefing(f.briefing);
-        setMarketTemp(f.marketTemp as MarketTemperature | null);
-        setCoverKeywords(f.coverKeywords);
-        setCoverImageUrl(f.coverImageUrl);
-        setFieldNote(f.fieldNote);
-        setThemeTitle(f.themeTitle);
-        setThemeBodyMd(f.themeBodyMd);
-        setThemeColor(draftJson.created && ident.magazineThemeColor ? ident.magazineThemeColor : f.themeColor);
-        // URL ?deals= / ?news= 로 들어온 선택이 있으면 그것을 우선
-        if (!searchParams.get("deals")) setSelectedDealIds(new Set(f.selectedDealIds));
-        if (!searchParams.get("news")) setSelectedNewsIds(new Set(f.selectedNewsIds.slice(0, MAX_NEWS_SELECTION)));
-        setSavedTopNews(f.topNews);
-        setSavedDealHighlights(f.dealHighlights);
-        setPollQuestion(f.pollQuestion);
-        setPollOptions(padPollOptions(f.pollOptions));
-        setTaxQuestion(f.taxQuestion);
-        setTaxAnswer(f.taxAnswer);
-        setTaxSource(f.taxSource);
-        setSectionOrder(f.sectionOrder);
-        setSectionsEnabled(f.sectionsEnabled);
-        setTargetSegment(f.targetSegment);
-        // 저장된 적 없는 새 초안일 때 기본 선택(매물 상위 3건 + 뉴스 3건)을 채운다
-        const isDraftNewOrEmpty = Boolean(
-          draftJson.created ||
-          ed.status === "draft"
-        );
-        defaultsPendingRef.current = {
-          news: isDraftNewOrEmpty && (!Array.isArray(edContent.selected_news_ids) || edContent.selected_news_ids.length === 0 || f.selectedNewsIds.length === 0),
-          deals: isDraftNewOrEmpty && (!Array.isArray(ed.featured_deal_ids) || ed.featured_deal_ids.length === 0 || f.selectedDealIds.length === 0),
-        };
-        if (draftJson.created && !f.headline) {
-          const defaultH = deriveFallbackHeadline("", ident.magazineTitle || ident.brokerName || ident.displayName);
-          setHeadline(defaultH);
-        }
-        if (draftJson.created && !f.marketTemp) {
-          setMarketTemp("선별 매수");
-        }
         profileSavedRef.current = { title: ident.magazineTitle, color: ident.magazineThemeColor ?? "" };
         const initialSendEnabled = typeof draftJson.meta?.sendEnabled === "boolean" ? draftJson.meta.sendEnabled : null;
         setSendEnabled(initialSendEnabled);
@@ -582,9 +765,6 @@ function MagazineEditorInner() {
           typeof draftJson.meta?.subscriberCount === "number" ? draftJson.meta.subscriberCount : null
         );
         setEditionReady(true);
-
-        // 3·4. 뉴스·매물 목록은 useAsyncState(newsState/dealsState)가 에디션 준비 후 따로 불러온다
-        //      (실패해도 에디터는 열리고, 해당 탭에서 오류 안내 + 다시 시도를 보여준다)
 
         // 5. 매거진 성과 데이터 로드
         try {
@@ -663,6 +843,17 @@ function MagazineEditorInner() {
     return enrichNewsPoolWithChannels(baseMerged) as any[];
   }, [allNews, extraChannelNews, savedTopNews]);
 
+  // ── AXIOS 5대 이슈 자동 클러스터링 초기화 (비어 있을 때 5건 자동 생성) ──
+  useEffect(() => {
+    if (unitIssues.length > 0) return;
+    if (newsPool.length === 0) return;
+    const clustered = clusterArticlesIntoFiveIssues(newsPool, {
+      preferredIds: Array.from(selectedNewsIds),
+      cadence: editionType === "monthly" ? "monthly" : editionType === "daily" ? "daily" : "weekly",
+    });
+    setUnitIssues(clustered);
+  }, [newsPool, selectedNewsIds, editionType, unitIssues.length]);
+
   const dealPool = useMemo(() => {
     const seen = new Set(allDeals.map((d: any) => String(d.id)));
     const extra = savedDealHighlights.filter((d) => d.id != null && !seen.has(String(d.id)));
@@ -717,6 +908,9 @@ function MagazineEditorInner() {
       sectionOrder,
       sectionsEnabled,
       targetSegment,
+      unitIssues,
+      monthlyCharts: editionType === "monthly" ? monthlyCharts : undefined,
+      monthlyRegion: editionType === "monthly" ? monthlyRegion : undefined,
     }),
     [
       headline,
@@ -740,9 +934,65 @@ function MagazineEditorInner() {
       sectionOrder,
       sectionsEnabled,
       targetSegment,
+      unitIssues,
+      editionType,
+      monthlyCharts,
+      monthlyRegion,
     ]
   );
   const signature = useMemo(() => formSignature(form), [form]);
+
+  // 현재 에디션의 실시간 구성 현황을 좌측 에어테이블 목록에도 동기화
+  const liveEditionsList = useMemo(() => {
+    if (!editionId) return editionsList;
+    const fn = fieldNote;
+    const hasBriefing = Boolean(
+      briefing.trim() ||
+        fn.comment.trim() ||
+        fn.question.trim() ||
+        fn.buyerReaction.trim() ||
+        fn.sellerReaction.trim() ||
+        fn.marketJudgment.trim()
+    );
+    const liveIssueCount =
+      unitIssues.filter((u) => u.title.trim() || u.brief.trim()).length || 5;
+    const liveChartCount = editionType === "monthly" ? Math.min(2, monthlyCharts.length || 2) : 0;
+    const liveDealCount = selectedDealIds.size;
+
+    const currentItem: AirtableEditionItem = {
+      id: editionId,
+      edition_type: editionType,
+      edition_label: editionLabel,
+      status: editionStatus,
+      title: headline,
+      market_temp: marketTemp,
+      updated_at: editionUpdatedAt,
+      published_at: publishedAt,
+      hasBriefing,
+      issueCount: liveIssueCount,
+      chartCount: liveChartCount,
+      dealCount: liveDealCount,
+    };
+
+    const exists = editionsList.some((x) => x.id === editionId);
+    if (!exists) return [currentItem, ...editionsList];
+    return editionsList.map((x) => (x.id === editionId ? currentItem : x));
+  }, [
+    editionId,
+    editionsList,
+    fieldNote,
+    briefing,
+    unitIssues,
+    editionType,
+    monthlyCharts.length,
+    selectedDealIds.size,
+    editionLabel,
+    editionStatus,
+    headline,
+    marketTemp,
+    editionUpdatedAt,
+    publishedAt,
+  ]);
 
   // 탭 작성 완료 ✓ (T1-UX-2)
   const completion = useMemo(() => computeTabCompletion(form, isPublished), [form, isPublished]);
@@ -785,6 +1035,132 @@ function MagazineEditorInner() {
   });
   const { saveNow, syncUpdatedAt } = autosave;
 
+  // ── 주기(일간·주간·월간) 전환 또는 해당 주기 초안 열기/생성 ──
+  const handleSwitchOrCreateCadence = useCallback(
+    async (targetCadence: CadenceType) => {
+      if (switchingCadence) return;
+      setSwitchingCadence(true);
+      try {
+        if (editionReady && !isPublished) {
+          await saveNow().catch(() => false);
+        }
+        const res = await fetch("/api/magazine/editions/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ edition_type: targetCadence }),
+        });
+        const json = (await readJsonSafe(res)) as {
+          edition?: EditionRow;
+          created?: boolean;
+        } | null;
+        if (!res.ok || !json?.edition) {
+          editorToast.error("해당 주기의 편집 초안을 불러오지 못했습니다.");
+          return;
+        }
+        hydrateEditorFromEdition(json.edition, {
+          created: json.created,
+          ident: identity,
+        });
+        syncUpdatedAt(json.edition.updated_at ?? null);
+        // 새로 생성되었거나 이슈가 비어 있으면 해당 주기에 맞춰 5건 클러스터링
+        const edForm = formFromEdition(json.edition);
+        if (!edForm.unitIssues || edForm.unitIssues.length === 0) {
+          setUnitIssues(
+            clusterArticlesIntoFiveIssues(newsPool, {
+              preferredIds: edForm.selectedNewsIds,
+              cadence: targetCadence,
+            })
+          );
+        }
+        // 현재 탭이 새 주기의 기본 탭에 없으면 첫 번째 탭(또는 주기 특화 탭)으로 자연스럽게 이동
+        const nextPrimaryKeys = getPrimaryTabsForCadence(targetCadence).map((t) => t.key);
+        if (!nextPrimaryKeys.includes(activeTab as any)) {
+          setActiveTab(targetCadence === "monthly" ? "monthly_stats" : "cover");
+        }
+        const cadenceKo =
+          targetCadence === "daily" ? "일간" : targetCadence === "monthly" ? "월간" : "주간";
+        editorToast.success(`${cadenceKo} 뉴스레터 편집 화면으로 전환했습니다.`);
+      } catch {
+        editorToast.error("주기 전환 중 오류가 발생했습니다.");
+      } finally {
+        setSwitchingCadence(false);
+      }
+    },
+    [
+      switchingCadence,
+      editionReady,
+      isPublished,
+      saveNow,
+      hydrateEditorFromEdition,
+      identity,
+      syncUpdatedAt,
+      newsPool,
+      activeTab,
+    ]
+  );
+
+  // ── 좌측 에어테이블 목록에서 특정 호수 선택 ──
+  const handleSelectEdition = useCallback(
+    async (item: AirtableEditionItem) => {
+      if (item.id === editionId) return;
+      setSwitchingCadence(true);
+      try {
+        if (editionReady && !isPublished) {
+          await saveNow().catch(() => false);
+        }
+        let row = editionRowsMapRef.current.get(item.id);
+        if (!row) {
+          const res = await fetch(`/api/magazine/editions/${encodeURIComponent(item.id)}`);
+          const json = (await readJsonSafe(res)) as { edition?: EditionRow } | null;
+          if (res.ok && json?.edition) {
+            row = json.edition;
+          }
+        }
+        if (!row) {
+          editorToast.warning("선택한 호수를 불러오지 못했습니다.");
+          return;
+        }
+        hydrateEditorFromEdition(row, { ident: identity });
+        syncUpdatedAt(row.updated_at ?? null);
+        const nextPrimaryKeys = getPrimaryTabsForCadence(
+          (row.edition_type as EditionType) || "weekly"
+        ).map((t) => t.key);
+        if (!nextPrimaryKeys.includes(activeTab as any)) {
+          setActiveTab("cover");
+        }
+      } catch {
+        editorToast.warning("호수 전환 중 오류가 발생했습니다.");
+      } finally {
+        setSwitchingCadence(false);
+      }
+    },
+    [editionId, editionReady, isPublished, saveNow, hydrateEditorFromEdition, identity, syncUpdatedAt, activeTab]
+  );
+
+  // ── 좌측 에어테이블 목록에서 호수 복제 ──
+  const handleDuplicateEdition = useCallback(
+    async (item: AirtableEditionItem) => {
+      const sourceRow = editionRowsMapRef.current.get(item.id);
+      const targetCadence: CadenceType =
+        item.edition_type === "daily"
+          ? "daily"
+          : item.edition_type === "monthly"
+          ? "monthly"
+          : "weekly";
+      await handleSwitchOrCreateCadence(targetCadence);
+      if (sourceRow) {
+        const srcForm = formFromEdition(sourceRow);
+        if (srcForm.headline) setHeadline(`${srcForm.headline} (복제본)`);
+        if (srcForm.briefing) setBriefing(srcForm.briefing);
+        if (srcForm.unitIssues && srcForm.unitIssues.length > 0) setUnitIssues(srcForm.unitIssues);
+        if (srcForm.monthlyCharts && srcForm.monthlyCharts.length > 0) setMonthlyCharts(srcForm.monthlyCharts);
+        if (srcForm.selectedDealIds.length > 0) setSelectedDealIds(new Set(srcForm.selectedDealIds));
+      }
+      editorToast.success(`${item.edition_label} 구성을 현재 초안에 복제했습니다.`);
+    },
+    [handleSwitchOrCreateCadence]
+  );
+
   // 미리보기 = 저장될 content 와 같은 변환 결과 (비어 있는 설문/세무는 섹션 자체가 사라진다)
   const previewData = useMemo<any>(() => {
     const baseContent = buildContentFromForm(magazineData, form);
@@ -794,8 +1170,38 @@ function MagazineEditorInner() {
             brokerName: resolveEditorPublicName(identity, brokerSlug ?? ""),
           })
         : baseContent;
-    return { ...modeContent, themeColor };
-  }, [magazineData, form, themeColor, editorMode, identity, brokerSlug]);
+    const resolvedKind =
+      editionType === "monthly"
+        ? "monthly"
+        : editionType === "daily"
+        ? "daily"
+        : editionType === "special"
+        ? "special"
+        : "weekly";
+    return {
+      ...modeContent,
+      kind: resolvedKind,
+      themeColor,
+      unit_issues: unitIssues,
+      ...(editionType === "monthly"
+        ? {
+            monthly_charts: monthlyCharts,
+            monthly_region: monthlyRegion,
+          }
+        : {}),
+    };
+  }, [
+    magazineData,
+    form,
+    themeColor,
+    editorMode,
+    identity,
+    brokerSlug,
+    editionType,
+    unitIssues,
+    monthlyCharts,
+    monthlyRegion,
+  ]);
 
   // 미리보기 전용: 항상 로그인한 본인 프로필로 표시 (저장되는 content에는 섞지 않는다)
   const previewViewData = useMemo(() => {
@@ -1288,10 +1694,20 @@ function MagazineEditorInner() {
     return <SlugSetupGate onConfirmed={() => window.location.reload()} />;
   }
 
-  // ─── 탭 콘텐츠 렌더링 ───────────────────────────────────────────────
+  const primaryTabs = getPrimaryTabsForCadence(editionType);
+  const cadenceLabelKo =
+    editionType === "daily"
+      ? "일간"
+      : editionType === "monthly"
+      ? "월간"
+      : editionType === "special"
+      ? "스페셜"
+      : "주간";
+
+  // ─── 탭 콘텐츠 렌더링 (상단 ≤4개 탭 클릭 시 하단에 즉시 설정/편집 화면 표시) ─────────────────
   const renderTabContent = () => {
     switch (activeTab) {
-      // ━━━ 커버 탭 ━━━
+      // ━━━ ① 헤더·제목 탭 ━━━
       case "cover":
         return (
           <EditorCoverTab
@@ -1308,18 +1724,97 @@ function MagazineEditorInner() {
           />
         );
 
-      // ━━━ 필드노트 탭 ━━━
+      // ━━━ ② 중개인 브리핑 탭 (주간 전용) + 인라인 AI 다듬기 ━━━
       case "field_note":
         return (
-          <EditorFieldNoteTab
-            fieldNote={fieldNote}
-            updateFieldNote={updateFieldNote}
-            activeTooltip={activeTooltip}
-            setActiveTooltip={setActiveTooltip}
+          <div className="space-y-4">
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-extrabold text-indigo-950">
+                  ✍️ 주간 뉴스레터 중개인 브리핑
+                </p>
+                <p className="text-xs font-medium text-indigo-800">
+                  현장에서 체감한 매수·매도 분위기와 한 줄 판단을 적어 주세요.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="toggle-inline-ai-assist"
+                onClick={() => setShowInlineAiAssist((v) => !v)}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-extrabold text-indigo-700 hover:bg-indigo-100 transition-colors"
+              >
+                <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
+                {showInlineAiAssist ? "AI 문장 도우미 닫기" : "✨ AI 문장 다듬기"}
+              </button>
+            </div>
+
+            {showInlineAiAssist && (
+              <div className="rounded-xl border border-indigo-200 bg-white p-3 shadow-2xs">
+                <EditorAiAssistTab
+                  memory={aiMemory}
+                  onMemoryChange={setAiMemory}
+                  onApply={(text) => {
+                    updateFieldNote("comment", text);
+                    setShowInlineAiAssist(false);
+                    editorToast.success("중개인 브리핑 '독자에게 한마디'에 반영했습니다");
+                  }}
+                />
+              </div>
+            )}
+
+            <EditorFieldNoteTab
+              fieldNote={fieldNote}
+              updateFieldNote={updateFieldNote}
+              activeTooltip={activeTooltip}
+              setActiveTooltip={setActiveTooltip}
+            />
+          </div>
+        );
+
+      // ━━━ ② 권역 통계 2건 탭 (월간 전용: 국토부 실거래·한국부동산원·통계청 KOSIS) ━━━
+      case "monthly_stats":
+        return (
+          <MonthlyStatsEditorPanel
+            monthlyRegion={monthlyRegion}
+            onChangeRegion={(rk, charts) => {
+              setMonthlyRegion(rk);
+              setMonthlyCharts(charts);
+            }}
+            monthlyCharts={monthlyCharts}
+            onChangeCharts={setMonthlyCharts}
           />
         );
 
-      // ━━━ 테마&매물 탭 ━━━
+      // ━━━ AI 클러스터링 AXIOS 와이드 포스트잇 이슈 5선 탭 (일간·주간·월간 공통) ━━━
+      case "news":
+        return (
+          <div className="space-y-4">
+            {newsState.status === "error" && (
+              <ErrorState
+                title="뉴스 목록을 불러오지 못했습니다"
+                description={newsState.error ?? undefined}
+                onRetry={newsState.retry}
+              />
+            )}
+            {newsState.status === "loading" && newsPool.length === 0 && unitIssues.length === 0 ? (
+              <SkeletonGroup label="뉴스 목록을 불러오는 중" className="space-y-2">
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+              </SkeletonGroup>
+            ) : (
+              <AxiosIssuesEditorPanel
+                unitIssues={unitIssues}
+                onChangeUnitIssues={setUnitIssues}
+                newsPool={newsPool}
+                cadenceLabel={cadenceLabelKo}
+                onRefreshLiveChannel={refreshLiveChannelNews}
+              />
+            )}
+          </div>
+        );
+
+      // ━━━ 딜카드·발행 탭 ━━━
       case "theme_deals":
         return (
           <div className="space-y-4">
@@ -1346,40 +1841,75 @@ function MagazineEditorInner() {
               toggleDeal={toggleDeal}
               fmt={fmt}
             />
+
+            {/* 발송 대상 빠른 선택 & 보조 설정 바로가기 */}
+            <div className="rounded-xl border border-slate-300 bg-white p-4 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-extrabold text-slate-900">
+                  🎯 발송 대상 세그먼트
+                </span>
+                <span className="text-xs font-semibold text-slate-500">
+                  구독자 {subscriberCount ?? 0}명
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="발송 대상 선택">
+                {(
+                  [
+                    { key: "all", label: "전체 구독자" },
+                    { key: "buyer", label: "매수 관심" },
+                    { key: "seller", label: "매도 관심" },
+                  ] as const
+                ).map((seg) => {
+                  const active = targetSegment === seg.key;
+                  return (
+                    <button
+                      key={seg.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setTargetSegment(seg.key)}
+                      className={`min-h-10 rounded-lg border px-2.5 py-1.5 text-xs font-extrabold transition-colors ${
+                        active
+                          ? "border-blue-600 bg-blue-50 text-blue-800"
+                          : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {seg.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("publish")}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                >
+                  <Settings className="w-3.5 h-3.5" aria-hidden="true" />
+                  고급 발행설정 (투표·세무·섹션)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("outreach")}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                >
+                  <Users className="w-3.5 h-3.5" aria-hidden="true" />
+                  구독자·QR 관리
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("analytics")}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" aria-hidden="true" />
+                  열람 성과·핫리드
+                </button>
+              </div>
+            </div>
           </div>
         );
 
-
-      // ━━━ 뉴스큐레이션 탭 ━━━
-      case "news":
-        return (
-          <div className="space-y-4">
-            {newsState.status === "error" && (
-              <ErrorState
-                title="뉴스 목록을 불러오지 못했습니다"
-                description={newsState.error ?? undefined}
-                onRetry={newsState.retry}
-              />
-            )}
-            {newsState.status === "loading" && newsPool.length === 0 ? (
-              <SkeletonGroup label="뉴스 목록을 불러오는 중" className="space-y-2">
-                <Skeleton className="h-20 w-full rounded-xl" />
-                <Skeleton className="h-20 w-full rounded-xl" />
-                <Skeleton className="h-20 w-full rounded-xl" />
-              </SkeletonGroup>
-            ) : newsState.status === "error" && newsPool.length === 0 ? null : (
-              <NewsCurationPanel
-                allNews={newsPool}
-                selectedNewsIds={selectedNewsIds}
-                toggleNews={toggleNews}
-                onReplaceSelection={replaceNewsSelection}
-                onAppendNews={appendChannelNews}
-              />
-            )}
-          </div>
-        );
-        
-      // ━━━ AI 비서 탭 ━━━
+      // ━━━ AI 비서 탭 (보조 드로어) ━━━
       case "ai_assist":
         return (
           <EditorAiAssistTab
@@ -1392,8 +1922,8 @@ function MagazineEditorInner() {
             }}
           />
         );
-        
-      // ━━━ 아웃리치 탭 ━━━
+
+      // ━━━ 아웃리치 탭 (보조 드로어) ━━━
       case "outreach":
         return (
           <EditorOutreachTab
@@ -1411,12 +1941,20 @@ function MagazineEditorInner() {
           />
         );
 
-      // ━━━ 발행설정 탭 ━━━
+      // ━━━ 발행설정 탭 (보조 드로어) ━━━
       case "publish":
         return (
           <EditorPublishTab
             editionLabel={editionLabel}
-            editionTypeLabel={editionType === "weekly" ? "위클리" : editionType === "special" ? "스페셜" : "데일리"}
+            editionTypeLabel={
+              editionType === "weekly"
+                ? "위클리"
+                : editionType === "monthly"
+                ? "월간"
+                : editionType === "special"
+                ? "스페셜"
+                : "데일리"
+            }
             statusBadge={statusBadge(editionStatus)}
             brokerSlug={brokerSlug}
             isPublished={isPublished}
@@ -1444,7 +1982,7 @@ function MagazineEditorInner() {
           />
         );
 
-      // ━━━ 성과 탭 ━━━
+      // ━━━ 성과 탭 (보조 드로어) ━━━
       case "analytics":
         return (
           <div className="pb-8">
@@ -1452,13 +1990,12 @@ function MagazineEditorInner() {
           </div>
         );
 
-
       default:
         return null;
     }
   };
 
-  // ─── 렌더링 ─────────────────────────────────────────────────────────
+  // ─── 렌더링 (3열 워크스페이스: 1열 에어테이블 목록 + 2열 ≤4탭 에디터 + 3열 실시간 미리보기) ───
   return (
     <div
       data-testid="workspace-shell"
@@ -1526,104 +2063,151 @@ function MagazineEditorInner() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* ━━━ 왼쪽 패널: 에디터 (시니어 가독성을 위해 폭 580~640px 확장) ━━━ */}
-        <div className={`w-full lg:w-[580px] xl:w-[640px] bg-[#FAF9F5] border-r border-[#CBD5E1] ${showMobilePreview ? "hidden lg:flex" : "flex"} flex-col h-full overflow-hidden shrink-0`}>
-        {/* 헤더 — 125% 배율 노트북에서도 편집 캔버스 높이를 확보하도록 밀도 최적화 */}
-        <div className="px-4 py-2.5 border-b border-[#CBD5E1] flex items-center justify-between gap-2 bg-white/95 backdrop-blur-md z-10 flex-shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <Link
-              href="/broker"
-              aria-label="대시보드로 돌아가기"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-1.5 rounded-xl hover:bg-slate-100 text-[#475569] hover:text-[#0F172A] transition-colors shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            </Link>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <h1 aria-label="Content Studio" className="text-base font-extrabold text-[#0F172A] tracking-tight">고객 소식지 편집실</h1>
-                <span className="rounded-md border border-blue-600/30 bg-blue-50 px-2 py-0.5 text-xs font-extrabold text-blue-700">
-                  매거진 만들기
-                </span>
-                {brokerSlug && (
-                  <div className="flex items-center gap-1" data-testid="my-magazine-badge">
-                    <span className="text-caption font-bold text-blue-700">내 매거진: {brokerSlug}</span>
-                    <button
-                      type="button"
-                      aria-label="공개 매거진 주소 복사"
-                      onClick={() => {
-                        const url = `${window.location.origin}/magazine/${brokerSlug}`;
-                        navigator.clipboard.writeText(url).then(
-                          () => editorToast.success("공개 주소가 복사되었습니다."),
-                          () => editorToast.error("복사하지 못했습니다. 주소를 직접 선택해 주세요.")
-                        );
-                      }}
-                      className="-my-2 inline-flex min-h-11 items-center rounded-lg px-2 text-caption font-semibold text-[#475569] hover:bg-slate-100 hover:text-[#0F172A] transition-colors"
-                    >
-                      주소 복사
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                <p className="text-caption font-medium text-[#475569]">
-                  {editionLabel} · {editionType === "weekly" ? "위클리" : editionType === "special" ? "스페셜" : "데일리"}
-                </p>
-                {statusBadge(editionStatus)}
-                <p className="text-caption font-semibold text-[#475569]" data-testid="editor-progress">
-                  작성 {progress.done}/{progress.total} 완료
-                </p>
-                {editorMode === "simple" && (
-                  <span
-                    data-testid="editor-simple-mode-badge"
-                    className="text-caption font-extrabold px-2 py-0.5 rounded-full border border-blue-600/30 bg-blue-50 text-blue-700"
+      {/* ━━━ 3열 레이아웃: [1열 에어테이블 목록] + [2열 ≤4탭 에디터] + [3열 실시간 미리보기] ━━━ */}
+      <div
+        data-testid="magazine-three-column-layout"
+        className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0"
+      >
+        {/* ━━━ 1열: 에어테이블형 지능형 뉴스레터 목록 (일간·주간·월간 전환 + 구성 공식 체크) ━━━ */}
+        <EditionAirtableList
+          editions={liveEditionsList}
+          activeEditionId={editionId}
+          activeCadence={editionType}
+          loading={switchingCadence}
+          subscriberCount={subscriberCount}
+          onSelectEdition={(item) => void handleSelectEdition(item)}
+          onSwitchOrCreateCadence={(cadence) => void handleSwitchOrCreateCadence(cadence)}
+          onDuplicateEdition={(item) => void handleDuplicateEdition(item)}
+          onOpenOutreach={() => setActiveTab("outreach")}
+          onOpenAnalytics={() => setActiveTab("analytics")}
+        />
+
+        {/* ━━━ 2열: 에디터 (상단 ≤4개 항목 단추/탭 + 하단 즉시 설정/편집 화면) ━━━ */}
+        <div
+          data-testid="magazine-editor-slot"
+          className={`w-full lg:w-[520px] xl:w-[580px] bg-[#FAF9F5] border-r border-[#CBD5E1] ${
+            showMobilePreview ? "hidden lg:flex" : "flex"
+          } flex-col h-full overflow-hidden shrink-0`}
+        >
+          {/* 헤더 — 125% 배율 노트북에서도 편집 캔버스 높이를 확보하도록 밀도 최적화 */}
+          <div className="px-4 py-2.5 border-b border-[#CBD5E1] flex items-center justify-between gap-2 bg-white/95 backdrop-blur-md z-10 flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <Link
+                href="/broker"
+                aria-label="대시보드로 돌아가기"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center -ml-1.5 rounded-xl hover:bg-slate-100 text-[#475569] hover:text-[#0F172A] transition-colors shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              </Link>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <h1
+                    aria-label="Content Studio"
+                    className="text-base font-extrabold text-[#0F172A] tracking-tight"
                   >
-                    ⚡ 간단 모드
+                    고객 소식지 편집실
+                  </h1>
+                  <span className="rounded-md border border-blue-600/30 bg-blue-50 px-2 py-0.5 text-xs font-extrabold text-blue-700">
+                    매거진 만들기
                   </span>
-                )}
-                {!isPublished && (
-                  <SaveStatusBadge
-                    status={autosave.status}
-                    lastSavedAt={autosave.lastSavedAt}
-                    errorMessage={autosave.errorMessage}
-                    onRetry={() => void autosave.saveNow()}
-                    onOverwrite={() => void autosave.overwrite()}
-                    onReload={() => window.location.reload()}
-                  />
-                )}
+                  {brokerSlug && (
+                    <div className="flex items-center gap-1" data-testid="my-magazine-badge">
+                      <span className="text-caption font-bold text-blue-700">
+                        내 매거진: {brokerSlug}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="공개 매거진 주소 복사"
+                        onClick={() => {
+                          const url = `${window.location.origin}/magazine/${brokerSlug}`;
+                          navigator.clipboard.writeText(url).then(
+                            () => editorToast.success("공개 주소가 복사되었습니다."),
+                            () => editorToast.error("복사하지 못했습니다. 주소를 직접 선택해 주세요.")
+                          );
+                        }}
+                        className="-my-2 inline-flex min-h-11 items-center rounded-lg px-2 text-caption font-semibold text-[#475569] hover:bg-slate-100 hover:text-[#0F172A] transition-colors"
+                      >
+                        주소 복사
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  <p className="text-caption font-bold text-[#0F172A]">
+                    {editionLabel} · {cadenceLabelKo} 뉴스레터
+                  </p>
+                  {statusBadge(editionStatus)}
+                  <p className="text-caption font-semibold text-[#475569]" data-testid="editor-progress">
+                    작성 {progress.done}/{progress.total} 완료
+                  </p>
+                  {/* 모바일용 일간/주간/월간 빠른 전환 칩 */}
+                  <div className="flex lg:hidden items-center gap-1">
+                    {(["daily", "weekly", "monthly"] as const).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => void handleSwitchOrCreateCadence(c)}
+                        className={`rounded-md px-2 py-0.5 text-xs font-extrabold border ${
+                          editionType === c
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-slate-300 bg-white text-slate-700"
+                        }`}
+                      >
+                        {c === "daily" ? "일간" : c === "monthly" ? "월간" : "주간"}
+                      </button>
+                    ))}
+                  </div>
+                  {!isPublished && (
+                    <SaveStatusBadge
+                      status={autosave.status}
+                      lastSavedAt={autosave.lastSavedAt}
+                      errorMessage={autosave.errorMessage}
+                      onRetry={() => void autosave.saveNow()}
+                      onOverwrite={() => void autosave.overwrite()}
+                      onReload={() => window.location.reload()}
+                    />
+                  )}
+                </div>
               </div>
             </div>
+            {!isPublished && (
+              <motion.button
+                type="button"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => void handleManualSave()}
+                disabled={autosave.status === "saving" || !editionReady}
+                className="flex min-h-11 shrink-0 items-center gap-1.5 text-label font-extrabold px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors"
+              >
+                {autosave.status === "saving" ? (
+                  <Loader2
+                    className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Save className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                저장
+              </motion.button>
+            )}
           </div>
-          {!isPublished && (
-            <motion.button
-              type="button"
-              whileHover={{ y: -1 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => void handleManualSave()}
-              disabled={autosave.status === "saving" || !editionReady}
-              className="flex min-h-11 shrink-0 items-center gap-1.5 text-label font-extrabold px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors"
-            >
-              {autosave.status === "saving" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              ) : (
-                <Save className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-              저장
-            </motion.button>
-          )}
-        </div>
 
-        {/* 탭 네비게이션 — 간단 모드에서는 숨김, 상세 편집 모드에서는 모바일(390px)에서도 8개 한글 탭명이 항상 표시되고 가로 스크롤 가능 */}
-        {editorMode === "full" && (
+          {/* ━━━ 상단 ≤4개 항목 단추/탭 (일간 3탭 / 주간 4탭 / 월간 4탭) — 클릭 즉시 하단에 설정/편집 화면 표시 ━━━ */}
           <div
             role="tablist"
             aria-label="콘텐츠 편집 단계"
-            className="flex border-b border-[#CBD5E1] flex-shrink-0 bg-white overflow-x-auto scrollbar-hide px-2"
+            data-testid="editor-primary-tabs"
+            className="flex border-b border-[#CBD5E1] flex-shrink-0 bg-white overflow-x-auto scrollbar-hide px-2 py-1 gap-1"
           >
-            {TABS.map((tab) => {
+            {primaryTabs.map((tab) => {
               const Icon = tab.icon;
-              const isActive = editorMode === "full" && activeTab === tab.key;
-              const done = completion[tab.key] === "done";
+              const isActive = activeTab === tab.key;
+              const done =
+                tab.key === "monthly_stats"
+                  ? monthlyCharts.length >= 2
+                  : tab.key === "news"
+                  ? unitIssues.length >= 5 || completion.news === "done"
+                  : completion[tab.key as keyof typeof completion] === "done";
               return (
                 <button
                   key={tab.key}
@@ -1641,257 +2225,139 @@ function MagazineEditorInner() {
                     setActiveTab(tab.key);
                     e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" });
                   }}
-                  className={`shrink-0 lg:flex-1 min-h-12 flex flex-col items-center justify-center gap-0.5 px-2.5 lg:px-1.5 py-1.5 text-caption font-bold transition-colors relative ${
-                    isActive ? "text-blue-700 font-extrabold" : "text-[#475569] hover:text-[#0F172A]"
+                  className={`shrink-0 flex-1 min-h-11 flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs sm:text-sm font-extrabold transition-colors relative rounded-xl ${
+                    isActive
+                      ? "text-blue-800 bg-blue-50 border border-blue-200 shadow-2xs"
+                      : "text-[#475569] hover:text-[#0F172A] hover:bg-slate-50"
                   }`}
                 >
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTabPill"
-                      transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
-                      className="absolute inset-x-1 inset-y-1 rounded-lg bg-blue-50/80 border border-blue-200 pointer-events-none"
-                    />
-                  )}
-                  <Icon className="relative z-10 w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <Icon className="relative z-10 w-4 h-4 shrink-0" aria-hidden="true" />
                   <span className="relative z-10 inline text-center leading-tight whitespace-nowrap">
                     {tab.label}
                   </span>
                   {done && (
                     <Check
-                      className="absolute top-1 right-1 z-10 w-3 h-3 text-emerald-600"
+                      className="relative z-10 w-3.5 h-3.5 text-emerald-600 shrink-0"
                       aria-hidden="true"
                       data-testid={`tab-done-${tab.key}`}
-                    />
-                  )}
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTab"
-                      transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
-                      className="absolute bottom-0 left-2 right-2 h-0.5 bg-blue-600 rounded-full"
                     />
                   )}
                 </button>
               );
             })}
           </div>
-        )}
 
-        {/* 탭 콘텐츠 */}
-        <div
-          role="tabpanel"
-          id="editor-tabpanel"
-          aria-labelledby={editorMode === "full" ? `editor-tab-${activeTab}` : "editor-mode-bar"}
-          className="flex-1 overflow-y-auto p-4 lg:p-5 space-y-4 bg-[#FAF9F5]"
-        >
-          {/* SOTA 슬라이딩 세그먼트 모드 전환 컨트롤 (Sticky) */}
-          <div
-            data-testid="editor-mode-bar"
-            className="sticky top-0 z-20 grid grid-cols-2 gap-1.5 rounded-2xl border border-[#CBD5E1] bg-white/95 backdrop-blur-md p-1.5 shadow-xs"
-          >
-            <button
-              type="button"
-              data-testid={editorMode === "full" ? "editor-mode-toggle" : "editor-mode-simple"}
-              data-mode-switch="simple"
-              aria-pressed={editorMode === "simple"}
-              onClick={() => {
-                if (editorMode !== "simple") setEditorMode("simple");
-              }}
-              className={`relative flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-extrabold transition-colors ${
-                editorMode === "simple"
-                  ? "text-blue-900 bg-blue-50 border border-blue-600/30 shadow-xs"
-                  : "text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50"
-              }`}
-            >
-              {editorMode === "simple" && (
-                <motion.div
-                  layoutId="editor-mode-active-pill"
-                  transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
-                  className="absolute inset-0 rounded-xl bg-blue-50 border border-blue-600/30 shadow-xs"
-                />
-              )}
-              <span className="relative z-10">
-                ⚡ 3분 완성 간단 모드 {editorMode === "simple" ? "✓" : ""}
+          {/* 보조 탭(구독자 관리 / 성과 / 고급 발행설정) 열람 중일 때 상단 복귀 바 */}
+          {!primaryTabs.some((t) => t.key === activeTab) && (
+            <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+              <span className="text-xs font-extrabold text-slate-700">
+                {activeTab === "outreach"
+                  ? "👥 구독자 · 아웃리치 관리"
+                  : activeTab === "analytics"
+                  ? "📊 열람 성과 · 핫리드 분석"
+                  : activeTab === "publish"
+                  ? "⚙️ 고급 발행 설정"
+                  : "✨ AI 문장 비서"}
               </span>
-            </button>
-
-            <button
-              type="button"
-              data-testid={editorMode === "simple" ? "editor-mode-toggle" : "editor-mode-full"}
-              data-mode-switch="full"
-              aria-pressed={editorMode === "full"}
-              onClick={() => {
-                if (editorMode !== "full") setEditorMode("full");
-              }}
-              className={`relative flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-extrabold transition-colors ${
-                editorMode === "full"
-                  ? "text-blue-900 bg-blue-50 border border-blue-600/30 shadow-xs"
-                  : "text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50"
-              }`}
-            >
-              {editorMode === "full" && (
-                <motion.div
-                  layoutId="editor-mode-active-pill"
-                  transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
-                  className="absolute inset-0 rounded-xl bg-blue-50 border border-blue-600/30 shadow-xs"
-                />
-              )}
-              <span className="relative z-10">
-                🛠️ 전문가 상세 편집 {editorMode === "full" ? "✓" : ""}
-              </span>
-            </button>
-          </div>
-
-          {/* 간단 모드 바로가기: 구독자 관리 & 성과 빠른 열기 */}
-          {editorMode === "simple" && (
-            <div className="flex items-center gap-2 pt-0.5">
               <button
                 type="button"
-                data-testid="simple-quick-outreach"
-                onClick={() => {
-                  setEditorMode("full", { skipRemote: true });
-                  setActiveTab("outreach");
-                }}
-                className="flex-1 flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/80 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors shadow-2xs"
+                onClick={() => setActiveTab("cover")}
+                className="text-xs font-extrabold text-blue-700 hover:underline"
               >
-                <Users className="w-3.5 h-3.5 text-amber-700" aria-hidden="true" />
-                <span>👥 구독자 관리 ({subscriberCount ?? 0}명)</span>
-              </button>
-              <button
-                type="button"
-                data-testid="simple-quick-analytics"
-                onClick={() => {
-                  setEditorMode("full", { skipRemote: true });
-                  setActiveTab("analytics");
-                }}
-                className="flex-1 flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50/80 px-3 py-1.5 text-xs font-bold text-rose-900 hover:bg-rose-100 transition-colors shadow-2xs"
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-rose-700" aria-hidden="true" />
-                <span>📊 열람 성과 / 핫리드</span>
+                ← 기본 편집 탭으로 돌아가기
               </button>
             </div>
           )}
 
-          <AnimatePresence mode="wait" initial={false}>
-            {editorMode === "simple" ? (
-              <motion.div
-                key="mode-simple"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
+          {/* 하단 즉시 설정/편집 화면 */}
+          <div
+            role="tabpanel"
+            id="editor-tabpanel"
+            aria-labelledby={`editor-tab-${activeTab}`}
+            className="flex-1 overflow-y-auto p-4 lg:p-5 space-y-4 bg-[#FAF9F5]"
+          >
+            {renderTabContent()}
+          </div>
+
+          {/* 하단 액션 — 발행 단일 버튼 세트 (저장은 헤더, 발행은 여기 하나) */}
+          <div className="p-3 lg:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[#CBD5E1] flex flex-wrap items-stretch gap-2 lg:flex-col lg:flex-nowrap flex-shrink-0 bg-white">
+            <div className="flex w-full gap-2">
+              <Link
+                href={`/magazine/${encodeURIComponent(brokerSlug)}/${
+                  isPublished ? publishedIssueDate : today
+                }${
+                  !isPublished && editionId
+                    ? `?preview=1&edition=${encodeURIComponent(editionId)}`
+                    : ""
+                }`}
+                target="_blank"
+                title={
+                  isPublished
+                    ? "발행된 이번 호의 공개 주소로 이동합니다"
+                    : "이번 호의 공개 주소(발행 전에는 미발행 안내가 표시되며, 편집 화면은 우측 미리보기에서 확인)"
+                }
+                className="flex-1 min-w-0 flex min-h-11 items-center justify-center gap-1.5 text-label font-bold px-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-slate-50 transition-all shadow-2xs"
               >
-                <SimpleEditor
-                  editionId={editionId}
-                  brokerName={resolveEditorPublicName(identity, brokerSlug)}
-                  fieldNote={fieldNote}
-                  updateFieldNote={updateFieldNote}
-                  headline={headline}
-                  setHeadline={setHeadline}
-                  briefing={briefing}
-                  setBriefing={setBriefing}
-                  marketTemp={marketTemp}
-                  setMarketTemp={setMarketTemp}
-                  deals={dealPool}
-                  selectedDealIds={selectedDealIds}
-                  toggleDeal={toggleDeal}
-                  fmt={fmt}
-                  newsTitles={topNewsSnapshot.map((n) => String(n.title ?? ""))}
-                  allNews={newsPool}
-                  selectedNewsIds={selectedNewsIds}
-                  toggleNews={toggleNews}
-                  onReplaceNewsSelection={replaceNewsSelection}
-                  onRefreshLiveNews={refreshLiveChannelNews}
-                  themeTitle={themeTitle}
-                  themeBodyMd={themeBodyMd}
-                  pollQuestion={pollQuestion}
-                  taxQuestion={taxQuestion}
-                  taxAnswer={taxAnswer}
-                  isPublished={isPublished}
-                  publishing={publishing}
-                  saving={autosave.status === "saving"}
-                  onPublish={(ensuredHeadline) => void handleOpenPublish(ensuredHeadline)}
-                  onOpenTab={(tabKey) => {
-                    setEditorMode("full", { skipRemote: true });
-                    setActiveTab(tabKey);
-                  }}
-                  onSwitchToFullMode={() => setEditorMode("full")}
+                <Eye className="hidden lg:inline-block w-3.5 h-3.5 text-[#475569]" aria-hidden="true" />
+                📱 실제 화면으로 보기
+                <ExternalLink
+                  className="hidden lg:inline-block w-3 h-3 ml-1 opacity-60"
+                  aria-hidden="true"
                 />
-              </motion.div>
-            ) : (
-              <motion.div
-                key={`mode-full-${activeTab}`}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
+              </Link>
+              <button
+                type="button"
+                aria-expanded={showMobilePreview}
+                onClick={() => setShowMobilePreview((v) => !v)}
+                className="lg:hidden flex min-h-11 items-center justify-center gap-1 rounded-xl border border-blue-600/30 bg-blue-50 px-3 py-2 text-xs font-extrabold text-blue-800 hover:bg-blue-100 transition-all"
               >
-                {renderTabContent()}
-              </motion.div>
+                📱 독자 화면 미리보기
+              </button>
+            </div>
+            {isPublished && (
+              <p
+                className="basis-full order-first lg:order-none text-caption font-semibold leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-lg"
+                role="note"
+              >
+                이미 발행된 호수입니다. 내용을 고친 뒤 &quot;정정 발행&quot;을 누르면 공개 페이지가 갱신됩니다. 초안으로 되돌릴 수 없습니다.
+              </p>
             )}
-          </AnimatePresence>
-        </div>
-
-        {/* 하단 액션 — 발행 단일 버튼 세트 (저장은 헤더, 발행은 여기 하나) */}
-        <div className="p-3 lg:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[#CBD5E1] flex flex-wrap items-stretch gap-2 lg:flex-col lg:flex-nowrap flex-shrink-0 bg-white">
-          <div className="flex w-full gap-2">
-            <Link
-              href={`/magazine/${encodeURIComponent(brokerSlug)}/${isPublished ? publishedIssueDate : today}${!isPublished && editionId ? `?preview=1&edition=${encodeURIComponent(editionId)}` : ""}`}
-              target="_blank"
-              title={
-                isPublished
-                  ? "발행된 이번 호의 공개 주소로 이동합니다"
-                  : "이번 호의 공개 주소(발행 전에는 미발행 안내가 표시되며, 편집 화면은 우측 미리보기에서 확인)"
-              }
-              className="flex-1 min-w-0 flex min-h-11 items-center justify-center gap-1.5 text-label font-bold px-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-slate-50 transition-all shadow-2xs"
-            >
-              <Eye className="hidden lg:inline-block w-3.5 h-3.5 text-[#475569]" aria-hidden="true" />
-              📱 실제 화면으로 보기
-              <ExternalLink className="hidden lg:inline-block w-3 h-3 ml-1 opacity-60" aria-hidden="true" />
-            </Link>
-            <button
-              type="button"
-              aria-expanded={showMobilePreview}
-              onClick={() => setShowMobilePreview((v) => !v)}
-              className="lg:hidden flex min-h-11 items-center justify-center gap-1 rounded-xl border border-blue-600/30 bg-blue-50 px-3 py-2 text-xs font-extrabold text-blue-800 hover:bg-blue-100 transition-all"
-            >
-              📱 독자 화면 미리보기
-            </button>
-          </div>
-          {isPublished && (
-            <p className="basis-full order-first lg:order-none text-caption font-semibold leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-lg" role="note">
-              이미 발행된 호수입니다. 내용을 고친 뒤 &quot;정정 발행&quot;을 누르면 공개 페이지가 갱신됩니다. 초안으로 되돌릴 수 없습니다.
-            </p>
-          )}
-          <div className="flex gap-2 flex-1 lg:flex-none w-full">
-            <motion.button
-              type="button"
-              whileHover={{ y: -1 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => void handleOpenPublish()}
-              disabled={publishing || autosave.status === "saving"}
-              className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-extrabold px-4 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors"
-            >
-              {publishing ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              ) : (
-                <Send className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-              {isPublished ? "정정 발행" : "발행하기"}
-            </motion.button>
+            <div className="flex gap-2 flex-1 lg:flex-none w-full">
+              <motion.button
+                type="button"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => void handleOpenPublish()}
+                disabled={publishing || autosave.status === "saving"}
+                className="flex-1 flex min-h-11 items-center justify-center gap-2 text-label font-extrabold px-4 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors"
+              >
+                {publishing ? (
+                  <Loader2
+                    className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Send className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                {isPublished ? "정정 발행" : `${cadenceLabelKo} 뉴스레터 발행하기`}
+              </motion.button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ━━━ 우측 패널: 미리보기 (모바일은 토글 시 노출, 데스크톱은 상시 노출) ━━━ */}
-      <div className={`${showMobilePreview ? "flex" : "hidden"} lg:flex flex-1 h-full overflow-hidden`}>
-        <MagazinePhonePreview
-          previewData={previewViewData}
-          brokerSlug={brokerSlug}
-          today={today}
-          dateLabel={formatKoreanDate(today)}
-          editionId={editionId}
-        />
-      </div>
+        {/* ━━━ 3열: 실시간 미리보기 (모바일은 토글 시 노출, 데스크톱은 상시 노출) ━━━ */}
+        <div
+          data-testid="magazine-preview-slot"
+          className={`${showMobilePreview ? "flex" : "hidden"} lg:flex flex-1 min-w-[320px] h-full overflow-hidden`}
+        >
+          <MagazinePhonePreview
+            previewData={previewViewData}
+            brokerSlug={brokerSlug}
+            today={today}
+            dateLabel={formatKoreanDate(today)}
+            editionId={editionId}
+          />
+        </div>
       </div>
 
       {/* ── 모바일 5탭 하단 내비게이션 (<1024px) ── */}

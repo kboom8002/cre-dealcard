@@ -30,10 +30,18 @@ export class EditionDraftError extends Error {
   }
 }
 
-export function kindOfEditionType(editionType: string): 'weekly' | 'special' | 'daily' {
+export function kindOfEditionType(editionType: string): 'weekly' | 'special' | 'daily' | 'monthly' {
   if (editionType === 'special') return 'special';
   if (editionType === 'daily') return 'daily';
+  if (editionType === 'monthly') return 'monthly';
   return 'weekly';
+}
+
+export function defaultLabelForEditionType(editionType: string, now?: Date): string {
+  const dateStr = todayKst(now);
+  if (editionType === 'daily') return dateStr;
+  if (editionType === 'monthly') return dateStr.slice(0, 7);
+  return currentWeekLabel(now);
 }
 
 function pickExisting(rows: EditionRecord[]): EditionRecord | null {
@@ -49,7 +57,7 @@ export async function getOrCreateDraftEdition(
   opts: { editionType?: string; editionLabel?: string; format?: 'simple' | 'full' } = {},
 ): Promise<{ edition: EditionRecord; created: boolean }> {
   const editionType = opts.editionType ?? 'weekly';
-  const editionLabel = opts.editionLabel ?? currentWeekLabel();
+  const editionLabel = opts.editionLabel ?? defaultLabelForEditionType(editionType);
   const format: 'simple' | 'full' = opts.format === 'full' ? 'full' : 'simple';
 
   const lookup = async (): Promise<EditionRecord[]> => {

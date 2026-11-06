@@ -237,6 +237,12 @@ function InboxWorkspaceInner() {
   const [threads, setThreads] = useState<InboxThreadItem[]>(INITIAL_THREADS);
   const [inventory, setInventory] = useState<BrokerInventoryDeal[]>(DEFAULT_INVENTORY);
   const [activeFilter, setActiveFilter] = useState<InboxFilterType>("action");
+  const [focusMode, setFocusMode] = useState<"hot_lead" | "gate_req" | "vip_crm">("hot_lead");
+  const [activeInboxTab, setActiveInboxTab] = useState<
+    "diagnosis_gate" | "kakao_proposal" | "matched_deals" | "timeline_security"
+  >("diagnosis_gate");
+  const [kakaoHeadline, setKakaoHeadline] = useState<string>("");
+  const [kakaoBrief, setKakaoBrief] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>(INITIAL_THREADS[0]?.id || "");
   const [callNote, setCallNote] = useState("");
@@ -914,9 +920,90 @@ function InboxWorkspaceInner() {
     showUndoToast(`${created.clientName} (${created.clientGrade}) 고객이 명단에 등록되었습니다.`);
   };
 
-  /* ──────── Column 1: Inbox Filter & List ──────── */
+  // Sync AXIOS Kakao follow-up proposal when active thread changes
+  useEffect(() => {
+    if (!activeThread) return;
+    const primarySection = activeThread.focusedSections?.[0] || "핵심 수익률·렌트롤";
+    setKakaoHeadline(
+      `[${activeThread.buildingTitle}] ${primarySection.split(" (")[0]} 맞춤 검토 브리프`
+    );
+    setKakaoBrief(
+      `${activeThread.clientName}님, 집중 검토하신 ${primarySection} 관련 세부 임대차 만기 일정과 레버리지 적용 시 기대수익률 시뮬레이션을 정리해 두었습니다. 희망 예산(${activeThread.budget}) 내 비교 가능한 인근 알짜 매물 2건도 함께 안내해 드립니다.`
+    );
+  }, [activeThread?.id]);
+
+  const handleCopyAxiosKakaoProposal = () => {
+    const shareUrl = `${typeof window !== "undefined" ? window.location.origin : "https://credeal.net"}/im-lite/${activeThread.buildingId}`;
+    const msg = `${kakaoHeadline}\n\n${kakaoBrief}\n\n▶ 모바일 IM 상세보기: ${shareUrl}`;
+    try {
+      navigator.clipboard?.writeText(msg);
+    } catch {
+      // ignore in JSDOM
+    }
+    showUndoToast("📌 AXIOS형 맞춤 카톡 팔로업 제안문이 복사되었습니다.");
+  };
+
+  /* ──────── Column 1: Inbox Filter & List (Airtable-Style Intelligent CRM Grid) ──────── */
   const listSlot = (
     <div className="flex flex-col h-full bg-[#FAF9F5] p-3 space-y-2.5" data-testid="inbox-list-slot">
+      {/* Airtable CRM Header Banner */}
+      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#0F172A] text-white">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950">
+            AIRTABLE CRM
+          </span>
+          <span className="text-[12px] font-bold text-slate-200">
+            고객소통 · 열람신호 목록
+          </span>
+        </div>
+        <span className="text-[12px] font-mono text-amber-300 font-bold">
+          {filteredThreads.length}명
+        </span>
+      </div>
+
+      {/* 3종 소통 포커스 스위처 (핫리드·열람 신호 / G2 승인·자료요청 / VIP·구독 명단) */}
+      <div
+        data-testid="inbox-focus-switcher"
+        className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-200 border border-slate-300"
+      >
+        {(
+          [
+            { id: "hot_lead", label: "🔥 핫리드·열람", filter: "action" as InboxFilterType },
+            { id: "gate_req", label: "🔒 G2 승인요청", filter: "views" as InboxFilterType },
+            { id: "vip_crm", label: "👥 VIP·구독명단", filter: "clients" as InboxFilterType },
+          ] as const
+        ).map((sw) => {
+          const active = focusMode === sw.id;
+          return (
+            <button
+              key={sw.id}
+              type="button"
+              data-testid={`inbox-focus-tab-${sw.id}`}
+              onClick={() => {
+                setFocusMode(sw.id);
+                setActiveFilter(sw.filter);
+              }}
+              className={`min-h-[36px] px-1.5 py-1 rounded-lg text-[11px] font-extrabold transition cursor-pointer ${
+                active
+                  ? "bg-white text-[#0F172A] shadow-xs border border-blue-300"
+                  : "text-slate-700 hover:text-slate-950"
+              }`}
+            >
+              {sw.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 소통 공식 배너 */}
+      <div
+        data-testid="inbox-formula-banner"
+        className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-950 font-semibold leading-snug"
+      >
+        <span className="font-extrabold text-amber-900">[고객소통 공식]</span>{" "}
+        열람 체류 진단 + AXIOS 포스트잇 제안문 + 맞춤 대체매물
+      </div>
+
       {/* Search Input */}
       <div>
         <input
@@ -1051,11 +1138,12 @@ function InboxWorkspaceInner() {
         </div>
       )}
 
-      {/* Thread list */}
+      {/* Thread list (Airtable Intelligent Rows) */}
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {filteredThreads.map((thread) => {
           const isSelected = thread.id === selectedId;
           const isHot = thread.openCount >= 3;
+          const topFocus = thread.focusedSections?.[0]?.split(" (")[0] || "02 하이라이트";
 
           return (
             <div
@@ -1064,7 +1152,7 @@ function InboxWorkspaceInner() {
               tabIndex={0}
               onClick={() => setSelectedId(thread.id)}
               onKeyDown={(e) => e.key === "Enter" && setSelectedId(thread.id)}
-              className={`w-full min-h-[72px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
+              className={`w-full min-h-[84px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
                 isSelected
                   ? "bg-white border-[#1D4ED8] shadow-sm ring-2 ring-[#1D4ED8]/20"
                   : "bg-white border-[#E2E8F0] hover:border-[#64748B]"
@@ -1076,7 +1164,10 @@ function InboxWorkspaceInner() {
 
               <div className="flex items-center justify-between gap-1 mb-1">
                 <div className="flex items-center gap-1.5 truncate">
-                  <span className="font-bold text-[16px] text-[#0F172A] truncate">
+                  <span
+                    data-single-line-title="true"
+                    className="font-bold text-[16px] text-[#0F172A] whitespace-nowrap overflow-hidden text-ellipsis truncate"
+                  >
                     {thread.clientName}
                   </span>
                   <span className="text-[12px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-1.5 py-0.5 rounded">
@@ -1104,10 +1195,28 @@ function InboxWorkspaceInner() {
                 </div>
               </div>
 
-              <p className="text-[14px] text-[#0F172A] font-semibold truncate mb-0.5">
+              <p
+                data-single-line-title="true"
+                className="text-[14px] text-[#0F172A] font-semibold whitespace-nowrap overflow-hidden text-ellipsis truncate mb-0.5"
+              >
                 {thread.buildingTitle}
               </p>
               <p className="text-[13px] text-[#475569] truncate">{thread.latestEvent}</p>
+
+              {/* Airtable Intelligent Row Pills */}
+              <div className="flex flex-wrap items-center gap-1 mt-2 pt-1.5 border-t border-slate-100">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
+                  💰 {thread.budget}
+                </span>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">
+                  🎯 {topFocus}
+                </span>
+                {thread.newsletterSubscribed && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    📰 구독 ✓
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
@@ -1115,15 +1224,18 @@ function InboxWorkspaceInner() {
     </div>
   );
 
-  /* ──────── Column 2: Thread Details & Action Area ──────── */
+  /* ──────── Column 2: Minimalist <= 4 Top Tabs + Immediate Action/Editing Screen ──────── */
   const editorSlot = (
-    <div className="p-4 sm:p-6 space-y-6 max-w-3xl mx-auto" data-testid="inbox-editor-slot">
-      {/* Header card for selected thread */}
-      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
-          <div>
+    <div className="p-4 sm:p-6 space-y-5 max-w-3xl mx-auto" data-testid="inbox-editor-slot">
+      {/* Compact Single-Line Header Card for Selected Client Thread */}
+      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-4 sm:p-5 shadow-sm space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-[20px] font-extrabold text-[#0F172A]">
+              <h2
+                data-single-line-title="true"
+                className="text-[20px] font-extrabold text-[#0F172A] whitespace-nowrap overflow-hidden text-ellipsis truncate"
+              >
                 {activeThread.clientName}
               </h2>
               <span className="text-[13px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
@@ -1136,14 +1248,17 @@ function InboxWorkspaceInner() {
                 </span>
               )}
             </div>
-            <p className="text-[15px] text-[#334155] font-semibold mt-1">
-              관심 매물: {activeThread.buildingTitle}
+            <p
+              data-single-line-title="true"
+              className="text-[15px] text-[#334155] font-semibold mt-1 whitespace-nowrap overflow-hidden text-ellipsis truncate"
+            >
+              관심 매물: {activeThread.buildingTitle} ({activeThread.budget} · {activeThread.preferredRegion})
             </p>
           </div>
 
           <a
             href={`tel:${activeThread.clientPhone}`}
-            className="min-h-[48px] px-4 py-2.5 bg-[#0F172A] text-white rounded-xl font-bold text-[15px] flex items-center gap-1.5 hover:bg-[#1E293B] cursor-pointer"
+            className="min-h-[46px] px-4 py-2 bg-[#0F172A] text-white rounded-xl font-bold text-[15px] flex items-center gap-1.5 hover:bg-[#1E293B] cursor-pointer shrink-0"
           >
             <span>📞</span> 전화 연결
           </a>
@@ -1159,14 +1274,14 @@ function InboxWorkspaceInner() {
           </span>
           <Link
             href={`/broker/w/dealcards?buildingId=${encodeURIComponent(activeThread.buildingId)}`}
-            className="min-h-[38px] px-3 py-1.5 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#1D4ED8] hover:text-[#1D4ED8] flex items-center gap-1"
+            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#1D4ED8] hover:text-[#1D4ED8] flex items-center gap-1"
             data-testid="bridge-dealcard-link"
           >
             📄 딜카드 편집
           </Link>
           <Link
             href={`/broker/w/im?buildingId=${encodeURIComponent(activeThread.buildingId)}`}
-            className="min-h-[38px] px-3 py-1.5 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#1D4ED8] hover:text-[#1D4ED8] flex items-center gap-1"
+            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#1D4ED8] hover:text-[#1D4ED8] flex items-center gap-1"
             data-testid="bridge-im-link"
           >
             📊 IM 편집
@@ -1174,14 +1289,14 @@ function InboxWorkspaceInner() {
           <Link
             href={`/im-lite/${encodeURIComponent(activeThread.buildingId)}`}
             target="_blank"
-            className="min-h-[38px] px-3 py-1.5 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#1D4ED8] hover:bg-[#EFF6FF] flex items-center gap-1"
+            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#1D4ED8] hover:bg-[#EFF6FF] flex items-center gap-1"
             data-testid="bridge-viewer-link"
           >
             👁️ 고객 화면 열기 ↗
           </Link>
           <a
             href={`/api/public/im-lite/${encodeURIComponent(activeThread.buildingId)}/pptx`}
-            className="min-h-[38px] px-3 py-1.5 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#0F172A] flex items-center gap-1"
+            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#0F172A] flex items-center gap-1"
             data-testid="bridge-pptx-link"
           >
             📥 PPTX 다운로드
@@ -1189,7 +1304,7 @@ function InboxWorkspaceInner() {
           <button
             type="button"
             onClick={handleToggleNewsletterSubscription}
-            className={`min-h-[38px] px-3 py-1.5 rounded-lg text-[13px] font-bold border cursor-pointer flex items-center gap-1 ${
+            className={`min-h-[36px] px-3 py-1 rounded-lg text-[13px] font-bold border cursor-pointer flex items-center gap-1 ${
               activeThread.newsletterSubscribed
                 ? "bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]"
                 : "bg-white text-[#475569] border-[#CBD5E1]"
@@ -1199,27 +1314,107 @@ function InboxWorkspaceInner() {
             📰 {activeThread.newsletterSubscribed ? "소식지 구독 중 ✓" : "소식지 구독 추가"}
           </button>
         </div>
+      </div>
 
-        {/* [M4] Section Dwell Intelligence & Coaching Banner */}
+      {/* Top <= 4 Primary Tabs (Minimalist Tab Bar -> Immediate Setting/Action Panel Below) */}
+      <div
+        data-testid="inbox-editor-primary-tabs"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-200/90 border border-slate-300"
+      >
+        {(
+          [
+            {
+              id: "diagnosis_gate",
+              label: "① 열람진단·G2승인",
+              sub: activeThread.status === "pending_gate" ? "G2 승인 대기!" : `${activeThread.openCount}회 열람 분석`,
+            },
+            {
+              id: "kakao_proposal",
+              label: "② 카톡 제안·안부",
+              sub: "AXIOS 포스트잇 제안문",
+            },
+            {
+              id: "matched_deals",
+              label: "③ 맞춤 대체매물",
+              sub: `추천 ${matchedAlternativeDeals.length}건 큐레이션`,
+            },
+            {
+              id: "timeline_security",
+              label: "④ 통화메모·이력",
+              sub: `이벤트 ${activeThread.events.length}건 기록`,
+            },
+          ] as const
+        ).map((tab) => {
+          const isActive = activeInboxTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              data-testid={`inbox-editor-tab-${tab.id}`}
+              onClick={() => setActiveInboxTab(tab.id)}
+              className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                isActive
+                  ? "bg-[#0F172A] text-white shadow-sm"
+                  : "bg-white/80 text-slate-800 hover:bg-white"
+              }`}
+            >
+              <div className="text-[14px] font-extrabold leading-tight">{tab.label}</div>
+              <div
+                className={`text-[11px] mt-0.5 font-medium ${
+                  isActive ? "text-amber-300" : "text-slate-500"
+                }`}
+              >
+                {tab.sub}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── TAB 1 PANEL: ① 열람진단·G2승인 (Immediate Action Screen) ── */}
+      <div
+        data-testid="inbox-tab-panel-diagnosis-gate"
+        className={activeInboxTab === "diagnosis_gate" ? "space-y-4 block" : "hidden"}
+      >
+        {/* AXIOS Wide Pastel Post-it Card for Section Dwell Diagnosis */}
         {activeThread.focusedSections && activeThread.focusedSections.length > 0 && (
           <div
-            className="p-3.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl space-y-2"
             data-testid="section-dwell-badges"
+            style={{ backgroundColor: "#FEF9C3", borderColor: "#FDE047" }}
+            className="p-5 rounded-2xl border-2 space-y-3 shadow-xs"
           >
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[13px] font-extrabold text-[#1E40AF]">
-                🎯 고객 집중 검토 섹션:
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span
+                style={{ backgroundColor: "#FEF08A", color: "#854D0E" }}
+                className="text-[12px] font-extrabold px-2.5 py-0.5 rounded-md"
+              >
+                📌 AXIOS 열람 체류 진단 포스트잇
               </span>
-              {activeThread.focusedSections.map((sec, idx) => (
-                <span
-                  key={idx}
-                  className="text-[12px] font-bold bg-white text-[#1D4ED8] border border-[#93C5FD] px-2.5 py-0.5 rounded-full"
-                >
-                  {sec}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[12px] font-extrabold text-amber-950">
+                  🎯 고객 집중 검토 섹션:
                 </span>
-              ))}
+                {activeThread.focusedSections.map((sec, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[12px] font-bold bg-white text-[#1D4ED8] border border-[#93C5FD] px-2.5 py-0.5 rounded-full"
+                  >
+                    {sec}
+                  </span>
+                ))}
+              </div>
             </div>
-            <p className="text-[13px] text-[#1E3A8A] leading-snug">
+
+            {/* 1-Line Large Bold Headline */}
+            <h3
+              data-single-line-title="true"
+              className="text-[18px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
+            >
+              [{activeThread.clientName}] {activeThread.focusedSections[0]} 집중 검토 · 매수 타이밍 포착
+            </h3>
+
+            {/* 2~3 Sentence AXIOS Brief */}
+            <p className="text-[14px] font-medium text-slate-800 leading-relaxed">
               💡 <strong>통화 브리핑 팁:</strong> 고객이{" "}
               <strong>{activeThread.focusedSections[0]}</strong> 영역을 가장 오래 살펴보았습니다.
               통화 시 임대차 만기 일정이나 대출 레버리지 적용 시 기대수익률 변동을 먼저 안내해 보세요.
@@ -1228,8 +1423,8 @@ function InboxWorkspaceInner() {
         )}
 
         {/* Gate Request Action Panel if status === 'pending_gate' */}
-        {activeThread.status === "pending_gate" && (
-          <div className="p-4 bg-[#FEF3C7] border-2 border-[#FDE68A] rounded-2xl space-y-3">
+        {activeThread.status === "pending_gate" ? (
+          <div className="p-5 bg-[#FEF3C7] border-2 border-[#FDE68A] rounded-2xl space-y-3">
             <div className="flex items-center gap-2 text-[#92400E] font-bold text-[16px]">
               <span>🔒</span>
               <span>G2 상세자료 공개 승인 요청</span>
@@ -1254,10 +1449,7 @@ function InboxWorkspaceInner() {
               </button>
             </div>
           </div>
-        )}
-
-        {/* [M2] Unlocked Security Link Follow-up Banner after G2 Approval */}
-        {activeThread.gateStatus === "approved" && (
+        ) : activeThread.gateStatus === "approved" ? (
           <div
             className="p-4 bg-[#ECFDF5] border-2 border-[#6EE7B7] rounded-2xl flex flex-wrap items-center justify-between gap-3"
             data-testid="g2-approved-banner"
@@ -1279,21 +1471,151 @@ function InboxWorkspaceInner() {
               📋 G2 승인 링크 카톡 문구 복사
             </button>
           </div>
+        ) : (
+          <div className="p-4 bg-white rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-[14px] font-bold text-slate-900">
+                현재 보안 링크 상태: 정상 열람 가능 ({activeThread.shareToken})
+              </p>
+              <p className="text-[13px] text-slate-600">
+                상단 [② 카톡 제안·안부] 탭에서 AXIOS 포스트잇 맞춤 팔로업 문구를 즉시 작성·발송할 수 있습니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveInboxTab("kakao_proposal")}
+              className="px-3.5 py-2 rounded-xl bg-blue-700 text-white text-[13px] font-bold cursor-pointer shrink-0"
+            >
+              카톡 제안 작성 →
+            </button>
+          </div>
         )}
+      </div>
 
-        {/* Direct KakaoTemplatePicker Helper */}
-        <div className="pt-2">
-          <KakaoTemplatePicker
-            buildingId={activeThread.buildingId}
-            dealTitle={activeThread.buildingTitle}
-            defaultTemplateId="tpl-06"
-            buttonLabel="💬 카톡 팔로업 안부 인사말 복사 (tpl-06)"
+      {/* ── TAB 2 PANEL: ② 카톡 제안·안부 (AXIOS Wide Post-it Proposal Editor) ── */}
+      <div
+        data-testid="inbox-tab-panel-kakao-proposal"
+        className={activeInboxTab === "kakao_proposal" ? "space-y-4 block" : "hidden"}
+      >
+        <div
+          data-testid="inbox-axios-kakao-postit"
+          style={{ backgroundColor: "#E0F2FE", borderColor: "#7DD3FC" }}
+          className="rounded-2xl border-2 p-5 space-y-3 shadow-xs"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span
+              style={{ backgroundColor: "#BAE6FD", color: "#075985" }}
+              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded-md"
+            >
+              💬 AXIOS 포스트잇 카톡 팔로업 제안서
+            </span>
+            <span className="text-[12px] font-bold text-sky-900">
+              1줄 핵심 제목 + 2~4문장 맞춤 브리프
+            </span>
+          </div>
+
+          <input
+            type="text"
+            data-testid="inbox-kakao-headline-input"
+            value={kakaoHeadline}
+            onChange={(e) => setKakaoHeadline(e.target.value)}
+            className="w-full h-11 px-3.5 text-[17px] font-extrabold text-slate-950 bg-white rounded-xl border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap overflow-hidden text-ellipsis"
+            placeholder="1줄 카톡 핵심 제목"
           />
+
+          <textarea
+            rows={3}
+            data-testid="inbox-kakao-brief-input"
+            value={kakaoBrief}
+            onChange={(e) => setKakaoBrief(e.target.value)}
+            className="w-full px-3.5 py-2.5 text-[14px] font-medium text-slate-800 bg-white/95 rounded-xl border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
+            placeholder="2~4문장 맞춤 검토 브리프 해설"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              data-testid="inbox-copy-axios-kakao-btn"
+              onClick={handleCopyAxiosKakaoProposal}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-[14px] font-extrabold cursor-pointer"
+            >
+              📋 AXIOS 포스트잇 제안문 복사
+            </button>
+            <KakaoTemplatePicker
+              buildingId={activeThread.buildingId}
+              dealTitle={activeThread.buildingTitle}
+              defaultTemplateId="tpl-06"
+              buttonLabel="💬 표준 안부 템플릿 선택 (tpl-06)"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Activity Timeline */}
-      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4">
+      {/* ── TAB 3 PANEL: ③ 맞춤 대체매물 (Immediate Curation Screen) ── */}
+      <div
+        data-testid="inbox-tab-panel-matched-deals"
+        className={activeInboxTab === "matched_deals" ? "space-y-4 block" : "hidden"}
+      >
+        <div
+          data-testid="inbox-editor-matched-deals"
+          style={{ backgroundColor: "#DCFCE7", borderColor: "#86EFAC" }}
+          className="rounded-2xl border-2 p-5 space-y-3 shadow-xs"
+        >
+          <div className="flex items-center justify-between">
+            <span
+              style={{ backgroundColor: "#BBF7D0", color: "#166534" }}
+              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded-md"
+            >
+              🎯 예산({activeThread.budget}) · 선호권역({activeThread.preferredRegion}) 자동 매칭
+            </span>
+            <span className="text-[12px] font-bold text-emerald-900">
+              비교 추천 포스트잇
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {matchedAlternativeDeals.map(({ deal, reasonLabel }) => (
+              <div
+                key={deal.buildingId}
+                className="p-4 bg-white rounded-xl border border-emerald-300 space-y-2 shadow-2xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded">
+                    {reasonLabel}
+                  </span>
+                  <span className="text-[12px] font-extrabold text-[#1D4ED8]">
+                    {deal.priceBand} · 연 {deal.capRatePct.toFixed(1)}%
+                  </span>
+                </div>
+                <p
+                  data-single-line-title="true"
+                  className="text-[15px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
+                >
+                  {deal.title}
+                </p>
+                <p className="text-[12px] text-slate-600">{deal.region}</p>
+                <button
+                  type="button"
+                  onClick={() => handleCopyAlternativeDeal(deal)}
+                  className="w-full min-h-[38px] px-3 bg-[#0F172A] text-white font-bold text-[12px] rounded-lg hover:bg-[#1E293B] cursor-pointer"
+                >
+                  📋 비교 추천 카톡 문구 복사
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── TAB 4 PANEL: ④ 통화메모·이력 (Activity Timeline & Consultation Log) ── */}
+      <div
+        data-testid="inbox-tab-panel-timeline-security"
+        className={
+          activeInboxTab === "timeline_security"
+            ? "bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4 block"
+            : "hidden"
+        }
+      >
         <h3 className="text-[18px] font-extrabold text-[#0F172A]">
           열람 및 발송 이력 타임라인
         </h3>
@@ -1364,9 +1686,14 @@ function InboxWorkspaceInner() {
         </div>
       )}
 
-      {/* Recipient Profile Card */}
+      {/* Recipient Profile Card + Live AXIOS Kakao Proposal Preview */}
       <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-4 shadow-sm space-y-3">
-        <h4 className="text-[16px] font-extrabold text-[#0F172A]">고객 매수 프로필</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-[16px] font-extrabold text-[#0F172A]">고객 매수 프로필</h4>
+          <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+            {activeThread.clientGrade}
+          </span>
+        </div>
         <div className="space-y-2 text-[14px]">
           <div className="flex justify-between p-2 bg-[#FAF9F5] rounded-lg">
             <span className="text-[#64748B]">투자 예산</span>
@@ -1382,6 +1709,33 @@ function InboxWorkspaceInner() {
               {activeThread.shareToken}
             </span>
           </div>
+        </div>
+
+        {/* Live AXIOS Kakao Post-it Preview */}
+        <div
+          data-testid="inbox-preview-kakao-card"
+          style={{ backgroundColor: "#E0F2FE", borderColor: "#7DD3FC" }}
+          className="rounded-xl border p-3 space-y-1.5"
+        >
+          <div className="flex items-center justify-between">
+            <span
+              style={{ backgroundColor: "#BAE6FD", color: "#075985" }}
+              className="text-[10px] font-extrabold px-2 py-0.5 rounded"
+            >
+              💬 카톡 제안 미리보기
+            </span>
+            <span className="text-[10px] font-bold text-sky-900">1줄 제목 고정</span>
+          </div>
+          <p
+            data-single-line-title="true"
+            title={kakaoHeadline}
+            className="text-[13px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
+          >
+            {kakaoHeadline}
+          </p>
+          <p className="text-[11px] text-slate-700 leading-snug line-clamp-2">
+            {kakaoBrief}
+          </p>
         </div>
       </div>
 

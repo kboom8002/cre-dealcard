@@ -29,11 +29,14 @@ import { ViewerTrackProvider } from "@/components/magazine/viewer-track";
 import { LazyRoiCalculator, LazyForwardSection } from "@/components/magazine/LazyIslands";
 import { Section, DataBadge, SectionCard, RichBriefing } from "@/components/magazine/viewer-primitives";
 import {
-  FieldNoteSection, MarketDataSection, NewsSection, AuctionSection, ReportsSection, SentimentSection,
+  FieldNoteSection, MarketDataSection, MonthlyRegionalChartsSection, NewsSection, AuctionSection, ReportsSection, SentimentSection,
   TaxClinicSection, BrokerProfileSection,
 } from "@/components/magazine/viewer-sections";
+import { resolveMonthlyChartsFromData } from "@/domain/magazine/monthly-stats-charts";
+import type { AxiosUnitIssue, MonthlyRegionalChart } from "@/domain/magazine/types";
 import { formatKoreanDate } from "@/lib/magazine/kst";
 import { normalizePoll } from "@/lib/magazine/poll-helpers";
+import { isSimpleEdition } from "@/lib/magazine/simple-format";
 import {
   buildMagazineTitle, cleanScoreText, estimateReadMinutes, filterKeyStatsByEvidence, formatPriceKo,
   hasAnyViewerContent, hasScoreEvidence, isSectionEnabled,
@@ -125,15 +128,37 @@ export function MagazineView({
   // ── Deals ──
   const featuredDeals: any[] = Array.isArray(data.featured_deals) ? data.featured_deals : Array.isArray(data.dealHighlights) ? data.dealHighlights : []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
+  // ── Cadence Kind & Monthly Charts / AXIOS Unit Issues ──
+  const editionKind = typeof data.kind === "string" ? data.kind : "weekly";
+  const unitIssues: AxiosUnitIssue[] = Array.isArray(data.unit_issues)
+    ? data.unit_issues
+    : Array.isArray(data.unitIssues)
+    ? data.unitIssues
+    : [];
+  const monthlyCharts: MonthlyRegionalChart[] =
+    Array.isArray(data.monthly_charts) && data.monthly_charts.length > 0
+      ? data.monthly_charts
+      : Array.isArray(data.monthlyCharts) && data.monthlyCharts.length > 0
+      ? data.monthlyCharts
+      : editionKind === "monthly"
+      ? resolveMonthlyChartsFromData(data)
+      : [];
+
   // ── Market data ── (더미 폴백 금지: 데이터가 없으면 섹션을 숨긴다 — P0-05 T3-03)
   const recentTxs: any[] = Array.isArray(data.recentTransactions) ? data.recentTransactions : []; // eslint-disable-line @typescript-eslint/no-explicit-any
   const rentalTrend = data.rentalTrend || null;
   const commercialDistrict = data.commercialDistrict || null;
   const monthlySummary = data.monthlySummary || null;
-  const hasMarketData = recentTxs.length > 0 || !!rentalTrend || !!commercialDistrict || !!monthlySummary;
+  const hasMarketData =
+    monthlyCharts.length > 0 ||
+    recentTxs.length > 0 ||
+    !!rentalTrend ||
+    !!commercialDistrict ||
+    !!monthlySummary;
 
   // ── News / extras ──
   const topNews = pickTopNews(data);
+  const hasNewsOrUnitIssues = topNews.length > 0 || unitIssues.length > 0;
   const auctionPicks: any[] = Array.isArray(data.auctionPicks) ? data.auctionPicks : []; // eslint-disable-line @typescript-eslint/no-explicit-any
   const reports: any[] = Array.isArray(data.reports) ? data.reports : []; // eslint-disable-line @typescript-eslint/no-explicit-any
   const taxClinic = (data.tax_clinic as Record<string, any> | null | undefined) ?? null; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -144,6 +169,7 @@ export function MagazineView({
     data.briefing, data.headline, themeBodyMd,
     fieldNote.question, fieldNote.buyerReaction, fieldNote.sellerReaction, fieldNote.marketJudgment, fieldNote.comment,
     ...topNews.map((n) => `${n.title} ${n.summary}`),
+    ...unitIssues.map((u) => `${u.title} ${u.brief}`),
   ]);
 
   // ── Theme-matched deals ──
@@ -565,18 +591,29 @@ export function MagazineView({
       case "market_data":
         return hasMarketData ? (
           <Section>
-            <MarketDataSection
-              recentTxs={recentTxs}
-              rentalTrend={rentalTrend}
-              commercialDistrict={commercialDistrict}
-              monthlySummary={monthlySummary}
-              dateLabel={dateLabel}
-              defaultOpen={target === "seller"}
-            />
+            <div className="space-y-4">
+              {monthlyCharts.length > 0 && (
+                <MonthlyRegionalChartsSection charts={monthlyCharts} />
+              )}
+              {(recentTxs.length > 0 || !!rentalTrend || !!commercialDistrict || !!monthlySummary) && (
+                <MarketDataSection
+                  recentTxs={recentTxs}
+                  rentalTrend={rentalTrend}
+                  commercialDistrict={commercialDistrict}
+                  monthlySummary={monthlySummary}
+                  dateLabel={dateLabel}
+                  defaultOpen={target === "seller"}
+                />
+              )}
+            </div>
           </Section>
         ) : null;
       case "news_curation":
-        return topNews.length > 0 ? <Section><NewsSection items={topNews} /></Section> : null;
+        return hasNewsOrUnitIssues ? (
+          <Section>
+            <NewsSection items={topNews} unitIssues={unitIssues} cadence={editionKind} />
+          </Section>
+        ) : null;
       case "auction_picks":
         return auctionPicks.length > 0 ? <Section><AuctionSection picks={auctionPicks} /></Section> : null;
       case "reports":
@@ -637,7 +674,39 @@ export function MagazineView({
     }
   };
 
-  const order = resolveSectionOrder(target, data.section_order).filter((id) => isSectionEnabled(data.sections, id));
+  // 주기별 구조 공식 정렬:
+  // - 일간(daily): 헤더+제목+이슈 5건(news_curation)+딜카드(featured_deals)
+  // - 주간(weekly): 헤더+제목+중개인 브리핑(ai_briefing/field_note)+이슈 5건+딜카드
+  // - 월간(monthly): 헤더+제목+권역별 유용한 통계 2건 그래프(market_data)+월간 이슈 5건(news_curation)+딜카드(featured_deals)
+  const defaultOrderForCadence =
+    !Array.isArray(data.section_order) && editionKind === "monthly"
+      ? [
+          "market_data",
+          "news_curation",
+          "featured_deals",
+          "theme_of_week",
+          "poll",
+          "subscribe_cta",
+          "broker_profile",
+          "roi_calculator",
+          "tax_clinic",
+          "referral",
+        ]
+      : !Array.isArray(data.section_order) && editionKind === "daily"
+      ? [
+          "news_curation",
+          "featured_deals",
+          "theme_of_week",
+          "subscribe_cta",
+          "broker_profile",
+          "roi_calculator",
+          "referral",
+        ]
+      : data.section_order;
+
+  const order = resolveSectionOrder(target, defaultOrderForCadence).filter((id) =>
+    isSectionEnabled(data.sections, id)
+  );
   const rendered = order
     .map((id) => ({ id, node: sectionNode(id) }))
     .filter((s): s is { id: string; node: React.ReactNode } => s.node !== null && s.node !== undefined);
@@ -649,14 +718,14 @@ export function MagazineView({
   const isEmpty = !hasAnyViewerContent(data) || !rendered.some((s) => !CHROME_ONLY.has(s.id));
   const Wrapper = preview ? "div" : "main";
 
+  // 간단 모드(format: 'simple') 호환용 빠른 이동 바 (일반 일간/주간/월간 뷰에서는 노출하지 않아 깔끔함 유지)
   const quickNavItems = [
     { id: "field_note", label: "💬 중개사의 한마디" },
     { id: "featured_deals", label: "🏢 주목 매물" },
     { id: "news_curation", label: "📰 주요 뉴스" },
     { id: "roi_calculator", label: "🧮 수익률 계산기" },
-    { id: "tax_clinic", label: "💰 세무·법률" },
-    { id: "poll", label: "📊 이번 주 투표" },
   ].filter((item) => renderedIdSet.has(item.id));
+  const showSimpleQuickNav = !isEmpty && isSimpleEdition(data) && quickNavItems.length > 0;
 
   // ═══════════════════════════════════════════════════════════════════
   //  RENDER
@@ -671,9 +740,9 @@ export function MagazineView({
     >
       <Wrapper id={preview ? undefined : "magazine-main"} className="mx-auto max-w-[440px] px-4 pb-28">
 
-        {/* ── HERO / COVER ───────────────────────────────────── */}
+        {/* ── HERO / COVER (깔끔하고 정돈된 헤더 + 1줄 제목 보장) ─────────────────── */}
         <header
-          className="relative overflow-hidden px-1 pb-6 pt-10"
+          className="relative overflow-hidden px-1 pb-5 pt-8"
           data-section-id="cover"
           style={{ background: coverImageUrl ? undefined : `linear-gradient(160deg, ${accent}18 0%, transparent 55%)` }}
         >
@@ -688,7 +757,7 @@ export function MagazineView({
           <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full opacity-20 blur-3xl" style={{ background: `radial-gradient(circle, ${accent}, transparent)` }} />
 
           {/* Broker row */}
-          <div className="relative mb-6 flex items-center gap-2.5">
+          <div className="relative mb-5 flex items-center gap-2.5">
             <InitialAvatar name={brokerName} size={40} decorative />
             <div>
               <p className="text-label font-bold text-white">{brokerName}</p>
@@ -696,16 +765,22 @@ export function MagazineView({
             </div>
           </div>
 
-          {/* Date + Title */}
+          {/* Date + Single-Line Title */}
           <div className="relative">
             <p className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-300">
               <time dateTime={date}>{dateLabel}</time>
               <span className="rounded-full border border-indigo-500/25 bg-indigo-500/15 px-2.5 py-0.5 text-sm font-semibold text-indigo-200">⏱ {readTimeMin}분 완독</span>
             </p>
-            <h1 className="mb-2 text-display font-extrabold leading-tight tracking-tight text-white">{title}</h1>
+            <h1
+              data-single-line-title="true"
+              title={title}
+              className="mb-2.5 whitespace-nowrap overflow-hidden text-ellipsis truncate text-xl sm:text-2xl font-extrabold leading-tight tracking-tight text-white"
+            >
+              {title}
+            </h1>
 
             {tempConfig && (
-              <div className="mb-3 inline-flex flex-wrap items-center gap-1.5 rounded-2xl border px-3 py-1.5" style={{ background: `${tempConfig.color}15`, borderColor: `${tempConfig.color}30` }}>
+              <div className="mb-2.5 inline-flex flex-wrap items-center gap-1.5 rounded-2xl border px-3 py-1.5" style={{ background: `${tempConfig.color}15`, borderColor: `${tempConfig.color}30` }}>
                 <span className="text-sm" aria-hidden="true">{tempConfig.emoji}</span>
                 <span className="text-sm font-extrabold" style={{ color: tempConfig.color }}>시장 온도 {marketTemp}</span>
                 <span className="text-sm text-slate-200">· {tempConfig.description}</span>
@@ -731,7 +806,7 @@ export function MagazineView({
 
           {/* Key stats */}
           {keyStats.length > 0 && (
-            <ul className="relative mt-5 grid grid-cols-3 gap-2">
+            <ul className="relative mt-4 grid grid-cols-3 gap-2">
               {keyStats.map((stat, i) => (
                 <li key={i} className={`rounded-xl border p-2.5 text-center ${STAT_TONE[stat.accent ?? ""] ?? "text-slate-200 border-white/10 bg-white/5"}`}>
                   <div className="mb-1 text-body font-extrabold leading-none">{stat.value}</div>
@@ -741,8 +816,8 @@ export function MagazineView({
             </ul>
           )}
 
-          {/* Broker quote from field_note.comment */}
-          {fieldNote.comment && (
+          {/* 주간 호에서 본문에 field_note가 따로 없을 때만 커버 인용구를 표시하여 중복 노출을 방지 */}
+          {fieldNote.comment && !renderedIdSet.has("field_note") && editionKind === "weekly" && (
             <figure className="relative mt-4 rounded-xl border border-violet-500/15 px-3 py-2.5" style={{ background: "rgba(139,92,246,0.06)" }}>
               <blockquote className="text-label italic leading-relaxed text-violet-200">&ldquo;{fieldNote.comment}&rdquo;</blockquote>
               <figcaption className="mt-1 text-sm text-slate-300">— {brokerName}</figcaption>
@@ -750,25 +825,22 @@ export function MagazineView({
           )}
         </header>
 
-        {/* ── 60대 독자용 1-탭 빠른 이동 바 (data-section-id 없음) ── */}
-        {!isEmpty && quickNavItems.length > 0 && (
+        {/* ── 간단 모드 전용 빠른 이동 바 (일반 일간·주간·월간에서는 비노출) ─── */}
+        {showSimpleQuickNav && (
           <nav
             aria-label="섹션 빠른 이동"
-            className="mb-5 rounded-2xl border border-white/15 bg-white/[0.03] p-3"
+            className="mb-4 flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.04] p-1.5"
           >
-            <p className="mb-2 text-sm font-bold text-slate-300">원하시는 내용을 눌러 바로 이동하세요</p>
-            <div className="grid grid-cols-2 gap-2">
-              {quickNavItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-quick-scroll={item.id}
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2.5 text-[15px] font-bold text-slate-100 transition-colors hover:bg-white/10 active:scale-[0.99]"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            {quickNavItems.map((item) => (
+              <a
+                key={item.id}
+                href={`#section-${item.id}`}
+                data-quick-scroll={item.id}
+                className="flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] px-3 py-1.5 text-sm font-bold text-slate-100 hover:bg-indigo-500/20 hover:border-indigo-400/40 transition-colors"
+              >
+                {item.label}
+              </a>
+            ))}
           </nav>
         )}
 
@@ -785,7 +857,7 @@ export function MagazineView({
         ) : (
           <div className="space-y-5">
             {rendered.map(({ id, node }) => (
-              <div key={id} data-section-id={id}>{node}</div>
+              <div key={id} id={`section-${id}`} data-section-id={id}>{node}</div>
             ))}
           </div>
         )}

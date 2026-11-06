@@ -11,7 +11,8 @@
  */
 
 import React, { useState } from 'react';
-import type { Card4Data } from '@/lib/deal-card/card4-schema';
+import type { Card4Data, DealCardPointTone } from '@/lib/deal-card/card4-schema';
+import { POSTIT_TONE_STYLES } from '@/components/broker/deal-card/Card4ConfirmCard';
 
 export interface KakaoBubblePreviewProps {
   card4: Card4Data;
@@ -19,15 +20,25 @@ export interface KakaoBubblePreviewProps {
   className?: string;
 }
 
+const DEFAULT_TONES: [DealCardPointTone, DealCardPointTone, DealCardPointTone] = [
+  'amber',
+  'sky',
+  'mint',
+];
+
 export function KakaoBubblePreview({
   card4,
   dealId = 'preview',
   className = '',
 }: KakaoBubblePreviewProps) {
-  const [scaleMode, setScaleMode] = useState<'desktop' | 'mobile'>('mobile');
+  const [scaleMode, setScaleMode] = useState<'desktop' | 'mobile' | 'postit'>('mobile');
 
-  const headline = `${card4.use || '근린생활시설'} · ${card4.region || '서울시'} · ${card4.priceBand || '가격 협의'}`;
-  const bubbleTitle = `${card4.region || '서울시'} ${card4.use || '근생'} ${card4.priceBand || ''}`.trim();
+  const headline =
+    card4.headline?.trim() ||
+    `${card4.use || '근린생활시설'} · ${card4.region || '서울시'} · ${card4.priceBand || '가격 협의'}`;
+  const bubbleTitle =
+    card4.headline?.trim() ||
+    `${card4.region || '서울시'} ${card4.use || '근생'} ${card4.priceBand || ''}`.trim();
 
   // Mobile bubble width is ~255px; desktop preview is ~380px
   const containerWidth = scaleMode === 'mobile' ? 'w-[255px]' : 'w-[380px]';
@@ -38,17 +49,17 @@ export function KakaoBubblePreview({
       data-testid="kakao-bubble-preview"
     >
       {/* Top Controls: Scale Toggle */}
-      <div className="w-full flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+      <div className="w-full flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200">
         <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
           <span>💬</span>
-          <span>카카오톡 공유 말풍선 미리보기</span>
+          <span>카카오톡 공유 말풍선 · 상세 포스트잇 미리보기</span>
         </span>
 
         <div className="inline-flex rounded-lg bg-slate-200 p-0.5 border border-slate-300 text-xs">
           <button
             type="button"
             onClick={() => setScaleMode('mobile')}
-            className={`px-2.5 py-1 rounded-md font-medium transition ${
+            className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
               scaleMode === 'mobile'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -59,7 +70,7 @@ export function KakaoBubblePreview({
           <button
             type="button"
             onClick={() => setScaleMode('desktop')}
-            className={`px-2.5 py-1 rounded-md font-medium transition ${
+            className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
               scaleMode === 'desktop'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -67,88 +78,172 @@ export function KakaoBubblePreview({
           >
             🖥️ PC (1:1)
           </button>
+          <button
+            type="button"
+            data-testid="preview-mode-postit"
+            onClick={() => setScaleMode('postit')}
+            className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+              scaleMode === 'postit'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            📌 상세 포스트잇 뷰
+          </button>
         </div>
       </div>
 
       {/* Realistic KakaoTalk Chat Room Background */}
-      <div className="w-full flex justify-center py-6 px-4 bg-[#BACEE0] rounded-xl overflow-hidden shadow-inner">
-        {/* Kakao Bubble */}
-        <div
-          className={`${containerWidth} transition-all duration-200 bg-white rounded-2xl overflow-hidden shadow-md border border-slate-200/80`}
-        >
-          {/* OG Image Simulated Canvas (1.91:1 aspect ratio) */}
+      {scaleMode !== 'postit' && (
+        <div className="w-full flex justify-center py-6 px-4 bg-[#BACEE0] rounded-xl overflow-hidden shadow-inner">
+          {/* Kakao Bubble */}
           <div
-            data-theme-lock="dark"
-            className="w-full aspect-[1.91/1] bg-slate-900 text-white p-3.5 flex flex-col justify-between relative overflow-hidden select-none"
+            className={`${containerWidth} transition-all duration-200 bg-white rounded-2xl overflow-hidden shadow-md border border-slate-200/80`}
           >
-            {/* Background subtle gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 opacity-90 pointer-events-none" />
-
-            <div className="relative z-10 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-sky-400 bg-sky-950/80 px-1.5 py-0.5 rounded border border-sky-400/30">
-                CRE DEAL CARD
-              </span>
-              <span className="text-[9px] text-slate-400">비밀유지 안심 매물</span>
-            </div>
-
-            <div className="relative z-10 my-auto text-center px-1">
-              <p
-                className={`font-black text-white leading-tight ${
-                  scaleMode === 'mobile' ? 'text-[13px]' : 'text-[17px]'
-                } break-keep tracking-tight`}
-              >
-                {headline}
-              </p>
-            </div>
-
-            <div className="relative z-10 flex items-center justify-between border-t border-slate-700/60 pt-1 text-[9px] text-slate-400">
-              <span>🛡️ 공적장부 교차검증</span>
-              <span className="text-sky-400 font-semibold">상세보기 →</span>
-            </div>
-          </div>
-
-          {/* Bubble Content Area */}
-          <div className="p-3.5 space-y-2">
-            <h4
-              className={`font-bold text-slate-900 ${
-                scaleMode === 'mobile' ? 'text-[14px]' : 'text-[16px]'
-              } break-keep leading-snug`}
+            {/* OG Image Simulated Canvas (1.91:1 aspect ratio) */}
+            <div
+              data-theme-lock="dark"
+              className="w-full aspect-[1.91/1] bg-slate-900 text-white p-3.5 flex flex-col justify-between relative overflow-hidden select-none"
             >
-              {bubbleTitle}
-            </h4>
+              {/* Background subtle gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 opacity-90 pointer-events-none" />
 
-            {/* 3 Bullet Points */}
-            <ul className="space-y-1 text-slate-600">
-              {card4.points.map((pt, idx) => (
-                <li
-                  key={idx}
-                  className={`flex items-start gap-1.5 ${
-                    scaleMode === 'mobile' ? 'text-[12px]' : 'text-[14px]'
-                  } leading-snug break-keep`}
+              <div className="relative z-10 flex items-center justify-between">
+                <span className="text-[10px] font-bold text-sky-400 bg-sky-950/80 px-1.5 py-0.5 rounded border border-sky-400/30">
+                  CRE DEAL CARD
+                </span>
+                <span className="text-[9px] text-slate-400">비밀유지 안심 매물</span>
+              </div>
+
+              <div className="relative z-10 my-auto text-center px-1">
+                <p
+                  data-single-line-title="true"
+                  title={headline}
+                  className={`font-black text-white leading-tight ${
+                    scaleMode === 'mobile' ? 'text-[13px]' : 'text-[16px]'
+                  } whitespace-nowrap overflow-hidden text-ellipsis truncate tracking-tight`}
                 >
-                  <span className="text-blue-500 font-bold shrink-0">•</span>
-                  <span className="line-clamp-1">{pt || `포인트 ${idx + 1}`}</span>
-                </li>
-              ))}
-            </ul>
+                  {headline}
+                </p>
+              </div>
 
-            {/* Simulated Action Button */}
-            <div className="pt-2">
-              <div
-                className={`w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center font-semibold ${
-                  scaleMode === 'mobile' ? 'text-[12px]' : 'text-[14px]'
-                } border border-slate-200`}
+              <div className="relative z-10 flex items-center justify-between border-t border-slate-700/60 pt-1 text-[9px] text-slate-400">
+                <span>🛡️ 공적장부 교차검증</span>
+                <span className="text-sky-400 font-semibold">상세보기 →</span>
+              </div>
+            </div>
+
+            {/* Bubble Content Area */}
+            <div className="p-3.5 space-y-2">
+              <h4
+                data-single-line-title="true"
+                title={bubbleTitle}
+                className={`font-bold text-slate-900 ${
+                  scaleMode === 'mobile' ? 'text-[14px]' : 'text-[16px]'
+                } whitespace-nowrap overflow-hidden text-ellipsis truncate leading-snug`}
               >
-                자세히 보기
+                {bubbleTitle}
+              </h4>
+
+              {/* 3 Bullet Points */}
+              <ul className="space-y-1 text-slate-600">
+                {card4.points.map((pt, idx) => (
+                  <li
+                    key={idx}
+                    className={`flex items-start gap-1.5 ${
+                      scaleMode === 'mobile' ? 'text-[12px]' : 'text-[14px]'
+                    } leading-snug break-keep`}
+                  >
+                    <span className="text-blue-500 font-bold shrink-0">•</span>
+                    <span className="line-clamp-1">{pt || `포인트 ${idx + 1}`}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Simulated Action Button */}
+              <div className="pt-2">
+                <div
+                  className={`w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center font-semibold ${
+                    scaleMode === 'mobile' ? 'text-[12px]' : 'text-[14px]'
+                  } border border-slate-200`}
+                >
+                  자세히 보기
+                </div>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Clean AXIOS Wide Post-it 3-Point Detail Preview */}
+      <div
+        data-testid="dealcard-postit-preview-list"
+        className={`w-full rounded-xl bg-white border border-slate-200 p-4 space-y-2.5 ${
+          scaleMode === 'postit' ? 'mt-0' : 'mt-3'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+            <span>📌</span>
+            <span>수신자 상세 화면 · AXIOS 포스트잇 3선</span>
+          </span>
+          <span className="text-[11px] font-semibold text-slate-500">
+            1줄 큰 제목 + 핵심 브리프
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          {([0, 1, 2] as const).map((idx) => {
+            const ptTitle = card4.points[idx] || `핵심 포인트 ${idx + 1}`;
+            const ptBrief =
+              card4.pointBriefs?.[idx] ||
+              `${card4.region || '해당 권역'} ${card4.use || '매물'}의 핵심 매수 검토 포인트입니다.`;
+            const toneKey: DealCardPointTone = card4.pointTones?.[idx] || DEFAULT_TONES[idx];
+            const toneStyle = POSTIT_TONE_STYLES[toneKey] || POSTIT_TONE_STYLES.amber;
+
+            return (
+              <div
+                key={idx}
+                data-testid={`dealcard-postit-preview-item-${idx}`}
+                style={{
+                  backgroundColor: toneStyle.bgHex,
+                  borderColor: toneStyle.borderHex,
+                }}
+                className="rounded-xl border p-3 space-y-1 shadow-2xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    style={{
+                      backgroundColor: toneStyle.badgeBgHex,
+                      color: toneStyle.badgeTextHex,
+                    }}
+                    className="text-[11px] font-extrabold px-2 py-0.5 rounded"
+                  >
+                    POINT 0{idx + 1}
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    {card4.region} · {card4.priceBand}
+                  </span>
+                </div>
+                <p
+                  data-single-line-title="true"
+                  title={ptTitle}
+                  className="text-[15px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
+                >
+                  {ptTitle}
+                </p>
+                <p className="text-xs font-medium text-slate-700 leading-relaxed line-clamp-2">
+                  {ptBrief}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Caption Notice */}
       <p className="text-[12px] text-slate-500 text-center mt-3 break-keep">
-        💡 카카오톡 앱에서 수신자 말풍선 폭은 약 250~260px입니다. 각 특징이 18자 이내일 때 줄바꿈 없이 깔끔하게 표시됩니다.
+        💡 카카오톡 앱에서 수신자 말풍선 폭은 약 250~260px입니다. 제목과 각 특징이 1줄로 깔끔하게 표시됩니다.
       </p>
     </div>
   );

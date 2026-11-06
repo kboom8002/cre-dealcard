@@ -97,10 +97,14 @@ export function TeaserHeroHeader({
         {renderUrgencyBadge()}
       </div>
 
-      {/* Title & Hook Copy (OG Card style: Title main, hookCopy sub) */}
+      {/* Title & Hook Copy (OG Card style: Title main, hookCopy sub — Single-Line Title Guard) */}
       {title ? (
         <div className="relative z-10 space-y-1.5">
-          <h1 className="text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm">
+          <h1
+            data-single-line-title="true"
+            title={title}
+            className="text-xl sm:text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm whitespace-nowrap overflow-hidden text-ellipsis truncate"
+          >
             {title}
           </h1>
           {hookCopy && (
@@ -110,7 +114,11 @@ export function TeaserHeroHeader({
           )}
         </div>
       ) : hookCopy ? (
-        <h1 className="relative z-10 text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm">
+        <h1
+          data-single-line-title="true"
+          title={hookCopy}
+          className="relative z-10 text-xl sm:text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm whitespace-nowrap overflow-hidden text-ellipsis truncate"
+        >
           {hookCopy}
         </h1>
       ) : null}

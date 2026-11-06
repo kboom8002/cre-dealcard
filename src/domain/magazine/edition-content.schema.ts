@@ -83,10 +83,60 @@ export const sectionToggleSchema = z.object({
 
 export const targetSegmentSchema = z.enum(['all', 'buyer', 'seller']);
 
+export const postItToneSchema = z.enum(['amber', 'sky', 'mint', 'lavender', 'peach']);
+
+export const axiosUnitIssueSchema = z
+  .object({
+    id: z.string().min(1).max(200),
+    title: z.string().min(1).max(200),
+    brief: z.string().min(1).max(2000),
+    memoTone: postItToneSchema,
+    channel: z.string().max(80).optional(),
+    topic: z.string().max(80).optional(),
+    sentiment: z.enum(['bullish', 'bearish', 'neutral']).optional(),
+    sources: z.array(z.string().max(100)).max(10).optional(),
+    url: z.string().max(2000).optional(),
+    articleCount: z.number().int().min(1).max(50).optional(),
+  })
+  .passthrough();
+
+export const monthlyRegionalChartSchema = z
+  .object({
+    id: z.string().min(1).max(120),
+    regionKey: z.string().min(1).max(60),
+    regionLabel: z.string().min(1).max(120),
+    chartType: z.enum(['molit_tx_price_trend', 'reb_vacancy_cap_spread', 'kosis_commercial_vitality']),
+    title: z.string().min(1).max(200),
+    subtitle: z.string().max(300),
+    authorityLabel: z.string().max(200),
+    asOf: z.string().max(80),
+    unit: z.string().max(40),
+    secondaryUnit: z.string().max(40).optional(),
+    highlightMetric: z.object({
+      label: z.string().max(100),
+      value: z.string().max(100),
+      deltaText: z.string().max(100),
+      tone: z.enum(['positive', 'neutral', 'caution']),
+    }),
+    series: z
+      .array(
+        z.object({
+          label: z.string().max(60),
+          primaryValue: z.number(),
+          secondaryValue: z.number().optional(),
+          displayPrimary: z.string().max(80),
+          displaySecondary: z.string().max(80).optional(),
+        }),
+      )
+      .max(12),
+    buyerImplication: z.string().max(500),
+  })
+  .passthrough();
+
 export const editionContentV1Schema = z
   .object({
     schemaVersion: z.literal(1),
-    kind: z.enum(['weekly', 'special', 'daily']),
+    kind: z.enum(['weekly', 'special', 'daily', 'monthly']),
     issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     weekLabel: z.string().optional(),
     headline: z.string(),
@@ -109,6 +159,9 @@ export const editionContentV1Schema = z
       })
       .optional(),
     topNews: recordArray.optional(),
+    unitIssues: z.array(axiosUnitIssueSchema).max(10).optional(),
+    monthlyCharts: z.array(monthlyRegionalChartSchema).max(4).optional(),
+    monthlyRegion: z.string().max(60).optional(),
     recentTransactions: recordArray.optional(),
     sentiment: z
       .object({
@@ -154,6 +207,9 @@ export const editionContentDraftSchema = z
     target_segment: targetSegmentSchema.optional(),
     selected_news_ids: z.array(z.string().max(200)).max(50).optional(),
     topNews: recordArray.max(30).optional(),
+    unitIssues: z.array(axiosUnitIssueSchema).max(10).optional(),
+    monthlyCharts: z.array(monthlyRegionalChartSchema).max(4).optional(),
+    monthlyRegion: z.string().max(60).optional(),
   })
   .passthrough();
 

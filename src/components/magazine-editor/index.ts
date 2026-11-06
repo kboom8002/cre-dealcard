@@ -9,4 +9,8 @@ export { MagazineShareModal } from "./MagazineShareModal";
 export { EditorAnalyticsTab } from "./EditorAnalyticsTab";
 export { SpecialEditionModal } from "./SpecialEditionModal";
 export { MagazineQrModal } from "./MagazineQrModal";
+export { EditionAirtableList, type AirtableEditionItem, type CadenceType } from "./EditionAirtableList";
+export { AxiosIssuesEditorPanel } from "./AxiosIssuesEditorPanel";
+export { MonthlyStatsEditorPanel } from "./MonthlyStatsEditorPanel";
+
 

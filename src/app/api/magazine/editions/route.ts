@@ -12,6 +12,7 @@ import {
 } from "@/lib/magazine/authz";
 import { resolveBroker } from "@/lib/magazine/resolve-broker";
 import { currentWeekLabel } from "@/lib/magazine/kst";
+import { defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
 
@@ -93,9 +94,12 @@ export async function GET(request: NextRequest) {
     .from("magazine_editions")
     .select(columns, { count: "exact" })
     .in("broker_id", keys)
-    .eq("edition_type", editionType)
     .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (editionType && editionType !== "all") {
+    query = query.eq("edition_type", editionType);
+  }
 
   if (effectiveStatus) {
     query = query.eq("status", effectiveStatus);
@@ -141,7 +145,7 @@ export async function POST(request: NextRequest) {
       return jsonError("INVALID_INPUT", "입력값을 확인해 주세요.", 400);
     }
     const editionType = parsed.data.edition_type;
-    const editionLabel = parsed.data.edition_label ?? currentWeekLabel();
+    const editionLabel = parsed.data.edition_label ?? defaultLabelForEditionType(editionType);
     const brokerId = ctx.slug; // body.broker_id 무시
 
     const supabase = createServiceClient();
