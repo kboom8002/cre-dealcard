@@ -30,6 +30,8 @@ import { createBasicImTestInput } from './fixtures/basic-im-factory';
 import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { MobileImPptxRenderer } from '@/domain/building/mobile-im/pptx/pptx-renderer';
+import { resolvePhotos } from '@/domain/building/mobile-im/photo-url-transformer';
+import { planGallerySlides } from '@/domain/building/mobile-im/pptx/gallery-planner';
 import { auditPptxGeometry } from '@/domain/building/mobile-im/quality/pptx-geometry-audit';
 import {
   extractSlideTexts,
@@ -106,9 +108,21 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
         expect(serializedDoc).not.toContain('undefined');
         expect(serializedDoc).not.toContain('[object Object]');
 
-        // 6. 시나리오별 Mobile IM 특화 검증
+        // 6. 사진 매트릭스(2장~12장) Mobile IM 검증: 개수, 대표사진(Hero) 우선순위, IM제외/도면 분리
+        expect(facts.photos?.length).toBe(oracle.expectedPhotoCount);
+        const photosSec = basicImDoc.sections.find((s) => s.id === '09_photos');
+        expect(photosSec?.data.photoCount).toBe(oracle.expectedPhotoCount);
+        expect(photosSec?.data.photos).toHaveLength(oracle.expectedPhotoCount);
+
+        const coverSec = basicImDoc.sections.find((s) => s.id === '01_cover');
+        expect(String(coverSec?.data.primaryPhotoUrl || '')).toContain(
+          oracle.expectedHeroPhotoSubstring,
+        );
+
+        // 7. 시나리오별 Mobile IM 특화 검증
         if (scenario.caseId === 'R4_MULTI_FLOOR_INTEGRATED_OTHER_INCOME') {
           expect(facts.rent.otherIncomeMonthlyManwon).toBe(180);
+          expect(serializedDoc).not.toContain('IM 제외 지정 테스트 이미지');
         }
 
         if (scenario.caseId === 'R6_ZERO_RENT_OWNER_HQ_WITH_COMPS') {
@@ -154,6 +168,21 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
             Object.assign(pptxInput.doc.body, scenario.docBodyExtra);
           }
 
+          // 0. 갤러리 플래너(2장~12장 레이아웃 및 슬라이드 분할) 오라클 검증
+          const resolvedPhotos = resolvePhotos(pptxInput.doc.body, pptxInput.buildingId);
+          const plannedGallery = planGallerySlides(
+            resolvedPhotos,
+            scenario.posture as any,
+            'credeal_basic',
+          );
+          expect(plannedGallery).toHaveLength(oracle.expectedGallerySlideCount);
+          expect(plannedGallery.map((g) => g.layout)).toEqual(oracle.expectedGalleryLayouts);
+          const totalPlannedPhotos = plannedGallery.reduce((sum, g) => sum + g.photos.length, 0);
+          expect(totalPlannedPhotos).toBe(oracle.expectedPhotoCount);
+          expect(String(plannedGallery[0]?.photos[0]?.url || '')).toContain(
+            oracle.expectedHeroPhotoSubstring,
+          );
+
           const renderer = new MobileImPptxRenderer();
           const result = await renderer.render(pptxInput);
 
@@ -194,10 +223,20 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
           // 공통: 소재지 지번 및 매매가 표기 확인
           expect(fullText).toContain(scenario.bottomSheet.address.split(' ').slice(-1)[0]);
 
+          // 공통 사진 갤러리 슬라이드 제목 검증 (1면: '현장 사진', 2면 분할: '현장 사진 (1/2)' & '현장 사진 (2/2)')
+          if (oracle.expectedGallerySlideCount === 1) {
+            expect(fullText).toContain('현장 사진');
+          } else {
+            expect(fullText).toContain('현장 사진 (1/2)');
+            expect(fullText).toContain('현장 사진 (2/2)');
+          }
+
           if (scenario.caseId === 'R1_FULL_OCCUPANCY_SINGLE_FLOOR') {
             expect(fullText).toContain(oracle.monthlyRentManwon.toLocaleString()); // 월 임대료 3,650만
             expect(fullText).toContain(oracle.totalDepositManwon.toLocaleString()); // 보증금 55,000만
             expect(fullText).toContain(`${oracle.grossYieldPct.toFixed(2)}%`); // 수익률 4.00%
+            expect(fullText).toContain('당산역세권 전면 코너 외관');
+            expect(fullText).toContain('측면 도로변 가시성 외관');
           }
 
           if (scenario.caseId === 'R2_HIGH_DENSITY_18_UNIT_SPLIT') {
@@ -210,6 +249,9 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
             expect(fullText).toContain('103호');
             expect(fullText).toContain('602호');
             expect(fullText).toContain('1001호');
+            // 4장 GRID_2X2 캡션/칩 표기 확인
+            expect(fullText).toContain('양평로 25m 대로변 코너 외관');
+            expect(fullText).toContain('현대엘리베이터 15인승 홀 리모델링 완료');
           }
 
           if (scenario.caseId === 'R3_VALUE_ADD_VACANT_OWNER_MIX') {
@@ -219,29 +261,40 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
             expect(fullText).toContain('자가');
             expect(fullText).toContain('공실');
             expect(fullText).toContain('안정화'); // 안정화 수익률 카드
+            // 3장 ONE_LARGE_TWO_SMALL_H 캡션 확인
+            expect(fullText).toContain('2층 공실 원상복구 완료 내부');
+            expect(fullText).toContain('자주식 10대 구역 및 진입로');
           }
 
           if (scenario.caseId === 'R4_MULTI_FLOOR_INTEGRATED_OTHER_INCOME') {
-            // 복층 통합계약 및 임대료 합계(월 3,050만) 반영
+            // 복층 통합계약 및 임대료 합계(월 3,050만) 반영 + 5장 GRID_2X3 (excluded:true 제외)
             expect(fullText).toContain('통합계약');
             expect(fullText).toContain(oracle.monthlyRentManwon.toLocaleString()); // 임대료 3,050만
             expect(fullText).toContain(oracle.totalDepositManwon.toLocaleString()); // 보증금 40,000만
+            expect(fullText).toContain('통신중계기 설치 구역 및 방수 현황');
+            expect(fullText).not.toContain('IM 제외 지정 테스트 이미지');
           }
 
           if (scenario.caseId === 'R5_EXCLUSIVE_AREA_PYEONG_INPUT') {
-            // 평(py) 단위 전용면적 단독 입력 시 면적 합계 355.00평(이중 환산 없음)
+            // 평(py) 단위 전용면적 단독 입력 시 면적 합계 355.00평(이중 환산 없음) + 8장 갤러리 2면 분할(총 10면)
+            expect(result.slideCount).toBe(10);
             expect(fullText).toContain('355.00');
             expect(fullText).toContain('층별 스태킹 플랜 (평)');
             expect(fullText).toContain(oracle.monthlyRentManwon.toLocaleString()); // 월세 합계 4,250만
             expect(fullText).toContain(oracle.totalDepositManwon.toLocaleString()); // 보증금 합계 60,000만
+            expect(fullText).toContain('남부순환로 코너 전면 파사드');
+            expect(fullText).toContain('6층 루프탑 및 강남권 스카이뷰');
           }
 
           if (scenario.caseId === 'R6_ZERO_RENT_OWNER_HQ_WITH_COMPS') {
-            // 전층 자가사용(임대료 0원) 사옥형(수익률 산식 슬라이드 제외) + 인근 시세 비교 슬라이드(9면)
-            expect(result.slideCount).toBe(9);
+            // 전층 자가사용(임대료 0원) 사옥형 + 도면 슬라이드(1면) + 시세 비교(1면) + 12장 갤러리 2면 분할(6+6) = 총 11면
+            expect(result.slideCount).toBe(11);
             expect(fullText).toContain('서초동 1362-15');
             expect(fullText).toContain('12,757'); // 본건 토지 평당가 약 12,757만/평
             expect(fullText).toContain('전 층 명도 인도가 확약된 서초구 내 희소 단독 사옥 매물');
+            expect(fullText).toContain('지구단위계획·도면');
+            expect(fullText).toContain('기준층(2F~5F) 사옥 레이아웃 평면도');
+            expect(fullText).toContain('임직원 휴게 루프탑 가든 및 조망');
           }
         },
       );

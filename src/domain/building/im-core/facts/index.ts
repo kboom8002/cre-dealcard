@@ -53,7 +53,15 @@ export interface PureBuildingFacts {
   rent: PureRentFacts;
   transaction: PureTransactionFacts;
   valuation: PureValuationFacts;
-  photos?: Array<{ url: string; caption?: string; role?: string }>;
+  photos?: Array<{
+    url: string;
+    caption?: string;
+    role?: string;
+    category?: string;
+    type?: string;
+    isHero?: boolean;
+    order?: number;
+  }>;
   points?: string[];
   comps?: Array<Record<string, any>>;
   brokerOffice?: {
@@ -119,11 +127,62 @@ export function extractPureBuildingFacts(raw: Record<string, any>): PureBuilding
     transaction.expectedLoanKrw
   );
 
-  const photos = Array.isArray(rawBody?.photos)
-    ? rawBody.photos
-    : Array.isArray(raw?.photos)
-    ? raw.photos
-    : [];
+  const rawPhotosInput =
+    Array.isArray(rawBody?.photos_v2) && rawBody.photos_v2.length > 0
+      ? rawBody.photos_v2
+      : Array.isArray(raw?.photos_v2) && raw.photos_v2.length > 0
+      ? raw.photos_v2
+      : Array.isArray(rawBody?.photos) && rawBody.photos.length > 0
+      ? rawBody.photos
+      : Array.isArray(raw?.photos) && raw.photos.length > 0
+      ? raw.photos
+      : Array.isArray(rawBody?.photo_urls)
+      ? rawBody.photo_urls.map((u: string, idx: number) => ({ url: u, order: idx }))
+      : Array.isArray(raw?.photo_urls)
+      ? raw.photo_urls.map((u: string, idx: number) => ({ url: u, order: idx }))
+      : [];
+
+  const nonPhotoDocCategories = new Set([
+    'map',
+    'floor_plan',
+    'document',
+    'business_card',
+    'cadastral',
+    'land_plan',
+    'location_map',
+    'district_plan_map',
+  ]);
+
+  const photos = rawPhotosInput
+    .filter((p: any) => {
+      const url = typeof p === 'string' ? p : p?.url;
+      if (!url || typeof url !== 'string') return false;
+      if (url.split('?')[0].toLowerCase().endsWith('.wdp')) return false;
+      if (p && typeof p === 'object' && p.excluded === true) return false;
+      const cat = String(p?.category ?? p?.type ?? '').toLowerCase();
+      if (nonPhotoDocCategories.has(cat)) return false;
+      return true;
+    })
+    .map((p: any, idx: number) =>
+      typeof p === 'string'
+        ? { url: p, order: idx }
+        : {
+            url: p.url,
+            caption: p.caption,
+            role: p.role,
+            category: p.category || p.type,
+            type: p.type || p.category,
+            isHero: Boolean(p.isHero || p.role === 'cover'),
+            order: typeof p.order === 'number' ? p.order : idx,
+          },
+    )
+    .sort((a: any, b: any) => {
+      const aHero = a.role === 'cover' || a.isHero ? 0 : a.role === 'exterior' ? 1 : 2;
+      const bHero = b.role === 'cover' || b.isHero ? 0 : b.role === 'exterior' ? 1 : 2;
+      if (aHero !== bHero) return aHero - bHero;
+      return (a.order ?? 99) - (b.order ?? 99);
+    })
+    .slice(0, 12);
 
   const points = Array.isArray(rawBody?.key_points)
     ? rawBody.key_points

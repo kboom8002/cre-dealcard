@@ -170,14 +170,34 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
     const validRaw = rawPhotos.filter((p: any) =>
       isSupportedMedia(typeof p === 'string' ? p : p?.url)
       && !(p && typeof p === 'object' && p.excluded === true)); // 중개인 'IM 제외' 지정 자산 제거
-    photos = validRaw.slice(0, 12).map((p: any, idx: number) => {
+    const docCats = new Set([
+      'map', 'floor_plan', 'document', 'business_card',
+      'cadastral', 'land_plan', 'location_map', 'district_plan_map',
+    ]);
+    let realPhotoCount = 0;
+    const cappedRaw = validRaw.filter((p: any) => {
+      const cat = String(p?.category || p?.type || '').toLowerCase();
+      if (docCats.has(cat)) return true;
+      if (realPhotoCount < 12) {
+        realPhotoCount++;
+        return true;
+      }
+      return false;
+    });
+    const hasExplicitHero = cappedRaw.some(
+      (p: any) => p && typeof p === 'object' && (p.isHero === true || p.role === 'cover'),
+    );
+    photos = cappedRaw.map((p: any, idx: number) => {
       const bId = p.buildingId || p.building_id || buildingId;
+      const isHero = Boolean(
+        p.isHero ?? (p.role === 'cover' ? true : !hasExplicitHero && idx === 0),
+      );
       return {
         ...p,
-        isHero: p.isHero ?? (idx === 0),
+        isHero,
         order: p.order ?? idx,
         caption: p.caption ?? supplemental.photo_captions?.[idx],
-        role: p.role ?? (p.isHero ? 'cover' : undefined),
+        role: p.role ?? (isHero ? 'cover' : undefined),
         buildingId: bId,
         category: p.category || p.type || DEFAULT_SEQUENCE[idx]?.[0] || 'interior',
       };

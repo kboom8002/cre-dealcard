@@ -9,6 +9,7 @@
 import { join } from 'path';
 import type { BottomSheetData, FloorLease, PhotoMeta } from './basic-im-factory';
 import { loadPhotosFromDirectory } from './basic-im-factory';
+import type { GalleryLayoutType } from '@/domain/building/mobile-im/pptx/gallery-planner';
 
 export type PseudoGoldenCaseId =
   | 'R1_FULL_OCCUPANCY_SINGLE_FLOOR'
@@ -38,6 +39,12 @@ export interface PseudoGoldenOracle {
   areaInputUnit: 'sqm' | 'pyeong';
   totalInputAreaSqm: number;
   totalInputAreaPyeong: number;
+  /** 사진 매트릭스(2장~12장) 검증 오라클 */
+  expectedPhotoCount: number;
+  expectedGallerySlideCount: 1 | 2;
+  expectedGalleryLayouts: GalleryLayoutType[];
+  expectedHeroPhotoSubstring: string;
+  hasBrokerRegulationDrawing?: boolean;
 }
 
 export interface PseudoGoldenScenario {
@@ -77,25 +84,122 @@ const YANGPYEONG_IMAGES_DIR = join(
   'images',
 );
 
-function getDangsanPhotos(): PhotoMeta[] {
-  return loadPhotosFromDirectory(DANGSAN_IMAGES_DIR, [
-    { url: 'image_01.jpeg', category: 'exterior', caption: '전면 외관', isHero: true, role: 'cover' },
-    { url: 'image_02.jpeg', category: 'exterior', caption: '측면 외관', role: 'exterior' },
-    { url: 'image_07.jpeg', category: 'entrance', caption: '1층 주출입구', role: 'exterior' },
-    { url: 'image_08.jpeg', category: 'interior', caption: '1층 복도', role: 'interior' },
-    { url: 'image_09.jpeg', category: 'interior', caption: '전용 내부', role: 'interior' },
-    { url: 'image_14.jpeg', category: 'parking', caption: '자주식 주차장', role: 'facility' },
+const SEOCHO_IMAGES_DIR = join(
+  process.cwd(),
+  'docs',
+  'golden-test-data',
+  'p3-seocho-owner',
+  'r3-verified',
+  'images',
+);
+
+function imgPath(dir: string, filename: string): string {
+  return join(dir, filename).replace(/\\/g, '/');
+}
+
+/**
+ * R1 사진 셋 (2장 — DUAL_LANDSCAPE, 세로형 3:4 + 가로형 4:3 혼합, index 1에 isHero 지정하여 대표사진 우선순위 검증)
+ */
+function getR1Photos2(): PhotoMeta[] {
+  return [
+    {
+      url: imgPath(YANGPYEONG_IMAGES_DIR, 'image_01.jpg'), // 750x1024 (3:4 세로형)
+      category: 'exterior',
+      caption: '측면 도로변 가시성 외관',
+      role: 'exterior',
+    },
+    {
+      url: imgPath(DANGSAN_IMAGES_DIR, 'image_01.jpeg'), // 3301x2476 (4:3 가로형)
+      category: 'exterior',
+      caption: '당산역세권 전면 코너 외관',
+      isHero: true,
+      role: 'cover',
+    },
+  ];
+}
+
+/**
+ * R2 사진 셋 (4장 — GRID_2X2, 세로형 2장 + 가로형 2장 혼합 및 D11a 중복 캡션/실캡션 칩 분리 검증)
+ */
+function getR2Photos4(): PhotoMeta[] {
+  return loadPhotosFromDirectory(YANGPYEONG_IMAGES_DIR, [
+    { url: 'image_01.jpg', category: 'exterior', caption: '양평로 25m 대로변 코너 외관', isHero: true, role: 'cover' },
+    { url: 'image_02.jpg', category: 'lobby', caption: '1층 로비', role: 'interior' }, // 라벨과 중복 캡션 → 칩만 표시
+    { url: 'image_03.jpg', category: 'elevator', caption: '현대엘리베이터 15인승 홀 리모델링 완료', role: 'interior' },
+    { url: 'image_04.jpg', category: 'parking', caption: '', role: 'facility' }, // 빈 캡션 → '주차장' 칩만 표시
   ]);
 }
 
-function getYangpyeongPhotos(): PhotoMeta[] {
-  return loadPhotosFromDirectory(YANGPYEONG_IMAGES_DIR, [
-    { url: 'image_01.jpg', category: 'exterior', caption: '건물 외관', isHero: true, role: 'cover' },
-    { url: 'image_02.jpg', category: 'interior', caption: '1층 로비', role: 'interior' },
-    { url: 'image_03.jpg', category: 'interior', caption: '엘리베이터홀', role: 'interior' },
-    { url: 'image_04.jpg', category: 'parking', caption: '주차장', role: 'facility' },
-    { url: 'image_05.jpg', category: 'surroundings', caption: '주변 도로/환경', role: 'surroundings' },
+/**
+ * R3 사진 셋 (3장 — ONE_LARGE_TWO_SMALL_H, 좌측 60% 대형 4:3 + 우측 상하 40% 소형 3:4 세로형·4:3 가로형)
+ */
+function getR3Photos3(): PhotoMeta[] {
+  return loadPhotosFromDirectory(DANGSAN_IMAGES_DIR, [
+    { url: 'image_01.jpeg', category: 'exterior', caption: '당산역 도보권 코너 전면부', isHero: true, role: 'cover' },
+    { url: 'image_11.jpeg', category: 'interior', caption: '2층 공실 원상복구 완료 내부', role: 'interior' }, // 3:4 세로형
+    { url: 'image_02.jpeg', category: 'parking', caption: '자주식 10대 구역 및 진입로', role: 'facility' }, // 4:3 가로형
   ]);
+}
+
+/**
+ * R4 사진 셋 (5장 유효 + 1장 excluded:true — GRID_2X3 5장 하단 2장 중앙 대칭 배치 및 IM 제외 필터 검증)
+ */
+function getR4Photos5PlusExcluded(): PhotoMeta[] {
+  return [
+    ...loadPhotosFromDirectory(DANGSAN_IMAGES_DIR, [
+      { url: 'image_01.jpeg', category: 'exterior', caption: '대로변 코너 파사드 전경', isHero: true, role: 'cover' },
+      { url: 'image_07.jpeg', category: 'entrance', caption: '1층 내과검진센터 메인 진입부', role: 'exterior' },
+      { url: 'image_08.jpeg', category: 'corridor', caption: '기준층 홀 및 대기 라운지', role: 'interior' },
+      { url: 'image_09.jpeg', category: 'tenant_space', caption: '1~2층 통합 내과검진센터 전용 내부', role: 'interior' },
+      { url: 'image_14.jpeg', category: 'rooftop', caption: '통신중계기 설치 구역 및 방수 현황', role: 'facility' },
+    ]),
+    {
+      url: imgPath(DANGSAN_IMAGES_DIR, 'image_21.png'),
+      category: 'other',
+      caption: 'IM 제외 지정 테스트 이미지',
+      excluded: true,
+    } as PhotoMeta,
+  ];
+}
+
+/**
+ * R5 사진 셋 (8장 — 4장 + 4장 2면 분할 GRID_2X2 × 2, 가로·세로 다중 비율 실사진)
+ */
+function getR5Photos8(): PhotoMeta[] {
+  return [
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_02.jpeg'), category: 'exterior', caption: '남부순환로 코너 전면 파사드', isHero: true, role: 'cover' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_03.jpeg'), category: 'surroundings', caption: '전면 8m×6m 코너 접면 현황', role: 'exterior' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_01.jpeg'), category: 'lobby', caption: '1층 출입구 및 보안 부스', role: 'interior' },
+    { url: imgPath(DANGSAN_IMAGES_DIR, 'image_11.jpeg'), category: 'elevator', caption: '승강기 홀 및 층별 안내 보드', role: 'interior' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_05.jpeg'), category: 'interior', caption: '3층 법무법인 전용 오피스', role: 'interior' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_06.jpeg'), category: 'tenant_space', caption: '4층 핀테크 스튜디오 업무 공간', role: 'interior' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_04.jpeg'), category: 'parking', caption: '자주식 및 기계식 복합 18대 구역', role: 'facility' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_07.jpeg'), category: 'rooftop', caption: '6층 루프탑 및 강남권 스카이뷰', role: 'facility' },
+  ];
+}
+
+/**
+ * R6 사진 셋 (12장 실사진 + 1장 floor_plan 건축도면 = 총 13개 입력)
+ * - 일반 갤러리는 floor_plan을 제외한 12장을 6장(1/2) + 6장(2/2) GRID_2X3 2면으로 분할
+ * - floor_plan은 전용 '지구단위계획·도면' 슬라이드(brokerRegulationImages)로 분리 렌더링
+ */
+function getR6Photos12PlusFloorPlan(): PhotoMeta[] {
+  return [
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_02.jpeg'), category: 'exterior', caption: '서초 단독 사옥 정면 파사드', isHero: true, role: 'cover' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_03.jpeg'), category: 'surroundings', caption: '양재역 도보권 코너 진입부', role: 'exterior' },
+    // index 2에 floor_plan 도면을 배치하여 resolvePhotos가 12번째 실사진을 절삭하지 않는지 검증
+    { url: imgPath(DANGSAN_IMAGES_DIR, 'image_17.png'), category: 'floor_plan', caption: '기준층(2F~5F) 사옥 레이아웃 평면도' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_01.jpeg'), category: 'entrance', caption: '1층 사옥 쇼룸 및 리셉션 진입부', role: 'exterior' },
+    { url: imgPath(DANGSAN_IMAGES_DIR, 'image_07.jpeg'), category: 'lobby', caption: '1층 리셉션 라운지 및 카페테리아', role: 'interior' },
+    { url: imgPath(YANGPYEONG_IMAGES_DIR, 'image_03.jpg'), category: 'elevator', caption: '전 층 연결 승강기 홀', role: 'interior' },
+    { url: imgPath(DANGSAN_IMAGES_DIR, 'image_08.jpeg'), category: 'corridor', caption: '기준층 타운홀 및 오픈 라운지', role: 'interior' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_05.jpeg'), category: 'interior', caption: '2층 R&D 디자인본부 오픈 오피스', role: 'interior' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_06.jpeg'), category: 'interior', caption: '3층 플랫폼개발본부 전용 업무공간', role: 'interior' },
+    { url: imgPath(DANGSAN_IMAGES_DIR, 'image_09.jpeg'), category: 'tenant_space', caption: '4층 글로벌사업본부 전용 홀', role: 'interior' },
+    { url: imgPath(DANGSAN_IMAGES_DIR, 'image_14.jpeg'), category: 'tenant_space', caption: '5층 경영지원본부 코어 복도', role: 'interior' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_04.jpeg'), category: 'parking', caption: '지하·지상 자주식 18대 전용 구역', role: 'facility' },
+    { url: imgPath(SEOCHO_IMAGES_DIR, 'image_07.jpeg'), category: 'rooftop', caption: '임직원 휴게 루프탑 가든 및 조망', role: 'facility' },
+  ];
 }
 
 function computeOracle(params: {
@@ -108,6 +212,11 @@ function computeOracle(params: {
   otherIncomeMonthlyManwon?: number;
   expectedSlideCount?: number;
   areaInputUnit?: 'sqm' | 'pyeong';
+  expectedPhotoCount: number;
+  expectedGallerySlideCount: 1 | 2;
+  expectedGalleryLayouts: GalleryLayoutType[];
+  expectedHeroPhotoSubstring: string;
+  hasBrokerRegulationDrawing?: boolean;
 }): PseudoGoldenOracle {
   const {
     caseId,
@@ -119,6 +228,11 @@ function computeOracle(params: {
     otherIncomeMonthlyManwon = 0,
     expectedSlideCount = 9,
     areaInputUnit = 'sqm',
+    expectedPhotoCount,
+    expectedGallerySlideCount,
+    expectedGalleryLayouts,
+    expectedHeroPhotoSubstring,
+    hasBrokerRegulationDrawing = false,
   } = params;
 
   let totalDepositManwon = 0;
@@ -202,6 +316,11 @@ function computeOracle(params: {
     areaInputUnit,
     totalInputAreaSqm: Math.round(totalInputAreaSqm * 100) / 100,
     totalInputAreaPyeong: Math.round(totalInputAreaPyeong * 10) / 10,
+    expectedPhotoCount,
+    expectedGallerySlideCount,
+    expectedGalleryLayouts,
+    expectedHeroPhotoSubstring,
+    hasBrokerRegulationDrawing,
   };
 }
 
@@ -209,8 +328,12 @@ function computeOracle(params: {
  * 6대 슈도 골든 시나리오(Cases R1~R6)를 생성합니다.
  */
 export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
-  const dangsanPhotos = getDangsanPhotos();
-  const yangpyeongPhotos = getYangpyeongPhotos();
+  const r1Photos = getR1Photos2();
+  const r2Photos = getR2Photos4();
+  const r3Photos = getR3Photos3();
+  const r4Photos = getR4Photos5PlusExcluded();
+  const r5Photos = getR5Photos8();
+  const r6Photos = getR6Photos12PlusFloorPlan();
 
   // ─────────────────────────────────────────────────────────────────
   // Case R1: 완전 만실 · 1층=1호실 표준 (서울 영등포구 당산동5가 11-47)
@@ -377,13 +500,13 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
   return [
     {
       caseId: 'R1_FULL_OCCUPANCY_SINGLE_FLOOR',
-      label: 'Case R1: 완전 만실 1층=1호실 표준 (당산동5가 11-47)',
+      label: 'Case R1: 완전 만실 1층=1호실 표준 + 사진 2장(DUAL_LANDSCAPE) (당산동5가 11-47)',
       pnu: '1156011500100110047',
       posture: 'income',
       buildingName: '당산 코너 메디컬빌딩',
       coordinates: { lat: 37.5342, lng: 126.9022 },
       bottomSheet: r1BottomSheet,
-      photos: dangsanPhotos,
+      photos: r1Photos,
       ssotExtra: {
         bcr_pct: 51.89,
         far_pct: 221.76,
@@ -393,23 +516,28 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
       },
       oracle: computeOracle({
         caseId: 'R1_FULL_OCCUPANCY_SINGLE_FLOOR',
-        description: '전 층 만실(6개 층 6개 호실) 표준 수익형',
+        description: '전 층 만실(6개 층 6개 호실) 표준 수익형 + 사진 2장(세로 3:4 + 가로 4:3, DUAL_LANDSCAPE)',
         askingPriceManwon: 1150000,
         landAreaM2: 506.8,
         grossFloorAreaM2: 1441.15,
         leases: r1Leases,
+        expectedSlideCount: 9,
+        expectedPhotoCount: 2,
+        expectedGallerySlideCount: 1,
+        expectedGalleryLayouts: ['DUAL_LANDSCAPE'],
+        expectedHeroPhotoSubstring: 'p1-dangsan-income/r2-standard/images/image_01.jpeg',
       }),
     },
     {
       caseId: 'R2_HIGH_DENSITY_18_UNIT_SPLIT',
-      label: 'Case R2: 다호실 쪼개기 과밀 16개 호실 (양평동4가 117 외 2필지)',
+      label: 'Case R2: 다호실 쪼개기 과밀 16개 호실 + 사진 4장(GRID_2X2) (양평동4가 117 외 2필지)',
       pnu: '1156012800101170000',
       pnus: ['1156012800101170000', '1156012800101340000', '1156012800101250002'],
       posture: 'income',
       buildingName: '선유도역 더레드 타워',
       coordinates: { lat: 37.5381, lng: 126.8938 },
       bottomSheet: r2BottomSheet,
-      photos: yangpyeongPhotos,
+      photos: r2Photos,
       ssotExtra: {
         bcr_pct: 58.4,
         far_pct: 398.8,
@@ -419,23 +547,27 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
       },
       oracle: computeOracle({
         caseId: 'R2_HIGH_DENSITY_18_UNIT_SPLIT',
-        description: 'B1~10F 총 16개 분할 호실 과밀 렌트롤(2면 분할) + 다중 용도 스태킹',
+        description: 'B1~10F 총 16개 분할 호실 과밀 렌트롤(2면 분할) + 사진 4장(GRID_2X2, D11a 칩·캡션 분리)',
         askingPriceManwon: 2500000,
         landAreaM2: 518.7,
         grossFloorAreaM2: 2490.88,
         leases: r2Leases,
         expectedSlideCount: 10,
+        expectedPhotoCount: 4,
+        expectedGallerySlideCount: 1,
+        expectedGalleryLayouts: ['GRID_2X2'],
+        expectedHeroPhotoSubstring: 'p5-yangpyeong-income/r2-standard/images/image_01.jpg',
       }),
     },
     {
       caseId: 'R3_VALUE_ADD_VACANT_OWNER_MIX',
-      label: 'Case R3: 부분 공실(1) + 자가사용(2) + 임대(3) 혼합 밸류애드 (당산동5가 11-47)',
+      label: 'Case R3: 부분 공실(1)+자가(2)+임대(3) 혼합 + 사진 3장(ONE_LARGE_TWO_SMALL_H) (당산동5가 11-47)',
       pnu: '1156011500100110047',
       posture: 'income',
       buildingName: '당산 밸류업 메디컬타워',
       coordinates: { lat: 37.5342, lng: 126.9022 },
       bottomSheet: r3BottomSheet,
-      photos: dangsanPhotos,
+      photos: r3Photos,
       ssotExtra: {
         bcr_pct: 51.89,
         far_pct: 221.76,
@@ -453,22 +585,27 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
       },
       oracle: computeOracle({
         caseId: 'R3_VALUE_ADD_VACANT_OWNER_MIX',
-        description: '임대 3호실 + 자가사용 2호실 + 공실 1호실 혼합 및 안정화 수익률 산출',
+        description: '임대 3호실 + 자가사용 2호실 + 공실 1호실 혼합 + 사진 3장(1+2 비대칭 ONE_LARGE_TWO_SMALL_H)',
         askingPriceManwon: 1150000,
         landAreaM2: 506.8,
         grossFloorAreaM2: 1441.15,
         leases: r3Leases,
+        expectedSlideCount: 9,
+        expectedPhotoCount: 3,
+        expectedGallerySlideCount: 1,
+        expectedGalleryLayouts: ['ONE_LARGE_TWO_SMALL_H'],
+        expectedHeroPhotoSubstring: 'p1-dangsan-income/r2-standard/images/image_01.jpeg',
       }),
     },
     {
       caseId: 'R4_MULTI_FLOOR_INTEGRATED_OTHER_INCOME',
-      label: 'Case R4: 복층 통합계약(1F~2F) + 기타수입 월 180만 포함 (당산동5가 11-47)',
+      label: 'Case R4: 복층 통합계약(1F~2F)+기타수입 + 사진 5장(GRID_2X3 하단 중앙대칭) (당산동5가 11-47)',
       pnu: '1156011500100110047',
       posture: 'income',
       buildingName: '당산 참좋은 메디컬센터',
       coordinates: { lat: 37.5342, lng: 126.9022 },
       bottomSheet: r4BottomSheet,
-      photos: dangsanPhotos,
+      photos: r4Photos,
       ssotExtra: {
         bcr_pct: 51.89,
         far_pct: 221.76,
@@ -483,23 +620,28 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
       },
       oracle: computeOracle({
         caseId: 'R4_MULTI_FLOOR_INTEGRATED_OTHER_INCOME',
-        description: '1F~2F 복층 통합계약(2F 임대료 0원·통합 비고) 및 옥상 통신중계기 기타수입 월 180만원',
+        description: '1F~2F 복층 통합계약 + 기타수입 월 180만원 + 사진 5장(GRID_2X3 하단 2장 중앙 정렬, excluded 1장 제외)',
         askingPriceManwon: 1150000,
         landAreaM2: 506.8,
         grossFloorAreaM2: 1441.15,
         leases: r4Leases,
         otherIncomeMonthlyManwon: 180,
+        expectedSlideCount: 9,
+        expectedPhotoCount: 5,
+        expectedGallerySlideCount: 1,
+        expectedGalleryLayouts: ['GRID_2X3'],
+        expectedHeroPhotoSubstring: 'p1-dangsan-income/r2-standard/images/image_01.jpeg',
       }),
     },
     {
       caseId: 'R5_EXCLUSIVE_AREA_PYEONG_INPUT',
-      label: 'Case R5: 평(py) 단위 전용면적 입력 (서초동 1364-28)',
+      label: 'Case R5: 평(py) 단위 전용면적 입력 + 사진 8장(4+4 2면 분할 GRID_2X2) (서초동 1364-28)',
       pnu: '1165010800113640028',
       posture: 'income',
       buildingName: '서초 남부순환로 프라임빌딩',
       coordinates: { lat: 37.4836, lng: 127.0357 },
       bottomSheet: r5BottomSheet,
-      photos: dangsanPhotos,
+      photos: r5Photos,
       ssotExtra: {
         bcr_pct: 47.9,
         far_pct: 296.6,
@@ -515,23 +657,28 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
       },
       oracle: computeOracle({
         caseId: 'R5_EXCLUSIVE_AREA_PYEONG_INPUT',
-        description: '전용면적 평(py) 단위 단독 입력 시 이중 환산 방지 및 스태킹·렌트롤 정합성',
+        description: '전용면적 평(py) 단위 단독 입력 + 사진 8장(현장 사진 1/2 4장 + 2/2 4장 2면 분할, 총 10면)',
         askingPriceManwon: 2300000,
         landAreaM2: 596.0,
         grossFloorAreaM2: 2104.8,
         leases: r5Leases,
         areaInputUnit: 'pyeong',
+        expectedSlideCount: 10,
+        expectedPhotoCount: 8,
+        expectedGallerySlideCount: 2,
+        expectedGalleryLayouts: ['GRID_2X2', 'GRID_2X2'],
+        expectedHeroPhotoSubstring: 'p3-seocho-owner/r3-verified/images/image_02.jpeg',
       }),
     },
     {
       caseId: 'R6_ZERO_RENT_OWNER_HQ_WITH_COMPS',
-      label: 'Case R6: 전층 명도·사옥형 (임대료 0원) + 인근 시세비교 3건 (서초동 1364-28)',
+      label: 'Case R6: 전층 명도·사옥형 + 시세비교 3건 + 사진 12장(6+6 2면 분할) + 도면 1장 (서초동 1364-28)',
       pnu: '1165010800113640028',
       posture: 'owner_occupied',
       buildingName: '서초 단독 사옥 타워',
       coordinates: { lat: 37.4836, lng: 127.0357 },
       bottomSheet: r6BottomSheet,
-      photos: dangsanPhotos,
+      photos: r6Photos,
       ssotExtra: {
         bcr_pct: 47.9,
         far_pct: 296.6,
@@ -551,12 +698,17 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
       },
       oracle: computeOracle({
         caseId: 'R6_ZERO_RENT_OWNER_HQ_WITH_COMPS',
-        description: '전 층 자가사용(임대료 0원) 사옥형 포스처(수익률 산식 제외) + 인근 시세 비교 슬라이드 추가(9면)',
+        description: '전 층 자가사용 사옥형 + 시세 비교 + 사진 12장(6+6 2면 분할) + floor_plan 도면 전용 슬라이드(총 11면)',
         askingPriceManwon: 2300000,
         landAreaM2: 596.0,
         grossFloorAreaM2: 2104.8,
         leases: r6Leases,
-        expectedSlideCount: 9,
+        expectedSlideCount: 11,
+        expectedPhotoCount: 12,
+        expectedGallerySlideCount: 2,
+        expectedGalleryLayouts: ['GRID_2X3', 'GRID_2X3'],
+        expectedHeroPhotoSubstring: 'p3-seocho-owner/r3-verified/images/image_02.jpeg',
+        hasBrokerRegulationDrawing: true,
       }),
     },
   ];

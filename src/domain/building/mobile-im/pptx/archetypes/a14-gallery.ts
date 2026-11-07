@@ -184,15 +184,23 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       });
     }
 
-    // 4. 캡션 바 (하단 오버레이) — 실제 사진 폭(dw)에 정렬
+    // 4. 캡션 바 (하단 오버레이) — 실제 사진 폭(dw)에 정렬 (세로형 사진 폭이 좁을 때 2줄 래핑 시 캡션 바 높이 자동 확장)
     if (realCaption) {
-      const captionH = 0.32;
+      const capText = String(meta.caption).trim();
+      const capTextW = Math.max(0.4, dw - 0.24);
+      const estCharsPerLine = Math.max(4, Math.floor((capTextW * 72) / (9 * 1.05)));
+      const estLines = Math.ceil(capText.length / estCharsPerLine);
+      const captionH = estLines >= 2 ? 0.44 : 0.32;
+      const safeCapText =
+        estLines > 2
+          ? `${capText.slice(0, Math.max(4, estCharsPerLine * 2 - 2))}…`
+          : capText;
       slide.addShape('rect', {
         x: dx, y: dy + dh - captionH, w: dw, h: captionH,
         fill: { color: '000000', transparency: 40 },
       });
-      slide.addText(String(meta.caption), {
-        x: dx + 0.12, y: dy + dh - captionH, w: Math.max(0.4, dw - 0.24), h: captionH,
+      slide.addText(safeCapText, {
+        x: dx + 0.12, y: dy + dh - captionH, w: capTextW, h: captionH,
         fontFace: KR, fontSize: 9, color: 'FFFFFF', // D30 m-4: 최소 캡션 9pt
         valign: 'middle', margin: 0,
       });

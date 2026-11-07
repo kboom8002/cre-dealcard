@@ -26,16 +26,22 @@ export function PhotoGallery({
   const sortedItems = useMemo(() => {
     const raw = [...(photos || [])];
     const mapItems = raw.filter((i) => i.type === "map");
-    const nonPhotoTypes = new Set(["floor_plan", "document", "business_card", "location_map", "district_plan_map", "cadastral"]);
+    const nonPhotoTypes = new Set(["floor_plan", "document", "business_card", "location_map", "district_plan_map", "cadastral", "land_plan"]);
     const photoItems = raw
       .filter(
         (i) =>
+          (i as any).excluded !== true &&
           i.type !== "map" &&
           !nonPhotoTypes.has((i.type as string)?.toLowerCase() || "") &&
           !nonPhotoTypes.has(((i as any).category as string)?.toLowerCase() || "")
       )
-      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-    return [...mapItems, ...photoItems.slice(0, 6)];
+      .sort((a: any, b: any) => {
+        const aHero = a.role === "cover" || a.isHero ? 0 : 1;
+        const bHero = b.role === "cover" || b.isHero ? 0 : 1;
+        if (aHero !== bHero) return aHero - bHero;
+        return (a.order ?? 99) - (b.order ?? 99);
+      });
+    return [...mapItems, ...photoItems.slice(0, 12)];
   }, [photos, coordinates, blindName]);
 
   const totalOriginal = (photos?.length ?? 0) + (coordinates ? 1 : 0);

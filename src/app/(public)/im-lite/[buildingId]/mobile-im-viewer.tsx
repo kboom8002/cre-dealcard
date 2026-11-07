@@ -437,7 +437,16 @@ export function MobileIMViewer({
       deposit_total_manwon: depositManwon,
       rent_roll: synthesizedRentRoll,
       points: Array.isArray(hero.keyPoints) ? hero.keyPoints : undefined,
-      photos: Array.isArray(initialDoc?.photos) ? initialDoc.photos : undefined,
+      photos:
+        Array.isArray((initialDoc as any)?.photos_v2) && (initialDoc as any).photos_v2.length > 0
+          ? (initialDoc as any).photos_v2
+          : Array.isArray(initialDoc?.photos) && initialDoc.photos.length > 0
+          ? initialDoc.photos
+          : Array.isArray((ssotData as any)?.photos_v2)
+          ? (ssotData as any).photos_v2
+          : Array.isArray((ssotData as any)?.photos)
+          ? (ssotData as any).photos
+          : undefined,
       brokerOffice: brokerInfo,
       broker_office: brokerInfo,
     };
