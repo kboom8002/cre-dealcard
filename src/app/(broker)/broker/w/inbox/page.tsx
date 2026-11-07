@@ -940,23 +940,23 @@ function InboxWorkspaceInner() {
     } catch {
       // ignore in JSDOM
     }
-    showUndoToast("📌 AXIOS형 맞춤 카톡 팔로업 제안문이 복사되었습니다.");
+    showUndoToast("📌 맞춤 카톡 팔로업 제안문이 복사되었습니다.");
   };
 
-  /* ──────── Column 1: Inbox Filter & List (Airtable-Style Intelligent CRM Grid) ──────── */
+  /* ──────── Column 1: Inbox Filter & List (Intelligent CRM Grid) ──────── */
   const listSlot = (
     <div className="flex flex-col h-full bg-[#FAF9F5] p-3 space-y-2.5" data-testid="inbox-list-slot">
-      {/* Airtable CRM Header Banner */}
-      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#0F172A] text-white">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950">
-            AIRTABLE CRM
+      {/* CRM Header Banner */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0F172A] text-white">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950 whitespace-nowrap shrink-0">
+            고객 소통함
           </span>
-          <span className="text-[12px] font-bold text-slate-200">
-            고객소통 · 열람신호 목록
+          <span className="text-[12px] font-bold text-slate-200 whitespace-nowrap truncate">
+            열람신호 · 고객 목록
           </span>
         </div>
-        <span className="text-[12px] font-mono text-amber-300 font-bold">
+        <span className="text-[12px] font-mono text-amber-300 font-bold whitespace-nowrap shrink-0">
           {filteredThreads.length}명
         </span>
       </div>
@@ -968,9 +968,9 @@ function InboxWorkspaceInner() {
       >
         {(
           [
-            { id: "hot_lead", label: "🔥 핫리드·열람", filter: "action" as InboxFilterType },
-            { id: "gate_req", label: "🔒 G2 승인요청", filter: "views" as InboxFilterType },
-            { id: "vip_crm", label: "👥 VIP·구독명단", filter: "clients" as InboxFilterType },
+            { id: "hot_lead", label: "핫리드·열람", filter: "action" as InboxFilterType },
+            { id: "gate_req", label: "G2 승인요청", filter: "views" as InboxFilterType },
+            { id: "vip_crm", label: "VIP·구독명단", filter: "clients" as InboxFilterType },
           ] as const
         ).map((sw) => {
           const active = focusMode === sw.id;
@@ -983,7 +983,7 @@ function InboxWorkspaceInner() {
                 setFocusMode(sw.id);
                 setActiveFilter(sw.filter);
               }}
-              className={`min-h-[36px] px-1.5 py-1 rounded-lg text-[11px] font-extrabold transition cursor-pointer ${
+              className={`min-h-[36px] px-1.5 py-1 rounded-lg text-[11px] font-extrabold whitespace-nowrap flex items-center justify-center transition cursor-pointer ${
                 active
                   ? "bg-white text-[#0F172A] shadow-xs border border-blue-300"
                   : "text-slate-700 hover:text-slate-950"
@@ -998,10 +998,10 @@ function InboxWorkspaceInner() {
       {/* 소통 공식 배너 */}
       <div
         data-testid="inbox-formula-banner"
-        className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-950 font-semibold leading-snug"
+        className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-950 font-semibold leading-snug"
       >
         <span className="font-extrabold text-amber-900">[고객소통 공식]</span>{" "}
-        열람 체류 진단 + AXIOS 포스트잇 제안문 + 맞춤 대체매물
+        열람 체류 진단 + 카톡 맞춤 제안문 + 대체매물 추천
       </div>
 
       {/* Search Input */}
@@ -1319,7 +1319,7 @@ function InboxWorkspaceInner() {
       {/* Top <= 4 Primary Tabs (Minimalist Tab Bar -> Immediate Setting/Action Panel Below) */}
       <div
         data-testid="inbox-editor-primary-tabs"
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-200/90 border border-slate-300"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/90 border border-slate-300"
       >
         {(
           [
@@ -1331,7 +1331,7 @@ function InboxWorkspaceInner() {
             {
               id: "kakao_proposal",
               label: "② 카톡 제안·안부",
-              sub: "AXIOS 포스트잇 제안문",
+              sub: "맞춤 카톡 제안문",
             },
             {
               id: "matched_deals",
@@ -1352,15 +1352,15 @@ function InboxWorkspaceInner() {
               type="button"
               data-testid={`inbox-editor-tab-${tab.id}`}
               onClick={() => setActiveInboxTab(tab.id)}
-              className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+              className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer min-w-0 ${
                 isActive
                   ? "bg-[#0F172A] text-white shadow-sm"
                   : "bg-white/80 text-slate-800 hover:bg-white"
               }`}
             >
-              <div className="text-[14px] font-extrabold leading-tight">{tab.label}</div>
+              <div className="text-[14px] font-extrabold leading-tight whitespace-nowrap truncate">{tab.label}</div>
               <div
-                className={`text-[11px] mt-0.5 font-medium ${
+                className={`text-[11px] mt-0.5 font-medium whitespace-nowrap truncate ${
                   isActive ? "text-amber-300" : "text-slate-500"
                 }`}
               >
@@ -1376,19 +1376,19 @@ function InboxWorkspaceInner() {
         data-testid="inbox-tab-panel-diagnosis-gate"
         className={activeInboxTab === "diagnosis_gate" ? "space-y-4 block" : "hidden"}
       >
-        {/* AXIOS Wide Pastel Post-it Card for Section Dwell Diagnosis */}
+        {/* Section Dwell Diagnosis Card */}
         {activeThread.focusedSections && activeThread.focusedSections.length > 0 && (
           <div
             data-testid="section-dwell-badges"
             style={{ backgroundColor: "#FEF9C3", borderColor: "#FDE047" }}
-            className="p-5 rounded-2xl border-2 space-y-3 shadow-xs"
+            className="p-5 rounded-lg border border-l-4 space-y-3 shadow-xs"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span
                 style={{ backgroundColor: "#FEF08A", color: "#854D0E" }}
-                className="text-[12px] font-extrabold px-2.5 py-0.5 rounded-md"
+                className="text-[12px] font-extrabold px-2.5 py-0.5 rounded"
               >
-                📌 AXIOS 열람 체류 진단 포스트잇
+                📌 고객 열람 체류 진단
               </span>
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[12px] font-extrabold text-amber-950">
@@ -1478,13 +1478,13 @@ function InboxWorkspaceInner() {
                 현재 보안 링크 상태: 정상 열람 가능 ({activeThread.shareToken})
               </p>
               <p className="text-[13px] text-slate-600">
-                상단 [② 카톡 제안·안부] 탭에서 AXIOS 포스트잇 맞춤 팔로업 문구를 즉시 작성·발송할 수 있습니다.
+                상단 [② 카톡 제안·안부] 탭에서 맞춤 팔로업 문구를 즉시 작성·발송할 수 있습니다.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setActiveInboxTab("kakao_proposal")}
-              className="px-3.5 py-2 rounded-xl bg-blue-700 text-white text-[13px] font-bold cursor-pointer shrink-0"
+              className="px-3.5 py-2 rounded-xl bg-blue-700 text-white text-[13px] font-bold cursor-pointer shrink-0 whitespace-nowrap"
             >
               카톡 제안 작성 →
             </button>
@@ -1492,7 +1492,7 @@ function InboxWorkspaceInner() {
         )}
       </div>
 
-      {/* ── TAB 2 PANEL: ② 카톡 제안·안부 (AXIOS Wide Post-it Proposal Editor) ── */}
+      {/* ── TAB 2 PANEL: ② 카톡 제안·안부 (Kakao Follow-up Proposal Editor) ── */}
       <div
         data-testid="inbox-tab-panel-kakao-proposal"
         className={activeInboxTab === "kakao_proposal" ? "space-y-4 block" : "hidden"}
@@ -1500,17 +1500,17 @@ function InboxWorkspaceInner() {
         <div
           data-testid="inbox-axios-kakao-postit"
           style={{ backgroundColor: "#E0F2FE", borderColor: "#7DD3FC" }}
-          className="rounded-2xl border-2 p-5 space-y-3 shadow-xs"
+          className="rounded-lg border border-l-4 p-5 space-y-3 shadow-xs"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span
               style={{ backgroundColor: "#BAE6FD", color: "#075985" }}
-              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded-md"
+              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded"
             >
-              💬 AXIOS 포스트잇 카톡 팔로업 제안서
+              💬 맞춤 카톡 팔로업 제안문
             </span>
             <span className="text-[12px] font-bold text-sky-900">
-              1줄 핵심 제목 + 2~4문장 맞춤 브리프
+              핵심 제목 + 맞춤 검토 코멘트
             </span>
           </div>
 
@@ -1519,8 +1519,8 @@ function InboxWorkspaceInner() {
             data-testid="inbox-kakao-headline-input"
             value={kakaoHeadline}
             onChange={(e) => setKakaoHeadline(e.target.value)}
-            className="w-full h-11 px-3.5 text-[17px] font-extrabold text-slate-950 bg-white rounded-xl border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap overflow-hidden text-ellipsis"
-            placeholder="1줄 카톡 핵심 제목"
+            className="w-full h-11 px-3.5 text-[17px] font-extrabold text-slate-950 bg-white rounded-lg border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap overflow-hidden text-ellipsis"
+            placeholder="카톡 핵심 제목"
           />
 
           <textarea
@@ -1528,8 +1528,8 @@ function InboxWorkspaceInner() {
             data-testid="inbox-kakao-brief-input"
             value={kakaoBrief}
             onChange={(e) => setKakaoBrief(e.target.value)}
-            className="w-full px-3.5 py-2.5 text-[14px] font-medium text-slate-800 bg-white/95 rounded-xl border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
-            placeholder="2~4문장 맞춤 검토 브리프 해설"
+            className="w-full px-3.5 py-2.5 text-[14px] font-medium text-slate-800 bg-white/95 rounded-lg border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
+            placeholder="2~4문장 맞춤 검토 코멘트"
           />
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
@@ -1537,9 +1537,9 @@ function InboxWorkspaceInner() {
               type="button"
               data-testid="inbox-copy-axios-kakao-btn"
               onClick={handleCopyAxiosKakaoProposal}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-[14px] font-extrabold cursor-pointer"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-[14px] font-extrabold cursor-pointer whitespace-nowrap"
             >
-              📋 AXIOS 포스트잇 제안문 복사
+              📋 맞춤 카톡 제안문 복사
             </button>
             <KakaoTemplatePicker
               buildingId={activeThread.buildingId}
@@ -1559,17 +1559,17 @@ function InboxWorkspaceInner() {
         <div
           data-testid="inbox-editor-matched-deals"
           style={{ backgroundColor: "#DCFCE7", borderColor: "#86EFAC" }}
-          className="rounded-2xl border-2 p-5 space-y-3 shadow-xs"
+          className="rounded-lg border border-l-4 p-5 space-y-3 shadow-xs"
         >
           <div className="flex items-center justify-between">
             <span
               style={{ backgroundColor: "#BBF7D0", color: "#166534" }}
-              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded-md"
+              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded"
             >
               🎯 예산({activeThread.budget}) · 선호권역({activeThread.preferredRegion}) 자동 매칭
             </span>
             <span className="text-[12px] font-bold text-emerald-900">
-              비교 추천 포스트잇
+              비교 추천 매물
             </span>
           </div>
 
@@ -1711,11 +1711,11 @@ function InboxWorkspaceInner() {
           </div>
         </div>
 
-        {/* Live AXIOS Kakao Post-it Preview */}
+        {/* Live Kakao Proposal Preview */}
         <div
           data-testid="inbox-preview-kakao-card"
           style={{ backgroundColor: "#E0F2FE", borderColor: "#7DD3FC" }}
-          className="rounded-xl border p-3 space-y-1.5"
+          className="rounded-md border border-l-4 p-3 space-y-1.5"
         >
           <div className="flex items-center justify-between">
             <span
@@ -1724,7 +1724,7 @@ function InboxWorkspaceInner() {
             >
               💬 카톡 제안 미리보기
             </span>
-            <span className="text-[10px] font-bold text-sky-900">1줄 제목 고정</span>
+            <span className="text-[10px] font-bold text-sky-900">실시간 반영</span>
           </div>
           <p
             data-single-line-title="true"

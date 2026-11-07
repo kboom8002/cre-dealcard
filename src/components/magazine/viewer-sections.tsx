@@ -460,9 +460,9 @@ export function NewsSection({
 
   const sectionTitle =
     cadence === "monthly"
-      ? "월간 핵심 이슈 5선 (AXIOS 브리프)"
+      ? "월간 핵심 시장 이슈 5선"
       : cadence === "daily"
-      ? "일간 핵심 이슈 5선 (AXIOS 브리프)"
+      ? "일간 핵심 시장 이슈 5선"
       : "핵심 이슈 브리프";
 
   return (
@@ -480,7 +480,7 @@ export function NewsSection({
               key={card.id || i}
               data-testid="axios-postit-card"
               data-postit-tone={card.tone}
-              className="relative overflow-hidden rounded-2xl border-2 p-4 shadow-sm"
+              className="relative overflow-hidden rounded-lg border border-l-4 p-4 shadow-sm"
               style={{
                 backgroundColor: toneMeta.cardBg,
                 borderColor: toneMeta.cardBorder,

@@ -51,15 +51,15 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
         root.render(<DealCardsWorkspacePage />);
       });
 
-      // Column 1: Airtable intelligent list + posture switcher
+      // Column 1: Intelligent list + posture switcher
       const airtableList = container.querySelector('[data-testid="dealcard-airtable-list"]');
       expect(airtableList).not.toBeNull();
-      expect(airtableList?.textContent).toContain('AIRTABLE GRID');
+      expect(airtableList?.textContent).toContain('보유 딜카드');
       expect(airtableList?.textContent).toContain('[매매 딜카드 공식]');
 
       const postureSwitcher = container.querySelector('[data-testid="dealcard-posture-switcher"]');
       expect(postureSwitcher).not.toBeNull();
-      expect(postureSwitcher?.textContent).toContain('전체 매물');
+      expect(postureSwitcher?.textContent).toContain('전체');
       expect(postureSwitcher?.textContent).toContain('수익형(임대)');
       expect(postureSwitcher?.textContent).toContain('사옥·밸류애드');
 
@@ -122,10 +122,10 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
         root.render(<ImWorkspacePage />);
       });
 
-      // Column 1: Airtable IM list + posture switcher + standard formula banner
+      // Column 1: IM list + posture switcher + standard formula banner
       const listSlot = container.querySelector('[data-testid="im-list-slot"]');
       expect(listSlot).not.toBeNull();
-      expect(listSlot?.textContent).toContain('AIRTABLE IM');
+      expect(listSlot?.textContent).toContain('보유 IM');
 
       const postureSwitcher = container.querySelector('[data-testid="im-posture-switcher"]');
       expect(postureSwitcher).not.toBeNull();
@@ -148,7 +148,7 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       expect(tabButtons.length).toBe(4);
       expect(primaryTabs?.textContent).toContain('① 표지·핵심제원');
       expect(primaryTabs?.textContent).toContain('② 층별 렌트롤·수지');
-      expect(primaryTabs?.textContent).toContain('③ AXIOS 투자브리프');
+      expect(primaryTabs?.textContent).toContain('③ 핵심 투자포인트');
       expect(primaryTabs?.textContent).toContain('④ 사진·지적도·발행');
 
       // Single-line IM cover title input exists
@@ -157,7 +157,7 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       ) as HTMLInputElement;
       expect(titleInput).not.toBeNull();
 
-      // Switch to Tab 3 (AXIOS 투자브리프) and verify 3 wide Post-it highlight cards
+      // Switch to Tab 3 (핵심 투자포인트) and verify 3 wide highlight cards
       const axiosTabBtn = container.querySelector(
         '[data-testid="im-editor-tab-axios_brief"]'
       ) as HTMLButtonElement;
@@ -169,7 +169,10 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       expect(container.querySelector('[data-testid="im-axios-postit-1"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="im-axios-postit-2"]')).not.toBeNull();
 
-      // Column 3: Mobile IM preview shows AXIOS Post-it highlights & single-line cover title
+      // Column 3: Mobile IM preview shows full 10-section scrollable container & 3 highlight cards
+      const previewScroll = container.querySelector('[data-testid="im-mobile-preview-scroll"]');
+      expect(previewScroll).not.toBeNull();
+      expect(previewScroll?.textContent).toContain('10 거래 조건 및 담당 중개인');
       const previewAxiosList = container.querySelector('[data-testid="im-preview-axios-list"]');
       expect(previewAxiosList).not.toBeNull();
       expect(previewAxiosList?.children.length).toBe(3);
@@ -185,9 +188,9 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
         root.render(<InboxWorkspacePage />);
       });
 
-      // Column 1: Airtable CRM header + 3-way focus switcher + formula banner
+      // Column 1: Client Inbox header + 3-way focus switcher + formula banner
       const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
-      expect(listSlot?.textContent).toContain('AIRTABLE CRM');
+      expect(listSlot?.textContent).toContain('고객 소통함');
 
       const focusSwitcher = container.querySelector('[data-testid="inbox-focus-switcher"]');
       expect(focusSwitcher).not.toBeNull();

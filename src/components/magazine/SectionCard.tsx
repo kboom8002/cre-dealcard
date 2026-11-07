@@ -25,7 +25,7 @@ export function SectionCard({
   const headingId = `${uid}-title`;
   return (
     <div
-      className={`overflow-hidden rounded-2xl border transition-colors duration-300 ${
+      className={`overflow-hidden rounded-lg border transition-colors duration-300 ${
         isOpen ? "border-white/15 bg-white/[0.03]" : "border-white/10 bg-white/[0.02]"
       }`}
     >

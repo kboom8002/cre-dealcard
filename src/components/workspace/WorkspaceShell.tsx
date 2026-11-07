@@ -229,9 +229,9 @@ export function WorkspaceShell({
           }`}
         >
           {/* List Header */}
-          <div className="h-14 border-b border-slate-300 px-4 flex items-center justify-between shrink-0 bg-white/70">
+          <div className="h-14 border-b border-slate-300 px-4 flex items-center justify-between gap-2 shrink-0 bg-white/70">
             {!isRailCollapsed && (
-              <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
                 {listTitle}
               </h2>
             )}
@@ -301,17 +301,17 @@ export function WorkspaceShell({
           }`}
         >
           {/* Editor Header */}
-          <div className="h-14 border-b border-slate-300 px-4 sm:px-6 flex items-center justify-between shrink-0 bg-white sticky top-0 z-10">
-            <div className="flex items-center gap-3">
+          <div className="h-14 border-b border-slate-300 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0 bg-white sticky top-0 z-10">
+            <div className="flex items-center gap-3 min-w-0">
               {/* Mobile Back Button to List */}
               <button
                 type="button"
                 onClick={() => setMobileView("list")}
-                className="lg:hidden px-2.5 py-1 min-h-[38px] rounded-lg border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100"
+                className="lg:hidden px-2.5 py-1 min-h-[38px] rounded-lg border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0"
               >
                 ‹ 목록
               </button>
-              <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
                 {editorTitle}
               </h2>
             </div>
@@ -320,7 +320,7 @@ export function WorkspaceShell({
             {saveStatus && (
               <div
                 data-testid="workspace-save-status"
-                className="flex items-center gap-1.5 text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200"
+                className="flex items-center gap-1.5 text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 whitespace-nowrap shrink-0"
               >
                 <span>{saveStatus}</span>
               </div>
@@ -346,11 +346,11 @@ export function WorkspaceShell({
           }`}
         >
           {/* Preview Header */}
-          <div className="h-14 border-b border-slate-300 px-4 flex items-center justify-between shrink-0 bg-[#FAF9F5]">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
+          <div className="h-14 border-b border-slate-300 px-3.5 flex items-center justify-between gap-2 shrink-0 bg-[#FAF9F5]">
+            <h2 className="text-base font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
               {previewTitle}
             </h2>
-            {previewTabSlot}
+            <div className="shrink-0">{previewTabSlot}</div>
           </div>
 
           {/* Real Preview Content */}

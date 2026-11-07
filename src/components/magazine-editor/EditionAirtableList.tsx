@@ -126,12 +126,12 @@ export function EditionAirtableList({
       {/* ━━━ 1. 상단 주기별(일간/주간/월간) 즉시 전환·생성 스위치 ━━━ */}
       <div className="p-3 border-b border-slate-200 bg-slate-50/80 space-y-2.5">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-blue-700" aria-hidden="true" />
-            <span className="text-sm font-extrabold text-slate-900">뉴스레터 주기 · 목록</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Calendar className="w-4 h-4 text-blue-700 shrink-0" aria-hidden="true" />
+            <span className="text-sm font-extrabold text-slate-900 whitespace-nowrap truncate">뉴스레터 주기 · 목록</span>
           </div>
-          <span className="rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-800">
-            Airtable 뷰
+          <span className="rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-800 whitespace-nowrap shrink-0">
+            발행본 목록
           </span>
         </div>
 
@@ -158,8 +158,8 @@ export function EditionAirtableList({
                     : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
                 }`}
               >
-                <span>{meta.shortLabel} 편집</span>
-                <span className={`text-xs font-medium ${isCurrent ? "text-white/90" : "text-slate-500"}`}>
+                <span className="whitespace-nowrap">{meta.shortLabel} 편집</span>
+                <span className={`text-[11px] font-medium whitespace-nowrap ${isCurrent ? "text-white/90" : "text-slate-500"}`}>
                   {cad === "daily" ? "이슈5+딜" : cad === "weekly" ? "브리핑+이슈5" : "통계2+이슈5"}
                 </span>
               </button>

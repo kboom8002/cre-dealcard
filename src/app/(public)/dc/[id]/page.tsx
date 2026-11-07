@@ -408,11 +408,11 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             return dp.length > 0 ? (
               <div
                 data-testid="public-dealcard-points"
-                className="rounded-2xl bg-slate-900/80 border border-slate-700/70 p-4 space-y-3"
+                className="rounded-lg bg-slate-900/80 border border-slate-700/70 p-4 space-y-3"
               >
                 <div className="flex items-center justify-between">
                   <p className="text-[14px] font-bold text-amber-400 tracking-wide flex items-center gap-1.5">
-                    <span>📌 핵심 투자 포인트 ({dp.length}선 · AXIOS 포스트잇)</span>
+                    <span>📌 핵심 투자 포인트 ({dp.length}선)</span>
                   </p>
                   <span className="text-[12px] text-slate-300">매수 검토 핵심 요약</span>
                 </div>
@@ -426,7 +426,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
                         key={i}
                         data-testid={`public-dealcard-postit-${i}`}
                         style={{ backgroundColor: tone.bg, borderColor: tone.border }}
-                        className="rounded-xl border-2 p-3.5 shadow-sm text-slate-900 space-y-1"
+                        className="rounded-md border border-l-4 p-3.5 shadow-sm text-slate-900 space-y-1"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span

@@ -850,28 +850,28 @@ function ImWorkspaceInner() {
 
     setAxiosHighlights(nextHighlights);
     syncCurrentItemPatch({ axiosHighlights: nextHighlights });
-    showUndoToast("✨ 투자 포스처에 맞춰 AXIOS 와이드 포스트잇 3선이 재구성되었습니다.");
+    showUndoToast("✨ 투자 포스처에 맞춰 핵심 투자 포인트 3선이 재구성되었습니다.");
   };
 
-  /* ──────── Column 1: Item List (Airtable-Style Intelligent IM Grid) ──────── */
+  /* ──────── Column 1: Item List (Intelligent IM Inventory Grid) ──────── */
   const listSlot = (
     <div className="flex flex-col h-full bg-[#FAF9F5] p-3 space-y-3" data-testid="im-list-slot">
-      {/* Airtable Header Banner */}
-      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#0F172A] text-white">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950">
-            AIRTABLE IM
+      {/* Header Banner */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0F172A] text-white">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950 whitespace-nowrap shrink-0">
+            보유 IM
           </span>
-          <span className="text-[12px] font-bold text-slate-200">
-            모바일·Basic IM 표준 목록
+          <span className="text-[12px] font-bold text-slate-200 whitespace-nowrap truncate">
+            모바일·Basic IM 목록
           </span>
         </div>
-        <span className="text-[12px] font-mono text-amber-300 font-bold">
+        <span className="text-[12px] font-mono text-amber-300 font-bold whitespace-nowrap shrink-0">
           총 {filteredItems.length}건
         </span>
       </div>
 
-      {/* 매수 포스처(투자 목적)별 스위처 (Pro IM 제외, 실용 포스처 전환 기능) */}
+      {/* 매수 포스처(투자 목적)별 스위처 */}
       <div
         data-testid="im-posture-switcher"
         className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-slate-200 border border-slate-300"
@@ -879,9 +879,9 @@ function ImWorkspaceInner() {
         {(
           [
             { id: "all", label: "전체" },
-            { id: "income", label: "🏦 수익형" },
-            { id: "owner", label: "🏢 사옥형" },
-            { id: "value_dev", label: "🔨 밸류·신축" },
+            { id: "income", label: "수익형" },
+            { id: "owner", label: "사옥형" },
+            { id: "value_dev", label: "밸류·신축" },
           ] as const
         ).map((tab) => {
           const active = postureFilter === tab.id;
@@ -891,7 +891,7 @@ function ImWorkspaceInner() {
               type="button"
               data-testid={`im-posture-tab-${tab.id}`}
               onClick={() => setPostureFilter(tab.id)}
-              className={`min-h-[36px] px-1.5 py-1 rounded-lg text-[12px] font-extrabold transition cursor-pointer ${
+              className={`min-h-[36px] px-1.5 py-1 rounded-lg text-[12px] font-extrabold whitespace-nowrap flex items-center justify-center transition cursor-pointer ${
                 active
                   ? "bg-white text-[#0F172A] shadow-xs border border-blue-300"
                   : "text-slate-700 hover:text-slate-950"
@@ -906,16 +906,16 @@ function ImWorkspaceInner() {
       {/* 표준 IM 구성 공식 배너 */}
       <div
         data-testid="im-standard-formula-banner"
-        className="px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-[12px] text-blue-950 font-semibold leading-snug"
+        className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-[12px] text-blue-950 font-semibold leading-snug"
       >
         <span className="font-extrabold text-blue-900">[모바일·Basic IM 표준 구성]</span>{" "}
-        1줄 표지 제목 + 층별 렌트롤·수지 + AXIOS 포스트잇 3선 + 사진·지적도
+        표지·핵심제원 + 층별 렌트롤·수지 + 핵심 투자포인트 3선 + 사진·지적도
       </div>
 
       <button
         type="button"
         onClick={handleCreateNew}
-        className="w-full min-h-[56px] px-4 py-3 bg-[#0F172A] text-white rounded-2xl font-bold text-[17px] hover:bg-[#1E293B] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+        className="w-full min-h-[52px] px-4 py-3 bg-[#0F172A] text-white rounded-xl font-bold text-[16px] hover:bg-[#1E293B] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm whitespace-nowrap"
       >
         <span>+ 새 IM 만들기</span>
       </button>
@@ -1108,13 +1108,13 @@ function ImWorkspaceInner() {
       {/* Top <= 4 Primary Tabs (Minimalist Tab Bar -> Immediate Panel Below) */}
       <div
         data-testid="im-editor-primary-tabs"
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-200/90 border border-slate-300"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/90 border border-slate-300"
       >
         {(
           [
-            { id: "specs", label: "① 표지·핵심제원", sub: "1줄 제목·주소·매도가" },
+            { id: "specs", label: "① 표지·핵심제원", sub: "제목·소재지·매도가" },
             { id: "rentroll", label: "② 층별 렌트롤·수지", sub: `총 ${rentRoll.length}층·엑셀연동` },
-            { id: "axios_brief", label: "③ AXIOS 투자브리프", sub: "포스트잇 3선·중개의견" },
+            { id: "axios_brief", label: "③ 핵심 투자포인트", sub: "핵심요약 3선·중개의견" },
             { id: "media_publish", label: "④ 사진·지적도·발행", sub: `사진 ${photoNames.length}장·스튜디오` },
           ] as const
         ).map((tab) => {
@@ -1125,15 +1125,17 @@ function ImWorkspaceInner() {
               type="button"
               data-testid={`im-editor-tab-${tab.id}`}
               onClick={() => setActiveEditorTab(tab.id)}
-              className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+              className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer min-w-0 ${
                 isActive
                   ? "bg-[#0F172A] text-white shadow-sm"
                   : "bg-white/80 text-slate-800 hover:bg-white"
               }`}
             >
-              <div className="text-[14px] font-extrabold leading-tight">{tab.label}</div>
+              <div className="text-[14px] font-extrabold leading-tight whitespace-nowrap truncate">
+                {tab.label}
+              </div>
               <div
-                className={`text-[11px] mt-0.5 font-medium ${
+                className={`text-[11px] mt-0.5 font-medium whitespace-nowrap truncate ${
                   isActive ? "text-amber-300" : "text-slate-500"
                 }`}
               >
@@ -1149,26 +1151,26 @@ function ImWorkspaceInner() {
         data-testid="im-tab-panel-specs"
         className={
           activeEditorTab === "specs"
-            ? "bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 sm:p-6 shadow-sm space-y-5 block"
+            ? "bg-white rounded-xl border border-[#CBD5E1] p-5 sm:p-6 shadow-sm space-y-5 block"
             : "hidden"
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
             <h2 className="text-[19px] font-extrabold text-[#0F172A]">
-              ① 표지 1줄 제목 · 투자 포스처 · 핵심 제원
+              ① 표지 대표 제목 · 투자 포스처 · 핵심 제원
             </h2>
             <p className="text-[13px] text-[#475569]">
-              모바일 IM 및 Basic IM 10면 표지에 들어갈 1줄 제목과 주소, 매매 희망가, 토지·건축물 제원을 즉시 설정합니다.
+              모바일 IM 및 Basic IM 10면 표지에 들어갈 대표 제목과 주소, 매매 희망가, 토지·건축물 제원을 즉시 설정합니다.
             </p>
           </div>
-          <span className="text-[13px] font-bold text-[#065F46] bg-[#D1FAE5] px-2.5 py-1 rounded-full">
+          <span className="text-[13px] font-bold text-[#065F46] bg-[#D1FAE5] px-2.5 py-1 rounded-full whitespace-nowrap">
             표준 필수 항목
           </span>
         </div>
 
         {/* 0. Investment Posture Selector */}
-        <div className="p-4 rounded-xl bg-[#FAF9F5] border border-[#CBD5E1]" data-testid="im-posture-selector-section">
+        <div className="p-4 rounded-lg bg-[#FAF9F5] border border-[#CBD5E1]" data-testid="im-posture-selector-section">
           <PostureSelector
             investmentPosture={normalizedPosture}
             setInvestmentPosture={(nextPosture) => {
@@ -1182,10 +1184,10 @@ function ImWorkspaceInner() {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="block text-[15px] font-bold text-[#0F172A]">
-              IM 표지 1줄 대표 제목 (한 줄 고정 표시)
+              IM 표지 대표 제목 (모바일·PPTX 공통)
             </label>
             <span className="text-[12px] font-mono text-slate-500">
-              {imTitle.length}/30자 권장 · 1줄 보장
+              {imTitle.length}/30자 권장
             </span>
           </div>
           <input
@@ -1201,7 +1203,7 @@ function ImWorkspaceInner() {
             className="w-full min-h-[48px] px-3.5 text-[17px] font-extrabold rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none whitespace-nowrap overflow-hidden text-ellipsis"
           />
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0F172A] text-white text-[13px]">
-            <span className="text-amber-400 font-bold shrink-0">표지 1줄 프리뷰:</span>
+            <span className="text-amber-400 font-bold shrink-0">표지 제목 미리보기:</span>
             <span
               data-single-line-title="true"
               className="font-bold whitespace-nowrap overflow-hidden text-ellipsis truncate"
@@ -1381,36 +1383,36 @@ function ImWorkspaceInner() {
         />
       </div>
 
-      {/* ── TAB 3 PANEL: ③ AXIOS 투자브리프·중개의견 (Immediate Setting/Editing Screen) ── */}
+      {/* ── TAB 3 PANEL: ③ 핵심 투자포인트·중개의견 (Immediate Setting/Editing Screen) ── */}
       <div
         data-testid="im-tab-panel-axios-brief"
         className={
           activeEditorTab === "axios_brief"
-            ? "bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 sm:p-6 shadow-sm space-y-5 block"
+            ? "bg-white rounded-xl border border-[#CBD5E1] p-5 sm:p-6 shadow-sm space-y-5 block"
             : "hidden"
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
             <h2 className="text-[19px] font-extrabold text-[#0F172A]">
-              📌 ③ AXIOS형 와이드 포스트잇 투자브리프 3선 · 중개인 의견
+              📌 ③ 핵심 투자 포인트 3선 · 중개인 의견
             </h2>
             <p className="text-[13px] text-[#475569]">
-              모바일 IM과 Basic IM 핵심 하이라이트 면에 1줄 큰 폰트 제목 + 2~4문장 해설 와이드 포스트잇 카드로 표시됩니다.
+              모바일 IM과 Basic IM 핵심 하이라이트 면에 대표 투자 포인트 제목과 2~4문장 요약 해설로 표시됩니다.
             </p>
           </div>
           <button
             type="button"
             data-testid="im-axios-ai-recluster-btn"
             onClick={handleReclusterImAxios}
-            className="px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-[12px] font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-[12px] font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
             <span>✨</span>
-            <span>AI 포스처 맞춤 브리프 재구성</span>
+            <span>AI 포스처 맞춤 포인트 자동생성</span>
           </button>
         </div>
 
-        {/* 3 AXIOS Wide Pastel Post-it Highlight Cards */}
+        {/* 3 Core Highlight Cards (Institutional Crisp Styling) */}
         <div className="space-y-3">
           {axiosHighlights.map((item, idx) => {
             const style = IM_POSTIT_STYLES[item.tone] || IM_POSTIT_STYLES.amber;
@@ -1419,17 +1421,17 @@ function ImWorkspaceInner() {
                 key={idx}
                 data-testid={`im-axios-postit-${idx}`}
                 style={{ backgroundColor: style.bg, borderColor: style.border }}
-                className="rounded-2xl border-2 p-4 space-y-2.5 shadow-2xs"
+                className="rounded-lg border border-l-4 p-4 space-y-2.5 shadow-2xs"
               >
                 <div className="flex items-center justify-between">
                   <span
                     style={{ backgroundColor: style.badgeBg, color: style.badgeText }}
-                    className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md"
+                    className="text-[11px] font-extrabold px-2.5 py-0.5 rounded"
                   >
                     {style.label}
                   </span>
                   <span className="text-[11px] font-bold text-slate-600">
-                    1줄 큰 제목 + 2~4문장 해설
+                    핵심 결론 + 요약 해설
                   </span>
                 </div>
                 <input
@@ -1443,8 +1445,8 @@ function ImWorkspaceInner() {
                     setAxiosHighlights(next);
                     syncCurrentItemPatch({ axiosHighlights: next });
                   }}
-                  className="w-full h-11 px-3.5 text-[17px] font-extrabold text-slate-950 bg-white/95 rounded-xl border border-slate-400/80 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap overflow-hidden text-ellipsis"
-                  placeholder="1줄 핵심 투자 포인트 제목"
+                  className="w-full h-11 px-3.5 text-[17px] font-extrabold text-slate-950 bg-white/95 rounded-lg border border-slate-400/80 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap overflow-hidden text-ellipsis"
+                  placeholder="핵심 투자 포인트 제목"
                 />
                 <textarea
                   rows={2}
@@ -1457,8 +1459,8 @@ function ImWorkspaceInner() {
                     setAxiosHighlights(next);
                     syncCurrentItemPatch({ axiosHighlights: next });
                   }}
-                  className="w-full px-3.5 py-2 text-[14px] font-medium text-slate-800 bg-white/90 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
-                  placeholder="2~4문장 요약 브리프 해설"
+                  className="w-full px-3.5 py-2 text-[14px] font-medium text-slate-800 bg-white/90 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
+                  placeholder="매수자가 주목할 핵심 투자 근거를 2~4문장으로 입력하세요"
                 />
               </div>
             );
@@ -1633,28 +1635,28 @@ function ImWorkspaceInner() {
 
   /* ──────── Column 3: Live Preview (Clean Uncluttered Mobile IM + Basic IM 10-Slide) ──────── */
   const previewTabSlot = (
-    <div className="inline-flex rounded-xl border border-[#CBD5E1] p-0.5 bg-[#FAF9F5]">
+    <div className="inline-flex rounded-xl border border-[#CBD5E1] p-0.5 bg-[#FAF9F5] shrink-0">
       <button
         type="button"
         onClick={() => setPreviewTab("mobile")}
-        className={`px-3 py-1.5 text-[14px] font-bold rounded-lg transition-colors cursor-pointer ${
+        className={`px-2.5 py-1 text-[13px] font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
           previewTab === "mobile"
             ? "bg-[#0F172A] text-white shadow-xs"
             : "text-[#475569] hover:text-[#0F172A]"
         }`}
       >
-        📱 모바일 IM
+        모바일 IM
       </button>
       <button
         type="button"
         onClick={() => setPreviewTab("pptx")}
-        className={`px-3 py-1.5 text-[14px] font-bold rounded-lg transition-colors cursor-pointer ${
+        className={`px-2.5 py-1 text-[13px] font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
           previewTab === "pptx"
             ? "bg-[#0F172A] text-white shadow-xs"
             : "text-[#475569] hover:text-[#0F172A]"
         }`}
       >
-        🖥 PPTX 10면
+        PPTX 10면
       </button>
     </div>
   );
@@ -1668,7 +1670,7 @@ function ImWorkspaceInner() {
     },
     {
       no: "02",
-      title: "투자 하이라이트 (AXIOS 포스트잇)",
+      title: "투자 하이라이트",
       summary:
         axiosHighlights[0]?.headline ||
         `매매 희망가 ${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}`,
@@ -1737,114 +1739,250 @@ function ImWorkspaceInner() {
       : basicImSlides.filter((s) => s.no === activeSlideFilter);
 
   const previewSlot = (
-    <div className="p-4 space-y-4 max-w-sm mx-auto" data-testid="im-preview-slot">
+    <div className="p-3.5 space-y-3.5 max-w-sm mx-auto" data-testid="im-preview-slot">
       {/* Direct Link to Full 10-Section Mobile IM Viewer & 1-Click PPTX Download */}
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 shadow-xs">
-        <span className="text-[13px] font-bold text-[#334155]">
-          {previewTab === "mobile" ? "📱 모바일 IM 표준 뷰" : "🖥 Basic IM 표준 10면"}
+      <div className="flex items-center justify-between gap-2 bg-white rounded-lg border border-[#CBD5E1] px-3 py-2 shadow-xs">
+        <span className="text-[12px] font-bold text-[#334155] whitespace-nowrap truncate">
+          {previewTab === "mobile" ? "📱 모바일 IM (10개 섹션)" : "🖥 PPTX 10면 슬라이드"}
         </span>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 shrink-0">
           <a
             href={`/api/public/im-lite/${currentItem?.buildingId || "bld-01"}/pptx?direct=1`}
             data-testid="im-download-pptx-btn"
-            className="text-[13px] font-extrabold text-[#065F46] bg-[#D1FAE5] px-2.5 py-1 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors"
+            className="text-[12px] font-extrabold text-[#065F46] bg-[#D1FAE5] px-2.5 py-1 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors whitespace-nowrap"
           >
-            <span>📥 PPTX 다운로드</span>
+            <span>📥 PPTX</span>
           </a>
           <a
             href={`/im-lite/${currentItem?.buildingId || "bld-01"}`}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="im-open-fullscreen-link"
-            className="text-[13px] font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1"
+            className="text-[12px] font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1 whitespace-nowrap"
           >
-            <span>↗ 전체화면 열기</span>
+            <span>↗ 전체화면</span>
           </a>
         </div>
       </div>
 
       {previewTab === "mobile" ? (
-        /* Phone container simulation */
-        <div className="bg-[#FAF9F5] rounded-3xl border-4 border-[#334155] p-3 shadow-lg space-y-3">
-          {/* Mock phone status bar */}
-          <div className="flex items-center justify-between text-[12px] font-bold text-[#475569] px-2 pt-1">
+        /* Phone container simulation — Full vertical scroll across all 10 Mobile IM sections */
+        <div
+          data-testid="im-mobile-preview-frame"
+          className="bg-[#FAF9F5] rounded-[20px] border-2 border-[#334155] p-2.5 shadow-md flex flex-col"
+        >
+          {/* Mock phone status bar + scroll guide */}
+          <div className="flex items-center justify-between text-[11px] font-bold text-[#475569] px-2 pb-2 border-b border-slate-200/80 shrink-0">
             <span>09:41</span>
+            <span className="text-[11px] font-semibold text-blue-700">↕ 상하 스크롤 (01~10면)</span>
             <span>5G 100%</span>
           </div>
 
-          {/* Section 01: Cover Card (Single-Line Title Guard) */}
-          <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-                01 표지 · {postureKoreanLabel}
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500">1줄 제목 고정</span>
+          {/* Vertically scrollable 10-section customer view */}
+          <div
+            data-testid="im-mobile-preview-scroll"
+            className="max-h-[calc(100dvh-250px)] min-h-[480px] overflow-y-auto overscroll-contain pr-1 pt-2.5 space-y-2.5"
+          >
+            {/* Section 01: Cover Card */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+                  01 표지 · {postureKoreanLabel}
+                </span>
+                <span className="text-[11px] font-medium text-slate-500">INVESTMENT MEMORANDUM</span>
+              </div>
+              <h3
+                data-single-line-title="true"
+                title={imTitle || currentItem?.title}
+                className="text-[17px] font-extrabold text-[#0F172A] whitespace-nowrap overflow-hidden text-ellipsis truncate"
+              >
+                {imTitle || currentItem?.title}
+              </h3>
+              <p className="text-[12px] text-[#475569] truncate">{address}</p>
+              <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[14px] font-bold">
+                <span className="text-[#0F172A]">
+                  {formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}
+                </span>
+                <span className="text-[#065F46]">연 {calculatedYield.toFixed(2)}%</span>
+              </div>
             </div>
-            <h3
-              data-single-line-title="true"
-              title={imTitle || currentItem?.title}
-              className="text-[18px] font-extrabold text-[#0F172A] whitespace-nowrap overflow-hidden text-ellipsis truncate"
-            >
-              {imTitle || currentItem?.title}
-            </h3>
-            <p className="text-[13px] text-[#475569] truncate">{address}</p>
-            <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[14px] font-bold">
-              <span className="text-[#0F172A]">{formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}</span>
-              <span className="text-[#065F46]">연 {calculatedYield.toFixed(2)}%</span>
-            </div>
-          </div>
 
-          {/* Section 02: AXIOS Wide Post-it Investment Highlights */}
-          <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-                02 투자 하이라이트 (AXIOS 포스트잇)
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500">3선 요약</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-center text-[13px]">
-              <div className="p-2 bg-[#FAF9F5] rounded-lg">
-                <span className="text-[#64748B] block text-[11px]">매매 희망가</span>
-                <strong className="text-[#0F172A]">{((askingPriceManwon || 0) / 10000).toFixed(0)}억</strong>
+            {/* Section 02: Investment Highlights (Institutional Crisp Cards) */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+                  02 투자 하이라이트
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500">핵심 요약 3선</span>
               </div>
-              <div className="p-2 bg-[#FAF9F5] rounded-lg">
-                <span className="text-[#64748B] block text-[11px]">월 임대수익</span>
-                <strong className="text-[#0F172A]">{totalRentManwon.toLocaleString()}만</strong>
+              <div className="grid grid-cols-2 gap-2 text-center text-[12px]">
+                <div className="p-2 bg-[#FAF9F5] rounded-md border border-slate-200/80">
+                  <span className="text-[#64748B] block text-[11px]">매매 희망가</span>
+                  <strong className="text-[#0F172A]">{((askingPriceManwon || 0) / 10000).toFixed(0)}억 원</strong>
+                </div>
+                <div className="p-2 bg-[#FAF9F5] rounded-md border border-slate-200/80">
+                  <span className="text-[#64748B] block text-[11px]">월 임대수익</span>
+                  <strong className="text-[#0F172A]">{totalRentManwon.toLocaleString()}만 원</strong>
+                </div>
               </div>
-            </div>
-            <div className="space-y-2 pt-1" data-testid="im-preview-axios-list">
-              {axiosHighlights.map((hl, idx) => {
-                const st = IM_POSTIT_STYLES[hl.tone] || IM_POSTIT_STYLES.amber;
-                return (
-                  <div
-                    key={idx}
-                    style={{ backgroundColor: st.bg, borderColor: st.border }}
-                    className="rounded-xl border p-2.5 space-y-1"
-                  >
-                    <p
-                      data-single-line-title="true"
-                      title={hl.headline}
-                      className="text-[13px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
+              <div className="space-y-2 pt-0.5" data-testid="im-preview-axios-list">
+                {axiosHighlights.map((hl, idx) => {
+                  const st = IM_POSTIT_STYLES[hl.tone] || IM_POSTIT_STYLES.amber;
+                  return (
+                    <div
+                      key={idx}
+                      style={{ backgroundColor: st.bg, borderColor: st.border }}
+                      className="rounded-md border border-l-4 p-2.5 space-y-1"
                     >
-                      {hl.headline}
-                    </p>
-                    <p className="text-[11px] text-slate-700 leading-snug line-clamp-2">
-                      {hl.brief}
-                    </p>
-                  </div>
-                );
-              })}
+                      <p
+                        data-single-line-title="true"
+                        title={hl.headline}
+                        className="text-[13px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
+                      >
+                        {hl.headline}
+                      </p>
+                      <p className="text-[11px] text-slate-700 leading-snug line-clamp-2">
+                        {hl.brief}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* Section 06: Rent Roll preview */}
-          <div className="bg-white rounded-2xl p-4 border border-[#CBD5E1] space-y-2">
-            <span className="text-[12px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-              06 층별 임대차 상세
-            </span>
-            <p className="text-[13px] text-[#475569]">
-              총 {rentRoll.length}개 층 · {rentRoll.some((r) => r.status === "vacant") ? "일부 공실 포함" : "만실 임대 운용 중"}
-            </p>
+            {/* Section 03: Building Overview */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+                  03 건축물 개요
+                </span>
+                <span className="text-[11px] text-slate-500">건축물대장 기준</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-[12px]">
+                <div className="p-2 bg-[#FAF9F5] rounded-md border border-slate-200/70">
+                  <span className="text-[10px] text-slate-500 block">연면적</span>
+                  <strong className="text-slate-900">{gfaSqm}㎡ (약 {Math.round(Number(gfaSqm || 0) * 0.3025)}평)</strong>
+                </div>
+                <div className="p-2 bg-[#FAF9F5] rounded-md border border-slate-200/70">
+                  <span className="text-[10px] text-slate-500 block">사용승인일</span>
+                  <strong className="text-slate-900">{completionDate}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 04: Location & Transit */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-1.5">
+              <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded inline-block">
+                04 입지 및 교통
+              </span>
+              <p className="text-[12px] font-semibold text-slate-900">{address}</p>
+              <p className="text-[11px] text-slate-600 leading-snug">
+                역세권 주동선 코너 가시성 및 배후 상권 유동인구가 검증된 입지입니다.
+              </p>
+            </div>
+
+            {/* Section 05: Land & Zoning */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-2">
+              <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded inline-block">
+                05 토지 및 도시계획
+              </span>
+              <div className="grid grid-cols-2 gap-1.5 text-[12px]">
+                <div className="p-2 bg-[#FAF9F5] rounded-md border border-slate-200/70">
+                  <span className="text-[10px] text-slate-500 block">대지면적</span>
+                  <strong className="text-slate-900">{landAreaSqm}㎡ (약 {Math.round(Number(landAreaSqm || 0) * 0.3025)}평)</strong>
+                </div>
+                <div className="p-2 bg-[#FAF9F5] rounded-md border border-slate-200/70">
+                  <span className="text-[10px] text-slate-500 block">용도지역</span>
+                  <strong className="text-slate-900 truncate block">{zoning}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 06: Rent Roll preview */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+                  06 층별 임대차 상세
+                </span>
+                <span className="text-[11px] font-bold text-[#065F46]">
+                  총 {rentRoll.length}개 층 · {rentRoll.some((r) => r.status === "vacant") ? "일부 공실 포함" : "만실 임대 운용 중"}
+                </span>
+              </div>
+              <div className="rounded-md border border-slate-200 overflow-hidden">
+                <table className="w-full text-[11px] text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                    <tr>
+                      <th className="py-1 px-2">층</th>
+                      <th className="py-1 px-2">업종</th>
+                      <th className="py-1 px-2 text-right">보증금/월세(만)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rentRoll.slice(0, 6).map((r, i) => (
+                      <tr key={i}>
+                        <td className="py-1 px-2 font-bold text-slate-900">{r.floor}</td>
+                        <td className="py-1 px-2 text-slate-700 truncate max-w-[90px]">{r.use}</td>
+                        <td className="py-1 px-2 text-right font-mono text-slate-900">
+                          {(r.depositManwon ?? 0).toLocaleString()} / {(r.monthlyRentManwon ?? 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Section 07: Yield & Cash Flow */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-2">
+              <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded inline-block">
+                07 수지 및 수익률 분석
+              </span>
+              <div className="p-2.5 bg-emerald-50/70 rounded-md border border-emerald-200 space-y-1 text-[12px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">보증금 합계 / 월 임대료</span>
+                  <strong className="text-slate-900">
+                    {totalDepositManwon.toLocaleString()}만 / {totalRentManwon.toLocaleString()}만
+                  </strong>
+                </div>
+                <div className="flex justify-between font-extrabold text-[#065F46] pt-1 border-t border-emerald-200/80">
+                  <span>예상 연 수익률</span>
+                  <span>{calculatedYield.toFixed(2)}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 08: Comparable Transactions */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-1.5">
+              <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded inline-block">
+                08 인근 실거래 비교
+              </span>
+              <p className="text-[12px] text-slate-700">
+                {address.split(" ").slice(1, 3).join(" ") || "인근"} 유사 규모 거래 사례 및 토지·연면적 평당가 비교
+              </p>
+            </div>
+
+            {/* Section 09: Photos & Cadastral Map */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-1.5">
+              <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded inline-block">
+                09 현장 사진 및 지적도
+              </span>
+              <p className="text-[12px] text-slate-700">
+                {photoNames.length > 0
+                  ? `첨부 사진 ${photoNames.length}장 및 공적 지적도 연동`
+                  : "외관 사진 및 공적 지적도 자동 배치"}
+              </p>
+            </div>
+
+            {/* Section 10: Contact & Deal Terms */}
+            <div className="bg-white rounded-lg p-3.5 border border-[#CBD5E1] space-y-1.5">
+              <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded inline-block">
+                10 거래 조건 및 담당 중개인
+              </span>
+              <p className="text-[12px] font-bold text-slate-900">
+                {[brokerageName, brokerName, brokerPhone].filter(Boolean).join(" · ") || "담당 공인중개사 안내"}
+              </p>
+              <p className="text-[11px] text-slate-600">{handoverNote}</p>
+            </div>
           </div>
         </div>
       ) : (
@@ -1854,7 +1992,7 @@ function ImWorkspaceInner() {
             <button
               type="button"
               onClick={() => setActiveSlideFilter("all")}
-              className={`px-2 py-1 rounded-md text-[11px] font-extrabold shrink-0 cursor-pointer ${
+              className={`px-2 py-1 rounded-md text-[11px] font-extrabold shrink-0 cursor-pointer whitespace-nowrap ${
                 activeSlideFilter === "all"
                   ? "bg-[#0F172A] text-white"
                   : "bg-white text-slate-700 border border-slate-300"
@@ -1867,7 +2005,7 @@ function ImWorkspaceInner() {
                 key={s.no}
                 type="button"
                 onClick={() => setActiveSlideFilter(s.no)}
-                className={`px-2 py-1 rounded-md text-[11px] font-bold shrink-0 cursor-pointer ${
+                className={`px-2 py-1 rounded-md text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap ${
                   activeSlideFilter === s.no
                     ? "bg-[#1D4ED8] text-white"
                     : "bg-white text-slate-700 border border-slate-300"
@@ -1878,32 +2016,36 @@ function ImWorkspaceInner() {
             ))}
           </div>
 
-          {visibleSlides.map((slide) => (
-            <div
-              key={slide.no}
-              className="aspect-video w-full bg-[#0F172A] text-white rounded-xl border border-[#334155] p-3.5 flex flex-col justify-between shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-extrabold text-[#93C5FD] bg-[#1E3A8A]/60 px-2 py-0.5 rounded">
-                  SLIDE {slide.no} · {slide.title}
-                </span>
-                <span className="text-[11px] text-[#94A3B8]">Basic IM 16:9</span>
+          <div className="max-h-[calc(100dvh-260px)] overflow-y-auto space-y-2.5 pr-1">
+            {visibleSlides.map((slide) => (
+              <div
+                key={slide.no}
+                className="aspect-video w-full bg-[#0F172A] text-white rounded-lg border border-[#334155] p-3.5 flex flex-col justify-between shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-[#93C5FD] bg-[#1E3A8A]/60 px-2 py-0.5 rounded">
+                    {slide.no} · {slide.title}
+                  </span>
+                  <span className="text-[10px] text-[#94A3B8] font-mono">{slide.no} / 10</span>
+                </div>
+                <div className="space-y-1 my-auto py-1">
+                  <p
+                    data-single-line-title="true"
+                    title={slide.summary}
+                    className="text-[14px] font-bold text-white leading-snug whitespace-nowrap overflow-hidden text-ellipsis truncate"
+                  >
+                    {slide.summary}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between border-t border-[#1E293B] pt-1.5 text-[12px]">
+                  <span className="text-[#34D399] font-bold truncate">{slide.metric}</span>
+                  <span className="text-[#64748B] text-[10px] truncate max-w-[120px]">
+                    {brokerageName || "전담 중개법인"}
+                  </span>
+                </div>
               </div>
-              <div className="space-y-1 my-auto py-1">
-                <p
-                  data-single-line-title="true"
-                  title={slide.summary}
-                  className="text-[14px] font-bold text-white leading-snug whitespace-nowrap overflow-hidden text-ellipsis truncate"
-                >
-                  {slide.summary}
-                </p>
-              </div>
-              <div className="flex items-center justify-between border-t border-[#1E293B] pt-1.5 text-[12px]">
-                <span className="text-[#34D399] font-bold truncate">{slide.metric}</span>
-                <span className="text-[#64748B] text-[11px]">CRE DealCard</span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -1937,7 +2079,7 @@ function ImWorkspaceInner() {
         workspace="im"
         listTitle="① IM 고르기"
         editorTitle="② 간편 입력 및 렌트롤 채우기"
-        previewTitle="③ 실시간 IM 미리보기"
+        previewTitle="③ 미리보기"
         listSlot={listSlot}
         editorSlot={editorSlot}
         previewSlot={previewSlot}

@@ -279,8 +279,16 @@ function renderCommonCoverContent(
     fontFace: TITLE_KR, margin: 0, align, shrinkText: true, lineSpacingMultiple: 1.0,
   });
 
-  // 부제
-  const subtitle = d.subtitle || d.assetType || '';
+  // 부제 (대제목에 이미 포함된 용도/부제목 중복 표기 차단 — Rule 3 비중복 원칙)
+  const rawSubtitle = String(d.subtitle || d.assetType || '').trim();
+  const isSubtitleRedundant =
+    !rawSubtitle ||
+    titleText.includes(rawSubtitle) ||
+    (titleText.includes('근생') && (rawSubtitle.includes('근생') || rawSubtitle.includes('근린생활'))) ||
+    (titleText.includes('근린생활') && (rawSubtitle.includes('근생') || rawSubtitle.includes('근린생활'))) ||
+    (titleText.includes('업무시설') && rawSubtitle.includes('업무시설')) ||
+    (titleText.includes('오피스') && (rawSubtitle.includes('오피스') || rawSubtitle.includes('업무시설')));
+  const subtitle = isSubtitleRedundant ? '' : rawSubtitle;
   let nextY = kickerY + 0.30 + titleH + 0.06;
   if (subtitle) {
     slide.addText(subtitle, {

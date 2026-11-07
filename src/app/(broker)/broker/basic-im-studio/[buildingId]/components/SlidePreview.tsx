@@ -164,12 +164,20 @@ export function SlidePreview({
       ? { borderLeft: `6px solid #${tokens.accent}` }
       : {};
 
-  // ── 01 COVER SLIDE ──
+  // ── 01 COVER SLIDE (Apple-Style Clean Layout, Zero Redundancy) ──
   const renderCoverSlide = () => {
-    const titleVal = String(ov.title || slide.title || buildingContext?.buildingName || '상업용 빌딩 매각 IM');
-    const subVal = String(ov.subtitle || ssot.main_use || '상업용 부동산 매각 투자설명서');
-    const addrVal = String(ov.address || ssot.address || '');
-    const askVal = String(ov.askingPrice || '');
+    const titleVal = String(ov.title || slide.title || buildingContext?.buildingName || '상업용 빌딩 매각 IM').trim();
+    const rawSubVal = String(ov.subtitle || ssot.main_use || '').trim();
+    const isSubRedundant =
+      !rawSubVal ||
+      titleVal.includes(rawSubVal) ||
+      (titleVal.includes('근생') && (rawSubVal.includes('근생') || rawSubVal.includes('근린생활'))) ||
+      (titleVal.includes('근린생활') && (rawSubVal.includes('근생') || rawSubVal.includes('근린생활'))) ||
+      (titleVal.includes('업무시설') && rawSubVal.includes('업무시설')) ||
+      (titleVal.includes('오피스') && (rawSubVal.includes('오피스') || rawSubVal.includes('업무시설')));
+    const subVal = isSubRedundant ? '' : rawSubVal;
+    const addrVal = String(ov.address || ssot.address || '').trim();
+    const askVal = String(ov.askingPrice || '').trim();
     const dateVal = String(ov.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '.');
     const companyVal = String(headerFooterConfig.companyName || ov.brokerCompany || tokens.companyName);
     const effectiveCoverStyle =
@@ -178,96 +186,74 @@ export function SlidePreview({
         : slide.layoutType === 'A01_HERO'
         ? 'hero_dark'
         : coverStyle;
-    const contentMaxWidthClass = effectiveCoverStyle === 'hero_dark' ? 'max-w-[88%]' : 'max-w-[64%]';
+    const contentMaxWidthClass = effectiveCoverStyle === 'hero_dark' ? 'max-w-[88%]' : 'max-w-[66%]';
 
     return (
       <div
-        className="w-full h-full relative flex flex-col justify-between p-7 sm:p-9 overflow-hidden select-none"
+        className="w-full h-full relative flex flex-col justify-between p-8 sm:p-10 overflow-hidden select-none"
         style={{
           backgroundColor: `#${tokens.darkCard}`,
           color: `#${tokens.darkBody}`,
         }}
       >
-        {/* Cover Style Geometric Decorations */}
+        {/* Cover Style Minimalist Architectural Geometry (Zero Text Duplication) */}
         {effectiveCoverStyle === 'split' ? (
           <div
-            className="absolute right-0 top-0 bottom-0 w-[34%] flex flex-col justify-end p-6"
+            className="absolute right-0 top-0 bottom-0 w-[30%] flex flex-col justify-end p-6"
             style={{ backgroundColor: `#${tokens.accent}` }}
           >
-            <div className="text-xs font-extrabold tracking-widest uppercase text-white/90 text-right">
+            <div className="text-[11px] font-bold tracking-widest uppercase text-white/90 text-right">
               {headerFooterConfig.companyTagline || tokens.companyTagline}
             </div>
           </div>
         ) : effectiveCoverStyle === 'hero_dark' ? (
           <>
-            <div className="absolute top-0 left-0 right-0 h-2" style={{ backgroundColor: `#${tokens.accent}` }} />
-            <div className="absolute bottom-0 left-0 right-0 h-2" style={{ backgroundColor: `#${tokens.accent}` }} />
-            <div
-              className="absolute inset-6 rounded-xl pointer-events-none"
-              style={{ border: `1.5px solid #${tokens.accent}66` }}
-            />
+            <div className="absolute top-0 left-0 right-0 h-1.5" style={{ backgroundColor: `#${tokens.accent}` }} />
+            <div className="absolute bottom-0 left-0 right-0 h-1.5" style={{ backgroundColor: `#${tokens.accent}` }} />
           </>
         ) : effectiveCoverStyle === 'corporate_card' ? (
           <div
-            className="absolute right-6 top-6 bottom-6 w-[30%] rounded-xl p-5 flex flex-col justify-between"
+            className="absolute right-8 top-8 bottom-8 w-[26%] rounded-lg overflow-hidden pointer-events-none flex flex-col justify-between p-5"
             style={{
               backgroundColor: `#${tokens.darkBlock}`,
               border: `1px solid #${tokens.darkBorder}`,
             }}
           >
-            <div className="text-[10px] font-bold tracking-widest uppercase" style={{ color: `#${tokens.accentL}` }}>
-              EXECUTIVE BRIEFING
+            <div className="w-8 h-0.5" style={{ backgroundColor: `#${tokens.accent}` }} />
+            <div className="space-y-2 opacity-40">
+              <div className="h-24 w-full rounded-sm" style={{ backgroundColor: `#${tokens.ink}` }} />
+              <div className="h-12 w-3/4 rounded-sm" style={{ backgroundColor: `#${tokens.ink2}` }} />
             </div>
-            <div className="space-y-2">
-              {askVal && (
-                <div>
-                  <div className="text-[10px]" style={{ color: `#${tokens.darkMute}` }}>매매 희망가</div>
-                  <div className="text-lg font-black" style={{ color: `#${tokens.accentL}` }}>{askVal}</div>
-                </div>
-              )}
-              {addrVal && (
-                <div>
-                  <div className="text-[10px]" style={{ color: `#${tokens.darkMute}` }}>소재지</div>
-                  <div className="text-xs font-bold text-white line-clamp-2">{addrVal}</div>
-                </div>
-              )}
+            <div className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: `#${tokens.darkMute}` }}>
+              {headerFooterConfig.companyTagline || 'COMMERCIAL REAL ESTATE'}
             </div>
           </div>
         ) : (
           /* Default: institutional_masses / obsidian_glow */
-          <div className="absolute right-0 top-0 flex items-start gap-1.5 pr-4">
-            <div className="w-16 h-44" style={{ backgroundColor: `#${tokens.ink}` }} />
-            <div className="w-14 h-36 mt-6" style={{ backgroundColor: `#${tokens.ink2}` }} />
-            <div className="w-14 h-28 mt-12" style={{ backgroundColor: `#${tokens.accentD}` }} />
+          <div className="absolute right-0 top-0 flex items-start gap-1.5 pr-6 pointer-events-none">
+            <div className="w-14 h-44" style={{ backgroundColor: `#${tokens.ink}` }} />
+            <div className="w-12 h-36 mt-6" style={{ backgroundColor: `#${tokens.ink2}` }} />
+            <div className="w-12 h-28 mt-12" style={{ backgroundColor: `#${tokens.accentD}` }} />
           </div>
         )}
 
-        {/* Top Bar: Kicker + Confidentiality Badge */}
-        <div className={`relative z-10 flex items-center justify-between ${contentMaxWidthClass}`}>
-          <div className="flex items-center gap-2">
-            <span
-              className="px-2.5 py-0.5 rounded text-[10px] font-extrabold tracking-widest uppercase"
-              style={{
-                backgroundColor: `#${tokens.darkAccentBg}`,
-                color: `#${tokens.darkAccentText}`,
-                border: `1px solid #${tokens.darkAccentBorder}`,
-              }}
-            >
-              <InlineEditableText
-                fieldKey="__slide_kicker__"
-                value={slide.kicker || 'INVESTMENT MEMORANDUM'}
-                onCommit={handleFieldCommit}
-              />
-            </span>
-            <span className="text-[10px] font-bold tracking-wider" style={{ color: `#${tokens.darkMute}` }}>
-              {headerFooterConfig.confidentialityBadge}
-            </span>
-          </div>
+        {/* Top Bar: Clean Single Kicker */}
+        <div className={`relative z-10 flex items-center ${contentMaxWidthClass}`}>
+          <span
+            className="text-[10px] font-extrabold tracking-[0.2em] uppercase"
+            style={{ color: `#${tokens.accentL}` }}
+          >
+            <InlineEditableText
+              fieldKey="__slide_kicker__"
+              value={slide.kicker && slide.kicker !== '표지' ? slide.kicker : 'INVESTMENT MEMORANDUM'}
+              onCommit={handleFieldCommit}
+            />
+          </span>
         </div>
 
-        {/* Center Hero Title & Key Metadata */}
-        <div className={`relative z-10 ${contentMaxWidthClass} my-auto space-y-3`}>
-          <div className="w-14 h-1 rounded-full" style={{ backgroundColor: `#${tokens.accent}` }} />
+        {/* Center Hero Title & Non-Redundant Key Metadata */}
+        <div className={`relative z-10 ${contentMaxWidthClass} my-auto space-y-3.5`}>
+          <div className="w-10 h-0.5" style={{ backgroundColor: `#${tokens.accent}` }} />
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
             <InlineEditableText
               fieldKey="title"
@@ -276,62 +262,59 @@ export function SlidePreview({
               onCommit={handleFieldCommit}
             />
           </h2>
-          <p className="text-sm sm:text-base font-semibold" style={{ color: `#${tokens.accentL}` }}>
-            <InlineEditableText
-              fieldKey="subtitle"
-              value={subVal}
-              placeholder="부제목 입력"
-              onCommit={handleFieldCommit}
-            />
-          </p>
-          <div className="pt-2 flex flex-wrap items-center gap-3 text-xs">
-            {addrVal && (
-              <span
-                className="px-3 py-1 rounded-lg font-bold"
-                style={{ backgroundColor: `#${tokens.darkBlock}`, color: '#FFFFFF' }}
-              >
-                📍{' '}
-                <InlineEditableText
-                  fieldKey="address"
-                  value={addrVal}
-                  onCommit={handleFieldCommit}
-                />
+          {subVal && (
+            <p className="text-sm font-semibold" style={{ color: `#${tokens.accentL}` }}>
+              <InlineEditableText
+                fieldKey="subtitle"
+                value={subVal}
+                placeholder="부제목 입력"
+                onCommit={handleFieldCommit}
+              />
+            </p>
+          )}
+          {addrVal && (
+            <p className="text-xs sm:text-sm font-medium" style={{ color: `#${tokens.darkBody}` }}>
+              <InlineEditableText
+                fieldKey="address"
+                value={addrVal}
+                onCommit={handleFieldCommit}
+              />
+            </p>
+          )}
+          {askVal && (
+            <div
+              className="pt-1 pl-3 border-l-2 inline-flex items-baseline gap-2.5"
+              style={{ borderColor: `#${tokens.accent}` }}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: `#${tokens.darkMute}` }}>
+                매매 희망가
               </span>
-            )}
-            {askVal && (
-              <span
-                className="px-3 py-1 rounded-lg font-extrabold"
-                style={{
-                  backgroundColor: `#${tokens.darkAccentBg}`,
-                  color: `#${tokens.darkAccentText}`,
-                }}
-              >
-                매매 희망가:{' '}
+              <span className="text-lg sm:text-xl font-black tracking-tight" style={{ color: `#${tokens.accentL}` }}>
                 <InlineEditableText
                   fieldKey="askingPrice"
                   value={askVal}
                   onCommit={handleFieldCommit}
                 />
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Bottom Branding Footer */}
+        {/* Bottom Clean Branding Bar */}
         <div
           className={`relative z-10 pt-3 border-t flex items-center justify-between text-xs ${contentMaxWidthClass}`}
           style={{ borderColor: `#${tokens.darkBorder}` }}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {headerFooterConfig.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={headerFooterConfig.logoUrl}
                 alt="로고"
-                className="h-5 w-auto object-contain rounded bg-white/90 px-1"
+                className="h-4 w-auto object-contain rounded-sm bg-white/90 px-1"
               />
             )}
-            <span className="font-extrabold text-white">
+            <span className="font-bold text-white">
               <InlineEditableText
                 fieldKey="brokerCompany"
                 value={companyVal}
@@ -340,12 +323,12 @@ export function SlidePreview({
             </span>
             {ov.brokerName && (
               <span style={{ color: `#${tokens.darkMute}` }}>
-                · 담당: <InlineEditableText fieldKey="brokerName" value={String(ov.brokerName)} onCommit={handleFieldCommit} />
+                · <InlineEditableText fieldKey="brokerName" value={String(ov.brokerName)} onCommit={handleFieldCommit} />
               </span>
             )}
           </div>
           <span className="font-mono text-[11px]" style={{ color: `#${tokens.darkMute}` }}>
-            작성일: <InlineEditableText fieldKey="date" value={dateVal} onCommit={handleFieldCommit} />
+            <InlineEditableText fieldKey="date" value={dateVal} onCommit={handleFieldCommit} />
           </span>
         </div>
       </div>
@@ -1596,16 +1579,16 @@ export function SlidePreview({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-2.5" style={{ borderColor: `#${tokens.darkBorder}` }}>
-          <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: `#${tokens.accentL}` }}>
-              {slide.kicker || 'DISCLAIMER & CONTACT'}
-            </div>
+          <div className="flex items-baseline gap-2.5">
+            <span className="font-mono text-xs font-extrabold" style={{ color: `#${tokens.accentL}` }}>
+              {String(slideNo).padStart(2, '0')}
+            </span>
             <h3 className="text-lg font-black text-white">
               <InlineEditableText fieldKey="__slide_title__" value={slide.title || '문의 및 유의사항'} onCommit={handleFieldCommit} />
             </h3>
           </div>
           {pageNumText && (
-            <span className="font-mono text-xs font-bold" style={{ color: `#${tokens.accentL}` }}>
+            <span className="font-mono text-xs font-semibold" style={{ color: `#${tokens.darkMute}` }}>
               {pageNumText}
             </span>
           )}
@@ -1616,11 +1599,11 @@ export function SlidePreview({
           {steps.map(s => (
             <div
               key={s.num}
-              className="p-2.5 rounded-xl flex items-center gap-2.5"
+              className="p-2.5 rounded-lg flex items-center gap-2.5"
               style={{ backgroundColor: `#${tokens.darkBlock}`, border: `1px solid #${tokens.darkBorder}` }}
             >
               <span
-                className="w-7 h-7 rounded-full text-xs font-black flex items-center justify-center text-white shrink-0"
+                className="w-6 h-6 rounded-md text-[11px] font-black flex items-center justify-center text-white shrink-0"
                 style={{ backgroundColor: `#${tokens.accent}` }}
               >
                 {s.num}
@@ -1636,12 +1619,12 @@ export function SlidePreview({
         {/* Contact Card + Provenance & Legal Disclaimer */}
         <div className="grid grid-cols-12 gap-4 items-stretch">
           <div
-            className="col-span-6 p-3.5 rounded-xl flex flex-col justify-between"
+            className="col-span-6 p-3.5 rounded-lg flex flex-col justify-between"
             style={{ backgroundColor: `#${tokens.darkBlock}`, border: `1px solid #${tokens.accent}` }}
           >
             <div>
               <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: `#${tokens.accentL}` }}>
-                EXCLUSIVE ADVISORY CONTACT
+                ADVISORY CONTACT
               </div>
               <div className="text-sm font-black text-white mt-1">
                 <InlineEditableText
@@ -1665,11 +1648,11 @@ export function SlidePreview({
           </div>
 
           <div
-            className="col-span-6 p-3.5 rounded-xl flex flex-col justify-between"
+            className="col-span-6 p-3.5 rounded-lg flex flex-col justify-between"
             style={{ backgroundColor: `#${tokens.darkBlock}`, border: `1px solid #${tokens.darkBorder}` }}
           >
             <div>
-              <div className="text-xs font-extrabold text-white mb-1">⚖️ 데이터 출처 표기 및 법적 면책 고지</div>
+              <div className="text-xs font-extrabold text-white mb-1">데이터 출처 표기 및 법적 면책 고지</div>
               <div className="text-[11px] leading-relaxed" style={{ color: `#${tokens.darkMute}` }}>
                 <InlineEditableText
                   fieldKey="disclaimer"
@@ -1703,21 +1686,21 @@ export function SlidePreview({
         <div className="flex items-center gap-2">
           <span
             data-active-pill="true"
-            className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#1D4ED8] text-white"
+            className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#1D4ED8] text-white whitespace-nowrap shrink-0"
           >
             SLIDE {String(slideNo).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}
           </span>
           <span className="text-xs font-bold text-[#334155]">
-            💡 슬라이드 안의 글자나 숫자를 마우스로 직접 클릭해 바로 고칠 수 있습니다.
+            슬라이드 안의 글자나 숫자를 마우스로 직접 클릭해 바로 고칠 수 있습니다.
           </span>
         </div>
         {onToggleFullscreen && (
           <button
             type="button"
             onClick={onToggleFullscreen}
-            className="px-3 py-1 rounded-lg text-xs font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs"
+            className="px-3 py-1 rounded-lg text-xs font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs whitespace-nowrap shrink-0"
           >
-            {isFullscreen ? '✕ 전체화면 닫기' : '🔍 크게 보기'}
+            {isFullscreen ? '✕ 전체화면 닫기' : '크게 보기'}
           </button>
         )}
       </div>
@@ -1726,7 +1709,7 @@ export function SlidePreview({
       <div
         data-testid="studio-slide-canvas"
         data-theme-lock="dark"
-        className="w-full max-w-4xl aspect-[16/9] rounded-2xl shadow-xl overflow-hidden border border-[#CBD5E1] relative flex flex-col transition-colors duration-150"
+        className="w-full max-w-4xl aspect-[16/9] rounded-xl shadow-xl overflow-hidden border border-[#CBD5E1] relative flex flex-col transition-colors duration-150"
         style={{
           backgroundColor: isDarkSlide ? `#${tokens.darkCard}` : `#${tokens.bg}`,
           ...(!isDarkSlide ? frameBorderStyle : {}),
@@ -1748,32 +1731,22 @@ export function SlidePreview({
         ) : dataKey === 'closing' ? (
           renderClosingSlide()
         ) : (
-          /* Standard Body Slide Frame (02 ~ 09) */
+          /* Standard Body Slide Frame (02 ~ 09) — Apple-Style Clean Header & Footer */
           <div className="w-full h-full flex flex-col justify-between p-5 sm:p-6">
-            {/* Slide Header */}
+            {/* Clean Slide Header */}
             <div
-              className="flex items-end justify-between pb-2.5 mb-3 border-b"
+              className="flex items-baseline justify-between pb-2.5 mb-3 border-b"
               style={{ borderColor: `#${tokens.line}` }}
             >
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block w-2 h-2 rounded-full"
-                    style={{ backgroundColor: `#${tokens.accent}` }}
-                  />
-                  <span
-                    className="text-[10px] font-extrabold uppercase tracking-widest"
-                    style={{ color: `#${tokens.accent}` }}
-                  >
-                    <InlineEditableText
-                      fieldKey="__slide_kicker__"
-                      value={slide.kicker || 'SECTION'}
-                      onCommit={handleFieldCommit}
-                    />
-                  </span>
-                </div>
+              <div className="flex items-baseline gap-2.5 min-w-0">
+                <span
+                  className="font-mono text-xs sm:text-sm font-black tracking-wider shrink-0"
+                  style={{ color: `#${tokens.accent}` }}
+                >
+                  {String(slideNo).padStart(2, '0')}
+                </span>
                 <h3
-                  className="text-base sm:text-lg font-black tracking-tight mt-0.5"
+                  className="text-base sm:text-lg font-black tracking-tight truncate"
                   style={{ color: `#${tokens.ink}` }}
                 >
                   <InlineEditableText
@@ -1784,19 +1757,9 @@ export function SlidePreview({
                 </h3>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-[#64748B]">
-                  {headerFooterConfig.confidentialityBadge}
-                </span>
-                {pageNumText && (
-                  <span
-                    className="px-2 py-0.5 rounded font-mono text-xs font-extrabold text-white"
-                    style={{ backgroundColor: `#${tokens.ink}` }}
-                  >
-                    {pageNumText}
-                  </span>
-                )}
-              </div>
+              <span className="text-[11px] font-medium text-[#64748B] truncate max-w-[38%] shrink-0">
+                {buildingContext?.buildingName || ssot.title || ''}
+              </span>
             </div>
 
             {/* Slide Body Content by dataKey */}
@@ -1818,17 +1781,19 @@ export function SlidePreview({
               ? renderGallerySlide()
               : renderOverviewSlide()}
 
-            {/* Common Slide Footer */}
+            {/* Minimal Apple-Style Slide Footer */}
             <div
               className="pt-2 mt-2.5 border-t flex items-center justify-between text-[10px]"
               style={{ borderColor: `#${tokens.line2}`, color: `#${tokens.mute}` }}
             >
-              <span className="font-bold truncate max-w-[65%]">
-                {headerFooterConfig.footerDisclaimer}
-              </span>
-              <span className="font-extrabold shrink-0" style={{ color: `#${tokens.ink}` }}>
+              <span className="font-semibold truncate max-w-[70%]">
                 {headerFooterConfig.companyName || tokens.companyName}
               </span>
+              {pageNumText && (
+                <span className="font-mono font-bold shrink-0" style={{ color: `#${tokens.mute}` }}>
+                  {pageNumText}
+                </span>
+              )}
             </div>
           </div>
         )}

@@ -70,7 +70,7 @@ export function AxiosIssuesEditorPanel({
   const handleReclusterAll = () => {
     const reclustered = clusterArticlesIntoFiveIssues(newsPool);
     onChangeUnitIssues(reclustered);
-    editorToast.success("AI가 연관 기사를 클러스터링하여 AXIOS형 이슈 5건을 재구성했습니다.");
+    editorToast.success("AI가 연관 기사를 분석하여 핵심 시장 이슈 5선을 재구성했습니다.");
   };
 
   const handleReplaceSingleIssue = (idx: number, item: NewsPoolItem) => {
@@ -92,7 +92,7 @@ export function AxiosIssuesEditorPanel({
     const next = issues.map((iss, i) => (i === idx ? replacement : iss));
     onChangeUnitIssues(next);
     setSwappingIndex(null);
-    editorToast.success(`${idx + 1}번 포스트잇 이슈를 교체했습니다.`);
+    editorToast.success(`${idx + 1}번 핵심 이슈를 교체했습니다.`);
   };
 
   const candidatePool = newsPool.filter((n) => {
@@ -103,20 +103,20 @@ export function AxiosIssuesEditorPanel({
   return (
     <div data-testid="axios-issues-editor-panel" className="space-y-4">
       {/* 상단 설명 & 1-Click AI 재구성 바 */}
-      <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-2xs space-y-3">
+      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-1.5">
               <Newspaper className="w-4 h-4 text-blue-700" aria-hidden="true" />
               <h2 className="text-base font-extrabold text-slate-900">
-                {cadenceLabel} AXIOS형 포스트잇 이슈 5선
+                {cadenceLabel} 핵심 시장 이슈 5선
               </h2>
-              <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-extrabold text-blue-800">
+              <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-extrabold text-blue-800 whitespace-nowrap">
                 5건 고정
               </span>
             </div>
             <p className="mt-1 text-xs font-medium text-slate-600">
-              기사를 클러스터링 AI로 요약하여 <strong>큰 폰트 1줄 제목 + 2~4문장 브리프</strong>의 와이드 포스트잇 카드로 구성합니다.
+              기사를 클러스터링 AI로 요약하여 <strong>핵심 제목 + 2~4문장 요약 브리프</strong> 카드로 구성합니다.
             </p>
           </div>
 
@@ -124,15 +124,15 @@ export function AxiosIssuesEditorPanel({
             type="button"
             data-testid="recluster-five-issues-btn"
             onClick={handleReclusterAll}
-            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 px-3.5 py-2 text-xs font-extrabold text-white shadow-xs transition-colors"
+            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 px-3.5 py-2 text-xs font-extrabold text-white shadow-xs transition-colors whitespace-nowrap shrink-0"
           >
             <Sparkles className="w-4 h-4" aria-hidden="true" />
-            <span>AI 클러스터링 5선 자동 재구성</span>
+            <span>AI 핵심 이슈 5선 자동 재구성</span>
           </button>
         </div>
       </div>
 
-      {/* 5개의 와이드 포스트잇 메모 카드 편집 리스트 */}
+      {/* 5개의 핵심 이슈 카드 편집 리스트 */}
       <div className="space-y-3.5">
         {issues.map((issue, idx) => {
           const toneMeta = POST_IT_TONE_META[issue.memoTone] ?? POST_IT_TONE_META.amber;
@@ -150,9 +150,9 @@ export function AxiosIssuesEditorPanel({
                 backgroundColor: toneMeta.cardBg,
                 borderColor: toneMeta.cardBorder,
               }}
-              className="rounded-2xl border-2 p-4 shadow-2xs transition-all space-y-3"
+              className="rounded-lg border border-l-4 p-4 shadow-2xs transition-all space-y-3"
             >
-              {/* 카드 상단 메타 바: 번호 + 채널 배지 + 포스트잇 5톤 선택 + 순서/교체 */}
+              {/* 카드 상단 메타 바: 번호 + 채널 배지 + 강조색 5톤 선택 + 순서/교체 */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -160,25 +160,25 @@ export function AxiosIssuesEditorPanel({
                       backgroundColor: toneMeta.badgeBg,
                       color: toneMeta.badgeText,
                     }}
-                    className="rounded-lg px-2.5 py-1 text-xs font-extrabold"
+                    className="rounded px-2.5 py-1 text-xs font-extrabold"
                   >
                     ISSUE 0{idx + 1}
                   </span>
-                  <span className="rounded-lg bg-white/80 border border-slate-300/80 px-2 py-0.5 text-xs font-bold text-slate-800">
+                  <span className="rounded bg-white/80 border border-slate-300/80 px-2 py-0.5 text-xs font-bold text-slate-800">
                     {chMeta.emoji} {chMeta.shortLabel}
                   </span>
                   {issue.articleCount && issue.articleCount > 1 && (
-                    <span className="rounded-lg bg-white/70 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                    <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-semibold text-slate-700">
                       연관 기사 {issue.articleCount}건 클러스터
                     </span>
                   )}
                 </div>
 
-                {/* 우측 컨트롤: 포스트잇 색상 5종 + 위/아래 + 다른 기사 교체 */}
+                {/* 우측 컨트롤: 강조 색상 5종 + 위/아래 + 다른 기사 교체 */}
                 <div className="flex items-center gap-1.5">
                   <div
                     role="group"
-                    aria-label={`이슈 ${idx + 1} 포스트잇 배경색 선택`}
+                    aria-label={`이슈 ${idx + 1} 카드 강조색 선택`}
                     className="flex items-center gap-1 rounded-lg bg-white/80 border border-slate-300/70 px-1.5 py-1"
                   >
                     <Palette className="w-3.5 h-3.5 text-slate-500 mr-0.5" aria-hidden="true" />
@@ -234,17 +234,17 @@ export function AxiosIssuesEditorPanel({
                 </div>
               </div>
 
-              {/* 1줄 큰 폰트 제목 입력 */}
+              {/* 핵심 제목 입력 */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor={`axios-issue-title-${idx}`}
                     className="text-xs font-extrabold text-slate-800"
                   >
-                    AXIOS형 이슈 제목 (1줄 큰 폰트)
+                    핵심 이슈 제목 (한 줄 표시)
                   </label>
                   <span className="text-xs font-semibold text-slate-600">
-                    {issue.title.length}/38자 · 한 줄 표시
+                    {issue.title.length}/38자
                   </span>
                 </div>
                 <input
@@ -257,8 +257,8 @@ export function AxiosIssuesEditorPanel({
                       title: e.target.value.replace(/[\r\n]+/g, " "),
                     })
                   }
-                  placeholder="핵심 결론을 담은 1줄 제목을 입력하세요"
-                  className="w-full min-h-11 rounded-xl border border-slate-300/90 bg-white/95 px-3.5 py-2 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
+                  placeholder="핵심 결론을 담은 제목을 입력하세요"
+                  className="w-full min-h-11 rounded-lg border border-slate-300/90 bg-white/95 px-3.5 py-2 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
@@ -283,7 +283,7 @@ export function AxiosIssuesEditorPanel({
                         }),
                       });
                       handleUpdateIssue(idx, { brief: refined });
-                      editorToast.success("2~4문장 AXIOS 브리프 형식으로 정돈했습니다.");
+                      editorToast.success("2~4문장 요약 브리프 형식으로 정돈했습니다.");
                     }}
                     className="text-xs font-bold text-blue-800 hover:underline"
                   >
@@ -296,16 +296,16 @@ export function AxiosIssuesEditorPanel({
                   value={issue.brief}
                   onChange={(e) => handleUpdateIssue(idx, { brief: e.target.value })}
                   placeholder="핵심 팩트와 매수자 시사점을 2~4문장으로 간결하게 정리하세요"
-                  className="w-full rounded-xl border border-slate-300/90 bg-white/95 p-3 text-sm font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 resize-y"
+                  className="w-full rounded-lg border border-slate-300/90 bg-white/95 p-3 text-sm font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 resize-y"
                 />
               </div>
 
               {/* 기사 교체 드로어 */}
               {isSwapping && (
-                <div className="rounded-xl border border-slate-300 bg-white p-3 space-y-2.5">
+                <div className="rounded-lg border border-slate-300 bg-white p-3 space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-1.5">
                     <span className="text-xs font-extrabold text-slate-900">
-                      다른 뉴스 기사로 이 포스트잇 교체
+                      다른 뉴스 기사로 이 이슈 교체
                     </span>
                     <div className="flex flex-wrap gap-1">
                       {NEWS_CHANNELS.map((ch) => (

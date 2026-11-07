@@ -50,45 +50,45 @@ export function KakaoBubblePreview({
     >
       {/* Top Controls: Scale Toggle */}
       <div className="w-full flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200">
-        <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+        <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
           <span>💬</span>
-          <span>카카오톡 공유 말풍선 · 상세 포스트잇 미리보기</span>
+          <span>카카오톡 말풍선 · 수신자 화면 미리보기</span>
         </span>
 
-        <div className="inline-flex rounded-lg bg-slate-200 p-0.5 border border-slate-300 text-xs">
+        <div className="inline-flex rounded-lg bg-slate-200 p-0.5 border border-slate-300 text-xs shrink-0">
           <button
             type="button"
             onClick={() => setScaleMode('mobile')}
-            className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+            className={`px-2 py-1 rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
               scaleMode === 'mobile'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📱 모바일 (~255px)
+            📱 모바일
           </button>
           <button
             type="button"
             onClick={() => setScaleMode('desktop')}
-            className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+            className={`px-2 py-1 rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
               scaleMode === 'desktop'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            🖥️ PC (1:1)
+            🖥️ PC
           </button>
           <button
             type="button"
             data-testid="preview-mode-postit"
             onClick={() => setScaleMode('postit')}
-            className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+            className={`px-2 py-1 rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
               scaleMode === 'postit'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📌 상세 포스트잇 뷰
+            📋 상세 뷰
           </button>
         </div>
       </div>
@@ -175,20 +175,20 @@ export function KakaoBubblePreview({
         </div>
       )}
 
-      {/* Clean AXIOS Wide Post-it 3-Point Detail Preview */}
+      {/* Clean 3-Point Detail Preview */}
       <div
         data-testid="dealcard-postit-preview-list"
-        className={`w-full rounded-xl bg-white border border-slate-200 p-4 space-y-2.5 ${
+        className={`w-full rounded-lg bg-white border border-slate-200 p-4 space-y-2.5 ${
           scaleMode === 'postit' ? 'mt-0' : 'mt-3'
         }`}
       >
         <div className="flex items-center justify-between">
           <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
             <span>📌</span>
-            <span>수신자 상세 화면 · AXIOS 포스트잇 3선</span>
+            <span>수신자 상세 화면 · 핵심 투자 포인트 3선</span>
           </span>
           <span className="text-[11px] font-semibold text-slate-500">
-            1줄 큰 제목 + 핵심 브리프
+            핵심 요약 + 상세 해설
           </span>
         </div>
 
@@ -209,7 +209,7 @@ export function KakaoBubblePreview({
                   backgroundColor: toneStyle.bgHex,
                   borderColor: toneStyle.borderHex,
                 }}
-                className="rounded-xl border p-3 space-y-1 shadow-2xs"
+                className="rounded-md border border-l-4 p-3 space-y-1 shadow-2xs"
               >
                 <div className="flex items-center justify-between">
                   <span

@@ -369,25 +369,25 @@ function DealCardsWorkspaceInner() {
     return matchesQuery && matchesStatus && matchesPosture;
   });
 
-  /* ── Column 1: ① 고르기 목록 (Airtable-Style Intelligent Deal Grid) ── */
+  /* ── Column 1: ① 고르기 목록 (Intelligent Deal Grid) ── */
   const listSlot = (
     <div className="space-y-3" data-testid="dealcard-airtable-list">
-      {/* Airtable Header Banner */}
-      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900 text-white">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950">
-            AIRTABLE GRID
+      {/* Header Banner */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-slate-900 text-white">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950 whitespace-nowrap shrink-0">
+            보유 딜카드
           </span>
-          <span className="text-xs font-bold text-slate-200">
-            매매 딜카드 지능형 목록
+          <span className="text-xs font-bold text-slate-200 whitespace-nowrap truncate">
+            매매 딜카드 목록
           </span>
         </div>
-        <span className="text-xs font-mono text-amber-300 font-bold">
+        <span className="text-xs font-mono text-amber-300 font-bold whitespace-nowrap shrink-0">
           총 {filteredItems.length}건
         </span>
       </div>
 
-      {/* 매수 포스처(목적)별 스위처 (매매 전용 - 다른 실용 기능 스위처) */}
+      {/* 매수 포스처(목적)별 스위처 */}
       <div
         data-testid="dealcard-posture-switcher"
         className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-200 border border-slate-300"
@@ -395,8 +395,8 @@ function DealCardsWorkspaceInner() {
         {(
           [
             { id: "all", label: "전체 매물" },
-            { id: "income", label: "🏦 수익형(임대)" },
-            { id: "owner_value", label: "🏢 사옥·밸류애드" },
+            { id: "income", label: "수익형(임대)" },
+            { id: "owner_value", label: "사옥·밸류애드" },
           ] as const
         ).map((tab) => {
           const active = postureFilter === tab.id;
@@ -406,7 +406,7 @@ function DealCardsWorkspaceInner() {
               type="button"
               data-testid={`dealcard-posture-tab-${tab.id}`}
               onClick={() => setPostureFilter(tab.id)}
-              className={`min-h-[38px] px-2 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+              className={`min-h-[38px] px-1.5 py-1.5 rounded-lg text-xs font-extrabold whitespace-nowrap flex items-center justify-center transition cursor-pointer ${
                 active
                   ? "bg-white text-blue-950 shadow-xs border border-blue-300"
                   : "text-slate-700 hover:text-slate-950"
@@ -419,9 +419,9 @@ function DealCardsWorkspaceInner() {
       </div>
 
       {/* 매매 딜카드 표준 공식 배너 */}
-      <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 font-semibold leading-snug">
+      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-950 font-semibold leading-snug">
         <span className="font-extrabold text-amber-900">[매매 딜카드 공식]</span>{" "}
-        1줄 대표 제목 + 권역·용도·금액구간 + AXIOS 와이드 포스트잇 3선
+        대표 제목 + 권역·용도·금액구간 + 핵심 투자포인트 3선
       </div>
 
       {/* 56px Primary Create Button */}
@@ -537,8 +537,8 @@ function DealCardsWorkspaceInner() {
                   <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
                     🛡️ 블라인드 ✓
                   </span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200">
-                    📌 포스트잇 {validPointsCount}/3
+                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 whitespace-nowrap">
+                    📌 핵심요약 {validPointsCount}/3
                   </span>
                 </div>
                 <button

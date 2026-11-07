@@ -860,14 +860,14 @@ export function MobileIMViewer({
       )}
 
       {/* ── Continuous 10-Section Scroll Content (WP-P4b-01 & WP-P4b-02) ── */}
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-8" data-testid="continuous-scroll-content">
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6" data-testid="continuous-scroll-content">
         {/* Section 01: Cover (A01) */}
         <section
           id="01_cover"
           data-section-id="01_cover"
           data-testid="mobile-im-section-01_cover"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -881,7 +881,7 @@ export function MobileIMViewer({
           {/* Cover photo or dark gradient box locked to dark theme */}
           <div
             data-theme-lock="dark"
-            className="relative w-full min-h-[208px] bg-gradient-to-br from-[#1E293B] to-[#0F172A] rounded-2xl flex flex-col items-center justify-center text-white p-6 text-center overflow-hidden"
+            className="relative w-full min-h-[208px] bg-gradient-to-br from-[#1E293B] to-[#0F172A] rounded-md flex flex-col items-center justify-center text-white p-6 text-center overflow-hidden"
           >
             {hasRenderableCoverPhoto && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -903,13 +903,13 @@ export function MobileIMViewer({
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <div className="p-3.5 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+            <div className="p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               <span className="text-[13px] font-medium text-[#64748B] block">매매 희망가</span>
               <strong className="text-[20px] font-extrabold text-[#0F172A] tabular-nums">
                 {priceLabel}
               </strong>
             </div>
-            <div className="p-3.5 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+            <div className="p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               <span className="text-[13px] font-medium text-[#64748B] block">예상 총수익률</span>
               <strong className="text-[20px] font-extrabold text-[#065F46] tabular-nums">
                 {(coverSec?.data?.grossYieldPct ?? basicDoc.facts.valuation.grossYieldPct).toFixed(2)}%
@@ -924,7 +924,7 @@ export function MobileIMViewer({
           data-section-id="02_summary"
           data-testid="mobile-im-section-02_summary"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -939,7 +939,7 @@ export function MobileIMViewer({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {(summarySec?.data?.metrics || []).map((m: any, idx: number) => (
-              <div key={idx} className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0] text-center">
+              <div key={idx} className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] text-center">
                 <span className="text-[12px] font-semibold text-[#64748B] block mb-0.5">{m.label}</span>
                 <strong className="text-[16px] font-extrabold text-[#0F172A] tabular-nums block">
                   {m.value}
@@ -948,7 +948,7 @@ export function MobileIMViewer({
             ))}
           </div>
 
-          <div className="p-4 bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] space-y-2">
+          <div className="p-4 bg-[#F8FAFC] rounded-md border border-[#E2E8F0] space-y-2">
             <h3 className="text-[15px] font-bold text-[#0F172A]">투자 포인트</h3>
             <ul className="space-y-1.5 text-[15px] text-[#334155]">
               {(summarySec?.data?.investmentPoints || []).map((pt: string, idx: number) => (
@@ -967,7 +967,7 @@ export function MobileIMViewer({
           data-section-id="03_overview"
           data-testid="mobile-im-section-03_overview"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1023,7 +1023,7 @@ export function MobileIMViewer({
           data-section-id="04_location"
           data-testid="mobile-im-section-04_location"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1032,7 +1032,7 @@ export function MobileIMViewer({
           </div>
 
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">교통 및 입지 환경</h2>
-          <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#E2E8F0] space-y-2.5">
+          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-2.5">
             <p className="text-[15px] font-semibold text-[#0F172A]">
               {basicDoc.facts.address} · {locationTransport}
             </p>
@@ -1051,7 +1051,7 @@ export function MobileIMViewer({
                 {locationPoiList.map((poi, idx) => (
                   <span
                     key={idx}
-                    className="px-2.5 py-1 rounded-lg bg-white border border-[#CBD5E1] text-[13px] font-semibold text-[#0F172A]"
+                    className="px-2.5 py-1 rounded-md bg-white border border-[#CBD5E1] text-[13px] font-semibold text-[#0F172A]"
                   >
                     📍 {poi}
                   </span>
@@ -1067,7 +1067,7 @@ export function MobileIMViewer({
           data-section-id="05_land"
           data-testid="mobile-im-section-05_land"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1077,21 +1077,21 @@ export function MobileIMViewer({
 
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">토지 이용 계획</h2>
           <div className="grid grid-cols-2 gap-3 text-[15px]">
-            <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+            <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               <span className="text-[12px] text-[#64748B] block">대지면적</span>
               <strong className="text-[16px] text-[#0F172A] tabular-nums">
                 {landAreaSqm}㎡ ({landAreaPyeong}평)
               </strong>
             </div>
-            <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+            <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               <span className="text-[12px] text-[#64748B] block">용도지역</span>
               <strong className="text-[16px] text-[#0F172A]">{landZoning}</strong>
             </div>
-            <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+            <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               <span className="text-[12px] text-[#64748B] block">지형·형상</span>
               <strong className="text-[15px] text-[#0F172A]">{landTerrainShape}</strong>
             </div>
-            <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+            <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               <span className="text-[12px] text-[#64748B] block">개별공시지가</span>
               <strong className="text-[15px] text-[#0F172A] tabular-nums">
                 {officialLandPriceWonSqm > 0
@@ -1110,7 +1110,7 @@ export function MobileIMViewer({
           data-section-id="06_rentroll"
           data-testid="mobile-im-section-06_rentroll"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1123,7 +1123,7 @@ export function MobileIMViewer({
 
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">렌트롤 현황</h2>
 
-          <div className="overflow-x-auto rounded-xl border border-[#CBD5E1]">
+          <div className="overflow-x-auto rounded-md border border-[#CBD5E1]">
             <table className="w-full text-left text-[13px] sm:text-[14px]">
               <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
                 <tr>
@@ -1183,7 +1183,7 @@ export function MobileIMViewer({
           data-section-id="07_yield"
           data-testid="mobile-im-section-07_yield"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1192,7 +1192,7 @@ export function MobileIMViewer({
           </div>
 
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">수익률 산출 내역</h2>
-          <div className="p-4 bg-[#F0FDF4] rounded-2xl border border-[#BBF7D0] space-y-2">
+          <div className="p-4 bg-[#F0FDF4] rounded-md border border-[#BBF7D0] space-y-2">
             <div className="flex justify-between text-[15px]">
               <span className="text-[#334155]">연간 총 임대료 (Gross Rent)</span>
               <strong className="text-[#0F172A] tabular-nums">
@@ -1215,13 +1215,13 @@ export function MobileIMViewer({
 
           {(pricePerPyeongLandWon > 0 || pricePerPyeongGfaWon > 0) && (
             <div className="grid grid-cols-2 gap-3 text-[14px]">
-              <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+              <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
                 <span className="text-[12px] text-[#64748B] block">토지 평당 단가</span>
                 <strong className="text-[15px] text-[#0F172A] tabular-nums">
                   {Math.round(pricePerPyeongLandWon / 10000).toLocaleString()}만 원/평
                 </strong>
               </div>
-              <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+              <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
                 <span className="text-[12px] text-[#64748B] block">연면적 평당 단가</span>
                 <strong className="text-[15px] text-[#0F172A] tabular-nums">
                   {Math.round(pricePerPyeongGfaWon / 10000).toLocaleString()}만 원/평
@@ -1237,7 +1237,7 @@ export function MobileIMViewer({
           data-section-id="08_comps"
           data-testid="mobile-im-section-08_comps"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1249,13 +1249,13 @@ export function MobileIMViewer({
 
           {(subjectLandPricePerPyeongWon > 0 || subjectGfaPricePerPyeongWon > 0) && (
             <div className="grid grid-cols-2 gap-3 text-[14px]">
-              <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+              <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
                 <span className="text-[12px] text-[#64748B] block">본건 토지 평당가</span>
                 <strong className="text-[15px] text-[#0F172A] tabular-nums">
                   {Math.round(subjectLandPricePerPyeongWon / 10000).toLocaleString()}만 원/평
                 </strong>
               </div>
-              <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+              <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
                 <span className="text-[12px] text-[#64748B] block">본건 연면적 평당가</span>
                 <strong className="text-[15px] text-[#0F172A] tabular-nums">
                   {Math.round(subjectGfaPricePerPyeongWon / 10000).toLocaleString()}만 원/평
@@ -1265,7 +1265,7 @@ export function MobileIMViewer({
           )}
 
           {compsList.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border border-[#CBD5E1]">
+            <div className="overflow-x-auto rounded-md border border-[#CBD5E1]">
               <table className="w-full text-left text-[14px]">
                 <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
                   <tr>
@@ -1306,7 +1306,7 @@ export function MobileIMViewer({
               </table>
             </div>
           ) : (
-            <p className="text-[14px] text-[#475569] p-3.5 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]">
+            <p className="text-[14px] text-[#475569] p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               인근 실거래 비교사례 데이터 수집 중 · 본건 토지/연면적 평당가 기준 분석
             </p>
           )}
@@ -1318,7 +1318,7 @@ export function MobileIMViewer({
           data-section-id="09_photos"
           data-testid="mobile-im-section-09_photos"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1327,7 +1327,7 @@ export function MobileIMViewer({
           </div>
 
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">거래 조건 및 갤러리</h2>
-          <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#E2E8F0] text-[15px] text-[#334155]">
+          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] text-[15px] text-[#334155]">
             매각 방식: {handoverCondition}
           </div>
 
@@ -1348,7 +1348,7 @@ export function MobileIMViewer({
           data-section-id="10_contact"
           data-testid="mobile-im-section-10_contact"
           data-doc-hash={docHash}
-          className="bg-white rounded-3xl border-2 border-[#CBD5E1] p-6 shadow-sm space-y-4"
+          className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
@@ -1357,7 +1357,7 @@ export function MobileIMViewer({
           </div>
 
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">담당 중개사무소</h2>
-          <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#E2E8F0] space-y-1 text-[15px]">
+          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-1 text-[15px]">
             <p className="font-extrabold text-[#0F172A]">{brokerOfficeName}</p>
             <p className="text-[#475569]">
               대표: {brokerRepresentative} · 등록번호: {brokerRegistrationNo}
