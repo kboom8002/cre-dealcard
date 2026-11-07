@@ -52,7 +52,7 @@ export async function GET(
           .or(`building_id.eq.${actualId},id.eq.${actualId}`)
           .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(3);
 
         const recoveryDoc = (recoveryDocs || []).find(
           (d: any) => d?.body && !Array.isArray(d.body.slides)
@@ -121,7 +121,7 @@ export async function GET(
         .or(`building_id.eq.${project.dealId},id.eq.${project.dealId}`)
         .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(3);
 
       // Select the latest real IM document (not a PptxProject row)
       doc = (docRows || []).find((r: any) => r?.body && !Array.isArray(r.body.slides)) ?? null;

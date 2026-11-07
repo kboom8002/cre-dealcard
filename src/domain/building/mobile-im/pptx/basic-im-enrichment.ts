@@ -93,24 +93,44 @@ export async function enrichForBasicIm(
   }
 
   // 1. V-World 지적도
-  let pnu = options?.pnu;
-  const pnus = (options?.pnus || []).filter(Boolean);
+  let pnu = options?.pnu && /^\d{19}$/.test(options.pnu.trim()) ? options.pnu.trim() : undefined;
+  const pnus = (options?.pnus || []).map(p => String(p || '').trim()).filter(p => /^\d{19}$/.test(p));
   if (!pnu && pnus.length > 0) {
     pnu = pnus[0];
   }
-  const additionalPnus = pnus.length > 1 ? pnus.filter(p => p !== pnu) : undefined;
+  let additionalPnus: string[] | undefined = pnus.length > 1 ? pnus.filter(p => p !== pnu) : undefined;
 
-  // PNU가 없는 경우 주소로부터 PNU 자동 조회
+  // PNU가 없는 경우 주소로부터 PNU 자동 조회 (다필지 부속 지번 allPnus 동시 추출)
   if (!pnu && options?.address) {
     try {
       const { resolveAddress } = await import('@/lib/external/address-resolver');
       const resolved = await resolveAddress(options.address);
-      if (resolved?.pnu) {
+      if (resolved?.pnu && /^\d{19}$/.test(resolved.pnu)) {
         pnu = resolved.pnu;
-        log.info(`[enrichForBasicIm] 주소로부터 PNU 자동 조회 성공: ${pnu} (${options.address})`);
+        if (resolved.allPnus && resolved.allPnus.length > 1) {
+          additionalPnus = resolved.allPnus.filter(p => p !== pnu && /^\d{19}$/.test(p));
+        }
+        log.info(`[enrichForBasicIm] 주소로부터 PNU 자동 조회 성공: ${pnu}${additionalPnus?.length ? ` (외 ${additionalPnus.length}필지: ${additionalPnus.join(',')})` : ''} (${options.address})`);
       }
     } catch (err) {
       console.warn('[basic-im-enrichment] PNU auto-fetch failed:', err);
+    }
+  } else if (pnu && (!additionalPnus || additionalPnus.length === 0) && options?.address) {
+    // 대표 PNU(19자리)는 있으나 주소 문자열에 부속 지번(", 134, 125-2" 등)이 포함된 경우 추가 PNU 합성
+    try {
+      const { splitMultiParcelAddress, padNumber } = await import('@/lib/external/address-resolver');
+      const { secondaryLots } = splitMultiParcelAddress(options.address);
+      if (secondaryLots.length > 0) {
+        const legalDongCode = pnu.substring(0, 10);
+        const synthesized = secondaryLots
+          .map(lot => `${legalDongCode}${lot.isMount ? '2' : '1'}${padNumber(lot.bun)}${padNumber(lot.ji)}`)
+          .filter(sec => /^\d{19}$/.test(sec) && sec !== pnu);
+        if (synthesized.length > 0) {
+          additionalPnus = Array.from(new Set(synthesized));
+        }
+      }
+    } catch {
+      // ignore synthesis failure
     }
   }
 

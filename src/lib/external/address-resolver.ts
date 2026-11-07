@@ -63,6 +63,85 @@ export function extract19DigitPnus(pnuInput?: string | string[]): string[] {
 }
 
 /**
+ * 다필지 주소 문자열("서울 영등포구 양평동4가 117, 134, 125-2" 또는 "양평동4가 117 외 2필지 (134, 125-2)")에서
+ * 대표 지번 주소(primaryAddress)와 부속 지번 목록(secondaryLots)을 분리합니다.
+ */
+export function splitMultiParcelAddress(rawAddress: string): {
+  primaryAddress: string;
+  secondaryLots: Array<{ bun: string; ji: string; isMount: boolean }>;
+} {
+  if (!rawAddress) return { primaryAddress: '', secondaryLots: [] };
+
+  const secondaryLots: Array<{ bun: string; ji: string; isMount: boolean }> = [];
+  let working = rawAddress.trim();
+
+  // 1. 괄호 안 부속 지번 추출: 예) "양평동4가 117 외 2필지 (134, 125-2)"
+  const parenMatch = working.match(/\(([^)]+)\)/);
+  if (parenMatch) {
+    const tokens = parenMatch[1].split(/[,/·\s]+/).map(t => t.trim()).filter(Boolean);
+    for (const tok of tokens) {
+      const m = tok.match(/^(산\s*)?(\d+)(?:-(\d+))?$/);
+      if (m) {
+        secondaryLots.push({
+          bun: m[2],
+          ji: m[3] || '0',
+          isMount: Boolean(m[1]),
+        });
+      }
+    }
+    working = working.replace(/\s*\([^)]+\)/g, '').trim();
+  }
+
+  // 2. "외 N필지" 문구 제거
+  working = working.replace(/\s*외\s*\d*\s*필지/g, '').trim();
+
+  // 3. 쉼표로 나열된 지번 분리: 예) "서울특별시 영등포구 양평동4가 117, 134, 125-2"
+  const commaParts = working.split(',').map(p => p.trim()).filter(Boolean);
+  if (commaParts.length > 1) {
+    const firstPart = commaParts[0];
+    for (let i = 1; i < commaParts.length; i++) {
+      const lotStr = commaParts[i].replace(/^산\s*/, '');
+      const isMount = /^산\s*\d/.test(commaParts[i]);
+      const lotMatch = lotStr.match(/^(\d+)(?:-(\d+))?$/);
+      if (lotMatch) {
+        secondaryLots.push({
+          bun: lotMatch[1],
+          ji: lotMatch[2] || '0',
+          isMount,
+        });
+      }
+    }
+    working = firstPart;
+  }
+
+  return {
+    primaryAddress: working,
+    secondaryLots,
+  };
+}
+
+function buildMultiParcelPnus(
+  primaryPnu: string,
+  legalDongCode: string,
+  secondaryLots: Array<{ bun: string; ji: string; isMount: boolean }>,
+): string[] {
+  const result: string[] = [];
+  if (primaryPnu && primaryPnu.length === 19) {
+    result.push(primaryPnu);
+  }
+  if (legalDongCode && legalDongCode.length === 10) {
+    for (const lot of secondaryLots) {
+      const landCat = lot.isMount ? '2' : '1';
+      const secPnu = `${legalDongCode}${landCat}${padNumber(lot.bun)}${padNumber(lot.ji)}`;
+      if (secPnu.length === 19 && !result.includes(secPnu)) {
+        result.push(secPnu);
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * W-3.2: 카카오 지오코딩 재시도 (하드코딩 폴백 좌표 제거)
  * 최대 2회 시도, 실패 시 null 반환
  */
@@ -92,7 +171,8 @@ async function geocodeWithRetry(address: string): Promise<{ lat: number; lng: nu
 
 export async function resolveAddress(rawAddress: string): Promise<ResolvedAddress | null> {
   const confirmKey = process.env.JUSO_CONFIRM_KEY;
-  const cleanAddr = rawAddress.trim().replace(/\s*외\s*\d*\s*필지/g, '').trim();
+  const { primaryAddress: cleanAddr, secondaryLots } = splitMultiParcelAddress(rawAddress);
+  if (!cleanAddr) return null;
 
   if (confirmKey && confirmKey !== "") {
     try {
@@ -143,6 +223,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
 
         // W-3.2: 하드코딩 폴백 좌표 제거 — 재시도 후 null 허용
         const geo = await geocodeWithRetry(cleanAddr);
+        const allPnus = buildMultiParcelPnus(pnu, legalDongCode, secondaryLots);
 
         return {
           pnu, legalDongCode, sigunguCd, bjdongCd, bun, ji,
@@ -151,6 +232,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
           lng: geo?.lng ?? null,
           buildingMgtNo,
           _mergedParcelWarning: mergedParcelWarning,
+          ...(allPnus.length > 0 ? { allPnus } : {}),
         };
       }
     } catch (err) {
@@ -178,9 +260,10 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
   const legalDongCode = getMockLegalDongCode(cleanAddr);
   const sigunguCd = legalDongCode.substring(0, 5);
   const bjdongCd = legalDongCode.substring(5, 10);
-  // W-1.3: 산지 대지구분 '2' 적용
+  // W-1.3: 산지 대지구분 '2' 적용 (법정동 코드 10자리 확인 시에만 19자리 PNU 생성, 9자리 불완전 PNU 생성 차단)
   const landCategory = isMount ? '2' : '1';
-  const pnu = `${legalDongCode}${landCategory}${bun}${ji}`;
+  const pnu = legalDongCode.length === 10 ? `${legalDongCode}${landCategory}${bun}${ji}` : "";
+  const allPnus = buildMultiParcelPnus(pnu, legalDongCode, secondaryLots);
 
   // W-3.2: 하드코딩 폴백 좌표 제거
   const geo = await geocodeWithRetry(cleanAddr);
@@ -197,6 +280,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
     lat: geo?.lat ?? null,
     lng: geo?.lng ?? null,
     buildingMgtNo: "",
+    ...(allPnus.length > 0 ? { allPnus } : {}),
   };
 }
 

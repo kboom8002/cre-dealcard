@@ -33,6 +33,47 @@ export interface PureRentFacts {
   units: PureRentUnit[];
 }
 
+/**
+ * 비정형 한국어 금액 문자열("5,000만원", "8억", "1억 5,000만", "350만 (부가세 별도)") 또는 숫자를 만원 단위로 파싱합니다.
+ */
+export function parseFlexibleManwon(val: unknown): number {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
+  if (val == null) return 0;
+  const raw = String(val)
+    .replace(/\([^)]*\)/g, '') // 괄호 안 부가세/관리비 메모 제거
+    .trim();
+  if (!raw) return 0;
+
+  // '억' 단위 포함 시 (예: "8억", "1.5억", "1억 5,000만", "1억5000")
+  if (raw.includes('억')) {
+    const eokMatch = raw.match(/(\d[\d,]*(?:\.\d+)?)\s*억/);
+    const afterEok = raw.split('억')[1] || '';
+    const manMatch = afterEok.match(/(\d[\d,]*(?:\.\d+)?)/);
+    const eokVal = eokMatch ? parseFloat(eokMatch[1].replace(/,/g, '')) * 10000 : 0;
+    const manVal = manMatch ? parseFloat(manMatch[1].replace(/,/g, '')) : 0;
+    const total = (Number.isFinite(eokVal) ? eokVal : 0) + (Number.isFinite(manVal) ? manVal : 0);
+    return Math.round(total);
+  }
+
+  const numMatch = raw.match(/[-+]?\d[\d,]*(?:\.\d+)?/);
+  if (!numMatch) return 0;
+  const parsed = parseFloat(numMatch[0].replace(/,/g, ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * 비정형 면적 문자열("약 45.2평", "149.42㎡ (전용)") 또는 숫자를 파싱합니다.
+ */
+export function parseFlexibleAreaNumber(val: unknown): number {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
+  if (val == null) return 0;
+  const raw = String(val).replace(/\([^)]*\)/g, '').trim();
+  const numMatch = raw.match(/[-+]?\d[\d,]*(?:\.\d+)?/);
+  if (!numMatch) return 0;
+  const parsed = parseFloat(numMatch[0].replace(/,/g, ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
   const rawBody = raw?.body || raw || {};
   const ssot = raw?.ssot_summary || rawBody?.ssot_summary || raw?.layers?.lease_summary || raw || {};
@@ -63,15 +104,15 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
     const rawRent = u.rent_krw ?? u.rent_manwon ?? u.monthlyRentManwon ?? u.monthlyRentKrw ?? u.monthlyRent ?? u.rent ?? 0;
     const rentKrw = Number(
       u.rent_krw != null || u.monthlyRentKrw != null
-        ? (u.rent_krw ?? u.monthlyRentKrw)
-        : Number(rawRent) * 10000
+        ? parseFlexibleAreaNumber(u.rent_krw ?? u.monthlyRentKrw)
+        : parseFlexibleManwon(rawRent) * 10000
     );
 
     const rawDeposit = u.deposit_krw ?? u.deposit_manwon ?? u.depositManwon ?? u.depositKrw ?? u.deposit ?? 0;
     const depositKrw = Number(
       u.deposit_krw != null || u.depositKrw != null
-        ? (u.deposit_krw ?? u.depositKrw)
-        : Number(rawDeposit) * 10000
+        ? parseFlexibleAreaNumber(u.deposit_krw ?? u.depositKrw)
+        : parseFlexibleManwon(rawDeposit) * 10000
     );
 
     const rawMaint =
@@ -84,8 +125,8 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
       0;
     const maintKrw = Number(
       u.maintenance_fee_krw != null || u.maintenanceFeeKrw != null
-        ? (u.maintenance_fee_krw ?? u.maintenanceFeeKrw)
-        : Number(rawMaint) * 10000
+        ? parseFlexibleAreaNumber(u.maintenance_fee_krw ?? u.maintenanceFeeKrw)
+        : parseFlexibleManwon(rawMaint) * 10000
     );
 
     const isVacantRaw =
@@ -128,8 +169,8 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
       vacantCount++;
     }
 
-    const explicitSqm = Number(u.area_sqm ?? u.area_m2 ?? u.areaSqm ?? 0);
-    const explicitPy = Number(u.area_pyeong ?? u.areaPyeong ?? 0);
+    const explicitSqm = parseFlexibleAreaNumber(u.area_sqm ?? u.area_m2 ?? u.areaSqm ?? 0);
+    const explicitPy = parseFlexibleAreaNumber(u.area_pyeong ?? u.areaPyeong ?? 0);
     const areaSqm =
       explicitSqm > 0
         ? explicitSqm

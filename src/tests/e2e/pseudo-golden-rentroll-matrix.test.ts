@@ -179,9 +179,11 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
           expect(plannedGallery.map((g) => g.layout)).toEqual(oracle.expectedGalleryLayouts);
           const totalPlannedPhotos = plannedGallery.reduce((sum, g) => sum + g.photos.length, 0);
           expect(totalPlannedPhotos).toBe(oracle.expectedPhotoCount);
-          expect(String(plannedGallery[0]?.photos[0]?.url || '')).toContain(
-            oracle.expectedHeroPhotoSubstring,
-          );
+          if (oracle.expectedHeroPhotoSubstring) {
+            expect(String(plannedGallery[0]?.photos[0]?.url || '')).toContain(
+              oracle.expectedHeroPhotoSubstring,
+            );
+          }
 
           const renderer = new MobileImPptxRenderer();
           const result = await renderer.render(pptxInput);
@@ -223,8 +225,8 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
           // 공통: 소재지 지번 및 매매가 표기 확인
           expect(fullText).toContain(scenario.bottomSheet.address.split(' ').slice(-1)[0]);
 
-          // 공통 사진 갤러리 슬라이드 제목 검증 (1면: '현장 사진', 2면 분할: '현장 사진 (1/2)' & '현장 사진 (2/2)')
-          if (oracle.expectedGallerySlideCount === 1) {
+          // 공통 사진 갤러리 슬라이드 제목 검증 (0~1면: '현장 사진', 2면 분할: '현장 사진 (1/2)' & '현장 사진 (2/2)')
+          if (oracle.expectedGallerySlideCount <= 1) {
             expect(fullText).toContain('현장 사진');
           } else {
             expect(fullText).toContain('현장 사진 (1/2)');
@@ -295,6 +297,34 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
             expect(fullText).toContain('지구단위계획·도면');
             expect(fullText).toContain('기준층(2F~5F) 사옥 레이아웃 평면도');
             expect(fullText).toContain('임직원 휴게 루프탑 가든 및 조망');
+          }
+
+          if (scenario.caseId === 'R7_ZERO_PHOTO_JEONSE_MIX') {
+            // 사진 0장일 때 건축물 현황 실사 안내 대체 카드가 표출되고, 전세 8억(50,000 + 30,000)이 보증금 총액(125,000만)에 정확히 합산됨
+            expect(fullText).toContain('건축물 현황 및 물리적 실사 점검 안내');
+            expect(fullText).toContain(oracle.totalDepositManwon.toLocaleString()); // 보증금 합계 125,000만
+            expect(fullText).toContain(oracle.monthlyRentManwon.toLocaleString()); // 월세 합계 2,800만
+            expect(fullText).toContain(`${oracle.grossYieldPct.toFixed(2)}%`); // 순투하자본 수익률 3.28%
+          }
+
+          if (scenario.caseId === 'R8_SINGLE_PHOTO_AND_BROKEN_URL') {
+            // 깨진 URL 1장이 섞여 있어도 크래시 없이 유효 사진 1장(FULL_WIDE)과 원본 캡션이 정확히 매칭됨
+            expect(fullText).toContain('남부순환로 코너 전면 파사드 단독 전경');
+            expect(fullText).not.toContain('깨진 URL 이미지 (스킵 대상)');
+          }
+
+          if (scenario.caseId === 'R9_MULTI_PARCEL_3LOTS_MESSY_STRINGS') {
+            // 다필지 주소 자동 해석 검증 (19자리 대표 PNU + 부속 PNU 2건) 및 비정형 한글 금액·면적 파싱 검증
+            const { resolveAddress } = await import('@/lib/external/address-resolver');
+            const resolved = await resolveAddress(scenario.bottomSheet.address);
+            expect(resolved?.pnu).toBe('1156012800101170000');
+            expect(resolved?.allPnus).toEqual([
+              '1156012800101170000',
+              '1156012800101340000',
+              '1156012800101250002',
+            ]);
+            expect(fullText).toContain(oracle.monthlyRentManwon.toLocaleString()); // 월세 합계 3,220만
+            expect(fullText).toContain(oracle.totalDepositManwon.toLocaleString()); // 보증금 합계 50,000만
           }
         },
       );

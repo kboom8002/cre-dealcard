@@ -111,14 +111,22 @@ export function formatLeaseAreaTotal(
  * 행 객체 → 면적 셀. ㎡ 정본(sqm) 우선, 없으면 레거시 평 입력(pyeong)을 쓴다.
  * 평 모드에서 평 입력만 있으면 환산 왕복 없이 그 숫자를 그대로 표기한다.
  */
+function parseAreaToken(v: unknown): number {
+  if (typeof v === 'number') return v;
+  if (v == null) return NaN;
+  const s = String(v).replace(/\([^)]*\)/g, '').trim();
+  const m = s.match(/[-+]?\d[\d,]*(?:\.\d+)?/);
+  return m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
+}
+
 export function formatLeaseAreaFromRow(
   row: { sqm?: unknown; pyeong?: unknown },
   unit: AreaInputUnit,
   opts: LeaseAreaFormatOptions = {},
 ): string {
-  const sqm = Number(row.sqm);
+  const sqm = parseAreaToken(row.sqm);
   if (isPosFinite(sqm)) return formatLeaseArea(sqm, unit, opts);
-  const py = Number(row.pyeong);
+  const py = parseAreaToken(row.pyeong);
   if (isPosFinite(py)) {
     return unit === 'pyeong'
       ? formatLeaseAreaValue(Math.round(py * 100) / 100, opts)

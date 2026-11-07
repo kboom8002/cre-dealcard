@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         .or(`building_id.eq.${buildingId},id.eq.${buildingId}`)
         .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(3);
 
       // Pick the latest real IM document (not a PptxProject snapshot)
       const realDoc = (docs || []).find(

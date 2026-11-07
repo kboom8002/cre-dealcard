@@ -92,10 +92,19 @@ export async function GET(
         const ssotSummary = document.body.ssot_summary || {};
         const score = document.body.readiness_score ?? 0;
 
+        const rawDocPhotos = Array.isArray(document.body.photos_v2) && document.body.photos_v2.length > 0
+          ? document.body.photos_v2
+          : Array.isArray(document.body.photos) && document.body.photos.length > 0
+          ? document.body.photos
+          : Array.isArray(document.body.photo_urls)
+          ? document.body.photo_urls.map((url: string) => ({ url, category: "exterior" }))
+          : [];
+        const docPhotos = rawDocPhotos.filter((p: any) => p && p.excluded !== true && p.url);
+
         const doc = {
           buildingId,
-          blindName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
-          fullName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
+          blindName: document.body.buildingName || `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
+          fullName: document.body.buildingName || `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
           areaSignal: ssotSummary.area_signal,
           assetType: ssotSummary.asset_type,
           priceBand: ssotSummary.price_band,
@@ -111,8 +120,16 @@ export async function GET(
             description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
           },
           protectedFieldsRemoved: ["상세 지번", "소유주명"],
-          photos: [],
-          coordinates: null,
+          photos: docPhotos,
+          photos_v2: docPhotos,
+          coordinates: document.body.coordinates || ssotSummary.coordinates || null,
+          ssot_summary: ssotSummary,
+          heroCard: document.body.heroCard || undefined,
+          rent_roll: document.body.rent_roll || document.body.floor_leases || ssotSummary.floor_leases || [],
+          floor_leases: document.body.floor_leases || document.body.rent_roll || ssotSummary.floor_leases || [],
+          basicImDocument: document.body.basicImDocument || undefined,
+          broker_extras: document.body.broker_extras || undefined,
+          posture: document.body.investment_posture || document.body.posture || "income",
         };
 
         return NextResponse.json(

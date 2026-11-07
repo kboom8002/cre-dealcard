@@ -108,7 +108,8 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   }
 
   // B3 Fix: 이미지 최적화를 슬라이드 생성 전에 수행
-  const urlsToOptimize = validPhotos.slice(0, 6).map(p => p.url);
+  const candidatePhotos = validPhotos.slice(0, 6);
+  const urlsToOptimize = candidatePhotos.map(p => p.url);
   let optimized: OptimizedImage[] = [];
   try {
     optimized = await optimizeImagesForPptx(urlsToOptimize, 6, 2000, 85);
@@ -122,6 +123,18 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     return renderFallbackGallery();
   }
 
+  // 일부 이미지 URL이 깨져 스킵된 경우, 성공한 이미지와 원본 메타데이터를 정확히 매칭
+  const remainingCandidates = [...candidatePhotos];
+  const matchedMetas = optimized.map((opt, idx) => {
+    if (opt.sourceUrl) {
+      const foundIdx = remainingCandidates.findIndex(c => c.url === opt.sourceUrl);
+      if (foundIdx >= 0) {
+        return remainingCandidates.splice(foundIdx, 1)[0];
+      }
+    }
+    return candidatePhotos[idx] || {};
+  });
+
   // 검증 통과 후에만 슬라이드 생성
   const slide = L.light(input.pres);
   L.head(slide, input.slideNum, kicker, title);
@@ -131,15 +144,20 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const maxAvailableH = 5.15; // y: 1.35 ~ 6.50 (안전 여백 확보)
   const gap = 0.14;
 
-  const layout: GalleryLayoutType = input.data.layout || (
+  const fallbackLayoutForCount: GalleryLayoutType =
     count === 1 ? 'FULL_WIDE' :
     count === 2 ? 'DUAL_LANDSCAPE' :
     count === 3 ? 'ONE_LARGE_TWO_SMALL_H' :
-    count === 4 ? 'GRID_2X2' : 'GRID_2X3'
-  );
+    count === 4 ? 'GRID_2X2' : 'GRID_2X3';
+
+  // 일부 URL 로딩 실패로 사진 수가 줄어든 경우 실제 로드된 사진 수(count)에 맞춰 레이아웃 자동 재조정
+  const layout: GalleryLayoutType =
+    count < candidatePhotos.length
+      ? fallbackLayoutForCount
+      : (input.data.layout || fallbackLayoutForCount);
 
   // D11a: 2장 이상이면서 전 사진이 같은 분류면 칩은 정보가 없으므로 생략
-  const renderedCats = validPhotos.slice(0, 6).map(p => p.category || '');
+  const renderedCats = matchedMetas.map(p => p.category || '');
   const allSameCategory = renderedCats.length >= 2 && renderedCats.every(c => c === renderedCats[0]);
 
   /** 사진 카드 렌더링 헬퍼 (이미지 실렌더링 영역(drawn) 기준 테두리 + 카테고리 배지 + 캡션 바 — 세로형 사진 레터박스 및 배지 부유 현상 원천 차단) */
@@ -164,7 +182,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       line: { color: C.line, width: 0.6 },
     });
 
-    const meta = validPhotos[metaIdx] || {};
+    const meta = matchedMetas[metaIdx] || {};
 
     // D11a: 실제 캡션이 있으면 캡션만, 캡션이 없을 때만 칩(분류 라벨). 전 사진이 같은 분류면 칩 생략.
     const realCaption = hasRealCaption(meta.caption, meta.label);

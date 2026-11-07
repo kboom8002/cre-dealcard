@@ -1,5 +1,5 @@
 import type { SectionData } from './binder-types';
-import { isVacantLeaseRow, resolveLeaseOccupancy } from '../../lease-vacancy';
+import { isVacantLeaseRow, parseFlexibleLeaseAmountManwon, resolveLeaseOccupancy } from '../../lease-vacancy';
 import { resolveAreaInputUnit, type AreaInputUnit } from '../../rentroll-meta';
 import { splitFloorAndUnit } from '../../floor-unit-resolver';
 import {
@@ -219,8 +219,21 @@ export function bindRentRollTable(
     const rrHeaders = isBasicPreset
       ? ['층', '임차인', '용도', leaseAreaHeader('lease', areaUnit), leaseAreaHeader('exclusive', areaUnit), '보증금', '월임대료', '관리비', '월합계', '만기일', ...(hasNoteCol ? ['비고'] : [])]
       : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
-    const isFinitePos = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) > 0;
-    const isFiniteNonNeg = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
+    const toAmountNum = (v: any): number => {
+      if (v == null || v === '') return NaN;
+      if (typeof v === 'number') return v;
+      const s = String(v).trim();
+      if (!/\d/.test(s)) return NaN;
+      return parseFlexibleLeaseAmountManwon(s);
+    };
+    const isFinitePos = (v: any) => {
+      const n = toAmountNum(v);
+      return Number.isFinite(n) && n > 0;
+    };
+    const isFiniteNonNeg = (v: any) => {
+      const n = toAmountNum(v);
+      return Number.isFinite(n) && n >= 0;
+    };
 
     // 통합계약(계약그룹): 금액은 대표 행에만 기입하므로, 같은 그룹의 금액 없는 행은 '〃'(위와 동일 계약)로 표기해 공란 오독을 막는다.
     // 합계는 '〃' 셀을 숫자로 읽지 않으므로 대표 행 금액만 합산된다 (중복 집계 없음).
@@ -254,14 +267,17 @@ export function bindRentRollTable(
       const probeParty = resolveTenantAndUse(l);
       const basicParty = probeParty.isMasked ? resolveTenantAndUse(l, { maskSeq: maskSeq++ }) : probeParty;
       // 공실 행의 0원은 계약 금액이 아니라 '없음'이므로 '-' (0 날조 표기 방지)
-      const amountCell = (v: any) => (isFiniteNonNeg(v) && !(basicParty.isVacant && Number(v) === 0))
-        ? `${Number(v).toLocaleString()}`
-        : '-';
+      const amountCell = (v: any) => {
+        const n = toAmountNum(v);
+        return Number.isFinite(n) && n >= 0 && !(basicParty.isVacant && n === 0)
+          ? `${n.toLocaleString()}`
+          : '-';
+      };
       const deposit = amountCell(l.deposit_manwon);
       const rent = amountCell(l.rent_manwon);
       const mgmt = amountCell(l.mgmt_fee_manwon);
-      const rentN = Number(l.rent_manwon) || 0;
-      const mgmtN = Number(l.mgmt_fee_manwon) || 0;
+      const rentN = toAmountNum(l.rent_manwon) || 0;
+      const mgmtN = toAmountNum(l.mgmt_fee_manwon) || 0;
       const totalMonthRaw = (rentN + mgmtN) > 0 ? (rentN + mgmtN).toLocaleString() : (rent !== '-' ? rent : '-');
       const isVacantOrSelfUse = basicParty.isVacant || l.is_vacant === true || l.lease_state === '공실' || l.lease_state === '자가사용' || resolveLeaseOccupancy(l) !== '임대중';
       const isGroupFollower = !isVacantOrSelfUse && !!groupKey(l) && groupsWithAmount.has(groupKey(l))

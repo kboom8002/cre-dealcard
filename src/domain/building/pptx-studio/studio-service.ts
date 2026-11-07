@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service';
+import { stripHeavyBase64ForDb } from '@/lib/supabase/jsonb-diet';
 import { randomUUID } from 'crypto';
 import type { StudioStage } from './project/types';
 import type { HeaderFooterConfig } from '../mobile-im/pptx/header-footer';
@@ -92,9 +93,22 @@ export function buildBasicImSlideDefaults(
     ? `${((annualRentManwon / netInvestManwon) * 100).toFixed(2)}%`
     : '';
 
-  const capRateBase = fin.grossYieldOnEquity
-    ? `${Number(fin.grossYieldOnEquity).toFixed(2)}%`
-    : (hero.capRateBase || ssot.cap_rate_base || calcCapRate || '');
+  const pickPositiveRate = (...candidates: unknown[]): string => {
+    for (const cand of candidates) {
+      if (cand == null || cand === '') continue;
+      const num = typeof cand === 'number' ? cand : parseFloat(String(cand).replace(/%/g, ''));
+      if (Number.isFinite(num) && num > 0) {
+        return `${num.toFixed(2)}%`;
+      }
+    }
+    return '';
+  };
+  const capRateBase = pickPositiveRate(
+    fin.grossYieldOnEquity,
+    hero.capRateBase,
+    ssot.cap_rate_base,
+    calcCapRate
+  );
 
   const capRateStabilized = fin.stabilizedYield
     ? `${Number(fin.stabilizedYield).toFixed(2)}%`
@@ -131,7 +145,7 @@ export function buildBasicImSlideDefaults(
     ? brokerExtras.investment_points
     : (Array.isArray(hero.keyPoints) && hero.keyPoints.length > 0 ? hero.keyPoints : []);
 
-  const rawLeases = docBody.floor_leases ?? docBody.rentRoll ?? ssot.floor_leases ?? [];
+  const rawLeases = docBody.floor_leases ?? docBody.rentRoll ?? docBody.rent_roll ?? ssot.floor_leases ?? [];
   const rawComps = docBody.manual_comps ?? brokerExtras.market_comps ?? enrichment.comparableTransactions ?? [];
   const rawPhotos = docBody.photos_v2 ?? docBody.photos ?? docBody.buildingPhotos ?? [];
 
@@ -165,8 +179,9 @@ export function buildBasicImSlideDefaults(
       investmentPoint3: invPoints[2] || (capRateBase ? `현행 수익률 ${capRateBase}${capRateStabilized ? ` → 안정화 시 ${capRateStabilized}` : ''}` : ''),
       askingPrice: askEokStr,
       grossYield: capRateBase,
+      capRateBase,
       stabilizedYield: capRateStabilized,
-      vacancySignal: hero.vacancySignal || ssot.vacancy_signal || (ssot.vacancy_pct != null ? `공실률 ${ssot.vacancy_pct}%` : '안정 운영'),
+      vacancySignal: hero.vacancySignal || ssot.vacancy_signal || (ssot.vacancy_pct != null ? `공실률 ${Number(Number(ssot.vacancy_pct).toFixed(1))}%` : '안정 운영'),
       landArea: landSqm > 0 ? `${landSqm.toLocaleString()}㎡ (${landPy}평)` : '',
       grossArea: grossSqm > 0 ? `${grossSqm.toLocaleString()}㎡ (${grossPy}평)` : '',
     },
@@ -218,8 +233,8 @@ export function buildBasicImSlideDefaults(
     rentroll: {
       monthlyRentTotal: monthlyRentManwon > 0 ? `${monthlyRentManwon.toLocaleString()}만 원/월` : '',
       depositTotal: depositManwon > 0 ? `${depositManwon.toLocaleString()}만 원` : '',
-      occupancyRate: ssot.occupancy_pct != null ? `${ssot.occupancy_pct}%` : (ssot.vacancy_pct != null ? `${100 - Number(ssot.vacancy_pct)}%` : '100%'),
-      vacancySignal: ssot.vacancy_signal || (ssot.vacancy_pct != null ? `공실률 ${ssot.vacancy_pct}%` : '전실 임대 가동'),
+      occupancyRate: ssot.occupancy_pct != null ? `${Number(Number(ssot.occupancy_pct).toFixed(1))}%` : (ssot.vacancy_pct != null ? `${Number((100 - Number(ssot.vacancy_pct)).toFixed(1))}%` : '100%'),
+      vacancySignal: ssot.vacancy_signal || (ssot.vacancy_pct != null ? `공실률 ${Number(Number(ssot.vacancy_pct).toFixed(1))}%` : '전실 임대 가동'),
       turnaroundStrategy: Array.isArray(brokerExtras.post_acquisition_plan)
         ? brokerExtras.post_acquisition_plan.join('\n')
         : (docBody.turnaround_plan?.summary || ''),
@@ -408,15 +423,17 @@ export class PptxStudioService {
         companyName: defaultsByKey.cover?.brokerCompany || DEFAULT_HEADER_FOOTER.companyName,
       },
       buildingContext: {
+        ...docBody,
         buildingName: cleanBuildingName,
         ssot_summary: docBody?.ssot_summary ?? {},
         heroCard: docBody?.heroCard ?? {},
         financials: docBody?.financials ?? {},
-        floor_leases: docBody?.floor_leases ?? docBody?.rentRoll ?? [],
+        floor_leases: docBody?.floor_leases ?? docBody?.rentRoll ?? docBody?.rent_roll ?? [],
         manual_comps: docBody?.manual_comps ?? docBody?.broker_extras?.market_comps ?? [],
         broker_extras: docBody?.broker_extras ?? {},
         photos: docBody?.photos_v2 ?? docBody?.photos ?? docBody?.buildingPhotos ?? [],
         enrichment: {
+          ...(docBody?.enrichment ?? {}),
           locationPoi: docBody?.enrichment?.locationPoi ?? null,
           landUsePlan: docBody?.enrichment?.landUsePlan ?? null,
           buildingRegister: docBody?.enrichment?.buildingRegister ?? null,
@@ -520,15 +537,19 @@ export class PptxStudioService {
     }
 
     project.buildingContext = {
+      ...(project.buildingContext ?? {}),
+      ...docBody,
       buildingName: cleanName,
       ssot_summary: docBody?.ssot_summary ?? project.buildingContext?.ssot_summary ?? {},
       heroCard: docBody?.heroCard ?? project.buildingContext?.heroCard ?? {},
       financials: docBody?.financials ?? project.buildingContext?.financials ?? {},
-      floor_leases: docBody?.floor_leases ?? docBody?.rentRoll ?? project.buildingContext?.floor_leases ?? [],
+      floor_leases: docBody?.floor_leases ?? docBody?.rentRoll ?? docBody?.rent_roll ?? project.buildingContext?.floor_leases ?? [],
       manual_comps: docBody?.manual_comps ?? docBody?.broker_extras?.market_comps ?? project.buildingContext?.manual_comps ?? [],
       broker_extras: docBody?.broker_extras ?? project.buildingContext?.broker_extras ?? {},
       photos: docBody?.photos_v2 ?? docBody?.photos ?? docBody?.buildingPhotos ?? project.buildingContext?.photos ?? [],
       enrichment: {
+        ...(project.buildingContext?.enrichment ?? {}),
+        ...(docBody?.enrichment ?? {}),
         locationPoi: docBody?.enrichment?.locationPoi ?? project.buildingContext?.enrichment?.locationPoi ?? null,
         landUsePlan: docBody?.enrichment?.landUsePlan ?? project.buildingContext?.enrichment?.landUsePlan ?? null,
         buildingRegister: docBody?.enrichment?.buildingRegister ?? project.buildingContext?.enrichment?.buildingRegister ?? null,
@@ -843,7 +864,7 @@ export class PptxStudioService {
         document_type: 'snapshot',
         source_type: 'manual',
         title: project.title,
-        body: project as any,
+        body: stripHeavyBase64ForDb(project) as any,
         status: 'draft',
         visibility: 'internal_only'
       });

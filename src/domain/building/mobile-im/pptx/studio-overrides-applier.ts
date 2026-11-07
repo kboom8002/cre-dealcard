@@ -183,8 +183,11 @@ export function applyStudioSlideOverrides(
     }
 
     // 02 Summary / Highlights
-    const hlOv = slideOverrides['highlights'] || slideOverrides['summary'];
-    if (hlOv && dataMap['summary']) {
+    const rawHlOv = slideOverrides['highlights'] || slideOverrides['summary'] || {};
+    const hlOv = coverOv?.askingPrice && !rawHlOv.askingPrice
+      ? { ...rawHlOv, askingPrice: coverOv.askingPrice }
+      : rawHlOv;
+    if (Object.keys(hlOv).length > 0 && dataMap['summary']) {
       if (hlOv.leadSentence || hlOv.keyInvestmentPoint) {
         const candLead = sanitizeStation(String(hlOv.leadSentence || hlOv.keyInvestmentPoint));
         if (!dataMap['summary'].leadSentence || !isAutoStudioHighlight(candLead)) {
@@ -244,8 +247,11 @@ export function applyStudioSlideOverrides(
     }
 
     // 03 Overview / Building
-    const ovOv = slideOverrides['overview'] || slideOverrides['building'];
-    if (ovOv && dataMap['building']) {
+    const rawOvOv = slideOverrides['overview'] || slideOverrides['building'] || {};
+    const ovOv = coverOv?.askingPrice && !rawOvOv.askingPrice
+      ? { ...rawOvOv, askingPrice: coverOv.askingPrice }
+      : rawOvOv;
+    if (Object.keys(ovOv).length > 0 && dataMap['building']) {
       if (!dataMap['building'].left) dataMap['building'].left = { sub: '건축물대장·토지이용계획확인서 기준', rows: [] };
       if (!Array.isArray(dataMap['building'].left.rows)) dataMap['building'].left.rows = [];
       const rows: [string, string][] = dataMap['building'].left.rows;
@@ -507,14 +513,28 @@ export function applyStudioSlideOverrides(
         Array.isArray(rrOv.tenantData) && rrOv.tenantData.length > 0
           ? rrOv.tenantData.map((r: any) => {
               if (!r || typeof r !== 'object') return r;
+              const rawName = String(r.tenant ?? r.tenant_name ?? '').trim();
+              const rawType = String(r.use ?? r.tenant_type ?? r.business_type ?? '').trim();
+              const hasRealTenantName = Boolean(rawName && !/^[\s(（[]*공실[\s)）\]]*$/.test(rawName));
+              const cleanedType = hasRealTenantName && /^[\s(（[]*공실[\s)）\]]*$/.test(rawType)
+                ? '근린생활시설'
+                : rawType;
+              const cleanedLeaseState = hasRealTenantName && r.lease_state === '공실'
+                ? '임대중'
+                : r.lease_state;
               return {
                 ...r,
                 floor: r.floor ?? r.unit ?? '',
-                tenant_name: r.tenant_name ?? r.tenant ?? '',
-                tenant_type: r.tenant_type ?? r.use ?? r.business_type ?? '',
-                area_sqm: r.area_sqm ?? r.area ?? undefined,
+                tenant_name: rawName,
+                tenant: rawName,
+                tenant_type: cleanedType,
+                use: cleanedType,
+                lease_state: cleanedLeaseState,
+                is_vacant: hasRealTenantName ? false : Boolean(r.is_vacant ?? r.isVacant),
+                isVacant: hasRealTenantName ? false : Boolean(r.isVacant ?? r.is_vacant),
+                area_sqm: r.area_sqm ?? r.area_m2 ?? r.area ?? undefined,
                 deposit_manwon: r.deposit_manwon ?? r.deposit ?? undefined,
-                rent_manwon: r.rent_manwon ?? r.monthlyRent ?? r.rent ?? undefined,
+                rent_manwon: r.rent_manwon ?? r.monthly_rent_manwon ?? r.monthlyRent ?? r.rent ?? undefined,
                 mgmt_fee_manwon: r.mgmt_fee_manwon ?? r.managementFee ?? r.mgmt ?? undefined,
                 lease_end: r.lease_end ?? r.contract_end ?? r.contractEnd ?? undefined,
                 note: r.note ?? '',
@@ -522,12 +542,16 @@ export function applyStudioSlideOverrides(
             })
           : null;
 
-      if (
-        normalizedTenantRows &&
-        dataMap['rentRoll'] &&
-        (Array.isArray(dataMap['rentRoll'].tableRows) || Array.isArray(dataMap['rentRoll'].rows)) &&
-        JSON.stringify(rrOv.tenantData) !== JSON.stringify(docBody.floor_leases ?? docBody.rentRoll ?? docBody.ssot_summary?.floor_leases)
-      ) {
+      if (normalizedTenantRows) {
+        if (!dataMap['rentRoll']) {
+          dataMap['rentRoll'] = {
+            title: '층별 임대차 현황 (Rent Roll)',
+            kicker: 'RENT ROLL & STACKING PLAN',
+            content: '',
+            tables: [],
+            metrics: {},
+          };
+        }
         bindRentRollTable(
           { body: { ...docBody, preset: docBody.preset || 'credeal_basic', floor_leases: normalizedTenantRows } },
           '',

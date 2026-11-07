@@ -10,6 +10,7 @@ import { join } from 'path';
 import type { BottomSheetData, FloorLease, PhotoMeta } from './basic-im-factory';
 import { loadPhotosFromDirectory } from './basic-im-factory';
 import type { GalleryLayoutType } from '@/domain/building/mobile-im/pptx/gallery-planner';
+import { parseFlexibleManwon, parseFlexibleAreaNumber } from '@/domain/building/im-core/facts/rent';
 
 export type PseudoGoldenCaseId =
   | 'R1_FULL_OCCUPANCY_SINGLE_FLOOR'
@@ -17,7 +18,10 @@ export type PseudoGoldenCaseId =
   | 'R3_VALUE_ADD_VACANT_OWNER_MIX'
   | 'R4_MULTI_FLOOR_INTEGRATED_OTHER_INCOME'
   | 'R5_EXCLUSIVE_AREA_PYEONG_INPUT'
-  | 'R6_ZERO_RENT_OWNER_HQ_WITH_COMPS';
+  | 'R6_ZERO_RENT_OWNER_HQ_WITH_COMPS'
+  | 'R7_ZERO_PHOTO_JEONSE_MIX'
+  | 'R8_SINGLE_PHOTO_AND_BROKEN_URL'
+  | 'R9_MULTI_PARCEL_3LOTS_MESSY_STRINGS';
 
 export interface PseudoGoldenOracle {
   caseId: PseudoGoldenCaseId;
@@ -39,9 +43,9 @@ export interface PseudoGoldenOracle {
   areaInputUnit: 'sqm' | 'pyeong';
   totalInputAreaSqm: number;
   totalInputAreaPyeong: number;
-  /** 사진 매트릭스(2장~12장) 검증 오라클 */
+  /** 사진 매트릭스(0장~12장) 검증 오라클 */
   expectedPhotoCount: number;
-  expectedGallerySlideCount: 1 | 2;
+  expectedGallerySlideCount: 0 | 1 | 2;
   expectedGalleryLayouts: GalleryLayoutType[];
   expectedHeroPhotoSubstring: string;
   hasBrokerRegulationDrawing?: boolean;
@@ -213,7 +217,7 @@ function computeOracle(params: {
   expectedSlideCount?: number;
   areaInputUnit?: 'sqm' | 'pyeong';
   expectedPhotoCount: number;
-  expectedGallerySlideCount: 1 | 2;
+  expectedGallerySlideCount: 0 | 1 | 2;
   expectedGalleryLayouts: GalleryLayoutType[];
   expectedHeroPhotoSubstring: string;
   hasBrokerRegulationDrawing?: boolean;
@@ -267,12 +271,12 @@ function computeOracle(params: {
       ownerOccupiedUnits++;
     } else {
       leasedUnits++;
-      totalDepositManwon += Number(fl.deposit_manwon || 0);
-      monthlyRentManwon += Number(fl.rent_manwon || 0);
+      totalDepositManwon += parseFlexibleManwon(fl.deposit_manwon);
+      monthlyRentManwon += parseFlexibleManwon(fl.rent_manwon);
     }
 
-    const m2 = Number((fl as any).area_m2 ?? (fl as any).area_sqm ?? 0);
-    const py = Number(fl.area_pyeong ?? 0);
+    const m2 = parseFlexibleAreaNumber((fl as any).area_m2 ?? (fl as any).area_sqm ?? 0);
+    const py = parseFlexibleAreaNumber(fl.area_pyeong ?? 0);
     if (areaInputUnit === 'pyeong' && py > 0) {
       totalInputAreaPyeong += py;
       totalInputAreaSqm += Math.round(py * PY_TO_SQM * 100) / 100;
@@ -497,6 +501,73 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
     floor_leases: r6Leases,
   };
 
+  // ─────────────────────────────────────────────────────────────────
+  // Case R7: 사진 0장(미등록) + 전세(보증금 단독·월세 0원) 2개 층 혼합 (당산동5가 11-47)
+  // ─────────────────────────────────────────────────────────────────
+  const r7Leases: FloorLease[] = [
+    { floor: 'B1', unit_label: 'B101호', tenant_name: '바른체형운동센터', tenant_type: '운동시설', area_m2: 317.36, area_pyeong: 96.0, deposit_manwon: 5000, rent_manwon: 380, mgmt_fee_manwon: 40, lease_end: '2027-08-31', is_vacant: false },
+    { floor: '1F', unit_label: '101호', tenant_name: '메디팜온누리약국', tenant_type: '약국·소매점', area_m2: 183.80, area_pyeong: 55.6, deposit_manwon: 20000, rent_manwon: 1120, mgmt_fee_manwon: 90, lease_end: '2028-02-28', is_vacant: false },
+    { floor: '2F', unit_label: '201호', tenant_name: '서울바른내과의원', tenant_type: '의원', area_m2: 252.23, area_pyeong: 76.3, deposit_manwon: 10000, rent_manwon: 680, mgmt_fee_manwon: 60, lease_end: '2028-05-31', is_vacant: false },
+    { floor: '3F', unit_label: '301호', tenant_name: '연세튼튼정형외과', tenant_type: '의원', area_m2: 252.23, area_pyeong: 76.3, deposit_manwon: 10000, rent_manwon: 620, mgmt_fee_manwon: 60, lease_end: '2027-11-30', is_vacant: false },
+    { floor: '4F', unit_label: '401호', tenant_name: '우리들회계컨설팅', tenant_type: '업무시설(전세)', lease_state: '임대중', area_m2: 251.91, area_pyeong: 76.2, deposit_manwon: 50000, rent_manwon: 0, mgmt_fee_manwon: 50, lease_end: '2027-10-31', note: '전세 계약 (보증금 5억 / 관리비 별도)', is_vacant: false },
+    { floor: '5F', unit_label: '501호', tenant_name: '스카이소프트웨어랩', tenant_type: '업무시설(전세)', lease_state: '임대중', area_m2: 183.62, area_pyeong: 55.5, deposit_manwon: 30000, rent_manwon: 0, mgmt_fee_manwon: 40, lease_end: '2028-01-31', note: '전세 계약 (보증금 3억 / 관리비 별도)', is_vacant: false },
+  ];
+
+  const r7BottomSheet: BottomSheetData = {
+    address: '서울특별시 영등포구 당산동5가 11-47',
+    askingPriceManwon: 1150000,
+    landAreaM2: 506.8,
+    grossFloorAreaM2: 1441.15,
+    completionYear: 2002,
+    zoning: '준공업지역',
+    floors: 'B1/5F',
+    parking: 10,
+    elevator: 1,
+    floor_leases: r7Leases,
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // Case R8: 유효 사진 1장(FULL_WIDE) + 깨진 이미지 URL 1장 폴백 복원력 (서초동 1364-28)
+  // ─────────────────────────────────────────────────────────────────
+  const r8Photos: PhotoMeta[] = [
+    {
+      url: 'docs/golden-test-data/non-existent-broken-photo-404.jpg',
+      category: 'exterior',
+      caption: '깨진 URL 이미지 (스킵 대상)',
+    },
+    {
+      url: imgPath(SEOCHO_IMAGES_DIR, 'image_02.jpeg'),
+      category: 'exterior',
+      role: 'cover',
+      isHero: true,
+      caption: '남부순환로 코너 전면 파사드 단독 전경',
+    },
+  ];
+
+  // ─────────────────────────────────────────────────────────────────
+  // Case R9: 다필지 주소(양평동4가 117, 134, 125-2) 자동 PNU 3건 합성 + 비정형 한글 금액·면적 문자열 파싱
+  // ─────────────────────────────────────────────────────────────────
+  const r9Leases: FloorLease[] = [
+    { floor: 'B1', unit_label: 'B101호', tenant_name: '스크린골프아카데미', tenant_type: '운동시설', area_m2: '240.0㎡ (전용)' as any, area_pyeong: '약 72.6평' as any, deposit_manwon: '5,000만원' as any, rent_manwon: '350만 (부가세 별도)' as any, mgmt_fee_manwon: '40만원' as any, lease_end: '2027-06-30', is_vacant: false },
+    { floor: '1F', unit_label: '101호', tenant_name: '선유도메디컬약국', tenant_type: '약국', area_m2: '220.0㎡' as any, area_pyeong: '66.6평' as any, deposit_manwon: '1억 5,000만' as any, rent_manwon: '950만원 (VAT 별도)' as any, mgmt_fee_manwon: '80만' as any, lease_end: '2028-03-31', is_vacant: false },
+    { floor: '2F', unit_label: '201호', tenant_name: '연세프리미엄치과의원', tenant_type: '의원', area_m2: '250.0㎡' as any, area_pyeong: '75.6평' as any, deposit_manwon: '1억' as any, rent_manwon: '680만원' as any, mgmt_fee_manwon: '60만' as any, lease_end: '2028-04-30', is_vacant: false },
+    { floor: '3F', unit_label: '301호', tenant_name: '바른정형외과도수치료센터', tenant_type: '의원', area_m2: '250.0㎡' as any, area_pyeong: '75.6평' as any, deposit_manwon: '1억 2,000만' as any, rent_manwon: '720만원' as any, mgmt_fee_manwon: '60만' as any, lease_end: '2028-06-30', is_vacant: false },
+    { floor: '4F', unit_label: '401호', tenant_name: '글로벌특허법률사무소', tenant_type: '업무시설', area_m2: '250.0㎡' as any, area_pyeong: '75.6평' as any, deposit_manwon: '8,000만원' as any, rent_manwon: '520만' as any, mgmt_fee_manwon: '50만' as any, lease_end: '2027-07-31', is_vacant: false },
+  ];
+
+  const r9BottomSheet: BottomSheetData = {
+    address: '서울특별시 영등포구 양평동4가 117, 134, 125-2',
+    askingPriceManwon: 1500000,
+    landAreaM2: 518.7,
+    grossFloorAreaM2: 1210.0,
+    completionYear: 2018,
+    zoning: '준공업지역',
+    floors: 'B1/4F',
+    parking: 14,
+    elevator: 1,
+    floor_leases: r9Leases,
+  };
+
   return [
     {
       caseId: 'R1_FULL_OCCUPANCY_SINGLE_FLOOR',
@@ -709,6 +780,96 @@ export function buildPseudoGoldenScenarios(): PseudoGoldenScenario[] {
         expectedGalleryLayouts: ['GRID_2X3', 'GRID_2X3'],
         expectedHeroPhotoSubstring: 'p3-seocho-owner/r3-verified/images/image_02.jpeg',
         hasBrokerRegulationDrawing: true,
+      }),
+    },
+    {
+      caseId: 'R7_ZERO_PHOTO_JEONSE_MIX',
+      label: 'Case R7: 사진 0장(미등록) + 전세(보증금 단독·월세 0원) 2개 층 혼합 (당산동5가 11-47)',
+      pnu: '1156011500100110047',
+      posture: 'income',
+      buildingName: '당산 전세복합 메디컬빌딩',
+      coordinates: { lat: 37.5342, lng: 126.9022 },
+      bottomSheet: r7BottomSheet,
+      photos: [],
+      ssotExtra: {
+        bcr_pct: 51.89,
+        far_pct: 221.76,
+        arch_area_sqm: 263.01,
+        structure: '철근콘크리트구조',
+        road_condition: '중로각지',
+      },
+      oracle: computeOracle({
+        caseId: 'R7_ZERO_PHOTO_JEONSE_MIX',
+        description: '사진 0장(건축물 실사 안내 대체 카드) + 전세(보증금 8억/월세 0원) 2개 층 포함 순투하자본 수익률 검증',
+        askingPriceManwon: 1150000,
+        landAreaM2: 506.8,
+        grossFloorAreaM2: 1441.15,
+        leases: r7Leases,
+        expectedSlideCount: 9,
+        expectedPhotoCount: 0,
+        expectedGallerySlideCount: 0,
+        expectedGalleryLayouts: [],
+        expectedHeroPhotoSubstring: '',
+      }),
+    },
+    {
+      caseId: 'R8_SINGLE_PHOTO_AND_BROKEN_URL',
+      label: 'Case R8: 유효 사진 1장(FULL_WIDE) + 깨진 이미지 URL 1장 폴백 복원력 (서초동 1364-28)',
+      pnu: '1165010800113640028',
+      posture: 'income',
+      buildingName: '서초 시그니처 타워',
+      coordinates: { lat: 37.4836, lng: 127.0357 },
+      bottomSheet: r5BottomSheet,
+      photos: r8Photos,
+      ssotExtra: {
+        bcr_pct: 47.9,
+        far_pct: 296.6,
+        arch_area_sqm: 285.5,
+        structure: '철근콘크리트구조',
+        road_condition: '남부순환로347길 코너 접면',
+      },
+      oracle: computeOracle({
+        caseId: 'R8_SINGLE_PHOTO_AND_BROKEN_URL',
+        description: '깨진 이미지 URL 1장 포함 시 크래시 없이 유효 사진 1장(FULL_WIDE) 및 원본 캡션 정확 매칭 검증',
+        askingPriceManwon: 2300000,
+        landAreaM2: 596.0,
+        grossFloorAreaM2: 2104.8,
+        leases: r5Leases,
+        expectedSlideCount: 9,
+        expectedPhotoCount: 2,
+        expectedGallerySlideCount: 1,
+        expectedGalleryLayouts: ['DUAL_LANDSCAPE'],
+        expectedHeroPhotoSubstring: 'p3-seocho-owner/r3-verified/images/image_02.jpeg',
+      }),
+    },
+    {
+      caseId: 'R9_MULTI_PARCEL_3LOTS_MESSY_STRINGS',
+      label: 'Case R9: 다필지 주소(양평동4가 117, 134, 125-2) 자동 PNU 3건 합성 + 비정형 한글 금액·면적 파싱',
+      pnu: '', // 의도적으로 비워두어 주소 문자열로부터 19자리 대표 PNU + 부속 PNU 2건 자동 해석 검증
+      posture: 'income',
+      buildingName: '선유도 다필지 코너빌딩',
+      coordinates: { lat: 37.5381, lng: 126.8938 },
+      bottomSheet: r9BottomSheet,
+      photos: r1Photos,
+      ssotExtra: {
+        bcr_pct: 58.2,
+        far_pct: 233.2,
+        arch_area_sqm: 301.8,
+        structure: '철근콘크리트구조',
+        road_condition: '양산로19길 코너 접면',
+      },
+      oracle: computeOracle({
+        caseId: 'R9_MULTI_PARCEL_3LOTS_MESSY_STRINGS',
+        description: '다필지 쉼표 주소로부터 19자리 PNU 3건 자동 추출 및 비정형 한글 금액("1억 5,000만", "950만원 (VAT 별도)") 파싱 검증',
+        askingPriceManwon: 1500000,
+        landAreaM2: 518.7,
+        grossFloorAreaM2: 1210.0,
+        leases: r9Leases,
+        expectedSlideCount: 9,
+        expectedPhotoCount: 2,
+        expectedGallerySlideCount: 1,
+        expectedGalleryLayouts: ['DUAL_LANDSCAPE'],
+        expectedHeroPhotoSubstring: 'p1-dangsan-income/r2-standard/images/image_01.jpeg',
       }),
     },
   ];

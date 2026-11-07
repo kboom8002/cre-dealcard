@@ -205,7 +205,16 @@ export class MobileImPptxRenderer {
         ?? (input.building?.lat && input.building?.lng ? { lat: Number(input.building.lat), lng: Number(input.building.lng) } : undefined);
       // 다필지: handler 단계의 지적도는 대표 PNU 1개만 하이라이트하므로, 2필지 이상이면 전 필지 기준으로 재생성한다.
       const multiPnus: string[] = (input.doc.body?.ssot_summary?.pnus ?? input.doc.body?.pnus ?? []) as string[];
-      const isMultiParcelDeck = Array.isArray(multiPnus) && multiPnus.filter(Boolean).length > 1;
+      const candidateAddrForParcel = String(
+        input.doc.body?.ssot_summary?.jibun_address
+        ?? input.doc.body?.jibun_address
+        ?? input.doc.body?.ssot_summary?.address
+        ?? input.building?.address
+        ?? ''
+      );
+      const isMultiParcelDeck =
+        (Array.isArray(multiPnus) && multiPnus.filter(Boolean).length > 1) ||
+        /,|\s외\s*\d*\s*필지/.test(candidateAddrForParcel);
       if (coords?.lat && coords?.lng && (!enrichment.cadastralMapImage || !enrichment.landPriceHistory || isMultiParcelDeck)) {
         try {
           const { enrichForBasicIm } = await import('./basic-im-enrichment');
@@ -217,7 +226,7 @@ export class MobileImPptxRenderer {
           const autoEnrichment = await enrichForBasicIm(coords, {
             pnu,
             pnus,
-            address: input.doc.body?.ssot_summary?.address ?? input.building?.address,
+            address: candidateAddrForParcel || (input.doc.body?.ssot_summary?.address ?? input.building?.address),
             landAreaSqm: Number(input.doc.body?.ssot_summary?.land_area_sqm ?? input.building?.land_area_sqm ?? 0),
             posture,
             assetType: input.building?.asset_type ?? input.doc.body?.ssot_summary?.asset_type,
@@ -1246,7 +1255,7 @@ export class MobileImPptxRenderer {
         } else if (ssot.vacancy_signal) {
           autoStats.push({ label: '공실률', value: ssot.vacancy_signal });
         } else if (ssot.vacancy_pct != null) {
-          autoStats.push({ label: '공실률', value: `${ssot.vacancy_pct}%` });
+          autoStats.push({ label: '공실률', value: `${Number(Number(ssot.vacancy_pct).toFixed(1))}%` });
         }
         if (input.grade) autoStats.push({ label: '데이터 등급', value: input.grade });
         if (ssot.area_signal) autoStats.push({ label: '소재지', value: ssot.area_signal });

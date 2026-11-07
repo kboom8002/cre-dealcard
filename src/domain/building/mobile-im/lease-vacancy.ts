@@ -45,7 +45,7 @@ export function resolveLeaseOccupancy(lease: LeaseLike): LeaseOccupancy {
   if (state === '자가사용') return '자가사용';
   if (state === '임대중') return '임대중';
 
-  const rentNum = Number(l.rent_manwon ?? l.monthly_rent_manwon ?? 0);
+  const rentNum = parseFlexibleLeaseAmountManwon(l.rent_manwon ?? l.monthly_rent_manwon ?? l.monthlyRentManwon ?? l.rent ?? 0);
   const hasPositiveRent = Number.isFinite(rentNum) && rentNum > 0;
   const oText = ownerUseText(l);
   const hasFutureTransition = FUTURE_OWNER_TRANSITION_RE.test(oText);
@@ -134,15 +134,30 @@ export function summarizeLeaseOccupancy(leases: ReadonlyArray<LeaseLike> | null 
  * 렌트롤 금액 합계 SSOT — 임대중 호실만(공실·자가사용·비임대 행 제외). A24 합계 행·PPTX 요약·생성 경로(수익률 분모/분자)가 공유한다.
  * 월세는 rent_manwon(또는 monthly_rent_manwon), 보증금은 deposit_manwon. 단위 만원.
  */
+export function parseFlexibleLeaseAmountManwon(v: unknown): number {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (v == null) return 0;
+  const raw = str(v).replace(/\([^)]*\)/g, '').trim();
+  if (!raw) return 0;
+  if (raw.includes('억')) {
+    const eokMatch = raw.match(/(\d[\d,]*(?:\.\d+)?)\s*억/);
+    const afterEok = raw.split('억')[1] || '';
+    const manMatch = afterEok.match(/(\d[\d,]*(?:\.\d+)?)/);
+    const eokVal = eokMatch ? parseFloat(eokMatch[1].replace(/,/g, '')) * 10000 : 0;
+    const manVal = manMatch ? parseFloat(manMatch[1].replace(/,/g, '')) : 0;
+    return Math.round((Number.isFinite(eokVal) ? eokVal : 0) + (Number.isFinite(manVal) ? manVal : 0));
+  }
+  const m = raw.match(/[-+]?\d[\d,]*(?:\.\d+)?/);
+  if (!m) return 0;
+  const n = parseFloat(m[0].replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function sumLeasedRentRoll(leases: ReadonlyArray<LeaseLike> | null | undefined): { rentManwon: number; monthlyRentManwon: number; depositManwon: number; count: number } {
-  const num = (v: unknown): number => {
-    const n = typeof v === 'number' ? v : parseFloat(str(v).replace(/,/g, ''));
-    return Number.isFinite(n) ? n : 0;
-  };
   const rows = (Array.isArray(leases) ? leases : []).filter(Boolean) as Record<string, any>[];
   const income = rows.filter(r => !isNonLeasableLeaseRow(r) && resolveLeaseOccupancy(r) === '임대중');
-  const rentManwon = income.reduce((a, r) => a + num(r.rent_manwon ?? r.monthly_rent_manwon), 0);
-  const depositManwon = income.reduce((a, r) => a + num(r.deposit_manwon), 0);
+  const rentManwon = income.reduce((a, r) => a + parseFlexibleLeaseAmountManwon(r.rent_manwon ?? r.monthly_rent_manwon ?? r.monthlyRentManwon ?? r.rent), 0);
+  const depositManwon = income.reduce((a, r) => a + parseFlexibleLeaseAmountManwon(r.deposit_manwon ?? r.depositManwon ?? r.deposit), 0);
   return {
     rentManwon,
     monthlyRentManwon: rentManwon,

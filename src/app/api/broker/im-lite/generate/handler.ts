@@ -1153,6 +1153,14 @@ export async function generateMobileIMHandler(
     },
   };
 
+  // Disk IO Diet: Strip heavy inline Base64 images before hash computation and DB persistence
+  try {
+    const { stripHeavyBase64ForDb } = await import('@/lib/supabase/jsonb-diet');
+    imDocPayload.body = stripHeavyBase64ForDb(imDocPayload.body);
+  } catch (dietErr) {
+    log.warn({ dietErr }, '[im-handler] Failed to strip heavy base64 for DB');
+  }
+
   // 승인 해시 선제 계산 (Rule 20: Strict Hash-Bound Approval)
   try {
     const { computeTargetHash } = await import('@/domain/building/im-core/target-hash');

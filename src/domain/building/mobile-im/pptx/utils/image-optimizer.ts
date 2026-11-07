@@ -26,6 +26,8 @@ const log = createModuleLogger('image-optimizer');
 
 
 export interface OptimizedImage {
+  /** 원본 요청 URL 또는 경로 */
+  sourceUrl?: string;
   /** Buffer 직접 전달용 (PPTX 삽입 시 data: Buffer 사용) */
   buffer: Buffer;
   /** 하위 호환 — base64 문자열 */
@@ -58,13 +60,19 @@ export async function optimizeImageForPptx(
   try {
     let inputBuffer: Buffer;
 
-    if (imageUrl.startsWith('data:')) {
+    if (imageUrl.startsWith('data:') || /^image\/[a-zA-Z0-9.+-]+;base64,/.test(imageUrl)) {
       const base64Data = imageUrl.split(',')[1];
       if (base64Data && base64Data.length * 0.75 > MAX_INTAKE_BYTES) {
         log.warn('[optimizeImageForPptx] Data URL exceeds 10MB guard, aborting to prevent OOM');
         return null;
       }
       inputBuffer = Buffer.from(base64Data, 'base64');
+    } else if (/^(?:iVBORw0KGgo|\/9j\/|R0lGOD|UklGR)/.test(imageUrl) && imageUrl.length > 256) {
+      if (imageUrl.length * 0.75 > MAX_INTAKE_BYTES) {
+        log.warn('[optimizeImageForPptx] Raw base64 exceeds 10MB guard, aborting to prevent OOM');
+        return null;
+      }
+      inputBuffer = Buffer.from(imageUrl, 'base64');
     } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       const response = await fetch(imageUrl, {
         signal: AbortSignal.timeout(10000),
@@ -127,6 +135,7 @@ export async function optimizeImageForPptx(
     const resizedMeta = await sharp(resizedBuffer).metadata();
 
     return {
+      sourceUrl: imageUrl,
       buffer: resizedBuffer,
       base64: `image/jpeg;base64,${resizedBuffer.toString('base64')}`,
       width: resizedMeta.width || originalWidth,

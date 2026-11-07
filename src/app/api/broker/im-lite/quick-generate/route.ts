@@ -912,10 +912,13 @@ export async function POST(req: NextRequest) {
                 vacancy_pct: vacancyPct,
               },
             });
-            const dbDocBody = {
+            const { stripHeavyBase64ForDb } = await import(
+              '@/lib/supabase/jsonb-diet'
+            );
+            const dbDocBody = stripHeavyBase64ForDb({
               ...fullDocBody,
               cadastralMapImage: undefined,
-            };
+            });
             await supabase.from('document_objects').insert({
               id: documentId,
               owner_id: auth.user?.id || null,
