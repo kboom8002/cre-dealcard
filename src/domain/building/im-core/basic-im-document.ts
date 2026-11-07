@@ -105,6 +105,9 @@ export function buildBasicImDocument(
   };
 
   // 2. Executive Summary (A02)
+  const hasRentIncome = facts.rent.monthlyRentTotalManwon > 0 && facts.valuation.grossYieldPct > 0;
+  const landPricePerPyeongManwon = Math.round(facts.transaction.pricePerPyeongLandWon / 10000);
+  const gfaPricePerPyeongManwon = Math.round(facts.transaction.pricePerPyeongGfaWon / 10000);
   const summarySection: BasicImSection = {
     id: '02_summary',
     order: 2,
@@ -113,19 +116,30 @@ export function buildBasicImDocument(
     title: '투자 하이라이트 및 핵심 지표',
     subtitle: 'Executive Summary',
     data: {
-      metrics: [
-        { label: '매매 희망가', value: `${facts.transaction.askingPriceManwon.toLocaleString()}만원`, unit: '원', raw: facts.transaction.askingPriceKrw },
-        { label: '예상 총수익률', value: `${facts.valuation.grossYieldPct.toFixed(2)}%`, unit: '%', raw: facts.valuation.grossYieldPct },
-        { label: '자본환원율 (Cap Rate)', value: `${facts.valuation.capRatePct.toFixed(2)}%`, unit: '%', raw: facts.valuation.capRatePct },
-        { label: '연면적', value: `${facts.building.totalGrossAreaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`, unit: '평', raw: facts.building.totalGrossAreaPyeong },
-        { label: '대지면적', value: `${facts.land.landAreaSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평)`, unit: '평', raw: facts.land.landAreaPyeong },
-        { label: '월 임대수익', value: `${facts.rent.monthlyRentTotalManwon.toLocaleString()}만원`, unit: '만원', raw: facts.rent.monthlyRentTotalKrw },
-      ],
+      metrics: hasRentIncome
+        ? [
+            { label: '매매 희망가', value: `${facts.transaction.askingPriceManwon.toLocaleString()}만원`, unit: '원', raw: facts.transaction.askingPriceKrw },
+            { label: '예상 총수익률', value: `${facts.valuation.grossYieldPct.toFixed(2)}%`, unit: '%', raw: facts.valuation.grossYieldPct },
+            { label: '자본환원율 (Cap Rate)', value: `${facts.valuation.capRatePct.toFixed(2)}%`, unit: '%', raw: facts.valuation.capRatePct },
+            { label: '연면적', value: `${facts.building.totalGrossAreaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`, unit: '평', raw: facts.building.totalGrossAreaPyeong },
+            { label: '대지면적', value: `${facts.land.landAreaSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평)`, unit: '평', raw: facts.land.landAreaPyeong },
+            { label: '월 임대수익', value: `${facts.rent.monthlyRentTotalManwon.toLocaleString()}만원`, unit: '만원', raw: facts.rent.monthlyRentTotalKrw },
+          ]
+        : [
+            { label: '매매 희망가', value: `${facts.transaction.askingPriceManwon.toLocaleString()}만원`, unit: '원', raw: facts.transaction.askingPriceKrw },
+            { label: '토지 평당가', value: `${landPricePerPyeongManwon.toLocaleString()}만원/평`, unit: '만원/평', raw: facts.transaction.pricePerPyeongLandWon },
+            { label: '연면적 평당가', value: `${gfaPricePerPyeongManwon.toLocaleString()}만원/평`, unit: '만원/평', raw: facts.transaction.pricePerPyeongGfaWon },
+            { label: '연면적', value: `${facts.building.totalGrossAreaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`, unit: '평', raw: facts.building.totalGrossAreaPyeong },
+            { label: '대지면적', value: `${facts.land.landAreaSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평)`, unit: '평', raw: facts.land.landAreaPyeong },
+            { label: '건폐율 / 용적률', value: `${facts.building.buildingCoverageRatioPct}% / ${facts.building.floorAreaRatioPct}%`, unit: '%', raw: facts.building.floorAreaRatioPct },
+          ],
       investmentPoints: facts.points && facts.points.length > 0
         ? facts.points
         : [
             `${facts.land.zoning} 입지의 우수한 자산 가치 보존성`,
-            `현재 연 임대수익 ${(facts.rent.annualRentKrw / 10000).toLocaleString()}만원 기반의 안정적 현금흐름`,
+            hasRentIncome
+              ? `현재 연 임대수익 ${(facts.rent.annualRentKrw / 10000).toLocaleString()}만원 기반의 안정적 현금흐름`
+              : `지상 ${facts.building.floorsAbove}층·지하 ${facts.building.floorsBelow}층 단독 사옥 및 밸류애드 활용 적격 스펙`,
             `향후 리포지셔닝 및 임대료 현실화 잠재력`,
           ],
     },

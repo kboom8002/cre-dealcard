@@ -292,8 +292,20 @@ export async function POST(req: NextRequest) {
   const buildingId = requestedBuildingId || crypto.randomUUID();
   const documentId = crypto.randomUUID();
   const resolvedTitle = title || buildingName || `${derivedRegion} 근생빌딩`;
-  const effectiveMonthlyRentManwon = totalMonthlyRentManwon || Math.round(priceNum * 0.0035);
-  const effectiveDepositManwon = totalDepositManwon || Math.round(priceNum * 0.05);
+  const hasExplicitRentRoll = safeRentRoll.length > 0;
+  const isNonIncomePosture = legacyPosture === 'owner_occupied' || legacyPosture === 'development';
+  const effectiveMonthlyRentManwon =
+    totalMonthlyRentManwon > 0
+      ? totalMonthlyRentManwon
+      : hasExplicitRentRoll || isNonIncomePosture
+      ? 0
+      : Math.round(priceNum * 0.0035);
+  const effectiveDepositManwon =
+    totalDepositManwon > 0
+      ? totalDepositManwon
+      : hasExplicitRentRoll || isNonIncomePosture
+      ? 0
+      : Math.round(priceNum * 0.05);
   const estimatedYieldPct = (
     ((effectiveMonthlyRentManwon * 12) / Math.max(1, priceNum - effectiveDepositManwon)) *
     100
@@ -308,13 +320,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const subjectLandPyeongEarly = Math.max(1, effectiveLandSqm / 3.305785);
+  const subjectLandPricePerPyeongManwon = Math.round(priceNum / subjectLandPyeongEarly);
+
   const defaultPoints: [string, string, string] = [
     parsedExtras?.investment_points?.[0] || `${derivedRegion} 핵심 상권 역세권 가시성 우수`,
     parsedExtras?.investment_points?.[1] ||
       (totalMonthlyRentManwon > 0
         ? `월 임대수익 ${totalMonthlyRentManwon.toLocaleString()}만원 안정 운용`
-        : '우량 임차인 중심 안정적 임대 구성'),
-    parsedExtras?.investment_points?.[2] || `연 수익률 ${estimatedYieldPct}% 기대 배당 자산`,
+        : '우량 임차인 및 사옥·밸류애드 활용 적격'),
+    parsedExtras?.investment_points?.[2] ||
+      (effectiveMonthlyRentManwon > 0
+        ? `연 수익률 ${estimatedYieldPct}% 기대 배당 자산`
+        : `토지 평당 ${subjectLandPricePerPyeongManwon.toLocaleString()}만원 자산가치 우수`),
   ];
 
   // Fetch authenticated broker's saved profile from Supabase if available
@@ -503,7 +521,10 @@ export async function POST(req: NextRequest) {
   const points: [string, string, string] = [
     defaultPoints[0].slice(0, 28),
     defaultPoints[1].slice(0, 28),
-    `연 수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% 안정 배당`.slice(0, 28),
+    (basicImDoc.facts.valuation.grossYieldPct > 0
+      ? `연 수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% 안정 배당`
+      : defaultPoints[2]
+    ).slice(0, 28),
   ];
 
   const card4Draft = {
@@ -539,9 +560,17 @@ export async function POST(req: NextRequest) {
             r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? r.rent ?? 0
           );
           const mgmtMan = Number(r.maintenanceManwon ?? r.mgmt_fee_manwon ?? r.maintenance ?? 0);
-          const areaM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? perFloorAreaSqm);
-          const areaPy = Math.round((areaM2 / 3.305785) * 10) / 10;
-          const label = String(r.use || r.tenantName || r.tenant_name || (isVacant ? '공실' : '근린생활시설'));
+          const explicitM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? 0);
+          const explicitPy = Number(r.area_pyeong ?? r.areaPyeong ?? 0);
+          const areaM2 =
+            explicitM2 > 0
+              ? explicitM2
+              : explicitPy > 0
+              ? Math.round(explicitPy * 3.305785 * 100) / 100
+              : perFloorAreaSqm;
+          const areaPy =
+            explicitPy > 0 ? explicitPy : Math.round((areaM2 / 3.305785) * 10) / 10;
+          const label = String(r.use || r.tenantName || r.tenant_name || r.tenant_type || (isVacant ? '공실' : isOwner ? '자가사용' : '근린생활시설'));
           return {
             floor: String(r.floor || `${idx + 1}F`),
             unit_label: String(r.unit || r.unit_label || `${idx + 1}01호`),

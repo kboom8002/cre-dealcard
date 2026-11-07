@@ -499,7 +499,7 @@ async function placeLandMapImage(
           .extract({ left, top, width: extractW, height: extractH })
           .png()
           .toBuffer();
-        finalData = `data:image/png;base64,${croppedBuf.toString('base64')}`;
+        finalData = `image/png;base64,${croppedBuf.toString('base64')}`;
       }
     }
   } catch {

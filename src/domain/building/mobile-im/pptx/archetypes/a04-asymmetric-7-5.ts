@@ -293,7 +293,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       });
       calloutLines.forEach((line, i) => {
         const ly = boxY + 0.14 + 0.26 + 0.06 + i * lineH;
-        const fit = L.fitTextToBox(line, rw - 0.50, lineH, { minFontSize: 9, maxFontSize: 10.5, targetLines: 1, allowTruncate: false });
+        const fit = L.fitTextToBox(line, (rw - 0.50) * 0.90, lineH, { minFontSize: 8, maxFontSize: 10.5, targetLines: 1, allowTruncate: false });
         slide.addShape('rect', { x: rx + 0.22, y: ly + lineH / 2 - 0.03, w: 0.06, h: 0.06, fill: { color: C.brass }, line: { color: C.brass, width: 0 } });
         slide.addText(line, {
           x: rx + 0.36, y: ly, w: rw - 0.50, h: lineH,

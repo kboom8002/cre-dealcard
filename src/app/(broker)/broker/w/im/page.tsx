@@ -486,19 +486,26 @@ function ImWorkspaceInner() {
 
   // Calculate yield & rent totals
   const totalRentManwon = useMemo(() => {
-    return rentRoll.reduce((s, r) => s + (r.status !== "vacant" ? r.monthlyRentManwon || 0 : 0), 0);
+    return rentRoll.reduce((s, r) => s + (r.status !== "vacant" ? Number(r.monthlyRentManwon ?? (r as any).rent_manwon ?? 0) : 0), 0);
   }, [rentRoll]);
 
   const totalDepositManwon = useMemo(() => {
-    return rentRoll.reduce((s, r) => s + (r.depositManwon || 0), 0);
+    return rentRoll.reduce((s, r) => s + Number(r.depositManwon ?? (r as any).deposit_manwon ?? 0), 0);
   }, [rentRoll]);
 
   const calculatedYield = useMemo(() => {
     if (!askingPriceManwon || askingPriceManwon <= 0) return 0;
     const netInvestment = askingPriceManwon - totalDepositManwon;
     if (netInvestment <= 0) return 0;
-    return ((totalRentManwon * 12) / netInvestment) * 100;
-  }, [askingPriceManwon, totalRentManwon, totalDepositManwon]);
+    const rawYield = ((totalRentManwon * 12) / netInvestment) * 100;
+    if (rawYield > 0) return rawYield;
+    // 렌트롤이 미기입 스캐폴딩(전 행 0원)이고 수익형 포스처인 경우 아이템에 저장된 기존 수익률을 폴백으로 유지
+    const normP = normalizePostureForSelector(investmentPosture);
+    if (normP !== "owner_occupied" && normP !== "development" && currentItem?.grossYieldPct && currentItem.grossYieldPct > 0 && !currentItem.isDirty) {
+      return currentItem.grossYieldPct;
+    }
+    return 0;
+  }, [askingPriceManwon, totalRentManwon, totalDepositManwon, investmentPosture, currentItem]);
 
   const priceBandStr = useMemo(() => {
     return formatPriceRange((askingPriceManwon || 0) * 10000);
@@ -1803,7 +1810,11 @@ function ImWorkspaceInner() {
                 <span className="text-[#0F172A]">
                   {formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}
                 </span>
-                <span className="text-[#065F46]">연 {calculatedYield.toFixed(2)}%</span>
+                <span className="text-[#065F46]">
+                  {calculatedYield > 0
+                    ? `연 ${calculatedYield.toFixed(2)}%`
+                    : `토지 평당 ${Math.round((askingPriceManwon || 0) / Math.max(1, Number(landAreaSqm || 420.5) * 0.3025)).toLocaleString()}만`}
+                </span>
               </div>
             </div>
 
@@ -1821,8 +1832,14 @@ function ImWorkspaceInner() {
                   <strong className="text-[#0F172A]">{((askingPriceManwon || 0) / 10000).toFixed(0)}억 원</strong>
                 </div>
                 <div className="p-2 bg-[#FAF9F5] rounded-md border border-slate-200/80">
-                  <span className="text-[#64748B] block text-[11px]">월 임대수익</span>
-                  <strong className="text-[#0F172A]">{totalRentManwon.toLocaleString()}만 원</strong>
+                  <span className="text-[#64748B] block text-[11px]">
+                    {totalRentManwon > 0 ? "월 임대수익" : "토지 평당가"}
+                  </span>
+                  <strong className="text-[#0F172A]">
+                    {totalRentManwon > 0
+                      ? `${totalRentManwon.toLocaleString()}만 원`
+                      : `${Math.round((askingPriceManwon || 0) / Math.max(1, Number(landAreaSqm || 420.5) * 0.3025)).toLocaleString()}만/평`}
+                  </strong>
                 </div>
               </div>
               <div className="space-y-2 pt-0.5" data-testid="im-preview-axios-list">

@@ -204,7 +204,13 @@ export function MobileIMViewer({
             floor: u.floor || `${idx + 1}F`,
             tenant_name: label,
             use: label,
-            area_sqm: Number(u.area_sqm ?? u.area_m2 ?? u.areaSqm ?? 0) || undefined,
+            area_sqm:
+              Number(
+                u.area_sqm ??
+                  u.area_m2 ??
+                  u.areaSqm ??
+                  (u.area_pyeong ? Number(u.area_pyeong) * 3.305785 : u.areaPyeong ? Number(u.areaPyeong) * 3.305785 : 0)
+              ) || undefined,
             deposit_manwon:
               u.depositManwon ??
               u.deposit_manwon ??
@@ -910,10 +916,21 @@ export function MobileIMViewer({
               </strong>
             </div>
             <div className="p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[13px] font-medium text-[#64748B] block">예상 총수익률</span>
-              <strong className="text-[20px] font-extrabold text-[#065F46] tabular-nums">
-                {(coverSec?.data?.grossYieldPct ?? basicDoc.facts.valuation.grossYieldPct).toFixed(2)}%
-              </strong>
+              {(coverSec?.data?.grossYieldPct ?? basicDoc.facts.valuation.grossYieldPct) > 0 ? (
+                <>
+                  <span className="text-[13px] font-medium text-[#64748B] block">예상 총수익률</span>
+                  <strong className="text-[20px] font-extrabold text-[#065F46] tabular-nums">
+                    {(coverSec?.data?.grossYieldPct ?? basicDoc.facts.valuation.grossYieldPct).toFixed(2)}%
+                  </strong>
+                </>
+              ) : (
+                <>
+                  <span className="text-[13px] font-medium text-[#64748B] block">토지 평당가</span>
+                  <strong className="text-[20px] font-extrabold text-[#065F46] tabular-nums">
+                    {Math.round(pricePerPyeongLandWon / 10000).toLocaleString()}만원/평
+                  </strong>
+                </>
+              )}
             </div>
           </div>
         </section>

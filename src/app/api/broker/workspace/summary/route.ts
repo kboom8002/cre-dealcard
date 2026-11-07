@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       ? supabase
           .from("document_objects")
           .select(
-            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll"
+            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases"
           )
           .in("building_id", buildingIds)
       : null;
@@ -161,7 +161,41 @@ export async function GET(request: NextRequest) {
       Number(ssotSummary.asking_price_manwon || layers.deal_terms?.asking_price_manwon) || 950000;
     const versionNo = Number(d.version_no ?? d.body?.version_no ?? 1);
     const isPublished = d.status === "published" || d.status === "broker_reviewed";
-    const docRentRoll = d.rent_roll ?? d.body?.rent_roll;
+    const rawDocRentRoll = d.rent_roll ?? d.floor_leases ?? d.body?.rent_roll ?? d.body?.floor_leases;
+    const normalizedDocRentRoll = Array.isArray(rawDocRentRoll)
+      ? rawDocRentRoll.map((r: any, rIdx: number) => {
+          const isVac = Boolean(
+            r?.status === "vacant" ||
+              r?.is_vacant === true ||
+              r?.lease_state === "공실" ||
+              r?.tenant_name === "공실" ||
+              r?.use === "공실"
+          );
+          const isOwn = Boolean(
+            !isVac &&
+              (r?.status === "owner" ||
+                r?.lease_state === "자가사용" ||
+                r?.tenant_type === "자가" ||
+                r?.tenant_name === "자가" ||
+                r?.use === "자가사용")
+          );
+          const useLabel =
+            r?.use ||
+            [r?.tenant_name || r?.tenantName, r?.tenant_type].filter(Boolean).join(" / ") ||
+            (isVac ? "공실" : isOwn ? "자가사용" : "근린생활시설");
+          return {
+            id: r?.id || `r-db-${d.id}-${rIdx}`,
+            floor: String(r?.floor || `${rIdx + 1}F`),
+            unit: String(r?.unit || r?.unit_label || `${rIdx + 1}01호`),
+            use: String(useLabel),
+            depositManwon: Number(r?.depositManwon ?? r?.deposit_manwon ?? 0),
+            monthlyRentManwon: Number(r?.monthlyRentManwon ?? r?.rent_manwon ?? 0),
+            maintenanceManwon: Number(r?.maintenanceManwon ?? r?.mgmt_fee_manwon ?? 0),
+            leaseExpiry: String(r?.leaseExpiry || r?.lease_end || r?.expiryDate || "-"),
+            status: isVac ? ("vacant" as const) : isOwn ? ("owner" as const) : ("occupied" as const),
+          };
+        })
+      : undefined;
 
     return {
       id: d.id,
@@ -173,7 +207,7 @@ export async function GET(request: NextRequest) {
       status: isPublished ? "published" : "draft",
       versionLabel: isPublished ? `v${versionNo} 공개 중 ★` : `v${versionNo} 작성 중`,
       updatedAt: formatRelativeTime(d.updated_at || d.created_at),
-      rentRoll: Array.isArray(docRentRoll) && docRentRoll.length > 0 ? docRentRoll : undefined,
+      rentRoll: (normalizedDocRentRoll && normalizedDocRentRoll.length > 0 ? normalizedDocRentRoll : undefined) as any[] | undefined,
       investmentPosture: ssotSummary.investment_posture || d.body?.investment_posture || "core_income",
       gfaSqm: ssotSummary.total_gross_area_sqm ? String(ssotSummary.total_gross_area_sqm) : undefined,
       landAreaSqm: ssotSummary.land_area_sqm ? String(ssotSummary.land_area_sqm) : undefined,

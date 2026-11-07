@@ -572,9 +572,11 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       x: spX, y: topY, w: spW, h: bandH,
       fill: { color: C.ink }, line: { color: C.ink, width: 0.5 },
     });
-    slide.addText(stackingStripTitle(areaUnit), {
+    const stripTitle = stackingStripTitle(areaUnit);
+    const stripMaxPt = bandH < 0.26 ? Math.min(headerFontSize, 7.5) : headerFontSize;
+    slide.addText(stripTitle, {
       x: spX, y: topY, w: spW, h: bandH,
-      fontSize: fitSingleLine(stackingStripTitle(areaUnit), spW - 0.12, headerFontSize, 7, true).fontSize,
+      fontSize: fitSingleLine(stripTitle, spW * 0.80, stripMaxPt, 6.5, true).fontSize,
       bold: true, color: C.bg, align: 'center', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
     });
 
@@ -706,7 +708,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // 범례 띠 (표 합계 행과 같은 높이) — 건물용도 카테고리 + (공실 존재 시) 공실
     const legendY = bodyTop + bodyH;
     type LegendItem = { label: string; fill: string; border: string; text: string; vacant?: boolean };
-    const legendPt = 7;
+    const legendPt = bandH < 0.26 ? 6.5 : 7;
     const legendItems: LegendItem[] = [
       ...usedCategories.map((cat) => {
         const pal = STACKING_USE_PALETTE[cat] || STACKING_USE_PALETTE['근린생활'];
@@ -724,18 +726,19 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
           ]
         : []),
     ];
-    const itemW = (it: LegendItem) => 0.16 + textWidthIn(it.label, legendPt, true) + 0.10;
-    let lx = spX + 0.04;
+    const labelBoxW = (it: LegendItem) => Math.max(0.28, textWidthIn(it.label, legendPt, true) / 0.80 + 0.06);
+    const itemW = (it: LegendItem) => 0.15 + labelBoxW(it) + 0.04;
+    let lx = spX + 0.02;
     for (const item of legendItems) {
       const w = itemW(item);
-      if (lx + w - 0.06 > spX + spW) break;
+      if (lx + w - 0.06 > spX + spW + 0.18) break;
       slide.addShape('rect', {
-        x: lx, y: legendY + (bandH - 0.12) / 2, w: 0.13, h: 0.12, fill: { color: item.fill },
+        x: lx, y: legendY + (bandH - 0.11) / 2, w: 0.12, h: 0.11, fill: { color: item.fill },
         line: item.vacant ? { dashType: 'dash' as const, color: item.border, width: 0.75 } : { color: item.border, width: 0.5 },
       });
-      const tx = lx + 0.16;
+      const tx = lx + 0.14;
       slide.addText(item.label, {
-        x: tx, y: legendY, w: textWidthIn(item.label, legendPt, true) + 0.06, h: bandH,
+        x: tx, y: legendY, w: labelBoxW(item), h: bandH,
         fontSize: legendPt, color: item.text, bold: true,
         fontFace: KR, valign: 'middle', margin: 0, wrap: false,
       });
@@ -768,7 +771,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Render table
     const tableData: any[][] = [];
     const cellMargin = L.getDynamicTableMargin(rowH);
-    const usable = (w: number) => Math.max(0.1, w - 0.12);
+    const usable = (w: number) => Math.max(0.1, (w - 0.12) * (rowH < 0.26 ? 0.84 : 0.94));
 
     // Header
     tableData.push(HEADERS.map((h, cIdx) => {

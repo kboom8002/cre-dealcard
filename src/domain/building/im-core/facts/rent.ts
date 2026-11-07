@@ -11,6 +11,7 @@ export interface PureRentUnit {
   depositKrw: number;
   maintenanceFeeKrw?: number;
   areaSqm?: number;
+  areaPyeong?: number;
   status: 'occupied' | 'vacant' | 'owner';
   expiryDate?: string;
 }
@@ -21,9 +22,12 @@ export interface PureRentFacts {
   monthlyRentTotalKrw: number;
   monthlyRentTotalManwon: number;
   maintenanceFeeMonthlyKrw: number;
+  otherIncomeMonthlyKrw?: number;
+  otherIncomeMonthlyManwon?: number;
   annualRentKrw: number;
   unitCount: number;
   occupiedCount: number;
+  ownerOccupiedCount?: number;
   vacantCount: number;
   occupancyRatePct: number;
   units: PureRentUnit[];
@@ -37,11 +41,14 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
     rawBody?.rent_roll ||
     raw?.rentRoll ||
     rawBody?.rentRoll ||
+    raw?.floor_leases ||
+    rawBody?.floor_leases ||
     raw?.units ||
     rawBody?.units ||
     raw?.layers?.lease_units ||
     ssot?.rent_roll ||
     ssot?.rentRoll ||
+    ssot?.floor_leases ||
     [];
   const rawUnits: any[] = Array.isArray(candidateUnits) ? candidateUnits : [];
 
@@ -49,6 +56,7 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
   let calcMonthlyRentKrw = 0;
   let calcMaintKrw = 0;
   let occupiedCount = 0;
+  let ownerOccupiedCount = 0;
   let vacantCount = 0;
 
   const units: PureRentUnit[] = rawUnits.map((u, idx) => {
@@ -71,6 +79,7 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
       u.maintenance_fee_manwon ??
       u.maintenance_manwon ??
       u.maintenanceManwon ??
+      u.mgmt_fee_manwon ??
       u.maintenanceFeeKrw ??
       0;
     const maintKrw = Number(
@@ -79,9 +88,29 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
         : Number(rawMaint) * 10000
     );
 
-    const status: 'occupied' | 'vacant' | 'owner' = u.status === 'vacant'
+    const isVacantRaw =
+      u.status === 'vacant' ||
+      u.is_vacant === true ||
+      u.lease_state === '공실' ||
+      u.tenant_type === '공실' ||
+      u.tenant_name === '공실' ||
+      u.use === '공실';
+    const isOwnerRaw =
+      !isVacantRaw &&
+      (u.status === 'owner' ||
+        u.is_owner === true ||
+        u.occupancy_status === 'owner_occupied' ||
+        u.lease_state === '자가사용' ||
+        u.lease_state === '자가' ||
+        u.tenant_type === '자가' ||
+        u.tenant_type === '자가사용' ||
+        u.tenant_name === '자가' ||
+        u.tenant_name === '자가사용' ||
+        u.use === '자가사용');
+
+    const status: 'occupied' | 'vacant' | 'owner' = isVacantRaw
       ? 'vacant'
-      : u.status === 'owner'
+      : isOwnerRaw
       ? 'owner'
       : 'occupied';
     const isVacant = status === 'vacant';
@@ -91,21 +120,47 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
       calcDepositKrw += depositKrw;
       calcMonthlyRentKrw += rentKrw;
       calcMaintKrw += maintKrw;
+    } else if (status === 'owner') {
+      // Rule 75: 자가사용은 공실(vacant)이 아닌 실점유(occupied)에 포함하되 임대료 합산에서는 0원 처리
+      occupiedCount++;
+      ownerOccupiedCount++;
     } else {
       vacantCount++;
     }
 
-    const areaSqm = Number(u.area_sqm || u.areaSqm || 0);
+    const explicitSqm = Number(u.area_sqm ?? u.area_m2 ?? u.areaSqm ?? 0);
+    const explicitPy = Number(u.area_pyeong ?? u.areaPyeong ?? 0);
+    const areaSqm =
+      explicitSqm > 0
+        ? explicitSqm
+        : explicitPy > 0
+        ? Math.round(explicitPy * 3.305785 * 100) / 100
+        : 0;
+    const areaPyeong =
+      explicitPy > 0
+        ? explicitPy
+        : areaSqm > 0
+        ? Math.round((areaSqm / 3.305785) * 10) / 10
+        : 0;
 
     return {
       floor: String(u.floor || `${idx + 1}F`),
-      tenantName: String(u.tenant_name || u.tenant || u.use || u.tenantOrUse || (isVacant ? '공실' : '임차인 미상')),
+      tenantName: String(
+        u.tenant_name ||
+          u.tenantName ||
+          u.tenant ||
+          u.use ||
+          u.tenant_type ||
+          u.tenantOrUse ||
+          (isVacant ? '공실' : status === 'owner' ? '자가사용' : '근린생활시설')
+      ),
       rentKrw,
       depositKrw,
       maintenanceFeeKrw: maintKrw,
       areaSqm: areaSqm > 0 ? areaSqm : undefined,
+      areaPyeong: areaPyeong > 0 ? areaPyeong : undefined,
       status,
-      expiryDate: u.expiry_date || u.lease_expiry || u.leaseExpiry || u.expiryDate || undefined,
+      expiryDate: u.expiry_date || u.lease_expiry || u.lease_end || u.leaseExpiry || u.expiryDate || undefined,
     };
   });
 
@@ -149,15 +204,39 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
     ? Math.round((finalOccupiedCount / unitCount) * 1000) / 10
     : 0;
 
+  const otherIncomeManwon = Number(
+    raw?.other_income_monthly_manwon ??
+      raw?.otherIncomeMonthlyManwon ??
+      rawBody?.other_income_monthly_manwon ??
+      rawBody?.otherIncomeMonthlyManwon ??
+      ssot?.other_income_monthly_manwon ??
+      ssot?.otherIncomeMonthlyManwon ??
+      0
+  );
+  const otherIncomeMonthlyKrw =
+    Number(
+      raw?.other_income_monthly_krw ??
+        rawBody?.rent_roll_meta?.other_income_krw ??
+        ssot?.other_income_monthly_krw ??
+        0
+    ) || Math.round(otherIncomeManwon * 10000);
+
   return {
     depositTotalKrw,
     depositTotalManwon: Math.round(depositTotalKrw / 10000),
     monthlyRentTotalKrw,
     monthlyRentTotalManwon: Math.round(monthlyRentTotalKrw / 10000),
     maintenanceFeeMonthlyKrw,
+    ...(otherIncomeMonthlyKrw > 0
+      ? {
+          otherIncomeMonthlyKrw,
+          otherIncomeMonthlyManwon: Math.round(otherIncomeMonthlyKrw / 10000),
+        }
+      : {}),
     annualRentKrw,
     unitCount,
     occupiedCount: finalOccupiedCount,
+    ...(ownerOccupiedCount > 0 ? { ownerOccupiedCount } : {}),
     vacantCount: finalVacantCount,
     occupancyRatePct,
     units,

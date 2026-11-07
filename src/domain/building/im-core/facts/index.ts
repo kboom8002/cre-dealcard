@@ -85,6 +85,10 @@ export function extractPureBuildingFacts(raw: Record<string, any>): PureBuilding
   const posture: InvestmentPosture = (
     ['core_income', 'value_add', 'development', 'owner_occupier', 'repositioning'].includes(rawPosture)
       ? rawPosture
+      : rawPosture === 'owner_occupied'
+      ? 'owner_occupier'
+      : rawPosture === 'trading'
+      ? 'value_add'
       : 'core_income'
   ) as InvestmentPosture;
 
@@ -135,6 +139,8 @@ export function extractPureBuildingFacts(raw: Record<string, any>): PureBuilding
     ? rawBody.comparable_transactions
     : Array.isArray(rawBody?.comparableTransactions)
     ? rawBody.comparableTransactions
+    : Array.isArray(rawBody?.broker_extras?.market_comps)
+    ? rawBody.broker_extras.market_comps
     : Array.isArray(raw?.comps)
     ? raw.comps
     : [];

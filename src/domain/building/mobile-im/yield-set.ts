@@ -553,9 +553,16 @@ export function buildYieldSetFromBody(body: Record<string, any> | null | undefin
     actualVacancyPct: vacPct != null && vacPct > 0 ? vacPct : null,
     floorLeases: b.floor_leases,
     // Phase C가 추가하는 중개인 입력 — 필드가 아직 없을 수 있으므로 방어적으로 읽는다.
-    targetRentPerPyeongManwon: numOrNull(b.broker_extras?.target_rent_per_pyeong_manwon),
+    targetRentPerPyeongManwon: numOrNull(
+      b.broker_extras?.target_rent_per_pyeong_manwon ??
+        b.broker_extras?.stabilized_target_rent_per_pyeong_manwon
+    ),
     // 렌트롤 v1.5 헤더 블록 (doc.body.rent_roll_meta) — J8 기타수입(V05 별도 줄), J5~J7 시장 임대료(market_rent)
-    otherIncomeKrw: numOrNull(b.rent_roll_meta?.other_income_krw),
+    otherIncomeKrw:
+      numOrNull(b.rent_roll_meta?.other_income_krw) ??
+      (numOrNull(b.other_income_monthly_manwon ?? ssot.other_income_monthly_manwon) != null
+        ? Number(b.other_income_monthly_manwon ?? ssot.other_income_monthly_manwon) * 10_000
+        : null),
     marketRent: b.rent_roll_meta && typeof b.rent_roll_meta === 'object' ? (b.rent_roll_meta as RentRollMarketRent) : null,
     postAcquisitionUnits: structuredUnits.length > 0 ? structuredUnits : null,
     summaryYieldBasis: b.broker_extras?.summary_yield_basis ?? null,
