@@ -126,18 +126,18 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     leftContentBottom = 1.80 + 1.8;
   }
   
-  // 좌측 컬럼 실제 하단 (우측 하이라이트 박스 하단 정렬 기준)
+  // 좌측 컬럼 실제 하단 (우측 하이라이트 박스 하단 정렬 기준 — SAFE_BOTTOM 6.55" 이내 확보)
   let leftColumnBottom = leftContentBottom;
   // 매각가 박스는 우측 하이라이트 박스와 하단 정렬하기 위해 우측 레이아웃 산출 후 그린다
   let drawPriceBox: ((alignBottom?: number) => void) | null = null;
   if (input.data.priceTable) {
     const hasPrice2 = !!input.data.priceTable2;
-    const priceBoxH = hasPrice2 ? 1.10 : 0.60;
-    const pyDefault = Math.min(Math.max(leftContentBottom + 0.12, 4.40), 6.75 - priceBoxH);
+    const priceBoxH = hasPrice2 ? 1.06 : 0.58;
+    const pyDefault = Math.min(Math.max(leftContentBottom + 0.12, 4.40), 6.52 - priceBoxH);
     leftColumnBottom = pyDefault + priceBoxH;
     drawPriceBox = (alignBottom?: number) => {
     const py = alignBottom != null
-      ? Math.min(6.75 - priceBoxH, Math.max(pyDefault, alignBottom - priceBoxH))
+      ? Math.min(6.52 - priceBoxH, Math.max(pyDefault, alignBottom - priceBoxH))
       : pyDefault;
 
     // 매각가 테이블 (금색 테두리 박스)
@@ -184,9 +184,9 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
   let rightBottomForAlign: number | undefined;
 
-  // Brass 수직 구분선
+  // Brass 수직 구분선 (하단 여백 확보를 위해 6.50"까지만 연장)
   slide.addShape('line', {
-    x: M + lw + gap / 2, y: 1.50, w: 0, h: 5.2,
+    x: M + lw + gap / 2, y: 1.50, w: 0, h: 5.00,
     line: { color: C.brass, width: 0.7 },
   });
 
@@ -259,21 +259,24 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
 
     // ── 레이아웃: 하이라이트 박스는 내용 높이에 맞추고, 좌측 매각가 박스 하단과 정렬 ──
     const photoTop = 1.80;
-    const lineH = 0.29;
+    const lineH = 0.28;
     const boxH = calloutLines.length > 0 ? 0.14 + 0.26 + 0.06 + calloutLines.length * lineH + 0.10 : 0;
     const minPhotoH = 2.40;
-    const boxBottom = Math.min(6.75, Math.max(leftColumnBottom, photoTop + minPhotoH + (boxH > 0 ? 0.15 + boxH : 0)));
+    const boxBottom = Math.min(6.52, Math.max(leftColumnBottom, photoTop + minPhotoH + (boxH > 0 ? 0.15 + boxH : 0)));
     const boxY = boxBottom - boxH;
     const photoH = (boxH > 0 ? boxY - 0.15 : boxBottom) - photoTop;
     rightBottomForAlign = boxBottom;
 
-    // 사진: 원본 픽셀 비율 보존 (비율 차이가 작으면 중앙 크롭, 크면 전체 보존 + 여백 배경)
+    // 사진: 원본 픽셀 비율 100% 보존 — 세로형 빌딩 사진일 때 거대한 베이지색 레터박스 대신 실제 그려진 사진(drawn) 외곽에만 깔끔한 테두리 프레임 적용
     const photoBox = { x: rx, y: photoTop, w: rw, h: photoH };
-    if (planImageFit(photoBox, photoImg.width, photoImg.height, 'auto').mode === 'contain') {
-      // 원본 비율이 박스와 크게 다르면 전체를 보존하고 여백은 은은한 배경으로 마감 (배경 → 이미지 순)
-      slide.addShape('rect', { ...photoBox, fill: { color: 'F3F1EC' }, line: { color: 'E2DED3', width: 0.75 } });
-    }
-    addImageFit(slide, photoImg.base64, photoBox, photoImg.width, photoImg.height, 'auto');
+    const fitPlan = addImageFit(slide, photoImg.base64, photoBox, photoImg.width, photoImg.height, 'auto');
+    slide.addShape('rect', {
+      x: fitPlan.drawn.x,
+      y: fitPlan.drawn.y,
+      w: fitPlan.drawn.w,
+      h: fitPlan.drawn.h,
+      line: { color: C.line, width: 0.75 },
+    });
 
     if (boxH > 0) {
       // 매각가 박스와 같은 브라스 톤 팔레트 (F6F1E4 / B8860B)

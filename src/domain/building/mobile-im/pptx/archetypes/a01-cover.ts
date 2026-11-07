@@ -248,8 +248,9 @@ function renderCommonCoverContent(
     const brokerPhone = String(d.brokerPhone || d.phone || '').trim();
     const registrationNo = String(d.registrationNo || '').trim();
     const docDate = String(d.documentDate || '').trim();
+    const cleanBrokerName = brokerName.replace(/^담당\s*(?:자)?\s*[:：]?\s*/, '').trim();
     const secondaryParts = [
-      companyName && brokerName ? `담당 ${brokerName}` : '',
+      companyName && cleanBrokerName ? `담당 ${cleanBrokerName}` : '',
       docDate,
       brokerPhone,
       registrationNo ? `등록번호 ${registrationNo}` : '',

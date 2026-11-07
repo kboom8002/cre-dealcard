@@ -1026,7 +1026,7 @@ export class MobileImPptxRenderer {
         tables: [],
         metrics: {},
         disclaimer: disclaimerText,
-        footerText: companyName ? `${companyName} · ${docno}` : docno,
+        footerText: [companyName, docno].filter(Boolean).join(' · '),
         logoUrl: input.logoUrl,
         badges: input.doc.body?.provenanceBadges ?? [
           // §10 provenance 배지 — 법적 고정 라벨

@@ -1239,30 +1239,32 @@ export function stat(
   // Dynamic label font fitting
   const labelLen = label?.length ?? 0;
   const labelW = w - 0.36;
-  const labelFit = fitTextToBox(label, labelW, 0.44, {
+  const safeFitW = Math.max(0.60, labelW * 0.82);
+  const labelFit = fitTextToBox(label, safeFitW, 0.38, {
     minFontSize: 7.5,
     maxFontSize: opt.labelFontSize ?? (labelLen <= 12 ? 9.5 : labelLen <= 18 ? 8.5 : 7.5),
     targetLines: 2,
     lineSpacingMultiple: 1.15,
   });
-  const labelH = Math.max(0.22, labelFit.requiredHeight);
+  const labelH = Math.max(0.22, Math.min(0.36, (labelFit.lines.length * labelFit.fontSize * 1.28) / 72));
+  const labelY = y + 0.10;
 
   // 라벨
   s.addText(labelFit.displayText, {
-    x: x + 0.18, y: y + 0.14, w: labelW, h: labelH,
+    x: x + 0.18, y: labelY, w: labelW, h: labelH,
     fontSize: labelFit.fontSize, color: labCol, fontFace: KR, margin: 0,
     shrinkText: true,
   });
 
   // M-5: 값 상자를 라벨 높이 아래에서 시작 (겹침 방지)
-  const valY = y + 0.14 + labelH + 0.02;
+  const valY = labelY + labelH + 0.01;
 
-  // 값 — Dynamic font fitting
+  // 값 — Dynamic font fitting (OpenXML/PowerPoint 내부 마진 감안 82% 안전 폭 기준 1줄 우선 피팅)
   const safeValue = value != null ? String(value) : '';
   const hasKoreanVal = /[\uAC00-\uD7AF]/.test(safeValue);
   const baseVs = opt.vs ?? 22;
   // D7(b): 값은 '…' 절단 금지 — 1줄(min 10pt) → 불가 시 2줄(min 9pt) 폴백
-  let valFit = fitTextToBox(safeValue || '-', labelW, 0.44, {
+  let valFit = fitTextToBox(safeValue || '-', safeFitW, 0.44, {
     minFontSize: 10,
     maxFontSize: baseVs,
     targetLines: 1,
@@ -1271,18 +1273,19 @@ export function stat(
   });
   let valTwoLine = false;
   if (valFit.lines.length > 1) {
-    valFit = fitTextToBox(safeValue, labelW, 0.56, {
+    valFit = fitTextToBox(safeValue, safeFitW, 0.56, {
       minFontSize: 9,
-      maxFontSize: Math.min(baseVs, 14),
+      maxFontSize: Math.min(baseVs, 13.5),
       targetLines: 2,
       lineSpacingMultiple: 1.0,
       allowTruncate: false,
     });
     valTwoLine = valFit.lines.length > 1;
   }
+  const neededValH = ((valTwoLine ? 2 : 1) * valFit.fontSize * 1.30) / 72;
   const valH = valTwoLine
-    ? 0.56
-    : Math.max(0.30, Math.min(0.44, valFit.requiredHeight > 0 ? valFit.requiredHeight : 0.36));
+    ? Math.max(0.50, Math.min(0.58, neededValH))
+    : Math.max(0.38, Math.min(0.46, neededValH));
 
   s.addText(valFit.displayText || '-', {
     x: x + 0.18, y: valY, w: labelW, h: valH,
@@ -1294,23 +1297,23 @@ export function stat(
   // 단위 (값 옆)
   if (unit) {
     s.addText(unit, {
-      x: x + 0.18, y: y + 0.74, w: w - 0.36, h: 0.18,
+      x: x + 0.18, y: y + 0.72, w: w - 0.36, h: 0.20,
       fontSize: 8.8, color: labCol, fontFace: KR, margin: 0,
     });
   }
 
   // 보조 텍스트 — Dynamic subText Y position offset
   if (subText) {
-    const minSubOffset = h <= 1.10 ? 0.76 : 0.86;
-    const subY = Math.max(y + minSubOffset, valY + valH + 0.02);
-    const availableSubH = Math.max(0.24, h - (subY - y) - 0.04);
+    const minSubOffset = h <= 1.12 ? 0.72 : 0.80;
+    const subY = Math.max(y + minSubOffset, valY + valH + 0.01);
+    const availableSubH = Math.max(0.28, h - (subY - y) - 0.03);
     const subOpts = {
       minFontSize: 7.0,
       maxFontSize: 8.8,
       targetLines: 2,
       lineSpacingMultiple: 1.15,
     };
-    let subFit = fitTextToBox(subText, w - 0.36, availableSubH, { ...subOpts, allowTruncate: false });
+    let subFit = fitTextToBox(subText, safeFitW, availableSubH, { ...subOpts, allowTruncate: false });
     const subOverflow = (f: ReturnType<typeof fitTextToBox>) =>
       f.lines.length > 2 || f.requiredHeight > availableSubH + 0.02;
     if (subOverflow(subFit)) {
@@ -1326,10 +1329,10 @@ export function stat(
       for (let i = cuts.length - 1; i >= 0; i--) {
         const cand = subText.slice(0, cuts[i]).replace(/[\s·,;/-]+$/, '');
         if (cand.length < 4) continue;
-        const f = fitTextToBox(cand, w - 0.36, availableSubH, { ...subOpts, allowTruncate: false });
+        const f = fitTextToBox(cand, safeFitW, availableSubH, { ...subOpts, allowTruncate: false });
         if (!subOverflow(f)) { picked = f; break; }
       }
-      subFit = picked ?? fitTextToBox(subText, w - 0.36, availableSubH, { ...subOpts, allowTruncate: true });
+      subFit = picked ?? fitTextToBox(subText, safeFitW, availableSubH, { ...subOpts, allowTruncate: true });
     }
     s.addText(subFit.displayText, {
       x: x + 0.18, y: subY, w: w - 0.36, h: availableSubH,

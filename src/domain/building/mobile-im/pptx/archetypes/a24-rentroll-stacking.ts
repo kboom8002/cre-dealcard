@@ -689,16 +689,16 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       });
     });
 
-    // Ground line divider if B floors exist — 'GL' 라벨은 층 라벨 열 좌측(층 라벨은 우측 정렬)에 두어 겹침 방지
+    // Ground line divider if B floors exist — 'GL' 라벨은 스태킹 바 우측 끝 여백(테이블과의 0.25" 간격 구간)에 두어 층 라벨·바 내부 텍스트와 바운딩 박스 중첩을 원천 차단
     const bCount = groups.filter(g => g.isSubterranean).length;
     if (bCount > 0 && bCount < G) {
       const groundY = bodyTop + bodyH - bCount * hPerFloor;
       slide.addShape('line', {
-        x: barRegionX - 0.04, y: groundY, w: maxBarW + 0.06, h: 0,
+        x: barRegionX - 0.04, y: groundY, w: maxBarW + 0.05, h: 0,
         line: { color: '94A3B8', width: 1.25, dashType: 'dash' as const },
       });
       slide.addText('GL', {
-        x: spX, y: groundY - 0.08, w: 0.24, h: 0.16,
+        x: barRegionX + maxBarW + 0.02, y: groundY - 0.08, w: 0.22, h: 0.16,
         fontSize: 6.5, color: '64748B', fontFace: KR, align: 'left', valign: 'middle', bold: true, margin: 0, wrap: false,
       });
     }
@@ -823,10 +823,10 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       autoPage: false,
     });
 
-    // 단위 표기 (binder가 ㎡·만원으로 확정한 R2 표일 때만) — 헤더 셀은 표준 명칭 유지
+    // 단위 표기 (binder가 ㎡·만원으로 확정한 R2 표일 때만) — 좌측 공통 비고 상자(0~62% 폭)와 겹치지 않도록 우측 36% 폭에만 배치
     if (isR2BinderTable) {
       slide.addText(rentRollUnitCaption(areaUnit), {
-        x: tbX, y: topY - 0.26, w: tbW, h: 0.22,
+        x: tbX + tbW * 0.64, y: topY - 0.26, w: tbW * 0.36, h: 0.22,
         fontSize: 8, color: '7A8794', align: 'right', valign: 'bottom', fontFace: KR, margin: 0,
       });
     }

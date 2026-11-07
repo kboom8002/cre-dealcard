@@ -142,7 +142,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const renderedCats = validPhotos.slice(0, 6).map(p => p.category || '');
   const allSameCategory = renderedCats.length >= 2 && renderedCats.every(c => c === renderedCats[0]);
 
-  /** 사진 카드 렌더링 헬퍼 (이미지 + 카테고리 배지 + 캡션 바) */
+  /** 사진 카드 렌더링 헬퍼 (이미지 실렌더링 영역(drawn) 기준 테두리 + 카테고리 배지 + 캡션 바 — 세로형 사진 레터박스 및 배지 부유 현상 원천 차단) */
   const renderPhotoCard = (
     optImg: OptimizedImage,
     metaIdx: number,
@@ -151,17 +151,18 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     w: number,
     h: number,
   ) => {
-    // 0. 배경 사각형 (사진 뒤 마감 — cover 크롭 경계 정리)
-    slide.addShape('roundRect', {
-      x, y, w, h,
-      fill: { color: 'F0F0F0' },
-      rectRadius: 0.06,
-      line: { color: 'E0E0E0', width: 0.5 },
-    });
+    // 1. 이미지 (contain 모드 — D31 BL-2: 원본 비율 100% 보존, 크로핑·왜곡 0)
+    const fitPlan = addImageFit(slide, optImg.base64, { x, y, w, h }, optImg.width, optImg.height, 'contain');
+    const dx = fitPlan.drawn.x;
+    const dy = fitPlan.drawn.y;
+    const dw = fitPlan.drawn.w;
+    const dh = fitPlan.drawn.h;
 
-    // 1. 이미지 (contain 모드 — D31 BL-2: 비율 유지, 크로핑 0)
-    //    2026-10-05: PptxGenJS sizing 은 w/h 를 원본 크기로 간주하므로 실제 픽셀 크기로 배치 (기존: 박스 비율로 늘어남)
-    addImageFit(slide, optImg.base64, { x, y, w, h }, optImg.width, optImg.height, 'contain');
+    // 2. 실제 그려진 사진 외곽에만 깔끔한 헤어라인 테두리 마감 (회색 레터박스 여백 제거)
+    slide.addShape('rect', {
+      x: dx, y: dy, w: dw, h: dh,
+      line: { color: C.line, width: 0.6 },
+    });
 
     const meta = validPhotos[metaIdx] || {};
 
@@ -169,29 +170,29 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     const realCaption = hasRealCaption(meta.caption, meta.label);
     const showChip = !!meta.label && !realCaption && !allSameCategory;
 
-    // 2. 카테고리 배지 (좌상단)
+    // 3. 카테고리 배지 (실제 사진 좌상단 모서리에 정확히 부착)
     if (showChip && meta.label) {
-      const badgeW = Math.max(0.9, meta.label.length * 0.14 + 0.25);
+      const badgeW = Math.min(Math.max(0.6, dw - 0.16), Math.max(0.9, meta.label.length * 0.14 + 0.25));
       slide.addShape('rect', {
-        x: x + 0.08, y: y + 0.08, w: badgeW, h: 0.26,
+        x: dx + 0.08, y: dy + 0.08, w: badgeW, h: 0.26,
         fill: { color: '10161F', transparency: 20 },
       });
       slide.addText(meta.label, {
-        x: x + 0.08, y: y + 0.08, w: badgeW, h: 0.26,
+        x: dx + 0.08, y: dy + 0.08, w: badgeW, h: 0.26,
         fontFace: KR, fontSize: 9, color: 'FFFFFF', bold: true, // D30 m-4: 최소 캡션 9pt
         align: 'center', valign: 'middle', margin: 0,
       });
     }
 
-    // 3. 캡션 바 (하단 오버레이) — 라벨과 같거나 라벨을 포함/포함되는 캡션은 칩과 중복이므로 숨김
+    // 4. 캡션 바 (하단 오버레이) — 실제 사진 폭(dw)에 정렬
     if (realCaption) {
       const captionH = 0.32;
       slide.addShape('rect', {
-        x, y: y + h - captionH, w, h: captionH,
+        x: dx, y: dy + dh - captionH, w: dw, h: captionH,
         fill: { color: '000000', transparency: 40 },
       });
       slide.addText(String(meta.caption), {
-        x: x + 0.12, y: y + h - captionH, w: w - 0.24, h: captionH,
+        x: dx + 0.12, y: dy + dh - captionH, w: Math.max(0.4, dw - 0.24), h: captionH,
         fontFace: KR, fontSize: 9, color: 'FFFFFF', // D30 m-4: 최소 캡션 9pt
         valign: 'middle', margin: 0,
       });
@@ -229,17 +230,20 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       renderPhotoCard(optimized[2], 2, M + leftW + gap, startY + smallH + gap, rightW, smallH);
     }
   } else if (layout === 'GRID_2X3' || count >= 5) {
-    // 5~6장: 3열 x 2행 균등 그리드 (스펙 §2 #8 표준: 가로세로 비 1.65:1로 사진 왜곡 방지)
+    // 5~6장: 3열 x 2행 균등 그리드 (5장일 때 하단 2장은 중앙 대칭 배치하여 우하단 빈칸 해소)
     const cols = 3;
     const rows = 2;
     const imgW = (CW - gap * 2) / cols;
     const imgH = (maxAvailableH - gap) / rows;
+    const row1CenteredStartX = M + (CW - (imgW * 2 + gap)) / 2;
 
     optimized.forEach((img, i) => {
       if (i >= 6) return;
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = M + col * (imgW + gap);
+      const x = (count === 5 && row === 1)
+        ? row1CenteredStartX + (i - 3) * (imgW + gap)
+        : M + col * (imgW + gap);
       const y = startY + row * (imgH + gap);
       renderPhotoCard(img, i, x, y, imgW, imgH);
     });

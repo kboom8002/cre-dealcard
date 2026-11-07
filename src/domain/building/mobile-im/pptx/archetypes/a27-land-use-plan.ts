@@ -690,9 +690,11 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   if (planEntries.length > 0) {
     const totalWeight = planEntries.reduce((acc, e) => acc + e.weight, 0);
     const minRowH = hasMultiParcelTable ? 0.36 : 0.44;
-    const rowHeights = planEntries.map((e) =>
-      Number(Math.max(minRowH, (availPlanH * e.weight) / totalWeight).toFixed(2)),
-    );
+    const rowHeights = planEntries.map((e) => {
+      const maxRowH = e.value.length > 160 ? 1.45 : e.value.length > 80 ? 1.05 : 0.72;
+      const rawH = (availPlanH * e.weight) / totalWeight;
+      return Number(Math.min(maxRowH, Math.max(minRowH, rawH)).toFixed(2));
+    });
 
     const planTblRows = planEntries.map((entry) => [
       {

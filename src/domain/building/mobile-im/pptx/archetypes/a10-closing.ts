@@ -203,7 +203,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   L.sub(slide, rx, disclaimerStartY - 0.34, rw, '면책 조항', true);
   
   const disclaimerText = input.data.disclaimer || MOBILE_IM_STANDARD_DISCLAIMER;
-  const maxCardH = 6.20 - disclaimerStartY;
+  const maxCardH = 6.10 - disclaimerStartY;
   const cardH = Math.max(1.10, Math.min(maxCardH, 0.45 + Math.ceil(disclaimerText.length / 55) * 0.24));
 
   // 면책 배경 카드
@@ -220,14 +220,14 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   });
   
   // ── 하단 푸터 바 ──
-  const footerY = 6.30;
+  const footerY = 6.20;
   slide.addShape('rect', {
-    x: M, y: footerY, w: CW, h: 0.50,
+    x: M, y: footerY, w: CW, h: 0.44,
     fill: { color: CD.accentBg },
   });
   const footerText = input.data.footerText || '본 자료의 모든 수치는 예비 검토용이며, 상세 실사 자료 및 비밀 상담은 담당 전문 중개사를 통해 제공됩니다.';
   slide.addText(footerText, {
-    x: M + 0.20, y: footerY + 0.05, w: CW - 0.40, h: 0.40,
+    x: M + 0.20, y: footerY + 0.04, w: CW - 0.40, h: 0.36,
     fontFace: KR, fontSize: 9, color: CD.accentText, margin: 0,
     valign: 'middle',
   });

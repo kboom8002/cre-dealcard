@@ -29,9 +29,9 @@ export interface ArchetypeOutput {
   suppress?: boolean;
 }
 
-/** 좌측 지도 슬롯 (인치) */
-const MAP_Y = 1.62;
-const MAP_H = 4.50;
+/** 좌측 지도 슬롯 (인치) — 하단 3행 POI 범례가 SAFE_BOTTOM(6.65") 이내에 안착하도록 4.20" 적용 */
+const MAP_Y = 1.56;
+const MAP_H = 4.20;
 
 /** 범례 행에서 제거할 keySpots 파생 랜드마크 라벨 (지도 번호 범례로 대체 — Rule 4 중복 방지) */
 const POI_DERIVED_ROW_LABELS = new Set(['의료시설', '교육시설', '상업시설', '주요시설', '공공기관']);
@@ -148,7 +148,7 @@ function addPoiLegend(
   if (cells.length === 0) return;
   const cols = 2;
   const colW = w / cols;
-  const rowH = 0.22;
+  const rowH = 0.21;
   cells.slice(0, 6).forEach((cell, i) => {
     const cx = x + (i % cols) * colW;
     const cy = y + Math.floor(i / cols) * rowH;
@@ -221,14 +221,14 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     // 중개인 위치도 배치 완료 — 아래 자동 지도 체인 생략
   } else if (macroTransitImg) {
     const optimizedMacro = await optimizeImageForPptx(macroTransitImg, 1200, 80);
-    slide.addImage({ data: optimizedMacro?.base64 || macroTransitImg, x: M, y: 1.62, w: mapW, h: 4.50 });
+    slide.addImage({ data: optimizedMacro?.base64 || macroTransitImg, x: M, y: MAP_Y, w: mapW, h: MAP_H });
   } else if (input.data?.cadastralImage) {
     // 0-2차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
     // 슬롯 종횡비 중앙 크롭 + 네이티브 '본건' 라벨 (이미지 내 영문 TARGET 라벨 제거 — Rule 66)
     await placeCadastralImage(slide, String(input.data.cadastralImage), { x: M, y: MAP_Y, w: mapW, h: MAP_H });
   } else if (input.data.title?.includes('토지') || input.data.kicker?.includes('토지') || input.data.title?.includes('지적도')) {
     // 지적도 슬라이드인데 V-World 이미지가 없는 경우 Fallback
-    L.fallbackCard(slide, M, 1.62, mapW, 4.50, {
+    L.fallbackCard(slide, M, MAP_Y, mapW, MAP_H, {
       badge: '공적장부 열람 대상',
       badgeKind: 'brass',
       title: '지적 및 토지이용계획 열람 안내',
@@ -250,7 +250,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     if (coords) {
       try {
         mapImg = await generateStaticMapPlaceholder(
-          areaOrAddress, 1120, 900, coords, poiSpots,
+          areaOrAddress, 1120, 840, coords, poiSpots,
           {
             posture: input.data?.posture ?? null,
             assetType: input.data?.assetType ?? null,
@@ -265,7 +265,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
     // 1.5차: POI 오버레이 실패 시 카카오 지도 URL 폴백
     if (!mapImg && mapImageUrl) {
-      mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
+      mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 840);
     }
 
     // 2차: 고해상도(1600x1200, 266 DPI) 인메모리 Macro Transit Engine 벡터 다이어그램 자동 합성
@@ -289,7 +289,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     }
 
     if (mapImg) {
-      slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
+      slide.addImage({ data: mapImg.base64, x: M, y: MAP_Y, w: mapW, h: MAP_H });
 
       // [Rule 66 준수] 입지 지도 한글 오버레이 및 범례 (PptxGenJS 네이티브 셰이프로 서버리스 CJK 폰트 두부 원천 방지)
       const isLocationSlide = Boolean(
@@ -312,7 +312,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       } else if (isLocationSlide) {
         // 1. 좌측 하단 반투명 범례 카드 (도보 권역 및 대상지 안내)
         slide.addShape('roundRect', {
-          x: M + 0.15, y: 1.62 + 4.50 - 0.45, w: 3.50, h: 0.35,
+          x: M + 0.15, y: MAP_Y + MAP_H - 0.45, w: 3.50, h: 0.35,
           fill: { color: 'FFFFFF', transparency: 10 },
           line: { color: 'CBD5E1', width: 0.8 },
           rectRadius: 0.04
@@ -323,7 +323,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
           { text: '╌ ', options: { color: C.brass, fontSize: 10, bold: true } },
           { text: '도보 5분 반경 (약 400m)', options: { color: '475569', fontSize: 8.5 } }
         ], {
-          x: M + 0.20, y: 1.62 + 4.50 - 0.43, w: 3.40, h: 0.30,
+          x: M + 0.20, y: MAP_Y + MAP_H - 0.43, w: 3.40, h: 0.30,
           fontFace: KR, valign: 'middle'
         });
 
@@ -331,7 +331,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         const pinBadgeW = 0.90;
         const pinBadgeH = 0.24;
         const pinBadgeX = M + (mapW - pinBadgeW) / 2;
-        const pinBadgeY = 1.62 + (4.50 / 2) + 0.22;
+        const pinBadgeY = MAP_Y + (MAP_H / 2) + 0.22;
         slide.addShape('roundRect', {
           x: pinBadgeX, y: pinBadgeY, w: pinBadgeW, h: pinBadgeH,
           fill: { color: C.ink },
@@ -345,7 +345,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       }
     } else {
       // 지도 데이터 미제공 시 Macro Location Overview Fallback Card 렌더링 (슬라이드 드롭 방지)
-      L.fallbackCard(slide, M, 1.62, mapW, 4.50, {
+      L.fallbackCard(slide, M, MAP_Y, mapW, MAP_H, {
         badge: '권역 입지 분석',
         badgeKind: 'info',
         title: '교통망 및 입지 인프라 실사 안내',
@@ -421,10 +421,17 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         .trim();
     }
 
+    const LABEL_SYNONYM_MAP: Record<string, string> = {
+      '철도 교통망': '대중교통',
+      '가로·편의성': '도로·접근성',
+      '상권·배후지': '배후·상권',
+    };
+
     const safeRows = rightRows.map(([label, value, ...rest]: any[]) => {
       const origLabel = String(label || '');
       const origValue = String(value || '');
-      let l = cleanMarkdownDeep(stripMarkdown(origLabel));
+      let l = cleanMarkdownDeep(stripMarkdown(origLabel)).replace(/^[•·\-*]\s*/, '').trim();
+      if (LABEL_SYNONYM_MAP[l]) l = LABEL_SYNONYM_MAP[l];
       let v = cleanMarkdownDeep(stripMarkdown(origValue));
       
       if (origValue.length > v.length && !/[.다요음함]$/.test(v)) {
@@ -436,17 +443,17 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     const numRows = safeRows.length;
     const hasCallout = Boolean(right.callout);
     let rowH = 0.50;
-    let fs = 12.5;
+    let fs = 12.0;
     if (numRows >= 6 || (numRows >= 5 && hasCallout)) {
       rowH = 0.38;
-      fs = 11.5;
+      fs = 11.0;
     } else if (numRows >= 4 && hasCallout) {
-      rowH = 0.44;
-      fs = 12.0;
+      rowH = 0.42;
+      fs = 11.5;
     }
 
     y = L.rows(slide, textX, y, textW, safeRows, { rh: rowH, fs });
-    y += 0.12;
+    y += 0.14;
   }
 
   if (rightRows.length === 0) {
@@ -462,28 +469,42 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     warnings.push('입지 데이터 없음 — 기본 프레임 표시');
   }
 
-  if (right.callout && y < 5.8) {
+  if (right.callout && y < 5.75) {
     const c = right.callout;
-    // data-binder에서 이미 enforceTextBudget 적용됨 — 이중 잘림 방지
-    const body = c.body ?? '';
+    // 우측 표에 이미 동일한 문장이 들어간 경우(예: 마크다운 불릿이 표와 콜아웃 양쪽에 매핑된 경우) 비중복 핵심 요약으로 정제
+    const rawBody = String(c.body ?? '').trim();
+    const rowValuesNorm = (right.rows ?? []).map((r: any) =>
+      String(r?.[1] ?? '').replace(/\s+/g, '')
+    ).filter(Boolean);
+    const bodyLinesArr = rawBody.split('\n').map(l =>
+      l.trim().replace(/^([•·\-*]\s*)(?:철도\s*교통망|가로·편의성|상권·배후지|대중교통|도로·접근성|배후·상권)[:：]\s*/, '$1')
+    ).filter(Boolean);
+    const nonDuplicateLines = bodyLinesArr.filter(line => {
+      const stripped = line.replace(/^[•·\-*]\s*[^:：]+[:：]\s*/, '').replace(/^[•·\-*]\s*/, '').replace(/\s+/g, '');
+      return !rowValuesNorm.some((rv: string) => rv === stripped);
+    });
+    const body = nonDuplicateLines.length > 0
+      ? nonDuplicateLines.join('\n')
+      : bodyLinesArr.map(l => l.replace(/^[•·\-*]\s*[^:：]+[:：]\s*/, '')).join(' · ');
+
     // CJK 기준 줄당 글자 수 계산 (callout 내부 패딩 0.36인치 제거)
     const effectiveW = textW - 0.36;
     const cjkCharsPerLine = Math.max(10, Math.floor(effectiveW / 0.19));
     const bodyLines = Math.max(1, Math.ceil(body.length / cjkCharsPerLine));
     // 높이 = 타이틀(0.36) + 줄수 × 줄높이(0.24) + 하단패딩(0.12)
-    const calloutH = Math.min(2.0, Math.max(0.7, 0.36 + bodyLines * 0.24 + 0.12));
-    // left.source가 있으면 note 공간(0.35") 확보
-    const maxAvailable = (left.source ? 6.10 : 6.35) - y;
-    if (maxAvailable >= 0.7) {
+    const calloutH = Math.min(1.85, Math.max(0.68, 0.36 + bodyLines * 0.24 + 0.12));
+    // left.source가 있으면 note 공간 확보 및 SAFE_BOTTOM(6.50") 준수
+    const maxAvailable = (left.source ? 6.04 : 6.32) - y;
+    if (maxAvailable >= 0.68) {
       const finalH = Math.min(calloutH, maxAvailable);
       L.callout(slide, textX, y, textW, finalH, c.kind ?? 'info', c.title ?? '', body);
-      y += finalH + 0.1;
+      y += finalH + 0.08;
     }
   }
 
-  if (left.source && y <= 6.50) {
-    const noteY = Math.max(y + 0.05, 6.25);
-    if (noteY <= 6.75) {
+  if (left.source && y <= 6.40) {
+    const noteY = Math.max(y + 0.04, 6.12);
+    if (noteY <= 6.45) {
       L.note(slide, textX, noteY, textW, left.source);
     }
   }

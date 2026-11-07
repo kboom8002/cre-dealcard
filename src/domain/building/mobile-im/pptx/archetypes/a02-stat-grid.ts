@@ -106,20 +106,21 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       leadSentence = leadSentence.replace(/,?\s*희망가\s*\d+\s*억\s*대/g, '').replace(/\d+\s*억\s*대/g, '');
     }
 
-    const leadFit = L.fitTextToBox(leadSentence, CW, 0.50, { minFontSize: 12, maxFontSize: 15, targetLines: 2 });
+    const leadFit = L.fitTextToBox(leadSentence, CW * 0.85, 0.54, { minFontSize: 12, maxFontSize: 15, targetLines: 2 });
+    const leadH = Math.max(0.28, (leadFit.lines.length * leadFit.fontSize * 1.30) / 72);
     slide.addText(leadFit.displayText, {
-      x: M, y: 1.30, w: CW, h: leadFit.requiredHeight,
+      x: M, y: 1.28, w: CW, h: leadH,
       color: C.ink, fontFace: KR, fontSize: leadFit.fontSize, bold: true,
       shrinkText: true,
       margin: 0,
     });
     // Brass 강조선
-    const lineY = 1.30 + leadFit.requiredHeight + 0.08;
+    const lineY = 1.28 + leadH + 0.06;
     slide.addShape('line', {
       x: M, y: lineY, w: CW, h: 0,
       line: { color: C.brass, width: 1.5 },
     });
-    startY = lineY + 0.15;
+    startY = lineY + 0.14;
   }
   
   // Stat grid
@@ -218,17 +219,34 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     }
   }
   
-  // D41: 메트릭 수에 따라 카드 높이 조정 — 5개 이상이면 컴팩트 모드
-  const isCompact = metrics.length > 4;
-  const cardH = isCompact ? 1.05 : 1.4;
-
   // Basic IM 방어: 요약 슬라이드에서 역레버리지 경고 카드 제거 (자본구조 슬라이드 전용)
   metrics = metrics.filter((m: any) => !String(m?.label || '').includes('역레버리지'));
 
+  // Basic IM (Rule 47): 6대 핵심 지표(3열 × 2행) 표준 유지 — 7~8개 유입 시 리드 문장·물건 개요와 중복되는 '소재지'·'건폐율/용적률' 우선 제외
+  if (L.THEME_META.presetId === 'credeal_basic' && metrics.length > 6) {
+    const withoutAddr = metrics.filter((m: any) => !/^소재지$|^위치$|^주소$/.test(String(m?.label || '').trim()));
+    metrics = withoutAddr.length >= 6 ? withoutAddr : metrics;
+    if (metrics.length > 6) {
+      const withoutBcr = metrics.filter((m: any) => !/건폐율|용적률/.test(String(m?.label || '').trim()));
+      metrics = withoutBcr.length >= 6 ? withoutBcr : metrics;
+    }
+    if (metrics.length > 6) {
+      const yieldItem = metrics.slice(6).find((m: any) => /수익률|Cap\s*Rate/i.test(String(m?.label || '')));
+      metrics = metrics.slice(0, 6);
+      if (yieldItem && !metrics.some((m: any) => /수익률|Cap\s*Rate/i.test(String(m?.label || '')))) {
+        metrics[5] = yieldItem;
+      }
+    }
+  }
+
+  // D41: 메트릭 수에 따라 카드 높이 조정 — 5개 이상이면 컴팩트 모드
+  const isCompact = metrics.length > 4;
+  const cardH = isCompact ? 1.06 : 1.36;
+  const gap = 0.16;
+  const cols = metrics.length === 6 ? 3 : Math.max(2, Math.min(4, metrics.length || 4));
+
   if (metrics.length > 0) {
     // Stat cards: 6개 지표 시 3열 x 2행 최적 배분
-    const gap = 0.18;
-    const cols = metrics.length === 6 ? 3 : Math.max(2, Math.min(4, metrics.length));
     const cardW = L.col(cols, gap);
     
     for (let i = 0; i < Math.min(8, metrics.length); i++) {
@@ -354,33 +372,33 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // D41: KPI 카드 높이에 따라 하이라이트 시작 위치 동적 계산
-  const kpiRows = Math.ceil(Math.min(8, metrics.length || 4) / (Math.max(2, Math.min(4, metrics.length || 4))));
-  const kpiEndY = startY + kpiRows * (cardH + 0.18);
+  const kpiRows = Math.ceil(Math.min(8, metrics.length || 4) / cols);
+  const kpiEndY = startY + kpiRows * (cardH + gap);
   const hlStartY = Math.max(kpiEndY + 0.10, 3.50);
 
   // D41: 남은 공간에 따라 하이라이트 행 크기 자동 조절
   const hasBrokerInput = input.data.hasBrokerInput === true || Boolean(input.data.brokerProvenanceNote);
-  const hlMaxBottom = hasBrokerInput ? 6.46 : 6.55;
-  const availableH = hlMaxBottom - hlStartY - 0.36; // 헤더(0.36) 제외
+  const hlMaxBottom = hasBrokerInput ? 6.32 : 6.48;
+  const availableH = hlMaxBottom - hlStartY - 0.34; // 헤더(0.34) 제외
   const numPoints = Math.min(3, keyPoints.length);
-  // 행 높이를 남은 공간에 맞춰 동적 계산 (최소 0.40, 최대 0.64)
-  const maxRowH = Math.min(0.70, availableH / Math.max(1, numPoints) - 0.06);
-  const rowH = Math.max(0.46, maxRowH);
-  const rowGap = Math.max(0.04, Math.min(0.12, (availableH - numPoints * rowH) / Math.max(1, numPoints - 1)));
+  // 행 높이를 남은 공간에 맞춰 동적 계산 (최소 0.44, 최대 0.64)
+  const maxRowH = Math.min(0.66, availableH / Math.max(1, numPoints) - 0.06);
+  const rowH = Math.max(0.44, maxRowH);
+  const rowGap = Math.max(0.05, Math.min(0.12, (availableH - numPoints * rowH) / Math.max(1, numPoints - 1)));
 
   if (keyPoints.length > 0 && hlStartY < 5.8) {
     // 3대 핵심 투자 포인트 헤더
     slide.addText('3대 핵심 투자 포인트 (Investment Highlights)', {
-      x: M, y: hlStartY, w: CW, h: 0.30,
-      color: C.brassD, fontFace: KR, fontSize: 12.5, bold: true, margin: 0,
+      x: M, y: hlStartY, w: CW, h: 0.28,
+      color: C.brassD, fontFace: KR, fontSize: 12.0, bold: true, margin: 0,
     });
 
-    const hlFontSize = rowH < 0.50 ? 10 : 11.5;
+    const hlFontSize = rowH < 0.50 ? 10 : 11.0;
 
     keyPoints.slice(0, 3).forEach((pt, idx) => {
-      const ry = hlStartY + 0.36 + idx * (rowH + rowGap);
-      // D41: y 경계를 6.75까지 확장 (중개인 입력 출처 주석 있을 때는 6.48 이하로 유지하여 겹침 차단)
-      if (ry + rowH <= (hasBrokerInput ? 6.48 : 6.75)) {
+      const ry = hlStartY + 0.34 + idx * (rowH + rowGap);
+      // D41: y 경계를 6.50까지 유지하여 푸터와 충분한 여백 확보
+      if (ry + rowH <= (hasBrokerInput ? 6.36 : 6.56)) {
         // 배경 박스
         slide.addShape('roundRect', {
           x: M, y: ry, w: CW, h: rowH,
@@ -390,7 +408,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         });
 
         // 좌측 번호 태그
-        const tagH = Math.min(rowH - 0.16, 0.40);
+        const tagH = Math.min(rowH - 0.16, 0.38);
         slide.addShape('roundRect', {
           x: M + 0.12, y: ry + (rowH - tagH) / 2, w: 0.45, h: tagH,
           rectRadius: 0.04,
@@ -404,11 +422,11 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         });
 
         // 우측 내용 텍스트: 말줄임('...') 금지 — 폰트 자동 맞춤(최대 2줄)으로 전체 문장 표시
-        const ptFit = L.fitTextToBox(pt, CW - 0.85, rowH - 0.08, {
-          minFontSize: 9.5, maxFontSize: hlFontSize, targetLines: 2, allowTruncate: false,
+        const ptFit = L.fitTextToBox(pt, (CW - 0.85) * 0.84, rowH - 0.06, {
+          minFontSize: 9.0, maxFontSize: hlFontSize, targetLines: 2, allowTruncate: false,
         });
         slide.addText(pt, {
-          x: M + 0.70, y: ry + 0.04, w: CW - 0.85, h: rowH - 0.08,
+          x: M + 0.70, y: ry + 0.03, w: CW - 0.85, h: rowH - 0.06,
           color: C.ink, fontFace: KR, fontSize: ptFit.fontSize,
           margin: 0, valign: 'middle', shrinkText: true,
         });
@@ -420,7 +438,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         ? input.data.brokerProvenanceNote.trim()
         : '● 중개인입력 · 일부 지표(시세 비교·임차 경과연수·전환 가정)는 중개인 제공 자료를 포함합니다.';
       slide.addText(provNote, {
-        x: M, y: 6.52, w: CW, h: 0.20,
+        x: M, y: 6.40, w: CW, h: 0.22,
         color: C.mute, fontFace: KR, fontSize: 8.5,
         margin: 0, valign: 'middle',
       });

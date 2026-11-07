@@ -163,12 +163,12 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     }
   }
 
-  // ── 세로 레이아웃 예산 (SAFE_BOTTOM = 6.75 엄수) ──
-  const footY = SAFE_BOTTOM - FOOTNOTE_H; // 6.51
-  const bandY = 5.72;
-  const bandH = 0.64; // 5.72 + 0.64 = 6.36 <= footY(6.51)
+  // ── 세로 레이아웃 예산 (SAFE_BOTTOM = 6.65 엄수) ──
+  const footY = 6.36; // 6.36 + 0.24 = 6.60 <= 6.65
+  const bandY = 5.66;
+  const bandH = 0.62; // 5.66 + 0.62 = 6.28 <= footY(6.36)
   const cardY = 1.45;
-  const cardH = 4.15; // 1.45 + 4.15 = 5.60 <= bandY(5.72)
+  const cardH = 4.10; // 1.45 + 4.10 = 5.55 <= bandY(5.66)
 
   const padTop = 0.16;
   const afterYield = 0.10;
