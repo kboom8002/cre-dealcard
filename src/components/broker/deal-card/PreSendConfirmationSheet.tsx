@@ -74,6 +74,8 @@ export function PreSendConfirmationSheet({
 
   const onFlushSaveRef = useRef(onFlushSave);
   onFlushSaveRef.current = onFlushSave;
+  const isSavedRef = useRef(isSaved);
+  isSavedRef.current = isSaved;
 
   useEffect(() => {
     if (!isOpen) {
@@ -82,21 +84,28 @@ export function PreSendConfirmationSheet({
       return;
     }
 
-    if (isSaved) {
+    if (isSavedRef.current) {
       setSaveStepState('done');
-    } else {
-      let cancelled = false;
-      setSaveStepState('flushing');
-      onFlushSaveRef.current()
-        .then((ok) => {
-          if (!cancelled) setSaveStepState(ok ? 'done' : 'failed');
-        })
-        .catch(() => {
-          if (!cancelled) setSaveStepState('failed');
-        });
-      return () => {
-        cancelled = true;
-      };
+      return;
+    }
+
+    let cancelled = false;
+    setSaveStepState('flushing');
+    onFlushSaveRef.current()
+      .then((ok) => {
+        if (!cancelled) setSaveStepState(ok ? 'done' : 'failed');
+      })
+      .catch(() => {
+        if (!cancelled) setSaveStepState('failed');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && isSaved) {
+      setSaveStepState('done');
     }
   }, [isOpen, isSaved]);
 

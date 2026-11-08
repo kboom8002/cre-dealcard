@@ -143,7 +143,15 @@ export function useWorkspaceAutosave<T>(
       // Concurrency lock: await in-flight save before starting another
       if (inFlightPromiseRef.current) {
         try {
-          await inFlightPromiseRef.current;
+          const prevOk = await inFlightPromiseRef.current;
+          if (
+            prevOk &&
+            !ignoreConflict &&
+            lastSavedJsonRef.current !== null &&
+            lastSavedJsonRef.current === JSON.stringify(dataRef.current)
+          ) {
+            return true;
+          }
         } catch {
           // ignore previous errors
         }
@@ -172,6 +180,10 @@ export function useWorkspaceAutosave<T>(
             lastSavedJsonRef.current = JSON.stringify(res.savedData);
           } else {
             lastSavedJsonRef.current = jsonToSave;
+          }
+          if (pendingSaveTimerRef.current && lastSavedJsonRef.current === JSON.stringify(dataRef.current)) {
+            clearTimeout(pendingSaveTimerRef.current);
+            pendingSaveTimerRef.current = null;
           }
           if (res?.version !== undefined && res.version !== null) {
             expectedVersionRef.current = res.version;

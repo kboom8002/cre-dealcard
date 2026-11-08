@@ -91,6 +91,7 @@ function DealCardsWorkspaceInner() {
 
   const [items, setItems] = useState<BuildingListItem[]>(INITIAL_BUILDINGS);
   const [brokerProfile, setBrokerProfile] = useState<BrokerProfileSummary | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [postureFilter, setPostureFilter] = useState<"all" | "income" | "owner_value">("all");
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
@@ -148,6 +149,12 @@ function DealCardsWorkspaceInner() {
             }
             if (merged.length > 0) {
               persistItems(merged);
+              const targetId = buildingIdParam || merged[0]?.id;
+              const targetItem = merged.find((m) => m.id === targetId) || merged[0];
+              if (targetItem) {
+                setCurrentCard4(targetItem.card4);
+                setSyncedBuildingId(targetItem.id);
+              }
               return merged;
             }
             return prev;
@@ -156,6 +163,9 @@ function DealCardsWorkspaceInner() {
       })
       .catch(() => {
         // Offline or test environment fallback
+      })
+      .finally(() => {
+        setIsHydrated(true);
       });
   }, [buildingIdParam, persistItems]);
 
@@ -192,27 +202,16 @@ function DealCardsWorkspaceInner() {
         throw new Error(`Save failed (${res.status})`);
       }
       const data = await res.json().catch(() => null);
-      const savedCard4: Card4Data = data?.card4 ?? payloadCard4;
-      if (data?.card4) {
-        setCurrentCard4(data.card4);
-        setItems((prev) => {
-          const next = prev.map((it) =>
-            it.id === id ? { ...it, card4: data.card4, updatedAt: "방금" } : it
-          );
-          persistItems(next);
-          return next;
-        });
-      }
       return {
-        version: savedCard4.card4_version ?? payloadCard4.card4_version ?? 1,
-        savedData: savedCard4,
+        version: data?.card4?.card4_version ?? payloadCard4.card4_version ?? 1,
       };
     },
-    [persistItems]
+    []
   );
 
   const autosave = useWorkspaceAutosave<Card4Data>({
     id: activeBuildingId || null,
+    ready: isHydrated,
     data: effectiveCard4,
     debounceMs: 900,
     onSave: performServerSave,
