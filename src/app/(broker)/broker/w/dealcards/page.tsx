@@ -134,13 +134,18 @@ function DealCardsWorkspaceInner() {
             const localMap = new Map(prev.map((it) => [it.id, it]));
             const merged: BuildingListItem[] = data.dealcards.map((srv: BuildingListItem) => {
               const local = localMap.get(srv.id);
+              const effectiveStatus =
+                srv.status === "sent" || local?.status === "sent" ? ("sent" as const) : srv.status;
               if (local && (local.card4.card4_version || 1) > (srv.card4.card4_version || 1)) {
                 return {
                   ...local,
-                  status: srv.status === "sent" ? "sent" : local.status,
+                  status: effectiveStatus,
                 };
               }
-              return srv;
+              return {
+                ...srv,
+                status: effectiveStatus,
+              };
             });
             for (const loc of prev) {
               if (!INITIAL_IDS.has(loc.id) && loc.id === buildingIdParam && !merged.some((m) => m.id === loc.id)) {

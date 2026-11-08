@@ -80,6 +80,10 @@ const GENERIC_BUILDING_TERMS = new Set([
   '만실',
   '단독',
   '중소형',
+  'OO',
+  '○○',
+  'XX',
+  '해당',
 ]);
 
 // Sensitive tenant brand names that can uniquely pinpoint a commercial property
