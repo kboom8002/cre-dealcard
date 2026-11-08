@@ -75,12 +75,22 @@ const INITIAL_BUILDINGS: BuildingListItem[] = [
 const INITIAL_IDS = new Set(INITIAL_BUILDINGS.map((b) => b.id));
 const STORAGE_KEY = "credeal-w-dealcards-v5";
 
+interface BrokerProfileSummary {
+  displayName: string;
+  company: string;
+  phone: string;
+  registrationNo: string;
+  slug: string;
+  photoUrl: string | null;
+}
+
 function DealCardsWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showUndoToast } = useUndoToast();
 
   const [items, setItems] = useState<BuildingListItem[]>(INITIAL_BUILDINGS);
+  const [brokerProfile, setBrokerProfile] = useState<BrokerProfileSummary | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [postureFilter, setPostureFilter] = useState<"all" | "income" | "owner_value">("all");
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
@@ -115,23 +125,25 @@ function DealCardsWorkspaceInner() {
     fetch(`/api/broker/workspace/summary${querySuffix}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
+        if (data?.brokerProfile) {
+          setBrokerProfile(data.brokerProfile);
+        }
         if (data?.ok && Array.isArray(data.dealcards)) {
           setItems((prev) => {
             const localMap = new Map(prev.map((it) => [it.id, it]));
             const merged: BuildingListItem[] = data.dealcards.map((srv: BuildingListItem) => {
               const local = localMap.get(srv.id);
               if (local && (local.card4.card4_version || 1) > (srv.card4.card4_version || 1)) {
-                return local;
+                return {
+                  ...local,
+                  status: srv.status === "sent" ? "sent" : local.status,
+                };
               }
               return srv;
             });
             for (const loc of prev) {
-              const isUntouchedDemo =
-                INITIAL_IDS.has(loc.id) &&
-                (loc.card4.card4_version || 1) <= 1 &&
-                loc.id !== buildingIdParam;
-              if (!isUntouchedDemo && !merged.some((m) => m.id === loc.id)) {
-                merged.push(loc);
+              if (!INITIAL_IDS.has(loc.id) && loc.id === buildingIdParam && !merged.some((m) => m.id === loc.id)) {
+                merged.unshift(loc);
               }
             }
             if (merged.length > 0) {
@@ -155,11 +167,14 @@ function DealCardsWorkspaceInner() {
   const [currentCard4, setCurrentCard4] = useState<Card4Data>(
     activeItem?.card4 || SAMPLE_CARD4
   );
+  const [syncedBuildingId, setSyncedBuildingId] = useState<string>(activeBuildingId);
+  const effectiveCard4 =
+    activeItem && activeItem.id !== syncedBuildingId ? activeItem.card4 : currentCard4;
 
   const activeIdRef = useRef(activeBuildingId);
-  const currentCard4Ref = useRef(currentCard4);
+  const currentCard4Ref = useRef(effectiveCard4);
   activeIdRef.current = activeBuildingId;
-  currentCard4Ref.current = currentCard4;
+  currentCard4Ref.current = effectiveCard4;
 
   const performServerSave = useCallback(
     async ({ id, data: payloadCard4 }: { id: string; data: Card4Data }) => {
@@ -168,6 +183,7 @@ function DealCardsWorkspaceInner() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "upsert",
           buildingId: id,
           card4: payloadCard4,
         }),
@@ -176,6 +192,7 @@ function DealCardsWorkspaceInner() {
         throw new Error(`Save failed (${res.status})`);
       }
       const data = await res.json().catch(() => null);
+      const savedCard4: Card4Data = data?.card4 ?? payloadCard4;
       if (data?.card4) {
         setCurrentCard4(data.card4);
         setItems((prev) => {
@@ -186,14 +203,17 @@ function DealCardsWorkspaceInner() {
           return next;
         });
       }
-      return { version: data?.card4?.card4_version ?? payloadCard4.card4_version ?? 1 };
+      return {
+        version: savedCard4.card4_version ?? payloadCard4.card4_version ?? 1,
+        savedData: savedCard4,
+      };
     },
     [persistItems]
   );
 
   const autosave = useWorkspaceAutosave<Card4Data>({
     id: activeBuildingId || null,
-    data: currentCard4,
+    data: effectiveCard4,
     debounceMs: 900,
     onSave: performServerSave,
   });
@@ -201,6 +221,7 @@ function DealCardsWorkspaceInner() {
   useEffect(() => {
     if (activeItem) {
       setCurrentCard4(activeItem.card4);
+      setSyncedBuildingId(activeItem.id);
     }
   }, [activeItem?.id]);
 
@@ -211,6 +232,7 @@ function DealCardsWorkspaceInner() {
       card4_version: nextVersion,
     };
     setCurrentCard4(withMeta);
+    setSyncedBuildingId(activeBuildingId);
     currentCard4Ref.current = withMeta;
 
     setItems((prev) => {
@@ -232,9 +254,29 @@ function DealCardsWorkspaceInner() {
     });
   };
 
-  const handleFlushSave = async (): Promise<boolean> => {
+  const handleFlushSave = useCallback(async (): Promise<boolean> => {
     return autosave.flush();
-  };
+  }, [autosave]);
+
+  const handleMarkSent = useCallback(() => {
+    if (!activeBuildingId) return;
+    setItems((prev) => {
+      const next = prev.map((it) =>
+        it.id === activeBuildingId ? { ...it, status: "sent" as const, updatedAt: "방금" } : it
+      );
+      persistItems(next);
+      return next;
+    });
+    void fetch("/api/broker/workspace/summary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "mark_sent",
+        buildingId: activeBuildingId,
+        card4: currentCard4Ref.current,
+      }),
+    }).catch(() => {});
+  }, [activeBuildingId, persistItems]);
 
   const handleCreateNew = useCallback(() => {
     const newId = `bld-${Date.now().toString().slice(-4)}`;
@@ -254,7 +296,17 @@ function DealCardsWorkspaceInner() {
       return next;
     });
     setCurrentCard4({ ...EMPTY_CARD4 });
-    router.replace(`/broker/w/dealcards?id=${newId}`);
+    setSyncedBuildingId(newId);
+    void fetch("/api/broker/workspace/summary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "upsert",
+        buildingId: newId,
+        card4: newItem.card4,
+      }),
+    }).catch(() => {});
+    router.replace(`/broker/w/dealcards?buildingId=${newId}&tab=editor`);
     showUndoToast({
       message: "빈 딜카드를 새로 열었어요. 지역과 용도부터 적어 보세요.",
       variant: "success",
@@ -263,8 +315,8 @@ function DealCardsWorkspaceInner() {
 
   const handleFillSample = () => {
     const prevSnapshot: Card4Data = {
-      ...currentCard4,
-      points: [...currentCard4.points] as [string, string, string],
+      ...effectiveCard4,
+      points: [...effectiveCard4.points] as [string, string, string],
     };
     handleCardChange({ ...SAMPLE_CARD4 });
     showUndoToast({
@@ -300,6 +352,17 @@ function DealCardsWorkspaceInner() {
       persistItems(next);
       return next;
     });
+    setCurrentCard4(cloned.card4);
+    setSyncedBuildingId(newId);
+    void fetch("/api/broker/workspace/summary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "upsert",
+        buildingId: newId,
+        card4: cloned.card4,
+      }),
+    }).catch(() => {});
     router.replace(`/broker/w/dealcards?buildingId=${newId}&tab=editor`);
     showUndoToast({
       message: `'${source.title}' 딜카드를 복제했어요`,
@@ -314,6 +377,14 @@ function DealCardsWorkspaceInner() {
     const nextList = remaining.length > 0 ? remaining : [{ ...INITIAL_BUILDINGS[0], id: `bld-${Date.now().toString().slice(-4)}`, title: "새 딜카드", region: "", use: "", priceBand: "", card4: { ...EMPTY_CARD4 } }];
     setItems(nextList);
     persistItems(nextList);
+    void fetch("/api/broker/workspace/summary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete",
+        buildingId: target.id,
+      }),
+    }).catch(() => {});
     if (target.id === activeBuildingId && nextList[0]) {
       router.replace(`/broker/w/dealcards?buildingId=${nextList[0].id}&tab=editor`);
     }
@@ -322,6 +393,15 @@ function DealCardsWorkspaceInner() {
       undoAction: () => {
         setItems(prevSnapshot);
         persistItems(prevSnapshot);
+        void fetch("/api/broker/workspace/summary", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "restore",
+            buildingId: target.id,
+            card4: target.card4,
+          }),
+        }).catch(() => {});
       },
     });
   };
@@ -342,15 +422,18 @@ function DealCardsWorkspaceInner() {
   });
 
   const isBlankCard =
-    !currentCard4.region?.trim() &&
-    !currentCard4.use?.trim() &&
-    !currentCard4.priceBand?.trim();
+    !effectiveCard4.region?.trim() &&
+    !effectiveCard4.use?.trim() &&
+    !effectiveCard4.priceBand?.trim();
 
   /* ── Column 1: ① 고르기 목록 ── */
   const listSlot = (
     <div className="space-y-3" data-testid="dealcard-airtable-list">
       {/* Header Summary */}
-      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white">
+      <div
+        data-theme-lock="dark"
+        className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white"
+      >
         <span className="text-sm font-extrabold text-white">
           내 딜카드 목록
         </span>
@@ -541,14 +624,20 @@ function DealCardsWorkspaceInner() {
           </button>
         </div>
       )}
-      <Card4ConfirmCard card4={currentCard4} onChange={handleCardChange} />
+      <Card4ConfirmCard card4={effectiveCard4} onChange={handleCardChange} />
     </div>
   );
 
   /* ── Column 3: ③ 확인하고 보내기 ── */
   const previewSlot = (
     <div className="space-y-4">
-      <KakaoBubblePreview card4={currentCard4} dealId={activeBuildingId} />
+      <KakaoBubblePreview
+        card4={effectiveCard4}
+        dealId={activeBuildingId}
+        brokerName={brokerProfile?.displayName}
+        brokerSpecialty={brokerProfile?.company}
+        brokerPhone={brokerProfile?.phone}
+      />
     </div>
   );
 
@@ -586,11 +675,15 @@ function DealCardsWorkspaceInner() {
       <PreSendConfirmationSheet
         isOpen={isPreSendOpen}
         onClose={() => setIsPreSendOpen(false)}
-        card4={currentCard4}
+        card4={effectiveCard4}
         dealId={activeBuildingId}
         isSaved={autosave.status === "saved" || autosave.status === "idle"}
         onFlushSave={handleFlushSave}
+        onSendToClient={() => {
+          handleMarkSent();
+        }}
         onCopyLink={() => {
+          handleMarkSent();
           showUndoToast({
             message: "링크를 복사했어요. 카카오톡에 붙여넣어 보내세요.",
             variant: "success",

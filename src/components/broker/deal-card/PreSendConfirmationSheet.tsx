@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  generateAiOgHeadline,
   resolveCard4AreaLabel,
   type Card4Data,
 } from '@/lib/deal-card/card4-schema';
@@ -71,6 +72,9 @@ export function PreSendConfirmationSheet({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const onFlushSaveRef = useRef(onFlushSave);
+  onFlushSaveRef.current = onFlushSave;
+
   useEffect(() => {
     if (!isOpen) {
       setSaveStepState('pending');
@@ -81,16 +85,20 @@ export function PreSendConfirmationSheet({
     if (isSaved) {
       setSaveStepState('done');
     } else {
+      let cancelled = false;
       setSaveStepState('flushing');
-      onFlushSave()
+      onFlushSaveRef.current()
         .then((ok) => {
-          setSaveStepState(ok ? 'done' : 'failed');
+          if (!cancelled) setSaveStepState(ok ? 'done' : 'failed');
         })
         .catch(() => {
-          setSaveStepState('failed');
+          if (!cancelled) setSaveStepState('failed');
         });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [isOpen, isSaved, onFlushSave]);
+  }, [isOpen, isSaved]);
 
   if (!isOpen) return null;
 
@@ -101,9 +109,8 @@ export function PreSendConfirmationSheet({
   }`;
   const areaDisplay = resolveCard4AreaLabel(card4) || '—';
   const headlineDisplay =
-    (card4.headline || '').trim() ||
-    [card4.region, card4.use, card4.priceBand].filter(Boolean).join(' · ') ||
-    '매물 안내';
+    (card4.headline || '').trim().slice(0, 18) ||
+    generateAiOgHeadline(card4);
 
   const isAllValid =
     saveStepState === 'done' && blindResult.isValid && missingRequired.length === 0;
@@ -170,6 +177,7 @@ export function PreSendConfirmationSheet({
           </div>
           <button
             type="button"
+            data-testid="presend-close-btn"
             onClick={onClose}
             className="min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-100 transition"
             aria-label="닫기"
@@ -179,7 +187,10 @@ export function PreSendConfirmationSheet({
         </div>
 
         {/* Thumbnail Summary Card */}
-        <div className="rounded-2xl overflow-hidden border border-slate-300 bg-slate-900 text-white">
+        <div
+          data-theme-lock="dark"
+          className="rounded-2xl overflow-hidden border border-slate-300 bg-slate-900 text-white"
+        >
           <div className="grid grid-cols-2 border-b border-slate-700">
             <div className="p-3.5 border-r border-slate-700 text-center">
               <p className="text-sm text-slate-400">{TERMS.regionLabel}</p>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { assertBuildingOwner } from "@/lib/authz/assert-owner";
@@ -15,6 +16,11 @@ import {
   getQuickImRecord,
   listAllQuickImRecords,
   updateQuickImCard4,
+  markDealCardDeleted,
+  markDealCardRestored,
+  isDealCardDeleted,
+  markDealCardSent,
+  isDealCardSent,
 } from "@/lib/im-lite/quick-generate-store";
 import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
 
@@ -277,6 +283,110 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  // Fetch broker profile & DealCard activity events (deleted / restored / sent / custom upserted)
+  let brokerProfile: {
+    displayName?: string;
+    company?: string;
+    phone?: string;
+    registrationNo?: string;
+    slug?: string;
+    photoUrl?: string;
+  } | null = null;
+
+  try {
+    if (supabase && typeof supabase.from === "function") {
+      const [{ data: pRow }, { data: bpRow }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("display_name, company, phone, photo_url")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("broker_profiles")
+          .select("office_reg_number, slug, avatar_url, name, display_name, phone, specialty")
+          .eq("user_id", userId)
+          .maybeSingle(),
+      ]);
+      if (pRow || bpRow) {
+        brokerProfile = {
+          displayName:
+            pRow?.display_name || (bpRow as any)?.display_name || (bpRow as any)?.name || undefined,
+          company: pRow?.company || (bpRow as any)?.specialty || undefined,
+          phone: pRow?.phone || (bpRow as any)?.phone || undefined,
+          registrationNo: bpRow?.office_reg_number || undefined,
+          slug: bpRow?.slug || undefined,
+          photoUrl: bpRow?.avatar_url || pRow?.photo_url || undefined,
+        };
+      }
+    }
+  } catch {
+    // Non-blocking
+  }
+
+  const deletedBuildingIds = new Set<string>();
+  const restoredOrActiveBuildingIds = new Set<string>();
+  const sentBuildingIds = new Set<string>();
+  const customUpsertedByBuilding = new Map<
+    string,
+    { card4: Card4Data; updatedAt: string; status?: "draft" | "sent" }
+  >();
+
+  try {
+    if (supabase && typeof supabase.from === "function") {
+      let actQuery: any = supabase
+        .from("activity_events")
+        .select("id, event_type, entity_id, metadata, created_at")
+        .eq("actor_id", userId);
+      if (typeof actQuery.in === "function") {
+        actQuery = actQuery.in("event_type", [
+          "dealcard_upserted",
+          "dealcard_deleted",
+          "dealcard_restored",
+          "dealcard_sent",
+        ]);
+      }
+      if (typeof actQuery.order === "function") {
+        actQuery = actQuery.order("created_at", { ascending: false });
+      }
+      if (typeof actQuery.limit === "function") {
+        actQuery = actQuery.limit(100);
+      }
+      const { data: dcActs } = await actQuery;
+      for (const act of dcActs || []) {
+        const meta = (act.metadata as Record<string, any>) || {};
+        const bId = String(meta.building_id || act.entity_id || "").trim();
+        if (!bId || bId === userId) continue;
+
+        if (act.event_type === "dealcard_deleted") {
+          if (!restoredOrActiveBuildingIds.has(bId)) {
+            deletedBuildingIds.add(bId);
+          }
+        } else if (act.event_type === "dealcard_restored" || act.event_type === "dealcard_upserted") {
+          if (!deletedBuildingIds.has(bId)) {
+            restoredOrActiveBuildingIds.add(bId);
+            if (meta.card4 && !customUpsertedByBuilding.has(bId)) {
+              customUpsertedByBuilding.set(bId, {
+                card4: meta.card4 as Card4Data,
+                updatedAt: act.created_at,
+                status: meta.status === "sent" ? "sent" : undefined,
+              });
+              if (!isUuid(bId)) {
+                updateQuickImCard4(bId, meta.card4 as Card4Data, {
+                  ownerId: userId,
+                  brokerProfile: brokerProfile || undefined,
+                });
+              }
+            }
+          }
+        } else if (act.event_type === "dealcard_sent") {
+          sentBuildingIds.add(bId);
+        }
+      }
+    }
+  } catch {
+    // Non-blocking if activity_events unavailable
+  }
+
   // Merge QuickImStore records owned by this user (and requested quickTargetRec / default seeds)
   const allQuickRecords = listAllQuickImRecords()
     .filter((rec) => rec.ownerId === userId || !rec.ownerId || (targetId && (rec.buildingId === targetId || rec.documentId === targetId)))
@@ -294,13 +404,14 @@ export async function GET(request: NextRequest) {
 
   for (const qRec of [...allQuickRecords].reverse()) {
     const existingDcIdx = dealcards.findIndex((dc) => dc.id === qRec.buildingId);
+    const isSent = sentBuildingIds.has(qRec.buildingId) || isDealCardSent(qRec.buildingId);
     const mappedDc = {
       id: qRec.buildingId,
       title: `${qRec.card4.region} ${qRec.card4.use}`.trim(),
       region: qRec.card4.region,
       use: qRec.card4.use,
       priceBand: qRec.card4.priceBand,
-      status: (qRec.ownerId === userId ? "draft" : "draft") as "draft" | "sent",
+      status: (isSent ? "sent" : "draft") as "draft" | "sent",
       updatedAt: formatRelativeTime(qRec.updatedAt),
       card4: qRec.card4,
     };
@@ -345,7 +456,7 @@ export async function GET(request: NextRequest) {
       if (qRec.ownerId === userId) {
         imList[existingImIdx] = mappedIm;
       }
-    } else if (qRec.ownerId === userId || imList.length < 3 || (targetId && (qRec.buildingId === targetId || qRec.documentId === targetId))) {
+    } else if (qRec.ownerId || imList.length < 3 || (targetId && (qRec.buildingId === targetId || qRec.documentId === targetId))) {
       if (qRec.ownerId === userId || (targetId && (qRec.buildingId === targetId || qRec.documentId === targetId))) {
         imList.unshift(mappedIm);
       } else {
@@ -354,10 +465,47 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Apply customUpsertedByBuilding overrides and sentBuildingIds / deletedBuildingIds filtering
+  for (const [bId, customEntry] of customUpsertedByBuilding.entries()) {
+    const idx = dealcards.findIndex((dc) => dc.id === bId);
+    const isSent = sentBuildingIds.has(bId) || isDealCardSent(bId) || customEntry.status === "sent";
+    const c4 = customEntry.card4;
+    const itemObj = {
+      id: bId,
+      title: `${c4.region || "새"} ${c4.use || "딜카드"}`.trim(),
+      region: c4.region,
+      use: c4.use,
+      priceBand: c4.priceBand,
+      status: (isSent ? "sent" : "draft") as "draft" | "sent",
+      updatedAt: formatRelativeTime(customEntry.updatedAt),
+      card4: c4,
+    };
+    if (idx >= 0) {
+      dealcards[idx] = itemObj;
+    } else {
+      dealcards.unshift(itemObj);
+    }
+  }
+
+  const finalDealcards = dealcards
+    .filter((dc) => {
+      if (deletedBuildingIds.has(dc.id)) return false;
+      if (isDealCardDeleted(dc.id) && !restoredOrActiveBuildingIds.has(dc.id)) return false;
+      return true;
+    })
+    .map((dc) => ({
+      ...dc,
+      status:
+        dc.status === "sent" || sentBuildingIds.has(dc.id) || isDealCardSent(dc.id)
+          ? ("sent" as const)
+          : ("draft" as const),
+    }));
+
   return NextResponse.json({
     ok: true,
-    dealcards,
+    dealcards: finalDealcards,
     imList,
+    brokerProfile,
   });
 }
 
@@ -366,34 +514,12 @@ export async function PATCH(request: NextRequest) {
   if (auth.error || !auth.user) return auth.error!;
 
   const body = await request.json().catch(() => null);
+  const action = (body?.action as string | undefined) || "upsert";
   const buildingId = body?.buildingId as string | undefined;
   const card4 = body?.card4 as Card4Data | undefined;
 
-  if (!buildingId || !card4) {
-    return NextResponse.json({ error: "buildingId and card4 are required" }, { status: 400 });
-  }
-
-  // Server-side blind-guard check
-  const blindCheck = validateBlindPoints(
-    [
-      ...(Array.isArray(card4.points) ? card4.points : []),
-      card4.region || "",
-      card4.use || "",
-      card4.headline || "",
-    ],
-    { region: card4.region, assetType: card4.use }
-  );
-  if (!blindCheck.isValid) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          blindCheck.violations[0]?.reason ||
-          "건물 위치가 드러날 수 있는 표현이 포함되어 있습니다.",
-        violations: blindCheck.violations,
-      },
-      { status: 422 }
-    );
+  if (!buildingId) {
+    return NextResponse.json({ error: "buildingId is required" }, { status: 400 });
   }
 
   const supabase = createServiceClient();
@@ -417,15 +543,16 @@ export async function PATCH(request: NextRequest) {
           .maybeSingle(),
         supabase
           .from("broker_profiles")
-          .select("office_reg_number, slug, avatar_url")
+          .select("office_reg_number, slug, avatar_url, name, display_name, phone, specialty")
           .eq("user_id", auth.user.id)
           .maybeSingle(),
       ]);
       if (pRow || bpRow) {
         brokerProfileMeta = {
-          displayName: pRow?.display_name || undefined,
-          company: pRow?.company || undefined,
-          phone: pRow?.phone || undefined,
+          displayName:
+            pRow?.display_name || (bpRow as any)?.display_name || (bpRow as any)?.name || undefined,
+          company: pRow?.company || (bpRow as any)?.specialty || undefined,
+          phone: pRow?.phone || (bpRow as any)?.phone || undefined,
           registrationNo: bpRow?.office_reg_number || undefined,
           slug: bpRow?.slug || undefined,
           photoUrl: bpRow?.avatar_url || pRow?.photo_url || undefined,
@@ -434,6 +561,127 @@ export async function PATCH(request: NextRequest) {
     }
   } catch {
     // Non-blocking
+  }
+
+  // Handle delete action
+  if (action === "delete") {
+    markDealCardDeleted(buildingId);
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "dealcard_deleted",
+        entity_type: "building",
+        entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
+        metadata: {
+          building_id: buildingId,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+    try {
+      revalidatePath(`/dc/${buildingId}`);
+    } catch {
+      // Ignore outside request context
+    }
+    return NextResponse.json({ ok: true, action: "delete", buildingId, persisted: true });
+  }
+
+  // Handle restore action (Undo delete)
+  if (action === "restore") {
+    markDealCardRestored(buildingId);
+    if (card4 && !isUuid(buildingId)) {
+      updateQuickImCard4(buildingId, card4, {
+        ownerId: auth.user.id,
+        brokerProfile: brokerProfileMeta,
+      });
+    }
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "dealcard_restored",
+        entity_type: "building",
+        entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
+        metadata: {
+          building_id: buildingId,
+          ...(card4 ? { card4 } : {}),
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+    try {
+      revalidatePath(`/dc/${buildingId}`);
+    } catch {
+      // Ignore
+    }
+    return NextResponse.json({ ok: true, action: "restore", buildingId, persisted: true });
+  }
+
+  // Handle mark_sent action (after Kakao send or Copy Link)
+  if (action === "mark_sent") {
+    markDealCardSent(buildingId);
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "dealcard_sent",
+        entity_type: "building",
+        entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
+        metadata: {
+          building_id: buildingId,
+        },
+      });
+      if (isUuid(buildingId)) {
+        await supabase
+          .from("document_objects")
+          .update({ status: "published", updated_at: new Date().toISOString() })
+          .eq("building_id", buildingId)
+          .eq("document_type", "blind_teaser");
+      }
+    } catch {
+      // Non-blocking
+    }
+    try {
+      revalidatePath(`/dc/${buildingId}`);
+    } catch {
+      // Ignore
+    }
+    return NextResponse.json({
+      ok: true,
+      action: "mark_sent",
+      buildingId,
+      status: "sent",
+      persisted: true,
+    });
+  }
+
+  if (!card4) {
+    return NextResponse.json({ error: "buildingId and card4 are required" }, { status: 400 });
+  }
+
+  markDealCardRestored(buildingId);
+
+  // Server-side blind-guard check
+  const blindCheck = validateBlindPoints(
+    [
+      ...(Array.isArray(card4.points) ? card4.points : []),
+      card4.region || "",
+      card4.use || "",
+      card4.headline || "",
+    ],
+    { region: card4.region, assetType: card4.use }
+  );
+  if (!blindCheck.isValid) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          blindCheck.violations[0]?.reason ||
+          "건물 위치가 드러날 수 있는 표현이 포함되어 있습니다.",
+        violations: blindCheck.violations,
+      },
+      { status: 422 }
+    );
   }
 
   // Only enforce DB ownership if buildingId is a real UUID in building_ssot_lite
@@ -466,11 +714,31 @@ export async function PATCH(request: NextRequest) {
         { status: result.conflict ? 409 : 500 }
       );
     }
-    if (result.card4 && getQuickImRecord(buildingId)) {
+    if (result.card4) {
       updateQuickImCard4(buildingId, result.card4, {
         ownerId: auth.user.id,
         brokerProfile: brokerProfileMeta,
       });
+    }
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "dealcard_upserted",
+        entity_type: "building",
+        entity_id: buildingId,
+        metadata: {
+          building_id: buildingId,
+          card4: result.card4,
+          broker_profile: brokerProfileMeta,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+    try {
+      revalidatePath(`/dc/${buildingId}`);
+    } catch {
+      // Ignore
     }
     return NextResponse.json({
       ok: true,
@@ -482,7 +750,7 @@ export async function PATCH(request: NextRequest) {
     });
   }
 
-  // Non-UUID local draft ID: compute deterministic hash & increment version, and update QuickImStore
+  // Non-UUID local draft ID: compute deterministic hash & increment version, update QuickImStore + activity_events
   const nextVersion = (card4.card4_version || 1) + 1;
   const hash = computeCard4Hash(card4);
   const nextCard4: Card4Data = {
@@ -494,10 +762,30 @@ export async function PATCH(request: NextRequest) {
     ownerId: auth.user.id,
     brokerProfile: brokerProfileMeta,
   });
+  try {
+    await supabase.from("activity_events").insert({
+      actor_id: auth.user.id,
+      event_type: "dealcard_upserted",
+      entity_type: "building",
+      entity_id: auth.user.id,
+      metadata: {
+        building_id: buildingId,
+        card4: nextCard4,
+        broker_profile: brokerProfileMeta,
+      },
+    });
+  } catch {
+    // Non-blocking
+  }
+  try {
+    revalidatePath(`/dc/${buildingId}`);
+  } catch {
+    // Ignore
+  }
   return NextResponse.json({
     ok: true,
     buildingId,
-    persisted: false,
+    persisted: true,
     card4: nextCard4,
     version: nextVersion,
     hash,

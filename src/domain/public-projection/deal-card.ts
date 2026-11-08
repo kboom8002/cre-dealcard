@@ -290,14 +290,14 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     card4.priceBand
   );
 
-  // ── OG (mirrors previous generateMetadata, with card4 fallback) ──
+  // ── OG (mirrors previous generateMetadata, with card4 SSoT priority) ──
   const card4Headline =
     card4.region || card4.use || card4.priceBand
       ? `${str(card4.region || safeBuilding.area_signal || '서울시')} ${str(card4.use || safeBuilding.asset_type || '근린생활시설')} ${str(card4.priceBand || safeBuilding.price_band || '')}`.trim()
       : '';
-  const ogTitle = str(imBody.kakaoOgTitle)
+  const ogTitle = str(card4.headline)
+    || str(imBody.kakaoOgTitle)
     || str(imBody.ogTitle)
-    || str(card4.headline)
     || str(signalCard?.title)
     || card4Headline
     || `${safeBuilding.area_signal || '상업용 부동산'} ${safeBuilding.asset_type || '매물'} 매각`;
@@ -306,14 +306,15 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
   const card4PointsList = Array.isArray(card4.points)
     ? card4.points.filter((p: unknown): p is string => typeof p === 'string' && p.length > 0)
     : [];
-  const ogDescription = str(imBody.kakaoOgDescription)
+  const ogDescription = (card4PointsList.length > 0 ? card4PointsList.join(' · ') : '')
+    || str(imBody.kakaoOgDescription)
     || str(imBody.ogDescription)
     || str(body.shortSummary)
-    || (card4PointsList.length > 0 ? card4PointsList.join(' · ') : '')
     || `${areaFormatted} 블라인드 매각 딜카드`;
 
   // ── Hero ──
   const dealTitle =
+    str(card4.headline) ||
     str(imBody.title) ||
     str(body.title) ||
     str(signalCard?.title) ||
@@ -321,15 +322,15 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     '';
   const hookCopy = str(imBody.hookCopy) || str(body.hookCopy) || teaserView.hookCopy
     || `${str(card4.region) || teaserView.region || '비공개 권역'} ${str(card4.use) || safeBuilding.asset_type || '빌딩'} 매각`;
-  const posture = teaserView.posture || 'income';
+  const posture = str(card4.posture) || teaserView.posture || 'income';
   const postureLabel = teaserView.postureLabel || '임대수익형';
   const urgencyRaw = teaserView.urgencyTag || body.urgencyTag;
   const urgencyTag = urgencyRaw === 'urgent' || urgencyRaw === 'reviewing' || urgencyRaw === 'flexible' ? urgencyRaw : null;
 
-  const rawDealPoints = Array.isArray(imBody.dealPoints) && imBody.dealPoints.length > 0
-    ? imBody.dealPoints
-    : card4PointsList.length > 0
+  const rawDealPoints = card4PointsList.length > 0
     ? card4PointsList
+    : Array.isArray(imBody.dealPoints) && imBody.dealPoints.length > 0
+    ? imBody.dealPoints
     : Array.isArray(imBody.key_points)
     ? imBody.key_points
     : [];

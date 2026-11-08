@@ -10,6 +10,7 @@
 
 import React, { useState } from 'react';
 import {
+  generateAiOgHeadline,
   resolveCard4AreaLabel,
   type Card4Data,
   type DealCardPointTone,
@@ -46,13 +47,16 @@ export function KakaoBubblePreview({
   const areaText = resolveCard4AreaLabel(card4) || '—';
   const priceText = card4.priceBand?.trim() || '—';
 
+  const hasCardContent = Boolean(
+    card4.region?.trim() ||
+      card4.use?.trim() ||
+      card4.priceBand?.trim() ||
+      card4.points?.some((p) => p?.trim())
+  );
+
   const bubbleTitle =
     card4.headline?.trim().slice(0, 18) ||
-    [card4.region?.trim(), card4.use?.trim(), card4.priceBand?.trim()]
-      .filter(Boolean)
-      .join(' · ')
-      .slice(0, 18) ||
-    '한 줄 제목을 입력해 주세요';
+    (hasCardContent ? generateAiOgHeadline(card4) : '한 줄 제목을 입력해 주세요');
 
   return (
     <div
@@ -74,6 +78,7 @@ export function KakaoBubblePreview({
             type="button"
             role="tab"
             aria-selected={viewFilter === 'all'}
+            data-testid="preview-mode-all"
             onClick={() => setViewFilter('all')}
             className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
               viewFilter === 'all'
@@ -87,6 +92,7 @@ export function KakaoBubblePreview({
             type="button"
             role="tab"
             aria-selected={viewFilter === 'bubble'}
+            data-testid="preview-mode-kakao"
             onClick={() => setViewFilter('bubble')}
             className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
               viewFilter === 'bubble'
@@ -187,6 +193,7 @@ export function KakaoBubblePreview({
       {viewFilter !== 'bubble' && (
         <div
           data-testid="dealcard-postit-preview-list"
+          data-theme-lock="dark"
           className="w-full rounded-2xl bg-[#0B0F14] text-white border-2 border-slate-800 shadow-lg overflow-hidden"
         >
           <div className="px-4 py-3 bg-[#141A21] border-b border-slate-800 flex items-center justify-between">

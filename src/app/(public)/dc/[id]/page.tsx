@@ -9,7 +9,12 @@ import { toPublicDealCard } from '@/domain/public-projection/deal-card';
 import { evaluateDealCardPublicVisibility } from '@/domain/public-projection/visibility';
 import { isOwnerOrAdmin } from '@/domain/public-projection/access';
 import { getServerViewer } from '@/lib/server-viewer';
-import { getQuickImRecord, isUuid, type StoredQuickImRecord } from '@/lib/im-lite/quick-generate-store';
+import {
+  getQuickImRecord,
+  isUuid,
+  updateQuickImCard4,
+  type StoredQuickImRecord,
+} from '@/lib/im-lite/quick-generate-store';
 
 // v3 Goldilocks components
 import { TeaserHeroHeader } from '@/components/teaser/TeaserHeroHeader';
@@ -105,6 +110,38 @@ const getDealCardData = cache(async (id: string) => {
   }
 
   const supabase = createServiceClient();
+
+  if (!isUuid(id)) {
+    try {
+      let actQuery: any = supabase
+        .from("activity_events")
+        .select("actor_id, event_type, metadata, created_at");
+      if (typeof actQuery.in === "function") {
+        actQuery = actQuery.in("event_type", ["dealcard_upserted", "dealcard_restored"]);
+      }
+      if (typeof actQuery.order === "function") {
+        actQuery = actQuery.order("created_at", { ascending: false });
+      }
+      if (typeof actQuery.limit === "function") {
+        actQuery = actQuery.limit(50);
+      }
+      const { data: acts } = await actQuery;
+      const matched = (acts || []).find(
+        (a: any) => String(a?.metadata?.building_id || "").trim() === id && a?.metadata?.card4
+      );
+      if (matched) {
+        const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
+          ownerId: matched.actor_id,
+          brokerProfile: matched.metadata.broker_profile,
+        });
+        if (hydrated) {
+          return buildDealCardDataFromQuickRecord(hydrated);
+        }
+      }
+    } catch {
+      // ignore if activity_events unavailable
+    }
+  }
 
   let targetBuildingId = id;
   let [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
@@ -256,6 +293,10 @@ const getDealCardData = cache(async (id: string) => {
 
 type DealCardData = Awaited<ReturnType<typeof getDealCardData>>;
 
+function PostureMeta(_props: { input: DealCardData extends never ? never : unknown }) {
+  return null;
+}
+
 /** Server-only → public DTO. Only this crosses into JSX / client components. */
 function projectPublic(id: string, data: DealCardData) {
   return toPublicDealCard({
@@ -354,6 +395,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   return (
     <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] pb-12">
       <TeaserEventTracker teaserConfigId={card.teaserConfigId} />
+      <PostureMeta input={card.postureWidget} />
 
       <div className="max-w-[420px] mx-auto px-4 pt-5 space-y-4">
         {/* 상단 4항목 요약 (지역 · 용도 · 면적 · 가격) + 한 줄 제목 */}

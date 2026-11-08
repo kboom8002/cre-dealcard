@@ -31,7 +31,7 @@ export interface UseWorkspaceAutosaveOptions<T> {
     id: string;
     data: T;
     expectedVersion?: number | string | null;
-  }) => Promise<{ version?: number | string | null } | void>;
+  }) => Promise<{ version?: number | string | null; savedData?: T } | void>;
   /** Callback triggered when a 409 conflict is detected */
   onConflict?: (serverVersion?: number | string | null) => void;
   /** Callback triggered when save errors */
@@ -89,6 +89,7 @@ export function useWorkspaceAutosave<T>(
   const onErrorRef = useRef(onError);
 
   const lastSavedJsonRef = useRef<string | null>(null);
+  const prevIdRef = useRef<string | null>(id);
   const pendingSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const intervalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inFlightPromiseRef = useRef<Promise<boolean> | null>(null);
@@ -167,7 +168,11 @@ export function useWorkspaceAutosave<T>(
 
           if (!isMountedRef.current) return true;
 
-          lastSavedJsonRef.current = jsonToSave;
+          if (res && typeof res === 'object' && 'savedData' in res && res.savedData !== undefined) {
+            lastSavedJsonRef.current = JSON.stringify(res.savedData);
+          } else {
+            lastSavedJsonRef.current = jsonToSave;
+          }
           if (res?.version !== undefined && res.version !== null) {
             expectedVersionRef.current = res.version;
           }
@@ -266,6 +271,16 @@ export function useWorkspaceAutosave<T>(
   // Debounce effect on data change
   useEffect(() => {
     if (!ready || !enabled || !id) return;
+    if (prevIdRef.current !== id) {
+      prevIdRef.current = id;
+      lastSavedJsonRef.current = currentJson;
+      if (pendingSaveTimerRef.current) {
+        clearTimeout(pendingSaveTimerRef.current);
+        pendingSaveTimerRef.current = null;
+      }
+      setStatus('idle');
+      return;
+    }
     if (lastSavedJsonRef.current === null) {
       lastSavedJsonRef.current = currentJson;
       return;

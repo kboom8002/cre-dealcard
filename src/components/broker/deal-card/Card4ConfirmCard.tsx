@@ -20,7 +20,7 @@ import {
   type DealCardPosture,
   type ProvenanceSource,
 } from '@/lib/deal-card/card4-schema';
-import { validateBlindPoints } from '@/lib/deal-card/blind-guard';
+import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import { POSTURE_LABELS, TERMS } from '@/lib/ux/lexicon';
 import { showUndoToast } from '@/components/workspace/UndoConfirmToast';
 
@@ -278,6 +278,34 @@ export function Card4ConfirmCard({
     });
   };
 
+  const handleAutoClean = () => {
+    const prevSnapshot: Card4Data = {
+      ...card4,
+      points: [...card4.points] as [string, string, string],
+    };
+    const cleanedPts = cleanBlindPoints(card4.points).map((p) =>
+      p.slice(0, 18)
+    ) as [string, string, string];
+    const cleanedHeadline = card4.headline
+      ? cleanBlindPoints([card4.headline])[0]?.slice(0, 18)
+      : card4.headline;
+    const cleanedRegion = cleanBlindPoints([card4.region])[0] || card4.region;
+    const cleanedUse = cleanBlindPoints([card4.use])[0] || card4.use;
+
+    onChange({
+      ...card4,
+      region: cleanedRegion,
+      use: cleanedUse,
+      ...(cleanedHeadline !== undefined ? { headline: cleanedHeadline } : {}),
+      points: cleanedPts,
+    });
+
+    showUndoToast({
+      message: '위치가 드러나는 표현을 자동으로 가렸어요',
+      undoAction: () => onChange(prevSnapshot),
+    });
+  };
+
   const postureInfo = POSTURE_LABELS[currentPosture];
 
   return (
@@ -383,6 +411,7 @@ export function Card4ConfirmCard({
           {/* 4-Item Thumbnail Input Grid (2x2) */}
           <div
             data-testid="card4-og-quadrant-grid"
+            data-theme-lock="dark"
             className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl bg-slate-900 text-white border border-slate-700"
           >
             {/* Item 1: 지역 */}
@@ -541,6 +570,31 @@ export function Card4ConfirmCard({
               className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm font-semibold"
             >
               {aiFeedback}
+            </div>
+          )}
+
+          {(!validation.isValid || headerFieldViolations.length > 0) && (
+            <div
+              data-testid="card4-blind-alert"
+              role="alert"
+              className="p-3.5 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-950 flex flex-wrap items-center justify-between gap-3"
+            >
+              <div className="space-y-0.5">
+                <p className="text-base font-extrabold text-rose-900">
+                  ⚠ 건물 위치가 드러날 수 있는 단어가 있어요
+                </p>
+                <p className="text-sm font-semibold text-rose-800">
+                  오른쪽 단추를 누르면 번지·건물명·상호를 안전한 표현으로 바로 가려 드립니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="card4-blind-clean-btn"
+                onClick={handleAutoClean}
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-sm font-extrabold shadow-xs transition cursor-pointer shrink-0"
+              >
+                자동으로 가리기
+              </button>
             </div>
           )}
 

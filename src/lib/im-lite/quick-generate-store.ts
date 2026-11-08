@@ -93,6 +93,8 @@ export interface StoredInboxState {
     newsletterSubscribed?: boolean;
     createdAt: string;
   }>;
+  deletedDealCardIds?: Record<string, boolean>;
+  sentDealCardIds?: Record<string, boolean>;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -433,6 +435,8 @@ function createEmptyInboxState(): StoredInboxState {
     gateDecisions: {},
     callNotes: {},
     customClients: [],
+    deletedDealCardIds: {},
+    sentDealCardIds: {},
   };
 }
 
@@ -450,6 +454,8 @@ export function getInboxState(): StoredInboxState {
         gateDecisions: parsed.gateDecisions || {},
         callNotes: parsed.callNotes || {},
         customClients: Array.isArray(parsed.customClients) ? parsed.customClients : [],
+        deletedDealCardIds: parsed.deletedDealCardIds || {},
+        sentDealCardIds: parsed.sentDealCardIds || {},
       };
     }
   } catch {
@@ -588,4 +594,41 @@ export function upsertCustomInboxClient(client: {
   }
   saveInboxState(state);
   return state;
+}
+
+export function markDealCardDeleted(buildingId: string): void {
+  if (!buildingId) return;
+  const state = getInboxState();
+  state.deletedDealCardIds = state.deletedDealCardIds || {};
+  state.deletedDealCardIds[buildingId] = true;
+  saveInboxState(state);
+}
+
+export function markDealCardRestored(buildingId: string): void {
+  if (!buildingId) return;
+  const state = getInboxState();
+  if (state.deletedDealCardIds) {
+    delete state.deletedDealCardIds[buildingId];
+    saveInboxState(state);
+  }
+}
+
+export function isDealCardDeleted(buildingId: string): boolean {
+  if (!buildingId) return false;
+  const state = getInboxState();
+  return Boolean(state.deletedDealCardIds?.[buildingId]);
+}
+
+export function markDealCardSent(buildingId: string): void {
+  if (!buildingId) return;
+  const state = getInboxState();
+  state.sentDealCardIds = state.sentDealCardIds || {};
+  state.sentDealCardIds[buildingId] = true;
+  saveInboxState(state);
+}
+
+export function isDealCardSent(buildingId: string): boolean {
+  if (!buildingId) return false;
+  const state = getInboxState();
+  return Boolean(state.sentDealCardIds?.[buildingId]);
 }

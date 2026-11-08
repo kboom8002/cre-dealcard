@@ -10,7 +10,7 @@ import {
 } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
-import { getQuickImRecord, isUuid } from '@/lib/im-lite/quick-generate-store';
+import { getQuickImRecord, isUuid, updateQuickImCard4 } from '@/lib/im-lite/quick-generate-store';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('og-kakao-v2');
@@ -109,7 +109,37 @@ export async function GET(
 
   if (!isUuid(id)) {
     building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
-    if (!building && !quickRec) {
+    if (!bodyCard4) {
+      try {
+        const supabase = createServiceClient();
+        let actQuery: any = supabase
+          .from('activity_events')
+          .select('actor_id, event_type, metadata, created_at');
+        if (typeof actQuery.in === 'function') {
+          actQuery = actQuery.in('event_type', ['dealcard_upserted', 'dealcard_restored']);
+        }
+        if (typeof actQuery.order === 'function') {
+          actQuery = actQuery.order('created_at', { ascending: false });
+        }
+        if (typeof actQuery.limit === 'function') {
+          actQuery = actQuery.limit(50);
+        }
+        const { data: acts } = await actQuery;
+        const matched = (acts || []).find(
+          (a: any) => String(a?.metadata?.building_id || '').trim() === id && a?.metadata?.card4
+        );
+        if (matched?.metadata?.card4) {
+          bodyCard4 = matched.metadata.card4 as Card4Data;
+          updateQuickImCard4(id, bodyCard4, {
+            ownerId: matched.actor_id,
+            brokerProfile: matched.metadata.broker_profile,
+          });
+        }
+      } catch {
+        // ignore if activity_events unavailable
+      }
+    }
+    if (!building && !quickRec && !bodyCard4) {
       return new Response('Building Not Found', { status: 404 });
     }
   } else {

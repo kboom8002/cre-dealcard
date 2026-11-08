@@ -335,6 +335,10 @@ export function WorkspaceShell({
 
   // Auto-switch mobile view if a selection is present (unless the page asks to start on the list)
   useEffect(() => {
+    if (rawQueryTab === "list") {
+      setMobileView("list");
+      return;
+    }
     if (activeBuildingId) {
       if (mobileStartOnList && !rawQueryTab) {
         setMobileView("list");
@@ -581,7 +585,27 @@ export function WorkspaceShell({
               </button>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-3">
+            <div
+              className="flex-1 overflow-y-auto p-3"
+              onClick={(e) => {
+                const target = e.target as HTMLElement | null;
+                if (!target) return;
+                if (
+                  target.closest(
+                    '[data-testid*="delete-"], [data-testid*="duplicate-"], input, select'
+                  )
+                ) {
+                  return;
+                }
+                if (
+                  target.closest(
+                    '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid="workspace-new-dealcard-btn"]'
+                  )
+                ) {
+                  setMobileView("editor");
+                }
+              }}
+            >
               {listSlot}
             </div>
           )}
@@ -605,8 +629,14 @@ export function WorkspaceShell({
             <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
-                onClick={() => setMobileView("list")}
-                className="lg:hidden px-3 min-h-[48px] rounded-lg border border-slate-300 text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0"
+                data-testid="workspace-mobile-back-to-list-btn"
+                onClick={() => {
+                  setMobileView("list");
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("tab", "list");
+                  router.replace(`${pathname}?${params.toString()}`);
+                }}
+                className="lg:hidden px-3 min-h-[48px] rounded-lg border border-slate-300 text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 ‹ 목록
               </button>
@@ -664,7 +694,12 @@ export function WorkspaceShell({
               <button
                 type="button"
                 data-testid="mobile-preview-back-btn"
-                onClick={() => setMobileView("list")}
+                onClick={() => {
+                  setMobileView("list");
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("tab", "list");
+                  router.replace(`${pathname}?${params.toString()}`);
+                }}
                 className="lg:hidden px-3 min-h-[48px] rounded-lg border border-slate-300 text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 ‹ 목록
