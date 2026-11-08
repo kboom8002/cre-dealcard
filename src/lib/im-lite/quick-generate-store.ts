@@ -4,7 +4,13 @@ import path from 'path';
 import type { BasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
-import { computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import {
+  computeCard4Hash,
+  generateAiOgHeadline,
+  resolveCard4AreaLabel,
+  type Card4Data,
+  type DealCardPosture,
+} from '@/lib/deal-card/card4-schema';
 
 export interface StoredQuickImRecord {
   buildingId: string;
@@ -158,9 +164,26 @@ function buildSeedRecord(params: {
     facts,
   });
 
+  const gfaPyung = Math.max(1, Math.round(params.gfaSqm / 3.3058));
+  const landAreaPyung = Math.max(1, Math.round(params.landAreaSqm / 3.3058));
+  const mappedPosture: DealCardPosture =
+    params.posture === 'value_add' || params.posture === 'development'
+      ? 'value_add'
+      : params.posture === 'owner_occupied'
+      ? 'owner_occupied'
+      : 'income';
+
   const card4Base: Omit<Card4Data, 'card4_hash'> = {
+    headline: generateAiOgHeadline({ posture: mappedPosture, points: params.points }),
+    posture: mappedPosture,
     region: params.region,
     use: params.use,
+    area: resolveCard4AreaLabel(
+      { posture: mappedPosture, gfaPyung, landAreaPyung },
+      { gfaPyung, landAreaPyung },
+    ),
+    gfaPyung,
+    landAreaPyung,
     priceBand: params.priceBand,
     points: params.points,
     provenance: { points: ['public', 'broker', 'ai'] },

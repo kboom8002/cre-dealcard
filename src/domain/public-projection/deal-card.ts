@@ -297,6 +297,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
       : '';
   const ogTitle = str(imBody.kakaoOgTitle)
     || str(imBody.ogTitle)
+    || str(card4.headline)
     || str(signalCard?.title)
     || card4Headline
     || `${safeBuilding.area_signal || '상업용 부동산'} ${safeBuilding.asset_type || '매물'} 매각`;
@@ -381,7 +382,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
       })),
       bandedPrice: str(card4.priceBand) || str(teaserView.bandedPrice),
       bandedCapRate: str(teaserView.bandedCapRate),
-      bandedArea: str(teaserView.bandedArea),
+      bandedArea: clean(str(card4.area) || str(teaserView.bandedArea)),
       vacancyLabel: strOrNull(teaserView.vacancyLabel),
       urgencyTag,
     },

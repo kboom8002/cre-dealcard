@@ -400,7 +400,7 @@ export function EditionAirtableList({
             className="flex-1 min-h-10 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-2.5 py-1.5 text-xs font-extrabold text-slate-800 flex items-center justify-center gap-1 transition-colors"
           >
             <BarChart3 className="w-3.5 h-3.5 text-blue-700" aria-hidden="true" />
-            <span>열람·핫리드</span>
+            <span>열람·연락할 고객</span>
           </button>
         )}
       </div>

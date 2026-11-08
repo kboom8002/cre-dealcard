@@ -323,13 +323,19 @@ export async function POST(req: NextRequest) {
   const subjectLandPyeongEarly = Math.max(1, effectiveLandSqm / 3.305785);
   const subjectLandPricePerPyeongManwon = Math.round(priceNum / subjectLandPyeongEarly);
 
+  const customPoints = Array.isArray(body.investmentPoints)
+    ? body.investmentPoints.filter((p: unknown): p is string => typeof p === 'string' && p.trim().length > 0)
+    : [];
+
   const defaultPoints: [string, string, string] = [
-    parsedExtras?.investment_points?.[0] || `${derivedRegion} 핵심 상권 역세권 가시성 우수`,
-    parsedExtras?.investment_points?.[1] ||
+    customPoints[0] || parsedExtras?.investment_points?.[0] || `${derivedRegion} 핵심 상권 역세권 가시성 우수`,
+    customPoints[1] ||
+      parsedExtras?.investment_points?.[1] ||
       (totalMonthlyRentManwon > 0
         ? `월 임대수익 ${totalMonthlyRentManwon.toLocaleString()}만원 안정 운용`
         : '우량 임차인 및 사옥·밸류애드 활용 적격'),
-    parsedExtras?.investment_points?.[2] ||
+    customPoints[2] ||
+      parsedExtras?.investment_points?.[2] ||
       (effectiveMonthlyRentManwon > 0
         ? `연 수익률 ${estimatedYieldPct}% 기대 배당 자산`
         : `토지 평당 ${subjectLandPricePerPyeongManwon.toLocaleString()}만원 자산가치 우수`),
@@ -919,6 +925,10 @@ export async function POST(req: NextRequest) {
               ...fullDocBody,
               cadastralMapImage: undefined,
             });
+            const requestedStatus =
+              body.publishStatus === 'draft' || body.status === 'draft'
+                ? 'draft'
+                : 'published';
             await supabase.from('document_objects').insert({
               id: documentId,
               owner_id: auth.user?.id || null,
@@ -927,7 +937,7 @@ export async function POST(req: NextRequest) {
               building_id: buildingId,
               document_type: 'mobile_im',
               visibility: 'public_blind',
-              status: 'published',
+              status: requestedStatus,
               title: resolvedTitle,
               body: dbDocBody,
             });

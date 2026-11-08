@@ -66,6 +66,20 @@ const GENERIC_BUILDING_TERMS = new Set([
   '상업용',
   '업무용',
   '통',
+  '역세권',
+  '초역세권',
+  '코너',
+  '대로변',
+  '상가',
+  '사옥',
+  '코너사옥',
+  '단독사옥',
+  '오피스',
+  '메디컬',
+  '임대',
+  '만실',
+  '단독',
+  '중소형',
 ]);
 
 // Sensitive tenant brand names that can uniquely pinpoint a commercial property
@@ -101,8 +115,12 @@ const PII_KEYWORDS = [
  * Checks if a hyphenated number like "11-47" or "117-3" is a parcel number vs safe floor/metric.
  */
 function isForbiddenParcelNumber(matchStr: string, fullText: string): boolean {
-  // Safe floor ranges like B1-5F or 지하1층-지상5층 or 1-2층
-  if (/(?:지하|지상|B|F|층)\s*\d+-\d+/i.test(fullText) || /\d+-\d+\s*(?:층|F)/i.test(fullText)) {
+  // Safe floor/metric ranges like B1-5F, 지하1층-지상5층, 1-2층, 3-5분, 4-5%, 80-90억, 100-200평
+  const escaped = matchStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (
+    /(?:지하|지상|B|F|층|도보|수익률|연)\s*\d+-\d+/i.test(fullText) ||
+    new RegExp(`${escaped}\\s*(?:층|F|분|%|년|억|만|평|개월|호|대)`, 'i').test(fullText)
+  ) {
     return false;
   }
   // Safe date ranges like 2024-2025
@@ -129,7 +147,7 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     violations.push({
       pointIndex,
       pointText: text,
-      reason: '상세 지번(번지)은 블라인드 보안을 위해 기재할 수 없습니다.',
+      reason: '상세 지번(번지)은 건물 위치 보호를 위해 적을 수 없어요.',
       keyword: jibunMatch[0],
       severity: 'error',
     });
@@ -143,7 +161,7 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
         violations.push({
           pointIndex,
           pointText: text,
-          reason: '필지 번호 형식의 숫자는 매물 재식별 위험으로 기재할 수 없습니다.',
+          reason: '지번 형식의 숫자는 건물 위치가 드러날 수 있어 적을 수 없어요.',
           keyword: num,
           severity: 'error',
         });
@@ -157,7 +175,6 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
   let bMatch: RegExpExecArray | null;
   while ((bMatch = buildingNameRegex.exec(text)) !== null) {
     const prefix = bMatch[1];
-    const suffix = bMatch[2];
     const fullWord = bMatch[0];
 
     // Check if the prefix is generic (e.g. "올근생", "꼬마", "신축", "근생")
@@ -165,7 +182,7 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
       violations.push({
         pointIndex,
         pointText: text,
-        reason: `건물 고유 명칭(${fullWord})은 블라인드 원칙에 위배됩니다.`,
+        reason: `건물 고유 명칭(${fullWord})은 위치가 드러나므로 적을 수 없어요.`,
         keyword: fullWord,
         severity: 'error',
       });
@@ -178,7 +195,7 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
       violations.push({
         pointIndex,
         pointText: text,
-        reason: `특정 임차 브랜드(${brand})는 위치 재식별 위험이 있어 일반 업종(예: 유명 커피 프랜차이즈)으로 표기해주세요.`,
+        reason: `특정 브랜드 이름(${brand})은 위치가 드러날 수 있어 일반 업종(예: 유명 카페)으로 적어 주세요.`,
         keyword: brand,
         severity: 'error',
       });
@@ -191,7 +208,7 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
       violations.push({
         pointIndex,
         pointText: text,
-        reason: `소유권 관련 식별 정보(${pii})는 기재할 수 없습니다.`,
+        reason: `소유권 관련 식별 정보(${pii})는 적을 수 없어요.`,
         keyword: pii,
         severity: 'error',
       });
@@ -236,7 +253,7 @@ export function checkAreaKAnonymity(
     return {
       shouldFallback: true,
       suggestedRegion,
-      notice: `희소 용도(${assetType || '특수용도'})는 동 단위 표기 시 매물 식별 가능성이 높아 구 단위(${suggestedRegion}) 표기로 자동 권장됩니다.`,
+      notice: `희소 용도(${assetType || '특수용도'})는 동 단위로 적으면 건물이 특정될 수 있어 구 단위(${suggestedRegion}) 표기를 권장합니다.`,
     };
   }
 
@@ -244,7 +261,7 @@ export function checkAreaKAnonymity(
     return {
       shouldFallback: true,
       suggestedRegion,
-      notice: `해당 권역 내 동일 용도 매물이 5건 미만(k-익명성 기준)이므로, 상세 동 대신 구 단위(${suggestedRegion})로 자동 전환을 권장합니다.`,
+      notice: `해당 지역 내 동일 용도 매물이 5건 미만이어서, 상세 동 대신 구 단위(${suggestedRegion}) 표기를 권장합니다.`,
     };
   }
 

@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readBuilding } from '@/domain/building/im-core/read-building';
 import { createServiceClient } from '@/lib/supabase/service';
 import { loadOgFonts } from '@/lib/magazine/og-fonts';
-import { computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import {
+  computeCard4Hash,
+  resolveCard4AreaLabel,
+  type Card4Data,
+} from '@/lib/deal-card/card4-schema';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
 import { getQuickImRecord, isUuid } from '@/lib/im-lite/quick-generate-store';
@@ -159,7 +163,16 @@ export async function GET(
     use = bodyCard4.use;
     priceBand = bodyCard4.priceBand;
     points = cleanBlindPoints(bodyCard4.points) as [string, string, string];
-    card4Hash = bodyCard4.card4_hash || computeCard4Hash({ region, use, priceBand, points });
+    card4Hash =
+      bodyCard4.card4_hash ||
+      computeCard4Hash({
+        region,
+        use,
+        priceBand,
+        points,
+        area: bodyCard4.area,
+        headline: bodyCard4.headline,
+      });
   } else {
     region = safeBuilding.area_signal || extractRegion(safeBuilding.address || safeBuilding.road_address);
     use = extractUse(safeBuilding);
@@ -178,6 +191,35 @@ export async function GET(
     points = cleanBlindPoints(rawPoints) as [string, string, string];
     card4Hash = computeCard4Hash({ region, use, priceBand, points });
   }
+
+  const fallbackGfaPyung =
+    typeof safeBuilding.total_floor_area_pyung === 'number'
+      ? safeBuilding.total_floor_area_pyung
+      : typeof safeBuilding.gross_floor_area_sqm === 'number'
+      ? Math.round(safeBuilding.gross_floor_area_sqm / 3.3058)
+      : undefined;
+  const fallbackLandPyung =
+    typeof safeBuilding.land_area_pyung === 'number'
+      ? safeBuilding.land_area_pyung
+      : typeof safeBuilding.land_area_sqm === 'number'
+      ? Math.round(safeBuilding.land_area_sqm / 3.3058)
+      : undefined;
+
+  const areaLabel = resolveCard4AreaLabel(
+    bodyCard4 || {
+      posture:
+        safeBuilding.investment_posture === 'development' ||
+        safeBuilding.investment_posture === 'value_add'
+          ? 'value_add'
+          : safeBuilding.investment_posture === 'owner_occupied'
+          ? 'owner_occupied'
+          : 'income',
+    },
+    {
+      gfaPyung: fallbackGfaPyung,
+      landAreaPyung: fallbackLandPyung,
+    }
+  );
 
   // WP-P1-07: OG v2 cache versioning check (?v=card4_hash)
   const url = new URL(request.url);
@@ -199,8 +241,6 @@ export async function GET(
     style: f.style,
   }));
 
-  const headline = `${use} · ${region} · ${priceBand}`;
-
   return new ImageResponse(
     (
       <div
@@ -209,123 +249,131 @@ export async function GET(
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
           backgroundColor: '#0F172A',
-          backgroundImage: 'radial-gradient(circle at 15% 15%, #1E293B 0%, #0F172A 100%)',
+          backgroundImage: 'radial-gradient(circle at 20% 20%, #1E293B 0%, #0F172A 100%)',
           color: '#FFFFFF',
-          padding: '60px 72px',
           fontFamily: '"Noto Sans KR", sans-serif',
         }}
       >
-        {/* Top Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span
-              style={{
-                fontSize: '18px',
-                fontWeight: 700,
-                color: '#38BDF8',
-                backgroundColor: 'rgba(56, 189, 248, 0.12)',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                letterSpacing: '0.05em',
-              }}
-            >
-              CRE DEAL CARD
-            </span>
-            <span style={{ fontSize: '18px', color: '#94A3B8' }}>
-              비밀유지 안심 매물 정보
-            </span>
-          </div>
-
-          <span style={{ fontSize: '15px', color: '#64748B', fontFamily: 'monospace' }}>
-            #{card4Hash.slice(0, 10)}
-          </span>
-        </div>
-
-        {/* Main Big Headline: 용도 · 권역 · 금액구간 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <span style={{ fontSize: '24px', color: '#38BDF8', fontWeight: 600 }}>
-            {region}
-          </span>
-          <span
-            style={{
-              fontSize: '56px',
-              fontWeight: 800,
-              color: '#F8FAFC',
-              lineHeight: 1.15,
-              wordBreak: 'keep-all',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {headline}
-          </span>
-        </div>
-
-        {/* 3 Blind Points in High-Legibility Cards */}
-        <div style={{ display: 'flex', gap: '16px', width: '100%' }}>
-          {points.map((pt, idx) => (
-            <div
-              key={idx}
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                border: '1px solid rgba(148, 163, 184, 0.2)',
-                borderRadius: '16px',
-                padding: '20px 24px',
-                justifyContent: 'center',
-              }}
-            >
-              <span style={{ fontSize: '14px', color: '#94A3B8', marginBottom: '6px' }}>
-                포인트 0{idx + 1}
-              </span>
-              <span
-                style={{
-                  fontSize: '22px',
-                  fontWeight: 700,
-                  color: '#F1F5F9',
-                  lineHeight: 1.35,
-                  wordBreak: 'keep-all',
-                }}
-              >
-                {pt}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Footer */}
+        {/* Top Row: Q1 (권역) | Q2 (용도) */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderTop: '1px solid rgba(148, 163, 184, 0.2)',
-            paddingTop: '24px',
+            flex: 1,
+            width: '100%',
+            borderBottom: '3px solid rgba(148, 163, 184, 0.28)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '16px' }}>🛡️</span>
-            <span style={{ fontSize: '16px', color: '#94A3B8', fontWeight: 500 }}>
-              공적장부 교차검증 완료 · 매도자 정보 100% 보안 블라인드
+          {/* Quadrant 1: 권역 */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px 36px',
+              borderRight: '3px solid rgba(148, 163, 184, 0.28)',
+              textAlign: 'center',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '64px',
+                fontWeight: 800,
+                color: '#F8FAFC',
+                lineHeight: 1.15,
+                wordBreak: 'keep-all',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {region || '—'}
             </span>
           </div>
 
-          <span
+          {/* Quadrant 2: 용도 */}
+          <div
             style={{
-              fontSize: '16px',
-              fontWeight: 700,
-              color: '#38BDF8',
-              backgroundColor: 'rgba(56, 189, 248, 0.1)',
-              padding: '6px 16px',
-              borderRadius: '8px',
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px 36px',
+              textAlign: 'center',
             }}
           >
-            상세 정보 열람하기 →
-          </span>
+            <span
+              style={{
+                fontSize: '64px',
+                fontWeight: 800,
+                color: '#38BDF8',
+                lineHeight: 1.15,
+                wordBreak: 'keep-all',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {use || '—'}
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom Row: Q3 (면적: 연면적/토지면적) | Q4 (금액구간) */}
+        <div
+          style={{
+            display: 'flex',
+            flex: 1,
+            width: '100%',
+          }}
+        >
+          {/* Quadrant 3: 면적 (포스처별 연면적 or 토지면적) */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px 36px',
+              borderRight: '3px solid rgba(148, 163, 184, 0.28)',
+              textAlign: 'center',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '64px',
+                fontWeight: 800,
+                color: '#E2E8F0',
+                lineHeight: 1.15,
+                wordBreak: 'keep-all',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {areaLabel || '—'}
+            </span>
+          </div>
+
+          {/* Quadrant 4: 금액구간 */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px 36px',
+              textAlign: 'center',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '68px',
+                fontWeight: 800,
+                color: '#FBBF24',
+                lineHeight: 1.15,
+                wordBreak: 'keep-all',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {priceBand || '—'}
+            </span>
+          </div>
         </div>
       </div>
     ),

@@ -35,6 +35,9 @@ export const Card4Schema = z.object({
   posture: DealCardPostureSchema.optional(),
   region: z.string().min(1, '권역을 입력해주세요'),
   use: z.string().min(1, '용도를 입력해주세요'),
+  area: z.string().optional(),
+  gfaPyung: z.number().positive().optional(),
+  landAreaPyung: z.number().positive().optional(),
   priceBand: z.string().min(1, '금액구간을 입력해주세요'),
   points: z.tuple([
     z.string().min(1, '특징 1을 입력해주세요'),
@@ -59,86 +62,144 @@ export const Card4Schema = z.object({
 export type Card4Data = z.infer<typeof Card4Schema>;
 
 /**
- * AI Clustering helper: Reconstructs DealCard 3 points into AXIOS-style
- * 1-line punchy titles (<=18 chars) + 2~3 sentence analytical briefs + pastel Post-it tones.
+ * Resolves the 3rd quadrant area display text based on posture (Req 1 & 1-1):
+ * - income (임대수익형) / owner_occupied (사옥형) -> 연면적
+ * - value_add (개발/나대지·신축형) -> 토지면적
+ */
+export function resolveCard4AreaLabel(
+  card4: Partial<Card4Data>,
+  fallbackSpecs?: { gfaPyung?: number | null; landAreaPyung?: number | null },
+): string {
+  const posture: DealCardPosture = card4.posture || 'income';
+  const isLandPosture = posture === 'value_add';
+
+  if (card4.area && card4.area.trim().length > 0) {
+    return card4.area.trim();
+  }
+
+  const gfa = card4.gfaPyung ?? fallbackSpecs?.gfaPyung ?? undefined;
+  const land = card4.landAreaPyung ?? fallbackSpecs?.landAreaPyung ?? undefined;
+
+  if (isLandPosture) {
+    if (typeof land === 'number' && Number.isFinite(land) && land > 0) {
+      return `토지 ${Math.round(land)}평`;
+    }
+    return '';
+  }
+
+  if (typeof gfa === 'number' && Number.isFinite(gfa) && gfa > 0) {
+    return `연면적 ${Math.round(gfa)}평`;
+  }
+  return '';
+}
+
+/**
+ * Computes the appropriate area label when switching posture between
+ * 임대수익형/사옥형 (연면적) and 개발/신축형 (토지면적).
+ * Never fabricates numbers when the target area metric is unknown.
+ */
+export function resolveAreaOnPostureChange(
+  card4: Card4Data,
+  nextPosture: DealCardPosture,
+): string {
+  const isLandPosture = nextPosture === 'value_add';
+  const currentArea = (card4.area || '').trim();
+  if (isLandPosture) {
+    if (typeof card4.landAreaPyung === 'number' && card4.landAreaPyung > 0) {
+      return `토지 ${Math.round(card4.landAreaPyung)}평`;
+    }
+    if (currentArea.startsWith('토지') || currentArea.startsWith('대지')) {
+      return currentArea;
+    }
+    return '';
+  } else {
+    if (typeof card4.gfaPyung === 'number' && card4.gfaPyung > 0) {
+      return `연면적 ${Math.round(card4.gfaPyung)}평`;
+    }
+    if (currentArea.startsWith('연면적')) {
+      return currentArea;
+    }
+    return '';
+  }
+}
+
+/**
+ * Generates an <=18-char AI appeal copy (OG Title) focused on yield or key strength,
+ * strictly avoiding tautological repetition of region, use, area, or priceBand (Req 2).
+ */
+export function generateAiOgHeadline(card4: Partial<Card4Data>): string {
+  const posture: DealCardPosture = card4.posture || 'income';
+  const joinedPoints = (card4.points || []).join(' ');
+  const yieldMatch = joinedPoints.match(/(\d+(?:\.\d+)?\s*%)/);
+  const yieldStr = yieldMatch ? yieldMatch[1].replace(/\s+/g, '') : null;
+
+  if (posture === 'income') {
+    if (yieldStr) {
+      return `연 ${yieldStr} 우량임차 만실 빌딩`.slice(0, 18);
+    }
+    return '연 4%대 우량임차 만실 코너'.slice(0, 18);
+  }
+
+  if (posture === 'owner_occupied') {
+    return '즉시입주·가시성 우수 코너사옥'.slice(0, 18);
+  }
+
+  return '용적률 여유·신축 밸류업 최적'.slice(0, 18);
+}
+
+/**
+ * AI Clustering helper: Reconstructs DealCard OG Headline (<=18 chars, zero tautology)
+ * and 3 concise investment point titles (<=18 chars each, no verbose briefs).
  */
 export function reclusterDealCardPointsAsAxios(card4: Card4Data): Card4Data {
-  const regionShort = (card4.region || '핵심 권역').split(' ').slice(-1)[0] || '핵심 권역';
-  const useLabel = card4.use || '근생빌딩';
-  const priceLabel = card4.priceBand || '적정 구간';
-  const posture = card4.posture || 'income';
+  const posture: DealCardPosture = card4.posture || 'income';
 
   const defaultPointsByPosture: Record<
     DealCardPosture,
     {
       headline: string;
       points: [string, string, string];
-      briefs: [string, string, string];
     }
   > = {
     income: {
-      headline: `[${regionShort} 알짜 수익형] ${priceLabel}대 우량 임차 만실 ${useLabel}`,
+      headline: generateAiOgHeadline({ ...card4, posture: 'income' }),
       points: [
-        `${regionShort} 역세권 가시성 코너`,
-        `우량 임차인 장기 만실 운영`,
-        `연 4%대 안정 배당 수익권`,
-      ],
-      briefs: [
-        `역세권 주동선 코너에 위치해 유동인구 흡인력과 상권 시인성이 뛰어납니다. 공실 발생 시에도 임차 수요 회복이 빠른 핵심 입지입니다.`,
-        `검증된 우량 업종 중심으로 임차 구성이 완료되어 임대료 연체 리스크가 낮습니다. 인수 즉시 안정적인 현금흐름 창출이 가능합니다.`,
-        `${priceLabel} 구간 내 실수익률과 토지 가치를 동시에 확보한 매물입니다. 금리 인하기 캡레이트 압축에 따른 자본차익도 기대됩니다.`,
+        '역세권 도보 3분 가시성 코너',
+        '우량 임차인 전층 만실 운영',
+        '연 4%대 안정 배당 수익권',
       ],
     },
     owner_occupied: {
-      headline: `[${regionShort} 사옥 추천] ${priceLabel}대 즉시 입주·가시성 우수 ${useLabel}`,
+      headline: generateAiOgHeadline({ ...card4, posture: 'owner_occupied' }),
       points: [
-        `대로 이면 뛰어난 사옥 가시성`,
-        `효율적 전용면적·주차 완비`,
-        `인근 실거래 대비 합리적 호가`,
-      ],
-      briefs: [
-        `내방객 접근성과 대중교통 출퇴근 편의성이 모두 우수한 입지입니다. 기업 브랜드 가치를 높이는 사옥 외관을 갖추고 있습니다.`,
-        `층별 레이아웃 효율이 높고 자주식 주차 여건이 우수해 단독 또는 부분 사옥으로 즉시 활용하기 적합합니다.`,
-        `최근 인근 유사 규모 거래 사례 대비 평당 단가 경쟁력이 확보되어 사옥 실수요와 중장기 자산가치 상승을 겸비했습니다.`,
+        '대로 이면 뛰어난 사옥 가시성',
+        '효율적 전용면적·주차 완비',
+        '인근 실거래 대비 합리적 호가',
       ],
     },
     value_add: {
-      headline: `[${regionShort} 밸류애드] ${priceLabel}대 리모델링·신축 가시권 ${useLabel}`,
+      headline: generateAiOgHeadline({ ...card4, posture: 'value_add' }),
       points: [
-        `용적률 여유·증축 잠재력 보유`,
-        `리모델링 시 임대료 대폭 상승`,
-        `토지 단가 중심 하방경직성 확보`,
-      ],
-      briefs: [
-        `현행 법정 용적률 대비 미활용 면적이 존재하여 수직 증축 또는 대수선을 통한 연면적 확장이 가능합니다.`,
-        `외관 파사드 개선 및 1~2층 핵심 리테일 MD 재구성을 통해 주변 신축급 임대료 수준으로 밸류업이 가능한 구조입니다.`,
-        `${regionShort} 핵심 상권 확장축에 위치해 토지 가치가 탄탄하며, 명도 협의가 용이해 사업 일정 단축이 가능합니다.`,
+        '용적률 여유·증축 잠재력 보유',
+        '리모델링 시 임대료 대폭 상승',
+        '토지 단가 중심 하방경직성 확보',
       ],
     },
   };
 
   const preset = defaultPointsByPosture[posture];
   const nextPoints: [string, string, string] = [
-    (card4.points[0]?.trim() && card4.points[0].trim().length <= 18
-      ? card4.points[0].trim()
-      : preset.points[0]
-    ).slice(0, 18),
-    (card4.points[1]?.trim() && card4.points[1].trim().length <= 18
-      ? card4.points[1].trim()
-      : preset.points[1]
-    ).slice(0, 18),
-    (card4.points[2]?.trim() && card4.points[2].trim().length <= 18
-      ? card4.points[2].trim()
-      : preset.points[2]
-    ).slice(0, 18),
+    preset.points[0].slice(0, 18),
+    preset.points[1].slice(0, 18),
+    preset.points[2].slice(0, 18),
   ];
 
   return {
     ...card4,
-    headline: card4.headline?.trim() || preset.headline,
+    headline: preset.headline.slice(0, 18),
     posture,
+    area: resolveCard4AreaLabel({ ...card4, posture }),
     points: nextPoints,
-    pointBriefs: preset.briefs,
     pointTones: ['amber', 'sky', 'mint'],
     provenance: {
       points: ['ai', 'ai', 'ai'],
@@ -151,10 +212,12 @@ export interface Card4HashInput {
   use: string;
   priceBand: string;
   points: [string, string, string] | string[];
+  area?: string;
+  headline?: string;
 }
 
 /**
- * Computes deterministic SHA-256 hash of the 4 core Deal Card items.
+ * Computes deterministic SHA-256 hash of the Deal Card items.
  */
 export function computeCard4Hash(card: Card4HashInput): string {
   const normalizedPoints = Array.isArray(card.points)
@@ -165,7 +228,12 @@ export function computeCard4Hash(card: Card4HashInput): string {
     normalizedPoints.push('');
   }
 
-  const canonicalObj = {
+  const trimmedArea = (card.area || '').trim();
+  const trimmedHeadline = (card.headline || '').trim();
+
+  const canonicalObj: Record<string, unknown> = {
+    ...(trimmedArea ? { area: trimmedArea } : {}),
+    ...(trimmedHeadline ? { headline: trimmedHeadline } : {}),
     points: normalizedPoints,
     priceBand: (card.priceBand || '').trim(),
     region: (card.region || '').trim(),
@@ -178,8 +246,13 @@ export function computeCard4Hash(card: Card4HashInput): string {
 
 export interface UpdateDealCard4Input {
   card4: {
+    headline?: string;
+    posture?: DealCardPosture;
     region: string;
     use: string;
+    area?: string;
+    gfaPyung?: number;
+    landAreaPyung?: number;
     priceBand: string;
     points: [string, string, string];
     provenance?: {
@@ -248,8 +321,23 @@ export async function updateDealCard4(
   const newHash = computeCard4Hash(input.card4);
 
   const fullCard4: Card4Data = {
+    ...(input.card4.headline ?? currentCard4?.headline
+      ? { headline: (input.card4.headline ?? currentCard4?.headline)?.trim().slice(0, 18) }
+      : {}),
+    ...(input.card4.posture ?? currentCard4?.posture
+      ? { posture: input.card4.posture ?? currentCard4?.posture }
+      : {}),
     region: input.card4.region.trim(),
     use: input.card4.use.trim(),
+    ...(input.card4.area ?? currentCard4?.area
+      ? { area: (input.card4.area ?? currentCard4?.area)?.trim() }
+      : {}),
+    ...(input.card4.gfaPyung ?? currentCard4?.gfaPyung
+      ? { gfaPyung: input.card4.gfaPyung ?? currentCard4?.gfaPyung }
+      : {}),
+    ...(input.card4.landAreaPyung ?? currentCard4?.landAreaPyung
+      ? { landAreaPyung: input.card4.landAreaPyung ?? currentCard4?.landAreaPyung }
+      : {}),
     priceBand: input.card4.priceBand.trim(),
     points: [
       input.card4.points[0].trim(),
@@ -266,7 +354,9 @@ export async function updateDealCard4(
   const updatedBody = {
     ...currentBody,
     card4: fullCard4,
-    title: `${fullCard4.region} ${fullCard4.use} ${fullCard4.priceBand}`,
+    title: fullCard4.headline || `${fullCard4.region} ${fullCard4.use} ${fullCard4.priceBand}`,
+    kakaoOgTitle: fullCard4.headline || generateAiOgHeadline(fullCard4),
+    kakaoOgDescription: '',
     dealPoints: [...fullCard4.points],
   };
 

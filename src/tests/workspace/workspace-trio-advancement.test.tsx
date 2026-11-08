@@ -46,7 +46,7 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
    * 1. DealCard Workspace (/broker/w/dealcards)
    * ──────────────────────────────────────────────────────────────────────── */
   describe('1. DealCard Workspace (/broker/w/dealcards)', () => {
-    it('renders Airtable-style list with posture switcher, Zero-Tab single canvas editor, 1-line title, and AXIOS Post-it 3 points', async () => {
+    it('renders Airtable-style list with posture switcher, 3 visually separated editor sections, 4-quadrant OG preview, and scrollable mobile detail view', async () => {
       await act(async () => {
         root.render(<DealCardsWorkspacePage />);
       });
@@ -54,58 +54,65 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       // Column 1: Intelligent list + posture switcher
       const airtableList = container.querySelector('[data-testid="dealcard-airtable-list"]');
       expect(airtableList).not.toBeNull();
-      expect(airtableList?.textContent).toContain('보유 딜카드');
-      expect(airtableList?.textContent).toContain('[매매 딜카드 공식]');
+      expect(airtableList?.textContent).toContain('내 딜카드 목록');
 
       const postureSwitcher = container.querySelector('[data-testid="dealcard-posture-switcher"]');
       expect(postureSwitcher).not.toBeNull();
       expect(postureSwitcher?.textContent).toContain('전체');
-      expect(postureSwitcher?.textContent).toContain('수익형(임대)');
-      expect(postureSwitcher?.textContent).toContain('사옥·밸류애드');
+      expect(postureSwitcher?.textContent).toContain('임대수익');
+      expect(postureSwitcher?.textContent).toContain('사옥·개발');
 
-      // Column 2: Zero-Tab Single Canvas Editor (no top tabs for DealCard)
+      // Column 2: 3 Visually Separated Sections (Posture / OG Image & Title / Detail 3 Points)
       const confirmCard = container.querySelector('[data-testid="card4-confirm-card"]');
       expect(confirmCard).not.toBeNull();
       expect(confirmCard?.getAttribute('data-canvas-mode')).toBe('zero-tab-single');
-      expect(confirmCard?.textContent).toContain('탭 없는 한 화면 즉시 편집');
+      expect(container.querySelector('[data-testid="card4-section-posture"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="card4-section-og-editor"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="card4-section-detail-points"]')).not.toBeNull();
 
-      // 1-Line Headline input & Single-Line Title Guard
+      // 4-Quadrant OG inputs (Region, Use, Area, PriceBand) & Posture-based Area switching
+      const areaInput = container.querySelector('[data-testid="card4-area-input"]') as HTMLInputElement;
+      expect(areaInput).not.toBeNull();
+      expect(areaInput.value).toContain('연면적');
+
+      // Switching posture to value_add (개발·신축형) automatically switches area to 토지면적
+      const valueAddChip = container.querySelector('[data-testid="card4-posture-chip-value_add"]') as HTMLButtonElement;
+      expect(valueAddChip).not.toBeNull();
+      await act(async () => {
+        valueAddChip.click();
+      });
+      expect(areaInput.value).toContain('토지');
+
+      // 18-char non-tautological OG Headline input
       const headlineInput = container.querySelector(
         '[data-testid="card4-headline-input"]'
       ) as HTMLInputElement;
       expect(headlineInput).not.toBeNull();
-      expect(headlineInput.value).toContain('양평동');
+      expect(headlineInput.value.length).toBeLessThanOrEqual(18);
 
-      // 3 AXIOS Wide Pastel Post-it Cards (#FEF9C3, #E0F2FE, #DCFCE7)
+      // 3 Point title inputs only (no brief textareas, no 23/18자 counter)
       const postit0 = container.querySelector('[data-testid="card4-postit-card-0"]') as HTMLElement;
       const postit1 = container.querySelector('[data-testid="card4-postit-card-1"]') as HTMLElement;
       const postit2 = container.querySelector('[data-testid="card4-postit-card-2"]') as HTMLElement;
       expect(postit0).not.toBeNull();
       expect(postit1).not.toBeNull();
       expect(postit2).not.toBeNull();
+      expect(container.querySelector('[data-testid="card4-point-brief-0"]')).toBeNull();
 
-      // Brief textareas exist for all 3 points
-      expect(container.querySelector('[data-testid="card4-point-brief-0"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="card4-point-brief-1"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="card4-point-brief-2"]')).not.toBeNull();
-
-      // AI recluster button works
+      // AI recluster button exists
       const aiBtn = container.querySelector(
         '[data-testid="card4-ai-recluster-btn"]'
       ) as HTMLButtonElement;
       expect(aiBtn).not.toBeNull();
-      await act(async () => {
-        aiBtn.click();
-      });
 
-      // Column 3: Kakao bubble & AXIOS Post-it detail preview
-      const postitPreviewList = container.querySelector(
-        '[data-testid="dealcard-postit-preview-list"]'
+      // Column 3: 4-Quadrant OG preview & Scrollable Mobile Detail preview
+      expect(container.querySelector('[data-testid="og-quadrant-preview"]')).not.toBeNull();
+      const mobileDetailScroll = container.querySelector(
+        '[data-testid="dealcard-mobile-detail-scroll"]'
       );
-      expect(postitPreviewList).not.toBeNull();
-      expect(postitPreviewList?.textContent).toContain('POINT 01');
-      expect(postitPreviewList?.textContent).toContain('POINT 02');
-      expect(postitPreviewList?.textContent).toContain('POINT 03');
+      expect(mobileDetailScroll).not.toBeNull();
+      expect(mobileDetailScroll?.textContent).toContain('전화하기');
+      expect(mobileDetailScroll?.textContent).toContain('IM 요청하기');
 
       // Verify single-line title elements exist
       const singleLineTitles = container.querySelectorAll('[data-single-line-title="true"]');
@@ -117,24 +124,21 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
    * 2. IM Workspace (/broker/w/im)
    * ──────────────────────────────────────────────────────────────────────── */
   describe('2. IM Workspace (/broker/w/im)', () => {
-    it('renders standard Mobile IM + Basic IM (10-slide) only, Airtable list with posture switcher, <=4 top tabs, and AXIOS Post-it highlights', async () => {
+    it('renders standard Mobile IM + Basic IM (10-slide) only, Airtable list with posture switcher, <=4 top tabs, and 3 advantage cards', async () => {
       await act(async () => {
         root.render(<ImWorkspacePage />);
       });
 
-      // Column 1: IM list + posture switcher + standard formula banner
+      // Column 1: IM list + posture switcher
       const listSlot = container.querySelector('[data-testid="im-list-slot"]');
       expect(listSlot).not.toBeNull();
-      expect(listSlot?.textContent).toContain('보유 IM');
+      expect(listSlot?.textContent).toContain('보유 IM 목록');
 
       const postureSwitcher = container.querySelector('[data-testid="im-posture-switcher"]');
       expect(postureSwitcher).not.toBeNull();
-      expect(postureSwitcher?.textContent).toContain('수익형');
-      expect(postureSwitcher?.textContent).toContain('사옥형');
-      expect(postureSwitcher?.textContent).toContain('밸류·신축');
-
-      const formulaBanner = container.querySelector('[data-testid="im-standard-formula-banner"]');
-      expect(formulaBanner?.textContent).toContain('[모바일·Basic IM 표준 구성]');
+      expect(postureSwitcher?.textContent).toContain('임대수익');
+      expect(postureSwitcher?.textContent).toContain('사옥용');
+      expect(postureSwitcher?.textContent).toContain('신축·개발');
 
       // Ensure Pro IM labels are not exposed in the IM workspace UI
       const editorSlot = container.querySelector('[data-testid="im-editor-slot"]');
@@ -146,10 +150,10 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       expect(primaryTabs).not.toBeNull();
       const tabButtons = primaryTabs!.querySelectorAll('button');
       expect(tabButtons.length).toBe(4);
-      expect(primaryTabs?.textContent).toContain('① 표지·핵심제원');
-      expect(primaryTabs?.textContent).toContain('② 층별 렌트롤·수지');
-      expect(primaryTabs?.textContent).toContain('③ 핵심 투자포인트');
-      expect(primaryTabs?.textContent).toContain('④ 사진·지적도·발행');
+      expect(primaryTabs?.textContent).toContain('① 표지·기본정보');
+      expect(primaryTabs?.textContent).toContain('② 층별 임대현황');
+      expect(primaryTabs?.textContent).toContain('③ 장점 3가지');
+      expect(primaryTabs?.textContent).toContain('④ 사진·위치·만들기');
 
       // Single-line IM cover title input exists
       const titleInput = container.querySelector(
@@ -157,7 +161,7 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       ) as HTMLInputElement;
       expect(titleInput).not.toBeNull();
 
-      // Switch to Tab 3 (핵심 투자포인트) and verify 3 wide highlight cards
+      // Switch to Tab 3 (장점 3가지) and verify 3 wide highlight cards
       const axiosTabBtn = container.querySelector(
         '[data-testid="im-editor-tab-axios_brief"]'
       ) as HTMLButtonElement;
@@ -183,47 +187,67 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
    * 3. Client Inbox Workspace (/broker/w/inbox)
    * ──────────────────────────────────────────────────────────────────────── */
   describe('3. Client Inbox Workspace (/broker/w/inbox)', () => {
-    it('renders Airtable CRM list with 3-way focus switcher, <=4 top tabs, and AXIOS Post-it diagnosis & Kakao proposal cards', async () => {
+    it('renders honest empty state by default and 3-way filter chips + 3-way editor tabs when threads exist', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(
+          <InboxWorkspacePage
+            initialThreads={[
+              {
+                id: 'thr-1',
+                clientName: '박상훈 대표',
+                clientPhone: '010-2345-6789',
+                clientGrade: 'VIP',
+                buildingTitle: '잠원권역 근생빌딩',
+                buildingId: 'bld-01',
+                latestEvent: 'IM 열람 요청',
+                cleanMessage: '상세 IM 자료 부탁드립니다.',
+                updatedAt: '방금',
+                openCount: 2,
+                isRead: false,
+                status: 'pending_gate',
+                shareToken: 'tok-1',
+                events: [],
+                budget: '80억대',
+                preferredRegion: '서초·강남',
+              },
+            ]}
+          />
+        );
       });
 
-      // Column 1: Client Inbox header + 3-way focus switcher + formula banner
+      // Column 1: Todo summary card + 3-way filter tabs
       const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
-      expect(listSlot?.textContent).toContain('고객 소통함');
+      expect(listSlot?.textContent).toContain('지금 할 일 1건');
 
-      const focusSwitcher = container.querySelector('[data-testid="inbox-focus-switcher"]');
-      expect(focusSwitcher).not.toBeNull();
-      expect(focusSwitcher?.textContent).toContain('핫리드·열람');
-      expect(focusSwitcher?.textContent).toContain('G2 승인요청');
-      expect(focusSwitcher?.textContent).toContain('VIP·구독명단');
+      const filterTabs = container.querySelector('[data-testid="inbox-filter-tabs"]');
+      expect(filterTabs).not.toBeNull();
+      expect(filterTabs?.textContent).toContain('할 일');
+      expect(filterTabs?.textContent).toContain('열람');
+      expect(filterTabs?.textContent).toContain('전체 고객');
 
-      // Column 2: <= 4 Primary Top Tabs
+      // Column 2: 3 Primary Top Tabs (할 일 · 메시지 · 기록)
       const primaryTabs = container.querySelector('[data-testid="inbox-editor-primary-tabs"]');
       expect(primaryTabs).not.toBeNull();
       const tabButtons = primaryTabs!.querySelectorAll('button');
-      expect(tabButtons.length).toBe(4);
-      expect(primaryTabs?.textContent).toContain('① 열람진단·G2승인');
-      expect(primaryTabs?.textContent).toContain('② 카톡 제안·안부');
-      expect(primaryTabs?.textContent).toContain('③ 맞춤 대체매물');
-      expect(primaryTabs?.textContent).toContain('④ 통화메모·이력');
+      expect(tabButtons.length).toBe(3);
+      expect(primaryTabs?.textContent).toContain('할 일');
+      expect(primaryTabs?.textContent).toContain('메시지');
+      expect(primaryTabs?.textContent).toContain('기록');
 
-      // Switch to Tab 2 (카톡 제안·안부) and verify AXIOS Post-it Kakao proposal card
-      const kakaoTabBtn = container.querySelector(
-        '[data-testid="inbox-editor-tab-kakao_proposal"]'
+      // Switch to Tab 2 (메시지) and verify Kakao message inputs
+      const messageTabBtn = container.querySelector(
+        '[data-testid="inbox-editor-tab-message"]'
       ) as HTMLButtonElement;
       await act(async () => {
-        kakaoTabBtn.click();
+        messageTabBtn.click();
       });
 
-      const kakaoPostit = container.querySelector('[data-testid="inbox-axios-kakao-postit"]');
-      expect(kakaoPostit).not.toBeNull();
       expect(container.querySelector('[data-testid="inbox-kakao-headline-input"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="inbox-kakao-brief-input"]')).not.toBeNull();
 
-      // Column 3: Live AXIOS Kakao Post-it Preview card
-      const previewKakaoCard = container.querySelector('[data-testid="inbox-preview-kakao-card"]');
-      expect(previewKakaoCard).not.toBeNull();
+      // Column 3: Client Summary Card & Link Governance Card
+      expect(container.querySelector('[data-testid="inbox-client-summary-card"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="inbox-link-governance-card"]')).not.toBeNull();
     });
   });
 });

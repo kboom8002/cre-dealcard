@@ -680,7 +680,7 @@ export function SimpleEditor({
                   className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-rose-300 dark:border-pink-500/30 bg-rose-50 dark:bg-pink-500/12 px-3 py-2 text-xs font-extrabold text-rose-950 dark:text-pink-200 hover:bg-rose-100 transition-colors"
                 >
                   <BarChart3 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>📈 독자 반응 · 핫리드 보기</span>
+                  <span>📈 독자 반응 · 연락할 고객 보기</span>
                 </motion.button>
               </div>
               <motion.button

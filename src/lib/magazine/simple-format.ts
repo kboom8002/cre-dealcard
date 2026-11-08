@@ -334,3 +334,73 @@ export function applySimplePreset(
 
   return content;
 }
+
+export type SimpleFormatActionId = 'subheading' | 'emphasis' | 'divider';
+
+export const SIMPLE_FORMAT_ACTIONS: readonly {
+  id: SimpleFormatActionId;
+  label: string;
+  description: string;
+}[] = [
+  { id: 'subheading', label: '소제목', description: '문단 앞에 눈에 띄는 소제목을 넣습니다' },
+  { id: 'emphasis', label: '강조', description: '중요한 문구를 괄호로 돋보이게 표시합니다' },
+  { id: 'divider', label: '구분선', description: '내용 사이에 깔끔한 구분 줄을 넣습니다' },
+] as const;
+
+/**
+ * NL-16: 마크다운 기호(`##`, `**`, `---`)를 그대로 노출하지 않고
+ * 시니어 중개사도 직관적으로 읽고 고칠 수 있는 한국어 서식을 삽입한다.
+ */
+export function applySimpleTextFormat(
+  currentText: string,
+  action: SimpleFormatActionId,
+  selection?: { start: number; end: number },
+): { text: string; cursorOffset: number } {
+  const safeText = currentText ?? '';
+  const start = Math.max(0, Math.min(selection?.start ?? safeText.length, safeText.length));
+  const end = Math.max(start, Math.min(selection?.end ?? safeText.length, safeText.length));
+  const before = safeText.slice(0, start);
+  const selected = safeText.slice(start, end).trim();
+  const after = safeText.slice(end);
+
+  if (action === 'subheading') {
+    const prefix = before.length > 0 && !before.endsWith('\n') ? '\n\n' : '';
+    const suffix = after.length > 0 && !after.startsWith('\n') ? '\n' : '';
+    const titleText = selected || '소제목을 입력해 주세요';
+    const inserted = `${prefix}■ ${titleText}${suffix}`;
+    return {
+      text: `${before}${inserted}${after}`,
+      cursorOffset: before.length + inserted.length,
+    };
+  }
+
+  if (action === 'emphasis') {
+    const target = selected || '강조할 문구';
+    const inserted = `「${target}」`;
+    return {
+      text: `${before}${inserted}${after}`,
+      cursorOffset: before.length + inserted.length,
+    };
+  }
+
+  const prefix = before.length > 0 && !before.endsWith('\n') ? '\n\n' : '';
+  const suffix = after.length > 0 && !after.startsWith('\n') ? '\n\n' : '';
+  const inserted = `${prefix}────────────────────${suffix}`;
+  return {
+    text: `${before}${inserted}${after}`,
+    cursorOffset: before.length + inserted.length,
+  };
+}
+
+/**
+ * 기존 텍스트에 마크다운 기호(`## `, `**...**`, `---`)가 섞여 있더라도
+ * 읽기 쉬운 서식으로 정리해 반환한다.
+ */
+export function normalizeReadableBriefingText(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^#{1,3}\s+/gm, '■ ')
+    .replace(/\*\*([^*]+)\*\*/g, '「$1」')
+    .replace(/^-{3,}$/gm, '────────────────────');
+}
+

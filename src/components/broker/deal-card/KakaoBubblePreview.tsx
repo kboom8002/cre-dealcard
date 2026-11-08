@@ -1,22 +1,28 @@
 'use client';
 
 /**
- * HTML KakaoTalk Bubble Preview (WP-P1-08)
+ * HTML KakaoTalk Bubble & Mobile Recipient Detail Preview (WP-P1-08)
  *
- * Requirements:
- * 1. Supports 1:1 desktop view (~380px) and realistic ~255px mobile bubble view toggle.
- * 2. Visual presentation matches KakaoTalk chat UI (Kakao background #BACEE0, white bubble).
- * 3. Renders OG v2 card preview image + title + 3 points + action button.
- * 4. High performance: re-renders instantly (<300ms) upon Card4Data state changes.
+ * - 4-item Kakao thumbnail (지역 / 용도 / 면적 / 가격) + 18-char 한 줄 제목
+ * - 받는 화면 (장점 3줄 + 담당 중개사 안내 + [전화하기] [IM 요청하기] 두 버튼 고정)
+ * - 내부 이중 스크롤을 제거하여 3열 전체가 위에서 아래로 자연스럽게 스크롤됨
  */
 
 import React, { useState } from 'react';
-import type { Card4Data, DealCardPointTone } from '@/lib/deal-card/card4-schema';
+import {
+  resolveCard4AreaLabel,
+  type Card4Data,
+  type DealCardPointTone,
+} from '@/lib/deal-card/card4-schema';
 import { POSTIT_TONE_STYLES } from '@/components/broker/deal-card/Card4ConfirmCard';
+import { TERMS } from '@/lib/ux/lexicon';
 
 export interface KakaoBubblePreviewProps {
   card4: Card4Data;
   dealId?: string;
+  brokerName?: string;
+  brokerSpecialty?: string;
+  brokerPhone?: string;
   className?: string;
 }
 
@@ -28,223 +34,283 @@ const DEFAULT_TONES: [DealCardPointTone, DealCardPointTone, DealCardPointTone] =
 
 export function KakaoBubblePreview({
   card4,
-  dealId = 'preview',
+  brokerName = '담당 공인중개사',
+  brokerSpecialty = '상업용 부동산 중개',
+  brokerPhone,
   className = '',
 }: KakaoBubblePreviewProps) {
-  const [scaleMode, setScaleMode] = useState<'desktop' | 'mobile' | 'postit'>('mobile');
+  const [viewFilter, setViewFilter] = useState<'all' | 'bubble' | 'detail'>('all');
 
-  const headline =
-    card4.headline?.trim() ||
-    `${card4.use || '근린생활시설'} · ${card4.region || '서울시'} · ${card4.priceBand || '가격 협의'}`;
+  const regionText = card4.region?.trim() || '—';
+  const useText = card4.use?.trim() || '—';
+  const areaText = resolveCard4AreaLabel(card4) || '—';
+  const priceText = card4.priceBand?.trim() || '—';
+
   const bubbleTitle =
-    card4.headline?.trim() ||
-    `${card4.region || '서울시'} ${card4.use || '근생'} ${card4.priceBand || ''}`.trim();
-
-  // Mobile bubble width is ~255px; desktop preview is ~380px
-  const containerWidth = scaleMode === 'mobile' ? 'w-[255px]' : 'w-[380px]';
+    card4.headline?.trim().slice(0, 18) ||
+    [card4.region?.trim(), card4.use?.trim(), card4.priceBand?.trim()]
+      .filter(Boolean)
+      .join(' · ')
+      .slice(0, 18) ||
+    '한 줄 제목을 입력해 주세요';
 
   return (
     <div
-      className={`flex flex-col items-center bg-slate-100 rounded-2xl border border-slate-300 p-5 ${className}`}
+      className={`flex flex-col items-center bg-slate-100 rounded-2xl border border-slate-300 p-4 space-y-4 ${className}`}
       data-testid="kakao-bubble-preview"
     >
-      {/* Top Controls: Scale Toggle */}
-      <div className="w-full flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200">
-        <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
-          <span>💬</span>
-          <span>카카오톡 말풍선 · 수신자 화면 미리보기</span>
+      {/* Top Controls: View Filter */}
+      <div className="w-full flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
+        <span className="text-sm font-extrabold text-slate-800">
+          미리보기
         </span>
 
-        <div className="inline-flex rounded-lg bg-slate-200 p-0.5 border border-slate-300 text-xs shrink-0">
+        <div
+          role="tablist"
+          aria-label="미리보기 화면 전환"
+          className="inline-flex rounded-xl bg-slate-200 p-1 border border-slate-300 text-sm shrink-0"
+        >
           <button
             type="button"
-            onClick={() => setScaleMode('mobile')}
-            className={`px-2 py-1 rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
-              scaleMode === 'mobile'
+            role="tab"
+            aria-selected={viewFilter === 'all'}
+            onClick={() => setViewFilter('all')}
+            className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+              viewFilter === 'all'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📱 모바일
+            전체
           </button>
           <button
             type="button"
-            onClick={() => setScaleMode('desktop')}
-            className={`px-2 py-1 rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
-              scaleMode === 'desktop'
+            role="tab"
+            aria-selected={viewFilter === 'bubble'}
+            onClick={() => setViewFilter('bubble')}
+            className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+              viewFilter === 'bubble'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            🖥️ PC
+            {TERMS.previewBubbleTab}
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={viewFilter === 'detail'}
             data-testid="preview-mode-postit"
-            onClick={() => setScaleMode('postit')}
-            className={`px-2 py-1 rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
-              scaleMode === 'postit'
+            onClick={() => setViewFilter('detail')}
+            className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+              viewFilter === 'detail'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📋 상세 뷰
+            {TERMS.previewRecipientTab}
           </button>
         </div>
       </div>
 
-      {/* Realistic KakaoTalk Chat Room Background */}
-      {scaleMode !== 'postit' && (
-        <div className="w-full flex justify-center py-6 px-4 bg-[#BACEE0] rounded-xl overflow-hidden shadow-inner">
-          {/* Kakao Bubble */}
-          <div
-            className={`${containerWidth} transition-all duration-200 bg-white rounded-2xl overflow-hidden shadow-md border border-slate-200/80`}
-          >
-            {/* OG Image Simulated Canvas (1.91:1 aspect ratio) */}
+      {/* 1. KakaoTalk Bubble Preview */}
+      {viewFilter !== 'detail' && (
+        <div className="w-full flex flex-col items-center py-4 px-3 bg-[#BACEE0] rounded-xl overflow-hidden shadow-inner">
+          <div className="w-full max-w-[300px] bg-white rounded-2xl overflow-hidden shadow-md border border-slate-200/80">
+            {/* 4-Item Thumbnail Canvas (1.91:1 aspect ratio) */}
             <div
+              data-testid="og-quadrant-preview"
               data-theme-lock="dark"
-              className="w-full aspect-[1.91/1] bg-slate-900 text-white p-3.5 flex flex-col justify-between relative overflow-hidden select-none"
+              className="w-full aspect-[1.91/1] bg-slate-900 text-white grid grid-cols-2 grid-rows-2 relative overflow-hidden select-none"
             >
-              {/* Background subtle gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 opacity-90 pointer-events-none" />
-
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-sky-400 bg-sky-950/80 px-1.5 py-0.5 rounded border border-sky-400/30">
-                  CRE DEAL CARD
+              {/* Item 1 (Top-Left): 지역 */}
+              <div
+                data-testid="og-quadrant-region"
+                className="flex items-center justify-center p-2 border-r border-b border-slate-700/80 text-center"
+              >
+                <span className="font-black text-white leading-tight text-base break-keep">
+                  {regionText}
                 </span>
-                <span className="text-[9px] text-slate-400">비밀유지 안심 매물</span>
               </div>
 
-              <div className="relative z-10 my-auto text-center px-1">
-                <p
-                  data-single-line-title="true"
-                  title={headline}
-                  className={`font-black text-white leading-tight ${
-                    scaleMode === 'mobile' ? 'text-[13px]' : 'text-[16px]'
-                  } whitespace-nowrap overflow-hidden text-ellipsis truncate tracking-tight`}
-                >
-                  {headline}
-                </p>
+              {/* Item 2 (Top-Right): 용도 */}
+              <div
+                data-testid="og-quadrant-use"
+                className="flex items-center justify-center p-2 border-b border-slate-700/80 text-center"
+              >
+                <span className="font-black text-sky-400 leading-tight text-base break-keep">
+                  {useText}
+                </span>
               </div>
 
-              <div className="relative z-10 flex items-center justify-between border-t border-slate-700/60 pt-1 text-[9px] text-slate-400">
-                <span>🛡️ 공적장부 교차검증</span>
-                <span className="text-sky-400 font-semibold">상세보기 →</span>
+              {/* Item 3 (Bottom-Left): 면적 */}
+              <div
+                data-testid="og-quadrant-area"
+                className="flex items-center justify-center p-2 border-r border-slate-700/80 text-center"
+              >
+                <span className="font-black text-slate-100 leading-tight text-base break-keep">
+                  {areaText}
+                </span>
+              </div>
+
+              {/* Item 4 (Bottom-Right): 가격 */}
+              <div
+                data-testid="og-quadrant-price"
+                className="flex items-center justify-center p-2 text-center"
+              >
+                <span className="font-black text-amber-400 leading-tight text-base break-keep">
+                  {priceText}
+                </span>
               </div>
             </div>
 
-            {/* Bubble Content Area */}
-            <div className="p-3.5 space-y-2">
+            {/* Bubble Content Area: 18-char Title + CTA Button */}
+            <div className="p-3.5 space-y-2.5">
               <h4
+                data-testid="kakao-bubble-og-title"
                 data-single-line-title="true"
                 title={bubbleTitle}
-                className={`font-bold text-slate-900 ${
-                  scaleMode === 'mobile' ? 'text-[14px]' : 'text-[16px]'
-                } whitespace-nowrap overflow-hidden text-ellipsis truncate leading-snug`}
+                className="font-extrabold text-slate-900 text-base leading-snug break-keep"
               >
                 {bubbleTitle}
               </h4>
 
-              {/* 3 Bullet Points */}
-              <ul className="space-y-1 text-slate-600">
-                {card4.points.map((pt, idx) => (
-                  <li
-                    key={idx}
-                    className={`flex items-start gap-1.5 ${
-                      scaleMode === 'mobile' ? 'text-[12px]' : 'text-[14px]'
-                    } leading-snug break-keep`}
-                  >
-                    <span className="text-blue-500 font-bold shrink-0">•</span>
-                    <span className="line-clamp-1">{pt || `포인트 ${idx + 1}`}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Simulated Action Button */}
-              <div className="pt-2">
-                <div
-                  className={`w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center font-semibold ${
-                    scaleMode === 'mobile' ? 'text-[12px]' : 'text-[14px]'
-                  } border border-slate-200`}
-                >
-                  자세히 보기
-                </div>
+              <div className="w-full py-2.5 bg-slate-100 text-slate-800 rounded-lg text-center font-bold text-sm border border-slate-200">
+                자세히 보기
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Clean 3-Point Detail Preview */}
-      <div
-        data-testid="dealcard-postit-preview-list"
-        className={`w-full rounded-lg bg-white border border-slate-200 p-4 space-y-2.5 ${
-          scaleMode === 'postit' ? 'mt-0' : 'mt-3'
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-            <span>📌</span>
-            <span>수신자 상세 화면 · 핵심 투자 포인트 3선</span>
-          </span>
-          <span className="text-[11px] font-semibold text-slate-500">
-            핵심 요약 + 상세 해설
-          </span>
-        </div>
+      {/* 2. Recipient Detail Screen Preview (Single Scroll in Column 3) */}
+      {viewFilter !== 'bubble' && (
+        <div
+          data-testid="dealcard-postit-preview-list"
+          className="w-full rounded-2xl bg-[#0B0F14] text-white border-2 border-slate-800 shadow-lg overflow-hidden"
+        >
+          <div className="px-4 py-3 bg-[#141A21] border-b border-slate-800 flex items-center justify-between">
+            <span className="text-sm font-extrabold text-slate-200">
+              고객이 카톡에서 눌렀을 때 보는 화면
+            </span>
+          </div>
 
-        <div className="space-y-2">
-          {([0, 1, 2] as const).map((idx) => {
-            const ptTitle = card4.points[idx] || `핵심 포인트 ${idx + 1}`;
-            const ptBrief =
-              card4.pointBriefs?.[idx] ||
-              `${card4.region || '해당 권역'} ${card4.use || '매물'}의 핵심 매수 검토 포인트입니다.`;
-            const toneKey: DealCardPointTone = card4.pointTones?.[idx] || DEFAULT_TONES[idx];
-            const toneStyle = POSTIT_TONE_STYLES[toneKey] || POSTIT_TONE_STYLES.amber;
-
-            return (
-              <div
-                key={idx}
-                data-testid={`dealcard-postit-preview-item-${idx}`}
-                style={{
-                  backgroundColor: toneStyle.bgHex,
-                  borderColor: toneStyle.borderHex,
-                }}
-                className="rounded-md border border-l-4 p-3 space-y-1 shadow-2xs"
+          <div
+            data-testid="dealcard-mobile-detail-scroll"
+            className="p-4 space-y-4"
+          >
+            {/* Compact 4-Item Summary Strip at top of detail view */}
+            <div className="rounded-xl bg-[#141A21] border border-slate-800 p-3.5 space-y-2.5">
+              <div className="grid grid-cols-2 gap-2 text-center text-sm font-extrabold">
+                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-white break-keep">
+                  {regionText}
+                </div>
+                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-sky-400 break-keep">
+                  {useText}
+                </div>
+                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-slate-200 break-keep">
+                  {areaText}
+                </div>
+                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-amber-400 break-keep">
+                  {priceText}
+                </div>
+              </div>
+              <p
+                data-single-line-title="true"
+                className="text-base font-extrabold text-white text-center pt-0.5 break-keep"
               >
-                <div className="flex items-center justify-between">
-                  <span
+                {bubbleTitle}
+              </p>
+            </div>
+
+            {/* 장점 3줄 */}
+            <div className="space-y-2.5">
+              <span className="block text-sm font-extrabold text-amber-400 px-0.5">
+                {TERMS.pointsSectionTitle}
+              </span>
+
+              {([0, 1, 2] as const).map((idx) => {
+                const ptTitle = (card4.points[idx] || '').trim().slice(0, 18) || '—';
+                const toneKey: DealCardPointTone = card4.pointTones?.[idx] || DEFAULT_TONES[idx];
+                const toneStyle = POSTIT_TONE_STYLES[toneKey] || POSTIT_TONE_STYLES.amber;
+
+                return (
+                  <div
+                    key={idx}
+                    data-testid={`dealcard-postit-preview-item-${idx}`}
                     style={{
-                      backgroundColor: toneStyle.badgeBgHex,
-                      color: toneStyle.badgeTextHex,
+                      backgroundColor: toneStyle.bgHex,
+                      borderColor: toneStyle.borderHex,
                     }}
-                    className="text-[11px] font-extrabold px-2 py-0.5 rounded"
+                    className="rounded-xl border border-l-4 px-3.5 py-3 flex items-center gap-2.5 shadow-2xs"
                   >
-                    POINT 0{idx + 1}
+                    <span
+                      style={{
+                        backgroundColor: toneStyle.badgeBgHex,
+                        color: toneStyle.badgeTextHex,
+                      }}
+                      className="text-sm font-extrabold px-2.5 py-0.5 rounded shrink-0"
+                    >
+                      0{idx + 1}
+                    </span>
+                    <p
+                      data-single-line-title="true"
+                      title={ptTitle}
+                      className="text-base font-extrabold text-slate-950 break-keep"
+                    >
+                      {ptTitle}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 담당 중개사 안내 카드 */}
+            <div
+              data-testid="preview-broker-profile-card"
+              className="rounded-xl bg-[#141A21] border border-slate-700/80 p-3.5 flex items-center justify-between gap-3"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-base font-extrabold text-white break-keep">
+                    {brokerName}
                   </span>
-                  <span className="text-[11px] font-semibold text-slate-600">
-                    {card4.region} · {card4.priceBand}
+                  <span className="text-sm px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold shrink-0">
+                    공인중개사
                   </span>
                 </div>
-                <p
-                  data-single-line-title="true"
-                  title={ptTitle}
-                  className="text-[15px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
-                >
-                  {ptTitle}
-                </p>
-                <p className="text-xs font-medium text-slate-700 leading-relaxed line-clamp-2">
-                  {ptBrief}
+                <p className="text-sm text-slate-400 mt-1 break-keep">
+                  {brokerSpecialty}
                 </p>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
 
-      {/* Caption Notice */}
-      <p className="text-[12px] text-slate-500 text-center mt-3 break-keep">
-        💡 카카오톡 앱에서 수신자 말풍선 폭은 약 250~260px입니다. 제목과 각 특징이 1줄로 깔끔하게 표시됩니다.
-      </p>
+            {/* 하단 두 버튼 고정: [전화하기] [IM 요청하기] */}
+            <div
+              data-testid="preview-bottom-cta-group"
+              className="grid grid-cols-2 gap-2.5 pt-1"
+            >
+              <a
+                href={brokerPhone ? `tel:${brokerPhone.replace(/[^0-9]/g, '')}` : '#call'}
+                onClick={(e) => {
+                  if (!brokerPhone) e.preventDefault();
+                }}
+                data-testid="preview-cta-call-btn"
+                className="min-h-[48px] py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span>{TERMS.recipientCallCta}</span>
+              </a>
+              <button
+                type="button"
+                data-testid="preview-cta-im-request-btn"
+                className="min-h-[48px] py-3 px-3 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-sm font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span>{TERMS.recipientImRequestCta}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

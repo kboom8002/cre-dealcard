@@ -214,7 +214,7 @@ export function EditorAnalyticsTab({ brokerDisplayName }: EditorAnalyticsTabProp
         ) : null}
       </div>
 
-      {/* ── 2. 🔥 지금 연락해야 할 핫리드 (최상단 First Fold 배치: top < 260px) ── */}
+      {/* ── 2. 🔥 지금 연락해야 할 고객 (최상단 First Fold 배치: top < 260px) ── */}
       <div
         className="bg-gradient-to-br from-rose-950/25 via-slate-900/70 to-slate-900/90 border border-rose-500/30 rounded-xl p-4 space-y-3"
         aria-busy={refreshing}
@@ -222,7 +222,7 @@ export function EditorAnalyticsTab({ brokerDisplayName }: EditorAnalyticsTabProp
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />
-            <span className="text-base font-bold text-rose-200">지금 연락해야 할 핫리드</span>
+            <span className="text-base font-bold text-rose-200">지금 연락해야 할 고객</span>
             <span className="text-sm bg-rose-500/20 text-rose-200 px-2.5 py-0.5 rounded-full font-bold">
               {filteredLeads.length}명
             </span>
@@ -234,7 +234,7 @@ export function EditorAnalyticsTab({ brokerDisplayName }: EditorAnalyticsTabProp
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-2" role="group" aria-label="핫리드 선별 기준">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="연락할 고객 선별 기준">
           {LEAD_TIER_OPTIONS.map((opt) => {
             const selected = opt.value === leadTier;
             return (

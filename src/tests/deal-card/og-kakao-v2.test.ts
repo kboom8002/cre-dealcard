@@ -129,10 +129,15 @@ describe('WP-P1-06 & WP-P1-07: KakaoTalk OG v2 & Cache Versioning', () => {
       expect(code).toContain('height: 630');
     });
 
-    it('renders large typography with 용도 · 권역 · 금액구간 headline', () => {
+    it('renders 4-quadrant large typography (권역, 용도, 면적, 금액구간) without header or footer', () => {
       const code = fs.readFileSync(routePath, 'utf8');
-      expect(code).toContain('${use} · ${region} · ${priceBand}');
-      expect(code).toContain('fontSize: \'56px\'');
+      expect(code).toContain('Quadrant 1: 권역');
+      expect(code).toContain('Quadrant 2: 용도');
+      expect(code).toContain('Quadrant 3: 면적');
+      expect(code).toContain('Quadrant 4: 금액구간');
+      expect(code).toContain('fontSize: \'64px\'');
+      expect(code).not.toContain('CRE DEAL CARD');
+      expect(code).not.toContain('상세 정보 열람하기');
     });
 
     it('contains zero DB write mutations (insert/update/delete/upsert) on GET path', () => {

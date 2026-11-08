@@ -107,7 +107,7 @@ export function targetingTiles(p: SpecialPreview): Array<{ key: 'total' | 'match
   return [
     { key: 'total', label: '전체 구독자', count: p.total, hint: '수신 중인 구독자' },
     { key: 'matched', label: '매칭 대상', count: p.matched, hint: '권역·자산유형이 모두 맞는 구독자' },
-    { key: 'hot', label: '핫리드', count: p.hotLeads, hint: '매칭 대상 중 적극검토·관심' },
+    { key: 'hot', label: '연락할 고객', count: p.hotLeads, hint: '매칭 대상 중 적극검토·관심' },
     { key: 'untagged', label: '태그 없음', count: p.untagged, hint: '관심 태그가 없어 기본 제외' },
   ];
 }

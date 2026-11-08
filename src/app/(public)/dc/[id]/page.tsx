@@ -57,7 +57,8 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
     teaserDoc: {
       body: {
         card4: quickRec.card4,
-        title: `${quickRec.card4.region} ${quickRec.card4.use}`,
+        kakaoOgTitle: quickRec.card4.headline || undefined,
+        title: quickRec.card4.headline || `${quickRec.card4.region} ${quickRec.card4.use}`,
         dealPoints: quickRec.card4.points,
         price_band: quickRec.card4.priceBand,
         region_display: quickRec.card4.region,
@@ -80,8 +81,8 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
             quickRec.basicImDoc?.facts?.brokerOffice?.name ||
             "검증 공인중개사",
           avatar_url: quickRec.brokerProfile?.photoUrl || null,
-          is_licensed: true,
-          response_guarantee_hours: 1,
+          is_licensed: Boolean(quickRec.brokerProfile?.registrationNo),
+          response_guarantee_hours: null,
           closed_deals: null,
           slug: quickRec.brokerProfile?.slug || null,
         }
@@ -226,7 +227,7 @@ const getDealCardData = cache(async (id: string) => {
       phone,
       specialty,
       avatar_url: avatarUrl,
-      is_licensed: Boolean((bProfile as any)?.license_number || (bProfile as any)?.office_reg_number || true),
+      is_licensed: Boolean((bProfile as any)?.license_number || (bProfile as any)?.office_reg_number),
       response_guarantee_hours:
         (bProfile as any)?.response_time_hours ?? (bProfile as any)?.response_guarantee_hours ?? null,
       closed_deals:
@@ -288,7 +289,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const { og } = projectPublic(id, data);
   const ogTitle = og.title;
-  const ogDescription = og.description;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
   const card4Hash = (data.teaserDoc?.body as Record<string, any> | undefined)?.card4?.card4_hash;
@@ -296,10 +296,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `${ogTitle} | 크리딜 DealCard`,
-    description: ogDescription,
     openGraph: {
       title: ogTitle,
-      description: ogDescription,
       type: "article",
       images: [
         {
@@ -313,7 +311,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
-      description: ogDescription,
       images: [absoluteOgImage],
     },
   };
@@ -336,18 +333,18 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   }
 
   const card = projectPublic(id, data);
-  const { hero, broker, cta, policy } = card;
+  const { hero, broker, cta, og } = card;
+  const useDisplay = card.postureWidget.assetType || "상업용 매물";
+  const areaDisplay = hero.bandedArea || "—";
 
   // 데이터 최소성 검사
   if (!card.hasMinimalData && !isPreviewMode) {
     return (
       <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] flex items-center justify-center p-4">
         <div className="max-w-[392px] w-full bg-[#141A21] border border-[#252E39] rounded-2xl p-6 text-center space-y-4">
-          <div className="text-4xl">🚧</div>
-          <h1 className="text-lg font-bold text-white">데이터 보강 필요</h1>
-          <p className="text-sm text-[#9AA7B5]">
-            해당 매물은 아직 필수 데이터가 충분히 입력되지 않아 딜카드를 생성할 수 없습니다. 
-            중개사님의 추가 정보 입력이 필요합니다.
+          <h1 className="text-lg font-bold text-white">매물 안내 준비 중</h1>
+          <p className="text-base text-slate-300 break-keep">
+            담당 중개사가 매물 정보를 정리하고 있습니다. 잠시 후 다시 확인해 주세요.
           </p>
         </div>
       </main>
@@ -355,197 +352,128 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] pb-24">
+    <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] pb-12">
       <TeaserEventTracker teaserConfigId={card.teaserConfigId} />
 
-      <div className="max-w-[392px] mx-auto">
-        {/* ① TeaserHeroHeader — 관점배지 + 히어로 + 적응형 4칸(최소 2개 보장) */}
-        <TeaserHeroHeader
-          archetype={hero.archetype ?? undefined}
-          regionLabel={hero.regionLabel}
-          bandedPrice={hero.bandedPrice}
-          bandedCapRate={hero.bandedCapRate}
-          bandedArea={hero.bandedArea}
-          vacancyLabel={hero.vacancyLabel ?? undefined}
-          title={hero.title}
-          hookCopy={hero.hookCopy}
-          posture={hero.posture}
-          postureLabel={hero.postureLabel}
-          postureHeroTiles={hero.postureHeroTiles}
-          urgencyTag={hero.urgencyTag ?? undefined}
+      <div className="max-w-[420px] mx-auto px-4 pt-5 space-y-4">
+        {/* 상단 4항목 요약 (지역 · 용도 · 면적 · 가격) + 한 줄 제목 */}
+        <section
+          data-testid="public-dealcard-4fact-header"
+          className="rounded-2xl bg-[#141A21] border border-slate-800 p-4 space-y-3 shadow-md"
+        >
+          <div className="grid grid-cols-2 gap-2 text-center text-base font-extrabold">
+            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-white break-keep">
+              {hero.regionLabel || "—"}
+            </div>
+            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-sky-400 break-keep">
+              {useDisplay}
+            </div>
+            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-slate-200 break-keep">
+              {areaDisplay}
+            </div>
+            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-amber-400 break-keep">
+              {hero.bandedPrice || "—"}
+            </div>
+          </div>
+          <h1
+            data-single-line-title="true"
+            className="text-lg font-extrabold text-white text-center pt-1 break-keep"
+          >
+            {og.title || hero.title}
+          </h1>
+        </section>
+
+        {/* ① 장점 3줄 (18자 이내 제목 3줄만 깔끔하게 표시) */}
+        {(() => {
+          const dp = card.dealPoints.slice(0, 3);
+          const postItStyles = [
+            {
+              bg: "#FEF9C3",
+              border: "#FDE047",
+              badgeBg: "#FEF08A",
+              badgeText: "#854D0E",
+              label: "01",
+            },
+            {
+              bg: "#E0F2FE",
+              border: "#7DD3FC",
+              badgeBg: "#BAE6FD",
+              badgeText: "#075985",
+              label: "02",
+            },
+            {
+              bg: "#DCFCE7",
+              border: "#86EFAC",
+              badgeBg: "#BBF7D0",
+              badgeText: "#166534",
+              label: "03",
+            },
+          ];
+          return dp.length > 0 ? (
+            <div
+              data-testid="public-dealcard-points"
+              className="rounded-2xl bg-slate-900/90 border border-slate-700/70 p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-base font-extrabold text-amber-400 tracking-wide">
+                  장점 3줄
+                </p>
+              </div>
+              <ul className="space-y-2.5">
+                {dp.map((pt: string, i: number) => {
+                  const tone = postItStyles[i % postItStyles.length];
+                  const [headlinePart] = pt.split(" — ");
+                  const cleanTitle = headlinePart.trim().slice(0, 18);
+                  return (
+                    <li
+                      key={i}
+                      data-testid={`public-dealcard-postit-${i}`}
+                      style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+                      className="rounded-xl border border-l-4 px-4 py-3.5 shadow-sm text-slate-900 flex items-center gap-3"
+                    >
+                      <span
+                        style={{ backgroundColor: tone.badgeBg, color: tone.badgeText }}
+                        className="text-sm font-extrabold px-2.5 py-0.5 rounded-md tracking-tight shrink-0"
+                      >
+                        {tone.label}
+                      </span>
+                      <p
+                        data-single-line-title="true"
+                        title={cleanTitle}
+                        className="text-base font-extrabold text-slate-950 leading-snug break-keep"
+                      >
+                        {cleanTitle}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null;
+        })()}
+
+        {/* ② 담당 중개사 프로필 & 전화하기 단추 (TrustLine) */}
+        <TrustLine
+          brokerName={broker.displayName}
+          brokerPhone={broker.phone ?? undefined}
+          brokerSlug={broker.slug ?? undefined}
+          brokerAvatarUrl={broker.avatarUrl ?? undefined}
+          specialty={broker.specialty ?? undefined}
+          responseGuaranteeHours={broker.responseGuaranteeHours ?? undefined}
+          closedDeals={broker.closedDeals ?? undefined}
+          isLicensed={broker.isLicensed}
         />
 
-        <div className="px-4 space-y-3.5 mt-3">
-          {/* ②-b 핵심 딜포인트 (blind_teaser에서 추출) — AXIOS형 와이드 포스트잇 카드 */}
-          {(() => {
-            const dp = card.dealPoints;
-            const postItStyles = [
-              {
-                bg: "#FEF9C3",
-                border: "#FDE047",
-                badgeBg: "#FEF08A",
-                badgeText: "#854D0E",
-                label: "POINT 01 · 입지·상권",
-                defaultBrief: "역세권 접근성과 주동선 가시성이 검증된 핵심 입지 포인트입니다.",
-              },
-              {
-                bg: "#E0F2FE",
-                border: "#7DD3FC",
-                badgeBg: "#BAE6FD",
-                badgeText: "#075985",
-                label: "POINT 02 · 임차·안정성",
-                defaultBrief: "임차 구성의 안정성과 공간 활용도가 우수한 핵심 운영 포인트입니다.",
-              },
-              {
-                bg: "#DCFCE7",
-                border: "#86EFAC",
-                badgeBg: "#BBF7D0",
-                badgeText: "#166534",
-                label: "POINT 03 · 수익·밸류업",
-                defaultBrief: "인근 실거래 및 수익률 관점에서 하방경직성과 상승 여력을 갖춘 포인트입니다.",
-              },
-            ];
-            return dp.length > 0 ? (
-              <div
-                data-testid="public-dealcard-points"
-                className="rounded-lg bg-slate-900/80 border border-slate-700/70 p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-[14px] font-bold text-amber-400 tracking-wide flex items-center gap-1.5">
-                    <span>📌 핵심 투자 포인트 ({dp.length}선)</span>
-                  </p>
-                  <span className="text-[12px] text-slate-300">매수 검토 핵심 요약</span>
-                </div>
-                <ul className="space-y-2.5">
-                  {dp.map((pt: string, i: number) => {
-                    const tone = postItStyles[i % postItStyles.length];
-                    const [headlinePart, ...restParts] = pt.split(" — ");
-                    const briefPart = restParts.join(" — ").trim() || tone.defaultBrief;
-                    return (
-                      <li
-                        key={i}
-                        data-testid={`public-dealcard-postit-${i}`}
-                        style={{ backgroundColor: tone.bg, borderColor: tone.border }}
-                        className="rounded-md border border-l-4 p-3.5 shadow-sm text-slate-900 space-y-1"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            style={{ backgroundColor: tone.badgeBg, color: tone.badgeText }}
-                            className="text-[11px] font-extrabold px-2 py-0.5 rounded-md tracking-tight"
-                          >
-                            {tone.label}
-                          </span>
-                          <span className="w-5 h-5 rounded-full bg-slate-900/10 text-slate-800 text-xs font-extrabold flex items-center justify-center shrink-0">
-                            {i + 1}
-                          </span>
-                        </div>
-                        <p
-                          data-single-line-title="true"
-                          title={headlinePart}
-                          className="text-[16px] font-extrabold text-slate-950 leading-snug whitespace-nowrap overflow-hidden text-ellipsis truncate"
-                        >
-                          {headlinePart}
-                        </p>
-                        <p className="text-[13px] font-medium text-slate-700 leading-relaxed break-keep">
-                          {briefPart}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : null;
-          })()}
-
-          {/* ③ 포스처 특화 위젯 (결과 우선 + 접이식 슬라이더) — 최소 허용 필드만 전달 (P0-SEC SEC-5) */}
-          <PostureWidget
-            input={card.postureWidget}
-            buildingId={id}
-          />
-
-          {/* ④ 담당 중개사 프로필 (TrustLine - 전화 연결 기능 탑재) */}
-          <TrustLine
-            brokerName={broker.displayName}
-            brokerPhone={broker.phone ?? undefined}
-            brokerSlug={broker.slug ?? undefined}
-            brokerAvatarUrl={broker.avatarUrl ?? undefined}
-            specialty={broker.specialty ?? undefined}
-            responseGuaranteeHours={broker.responseGuaranteeHours ?? undefined}
-            closedDeals={broker.closedDeals ?? undefined}
-            isLicensed={broker.isLicensed}
-          />
-
-          {/* ⑤ CTALadder — Basic/Pro 이분화 & Floating Sticky Bar */}
-          <CTALadder
-            buildingId={id}
-            teaserConfigId={card.teaserConfigId}
-            brokerPhone={broker.phone ?? undefined}
-            requireNda={cta.requireNda}
-            hasImDoc={cta.hasImDoc}
-            isPptxApproved={cta.isPptxApproved}
-            pptxDownloadUrl={cta.pptxDownloadUrl}
-          />
-
-
-          {/* ⑥ 매도자 보호 및 비밀유지 안내 (접이식) */}
-          <details className="group text-[13px] text-slate-300 border border-slate-800 rounded-xl p-3.5 bg-slate-900/50">
-            <summary className="cursor-pointer font-semibold text-slate-200 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                🛡️ 매도자 보호 및 정보 보안 안내
-                <span className="inline-flex items-center gap-1 text-[12px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  주소 비공개 보호 적용
-                </span>
-              </span>
-              <span className="text-[12px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
-            </summary>
-            <div className="pt-2">
-              <PublicPolicyBlock
-                candidateCount={policy.candidateCount}
-                kThreshold={policy.kThreshold}
-                passed={policy.passed}
-              />
-            </div>
-          </details>
-
-          {/* DORMANT: ux60-focus — 공개 구매자 화면에서 중개사 전용 매칭 허브 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <span>⚡</span> 중개사 전용 매칭 허브
-              </span>
-              <Link href={`/broker/deal-card/${id}`} className="text-[11px] text-primary hover:underline">
-                딜카드 관리 →
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Link
-                href={`/broker/matching?buildingId=${id}`}
-                className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-200 transition-colors"
-              >
-                <span>🎯 매수자 매칭</span>
-              </Link>
-              <Link
-                href={`/broker/tenant-intents?buildingId=${id}`}
-                className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-200 transition-colors"
-              >
-                <span>🏢 임차의향서</span>
-              </Link>
-            </div>
-          </div>
-          */}
-
-          {/* ⑧ Powered-by Dual Branding Badge */}
-          <PoweredByBadge variant="full" context="dealcard" buildingId={id} />
-
-          {/* Legal Disclaimer */}
-          <div className="text-center px-2 pt-2 pb-4">
-
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              본 자산은 매도자 요청으로 지번 및 소유자가 블라인드 처리되었습니다.
-            </p>
-          </div>
-        </div>
+        {/* ③ 전화하기 & IM 요청하기 단추 (CTALadder) */}
+        <CTALadder
+          buildingId={id}
+          teaserConfigId={card.teaserConfigId}
+          brokerPhone={broker.phone ?? undefined}
+          requireNda={cta.requireNda}
+          hasImDoc={cta.hasImDoc}
+          isPptxApproved={cta.isPptxApproved}
+          pptxDownloadUrl={cta.pptxDownloadUrl}
+        />
       </div>
     </main>
   );

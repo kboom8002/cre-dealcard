@@ -4,8 +4,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 import {
   computeCard4Hash,
+  generateAiOgHeadline,
+  resolveCard4AreaLabel,
   updateDealCard4,
   type Card4Data,
+  type DealCardPosture,
 } from "@/lib/deal-card/card4-schema";
 import {
   isUuid,
@@ -13,6 +16,7 @@ import {
   listAllQuickImRecords,
   updateQuickImCard4,
 } from "@/lib/im-lite/quick-generate-store";
+import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
 
 function formatRelativeTime(isoString?: string | null): string {
   if (!isoString) return "방금";
@@ -119,10 +123,26 @@ export async function GET(request: NextRequest) {
       rawPoints[2] || "안정적 임대수익 기대",
     ];
     const hash = bodyCard4?.card4_hash || computeCard4Hash({ region, use, priceBand, points });
+    const layersObj = (b.layers as Record<string, any>) || {};
+    const gfaSqmRaw = Number(layersObj.building_register?.gross_floor_area_sqm || 0);
+    const landSqmRaw = Number(layersObj.building_register?.land_area_sqm || 0);
+    const gfaPyung = bodyCard4?.gfaPyung || (gfaSqmRaw > 0 ? Math.round(gfaSqmRaw / 3.3058) : undefined);
+    const landAreaPyung = bodyCard4?.landAreaPyung || (landSqmRaw > 0 ? Math.round(landSqmRaw / 3.3058) : undefined);
+    const posture: DealCardPosture = bodyCard4?.posture || "income";
+    const area = resolveCard4AreaLabel(
+      { ...bodyCard4, posture, gfaPyung, landAreaPyung },
+      { gfaPyung, landAreaPyung }
+    );
+    const headline = bodyCard4?.headline?.slice(0, 18) || "";
 
     const card4: Card4Data = {
+      headline,
+      posture,
       region,
       use,
+      area,
+      gfaPyung,
+      landAreaPyung,
       priceBand,
       points,
       provenance: bodyCard4?.provenance || {
@@ -314,6 +334,29 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "buildingId and card4 are required" }, { status: 400 });
   }
 
+  // Server-side blind-guard check
+  const blindCheck = validateBlindPoints(
+    [
+      ...(Array.isArray(card4.points) ? card4.points : []),
+      card4.region || "",
+      card4.use || "",
+      card4.headline || "",
+    ],
+    { region: card4.region, assetType: card4.use }
+  );
+  if (!blindCheck.isValid) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          blindCheck.violations[0]?.reason ||
+          "건물 위치가 드러날 수 있는 표현이 포함되어 있습니다.",
+        violations: blindCheck.violations,
+      },
+      { status: 422 }
+    );
+  }
+
   const supabase = createServiceClient();
 
   // Fetch broker profile for attaching to QuickImStore record
@@ -365,8 +408,13 @@ export async function PATCH(request: NextRequest) {
     }
     const result = await updateDealCard4(supabase, buildingId, {
       card4: {
+        headline: card4.headline,
+        posture: card4.posture,
         region: card4.region,
         use: card4.use,
+        area: card4.area,
+        gfaPyung: card4.gfaPyung,
+        landAreaPyung: card4.landAreaPyung,
         priceBand: card4.priceBand,
         points: card4.points,
         provenance: card4.provenance,

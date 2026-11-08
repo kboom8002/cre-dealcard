@@ -102,17 +102,17 @@ describe('U-F1-02 & 골든 E2E 계약: EditorAnalyticsTab / CallBriefingModal �
     'utf8',
   );
 
-  it('성과 탭에서 "지금 연락해야 할 핫리드" 섹션이 KPI("30일 총 열람")보다 먼저 배치된다 (First Fold 승격)', () => {
-    const hotLeadIdx = tabSrc.indexOf('지금 연락해야 할 핫리드');
+  it('성과 탭에서 "지금 연락해야 할 고객" 섹션이 KPI("30일 총 열람")보다 먼저 배치된다 (First Fold 승격)', () => {
+    const hotLeadIdx = tabSrc.indexOf('지금 연락해야 할 고객');
     const kpiIdx = tabSrc.indexOf('label="30일 총 열람"');
     expect(hotLeadIdx).toBeGreaterThan(0);
     expect(kpiIdx).toBeGreaterThan(0);
     expect(hotLeadIdx).toBeLessThan(kpiIdx);
   });
 
-  it('Part 3 XPath 계약: <span>지금 연락해야 할 핫리드</span> 바로 다음 형제가 <span>{filteredLeads.length}명</span>이다', () => {
+  it('Part 3 XPath 계약: <span>지금 연락해야 할 고객</span> 바로 다음 형제가 <span>{filteredLeads.length}명</span>이다', () => {
     expect(tabSrc).toMatch(
-      /<span[^>]*>지금 연락해야 할 핫리드<\/span>\s*<span[^>]*>\s*\{filteredLeads\.length\}명\s*<\/span>/,
+      /<span[^>]*>지금 연락해야 할 고객<\/span>\s*<span[^>]*>\s*\{filteredLeads\.length\}명\s*<\/span>/,
     );
   });
 

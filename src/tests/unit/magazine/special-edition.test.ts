@@ -221,7 +221,7 @@ describe('describeSpecialResult / evaluatePublishGate / parseSpecialPreview', ()
     expect(preview?.matched).toBe(1);
     expect(parseSpecialPreview({ error: 'x' })).toBeNull();
     expect(parseSpecialPreview(null)).toBeNull();
-    expect(targetingTiles(preview!).map((t) => t.label)).toEqual(['전체 구독자', '매칭 대상', '핫리드', '태그 없음']);
+    expect(targetingTiles(preview!).map((t) => t.label)).toEqual(['전체 구독자', '매칭 대상', '연락할 고객', '태그 없음']);
   });
 
   const base = { loading: false, loadFailed: false, preview, headline: '헤드라인', autoDistribute: false, publishing: false };

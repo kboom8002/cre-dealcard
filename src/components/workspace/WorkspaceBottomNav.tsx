@@ -86,7 +86,10 @@ export function WorkspaceBottomNav({
               <div className="relative text-xl leading-none">
                 <span>{tab.icon}</span>
                 {tab.badge !== undefined && (
-                  <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-sm font-bold flex items-center justify-center">
+                  <span
+                    aria-label={`처리할 일 ${tab.badge}건`}
+                    className="absolute -top-1.5 -right-3 min-w-[22px] h-[22px] px-1 rounded-full bg-rose-600 text-white text-sm font-extrabold flex items-center justify-center"
+                  >
                     {tab.badge}
                   </span>
                 )}

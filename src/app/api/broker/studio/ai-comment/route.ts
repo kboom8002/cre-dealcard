@@ -10,8 +10,8 @@ import {
   type AiCommentResponse,
 } from "@/lib/magazine/ai-comment-schema";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
+import { createModuleLogger } from "@/lib/logger";
+const log = createModuleLogger("route");
 
 function fail(status: number, code: string, message: string) {
   return NextResponse.json({ ok: false, error: { code, message } }, { status });
@@ -23,7 +23,6 @@ function fail(status: number, code: string, message: string) {
  * Mock 응답은 공개 콘텐츠 품질 보장을 위해 502로 거부한다 (DC-8).
  */
 export async function POST(req: NextRequest) {
-  // Auth guard — 미인증 요청 차단
   const auth = await requireBroker(req);
   if (auth.error) return auth.error;
 
@@ -51,14 +50,13 @@ export async function POST(req: NextRequest) {
       { allowMock: false },
     );
 
-    // 방어: llm-client 가 allowMock 을 지원하지 않거나 우회되어도 Mock 응답은 거부
     if ((result as { isMock?: boolean }).isMock) {
-      return fail(502, "LLM_UNAVAILABLE", "AI 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+      return fail(502, "LLM_UNAVAILABLE", "AI가 잠시 쉬고 있어요. 잠시 후 다시 눌러 주세요.");
     }
 
     const text = typeof result.content === "string" ? result.content.trim() : "";
     if (!text) {
-      return fail(502, "LLM_EMPTY", "AI가 응답을 생성하지 못했습니다. 다시 시도해주세요.");
+      return fail(502, "LLM_EMPTY", "AI가 응답을 만들지 못했어요. 다시 한 번 눌러 주세요.");
     }
 
     const warnings: string[] = [];
@@ -75,9 +73,9 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     if (error instanceof LLMMockNotAllowedError) {
       log.warn("[studio/ai-comment] Mock 응답 거부:", error.message);
-      return fail(502, "LLM_UNAVAILABLE", "AI 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+      return fail(502, "LLM_UNAVAILABLE", "AI가 잠시 쉬고 있어요. 잠시 후 다시 눌러 주세요.");
     }
     log.error("[studio/ai-comment] Error:", error);
-    return fail(500, "SERVER_ERROR", "AI 생성 중 오류가 발생했습니다.");
+    return fail(500, "SERVER_ERROR", "AI 추천글 작성 중 문제가 생겼어요. 잠시 후 다시 눌러 주세요.");
   }
 }

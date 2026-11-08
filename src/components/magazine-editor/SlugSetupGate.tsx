@@ -75,7 +75,7 @@ export function SlugSetupGate({ onConfirmed }: SlugSetupGateProps) {
       >
         <div className="flex items-center gap-2">
           <Link2 className="h-4 w-4 text-indigo-400" />
-          <h1 className="text-base font-bold text-slate-100">매거진 주소(slug)를 먼저 설정하세요</h1>
+          <h1 className="text-base font-bold text-slate-100">내 뉴스레터 주소를 먼저 설정하세요</h1>
         </div>
         <p className="text-sm text-slate-300 leading-relaxed">
           구독자에게 공유되는 내 매거진 주소입니다. 영문 소문자·숫자·하이픈 3~30자로 입력해 주세요.

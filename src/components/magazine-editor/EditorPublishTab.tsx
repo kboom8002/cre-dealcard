@@ -158,7 +158,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
         <div className="space-y-3">
           <div className="space-y-1.5">
             <label htmlFor="editor-slug" className="text-caption text-slate-400 block">
-              매거진 주소 (Slug)
+              내 뉴스레터 주소
             </label>
             <div className="flex items-center gap-2">
               <span className="text-caption text-ink-subtle">credeal.net/magazine/</span>

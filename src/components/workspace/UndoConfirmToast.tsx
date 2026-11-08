@@ -35,6 +35,15 @@ interface UndoToastContextValue {
 
 const UndoToastContext = createContext<UndoToastContextValue | null>(null);
 
+let globalShowUndoToastRef: ((options: UndoToastInput) => string) | null = null;
+
+export function showUndoToast(options: UndoToastInput): string {
+  if (globalShowUndoToastRef) {
+    return globalShowUndoToastRef(options);
+  }
+  return `toast-noop-${Date.now()}`;
+}
+
 export function UndoToastProvider({ children }: { children: React.ReactNode }) {
   const [activeToast, setActiveToast] = useState<UndoToastItem | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -51,7 +60,7 @@ export function UndoToastProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const showUndoToast = useCallback(
+  const showUndoToastInternal = useCallback(
     (input: UndoToastInput): string => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -60,7 +69,8 @@ export function UndoToastProvider({ children }: { children: React.ReactNode }) {
       const options: UndoToastOptions = typeof input === "string" ? { message: input } : input;
 
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      const durationMs = options.durationMs ?? 8000;
+      // 고령 사용자 기준: 되돌리기가 있으면 12초, 없으면 6초
+      const durationMs = options.durationMs ?? (options.undoAction ? 12000 : 6000);
       const newItem: UndoToastItem = {
         ...options,
         id,
@@ -81,6 +91,15 @@ export function UndoToastProvider({ children }: { children: React.ReactNode }) {
     [dismissToast]
   );
 
+  useEffect(() => {
+    globalShowUndoToastRef = showUndoToastInternal;
+    return () => {
+      if (globalShowUndoToastRef === showUndoToastInternal) {
+        globalShowUndoToastRef = null;
+      }
+    };
+  }, [showUndoToastInternal]);
+
   // Esc key dismisses toast
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -93,10 +112,11 @@ export function UndoToastProvider({ children }: { children: React.ReactNode }) {
   }, [activeToast, dismissToast]);
 
   return (
-    <UndoToastContext.Provider value={{ showUndoToast, dismissToast, activeToast }}>
+    <UndoToastContext.Provider value={{ showUndoToast: showUndoToastInternal, dismissToast, activeToast }}>
       {children}
       {activeToast && (
         <UndoToastOverlay
+          key={activeToast.id}
           toast={activeToast}
           onDismiss={() => dismissToast(activeToast.id)}
         />
@@ -161,7 +181,6 @@ function UndoToastOverlay({
   return (
     <div
       role="alert"
-      aria-live="polite"
       data-testid="undo-confirm-toast"
       className="fixed z-50 top-6 left-1/2 -translate-x-1/2 max-w-lg w-[calc(100%-2rem)] px-2"
     >
@@ -169,14 +188,14 @@ function UndoToastOverlay({
         className={`bg-white text-[#0F172A] border border-slate-300 shadow-xl rounded-xl p-4 flex items-center justify-between gap-3 ${borderVariantClass}`}
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-xl shrink-0">
+          <span className="text-xl shrink-0" aria-hidden="true">
             {toast.variant === "destructive"
-              ? "🗑️"
+              ? "!"
               : toast.variant === "success"
-              ? "✅"
-              : "⏳"}
+              ? "✓"
+              : "…"}
           </span>
-          <p className="text-base font-bold text-slate-900 truncate">
+          <p className="text-base font-bold text-slate-900 break-keep">
             {toast.message}
           </p>
         </div>
@@ -188,7 +207,7 @@ function UndoToastOverlay({
               onClick={handleUndo}
               disabled={isExecuting}
               data-testid="undo-action-btn"
-              className="px-3.5 py-2 min-h-[44px] rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-extrabold text-sm border border-amber-300 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2 min-h-[48px] rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-extrabold text-base border border-amber-300 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
             >
               {isExecuting
                 ? "되돌리는 중..."
@@ -201,7 +220,7 @@ function UndoToastOverlay({
             onClick={onDismiss}
             data-testid="undo-dismiss-btn"
             aria-label="닫기"
-            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-2 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             ✕
           </button>

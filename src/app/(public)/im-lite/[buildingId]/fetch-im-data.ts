@@ -17,6 +17,7 @@ import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 import { isOwnerOrAdmin, type Viewer } from "@/domain/public-projection/access";
 import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-projection/visibility";
 import { getInboxState, getQuickImRecord, isUuid, type StoredQuickImRecord } from "@/lib/im-lite/quick-generate-store";
+import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 
 function isValidKoreanCoord(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
@@ -402,6 +403,7 @@ function attachInboxGovernanceOverlay(
   const revokedInfo = inboxState.revokedBuildings[buildingId];
   const isRevoked =
     Boolean(revokedInfo?.revoked) ||
+    isBuildingShareLinkRevoked(buildingId) ||
     Boolean(sourceMeta?.isRevoked) ||
     Boolean(sourceMeta?.is_revoked);
   const correctionNotice =
@@ -431,8 +433,30 @@ function attachInboxGovernanceOverlay(
 export async function fetchIMData(
   buildingId: string,
   docId?: string,
-  viewer?: Viewer | null
+  viewer?: Viewer | null,
+  tokenOrOptions?: string | { token?: string | null }
 ): Promise<MobileIMDocument | null> {
+  // P0-SEC (IB-05): Verify share link token when ?token= is passed
+  const explicitToken =
+    typeof tokenOrOptions === "string"
+      ? tokenOrOptions
+      : tokenOrOptions?.token ||
+        (viewer as any)?.token ||
+        (viewer as any)?.shareToken ||
+        (docId && (docId.startsWith("slk.") || docId.startsWith("tok-")) ? docId : undefined);
+
+  if (explicitToken) {
+    const tokenVerification = await verifyShareLinkToken({
+      token: explicitToken,
+      buildingId,
+    });
+    if (!tokenVerification.valid) {
+      return null;
+    }
+    if (docId === explicitToken) {
+      docId = undefined;
+    }
+  }
   // 0. Quick-Generate Store lookup (non-UUID or matching quick-generate document)
   const earlyQuickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
   if (earlyQuickRec && (!docId || earlyQuickRec.documentId === docId || !isUuid(buildingId))) {

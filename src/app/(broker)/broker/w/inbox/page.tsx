@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
-import { KakaoTemplatePicker } from "@/components/help/KakaoTemplatePicker";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
+import { copyText } from "@/lib/ux/clipboard";
+import { shareKakaoFeed } from "@/lib/kakao/share";
 
-export type InboxFilterType = "action" | "today" | "views" | "notifications" | "clients";
+export type InboxFilterType = "todo" | "views" | "all";
+export type InboxEditorTabType = "todo" | "message" | "history";
 
 export interface RecipientEvent {
   id: string;
@@ -21,18 +22,21 @@ export interface InboxThreadItem {
   id: string;
   clientName: string;
   clientPhone: string;
+  clientCompany?: string;
   clientGrade: "VIP" | "일반" | "잠재";
   buildingTitle: string;
   buildingId: string;
   latestEvent: string;
   detail?: string;
-  gateStatus?: "pending" | "approved" | "none";
+  cleanMessage?: string;
+  gateStatus?: "pending" | "approved" | "rejected" | "none";
   memo?: string;
   updatedAt: string;
-  openCount: number; // View count
+  openCount: number;
   isRead: boolean;
-  status: "pending_gate" | "hot_lead" | "active" | "revoked";
+  status: "pending_gate" | "high_interest" | "active" | "revoked";
   shareToken: string;
+  shareUrl?: string;
   events: RecipientEvent[];
   budget: string;
   preferredRegion: string;
@@ -49,242 +53,226 @@ export interface BrokerInventoryDeal {
   priceBand: string;
   askingPriceManwon: number;
   capRatePct: number;
-  posture?: string;
 }
 
-const DEFAULT_INVENTORY: BrokerInventoryDeal[] = [
-  {
-    buildingId: "p1-dangsan",
-    title: "당산역 초역세권 코너 근생빌딩",
-    region: "영등포구 당산동 · 양평동",
-    priceBand: "100~120억",
-    askingPriceManwon: 1150000,
-    capRatePct: 3.46,
-    posture: "income",
-  },
-  {
-    buildingId: "p2-seocho",
-    title: "서초역 도보 3분 법인 사옥용 빌딩",
-    region: "서초구 서초동 · 강남권",
-    priceBand: "220~240억",
-    askingPriceManwon: 2300000,
-    capRatePct: 2.38,
-    posture: "owner_occupied",
-  },
-  {
-    buildingId: "p3-sinsa",
-    title: "도산대로 코너 플래그십 신축용 빌딩",
-    region: "강남구 신사동 · 도산대로",
-    priceBand: "750~780억",
-    askingPriceManwon: 7600000,
-    capRatePct: 2.66,
-    posture: "trading",
-  },
-  {
-    buildingId: "bld-01",
-    title: "영등포구 양평동 근생빌딩",
-    region: "영등포구 양평동",
-    priceBand: "90~100억",
-    askingPriceManwon: 955000,
-    capRatePct: 4.2,
-    posture: "core_income",
-  },
-  {
-    buildingId: "bld-02",
-    title: "강남구 신사동 상가주택",
-    region: "강남구 신사동",
-    priceBand: "140~150억",
-    askingPriceManwon: 1450000,
-    capRatePct: 3.8,
-    posture: "value_add",
-  },
-  {
-    buildingId: "bld-03",
-    title: "마포구 서교동 올근생",
-    region: "마포구 서교동",
-    priceBand: "60~70억",
-    askingPriceManwon: 650000,
-    capRatePct: 4.5,
-    posture: "core_income",
-  },
-];
-
-const INITIAL_THREADS: InboxThreadItem[] = [
-  {
-    id: "thread-01",
-    clientName: "박동원 회장",
-    clientPhone: "010-8765-4321",
-    clientGrade: "VIP",
-    buildingTitle: "영등포구 양평동 꼬마빌딩",
-    buildingId: "bld-01",
-    latestEvent: "모바일 IM 06 렌트롤 섹션을 2분간 집중 열람했습니다.",
-    updatedAt: "10분 전",
-    openCount: 4, // >= 3 opens -> HOT LEAD!
-    isRead: false,
-    status: "hot_lead",
-    shareToken: "tok-vip-yangpyeong-01",
-    budget: "80~120억",
-    preferredRegion: "영등포구, 마포구",
-    focusedSections: ["06 렌트롤 (2분 15초)", "07 수익률·수지 분석 (1분 10초)"],
-    newsletterSubscribed: true,
-    events: [
-      {
-        id: "ev-1",
-        eventType: "open",
-        description: "모바일 IM 4회차 열람 (06 렌트롤 체류 2분)",
-        timestamp: "10분 전",
-        sectionName: "06 렌트롤",
-      },
-      {
-        id: "ev-2",
-        eventType: "open",
-        description: "모바일 IM 3회차 열람 (07 수지 분석 확인)",
-        timestamp: "1시간 전",
-        sectionName: "07 수지 분석",
-      },
-      {
-        id: "ev-3",
-        eventType: "open",
-        description: "모바일 IM 2회차 열람 (01 표지, 02 하이라이트)",
-        timestamp: "어제 16:30",
-        sectionName: "02 하이라이트",
-      },
-      {
-        id: "ev-4",
-        eventType: "share",
-        description: "카카오톡 딜카드 발송",
-        timestamp: "어제 14:00",
-      },
-    ],
-  },
-  {
-    id: "thread-02",
-    clientName: "최영진 원장",
-    clientPhone: "010-5555-1212",
-    clientGrade: "VIP",
-    buildingTitle: "강남구 신사동 사옥형 빌딩",
-    buildingId: "bld-02",
-    latestEvent: "G2 상세자료 (토지이용계획 및 임대차원장) 열람을 요청했습니다.",
-    updatedAt: "30분 전",
-    openCount: 2,
-    isRead: false,
-    status: "pending_gate",
-    gateStatus: "pending",
-    shareToken: "tok-sinsa-02",
-    budget: "130~150억",
-    preferredRegion: "강남구 신사동, 서초동",
-    focusedSections: ["05 토지·공시지가 (1분 45초)", "06 렌트롤 (상세 요청)"],
-    newsletterSubscribed: true,
-    events: [
-      {
-        id: "ev-201",
-        eventType: "gate_request",
-        description: "G2 상세자료 공개 요청 승인 대기 중",
-        timestamp: "30분 전",
-        sectionName: "06 렌트롤",
-      },
-      {
-        id: "ev-202",
-        eventType: "open",
-        description: "모바일 IM 2회차 열람",
-        timestamp: "어제",
-        sectionName: "05 토지 정보",
-      },
-    ],
-  },
-  {
-    id: "thread-03",
-    clientName: "김민수 대표",
-    clientPhone: "010-2345-6789",
-    clientGrade: "일반",
-    buildingTitle: "마포구 서교동 올근생",
-    buildingId: "bld-03",
-    latestEvent: "딜카드 링크를 열람했습니다.",
-    updatedAt: "2시간 전",
-    openCount: 1,
-    isRead: true,
-    status: "active",
-    shareToken: "tok-seogyo-03",
-    budget: "60~70억",
-    preferredRegion: "마포구 서교동, 영등포구",
-    focusedSections: ["02 투자 하이라이트 (50초)"],
-    newsletterSubscribed: false,
-    events: [
-      {
-        id: "ev-301",
-        eventType: "open",
-        description: "딜카드 첫 열람",
-        timestamp: "2시간 전",
-        sectionName: "02 하이라이트",
-      },
-    ],
-  },
-];
-
-const STORAGE_KEY = "credeal-w-inbox-v3";
-
-function parseBudgetRangeEok(budgetStr: string): [number, number] | null {
-  const nums = (budgetStr.match(/\d+/g) || []).map(Number).filter((n) => n > 0);
-  if (nums.length >= 2) return [Math.min(...nums), Math.max(...nums)];
-  if (nums.length === 1) return [nums[0] * 0.75, nums[0] * 1.35];
-  return null;
+export interface InboxWorkspacePageProps {
+  initialThreads?: InboxThreadItem[];
 }
 
-function InboxWorkspaceInner() {
+const STORAGE_KEY = "credeal-w-inbox-v4";
+const LEGACY_STORAGE_KEYS = ["credeal-w-inbox-v3", "credeal-w-inbox-v2"];
+
+function sanitizeClientPhone(raw: unknown): string {
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  if (!trimmed || trimmed === "010-0000-0000") return "";
+  return trimmed;
+}
+
+function parseRawGateReason(raw: unknown): {
+  requesterName?: string;
+  requesterPhone?: string;
+  requesterCompany?: string;
+  cleanMessage?: string;
+} {
+  if (typeof raw !== "string" || !raw.trim()) return {};
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      return {
+        requesterName:
+          typeof parsed.name === "string"
+            ? parsed.name.trim()
+            : typeof parsed.requesterName === "string"
+            ? parsed.requesterName.trim()
+            : undefined,
+        requesterPhone: sanitizeClientPhone(
+          parsed.phone || parsed.contact || parsed.requesterPhone
+        ),
+        requesterCompany:
+          typeof parsed.company === "string"
+            ? parsed.company.trim()
+            : typeof parsed.organization === "string"
+            ? parsed.organization.trim()
+            : undefined,
+        cleanMessage:
+          typeof parsed.message === "string"
+            ? parsed.message.trim()
+            : typeof parsed.reason === "string"
+            ? parsed.reason.trim()
+            : undefined,
+      };
+    } catch {
+      return { cleanMessage: trimmed };
+    }
+  }
+  return { cleanMessage: trimmed };
+}
+
+function normalizeServerThread(raw: any): InboxThreadItem {
+  const parsedReason = parseRawGateReason(raw?.detail || raw?.reason || raw?.cleanMessage);
+  const rawStatus = String(raw?.status || "active");
+  const mappedStatus: InboxThreadItem["status"] =
+    rawStatus === "pending_gate"
+      ? "pending_gate"
+      : rawStatus === "revoked"
+      ? "revoked"
+      : rawStatus === "hot_lead" || rawStatus === "high_interest" || Number(raw?.openCount) >= 3
+      ? "high_interest"
+      : "active";
+
+  const phone = sanitizeClientPhone(
+    raw?.clientPhone || raw?.requesterPhone || parsedReason.requesterPhone
+  );
+  const clientName =
+    String(
+      raw?.clientName ||
+        raw?.requesterName ||
+        parsedReason.requesterName ||
+        "이름 미입력 고객"
+    ).trim() || "이름 미입력 고객";
+  const buildingTitle =
+    String(raw?.buildingTitle || raw?.building_label || "관심 매물").trim() || "관심 매물";
+  const buildingId = String(raw?.buildingId || raw?.building_id || "bld-01").trim();
+  const cleanMessage =
+    String(
+      raw?.cleanMessage ||
+        parsedReason.cleanMessage ||
+        raw?.latestEvent ||
+        "상세 자료를 열람했습니다."
+    ).trim() || "상세 자료를 열람했습니다.";
+
+  const focusedSections = Array.isArray(raw?.focusedSections)
+    ? raw.focusedSections.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+    : [];
+
+  const events: RecipientEvent[] =
+    Array.isArray(raw?.events) && raw.events.length > 0
+      ? raw.events.map((ev: any, idx: number) => ({
+          id: String(ev?.id || `ev-${raw?.id || idx}-${idx}`),
+          eventType:
+            ev?.eventType === "gate_request" ||
+            ev?.eventType === "dwell" ||
+            ev?.eventType === "share"
+              ? ev.eventType
+              : "open",
+          description:
+            parseRawGateReason(ev?.description).cleanMessage ||
+            String(ev?.description || "상세 자료를 열람했습니다."),
+          timestamp: String(ev?.timestamp || "방금"),
+          sectionName: typeof ev?.sectionName === "string" ? ev.sectionName : undefined,
+        }))
+      : [
+          {
+            id: `ev-${raw?.id || Date.now()}`,
+            eventType: mappedStatus === "pending_gate" ? "gate_request" : "open",
+            description:
+              mappedStatus === "pending_gate"
+                ? `IM 열람 요청: ${cleanMessage}`
+                : "상세 자료를 열람했습니다",
+            timestamp: String(raw?.updatedAt || "방금"),
+          },
+        ];
+
+  return {
+    id: String(raw?.id || `thread-${Date.now()}`),
+    clientName,
+    clientPhone: phone,
+    clientCompany:
+      raw?.clientCompany || raw?.requesterCompany || parsedReason.requesterCompany || undefined,
+    clientGrade:
+      raw?.clientGrade === "VIP" || raw?.clientGrade === "잠재" ? raw.clientGrade : "일반",
+    buildingTitle,
+    buildingId,
+    latestEvent:
+      mappedStatus === "pending_gate"
+        ? `IM 열람 요청: ${cleanMessage}`
+        : cleanMessage,
+    detail: cleanMessage,
+    cleanMessage,
+    gateStatus:
+      raw?.gateStatus === "pending" || mappedStatus === "pending_gate"
+        ? "pending"
+        : raw?.gateStatus === "approved"
+        ? "approved"
+        : raw?.gateStatus === "rejected"
+        ? "rejected"
+        : "none",
+    memo: typeof raw?.memo === "string" ? raw.memo : undefined,
+    updatedAt: String(raw?.updatedAt || "방금"),
+    openCount: Math.max(0, Number(raw?.openCount ?? 1)),
+    isRead: Boolean(raw?.isRead),
+    status: mappedStatus,
+    shareToken: String(raw?.shareToken || ""),
+    shareUrl:
+      typeof raw?.shareUrl === "string" && raw.shareUrl
+        ? raw.shareUrl
+        : `/im-lite/${encodeURIComponent(buildingId)}`,
+    events,
+    budget: String(raw?.budget || "").trim(),
+    preferredRegion: String(raw?.preferredRegion || "").trim(),
+    focusedSections,
+    hasCorrectionNotice: Boolean(raw?.hasCorrectionNotice),
+    correctionMessage:
+      typeof raw?.correctionMessage === "string" ? raw.correctionMessage : undefined,
+    newsletterSubscribed: raw?.newsletterSubscribed !== false,
+  };
+}
+
+function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const searchParams = useSearchParams();
   const { showUndoToast } = useUndoToast();
 
-  const [threads, setThreads] = useState<InboxThreadItem[]>(INITIAL_THREADS);
-  const [inventory, setInventory] = useState<BrokerInventoryDeal[]>(DEFAULT_INVENTORY);
-  const [activeFilter, setActiveFilter] = useState<InboxFilterType>("action");
-  const [focusMode, setFocusMode] = useState<"hot_lead" | "gate_req" | "vip_crm">("hot_lead");
-  const [activeInboxTab, setActiveInboxTab] = useState<
-    "diagnosis_gate" | "kakao_proposal" | "matched_deals" | "timeline_security"
-  >("diagnosis_gate");
-  const [kakaoHeadline, setKakaoHeadline] = useState<string>("");
-  const [kakaoBrief, setKakaoBrief] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string>(INITIAL_THREADS[0]?.id || "");
-  const [callNote, setCallNote] = useState("");
-  const [correctionInput, setCorrectionInput] = useState(
-    "임대차 조건 및 매매 희망가 세부 수치가 최신 기준으로 업데이트되었습니다."
+  const [threads, setThreads] = useState<InboxThreadItem[]>(() =>
+    initialThreads.map(normalizeServerThread)
   );
-  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [inventory, setInventory] = useState<BrokerInventoryDeal[]>([]);
+  const [activeFilter, setActiveFilter] = useState<InboxFilterType>("todo");
+  const [activeEditorTab, setActiveEditorTab] = useState<InboxEditorTabType>("todo");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string>(initialThreads[0]?.id || "");
+  const [callNote, setCallNote] = useState("");
+  const [kakaoHeadline, setKakaoHeadline] = useState("");
+  const [kakaoBrief, setKakaoBrief] = useState("");
+
+  // Share material selector sheet in Column 3
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  // Inline lock confirmation state (replaces window.prompt — IB-16)
+  const [confirmLockOpen, setConfirmLockOpen] = useState(false);
+
+  // Accessible Client Registration Modal state (IB-26)
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
   const [newClientGrade, setNewClientGrade] = useState<"VIP" | "일반" | "잠재">("VIP");
-  const [newClientBudget, setNewClientBudget] = useState("100~130억");
-  const [newClientRegion, setNewClientRegion] = useState("영등포구, 강남구");
-  const [newClientBuildingTitle, setNewClientBuildingTitle] = useState("당산역 초역세권 코너 근생빌딩");
+  const [newClientBudget, setNewClientBudget] = useState("");
+  const [newClientRegion, setNewClientRegion] = useState("");
+  const [newClientBuildingTitle, setNewClientBuildingTitle] = useState("");
+  const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
 
   const persistThreads = (next: InboxThreadItem[]) => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      // ignore
+      // ignore storage errors
     }
   };
 
-  const postInboxAction = (payload: Record<string, any>) => {
-    try {
-      fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }).catch(() => {});
-    } catch {
-      // ignore in offline / test environment
-    }
-  };
-
-  // Load saved threads from localStorage and hydrate with /api/broker/inbox?workspace=1 on mount
+  // Clear legacy fake-seed storage keys and fetch real server threads
   useEffect(() => {
     try {
-      const savedRaw = window.localStorage.getItem(STORAGE_KEY);
-      if (savedRaw) {
-        const parsed = JSON.parse(savedRaw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setThreads(parsed);
+      for (const legacyKey of LEGACY_STORAGE_KEYS) {
+        window.localStorage.removeItem(legacyKey);
+      }
+      if (initialThreads.length === 0) {
+        const savedRaw = window.localStorage.getItem(STORAGE_KEY);
+        if (savedRaw) {
+          const parsed = JSON.parse(savedRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const normalized = parsed.map(normalizeServerThread);
+            setThreads(normalized);
+            setSelectedId((prev) => prev || normalized[0]?.id || "");
+          }
         }
       }
     } catch {
@@ -297,183 +285,43 @@ function InboxWorkspaceInner() {
         if (!data) return;
 
         if (Array.isArray(data.inventory) && data.inventory.length > 0) {
-          setInventory((prev) => {
-            const byId = new Map<string, BrokerInventoryDeal>();
-            for (const item of [...data.inventory, ...prev]) {
-              if (item?.buildingId && !byId.has(item.buildingId)) {
-                byId.set(item.buildingId, item);
-              }
-            }
-            return Array.from(byId.values());
-          });
+          setInventory(data.inventory);
         }
 
-        const srvState = data.inboxState || {};
-        const revokedBuildings = srvState.revokedBuildings || {};
-        const correctionNotices = srvState.correctionNotices || {};
-        const gateDecisions = srvState.gateDecisions || {};
-        const callNotes = srvState.callNotes || {};
-        const customClients = Array.isArray(srvState.customClients) ? srvState.customClients : [];
-
-        setThreads((prev) => {
-          // 1. Apply server governance state (revocation, correction, gate approval, call notes) to existing threads
-          const updatedPrev = prev.map((t) => {
-            const rev = revokedBuildings[t.buildingId];
-            const corr = correctionNotices[t.buildingId];
-            const gateDec = gateDecisions[t.id] || gateDecisions[t.buildingId];
-            const notes = callNotes[t.id] || [];
-
-            let nextStatus = t.status;
-            let nextGateStatus = t.gateStatus;
-            if (rev?.revoked) {
-              nextStatus = "revoked";
-            } else if (gateDec?.status === "approved" && t.status === "pending_gate") {
-              nextStatus = "active";
-              nextGateStatus = "approved";
+        if (Array.isArray(data.threads)) {
+          const serverThreads = data.threads.map(normalizeServerThread);
+          setThreads((prev) => {
+            if (serverThreads.length === 0) {
+              return prev.length > 0 && initialThreads.length > 0 ? prev : [];
             }
-
-            const existingEventIds = new Set(t.events.map((e) => e.id));
-            const mergedEvents = [
-              ...notes
-                .filter((n: any) => n?.id && !existingEventIds.has(n.id))
-                .map((n: any) => ({
-                  id: n.id,
-                  eventType: "dwell" as const,
-                  description: n.description,
-                  timestamp: n.timestamp || "방금",
-                })),
-              ...t.events,
-            ];
-
-            return {
-              ...t,
-              status: nextStatus,
-              gateStatus: nextGateStatus,
-              hasCorrectionNotice: Boolean(corr?.message),
-              correctionMessage: corr?.message || t.correctionMessage,
-              events: mergedEvents,
-            };
+            const byId = new Map<string, InboxThreadItem>();
+            for (const item of [...serverThreads, ...prev]) {
+              if (item?.id && !byId.has(item.id)) {
+                byId.set(item.id, item);
+              }
+            }
+            const merged = Array.from(byId.values());
+            persistThreads(merged);
+            return merged;
           });
-
-          const existingIds = new Set(updatedPrev.map((t) => t.id));
-          const appended: InboxThreadItem[] = [];
-
-          // 2. Append custom registered clients from server inbox state (with callNotes merged)
-          for (const cli of customClients) {
-            if (!cli?.id || existingIds.has(cli.id)) continue;
-            existingIds.add(cli.id);
-            const cliNotes = callNotes[cli.id] || [];
-            const noteEvents = cliNotes.map((n: any) => ({
-              id: n.id,
-              eventType: "dwell" as const,
-              description: n.description,
-              timestamp: n.timestamp || "방금",
-            }));
-            appended.push({
-              id: cli.id,
-              clientName: cli.clientName,
-              clientPhone: cli.clientPhone || "010-7777-8888",
-              clientGrade: cli.clientGrade || "VIP",
-              buildingTitle: cli.buildingTitle || "관심 매물 상담",
-              buildingId: cli.buildingId || "p1-dangsan",
-              latestEvent:
-                noteEvents[0]?.description || "신규 매수 고객 등록 및 소식지 구독 연동 완료",
-              updatedAt: "방금",
-              openCount: 1,
-              isRead: false,
-              status: "active",
-              shareToken: `tok-${String(cli.id).slice(-6)}`,
-              budget: cli.budget || "100~130억",
-              preferredRegion: cli.preferredRegion || "서울 주요 역세권",
-              focusedSections: ["02 투자 하이라이트"],
-              newsletterSubscribed: cli.newsletterSubscribed !== false,
-              events: [
-                ...noteEvents,
-                {
-                  id: `ev-${cli.id}`,
-                  eventType: "share",
-                  description: "고객 명단 등록 및 맞춤 매물 알림 설정",
-                  timestamp: "방금",
-                },
-              ],
-            });
-          }
-
-          // 3. Append server items (gate_requests, im_inquiry_requests, views) with real client enrichment
-          const dbClients = Array.isArray(data.clients) ? data.clients : [];
-          if (Array.isArray(data.items)) {
-            for (const srv of data.items) {
-              if (!srv?.id || existingIds.has(String(srv.id))) continue;
-              existingIds.add(String(srv.id));
-              const isGate = srv.type === "gate_request";
-              const clientName = srv.requester_name || srv.viewer_info || "관심 매수 고객";
-              const matchedClient = dbClients.find(
-                (c: any) =>
-                  (c?.display_name && c.display_name === clientName) ||
-                  (c?.phone && srv.requester_phone && c.phone === srv.requester_phone)
-              );
-              const resolvedPhone =
-                srv.requester_phone ||
-                matchedClient?.phone ||
-                "010-3456-7890";
-              const resolvedGrade: "VIP" | "일반" | "잠재" =
-                matchedClient?.tier === "vip" || isGate
-                  ? "VIP"
-                  : matchedClient?.tier === "potential"
-                  ? "잠재"
-                  : "일반";
-              const tags: string[] = Array.isArray(matchedClient?.tags) ? matchedClient.tags : [];
-              const resolvedBudget = tags.find((t) => t.includes("억")) || "100~150억";
-              const resolvedRegion =
-                tags.find((t) => !t.includes("억") && !t.includes("소식지")) || "서울 역세권 주요 상권";
-
-              const buildingTitle = srv.building_label || srv.sub_label || srv.label || "관심 매물";
-              const latestEvent = isGate
-                ? `${srv.requested_level || "G2"} 상세자료 열람 요청 (${srv.reason || "상세 렌트롤 검토"})`
-                : `${srv.label || "모바일 IM 열람"} · ${srv.sub_label || ""}`.trim();
-
-              appended.push({
-                id: String(srv.id),
-                clientName,
-                clientPhone: resolvedPhone,
-                clientGrade: resolvedGrade,
-                buildingTitle,
-                buildingId: srv.building_id || "p1-dangsan",
-                latestEvent,
-                detail: latestEvent,
-                gateStatus: isGate && srv.status === "submitted" ? "pending" : "none",
-                updatedAt: "방금",
-                openCount: isGate ? 2 : 1,
-                isRead: !srv.is_unread,
-                status: isGate && srv.status === "submitted" ? "pending_gate" : "active",
-                shareToken: `tok-${String(srv.id).slice(0, 8)}`,
-                budget: resolvedBudget,
-                preferredRegion: resolvedRegion,
-                focusedSections: isGate
-                  ? ["06 렌트롤 (상세 요청)", "05 토지·용도지역"]
-                  : ["02 투자 하이라이트", "07 수익률·민감도"],
-                newsletterSubscribed: true,
-                events: [
-                  {
-                    id: `ev-${srv.id}`,
-                    eventType: isGate ? "gate_request" : "open",
-                    description: latestEvent,
-                    timestamp: "방금",
-                  },
-                ],
-              });
-            }
-          }
-
-          const next = [...appended, ...updatedPrev];
-          persistThreads(next);
-          return next;
-        });
+        }
       })
       .catch(() => {
-        // Offline / JSDOM fallback preserves INITIAL_THREADS
+        // Offline / test environment
       });
   }, []);
+
+  // Close client registration modal on Escape key (IB-26)
+  useEffect(() => {
+    if (!showNewClientModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowNewClientModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showNewClientModal]);
 
   // Sync selection from query params
   useEffect(() => {
@@ -487,137 +335,115 @@ function InboxWorkspaceInner() {
   }, [searchParams, threads]);
 
   const activeThread = useMemo(() => {
-    return threads.find((t) => t.id === selectedId) || threads[0];
+    if (threads.length === 0) return null;
+    return threads.find((t) => t.id === selectedId) || threads[0] || null;
   }, [threads, selectedId]);
 
-  // Mark thread as read when selected
+  // When selecting a pending_gate thread, default to "todo" (할 일) tab and reset inline confirmations
   useEffect(() => {
-    if (activeThread && !activeThread.isRead) {
-      setThreads((prev) => {
-        const next = prev.map((t) =>
-          t.id === activeThread.id ? { ...t, isRead: true } : t
-        );
-        persistThreads(next);
-        return next;
-      });
+    setConfirmLockOpen(false);
+    setShowShareSheet(false);
+    if (!activeThread) return;
+    if (activeThread.status === "pending_gate") {
+      setActiveEditorTab("todo");
     }
+    setKakaoHeadline(`[${activeThread.buildingTitle}] 상세 검토 자료 안내`);
+    setKakaoBrief(
+      `${activeThread.clientName}님, 관심 가져주신 [${activeThread.buildingTitle}] 상세 투자설명서(IM)와 층별 임대 현황을 보내드립니다. 검토하시면서 궁금하신 점은 편하게 말씀해 주세요.`
+    );
   }, [activeThread?.id]);
+
+  const pendingThreads = useMemo(
+    () => threads.filter((t) => t.status === "pending_gate"),
+    [threads]
+  );
+  const pendingCount = pendingThreads.length;
 
   const filteredThreads = useMemo(() => {
     return threads.filter((t) => {
+      const q = searchQuery.trim().toLowerCase();
       const matchQuery =
-        !searchQuery ||
-        t.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.buildingTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.preferredRegion.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        t.clientName.toLowerCase().includes(q) ||
+        t.buildingTitle.toLowerCase().includes(q) ||
+        t.preferredRegion.toLowerCase().includes(q);
 
       if (!matchQuery) return false;
 
-      if (activeFilter === "action") {
+      if (activeFilter === "todo") {
         return (
           t.status === "pending_gate" ||
+          t.status === "high_interest" ||
           t.openCount >= 3 ||
-          t.id.startsWith("cli-") ||
           t.id === selectedId
-        );
-      }
-      if (activeFilter === "today") {
-        return (
-          t.updatedAt.includes("방금") ||
-          t.updatedAt.includes("분 전") ||
-          t.updatedAt.includes("시간 전")
         );
       }
       if (activeFilter === "views") {
         return t.openCount > 0;
       }
-      if (activeFilter === "clients") {
-        return t.clientGrade === "VIP";
-      }
       return true;
     });
-  }, [threads, activeFilter, searchQuery]);
+  }, [threads, activeFilter, searchQuery, selectedId]);
 
-  // [M6] Auto-Matched Alternative Deals from Broker Inventory
-  const matchedAlternativeDeals = useMemo(() => {
-    if (!activeThread) return [];
-    const budgetRange = parseBudgetRangeEok(activeThread.budget);
-    const regionKeywords = activeThread.preferredRegion
-      .split(/[,·/\s]+/)
-      .map((s) => s.replace(/구$|동$|권역$/, "").trim())
-      .filter((s) => s.length >= 2);
+  // Honest approve & send IM handler (IB-11, IB-14, IB-15)
+  const handleApproveAndSendIm = async (targetThread: InboxThreadItem) => {
+    setStatusFeedback(null);
+    let shareUrl =
+      targetThread.shareUrl || `/im-lite/${encodeURIComponent(targetThread.buildingId)}`;
+    let issuedToken = targetThread.shareToken;
 
-    const candidates = inventory.filter(
-      (deal) =>
-        deal.buildingId !== activeThread.buildingId &&
-        deal.title !== activeThread.buildingTitle
-    );
-
-    const scored = candidates.map((deal) => {
-      let score = 0;
-      const reasons: string[] = [];
-      const dealEok = deal.askingPriceManwon / 10000;
-
-      if (budgetRange) {
-        const [minEok, maxEok] = budgetRange;
-        if (dealEok >= minEok * 0.7 && dealEok <= maxEok * 1.35) {
-          score += 3;
-          reasons.push("예산 부합");
+    try {
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "approve_gate",
+          threadId: targetThread.id,
+          buildingId: targetThread.buildingId,
+          shareToken: targetThread.shareToken,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.ok) {
+        if (typeof json.shareUrl === "string" && json.shareUrl) {
+          shareUrl = json.shareUrl;
         }
+        if (typeof json.shareToken === "string" && json.shareToken) {
+          issuedToken = json.shareToken;
+        }
+      } else if (res && !res.ok && json?.error) {
+        setStatusFeedback(json.error);
+        showUndoToast(json.error);
+        return;
       }
-      if (
-        regionKeywords.some(
-          (kw) => deal.region.includes(kw) || deal.title.includes(kw)
-        )
-      ) {
-        score += 3;
-        reasons.push("선호 권역");
-      }
-      if (deal.capRatePct >= 3.4) {
-        score += 1;
-        reasons.push(`수익률 ${deal.capRatePct.toFixed(1)}%`);
-      }
-      if (reasons.length === 0) {
-        reasons.push("비교 추천 매물");
-      }
-      return { deal, score, reasonLabel: reasons.slice(0, 2).join(" · ") };
-    });
+    } catch {
+      // Allow fallback link copy in offline/test environments
+    }
 
-    return scored.sort((a, b) => b.score - a.score).slice(0, 2);
-  }, [activeThread, inventory]);
-
-  // [M2] Gate Request actions (Server-persisted + Unlocked Link Copy)
-  const handleApproveGate = () => {
-    const rawId = activeThread.id.replace(/^srv-/, "");
-    fetch(`/api/gate-requests/${rawId}/review`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision: "approved" }),
-    }).catch(() => {});
-
-    postInboxAction({
-      action: "approve_gate",
-      threadId: activeThread.id,
-      buildingId: activeThread.buildingId,
-      shareToken: activeThread.shareToken,
-    });
+    const fullUrl =
+      typeof window !== "undefined" && shareUrl.startsWith("/")
+        ? `${window.location.origin}${shareUrl}`
+        : shareUrl;
+    const copied = await copyText(fullUrl);
 
     const approvalEvent: RecipientEvent = {
-      id: `ev-gate-ok-${Date.now()}`,
+      id: `ev-approve-${Date.now()}`,
       eventType: "gate_request",
-      description: `G2 상세자료 공개 승인 완료 (보안 토큰: ${activeThread.shareToken})`,
+      description: "IM 열람 요청을 승인하고 전용 링크를 발급했습니다.",
       timestamp: "방금",
     };
 
     setThreads((prev) => {
       const next = prev.map((t) =>
-        t.id === activeThread.id
+        t.id === targetThread.id
           ? {
               ...t,
               status: "active" as const,
               gateStatus: "approved" as const,
-              detail: "자료 열람 요청이 승인되었습니다.",
-              latestEvent: "자료 열람 요청이 승인되었습니다.",
+              shareToken: issuedToken,
+              shareUrl,
+              detail: "IM 열람 요청이 승인되었습니다.",
+              latestEvent: "IM 열람 요청을 승인하고 전용 링크를 전달했습니다.",
               events: [approvalEvent, ...t.events],
             }
           : t
@@ -625,63 +451,164 @@ function InboxWorkspaceInner() {
       persistThreads(next);
       return next;
     });
-    showUndoToast(`${activeThread.clientName}님의 자료 공개 요청을 승인했습니다.`);
+
+    const msg = copied
+      ? `${targetThread.clientName}님에게 보낼 IM 전용 링크가 복사되었습니다.`
+      : `${targetThread.clientName}님의 IM 열람 요청을 승인했습니다.`;
+    setStatusFeedback(msg);
+    showUndoToast(msg);
   };
 
-  const handleRejectGate = () => {
-    const rawId = activeThread.id.replace(/^srv-/, "");
-    fetch(`/api/gate-requests/${rawId}/review`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision: "rejected" }),
-    }).catch(() => {});
-
-    postInboxAction({
-      action: "reject_gate",
-      threadId: activeThread.id,
-      buildingId: activeThread.buildingId,
-      shareToken: activeThread.shareToken,
-    });
+  // Reject Gate Request
+  const handleRejectRequest = async (targetThread: InboxThreadItem) => {
+    setStatusFeedback(null);
+    try {
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reject_gate",
+          threadId: targetThread.id,
+          buildingId: targetThread.buildingId,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res && !res.ok && json?.error) {
+        setStatusFeedback(json.error);
+        showUndoToast(json.error);
+        return;
+      }
+    } catch {
+      // ignore in test env
+    }
 
     setThreads((prev) => {
       const next = prev.map((t) =>
-        t.id === activeThread.id
+        t.id === targetThread.id
           ? {
               ...t,
               status: "active" as const,
-              gateStatus: "none" as const,
-              detail: "자료 열람 요청이 반려되었습니다.",
-              latestEvent: "자료 열람 요청이 반려되었습니다.",
+              gateStatus: "rejected" as const,
+              detail: "IM 열람 요청을 거절했습니다.",
+              latestEvent: "IM 열람 요청을 거절했습니다.",
             }
           : t
       );
       persistThreads(next);
       return next;
     });
-    showUndoToast(`${activeThread.clientName}님의 자료 공개 요청을 보류했습니다.`);
+
+    const msg = `${targetThread.clientName}님의 IM 열람 요청을 거절했습니다.`;
+    setStatusFeedback(msg);
+    showUndoToast(msg);
   };
 
-  // [M2] Link Revocation & Restoration (Server-persisted + Real 404 on Public Viewer)
-  const handleRevokeLink = () => {
-    const targetThreadId = activeThread.id;
-    const targetBuildingId = activeThread.buildingId;
-    const targetToken = activeThread.shareToken;
-    const previousStatus = activeThread.status;
+  // Share material via Kakao or Clipboard (IB-15)
+  const handleSendMaterial = async (kind: "im" | "dealcard" | "newsletter") => {
+    if (!activeThread) return;
+    setStatusFeedback(null);
 
-    postInboxAction({
-      action: "revoke_link",
-      threadId: targetThreadId,
-      buildingId: targetBuildingId,
-      shareToken: targetToken,
+    const actionMap = {
+      im: "send_im",
+      dealcard: "send_dealcard",
+      newsletter: "send_magazine",
+    } as const;
+
+    let pathUrl =
+      kind === "im"
+        ? activeThread.shareUrl || `/im-lite/${encodeURIComponent(activeThread.buildingId)}`
+        : kind === "dealcard"
+        ? `/dc/${encodeURIComponent(activeThread.buildingId)}`
+        : "/magazine";
+
+    try {
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: actionMap[kind],
+          threadId: activeThread.id,
+          buildingId: activeThread.buildingId,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.shareUrl) {
+        pathUrl = json.shareUrl;
+      }
+    } catch {
+      // continue with local share URL
+    }
+
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "https://credeal.net";
+    const fullUrl = pathUrl.startsWith("/") ? `${origin}${pathUrl}` : pathUrl;
+
+    const labelMap = {
+      im: "IM 전용 링크",
+      dealcard: "딜카드 링크",
+      newsletter: "뉴스레터 링크",
+    } as const;
+
+    const shareRes = await shareKakaoFeed({
+      title: kakaoHeadline || `[${activeThread.buildingTitle}] ${labelMap[kind]}`,
+      description:
+        kakaoBrief || `${activeThread.clientName}님을 위한 맞춤 매물 자료입니다.`,
+      imageUrl: `${origin}/api/og/deal-card/${encodeURIComponent(activeThread.buildingId)}`,
+      url: fullUrl,
+      buttonTitle: `${labelMap[kind]} 열람하기`,
     });
+
+    if (shareRes === "kakao" || shareRes === "copied") {
+      const msg =
+        shareRes === "kakao"
+          ? `카카오톡으로 ${labelMap[kind]} 공유 창을 열었습니다.`
+          : `${labelMap[kind]}가 클립보드에 복사되었습니다. 카톡에 붙여넣어 보내세요.`;
+      setStatusFeedback(msg);
+      showUndoToast(msg);
+      setShowShareSheet(false);
+    } else {
+      const errMsg = `${labelMap[kind]} 복사에 실패했습니다. 다시 시도해 주세요.`;
+      setStatusFeedback(errMsg);
+      showUndoToast(errMsg);
+    }
+  };
+
+  // Inline Lock Share Link (IB-05, IB-16 — no window.prompt)
+  const handleConfirmLockLink = async () => {
+    if (!activeThread) return;
+    const targetThread = activeThread;
+    setConfirmLockOpen(false);
+    setStatusFeedback(null);
+
+    try {
+      const res = await fetch("/api/broker/share-links/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: targetThread.shareToken || undefined,
+          buildingId: targetThread.buildingId,
+          reason: "broker_locked",
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res && !res.ok && json?.error) {
+        setStatusFeedback(json.error);
+        showUndoToast(json.error);
+        return;
+      }
+    } catch {
+      // fallback to local state in offline test
+    }
 
     setThreads((prev) => {
       const next = prev.map((t) =>
-        t.id === targetThreadId
+        t.id === targetThread.id
           ? {
               ...t,
               status: "revoked" as const,
-              latestEvent: `공유 링크(${targetToken})가 보안 회수(404) 처리되었습니다.`,
+              latestEvent: "보낸 링크를 잠갔습니다.",
             }
           : t
       );
@@ -689,78 +616,37 @@ function InboxWorkspaceInner() {
       return next;
     });
 
-    showUndoToast({
-      message: `발송된 링크(${targetToken})가 즉시 회수되었습니다. (404 처리)`,
-      undoAction: () => {
-        postInboxAction({
-          action: "restore_link",
-          threadId: targetThreadId,
-          buildingId: targetBuildingId,
-          shareToken: targetToken,
-        });
-        setThreads((prev) => {
-          const next = prev.map((t) =>
-            t.id === targetThreadId
-              ? {
-                  ...t,
-                  status: previousStatus === "revoked" ? ("active" as const) : previousStatus,
-                  latestEvent: "회수된 공유 링크가 정상 복구되었습니다.",
-                }
-              : t
-          );
-          persistThreads(next);
-          return next;
-        });
-      },
-    });
+    const msg = `${targetThread.clientName}님에게 보낸 열람 링크를 잠갔습니다.`;
+    setStatusFeedback(msg);
+    showUndoToast(msg);
   };
 
-  const handleRestoreLink = () => {
-    postInboxAction({
-      action: "restore_link",
-      threadId: activeThread.id,
-      buildingId: activeThread.buildingId,
-      shareToken: activeThread.shareToken,
-    });
+  const handleUnlockLink = async () => {
+    if (!activeThread) return;
+    const targetThread = activeThread;
+
+    try {
+      await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "restore_link",
+          threadId: targetThread.id,
+          buildingId: targetThread.buildingId,
+          shareToken: targetThread.shareToken,
+        }),
+      });
+    } catch {
+      // ignore
+    }
+
     setThreads((prev) => {
       const next = prev.map((t) =>
-        t.id === activeThread.id
+        t.id === targetThread.id
           ? {
               ...t,
               status: "active" as const,
-              latestEvent: "회수된 공유 링크가 정상 복구되었습니다.",
-            }
-          : t
-      );
-      persistThreads(next);
-      return next;
-    });
-    showUndoToast(`발송된 링크(${activeThread.shareToken})가 다시 활성화되었습니다.`);
-  };
-
-  // [M2] Correction Notice Banner (Server-persisted + Live Amber Banner on Mobile IM)
-  const handleSendCorrection = () => {
-    const targetThreadId = activeThread.id;
-    const targetBuildingId = activeThread.buildingId;
-    const msg =
-      correctionInput.trim() ||
-      "매물 임대 조건 및 주요 수치가 최신 기준으로 정정되었습니다. 최신 내용을 확인해 주세요.";
-
-    postInboxAction({
-      action: "correction_notice",
-      threadId: targetThreadId,
-      buildingId: targetBuildingId,
-      message: msg,
-    });
-
-    setThreads((prev) => {
-      const next = prev.map((t) =>
-        t.id === targetThreadId
-          ? {
-              ...t,
-              hasCorrectionNotice: true,
-              correctionMessage: msg,
-              latestEvent: `정정 안내 띠 적용: ${msg}`,
+              latestEvent: "잠근 열람 링크를 다시 열었습니다.",
             }
           : t
       );
@@ -768,42 +654,43 @@ function InboxWorkspaceInner() {
       return next;
     });
 
-    showUndoToast({
-      message: "고객 화면 상단에 '⚠️ 매물 정보가 정정되었습니다' 띠가 적용되었습니다.",
-      undoAction: () => {
-        postInboxAction({
-          action: "clear_correction_notice",
-          threadId: targetThreadId,
-          buildingId: targetBuildingId,
-        });
-        setThreads((prev) => {
-          const next = prev.map((t) =>
-            t.id === targetThreadId ? { ...t, hasCorrectionNotice: false } : t
-          );
-          persistThreads(next);
-          return next;
-        });
-      },
-    });
+    const msg = `${targetThread.clientName}님의 전용 링크를 다시 열었습니다.`;
+    setStatusFeedback(msg);
+    showUndoToast(msg);
   };
 
-  // [M2] Call / Consultation Note (Server-persisted)
-  const handleAddCallNote = () => {
-    if (!callNote.trim()) return;
+  // Call / Consultation Note (honest persistence)
+  const handleAddCallNote = async () => {
+    if (!activeThread || !callNote.trim()) return;
     const trimmed = callNote.trim();
+
+    try {
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "log_call",
+          threadId: activeThread.id,
+          buildingId: activeThread.buildingId,
+          note: trimmed,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res && !res.ok && json?.error) {
+        setStatusFeedback(json.error);
+        showUndoToast(json.error);
+        return;
+      }
+    } catch {
+      // continue local append in offline test
+    }
+
     const newEvent: RecipientEvent = {
-      id: `ev-${Date.now()}`,
+      id: `ev-note-${Date.now()}`,
       eventType: "dwell",
       description: `통화 기록: ${trimmed}`,
       timestamp: "방금",
     };
-
-    postInboxAction({
-      action: "add_call_note",
-      threadId: activeThread.id,
-      buildingId: activeThread.buildingId,
-      note: trimmed,
-    });
 
     setThreads((prev) => {
       const next = prev.map((t) =>
@@ -820,93 +707,66 @@ function InboxWorkspaceInner() {
       return next;
     });
     setCallNote("");
-    showUndoToast("통화 메모가 저장되었습니다.");
+    setStatusFeedback("통화 및 상담 기록을 저장했습니다.");
+    showUndoToast("통화 및 상담 기록을 저장했습니다.");
   };
 
-  // [M5] Toggle Weekly Newsletter Subscription for Client
-  const handleToggleNewsletterSubscription = () => {
-    const nextState = !activeThread.newsletterSubscribed;
-    setThreads((prev) => {
-      const next = prev.map((t) =>
-        t.id === activeThread.id ? { ...t, newsletterSubscribed: nextState } : t
-      );
-      persistThreads(next);
-      return next;
-    });
-    showUndoToast(
-      nextState
-        ? `${activeThread.clientName}님이 주간 뉴스레터 정기 발송 명단에 추가되었습니다.`
-        : `${activeThread.clientName}님의 주간 뉴스레터 정기 발송이 해제되었습니다.`
-    );
-  };
-
-  // [M6] Copy Alternative Deal Recommendation Message
-  const handleCopyAlternativeDeal = (deal: BrokerInventoryDeal) => {
-    const shareUrl = `${typeof window !== "undefined" ? window.location.origin : "https://credeal.net"}/im-lite/${deal.buildingId}`;
-    const text = `${activeThread.clientName}님 안녕하세요. 검토 중이신 [${activeThread.buildingTitle}] 매물과 함께 비교 검토해 보실 만한 [${deal.title} (${deal.priceBand}, 기대수익률 ${deal.capRatePct.toFixed(1)}%)] 투자설명서도 함께 공유드립니다.\n\n▶ 모바일 IM 바로보기: ${shareUrl}`;
-    try {
-      navigator.clipboard?.writeText(text);
-    } catch {
-      // ignore in JSDOM
-    }
-    showUndoToast(`[${deal.title}] 맞춤 추천 문구와 IM 링크가 복사되었습니다.`);
-  };
-
-  // [M2] Copy Unlocked G2 Link Message
-  const handleCopyG2ApprovedLink = () => {
-    const shareUrl = `${typeof window !== "undefined" ? window.location.origin : "https://credeal.net"}/im-lite/${activeThread.buildingId}?token=${encodeURIComponent(activeThread.shareToken)}`;
-    const text = `${activeThread.clientName}님, 요청하신 [${activeThread.buildingTitle}] G2 상세자료(층별 렌트롤 및 토지이용계획) 열람 승인이 완료되었습니다. 아래 전용 보안 링크에서 바로 확인하실 수 있습니다.\n\n▶ G2 승인 보안 링크: ${shareUrl}`;
-    try {
-      navigator.clipboard?.writeText(text);
-    } catch {
-      // ignore in JSDOM
-    }
-    showUndoToast("G2 승인 안내 문구와 전용 보안 링크가 복사되었습니다.");
-  };
-
-  // [M3] Quick Client Registration in Inbox
-  const handleCreateQuickClient = () => {
+  // Create Custom Client (never fabricates fake phone numbers — IB-07, IB-26)
+  const handleCreateCustomClient = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!newClientName.trim()) return;
-    const id = `cli-${Date.now()}`;
+
+    const id = `custom_${Date.now()}`;
+    const cleanPhone = sanitizeClientPhone(newClientPhone);
     const created: InboxThreadItem = {
       id,
       clientName: newClientName.trim(),
-      clientPhone: newClientPhone.trim() || "010-7777-8888",
+      clientPhone: cleanPhone,
       clientGrade: newClientGrade,
-      buildingTitle: newClientBuildingTitle.trim() || "당산역 초역세권 코너 근생빌딩",
-      buildingId: "p1-dangsan",
-      latestEvent: "고객 명단 신규 등록 및 주간 소식지 구독 연동 완료",
+      buildingTitle: newClientBuildingTitle.trim() || "관심 매물 상담",
+      buildingId: inventory[0]?.buildingId || "bld-01",
+      latestEvent: "직접 등록한 고객입니다.",
+      cleanMessage: "직접 등록한 고객입니다.",
       updatedAt: "방금",
-      openCount: 1,
-      isRead: false,
+      openCount: 0,
+      isRead: true,
       status: "active",
-      shareToken: `tok-${id.slice(-6)}`,
-      budget: newClientBudget.trim() || "100~130억",
-      preferredRegion: newClientRegion.trim() || "서울 주요 역세권",
-      focusedSections: ["02 투자 하이라이트"],
+      shareToken: "",
+      shareUrl: `/im-lite/${encodeURIComponent(inventory[0]?.buildingId || "bld-01")}`,
+      budget: newClientBudget.trim(),
+      preferredRegion: newClientRegion.trim(),
+      focusedSections: [],
       newsletterSubscribed: true,
       events: [
         {
           id: `ev-${id}`,
           eventType: "share",
-          description: "신규 매수 고객 등록 및 맞춤 매물 매칭 시작",
+          description: "고객 직접 등록 완료",
           timestamp: "방금",
         },
       ],
     };
 
-    postInboxAction({
-      action: "upsert_client",
-      clientId: id,
-      clientName: created.clientName,
-      clientPhone: created.clientPhone,
-      clientGrade: created.clientGrade,
-      budget: created.budget,
-      preferredRegion: created.preferredRegion,
-      buildingId: created.buildingId,
-      buildingTitle: created.buildingTitle,
-      newsletterSubscribed: true,
-    });
+    try {
+      await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert_client",
+          clientId: id,
+          clientName: created.clientName,
+          clientPhone: created.clientPhone,
+          clientGrade: created.clientGrade,
+          budget: created.budget,
+          preferredRegion: created.preferredRegion,
+          buildingId: created.buildingId,
+          buildingTitle: created.buildingTitle,
+          newsletterSubscribed: true,
+        }),
+      });
+    } catch {
+      // ignore in test env
+    }
 
     setThreads((prev) => {
       const next = [created, ...prev];
@@ -916,964 +776,1019 @@ function InboxWorkspaceInner() {
     setSelectedId(id);
     setNewClientName("");
     setNewClientPhone("");
-    setShowNewClientForm(false);
-    showUndoToast(`${created.clientName} (${created.clientGrade}) 고객이 명단에 등록되었습니다.`);
+    setNewClientBudget("");
+    setNewClientRegion("");
+    setNewClientBuildingTitle("");
+    setShowNewClientModal(false);
+    showUndoToast(`${created.clientName} 고객이 등록되었습니다.`);
   };
 
-  // Sync AXIOS Kakao follow-up proposal when active thread changes
-  useEffect(() => {
-    if (!activeThread) return;
-    const primarySection = activeThread.focusedSections?.[0] || "핵심 수익률·렌트롤";
-    setKakaoHeadline(
-      `[${activeThread.buildingTitle}] ${primarySection.split(" (")[0]} 맞춤 검토 브리프`
-    );
-    setKakaoBrief(
-      `${activeThread.clientName}님, 집중 검토하신 ${primarySection} 관련 세부 임대차 만기 일정과 레버리지 적용 시 기대수익률 시뮬레이션을 정리해 두었습니다. 희망 예산(${activeThread.budget}) 내 비교 가능한 인근 알짜 매물 2건도 함께 안내해 드립니다.`
-    );
-  }, [activeThread?.id]);
-
-  const handleCopyAxiosKakaoProposal = () => {
-    const shareUrl = `${typeof window !== "undefined" ? window.location.origin : "https://credeal.net"}/im-lite/${activeThread.buildingId}`;
-    const msg = `${kakaoHeadline}\n\n${kakaoBrief}\n\n▶ 모바일 IM 상세보기: ${shareUrl}`;
-    try {
-      navigator.clipboard?.writeText(msg);
-    } catch {
-      // ignore in JSDOM
-    }
-    showUndoToast("📌 맞춤 카톡 팔로업 제안문이 복사되었습니다.");
-  };
-
-  /* ──────── Column 1: Inbox Filter & List (Intelligent CRM Grid) ──────── */
+  /* ──────── Column 1: 할 일 요약 카드 + 3개 필터 칩 + 고객 목록 ──────── */
   const listSlot = (
-    <div className="flex flex-col h-full bg-[#FAF9F5] p-3 space-y-2.5" data-testid="inbox-list-slot">
-      {/* CRM Header Banner */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0F172A] text-white">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-amber-400 text-slate-950 whitespace-nowrap shrink-0">
-            고객 소통함
-          </span>
-          <span className="text-[12px] font-bold text-slate-200 whitespace-nowrap truncate">
-            열람신호 · 고객 목록
-          </span>
-        </div>
-        <span className="text-[12px] font-mono text-amber-300 font-bold whitespace-nowrap shrink-0">
-          {filteredThreads.length}명
-        </span>
-      </div>
-
-      {/* 3종 소통 포커스 스위처 (핫리드·열람 신호 / G2 승인·자료요청 / VIP·구독 명단) */}
+    <div
+      className="flex h-full flex-col space-y-3 bg-[#FAF9F5] p-3.5"
+      data-testid="inbox-list-slot"
+    >
+      {/* 1열 상단 고정: "지금 할 일 {N}건" 요약 카드 (IB-11) */}
       <div
-        data-testid="inbox-focus-switcher"
-        className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-200 border border-slate-300"
+        data-testid="inbox-todo-summary-card"
+        className="rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 shadow-xs"
       >
-        {(
-          [
-            { id: "hot_lead", label: "핫리드·열람", filter: "action" as InboxFilterType },
-            { id: "gate_req", label: "G2 승인요청", filter: "views" as InboxFilterType },
-            { id: "vip_crm", label: "VIP·구독명단", filter: "clients" as InboxFilterType },
-          ] as const
-        ).map((sw) => {
-          const active = focusMode === sw.id;
-          return (
-            <button
-              key={sw.id}
-              type="button"
-              data-testid={`inbox-focus-tab-${sw.id}`}
-              onClick={() => {
-                setFocusMode(sw.id);
-                setActiveFilter(sw.filter);
-              }}
-              className={`min-h-[36px] px-1.5 py-1 rounded-lg text-[11px] font-extrabold whitespace-nowrap flex items-center justify-center transition cursor-pointer ${
-                active
-                  ? "bg-white text-[#0F172A] shadow-xs border border-blue-300"
-                  : "text-slate-700 hover:text-slate-950"
-              }`}
-            >
-              {sw.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 소통 공식 배너 */}
-      <div
-        data-testid="inbox-formula-banner"
-        className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-950 font-semibold leading-snug"
-      >
-        <span className="font-extrabold text-amber-900">[고객소통 공식]</span>{" "}
-        열람 체류 진단 + 카톡 맞춤 제안문 + 대체매물 추천
-      </div>
-
-      {/* Search Input */}
-      <div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="🔍 고객명, 매물명 검색"
-          className="w-full min-h-[44px] px-3.5 bg-white text-[15px] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
-        />
-      </div>
-
-      {/* Filter Pills (Wrapped cleanly for 280px Column 1 width) */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {(
-          [
-            { key: "action", label: "지금 처리" },
-            { key: "today", label: "오늘" },
-            { key: "views", label: "열람" },
-            { key: "notifications", label: "알림" },
-            { key: "clients", label: "고객 명단" },
-          ] as const
-        ).map((flt) => (
-          <button
-            key={flt.key}
-            type="button"
-            onClick={() => setActiveFilter(flt.key)}
-            className={`min-h-[36px] px-2.5 py-1 rounded-lg text-[13px] font-bold border transition-colors cursor-pointer whitespace-nowrap ${
-              activeFilter === flt.key
-                ? "bg-[#0F172A] text-white border-[#0F172A]"
-                : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-[#F3F2EE]"
-            }`}
-          >
-            {flt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Quick Client Add Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setShowNewClientForm((v) => !v)}
-        className="w-full min-h-[40px] px-3 bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] font-extrabold text-[13px] rounded-xl hover:bg-[#DBEAFE] cursor-pointer flex items-center justify-center gap-1"
-        data-testid="toggle-new-client-btn"
-      >
-        <span>👥</span>
-        <span>{showNewClientForm ? "신규 고객 등록 닫기" : "+ 신규 매수 고객 빠른 등록"}</span>
-      </button>
-
-      {/* Inline Quick Client Registration Form (M3) */}
-      {showNewClientForm && (
-        <div
-          className="bg-white rounded-2xl border-2 border-[#1D4ED8] p-3.5 space-y-2.5 shadow-sm"
-          data-testid="quick-client-register"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#0F172A]">
-              👥 신규 매수 고객 빠른 등록
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowNewClientForm(false)}
-              className="text-[12px] text-[#64748B] font-bold cursor-pointer"
-            >
-              닫기
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="text"
-              value={newClientName}
-              onChange={(e) => setNewClientName(e.target.value)}
-              placeholder="고객 성함 (예: 정태영 부회장)"
-              className="min-h-[40px] px-2.5 text-[13px] rounded-lg border border-[#CBD5E1]"
-              data-testid="new-client-name-input"
-            />
-            <input
-              type="text"
-              value={newClientPhone}
-              onChange={(e) => setNewClientPhone(e.target.value)}
-              placeholder="연락처 (010-...)"
-              className="min-h-[40px] px-2.5 text-[13px] rounded-lg border border-[#CBD5E1]"
-              data-testid="new-client-phone-input"
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {(["VIP", "일반", "잠재"] as const).map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setNewClientGrade(g)}
-                className={`min-h-[36px] rounded-lg text-[12px] font-bold border cursor-pointer ${
-                  newClientGrade === g
-                    ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
-                    : "bg-[#FAF9F5] text-[#475569] border-[#CBD5E1]"
-                }`}
-              >
-                {g} 등급
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="text"
-              value={newClientBudget}
-              onChange={(e) => setNewClientBudget(e.target.value)}
-              placeholder="예산 (예: 100~130억)"
-              className="min-h-[38px] px-2.5 text-[13px] rounded-lg border border-[#CBD5E1]"
-            />
-            <input
-              type="text"
-              value={newClientRegion}
-              onChange={(e) => setNewClientRegion(e.target.value)}
-              placeholder="선호 권역 (예: 강남구)"
-              className="min-h-[38px] px-2.5 text-[13px] rounded-lg border border-[#CBD5E1]"
-            />
-          </div>
-          <input
-            type="text"
-            value={newClientBuildingTitle}
-            onChange={(e) => setNewClientBuildingTitle(e.target.value)}
-            placeholder="관심 매물명"
-            className="w-full min-h-[38px] px-2.5 text-[13px] rounded-lg border border-[#CBD5E1]"
-          />
-          <button
-            type="button"
-            onClick={handleCreateQuickClient}
-            className="w-full min-h-[42px] bg-[#0F172A] text-white font-bold text-[14px] rounded-xl hover:bg-[#1E293B] cursor-pointer"
-            data-testid="submit-new-client-btn"
-          >
-            ✓ 명단 저장 및 맞춤 매칭 시작
-          </button>
-        </div>
-      )}
-
-      {/* Thread list (Airtable Intelligent Rows) */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-        {filteredThreads.map((thread) => {
-          const isSelected = thread.id === selectedId;
-          const isHot = thread.openCount >= 3;
-          const topFocus = thread.focusedSections?.[0]?.split(" (")[0] || "02 하이라이트";
-
-          return (
-            <div
-              key={thread.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelectedId(thread.id)}
-              onKeyDown={(e) => e.key === "Enter" && setSelectedId(thread.id)}
-              className={`w-full min-h-[84px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
-                isSelected
-                  ? "bg-white border-[#1D4ED8] shadow-sm ring-2 ring-[#1D4ED8]/20"
-                  : "bg-white border-[#E2E8F0] hover:border-[#64748B]"
-              }`}
-            >
-              {isSelected && (
-                <div className="absolute left-0 top-3 bottom-3 w-1.5 bg-[#1D4ED8] rounded-r" />
-              )}
-
-              <div className="flex items-center justify-between gap-1 mb-1">
-                <div className="flex items-center gap-1.5 truncate">
-                  <span
-                    data-single-line-title="true"
-                    className="font-bold text-[16px] text-[#0F172A] whitespace-nowrap overflow-hidden text-ellipsis truncate"
-                  >
-                    {thread.clientName}
-                  </span>
-                  <span className="text-[12px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-1.5 py-0.5 rounded">
-                    {thread.clientGrade}
-                  </span>
-                  {thread.status === "pending_gate" && (
-                    <span className="text-[11px] font-extrabold text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 rounded">
-                      G2 승인대기
-                    </span>
-                  )}
-                  {thread.status === "revoked" && (
-                    <span className="text-[11px] font-extrabold text-[#991B1B] bg-[#FEE2E2] px-1.5 py-0.5 rounded">
-                      회수됨
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {isHot && (
-                    <span className="text-[12px] font-extrabold text-[#991B1B] bg-[#FEE2E2] px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                      🔥 {thread.openCount}회 열람
-                    </span>
-                  )}
-                  <span className="text-[12px] text-[#64748B]">{thread.updatedAt}</span>
-                </div>
-              </div>
-
-              <p
-                data-single-line-title="true"
-                className="text-[14px] text-[#0F172A] font-semibold whitespace-nowrap overflow-hidden text-ellipsis truncate mb-0.5"
-              >
-                {thread.buildingTitle}
-              </p>
-              <p className="text-[13px] text-[#475569] truncate">{thread.latestEvent}</p>
-
-              {/* Airtable Intelligent Row Pills */}
-              <div className="flex flex-wrap items-center gap-1 mt-2 pt-1.5 border-t border-slate-100">
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
-                  💰 {thread.budget}
-                </span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">
-                  🎯 {topFocus}
-                </span>
-                {thread.newsletterSubscribed && (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    📰 구독 ✓
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  /* ──────── Column 2: Minimalist <= 4 Top Tabs + Immediate Action/Editing Screen ──────── */
-  const editorSlot = (
-    <div className="p-4 sm:p-6 space-y-5 max-w-3xl mx-auto" data-testid="inbox-editor-slot">
-      {/* Compact Single-Line Header Card for Selected Client Thread */}
-      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-4 sm:p-5 shadow-sm space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2
-                data-single-line-title="true"
-                className="text-[20px] font-extrabold text-[#0F172A] whitespace-nowrap overflow-hidden text-ellipsis truncate"
-              >
-                {activeThread.clientName}
-              </h2>
-              <span className="text-[13px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-                {activeThread.clientGrade} 고객
-              </span>
-              <span className="text-[14px] text-[#64748B]">{activeThread.clientPhone}</span>
-              {activeThread.newsletterSubscribed && (
-                <span className="text-[12px] font-bold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded-full">
-                  📰 소식지 구독 중
-                </span>
-              )}
-            </div>
-            <p
-              data-single-line-title="true"
-              className="text-[15px] text-[#334155] font-semibold mt-1 whitespace-nowrap overflow-hidden text-ellipsis truncate"
-            >
-              관심 매물: {activeThread.buildingTitle} ({activeThread.budget} · {activeThread.preferredRegion})
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-base font-extrabold text-slate-900">
+              지금 할 일 {pendingCount}건
+            </p>
+            <p className="mt-0.5 text-sm text-slate-700">
+              {pendingCount > 0
+                ? "승인을 기다리는 IM 열람 요청을 바로 처리해 보세요."
+                : "대기 중인 IM 열람 요청이 없습니다."}
             </p>
           </div>
-
-          <a
-            href={`tel:${activeThread.clientPhone}`}
-            className="min-h-[46px] px-4 py-2 bg-[#0F172A] text-white rounded-xl font-bold text-[15px] flex items-center gap-1.5 hover:bg-[#1E293B] cursor-pointer shrink-0"
-          >
-            <span>📞</span> 전화 연결
-          </a>
-        </div>
-
-        {/* [M5] 4-Workspace Cross-Action Bridge Bar */}
-        <div
-          className="flex flex-wrap items-center gap-2 bg-[#FAF9F5] p-3 rounded-xl border border-[#E2E8F0]"
-          data-testid="cross-workspace-bridge"
-        >
-          <span className="text-[13px] font-extrabold text-[#475569] mr-1">
-            🔗 매물 작업 바로가기:
-          </span>
-          <Link
-            href={`/broker/w/dealcards?buildingId=${encodeURIComponent(activeThread.buildingId)}`}
-            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#1D4ED8] hover:text-[#1D4ED8] flex items-center gap-1"
-            data-testid="bridge-dealcard-link"
-          >
-            📄 딜카드 편집
-          </Link>
-          <Link
-            href={`/broker/w/im?buildingId=${encodeURIComponent(activeThread.buildingId)}`}
-            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#1D4ED8] hover:text-[#1D4ED8] flex items-center gap-1"
-            data-testid="bridge-im-link"
-          >
-            📊 IM 편집
-          </Link>
-          <Link
-            href={`/im-lite/${encodeURIComponent(activeThread.buildingId)}`}
-            target="_blank"
-            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#1D4ED8] hover:bg-[#EFF6FF] flex items-center gap-1"
-            data-testid="bridge-viewer-link"
-          >
-            👁️ 고객 화면 열기 ↗
-          </Link>
-          <a
-            href={`/api/public/im-lite/${encodeURIComponent(activeThread.buildingId)}/pptx`}
-            className="min-h-[36px] px-3 py-1 bg-white border border-[#CBD5E1] rounded-lg text-[13px] font-bold text-[#0F172A] hover:border-[#0F172A] flex items-center gap-1"
-            data-testid="bridge-pptx-link"
-          >
-            📥 PPTX 다운로드
-          </a>
           <button
             type="button"
-            onClick={handleToggleNewsletterSubscription}
-            className={`min-h-[36px] px-3 py-1 rounded-lg text-[13px] font-bold border cursor-pointer flex items-center gap-1 ${
-              activeThread.newsletterSubscribed
-                ? "bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]"
-                : "bg-white text-[#475569] border-[#CBD5E1]"
-            }`}
-            data-testid="bridge-newsletter-btn"
+            onClick={() => setShowNewClientModal(true)}
+            data-testid="open-new-client-modal-btn"
+            className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-900 shadow-xs transition hover:bg-slate-100 cursor-pointer"
           >
-            📰 {activeThread.newsletterSubscribed ? "소식지 구독 중 ✓" : "소식지 구독 추가"}
+            + 고객 직접 등록
           </button>
         </div>
-      </div>
 
-      {/* Top <= 4 Primary Tabs (Minimalist Tab Bar -> Immediate Setting/Action Panel Below) */}
-      <div
-        data-testid="inbox-editor-primary-tabs"
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/90 border border-slate-300"
-      >
-        {(
-          [
-            {
-              id: "diagnosis_gate",
-              label: "① 열람진단·G2승인",
-              sub: activeThread.status === "pending_gate" ? "G2 승인 대기!" : `${activeThread.openCount}회 열람 분석`,
-            },
-            {
-              id: "kakao_proposal",
-              label: "② 카톡 제안·안부",
-              sub: "맞춤 카톡 제안문",
-            },
-            {
-              id: "matched_deals",
-              label: "③ 맞춤 대체매물",
-              sub: `추천 ${matchedAlternativeDeals.length}건 큐레이션`,
-            },
-            {
-              id: "timeline_security",
-              label: "④ 통화메모·이력",
-              sub: `이벤트 ${activeThread.events.length}건 기록`,
-            },
-          ] as const
-        ).map((tab) => {
-          const isActive = activeInboxTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              data-testid={`inbox-editor-tab-${tab.id}`}
-              onClick={() => setActiveInboxTab(tab.id)}
-              className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer min-w-0 ${
-                isActive
-                  ? "bg-[#0F172A] text-white shadow-sm"
-                  : "bg-white/80 text-slate-800 hover:bg-white"
-              }`}
-            >
-              <div className="text-[14px] font-extrabold leading-tight whitespace-nowrap truncate">{tab.label}</div>
+        {pendingThreads.length > 0 && (
+          <div className="mt-3 space-y-2 border-t border-amber-200/80 pt-3">
+            {pendingThreads.map((pt) => (
               <div
-                className={`text-[11px] mt-0.5 font-medium whitespace-nowrap truncate ${
-                  isActive ? "text-amber-300" : "text-slate-500"
-                }`}
+                key={`todo-quick-${pt.id}`}
+                className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2"
               >
-                {tab.sub}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── TAB 1 PANEL: ① 열람진단·G2승인 (Immediate Action Screen) ── */}
-      <div
-        data-testid="inbox-tab-panel-diagnosis-gate"
-        className={activeInboxTab === "diagnosis_gate" ? "space-y-4 block" : "hidden"}
-      >
-        {/* Section Dwell Diagnosis Card */}
-        {activeThread.focusedSections && activeThread.focusedSections.length > 0 && (
-          <div
-            data-testid="section-dwell-badges"
-            style={{ backgroundColor: "#FEF9C3", borderColor: "#FDE047" }}
-            className="p-5 rounded-lg border border-l-4 space-y-3 shadow-xs"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span
-                style={{ backgroundColor: "#FEF08A", color: "#854D0E" }}
-                className="text-[12px] font-extrabold px-2.5 py-0.5 rounded"
-              >
-                📌 고객 열람 체류 진단
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[12px] font-extrabold text-amber-950">
-                  🎯 고객 집중 검토 섹션:
-                </span>
-                {activeThread.focusedSections.map((sec, idx) => (
-                  <span
-                    key={idx}
-                    className="text-[12px] font-bold bg-white text-[#1D4ED8] border border-[#93C5FD] px-2.5 py-0.5 rounded-full"
-                  >
-                    {sec}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* 1-Line Large Bold Headline */}
-            <h3
-              data-single-line-title="true"
-              className="text-[18px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
-            >
-              [{activeThread.clientName}] {activeThread.focusedSections[0]} 집중 검토 · 매수 타이밍 포착
-            </h3>
-
-            {/* 2~3 Sentence AXIOS Brief */}
-            <p className="text-[14px] font-medium text-slate-800 leading-relaxed">
-              💡 <strong>통화 브리핑 팁:</strong> 고객이{" "}
-              <strong>{activeThread.focusedSections[0]}</strong> 영역을 가장 오래 살펴보았습니다.
-              통화 시 임대차 만기 일정이나 대출 레버리지 적용 시 기대수익률 변동을 먼저 안내해 보세요.
-            </p>
-          </div>
-        )}
-
-        {/* Gate Request Action Panel if status === 'pending_gate' */}
-        {activeThread.status === "pending_gate" ? (
-          <div className="p-5 bg-[#FEF3C7] border-2 border-[#FDE68A] rounded-2xl space-y-3">
-            <div className="flex items-center gap-2 text-[#92400E] font-bold text-[16px]">
-              <span>🔒</span>
-              <span>G2 상세자료 공개 승인 요청</span>
-            </div>
-            <p className="text-[14px] text-[#92400E]">
-              고객이 렌트롤 상세 및 토지이용계획 열람을 요청했습니다. 승인 시 개별 보안 링크가 발급됩니다.
-            </p>
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleApproveGate}
-                className="min-h-[48px] px-5 bg-[#065F46] text-white font-bold rounded-xl hover:bg-[#047857] cursor-pointer shadow-sm text-[15px]"
-              >
-                ✓ 공개 승인 (G2)
-              </button>
-              <button
-                type="button"
-                onClick={handleRejectGate}
-                className="min-h-[48px] px-4 bg-white border border-[#CBD5E1] text-[#64748B] font-bold rounded-xl hover:bg-[#FAF9F5] cursor-pointer text-[15px]"
-              >
-                보류
-              </button>
-            </div>
-          </div>
-        ) : activeThread.gateStatus === "approved" ? (
-          <div
-            className="p-4 bg-[#ECFDF5] border-2 border-[#6EE7B7] rounded-2xl flex flex-wrap items-center justify-between gap-3"
-            data-testid="g2-approved-banner"
-          >
-            <div>
-              <p className="text-[15px] font-extrabold text-[#065F46]">
-                🔓 G2 상세자료 열람 승인 완료 (전용 토큰: {activeThread.shareToken})
-              </p>
-              <p className="text-[13px] text-[#047857]">
-                고객에게 잠금 해제된 보안 링크를 카카오톡으로 바로 안내하세요.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleCopyG2ApprovedLink}
-              className="min-h-[44px] px-4 bg-[#065F46] text-white font-bold rounded-xl text-[14px] hover:bg-[#047857] cursor-pointer"
-              data-testid="copy-g2-link-btn"
-            >
-              📋 G2 승인 링크 카톡 문구 복사
-            </button>
-          </div>
-        ) : (
-          <div className="p-4 bg-white rounded-2xl border border-slate-200 flex items-center justify-between">
-            <div>
-              <p className="text-[14px] font-bold text-slate-900">
-                현재 보안 링크 상태: 정상 열람 가능 ({activeThread.shareToken})
-              </p>
-              <p className="text-[13px] text-slate-600">
-                상단 [② 카톡 제안·안부] 탭에서 맞춤 팔로업 문구를 즉시 작성·발송할 수 있습니다.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveInboxTab("kakao_proposal")}
-              className="px-3.5 py-2 rounded-xl bg-blue-700 text-white text-[13px] font-bold cursor-pointer shrink-0 whitespace-nowrap"
-            >
-              카톡 제안 작성 →
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ── TAB 2 PANEL: ② 카톡 제안·안부 (Kakao Follow-up Proposal Editor) ── */}
-      <div
-        data-testid="inbox-tab-panel-kakao-proposal"
-        className={activeInboxTab === "kakao_proposal" ? "space-y-4 block" : "hidden"}
-      >
-        <div
-          data-testid="inbox-axios-kakao-postit"
-          style={{ backgroundColor: "#E0F2FE", borderColor: "#7DD3FC" }}
-          className="rounded-lg border border-l-4 p-5 space-y-3 shadow-xs"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span
-              style={{ backgroundColor: "#BAE6FD", color: "#075985" }}
-              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded"
-            >
-              💬 맞춤 카톡 팔로업 제안문
-            </span>
-            <span className="text-[12px] font-bold text-sky-900">
-              핵심 제목 + 맞춤 검토 코멘트
-            </span>
-          </div>
-
-          <input
-            type="text"
-            data-testid="inbox-kakao-headline-input"
-            value={kakaoHeadline}
-            onChange={(e) => setKakaoHeadline(e.target.value)}
-            className="w-full h-11 px-3.5 text-[17px] font-extrabold text-slate-950 bg-white rounded-lg border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap overflow-hidden text-ellipsis"
-            placeholder="카톡 핵심 제목"
-          />
-
-          <textarea
-            rows={3}
-            data-testid="inbox-kakao-brief-input"
-            value={kakaoBrief}
-            onChange={(e) => setKakaoBrief(e.target.value)}
-            className="w-full px-3.5 py-2.5 text-[14px] font-medium text-slate-800 bg-white/95 rounded-lg border border-sky-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
-            placeholder="2~4문장 맞춤 검토 코멘트"
-          />
-
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <button
-              type="button"
-              data-testid="inbox-copy-axios-kakao-btn"
-              onClick={handleCopyAxiosKakaoProposal}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-[14px] font-extrabold cursor-pointer whitespace-nowrap"
-            >
-              📋 맞춤 카톡 제안문 복사
-            </button>
-            <KakaoTemplatePicker
-              buildingId={activeThread.buildingId}
-              dealTitle={activeThread.buildingTitle}
-              defaultTemplateId="tpl-06"
-              buttonLabel="💬 표준 안부 템플릿 선택 (tpl-06)"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── TAB 3 PANEL: ③ 맞춤 대체매물 (Immediate Curation Screen) ── */}
-      <div
-        data-testid="inbox-tab-panel-matched-deals"
-        className={activeInboxTab === "matched_deals" ? "space-y-4 block" : "hidden"}
-      >
-        <div
-          data-testid="inbox-editor-matched-deals"
-          style={{ backgroundColor: "#DCFCE7", borderColor: "#86EFAC" }}
-          className="rounded-lg border border-l-4 p-5 space-y-3 shadow-xs"
-        >
-          <div className="flex items-center justify-between">
-            <span
-              style={{ backgroundColor: "#BBF7D0", color: "#166534" }}
-              className="text-[12px] font-extrabold px-2.5 py-0.5 rounded"
-            >
-              🎯 예산({activeThread.budget}) · 선호권역({activeThread.preferredRegion}) 자동 매칭
-            </span>
-            <span className="text-[12px] font-bold text-emerald-900">
-              비교 추천 매물
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {matchedAlternativeDeals.map(({ deal, reasonLabel }) => (
-              <div
-                key={deal.buildingId}
-                className="p-4 bg-white rounded-xl border border-emerald-300 space-y-2 shadow-2xs"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded">
-                    {reasonLabel}
-                  </span>
-                  <span className="text-[12px] font-extrabold text-[#1D4ED8]">
-                    {deal.priceBand} · 연 {deal.capRatePct.toFixed(1)}%
-                  </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-900">
+                    {pt.clientName} · {pt.buildingTitle}
+                  </p>
+                  <p className="truncate text-sm text-slate-600">
+                    {pt.cleanMessage || "IM 열람 요청"}
+                  </p>
                 </div>
-                <p
-                  data-single-line-title="true"
-                  className="text-[15px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
-                >
-                  {deal.title}
-                </p>
-                <p className="text-[12px] text-slate-600">{deal.region}</p>
                 <button
                   type="button"
-                  onClick={() => handleCopyAlternativeDeal(deal)}
-                  className="w-full min-h-[38px] px-3 bg-[#0F172A] text-white font-bold text-[12px] rounded-lg hover:bg-[#1E293B] cursor-pointer"
+                  data-testid={`quick-approve-btn-${pt.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleApproveAndSendIm(pt);
+                  }}
+                  className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-bold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
                 >
-                  📋 비교 추천 카톡 문구 복사
+                  자료 보내기
                 </button>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* ── TAB 4 PANEL: ④ 통화메모·이력 (Activity Timeline & Consultation Log) ── */}
+      {/* 1열 필터 칩 3개: 할 일 · 열람 · 전체 고객 (IB-12) */}
       <div
-        data-testid="inbox-tab-panel-timeline-security"
-        className={
-          activeInboxTab === "timeline_security"
-            ? "bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4 block"
-            : "hidden"
-        }
+        role="tablist"
+        aria-label="고객 소통함 필터"
+        data-testid="inbox-filter-tabs"
+        className="grid grid-cols-3 gap-1.5 rounded-xl border border-slate-200 bg-slate-200/70 p-1"
       >
-        <h3 className="text-[18px] font-extrabold text-[#0F172A]">
-          열람 및 발송 이력 타임라인
-        </h3>
-
-        <div className="space-y-3">
-          {activeThread.events.map((ev, idx) => (
-            <div
-              key={ev.id || idx}
-              className="flex items-start gap-3 p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0]"
+        {(
+          [
+            { key: "todo", label: "할 일" },
+            { key: "views", label: "열람" },
+            { key: "all", label: "전체 고객" },
+          ] as const
+        ).map((flt) => {
+          const isSelected = activeFilter === flt.key;
+          return (
+            <button
+              key={flt.key}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              data-testid={`inbox-filter-chip-${flt.key}`}
+              onClick={() => setActiveFilter(flt.key)}
+              className={`min-h-[48px] rounded-lg px-2.5 py-2 text-sm font-bold transition cursor-pointer ${
+                isSelected
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-transparent text-slate-700 hover:bg-white/70 hover:text-slate-900"
+              }`}
             >
-              <span className="text-xl">
-                {ev.eventType === "open" ? "👁️" : ev.eventType === "gate_request" ? "🔒" : "💬"}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-semibold text-[#0F172A]">{ev.description}</p>
-                <span className="text-[13px] text-[#64748B]">{ev.timestamp}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Note / Call record input */}
-        <div className="pt-2 border-t border-[#E2E8F0] flex gap-2">
-          <input
-            type="text"
-            value={callNote}
-            onChange={(e) => setCallNote(e.target.value)}
-            placeholder="통화 내용이나 상담 메모를 남기세요..."
-            className="flex-1 min-h-[48px] px-3.5 text-[15px] rounded-xl border border-[#64748B] outline-none focus:border-[#1D4ED8]"
-            onKeyDown={(e) => e.key === "Enter" && handleAddCallNote()}
-          />
-          <button
-            type="button"
-            onClick={handleAddCallNote}
-            className="min-h-[48px] px-4 bg-[#0F172A] text-white font-bold rounded-xl text-[14px] hover:bg-[#1E293B] cursor-pointer"
-          >
-            기록
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  /* ──────── Column 3: Recipient Context, Hot Lead Callout, Matched Deals, Share Queue ──────── */
-  const previewSlot = (
-    <div className="p-4 space-y-4 max-w-sm mx-auto" data-testid="inbox-preview-slot">
-      {/* Hot-Lead Callout (for >=3 opens) (WP-P5-01 & WP-P5-03) */}
-      {activeThread.openCount >= 3 && (
-        <div
-          className="bg-gradient-to-br from-[#FEF2F2] to-[#FEE2E2] rounded-2xl border-2 border-[#F87171] p-4 text-center space-y-2 shadow-md animate-pulse"
-          data-testid="hot-lead-callout"
-        >
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#EF4444] text-white rounded-full font-black text-[13px]">
-            🔥 지금 전화
-          </div>
-          <h4 className="text-[17px] font-extrabold text-[#991B1B]">
-            {activeThread.clientName}님이 {activeThread.openCount}회째 반복 열람 중입니다!
-          </h4>
-          <p className="text-[14px] text-[#7F1D1D] leading-tight">
-            방금 렌트롤 및 수익률을 집중 검토했습니다. 매수 타이밍입니다.
-          </p>
-          <a
-            href={`tel:${activeThread.clientPhone}`}
-            className="w-full min-h-[48px] bg-[#DC2626] text-white font-extrabold rounded-xl flex items-center justify-center gap-2 hover:bg-[#B91C1C] cursor-pointer shadow-sm text-[15px]"
-          >
-            <span>📞</span> 지금 바로 전화하기
-          </a>
-        </div>
-      )}
-
-      {/* Recipient Profile Card + Live AXIOS Kakao Proposal Preview */}
-      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-[16px] font-extrabold text-[#0F172A]">고객 매수 프로필</h4>
-          <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
-            {activeThread.clientGrade}
-          </span>
-        </div>
-        <div className="space-y-2 text-[14px]">
-          <div className="flex justify-between p-2 bg-[#FAF9F5] rounded-lg">
-            <span className="text-[#64748B]">투자 예산</span>
-            <strong className="text-[#0F172A]">{activeThread.budget}</strong>
-          </div>
-          <div className="flex justify-between p-2 bg-[#FAF9F5] rounded-lg">
-            <span className="text-[#64748B]">선호 권역</span>
-            <strong className="text-[#0F172A]">{activeThread.preferredRegion}</strong>
-          </div>
-          <div className="flex justify-between p-2 bg-[#FAF9F5] rounded-lg">
-            <span className="text-[#64748B]">발송 링크</span>
-            <span className="text-[#1D4ED8] font-mono text-[12px] truncate max-w-[140px]">
-              {activeThread.shareToken}
-            </span>
-          </div>
-        </div>
-
-        {/* Live Kakao Proposal Preview */}
-        <div
-          data-testid="inbox-preview-kakao-card"
-          style={{ backgroundColor: "#E0F2FE", borderColor: "#7DD3FC" }}
-          className="rounded-md border border-l-4 p-3 space-y-1.5"
-        >
-          <div className="flex items-center justify-between">
-            <span
-              style={{ backgroundColor: "#BAE6FD", color: "#075985" }}
-              className="text-[10px] font-extrabold px-2 py-0.5 rounded"
-            >
-              💬 카톡 제안 미리보기
-            </span>
-            <span className="text-[10px] font-bold text-sky-900">실시간 반영</span>
-          </div>
-          <p
-            data-single-line-title="true"
-            title={kakaoHeadline}
-            className="text-[13px] font-extrabold text-slate-950 whitespace-nowrap overflow-hidden text-ellipsis truncate"
-          >
-            {kakaoHeadline}
-          </p>
-          <p className="text-[11px] text-slate-700 leading-snug line-clamp-2">
-            {kakaoBrief}
-          </p>
-        </div>
+              {flt.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* [M6] Auto-Matched Alternative Deals Panel */}
-      {matchedAlternativeDeals.length > 0 && (
-        <div
-          className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-4 shadow-sm space-y-3"
-          data-testid="matched-deals-panel"
-        >
-          <div className="flex items-center justify-between">
-            <h4 className="text-[15px] font-extrabold text-[#0F172A]">
-              🎯 예산·권역 맞춤 대체 매물 추천
-            </h4>
-            <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded-full">
-              자동 매칭
-            </span>
-          </div>
-          <p className="text-[12px] text-[#475569]">
-            {activeThread.clientName}님의 희망 조건({activeThread.budget})과 부합하는 내 보유 매물입니다.
-          </p>
-          <div className="space-y-2.5">
-            {matchedAlternativeDeals.map(({ deal, reasonLabel }) => (
-              <div
-                key={deal.buildingId}
-                className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E2E8F0] space-y-2"
-                data-testid={`matched-deal-${deal.buildingId}`}
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[11px] font-extrabold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded">
-                    {reasonLabel}
-                  </span>
-                  <span className="text-[12px] font-extrabold text-[#1D4ED8]">
-                    {deal.priceBand} · 연 {deal.capRatePct.toFixed(1)}%
-                  </span>
-                </div>
-                <p className="text-[14px] font-bold text-[#0F172A] truncate">{deal.title}</p>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyAlternativeDeal(deal)}
-                    className="flex-1 min-h-[38px] px-2.5 bg-[#0F172A] text-white font-bold text-[12px] rounded-lg hover:bg-[#1E293B] cursor-pointer"
-                    data-testid={`copy-matched-deal-${deal.buildingId}`}
-                  >
-                    📋 대체 매물 제안 복사
-                  </button>
-                  <Link
-                    href={`/broker/w/im?buildingId=${encodeURIComponent(deal.buildingId)}`}
-                    className="min-h-[38px] px-2.5 bg-white border border-[#CBD5E1] text-[#334155] font-bold text-[12px] rounded-lg flex items-center justify-center hover:border-[#0F172A]"
-                  >
-                    IM 보기
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Per-recipient Share Queue & Revocation (WP-P5-02 & WP-P5-04 + Server Persistence) */}
-      <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-[16px] font-extrabold text-[#0F172A]">링크 보안 및 회수 관리</h4>
-          {activeThread.status === "revoked" && (
-            <span className="text-[11px] font-extrabold text-[#991B1B] bg-[#FEE2E2] px-2 py-0.5 rounded-full">
-              404 차단 중
-            </span>
-          )}
-          {activeThread.hasCorrectionNotice && activeThread.status !== "revoked" && (
-            <span className="text-[11px] font-extrabold text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded-full">
-              정정 공지 중
-            </span>
-          )}
-        </div>
-        <p className="text-[13px] text-[#475569]">
-          오탈자나 가격 변동이 발생했을 때 보낸 링크를 즉시 회수하거나 고객 IM 상단에 정정 안내 띠를 띄울 수 있습니다.
-        </p>
-
+      {/* 검색창 */}
+      <div>
+        <label htmlFor="inbox-search-input" className="sr-only">
+          고객명 또는 매물명 검색
+        </label>
         <input
-          type="text"
-          value={correctionInput}
-          onChange={(e) => setCorrectionInput(e.target.value)}
-          placeholder="정정 안내 문구 입력..."
-          className="w-full min-h-[38px] px-2.5 text-[12px] rounded-lg border border-[#CBD5E1] bg-[#FAF9F5]"
-          data-testid="correction-message-input"
+          id="inbox-search-input"
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="고객명, 매물명 검색"
+          className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
         />
+      </div>
 
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleRevokeLink}
-            className="min-h-[48px] px-3 bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] font-bold rounded-xl text-[14px] hover:bg-[#FECACA] cursor-pointer"
+      {/* 스레드 목록 또는 친절한 빈 상태 (IB-06) */}
+      <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
+        {threads.length === 0 ? (
+          <div
+            data-testid="inbox-empty-state"
+            className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center"
           >
-            🚫 링크 회수
-          </button>
-          <button
-            type="button"
-            onClick={handleSendCorrection}
-            className="min-h-[48px] px-3 bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] font-bold rounded-xl text-[14px] hover:bg-[#FDE68A] cursor-pointer"
-          >
-            ⚠️ 정정 안내
-          </button>
-        </div>
+            <p className="text-base font-bold text-slate-900">
+              아직 도착한 요청이 없어요. 딜카드를 보내면 고객의 IM 요청이 여기에 모입니다.
+            </p>
+            <p className="mt-1.5 text-sm text-slate-600">
+              관심 고객을 직접 등록해 두고 딜카드나 IM 전용 링크를 카톡으로 발송할 수도 있습니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowNewClientModal(true)}
+              data-testid="empty-state-add-client-btn"
+              className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-base font-bold text-white shadow-xs transition hover:bg-slate-800 cursor-pointer"
+            >
+              + 고객 직접 등록
+            </button>
+          </div>
+        ) : filteredThreads.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-5 text-center">
+            <p className="text-base font-semibold text-slate-800">
+              선택한 조건에 맞는 고객이 없습니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveFilter("all");
+                setSearchQuery("");
+              }}
+              className="mt-3 inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+            >
+              전체 고객 보기
+            </button>
+          </div>
+        ) : (
+          filteredThreads.map((item) => {
+            const isSelected = activeThread?.id === item.id;
+            const statusBadge =
+              item.status === "pending_gate"
+                ? {
+                    text: "IM 요청 대기",
+                    cls: "bg-amber-100 text-amber-900 border border-amber-300",
+                  }
+                : item.status === "revoked"
+                ? {
+                    text: "링크 잠김",
+                    cls: "bg-rose-100 text-rose-800 border border-rose-200",
+                  }
+                : item.status === "high_interest" || item.openCount >= 3
+                ? {
+                    text: "관심 높음",
+                    cls: "bg-blue-100 text-blue-900 border border-blue-200",
+                  }
+                : {
+                    text: item.openCount > 0 ? `${item.openCount}회 열람` : "등록 고객",
+                    cls: "bg-slate-100 text-slate-700 border border-slate-200",
+                  };
 
-        {activeThread.status === "revoked" && (
-          <button
-            type="button"
-            onClick={handleRestoreLink}
-            className="w-full min-h-[40px] px-3 bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold rounded-xl text-[13px] hover:bg-[#D1FAE5] cursor-pointer"
-            data-testid="restore-link-btn"
-          >
-            🔄 회수된 링크 다시 활성화하기
-          </button>
+            return (
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                data-testid={`inbox-thread-row-${item.id}`}
+                onClick={() => setSelectedId(item.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedId(item.id);
+                  }
+                }}
+                className={`rounded-xl border p-3.5 transition cursor-pointer ${
+                  isSelected
+                    ? "border-blue-600 bg-blue-50/50 shadow-xs"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${statusBadge.cls}`}
+                      >
+                        {statusBadge.text}
+                      </span>
+                      <span className="truncate text-base font-bold text-slate-900">
+                        {item.clientName}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-sm font-semibold text-slate-700">
+                      {item.buildingTitle}
+                    </p>
+                    <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
+                      {item.latestEvent}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm text-slate-500">
+                    {item.updatedAt}
+                  </span>
+                </div>
+
+                {item.status === "pending_gate" && (
+                  <div className="mt-3 flex items-center justify-end border-t border-slate-200/80 pt-2.5">
+                    <button
+                      type="button"
+                      data-testid={`row-send-im-btn-${item.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleApproveAndSendIm(item);
+                      }}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
+                    >
+                      자료 보내기
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>
   );
 
+  /* ──────── Column 2: 3개 탭 (할 일 · 메시지 · 기록) (IB-13, IB-14) ──────── */
+  const editorSlot = (
+    <div
+      className="mx-auto max-w-3xl space-y-5 p-4 md:p-6"
+      data-testid="inbox-editor-slot"
+    >
+      {statusFeedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-xl border border-slate-200 bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
+        >
+          {statusFeedback}
+        </div>
+      )}
+
+      {!activeThread ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xs">
+          <h2 className="text-lg font-bold text-slate-900">
+            아직 도착한 요청이 없어요. 딜카드를 보내면 고객의 IM 요청이 여기에 모입니다.
+          </h2>
+          <p className="mt-2 text-base text-slate-600">
+            새 고객을 직접 등록해 두면 매물 자료를 바로 보내고 열람 여부를 확인할 수 있습니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowNewClientModal(true)}
+            className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-base font-bold text-white shadow-xs hover:bg-slate-800 cursor-pointer"
+          >
+            + 고객 직접 등록
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* 선택된 고객 상단 헤더 */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-md px-2.5 py-1 text-sm font-bold ${
+                      activeThread.status === "pending_gate"
+                        ? "border border-amber-300 bg-amber-100 text-amber-900"
+                        : activeThread.status === "revoked"
+                        ? "border border-rose-200 bg-rose-100 text-rose-800"
+                        : activeThread.status === "high_interest" ||
+                          activeThread.openCount >= 3
+                        ? "border border-blue-200 bg-blue-100 text-blue-900"
+                        : "border border-slate-200 bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {activeThread.status === "pending_gate"
+                      ? "IM 요청 대기"
+                      : activeThread.status === "revoked"
+                      ? "링크 잠김"
+                      : activeThread.status === "high_interest" ||
+                        activeThread.openCount >= 3
+                      ? "관심 높음"
+                      : "열람 고객"}
+                  </span>
+                  <h2 className="text-lg font-extrabold text-slate-900">
+                    {activeThread.clientName}
+                  </h2>
+                  {activeThread.clientCompany && (
+                    <span className="text-sm font-semibold text-slate-600">
+                      · {activeThread.clientCompany}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-base font-semibold text-slate-800">
+                  관심 매물: {activeThread.buildingTitle}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {activeThread.clientPhone ? (
+                  <a
+                    href={`tel:${activeThread.clientPhone}`}
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-slate-50"
+                  >
+                    전화 걸기 ({activeThread.clientPhone})
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex min-h-[48px] cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-400"
+                  >
+                    전화번호 없음
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 2열 상단 탭 3개: 할 일 · 메시지 · 기록 (IB-13) */}
+          <div
+            role="tablist"
+            aria-label="고객 상담 및 관리 탭"
+            data-testid="inbox-editor-primary-tabs"
+            className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-200/70 p-1.5"
+          >
+            {(
+              [
+                { id: "todo", label: "할 일" },
+                { id: "message", label: "메시지" },
+                { id: "history", label: "기록" },
+              ] as const
+            ).map((tab) => {
+              const isSelected = activeEditorTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  data-testid={`inbox-editor-tab-${tab.id}`}
+                  onClick={() => setActiveEditorTab(tab.id)}
+                  className={`min-h-[48px] rounded-lg px-3 py-2.5 text-base font-bold transition cursor-pointer ${
+                    isSelected
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-700 hover:bg-white/60 hover:text-slate-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 탭 1: 할 일 (대기 요청 시 요청 사유 + [자료 보내기(승인)] / [거절] 첫 화면 노출 — IB-14) */}
+          {activeEditorTab === "todo" && (
+            <div className="space-y-4" data-testid="inbox-tab-panel-todo">
+              {activeThread.status === "pending_gate" ? (
+                <div
+                  data-testid="inbox-pending-gate-card"
+                  className="rounded-2xl border-2 border-amber-300 bg-amber-50/70 p-5 shadow-xs"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center rounded-md bg-amber-200 px-2.5 py-1 text-sm font-extrabold text-amber-950">
+                      IM 열람 요청
+                    </span>
+                    <span className="text-sm font-semibold text-amber-900">
+                      {activeThread.updatedAt}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-base font-bold text-slate-900">
+                    요청 사유 및 메시지
+                  </h3>
+                  <p className="mt-1.5 rounded-xl border border-amber-200 bg-white p-3.5 text-base text-slate-800">
+                    {activeThread.cleanMessage ||
+                      activeThread.detail ||
+                      "상세 투자설명서(IM) 열람을 요청했습니다."}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      data-testid="approve-gate-primary-btn"
+                      onClick={() => handleApproveAndSendIm(activeThread)}
+                      className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
+                    >
+                      자료 보내기(승인)
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="reject-gate-btn"
+                      onClick={() => handleRejectRequest(activeThread)}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-base font-bold text-slate-700 transition hover:bg-slate-100 cursor-pointer"
+                    >
+                      거절
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                  <h3 className="text-base font-bold text-slate-900">
+                    현재 열람 및 진행 상태
+                  </h3>
+                  <p className="mt-1.5 text-base text-slate-700">
+                    {activeThread.focusedSections &&
+                    activeThread.focusedSections.length > 0
+                      ? `집중 열람 항목: ${activeThread.focusedSections.join(" · ")}`
+                      : "상세 자료를 열람했습니다"}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSendMaterial("im")}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 cursor-pointer"
+                    >
+                      승인하고 IM 보내기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSendMaterial("dealcard")}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                    >
+                      딜카드 보내기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSendMaterial("newsletter")}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                    >
+                      뉴스레터 보내기
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 탭 2: 메시지 (카톡 안내 문구 편집 및 발송) */}
+          {activeEditorTab === "message" && (
+            <div
+              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
+              data-testid="inbox-tab-panel-message"
+            >
+              <h3 className="text-base font-bold text-slate-900">
+                카카오톡 자료 발송 메시지
+              </h3>
+              <div>
+                <label
+                  htmlFor="inbox-kakao-headline-input"
+                  className="mb-1 block text-sm font-bold text-slate-700"
+                >
+                  안내 제목
+                </label>
+                <input
+                  id="inbox-kakao-headline-input"
+                  data-testid="inbox-kakao-headline-input"
+                  type="text"
+                  value={kakaoHeadline}
+                  onChange={(e) => setKakaoHeadline(e.target.value)}
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="inbox-kakao-brief-input"
+                  className="mb-1 block text-sm font-bold text-slate-700"
+                >
+                  안내 본문
+                </label>
+                <textarea
+                  id="inbox-kakao-brief-input"
+                  data-testid="inbox-kakao-brief-input"
+                  rows={3}
+                  value={kakaoBrief}
+                  onChange={(e) => setKakaoBrief(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleSendMaterial("im")}
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 cursor-pointer"
+                >
+                  IM 전용 링크 보내기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendMaterial("dealcard")}
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                >
+                  딜카드 보내기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendMaterial("newsletter")}
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                >
+                  뉴스레터 보내기
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 탭 3: 기록 (통화 메모 및 실제 열람 타임라인 — IB-08) */}
+          {activeEditorTab === "history" && (
+            <div
+              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
+              data-testid="inbox-tab-panel-history"
+            >
+              <div>
+                <label
+                  htmlFor="inbox-call-note-input"
+                  className="mb-1.5 block text-sm font-bold text-slate-800"
+                >
+                  통화 및 상담 메모 남기기
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="inbox-call-note-input"
+                    data-testid="inbox-call-note-input"
+                    type="text"
+                    value={callNote}
+                    onChange={(e) => setCallNote(e.target.value)}
+                    placeholder="예: 금주 금요일 오후 현장 답사 희망"
+                    className="min-h-[48px] flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    data-testid="save-call-note-btn"
+                    onClick={handleAddCallNote}
+                    className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 cursor-pointer"
+                  >
+                    메모 저장
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <h3 className="text-base font-bold text-slate-900">
+                  열람 및 상담 기록
+                </h3>
+                <ul className="mt-3 space-y-2.5">
+                  {activeThread.events.length === 0 ? (
+                    <li className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm text-slate-600">
+                      상세 자료를 열람했습니다
+                    </li>
+                  ) : (
+                    activeThread.events.map((ev) => (
+                      <li
+                        key={ev.id}
+                        className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5"
+                      >
+                        <div className="space-y-0.5">
+                          <p className="text-base font-medium text-slate-900">
+                            {ev.description}
+                          </p>
+                          {ev.sectionName && (
+                            <p className="text-sm text-slate-600">
+                              열람 섹션: {ev.sectionName}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-sm text-slate-500">
+                          {ev.timestamp}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  /* ──────── Column 3: 단일 주요 CTA + 고객 요약 카드 + 인라인 링크 잠그기 (IB-16) ──────── */
+  const primaryActionSlot = activeThread ? (
+    activeThread.status === "pending_gate" ? (
+      <button
+        type="button"
+        data-testid="primary-cta-approve-im"
+        onClick={() => handleApproveAndSendIm(activeThread)}
+        className="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
+      >
+        승인하고 IM 보내기
+      </button>
+    ) : (
+      <button
+        type="button"
+        data-testid="primary-cta-kakao-send"
+        onClick={() => setShowShareSheet((prev) => !prev)}
+        className="min-h-[48px] w-full rounded-xl bg-slate-900 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-slate-800 cursor-pointer"
+      >
+        카톡으로 자료 보내기
+      </button>
+    )
+  ) : (
+    <button
+      type="button"
+      onClick={() => setShowNewClientModal(true)}
+      className="min-h-[48px] w-full rounded-xl bg-slate-900 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-slate-800 cursor-pointer"
+    >
+      + 고객 직접 등록
+    </button>
+  );
+
+  const previewSlot = (
+    <div className="space-y-4" data-testid="inbox-preview-slot">
+      {!activeThread ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
+          <p className="text-base font-semibold text-slate-700">
+            고객을 선택하거나 새로 등록하면 요약 정보와 링크 관리 메뉴가 표시됩니다.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* 카톡으로 자료 보내기 선택 시트 */}
+          {showShareSheet && (
+            <div
+              data-testid="inbox-share-option-sheet"
+              className="space-y-2 rounded-2xl border-2 border-slate-900 bg-white p-4 shadow-sm"
+            >
+              <p className="text-sm font-bold text-slate-900">
+                보낼 자료를 선택하세요
+              </p>
+              <button
+                type="button"
+                onClick={() => handleSendMaterial("im")}
+                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+              >
+                <span>IM 전용 링크 보내기</span>
+                <span className="text-sm text-blue-700">선택 →</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMaterial("dealcard")}
+                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+              >
+                <span>딜카드 링크 보내기</span>
+                <span className="text-sm text-blue-700">선택 →</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMaterial("newsletter")}
+                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+              >
+                <span>뉴스레터 보내기</span>
+                <span className="text-sm text-blue-700">선택 →</span>
+              </button>
+            </div>
+          )}
+
+          {/* 고객 요약 카드 (이름 · 연락처 · 관심 매물 · 열람 횟수) */}
+          <div
+            data-testid="inbox-client-summary-card"
+            className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-extrabold text-slate-900">
+                고객 요약
+              </h3>
+              <span className="rounded-md bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-800">
+                {activeThread.clientGrade}
+              </span>
+            </div>
+
+            <dl className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="font-semibold text-slate-500">고객명</dt>
+                <dd className="font-bold text-slate-900">
+                  {activeThread.clientName}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="font-semibold text-slate-500">연락처</dt>
+                <dd className="font-bold text-slate-900">
+                  {activeThread.clientPhone || "전화번호 없음"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="font-semibold text-slate-500">관심 매물</dt>
+                <dd className="truncate font-bold text-slate-900">
+                  {activeThread.buildingTitle}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="font-semibold text-slate-500">열람 횟수</dt>
+                <dd className="font-bold text-slate-900">
+                  {activeThread.openCount}회
+                </dd>
+              </div>
+            </dl>
+
+            {/* 전화 걸기 버튼 (번호 있을 때만 활성 — IB-07) */}
+            <div className="pt-2">
+              {activeThread.clientPhone ? (
+                <a
+                  href={`tel:${activeThread.clientPhone}`}
+                  data-testid="preview-call-link"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-base font-bold text-slate-900 transition hover:bg-slate-100"
+                >
+                  전화 걸기 ({activeThread.clientPhone})
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  data-testid="preview-call-disabled"
+                  className="inline-flex min-h-[48px] w-full cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-base font-semibold text-slate-400"
+                >
+                  전화번호 없음
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 하단: 보낸 링크 잠그기 (인라인 확인, window.prompt 제거 — IB-16) */}
+          <div
+            data-testid="inbox-link-governance-card"
+            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-bold text-slate-900">
+                전용 링크 열람 권한
+              </span>
+              <span
+                className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${
+                  activeThread.status === "revoked"
+                    ? "bg-rose-100 text-rose-800"
+                    : "bg-emerald-100 text-emerald-900"
+                }`}
+              >
+                {activeThread.status === "revoked" ? "링크 잠김" : "열람 가능"}
+              </span>
+            </div>
+
+            {activeThread.status === "revoked" ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm text-rose-700">
+                  이 고객에게 보낸 전용 링크는 현재 잠겨 있어 열람이 차단됩니다.
+                </p>
+                <button
+                  type="button"
+                  data-testid="unlock-share-link-btn"
+                  onClick={handleUnlockLink}
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                >
+                  링크 다시 열기
+                </button>
+              </div>
+            ) : !confirmLockOpen ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  data-testid="lock-share-link-trigger-btn"
+                  onClick={() => setConfirmLockOpen(true)}
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 cursor-pointer"
+                >
+                  보낸 링크 잠그기
+                </button>
+              </div>
+            ) : (
+              <div
+                data-testid="lock-share-link-inline-confirm"
+                className="mt-3 space-y-3 rounded-xl border border-rose-300 bg-rose-50/80 p-3.5"
+              >
+                <p className="text-sm font-bold text-rose-900">
+                  이 고객의 열람 링크를 잠글까요?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    data-testid="confirm-lock-link-btn"
+                    onClick={handleConfirmLockLink}
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-bold text-white hover:bg-rose-700 cursor-pointer"
+                  >
+                    잠그기
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="cancel-lock-link-btn"
+                    onClick={() => setConfirmLockOpen(false)}
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <WorkspaceShell
-      workspace="inbox"
-      listTitle="① 소통 목록"
-      editorTitle="② 상담 및 승인 작업"
-      previewTitle="③ 고객 맥락 및 열람 신호"
-      listSlot={listSlot}
-      editorSlot={editorSlot}
-      previewSlot={previewSlot}
-      saveStatus={<span className="text-[14px] text-[#065F46] font-semibold">동기화됨 · 방금</span>}
-      selectedBuildingId={selectedId}
-      onBuildingSelect={setSelectedId}
-    />
+    <>
+      <WorkspaceShell
+        workspace="inbox"
+        listSlot={listSlot}
+        editorSlot={editorSlot}
+        previewSlot={previewSlot}
+        primaryActionSlot={primaryActionSlot}
+        selectedLabel={activeThread?.clientName}
+        navBadges={{ inbox: pendingCount }}
+        mobileTabLabels={{ editor: "상담", preview: "고객 정보" }}
+        mobileStartOnList={true}
+      />
+
+      {/* 고객 직접 등록 모달 (role="dialog", aria-modal="true", Escape 닫기, htmlFor/id 연결 — IB-26) */}
+      {showNewClientModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+          onClick={() => setShowNewClientModal(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inbox-new-client-dialog-title"
+            data-testid="inbox-new-client-dialog"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2
+                id="inbox-new-client-dialog-title"
+                className="text-lg font-extrabold text-slate-900"
+              >
+                고객 직접 등록
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowNewClientModal(false)}
+                className="inline-flex min-h-[48px] items-center justify-center rounded-lg px-3 text-sm font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                닫기
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCustomClient} className="mt-4 space-y-3.5">
+              <div>
+                <label
+                  htmlFor="new-client-name"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  고객 성함 (필수)
+                </label>
+                <input
+                  id="new-client-name"
+                  data-testid="new-client-name-input"
+                  type="text"
+                  required
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  placeholder="예: 홍길동 대표"
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="new-client-phone"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  연락처 (선택)
+                </label>
+                <input
+                  id="new-client-phone"
+                  data-testid="new-client-phone-input"
+                  type="tel"
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  placeholder="예: 010-1234-5678"
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="new-client-grade"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  고객 구분
+                </label>
+                <select
+                  id="new-client-grade"
+                  value={newClientGrade}
+                  onChange={(e) =>
+                    setNewClientGrade(e.target.value as "VIP" | "일반" | "잠재")
+                  }
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                >
+                  <option value="VIP">VIP</option>
+                  <option value="일반">일반</option>
+                  <option value="잠재">잠재</option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="new-client-building"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  관심 매물명 (선택)
+                </label>
+                <input
+                  id="new-client-building"
+                  type="text"
+                  value={newClientBuildingTitle}
+                  onChange={(e) => setNewClientBuildingTitle(e.target.value)}
+                  placeholder="예: 역삼동 코너 근생빌딩"
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="new-client-budget"
+                    className="mb-1 block text-sm font-bold text-slate-800"
+                  >
+                    희망 예산 (선택)
+                  </label>
+                  <input
+                    id="new-client-budget"
+                    type="text"
+                    value={newClientBudget}
+                    onChange={(e) => setNewClientBudget(e.target.value)}
+                    placeholder="예: 100~130억"
+                    className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="new-client-region"
+                    className="mb-1 block text-sm font-bold text-slate-800"
+                  >
+                    선호 권역 (선택)
+                  </label>
+                  <input
+                    id="new-client-region"
+                    type="text"
+                    value={newClientRegion}
+                    onChange={(e) => setNewClientRegion(e.target.value)}
+                    placeholder="예: 강남구, 영등포구"
+                    className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewClientModal(false)}
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  data-testid="submit-new-client-btn"
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 cursor-pointer"
+                >
+                  고객 등록하기
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
-export default function InboxWorkspacePage() {
+export default function InboxWorkspacePage(props: InboxWorkspacePageProps = {}) {
   return (
     <UndoToastProvider>
-      <Suspense fallback={<div className="p-8 text-center text-[#475569]">소통함 로딩 중...</div>}>
-        <InboxWorkspaceInner />
+      <Suspense
+        fallback={
+          <div className="p-8 text-center text-base text-slate-500">
+            고객 소통함을 불러오는 중...
+          </div>
+        }
+      >
+        <InboxWorkspaceInner {...props} />
       </Suspense>
     </UndoToastProvider>
   );

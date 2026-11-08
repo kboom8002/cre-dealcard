@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface Props {
   isOpen: boolean;
@@ -12,102 +12,139 @@ interface Props {
 export function ContactGateModal({ isOpen, onClose, buildingId, onSuccess }: Props) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
     if (!name.trim() || !phone.trim()) {
-      alert("성함과 연락처를 입력해 주세요.");
+      setErrorMessage("이름과 연락처를 입력해 주세요.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Save contact request event
-      await fetch("/api/public/teaser/event", {
+      const res = await fetch("/api/public/teaser/event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           buildingId,
           eventType: "intent.pro_im_request",
-          metadata: { name, phone, company }
-        })
+          metadata: { name: name.trim(), phone: phone.trim() },
+        }),
       });
-      
-      localStorage.setItem(`contact_verified_${buildingId}`, "true");
+
+      if (!res.ok) {
+        setErrorMessage("요청 전송에 실패했어요. 잠시 후 다시 눌러 주세요.");
+        return;
+      }
+
+      try {
+        localStorage.setItem(`contact_verified_${buildingId}`, "true");
+      } catch {
+        // ignore storage error
+      }
       onSuccess();
-    } catch (err) {
-      console.error(err);
-      onSuccess(); // Graceful fallback
+    } catch {
+      setErrorMessage("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 text-slate-100 shadow-2xl space-y-4 relative">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="contact-gate-modal-title"
+    >
+      <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 text-slate-100 shadow-2xl space-y-4 relative">
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-sm"
+          aria-label="닫기"
+          className="absolute top-3 right-3 min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 text-base"
         >
           ✕
         </button>
 
-        <div className="space-y-1">
-          <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <span>🔑</span> 상세 IM 즉시 열람
+        <div className="space-y-1.5 pr-10">
+          <h3 id="contact-gate-modal-title" className="text-xl font-extrabold text-white">
+            IM 자료 요청하기
           </h3>
-          <p className="text-xs text-slate-400">
-            간단한 연락처 확인 후 10년 DCF 및 상세 수지분석표를 즉시 열람하실 수 있습니다.
+          <p className="text-sm text-slate-300 leading-relaxed break-keep">
+            이름과 연락처를 남겨 주시면 담당 중개사가 확인 후 상세 자료를 보내드립니다.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 pt-2">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-1">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">성함 *</label>
+            <label
+              htmlFor="contact-gate-name"
+              className="block text-sm font-bold text-slate-200 mb-1.5"
+            >
+              이름
+            </label>
             <input
+              id="contact-gate-name"
               type="text"
               required
               placeholder="홍길동"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+              className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base text-white focus:outline-none focus:border-amber-400"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">연락처 *</label>
+            <label
+              htmlFor="contact-gate-phone"
+              className="block text-sm font-bold text-slate-200 mb-1.5"
+            >
+              연락처
+            </label>
             <input
+              id="contact-gate-phone"
               type="tel"
+              inputMode="tel"
               required
               placeholder="010-0000-0000"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+              className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base text-white focus:outline-none focus:border-amber-400"
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">소속 / 회사명 (선택)</label>
-            <input
-              type="text"
-              placeholder="예: ABC 자산운용 / 개인"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
-            />
-          </div>
+          <p className="text-sm text-slate-300 leading-snug break-keep">
+            요청을 보내면 매물 안내를 위한 연락처 수집·이용에 동의하게 됩니다.
+          </p>
+
+          {errorMessage && (
+            <p role="alert" className="text-sm font-bold text-red-400">
+              ⚠ {errorMessage}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 mt-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
+            className="w-full min-h-[52px] py-3 mt-1 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold rounded-xl text-base transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
           >
-            {isSubmitting ? "확인 중..." : "📄 상세 IM 열람하기"}
+            {isSubmitting ? "요청 보내는 중…" : "IM 요청 보내기"}
           </button>
         </form>
       </div>

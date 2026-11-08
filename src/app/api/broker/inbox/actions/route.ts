@@ -3,44 +3,174 @@ import { requireBroker } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   appendInboxCallNote,
+  getInboxState,
+  getQuickImRecord,
   isUuid,
   recordGateDecision,
   setBuildingCorrectionNotice,
   setBuildingRevokedState,
   upsertCustomInboxClient,
 } from '@/lib/im-lite/quick-generate-store';
+import {
+  issueShareLinkToken,
+  revokeShareLinkToken,
+} from '@/lib/security/share-link-tokens';
+
+async function verifyBrokerOwnership(params: {
+  userId: string;
+  isAdmin: boolean;
+  buildingId: string;
+  threadId: string;
+}): Promise<{ allowed: boolean; reason?: string }> {
+  const { userId, isAdmin, buildingId, threadId } = params;
+  if (isAdmin) return { allowed: true };
+
+  // 1. Check in-memory/file quick IM record ownership (even for non-UUID buildingIds)
+  if (buildingId) {
+    const quickRec = getQuickImRecord(buildingId);
+    if (quickRec?.ownerId && quickRec.ownerId !== userId) {
+      return { allowed: false, reason: '다른 중개인의 매물에 접근할 수 없습니다.' };
+    }
+  }
+
+  // 2. Check custom client ownership
+  if (threadId) {
+    const rawCustomId = threadId.replace(/^custom[-_]/, '');
+    const inboxState = getInboxState();
+    const matchedCustom = inboxState.customClients.find(
+      (c) => c.id === threadId || c.id === rawCustomId
+    );
+    if (matchedCustom && (!matchedCustom.ownerId || matchedCustom.ownerId !== userId)) {
+      return { allowed: false, reason: '다른 중개인의 고객 정보에 접근할 수 없습니다.' };
+    }
+  }
+
+  // 3. Check Supabase ownership for gate_requests and buildings (supports UUID and non-UUID keys)
+  try {
+    const supabase = createServiceClient();
+    const rawReqId = threadId.replace(/^srv-/, '');
+
+    if (rawReqId && !threadId.startsWith('custom_') && !threadId.startsWith('cli-')) {
+      const { data: gateReq } = await supabase
+        .from('gate_requests')
+        .select('id, building_id, buildings(owner_id)')
+        .eq('id', rawReqId)
+        .maybeSingle();
+
+      if (gateReq) {
+        const joinedBuilding = Array.isArray((gateReq as any).buildings)
+          ? (gateReq as any).buildings[0]
+          : (gateReq as any).buildings;
+        const ownerId = joinedBuilding?.owner_id;
+        if (ownerId && ownerId !== userId) {
+          return { allowed: false, reason: '해당 IM 열람 요청의 소유 중개인이 아닙니다.' };
+        }
+      }
+    }
+
+    if (buildingId) {
+      const { data: ssotRow } = await supabase
+        .from('building_ssot_lite')
+        .select('owner_id')
+        .eq('id', buildingId)
+        .maybeSingle();
+
+      if (ssotRow?.owner_id && ssotRow.owner_id !== userId) {
+        return { allowed: false, reason: '해당 빌딩의 소유 중개인이 아닙니다.' };
+      }
+
+      if (isUuid(buildingId)) {
+        const { data: bldRow } = await supabase
+          .from('buildings')
+          .select('owner_id')
+          .eq('id', buildingId)
+          .maybeSingle();
+
+        if ((bldRow as any)?.owner_id && (bldRow as any).owner_id !== userId) {
+          return { allowed: false, reason: '해당 빌딩의 소유 중개인이 아닙니다.' };
+        }
+      }
+    }
+  } catch {
+    // Non-blocking if DB tables are unavailable in test environment
+  }
+
+  return { allowed: true };
+}
 
 export async function POST(req: NextRequest) {
   try {
+    // IB-03: Always require broker authentication regardless of UUID format
+    const guard = await requireBroker(req);
+    if (guard.error || !guard.user?.id) {
+      return (
+        guard.error ||
+        NextResponse.json(
+          { ok: false, error: '인증이 필요합니다. 다시 로그인해 주세요.' },
+          { status: 401 }
+        )
+      );
+    }
+
+    const userId = guard.user.id;
+    const isAdmin = (guard.user as { role?: string }).role === 'admin';
+
     const body = await req.json();
     const action = String(body?.action || '');
     const threadId = String(body?.threadId || '');
     const buildingId = String(body?.buildingId || 'bld-01');
-    const shareToken = String(body?.shareToken || `tok-${buildingId}`);
+    const shareToken = String(body?.shareToken || body?.token || '');
 
-    // Only call Supabase requireBroker when operating on UUID entities or syncing DB clients
-    const rawReqId = threadId.replace(/^srv-/, '');
-    const needsSupabaseSync =
-      isUuid(buildingId) || isUuid(rawReqId) || action === 'upsert_client';
-    const guard = needsSupabaseSync ? await requireBroker(req) : { user: null, error: null };
-    const userId = guard.user?.id || null;
+    // Verify ownership across UUID and non-UUID buildingIds / gate_requests / custom clients
+    const ownership = await verifyBrokerOwnership({
+      userId,
+      isAdmin,
+      buildingId,
+      threadId,
+    });
+    if (!ownership.allowed) {
+      return NextResponse.json(
+        { ok: false, error: ownership.reason || '권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
 
-    if (action === 'approve_gate' || action === 'reject_gate' || action === 'reset_gate') {
+    // 1. Approve / Reject / Reset Gate or Send IM (supports both gate_requests and custom_ threads)
+    if (
+      action === 'approve_gate' ||
+      action === 'approve' ||
+      action === 'send_im' ||
+      action === 'reject_gate' ||
+      action === 'reject' ||
+      action === 'reset_gate'
+    ) {
       const decision =
-        action === 'approve_gate'
+        action === 'approve_gate' || action === 'approve' || action === 'send_im'
           ? 'approved'
-          : action === 'reject_gate'
+          : action === 'reject_gate' || action === 'reject'
           ? 'rejected'
           : 'pending';
-      const issuedToken =
-        decision === 'approved'
-          ? shareToken || `g2-${buildingId.slice(0, 8)}-${Date.now().toString(36)}`
-          : shareToken;
+
+      let issuedToken = shareToken;
+      let issuedShareUrl = `/im-lite/${encodeURIComponent(buildingId)}`;
+
+      if (decision === 'approved') {
+        const issued = await issueShareLinkToken({
+          buildingId,
+          brokerId: userId,
+          recipientId: threadId || String(body?.recipientId || 'client'),
+          ttlDays: Number(body?.ttlDays) > 0 ? Number(body.ttlDays) : 30,
+        });
+        issuedToken = issued.token;
+        issuedShareUrl = issued.shareUrl;
+      } else if (issuedToken) {
+        issuedShareUrl = `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(issuedToken)}`;
+      }
 
       recordGateDecision(threadId || buildingId, decision, issuedToken, buildingId);
 
       const rawId = threadId.replace(/^srv-/, '');
-      if (userId && isUuid(rawId)) {
+      if (rawId && !threadId.startsWith('custom_') && !threadId.startsWith('cli-')) {
         try {
           const supabase = createServiceClient();
           await supabase
@@ -50,7 +180,8 @@ export async function POST(req: NextRequest) {
 
           await supabase.from('activity_events').insert({
             actor_id: userId,
-            event_type: decision === 'approved' ? 'gate_request_approved' : 'gate_request_rejected',
+            event_type:
+              decision === 'approved' ? 'gate_request_approved' : 'gate_request_rejected',
             entity_type: 'building',
             entity_id: isUuid(buildingId) ? buildingId : rawId,
             metadata: {
@@ -69,40 +200,76 @@ export async function POST(req: NextRequest) {
         action,
         status: 'active',
         decision,
+        token: issuedToken,
         shareToken: issuedToken,
-        shareUrl: `/im-lite/${buildingId}?token=${encodeURIComponent(issuedToken)}`,
+        shareUrl: issuedShareUrl,
       });
     }
 
-    if (action === 'revoke_link' || action === 'restore_link') {
-      const revoked = action === 'revoke_link';
-      setBuildingRevokedState(buildingId, revoked, shareToken);
+    // 2. Send DealCard / Newsletter (supports custom_ threads as well)
+    if (action === 'send_dealcard') {
+      return NextResponse.json({
+        ok: true,
+        action,
+        buildingId,
+        shareUrl: `/dc/${encodeURIComponent(buildingId)}`,
+      });
+    }
 
-      if (userId && isUuid(buildingId)) {
-        try {
-          const supabase = createServiceClient();
-          const { data: latestDoc } = await supabase
-            .from('document_objects')
-            .select('id, body')
-            .eq('building_id', buildingId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+    if (action === 'send_magazine' || action === 'send_newsletter') {
+      return NextResponse.json({
+        ok: true,
+        action,
+        buildingId,
+        shareUrl: '/magazine',
+      });
+    }
 
-          if (latestDoc?.id) {
-            const nextBody = {
-              ...(latestDoc.body || {}),
-              is_revoked: revoked,
-              revoked_at: revoked ? new Date().toISOString() : null,
-            };
-            await supabase
-              .from('document_objects')
-              .update({ body: nextBody })
-              .eq('id', latestDoc.id);
-          }
-        } catch {
-          // non-blocking
+    // 3. Revoke / Restore Share Link
+    if (action === 'revoke_link' || action === 'revoke' || action === 'restore_link') {
+      const revoked = action === 'revoke_link' || action === 'revoke';
+
+      if (revoked) {
+        const revokeRes = await revokeShareLinkToken({
+          token: shareToken || undefined,
+          buildingId,
+          brokerId: userId,
+          reason: body?.reason ? String(body.reason) : 'broker_revoked',
+          isAdmin,
+        });
+        if (!revokeRes.ok) {
+          return NextResponse.json(
+            { ok: false, error: revokeRes.error || '링크 잠금 처리에 실패했습니다.' },
+            { status: revokeRes.status }
+          );
         }
+      } else {
+        setBuildingRevokedState(buildingId, false, shareToken || undefined);
+      }
+
+      try {
+        const supabase = createServiceClient();
+        const { data: latestDoc } = await supabase
+          .from('document_objects')
+          .select('id, body')
+          .eq('building_id', buildingId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestDoc?.id) {
+          const nextBody = {
+            ...(latestDoc.body || {}),
+            is_revoked: revoked,
+            revoked_at: revoked ? new Date().toISOString() : null,
+          };
+          await supabase
+            .from('document_objects')
+            .update({ body: nextBody })
+            .eq('id', latestDoc.id);
+        }
+      } catch {
+        // non-blocking
       }
 
       return NextResponse.json({
@@ -114,6 +281,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 4. Correction Notice
     if (action === 'correction_notice' || action === 'clear_correction_notice') {
       const message =
         action === 'clear_correction_notice'
@@ -126,30 +294,28 @@ export async function POST(req: NextRequest) {
       const state = setBuildingCorrectionNotice(buildingId, message);
       const notice = state.correctionNotices[buildingId] || null;
 
-      if (userId && isUuid(buildingId)) {
-        try {
-          const supabase = createServiceClient();
-          const { data: latestDoc } = await supabase
-            .from('document_objects')
-            .select('id, body')
-            .eq('building_id', buildingId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      try {
+        const supabase = createServiceClient();
+        const { data: latestDoc } = await supabase
+          .from('document_objects')
+          .select('id, body')
+          .eq('building_id', buildingId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-          if (latestDoc?.id) {
-            const nextBody = {
-              ...(latestDoc.body || {}),
-              correction_notice: notice,
-            };
-            await supabase
-              .from('document_objects')
-              .update({ body: nextBody })
-              .eq('id', latestDoc.id);
-          }
-        } catch {
-          // non-blocking
+        if (latestDoc?.id) {
+          const nextBody = {
+            ...(latestDoc.body || {}),
+            correction_notice: notice,
+          };
+          await supabase
+            .from('document_objects')
+            .update({ body: nextBody })
+            .eq('id', latestDoc.id);
         }
+      } catch {
+        // non-blocking
       }
 
       return NextResponse.json({
@@ -160,56 +326,87 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (action === 'add_call_note') {
-      const note = String(body?.note || '').trim();
+    // 5. Add Call Note / Log Call (supports custom_ threads and persists to broker_custom_clients / activity_events)
+    if (action === 'add_call_note' || action === 'log_call') {
+      const note = String(body?.note || body?.memo || '').trim();
       if (!note) {
         return NextResponse.json({ error: '메모 내용을 입력해 주세요.' }, { status: 400 });
       }
       const description = note.startsWith('통화 기록:') ? note : `통화 기록: ${note}`;
       appendInboxCallNote(threadId || buildingId, description, '방금 전');
 
-      if (userId) {
-        try {
-          const supabase = createServiceClient();
-          await supabase.from('activity_events').insert({
-            actor_id: userId,
-            event_type: 'call_note_recorded',
-            entity_type: 'building',
-            entity_id: isUuid(buildingId) ? buildingId : userId,
-            metadata: {
-              thread_id: threadId,
-              building_id: buildingId,
-              note: description,
-            },
-          });
-        } catch {
-          // non-blocking
+      let dbPersisted = false;
+      try {
+        const supabase = createServiceClient();
+        const rawClientId = threadId.replace(/^custom[-_]/, '');
+
+        if (threadId.startsWith('custom_') || threadId.startsWith('cli-')) {
+          try {
+            const { error: customErr } = await supabase
+              .from('broker_custom_clients')
+              .update({ notes: description })
+              .eq('id', rawClientId)
+              .eq('broker_id', userId);
+            if (!customErr) dbPersisted = true;
+          } catch {
+            // table may not exist
+          }
+
+          try {
+            const { error: clientErr } = await supabase
+              .from('broker_clients')
+              .update({ notes: description })
+              .eq('id', rawClientId)
+              .eq('broker_id', userId);
+            if (!clientErr) dbPersisted = true;
+          } catch {
+            // table may not exist
+          }
         }
+
+        const { error: eventErr } = await supabase.from('activity_events').insert({
+          actor_id: userId,
+          event_type: 'call_note_recorded',
+          entity_type: 'building',
+          entity_id: isUuid(buildingId) ? buildingId : userId,
+          metadata: {
+            thread_id: threadId,
+            building_id: buildingId,
+            note: description,
+          },
+        });
+        if (!eventErr) dbPersisted = true;
+      } catch {
+        // non-blocking
       }
 
       return NextResponse.json({
         ok: true,
+        persisted: true,
+        dbPersisted,
         action,
         threadId,
         description,
       });
     }
 
+    // 6. Upsert Custom Client (never fabricates fake phone 010-0000-0000)
     if (action === 'upsert_client') {
       const clientName = String(body?.clientName || '').trim();
       if (!clientName) {
         return NextResponse.json({ error: '고객 성함을 입력해 주세요.' }, { status: 400 });
       }
       const clientGrade = (body?.clientGrade as 'VIP' | '일반' | '잠재') || 'VIP';
-      const clientPhone = String(body?.clientPhone || '010-0000-0000').trim();
-      const budget = String(body?.budget || '100억 내외').trim();
-      const preferredRegion = String(body?.preferredRegion || '서울 주요 역세권').trim();
+      const rawPhone = String(body?.clientPhone || '').trim();
+      const clientPhone = rawPhone === '010-0000-0000' ? '' : rawPhone;
+      const budget = String(body?.budget || '').trim();
+      const preferredRegion = String(body?.preferredRegion || '').trim();
       const buildingTitle = String(body?.buildingTitle || '관심 매물 상담').trim();
       const newsletterSubscribed = body?.newsletterSubscribed !== false;
 
       const state = upsertCustomInboxClient({
         id: body?.clientId,
-        ownerId: userId || undefined,
+        ownerId: userId,
         clientName,
         clientGrade,
         clientPhone,
@@ -220,27 +417,33 @@ export async function POST(req: NextRequest) {
         newsletterSubscribed,
       });
 
-      if (userId) {
-        try {
-          const supabase = createServiceClient();
-          const tierMap: Record<string, 'vip' | 'normal' | 'potential'> = {
-            VIP: 'vip',
-            일반: 'normal',
-            잠재: 'potential',
-          };
-          await supabase.from('broker_clients').insert({
-            broker_id: userId,
-            client_type: 'buyer',
-            display_name: clientName,
-            phone: clientPhone,
-            tier: tierMap[clientGrade] || 'vip',
-            tags: [preferredRegion, budget, newsletterSubscribed ? '소식지구독' : ''].filter(Boolean),
-            notes: `예산: ${budget} / 선호권역: ${preferredRegion} / 관심매물: ${buildingTitle}`,
-            linked_building_ids: isUuid(buildingId) ? [buildingId] : [],
-          });
-        } catch {
-          // non-blocking
-        }
+      try {
+        const supabase = createServiceClient();
+        const tierMap: Record<string, 'vip' | 'normal' | 'potential'> = {
+          VIP: 'vip',
+          일반: 'normal',
+          잠재: 'potential',
+        };
+        await supabase.from('broker_clients').insert({
+          broker_id: userId,
+          client_type: 'buyer',
+          display_name: clientName,
+          phone: clientPhone || null,
+          tier: tierMap[clientGrade] || 'vip',
+          tags: [preferredRegion, budget, newsletterSubscribed ? '뉴스레터구독' : ''].filter(
+            Boolean
+          ),
+          notes: [
+            budget ? `예산: ${budget}` : '',
+            preferredRegion ? `선호권역: ${preferredRegion}` : '',
+            buildingTitle ? `관심매물: ${buildingTitle}` : '',
+          ]
+            .filter(Boolean)
+            .join(' / '),
+          linked_building_ids: isUuid(buildingId) ? [buildingId] : [],
+        });
+      } catch {
+        // non-blocking
       }
 
       return NextResponse.json({

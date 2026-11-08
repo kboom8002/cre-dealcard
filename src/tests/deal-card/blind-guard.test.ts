@@ -97,7 +97,7 @@ describe('WP-P1-02: Blind-Guard & k-Anonymity Validation', () => {
       );
 
       expect(result.requiresDongToGuFallback).toBe(true);
-      expect(result.fallbackRegionNotice).toContain('k-익명성');
+      expect(result.fallbackRegionNotice).toContain('구 단위');
       expect(result.suggestedRegion).toBe('영등포구');
     });
 

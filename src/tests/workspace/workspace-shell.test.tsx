@@ -165,4 +165,47 @@ describe('M3 Workspace: 3-Column WorkspaceShell (WP-P2-02 & WP-P2-03)', () => {
     expect(ariaLiveRegion).not.toBeNull();
     expect(ariaLiveRegion?.textContent).toContain('bld-selected-99');
   });
+
+  it('supports drag-and-drop resizing of Column 1, Column 2, and Column 3 widths', async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceShell
+          workspace="dealcards"
+          listSlot={<div>목록</div>}
+          editorSlot={<div>에디터</div>}
+          previewSlot={<div>미리보기</div>}
+        />
+      );
+    });
+
+    const leftResizer = container.querySelector('[data-testid="workspace-resizer-left"]') as HTMLElement;
+    const rightResizer = container.querySelector('[data-testid="workspace-resizer-right"]') as HTMLElement;
+    const listCol = container.querySelector('[data-testid="workspace-col-list"]') as HTMLElement;
+    const previewCol = container.querySelector('[data-testid="workspace-col-preview"]') as HTMLElement;
+
+    expect(leftResizer).not.toBeNull();
+    expect(rightResizer).not.toBeNull();
+    expect(listCol.getAttribute('data-col-width')).toBe('310');
+    expect(previewCol.getAttribute('data-col-width')).toBe('390');
+
+    // Drag left resizer +60px -> list column becomes 370px
+    await act(async () => {
+      leftResizer.dispatchEvent(new MouseEvent('mousedown', { clientX: 310, bubbles: true }));
+    });
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 370, bubbles: true }));
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    expect(listCol.getAttribute('data-col-width')).toBe('370');
+
+    // Drag right resizer -50px (moving left expands right column) -> preview column becomes 440px
+    await act(async () => {
+      rightResizer.dispatchEvent(new MouseEvent('mousedown', { clientX: 1000, bubbles: true }));
+    });
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 950, bubbles: true }));
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    expect(previewCol.getAttribute('data-col-width')).toBe('440');
+  });
 });
