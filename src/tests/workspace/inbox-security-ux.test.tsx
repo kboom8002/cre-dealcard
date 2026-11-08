@@ -216,6 +216,48 @@ describe('Client Inbox Security & UX Overhaul (IB-01 ~ IB-28)', () => {
       const logCallJson = await logCallRes.json();
       expect(logCallJson.ok).toBe(true);
       expect(logCallJson.persisted).toBe(true);
+
+      // Lock & restore share link token (P0-INBOX-LOCK-04)
+      const {
+        revokeShareLinkToken,
+        verifyShareLinkToken,
+        isBuildingShareLinkRevoked,
+      } = await import('@/lib/security/share-link-tokens');
+      await revokeShareLinkToken({
+        token: sendImJson.shareToken,
+        buildingId: 'bld-01',
+        reason: 'broker_locked',
+      });
+      expect(isBuildingShareLinkRevoked('bld-01')).toBe(true);
+      expect(
+        (
+          await verifyShareLinkToken({
+            token: sendImJson.shareToken,
+            buildingId: 'bld-01',
+          })
+        ).valid
+      ).toBe(false);
+
+      const restoreReq = new NextRequest('http://localhost/api/broker/inbox/actions', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'restore_link',
+          threadId: 'custom_101',
+          buildingId: 'bld-01',
+          shareToken: sendImJson.shareToken,
+        }),
+      });
+      const restoreRes = await POST(restoreReq);
+      expect(restoreRes.status).toBe(200);
+      expect(isBuildingShareLinkRevoked('bld-01')).toBe(false);
+      expect(
+        (
+          await verifyShareLinkToken({
+            token: sendImJson.shareToken,
+            buildingId: 'bld-01',
+          })
+        ).valid
+      ).toBe(true);
     });
 
     it('GET /api/broker/inbox/pending-count returns { ok: true, count: 0 } when unauthenticated (IB-28)', async () => {
@@ -355,6 +397,15 @@ describe('Client Inbox Security & UX Overhaul (IB-01 ~ IB-28)', () => {
       expect(disabledCallBtn.disabled).toBe(true);
       expect(disabledCallBtn.textContent).toContain('전화번호 없음');
       expect(container.textContent).not.toContain('010-0000-0000');
+
+      // Summary card displays budget & preferredRegion (P1-INBOX-SUMMARY-05)
+      const summaryCard = container.querySelector(
+        '[data-testid="inbox-client-summary-card"]'
+      );
+      expect(summaryCard?.textContent).toContain('희망 예산');
+      expect(summaryCard?.textContent).toContain('150억');
+      expect(summaryCard?.textContent).toContain('선호 권역');
+      expect(summaryCard?.textContent).toContain('강남구 신사동');
 
       // Inline "보낸 링크 잠그기" confirmation without window.prompt
       const promptSpy = vi.spyOn(window, 'prompt');

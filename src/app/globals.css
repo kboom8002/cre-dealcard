@@ -899,12 +899,24 @@
   color: #FFFFFF !important;
 }
 
-/* Dark button/badge preservation for .bg-zinc-950 / .bg-zinc-900 / .bg-zinc-800 when paired with .text-white */
-.broker-paper-theme.broker-paper-theme :is(.bg-zinc-950, .bg-zinc-900, .bg-zinc-800):is(.text-white, .text-zinc-50):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+/* Dark button/badge preservation for .bg-zinc-950 / .bg-zinc-900 / .bg-zinc-800 and interactive .bg-slate-900 / .bg-slate-800 when paired with .text-white */
+.broker-paper-theme.broker-paper-theme :is(
+  .bg-zinc-950, .bg-zinc-900, .bg-zinc-800,
+  button.bg-slate-900, button.bg-slate-800,
+  a.bg-slate-900, a.bg-slate-800,
+  [role="tab"].bg-slate-900, [role="tab"].bg-slate-800,
+  [role="button"].bg-slate-900, [role="button"].bg-slate-800
+):is(.text-white, .text-zinc-50):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   background-color: #0F172A !important;
   color: #FFFFFF !important;
 }
-.broker-paper-theme.broker-paper-theme :is(.bg-zinc-950, .bg-zinc-900, .bg-zinc-800):is(.text-white, .text-zinc-50):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) * {
+.broker-paper-theme.broker-paper-theme :is(
+  .bg-zinc-950, .bg-zinc-900, .bg-zinc-800,
+  button.bg-slate-900, button.bg-slate-800,
+  a.bg-slate-900, a.bg-slate-800,
+  [role="tab"].bg-slate-900, [role="tab"].bg-slate-800,
+  [role="button"].bg-slate-900, [role="button"].bg-slate-800
+):is(.text-white, .text-zinc-50):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) * {
   color: #FFFFFF !important;
 }
 

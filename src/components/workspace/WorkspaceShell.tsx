@@ -436,7 +436,7 @@ export function WorkspaceShell({
               link.id === workspace ||
               (link.id === "home" && pathname === "/broker") ||
               (link.id === "magazine" && (pathname.startsWith("/broker/magazine-editor") || pathname.startsWith("/broker/w/magazine"))) ||
-              pathname.startsWith(link.href);
+              (link.id !== "home" && pathname.startsWith(link.href));
             const badge = link.id !== "home" ? effectiveBadges[link.id as "dealcards" | "im" | "magazine" | "inbox"] : undefined;
 
             return (
@@ -660,9 +660,19 @@ export function WorkspaceShell({
         >
           {/* Preview Header */}
           <div className="h-14 border-b border-slate-300 px-3.5 flex items-center justify-between gap-2 shrink-0 bg-[#FAF9F5]">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
-              {previewTitle}
-            </h2>
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                data-testid="mobile-preview-back-btn"
+                onClick={() => setMobileView("list")}
+                className="lg:hidden px-3 min-h-[48px] rounded-lg border border-slate-300 text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                ‹ 목록
+              </button>
+              <h2 className="text-lg font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
+                {previewTitle}
+              </h2>
+            </div>
             <div className="shrink-0">{previewTabSlot}</div>
           </div>
 

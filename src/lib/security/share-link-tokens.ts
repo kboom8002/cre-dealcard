@@ -449,6 +449,73 @@ export async function revokeShareLinkToken(
   };
 }
 
+export async function restoreShareLinkToken(input: {
+  token?: string | null;
+  buildingId?: string | null;
+  brokerId?: string | null;
+}): Promise<{ ok: boolean; status: number }> {
+  const rawToken = input.token ? String(input.token).trim() : '';
+  const rawBuildingId = input.buildingId ? String(input.buildingId).trim() : '';
+  const store = getTokenStore();
+
+  if (rawToken) {
+    delete store.revokedTokens[rawToken];
+    if (store.tokens[rawToken]) {
+      store.tokens[rawToken] = {
+        ...store.tokens[rawToken],
+        status: 'active',
+        revokedAt: null,
+        revokedReason: null,
+      };
+    }
+  }
+
+  if (rawBuildingId) {
+    delete store.revokedBuildings[rawBuildingId];
+    for (const entry of Object.values(store.tokens)) {
+      if (entry.buildingId === rawBuildingId) {
+        entry.status = 'active';
+        entry.revokedAt = null;
+        entry.revokedReason = null;
+        delete store.revokedTokens[entry.token];
+      }
+    }
+    try {
+      setBuildingRevokedState(rawBuildingId, false, rawToken || undefined);
+    } catch {
+      // ignore
+    }
+  }
+
+  persistTokenStore(store);
+
+  try {
+    const supabase = createServiceClient();
+    const table: any = supabase.from('im_share_links');
+    if (rawToken && table && typeof table.update === 'function') {
+      await table
+        .update({
+          status: 'active',
+          revoked_at: null,
+          revoked_reason: null,
+        })
+        .eq('token', rawToken);
+    } else if (rawBuildingId && table && typeof table.update === 'function') {
+      await table
+        .update({
+          status: 'active',
+          revoked_at: null,
+          revoked_reason: null,
+        })
+        .eq('building_id', rawBuildingId);
+    }
+  } catch {
+    // Non-blocking fallback
+  }
+
+  return { ok: true, status: 200 };
+}
+
 export function isBuildingShareLinkRevoked(buildingId: string): boolean {
   if (!buildingId) return false;
   const store = getTokenStore();

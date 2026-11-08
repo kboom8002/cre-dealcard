@@ -13,6 +13,7 @@ import {
 } from '@/lib/im-lite/quick-generate-store';
 import {
   issueShareLinkToken,
+  restoreShareLinkToken,
   revokeShareLinkToken,
 } from '@/lib/security/share-link-tokens';
 
@@ -183,8 +184,10 @@ export async function POST(req: NextRequest) {
             event_type:
               decision === 'approved' ? 'gate_request_approved' : 'gate_request_rejected',
             entity_type: 'building',
-            entity_id: isUuid(buildingId) ? buildingId : rawId,
+            entity_id: isUuid(buildingId) ? buildingId : isUuid(rawId) ? rawId : userId,
             metadata: {
+              thread_id: threadId,
+              request_id: rawId,
               building_id: buildingId,
               share_token: issuedToken,
               decision,
@@ -226,7 +229,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Revoke / Restore Share Link
-    if (action === 'revoke_link' || action === 'revoke' || action === 'restore_link') {
+    if (
+      action === 'revoke_link' ||
+      action === 'revoke' ||
+      action === 'restore_link' ||
+      action === 'unlock_share_link'
+    ) {
       const revoked = action === 'revoke_link' || action === 'revoke';
 
       if (revoked) {
@@ -244,7 +252,11 @@ export async function POST(req: NextRequest) {
           );
         }
       } else {
-        setBuildingRevokedState(buildingId, false, shareToken || undefined);
+        await restoreShareLinkToken({
+          token: shareToken || undefined,
+          buildingId,
+          brokerId: userId,
+        });
       }
 
       try {
@@ -351,26 +363,16 @@ export async function POST(req: NextRequest) {
           } catch {
             // table may not exist
           }
-
-          try {
-            const { error: clientErr } = await supabase
-              .from('broker_clients')
-              .update({ notes: description })
-              .eq('id', rawClientId)
-              .eq('broker_id', userId);
-            if (!clientErr) dbPersisted = true;
-          } catch {
-            // table may not exist
-          }
         }
 
         const { error: eventErr } = await supabase.from('activity_events').insert({
           actor_id: userId,
           event_type: 'call_note_recorded',
           entity_type: 'building',
-          entity_id: isUuid(buildingId) ? buildingId : userId,
+          entity_id: isUuid(buildingId) ? buildingId : isUuid(rawClientId) ? rawClientId : userId,
           metadata: {
             thread_id: threadId,
+            raw_client_id: rawClientId,
             building_id: buildingId,
             note: description,
           },
@@ -404,19 +406,7 @@ export async function POST(req: NextRequest) {
       const buildingTitle = String(body?.buildingTitle || '관심 매물 상담').trim();
       const newsletterSubscribed = body?.newsletterSubscribed !== false;
 
-      const state = upsertCustomInboxClient({
-        id: body?.clientId,
-        ownerId: userId,
-        clientName,
-        clientGrade,
-        clientPhone,
-        budget,
-        preferredRegion,
-        buildingId,
-        buildingTitle,
-        newsletterSubscribed,
-      });
-
+      let resolvedClientId = body?.clientId ? String(body.clientId) : undefined;
       try {
         const supabase = createServiceClient();
         const tierMap: Record<string, 'vip' | 'normal' | 'potential'> = {
@@ -424,7 +414,7 @@ export async function POST(req: NextRequest) {
           일반: 'normal',
           잠재: 'potential',
         };
-        await supabase.from('broker_clients').insert({
+        const insQuery: any = supabase.from('broker_clients').insert({
           broker_id: userId,
           client_type: 'buyer',
           display_name: clientName,
@@ -442,13 +432,34 @@ export async function POST(req: NextRequest) {
             .join(' / '),
           linked_building_ids: isUuid(buildingId) ? [buildingId] : [],
         });
+        const insRes =
+          typeof insQuery?.select === 'function'
+            ? await insQuery.select('id').single()
+            : await insQuery;
+        if (insRes?.data?.id) {
+          resolvedClientId = `custom_${insRes.data.id}`;
+        }
       } catch {
         // non-blocking
       }
 
+      const state = upsertCustomInboxClient({
+        id: resolvedClientId,
+        ownerId: userId,
+        clientName,
+        clientGrade,
+        clientPhone,
+        budget,
+        preferredRegion,
+        buildingId,
+        buildingTitle,
+        newsletterSubscribed,
+      });
+
       return NextResponse.json({
         ok: true,
         action,
+        clientId: state.customClients[0]?.id || resolvedClientId,
         client: state.customClients[0],
       });
     }

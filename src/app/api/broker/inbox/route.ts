@@ -163,14 +163,27 @@ export async function GET(req: NextRequest) {
   try {
     const bldgQuery: any = supabase
       .from("building_ssot_lite")
-      .select("id, area_signal, asset_type, raw_address")
+      .select("id, owner_id, area_signal, asset_type, price_band, fit_summary")
       .eq("owner_id", userId);
     const { data: myBuildings } = await bldgQuery;
     if (Array.isArray(myBuildings)) {
       buildingIds = myBuildings.map((b: any) => String(b.id)).filter(Boolean);
       for (const b of myBuildings) {
         if (b?.id) {
-          buildingTitleById.set(String(b.id), resolveBuildingTitle(b));
+          const bIdStr = String(b.id);
+          const resolvedTitle = resolveBuildingTitle(b);
+          buildingTitleById.set(bIdStr, resolvedTitle);
+          if (!quickInventory.some((q) => q.buildingId === bIdStr)) {
+            quickInventory.push({
+              buildingId: bIdStr,
+              title: resolvedTitle,
+              region: b.area_signal || "",
+              priceBand: b.price_band || "가격 협의",
+              askingPriceManwon: 0,
+              capRatePct: 0,
+              posture: String(b.asset_type || "general"),
+            });
+          }
         }
       }
     }
@@ -184,12 +197,9 @@ export async function GET(req: NextRequest) {
     try {
       let grQuery: any = supabase
         .from("gate_requests")
-        .select(`
-          id, building_id, requester_id, requested_level, requested_fields,
-          reason, status, created_at,
-          requester:profiles!gate_requests_requester_id_fkey(display_name, phone, email),
-          building:building_ssot_lite!gate_requests_building_id_fkey(area_signal, asset_type, raw_address, owner_id)
-        `);
+        .select(
+          "id, building_id, requester_id, requested_level, requested_fields, reason, status, created_at"
+        );
       if (buildingIds.length > 0 && typeof grQuery.in === "function") {
         grQuery = grQuery.in("building_id", buildingIds);
       }
@@ -503,6 +513,121 @@ export async function GET(req: NextRequest) {
     // ignore if table not present
   }
 
+  // ── 3-C. 중개인 액션 이벤트 조회 (승인/거절 영속성 및 통화 메모 복원 — P0-INBOX-GATE-01, P0-INBOX-NOTE-03) ──
+  const decisionByThreadId = new Map<
+    string,
+    { decision: "approved" | "rejected" | "pending"; shareToken?: string; createdAt?: string }
+  >();
+  const callNotesByThreadId = new Map<
+    string,
+    Array<{ id: string; description: string; timestamp: string }>
+  >();
+
+  for (const [k, v] of Object.entries(inboxState.gateDecisions || {})) {
+    if (v?.status) {
+      decisionByThreadId.set(k, {
+        decision: v.status,
+        shareToken: v.shareToken,
+        createdAt: v.updatedAt,
+      });
+    }
+  }
+  for (const [k, list] of Object.entries(inboxState.callNotes || {})) {
+    if (Array.isArray(list) && list.length > 0) {
+      callNotesByThreadId.set(
+        k,
+        list.map((n: any) => ({
+          id: String(n.id || `note-${Date.now()}`),
+          description: String(n.description || ""),
+          timestamp: String(n.timestamp || "방금"),
+        }))
+      );
+    }
+  }
+
+  try {
+    let brokerActQuery: any = supabase
+      .from("activity_events")
+      .select("id, event_type, entity_id, metadata, created_at")
+      .eq("actor_id", userId);
+    if (typeof brokerActQuery.in === "function") {
+      brokerActQuery = brokerActQuery.in("event_type", [
+        "gate_request_approved",
+        "gate_request_rejected",
+        "call_note_recorded",
+      ]);
+    }
+    if (typeof brokerActQuery.order === "function") {
+      brokerActQuery = brokerActQuery.order("created_at", { ascending: false });
+    }
+    if (typeof brokerActQuery.limit === "function") {
+      brokerActQuery = brokerActQuery.limit(100);
+    }
+    const { data: brokerActs } = await brokerActQuery;
+    for (const act of brokerActs || []) {
+      const meta = (act.metadata as Record<string, any>) || {};
+      const tKey = String(meta.thread_id || meta.request_id || act.entity_id || "");
+      const rawKey = String(meta.request_id || meta.raw_client_id || "").trim();
+      if (
+        (act.event_type === "gate_request_approved" || act.event_type === "gate_request_rejected") &&
+        tKey
+      ) {
+        const dec = act.event_type === "gate_request_approved" ? "approved" : "rejected";
+        if (!decisionByThreadId.has(tKey)) {
+          decisionByThreadId.set(tKey, {
+            decision: dec,
+            shareToken: meta.share_token || undefined,
+            createdAt: act.created_at,
+          });
+        }
+        if (rawKey && !decisionByThreadId.has(rawKey)) {
+          decisionByThreadId.set(rawKey, {
+            decision: dec,
+            shareToken: meta.share_token || undefined,
+            createdAt: act.created_at,
+          });
+        }
+      } else if (act.event_type === "call_note_recorded" && meta.note) {
+        const noteItem = {
+          id: `ev-note-${act.id}`,
+          description: String(meta.note),
+          timestamp: formatRelativeKo(act.created_at) || "방금",
+        };
+        for (const key of new Set([tKey, rawKey].filter(Boolean))) {
+          const existing = callNotesByThreadId.get(key) || [];
+          if (!existing.some((e) => e.description === noteItem.description)) {
+            existing.push(noteItem);
+            callNotesByThreadId.set(key, existing);
+          }
+        }
+      }
+    }
+  } catch {
+    // ignore if activity_events unavailable
+  }
+
+  function parseClientNotesMeta(notesRaw: unknown): {
+    budget: string;
+    preferredRegion: string;
+    buildingTitle: string;
+    isStructuredMeta: boolean;
+  } {
+    const text = typeof notesRaw === "string" ? notesRaw.trim() : "";
+    if (!text) {
+      return { budget: "", preferredRegion: "", buildingTitle: "", isStructuredMeta: false };
+    }
+    const budgetMatch = text.match(/예산:\s*([^/]+)/);
+    const regionMatch = text.match(/선호권역:\s*([^/]+)/);
+    const bldgMatch = text.match(/관심매물:\s*([^/]+)/);
+    const isStructuredMeta = Boolean(budgetMatch || regionMatch || bldgMatch);
+    return {
+      budget: budgetMatch?.[1]?.trim() || "",
+      preferredRegion: regionMatch?.[1]?.trim() || "",
+      buildingTitle: bldgMatch?.[1]?.trim() || "",
+      isStructuredMeta,
+    };
+  }
+
   // ── 4. Build Real Threads for Workspace (No Fake Seeds!) ──
   const threads: any[] = [];
   const seenThreadIds = new Set<string>();
@@ -512,11 +637,17 @@ export async function GET(req: NextRequest) {
     if (!tid || seenThreadIds.has(tid)) continue;
     seenThreadIds.add(tid);
 
+    const decisionOverride = decisionByThreadId.get(tid);
+    const effectiveStatus = decisionOverride ? decisionOverride.decision : gr.status;
+
     const isPending =
-      gr.status === "submitted" ||
-      gr.status === "pending" ||
-      gr.status === "broker_review";
-    const isApproved = gr.status === "approved";
+      effectiveStatus === "submitted" ||
+      effectiveStatus === "pending" ||
+      effectiveStatus === "broker_review";
+    const isApproved = effectiveStatus === "approved";
+    const isRejected = effectiveStatus === "rejected";
+    gr.status = effectiveStatus;
+    gr.is_unread = isPending;
 
     const matchingLink = shareLinks.find(
       (sl) =>
@@ -539,18 +670,64 @@ export async function GET(req: NextRequest) {
       )
     );
 
+    const threadCallNotes = callNotesByThreadId.get(tid) || [];
+    const baseRequestMsg = gr.cleanMessage || gr.reason || "IM 열람을 요청했습니다.";
+    const threadEvents: any[] = [
+      ...threadCallNotes.map((n) => ({
+        id: n.id,
+        eventType: "dwell" as const,
+        description: n.description,
+        timestamp: n.timestamp,
+      })),
+    ];
+    if (isApproved) {
+      threadEvents.push({
+        id: `ev-approve-${tid}`,
+        eventType: "gate_request" as const,
+        description: "IM 열람 요청을 승인하고 전용 링크를 발급했습니다.",
+        timestamp: formatRelativeKo(decisionOverride?.createdAt || gr.created_at) || "방금",
+      });
+    } else if (isRejected) {
+      threadEvents.push({
+        id: `ev-reject-${tid}`,
+        eventType: "gate_request" as const,
+        description: "IM 열람 요청을 거절했습니다.",
+        timestamp: formatRelativeKo(decisionOverride?.createdAt || gr.created_at) || "방금",
+      });
+    }
+    threadEvents.push({
+      id: `ev-${tid}`,
+      eventType: "gate_request" as const,
+      description: baseRequestMsg,
+      timestamp: formatRelativeKo(gr.created_at) || "방금",
+    });
+
+    const latestEventText =
+      threadCallNotes[0]?.description ||
+      (isApproved
+        ? "IM 열람 요청을 승인하고 전용 링크를 전달했습니다."
+        : isRejected
+        ? "IM 열람 요청을 거절했습니다."
+        : baseRequestMsg);
+
     threads.push({
       id: tid,
       clientName: gr.requesterName || gr.requester_name || "이름 미입력 고객",
       clientPhone: gr.requesterPhone || gr.requester_phone || "",
       requesterCompany: gr.requesterCompany || gr.requester_company || "",
-      cleanMessage: gr.cleanMessage || gr.reason || "IM 열람을 요청했습니다.",
+      cleanMessage: baseRequestMsg,
       clientGrade: "일반" as const,
       buildingTitle: gr.buildingTitle || gr.building_label || "매물",
       buildingId: String(gr.building_id || ""),
-      latestEvent: gr.cleanMessage || gr.reason || "IM 열람을 요청했습니다.",
-      detail: gr.cleanMessage || gr.reason || "IM 열람을 요청했습니다.",
-      gateStatus: isPending ? ("pending" as const) : isApproved ? ("approved" as const) : ("none" as const),
+      latestEvent: latestEventText,
+      detail: isRejected ? "IM 열람 요청을 거절했습니다." : baseRequestMsg,
+      gateStatus: isPending
+        ? ("pending" as const)
+        : isApproved
+        ? ("approved" as const)
+        : isRejected
+        ? ("rejected" as const)
+        : ("none" as const),
       updatedAt: formatRelativeKo(gr.created_at) || "방금",
       openCount: viewEventsForBldg.length,
       isRead: !gr.is_unread,
@@ -559,52 +736,97 @@ export async function GET(req: NextRequest) {
         : isPending
         ? ("pending_gate" as const)
         : ("active" as const),
-      shareToken: matchingLink?.token || "",
+      shareToken: decisionOverride?.shareToken || matchingLink?.token || "",
       budget: "",
       preferredRegion: "",
       focusedSections,
       newsletterSubscribed: false,
-      events: [
-        {
-          id: `ev-${tid}`,
-          eventType: "gate_request" as const,
-          description: gr.cleanMessage || gr.reason || "IM 열람을 요청했습니다.",
-          timestamp: formatRelativeKo(gr.created_at) || "방금",
-        },
-      ],
+      events: threadEvents,
     });
   }
 
   // Add custom clients (from broker_custom_clients, broker_clients, and ownCustomClients)
+  const seenCustomClientIdentity = new Set<string>();
   for (const row of [...customClientRows, ...dbClients, ...ownCustomClients]) {
     const rawId = String(row.id || "");
     if (!rawId) continue;
     const tid = rawId.startsWith("custom_") || rawId.startsWith("cli-") ? rawId : `custom_${rawId}`;
     if (seenThreadIds.has(tid) || seenThreadIds.has(rawId)) continue;
+
+    const name = String(row.display_name || row.name || row.clientName || "").trim();
+    if (!name) continue;
+    const phone = String(row.phone || row.clientPhone || "").trim();
+    const identityKey = `${name.toLowerCase()}::${phone.replace(/\D/g, "")}`;
+    if (seenCustomClientIdentity.has(identityKey)) continue;
+    seenCustomClientIdentity.add(identityKey);
     seenThreadIds.add(tid);
 
-    const name = row.display_name || row.name || row.clientName || "";
-    if (!name) continue;
-    const phone = row.phone || row.clientPhone || "";
-    const bId =
+    const parsedMeta = parseClientNotesMeta(row.notes);
+    let bId =
       row.building_id ||
       row.buildingId ||
       (Array.isArray(row.linked_building_ids) && row.linked_building_ids[0]) ||
       "";
-    const bTitle =
+    const rawBTitle =
       row.building_title ||
       row.buildingTitle ||
+      parsedMeta.buildingTitle ||
       (bId ? buildingTitleById.get(String(bId)) : "") ||
-      "관심 매물 미지정";
+      "";
+    if (!bId && rawBTitle) {
+      const matchedInv = quickInventory.find(
+        (q) => q.title === rawBTitle || rawBTitle.includes(q.title) || q.title.includes(rawBTitle)
+      );
+      if (matchedInv) {
+        bId = matchedInv.buildingId;
+      }
+    }
+    if (!bId && buildingIds.length > 0) {
+      bId = buildingIds[0];
+    }
+    const bTitle =
+      rawBTitle ||
+      (bId ? buildingTitleById.get(String(bId)) : "") ||
+      quickInventory.find((q) => q.buildingId === String(bId))?.title ||
+      "관심 매물 상담";
 
-    const notesList = inboxState.callNotes?.[tid] || inboxState.callNotes?.[rawId] || [];
+    const budget = String(row.budget || parsedMeta.budget || "").trim();
+    const preferredRegion = String(
+      row.preferred_region || row.preferredRegion || parsedMeta.preferredRegion || ""
+    ).trim();
+
+    const notesList =
+      callNotesByThreadId.get(tid) ||
+      callNotesByThreadId.get(rawId) ||
+      inboxState.callNotes?.[tid] ||
+      inboxState.callNotes?.[rawId] ||
+      [];
+
+    const matchingLink = shareLinks.find(
+      (sl) =>
+        (sl.recipient_id && String(sl.recipient_id) === tid) ||
+        (bId && sl.building_id && String(sl.building_id) === String(bId))
+    );
+    const isRevoked =
+      matchingLink?.status === "revoked" ||
+      Boolean(matchingLink?.revoked_at) ||
+      Boolean(bId && inboxState.revokedBuildings?.[String(bId)]?.revoked);
+
+    const summaryCleanMessage =
+      [
+        budget ? `희망 예산 ${budget}` : "",
+        preferredRegion ? `선호 권역 ${preferredRegion}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ") ||
+      (!parsedMeta.isStructuredMeta && row.notes ? String(row.notes) : "직접 등록한 고객입니다.");
 
     threads.push({
       id: tid,
       clientName: name,
       clientPhone: phone,
       requesterCompany: "",
-      cleanMessage: row.notes || "직접 등록한 고객입니다.",
+      cleanMessage: summaryCleanMessage,
       clientGrade:
         row.tier === "vip" || row.clientGrade === "VIP"
           ? ("VIP" as const)
@@ -613,23 +835,33 @@ export async function GET(req: NextRequest) {
           : ("일반" as const),
       buildingTitle: bTitle,
       buildingId: String(bId),
-      latestEvent: notesList[0]?.description || row.notes || "고객 등록 완료",
+      latestEvent: notesList[0]?.description || summaryCleanMessage,
       gateStatus: "none" as const,
       updatedAt: formatRelativeKo(row.created_at || row.createdAt) || "방금",
       openCount: 0,
       isRead: true,
-      status: "active" as const,
-      shareToken: "",
-      budget: row.budget || "",
-      preferredRegion: row.preferred_region || row.preferredRegion || "",
+      status: isRevoked ? ("revoked" as const) : ("active" as const),
+      shareToken: matchingLink?.token || "",
+      budget,
+      preferredRegion,
       focusedSections: [],
       newsletterSubscribed: Boolean(row.newsletterSubscribed),
-      events: notesList.map((n: any) => ({
-        id: n.id,
-        eventType: "dwell" as const,
-        description: n.description,
-        timestamp: n.timestamp || "방금",
-      })),
+      events:
+        notesList.length > 0
+          ? notesList.map((n: any) => ({
+              id: n.id,
+              eventType: "dwell" as const,
+              description: n.description,
+              timestamp: n.timestamp || "방금",
+            }))
+          : [
+              {
+                id: `ev-${tid}`,
+                eventType: "share" as const,
+                description: "고객 직접 등록 완료",
+                timestamp: formatRelativeKo(row.created_at || row.createdAt) || "방금",
+              },
+            ],
     });
   }
 
