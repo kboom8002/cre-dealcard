@@ -22,24 +22,9 @@ export const DEFAULT_NEWSLETTER_BLOCKS: readonly Omit<NewsletterBlockItem, "enab
     description: "이번 달 고객에게 소개할 핵심 매물과 한 줄 추천글",
   },
   {
-    id: "news_curation",
-    label: "이달의 주요 뉴스",
-    description: "상업용 부동산 핵심 뉴스 요약 코너",
-  },
-  {
     id: "market_data",
     label: "권역별 월간 통계",
-    description: "실거래·임대동향 참고 통계 코너 (통계 준비 중이면 자동 안내)",
-  },
-  {
-    id: "roi_calculator",
-    label: "수익률 계산기",
-    description: "독자가 직접 매매가·임대료를 넣어 계산해 보는 코너",
-  },
-  {
-    id: "poll",
-    label: "독자 의견 묻기",
-    description: "매수·매도 관심도를 파악하는 간단한 질문 코너",
+    description: "실거래·임대동향 참고 통계 코너 (필요할 때만 켜서 표시)",
   },
 ] as const;
 

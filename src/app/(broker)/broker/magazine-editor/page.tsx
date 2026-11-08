@@ -62,7 +62,6 @@ import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
 import { MAGAZINE_SEND_DAY_LABEL } from "@/lib/magazine/schedule-labels";
 import { formatPriceKo, sanitizeDealAddress } from "@/lib/magazine/view-helpers";
-import { editorToast } from "@/components/magazine-editor/editor-toaster";
 import type { HonestSaveState } from "@/lib/ux/lexicon";
 
 export type EditorPrimaryTabKey =
@@ -129,10 +128,11 @@ interface SavedEditionSummary {
 
 const LOCAL_DRAFT_STORAGE_KEY = "cre-newsletter-local-draft-v2";
 
-function formatDealPriceLabel(rawWon: unknown): string {
+function formatDealPriceLabel(rawWon: unknown, priceBand?: unknown): string {
   const n = typeof rawWon === "number" ? rawWon : Number(rawWon);
-  if (!Number.isFinite(n) || n <= 0) return "-";
-  return formatPriceKo(n);
+  if (Number.isFinite(n) && n > 0) return formatPriceKo(n);
+  if (typeof priceBand === "string" && priceBand.trim()) return priceBand.trim();
+  return "-";
 }
 
 export default function MagazineEditorPage() {
@@ -162,7 +162,10 @@ export default function MagazineEditorPage() {
   const [selectedDealIds, setSelectedDealIds] = useState<string[]>([]);
   const [dealComments, setDealComments] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<{ id: string; enabled: boolean }[]>(() =>
-    DEFAULT_NEWSLETTER_BLOCKS.map((b) => ({ id: b.id, enabled: true })),
+    DEFAULT_NEWSLETTER_BLOCKS.map((b) => ({
+      id: b.id,
+      enabled: b.id !== "market_data",
+    })),
   );
   const [targetSegment, setTargetSegment] = useState<NewsletterTargetSegment>("all");
   const [editions, setEditions] = useState<SavedEditionSummary[]>([]);
@@ -215,7 +218,7 @@ export default function MagazineEditorPage() {
       if (typeof fetch === "undefined") return;
       try {
         const [editionsRes, buildingsRes] = await Promise.all([
-          fetch("/api/magazine/editions").catch(() => null),
+          fetch("/api/magazine/editions?broker_id=me&type=all").catch(() => null),
           fetch("/api/broker/buildings").catch(() => null),
         ]);
 
@@ -286,7 +289,7 @@ export default function MagazineEditorPage() {
                 id: String(b.id ?? `deal-${idx}`),
                 title,
                 address: address || "주소 미입력",
-                price: formatDealPriceLabel(b.sale_price ?? b.price),
+                price: formatDealPriceLabel(b.sale_price ?? b.price, b.price_band),
                 yield: yieldNum && yieldNum > 0 ? `${yieldNum.toFixed(1)}%` : "-",
                 // P0: 등록된 사진이 없으면 null 유지 (샘플 사진 폴백 금지)
                 photoUrl: typeof b.photo_url === "string" && b.photo_url.trim() ? b.photo_url : null,
@@ -441,6 +444,11 @@ export default function MagazineEditorPage() {
     brokerSlug,
   ]);
 
+  const handleSelectStep = useCallback((nextStep: NewsletterStepKey) => {
+    setActiveStep(nextStep);
+    setStatusBanner(null);
+  }, []);
+
   // ── 8. 빠른 시작: 이번 달 뉴스레터 새로 쓰기 / 이전 호 불러오기 ──
   const handleStartNewThisMonth = () => {
     const now = new Date("2026-11-08T00:00:00+09:00");
@@ -477,6 +485,7 @@ export default function MagazineEditorPage() {
     );
     setSaveState("saved");
     setLastSavedAt(ed.updatedAt);
+    setStatusBanner(null);
   };
 
   // ── 9. 서식 막대 (소제목 / 강조 / 구분선) ──
@@ -534,14 +543,12 @@ export default function MagazineEditorPage() {
         setActiveStep("title");
         const msg = "표지 제목을 입력하면 바로 보낼 수 있어요";
         setStatusBanner({ tone: "error", message: msg });
-        editorToast.error(msg);
         return;
       }
       const saved = await handleServerSave();
       if (!saved.ok || !saved.publicUrl) {
         const msg = "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.";
         setStatusBanner({ tone: "error", message: msg });
-        editorToast.error(msg);
         return;
       }
       targetUrl = saved.publicUrl;
@@ -551,10 +558,8 @@ export default function MagazineEditorPage() {
     if (copied) {
       const msg = "링크를 복사했어요";
       setStatusBanner({ tone: "success", message: msg });
-      editorToast.success(msg);
     } else {
       setStatusBanner({ tone: "error", message: COPY_FAILED_MESSAGE });
-      editorToast.error(COPY_FAILED_MESSAGE);
     }
   };
 
@@ -564,7 +569,6 @@ export default function MagazineEditorPage() {
       setActiveStep("title");
       const msg = "표지 제목을 입력하면 바로 보낼 수 있어요";
       setStatusBanner({ tone: "error", message: msg });
-      editorToast.error(msg);
       return;
     }
 
@@ -574,7 +578,6 @@ export default function MagazineEditorPage() {
       if (!saved.ok || !saved.publicUrl) {
         const msg = "뉴스레터 저장에 실패해 공유 창을 열지 못했어요. 잠시 후 다시 눌러 주세요.";
         setStatusBanner({ tone: "error", message: msg });
-        editorToast.error(msg);
         return;
       }
       targetUrl = saved.publicUrl;
@@ -591,14 +594,11 @@ export default function MagazineEditorPage() {
     if (shareOutcome === "kakao") {
       const msg = "카카오톡 공유 창을 열었어요";
       setStatusBanner({ tone: "success", message: msg });
-      editorToast.success(msg);
     } else if (shareOutcome === "copied") {
       const msg = "링크를 복사했어요";
       setStatusBanner({ tone: "success", message: msg });
-      editorToast.success(msg);
     } else {
       setStatusBanner({ tone: "error", message: COPY_FAILED_MESSAGE });
-      editorToast.error(COPY_FAILED_MESSAGE);
     }
   };
 
@@ -615,7 +615,6 @@ export default function MagazineEditorPage() {
     if (hint && !headline.trim()) {
       setActiveStep(hint.targetStep);
       setStatusBanner({ tone: "error", message: hint.message });
-      editorToast.error(hint.message);
       return;
     }
 
@@ -628,7 +627,6 @@ export default function MagazineEditorPage() {
       if (!saved.ok || !saved.publicUrl) {
         const msg = "뉴스레터를 발행하지 못했어요. 잠시 후 다시 시도해 주세요.";
         setStatusBanner({ tone: "error", message: msg });
-        editorToast.error(msg);
         return;
       }
 
@@ -671,13 +669,11 @@ export default function MagazineEditorPage() {
               ? "뉴스레터를 발행하고 링크를 복사했어요"
               : "구독자에게 뉴스레터를 보냈어요";
         setStatusBanner({ tone: "success", message: msg });
-        editorToast.success(msg);
       } else {
         setStatusBanner({
           tone: "error",
           message: COPY_FAILED_MESSAGE,
         });
-        editorToast.error(COPY_FAILED_MESSAGE);
       }
     } finally {
       setSending(false);
@@ -734,50 +730,6 @@ export default function MagazineEditorPage() {
           <FilePlus2 className="h-5 w-5" aria-hidden="true" />
           <span>이번 달 뉴스레터 새로 쓰기</span>
         </button>
-      </div>
-
-      {/* 단계 진행 요약 */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-2.5">
-        <h3 className="text-sm font-extrabold text-slate-800">작성 단계 요약</h3>
-        <ol className="space-y-2">
-          {STEP_TABS.map((step) => {
-            const isCurrent = activeStep === step.key;
-            const isDone =
-              step.key === "title"
-                ? headline.trim().length > 0
-                : step.key === "content"
-                  ? briefingBody.trim().length > 0 || selectedDealIds.length > 0
-                  : isPublished;
-            return (
-              <li key={step.key}>
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(step.key)}
-                  aria-current={isCurrent ? "step" : undefined}
-                  className={`w-full min-h-[48px] rounded-xl border px-3.5 py-2.5 text-left transition flex items-center justify-between gap-2 ${
-                    isCurrent
-                      ? "border-blue-600 bg-blue-50 text-blue-950 font-extrabold"
-                      : "border-slate-200 bg-slate-50/70 text-slate-800 hover:bg-slate-100 font-bold"
-                  }`}
-                >
-                  <div>
-                    <p className="text-sm font-extrabold">{step.label}</p>
-                    <p className="text-sm font-medium text-slate-600">{step.shortDesc}</p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-bold ${
-                      isDone
-                        ? "bg-emerald-100 text-emerald-900"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {isDone ? "완료" : "작성 전"}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
       </div>
 
       {/* 이전 호 불러오기 목록 */}
@@ -845,6 +797,12 @@ export default function MagazineEditorPage() {
         >
           {STEP_TABS.map((tab) => {
             const selected = activeStep === tab.key;
+            const isDone =
+              tab.key === "title"
+                ? headline.trim().length > 0
+                : tab.key === "content"
+                  ? briefingBody.trim().length > 0 || selectedDealIds.length > 0
+                  : isPublished;
             return (
               <button
                 key={tab.key}
@@ -854,7 +812,7 @@ export default function MagazineEditorPage() {
                 aria-selected={selected}
                 aria-controls={`newsletter-panel-${tab.key}`}
                 data-testid={`step-tab-${tab.key}`}
-                onClick={() => setActiveStep(tab.key)}
+                onClick={() => handleSelectStep(tab.key)}
                 className={`min-h-[48px] rounded-xl px-3 py-2.5 text-base font-extrabold transition flex items-center justify-center gap-2 ${
                   selected
                     ? "bg-blue-700 text-white shadow-xs"
@@ -862,6 +820,17 @@ export default function MagazineEditorPage() {
                 }`}
               >
                 <span>{tab.label}</span>
+                {isDone && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-sm font-bold ${
+                      selected
+                        ? "bg-white/20 text-white"
+                        : "bg-emerald-100 text-emerald-900"
+                    }`}
+                  >
+                    완료
+                  </span>
+                )}
               </button>
             );
           })}
@@ -948,7 +917,7 @@ export default function MagazineEditorPage() {
               <button
                 type="button"
                 data-testid="next-to-content-btn"
-                onClick={() => setActiveStep("content")}
+                onClick={() => handleSelectStep("content")}
                 className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-extrabold text-white hover:bg-slate-800"
               >
                 <span>다음: ② 내용 작성하기</span>
@@ -1119,7 +1088,7 @@ export default function MagazineEditorPage() {
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setActiveStep("title")}
+                onClick={() => handleSelectStep("title")}
                 className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-800 hover:bg-slate-50"
               >
                 <ArrowLeft className="h-5 w-5" aria-hidden="true" />
@@ -1128,7 +1097,7 @@ export default function MagazineEditorPage() {
               <button
                 type="button"
                 data-testid="next-to-send-btn"
-                onClick={() => setActiveStep("send")}
+                onClick={() => handleSelectStep("send")}
                 className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-extrabold text-white hover:bg-slate-800"
               >
                 <span>다음: ③ 보내기</span>
@@ -1203,7 +1172,7 @@ export default function MagazineEditorPage() {
             <div className="flex justify-start">
               <button
                 type="button"
-                onClick={() => setActiveStep("content")}
+                onClick={() => handleSelectStep("content")}
                 className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-800 hover:bg-slate-50"
               >
                 <ArrowLeft className="h-5 w-5" aria-hidden="true" />
@@ -1251,7 +1220,7 @@ export default function MagazineEditorPage() {
 
           <h2
             data-single-line-title="true"
-            className="whitespace-nowrap overflow-hidden text-ellipsis text-xl font-extrabold text-slate-900"
+            className="line-clamp-2 break-keep leading-snug text-xl font-extrabold text-slate-900"
           >
             {headline.trim() || "표지 제목을 입력하면 이곳에 바로 표시됩니다"}
           </h2>
@@ -1406,6 +1375,8 @@ export default function MagazineEditorPage() {
       <div data-local-draft-mode={localStorageMode}>
         <WorkspaceShell
           workspace="magazine"
+          selectedBuildingId={editionId ?? autoMeta.slug}
+          selectedLabel={`${autoMeta.yearMonthLabel} 뉴스레터`}
           saveState={saveState}
           lastSavedAt={lastSavedAt}
           onRetrySave={() => {

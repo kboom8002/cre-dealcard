@@ -52,11 +52,11 @@ export function MagazinePublishChecklist(props: PublishReadinessInput) {
     <div
       data-testid="magazine-publish-checklist"
       role="status"
-      className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-2xs flex items-center justify-between gap-3"
+      className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-2xs flex flex-wrap items-center justify-between gap-3"
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" aria-hidden="true" />
-        <p className="text-sm font-bold text-slate-900 truncate">
+      <div className="flex items-start gap-2 min-w-0 flex-1">
+        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="text-sm font-bold text-slate-900 break-keep leading-snug">
           {hint.message}
         </p>
       </div>

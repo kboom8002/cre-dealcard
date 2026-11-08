@@ -473,6 +473,7 @@ export function WorkspaceShell({
             <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300">
               <button
                 type="button"
+                data-testid="mobile-tab-editor"
                 onClick={() => handleSelectTab("editor")}
                 aria-pressed={mobileView === "editor"}
                 className={`px-3 min-h-[44px] text-base font-bold rounded-md transition-colors ${
@@ -485,6 +486,7 @@ export function WorkspaceShell({
               </button>
               <button
                 type="button"
+                data-testid="mobile-tab-preview"
                 onClick={() => handleSelectTab("preview")}
                 aria-pressed={mobileView === "preview"}
                 className={`px-3 min-h-[44px] text-base font-bold rounded-md transition-colors ${

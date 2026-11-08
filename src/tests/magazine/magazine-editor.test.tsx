@@ -45,6 +45,8 @@ const OWNED_FILES = [
   "src/lib/magazine/simple-format.ts",
   "src/app/api/broker/studio/ai-comment/route.ts",
   "src/app/api/broker/studio/ai-draft/route.ts",
+  "src/app/api/magazine/issues/route.ts",
+  "src/app/api/broker/buildings/route.ts",
 ] as const;
 
 describe("W0 신뢰 결함 해소 (NL-01 ~ NL-06)", () => {
@@ -265,5 +267,24 @@ describe("W3 UX 라이팅 및 W4 시니어 가독성·접근성 (NL-18 ~ NL-31)"
       <AiCommentRecommendButton currentValue="메모" onChangeValue={() => {}} />,
     );
     expect(aiBtnHtml).toContain("AI로 추천글 쓰기");
+  });
+
+  it("P0/P1 프로덕션 E2E 감사 개선: 백엔드 API 연동(/api/magazine/issues, /api/broker/buildings, broker_id=me) 및 중복 UI 제거가 반영된다", () => {
+    const pageSrc = fs.readFileSync(
+      path.resolve(process.cwd(), "src/app/(broker)/broker/magazine-editor/page.tsx"),
+      "utf8",
+    );
+    expect(pageSrc).toContain("/api/magazine/editions?broker_id=me&type=all");
+    expect(pageSrc).toContain("/api/broker/buildings");
+    expect(pageSrc).toContain("/api/magazine/issues");
+    expect(pageSrc).not.toContain("작성 단계 요약");
+    expect(pageSrc).not.toContain("editorToast.");
+
+    const toastSrc = fs.readFileSync(
+      path.resolve(process.cwd(), "src/components/workspace/UndoConfirmToast.tsx"),
+      "utf8",
+    );
+    expect(toastSrc).toContain("bottom-6 left-1/2");
+    expect(toastSrc).not.toContain("top-6 left-1/2");
   });
 });

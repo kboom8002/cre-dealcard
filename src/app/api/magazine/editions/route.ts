@@ -67,6 +67,51 @@ export async function GET(request: NextRequest) {
   const { broker_id: brokerParam, type: editionType, status, limit } = parsed.data;
 
   const supabase = createServiceClient();
+
+  if (brokerParam === "me") {
+    const { ctx, error: authErr } = await requireBrokerContext(request);
+    if (authErr || !ctx) {
+      return authErr ?? jsonError("UNAUTHORIZED", "로그인이 필요합니다.", 401);
+    }
+
+    let selfQuery = supabase
+      .from("magazine_editions")
+      .select("*", { count: "exact" })
+      .in("broker_id", ctx.brokerKeys)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (editionType && editionType !== "all") {
+      selfQuery = selfQuery.eq("edition_type", editionType);
+    }
+    if (status) {
+      selfQuery = selfQuery.eq("status", status);
+    }
+
+    const [{ data, count, error }, subRes] = await Promise.all([
+      selfQuery,
+      supabase
+        .from("magazine_subscribers")
+        .select("id", { count: "exact", head: true })
+        .in("broker_id", ctx.brokerKeys)
+        .eq("status", "active"),
+    ]);
+
+    if (error) {
+      log.error("[api/magazine/editions/GET:me]", error.message);
+      return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+    }
+
+    return NextResponse.json({
+      editions: data ?? [],
+      total: count ?? 0,
+      brokerSlug: ctx.slug ?? ctx.userId,
+      brokerName: ctx.displayName ?? "",
+      subscriberCount: subRes.count ?? 0,
+      highInterestCount: 0,
+    });
+  }
+
   const owner = await softOwnerContext(request, brokerParam);
 
   let keys: string[];

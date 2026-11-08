@@ -365,7 +365,7 @@ export function applySimpleTextFormat(
 
   if (action === 'subheading') {
     const prefix = before.length > 0 && !before.endsWith('\n') ? '\n\n' : '';
-    const suffix = after.length > 0 && !after.startsWith('\n') ? '\n' : '';
+    const suffix = after.startsWith('\n') ? '' : '\n';
     const titleText = selected || '소제목을 입력해 주세요';
     const inserted = `${prefix}■ ${titleText}${suffix}`;
     return {
