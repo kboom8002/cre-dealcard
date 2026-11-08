@@ -78,6 +78,19 @@ export function parseGateRequestReason(
     }
   }
 
+  const bracketMatch = trimmed.match(
+    /^\[신청자:\s*([^/\]\n]+?)(?:\s*\/\s*연락처:\s*([^\]\n]+?))?\]\s*(.*)$/
+  );
+  if (bracketMatch) {
+    return {
+      requesterName: bracketMatch[1]?.trim() || null,
+      requesterPhone: bracketMatch[2]?.trim() || null,
+      requesterCompany: null,
+      cleanMessage: bracketMatch[3]?.trim() || "IM 열람을 요청했습니다.",
+      buildingTitle,
+    };
+  }
+
   return {
     requesterName: null,
     requesterPhone: null,

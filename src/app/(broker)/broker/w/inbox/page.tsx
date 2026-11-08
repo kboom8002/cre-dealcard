@@ -123,6 +123,16 @@ function parseRawGateReason(raw: unknown): {
       return { cleanMessage: trimmed };
     }
   }
+  const bracketMatch = trimmed.match(
+    /^\[신청자:\s*([^/\]\n]+?)(?:\s*\/\s*연락처:\s*([^\]\n]+?))?\]\s*(.*)$/
+  );
+  if (bracketMatch) {
+    return {
+      requesterName: bracketMatch[1]?.trim() || undefined,
+      requesterPhone: sanitizeClientPhone(bracketMatch[2]),
+      cleanMessage: bracketMatch[3]?.trim() || "IM 열람을 요청했습니다.",
+    };
+  }
   return { cleanMessage: trimmed };
 }
 
@@ -578,6 +588,21 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       const json = await res.json().catch(() => null);
       if (res.ok && json?.shareUrl) {
         pathUrl = json.shareUrl;
+        const issuedToken =
+          typeof json.shareToken === "string" ? json.shareToken : "";
+        setThreads((prev) => {
+          const next = prev.map((t) =>
+            t.id === activeThread.id
+              ? {
+                  ...t,
+                  shareUrl: json.shareUrl,
+                  shareToken: issuedToken || t.shareToken,
+                }
+              : t
+          );
+          persistThreads(next);
+          return next;
+        });
       }
     } catch {
       // continue with local share URL
