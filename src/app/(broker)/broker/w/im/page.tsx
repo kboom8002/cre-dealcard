@@ -404,13 +404,26 @@ function ImWorkspaceInner() {
         if (data?.ok && serverList) {
           setItems((prev) => {
             const localMap = new Map(prev.map((it) => [it.id, it]));
+            const localBldMap = new Map(prev.map((it) => [it.buildingId, it]));
             const srvItems: ImListItem[] = serverList.map((srv: ImListItem) => {
-              const local = localMap.get(srv.id);
+              const local = localMap.get(srv.id) || localBldMap.get(srv.buildingId);
+              const resolvedAxiosHighlights = local?.isDirty
+                ? local.axiosHighlights
+                : Array.isArray(srv.axiosHighlights) && srv.axiosHighlights.length > 0
+                ? srv.axiosHighlights
+                : local?.axiosHighlights;
+              const resolvedHandoverNote = local?.isDirty
+                ? local.handoverNote
+                : srv.handoverNote || local?.handoverNote;
               return {
                 ...srv,
                 ...(local?.isDirty ? local : {}),
                 id: srv.id,
                 buildingId: srv.buildingId || local?.buildingId || srv.id,
+                axiosHighlights: resolvedAxiosHighlights,
+                handoverNote: resolvedHandoverNote,
+                brokerExtrasForm: local?.brokerExtrasForm || srv.brokerExtrasForm,
+                photoNames: local?.photoNames || srv.photoNames,
                 rentRoll:
                   local?.isDirty && Array.isArray(local.rentRoll) && local.rentRoll.length > 0
                     ? local.rentRoll
@@ -432,12 +445,19 @@ function ImWorkspaceInner() {
                 localOnlyItems.push(loc);
               }
             }
-            const merged = [...localOnlyItems, ...srvItems];
+            const seenBldIds = new Set<string>();
+            const merged = [...localOnlyItems, ...srvItems].filter((it) => {
+              if (it.buildingId && UUID_REGEX.test(it.buildingId)) {
+                if (seenBldIds.has(it.buildingId)) return false;
+                seenBldIds.add(it.buildingId);
+              }
+              return true;
+            });
             persistImItems(merged);
             const targetMatch = buildingIdParam
               ? merged.find((i) => i.id === buildingIdParam || i.buildingId === buildingIdParam) ||
                 merged[0]
-              : (initialTargetId && merged.find((i) => i.id === initialTargetId)) || merged[0];
+              : (initialTargetId && merged.find((i) => i.id === initialTargetId || i.buildingId === initialTargetId)) || merged[0];
             if (targetMatch) {
               setSelectedId(targetMatch.id);
               applyItemToFormState(targetMatch);
@@ -649,6 +669,7 @@ function ImWorkspaceInner() {
           askingPriceManwon,
           title: imTitle.trim() || undefined,
           investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
+          axiosHighlights,
           rentRoll,
           posture: investmentPosture,
           gfaSqm: Number(gfaSqm) || undefined,
@@ -666,6 +687,59 @@ function ImWorkspaceInner() {
         setIsBottomSheetOpen(true);
       } else {
         setActionAlert(data?.error || "상세 편집 창을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
+    } catch {
+      setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
+    } finally {
+      setIsProvisioningSheet(false);
+    }
+  };
+
+  // Open 10-Slide PPTX Studio (provisions DB record first if current buildingId is a non-UUID seed)
+  const handleOpenStudio = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const existingBid = currentItem?.buildingId || "";
+    if (UUID_REGEX.test(existingBid)) {
+      return; // Let native anchor navigation proceed
+    }
+    e.preventDefault();
+
+    if (!address.trim() || !askingPriceManwon || askingPriceManwon <= 0) {
+      setActiveEditorTab("specs");
+      setActionAlert("10면 슬라이드 편집을 열려면 주소와 희망 매매가를 먼저 입력해 주세요.");
+      return;
+    }
+
+    setIsProvisioningSheet(true);
+    setActionAlert(null);
+    try {
+      const res = await fetch("/api/broker/im-lite/quick-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: address.trim(),
+          askingPriceManwon,
+          title: imTitle.trim() || undefined,
+          investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
+          axiosHighlights,
+          rentRoll,
+          posture: investmentPosture,
+          gfaSqm: Number(gfaSqm) || undefined,
+          completionDate: completionDate || undefined,
+          landAreaSqm: Number(landAreaSqm) || undefined,
+          zoning: zoning || undefined,
+          handoverNote: handoverNote || undefined,
+          brokerName,
+          brokerageName,
+          brokerPhone,
+          publishStatus: "draft",
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.buildingId) {
+        syncCurrentItemPatch({ buildingId: data.buildingId });
+        window.location.href = `/broker/basic-im-studio/${data.buildingId}`;
+      } else {
+        setActionAlert(data?.error || "슬라이드 스튜디오를 준비하지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
     } catch {
       setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
@@ -704,6 +778,7 @@ function ImWorkspaceInner() {
           address: address.trim(),
           askingPriceManwon,
           investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
+          axiosHighlights,
           rentRoll,
           posture: investmentPosture,
           gfaSqm: Number(gfaSqm) || undefined,
@@ -1134,6 +1209,7 @@ function ImWorkspaceInner() {
           <a
             href={`/broker/basic-im-studio/${currentItem?.buildingId || "bld-01"}`}
             data-testid="im-open-studio-btn"
+            onClick={handleOpenStudio}
             className="min-h-[48px] px-4 py-2 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-bold text-sm hover:bg-[#EFF6FF] transition-colors flex items-center gap-1.5"
           >
             <span>10면 슬라이드 편집</span>
@@ -1150,19 +1226,44 @@ function ImWorkspaceInner() {
         </div>
       )}
 
-      {/* Top 4 Primary Tabs */}
+      {/* Top 4 Primary Tabs (Sticky + Completion Check Badges) */}
       <div
         role="tablist"
         aria-label="IM 작성 단계"
         data-testid="im-editor-primary-tabs"
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/90 border border-slate-300"
+        className="sticky top-0 z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/95 backdrop-blur-xs border border-slate-300 shadow-xs"
       >
         {(
           [
-            { id: "specs", label: "① 표지·기본정보", sub: "제목·주소·희망가" },
-            { id: "rentroll", label: "② 층별 임대현황", sub: `총 ${rentRoll.length}층·엑셀 불러오기` },
-            { id: "axios_brief", label: "③ 장점 3가지", sub: "장점 3가지·중개의견" },
-            { id: "media_publish", label: "④ 사진·위치·만들기", sub: `사진 ${photoNames.length}장` },
+            {
+              id: "specs",
+              label: "① 표지·기본정보",
+              sub: "제목·주소·희망가",
+              done: Boolean(address.trim() && askingPriceManwon > 0),
+            },
+            {
+              id: "rentroll",
+              label: "② 층별 임대현황",
+              sub: `총 ${rentRoll.length}층·엑셀 불러오기`,
+              done: rentRoll.some(
+                (r) =>
+                  (r.depositManwon || 0) > 0 ||
+                  (r.monthlyRentManwon || 0) > 0 ||
+                  r.status === "owner"
+              ),
+            },
+            {
+              id: "axios_brief",
+              label: "③ 장점 3가지",
+              sub: "장점 3가지·중개의견",
+              done: axiosHighlights.filter((h) => h.headline.trim().length > 0).length >= 3,
+            },
+            {
+              id: "media_publish",
+              label: "④ 사진·위치·만들기",
+              sub: `사진 ${photoNames.length}장`,
+              done: photoNames.length > 0 || currentItem?.status === "published",
+            },
           ] as const
         ).map((tab) => {
           const isActive = activeEditorTab === tab.id;
@@ -1173,15 +1274,31 @@ function ImWorkspaceInner() {
               role="tab"
               aria-selected={isActive}
               data-testid={`im-editor-tab-${tab.id}`}
-              onClick={() => setActiveEditorTab(tab.id)}
+              onClick={() => {
+                setActionAlert(null);
+                setActiveEditorTab(tab.id);
+              }}
               className={`min-h-[56px] px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer min-w-0 ${
                 isActive
                   ? "bg-[#0F172A] text-white shadow-sm"
                   : "bg-white/90 text-slate-800 hover:bg-white"
               }`}
             >
-              <div className="text-sm font-extrabold leading-tight break-keep">
-                {tab.label}
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-sm font-extrabold leading-tight break-keep">
+                  {tab.label}
+                </span>
+                {tab.done && (
+                  <span
+                    className={`text-xs font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ${
+                      isActive
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}
+                  >
+                    ✓ 완료
+                  </span>
+                )}
               </div>
               <div
                 className={`text-sm mt-0.5 font-medium break-keep ${
@@ -1311,10 +1428,10 @@ function ImWorkspaceInner() {
           />
         </div>
 
-        {/* 2. Asking Price: Easy [억] + [만원] split input + synchronized total Manwon input */}
+        {/* 2. Asking Price: Easy [억] + [만원] split input */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label htmlFor="im-asking-price-input" className="text-base font-bold text-[#0F172A]">
+            <label htmlFor="im-price-eok-input" className="text-base font-bold text-[#0F172A]">
               2. 희망 매매가 <span className="text-[#991B1B]">*</span>
             </label>
             <div className="flex items-center gap-2">
@@ -1327,7 +1444,7 @@ function ImWorkspaceInner() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex items-center gap-2">
               <label htmlFor="im-price-eok-input" className="sr-only">
                 억 단위
@@ -1365,7 +1482,7 @@ function ImWorkspaceInner() {
               <span className="text-base font-extrabold text-slate-800 shrink-0">만원</span>
             </div>
 
-            <div>
+            <div className="sr-only">
               <input
                 id="im-asking-price-input"
                 type="number"
@@ -1378,7 +1495,6 @@ function ImWorkspaceInner() {
                 }}
                 placeholder="총액(만원): 950000"
                 aria-label="희망 매매가 총액(만원 단위)"
-                className="w-full min-h-[48px] px-3.5 text-base font-bold tabular-nums rounded-xl border border-slate-300 bg-slate-50 text-slate-700 focus:bg-white focus:border-[#1D4ED8] outline-none"
               />
             </div>
           </div>
@@ -1387,9 +1503,19 @@ function ImWorkspaceInner() {
         {/* 3. Building & Land Specs */}
         <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label htmlFor="im-gfa-input" className="block text-sm font-bold text-[#334155] mb-1">
-              연면적 (㎡)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="im-gfa-input" className="text-sm font-bold text-[#334155]">
+                연면적 (㎡)
+              </label>
+              {Number(gfaSqm) > 0 && (
+                <span
+                  data-testid="im-gfa-pyeong-badge"
+                  className="text-xs font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
+                >
+                  약 {Math.round(Number(gfaSqm) * 0.3025).toLocaleString()}평
+                </span>
+              )}
+            </div>
             <input
               id="im-gfa-input"
               type="number"
@@ -1405,12 +1531,19 @@ function ImWorkspaceInner() {
             />
           </div>
           <div>
-            <label
-              htmlFor="im-land-area-input"
-              className="block text-sm font-bold text-[#334155] mb-1"
-            >
-              대지면적 (㎡)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="im-land-area-input" className="text-sm font-bold text-[#334155]">
+                대지면적 (㎡)
+              </label>
+              {Number(landAreaSqm) > 0 && (
+                <span
+                  data-testid="im-land-pyeong-badge"
+                  className="text-xs font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
+                >
+                  약 {Math.round(Number(landAreaSqm) * 0.3025).toLocaleString()}평
+                </span>
+              )}
+            </div>
             <input
               id="im-land-area-input"
               type="number"
@@ -1468,6 +1601,21 @@ function ImWorkspaceInner() {
             />
           </div>
         </div>
+
+        {/* Next Step Button (Tab 1 -> Tab 2) */}
+        <div className="pt-3 border-t border-slate-200 flex justify-end">
+          <button
+            type="button"
+            data-testid="im-next-to-rentroll-btn"
+            onClick={() => {
+              setActionAlert(null);
+              setActiveEditorTab("rentroll");
+            }}
+            className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
+          >
+            다음 단계 (② 층별 임대현황) →
+          </button>
+        </div>
       </div>
 
       {/* ── TAB 2 PANEL: ② 층별 임대 현황 ── */}
@@ -1521,6 +1669,21 @@ function ImWorkspaceInner() {
           }}
           askingPriceManwon={askingPriceManwon}
         />
+
+        {/* Next Step Button (Tab 2 -> Tab 3) */}
+        <div className="pt-3 border-t border-slate-200 flex justify-end">
+          <button
+            type="button"
+            data-testid="im-next-to-axios-btn"
+            onClick={() => {
+              setActionAlert(null);
+              setActiveEditorTab("axios_brief");
+            }}
+            className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
+          >
+            다음 단계 (③ 장점 3가지) →
+          </button>
+        </div>
       </div>
 
       {/* ── TAB 3 PANEL: ③ 핵심 장점·중개의견 ── */}
@@ -1707,6 +1870,21 @@ function ImWorkspaceInner() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Next Step Button (Tab 3 -> Tab 4) */}
+        <div className="pt-3 border-t border-slate-200 flex justify-end">
+          <button
+            type="button"
+            data-testid="im-next-to-media-btn"
+            onClick={() => {
+              setActionAlert(null);
+              setActiveEditorTab("media_publish");
+            }}
+            className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
+          >
+            다음 단계 (④ 사진·위치·만들기) →
+          </button>
         </div>
       </div>
 

@@ -658,6 +658,9 @@ export async function POST(req: NextRequest) {
     official_land_price_per_sqm: officialLandPriceWonSqm,
     vacancy_pct: vacancyPct,
     vacancy_signal: vacancyPct === 0 ? '만실' : `공실률 ${vacancyPct}%`,
+    cap_rate_pct: basicImDoc.facts.valuation.capRatePct,
+    gross_yield_pct: basicImDoc.facts.valuation.grossYieldPct,
+    handover_note: handoverNote || undefined,
     investment_posture: legacyPosture,
     building_register_source: 'api',
   };
@@ -786,6 +789,23 @@ export async function POST(req: NextRequest) {
 
   const nowIso = new Date().toISOString();
 
+  const normalizedAxiosHighlights = Array.isArray(body.axiosHighlights)
+    ? body.axiosHighlights
+        .slice(0, 3)
+        .map((h: any, idx: number) => ({
+          headline: String(h?.headline || defaultPoints[idx] || ''),
+          brief: String(h?.brief || ''),
+          tone:
+            h?.tone === 'sky' || h?.tone === 'mint'
+              ? h.tone
+              : idx === 1
+              ? 'sky'
+              : idx === 2
+              ? 'mint'
+              : 'amber',
+        }))
+    : undefined;
+
   const fullDocBody = {
     schemaVersion: '3.0',
     tier: 'basic',
@@ -803,6 +823,8 @@ export async function POST(req: NextRequest) {
     rent_roll: safeRentRoll,
     floor_leases: mappedFloorLeases,
     ssot_summary: ssotSummary,
+    ...(normalizedAxiosHighlights ? { axios_highlights: normalizedAxiosHighlights } : {}),
+    ...(handoverNote ? { handover_note: String(handoverNote) } : {}),
     heroCard: {
       assetType: '근린생활시설',
       areaSignal: derivedRegion,
@@ -896,9 +918,9 @@ export async function POST(req: NextRequest) {
               price_band: card4.priceBand,
               size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
               vacancy_signal: ssotSummary.vacancy_signal,
-              completeness_score: 85,
               status: 'public_signal_ready',
               layers: {
+                completeness_score: 85,
                 location: {
                   address: cleanAddress,
                   raw_address: cleanAddress,
@@ -910,12 +932,12 @@ export async function POST(req: NextRequest) {
                   land_area_sqm: effectiveLandSqm,
                   zoning: effectiveZoning,
                 },
-              },
-              lease_summary: {
-                asking_price_manwon: priceNum,
-                total_deposit_manwon: effectiveDepositManwon,
-                monthly_rent_total_krw: effectiveMonthlyRentManwon * 10000,
-                vacancy_pct: vacancyPct,
+                lease_summary: {
+                  asking_price_manwon: priceNum,
+                  total_deposit_manwon: effectiveDepositManwon,
+                  monthly_rent_total_krw: effectiveMonthlyRentManwon * 10000,
+                  vacancy_pct: vacancyPct,
+                },
               },
             });
             const { stripHeavyBase64ForDb } = await import(
@@ -946,7 +968,7 @@ export async function POST(req: NextRequest) {
             );
             await pruneSupersededDocumentObjects(supabase, buildingId, 'mobile_im', 2);
           })(),
-          new Promise((resolve) => setTimeout(resolve, 3500)),
+          new Promise((resolve) => setTimeout(resolve, 4500)),
         ]);
       }
     } catch {

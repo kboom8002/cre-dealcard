@@ -358,7 +358,19 @@ export function ImDataBottomSheet({
     });
     const [showYieldCalc, setShowYieldCalc] = useState(false);
     const [customYieldInput, setCustomYieldInput] = useState("4.0");
-    const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3>(1);
+    const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3>(
+      initialAddress && initialInvestmentPosture ? 2 : 1
+    );
+
+    useEffect(() => {
+      if (isOpen && initialAddress && initialInvestmentPosture) {
+        setActiveStepTab(2);
+        const timer = setTimeout(() => {
+          document.getElementById("bs-step-2")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 120);
+        return () => clearTimeout(timer);
+      }
+    }, [isOpen, initialAddress, initialInvestmentPosture]);
 
     if (!isOpen) return null;
     if (typeof window === 'undefined') return null;
@@ -662,7 +674,7 @@ export function ImDataBottomSheet({
                 ✅ 월 {Number(monthlyRent).toLocaleString()}만원 (연간 약 {formatManwonToKorean(Number(monthlyRent) * 12)})
               </p>
             )}
-            {prefillMonthlyRent && monthlyRent === String(prefillMonthlyRent) && (
+            {Boolean(prefillMonthlyRent && prefillMonthlyRent > 0) && monthlyRent === String(prefillMonthlyRent) && (
               <span className="text-[10px] text-blue-400 ml-1">📋 딜카드에서 자동 입력</span>
             )}
           </div>
@@ -698,7 +710,7 @@ export function ImDataBottomSheet({
                   ✅ {formatManwonToKorean(totalDeposit)}
                 </p>
               )}
-              {prefillTotalDeposit && totalDeposit === String(prefillTotalDeposit) && (
+              {Boolean(prefillTotalDeposit && prefillTotalDeposit > 0) && totalDeposit === String(prefillTotalDeposit) && (
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
@@ -854,7 +866,7 @@ export function ImDataBottomSheet({
                   </p>
                 );
               })()}
-              {prefillAskingPrice && askingPrice === String(prefillAskingPrice) && (
+              {Boolean(prefillAskingPrice && prefillAskingPrice > 0) && askingPrice === String(prefillAskingPrice) && (
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>

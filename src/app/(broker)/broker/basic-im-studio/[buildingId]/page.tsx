@@ -500,13 +500,13 @@ function BasicImStudioInner({
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-black text-[#0F172A] truncate">
-                📐 {project.title} 편집 스튜디오
+              <h1 className="text-base font-black text-[#0F172A] break-keep">
+                📐 {project.title}
               </h1>
               <button
                 type="button"
                 onClick={() => setRightTab('theme')}
-                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#1D4ED8]"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#1D4ED8] shrink-0"
                 title="클릭하여 프리셋·테마 변경"
               >
                 <span
@@ -515,12 +515,6 @@ function BasicImStudioInner({
                 />
                 <span>테마: {tokens.presetName}</span>
               </button>
-              <SeniorTermTooltip
-                termKey="모노 고대비"
-                buttonLabel="🖨️ 흑백 인쇄·팩스 팁"
-                actionLabel="🎨 테마 탭에서 모노 고대비 고르기"
-                onAction={() => setRightTab('theme')}
-              />
             </div>
           </div>
         </div>

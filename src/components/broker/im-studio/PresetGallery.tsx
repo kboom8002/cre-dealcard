@@ -104,8 +104,8 @@ function PresetMiniPreview({ preset, isSelected }: { preset: StudioPresetOption;
       </div>
 
       {/* Label + Badge */}
-      <div className="flex items-center justify-between gap-1 mb-0.5">
-        <span className="text-xs font-extrabold text-[#0F172A] truncate">
+      <div className="flex items-start justify-between gap-1 mb-0.5">
+        <span className="text-xs font-extrabold text-[#0F172A] break-keep leading-snug">
           {preset.label}
         </span>
         {isSelected ? (
@@ -118,7 +118,7 @@ function PresetMiniPreview({ preset, isSelected }: { preset: StudioPresetOption;
           </span>
         ) : null}
       </div>
-      <p className="text-[11px] text-[#475569] line-clamp-1 font-medium">
+      <p className="text-[11px] text-[#475569] line-clamp-2 font-medium break-keep leading-snug">
         {preset.desc}
       </p>
     </div>

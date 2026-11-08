@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       ? supabase
           .from("document_objects")
           .select(
-            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases"
+            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases, axios_highlights:body->axios_highlights, handover_note:body->handover_note, broker_contact:body->broker_contact, investment_posture:body->investment_posture"
           )
           .in("building_id", buildingIds)
       : null;
@@ -164,11 +164,17 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  const imDocs = docs.filter((d) =>
-    ["mobile_im", "im_lite", "im_lite_draft"].includes(d.document_type)
-  );
+  const seenImBuildingIds = new Set<string>();
+  const imDocs = docs.filter((d) => {
+    if (!["mobile_im", "im_lite", "im_lite_draft"].includes(d.document_type)) return false;
+    if (d.building_id) {
+      if (seenImBuildingIds.has(d.building_id)) return false;
+      seenImBuildingIds.add(d.building_id);
+    }
+    return true;
+  });
 
-  const imList = imDocs.map((d, idx) => {
+  const imList = imDocs.map((d) => {
     const ssotSummary = d.ssot_summary || d.body?.ssot_summary || {};
     const bld = buildings.find((b) => b.id === d.building_id);
     const layers = (bld?.layers as Record<string, any>) || {};
@@ -217,25 +223,57 @@ export async function GET(request: NextRequest) {
         })
       : undefined;
 
+    const rawPosture =
+      ssotSummary.investment_posture ||
+      d.investment_posture ||
+      d.body?.investment_posture ||
+      (String(bld?.asset_type || d.title || "").includes("나대지") ? "development" : "core_income");
+
+    let grossYieldPct = 0;
+    if (rawPosture !== "owner_occupied" && rawPosture !== "development") {
+      const explicitYield = Number(ssotSummary.cap_rate_pct || ssotSummary.gross_yield_pct || 0);
+      if (explicitYield > 0) {
+        grossYieldPct = Math.round(explicitYield * 10) / 10;
+      } else if (normalizedDocRentRoll && normalizedDocRentRoll.length > 0 && askingPriceManwon > 0) {
+        let totalDeposit = 0;
+        let totalMonthly = 0;
+        for (const r of normalizedDocRentRoll) {
+          if (r.status === "occupied") {
+            totalDeposit += Number(r.depositManwon || 0);
+            totalMonthly += Number(r.monthlyRentManwon || 0);
+          }
+        }
+        if (totalMonthly > 0) {
+          const netPrice = Math.max(askingPriceManwon - totalDeposit, 1);
+          grossYieldPct = Math.round(((totalMonthly * 12) / netPrice) * 1000) / 10;
+        }
+      }
+    }
+
+    const rawAxiosHighlights = d.axios_highlights ?? d.body?.axios_highlights;
+    const brokerContact = d.broker_contact ?? d.body?.broker_contact;
+
     return {
       id: d.id,
       buildingId: d.building_id,
       title: d.title || `${bld?.area_signal || "매물"} ${bld?.asset_type || "IM"}`.trim(),
       address,
       askingPriceManwon,
-      grossYieldPct: Number(ssotSummary.cap_rate_pct || 4.2),
+      grossYieldPct,
       status: isPublished ? "published" : "draft",
       versionLabel: isPublished ? `v${versionNo} 공개 중 ★` : `v${versionNo} 작성 중`,
       updatedAt: formatRelativeTime(d.updated_at || d.created_at),
       rentRoll: (normalizedDocRentRoll && normalizedDocRentRoll.length > 0 ? normalizedDocRentRoll : undefined) as any[] | undefined,
-      investmentPosture: ssotSummary.investment_posture || d.body?.investment_posture || "core_income",
+      investmentPosture: rawPosture,
       gfaSqm: ssotSummary.total_gross_area_sqm ? String(ssotSummary.total_gross_area_sqm) : undefined,
       landAreaSqm: ssotSummary.land_area_sqm ? String(ssotSummary.land_area_sqm) : undefined,
       zoning: ssotSummary.zoning || undefined,
       completionDate: ssotSummary.completion_date || undefined,
-      brokerName: d.body?.broker_contact?.brokerName || d.body?.broker_contact?.name || undefined,
-      brokerageName: d.body?.broker_contact?.brokerageName || d.body?.broker_contact?.company || undefined,
-      brokerPhone: d.body?.broker_contact?.brokerPhone || d.body?.broker_contact?.phone || undefined,
+      handoverNote: d.handover_note || d.body?.handover_note || ssotSummary.handover_note || undefined,
+      axiosHighlights: Array.isArray(rawAxiosHighlights) && rawAxiosHighlights.length > 0 ? rawAxiosHighlights : undefined,
+      brokerName: brokerContact?.brokerName || brokerContact?.name || undefined,
+      brokerageName: brokerContact?.brokerageName || brokerContact?.company || undefined,
+      brokerPhone: brokerContact?.brokerPhone || brokerContact?.phone || undefined,
     };
   });
 
@@ -287,7 +325,7 @@ export async function GET(request: NextRequest) {
       title: qRec.buildingName || `${qRec.card4.region} ${qRec.card4.use}`.trim(),
       address: qRec.address,
       askingPriceManwon: qRec.askingPriceManwon,
-      grossYieldPct: Number(qRec.basicImDoc?.facts?.valuation?.grossYieldPct || 4.2),
+      grossYieldPct: Number(qRec.basicImDoc?.facts?.valuation?.grossYieldPct || 0),
       status: (qRec.ownerId === userId ? "published" : "draft") as "draft" | "published",
       versionLabel: qRec.ownerId === userId ? "v1 생성 완료" : "v1 작성 중",
       updatedAt: formatRelativeTime(qRec.updatedAt),
@@ -298,6 +336,7 @@ export async function GET(request: NextRequest) {
       zoning: qRec.specs?.zoning || undefined,
       completionDate: qRec.specs?.completionDate || undefined,
       handoverNote: qRec.specs?.handoverNote || undefined,
+      axiosHighlights: undefined as any[] | undefined,
       brokerName: qRec.brokerProfile?.displayName || qRec.basicImDoc?.facts?.brokerOffice?.representative || undefined,
       brokerageName: qRec.brokerProfile?.company || qRec.basicImDoc?.facts?.brokerOffice?.name || undefined,
       brokerPhone: qRec.brokerProfile?.phone || qRec.basicImDoc?.facts?.brokerOffice?.phone || undefined,

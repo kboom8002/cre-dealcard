@@ -43,10 +43,10 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
   ],
   highlights: [
     { key: 'leadSentence', label: '슬라이드 상단 핵심 리드 문장', aiEnabled: true },
-    { key: 'askingPrice', label: 'KPI 1: 매매 희망가' },
-    { key: 'grossYield', label: 'KPI 2: 현행 임대수익률 (%)' },
-    { key: 'stabilizedYield', label: 'KPI 3: 안정화 기대수익률 (%)' },
-    { key: 'vacancySignal', label: 'KPI 4: 임대 가동 현황 / 공실률' },
+    { key: 'askingPrice', label: '핵심 지표 1: 매매 희망가' },
+    { key: 'grossYield', label: '핵심 지표 2: 현행 임대수익률 (%)' },
+    { key: 'stabilizedYield', label: '핵심 지표 3: 안정화 기대수익률 (%)' },
+    { key: 'vacancySignal', label: '핵심 지표 4: 임대 가동 현황 / 공실률' },
     { key: 'keyInvestmentPoint', label: '투자 포인트 01 (입지·수익 구조)', aiEnabled: true },
     { key: 'investmentPoint2', label: '투자 포인트 02 (토지·건물 제원 강점)', aiEnabled: true },
     { key: 'investmentPoint3', label: '투자 포인트 03 (밸류애드·상승 여력)', aiEnabled: true },
@@ -386,14 +386,11 @@ export function SlideEditor({
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#1E3A8A]">
                   슬라이드 {String(slide.slideIndex).padStart(2, '0')} 헤더 설정
                 </span>
-                <span className="text-[10px] font-mono font-bold text-[#475569]">
-                  {slide.layoutType}
-                </span>
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <div>
                   <label className="block text-[11px] font-bold text-[#334155] mb-0.5">
-                    상단 영문 키커 (Kicker)
+                    머리말 작은 제목
                   </label>
                   <input
                     type="text"
@@ -404,7 +401,7 @@ export function SlideEditor({
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-[#334155] mb-0.5">
-                    슬라이드 제목 (Title)
+                    슬라이드 큰 제목
                   </label>
                   <input
                     type="text"
