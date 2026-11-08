@@ -110,18 +110,23 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
       );
     }
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="text-5xl">📋</div>
-          <h1 className="text-xl font-bold text-foreground">
-            투자보고서가 아직 준비 중입니다
+      <main
+        className="min-h-screen bg-[#F3F2EE] text-[#0F172A] flex items-center justify-center px-4 py-12"
+        data-testid="im-notfound-screen"
+      >
+        <div className="max-w-md w-full bg-white rounded-3xl border border-[#CBD5E1] p-6 sm:p-8 text-center space-y-4 shadow-sm">
+          <div className="text-4xl">📋</div>
+          <h1 className="text-xl font-extrabold text-[#0F172A] leading-snug">
+            상세 투자설명서(IM)를 준비하고 있습니다
           </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            이 물건의 Investment Memorandum은 현재 생성 중이거나
-            아직 발행되지 않았습니다.
+          <p className="text-base text-[#475569] leading-relaxed">
+            요청하신 매물의 모바일 투자설명서가 아직 발행되지 않았거나 주소가 변경되었습니다. 담당 공인중개사에게 최신 링크를 문의해 주세요.
           </p>
-          <a href="/broker/buildings" className="inline-block text-sm text-primary underline cursor-pointer">
-            ← 매물 목록으로 돌아가기
+          <a
+            href="/broker/w/im"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-[#0F172A] px-5 py-3 text-base font-bold text-white hover:bg-[#1E293B] transition-colors cursor-pointer"
+          >
+            ← IM 작업공간으로 돌아가기
           </a>
         </div>
       </main>

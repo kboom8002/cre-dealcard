@@ -474,7 +474,7 @@ export default function BrokerProfilePage() {
             <p className="text-[15px] text-muted-foreground font-medium">
               로그인 계정: {profile?.email}
               {profile?.broker?.is_verified && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-xs font-bold">
+                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-[14px] font-bold">
                   ✓ 공인중개사 인증됨
                 </span>
               )}
@@ -548,7 +548,7 @@ export default function BrokerProfilePage() {
               style={{ width: `${completeness}%` }}
             />
           </div>
-          <div className="text-[13px] text-muted-foreground space-y-0.5 pt-1">
+          <div className="text-[14px] text-muted-foreground space-y-0.5 pt-1">
             <p>• 필수 기본정보(이름 +5% · 연락처 +5% · 사진 +10%) · 자격증번호(+15%) · 개업연도(+10%)</p>
             <p>• 전문지역 3곳 이상(+10%) · 전문자산 2개 이상(+10%) · 거래실적(+15%) · 거래금액대(+10%) · 자기소개 100자+(+10%)</p>
           </div>
@@ -558,7 +558,7 @@ export default function BrokerProfilePage() {
         <section className="space-y-5 rounded-2xl border-2 border-amber-500/40 bg-card p-6 shadow-sm">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-[13px] font-extrabold">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-[14px] font-extrabold">
                 가장 중요 · 필수 입력
               </span>
               <h2 className={sectionTitleClass}>① 기본 명함 정보 (이름 · 연락처 · 상호 · 사진)</h2>
@@ -583,7 +583,7 @@ export default function BrokerProfilePage() {
                 <p className="text-[15px] font-bold text-foreground">대표님 인물 사진 (또는 사무소 로고)</p>
                 <SeniorTermTooltip termKey="프로필 사진 인쇄 위치" />
               </div>
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-[14px] text-muted-foreground">
                 밝게 웃으시는 정장 사진이나 사무소 로고를 등록하시면 고객 소식지와 모바일 명함 상단에 표시됩니다.
               </p>
               <div>
@@ -653,7 +653,7 @@ export default function BrokerProfilePage() {
               placeholder="예: 홍길동 대표공인중개사"
               id="profile-display-name"
             />
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[14px] text-muted-foreground">
               제안서(IM) 표지 하단과 카카오톡 명함에 표시될 성함입니다.
             </p>
           </div>
@@ -681,7 +681,7 @@ export default function BrokerProfilePage() {
               placeholder="예: 010-1234-5678 (숫자만 입력하셔도 자동 변환됩니다)"
               id="profile-phone"
             />
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[14px] text-muted-foreground">
               고객이 딜카드나 제안서에서 [전화 문의하기] 버튼을 누르면 이 번호로 바로 연결됩니다.
             </p>
           </div>
@@ -701,7 +701,7 @@ export default function BrokerProfilePage() {
               placeholder="예: 양평 삼성 공인중개사사무소 / JS 부동산중개법인"
               id="profile-company"
             />
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[14px] text-muted-foreground">
               PPTX 투자설명서(IM) 첫 장 표지와 매수자용 웹 화면 상단에 인쇄됩니다.
             </p>
           </div>
@@ -718,7 +718,7 @@ export default function BrokerProfilePage() {
               placeholder="예: 영등포·당산·양평 꼬마빌딩·수익형 빌딩 20년 전문 중개"
               id="profile-tagline"
             />
-            <p className="text-[13px] text-muted-foreground mt-1">
+            <p className="text-[14px] text-muted-foreground mt-1">
               카카오톡으로 명함이나 소식지를 보낼 때 성함 옆에 따라붙는 한줄 소개글입니다.
             </p>
           </div>
@@ -797,7 +797,7 @@ export default function BrokerProfilePage() {
                 </span>
               )}
             </div>
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[14px] text-muted-foreground">
               시작 연도를 입력하시면 &apos;경력 O년차&apos;가 자동으로 계산되어 프로필에 표시됩니다.
             </p>
           </div>
@@ -1034,7 +1034,7 @@ export default function BrokerProfilePage() {
                 '✨ AI로 자기소개 자동 작성하기 (추천)'
               )}
             </button>
-            <p className="text-[13px] font-medium text-muted-foreground">{bio.length} / 1,000자</p>
+            <p className="text-[14px] font-medium text-muted-foreground">{bio.length} / 1,000자</p>
           </div>
         </section>
 

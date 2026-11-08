@@ -143,9 +143,9 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               className={
                 helperEnabled
                   ? isPaperMode
-                    ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[13px] font-extrabold bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 transition-colors cursor-pointer"
-                    : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[13px] font-extrabold bg-amber-950/50 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
-                  : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[13px] font-bold bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
+                    ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[14px] font-extrabold bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 transition-colors cursor-pointer"
+                    : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[14px] font-extrabold bg-amber-950/50 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
+                  : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[14px] font-bold bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
               }
               title="화면 곳곳의 쉬운 용어 설명(❓)과 예시 도우미를 켜거나 끕니다"
             >

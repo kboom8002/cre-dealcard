@@ -751,6 +751,7 @@ export default function MagazineEditorPage() {
                 <li key={ed.id}>
                   <button
                     type="button"
+                    data-testid={`magazine-edition-item-${ed.id}`}
                     aria-current={isCurrent ? "true" : undefined}
                     onClick={() => handleSelectExistingEdition(ed)}
                     className={`w-full min-h-[48px] rounded-xl border p-3 text-left transition space-y-1 ${

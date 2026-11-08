@@ -132,12 +132,12 @@ export function FieldCoachBanner({
             className="w-full flex items-center justify-between text-left cursor-pointer font-black text-[14px] text-amber-950 hover:text-amber-800"
           >
             <span>⚠️ 잠깐! 자주 하는 실수</span>
-            <span className="text-[12px] font-bold text-slate-600 bg-amber-100 px-2 py-0.5 rounded-md">
+            <span className="text-[14px] font-bold text-slate-700 bg-amber-100 px-2 py-0.5 rounded-md">
               {isMistakeOpen ? "접기 ▲" : "펼치기 ▼"}
             </span>
           </button>
           {isMistakeOpen && (
-            <div className="text-[13px] sm:text-[14px] text-slate-800 font-medium leading-relaxed pt-1.5 border-t border-amber-200">
+            <div className="text-[14px] text-slate-800 font-medium leading-relaxed pt-1.5 border-t border-amber-200">
               {mistakeWarning}
             </div>
           )}

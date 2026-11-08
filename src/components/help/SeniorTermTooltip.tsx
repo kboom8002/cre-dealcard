@@ -361,7 +361,7 @@ export function SeniorTermTooltip({
         }}
         aria-expanded={open}
         data-testid={`senior-tooltip-trigger-${termKey || "custom"}`}
-        className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[32px] rounded-full bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 text-[13px] font-extrabold shadow-2xs transition-colors cursor-pointer shrink-0"
+        className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[34px] rounded-full bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 text-[14px] font-extrabold shadow-2xs transition-colors cursor-pointer shrink-0"
       >
         <span>{buttonLabel}</span>
       </button>
@@ -380,7 +380,7 @@ export function SeniorTermTooltip({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-[13px] font-extrabold shrink-0 cursor-pointer"
+              className="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-[14px] font-extrabold shrink-0 cursor-pointer"
             >
               ✕ 닫기
             </button>
@@ -399,13 +399,13 @@ export function SeniorTermTooltip({
 
           {showPostureTable && (
             <div className="space-y-1.5 pt-1 max-h-[220px] overflow-y-auto">
-              <p className="text-[13px] font-extrabold text-amber-950">
+              <p className="text-[14px] font-extrabold text-amber-950">
                 👇 5가지 투자 목적별 추천 매물 한눈에 보기
               </p>
               {POSTURE_GUIDE_ROWS.map((row) => (
                 <div
                   key={row.postureName}
-                  className="rounded-xl bg-white border border-amber-200 p-2.5 text-[13px] space-y-0.5"
+                  className="rounded-xl bg-white border border-amber-200 p-2.5 text-[14px] space-y-0.5"
                 >
                   <p className="font-black text-slate-900">{row.postureName}</p>
                   <p className="text-slate-700">{row.recommendedFor}</p>

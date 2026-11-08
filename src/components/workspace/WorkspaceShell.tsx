@@ -333,14 +333,16 @@ export function WorkspaceShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeResizer, persistColumnWidths]);
 
+  const suppressListQueryRef = useRef(false);
+
   // Auto-switch mobile view if a selection is present (unless the page asks to start on the list)
   useEffect(() => {
-    if (rawQueryTab === "list") {
+    if (rawQueryTab === "list" && !suppressListQueryRef.current) {
       setMobileView("list");
       return;
     }
     if (activeBuildingId) {
-      if (mobileStartOnList && !rawQueryTab) {
+      if (mobileStartOnList && !rawQueryTab && !suppressListQueryRef.current) {
         setMobileView("list");
       } else {
         setMobileView(queryTab === "preview" ? "preview" : "editor");
@@ -432,9 +434,9 @@ export function WorkspaceShell({
       {/* ── Fixed 56px Topbar ── */}
       <header
         data-testid="workspace-topbar"
-        className="h-14 shrink-0 bg-white border-b border-slate-300 px-4 flex items-center justify-between z-30 shadow-2xs"
+        className="h-14 shrink-0 bg-white border-b border-slate-300 px-2.5 sm:px-4 flex items-center justify-between gap-2 z-30 shadow-2xs"
       >
-        <nav aria-label="작업공간 메뉴" className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
+        <nav aria-label="작업공간 메뉴" className="flex items-center gap-1 sm:gap-3 overflow-x-auto no-scrollbar min-w-0 flex-1">
           {WS_TOPBAR_LINKS.map((link) => {
             const isActive =
               link.id === workspace ||
@@ -449,7 +451,7 @@ export function WorkspaceShell({
                 href={link.href}
                 data-testid={`workspace-nav-${link.id}`}
                 aria-current={isActive ? "page" : undefined}
-                className={`relative px-3 py-1.5 min-h-[48px] rounded-lg text-base font-extrabold flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                className={`relative px-2 sm:px-3 py-1.5 min-h-[44px] sm:min-h-[48px] rounded-lg text-sm sm:text-base font-extrabold flex items-center gap-1 sm:gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
                   isActive
                     ? "bg-blue-700 text-white shadow-2xs"
                     : "text-slate-700 hover:bg-slate-100"
@@ -460,7 +462,7 @@ export function WorkspaceShell({
                   <span
                     data-testid={`workspace-nav-badge-${link.id}`}
                     aria-label={`처리할 일 ${badge}건`}
-                    className="min-w-[24px] h-6 px-1.5 rounded-full bg-rose-600 text-white text-sm font-extrabold flex items-center justify-center"
+                    className="min-w-[22px] h-5 sm:h-6 px-1.5 rounded-full bg-rose-600 text-white text-sm font-extrabold flex items-center justify-center"
                   >
                     {badge > 99 ? "99+" : badge}
                   </span>
@@ -471,39 +473,7 @@ export function WorkspaceShell({
         </nav>
 
         {/* Right tools / indicators */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Mobile Preview/Editor Switcher (<1024px) */}
-          {mobileView !== "list" && (
-            <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300">
-              <button
-                type="button"
-                data-testid="mobile-tab-editor"
-                onClick={() => handleSelectTab("editor")}
-                aria-pressed={mobileView === "editor"}
-                className={`px-3 min-h-[44px] text-base font-bold rounded-md transition-colors ${
-                  mobileView === "editor"
-                    ? "bg-white text-blue-700 shadow-2xs"
-                    : "text-slate-600"
-                }`}
-              >
-                {mobileTabLabels.editor}
-              </button>
-              <button
-                type="button"
-                data-testid="mobile-tab-preview"
-                onClick={() => handleSelectTab("preview")}
-                aria-pressed={mobileView === "preview"}
-                className={`px-3 min-h-[44px] text-base font-bold rounded-md transition-colors ${
-                  mobileView === "preview"
-                    ? "bg-white text-blue-700 shadow-2xs"
-                    : "text-slate-600"
-                }`}
-              >
-                {mobileTabLabels.preview}
-              </button>
-            </div>
-          )}
-
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           {/* Desktop Preview Drawer Toggle (when 1024px-1279px) */}
           <button
             type="button"
@@ -592,17 +562,23 @@ export function WorkspaceShell({
                 if (!target) return;
                 if (
                   target.closest(
-                    '[data-testid*="delete-"], [data-testid*="duplicate-"], input, select'
+                    '[data-testid*="delete-"], [data-testid*="duplicate-"], [data-testid^="im-posture-tab-"], [data-testid^="dealcard-posture-tab-"], [data-testid^="inbox-filter-"], input, select'
                   )
                 ) {
                   return;
                 }
                 if (
                   target.closest(
-                    '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid="workspace-new-dealcard-btn"]'
+                    '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid^="inbox-item-"], [data-testid="inbox-todo-card"], [data-testid^="issue-card-"], [data-testid^="mag-issue-"], [data-testid^="magazine-edition-item-"], [data-testid="workspace-new-dealcard-btn"], [data-testid="im-create-new-btn"], [data-testid="new-issue-btn"], [data-testid="new-newsletter-btn"]'
                   )
                 ) {
+                  suppressListQueryRef.current = true;
                   setMobileView("editor");
+                  if (searchParams.get("tab") === "list") {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("tab", "editor");
+                    router.replace(`${pathname}?${params.toString()}`);
+                  }
                 }
               }}
             >
@@ -625,37 +601,63 @@ export function WorkspaceShell({
           }`}
         >
           {/* Editor Header */}
-          <div className="h-14 border-b border-slate-300 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0 bg-white sticky top-0 z-10">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="h-14 border-b border-slate-300 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0 bg-white sticky top-0 z-10">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 type="button"
                 data-testid="workspace-mobile-back-to-list-btn"
                 onClick={() => {
+                  suppressListQueryRef.current = false;
                   setMobileView("list");
                   const params = new URLSearchParams(searchParams.toString());
                   params.set("tab", "list");
                   router.replace(`${pathname}?${params.toString()}`);
                 }}
-                className="lg:hidden px-3 min-h-[48px] rounded-lg border border-slate-300 text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0 cursor-pointer"
+                className="lg:hidden px-2.5 sm:px-3 min-h-[44px] sm:min-h-[48px] rounded-lg border border-slate-300 text-sm sm:text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 ‹ 목록
               </button>
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
+              <h2 className="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
                 {editorTitle}
               </h2>
             </div>
 
-            {renderedSaveStatus && (
-              <div
-                data-testid="workspace-save-status"
-                data-save-state={saveState}
-                role="status"
-                aria-live="polite"
-                className={`flex items-center gap-1.5 text-base font-bold px-3 py-1 rounded-full border whitespace-nowrap shrink-0 ${saveTone}`}
-              >
-                <span>{renderedSaveStatus}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {renderedSaveStatus && (
+                <div
+                  data-testid="workspace-save-status"
+                  data-save-state={saveState}
+                  role="status"
+                  aria-live="polite"
+                  className={`flex items-center gap-1.5 text-sm sm:text-base font-bold px-2.5 sm:px-3 py-1 rounded-full border whitespace-nowrap shrink-0 ${saveTone}`}
+                >
+                  <span>{renderedSaveStatus}</span>
+                </div>
+              )}
+
+              {mobileView === "editor" && (
+                <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300 shrink-0">
+                  <button
+                    type="button"
+                    data-testid="mobile-tab-editor"
+                    onClick={() => handleSelectTab("editor")}
+                    aria-pressed={true}
+                    className="px-2.5 min-h-[40px] text-sm font-bold rounded-md transition-colors bg-white text-blue-700 shadow-2xs"
+                  >
+                    {mobileTabLabels.editor}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="mobile-tab-preview"
+                    onClick={() => handleSelectTab("preview")}
+                    aria-pressed={false}
+                    className="px-2.5 min-h-[40px] text-sm font-bold rounded-md transition-colors text-slate-600"
+                  >
+                    {mobileTabLabels.preview}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Editor Body */}
@@ -690,25 +692,50 @@ export function WorkspaceShell({
         >
           {/* Preview Header */}
           <div className="h-14 border-b border-slate-300 px-3.5 flex items-center justify-between gap-2 shrink-0 bg-[#FAF9F5]">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 type="button"
                 data-testid="mobile-preview-back-btn"
                 onClick={() => {
+                  suppressListQueryRef.current = false;
                   setMobileView("list");
                   const params = new URLSearchParams(searchParams.toString());
                   params.set("tab", "list");
                   router.replace(`${pathname}?${params.toString()}`);
                 }}
-                className="lg:hidden px-3 min-h-[48px] rounded-lg border border-slate-300 text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0 cursor-pointer"
+                className="lg:hidden px-2.5 sm:px-3 min-h-[44px] sm:min-h-[48px] rounded-lg border border-slate-300 text-sm sm:text-base font-extrabold text-slate-800 hover:bg-slate-100 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 ‹ 목록
               </button>
-              <h2 className="text-lg font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
                 {previewTitle}
               </h2>
             </div>
-            <div className="shrink-0">{previewTabSlot}</div>
+            <div className="flex items-center gap-2 shrink-0">
+              {previewTabSlot}
+              {mobileView === "preview" && (
+                <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300 shrink-0">
+                  <button
+                    type="button"
+                    data-testid="mobile-tab-editor"
+                    onClick={() => handleSelectTab("editor")}
+                    aria-pressed={false}
+                    className="px-2.5 min-h-[40px] text-sm font-bold rounded-md transition-colors text-slate-600"
+                  >
+                    {mobileTabLabels.editor}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="mobile-tab-preview"
+                    onClick={() => handleSelectTab("preview")}
+                    aria-pressed={true}
+                    className="px-2.5 min-h-[40px] text-sm font-bold rounded-md transition-colors bg-white text-blue-700 shadow-2xs"
+                  >
+                    {mobileTabLabels.preview}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Real Preview Content (single scroll container) */}

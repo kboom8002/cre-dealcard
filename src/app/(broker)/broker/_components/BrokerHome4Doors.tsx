@@ -129,7 +129,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-extrabold px-2 py-0.5 bg-amber-100 text-amber-900 rounded-md">
+                  <span className="text-sm font-extrabold px-2 py-0.5 bg-amber-100 text-amber-900 rounded-md">
                     이어서 하기
                   </span>
                   <span className="text-sm text-slate-500 font-medium">
@@ -178,7 +178,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
                 title={`${door.config.title} 목록 바로가기`}
               >
                 <span>{door.config.badge.label}</span>
-                <span className="text-xs opacity-70">›</span>
+                <span className="text-sm opacity-70">›</span>
               </Link>
             </div>
 

@@ -327,13 +327,67 @@ function ImWorkspaceInner() {
     return 0;
   }, [askingPriceManwon, totalRentManwon, totalDepositManwon, investmentPosture, currentItem]);
 
-  const autosave = useWorkspaceAutosave({
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  const autosave = useWorkspaceAutosave<ImListItem | undefined>({
     id: selectedId || null,
+    ready: isHydrated,
     data: currentItem,
     debounceMs: 900,
-    onSave: async () => {
-      // Local draft persistence is synchronous
-      return;
+    onSave: async ({ data: draftItem }) => {
+      if (!draftItem) return;
+      const targetBid = draftItem.buildingId || draftItem.id;
+      const res = await fetch("/api/broker/workspace/summary", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert_im",
+          buildingId: targetBid,
+          imId: draftItem.id,
+          imItem: draftItem,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error("IM save failed");
+      }
+      try {
+        const imRaw = window.localStorage.getItem(IM_STORAGE_KEY);
+        if (imRaw) {
+          const imParsed = JSON.parse(imRaw);
+          if (Array.isArray(imParsed)) {
+            const cleanedIm = imParsed.map((it: any) =>
+              it.id === draftItem.id ? { ...it, isDirty: false } : it
+            );
+            window.localStorage.setItem(IM_STORAGE_KEY, JSON.stringify(cleanedIm));
+          }
+        }
+        const dcRaw = window.localStorage.getItem("credeal-w-dealcards-v5");
+        if (dcRaw) {
+          const dcParsed = JSON.parse(dcRaw);
+          if (Array.isArray(dcParsed)) {
+            const nextBand =
+              draftItem.askingPriceManwon && draftItem.askingPriceManwon > 0
+                ? formatPriceRange(draftItem.askingPriceManwon * 10000)
+                : undefined;
+            const nextDc = dcParsed.map((dc: any) => {
+              if (dc.id !== targetBid) return dc;
+              return {
+                ...dc,
+                ...(nextBand
+                  ? {
+                      priceBand: nextBand,
+                      card4: dc.card4 ? { ...dc.card4, priceBand: nextBand } : dc.card4,
+                    }
+                  : {}),
+                isDirty: false,
+              };
+            });
+            window.localStorage.setItem("credeal-w-dealcards-v5", JSON.stringify(nextDc));
+          }
+        }
+      } catch {
+        // ignore storage errors
+      }
     },
   });
 
@@ -468,6 +522,9 @@ function ImWorkspaceInner() {
       })
       .catch(() => {
         // Offline / test fallback
+      })
+      .finally(() => {
+        setIsHydrated(true);
       });
   }, [buildingIdParam, applyItemToFormState, persistImItems]);
 
@@ -874,6 +931,53 @@ function ImWorkspaceInner() {
     });
   };
 
+  const handleDeleteIm = (target: ImListItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (items.length <= 1) {
+      setActionAlert("최소 1개의 IM은 남겨 두어야 합니다.");
+      return;
+    }
+    const prevItems = [...items];
+    const prevSelectedId = selectedId;
+    const next = items.filter((it) => it.id !== target.id);
+    setItems(next);
+    persistImItems(next);
+    if (selectedId === target.id && next[0]) {
+      setSelectedId(next[0].id);
+      applyItemToFormState(next[0]);
+    }
+    void fetch("/api/broker/workspace/summary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete_im",
+        buildingId: target.buildingId || target.id,
+        imId: target.id,
+      }),
+    }).catch(() => {});
+
+    showUndoToast({
+      message: `'${target.title || "새 IM"}' IM을 삭제했습니다`,
+      undoAction: () => {
+        setItems(prevItems);
+        persistImItems(prevItems);
+        setSelectedId(prevSelectedId);
+        const restored = prevItems.find((i) => i.id === prevSelectedId);
+        if (restored) applyItemToFormState(restored);
+        void fetch("/api/broker/workspace/summary", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "restore_im",
+            buildingId: target.buildingId || target.id,
+            imId: target.id,
+            imItem: target,
+          }),
+        }).catch(() => {});
+      },
+    });
+  };
+
   const handleReclusterImAxios = async () => {
     const prevHighlights = axiosHighlights.map((h) => ({ ...h }));
     setIsAiPointsBusy(true);
@@ -1011,6 +1115,7 @@ function ImWorkspaceInner() {
       {/* Create New Button */}
       <button
         type="button"
+        data-testid="im-create-new-btn"
         onClick={handleCreateNew}
         className="w-full min-h-[52px] px-4 py-3 bg-[#0F172A] text-white rounded-xl font-bold text-base hover:bg-[#1E293B] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
       >
@@ -1087,6 +1192,7 @@ function ImWorkspaceInner() {
               key={item.id}
               role="button"
               tabIndex={0}
+              data-testid={`im-item-${item.id}`}
               aria-current={isSelected ? "true" : undefined}
               onClick={() => setSelectedId(item.id)}
               onKeyDown={(e) => {
@@ -1137,14 +1243,24 @@ function ImWorkspaceInner() {
                     {item.grossYieldPct > 0 ? `수익률 ${item.grossYieldPct}%` : itemPostureLabel}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  data-testid={`im-duplicate-${item.id}`}
-                  onClick={(e) => handleDuplicateIm(item, e)}
-                  className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
-                >
-                  복제
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    data-testid={`im-duplicate-${item.id}`}
+                    onClick={(e) => handleDuplicateIm(item, e)}
+                    className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
+                  >
+                    복제
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`im-delete-${item.id}`}
+                    onClick={(e) => handleDeleteIm(item, e)}
+                    className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 cursor-pointer"
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -1290,9 +1406,9 @@ function ImWorkspaceInner() {
                 </span>
                 {tab.done && (
                   <span
-                    className={`text-xs font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ${
+                    className={`text-sm font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
                       isActive
-                        ? "bg-emerald-500/20 text-emerald-300"
+                        ? "bg-emerald-700 text-white"
                         : "bg-emerald-100 text-emerald-800"
                     }`}
                   >
@@ -1510,7 +1626,7 @@ function ImWorkspaceInner() {
               {Number(gfaSqm) > 0 && (
                 <span
                   data-testid="im-gfa-pyeong-badge"
-                  className="text-xs font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
+                  className="text-sm font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
                 >
                   약 {Math.round(Number(gfaSqm) * 0.3025).toLocaleString()}평
                 </span>
@@ -1538,7 +1654,7 @@ function ImWorkspaceInner() {
               {Number(landAreaSqm) > 0 && (
                 <span
                   data-testid="im-land-pyeong-badge"
-                  className="text-xs font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
+                  className="text-sm font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
                 >
                   약 {Math.round(Number(landAreaSqm) * 0.3025).toLocaleString()}평
                 </span>
@@ -2375,10 +2491,11 @@ function ImWorkspaceInner() {
             ))}
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2.5" data-theme-lock="dark">
             {visibleSlides.map((slide) => (
               <div
                 key={slide.no}
+                data-testid={`im-slide-preview-${slide.no}`}
                 className="aspect-video w-full bg-[#0F172A] text-white rounded-xl border border-[#334155] p-4 flex flex-col justify-between shadow-sm"
               >
                 <div className="flex items-center justify-between">

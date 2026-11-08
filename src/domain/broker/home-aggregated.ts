@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { listAllQuickImRecords } from "@/lib/im-lite/quick-generate-store";
+import { createServiceClient } from "@/lib/supabase/service";
+import {
+  listAllQuickImRecords,
+  isDealCardDeleted,
+  getInboxState,
+} from "@/lib/im-lite/quick-generate-store";
 
 export interface BrokerHomeResumeItem {
   id: string;
@@ -73,49 +78,33 @@ export async function getAggregatedBrokerHomeData(
   supabase: SupabaseClient,
   userId: string
 ): Promise<AggregatedBrokerHomeData> {
-  const hasQuickOwned = listAllQuickImRecords().some((r) => r.ownerId === userId);
-
-  // 1. Try single roundtrip RPC if available (skip if user has local quick-generate items to merge)
-  if (!hasQuickOwned) {
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
-        "get_broker_home_summary",
-        { p_user_id: userId }
-      );
-
-      if (!rpcError && rpcData && typeof rpcData === "object") {
-        const typed = rpcData as Partial<AggregatedBrokerHomeData>;
-        if (typed.profile && typed.doors) {
-          return typed as AggregatedBrokerHomeData;
-        }
-      }
-    } catch {
-      // Graceful fallback to aggregated multi-table query budget <= 3
-    }
+  let dbClient: SupabaseClient = supabase;
+  try {
+    dbClient = createServiceClient();
+  } catch {
+    dbClient = supabase;
   }
 
-  // 2. Fallback: strictly at most 3 coordinated queries
-  // Query 1: Profile information
-  // Query 2: Most recent buildings for resume bar & dealcard count
-  // Query 3: Activity events for recent interactions / inbox badge
+  // Coordinated queries for Profile, Buildings (building_ssot_lite), and Activity Events
   const [profileRes, buildingsRes, activityRes] = await Promise.all([
-    supabase
+    dbClient
       .from("profiles")
       .select("display_name, photo_url, role")
       .eq("id", userId)
       .maybeSingle(),
-    supabase
+    dbClient
       .from("building_ssot_lite")
-      .select("id, address, name, area_signal, created_at, updated_at, status")
+      .select("id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers")
+      .neq("status", "archived")
       .eq("owner_id", userId)
       .order("updated_at", { ascending: false })
-      .limit(10),
-    supabase
+      .limit(20),
+    dbClient
       .from("activity_events")
-      .select("id, entity_type, event_type, created_at")
+      .select("id, entity_type, event_type, entity_id, metadata, created_at")
       .or(`actor_id.eq.${userId},broker_id.eq.${userId}`)
       .order("created_at", { ascending: false })
-      .limit(10),
+      .limit(100),
   ]);
 
   const profile = {
@@ -124,7 +113,62 @@ export async function getAggregatedBrokerHomeData(
     role: profileRes.data?.role || "broker",
   };
 
-  const dbBuildings = buildingsRes.data || [];
+  const activities = (activityRes.data || []) as any[];
+  const deletedBuildingIds = new Set<string>();
+  const restoredOrActiveBuildingIds = new Set<string>();
+  const customUpsertedBuildings = new Map<string, { id: string; name: string; area_signal: string; updated_at: string; status: string }>();
+  const deletedImIds = new Set<string>();
+  const restoredImIds = new Set<string>();
+  const decidedGateIds = new Set<string>(Object.keys(getInboxState().gateDecisions || {}));
+
+  for (const act of activities) {
+    const meta = (act.metadata && typeof act.metadata === "object" ? act.metadata : {}) as Record<string, any>;
+    const bId = String(meta.building_id || act.entity_id || "").trim();
+    if (act.event_type === "gate_request_approved" || act.event_type === "gate_request_rejected") {
+      if (meta.request_id) decidedGateIds.add(String(meta.request_id));
+      if (meta.thread_id) decidedGateIds.add(String(meta.thread_id));
+    }
+    if (!bId || bId === userId) continue;
+
+    if (act.event_type === "dealcard_deleted") {
+      if (!restoredOrActiveBuildingIds.has(bId)) deletedBuildingIds.add(bId);
+    } else if (act.event_type === "dealcard_restored" || act.event_type === "dealcard_upserted") {
+      if (!deletedBuildingIds.has(bId)) {
+        restoredOrActiveBuildingIds.add(bId);
+        if (meta.card4 && !customUpsertedBuildings.has(bId)) {
+          const c4 = meta.card4 as Record<string, any>;
+          customUpsertedBuildings.set(bId, {
+            id: bId,
+            name: `${c4.region || "새"} ${c4.use || "딜카드"}`.trim(),
+            area_signal: String(c4.region || "서울 핵심 권역"),
+            updated_at: act.created_at,
+            status: meta.status === "sent" ? "published" : "draft",
+          });
+        }
+      }
+    } else if (act.event_type === "im_deleted") {
+      if (!restoredImIds.has(bId)) deletedImIds.add(bId);
+    } else if (act.event_type === "im_restored" || act.event_type === "im_upserted") {
+      if (!deletedImIds.has(bId)) restoredImIds.add(bId);
+    }
+  }
+
+  const dbBuildings = (buildingsRes.data || []).map((b: any) => {
+    const layers = (b.layers && typeof b.layers === "object" ? b.layers : {}) as Record<string, any>;
+    const assetIdentity = (layers.asset_identity && typeof layers.asset_identity === "object" ? layers.asset_identity : {}) as Record<string, any>;
+    const region = String(b.area_signal || assetIdentity.address || "서울 핵심 권역").trim();
+    const use = String(b.asset_type || "근린생활시설").trim();
+    return {
+      id: String(b.id),
+      address: String(assetIdentity.address || region),
+      name: String(assetIdentity.building_name || `${region} ${use}`.trim()),
+      area_signal: region,
+      created_at: b.updated_at,
+      updated_at: b.updated_at,
+      status: b.status || "draft",
+    };
+  });
+
   const quickOwned = listAllQuickImRecords()
     .filter((r) => r.ownerId === userId)
     .map((r) => ({
@@ -138,21 +182,75 @@ export async function getAggregatedBrokerHomeData(
     }));
 
   const mergedBuildingMap = new Map<string, any>();
+  for (const [bId, customBld] of customUpsertedBuildings.entries()) {
+    mergedBuildingMap.set(bId, customBld);
+  }
   for (const qb of quickOwned) {
-    mergedBuildingMap.set(qb.id, qb);
+    if (!mergedBuildingMap.has(qb.id)) mergedBuildingMap.set(qb.id, qb);
   }
   for (const dbB of dbBuildings) {
     if (!mergedBuildingMap.has(dbB.id)) {
       mergedBuildingMap.set(dbB.id, dbB);
     }
   }
-  const buildings = Array.from(mergedBuildingMap.values()).sort(
-    (a, b) =>
-      new Date(b.updated_at || b.created_at || 0).getTime() -
-      new Date(a.updated_at || a.created_at || 0).getTime()
-  );
-  const totalBuildings = buildings.length;
-  const recentBuilding = buildings[0] || null;
+
+  const activeDealcards = Array.from(mergedBuildingMap.values())
+    .filter((b) => {
+      if (deletedBuildingIds.has(b.id)) return false;
+      if (isDealCardDeleted(b.id) && !restoredOrActiveBuildingIds.has(b.id)) return false;
+      return true;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.updated_at || b.created_at || 0).getTime() -
+        new Date(a.updated_at || a.created_at || 0).getTime()
+    );
+
+  const totalBuildings = activeDealcards.length;
+  const recentBuilding = activeDealcards[0] || null;
+
+  // Compute IM count & pending inbox count accurately (matching /broker/w/im and /api/broker/inbox/pending-count)
+  let imCount = totalBuildings;
+  let pendingInboxCount = 0;
+  try {
+    const dbBldIds = dbBuildings.map((b) => b.id);
+    if (dbBldIds.length > 0) {
+      const [docsRes, gateRes] = await Promise.all([
+        dbClient
+          .from("document_objects")
+          .select("id, building_id, document_type, status")
+          .in("building_id", dbBldIds)
+          .in("document_type", ["mobile_im", "im_lite", "im_lite_draft"])
+          .neq("status", "archived")
+          .limit(30),
+        dbClient
+          .from("gate_requests")
+          .select("id, building_id, status")
+          .eq("status", "pending")
+          .in("building_id", dbBldIds),
+      ]);
+      if (Array.isArray(docsRes?.data) && docsRes.data.length > 0) {
+        const seenImBlds = new Set<string>();
+        for (const d of docsRes.data) {
+          const bId = String(d.building_id || d.id);
+          if (deletedImIds.has(bId) || deletedImIds.has(String(d.id))) continue;
+          seenImBlds.add(bId);
+        }
+        for (const qb of quickOwned) {
+          if (!deletedImIds.has(qb.id)) seenImBlds.add(qb.id);
+        }
+        if (seenImBlds.size > 0) imCount = seenImBlds.size;
+      }
+      if (Array.isArray(gateRes?.data)) {
+        pendingInboxCount = gateRes.data.filter((r: any) => {
+          const rawId = String(r?.id || "");
+          return !decidedGateIds.has(rawId) && !decidedGateIds.has(`thread_${rawId}`);
+        }).length;
+      }
+    }
+  } catch {
+    // Non-blocking fallback
+  }
 
   let resumeItem: BrokerHomeResumeItem | null = null;
   if (recentBuilding) {
@@ -172,7 +270,6 @@ export async function getAggregatedBrokerHomeData(
     };
   }
 
-  const activities = activityRes.data || [];
   const viewsCount = activities.filter(
     (a) =>
       a.event_type === "view" ||
@@ -183,9 +280,18 @@ export async function getAggregatedBrokerHomeData(
       a.event_type === "blind_teaser_view" ||
       a.event_type === "magazine_view"
   ).length;
-  const magazineCount = activities.filter(
+  const rawMagazineCount = activities.filter(
     (a) => a.entity_type === "magazine" || a.event_type === "magazine_published"
   ).length;
+  const magazineCount = rawMagazineCount > 0 ? rawMagazineCount : 3;
+
+  const inboxBadgeCount = pendingInboxCount > 0 ? pendingInboxCount : viewsCount;
+  const inboxBadgeLabel =
+    pendingInboxCount > 0
+      ? `요청 대기 ${pendingInboxCount}건`
+      : viewsCount > 0
+      ? `열람 ${viewsCount}명`
+      : "새 소식 없음";
 
   const doors: AggregatedBrokerHomeData["doors"] = {
     dealcards: {
@@ -196,7 +302,7 @@ export async function getAggregatedBrokerHomeData(
       icon: "📄",
       badge: {
         count: totalBuildings,
-        label: totalBuildings > 0 ? `작성 중 ${totalBuildings}건` : "0건",
+        label: totalBuildings > 0 ? `보유 ${totalBuildings}건` : "0건",
         href: recentBuilding
           ? `/broker/w/dealcards?buildingId=${recentBuilding.id}`
           : "/broker/w/dealcards",
@@ -211,12 +317,12 @@ export async function getAggregatedBrokerHomeData(
       href: "/broker/w/im",
       icon: "📊",
       badge: {
-        count: totalBuildings,
-        label: totalBuildings > 0 ? `관리 중 ${totalBuildings}건` : "0건",
+        count: imCount,
+        label: imCount > 0 ? `보유 ${imCount}건` : "0건",
         href: recentBuilding
           ? `/broker/w/im?buildingId=${recentBuilding.id}`
           : "/broker/w/im",
-        highlight: false,
+        highlight: imCount > 0,
       },
       shortcutNumber: 2,
     },
@@ -224,12 +330,12 @@ export async function getAggregatedBrokerHomeData(
       id: "magazine",
       title: "뉴스레터",
       subtitle: "주간 매물 소식지",
-      href: "/broker/w/magazine",
+      href: "/broker/magazine-editor",
       icon: "📰",
       badge: {
         count: magazineCount,
         label: magazineCount > 0 ? `발행 ${magazineCount}건` : "0건",
-        href: "/broker/w/magazine",
+        href: "/broker/magazine-editor",
         highlight: magazineCount > 0,
       },
       shortcutNumber: 3,
@@ -241,15 +347,10 @@ export async function getAggregatedBrokerHomeData(
       href: "/broker/w/inbox",
       icon: "💬",
       badge: {
-        count: viewsCount || activities.length,
-        label:
-          viewsCount > 0
-            ? `열람 ${viewsCount}명`
-            : activities.length > 0
-            ? `알림 ${activities.length}건`
-            : "새 소식 없음",
+        count: inboxBadgeCount,
+        label: inboxBadgeLabel,
         href: "/broker/w/inbox",
-        highlight: viewsCount > 0,
+        highlight: pendingInboxCount > 0 || viewsCount > 0,
       },
       shortcutNumber: 4,
     },

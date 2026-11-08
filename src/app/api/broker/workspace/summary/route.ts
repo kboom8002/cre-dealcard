@@ -330,6 +330,9 @@ export async function GET(request: NextRequest) {
     string,
     { card4: Card4Data; updatedAt: string; status?: "draft" | "sent" }
   >();
+  const deletedImIds = new Set<string>();
+  const restoredOrActiveImIds = new Set<string>();
+  const customImUpsertedByKey = new Map<string, { item: Record<string, any>; updatedAt: string }>();
 
   try {
     if (supabase && typeof supabase.from === "function") {
@@ -343,6 +346,9 @@ export async function GET(request: NextRequest) {
           "dealcard_deleted",
           "dealcard_restored",
           "dealcard_sent",
+          "im_upserted",
+          "im_deleted",
+          "im_restored",
         ]);
       }
       if (typeof actQuery.order === "function") {
@@ -355,6 +361,29 @@ export async function GET(request: NextRequest) {
       for (const act of dcActs || []) {
         const meta = (act.metadata as Record<string, any>) || {};
         const bId = String(meta.building_id || act.entity_id || "").trim();
+        const imKey = String(meta.im_id || meta.building_id || act.entity_id || "").trim();
+
+        if (act.event_type === "im_deleted" && imKey) {
+          if (!restoredOrActiveImIds.has(imKey)) {
+            deletedImIds.add(imKey);
+            if (bId && bId !== userId) deletedImIds.add(bId);
+          }
+          continue;
+        }
+        if ((act.event_type === "im_restored" || act.event_type === "im_upserted") && imKey) {
+          if (!deletedImIds.has(imKey)) {
+            restoredOrActiveImIds.add(imKey);
+            if (bId && bId !== userId) restoredOrActiveImIds.add(bId);
+            if (meta.im_item && typeof meta.im_item === "object" && !customImUpsertedByKey.has(imKey)) {
+              customImUpsertedByKey.set(imKey, {
+                item: meta.im_item as Record<string, any>,
+                updatedAt: act.created_at,
+              });
+            }
+          }
+          continue;
+        }
+
         if (!bId || bId === userId) continue;
 
         if (act.event_type === "dealcard_deleted") {
@@ -501,10 +530,41 @@ export async function GET(request: NextRequest) {
           : ("draft" as const),
     }));
 
+  // Apply customImUpsertedByKey overrides & deletedImIds filtering
+  for (const [, customImEntry] of customImUpsertedByKey.entries()) {
+    const it = customImEntry.item;
+    if (!it || (!it.id && !it.buildingId)) continue;
+    const idx = imList.findIndex(
+      (im) =>
+        (it.id && im.id === it.id) ||
+        (it.buildingId && im.buildingId === it.buildingId)
+    );
+    const mergedIm = {
+      ...(idx >= 0 ? imList[idx] : {}),
+      ...it,
+      id: String(it.id || (idx >= 0 ? imList[idx].id : it.buildingId)),
+      buildingId: String(it.buildingId || (idx >= 0 ? imList[idx].buildingId : it.id)),
+      updatedAt: formatRelativeTime(customImEntry.updatedAt),
+    };
+    if (idx >= 0) {
+      imList[idx] = mergedIm as any;
+    } else {
+      imList.unshift(mergedIm as any);
+    }
+  }
+
+  const finalImList = imList.filter((im) => {
+    if (deletedImIds.has(im.id) || (im.buildingId && deletedImIds.has(im.buildingId))) {
+      return false;
+    }
+    return true;
+  });
+
   return NextResponse.json({
     ok: true,
     dealcards: finalDealcards,
-    imList,
+    imList: finalImList,
+    ims: finalImList,
     brokerProfile,
   });
 }
@@ -651,6 +711,153 @@ export async function PATCH(request: NextRequest) {
       action: "mark_sent",
       buildingId,
       status: "sent",
+      persisted: true,
+    });
+  }
+
+  // Handle IM delete action (P0-META-IM-DELETE-04)
+  if (action === "delete_im") {
+    const imId = String(body?.imId || buildingId);
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "im_deleted",
+        entity_type: "building",
+        entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
+        metadata: {
+          building_id: buildingId,
+          im_id: imId,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+    try {
+      revalidatePath(`/im-lite/${buildingId}`);
+    } catch {
+      // Ignore
+    }
+    return NextResponse.json({ ok: true, action: "delete_im", buildingId, imId, persisted: true });
+  }
+
+  // Handle IM restore action (15s Undo delete)
+  if (action === "restore_im") {
+    const imId = String(body?.imId || buildingId);
+    const imItem = body?.imItem && typeof body.imItem === "object" ? body.imItem : undefined;
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "im_restored",
+        entity_type: "building",
+        entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
+        metadata: {
+          building_id: buildingId,
+          im_id: imId,
+          ...(imItem ? { im_item: imItem } : {}),
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+    try {
+      revalidatePath(`/im-lite/${buildingId}`);
+    } catch {
+      // Ignore
+    }
+    return NextResponse.json({ ok: true, action: "restore_im", buildingId, imId, persisted: true });
+  }
+
+  // Handle IM autosave / upsert action (P0-META-IM-PERSIST-03)
+  if (action === "upsert_im") {
+    const imItem = body?.imItem && typeof body.imItem === "object" ? (body.imItem as Record<string, any>) : null;
+    if (!imItem) {
+      return NextResponse.json({ error: "imItem is required for upsert_im" }, { status: 400 });
+    }
+    const imId = String(imItem.id || buildingId);
+    try {
+      if (isUuid(buildingId)) {
+        const { data: latestDoc } = await supabase
+          .from("document_objects")
+          .select("id, body")
+          .eq("building_id", buildingId)
+          .in("document_type", ["mobile_im", "im_lite", "im_lite_draft"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestDoc?.id) {
+          const prevBody = (latestDoc.body && typeof latestDoc.body === "object" ? latestDoc.body : {}) as Record<string, any>;
+          const prevSsot = (prevBody.ssot_summary && typeof prevBody.ssot_summary === "object" ? prevBody.ssot_summary : {}) as Record<string, any>;
+          const prevHero = (prevBody.heroCard && typeof prevBody.heroCard === "object" ? prevBody.heroCard : {}) as Record<string, any>;
+          const cleanHighlights = Array.isArray(imItem.axiosHighlights)
+            ? imItem.axiosHighlights.filter((h: unknown) => typeof h === "string" && h.trim().length > 0)
+            : undefined;
+          const nextBody = {
+            ...prevBody,
+            basicImDocument: undefined,
+            heroTitle: imItem.title || prevBody.heroTitle,
+            investment_posture: imItem.investmentPosture || prevBody.investment_posture,
+            handover_note: imItem.handoverNote ?? prevBody.handover_note,
+            axios_highlights: cleanHighlights ?? prevBody.axios_highlights,
+            rent_roll: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.rent_roll,
+            floor_leases: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.floor_leases,
+            heroCard: {
+              ...prevHero,
+              posture: imItem.investmentPosture || prevHero.posture,
+              keyPoints: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevHero.keyPoints,
+            },
+            ssot_summary: {
+              ...prevSsot,
+              address: imItem.address || prevSsot.address,
+              investment_posture: imItem.investmentPosture || prevSsot.investment_posture,
+              asking_price_manwon: Number(imItem.askingPriceManwon) || prevSsot.asking_price_manwon,
+              total_gross_area_sqm: imItem.gfaSqm ? Number(imItem.gfaSqm) : prevSsot.total_gross_area_sqm,
+              land_area_sqm: imItem.landAreaSqm ? Number(imItem.landAreaSqm) : prevSsot.land_area_sqm,
+              zoning: imItem.zoning || prevSsot.zoning,
+              completion_date: imItem.completionDate || prevSsot.completion_date,
+              handover_note: imItem.handoverNote ?? prevSsot.handover_note,
+            },
+          };
+          await supabase
+            .from("document_objects")
+            .update({
+              title: imItem.title || undefined,
+              body: nextBody,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", latestDoc.id);
+        }
+      }
+
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "im_upserted",
+        entity_type: "building",
+        entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
+        metadata: {
+          building_id: buildingId,
+          im_id: imId,
+          im_item: {
+            ...imItem,
+            isDirty: false,
+          },
+          broker_profile: brokerProfileMeta,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+    try {
+      revalidatePath(`/im-lite/${buildingId}`);
+      revalidatePath(`/dc/${buildingId}`);
+    } catch {
+      // Ignore
+    }
+    return NextResponse.json({
+      ok: true,
+      action: "upsert_im",
+      buildingId,
+      imId,
       persisted: true,
     });
   }

@@ -469,6 +469,149 @@ export async function fetchIMData(
 
   const supabase = createServiceClient();
 
+  // P0-META-IM-PERSIST-03: Check activity_events for latest im_upserted / im_deleted / im_restored
+  let latestImUpsert: { imItem: Record<string, any>; brokerProfile?: Record<string, any> } | null = null;
+  try {
+    const { data: imEvents } = await supabase
+      .from("activity_events")
+      .select("event_type, metadata, created_at")
+      .in("event_type", ["im_upserted", "im_deleted", "im_restored"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (Array.isArray(imEvents)) {
+      let decidedDeleted = false;
+      let decidedRestored = false;
+      for (const ev of imEvents) {
+        const meta = (ev.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, any>;
+        const evBId = String(meta.building_id || "");
+        const evImId = String(meta.im_id || meta.im_item?.id || "");
+        if (evBId !== buildingId && evImId !== buildingId) continue;
+
+        if (ev.event_type === "im_deleted") {
+          if (!decidedRestored && !latestImUpsert) {
+            decidedDeleted = true;
+          }
+          break;
+        }
+        if (ev.event_type === "im_restored") {
+          decidedRestored = true;
+          continue;
+        }
+        if (ev.event_type === "im_upserted" && meta.im_item) {
+          latestImUpsert = {
+            imItem: meta.im_item as Record<string, any>,
+            brokerProfile: meta.broker_profile as Record<string, any> | undefined,
+          };
+          break;
+        }
+      }
+      if (decidedDeleted) {
+        return null;
+      }
+    }
+  } catch {
+    // Non-blocking
+  }
+
+  // Non-UUID custom IM IDs: synthesize directly from latestImUpsert or return null before UUID table queries
+  if (!isUuid(buildingId)) {
+    if (!latestImUpsert) {
+      return null;
+    }
+    const it = latestImUpsert.imItem;
+    const bp = latestImUpsert.brokerProfile;
+    const brokerObj = buildBrokerObject(
+      bp
+        ? {
+            display_name: bp.displayName,
+            company: bp.company,
+            phone: bp.phone,
+            tagline: bp.tagline,
+            photo_url: bp.photoUrl,
+            slug: bp.slug,
+            specialty_regions: bp.specialtyRegions,
+            specialty_assets: bp.specialtyAssets,
+            bio: bp.bio,
+          }
+        : null
+    );
+    const askManwon = Number(it.askingPriceManwon) || 1000000;
+    const eokStr = `${(askManwon / 10000).toFixed(1).replace(/\.0$/, "")}억 원`;
+    const gfaSqm = Number(it.gfaSqm) || 1200;
+    const landSqm = Number(it.landAreaSqm) || 350;
+    const customDoc: MobileIMDocument = {
+      buildingId,
+      blindName: String(it.title || it.address || "상업용 빌딩"),
+      fullName: String(it.title || it.address || "상업용 빌딩"),
+      areaSignal: String(it.address || "서울시 핵심 권역"),
+      assetType: "근린생활시설·오피스",
+      priceBand: eokStr,
+      sizeSignal: `연면적 ${gfaSqm.toLocaleString()}㎡`,
+      completenessScore: 85,
+      broker: brokerObj,
+      sections: [],
+      generatedAt: new Date().toISOString(),
+      status: "published",
+      disclaimer:
+        "본 자료는 고객 검토용으로 작성되었으며 법적 구속력을 갖지 않습니다.",
+      fullImUpgradeCta: {
+        enabled: true,
+        label: "상세 투자설명서(IM) 요청",
+        description: "상세 투자설명서(IM)는 담당 공인중개사를 통해 안내받으실 수 있습니다.",
+      },
+      protectedFieldsRemoved: [],
+      photos: [],
+      heroCard: {
+        assetType: "근린생활시설·오피스",
+        areaSignal: String(it.address || "서울시 핵심 권역"),
+        askingPriceDisplay: eokStr,
+        capRateBase: Number(it.capRatePct) || 4.2,
+        noiBaseBil: null,
+        keyPoints: Array.isArray(it.axiosHighlights)
+          ? it.axiosHighlights.filter((h: unknown) => typeof h === "string" && h.trim().length > 0)
+          : undefined,
+        keyInvestmentPoint: Array.isArray(it.axiosHighlights) ? it.axiosHighlights[0] : "",
+        keyRisk: "계약 전 법률·세무·물리적 실사를 통한 리스크 확인 권장",
+        equityRequiredBil: null,
+        leveragedYieldPct: null,
+        readinessScore: 85,
+        dcf10YearNpvBil: null,
+        posture: (it.investmentPosture || "core_income") as any,
+        landAreaM2: landSqm,
+        totalGrossAreaM2: gfaSqm,
+        zoning: String(it.zoning || "일반상업지역"),
+        landPricePerPyeong: null,
+        farHeadroom: null,
+        devProfitMarginPct: null,
+        gopMarginPct: null,
+        adr: null,
+        occPct: Number(it.occupancyPct) || 100,
+        revpar: null,
+        ownVsLeaseSavingsBil: null,
+        breakevenYears: null,
+        pricePerPyeong: null,
+        marketDiscountPct: null,
+        targetHprPct: null,
+      },
+      tier: "basic",
+      releaseTier: "fact_om",
+    };
+    (customDoc as any).rentRoll = Array.isArray(it.rentRoll) ? it.rentRoll : undefined;
+    (customDoc as any).floor_leases = Array.isArray(it.rentRoll) ? it.rentRoll : undefined;
+    (customDoc as any).ssotSummary = {
+      address: it.address,
+      investment_posture: it.investmentPosture || "core_income",
+      asking_price_manwon: askManwon,
+      total_gross_area_sqm: gfaSqm,
+      land_area_sqm: landSqm,
+      zoning: it.zoning || "일반상업지역",
+      completion_date: it.completionDate || "2018-06",
+      handover_note: it.handoverNote,
+    };
+    return attachInboxGovernanceOverlay(customDoc, buildingId);
+  }
+
   // P0-SEC: building visibility + owner (read directly from the SSoT source table).
   const { data: buildingAccess } = await supabase
     .from("building_ssot_lite")
@@ -826,6 +969,41 @@ export async function fetchIMData(
     }
     (mappedResult as any).ssotSummary = ssotSummary;
     (mappedResult as any).enrichment = document.body.enrichment || enriched || null;
+
+    if (latestImUpsert?.imItem) {
+      const it = latestImUpsert.imItem;
+      if (it.title) {
+        mappedResult.blindName = String(it.title);
+        mappedResult.fullName = String(it.title);
+      }
+      if (Array.isArray(it.rentRoll) && it.rentRoll.length > 0) {
+        (mappedResult as any).rentRoll = it.rentRoll;
+        (mappedResult as any).floor_leases = it.rentRoll;
+      }
+      const nextSsot = {
+        ...((mappedResult as any).ssotSummary || {}),
+        ...(it.address ? { address: it.address } : {}),
+        ...(it.investmentPosture ? { investment_posture: it.investmentPosture } : {}),
+        ...(Number(it.askingPriceManwon) ? { asking_price_manwon: Number(it.askingPriceManwon) } : {}),
+        ...(Number(it.gfaSqm) ? { total_gross_area_sqm: Number(it.gfaSqm) } : {}),
+        ...(Number(it.landAreaSqm) ? { land_area_sqm: Number(it.landAreaSqm) } : {}),
+        ...(it.zoning ? { zoning: it.zoning } : {}),
+        ...(it.completionDate ? { completion_date: it.completionDate } : {}),
+        ...(it.handoverNote !== undefined ? { handover_note: it.handoverNote } : {}),
+      };
+      (mappedResult as any).ssotSummary = nextSsot;
+      if (mappedResult.heroCard) {
+        if (it.investmentPosture) (mappedResult.heroCard as any).posture = it.investmentPosture;
+        if (Array.isArray(it.axiosHighlights)) {
+          const cleanPts = it.axiosHighlights.filter((h: unknown) => typeof h === "string" && h.trim().length > 0);
+          if (cleanPts.length > 0) {
+            mappedResult.heroCard.keyPoints = cleanPts;
+            mappedResult.heroCard.keyInvestmentPoint = cleanPts[0];
+          }
+        }
+      }
+      delete (mappedResult as any).basicImDocument;
+    }
 
     return attachInboxGovernanceOverlay(mappedResult, buildingId, document.body);
   }

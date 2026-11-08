@@ -207,6 +207,20 @@ function DealCardsWorkspaceInner() {
         throw new Error(`Save failed (${res.status})`);
       }
       const data = await res.json().catch(() => null);
+      try {
+        const imRaw = window.localStorage.getItem("credeal-w-im-v4");
+        if (imRaw) {
+          const imParsed = JSON.parse(imRaw);
+          if (Array.isArray(imParsed)) {
+            const nextIm = imParsed.map((it: any) =>
+              it.buildingId === id || it.id === id ? { ...it, isDirty: false } : it
+            );
+            window.localStorage.setItem("credeal-w-im-v4", JSON.stringify(nextIm));
+          }
+        }
+      } catch {
+        // ignore storage errors
+      }
       return {
         version: data?.card4?.card4_version ?? payloadCard4.card4_version ?? 1,
       };
