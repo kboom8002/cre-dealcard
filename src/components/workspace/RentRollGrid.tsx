@@ -167,24 +167,72 @@ export function RentRollGrid({
   };
 
   // TSV Clipboard Paste Handler
+  const applyTsvText = useCallback(
+    (clipboardData: string): boolean => {
+      if (!clipboardData || (!clipboardData.includes("\t") && !clipboardData.includes("\n"))) {
+        return false;
+      }
+      const result = parseTsvRentRoll(clipboardData, rows.length + 1);
+      if (result.rows.length > 0) {
+        onChange(result.rows);
+        setPasteNotice(
+          result.hasUnitMistakes
+            ? "⚠️ 엑셀 데이터 중 원 단위(예: 50,000,000)가 감지되어 만 원(5,000만 원)으로 자동 보정되었습니다."
+            : `✓ ${result.rows.length}개 층 데이터가 엑셀에서 붙여넣어졌습니다.`
+        );
+        setTimeout(() => setPasteNotice(null), 8000);
+        return true;
+      }
+      return false;
+    },
+    [onChange, rows.length]
+  );
+
   const handlePaste = (e: React.ClipboardEvent) => {
     const clipboardData = e.clipboardData.getData("text");
-    if (!clipboardData || !clipboardData.includes("\t") && !clipboardData.includes("\n")) {
+    if (!clipboardData || (!clipboardData.includes("\t") && !clipboardData.includes("\n"))) {
       return; // Regular single text paste, let default event proceed
     }
-
     e.preventDefault();
-    const result = parseTsvRentRoll(clipboardData, rows.length + 1);
-    if (result.rows.length > 0) {
-      onChange(result.rows);
-      setPasteNotice(
-        result.hasUnitMistakes
-          ? "⚠️ 엑셀 데이터 중 원 단위(예: 50,000,000)가 감지되어 만 원(5,000만 원)으로 자동 보정되었습니다."
-          : `✓ ${result.rows.length}개 층 데이터가 엑셀에서 붙여넣어졌습니다.`
-      );
-      setTimeout(() => setPasteNotice(null), 8000);
-    }
+    applyTsvText(clipboardData);
   };
+
+  const handleClickPasteFromClipboard = async () => {
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.readText === "function") {
+        const text = await navigator.clipboard.readText();
+        if (applyTsvText(text)) return;
+      }
+    } catch {
+      // Fallback if clipboard read permission denied
+    }
+    setPasteNotice(
+      "💡 아래 표의 아무 칸이나 클릭한 뒤 키보드 Ctrl + V 를 눌러 붙여넣어 주세요."
+    );
+    setTimeout(() => setPasteNotice(null), 6000);
+  };
+
+  // Global paste listener while RentRollGrid is visible on screen
+  useEffect(() => {
+    const onWindowPaste = (e: ClipboardEvent) => {
+      if (!containerRef.current || containerRef.current.offsetParent === null) return;
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA") &&
+        !containerRef.current.contains(activeEl)
+      ) {
+        return;
+      }
+      const text = e.clipboardData?.getData("text") || "";
+      if (text && (text.includes("\t") || text.includes("\n"))) {
+        e.preventDefault();
+        applyTsvText(text);
+      }
+    };
+    window.addEventListener("paste", onWindowPaste);
+    return () => window.removeEventListener("paste", onWindowPaste);
+  }, [applyTsvText]);
 
   // Keyboard navigation across cells
   const handleKeyDown = (
@@ -292,17 +340,27 @@ export function RentRollGrid({
       )}
 
       {/* Grid instructions header */}
-      <div className="flex items-center justify-between text-[#475569] text-[14px]">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[#475569] text-[14px]">
         <span>
-          📋 엑셀이나 스프레드시트의 셀을 복사(Ctrl+C)하여 표 위에 바로 붙여넣기(Ctrl+V)할 수 있습니다.
+          📋 엑셀이나 가이드에서 복사한 렌트롤을 우측 버튼 또는 표 위에서 <strong>Ctrl+V</strong>로 바로 붙여넣을 수 있습니다.
         </span>
-        <button
-          type="button"
-          onClick={handleAddRow}
-          className="text-[#1D4ED8] font-bold hover:underline cursor-pointer shrink-0 ml-2"
-        >
-          + 층 추가
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            data-testid="rent-roll-paste-btn"
+            onClick={handleClickPasteFromClipboard}
+            className="px-3 py-1.5 rounded-lg bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-[13px] font-extrabold cursor-pointer shadow-2xs transition"
+          >
+            📋 복사한 렌트롤 붙여넣기 (Ctrl+V)
+          </button>
+          <button
+            type="button"
+            onClick={handleAddRow}
+            className="text-[#1D4ED8] font-bold hover:underline cursor-pointer shrink-0 ml-1"
+          >
+            + 층 추가
+          </button>
+        </div>
       </div>
 
       {/* Table Container */}

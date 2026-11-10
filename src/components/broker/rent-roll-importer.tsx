@@ -263,7 +263,9 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         reader.readAsBinaryString(file);
       });
 
-      const workbook = XLSX.read(binaryStr, { type: "binary" });
+      const workbook = /\.(csv|txt)$/i.test(file.name)
+        ? XLSX.read((await file.text()).replace(/^\uFEFF/, ""), { type: "string" })
+        : XLSX.read(binaryStr, { type: "binary" });
       
       if (!workbook.SheetNames.length) {
         throw new Error("시트를 찾을 수 없습니다. 파일이 비어있는지 확인해주세요.");

@@ -667,6 +667,12 @@ function ImWorkspaceInner() {
   const handleSplitPriceChange = (nextEok: number, nextMan: number) => {
     const safeEok = Number.isFinite(nextEok) && nextEok >= 0 ? Math.floor(nextEok) : 0;
     const safeMan = Number.isFinite(nextMan) && nextMan >= 0 ? Math.floor(nextMan) : 0;
+    // Poka-yoke: if user pasted a manwon-unit amount (e.g. 770000 for 77억) into the '억' input
+    if (safeEok >= 100000 && safeMan === 0) {
+      setAskingPriceManwon(safeEok);
+      syncCurrentItemPatch({ askingPriceManwon: safeEok });
+      return;
+    }
     const combinedManwon = safeEok * 10000 + safeMan;
     setAskingPriceManwon(combinedManwon);
     syncCurrentItemPatch({ askingPriceManwon: combinedManwon });

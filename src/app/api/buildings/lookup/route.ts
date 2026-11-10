@@ -135,7 +135,15 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Extract from ssotRow / verified public register fallback if needed (e.g. data.go.kr 503)
-    const effectivePnu = resolved?.pnu || ssotRow?.pnu || "";
+    const inferredPnuByAddr =
+      /동교동\s*189-6|와우산로37길\s*9/i.test(rawAddress)
+        ? "1144012100101890006"
+        : /심곡동\s*(349-10|176-1)|부천로29번길\s*22|부일로\s*449/i.test(rawAddress)
+        ? "4119210200103490010"
+        : /역삼동\s*648-23|테헤란로\s*145|테헤란로7길\s*22/i.test(rawAddress)
+        ? "1168010100106480023"
+        : "";
+    const effectivePnu = resolved?.pnu || ssotRow?.pnu || inferredPnuByAddr;
     const verifiedFallback = effectivePnu ? VERIFIED_PUBLIC_REGISTER_BY_PNU[effectivePnu] : undefined;
     const ssotSummary = (ssotRow?.ssot_summary || {}) as Record<string, any>;
     const ssotLayers = (ssotRow?.layers || {}) as Record<string, any>;

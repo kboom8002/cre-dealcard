@@ -781,7 +781,7 @@ export default function TestGuidePage() {
                 <CopyFieldRow
                   label="건물 주소 (지번)"
                   value={activeDeal.jibunAddress}
-                  subNote="주소 입력 후 [대장 자동 채움] 클릭!"
+                  subNote="주소 입력 후 [주소로 건물 정보 자동 채우기] 클릭!"
                   keyId={`${activeDeal.id}-jibun`}
                   highlight
                 />
@@ -798,9 +798,9 @@ export default function TestGuidePage() {
                   highlight
                 />
                 <CopyFieldRow
-                  label="희망 매매가 (만원 단위 입력란)"
-                  value={activeDeal.askingPriceManwon}
-                  subNote={`= ${activeDeal.askingPriceEok}억 원`}
+                  label="희망 매매가 ('억' 입력란)"
+                  value={activeDeal.askingPriceEok}
+                  subNote={`= ${activeDeal.askingPriceEok}억 원 (총액 ${activeDeal.askingPriceManwon}만원)`}
                   keyId={`${activeDeal.id}-price`}
                   highlight
                 />
@@ -1081,7 +1081,6 @@ export default function TestGuidePage() {
                           src={img.previewUrl}
                           alt={img.caption}
                           className="w-full h-full object-cover"
-                          loading="lazy"
                         />
                         <span
                           className={`absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-extrabold text-white ${
@@ -1234,9 +1233,9 @@ export default function TestGuidePage() {
 
                 <div className="space-y-2.5">
                   <CopyFieldRow
-                    label="Wave B 수정 매매가 (만원 단위)"
-                    value={activeDeal.waveBPriceManwon}
-                    subNote={`= ${activeDeal.waveBPriceEok}억 원`}
+                    label="Wave B 수정 매매가 ('억' 입력란)"
+                    value={activeDeal.waveBPriceEok}
+                    subNote={`= ${activeDeal.waveBPriceEok}억 원 (총액 ${activeDeal.waveBPriceManwon}만원)`}
                     keyId={`${activeDeal.id}-waveb-price`}
                     highlight
                   />

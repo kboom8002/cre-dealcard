@@ -850,9 +850,15 @@ export async function POST(req: NextRequest) {
           },
         ];
 
+  const leasableFloorLeases = mappedFloorLeases.filter(
+    (fl) =>
+      fl.lease_state !== '자가사용' &&
+      !/(주차|옥탑|기계식|루프탑|부대)/.test(`${fl.floor} ${fl.unit_label} ${fl.tenant_name}`)
+  );
+  const vacantCount = leasableFloorLeases.filter((fl) => fl.is_vacant).length;
   const vacancyPct =
-    mappedFloorLeases.length > 0
-      ? Math.round((vacantUnitsCount / mappedFloorLeases.length) * 1000) / 10
+    leasableFloorLeases.length > 0
+      ? Math.round((vacantCount / leasableFloorLeases.length) * 1000) / 10
       : 0;
 
   const exactEokNum = Math.round((priceNum / 10000) * 100) / 100;

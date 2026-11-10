@@ -720,9 +720,9 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
   const vacancyPct = leasableRows > 0 ? Math.round((vacantCount / leasableRows) * 100) : 0;
 
   return {
-    monthlyRent: Math.round(totalRent),
-    totalDeposit: Math.round(totalDeposit),
-    mgmtFeeTotal: Math.round(totalMgmt),
+    monthlyRent: round2(totalRent),
+    totalDeposit: round2(totalDeposit),
+    mgmtFeeTotal: round2(totalMgmt),
     vacancyPct,
     rowCount,
     vacantCount,
