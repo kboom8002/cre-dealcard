@@ -5,6 +5,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { useUndoToast, type UndoToastInput } from "@/components/workspace/UndoConfirmToast";
 import { editorToast } from "@/components/magazine-editor/editor-toaster";
 import type { AiDraftResult } from "@/app/api/broker/studio/ai-draft/route";
+import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
 
 function useSafeShowUndoToast(): (input: UndoToastInput) => void {
   try {
@@ -29,7 +30,10 @@ export interface MagazineQuickDraftCardProps {
   monthLabel: string;
   regionFocus?: string;
   onChangeRegionFocus?: (region: string) => void;
+  preferredRegions?: readonly string[];
+  preferredChannels?: readonly SpecificNewsChannelId[];
   dealTitles?: string[];
+  newsTitles?: string[];
   currentDraft: MagazineDraftSnapshot;
   onApplyDraft: (next: MagazineDraftSnapshot) => void;
 }
@@ -38,7 +42,10 @@ export function MagazineQuickDraftCard({
   monthLabel,
   regionFocus = "",
   onChangeRegionFocus,
+  preferredRegions = [],
+  preferredChannels = [],
   dealTitles = [],
+  newsTitles = [],
   currentDraft,
   onApplyDraft,
 }: MagazineQuickDraftCardProps) {
@@ -76,7 +83,10 @@ export function MagazineQuickDraftCard({
         body: JSON.stringify({
           monthLabel: monthLabel.trim() || "이번 달 뉴스레터",
           regionFocus: effectiveRegion.trim() || undefined,
+          preferredRegions: preferredRegions.length > 0 ? [...preferredRegions] : undefined,
+          preferredChannels: preferredChannels.length > 0 ? [...preferredChannels] : undefined,
           dealTitles: dealTitles.filter(Boolean),
+          newsTitles: newsTitles.filter(Boolean),
           currentHeadline: currentDraft.headline.trim() || undefined,
           currentBriefing: currentDraft.briefingBody.trim() || undefined,
         }),
@@ -135,7 +145,7 @@ export function MagazineQuickDraftCard({
             </h3>
           </div>
           <p className="text-sm font-medium text-slate-600">
-            선택한 연·월과 관심 지역, 추천 매물 제목을 바탕으로 표지 제목·한 줄 소개·시장 브리핑 초안을 함께 작성합니다.
+            선택한 연·월과 내 주력 권역·관심 분야, 추천 매물 제목을 바탕으로 표지 제목·한 줄 소개·시장 브리핑 초안을 함께 작성합니다.
           </p>
         </div>
 

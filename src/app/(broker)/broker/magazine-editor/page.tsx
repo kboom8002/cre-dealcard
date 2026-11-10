@@ -56,8 +56,30 @@ import {
   normalizeReadableBriefingText,
   type SimpleFormatActionId,
 } from "@/lib/magazine/simple-format";
-import { formatSingleLineTitle } from "@/domain/magazine/issue-clustering";
-import type { EditionType, MarketTemperature } from "@/domain/magazine/types";
+import {
+  POST_IT_TONE_META,
+  clusterArticlesIntoFiveIssues,
+  formatAxiosCardTitle,
+  formatAxiosTwoLineBrief,
+  formatSingleLineTitle,
+  resolveUnitIssuesFromData,
+} from "@/domain/magazine/issue-clustering";
+import {
+  BROKER_REGION_PRESETS,
+  DEFAULT_PREFERRED_CHANNELS,
+  DEFAULT_PREFERRED_REGIONS,
+  normalizeBrokerPreferences,
+} from "@/domain/magazine/broker-preferences";
+import {
+  CURATED_CHANNEL_POOL,
+  NEWS_CHANNEL_MAP,
+  SPECIFIC_NEWS_CHANNELS,
+  type NewsChannelId,
+  type NewsPoolItem,
+  type SpecificNewsChannelId,
+} from "@/domain/magazine/news-channels";
+import { AxiosIssuesEditorPanel } from "@/components/magazine-editor/AxiosIssuesEditorPanel";
+import type { AxiosUnitIssue, EditionType, MarketTemperature } from "@/domain/magazine/types";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
 import { MAGAZINE_SEND_DAY_LABEL } from "@/lib/magazine/schedule-labels";
@@ -130,6 +152,7 @@ interface SavedEditionSummary {
   marketTemp?: MarketTemperature | null;
   selectedDealIds?: string[];
   dealComments?: Record<string, string>;
+  unitIssues?: AxiosUnitIssue[];
   issueDate?: string;
   publicUrl?: string;
 }
@@ -165,7 +188,23 @@ export default function MagazineEditorPage() {
   const [monthlyRegion, setMonthlyRegion] = useState<MonthlyRegionKey>("gbd");
   const [marketTemp, setMarketTemp] = useState<MarketTemperature | null>(null);
 
-  // ── 3. 매물·코너·발송 대상 상태 ──
+  // ── 3. 매물·코너·발송 대상·중개사 개인 설정 상태 ──
+  const [preferredRegions, setPreferredRegions] = useState<string[]>(() => [
+    ...DEFAULT_PREFERRED_REGIONS,
+  ]);
+  const [preferredChannels, setPreferredChannels] = useState<SpecificNewsChannelId[]>(() => [
+    ...DEFAULT_PREFERRED_CHANNELS,
+  ]);
+  const [newsPool, setNewsPool] = useState<NewsPoolItem[]>(() => [...CURATED_CHANNEL_POOL]);
+  const [unitIssues, setUnitIssues] = useState<AxiosUnitIssue[]>(() =>
+    clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+      cadence: "monthly",
+      preferredRegions: DEFAULT_PREFERRED_REGIONS,
+      preferredChannels: DEFAULT_PREFERRED_CHANNELS,
+    }),
+  );
+  const [savingPrefs, setSavingPrefs] = useState<boolean>(false);
+  const [isAiClustering, setIsAiClustering] = useState<boolean>(false);
   const [deals, setDeals] = useState<AssignableDealItem[]>([]);
   const [selectedDealIds, setSelectedDealIds] = useState<string[]>([]);
   const [dealComments, setDealComments] = useState<Record<string, string>>({});
@@ -215,6 +254,22 @@ export default function MagazineEditorPage() {
         if (Array.isArray(parsed.selectedDealIds)) {
           setSelectedDealIds(parsed.selectedDealIds.filter((v): v is string => typeof v === "string"));
         }
+        if (Array.isArray(parsed.preferredRegions) && parsed.preferredRegions.length > 0) {
+          const normPrefs = normalizeBrokerPreferences({
+            preferredRegions: parsed.preferredRegions,
+            preferredChannels: parsed.preferredChannels,
+          });
+          setPreferredRegions(normPrefs.preferredRegions);
+          setPreferredChannels(normPrefs.preferredChannels);
+          setRegionFocus(normPrefs.preferredRegions.join(", "));
+        }
+        if (Array.isArray(parsed.unitIssues) && parsed.unitIssues.length > 0) {
+          const restoredIssues = resolveUnitIssuesFromData(
+            { unitIssues: parsed.unitIssues },
+            { fallbackFromTopNews: false },
+          );
+          if (restoredIssues.length > 0) setUnitIssues(restoredIssues);
+        }
         setLocalStorageMode("local_only");
         setSaveState("dirty");
       }
@@ -239,6 +294,21 @@ export default function MagazineEditorPage() {
             if (typeof edJson.brokerName === "string") setBrokerName(edJson.brokerName);
             if (typeof edJson.subscriberCount === "number") setSubscriberCount(edJson.subscriberCount);
             if (typeof edJson.highInterestCount === "number") setHighInterestCount(edJson.highInterestCount);
+            if (edJson.brokerPreferences && typeof edJson.brokerPreferences === "object") {
+              const normPrefs = normalizeBrokerPreferences(edJson.brokerPreferences);
+              setPreferredRegions(normPrefs.preferredRegions);
+              setPreferredChannels(normPrefs.preferredChannels);
+              setRegionFocus(normPrefs.preferredRegions.join(", "));
+              setUnitIssues((prev) =>
+                prev.length > 0
+                  ? clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+                      cadence: "monthly",
+                      preferredRegions: normPrefs.preferredRegions,
+                      preferredChannels: normPrefs.preferredChannels,
+                    })
+                  : prev,
+              );
+            }
 
             if (Array.isArray(edJson.editions)) {
               const resolvedBrokerSlug =
@@ -299,6 +369,9 @@ export default function MagazineEditorPage() {
                   const extractedThemeTitle = String(
                     row.theme_title ?? content.briefing_title ?? content.theme_title ?? "",
                   ).trim();
+                  const extractedUnitIssues = resolveUnitIssuesFromData(content, {
+                    fallbackFromTopNews: false,
+                  });
                   return {
                     id: rowId,
                     slug: rowSlug,
@@ -320,6 +393,7 @@ export default function MagazineEditorPage() {
                         : null,
                     selectedDealIds: dealIds,
                     dealComments: dealCommentsMap,
+                    unitIssues: extractedUnitIssues.length > 0 ? extractedUnitIssues : undefined,
                     issueDate: rawIssueDate || undefined,
                     publicUrl: computedPublicUrl,
                   };
@@ -383,6 +457,9 @@ export default function MagazineEditorPage() {
       issueYear: number;
       issueMonth: number;
       selectedDealIds: string[];
+      preferredRegions: string[];
+      preferredChannels: SpecificNewsChannelId[];
+      unitIssues: AxiosUnitIssue[];
     }>) => {
       try {
         if (typeof window !== "undefined") {
@@ -394,6 +471,9 @@ export default function MagazineEditorPage() {
             issueYear: nextPatch?.issueYear ?? issueYear,
             issueMonth: nextPatch?.issueMonth ?? issueMonth,
             selectedDealIds: nextPatch?.selectedDealIds ?? selectedDealIds,
+            preferredRegions: nextPatch?.preferredRegions ?? preferredRegions,
+            preferredChannels: nextPatch?.preferredChannels ?? preferredChannels,
+            unitIssues: nextPatch?.unitIssues ?? unitIssues,
             savedAt: new Date().toISOString(),
           };
           window.localStorage.setItem(LOCAL_DRAFT_STORAGE_KEY, JSON.stringify(payload));
@@ -404,7 +484,18 @@ export default function MagazineEditorPage() {
       setLocalStorageMode("local_only");
       setSaveState("dirty");
     },
-    [headline, summary, briefingTitle, briefingBody, issueYear, issueMonth, selectedDealIds],
+    [
+      headline,
+      summary,
+      briefingTitle,
+      briefingBody,
+      issueYear,
+      issueMonth,
+      selectedDealIds,
+      preferredRegions,
+      preferredChannels,
+      unitIssues,
+    ],
   );
 
   // ── 7. 서버 저장 핸들러 ──
@@ -454,6 +545,9 @@ export default function MagazineEditorPage() {
           featuredDealIds: selectedDealIds,
           featuredDeals: selectedDealSnapshots,
           dealComments,
+          unitIssues,
+          preferredRegions,
+          preferredChannels,
           sections,
           targetSegment,
         }),
@@ -493,6 +587,7 @@ export default function MagazineEditorPage() {
             marketTemp,
             selectedDealIds: [...selectedDealIds],
             dealComments: { ...dealComments },
+            unitIssues: [...unitIssues],
             publicUrl: resolvedUrl,
           };
           const exists = prev.some((e) => e.id === effectiveId || e.slug === issueSlug);
@@ -551,6 +646,9 @@ export default function MagazineEditorPage() {
     selectedDealIds,
     deals,
     dealComments,
+    unitIssues,
+    preferredRegions,
+    preferredChannels,
     sections,
     targetSegment,
     brokerSlug,
@@ -598,6 +696,9 @@ export default function MagazineEditorPage() {
     if (ed.marketTemp !== undefined) setMarketTemp(ed.marketTemp);
     if (Array.isArray(ed.selectedDealIds)) setSelectedDealIds(ed.selectedDealIds);
     if (ed.dealComments && typeof ed.dealComments === "object") setDealComments(ed.dealComments);
+    if (Array.isArray(ed.unitIssues) && ed.unitIssues.length > 0) {
+      setUnitIssues(ed.unitIssues);
+    }
     setIsPublished(ed.status === "published");
     const resolvedPubUrl =
       ed.publicUrl ||
@@ -659,6 +760,142 @@ export default function MagazineEditorPage() {
       return prev.map((s) => (s.id === sectionId ? { ...s, enabled: nextEnabled } : s));
     });
     persistLocalDraft();
+  };
+
+  // ── 10-B. 중개인 개인 설정(주력 권역 · 관심 뉴스 큐레이션 분야) 및 AI 클러스터링 ──
+  const handleTogglePreferredRegion = (regionLabel: string) => {
+    setPreferredRegions((prev) => {
+      const exists = prev.includes(regionLabel);
+      const next = exists
+        ? prev.length > 1
+          ? prev.filter((r) => r !== regionLabel)
+          : prev
+        : [...prev, regionLabel].slice(0, 5);
+      setRegionFocus(next.join(", "));
+      const reclustered = clusterArticlesIntoFiveIssues(newsPool, {
+        cadence: "monthly",
+        preferredRegions: next,
+        preferredChannels,
+        dealKeywords: deals.filter((d) => selectedDealIds.includes(d.id)).map((d) => d.title),
+      });
+      setUnitIssues(reclustered);
+      persistLocalDraft({ preferredRegions: next, unitIssues: reclustered });
+      return next;
+    });
+  };
+
+  const handleTogglePreferredChannel = (channelId: SpecificNewsChannelId) => {
+    setPreferredChannels((prev) => {
+      const exists = prev.includes(channelId);
+      const next = exists
+        ? prev.length > 1
+          ? prev.filter((c) => c !== channelId)
+          : prev
+        : [...prev, channelId];
+      const reclustered = clusterArticlesIntoFiveIssues(newsPool, {
+        cadence: "monthly",
+        preferredRegions,
+        preferredChannels: next,
+        dealKeywords: deals.filter((d) => selectedDealIds.includes(d.id)).map((d) => d.title),
+      });
+      setUnitIssues(reclustered);
+      persistLocalDraft({ preferredChannels: next, unitIssues: reclustered });
+      return next;
+    });
+  };
+
+  const handleAiClusterIssues = async (
+    overrideRegions?: readonly string[],
+    overrideChannels?: readonly SpecificNewsChannelId[],
+  ) => {
+    if (isAiClustering) return;
+    setIsAiClustering(true);
+    const activeRegions = overrideRegions ?? preferredRegions;
+    const activeChannels = overrideChannels ?? preferredChannels;
+    const activeDealTitles = deals
+      .filter((d) => selectedDealIds.includes(d.id))
+      .map((d) => `${d.title} ${d.address}`);
+
+    try {
+      const res = await fetch("/api/broker/studio/ai-news-cluster", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cadence: "monthly",
+          preferredRegions: [...activeRegions],
+          preferredChannels: [...activeChannels],
+          dealTitles: activeDealTitles,
+          articles: newsPool.slice(0, 30),
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok: true; unitIssues: AxiosUnitIssue[] }
+        | null;
+      if (res.ok && json?.ok && Array.isArray(json.unitIssues) && json.unitIssues.length > 0) {
+        setUnitIssues(json.unitIssues);
+        persistLocalDraft({ unitIssues: json.unitIssues });
+        setStatusBanner({
+          tone: "success",
+          message: "내 주력 권역과 관심 분야에 맞춰 핵심 이슈 포스트잇 5선을 새로 구성했어요.",
+        });
+        return;
+      }
+    } catch {
+      // 결정론적 폴백 진행
+    } finally {
+      setIsAiClustering(false);
+    }
+
+    const fallback = clusterArticlesIntoFiveIssues(newsPool, {
+      cadence: "monthly",
+      preferredRegions: activeRegions,
+      preferredChannels: activeChannels,
+      dealKeywords: activeDealTitles,
+    });
+    setUnitIssues(fallback);
+    persistLocalDraft({ unitIssues: fallback });
+    setStatusBanner({
+      tone: "success",
+      message: "내 주력 권역과 관심 분야 기반으로 핵심 이슈 5선을 구성했어요.",
+    });
+  };
+
+  const handleSavePreferencesAndCluster = async () => {
+    if (savingPrefs) return;
+    setSavingPrefs(true);
+    try {
+      await fetch("/api/broker/magazine/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preferredRegions,
+          preferredChannels,
+        }),
+      }).catch(() => null);
+      await handleAiClusterIssues(preferredRegions, preferredChannels);
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const handleRefreshLiveChannel = async (channel: NewsChannelId) => {
+    try {
+      const qs = new URLSearchParams({
+        channel,
+        regions: preferredRegions.join(","),
+        channels: preferredChannels.join(","),
+      });
+      const res = await fetch(`/api/broker/magazine/news-channels?${qs.toString()}`);
+      if (!res.ok) return;
+      const json = (await res.json().catch(() => null)) as
+        | { ok: true; items?: NewsPoolItem[] }
+        | null;
+      if (json?.ok && Array.isArray(json.items) && json.items.length > 0) {
+        setNewsPool(json.items);
+      }
+    } catch {
+      // ignore network error
+    }
   };
 
   // ── 11. 정직한 링크 복사 (NL-04: copyText가 true일 때만 성공 메시지) ──
@@ -827,6 +1064,96 @@ export default function MagazineEditorPage() {
     [briefingBody],
   );
 
+  // ── 중개인 개인 설정 카드 (주력 권역 & 뉴스 큐레이션 분야) ──
+  const brokerPreferencesCard = (
+    <section
+      data-testid="broker-newsletter-preferences-card"
+      aria-label="내 주력 권역 및 뉴스 큐레이션 분야 설정"
+      className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="text-base font-extrabold text-slate-900">
+            내 주력 권역 · 뉴스 큐레이션 분야 설정
+          </h3>
+          <p className="text-sm font-medium text-slate-600">
+            선택한 권역과 관심 분야를 바탕으로 AI가 비부동산 가십을 걸러내고 맞춤형 핵심 이슈 5선과 초안을 구성합니다.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          data-testid="save-broker-prefs-btn"
+          disabled={savingPrefs || isAiClustering}
+          onClick={() => void handleSavePreferencesAndCluster()}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-extrabold text-blue-900 hover:bg-blue-100 disabled:opacity-60"
+        >
+          <Sparkles className="h-4 w-4 text-blue-700" aria-hidden="true" />
+          <span>
+            {savingPrefs || isAiClustering ? "맞춤 설정 반영 중…" : "내 설정 저장 · 맞춤 이슈 갱신"}
+          </span>
+        </button>
+      </div>
+
+      {/* 1. 주력 권역 칩 선택 */}
+      <div className="space-y-2">
+        <p className="text-sm font-extrabold text-slate-800">
+          ① 주력 상권 · 권역 선택 (복수 선택 가능)
+        </p>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="주력 권역 선택">
+          {BROKER_REGION_PRESETS.map((preset) => {
+            const active = preferredRegions.includes(preset.label);
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                data-testid={`pref-region-chip-${preset.id}`}
+                aria-pressed={active}
+                onClick={() => handleTogglePreferredRegion(preset.label)}
+                className={`min-h-[40px] rounded-xl border px-3.5 py-1.5 text-sm font-extrabold transition ${
+                  active
+                    ? "border-blue-600 bg-blue-700 text-white shadow-2xs"
+                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. 뉴스 큐레이션 5대 분야 선택 */}
+      <div className="space-y-2">
+        <p className="text-sm font-extrabold text-slate-800">
+          ② 뉴스 큐레이션 관심 분야 (복수 선택 가능)
+        </p>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="뉴스 큐레이션 분야 선택">
+          {SPECIFIC_NEWS_CHANNELS.map((ch) => {
+            const active = preferredChannels.includes(ch.id);
+            return (
+              <button
+                key={ch.id}
+                type="button"
+                data-testid={`pref-channel-chip-${ch.id}`}
+                aria-pressed={active}
+                onClick={() => handleTogglePreferredChannel(ch.id)}
+                className={`min-h-[40px] rounded-xl border px-3.5 py-1.5 text-sm font-extrabold transition flex items-center gap-1.5 ${
+                  active
+                    ? "border-slate-900 bg-slate-900 text-white shadow-2xs"
+                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <span aria-hidden="true">{ch.emoji}</span>
+                <span>{ch.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+
   // ════════════════════════════════════════════════════════════════════
   //  1열 (listSlot): 호수 선택 + 빠른 시작 카드 + 단계 요약
   // ════════════════════════════════════════════════════════════════════
@@ -835,6 +1162,7 @@ export default function MagazineEditorPage() {
       data-testid="magazine-list-slot"
       className="p-4 space-y-4 text-slate-900"
     >
+      {/* <EditionAirtableList /> 호환 슬롯 */}
       {/* 빠른 시작 카드 */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
         <div className="space-y-1">
@@ -993,11 +1321,16 @@ export default function MagazineEditorPage() {
             aria-labelledby="newsletter-tab-title"
             className="space-y-5"
           >
+            {brokerPreferencesCard}
+
             <MagazineQuickDraftCard
               monthLabel={autoMeta.yearMonthLabel}
               regionFocus={regionFocus}
               onChangeRegionFocus={setRegionFocus}
+              preferredRegions={preferredRegions}
+              preferredChannels={preferredChannels}
               dealTitles={selectedDeals.map((d) => d.title)}
+              newsTitles={unitIssues.map((u) => u.title)}
               currentDraft={{
                 headline,
                 summary,
@@ -1168,6 +1501,28 @@ export default function MagazineEditorPage() {
               sections={sections}
               onToggleSection={handleToggleSection}
             />
+
+            {/* 핵심 이슈 포스트잇 5선 (중개인 권역·분야 설정 연동 AXIOS 카드뉴스 편집기) */}
+            {isSectionEnabled("news_curation") && (
+              <div className="space-y-4">
+                {brokerPreferencesCard}
+                <AxiosIssuesEditorPanel
+                  unitIssues={unitIssues}
+                  onChangeUnitIssues={(next) => {
+                    setUnitIssues(next);
+                    persistLocalDraft({ unitIssues: next });
+                  }}
+                  newsPool={newsPool}
+                  cadenceLabel={autoMeta.yearMonthLabel}
+                  preferredRegions={preferredRegions}
+                  preferredChannels={preferredChannels}
+                  dealTitles={selectedDeals.map((d) => `${d.title} ${d.address}`)}
+                  onAiClusterIssues={() => handleAiClusterIssues()}
+                  isAiClustering={isAiClustering}
+                  onRefreshLiveChannel={handleRefreshLiveChannel}
+                />
+              </div>
+            )}
 
             {/* 월간 통계 코너 정직한 상태 표시 (NL-01) */}
             {isSectionEnabled("market_data") && (
@@ -1374,6 +1729,77 @@ export default function MagazineEditorPage() {
               {formattedPreviewBriefing.trim() ||
                 "② 내용 단계에서 시장 브리핑 글을 작성하면 고객에게 보일 모양 그대로 미리 확인할 수 있습니다."}
             </div>
+          </section>
+        )}
+
+        {/* 핵심 이슈 포스트잇 5선 미리보기 (카드뉴스형 2줄 큰 제목 + 2줄 짧은 부제 해설) */}
+        {isSectionEnabled("news_curation") && unitIssues.length > 0 && (
+          <section
+            data-testid="preview-axios-postit-section"
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-extrabold text-slate-900">
+                핵심 시장 이슈 5선
+              </h3>
+              <span className="text-sm font-bold text-slate-600">
+                {preferredRegions.slice(0, 2).join(" · ")} 맞춤
+              </span>
+            </div>
+            <ul className="space-y-3" role="list">
+              {unitIssues.slice(0, 5).map((issue, idx) => {
+                const toneMeta =
+                  POST_IT_TONE_META[issue.memoTone] ?? POST_IT_TONE_META.amber;
+                const chMeta =
+                  issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
+                    ? NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
+                    : NEWS_CHANNEL_MAP.real_estate;
+                const cardTitle = formatAxiosCardTitle(issue.title, 52) || issue.title;
+                const cardBrief = formatAxiosTwoLineBrief(issue.brief, {
+                  title: cardTitle,
+                  channel: chMeta.id === "all" ? "real_estate" : chMeta.id,
+                });
+                return (
+                  <li
+                    key={issue.id || idx}
+                    data-testid={`preview-postit-card-${idx}`}
+                    style={{
+                      backgroundColor: toneMeta.cardBg,
+                      borderColor: toneMeta.cardBorder,
+                      borderLeftColor: toneMeta.accentBar,
+                    }}
+                    className="rounded-2xl border-2 border-l-[6px] p-4 shadow-2xs space-y-2"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <span
+                        style={{
+                          backgroundColor: toneMeta.badgeBg,
+                          color: toneMeta.badgeText,
+                        }}
+                        className="rounded-md px-2 py-0.5 text-sm font-extrabold"
+                      >
+                        ISSUE 0{idx + 1}
+                      </span>
+                      <span className="rounded-md border border-slate-900/15 bg-white/85 px-2 py-0.5 text-sm font-bold text-slate-900">
+                        {chMeta.emoji} {chMeta.shortLabel}
+                      </span>
+                    </div>
+                    <h4
+                      className="line-clamp-2 break-keep text-lg font-black leading-[1.35] tracking-tight"
+                      style={{ color: toneMeta.titleColor }}
+                    >
+                      {cardTitle}
+                    </h4>
+                    <p
+                      className="line-clamp-2 break-keep text-sm font-semibold leading-[1.55]"
+                      style={{ color: toneMeta.bodyColor }}
+                    >
+                      {cardBrief}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
         )}
 

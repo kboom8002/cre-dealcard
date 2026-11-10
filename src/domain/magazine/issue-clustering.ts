@@ -3,8 +3,9 @@
  *
  * 중개인 고도화 요구사항 반영:
  *  - 일간(Daily)·주간(Weekly)·월간(Monthly) 모두 단위 이슈 5건(ISSUE_CARD_COUNT = 5) 고정 구성
- *  - 관련 기사들을 주제/채널별로 클러스터링하여 AXIOS형 제목 1줄(큰 폰트, 한 줄 표시) + 요약 브리프 2~4문장 형식으로 재구성
- *  - 각 이슈는 적절한 파스텔 색상의 박스 배경(5톤: amber, sky, mint, lavender, peach)으로 와이드 포스트잇 메모(텍스트 카드 뉴스)처럼 렌더링
+ *  - 중개인 개인 설정(권역 preferredRegions, 뉴스 큐레이션 분야 preferredChannels) 기반 가중치 클러스터링 및 비부동산 가십 차단
+ *  - AXIOS 카드뉴스형 제목(최대 2줄 대형 헤드라인) + 해설 브리프(2줄 부제형 핵심 요약, 2문장)
+ *  - 각 이슈는 적절한 파스텔 색상의 박스 배경(5톤: amber, sky, mint, lavender, peach)으로 와이드 포스트잇 메모(카드뉴스)처럼 렌더링
  *
  * 클라이언트·서버 공용 순수 모듈 (Node 전용 import 금지).
  */
@@ -13,10 +14,13 @@ import type { AxiosUnitIssue, PostItTone } from './types';
 import {
   CURATED_CHANNEL_POOL,
   NEWS_CHANNEL_MAP,
+  isCreRelevantArticle,
+  isSpecificNewsChannelId,
   resolveNewsChannel,
   type NewsPoolItem,
   type SpecificNewsChannelId,
 } from './news-channels';
+import { expandRegionKeywords } from './broker-preferences';
 
 export const ISSUE_CARD_COUNT = 5;
 
@@ -57,7 +61,7 @@ export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
     accentBar: '#CA8A04',
     badgeBg: '#FEF08A',
     badgeText: '#854D0E',
-    titleColor: '#1E293B',
+    titleColor: '#0F172A',
     bodyColor: '#334155',
     metaColor: '#713F12',
   },
@@ -109,7 +113,7 @@ export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
     accentBar: '#E11D48',
     badgeBg: '#FECDD3',
     badgeText: '#9F1239',
-    titleColor: '#1E293B',
+    titleColor: '#0F172A',
     bodyColor: '#334155',
     metaColor: '#BE123C',
   },
@@ -125,7 +129,7 @@ function decodeBasicEntities(raw: string): string {
 }
 
 /**
- * 뉴스레터 제목 및 AXIOS 이슈 제목을 깔끔한 1줄(single-line)로 정제한다.
+ * 뉴스레터 표지 제목 등을 깔끔한 1줄(single-line)로 정제한다.
  * - 앞쪽 `[매체명]` 제거, 줄바꿈 제거, 불필요한 따옴표·말줄임 정리
  */
 export function formatSingleLineTitle(raw: unknown, maxChars = 38): string {
@@ -141,13 +145,21 @@ export function formatSingleLineTitle(raw: unknown, maxChars = 38): string {
   if (!cleaned) return '';
   if (cleaned.length <= maxChars) return cleaned;
 
-  // 자연스러운 어절 경계에서 절단
   const sliced = cleaned.slice(0, maxChars - 1);
   const lastSpace = sliced.lastIndexOf(' ');
   if (lastSpace >= Math.floor(maxChars * 0.6)) {
     return `${sliced.slice(0, lastSpace).replace(/[,·:：-]+$/, '').trim()}…`;
   }
   return `${sliced.trim()}…`;
+}
+
+/**
+ * 카드뉴스형 포스트잇 뷰를 위한 AXIOS 2줄 헤드라인 정제기 (최대 52자)
+ * - 1줄 강제 말줄임(38자)으로 문맥이 잘리는 문제를 방지하고,
+ *   모바일/데스크톱 포스트잇 카드에서 큼직한 2줄(line-clamp-2)로 완결성 있게 읽히도록 정제한다.
+ */
+export function formatAxiosCardTitle(raw: unknown, maxChars = 52): string {
+  return formatSingleLineTitle(raw, maxChars);
 }
 
 /**
@@ -168,25 +180,69 @@ export function splitKoreanSentences(text: string): string[] {
   return rawParts.map((s) => (/[.!?。]$/.test(s) ? s : `${s}.`));
 }
 
+function condenseSentence(sentence: string, maxLen = 52): string {
+  const cleaned = sentence
+    .replace(/\s+/g, ' ')
+    .replace(/^(?:특히|또한|아울러|한편|이에\s*따라|이와\s*함께)\s*,?\s*/g, '')
+    .trim();
+  if (cleaned.length <= maxLen) {
+    return /[.!?。]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+  }
+
+  // 쉼표나 연결어미 기준으로 앞부분 핵심 절을 우선 보존하되 마침표(.) 종결형 유지
+  const cut = cleaned.slice(0, maxLen - 1);
+  const lastSpace = cut.lastIndexOf(' ');
+  const base = (lastSpace >= Math.floor(maxLen * 0.6) ? cut.slice(0, lastSpace) : cut)
+    .replace(/[,·:：…-]+$/, '')
+    .trim();
+  if (/[.!?。]$/.test(base)) return base;
+  return `${base}.`;
+}
+
+const INTERNAL_LABEL_RE =
+  /(?:핵심\s*팩트|브로커\s*임플리케이션|추천\s*액션|시장\s*시사점|매수자\s*포인트|Why\s*it\s*matters)\s*[:：]\s*/gi;
+
+const CONCISE_CHANNEL_FALLBACKS: Readonly<Record<SpecificNewsChannelId, readonly [string, string]>> = {
+  real_estate: [
+    '역세권 우량 중소형 빌딩을 중심으로 실수요 법인과 자산가의 선별 매수세가 이어지고 있습니다.',
+    '표면 수익률과 함께 대지 지분 가치·리모델링 밸류애드 여력을 함께 점검할 시점입니다.',
+  ],
+  economy_finance: [
+    '기업시설자금 대출 금리와 통화정책 방향성이 빌딩 매수자의 자기자본수익률(CoC)을 좌우하고 있습니다.',
+    '자금 조달 금리 스프레드를 사전 점검하면 협상력과 실질 현금흐름을 동시에 높일 수 있습니다.',
+  ],
+  tax_wealth: [
+    '비주거용 빌딩의 취득·보유·증여 단계별 세무 구조에 따라 세후 수익률 격차가 벌어지고 있습니다.',
+    '사전 감정평가와 부담부증여·법인 활용 유불리를 전문가와 미리 점검하는 것이 유리합니다.',
+  ],
+  culture_lifestyle: [
+    '건물 외관 리노베이션과 문화·전시 콘텐츠 결합이 임차인 집객력과 자산 가치를 높이고 있습니다.',
+    '우량 임차인 유치를 위해 저층부 공간 기획과 건축 디자인을 차별화하는 건물주가 늘고 있습니다.',
+  ],
+  commercial_trend: [
+    '핵심 상권의 병의원·대형 카페·쇼룸 유입 흐름이 인근 중소형 빌딩 임대료를 견인하고 있습니다.',
+    '공실 위험을 낮추기 위해 층별 업종 구성과 상권 소비 트렌드 변화를 면밀히 살펴야 합니다.',
+  ],
+};
+
 /**
- * 원문 뉴스 요약(파이프 `|` 구분자 구조 포함)과 클러스터링된 보조 기사 요약을 결합해
- * AXIOS 스타일의 2~4문장 해설 브리프(brief)로 재구성한다.
- * - 내부 라벨(`핵심 팩트:`, `브로커 임플리케이션:`, `추천 액션:`) 및 파이프(`|`) 노출 완전 제거
- * - 최소 2문장, 최대 4문장 보장
+ * AXIOS 카드뉴스형 2줄 부제(Subtitle/Deck) 포맷터
+ * - 원문 뉴스 요약(파이프 `|` 구분자 구조 포함)에서 핵심 팩트 1문장 + 매수자 시사점 1문장(총 2문장, 약 50~98자)으로 압축
+ * - 내부 라벨(`핵심 팩트:`, `브로커 임플리케이션:`, `추천 액션:`) 및 파이프(`|`) 노출 100% 제거
+ * - 최소 2문장, 최대 2문장(레거시 호환 2~4문장 범위 내)으로 고정해 포스트잇 2줄(line-clamp-2) 서피스에 최적화
  */
-export function formatAxiosBrief(
+export function formatAxiosTwoLineBrief(
   rawSummary: unknown,
   opts: {
     secondarySummary?: string;
     title?: string;
     channel?: SpecificNewsChannelId;
+    maxTotalChars?: number;
   } = {},
 ): string {
+  const maxTotalChars = opts.maxTotalChars ?? 98;
   const raw = typeof rawSummary === 'string' ? decodeBasicEntities(rawSummary).trim() : '';
   const sentences: string[] = [];
-
-  const INTERNAL_LABEL_RE =
-    /(?:핵심\s*팩트|브로커\s*임플리케이션|추천\s*액션|시장\s*시사점|매수자\s*포인트)\s*[:：]\s*/gi;
 
   if (raw.includes('|')) {
     const segments = raw
@@ -201,8 +257,9 @@ export function formatAxiosBrief(
 
     for (const seg of segments) {
       for (const s of splitKoreanSentences(seg)) {
-        if (sentences.length < 4 && !sentences.includes(s)) {
-          sentences.push(s);
+        const condensed = condenseSentence(s, 54);
+        if (sentences.length < 2 && !sentences.includes(condensed)) {
+          sentences.push(condensed);
         }
       }
     }
@@ -212,159 +269,247 @@ export function formatAxiosBrief(
       .replace(/\s+/g, ' ')
       .trim();
     for (const s of splitKoreanSentences(cleaned)) {
-      if (sentences.length < 4 && !sentences.includes(s)) {
-        sentences.push(s);
+      const condensed = condenseSentence(s, 54);
+      if (sentences.length < 2 && !sentences.includes(condensed)) {
+        sentences.push(condensed);
       }
     }
   }
 
-  // 클러스터 내 보조 기사가 있으면 핵심 문장 1개를 추가해 입체적 클러스터링 브리프 구성
-  if (opts.secondarySummary && sentences.length < 4) {
+  if (opts.secondarySummary && sentences.length < 2) {
     const secRaw = decodeBasicEntities(opts.secondarySummary)
       .split('|')[0]
       ?.replace(INTERNAL_LABEL_RE, '')
       .trim();
     if (secRaw) {
       const secSentences = splitKoreanSentences(secRaw);
-      if (secSentences[0] && !sentences.includes(secSentences[0])) {
-        sentences.push(secSentences[0]);
+      if (secSentences[0]) {
+        const condensed = condenseSentence(secSentences[0], 50);
+        if (!sentences.includes(condensed)) {
+          sentences.push(condensed);
+        }
       }
     }
   }
 
-  // 문장이 1개 이하일 때 채널별 매수자 시사점 문장을 보강하여 2~4문장 규격 충족
   if (sentences.length < 2) {
-    const channelFallbacks: Record<SpecificNewsChannelId, string[]> = {
-      real_estate: [
-        '역세권 및 우량 임차인이 확보된 중소형 빌딩을 중심으로 실수요 법인과 개인 자산가의 선별 매수세가 이어지고 있습니다.',
-        '매수 검토 시 표면 수익률뿐 아니라 대지 지분 가치와 리모델링 밸류애드 여력을 함께 점검하는 것이 유리합니다.',
-      ],
-      economy_finance: [
-        '시중은행의 기업시설자금 대출 금리와 통화정책 방향성이 빌딩 매수자의 자기자본수익률(CoC)을 결정짓는 핵심 변수로 작용하고 있습니다.',
-        '자금 조달 구조와 금리 스프레드를 사전에 점검하면 협상력과 실질 현금흐름을 동시에 높일 수 있습니다.',
-      ],
-      tax_wealth: [
-        '상업용 부동산 취득·보유·양도 및 증여 단계별 세무 구조에 따라 실질 세후 수익률 격차가 크게 벌어지고 있습니다.',
-        '사전 감정평가와 임대차 특약 정비를 통해 절세 효과를 극대화하는 전략적 접근이 필요합니다.',
-      ],
-      culture_lifestyle: [
-        '건물의 공간 기획과 건축·문화 콘텐츠 결합 여부가 임차인 집객력과 자산 가치를 좌우하는 핵심 트렌드로 자리잡았습니다.',
-        '우량 테넌트 유치를 위해 외관 디자인과 저층부 공간 구성을 차별화하는 건물주가 늘고 있습니다.',
-      ],
-      commercial_trend: [
-        '핵심 상권의 유동인구와 우량 임차 업종(병의원·카페·쇼룸) 유입 흐름이 인근 중소형 빌딩의 임대료를 견인하고 있습니다.',
-        '공실 위험을 낮추고 임대 수익을 안정화하기 위해 상권별 소비 트렌드 변화를 면밀히 주시해야 합니다.',
-      ],
-    };
     const channelKey = opts.channel ?? 'real_estate';
-    const extras = channelFallbacks[channelKey] ?? channelFallbacks.real_estate;
+    const extras = CONCISE_CHANNEL_FALLBACKS[channelKey] ?? CONCISE_CHANNEL_FALLBACKS.real_estate;
     for (const ex of extras) {
       if (sentences.length < 2 && !sentences.includes(ex)) {
-        sentences.push(ex);
+        sentences.push(condenseSentence(ex, 52));
       }
     }
   }
 
-  return sentences.slice(0, 4).join(' ');
+  let joined = sentences.slice(0, 2).join(' ');
+  if (joined.length > maxTotalChars && sentences.length === 2) {
+    const s1 = condenseSentence(sentences[0], Math.floor(maxTotalChars * 0.52));
+    const s2 = condenseSentence(sentences[1], Math.floor(maxTotalChars * 0.46));
+    joined = `${s1} ${s2}`;
+  }
+  return joined;
 }
 
 /**
- * 다수의 뉴스 기사 후보를 주제·채널 유사도 기반으로 클러스터링하여
- * 정확히 5건(ISSUE_CARD_COUNT = 5)의 AXIOS형 와이드 포스트잇 단위 이슈로 재구성한다.
+ * 하위호환 및 AXIOS 브리프 표준 함수 (2줄 부제형 2문장 요약 반환)
+ */
+export function formatAxiosBrief(
+  rawSummary: unknown,
+  opts: {
+    secondarySummary?: string;
+    title?: string;
+    channel?: SpecificNewsChannelId;
+  } = {},
+): string {
+  return formatAxiosTwoLineBrief(rawSummary, opts);
+}
+
+export interface ClusterIssuesOptions {
+  cadence?: 'daily' | 'weekly' | 'monthly' | 'special';
+  preferredIds?: readonly string[];
+  preferredRegions?: readonly string[];
+  preferredChannels?: readonly SpecificNewsChannelId[];
+  dealKeywords?: readonly string[];
+}
+
+/**
+ * 다수의 뉴스 기사 후보를 중개인 설정(권역·관심 채널·보유 매물 키워드) 기반으로 가중치 클러스터링하여
+ * 정확히 5건(ISSUE_CARD_COUNT = 5)의 AXIOS형 카드뉴스 포스트잇 단위 이슈로 재구성한다.
  */
 export function clusterArticlesIntoFiveIssues(
   articles: readonly NewsPoolItem[] = [],
-  opts: {
-    cadence?: 'daily' | 'weekly' | 'monthly' | 'special';
-    preferredIds?: readonly string[];
-  } = {},
+  opts: ClusterIssuesOptions = {},
 ): AxiosUnitIssue[] {
-  // 1. 입력 기사 + 부족분 보충용 기본 풀 준비
-  const pool: NewsPoolItem[] = [];
+  const expandedRegions = expandRegionKeywords(opts.preferredRegions ?? []);
+  const dealKeywords = (opts.dealKeywords ?? [])
+    .map((k) => k.trim())
+    .filter((k) => k.length >= 2);
+  const activeChannels: SpecificNewsChannelId[] =
+    Array.isArray(opts.preferredChannels) && opts.preferredChannels.length > 0
+      ? opts.preferredChannels.filter(isSpecificNewsChannelId)
+      : [
+          'real_estate',
+          'economy_finance',
+          'commercial_trend',
+          'tax_wealth',
+          'culture_lifestyle',
+        ];
+
+  const preferredChannelSet = new Set<SpecificNewsChannelId>(activeChannels);
+  const preferredIdSet = new Set<string>((opts.preferredIds ?? []).map((id) => String(id).trim()));
+
+  // 1. 입력 기사(비부동산 가십 필터링 적용) + 부족분 보충용 기본 풀 준비
+  const pool: Array<{ item: NewsPoolItem; score: number; channel: SpecificNewsChannelId }> = [];
   const seenKey = new Set<string>();
 
-  const pushItem = (item: NewsPoolItem) => {
-    const title = formatSingleLineTitle(item.title, 80);
-    if (!title) return;
-    const key = String(item.id ?? title).trim();
-    if (seenKey.has(key)) return;
-    seenKey.add(key);
-    pool.push(item);
+  const computeScore = (
+    item: NewsPoolItem,
+    ch: SpecificNewsChannelId,
+    isUserProvided: boolean,
+  ): number => {
+    const id = String(item.id ?? item.title ?? '').trim();
+    const text = `${item.title ?? ''} ${item.summary ?? ''}`;
+    let score = typeof item.importance_score === 'number' ? item.importance_score : 6;
+
+    if (isUserProvided) score += 10;
+    if (preferredIdSet.has(id)) score += 100;
+    if (preferredChannelSet.has(ch)) score += 15;
+
+    let regionMatches = 0;
+    for (const rk of expandedRegions) {
+      if (rk.length >= 2 && text.includes(rk)) {
+        regionMatches += 1;
+        if (regionMatches >= 4) break;
+      }
+    }
+    score += regionMatches * 8;
+
+    for (const dk of dealKeywords) {
+      if (dk.length >= 2 && text.includes(dk)) {
+        score += 8;
+        break;
+      }
+    }
+
+    return score;
   };
 
-  // 사용자가 우선 선택한 기사가 있으면 최우선 배치
-  if (Array.isArray(opts.preferredIds) && opts.preferredIds.length > 0) {
-    const byId = new Map(articles.map((a) => [String(a.id ?? a.title), a]));
-    for (const pid of opts.preferredIds) {
+  const pushItem = (item: NewsPoolItem, isUserProvided = false) => {
+    if (!isCreRelevantArticle(item)) return;
+    const title = formatAxiosCardTitle(item.title, 80);
+    if (!title) return;
+    const key = String(item.id ?? title).trim();
+    const normTitle = title.replace(/\s+/g, '');
+    if (seenKey.has(key) || seenKey.has(normTitle)) return;
+    seenKey.add(key);
+    seenKey.add(normTitle);
+    const channel = resolveNewsChannel(item);
+    const score = computeScore(item, channel, isUserProvided);
+    pool.push({ item, score, channel });
+  };
+
+  if (preferredIdSet.size > 0) {
+    const byId = new Map(articles.map((a) => [String(a.id ?? a.title).trim(), a]));
+    for (const pid of preferredIdSet) {
       const found = byId.get(pid);
-      if (found) pushItem(found);
+      if (found) pushItem(found, true);
     }
   }
 
   for (const a of articles) {
-    pushItem(a);
+    pushItem(a, true);
   }
   for (const c of CURATED_CHANNEL_POOL) {
-    pushItem(c);
+    pushItem(c, false);
   }
 
-  // 2. 채널/토픽 그룹별 클러스터 버킷 구성 (5대 채널 균형 배분 + 유사 기사 병합)
-  const channelOrder: SpecificNewsChannelId[] = [
-    'real_estate',
-    'economy_finance',
-    'commercial_trend',
-    'tax_wealth',
-    'culture_lifestyle',
+  // 점수 내림차순 정렬
+  pool.sort((a, b) => b.score - a.score);
+
+  // 2. 선호 채널 우선 버킷 구성
+  const allChannels: SpecificNewsChannelId[] = [
+    ...activeChannels,
+    ...(
+      [
+        'real_estate',
+        'economy_finance',
+        'commercial_trend',
+        'tax_wealth',
+        'culture_lifestyle',
+      ] as const
+    ).filter((ch) => !preferredChannelSet.has(ch)),
   ];
 
   const buckets = new Map<SpecificNewsChannelId, NewsPoolItem[]>();
-  for (const ch of channelOrder) buckets.set(ch, []);
-
-  for (const item of pool) {
-    const ch = resolveNewsChannel(item);
-    const list = buckets.get(ch) ?? buckets.get('real_estate')!;
-    list.push(item);
+  for (const ch of allChannels) buckets.set(ch, []);
+  for (const entry of pool) {
+    const list = buckets.get(entry.channel) ?? buckets.get('real_estate')!;
+    list.push(entry.item);
   }
 
-  const clusters: Array<{ primary: NewsPoolItem; related: NewsPoolItem[]; channel: SpecificNewsChannelId }> = [];
+  const totalPreferredCandidates = activeChannels.reduce(
+    (acc, ch) => acc + (buckets.get(ch)?.length ?? 0),
+    0,
+  );
+
+  const clusters: Array<{
+    primary: NewsPoolItem;
+    related: NewsPoolItem[];
+    channel: SpecificNewsChannelId;
+  }> = [];
   const usedIds = new Set<string>();
 
-  // 각 채널 버킷에서 대표 기사 + 연관 기사 1~2건을 묶어 클러스터 생성
-  for (const ch of channelOrder) {
-    const list = (buckets.get(ch) ?? []).filter((x) => !usedIds.has(String(x.id ?? x.title)));
-    if (list.length === 0) continue;
-    const primary = list[0];
-    usedIds.add(String(primary.id ?? primary.title));
+  // 라운드로빈으로 선호 채널에서 먼저 5개 이슈를 채운다
+  let pass = 0;
+  while (clusters.length < ISSUE_CARD_COUNT && pass < ISSUE_CARD_COUNT) {
+    let addedInPass = false;
+    for (const ch of activeChannels) {
+      if (clusters.length >= ISSUE_CARD_COUNT) break;
+      const list = (buckets.get(ch) ?? []).filter(
+        (x) => !usedIds.has(String(x.id ?? x.title)),
+      );
+      if (list.length === 0) continue;
 
-    // 동일 토픽 또는 같은 채널의 차순위 기사를 연관 기사로 클러스터링
-    const related: NewsPoolItem[] = [];
-    for (let i = 1; i < list.length && related.length < 2; i++) {
-      const cand = list[i];
-      if (cand.topic === primary.topic || list.length <= 3) {
-        related.push(cand);
-        usedIds.add(String(cand.id ?? cand.title));
+      const primary = list[0];
+      usedIds.add(String(primary.id ?? primary.title));
+
+      const related: NewsPoolItem[] = [];
+      // 후보 기사가 충분할 때만 동일 토픽 보조 기사를 클러스터로 병합
+      const canMergeRelated = totalPreferredCandidates - usedIds.size >= ISSUE_CARD_COUNT - clusters.length;
+      if (canMergeRelated) {
+        for (let i = 1; i < list.length && related.length < 2; i++) {
+          const cand = list[i];
+          if (cand.topic && cand.topic === primary.topic) {
+            related.push(cand);
+            usedIds.add(String(cand.id ?? cand.title));
+          }
+        }
       }
+
+      clusters.push({ primary, related, channel: ch });
+      addedInPass = true;
     }
-    clusters.push({ primary, related, channel: ch });
-    if (clusters.length >= ISSUE_CARD_COUNT) break;
+    if (!addedInPass) break;
+    pass += 1;
   }
 
-  // 만약 5개 미만이면 남은 기사들로 채움
-  for (const item of pool) {
+  // 선호 채널만으로 5개가 안 채워졌을 경우 전체 풀에서 점수순 보충
+  for (const entry of pool) {
     if (clusters.length >= ISSUE_CARD_COUNT) break;
-    const key = String(item.id ?? item.title);
+    const key = String(entry.item.id ?? entry.item.title);
     if (usedIds.has(key)) continue;
     usedIds.add(key);
-    const ch = resolveNewsChannel(item);
-    clusters.push({ primary: item, related: [], channel: ch });
+    clusters.push({ primary: entry.item, related: [], channel: entry.channel });
   }
 
-  // 3. 각 클러스터를 AXIOS형 제목 1줄 + 2~4문장 브리프 + 포스트잇 5톤으로 변환
+  // 3. 각 클러스터를 AXIOS 카드뉴스형 2줄 헤드라인 + 2줄 부제 브리프 + 포스트잇 5톤으로 변환
   return clusters.slice(0, ISSUE_CARD_COUNT).map((cluster, idx) => {
     const { primary, related, channel } = cluster;
     const memoTone = POST_IT_TONES[idx % POST_IT_TONES.length];
-    const title = formatSingleLineTitle(primary.title, 38) || `핵심 상업용 부동산 이슈 #${idx + 1}`;
-    const brief = formatAxiosBrief(primary.summary, {
+    const title =
+      formatAxiosCardTitle(primary.title, 52) || `핵심 상업용 부동산 이슈 #${idx + 1}`;
+    const brief = formatAxiosTwoLineBrief(primary.summary, {
       secondarySummary: related[0]?.summary,
       title,
       channel,
@@ -417,15 +562,18 @@ export function resolveUnitIssuesFromData(
       const raw = data.unitIssues[i];
       if (!raw || typeof raw !== 'object') continue;
       const r = raw as Record<string, unknown>;
-      const title = formatSingleLineTitle(r.title, 44);
+      const title = formatAxiosCardTitle(r.title, 52);
       if (!title) continue;
+      if (!isCreRelevantArticle({ title, summary: typeof r.brief === 'string' ? r.brief : '' })) {
+        continue;
+      }
       const channel = resolveNewsChannel({
         title,
         summary: typeof r.brief === 'string' ? r.brief : '',
         topic: typeof r.topic === 'string' ? r.topic : '',
         channel: typeof r.channel === 'string' ? r.channel : '',
       });
-      const brief = formatAxiosBrief(r.brief ?? r.summary, { title, channel });
+      const brief = formatAxiosTwoLineBrief(r.brief ?? r.summary, { title, channel });
       const toneRaw = typeof r.memoTone === 'string' ? r.memoTone : '';
       const memoTone: PostItTone = (POST_IT_TONES as readonly string[]).includes(toneRaw)
         ? (toneRaw as PostItTone)
@@ -451,7 +599,9 @@ export function resolveUnitIssuesFromData(
           ? { url: r.url.trim() }
           : {}),
         articleCount:
-          typeof r.articleCount === 'number' && r.articleCount >= 1 ? r.articleCount : Math.max(1, sources.length),
+          typeof r.articleCount === 'number' && r.articleCount >= 1
+            ? r.articleCount
+            : Math.max(1, sources.length),
       });
     }
     if (valid.length > 0) return valid;
@@ -471,15 +621,18 @@ export function resolveUnitIssuesFromData(
     const n = rawNews[i];
     if (!n || typeof n !== 'object') continue;
     const r = n as Record<string, unknown>;
-    const title = formatSingleLineTitle(r.title, 44);
+    const title = formatAxiosCardTitle(r.title, 52);
     if (!title) continue;
+    if (!isCreRelevantArticle({ title, summary: typeof r.summary === 'string' ? r.summary : '' })) {
+      continue;
+    }
     const channel = resolveNewsChannel({
       title,
       summary: typeof r.summary === 'string' ? r.summary : '',
       topic: typeof r.topic === 'string' ? r.topic : '',
       channel: typeof r.channel === 'string' ? r.channel : '',
     });
-    const brief = formatAxiosBrief(r.summary, { title, channel });
+    const brief = formatAxiosTwoLineBrief(r.summary, { title, channel });
     const memoTone = POST_IT_TONES[out.length % POST_IT_TONES.length];
     const sentiment =
       r.sentiment === 'bullish' || r.sentiment === 'bearish' ? r.sentiment : 'neutral';

@@ -410,8 +410,8 @@ export function applySimpleTextFormat(
 export function stripUneditedFormatPlaceholders(raw: string): string {
   if (!raw) return '';
   return raw
-    .replace(/^■[ \t]*소제목을 입력해 주세요[ \t]+(.+)$/gm, '■ $1')
-    .replace(/^■[ \t]*소제목을 입력해 주세요[ \t]*\n?/gm, '')
+    .replace(/^■[ \t]*(?:소제목을 입력해 주세요|소제목(?:\s*입력)?)[ \t]+(.+)$/gm, '■ $1')
+    .replace(/^■[ \t]*(?:소제목을 입력해 주세요|소제목(?:\s*입력)?)[ \t]*\n?/gm, '')
     .replace(/「[ \t]*강조할 문구[ \t]*」/g, '')
     .replace(/(?:\n[ \t]*)*─{3,}[ \t]*$/g, '')
     .replace(/\n{3,}/g, '\n\n')

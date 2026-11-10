@@ -104,6 +104,50 @@ export const NEWS_CHANNEL_MAP: Readonly<Record<NewsChannelId, NewsChannelMeta>> 
   NEWS_CHANNELS.map((c) => [c.id, c]),
 ) as Record<NewsChannelId, NewsChannelMeta>;
 
+export const SPECIFIC_NEWS_CHANNELS: readonly (NewsChannelMeta & { id: SpecificNewsChannelId })[] =
+  NEWS_CHANNELS.filter(
+    (c): c is NewsChannelMeta & { id: SpecificNewsChannelId } => c.id !== "all",
+  );
+
+export function isSpecificNewsChannelId(value: unknown): value is SpecificNewsChannelId {
+  return (
+    value === "real_estate" ||
+    value === "economy_finance" ||
+    value === "tax_wealth" ||
+    value === "culture_lifestyle" ||
+    value === "commercial_trend"
+  );
+}
+
+const NON_CRE_GOSSIP_RE =
+  /여가수|연예인|아이돌|걸그룹|보이그룹|가수\s*[가-힣A-Za-z]|배우\s*[가-힣A-Za-z]|탤런트|개그맨|방송인|유튜버|인플루언서|열애|결별|이혼\s*소송|불륜|스캔들|사생활|마약|폭행|성폭행|살인|구속\s*기소|음주운전|도박|프로야구|프로축구|올림픽\s*메달|손흥민|오타니/;
+
+const CELEBRITY_HOME_GOSSIP_RE =
+  /(?:여가수|연예인|아이돌|가수|배우|탤런트|개그맨|유명인|스타).*(?:집|자택|빌라|아파트|저택|펜트하우스|경매|공매|낙찰)|(?:집|자택|빌라|아파트|저택|펜트하우스|경매).*(?:여가수|연예인|아이돌|가수|배우|탤런트|개그맨)/;
+
+/**
+ * 상업용 부동산(CRE) 및 자산가 뉴스레터 품격에 맞지 않는 연예·가십·사건사고 노이즈 기사를 차단한다.
+ * (예: "유명 여가수 200억짜리 집 경매 나왔다" 등 가십성 경매/사생활 기사 차단)
+ */
+export function isCreRelevantArticle(item: {
+  title?: string | null;
+  summary?: string | null;
+  topic?: string | null;
+}): boolean {
+  const title = String(item.title ?? "").trim();
+  const summary = String(item.summary ?? "").trim();
+  const combined = `${title} ${summary}`.trim();
+  if (!title) return false;
+
+  if (CELEBRITY_HOME_GOSSIP_RE.test(combined)) {
+    return false;
+  }
+  if (NON_CRE_GOSSIP_RE.test(combined)) {
+    return false;
+  }
+  return true;
+}
+
 export interface CuratedChannelNewsItem {
   id: string;
   title: string;
@@ -500,6 +544,7 @@ export function enrichNewsPoolWithChannels<
     const id = String(item.id ?? item.title ?? "").trim();
     const normTitle = String(item.title ?? "").replace(/^\[.*?\]\s*/, "").trim();
     if (!id || !normTitle) continue;
+    if (!isCreRelevantArticle(item as { title?: string; summary?: string; topic?: string })) continue;
     if (seenIds.has(id) || seenTitles.has(normTitle)) continue;
     seenIds.add(id);
     seenTitles.add(normTitle);

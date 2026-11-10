@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { callLLM, LLMMockNotAllowedError } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
+import {
+  buildTf8DraftPrompt,
+  repairDraftOutputBlock,
+} from "@/ai/prompts/magazine-taskflow";
+import {
+  normalizePreferredChannels,
+  normalizePreferredRegions,
+} from "@/domain/magazine/broker-preferences";
 import { requireBroker } from "@/lib/auth-guard";
 import {
   AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
@@ -30,19 +38,23 @@ export function sanitizeInvestmentSolicitation(text: string): string {
 }
 
 export const AI_DRAFT_SYSTEM_PROMPT = [
-  "당신은 상업용 부동산 전문 공인중개사의 월간 뉴스레터 초안 작성을 돕는 편집 비서입니다.",
-  "중개사가 입력한 발행 연·월, 관심 권역, 추천 매물 제목, 기존 메모만을 바탕으로 정중하고 신뢰감 있는 한국어 뉴스레터 초안 JSON을 작성하세요.",
-  "절대 규칙:",
-  "1) 입력에 없는 구체 숫자(수익률, 매매가, 공실률, 거래건수, 변동률 등)를 임의로 추가하지 마세요.",
-  "2) 투자 권유·단정 표현(원금 보장, 확정 수익, 무조건 상승 등)을 사용하지 마세요.",
-  "3) 반드시 아래 JSON 키만 포함하여 응답하세요:",
+  "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v2.0)",
+  "[T] Task: 공인중개사가 입력한 발행 연·월, 주력 권역, 관심 큐레이션 분야, 추천 매물, 기존 메모만을 바탕으로 정중하고 신뢰감 있는 한국어 뉴스레터 초안 JSON을 작성하세요.",
+  "[A] Audience: 50~70대 중소형 빌딩 매수 대기자, 법인 사옥 실수요 대표, 건물주.",
+  "[W] Warnings & Hard Constraints:",
+  "1) [No-LLM-Numbers] 입력에 없는 구체 숫자(수익률, 매매가, 공실률, 거래건수, 변동률 등)를 임의로 추가하지 마세요.",
+  "2) [No-Solicitation] 투자 권유·단정 표현(원금 보장, 확정 수익, 무조건 상승 등)을 사용하지 마세요.",
+  "3) [O] Output Contract: 반드시 아래 JSON 키만 포함하여 응답하세요:",
   '   { "headline": "36자 이내 표지 제목", "summary": "80자 이내 한 줄 소개", "briefingTitle": "30자 이내 브리핑 소제목", "briefingBody": "400자 이내 시장 브리핑 본문" }',
 ].join("\n");
 
 export const aiDraftRequestSchema = z.object({
   monthLabel: z.string().trim().min(1, "발행 연·월 정보가 필요합니다.").max(60),
   regionFocus: z.string().trim().max(120).optional(),
+  preferredRegions: z.array(z.string().trim().max(40)).max(8).optional(),
+  preferredChannels: z.array(z.string().trim().max(40)).max(5).optional(),
   dealTitles: z.array(z.string().trim().max(200)).max(20).optional(),
+  newsTitles: z.array(z.string().trim().max(240)).max(20).optional(),
   currentHeadline: z.string().trim().max(300).optional(),
   currentBriefing: z.string().trim().max(5000).optional(),
 });
@@ -58,6 +70,7 @@ export const aiDraftResponseSchema = z.object({
   ok: z.literal(true),
   result: aiDraftResultSchema,
   warnings: z.array(z.string()).optional(),
+  envelope: z.unknown().optional(),
 });
 
 export type AiDraftRequest = z.infer<typeof aiDraftRequestSchema>;
@@ -110,7 +123,7 @@ function extractJsonObject(rawContent: string): Record<string, unknown> | null {
 
 /**
  * POST /api/broker/studio/ai-draft
- * 뉴스레터 전체 초안(표지 제목 · 한 줄 소개 · 브리핑 소제목 · 브리핑 본문) 실제 LLM 생성
+ * 뉴스레터 전체 초안(표지 제목 · 한 줄 소개 · 브리핑 소제목 · 브리핑 본문) TaskFlow TF8 + M11 생성
  */
 export async function POST(req: NextRequest) {
   const auth = await requireBroker(req);
@@ -133,30 +146,39 @@ export async function POST(req: NextRequest) {
   }
 
   const input = parsedReq.data;
+  const preferredRegions = normalizePreferredRegions([
+    ...(input.preferredRegions ?? []),
+    ...(input.regionFocus ? [input.regionFocus] : []),
+  ]);
+  const preferredChannels = normalizePreferredChannels(input.preferredChannels);
+
   const contextParts = [
     input.monthLabel,
     input.regionFocus ?? "",
+    ...preferredRegions,
     ...(input.dealTitles ?? []),
+    ...(input.newsTitles ?? []),
     input.currentHeadline ?? "",
     input.currentBriefing ?? "",
   ].filter(Boolean);
   const inputContext = contextParts.join(" ");
 
-  const userPromptLines = [
-    `발행 호수/시기: ${input.monthLabel}`,
-    input.regionFocus ? `중점 권역: ${input.regionFocus}` : "",
-    input.dealTitles && input.dealTitles.length > 0
-      ? `포함 매물 목록: ${input.dealTitles.join(", ")}`
-      : "",
-    input.currentHeadline ? `현재 작성 중인 제목: ${input.currentHeadline}` : "",
-    input.currentBriefing ? `현재 작성 중인 메모: ${input.currentBriefing}` : "",
-  ].filter(Boolean);
+  const tf8 = buildTf8DraftPrompt({
+    monthLabel: input.monthLabel,
+    regionFocus: input.regionFocus,
+    preferredRegions,
+    preferredChannels,
+    dealTitles: input.dealTitles,
+    newsTitles: input.newsTitles,
+    currentHeadline: input.currentHeadline,
+    currentBriefing: input.currentBriefing,
+  });
 
   try {
     const llmResult = await callLLM(
       {
-        systemPrompt: AI_DRAFT_SYSTEM_PROMPT,
-        userPrompt: userPromptLines.join("\n"),
+        systemPrompt: tf8.systemPrompt,
+        userPrompt: tf8.userPrompt,
         model: getModel("luna"),
         temperature: 0.4,
         responseFormat: "json_object",
@@ -178,34 +200,44 @@ export async function POST(req: NextRequest) {
       return fail(502, "LLM_INVALID_JSON", "AI 응답 형식을 읽지 못했어요. 다시 한 번 눌러 주세요.");
     }
 
-    const normalizedCandidate = {
+    const rawCandidate = {
       headline: clampText(jsonObj.headline, 36),
       summary: clampText(jsonObj.summary, 80),
       briefingTitle: clampText(jsonObj.briefingTitle, 30),
       briefingBody: clampMultilineText(jsonObj.briefingBody, 400),
     };
 
-    const validated = aiDraftResultSchema.safeParse(normalizedCandidate);
-    if (!validated.success) {
+    const validatedRaw = aiDraftResultSchema.safeParse(rawCandidate);
+    if (!validatedRaw.success) {
       return fail(502, "LLM_SCHEMA_MISMATCH", "AI 초안 항목이 부족해요. 다시 한 번 눌러 주세요.");
     }
 
-    const combinedOutput = [
-      validated.data.headline,
-      validated.data.summary,
-      validated.data.briefingTitle,
-      validated.data.briefingBody,
+    const combinedRawOutput = [
+      validatedRaw.data.headline,
+      validatedRaw.data.summary,
+      validatedRaw.data.briefingTitle,
+      validatedRaw.data.briefingBody,
     ].join(" ");
 
     const warnings: string[] = [];
-    if (findNumbersNotInContext(combinedOutput, inputContext).length > 0) {
+    if (findNumbersNotInContext(combinedRawOutput, inputContext).length > 0) {
       warnings.push(AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT);
     }
 
+    // M11 핀포인트 블록 교정 및 AI Core Envelope 생성
+    const repaired = repairDraftOutputBlock(validatedRaw.data, inputContext, {
+      monthLabel: input.monthLabel,
+      preferredRegions,
+    });
+
+    const finalValidated = aiDraftResultSchema.safeParse(repaired.result);
+    const finalResult = finalValidated.success ? finalValidated.data : validatedRaw.data;
+
     const responseBody: AiDraftResponse = {
       ok: true,
-      result: validated.data,
+      result: finalResult,
       ...(warnings.length > 0 ? { warnings } : {}),
+      envelope: repaired.envelope,
     };
 
     return NextResponse.json(responseBody);

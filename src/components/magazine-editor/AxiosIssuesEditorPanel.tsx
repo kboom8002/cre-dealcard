@@ -8,15 +8,17 @@ import {
   POST_IT_TONES,
   POST_IT_TONE_META,
   clusterArticlesIntoFiveIssues,
-  formatAxiosBrief,
-  formatSingleLineTitle,
+  formatAxiosCardTitle,
+  formatAxiosTwoLineBrief,
 } from "@/domain/magazine/issue-clustering";
 import {
   NEWS_CHANNELS,
   NEWS_CHANNEL_MAP,
+  isCreRelevantArticle,
   resolveNewsChannel,
   type NewsChannelId,
   type NewsPoolItem,
+  type SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
 import { editorToast } from "@/components/magazine-editor/editor-toaster";
 
@@ -25,6 +27,11 @@ export interface AxiosIssuesEditorPanelProps {
   onChangeUnitIssues: (next: AxiosUnitIssue[]) => void;
   newsPool: NewsPoolItem[];
   cadenceLabel?: string;
+  preferredRegions?: readonly string[];
+  preferredChannels?: readonly SpecificNewsChannelId[];
+  dealTitles?: readonly string[];
+  onAiClusterIssues?: () => Promise<void> | void;
+  isAiClustering?: boolean;
   onRefreshLiveChannel?: (channel: NewsChannelId) => void;
 }
 
@@ -33,6 +40,11 @@ export function AxiosIssuesEditorPanel({
   onChangeUnitIssues,
   newsPool,
   cadenceLabel = "이번 호",
+  preferredRegions,
+  preferredChannels,
+  dealTitles,
+  onAiClusterIssues,
+  isAiClustering = false,
   onRefreshLiveChannel,
 }: AxiosIssuesEditorPanelProps) {
   const [swappingIndex, setSwappingIndex] = useState<number | null>(null);
@@ -43,7 +55,11 @@ export function AxiosIssuesEditorPanel({
     unitIssues.length >= ISSUE_CARD_COUNT
       ? unitIssues.slice(0, ISSUE_CARD_COUNT)
       : (() => {
-          const fallback = clusterArticlesIntoFiveIssues(newsPool);
+          const fallback = clusterArticlesIntoFiveIssues(newsPool, {
+            preferredRegions,
+            preferredChannels,
+            dealKeywords: dealTitles,
+          });
           const merged = [...unitIssues];
           for (const f of fallback) {
             if (merged.length >= ISSUE_CARD_COUNT) break;
@@ -67,10 +83,18 @@ export function AxiosIssuesEditorPanel({
     onChangeUnitIssues(next);
   };
 
-  const handleReclusterAll = () => {
-    const reclustered = clusterArticlesIntoFiveIssues(newsPool);
+  const handleReclusterAll = async () => {
+    if (onAiClusterIssues) {
+      await onAiClusterIssues();
+      return;
+    }
+    const reclustered = clusterArticlesIntoFiveIssues(newsPool, {
+      preferredRegions,
+      preferredChannels,
+      dealKeywords: dealTitles,
+    });
     onChangeUnitIssues(reclustered);
-    editorToast.success("AI가 연관 기사를 분석하여 핵심 시장 이슈 5선을 재구성했습니다.");
+    editorToast.success("AI가 내 권역·관심 분야 기반으로 핵심 시장 이슈 5선을 재구성했습니다.");
   };
 
   const handleReplaceSingleIssue = (idx: number, item: NewsPoolItem) => {
@@ -78,8 +102,8 @@ export function AxiosIssuesEditorPanel({
     const currentTone = issues[idx]?.memoTone ?? POST_IT_TONES[idx % POST_IT_TONES.length];
     const replacement: AxiosUnitIssue = {
       id: String(item.id ?? `issue-${idx + 1}-${Date.now()}`),
-      title: formatSingleLineTitle(item.title, 38),
-      brief: formatAxiosBrief(item.summary, { title: item.title, channel: ch }),
+      title: formatAxiosCardTitle(item.title, 52),
+      brief: formatAxiosTwoLineBrief(item.summary, { title: item.title, channel: ch }),
       memoTone: currentTone,
       channel: ch,
       topic: item.topic || ch,
@@ -96,6 +120,7 @@ export function AxiosIssuesEditorPanel({
   };
 
   const candidatePool = newsPool.filter((n) => {
+    if (!isCreRelevantArticle(n)) return false;
     if (channelFilter === "all") return true;
     return resolveNewsChannel(n) === channelFilter;
   });
@@ -103,31 +128,34 @@ export function AxiosIssuesEditorPanel({
   return (
     <div data-testid="axios-issues-editor-panel" className="space-y-4">
       {/* 상단 설명 & 1-Click AI 재구성 바 */}
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-2xs space-y-3">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <Newspaper className="w-4 h-4 text-blue-700" aria-hidden="true" />
               <h2 className="text-base font-extrabold text-slate-900">
-                {cadenceLabel} 핵심 시장 이슈 5선
+                {cadenceLabel} 핵심 시장 이슈 포스트잇 5선
               </h2>
-              <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-extrabold text-blue-800 whitespace-nowrap">
+              <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-sm font-extrabold text-blue-800 whitespace-nowrap">
                 5건 고정
               </span>
             </div>
-            <p className="mt-1 text-xs font-medium text-slate-600">
-              기사를 클러스터링 AI로 요약하여 <strong>핵심 제목 + 2~4문장 요약 브리프</strong> 카드로 구성합니다.
+            <p className="mt-1 text-sm font-medium text-slate-600">
+              내 주력 권역과 관심 분야 기사를 클러스터링하여 <strong>카드뉴스형 2줄 큰 제목 + 2줄 짧은 해설(AXIOS 스타일)</strong> 포스트잇으로 구성합니다.
             </p>
           </div>
 
           <button
             type="button"
             data-testid="recluster-five-issues-btn"
-            onClick={handleReclusterAll}
-            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 px-3.5 py-2 text-xs font-extrabold text-white shadow-xs transition-colors whitespace-nowrap shrink-0"
+            disabled={isAiClustering}
+            onClick={() => void handleReclusterAll()}
+            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 px-3.5 py-2 text-sm font-extrabold text-white shadow-xs transition-colors whitespace-nowrap shrink-0"
           >
             <Sparkles className="w-4 h-4" aria-hidden="true" />
-            <span>AI 핵심 이슈 5선 자동 재구성</span>
+            <span>
+              {isAiClustering ? "AI 맞춤 이슈 생성 중..." : "AI 핵심 이슈 5선 자동 재구성"}
+            </span>
           </button>
         </div>
       </div>
@@ -149,8 +177,9 @@ export function AxiosIssuesEditorPanel({
               style={{
                 backgroundColor: toneMeta.cardBg,
                 borderColor: toneMeta.cardBorder,
+                borderLeftColor: toneMeta.accentBar,
               }}
-              className="rounded-lg border border-l-4 p-4 shadow-2xs transition-all space-y-3"
+              className="rounded-2xl border-2 border-l-[6px] p-4 shadow-2xs transition-all space-y-3"
             >
               {/* 카드 상단 메타 바: 번호 + 채널 배지 + 강조색 5톤 선택 + 순서/교체 */}
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -160,15 +189,15 @@ export function AxiosIssuesEditorPanel({
                       backgroundColor: toneMeta.badgeBg,
                       color: toneMeta.badgeText,
                     }}
-                    className="rounded px-2.5 py-1 text-xs font-extrabold"
+                    className="rounded px-2.5 py-1 text-sm font-extrabold"
                   >
                     ISSUE 0{idx + 1}
                   </span>
-                  <span className="rounded bg-white/80 border border-slate-300/80 px-2 py-0.5 text-xs font-bold text-slate-800">
+                  <span className="rounded bg-white/85 border border-slate-300/80 px-2 py-0.5 text-sm font-bold text-slate-800">
                     {chMeta.emoji} {chMeta.shortLabel}
                   </span>
                   {issue.articleCount && issue.articleCount > 1 && (
-                    <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                    <span className="rounded bg-white/75 px-2 py-0.5 text-sm font-semibold text-slate-700">
                       연관 기사 {issue.articleCount}건 클러스터
                     </span>
                   )}
@@ -226,7 +255,7 @@ export function AxiosIssuesEditorPanel({
                   <button
                     type="button"
                     onClick={() => setSwappingIndex(isSwapping ? null : idx)}
-                    className="min-h-9 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white/90 hover:bg-white px-2.5 py-1 text-xs font-extrabold text-slate-800"
+                    className="min-h-9 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white/90 hover:bg-white px-2.5 py-1 text-sm font-extrabold text-slate-800"
                   >
                     <RefreshCw className="w-3 h-3" aria-hidden="true" />
                     <span>{isSwapping ? "닫기" : "교체"}</span>
@@ -234,47 +263,47 @@ export function AxiosIssuesEditorPanel({
                 </div>
               </div>
 
-              {/* 핵심 제목 입력 */}
+              {/* 카드뉴스형 2줄 제목 입력 */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor={`axios-issue-title-${idx}`}
-                    className="text-xs font-extrabold text-slate-800"
+                    className="text-sm font-extrabold text-slate-800"
                   >
-                    핵심 이슈 제목 (한 줄 표시)
+                    카드뉴스 헤드라인 제목 (최대 2줄 큰 글씨)
                   </label>
-                  <span className="text-xs font-semibold text-slate-600">
-                    {issue.title.length}/38자
+                  <span className="text-sm font-semibold text-slate-600">
+                    {issue.title.length}/52자
                   </span>
                 </div>
                 <input
                   id={`axios-issue-title-${idx}`}
                   type="text"
-                  maxLength={44}
+                  maxLength={54}
                   value={issue.title}
                   onChange={(e) =>
                     handleUpdateIssue(idx, {
                       title: e.target.value.replace(/[\r\n]+/g, " "),
                     })
                   }
-                  placeholder="핵심 결론을 담은 제목을 입력하세요"
+                  placeholder="고객 시선을 끄는 1~2줄 핵심 제목을 입력하세요"
                   className="w-full min-h-11 rounded-lg border border-slate-300/90 bg-white/95 px-3.5 py-2 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
-              {/* 2~4문장 요약 브리프 입력 */}
+              {/* 2줄 짧은 부제 해설 입력 */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor={`axios-issue-brief-${idx}`}
-                    className="text-xs font-extrabold text-slate-800"
+                    className="text-sm font-extrabold text-slate-800"
                   >
-                    요약 브리프 해설 (2~4문장)
+                    AXIOS 부제형 짧은 해설 (2줄 · 2문장 요약)
                   </label>
                   <button
                     type="button"
                     onClick={() => {
-                      const refined = formatAxiosBrief(issue.brief, {
+                      const refined = formatAxiosTwoLineBrief(issue.brief, {
                         title: issue.title,
                         channel: resolveNewsChannel({
                           title: issue.title,
@@ -283,19 +312,19 @@ export function AxiosIssuesEditorPanel({
                         }),
                       });
                       handleUpdateIssue(idx, { brief: refined });
-                      editorToast.success("2~4문장 요약 브리프 형식으로 정돈했습니다.");
+                      editorToast.success("AXIOS 2줄 부제 형식으로 짧고 명확하게 정돈했습니다.");
                     }}
-                    className="text-xs font-bold text-blue-800 hover:underline"
+                    className="text-sm font-bold text-blue-800 hover:underline"
                   >
-                    ✨ 2~4문장 자동 정돈
+                    ✨ 2줄 부제형 자동 압축
                   </button>
                 </div>
                 <textarea
                   id={`axios-issue-brief-${idx}`}
-                  rows={3}
+                  rows={2}
                   value={issue.brief}
                   onChange={(e) => handleUpdateIssue(idx, { brief: e.target.value })}
-                  placeholder="핵심 팩트와 매수자 시사점을 2~4문장으로 간결하게 정리하세요"
+                  placeholder="핵심 팩트 1문장 + 매수자 시사점 1문장(총 2줄 분량)으로 짧게 입력하세요"
                   className="w-full rounded-lg border border-slate-300/90 bg-white/95 p-3 text-sm font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 resize-y"
                 />
               </div>
@@ -304,7 +333,7 @@ export function AxiosIssuesEditorPanel({
               {isSwapping && (
                 <div className="rounded-lg border border-slate-300 bg-white p-3 space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-1.5">
-                    <span className="text-xs font-extrabold text-slate-900">
+                    <span className="text-sm font-extrabold text-slate-900">
                       다른 뉴스 기사로 이 이슈 교체
                     </span>
                     <div className="flex flex-wrap gap-1">
@@ -318,7 +347,7 @@ export function AxiosIssuesEditorPanel({
                               onRefreshLiveChannel(ch.id);
                             }
                           }}
-                          className={`px-2 py-0.5 rounded-md text-xs font-bold ${
+                          className={`px-2.5 py-1 rounded-md text-sm font-bold ${
                             channelFilter === ch.id
                               ? "bg-blue-700 text-white"
                               : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -338,12 +367,12 @@ export function AxiosIssuesEditorPanel({
                         className="w-full text-left py-2 px-2 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-between gap-2"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-900 truncate">{cand.title}</p>
+                          <p className="text-sm font-bold text-slate-900 truncate">{cand.title}</p>
                           {cand.source && (
-                            <p className="text-xs text-slate-500 truncate">{cand.source}</p>
+                            <p className="text-sm text-slate-500 truncate">{cand.source}</p>
                           )}
                         </div>
-                        <span className="shrink-0 rounded-md bg-blue-50 border border-blue-200 px-2 py-1 text-xs font-extrabold text-blue-700">
+                        <span className="shrink-0 rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1 text-sm font-extrabold text-blue-700">
                           선택
                         </span>
                       </button>

@@ -15,6 +15,7 @@ import { currentWeekLabel } from "@/lib/magazine/kst";
 import { defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
+import { loadBrokerNewsletterPreferences } from "@/app/api/broker/magazine/preferences/route";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -88,13 +89,14 @@ export async function GET(request: NextRequest) {
       selfQuery = selfQuery.eq("status", status);
     }
 
-    const [{ data, count, error }, subRes] = await Promise.all([
+    const [{ data, count, error }, subRes, brokerPreferences] = await Promise.all([
       selfQuery,
       supabase
         .from("magazine_subscribers")
         .select("id", { count: "exact", head: true })
         .in("broker_id", ctx.brokerKeys)
         .eq("status", "active"),
+      loadBrokerNewsletterPreferences(supabase, ctx.userId),
     ]);
 
     if (error) {
@@ -109,6 +111,7 @@ export async function GET(request: NextRequest) {
       brokerName: ctx.displayName ?? "",
       subscriberCount: subRes.count ?? 0,
       highInterestCount: 0,
+      brokerPreferences,
     });
   }
 

@@ -10,11 +10,15 @@ import {
   MULTI_CHANNEL_RSS_FEEDS,
   NEWS_CHANNELS,
   enrichNewsPoolWithChannels,
+  isCreRelevantArticle,
+  isSpecificNewsChannelId,
   resolveNewsChannel,
   type CuratedChannelNewsItem,
   type NewsChannelId,
   type SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
+import { clusterArticlesIntoFiveIssues } from "@/domain/magazine/issue-clustering";
+import { normalizePreferredRegions } from "@/domain/magazine/broker-preferences";
 
 export const dynamic = "force-dynamic";
 
@@ -219,7 +223,7 @@ async function fetchLiveChannelNews(opts: {
     );
   }
 
-  return collected;
+  return collected.filter((item) => isCreRelevantArticle(item));
 }
 
 export async function GET(req: NextRequest) {
@@ -233,6 +237,14 @@ export async function GET(req: NextRequest) {
     const channelParam = (searchParams.get("channel") ?? "all") as NewsChannelId;
     const query = (searchParams.get("q") ?? "").trim();
     const live = searchParams.get("live") === "1" || query.length > 0;
+    const regionsParam = (searchParams.get("regions") ?? "")
+      .split(",")
+      .map((r) => r.trim())
+      .filter(Boolean);
+    const channelsParam = (searchParams.get("channels") ?? "")
+      .split(",")
+      .map((c) => c.trim())
+      .filter(isSpecificNewsChannelId);
 
     const supabase = createServiceClient();
     const { data: dbRows } = await supabase
@@ -242,25 +254,27 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(40);
 
-    const dbNews = ((dbRows ?? []) as Record<string, unknown>[]).map((n) => ({
-      id: String(n.id ?? n.title ?? ""),
-      title: cleanNewsText(String(n.title ?? "")),
-      summary: typeof n.summary === "string" ? decodeEntities(n.summary) : "",
-      source: typeof n.source === "string" ? cleanNewsText(n.source) : "뉴스",
-      url: typeof n.url === "string" && safeHttpUrl(n.url) ? n.url : undefined,
-      sentiment:
-        n.sentiment === "bullish" || n.sentiment === "bearish" ? n.sentiment : ("neutral" as const),
-      importance_score: typeof n.importance_score === "number" ? n.importance_score : 7,
-      topic: typeof n.topic === "string" ? n.topic : "market_trend",
-      created_at: typeof n.created_at === "string" ? n.created_at : undefined,
-    }));
+    const dbNews = ((dbRows ?? []) as Record<string, unknown>[])
+      .map((n) => ({
+        id: String(n.id ?? n.title ?? ""),
+        title: cleanNewsText(String(n.title ?? "")),
+        summary: typeof n.summary === "string" ? decodeEntities(n.summary) : "",
+        source: typeof n.source === "string" ? cleanNewsText(n.source) : "뉴스",
+        url: typeof n.url === "string" && safeHttpUrl(n.url) ? n.url : undefined,
+        sentiment:
+          n.sentiment === "bullish" || n.sentiment === "bearish" ? n.sentiment : ("neutral" as const),
+        importance_score: typeof n.importance_score === "number" ? n.importance_score : 7,
+        topic: typeof n.topic === "string" ? n.topic : "market_trend",
+        created_at: typeof n.created_at === "string" ? n.created_at : undefined,
+      }))
+      .filter((item) => isCreRelevantArticle(item));
 
     const liveItems = live ? await fetchLiveChannelNews({ channel: channelParam, query }) : [];
 
     // 실시간 수집 기사가 있으면 external_news 에 비차단 캐시 적재 시도
     if (liveItems.length > 0) {
       const upsertRows = liveItems
-        .filter((item) => item.url && safeHttpUrl(item.url))
+        .filter((item) => item.url && safeHttpUrl(item.url) && isCreRelevantArticle(item))
         .slice(0, 12)
         .map((item) => ({
           url: item.url!,
@@ -282,6 +296,7 @@ export async function GET(req: NextRequest) {
 
     const filtered = merged.filter((item) => {
       if (channelParam !== "all" && item.channel !== channelParam) return false;
+      if (channelsParam.length > 0 && !channelsParam.includes(item.channel)) return false;
       if (query) {
         const qLower = query.toLowerCase();
         const hay = `${item.title} ${item.summary ?? ""} ${item.source ?? ""}`.toLowerCase();
@@ -290,10 +305,16 @@ export async function GET(req: NextRequest) {
       return true;
     });
 
+    const unitIssues = clusterArticlesIntoFiveIssues(merged, {
+      preferredRegions: normalizePreferredRegions(regionsParam),
+      preferredChannels: channelsParam.length > 0 ? channelsParam : undefined,
+    });
+
     return NextResponse.json({
       ok: true,
       channels: NEWS_CHANNELS,
       items: filtered,
+      unitIssues,
       totalPoolCount: merged.length,
       liveFetchedCount: liveItems.length,
     });

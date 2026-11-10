@@ -107,6 +107,37 @@ Your goal is to write the Investment Thesis section for a Mobile Information Mem
 - Format: Clear arguments, high-impact bullet points, concise summary.
 - Rule: Highlight the asset's hidden value, value-add potential, and market positioning.`
     });
+
+    // 뉴스레터 TaskFlow 8-Block (TF8) 프롬프트 슬롯 등록
+    this.register("magazine_draft_tf8", {
+      id: "magazine_draft_tf8_v2",
+      version: "2.0",
+      description: "TaskFlow TF8 newsletter cover & briefing draft prompt with M11 pinpoint repair",
+      isActive: true,
+      isABTesting: false,
+      systemPrompt:
+        "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v2.0)\n[T] Task: 공인중개사 권역·관심 분야 맞춤형 뉴스레터 표지 및 시장 브리핑 JSON 작성\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation] [No-Internal-Labels] [No-Gossip]",
+    });
+
+    this.register("magazine_axios_cluster_tf8", {
+      id: "magazine_axios_cluster_tf8_v2",
+      version: "2.0",
+      description: "TaskFlow TF8 AXIOS 5-issue Post-it card-news clustering prompt (2-line headline + 2-line brief)",
+      isActive: true,
+      isABTesting: false,
+      systemPrompt:
+        "# TaskFlow TF8 Prompt Contract (magazine_axios_cluster_tf8 v2.0)\n[T] Task: 5대 핵심 이슈를 2줄 카드뉴스형 헤드라인(<=48자) + 2줄 부제형 해설(2문장, 50~95자)로 클러스터링 재작성\n[W] Warnings: [No-LLM-Numbers] [No-Internal-Labels] [No-Gossip]",
+    });
+
+    this.register("magazine_comment_tf8", {
+      id: "magazine_comment_tf8_v2",
+      version: "2.0",
+      description: "TaskFlow TF8 broker deal recommendation 1-line comment prompt",
+      isActive: true,
+      isABTesting: false,
+      systemPrompt:
+        "# TaskFlow TF8 Prompt Contract (magazine_comment_tf8 v2.0)\n[T] Task: 중개사 매물 추천 코멘트 1~2문장 정제\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation]",
+    });
   }
 
   public register(slotKey: string, template: PromptTemplate) {

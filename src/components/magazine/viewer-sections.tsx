@@ -26,12 +26,15 @@ import {
 } from "@/lib/magazine/view-helpers";
 import {
   NEWS_CHANNEL_MAP,
+  isCreRelevantArticle,
   resolveNewsChannel,
 } from "@/domain/magazine/news-channels";
 import {
   POST_IT_TONES,
   POST_IT_TONE_META,
   formatAxiosBrief,
+  formatAxiosCardTitle,
+  formatAxiosTwoLineBrief,
 } from "@/domain/magazine/issue-clustering";
 import type { AxiosUnitIssue, MonthlyRegionalChart, PostItTone } from "@/domain/magazine/types";
 
@@ -382,7 +385,7 @@ export function MonthlyRegionalChartsSection({
   );
 }
 
-// ── AI 클러스터링 AXIOS형 와이드 포스트잇 이슈 카드 뉴스 (1줄 큰 폰트 제목 + 2~4문장 해설 + 파스텔 포스트잇 배경) ──
+// ── AI 클러스터링 AXIOS형 와이드 포스트잇 이슈 카드 뉴스 (2줄 카드뉴스형 대형 제목 + 2줄 부제형 해설 + 파스텔 포스트잇 배경) ──
 export function NewsSection({
   items,
   unitIssues,
@@ -392,25 +395,36 @@ export function NewsSection({
   unitIssues?: AxiosUnitIssue[];
   cadence?: string;
 }) {
-  const hasExplicitUnitIssues = Array.isArray(unitIssues) && unitIssues.length > 0;
-  if (!hasExplicitUnitIssues && items.length === 0) return null;
+  const validUnitIssues = Array.isArray(unitIssues)
+    ? unitIssues.filter((u) => isCreRelevantArticle({ title: u.title, summary: u.brief }))
+    : [];
+  const validItems = Array.isArray(items)
+    ? items.filter((n) => isCreRelevantArticle({ title: n.title, summary: n.summary }))
+    : [];
 
-  // unitIssues가 있으면 우선 사용하고, 없으면 items를 와이드 포스트잇 카드 형식으로 변환
+  const hasExplicitUnitIssues = validUnitIssues.length > 0;
+  if (!hasExplicitUnitIssues && validItems.length === 0) return null;
+
+  // unitIssues가 있으면 우선 사용하고, 없으면 items를 AXIOS 카드뉴스 포스트잇 형식으로 변환
   const cards = hasExplicitUnitIssues
-    ? unitIssues!.slice(0, 5).map((u, idx) => {
+    ? validUnitIssues.slice(0, 5).map((u, idx) => {
         const rawTone = (u.memoTone || (u as AnyRec).tone) as PostItTone;
         const tone: PostItTone = POST_IT_TONES.includes(rawTone)
           ? rawTone
           : POST_IT_TONES[idx % POST_IT_TONES.length];
-        const cleanedTitle = cleanNewsTitle(u.title) || u.title;
-        const cleanedBrief = formatAxiosBrief(u.brief);
+        const rawTitle = cleanNewsTitle(u.title) || u.title;
         const rawTopic = u.topic || (u as AnyRec).category || "";
         const topic = rawTopic ? topicLabelKo(rawTopic) : "";
         const channelId = resolveNewsChannel({
-          title: cleanedTitle,
-          summary: cleanedBrief,
+          title: rawTitle,
+          summary: u.brief,
           topic: rawTopic,
           channel: u.channel || rawTopic,
+        });
+        const cleanedTitle = formatAxiosCardTitle(rawTitle, 52) || rawTitle;
+        const cleanedBrief = formatAxiosTwoLineBrief(u.brief, {
+          title: cleanedTitle,
+          channel: channelId,
         });
         const channelMeta = NEWS_CHANNEL_MAP[channelId];
         const safeUrl =
@@ -434,12 +448,17 @@ export function NewsSection({
           safeUrl,
         };
       })
-    : items.map((n, idx) => {
+    : validItems.slice(0, 5).map((n, idx) => {
         const tone: PostItTone = POST_IT_TONES[idx % POST_IT_TONES.length];
         const s = newsSentimentMeta(n.sentiment);
         const topic = topicLabelKo(n.topic);
         const channelId = resolveNewsChannel(n);
         const channelMeta = NEWS_CHANNEL_MAP[channelId];
+        const cleanedTitle = formatAxiosCardTitle(n.title, 52) || n.title;
+        const cleanedBrief = formatAxiosTwoLineBrief(cleanNewsSummaryText(n.summary), {
+          title: cleanedTitle,
+          channel: channelId,
+        });
         const safeUrl =
           typeof n.url === "string" && /^https?:\/\//i.test(n.url.trim())
             ? n.url.trim()
@@ -447,8 +466,8 @@ export function NewsSection({
         return {
           id: `news-${idx + 1}`,
           tone,
-          title: n.title,
-          brief: cleanNewsSummaryText(n.summary),
+          title: cleanedTitle,
+          brief: cleanedBrief,
           topic,
           channelMeta,
           sentiment: s,
@@ -472,7 +491,7 @@ export function NewsSection({
       badge={<DataBadge type="realtime" />}
       defaultOpen
     >
-      <ul className="space-y-3" data-testid="axios-postit-list">
+      <ul className="space-y-3.5" data-testid="axios-postit-list">
         {cards.map((card, i) => {
           const toneMeta = POST_IT_TONE_META[card.tone] ?? POST_IT_TONE_META.amber;
           return (
@@ -480,17 +499,18 @@ export function NewsSection({
               key={card.id || i}
               data-testid="axios-postit-card"
               data-postit-tone={card.tone}
-              className="relative overflow-hidden rounded-lg border border-l-4 p-4 shadow-sm"
+              className="relative overflow-hidden rounded-2xl border-2 border-l-[6px] p-5 shadow-xs"
               style={{
                 backgroundColor: toneMeta.cardBg,
                 borderColor: toneMeta.cardBorder,
+                borderLeftColor: toneMeta.accentBar,
               }}
             >
               {/* 상단 와이드 포스트잇 핀/배지 바 */}
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
+              <div className="mb-2.5 flex flex-wrap items-center justify-between gap-1.5">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span
-                    className="inline-flex items-center rounded-md border px-2 py-0.5 text-caption font-extrabold"
+                    className="inline-flex items-center rounded-md border px-2 py-0.5 text-caption font-extrabold tracking-wide"
                     style={{
                       backgroundColor: toneMeta.badgeBg,
                       color: toneMeta.badgeText,
@@ -501,14 +521,14 @@ export function NewsSection({
                   </span>
                   {card.channelMeta && (
                     <span
-                      className="rounded-md border border-slate-900/15 bg-white/80 px-2 py-0.5 text-caption font-bold text-slate-900"
+                      className="rounded-md border border-slate-900/15 bg-white/85 px-2 py-0.5 text-caption font-bold text-slate-900"
                       data-testid="viewer-news-channel-badge"
                     >
                       <span aria-hidden="true">{card.channelMeta.emoji}</span>{" "}
                       {card.channelMeta.shortLabel}
                     </span>
                   )}
-                  <span className="rounded-md border border-slate-900/15 bg-white/75 px-1.5 py-0.5 text-caption font-bold text-slate-800">
+                  <span className="rounded-md border border-slate-900/15 bg-white/80 px-1.5 py-0.5 text-caption font-bold text-slate-800">
                     <span aria-hidden="true">{card.sentiment.symbol}</span>{" "}
                     {card.sentiment.label}
                   </span>
@@ -525,21 +545,23 @@ export function NewsSection({
                 )}
               </div>
 
-              {/* 1줄 큰 폰트 이슈 제목 (와이드 포스트잇 헤드라인) */}
+              {/* 카드뉴스형 2줄 대형 헤드라인 (AXIOS Title) */}
               <h3
                 data-testid="axios-postit-title"
+                data-axios-headline-lines="2"
                 title={card.title}
-                className="whitespace-nowrap overflow-hidden text-ellipsis truncate text-lg sm:text-xl font-extrabold leading-snug tracking-tight"
-                style={{ color: toneMeta.titleColor }}
+                className="line-clamp-2 break-keep text-[19px] sm:text-[21px] font-black leading-[1.35] tracking-tight"
+                style={{ color: toneMeta.titleColor, wordBreak: "keep-all" }}
               >
                 {card.title}
               </h3>
 
-              {/* 2~4문장 AXIOS 요약 브리프 해설 */}
+              {/* AXIOS 부제형 2줄 짧은 해설 브리프 (Why it matters 2-Line Deck) */}
               {card.brief && (
                 <p
                   data-testid="axios-postit-brief"
-                  className="mt-2 text-sm sm:text-[15px] font-medium leading-relaxed"
+                  data-axios-brief-lines="2"
+                  className="mt-2 line-clamp-2 break-keep text-[15px] sm:text-base font-semibold leading-[1.55]"
                   style={{ color: toneMeta.bodyColor, wordBreak: "keep-all" }}
                 >
                   {card.brief}
@@ -547,7 +569,7 @@ export function NewsSection({
               )}
 
               {/* 하단 출처 & 원문 링크 */}
-              <div className="mt-2.5 pt-2 border-t border-slate-900/10 flex items-center justify-between gap-2">
+              <div className="mt-3 pt-2.5 border-t border-slate-900/10 flex items-center justify-between gap-2">
                 {card.source ? (
                   <p className="text-caption font-semibold" style={{ color: toneMeta.metaColor }}>
                     출처: {card.source}

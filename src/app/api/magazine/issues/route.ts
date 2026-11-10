@@ -18,6 +18,14 @@ import {
   listAllQuickImRecords,
   resolveOrSynthesizeQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
+import {
+  clusterArticlesIntoFiveIssues,
+  resolveUnitIssuesFromData,
+} from "@/domain/magazine/issue-clustering";
+import {
+  normalizePreferredChannels,
+  normalizePreferredRegions,
+} from "@/domain/magazine/broker-preferences";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-issues");
@@ -46,6 +54,9 @@ const IssueBodySchema = z.object({
   featuredDealIds: z.array(z.string().max(100)).max(50).optional(),
   featuredDeals: z.array(z.record(z.string(), z.unknown())).max(50).optional(),
   dealComments: z.record(z.string(), z.string().max(1000)).optional(),
+  unitIssues: z.array(z.record(z.string(), z.unknown())).max(10).optional(),
+  preferredRegions: z.array(z.string().max(40)).max(8).optional(),
+  preferredChannels: z.array(z.string().max(40)).max(5).optional(),
   sections: z
     .array(
       z.object({
@@ -370,13 +381,35 @@ export async function POST(request: NextRequest) {
       Array.isArray(data.sections) &&
       data.sections.some((s) => s.id === "news_curation" && s.enabled === true);
 
+    const preferredRegions = normalizePreferredRegions(data.preferredRegions);
+    const preferredChannels = normalizePreferredChannels(data.preferredChannels);
+
     const sanitizedExistingContent: Record<string, unknown> = { ...existingContent };
+    let resolvedUnitIssues = resolveUnitIssuesFromData(
+      {
+        unitIssues: Array.isArray(data.unitIssues) && data.unitIssues.length > 0
+          ? data.unitIssues
+          : existingContent.unitIssues,
+      },
+      { fallbackFromTopNews: false },
+    );
+
+    if (newsExplicitlyEnabled && resolvedUnitIssues.length === 0) {
+      resolvedUnitIssues = clusterArticlesIntoFiveIssues([], {
+        cadence: "monthly",
+        preferredRegions,
+        preferredChannels,
+        dealKeywords: hydratedDeals.map((d) => `${d.title ?? ""} ${d.address ?? ""}`),
+      });
+    }
+
     if (!newsExplicitlyEnabled) {
       delete sanitizedExistingContent.topNews;
       delete sanitizedExistingContent.news_curation;
       delete sanitizedExistingContent.selected_news_ids;
       delete sanitizedExistingContent.unitIssues;
       delete sanitizedExistingContent.unit_issues;
+      resolvedUnitIssues = [];
     }
 
     const rawContentForNormalize: Record<string, unknown> = {
@@ -395,6 +428,13 @@ export async function POST(request: NextRequest) {
       featured_deals: hydratedDeals,
       dealHighlights: hydratedDeals,
       deal_comments: commentsMap,
+      ...(newsExplicitlyEnabled && resolvedUnitIssues.length > 0
+        ? { unitIssues: resolvedUnitIssues, unit_issues: resolvedUnitIssues }
+        : {}),
+      broker_preferences: {
+        preferredRegions,
+        preferredChannels,
+      },
       sections: data.sections,
       target_segment: data.targetSegment ?? "all",
     };
@@ -482,6 +522,13 @@ export async function POST(request: NextRequest) {
       featured_deals: hydratedDeals,
       dealHighlights: hydratedDeals,
       deal_comments: data.dealComments ?? {},
+      ...(newsExplicitlyEnabled && resolvedUnitIssues.length > 0
+        ? { unitIssues: resolvedUnitIssues, unit_issues: resolvedUnitIssues }
+        : { unitIssues: undefined, unit_issues: undefined }),
+      broker_preferences: {
+        preferredRegions,
+        preferredChannels,
+      },
       sections: mergedSections,
     };
 

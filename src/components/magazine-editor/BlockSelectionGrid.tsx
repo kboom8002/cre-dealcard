@@ -17,6 +17,11 @@ export const DEFAULT_NEWSLETTER_BLOCKS: readonly Omit<NewsletterBlockItem, "enab
     description: "중개사가 직접 전하는 이번 달 시장 흐름과 인사말",
   },
   {
+    id: "news_curation",
+    label: "핵심 이슈 포스트잇 5선",
+    description: "내 권역·관심 분야 맞춤형 카드뉴스(2줄 제목 + 2줄 짧은 해설)",
+  },
+  {
     id: "featured_deals",
     label: "추천 매물 소개",
     description: "이번 달 고객에게 소개할 핵심 매물과 한 줄 추천글",

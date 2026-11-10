@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM, LLMMockNotAllowedError } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
+import {
+  buildTf8CommentPrompt,
+  repairCommentOutputBlock,
+} from "@/ai/prompts/magazine-taskflow";
 import { requireBroker } from "@/lib/auth-guard";
 import {
   AI_COMMENT_SYSTEM_PROMPT,
@@ -19,7 +23,7 @@ function fail(status: number, code: string, message: string) {
 
 /**
  * POST /api/broker/studio/ai-comment
- * 요청 { comment } (구 { context } 도 허용) → 응답 { ok:true, result:{ comment }, warnings? }
+ * 요청 { comment } (구 { context } 도 허용) → 응답 { ok:true, result:{ comment }, warnings?, envelope? }
  * Mock 응답은 공개 콘텐츠 품질 보장을 위해 502로 거부한다 (DC-8).
  */
 export async function POST(req: NextRequest) {
@@ -38,12 +42,13 @@ export async function POST(req: NextRequest) {
     return fail(400, "BAD_REQUEST", parsed.error.issues[0]?.message ?? "코멘트 내용이 필요합니다.");
   }
   const { comment } = parsed.data;
+  const tf8 = buildTf8CommentPrompt({ comment });
 
   try {
     const result = await callLLM(
       {
-        systemPrompt: AI_COMMENT_SYSTEM_PROMPT,
-        userPrompt: `입력 내용: ${JSON.stringify(comment)}`,
+        systemPrompt: `${AI_COMMENT_SYSTEM_PROMPT}\n\n${tf8.systemPrompt}`,
+        userPrompt: tf8.userPrompt,
         model: getModel("luna"),
         temperature: 0.4,
       },
@@ -64,10 +69,13 @@ export async function POST(req: NextRequest) {
       warnings.push(AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT);
     }
 
-    const body: AiCommentResponse = {
+    const repaired = repairCommentOutputBlock(text, comment);
+
+    const body: AiCommentResponse & { envelope?: unknown } = {
       ok: true,
-      result: { comment: text },
+      result: { comment: repaired.comment || text },
       ...(warnings.length > 0 ? { warnings } : {}),
+      envelope: repaired.envelope,
     };
     return NextResponse.json(body);
   } catch (error: unknown) {
