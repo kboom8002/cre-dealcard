@@ -550,7 +550,7 @@ export async function POST(req: NextRequest) {
       '02-558-7700',
   };
 
-  const defaultPhotos = [
+  const fallbackDefaultPhotos = [
     {
       url: '/test-images/01_exterior.jpg',
       caption: `${resolvedTitle} 전면 외관`,
@@ -581,6 +581,100 @@ export async function POST(req: NextRequest) {
       type: 'facility',
     },
   ];
+
+  const userSubmittedPhotos = Array.isArray(body.photos)
+    ? body.photos
+        .filter((p: any) => p && (typeof p === 'string' || typeof p.url === 'string'))
+        .slice(0, 12)
+        .map((p: any, idx: number) => {
+          const rawUrl = typeof p === 'string' ? p : String(p.url || '');
+          const rawName = typeof p === 'object' ? String(p.name || p.caption || '') : '';
+          const inferSource = `${rawName} ${rawUrl}`;
+          let inferredCat =
+            (typeof p === 'object' && (p.category || p.type)) ||
+            (/외관|전경|exterior|facade/i.test(inferSource)
+              ? 'exterior'
+              : /로비|lobby/i.test(inferSource)
+              ? 'lobby'
+              : /출입구|입구|entrance/i.test(inferSource)
+              ? 'entrance'
+              : /주차|설비|parking/i.test(inferSource)
+              ? 'parking'
+              : /옥상|루프탑|테라스|rooftop/i.test(inferSource)
+              ? 'rooftop'
+              : /도면|평면도|floor_plan/i.test(inferSource)
+              ? 'floor_plan'
+              : idx === 0
+              ? 'exterior'
+              : 'interior');
+          const defaultCaption =
+            typeof p === 'object' && p.caption
+              ? String(p.caption)
+              : rawName
+              ? rawName.replace(/\.[^.]+$/, '').replace(/^[0-9]+[_-\s]*/, '').replace(/[_-]+/g, ' ')
+              : idx === 0
+              ? `${resolvedTitle} 전면 외관`
+              : `${resolvedTitle} 현장 사진 ${idx + 1}`;
+          return {
+            url: rawUrl,
+            caption: defaultCaption,
+            role: (typeof p === 'object' && p.role) || (idx === 0 ? 'cover' : inferredCat),
+            category: inferredCat,
+            type: inferredCat,
+            isHero: typeof p === 'object' && typeof p.isHero === 'boolean' ? p.isHero : idx === 0,
+          };
+        })
+        .filter((p: any) => Boolean(p.url))
+    : [];
+
+  let defaultPhotos = userSubmittedPhotos.length > 0 ? userSubmittedPhotos : fallbackDefaultPhotos;
+
+  // Upload any data:image/... URIs to Supabase Storage (building_photos) so DB persistence keeps valid URLs
+  if (
+    process.env.NODE_ENV !== 'test' &&
+    !process.env.VITEST &&
+    defaultPhotos.some((p: any) => typeof p.url === 'string' && p.url.startsWith('data:image/'))
+  ) {
+    try {
+      const { createServiceClient } = await import('@/lib/supabase/service');
+      const svc = createServiceClient();
+      if (svc && typeof svc.storage?.from === 'function') {
+        const uploaded = await Promise.race([
+          Promise.all(
+            defaultPhotos.map(async (photo: any, idx: number) => {
+              if (!photo?.url?.startsWith('data:image/')) return photo;
+              const match = photo.url.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/);
+              if (!match) return photo;
+              const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+              const buf = Buffer.from(match[2], 'base64');
+              const storagePath = `${buildingId}/quick-im/${Date.now()}_${idx}.${ext}`;
+              const { data: upData, error: upErr } = await svc.storage
+                .from('building_photos')
+                .upload(storagePath, buf, {
+                  contentType: `image/${match[1]}`,
+                  upsert: true,
+                });
+              if (!upErr && upData?.path) {
+                const { data: pubData } = svc.storage
+                  .from('building_photos')
+                  .getPublicUrl(upData.path);
+                if (pubData?.publicUrl) {
+                  return { ...photo, url: pubData.publicUrl };
+                }
+              }
+              return photo;
+            })
+          ),
+          new Promise<any[]>((resolve) => setTimeout(() => resolve(defaultPhotos), 3500)),
+        ]);
+        if (Array.isArray(uploaded) && uploaded.length === defaultPhotos.length) {
+          defaultPhotos = uploaded;
+        }
+      }
+    } catch {
+      // Graceful fallback: keep in-memory Data URI
+    }
+  }
 
   const resolvedPnu = rawPnu || knownMatch?.pnu || '1156011500100110047';
   const resolvedCoords =
@@ -985,7 +1079,7 @@ export async function POST(req: NextRequest) {
     },
     photos_v2: defaultPhotos,
     photos: defaultPhotos,
-    photo_urls: defaultPhotos.map((p) => p.url),
+    photo_urls: defaultPhotos.map((p: any) => p.url),
     sections: pptxSections,
     ...(parsedExtras ? { broker_extras: parsedExtras } : {}),
     broker_contact: {
@@ -1088,6 +1182,14 @@ export async function POST(req: NextRequest) {
               ...fullDocBody,
               cadastralMapImage: undefined,
             });
+            if (Array.isArray(dbDocBody.photos)) {
+              dbDocBody.photos = dbDocBody.photos.map((p: any, idx: number) => ({
+                ...p,
+                url: p?.url || fallbackDefaultPhotos[idx % fallbackDefaultPhotos.length].url,
+              }));
+              dbDocBody.photos_v2 = dbDocBody.photos;
+              dbDocBody.photo_urls = dbDocBody.photos.map((p: any) => p.url);
+            }
             const requestedStatus =
               body.publishStatus === 'draft' || body.status === 'draft'
                 ? 'draft'

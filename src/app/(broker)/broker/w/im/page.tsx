@@ -39,6 +39,81 @@ interface ImAxiosHighlight {
 interface ImPhotoEntry {
   name: string;
   previewUrl?: string;
+  dataUrl?: string;
+  category?: string;
+  caption?: string;
+}
+
+function inferPhotoCategoryFromFilename(filename: string, idx: number): { category: string; caption: string } {
+  const base = filename.replace(/\.[^.]+$/, "").replace(/^[0-9]+[_-\s]*/, "");
+  if (/외관|전경|파사드|exterior|facade|front/i.test(filename)) {
+    return { category: "exterior", caption: base || "건물 전면 외관" };
+  }
+  if (/로비|승강기홀|lobby/i.test(filename)) {
+    return { category: "lobby", caption: base || "1층 메인 로비" };
+  }
+  if (/출입구|입구|entrance/i.test(filename)) {
+    return { category: "entrance", caption: base || "1층 주출입구" };
+  }
+  if (/주차|설비|기계식|parking/i.test(filename)) {
+    return { category: "parking", caption: base || "주차장 및 설비 현황" };
+  }
+  if (/옥상|루프탑|테라스|rooftop|terrace/i.test(filename)) {
+    return { category: "rooftop", caption: base || "옥상 및 루프탑 테라스" };
+  }
+  if (/도면|평면도|floor.*plan/i.test(filename)) {
+    return { category: "floor_plan", caption: base || "층별 건축 평면도" };
+  }
+  if (/내부|실내|오피스|기준층|interior|office/i.test(filename)) {
+    return { category: "interior", caption: base || "기준층 실내 전용 공간" };
+  }
+  return {
+    category: idx === 0 ? "exterior" : "interior",
+    caption: base || (idx === 0 ? "건물 전면 외관" : `현장 사진 ${idx + 1}`),
+  };
+}
+
+function readAndCompressPhotoFile(file: File, maxWidth = 1280, quality = 0.82): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof FileReader === "undefined") {
+      resolve("");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => resolve("");
+    reader.onload = () => {
+      const rawDataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!rawDataUrl || typeof window === "undefined" || typeof document === "undefined") {
+        resolve(rawDataUrl);
+        return;
+      }
+      const img = new window.Image();
+      img.onerror = () => resolve(rawDataUrl);
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth || img.width || 1280;
+          const h = img.naturalHeight || img.height || 853;
+          const targetW = Math.min(w, maxWidth);
+          const targetH = Math.max(1, Math.round((h * targetW) / Math.max(1, w)));
+          const canvas = document.createElement("canvas");
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(rawDataUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+          const compressed = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressed && compressed.startsWith("data:image/") ? compressed : rawDataUrl);
+        } catch {
+          resolve(rawDataUrl);
+        }
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 interface ImListItem {
@@ -752,6 +827,19 @@ function ImWorkspaceInner() {
     setIsProvisioningSheet(true);
     setActionAlert(null);
     try {
+      const photosPayload =
+        photoEntries.length > 0
+          ? photoEntries
+              .filter((pe) => Boolean(pe.dataUrl || pe.previewUrl))
+              .map((pe, idx) => ({
+                url: pe.dataUrl || pe.previewUrl,
+                name: pe.name,
+                caption: pe.caption,
+                category: pe.category || (idx === 0 ? "exterior" : "interior"),
+                role: idx === 0 ? "cover" : undefined,
+                isHero: idx === 0,
+              }))
+          : undefined;
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -768,6 +856,7 @@ function ImWorkspaceInner() {
           landAreaSqm: Number(landAreaSqm) || undefined,
           zoning: zoning || undefined,
           handoverNote: handoverNote || undefined,
+          photos: photosPayload,
           publishStatus: "draft",
         }),
       });
@@ -803,6 +892,19 @@ function ImWorkspaceInner() {
     setIsProvisioningSheet(true);
     setActionAlert(null);
     try {
+      const photosPayload =
+        photoEntries.length > 0
+          ? photoEntries
+              .filter((pe) => Boolean(pe.dataUrl || pe.previewUrl))
+              .map((pe, idx) => ({
+                url: pe.dataUrl || pe.previewUrl,
+                name: pe.name,
+                caption: pe.caption,
+                category: pe.category || (idx === 0 ? "exterior" : "interior"),
+                role: idx === 0 ? "cover" : undefined,
+                isHero: idx === 0,
+              }))
+          : undefined;
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -822,6 +924,7 @@ function ImWorkspaceInner() {
           brokerName,
           brokerageName,
           brokerPhone,
+          photos: photosPayload,
           publishStatus: "draft",
         }),
       });
@@ -857,6 +960,19 @@ function ImWorkspaceInner() {
     try {
       const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
       const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
+      const photosPayload =
+        photoEntries.length > 0
+          ? photoEntries
+              .filter((pe) => Boolean(pe.dataUrl || pe.previewUrl))
+              .map((pe, idx) => ({
+                url: pe.dataUrl || pe.previewUrl,
+                name: pe.name,
+                caption: pe.caption,
+                category: pe.category || (idx === 0 ? "exterior" : "interior"),
+                role: idx === 0 ? "cover" : undefined,
+                isHero: idx === 0,
+              }))
+          : undefined;
 
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
@@ -881,6 +997,7 @@ function ImWorkspaceInner() {
           brokerageName,
           brokerPhone,
           brokerExtras: brokerExtrasPayload,
+          photos: photosPayload,
           publishStatus: "published",
         }),
       });
@@ -2072,17 +2189,36 @@ function ImWorkspaceInner() {
               const files = Array.from(e.target.files || []);
               if (files.length === 0) return;
               const addedNames = files.map((f) => f.name);
-              const addedEntries: ImPhotoEntry[] = files.map((f) => ({
-                name: f.name,
-                previewUrl:
-                  typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
-                    ? URL.createObjectURL(f)
-                    : undefined,
-              }));
+              const baseOffset = photoNames.length;
+              const addedEntries: ImPhotoEntry[] = files.map((f, idx) => {
+                const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
+                return {
+                  name: f.name,
+                  category: inferred.category,
+                  caption: inferred.caption,
+                  previewUrl:
+                    typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+                      ? URL.createObjectURL(f)
+                      : undefined,
+                };
+              });
               const nextNames = Array.from(new Set([...photoNames, ...addedNames]));
               setPhotoNames(nextNames);
               setPhotoEntries((prev) => [...prev, ...addedEntries]);
               syncCurrentItemPatch({ photoNames: nextNames });
+              void Promise.all(
+                files.map(async (f) => {
+                  const dataUrl = await readAndCompressPhotoFile(f);
+                  return { name: f.name, dataUrl };
+                })
+              ).then((resolvedList) => {
+                setPhotoEntries((prev) =>
+                  prev.map((pe) => {
+                    const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
+                    return matched ? { ...pe, dataUrl: matched.dataUrl } : pe;
+                  })
+                );
+              });
               e.target.value = "";
             }}
           />
