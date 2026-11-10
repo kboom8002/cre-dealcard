@@ -703,6 +703,97 @@ export default function TestGuidePage() {
         {/* ──────── TAB 0: OVERVIEW ──────── */}
         {activeTab === "overview" && (
           <div className="space-y-6">
+            {/* AI 1st (12 Pseudo-Golden Gate) + Human 2nd (15-Min Fast-Track) Collaboration Banner */}
+            <div
+              data-testid="ai1st-human2nd-fasttrack-panel"
+              className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-6 shadow-sm space-y-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-extrabold">
+                    🤖 AI 1st 사전 방역 완료 · 12종 슈도 골든 데이터셋 (PG-01 ~ PG-12) 100% PASS
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1">
+                    인간 테스터 2nd 15분 고부가가치 UX·품격 검수 (Fast-Track)
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300">
+                    반복적인 수치 대조·파일 드래그앤드롭·서버리스 콜드스타트·누락층 합성 등 12종 기계적 변이 검증은 AI가 100% 선행 완료했습니다. 테스터께서는 아래 <strong>3가지 핵심 체감 미션(총 15분)</strong>만 집중 점검해 주세요.
+                  </p>
+                </div>
+                <a
+                  href="/broker/w/im"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold transition shrink-0"
+                >
+                  🚀 IM 스튜디오 바로 열기 ↗
+                </a>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div
+                  data-testid="human-mission-h1"
+                  className="p-4 rounded-xl bg-white/10 border border-white/15 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded bg-blue-500/30 text-blue-200">
+                      Mission H-1 · 5분
+                    </span>
+                    <span className="text-xs text-slate-300 font-semibold">작성 속도 & 직관성</span>
+                  </div>
+                  <h3 className="text-base font-extrabold text-white">
+                    1. 매물 1건 3분 내 무막힘 작성 체감
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    매물 #1(동교동) 워크벤치의 1클릭 복붙과 CSV·사진 4장 마우스 드래그앤드롭만으로 망설임 없이 3분 안에 IM이 완성되는지 확인합니다.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("deal1")}
+                    className="w-full mt-1 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-extrabold transition cursor-pointer"
+                  >
+                    👉 매물 #1 워크벤치로 바로 이동 →
+                  </button>
+                </div>
+
+                <div
+                  data-testid="human-mission-h2"
+                  className="p-4 rounded-xl bg-white/10 border border-white/15 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded bg-amber-500/30 text-amber-200">
+                      Mission H-2 · 5분
+                    </span>
+                    <span className="text-xs text-slate-300 font-semibold">즉흥 변경 반응성</span>
+                  </div>
+                  <h3 className="text-base font-extrabold text-white">
+                    2. 가격·공실 변경 및 무버튼 즉시 열람
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    희망 매매가를 낮추거나(77억→72억) 공실을 임대중으로 바꾼 뒤, <strong>[IM 완성하기]를 누르지 않고</strong> 바로 우측 [모바일 IM 열기]·[PPTX 받기]를 눌러 즉시 반영되는지 확인합니다.
+                  </p>
+                </div>
+
+                <div
+                  data-testid="human-mission-h3"
+                  className="p-4 rounded-xl bg-white/10 border border-white/15 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded bg-purple-500/30 text-purple-200">
+                      Mission H-3 · 5분
+                    </span>
+                    <span className="text-xs text-slate-300 font-semibold">VIP 고객 설득력</span>
+                  </div>
+                  <h3 className="text-base font-extrabold text-white">
+                    3. 스마트폰 열람 & 10면 PPTX 품격 승인
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    생성된 모바일 IM과 10장짜리 PPTX의 표지 실사진·지도/지적도·AI 장점 3가지 문구가 실제 VIP 매수 고객에게 바로 발송할 수준인지 최종 판정합니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-extrabold">
                 💡 시작 전 1분 핵심 요약

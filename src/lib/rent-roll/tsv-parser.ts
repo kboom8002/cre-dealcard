@@ -189,7 +189,7 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
   let startIndex = 0;
   const firstCells = splitClipboardRow(lines[0]).map((c) => c.toLowerCase());
   const firstCell = firstCells[0] || '';
-  const isDataFloor = /^(?:지하\s*\d+|\d+\s*층|[bB]?\d+[fF]?|\d+호)/.test(firstCell);
+  const isDataFloor = /^(?:지하\s*\d+|\d+\s*층|-[1-9]\d*[fF]?|[bB]?\d+[fF]?|\d+호)/.test(firstCell);
 
   let headerMap: {
     floorIdx?: number;
@@ -367,22 +367,24 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
     });
   }
 
+  const finalRows = synthesizeMissingVacantFloors(rows);
+
   const totalDepositManwon = Math.round(
-    rows.reduce((sum, r) => sum + (r.status !== 'vacant' ? r.depositManwon || 0 : 0), 0) * 10
+    finalRows.reduce((sum, r) => sum + (r.status !== 'vacant' ? r.depositManwon || 0 : 0), 0) * 10
   ) / 10;
   const totalMonthlyRentManwon = Math.round(
-    rows.reduce((sum, r) => sum + (r.status !== 'vacant' ? r.monthlyRentManwon || 0 : 0), 0) * 10
+    finalRows.reduce((sum, r) => sum + (r.status !== 'vacant' ? r.monthlyRentManwon || 0 : 0), 0) * 10
   ) / 10;
   const totalMaintenanceManwon = Math.round(
-    rows.reduce((sum, r) => sum + (r.status !== 'vacant' ? r.maintenanceManwon || 0 : 0), 0) * 10
+    finalRows.reduce((sum, r) => sum + (r.status !== 'vacant' ? r.maintenanceManwon || 0 : 0), 0) * 10
   ) / 10;
 
-  const summaryMessage = `${rows.length}개 층 행이 파싱되었습니다.${
+  const summaryMessage = `${finalRows.length}개 층 행이 파싱되었습니다.${
     hasUnitMistakes ? ' (원 단위 의심 금액 자동 보정됨)' : ''
   }`;
 
   return {
-    rows,
+    rows: finalRows,
     hasUnitMistakes,
     totalDepositManwon,
     totalMonthlyRentManwon,
@@ -392,11 +394,26 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
 }
 
 /**
- * Normalizes floor string: e.g. "지하1층" -> "B1", "1층" -> "1F", "b1" -> "B1"
+ * Normalizes floor string:
+ * - "-1", "-2", "-1F" -> "B1", "B2", "B1"
+ * - "지하1층", "b1" -> "B1"
+ * - "1", "2", "1층", "1f" -> "1F", "2F", "1F", "1F"
  */
 export function normalizeFloorName(str: string): string {
   const trimmed = str.trim();
-  if (/^b?\d+f?$/i.test(trimmed)) {
+  const negMatch = trimmed.match(/^-\s*(\d+)\s*(?:f|층)?$/i);
+  if (negMatch) {
+    return `B${negMatch[1]}`;
+  }
+  const pureDigits = trimmed.match(/^([1-9]\d*)$/);
+  if (pureDigits) {
+    return `${pureDigits[1]}F`;
+  }
+  if (/^b\d+f?$/i.test(trimmed)) {
+    const bNum = trimmed.match(/\d+/);
+    return bNum ? `B${bNum[0]}` : trimmed.toUpperCase();
+  }
+  if (/^\d+f$/i.test(trimmed)) {
     return trimmed.toUpperCase();
   }
   const basementMatch = trimmed.match(/지하\s*(\d+)/);
@@ -408,4 +425,73 @@ export function normalizeFloorName(str: string): string {
     return `${floorMatch[1]}F`;
   }
   return trimmed;
+}
+
+/**
+ * Synthesizes missing intermediate ground floors (1F..maxF) as vacant rows
+ * when a sparse rent-roll (e.g. B1, 1F, 2F, 5F) omits vacant intermediate floors (3F, 4F).
+ */
+export function synthesizeMissingVacantFloors(rows: RentRollRowItem[]): RentRollRowItem[] {
+  if (!Array.isArray(rows) || rows.length < 2) return rows;
+
+  const normalizedRows = rows.map((r) => ({
+    ...r,
+    floor: normalizeFloorName(r.floor),
+  }));
+
+  const presentAboveFloors = new Set<number>();
+  for (const r of normalizedRows) {
+    const m = r.floor.match(/^(\d+)F$/i);
+    if (m) {
+      const fNum = parseInt(m[1], 10);
+      if (fNum >= 1 && fNum <= 20) {
+        presentAboveFloors.add(fNum);
+      }
+    }
+  }
+
+  if (presentAboveFloors.size < 2) {
+    return normalizedRows;
+  }
+
+  const maxFloor = Math.max(...Array.from(presentAboveFloors));
+  const minFloor = Math.min(...Array.from(presentAboveFloors));
+  if (minFloor !== 1 || maxFloor < 3 || maxFloor > 15) {
+    return normalizedRows;
+  }
+
+  const missingFloors: number[] = [];
+  for (let f = 1; f <= maxFloor; f++) {
+    if (!presentAboveFloors.has(f)) {
+      missingFloors.push(f);
+    }
+  }
+
+  if (missingFloors.length === 0) {
+    return normalizedRows;
+  }
+
+  const synthesized: RentRollRowItem[] = missingFloors.map((f) => ({
+    id: `rr-vacant-synth-${f}f`,
+    floor: `${f}F`,
+    unit: `${f}01호`,
+    use: '공실',
+    depositManwon: 0,
+    monthlyRentManwon: 0,
+    maintenanceManwon: 0,
+    leaseExpiry: '-',
+    status: 'vacant',
+  }));
+
+  const combined = [...normalizedRows, ...synthesized];
+
+  const getFloorSortWeight = (floorStr: string): number => {
+    const bMatch = floorStr.match(/^B(\d+)$/i);
+    if (bMatch) return -parseInt(bMatch[1], 10);
+    const fMatch = floorStr.match(/^(\d+)F$/i);
+    if (fMatch) return parseInt(fMatch[1], 10);
+    return 1000;
+  };
+
+  return combined.sort((a, b) => getFloorSortWeight(a.floor) - getFloorSortWeight(b.floor));
 }

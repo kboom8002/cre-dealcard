@@ -5,7 +5,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { RentRollGrid, generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
-import { formatKoreanCurrencyReadout } from "@/lib/rent-roll/tsv-parser";
+import {
+  formatKoreanCurrencyReadout,
+  normalizeFloorName,
+  synthesizeMissingVacantFloors,
+} from "@/lib/rent-roll/tsv-parser";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { ImDataBottomSheet } from "@/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet";
@@ -1011,7 +1015,7 @@ function ImWorkspaceInner() {
         }
         return {
           id: `r-xlsx-${Date.now()}-${idx}`,
-          floor: r.floor || `${idx + 1}F`,
+          floor: normalizeFloorName(r.floor || `${idx + 1}F`),
           unit: r.unit_label || `${idx + 1}01호`,
           use:
             Array.from(
@@ -1030,16 +1034,17 @@ function ImWorkspaceInner() {
               : "occupied",
         };
       });
+      const finalRows = synthesizeMissingVacantFloors(mappedRows);
       const prevRows = [...rentRoll];
-      setRentRoll(mappedRows);
-      const patch: Partial<ImListItem> = { rentRoll: mappedRows };
+      setRentRoll(finalRows);
+      const patch: Partial<ImListItem> = { rentRoll: finalRows };
       if (payload.askingPriceManwon && payload.askingPriceManwon > 0) {
         setAskingPriceManwon(payload.askingPriceManwon);
         patch.askingPriceManwon = payload.askingPriceManwon;
       }
       syncCurrentItemPatch(patch);
       showUndoToast({
-        message: `엑셀 임대 현황 ${mappedRows.length}개 층을 반영했어요`,
+        message: `엑셀 임대 현황 ${finalRows.length}개 층을 반영했어요`,
         undoAction: () => {
           setRentRoll(prevRows);
           syncCurrentItemPatch({ rentRoll: prevRows });
