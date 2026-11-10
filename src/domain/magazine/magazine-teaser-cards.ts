@@ -10,7 +10,9 @@
  */
 
 import { projectToTeaser, type TeaserView } from '@/domain/deal/teaser/teaser-projector';
+import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
 import { escapeHtml } from '@/lib/magazine/escape';
+import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 
 export interface MagazineTeaserCard {
   teaserView: TeaserView;
@@ -27,6 +29,26 @@ const EVIDENCE_KEYS = [
   'assetType', 'asset_type',
 ] as const;
 
+const NESTED_EVIDENCE_LAYER_KEYS = [
+  'finance',
+  'building_register',
+  'deal_terms',
+  'card4',
+] as const;
+
+const NESTED_EVIDENCE_FIELD_KEYS = [
+  ...EVIDENCE_KEYS,
+  'asking_price_krw',
+  'asking_price',
+  'monthly_rent_krw',
+  'total_floor_area_pyung',
+  'land_area_pyung',
+  'cap_rate_pct',
+  'use',
+  'area',
+  'headline',
+] as const;
+
 function hasValue(v: unknown): boolean {
   if (v === null || v === undefined) return false;
   if (typeof v === 'string') return v.trim().length > 0;
@@ -34,8 +56,64 @@ function hasValue(v: unknown): boolean {
   return true;
 }
 
+function hasNestedLayerEvidence(attrs: Record<string, unknown>): boolean {
+  const layersObj =
+    attrs.layers && typeof attrs.layers === 'object'
+      ? (attrs.layers as Record<string, unknown>)
+      : attrs;
+
+  for (const layerKey of NESTED_EVIDENCE_LAYER_KEYS) {
+    const layer = (layersObj[layerKey] ?? attrs[layerKey]) as Record<string, unknown> | undefined;
+    if (layer && typeof layer === 'object') {
+      if (NESTED_EVIDENCE_FIELD_KEYS.some((fk) => hasValue(layer[fk]))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function hasEvidence(attrs: Record<string, unknown>): boolean {
-  return EVIDENCE_KEYS.some((k) => hasValue(attrs[k]));
+  if (EVIDENCE_KEYS.some((k) => hasValue(attrs[k]))) return true;
+  return hasNestedLayerEvidence(attrs);
+}
+
+function normalizeDealAttrs(attrs: Record<string, unknown>): Record<string, unknown> {
+  if (!hasNestedLayerEvidence(attrs)) {
+    return attrs;
+  }
+  const ssotNormalized = buildAttrsFromSsotLite({ layers: attrs, ...attrs });
+  const layersObj =
+    attrs.layers && typeof attrs.layers === 'object'
+      ? (attrs.layers as Record<string, unknown>)
+      : attrs;
+  const dealTerms = (layersObj.deal_terms ?? attrs.deal_terms ?? {}) as Record<string, unknown>;
+  const card4 = (layersObj.card4 ?? attrs.card4 ?? {}) as Record<string, unknown>;
+
+  const merged: Record<string, unknown> = {
+    ...ssotNormalized,
+  };
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v !== undefined && v !== null) {
+      merged[k] = v;
+    }
+  }
+
+  if (!hasValue(merged.askingPriceKrw) && hasValue(dealTerms.asking_price_krw ?? dealTerms.askingPriceKrw)) {
+    merged.askingPriceKrw = Number(dealTerms.asking_price_krw ?? dealTerms.askingPriceKrw);
+  }
+  if (!hasValue(merged.priceBand) && hasValue(card4.priceBand ?? dealTerms.price_band ?? dealTerms.priceBand)) {
+    merged.priceBand = String(card4.priceBand ?? dealTerms.price_band ?? dealTerms.priceBand);
+  }
+  if (!hasValue(merged.areaSignal) && !hasValue(merged.regionLabel) && hasValue(card4.region)) {
+    merged.areaSignal = String(card4.region);
+    merged.regionLabel = String(card4.region);
+  }
+  if (!hasValue(merged.assetType) && hasValue(card4.use)) {
+    merged.assetType = String(card4.use);
+  }
+
+  return merged;
 }
 
 /**
@@ -50,10 +128,22 @@ export function generateMagazineTeaserCards(
   const cards: MagazineTeaserCard[] = [];
   for (const deal of deals ?? []) {
     if (cards.length >= maxCards) break;
-    const attrs = deal?.attrs;
-    if (!deal || !attrs || typeof attrs !== 'object' || !hasEvidence(attrs)) continue;
+    const rawAttrs = deal?.attrs;
+    if (!deal || !rawAttrs || typeof rawAttrs !== 'object' || !hasEvidence(rawAttrs)) continue;
 
+    const attrs = normalizeDealAttrs(rawAttrs);
     let teaserView = projectToTeaser(attrs);
+
+    // Mask hookCopy and structuralSignals with cleanBlindPoints
+    const maskedHook = cleanBlindPoints([teaserView.hookCopy || ''])[0] ?? teaserView.hookCopy;
+    const maskedSignals = Array.isArray(teaserView.structuralSignals)
+      ? cleanBlindPoints(teaserView.structuralSignals)
+      : [];
+    teaserView = {
+      ...teaserView,
+      hookCopy: maskedHook,
+      structuralSignals: maskedSignals,
+    };
 
     // projector 는 attrs.archetype 이 없으면 'STABLE_INCOME' 으로 두고, classifier 는 vacancyPct 가 없을 때도
     // "공실률 5% 이하" 사유(0.85)를 낸다. 근거(공실률)가 없으면 이 분류는 가짜이므로 제거한다.

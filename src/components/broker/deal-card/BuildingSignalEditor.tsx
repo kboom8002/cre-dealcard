@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, Check, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
 
 interface BuildingSignalEditorProps {
   buildingId: string;
@@ -53,9 +54,19 @@ export default function BuildingSignalEditor({
   };
 
   const handleSave = async (key: FieldKey, ssotKey: SsotKey) => {
-    if (fields[key] === editValue) {
+    const value = editValue;
+    if (fields[key] === value) {
       setEditingKey(null);
       return;
+    }
+
+    if (ssotKey === "area_signal" || key === "areaSignal") {
+      const blindCheck = validateBlindPoints([value]);
+      if (!blindCheck.isValid) {
+        toast.error(blindCheck.violations[0]?.reason || "상세 지번·건물명은 권역에 입력할 수 없습니다.");
+        setEditingKey(null);
+        return;
+      }
     }
 
     setEditingKey(null);
@@ -66,12 +77,12 @@ export default function BuildingSignalEditor({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ssotUpdate: { [ssotKey]: editValue },
+          ssotUpdate: { [ssotKey]: value },
         }),
       });
 
       if (res.ok) {
-        setFields((prev) => ({ ...prev, [key]: editValue }));
+        setFields((prev) => ({ ...prev, [key]: value }));
         setSuccessKey(key);
         setTimeout(() => setSuccessKey(null), 2000);
       } else {
@@ -86,9 +97,9 @@ export default function BuildingSignalEditor({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, key: FieldKey, ssotKey: SsotKey) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      handleSave(key, ssotKey);
+      e.currentTarget.blur();
     } else if (e.key === "Escape") {
       setEditingKey(null);
     }
@@ -149,7 +160,7 @@ export default function BuildingSignalEditor({
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={() => handleSave(item.key, item.ssotKey)}
-                  onKeyDown={(e) => handleKeyDown(e, item.key, item.ssotKey)}
+                  onKeyDown={handleKeyDown}
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (

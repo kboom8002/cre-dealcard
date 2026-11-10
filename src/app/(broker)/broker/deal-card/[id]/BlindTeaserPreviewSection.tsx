@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { TeaserHeroHeader } from "@/components/teaser/TeaserHeroHeader";
 import { StructureChips } from "@/components/teaser/StructureChips";
+import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 
 interface BlindTeaserPreviewSectionProps {
   buildingId: string;
@@ -14,6 +15,8 @@ interface BlindTeaserPreviewSectionProps {
   initialDealPoints: string[];
   initialCautionPoints: string[];
   initialHookCopy?: string;
+  initialOgTitle?: string;
+  initialOgDescription?: string;
   initialStructureChips?: string[];
   initialVacancyLabel?: string;
   initialCuriosityHook?: string;
@@ -27,6 +30,8 @@ export function BlindTeaserPreviewSection({
   initialDealPoints,
   initialCautionPoints,
   initialHookCopy = "",
+  initialOgTitle = "",
+  initialOgDescription = "",
   initialStructureChips = [],
   initialVacancyLabel = "",
   initialCuriosityHook = "",
@@ -36,12 +41,43 @@ export function BlindTeaserPreviewSection({
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(initialTitle);
   const [summary, setSummary] = useState(initialSummary);
+  const [ogTitle, setOgTitle] = useState(initialOgTitle || initialTitle);
+  const [ogDescription, setOgDescription] = useState(initialOgDescription || initialSummary);
+  const [hookCopy, setHookCopy] = useState(initialHookCopy);
   const [urgencyTag, setUrgencyTag] = useState<'urgent' | 'reviewing' | 'flexible' | undefined>(initialUrgencyTag);
   const [dealPointsStr, setDealPointsStr] = useState(initialDealPoints.join("\n"));
   const [cautionPointsStr, setCautionPointsStr] = useState(initialCautionPoints.join("\n"));
   const [isSaving, setIsSaving] = useState(false);
+  const [blindError, setBlindError] = useState<string | null>(null);
+
+  const handleAutoClean = () => {
+    setTitle((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setSummary((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setOgTitle((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setOgDescription((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setHookCopy((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setDealPointsStr((prev) => cleanBlindPoints(prev.split("\n")).join("\n"));
+    setBlindError(null);
+    toast.success("위치가 드러날 수 있는 표현을 자동으로 마스킹했습니다.");
+  };
 
   const handleSave = async () => {
+    const dealPoints = dealPointsStr.split("\n").filter(Boolean);
+    const blindCheck = validateBlindPoints([
+      title,
+      summary,
+      ogTitle,
+      ogDescription,
+      hookCopy,
+      ...dealPoints,
+    ]);
+    if (!blindCheck.isValid) {
+      const msg = blindCheck.violations[0]?.reason || "상세 지번·건물명 등 위치 식별 표현을 제거해 주세요.";
+      setBlindError(msg);
+      toast.error(msg);
+      return;
+    }
+    setBlindError(null);
     setIsSaving(true);
     try {
       const res = await fetch(`/api/broker/deal-card/${buildingId}`, {
@@ -50,8 +86,11 @@ export function BlindTeaserPreviewSection({
         body: JSON.stringify({
           title,
           shortSummary: summary,
+          ogTitle,
+          ogDescription,
+          hookCopy,
           urgencyTag,
-          dealPoints: dealPointsStr.split("\n").filter(Boolean),
+          dealPoints,
           cautionPoints: cautionPointsStr.split("\n").filter(Boolean),
         }),
       });
@@ -79,12 +118,19 @@ export function BlindTeaserPreviewSection({
             블라인드 티저 편집 모드
           </div>
           <div className="flex items-center gap-2">
+            <button type="button" onClick={handleAutoClean} className="text-xs text-rose-400 hover:text-rose-300 px-2 py-1">자동 마스킹</button>
             <button onClick={() => setIsEditing(false)} className="text-xs text-slate-400 hover:text-white px-2 py-1">취소</button>
             <button onClick={handleSave} disabled={isSaving} className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg disabled:opacity-50">
               {isSaving ? "저장 중..." : "저장"}
             </button>
           </div>
         </div>
+        {blindError && (
+          <div role="alert" className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+            <span>{blindError}</span>
+            <button type="button" onClick={handleAutoClean} className="underline font-bold shrink-0">자동 마스킹</button>
+          </div>
+        )}
         
         <div className="space-y-3">
           <div>

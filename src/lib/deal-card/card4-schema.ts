@@ -222,6 +222,8 @@ export interface UpdateDealCard4Input {
     landAreaPyung?: number;
     priceBand: string;
     points: [string, string, string];
+    pointBriefs?: [string, string, string];
+    pointTones?: [DealCardPointTone, DealCardPointTone, DealCardPointTone];
     provenance?: {
       points: [ProvenanceSource, ProvenanceSource, ProvenanceSource];
     };
@@ -298,6 +300,9 @@ export async function updateDealCard4(
     });
   const newHash = computeCard4Hash({ ...input.card4, headline: resolvedHeadline, points: repairedPoints });
 
+  const resolvedPointBriefs = input.card4.pointBriefs ?? currentCard4?.pointBriefs;
+  const resolvedPointTones = input.card4.pointTones ?? currentCard4?.pointTones;
+
   const fullCard4: Card4Data = {
     headline: resolvedHeadline,
     ...(input.card4.posture ?? currentCard4?.posture
@@ -316,6 +321,8 @@ export async function updateDealCard4(
       : {}),
     priceBand: input.card4.priceBand.trim(),
     points: repairedPoints,
+    ...(resolvedPointBriefs ? { pointBriefs: resolvedPointBriefs } : {}),
+    ...(resolvedPointTones ? { pointTones: resolvedPointTones } : {}),
     provenance: input.card4.provenance || currentCard4?.provenance || {
       points: ['broker', 'broker', 'broker'],
     },

@@ -175,10 +175,12 @@ export function Card4ConfirmCard({
     const check = validateBlindPoints([
       card4.region || '',
       card4.use || '',
-      currentHeadline || '',
+      card4.area || '',
+      card4.priceBand || '',
+      card4.headline || '',
     ]);
     return check.violations;
-  }, [card4.region, card4.use, currentHeadline]);
+  }, [card4.region, card4.use, card4.area, card4.priceBand, card4.headline]);
 
   const handleHeadlineChange = (headline: string) => {
     onChange({
@@ -370,11 +372,15 @@ export function Card4ConfirmCard({
       : card4.headline;
     const cleanedRegion = cleanBlindPoints([card4.region])[0] || card4.region;
     const cleanedUse = cleanBlindPoints([card4.use])[0] || card4.use;
+    const cleanedArea = card4.area ? cleanBlindPoints([card4.area])[0] : card4.area;
+    const cleanedPriceBand = card4.priceBand ? cleanBlindPoints([card4.priceBand])[0] : card4.priceBand;
 
     onChange({
       ...card4,
       region: cleanedRegion,
       use: cleanedUse,
+      area: cleanedArea,
+      priceBand: cleanedPriceBand,
       ...(cleanedHeadline !== undefined ? { headline: cleanedHeadline } : {}),
       points: cleanedPts,
     });

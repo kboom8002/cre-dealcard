@@ -17,6 +17,7 @@ import {
 } from '@/lib/deal-card/card4-schema';
 import { validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
+import { DealCardLineText } from '@/components/broker/deal-card/DealCardLineText';
 import { copyText, COPY_FAILED_MESSAGE } from '@/lib/ux/clipboard';
 import { getSiteOrigin, shareKakaoFeed } from '@/lib/kakao/share';
 import { TERMS } from '@/lib/ux/lexicon';
@@ -52,7 +53,14 @@ export function PreSendConfirmationSheet({
 
   // Validate points + header fields
   const blindResult = validateBlindPoints(
-    [...card4.points, card4.region || '', card4.use || '', card4.headline || ''],
+    [
+      ...card4.points,
+      card4.region || '',
+      card4.use || '',
+      card4.area || '',
+      card4.priceBand || '',
+      ...(card4.headline ? [card4.headline] : []),
+    ],
     {
       region: card4.region,
       assetType: card4.use,
@@ -75,8 +83,6 @@ export function PreSendConfirmationSheet({
 
   const onFlushSaveRef = useRef(onFlushSave);
   onFlushSaveRef.current = onFlushSave;
-  const isSavedRef = useRef(isSaved);
-  isSavedRef.current = isSaved;
 
   useEffect(() => {
     if (!isOpen) {
@@ -85,7 +91,7 @@ export function PreSendConfirmationSheet({
       return;
     }
 
-    if (isSavedRef.current) {
+    if (isSaved) {
       setSaveStepState('done');
       return;
     }
@@ -102,12 +108,6 @@ export function PreSendConfirmationSheet({
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && isSaved) {
-      setSaveStepState('done');
-    }
   }, [isOpen, isSaved]);
 
   if (!isOpen) return null;
@@ -230,7 +230,11 @@ export function PreSendConfirmationSheet({
             </div>
           </div>
           <div className="bg-white text-slate-900 px-4 py-3 border-t border-slate-200">
-            <p className="text-base font-extrabold break-keep">{headlineDisplay}</p>
+            <DealCardLineText
+              text={headlineDisplay}
+              preRepaired
+              className="text-base font-extrabold"
+            />
           </div>
         </div>
 

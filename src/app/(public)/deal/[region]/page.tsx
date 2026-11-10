@@ -30,6 +30,7 @@ export default async function DealRegionPage({ params }: PageProps) {
   let query = supabase
     .from("building_ssot_lite")
     .select("id, area_signal, asset_type, price_band, status, created_at")
+    .neq("status", "archived")
     .order("created_at", { ascending: false })
     .limit(50);
 

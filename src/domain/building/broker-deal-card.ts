@@ -53,6 +53,19 @@ import { linkBuildingToCanonicalProperty } from "./canonical-property";
 import { extractSlotsFromMemo, extractPostureProposal } from "./memo-slot-mapper";
 import { reconcileAskingPrice } from "./price-reconcile";
 import { isPlannedFloorAreaInMemo } from "./mobile-im/resolve-total-area";
+import { derivePriceBand } from "./cre-area-ontology";
+import {
+  computeCard4Hash,
+  resolveCard4AreaLabel,
+  type Card4Data,
+  type DealCardPosture,
+} from "@/lib/deal-card/card4-schema";
+import {
+  deriveDealCardHeadline,
+  repairDealCardLine,
+  repairDealCardPoints,
+} from "@/lib/deal-card/copy-limits";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('broker-deal-card');
@@ -175,6 +188,10 @@ export async function brokerDealCardFromMemo(
   if (priceRec.warning) log.warn(`[broker-deal-card] ${priceRec.warning}`);
   const exactAskingPriceManwon = priceRec.manwon;
   const exactAskingPriceKrw = priceRec.krw;
+  if (exactAskingPriceManwon && exactAskingPriceManwon > 0) {
+    buildingTruth.askingPriceManwon = exactAskingPriceManwon;
+    buildingTruth.priceBand = derivePriceBand(exactAskingPriceManwon);
+  }
 
   const exactMonthlyRentKrw = Number(slotMap.get('monthlyRentKrw')) || null;
   const exactTotalDepositKrw = Number(slotMap.get('totalDepositKrw')) || null;
@@ -315,7 +332,60 @@ export async function brokerDealCardFromMemo(
     .select("id")
     .single();
 
-  // 5. Create blind_teaser document_object
+  // 5. Create blind_teaser document_object (with card4: Card4Data attached)
+  const rawPosture = buildingTruth.investmentPosture || postureProposal.value;
+  const card4Posture: DealCardPosture =
+    rawPosture === "owner_occupied"
+      ? "owner_occupied"
+      : rawPosture === "development"
+      ? "value_add"
+      : "income";
+  const card4Region = buildingTruth.areaSignal || blindTeaser.regionLabel || "서울 주요권역";
+  const card4Use = buildingTruth.assetType || blindTeaser.assetTypeLabel || "근린생활시설";
+  const card4PriceBand = buildingTruth.priceBand || "가격 협의";
+  const card4Points = repairDealCardPoints(
+    cleanBlindPoints(
+      blindTeaser.card4Points && blindTeaser.card4Points.length > 0
+        ? blindTeaser.card4Points
+        : blindTeaser.dealPoints || [],
+    ),
+    { fillEmpty: true },
+  );
+  const card4Headline =
+    repairDealCardLine(cleanBlindPoints([blindTeaser.card4Headline || ""])[0]) ||
+    deriveDealCardHeadline({ posture: card4Posture, points: card4Points });
+  const card4Area = resolveCard4AreaLabel({
+    posture: card4Posture,
+    gfaPyung: exactFloorAreaPyung && exactFloorAreaPyung > 0 ? exactFloorAreaPyung : undefined,
+    landAreaPyung: exactLandAreaPyung && exactLandAreaPyung > 0 ? exactLandAreaPyung : undefined,
+  });
+  const card4Hash = computeCard4Hash({
+    region: card4Region,
+    use: card4Use,
+    priceBand: card4PriceBand,
+    points: card4Points,
+    ...(card4Area ? { area: card4Area } : {}),
+    headline: card4Headline,
+  });
+  const initialCard4: Card4Data = {
+    headline: card4Headline,
+    posture: card4Posture,
+    region: card4Region,
+    use: card4Use,
+    ...(card4Area ? { area: card4Area } : {}),
+    ...(exactFloorAreaPyung && exactFloorAreaPyung > 0 ? { gfaPyung: exactFloorAreaPyung } : {}),
+    ...(exactLandAreaPyung && exactLandAreaPyung > 0 ? { landAreaPyung: exactLandAreaPyung } : {}),
+    priceBand: card4PriceBand,
+    points: card4Points,
+    provenance: { points: ["ai", "ai", "ai"] },
+    card4_version: 1,
+    card4_hash: card4Hash,
+  };
+  const teaserDocBody: Record<string, unknown> = {
+    ...(blindTeaser as unknown as Record<string, unknown>),
+    card4: initialCard4,
+  };
+
   const { data: teaserDoc, error: teaserErr } = await supabase
     .from("document_objects")
     .insert({
@@ -327,7 +397,7 @@ export async function brokerDealCardFromMemo(
       visibility,
       status: "draft",
       title: blindTeaser.title,
-      body: blindTeaser as unknown as Record<string, unknown>,
+      body: teaserDocBody,
       markdown: blindTeaser.kakaoText,
       source_refs: {
         building_ssot_lite_id: building.id,

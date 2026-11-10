@@ -112,12 +112,17 @@ export function projectToTeaser(
   else if (dataQuality.tier === 'partial') dataGrade = 'B';
   else if (dataQuality.tier === 'reference') dataGrade = 'C';
 
-  const approvalYear = attrs.approvalDate ? new Date(String(attrs.approvalDate)).getFullYear() : 0;
+  const yrMatch = String(attrs.approvalDate || '').match(/(19\d{2}|20\d{2})/);
+  const approvalYear = yrMatch ? Number(yrMatch[1]) : 0;
   const bandedBuildingEra = bandBuildingEra(approvalYear);
   const bandedFarHeadroom = attrs.farHeadroomPp !== undefined ? bandFarHeadroom(Number(attrs.farHeadroomPp)) : null;
   const roadContactLabel = bandRoadContact(String(attrs.roadContactType || ''));
 
-  const vacancyPct = attrs.vacancyPct != null ? Number(attrs.vacancyPct) : null;
+  const rawVacancy =
+    attrs.vacancyPct != null && String(attrs.vacancyPct).trim() !== ''
+      ? Number(attrs.vacancyPct)
+      : NaN;
+  const vacancyPct = Number.isFinite(rawVacancy) ? rawVacancy : null;
   const evictionStatus = String(attrs.evictionStatus || '');
   let vacancyLabel = vacancyPct == null ? '공실 정보 없음' : `공실 ${vacancyPct}%`;
   if (evictionStatus && vacancyPct != null) vacancyLabel += ` (${evictionStatus})`;
@@ -245,7 +250,11 @@ export function projectToTeaser(
  */
 function generateHookCopy(archetype: string, region: string, assetType: string, attrs: Record<string, unknown>): string {
   const use = attrs.currentUseSignal ? String(attrs.currentUseSignal) : '';
-  const vacancy = attrs.vacancyPct != null ? Number(attrs.vacancyPct) : null;
+  const rawVac =
+    attrs.vacancyPct != null && String(attrs.vacancyPct).trim() !== ''
+      ? Number(attrs.vacancyPct)
+      : NaN;
+  const vacancy = Number.isFinite(rawVac) ? rawVac : null;
   const road = String(attrs.roadContactType || '');
   const roadLabel = road.includes('코너') || road.includes('각지') ? '코너 입지' 
     : road.includes('대로') ? '대로변 입지' 

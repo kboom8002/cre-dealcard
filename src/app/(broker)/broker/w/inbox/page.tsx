@@ -629,7 +629,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       title: kakaoHeadline || `[${activeThread.buildingTitle}] ${labelMap[kind]}`,
       description:
         kakaoBrief || `${activeThread.clientName}님을 위한 맞춤 매물 자료입니다.`,
-      imageUrl: `${origin}/api/og/deal-card/${encodeURIComponent(activeThread.buildingId)}`,
+      imageUrl: `${origin}/api/og/deal/${encodeURIComponent(activeThread.buildingId)}/kakao-v2`,
       url: fullUrl,
       buttonTitle: `${labelMap[kind]} 열람하기`,
     });

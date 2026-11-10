@@ -21,6 +21,7 @@ export function TeaserEventTracker({ teaserConfigId, visitorFp }: TeaserEventTra
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         teaserConfigId,
+        buildingId: teaserConfigId,
         visitorFp: fp,
         eventType: 'view',
         eventData: { url: window.location.href, referrer: document.referrer },
@@ -41,7 +42,13 @@ export async function trackTeaserCta(
     const res = await fetch('/api/public/teaser/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ teaserConfigId, visitorFp, eventType, eventData }),
+      body: JSON.stringify({
+        teaserConfigId,
+        buildingId: teaserConfigId,
+        visitorFp,
+        eventType,
+        eventData,
+      }),
     });
     return await res.json();
   } catch {

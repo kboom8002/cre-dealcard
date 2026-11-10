@@ -21,8 +21,8 @@ interface Props {
 export function PostureWidget({ input, buildingId }: Props) {
   const { posture } = input;
   const priceEok = input.askingPriceEok ?? 0;
-  const defaultBudgetEok = Math.round(priceEok > 0 ? priceEok * 1.1 : 100);
-  const maxBudgetEok = Math.max(300, Math.round(defaultBudgetEok * 1.5));
+  const defaultBudgetEok = priceEok > 0 ? Math.round(priceEok * 1.1) : 0;
+  const maxBudgetEok = defaultBudgetEok > 0 ? Math.max(300, Math.round(defaultBudgetEok * 1.5)) : 300;
 
   const assetType = input.assetType || "";
   const isHotelOrResort = ['hotel', 'resort', 'motel'].includes(assetType.toLowerCase()) || assetType.includes('호텔');

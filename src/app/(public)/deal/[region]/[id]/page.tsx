@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { serializeJsonLd, realEstateListing, breadcrumb } from "@/lib/schema-org";
 import { readBuilding } from "@/domain/building/im-core/read-building";
+import { isUuid } from "@/lib/im-lite/quick-generate-store";
+import { CTALadder } from "@/components/teaser/CTALadder";
 
 const REGION_MAP: Record<string, string> = {
   gbd: "GBD (강남권역)", ybd: "YBD (여의도권역)", cbd: "CBD (종로/을지로)",
@@ -15,8 +17,12 @@ interface PageProps { params: Promise<{ region: string; id: string }> }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { region, id } = await params;
-  const result = await readBuilding(id);
-  const data = (result?.data ?? result) as Record<string, any>;
+  const result = isUuid(id) ? await readBuilding(id) : null;
+  const data = (result?.data ?? result) as Record<string, any> | null;
+
+  if (!data || data.status === "archived") {
+    return { title: "크리딜 DealCard", robots: { index: false, follow: false } };
+  }
 
   const label = data?.area_signal || REGION_MAP[region] || region;
   const asset = data?.asset_type || "상업용 부동산";
@@ -37,10 +43,12 @@ export const revalidate = 3600;
 
 export default async function DealDetailPage({ params }: PageProps) {
   const { region, id } = await params;
+  if (!isUuid(id)) return notFound();
+
   const result = await readBuilding(id);
   const building = (result?.data ?? result) as any;
 
-  if (!building) return notFound();
+  if (!building || building.status === "archived") return notFound();
 
   const regionLabel = REGION_MAP[region] || region;
   const schemaData = realEstateListing(building as any);
@@ -136,27 +144,7 @@ export default async function DealDetailPage({ params }: PageProps) {
           <p className="text-[10px] text-slate-400 leading-relaxed">
             연락처를 남겨주시면 담당 중개사가 NDA 체결 후 상세 자료를 전달합니다.
           </p>
-          <form className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="성함 또는 기업명"
-                className="bg-[#0b0f19] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/50"
-              />
-              <input
-                type="text"
-                placeholder="연락처"
-                className="bg-[#0b0f19] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/50"
-              />
-            </div>
-            <button
-              type="button"
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl text-xs transition-colors active:scale-[0.98]"
-              id="cta-deal-gate-request"
-            >
-              🔒 상세 정보 요청하기 (무료)
-            </button>
-          </form>
+          <CTALadder buildingId={id} teaserConfigId={id} />
         </div>
 
         {/* Bottom CTA */}

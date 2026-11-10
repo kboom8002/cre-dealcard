@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
 import { KakaoTemplatePicker } from "@/components/help/KakaoTemplatePicker";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { DealCardLineText } from "@/components/broker/deal-card/DealCardLineText";
 
 interface LiveDealCardPreviewCardProps {
   buildingId: string;
@@ -44,8 +46,10 @@ export function LiveDealCardPreviewCard({
 
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://credeal.net";
   const shareUrl = `${siteUrl}/dc/${buildingId}`;
-  const displayTitle = liveOgTitle || title || "블라인드 딜카드";
-  const displayDesc = liveOgDesc || hookCopy || summary || "AI가 분석한 상업용 부동산 투자 기회";
+  const rawTitle = liveOgTitle || title || "블라인드 딜카드";
+  const displayTitle = cleanBlindPoints([rawTitle])[0] || "블라인드 딜카드";
+  const rawDesc = liveOgDesc || hookCopy || summary || "AI가 분석한 상업용 부동산 투자 기회";
+  const displayDesc = cleanBlindPoints([rawDesc])[0] || "AI가 분석한 상업용 부동산 투자 기회";
 
   // Kakao SDK 초기화
   useEffect(() => {
@@ -98,15 +102,17 @@ export function LiveDealCardPreviewCard({
 
   // 카카오톡 공유
   const handleKakaoShare = async () => {
-    const finalText = (typeof window !== "undefined" && sessionStorage.getItem(`kakao_text_${buildingId}`)) || kakaoText || displayDesc;
-    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}/kakao`;
+    const rawFinalText = (typeof window !== "undefined" && sessionStorage.getItem(`kakao_text_${buildingId}`)) || kakaoText || displayDesc;
+    const finalText = cleanBlindPoints([rawFinalText])[0] || displayDesc;
+    const safeTitle = cleanBlindPoints([displayTitle])[0] || "블라인드 딜카드";
+    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}/kakao-v2`;
 
     if (kakaoReady && window.Kakao?.Share) {
       try {
         window.Kakao.Share.sendDefault({
           objectType: "feed",
           content: {
-            title: displayTitle,
+            title: safeTitle,
             description: finalText.slice(0, 200),
             imageUrl: ogImageUrl,
             imageWidth: 1200,
@@ -191,10 +197,16 @@ export function LiveDealCardPreviewCard({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`/api/og/deal/${buildingId}/kakao?v=${ogTimestamp}`}
+              src={`/api/og/deal/${buildingId}/kakao-v2?v=${ogTimestamp}`}
               alt="OG 공유 썸네일"
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               key={ogTimestamp}
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.includes("/kakao?")) {
+                  target.src = `/api/og/deal/${buildingId}/kakao?v=${ogTimestamp}`;
+                }
+              }}
             />
             {/* Overlay badge */}
             <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded">
@@ -204,9 +216,10 @@ export function LiveDealCardPreviewCard({
 
           {/* OG Card Text Box */}
           <div className="p-3.5 space-y-1.5 bg-neutral-900/90 text-left">
-            <p className="text-sm font-bold text-white break-keep whitespace-normal leading-snug">
-              {displayTitle}
-            </p>
+            <DealCardLineText
+              text={displayTitle}
+              className="text-sm font-bold text-white"
+            />
             <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed">
               {displayDesc}
             </p>
@@ -235,7 +248,7 @@ export function LiveDealCardPreviewCard({
                   <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                     {i + 1}
                   </span>
-                  <span>{pt}</span>
+                  <DealCardLineText as="span" text={pt} />
                 </p>
               ))}
             </div>

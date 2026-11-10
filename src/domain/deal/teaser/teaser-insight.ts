@@ -50,8 +50,16 @@ export function inferIntentFromEvents(events: TeaserEvent[]): IntentDraft | null
   let inferredBudget: number | undefined;
   let inferredLtv: number | undefined;
   for (const se of sliderEvents) {
-    if (se.eventData.budgetKrw) inferredBudget = Number(se.eventData.budgetKrw);
-    if (se.eventData.ltvPct) inferredLtv = Number(se.eventData.ltvPct);
+    if (se.eventData.budgetKrw) {
+      inferredBudget = Number(se.eventData.budgetKrw);
+    } else if (se.eventData.budget) {
+      inferredBudget = Number(se.eventData.budget) * 100_000_000;
+    }
+    if (se.eventData.ltvPct != null && se.eventData.ltvPct !== '') {
+      inferredLtv = Number(se.eventData.ltvPct);
+    } else if (se.eventData.axis2 != null && se.eventData.axis2 !== '') {
+      inferredLtv = Number(se.eventData.axis2);
+    }
   }
 
   return {

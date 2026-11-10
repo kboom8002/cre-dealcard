@@ -129,7 +129,7 @@ ${GLOBAL_LEASE_SAFETY}
 
 CRITICAL RULES:
 - NEVER include exact address, exact unit, landlord names, current tenant names, exact vacancy reason, or direct lease contract raw text.
-- Use region signal instead of exact address (e.g., "성수동 대로변 권역" instead of "성수동2가 123-4번지 202호")
+- Use region signal instead of exact address (e.g., "성수권역 대로변" instead of "성수동2가 123-4번지 202호")
 - Convert specific numbers to high-level bands if flagged as sensitive (e.g. "보증금 1억 대 / 월차임 800만원 대" instead of "보증금 1억 2천 / 월 850만")
 - Use tenant industry/category instead of names (e.g., "유명 프랜차이즈 식음료" not "스타벅스")
 - Include deal points (USP, advantages) and caution points (needs verification)
@@ -150,7 +150,7 @@ export const LEASE_BLIND_TEASER_USER_TEMPLATE = `다음 Lease SSoT Lite로 블�
 
 ## 지시사항
 Required output JSON keys:
-- "title": 권역 + 면적 + 업종유형 형태 문자열 (예: "성수동 100평 F&B 추천 대로변 코너 상가 임대")
+- "title": 권역 + 면적 + 업종유형 형태 문자열 (예: "성수권역 100평대 F&B 추천 대로변 코너 상가 임대")
 - "shortSummary": 한두 줄 요약 문자열
 - "dealPoints": 임차인에게 설명할 핵심 포인트 배열 (2~7개)
 - "cautionPoints": 확인 필요 사항 배열 (1~7개)
@@ -160,7 +160,7 @@ Required output JSON keys:
 - "boundaryNote": 면책문구 문자열
 - "hookCopy": 임대 상품의 핵심 가치를 한 줄로 소구하는 마케팅 카피 문자열
 - "structureChips": 스캔 가능한 핵심 태그 배열 (예: ["역세권", "신축", "풀옵션", "무권리"])
-- "regionLabel": 대표 지역 라벨 (예: "성수동")
+- "regionLabel": 대표 지역 라벨 (예: "성수권역")
 - "assetTypeLabel": 임대 공간 유형 라벨 (예: "F&B / 리테일")
 - "vacancyLabel": 공실 상태 라벨 (예: "즉시입주 가능")
 - "curiosityHook": 호기심 유발 한 줄 문구

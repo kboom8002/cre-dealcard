@@ -80,10 +80,38 @@ const GENERIC_BUILDING_TERMS = new Set([
   '만실',
   '단독',
   '중소형',
+  '물류',
+  '지식산업',
+  '데이터',
+  '비즈니스',
+  '복합',
+  '유통',
+  '쇼핑',
+  '상업',
+  '업무',
+  '주민',
+  '문화',
+  '고객',
   'OO',
   '○○',
   'XX',
   '해당',
+]);
+
+// Generic road terms that should not be flagged as road-name addresses
+const GENERIC_ROAD_TERMS = new Set([
+  '도로',
+  '차로',
+  '통로',
+  '경로',
+  '진로',
+  '선로',
+  '수로',
+  '교차로',
+  '고속도로',
+  '보행로',
+  '진입로',
+  '출입로',
 ]);
 
 // Sensitive tenant brand names that can uniquely pinpoint a commercial property
@@ -122,8 +150,8 @@ function isForbiddenParcelNumber(matchStr: string, fullText: string): boolean {
   // Safe floor/metric ranges like B1-5F, 지하1층-지상5층, 1-2층, 3-5분, 4-5%, 80-90억, 100-200평
   const escaped = matchStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (
-    /(?:지하|지상|B|F|층|도보|수익률|연)\s*\d+-\d+/i.test(fullText) ||
-    new RegExp(`${escaped}\\s*(?:층|F|분|%|년|억|만|평|개월|호|대)`, 'i').test(fullText)
+    new RegExp(`(?:지하|지상|B|F|층|도보|수익률|연)\\s*${escaped}`, 'i').test(fullText) ||
+    new RegExp(`${escaped}\\s*(?:층|F|분|%|년|억(?:대)?|만(?:원)?|평(?:대)?|개월|호|대)(?![가-힣])`, 'i').test(fullText)
   ) {
     return false;
   }
@@ -145,8 +173,10 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
   const violations: BlindViolation[] = [];
   if (!text || typeof text !== 'string') return violations;
 
-  // 1. Explicit parcel numbers: e.g. "117-3번지", "산 12-3", "45번지"
-  const jibunMatch = text.match(/(?:산\s*)?(?:\b|^)\d{1,5}(?:-\d{1,5})?\s*번지(?=[^\w가-힣]|$)/);
+  // 1. Explicit parcel numbers: e.g. "117-3번지", "산 12-3", "45번지", "117-3번지의"
+  const jibunMatch = text.match(
+    /(?:산\s*)?(?:\b|^)\d{1,5}(?:-\d{1,5})?\s*번지(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/,
+  );
   if (jibunMatch) {
     violations.push({
       pointIndex,
@@ -157,11 +187,12 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     });
   }
 
-  // 2. Standalone hyphenated parcel: e.g. "11-47 (호산당빌딩)"
+  // 2. Standalone hyphenated parcel: e.g. "11-47 (호산당빌딩)", "지하 1-2층, 역삼동 147-8"
   const hyphenNumbers = text.match(/\b\d{1,5}-\d{1,5}\b/g);
   if (hyphenNumbers) {
     for (const num of hyphenNumbers) {
-      if (isForbiddenParcelNumber(num, text) && !jibunMatch) {
+      const alreadyInJibun = jibunMatch ? jibunMatch[0].includes(num) : false;
+      if (isForbiddenParcelNumber(num, text) && !alreadyInJibun) {
         violations.push({
           pointIndex,
           pointText: text,
@@ -173,9 +204,48 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     }
   }
 
-  // 3. Building names: e.g. "호산당빌딩", "삼원타워", "대성스퀘어"
-  // Look for words ending in 빌딩, 타워, 스퀘어, 펠리스, 팰리스, 프라자
-  const buildingNameRegex = /([가-힣A-Za-z0-9]{2,15})(빌딩|타워|스퀘어|펠리스|팰리스|프라자)(?=[^\w가-힣]|$)/g;
+  // 2b. Road-name addresses with specific building numbers: e.g. "테헤란로 152", "양화로 161", "도산대로45길 18"
+  const roadAddressRegex =
+    /([가-힣]{2,10}(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?)\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))/g;
+  let rMatch: RegExpExecArray | null;
+  while ((rMatch = roadAddressRegex.exec(text)) !== null) {
+    const roadPart = rMatch[1].trim();
+    const baseRoad = roadPart.replace(/\s*\d{1,4}(?:번)?길$/, '').trim();
+    if (!GENERIC_ROAD_TERMS.has(baseRoad)) {
+      violations.push({
+        pointIndex,
+        pointText: text,
+        reason: `도로명 상세 건물번호(${rMatch[0]})는 건물 위치가 드러날 수 있어 적을 수 없어요. (address_number)`,
+        keyword: rMatch[0],
+        severity: 'error',
+      });
+    }
+  }
+
+  // 2c. Dong + parcel number: e.g. "역삼동 823", "역삼동 147-8"
+  const dongParcelRegex =
+    /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:번지|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))/g;
+  let dMatch: RegExpExecArray | null;
+  while ((dMatch = dongParcelRegex.exec(text)) !== null) {
+    const parcelNum = dMatch[2];
+    const alreadyCaught = violations.some(
+      (v) => v.keyword && (v.keyword.includes(parcelNum) || dMatch![0].includes(v.keyword)),
+    );
+    if (!alreadyCaught) {
+      violations.push({
+        pointIndex,
+        pointText: text,
+        reason: `동·지번 상세 주소(${dMatch[0]})는 건물 위치 보호를 위해 적을 수 없어요. (address_number)`,
+        keyword: dMatch[0],
+        severity: 'error',
+      });
+    }
+  }
+
+  // 3. Building names: e.g. "호산당빌딩", "삼원타워", "대성스퀘어", "파이낸스센터"
+  // Look for words ending in 빌딩, 타워, 스퀘어, 펠리스, 팰리스, 프라자, 플라자, 센터, 캐슬, 하우스, 맨션
+  const buildingNameRegex =
+    /([가-힣A-Za-z0-9]{2,15})(빌딩|타워|스퀘어|펠리스|팰리스|프라자|플라자|센터|캐슬|하우스|맨션)(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/g;
   let bMatch: RegExpExecArray | null;
   while ((bMatch = buildingNameRegex.exec(text)) !== null) {
     const prefix = bMatch[1];
@@ -229,8 +299,10 @@ export function suggestFallbackRegion(region?: string): string {
   if (!region || typeof region !== 'string') return '서울시';
   const trimmed = region.trim();
 
-  // Pattern: "서울특별시 강남구 신사동" or "강남구 신사동"
-  const match = trimmed.match(/^((?:[가-힣]+(?:특별시|광역시|도)\s*)?[가-힣]+(?:구|군|시))\s+[가-힣0-9]+(?:동|읍|면|가)/);
+  // Pattern: "서울특별시 강남구 신사동", "서울시 강남구 역삼동", or "강남구 신사동"
+  const match = trimmed.match(
+    /^((?:[가-힣]+(?:특별시|광역시|특별자치시|특별자치도|시|도)\s*)*[가-힣]+(?:구|군|시))\s+[가-힣0-9]+(?:동|읍|면|가|리)/,
+  );
   if (match) {
     return match[1];
   }
@@ -312,15 +384,37 @@ export function cleanBlindPoints(points: string[]): string[] {
     let cleaned = text;
 
     // Mask parcel numbers: e.g. "11-47번지" -> "OO번지"
-    cleaned = cleaned.replace(/(?:산\s*)?(?:\b|^)\d{1,5}(?:-\d{1,5})?\s*번지(?=[^\w가-힣]|$)/g, 'OO번지');
+    cleaned = cleaned.replace(
+      /(?:산\s*)?(?:\b|^)\d{1,5}(?:-\d{1,5})?\s*번지(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/g,
+      'OO번지',
+    );
+
+    // Mask road-name addresses with building numbers: e.g. "테헤란로 152" -> "테헤란로 인근"
+    cleaned = cleaned.replace(
+      /([가-힣]{2,10}(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?)\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))(\s*인근)?/g,
+      (match, roadPart: string) => {
+        const baseRoad = roadPart.replace(/\s*\d{1,4}(?:번)?길$/, '').trim();
+        return GENERIC_ROAD_TERMS.has(baseRoad) ? match : `${roadPart.trim()} 인근`;
+      },
+    );
+
     cleaned = cleaned.replace(/\b\d{1,5}-\d{1,5}\b/g, (match) => {
       return isForbiddenParcelNumber(match, text) ? 'OO-OO' : match;
     });
 
+    // Mask dong + single parcel number: e.g. "역삼동 823" -> "역삼동 인근"
+    cleaned = cleaned.replace(
+      /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:번지|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))(\s*인근)?/g,
+      (_match, dongPart: string) => `${dongPart.trim()} 인근`,
+    );
+
     // Mask building names
-    cleaned = cleaned.replace(/([가-힣A-Za-z0-9]{2,15})(빌딩|타워|스퀘어|펠리스|팰리스|프라자)(?=[^\w가-힣]|$)/g, (match, prefix, suffix) => {
-      return GENERIC_BUILDING_TERMS.has(prefix) ? match : `OO${suffix}`;
-    });
+    cleaned = cleaned.replace(
+      /([가-힣A-Za-z0-9]{2,15})(빌딩|타워|스퀘어|펠리스|팰리스|프라자|플라자|센터|캐슬|하우스|맨션)(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/g,
+      (match, prefix, suffix) => {
+        return GENERIC_BUILDING_TERMS.has(prefix) ? match : `OO${suffix}`;
+      },
+    );
 
     // Replace sensitive brands
     for (const brand of SENSITIVE_BRANDS) {

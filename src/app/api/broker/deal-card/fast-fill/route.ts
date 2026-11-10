@@ -6,7 +6,12 @@ import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { readBuilding } from '@/domain/building/im-core/read-building';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
-import { computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import {
+  computeCard4Hash,
+  resolveCard4AreaLabel,
+  type Card4Data,
+  type DealCardPosture,
+} from '@/lib/deal-card/card4-schema';
 import { deriveDealCardHeadline, repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { isUuid, getQuickImRecord } from '@/lib/im-lite/quick-generate-store';
 import { createModuleLogger } from '@/lib/logger';
@@ -38,7 +43,12 @@ function extractRegionFromAddress(address?: string | null): string {
 }
 
 function extractUseFromBuilding(building: Record<string, any>): string {
-  const purpose = building.main_purpose || building.asset_type || building.usage;
+  const purpose =
+    building.main_purpose ||
+    building.asset_type ||
+    building.usage ||
+    building.layers?.building_register?.main_purpose ||
+    building.layers?.building?.main_purpose;
   if (!purpose || typeof purpose !== 'string') return '근린생활시설';
 
   if (purpose.includes('근린') || purpose.includes('근생')) return '근린생활시설';
@@ -49,18 +59,90 @@ function extractUseFromBuilding(building: Record<string, any>): string {
   return purpose;
 }
 
+function extractPostureFromBuilding(building: Record<string, any>): DealCardPosture {
+  const raw = String(
+    building.investment_posture ||
+      building.posture ||
+      building.layers?.deal_terms?.investment_posture ||
+      building.layers?.investment_posture ||
+      ''
+  ).toLowerCase();
+  if (raw.includes('value_add') || raw.includes('development') || raw.includes('신축') || raw.includes('나대지')) {
+    return 'value_add';
+  }
+  if (raw.includes('owner') || raw.includes('사옥')) {
+    return 'owner_occupied';
+  }
+  return 'income';
+}
+
+function extractScaleFromBuilding(building: Record<string, any>): {
+  landAreaPyung?: number;
+  gfaPyung?: number;
+} {
+  const rawLandPyung =
+    building.land_area_pyung ??
+    building.layers?.land_area_pyung ??
+    building.layers?.land?.land_area_pyung ??
+    (building.layers?.building_register?.land_area_sqm
+      ? Number(building.layers.building_register.land_area_sqm) / 3.3058
+      : undefined) ??
+    (building.land_area_sqm ? Number(building.land_area_sqm) / 3.3058 : undefined);
+
+  const rawGfaPyung =
+    building.total_floor_area_pyung ??
+    building.gfa_pyung ??
+    building.layers?.total_floor_area_pyung ??
+    building.layers?.building?.total_floor_area_pyung ??
+    (building.layers?.building_register?.gross_floor_area_sqm
+      ? Number(building.layers.building_register.gross_floor_area_sqm) / 3.3058
+      : undefined) ??
+    (building.gross_floor_area_sqm ? Number(building.gross_floor_area_sqm) / 3.3058 : undefined);
+
+  const landAreaPyung =
+    typeof rawLandPyung === 'number' && Number.isFinite(rawLandPyung) && rawLandPyung > 0
+      ? Math.round(rawLandPyung)
+      : undefined;
+  const gfaPyung =
+    typeof rawGfaPyung === 'number' && Number.isFinite(rawGfaPyung) && rawGfaPyung > 0
+      ? Math.round(rawGfaPyung)
+      : undefined;
+
+  return { landAreaPyung, gfaPyung };
+}
+
 function extractPriceBandFromBuilding(building: Record<string, any>): string {
   if (building.asking_price_krw && typeof building.asking_price_krw === 'number' && building.asking_price_krw > 0) {
     return formatPriceRange(building.asking_price_krw);
   }
 
-  const layersPrice = building.layers?.financial?.asking_price_krw || building.layers?.financial?.asking_price;
-  if (layersPrice && typeof layersPrice === 'number' && layersPrice > 0) {
-    return formatPriceRange(layersPrice);
+  const layersPriceKrw =
+    building.layers?.financial?.asking_price_krw ||
+    building.layers?.financial?.asking_price ||
+    building.layers?.finance?.asking_price_krw ||
+    building.layers?.finance?.asking_price ||
+    building.layers?.deal_terms?.asking_price_krw;
+  if (layersPriceKrw && typeof layersPriceKrw === 'number' && layersPriceKrw > 0) {
+    return formatPriceRange(layersPriceKrw);
   }
 
-  if (building.price_band && typeof building.price_band === 'string') {
-    const parsed = parseLegacyBand(building.price_band);
+  const askingManwon = Number(
+    building.asking_price_manwon ??
+      building.layers?.deal_terms?.asking_price_manwon ??
+      building.layers?.finance?.asking_price_manwon ??
+      building.layers?.financial?.asking_price_manwon ??
+      0
+  );
+  if (Number.isFinite(askingManwon) && askingManwon > 0) {
+    return formatPriceRange(askingManwon * 10_000);
+  }
+
+  const rawBand =
+    building.price_band ||
+    building.layers?.deal_terms?.price_band ||
+    building.layers?.price_band;
+  if (rawBand && typeof rawBand === 'string') {
+    const parsed = parseLegacyBand(rawBand);
     if (parsed.label) return parsed.label;
   }
 
@@ -85,20 +167,36 @@ function extractPointsFromBuilding(building: Record<string, any>): [string, stri
   }
 
   // Point 2: Scale & Floor Area
-  const landArea = building.land_area_pyung || building.layers?.land?.land_area_pyung;
-  const totalArea = building.total_floor_area_pyung || building.layers?.building?.total_floor_area_pyung;
+  const { landAreaPyung: landArea, gfaPyung: totalArea } = extractScaleFromBuilding(building);
 
   if (landArea && totalArea) {
     points.push(`대지 약 ${Math.round(landArea)}평 연면적 약 ${Math.round(totalArea)}평`);
   } else if (totalArea) {
     points.push(`연면적 약 ${Math.round(totalArea)}평 규모의 알짜 매물`);
+  } else if (landArea) {
+    points.push(`대지 약 ${Math.round(landArea)}평 규모의 알짜 매물`);
   } else {
     points.push('수익형 근생 최적화 건물 규모');
   }
 
   // Point 3: Financial yield or building age
-  const capRate = building.cap_rate || building.layers?.financial?.cap_rate;
-  const completionYear = building.completion_year || building.layers?.building?.completion_year;
+  const capRate =
+    building.cap_rate ||
+    building.layers?.financial?.cap_rate ||
+    building.layers?.finance?.cap_rate ||
+    building.layers?.deal_terms?.cap_rate;
+  const rawCompletionDate =
+    building.layers?.building_register?.completion_date ||
+    building.completion_date;
+  const parsedCompletionYear =
+    typeof rawCompletionDate === 'string' && /^\d{4}/.test(rawCompletionDate)
+      ? parseInt(rawCompletionDate.slice(0, 4), 10)
+      : undefined;
+  const completionYear =
+    building.completion_year ||
+    building.layers?.building?.completion_year ||
+    building.layers?.building_register?.completion_year ||
+    parsedCompletionYear;
 
   if (capRate && typeof capRate === 'number' && capRate > 0) {
     points.push(`안정적 임대수익률 연 ${capRate.toFixed(1)}% 수준`);
@@ -115,6 +213,9 @@ function extractPointsFromBuilding(building: Record<string, any>): [string, stri
 function parseMemoFast(memo: string): {
   region: string;
   use: string;
+  posture: DealCardPosture;
+  gfaPyung?: number;
+  landAreaPyung?: number;
   priceBand: string;
   points: [string, string, string];
 } {
@@ -140,11 +241,22 @@ function parseMemoFast(memo: string): {
   else if (/주거|주택|다가구/.test(memo)) use = '주거복합';
   else if (/메디컬|병원/.test(memo)) use = '의료시설';
 
+  // Extract posture
+  let posture: DealCardPosture = 'income';
+  if (/신축|재건축|나대지|개발|리모델링/.test(memo)) posture = 'value_add';
+  else if (/사옥|자가사용/.test(memo)) posture = 'owner_occupied';
+
+  // Extract scale (평)
+  const landMatch = memo.match(/(?:대지|토지)(?:면적)?\s*(?:약\s*)?(\d+(?:\.\d+)?)\s*평/);
+  const gfaMatch = memo.match(/연면적\s*(?:약\s*)?(\d+(?:\.\d+)?)\s*평/);
+  const landAreaPyung = landMatch ? Math.round(parseFloat(landMatch[1])) : undefined;
+  const gfaPyung = gfaMatch ? Math.round(parseFloat(gfaMatch[1])) : undefined;
+
   // Extract price
   let priceBand = '가격 협의';
-  const priceMatch = memo.match(/(\d+)\s*억/);
+  const priceMatch = memo.match(/(\d+(?:\.\d+)?)\s*억/);
   if (priceMatch) {
-    const eok = parseInt(priceMatch[1], 10);
+    const eok = parseFloat(priceMatch[1]);
     priceBand = formatPriceRange(eok * 1_0000_0000);
   }
 
@@ -165,6 +277,9 @@ function parseMemoFast(memo: string): {
   return {
     region,
     use,
+    posture,
+    gfaPyung,
+    landAreaPyung,
     priceBand,
     points: [cleaned[0], cleaned[1], cleaned[2]],
   };
@@ -183,6 +298,10 @@ export async function POST(req: NextRequest) {
     let extracted: {
       region: string;
       use: string;
+      posture: DealCardPosture;
+      area?: string;
+      gfaPyung?: number;
+      landAreaPyung?: number;
       priceBand: string;
       points: [string, string, string];
       provenanceSource: 'public' | 'broker';
@@ -206,14 +325,25 @@ export async function POST(req: NextRequest) {
       }
 
       if (building) {
-        const region = extractRegionFromAddress(building.address || building.road_address);
+        const region =
+          extractRegionFromAddress(
+            building.address ||
+              building.road_address ||
+              building.layers?.asset_identity?.address ||
+              building.area_signal
+          );
         const use = extractUseFromBuilding(building);
+        const posture = extractPostureFromBuilding(building);
+        const { landAreaPyung, gfaPyung } = extractScaleFromBuilding(building);
         const priceBand = extractPriceBandFromBuilding(building);
         const points = extractPointsFromBuilding(building);
 
         extracted = {
           region,
           use,
+          posture,
+          gfaPyung,
+          landAreaPyung,
           priceBand,
           points,
           provenanceSource: 'public',
@@ -222,6 +352,10 @@ export async function POST(req: NextRequest) {
         extracted = {
           region: quickRec!.card4.region,
           use: quickRec!.card4.use,
+          posture: quickRec!.card4.posture || 'income',
+          area: quickRec!.card4.area,
+          gfaPyung: quickRec!.card4.gfaPyung,
+          landAreaPyung: quickRec!.card4.landAreaPyung,
           priceBand: quickRec!.card4.priceBand,
           points: quickRec!.card4.points,
           provenanceSource: 'public',
@@ -252,13 +386,30 @@ export async function POST(req: NextRequest) {
       repairDealCardLine(validation.cleanedPoints[1], { fallback: '추천 매물' }) || '추천 매물',
       repairDealCardLine(validation.cleanedPoints[2], { fallback: '안정 수익' }) || '안정 수익',
     ];
+    const posture: DealCardPosture = extracted.posture || 'income';
+    const area = resolveCard4AreaLabel(
+      {
+        posture,
+        area: extracted.area,
+        gfaPyung: extracted.gfaPyung,
+        landAreaPyung: extracted.landAreaPyung,
+      },
+      {
+        gfaPyung: extracted.gfaPyung,
+        landAreaPyung: extracted.landAreaPyung,
+      }
+    );
     // 한 줄 제목은 편집기 입력과 같은 필드(card4.headline)에 채워 내려준다 (근거 기반 파생).
-    const headline = deriveDealCardHeadline({ posture: 'income', points: finalPoints });
+    const headline = deriveDealCardHeadline({ posture, points: finalPoints });
 
     const card4: Card4Data = {
       headline,
+      posture,
       region: extracted.region,
       use: extracted.use,
+      ...(area ? { area } : {}),
+      ...(extracted.gfaPyung ? { gfaPyung: extracted.gfaPyung } : {}),
+      ...(extracted.landAreaPyung ? { landAreaPyung: extracted.landAreaPyung } : {}),
       priceBand: extracted.priceBand,
       points: finalPoints,
       provenance: {
@@ -274,6 +425,7 @@ export async function POST(req: NextRequest) {
         use: extracted.use,
         priceBand: extracted.priceBand,
         points: finalPoints,
+        area,
         headline,
       }),
     };

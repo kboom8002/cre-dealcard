@@ -10,7 +10,14 @@ import {
 } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
-import { getQuickImRecord, isUuid, updateQuickImCard4 } from '@/lib/im-lite/quick-generate-store';
+import {
+  getInboxState,
+  getQuickImRecord,
+  isDealCardDeleted,
+  isUuid,
+  updateQuickImCard4,
+} from '@/lib/im-lite/quick-generate-store';
+import { isBuildingShareLinkRevoked } from '@/lib/security/share-link-tokens';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('og-kakao-v2');
@@ -101,7 +108,18 @@ export async function GET(
     return new Response('Missing Deal ID', { status: 400 });
   }
 
+  if (
+    isDealCardDeleted(id) ||
+    getInboxState().revokedBuildings[id]?.revoked ||
+    isBuildingShareLinkRevoked(id)
+  ) {
+    return new Response('Building Not Found', { status: 404 });
+  }
+
   const quickRec = getQuickImRecord(id);
+  if (quickRec?.isRevoked) {
+    return new Response('Building Not Found', { status: 404 });
+  }
 
   // Pure read: zero DB mutations
   let building: Record<string, any> | null = null;
@@ -109,14 +127,23 @@ export async function GET(
 
   if (!isUuid(id)) {
     building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
-    if (!bodyCard4) {
+    if (building?.status === 'archived') {
+      return new Response('Building Not Found', { status: 404 });
+    }
+    if (!bodyCard4 || !quickRec?.ownerId) {
       try {
         const supabase = createServiceClient();
         let actQuery: any = supabase
           .from('activity_events')
           .select('actor_id, event_type, metadata, created_at');
         if (typeof actQuery.in === 'function') {
-          actQuery = actQuery.in('event_type', ['dealcard_upserted', 'dealcard_restored']);
+          actQuery = actQuery.in('event_type', [
+            'dealcard_upserted',
+            'dealcard_restored',
+            'dealcard_deleted',
+            'link_revoked',
+            'link_restored',
+          ]);
         }
         if (typeof actQuery.order === 'function') {
           actQuery = actQuery.order('created_at', { ascending: false });
@@ -125,15 +152,36 @@ export async function GET(
           actQuery = actQuery.limit(50);
         }
         const { data: acts } = await actQuery;
-        const matched = (acts || []).find(
-          (a: any) => String(a?.metadata?.building_id || '').trim() === id && a?.metadata?.card4
+        const forBuilding = (acts || []).filter(
+          (a: any) => String(a?.metadata?.building_id || '').trim() === id
         );
+        const latestLifecycle = forBuilding.find((a: any) =>
+          [
+            'dealcard_deleted',
+            'dealcard_restored',
+            'dealcard_upserted',
+            'link_revoked',
+            'link_restored',
+          ].includes(String(a?.event_type || ''))
+        );
+        if (
+          latestLifecycle?.event_type === 'dealcard_deleted' ||
+          latestLifecycle?.event_type === 'link_revoked'
+        ) {
+          return new Response('Building Not Found', { status: 404 });
+        }
+        const matched = forBuilding.find((a: any) => a?.metadata?.card4);
         if (matched?.metadata?.card4) {
-          bodyCard4 = matched.metadata.card4 as Card4Data;
-          updateQuickImCard4(id, bodyCard4, {
-            ownerId: matched.actor_id,
-            brokerProfile: matched.metadata.broker_profile,
-          });
+          const actCard4 = matched.metadata.card4 as Card4Data;
+          const actVer = typeof actCard4.card4_version === 'number' ? actCard4.card4_version : 0;
+          const memVer = typeof bodyCard4?.card4_version === 'number' ? bodyCard4.card4_version : 0;
+          if (!bodyCard4 || !quickRec?.ownerId || actVer >= memVer) {
+            bodyCard4 = actCard4;
+            updateQuickImCard4(id, bodyCard4, {
+              ownerId: matched.actor_id,
+              brokerProfile: matched.metadata.broker_profile,
+            });
+          }
         }
       } catch {
         // ignore if activity_events unavailable
@@ -150,11 +198,20 @@ export async function GET(
       .from('building_ssot_lite')
       .select('id, status')
       .eq('id', id);
+    if (typeof ssotQuery.maybeSingle === 'function') {
+      const { data: ssotRow } = await ssotQuery.maybeSingle();
+      if (ssotRow?.status === 'archived') {
+        return new Response('Building Not Found', { status: 404 });
+      }
+    }
     if (typeof ssotQuery.neq === 'function') {
       ssotQuery = ssotQuery.neq('status', 'archived');
     }
 
     building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
+    if (building?.status === 'archived') {
+      return new Response('Building Not Found', { status: 404 });
+    }
 
     // Fetch Card4 from blind_teaser document if already created
     let teaserQuery: any = supabase
@@ -170,9 +227,70 @@ export async function GET(
       .limit(1)
       .maybeSingle();
 
-    const dbCard4 = (teaserDoc?.body as Record<string, any>)?.card4 as Card4Data | undefined;
+    const teaserBody = (teaserDoc?.body as Record<string, any>) || undefined;
+    if (teaserBody?.is_revoked === true) {
+      return new Response('Building Not Found', { status: 404 });
+    }
+
+    const dbCard4 = teaserBody?.card4 as Card4Data | undefined;
     if (dbCard4) {
-      bodyCard4 = dbCard4;
+      const dbVer = typeof dbCard4.card4_version === 'number' ? dbCard4.card4_version : 0;
+      const memVer = typeof bodyCard4?.card4_version === 'number' ? bodyCard4.card4_version : 0;
+      if (!bodyCard4 || dbVer >= memVer) {
+        bodyCard4 = dbCard4;
+      }
+    }
+
+    if (!bodyCard4) {
+      try {
+        let actQuery: any = supabase
+          .from('activity_events')
+          .select('actor_id, event_type, metadata, created_at');
+        if (typeof actQuery.in === 'function') {
+          actQuery = actQuery.in('event_type', [
+            'dealcard_upserted',
+            'dealcard_restored',
+            'dealcard_deleted',
+            'link_revoked',
+            'link_restored',
+          ]);
+        }
+        if (typeof actQuery.order === 'function') {
+          actQuery = actQuery.order('created_at', { ascending: false });
+        }
+        if (typeof actQuery.limit === 'function') {
+          actQuery = actQuery.limit(50);
+        }
+        const { data: acts } = await actQuery;
+        const forBuilding = (acts || []).filter(
+          (a: any) => String(a?.metadata?.building_id || '').trim() === id
+        );
+        const latestLifecycle = forBuilding.find((a: any) =>
+          [
+            'dealcard_deleted',
+            'dealcard_restored',
+            'dealcard_upserted',
+            'link_revoked',
+            'link_restored',
+          ].includes(String(a?.event_type || ''))
+        );
+        if (
+          latestLifecycle?.event_type === 'dealcard_deleted' ||
+          latestLifecycle?.event_type === 'link_revoked'
+        ) {
+          return new Response('Building Not Found', { status: 404 });
+        }
+        const matched = forBuilding.find((a: any) => a?.metadata?.card4);
+        if (matched?.metadata?.card4) {
+          bodyCard4 = matched.metadata.card4 as Card4Data;
+          updateQuickImCard4(id, bodyCard4, {
+            ownerId: matched.actor_id,
+            brokerProfile: matched.metadata.broker_profile,
+          });
+        }
+      } catch {
+        // ignore if activity_events unavailable
+      }
     }
 
     if (!building && !bodyCard4) {
@@ -271,6 +389,9 @@ export async function GET(
     style: f.style,
   }));
 
+  const displayRegion = cleanBlindPoints([region])[0] || '—';
+  const displayUse = cleanBlindPoints([use])[0] || '—';
+
   return new ImageResponse(
     (
       <div
@@ -316,7 +437,7 @@ export async function GET(
                 letterSpacing: '-0.02em',
               }}
             >
-              {region || '—'}
+              {displayRegion}
             </span>
           </div>
 
@@ -341,7 +462,7 @@ export async function GET(
                 letterSpacing: '-0.02em',
               }}
             >
-              {use || '—'}
+              {displayUse}
             </span>
           </div>
         </div>

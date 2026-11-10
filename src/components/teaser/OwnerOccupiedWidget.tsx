@@ -31,9 +31,12 @@ export function OwnerOccupiedWidget({ attrs }: Props) {
 
   const tenYearRentExpenseEok = (monthlyRentManwon * 12 * 10) / 10000;
   const diffManwon = monthlyRentManwon - monthlyLoanPaymentManwon;
+  const hasPrice = priceEok > 0;
 
   let conclusionText = "";
-  if (diffManwon > 0) {
+  if (!hasPrice) {
+    conclusionText = "매각가 정보가 제공되지 않아 원리금 비교를 산출할 수 없습니다";
+  } else if (diffManwon > 0) {
     conclusionText = `✅ 매입 시 월 ${diffManwon.toLocaleString()}만원 더 절감됩니다`;
   } else if (diffManwon < 0) {
     conclusionText = `📊 월 ${Math.abs(diffManwon).toLocaleString()}만원 추가 부담으로 내 사옥 자산 축적`;
@@ -62,7 +65,7 @@ export function OwnerOccupiedWidget({ attrs }: Props) {
         <div className="flex justify-between items-baseline text-xs text-slate-400">
           <span>매입 시 월 원리금 부담 (LTV {ltvPct}%)</span>
           <span className="text-base font-extrabold text-teal-300">
-            월 {monthlyLoanPaymentManwon.toLocaleString()}만원
+            {hasPrice ? `월 ${monthlyLoanPaymentManwon.toLocaleString()}만원` : "매각가 미제공"}
           </span>
         </div>
 
@@ -73,7 +76,9 @@ export function OwnerOccupiedWidget({ attrs }: Props) {
         </div>
 
         <div className="text-[11px] text-slate-500 text-right">
-          가정 실투자금 (자기자본): 약 {equityEok.toFixed(1)}억원
+          {hasPrice
+            ? `가정 실투자금 (자기자본): 약 ${equityEok.toFixed(1)}억원`
+            : "가정 실투자금 (자기자본): 매각가 확인 필요"}
         </div>
       </div>
 

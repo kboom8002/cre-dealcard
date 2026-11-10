@@ -11,6 +11,7 @@ import { insertCondition } from '@/domain/identity/condition-engine';
 import { bindViewerHistory } from '@/domain/identity/bind';
 import { createServiceClient } from '@/lib/supabase/service';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { getQuickImRecord, isUuid } from '@/lib/im-lite/quick-generate-store';
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,16 +36,35 @@ export async function POST(req: NextRequest) {
     let resolvedBrokerId = clientBrokerId;
     let resolvedTenantId = clientTenantId;
 
-    // dealId가 있으면 서버 측에서 실제 소유 중개사(broker_id)를 조회하여 위조 방지
+    // dealId가 있으면 서버 측에서 실제 소유 중개사(broker_id / owner_id)를 조회하여 위조 방지
     if (dealId) {
-      const { data: dealRow } = await supabase
-        .from('deals')
-        .select('broker_id')
-        .eq('id', dealId)
-        .maybeSingle();
-      if (dealRow?.broker_id) {
-        resolvedBrokerId = dealRow.broker_id;
-        resolvedTenantId = dealRow.broker_id;
+      if (isUuid(dealId)) {
+        const { data: dealRow } = await supabase
+          .from('deals')
+          .select('broker_id')
+          .eq('id', dealId)
+          .maybeSingle();
+        if (dealRow?.broker_id) {
+          resolvedBrokerId = dealRow.broker_id;
+          resolvedTenantId = dealRow.broker_id;
+        } else {
+          const { data: bldgRow } = await supabase
+            .from('building_ssot_lite')
+            .select('owner_id')
+            .eq('id', dealId)
+            .maybeSingle();
+          if (bldgRow?.owner_id) {
+            resolvedBrokerId = bldgRow.owner_id;
+            resolvedTenantId = bldgRow.owner_id;
+          }
+        }
+      }
+      if (!resolvedBrokerId) {
+        const quickRec = getQuickImRecord(String(dealId));
+        if (quickRec?.ownerId) {
+          resolvedBrokerId = quickRec.ownerId;
+          resolvedTenantId = quickRec.ownerId;
+        }
       }
     }
 
@@ -91,6 +111,31 @@ export async function POST(req: NextRequest) {
       party_id: party.id,
       payload: { formSource: 'gate_g2' },
     });
+
+    // 7. Record gate_request_created in activity_events so submissions appear in /broker/w/inbox
+    try {
+      await supabase.from('activity_events').insert({
+        actor_id: party.id && isUuid(party.id) ? party.id : null,
+        actor_role: 'anonymous',
+        event_type: 'gate_request_created',
+        entity_type: 'gate_request',
+        entity_id: dealId && isUuid(dealId) ? dealId : (party.id && isUuid(party.id) ? party.id : null),
+        metadata: {
+          building_id: dealId || null,
+          broker_id: brokerId || null,
+          party_id: party.id,
+          requester_name: formData.name,
+          requester_phone: formData.phone,
+          requested_level: 'G2',
+          budget_band: BUDGET_BAND_MAP[formData.budgetBand] || formData.budgetBand,
+          purpose: formData.purpose,
+          financing: formData.financing,
+          form_source: 'gate_g2',
+        },
+      });
+    } catch {
+      // non-blocking
+    }
 
     return NextResponse.json({
       ok: true,

@@ -275,66 +275,171 @@ export async function GET(req: NextRequest) {
   // ── 1. Gate Requests (IM 열람 요청) — S0-3 Fail-Closed: 소유 매물이 있을 때만 조회 ──
   let gateItems: any[] = [];
   if ((filter === "all" || filter === "requests") && allOwnedBuildingIds.length > 0) {
-    try {
-      const uuidOwnedIds = allOwnedBuildingIds.filter((id) =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-      );
-      const queryBuildingIds = uuidOwnedIds.length > 0 ? uuidOwnedIds : allOwnedBuildingIds;
-      let grQuery: any = supabase
-        .from("gate_requests")
-        .select(
-          "id, building_id, requester_id, requested_level, requested_fields, reason, status, created_at"
-        );
-      if (queryBuildingIds.length > 0 && typeof grQuery.in === "function") {
-        grQuery = grQuery.in("building_id", queryBuildingIds);
-      }
-      if (typeof grQuery.order === "function") {
-        grQuery = grQuery.order("created_at", { ascending: false });
-      }
-      if (typeof grQuery.limit === "function") {
-        grQuery = grQuery.limit(limit);
-      }
+    const uuidOwnedIds = allOwnedBuildingIds.filter((id) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    );
 
-      const { data: gateRequests } = await grQuery;
-      const filteredGateRequests = (gateRequests || []).filter((gr: any) => {
-        const bldgOwner = gr.building?.owner_id || gr.buildings?.owner_id || gr.broker_id;
-        if (bldgOwner && String(bldgOwner) !== userId) return false;
-        if (!gr.building_id || !allOwnedBuildingIds.includes(String(gr.building_id))) {
-          return false;
+    if (uuidOwnedIds.length > 0) {
+      try {
+        let grQuery: any = supabase
+          .from("gate_requests")
+          .select(
+            "id, building_id, requester_id, requested_level, requested_fields, reason, status, created_at"
+          );
+        if (typeof grQuery.in === "function") {
+          grQuery = grQuery.in("building_id", uuidOwnedIds);
         }
-        return true;
-      });
+        if (typeof grQuery.order === "function") {
+          grQuery = grQuery.order("created_at", { ascending: false });
+        }
+        if (typeof grQuery.limit === "function") {
+          grQuery = grQuery.limit(limit);
+        }
 
-      gateItems = filteredGateRequests.map((gr: any) => {
-        const parsedReason = parseGateRequestReason(gr.reason);
-        const joinedBldg = gr.building || gr.buildings;
-        const buildingTitle = resolveBuildingTitle(
-          joinedBldg,
-          buildingTitleById.get(String(gr.building_id)) ||
-            quickInventory.find((q) => q.buildingId === gr.building_id)?.title ||
-            "매물"
-        );
+        const { data: gateRequests } = await grQuery;
+        const filteredGateRequests = (gateRequests || []).filter((gr: any) => {
+          const bldgOwner = gr.building?.owner_id || gr.buildings?.owner_id || gr.broker_id;
+          if (bldgOwner && String(bldgOwner) !== userId) return false;
+          if (!gr.building_id || !allOwnedBuildingIds.includes(String(gr.building_id))) {
+            return false;
+          }
+          return true;
+        });
+
+        gateItems = filteredGateRequests.map((gr: any) => {
+          const parsedReason = parseGateRequestReason(gr.reason);
+          const joinedBldg = gr.building || gr.buildings;
+          const buildingTitle = resolveBuildingTitle(
+            joinedBldg,
+            buildingTitleById.get(String(gr.building_id)) ||
+              quickInventory.find((q) => q.buildingId === gr.building_id)?.title ||
+              "매물"
+          );
+          const requesterName =
+            gr.requester?.display_name ||
+            parsedReason.requesterName ||
+            "이름 미입력 고객";
+          const requesterPhone =
+            gr.requester?.phone ||
+            parsedReason.requesterPhone ||
+            "";
+          const requesterCompany = parsedReason.requesterCompany || "";
+          const cleanMessage = parsedReason.cleanMessage;
+          const isPending =
+            gr.status === "submitted" ||
+            gr.status === "pending" ||
+            gr.status === "broker_review";
+
+          return {
+            id: gr.id,
+            type: "gate_request" as const,
+            status: gr.status,
+            building_id: gr.building_id,
+            buildingId: gr.building_id,
+            building_label: buildingTitle,
+            buildingTitle,
+            requester_name: requesterName,
+            requesterName,
+            requester_phone: requesterPhone || null,
+            requesterPhone,
+            requester_company: requesterCompany || null,
+            requesterCompany,
+            requester_email: gr.requester?.email || null,
+            requested_level: gr.requested_level,
+            reason: cleanMessage,
+            cleanMessage,
+            created_at: gr.created_at,
+            is_unread: isPending,
+          };
+        });
+      } catch {
+        // ignore if table unavailable
+      }
+    }
+
+    // Merge gate_request_created / intent.pro_im_request from activity_events for owned buildings
+    try {
+      let actGateQuery: any = supabase
+        .from("activity_events")
+        .select("id, event_type, entity_id, metadata, created_at, actor_id");
+      if (typeof actGateQuery.in === "function") {
+        actGateQuery = actGateQuery.in("event_type", [
+          "gate_request_created",
+          "intent.pro_im_request",
+        ]);
+      }
+      if (typeof actGateQuery.order === "function") {
+        actGateQuery = actGateQuery.order("created_at", { ascending: false });
+      }
+      if (typeof actGateQuery.limit === "function") {
+        actGateQuery = actGateQuery.limit(limit * 2);
+      }
+      const { data: actGateEvents } = await actGateQuery;
+      const existingGateIds = new Set(gateItems.map((g: any) => String(g.id)));
+
+      for (const ev of actGateEvents || []) {
+        const meta = (ev.metadata as Record<string, any>) || {};
+        if (meta.broker_id && String(meta.broker_id) !== userId) continue;
+        const bId = String(meta.building_id || ev.entity_id || "").trim();
+        const isOwned =
+          (meta.broker_id && String(meta.broker_id) === userId) ||
+          (bId && allOwnedBuildingIds.includes(bId));
+        if (!isOwned || !bId) continue;
+
+        const gateId = String(meta.gate_request_id || ev.entity_id || `gr-act-${ev.id}`);
+        if (existingGateIds.has(gateId)) continue;
+        existingGateIds.add(gateId);
+
+        const rawReasonInput =
+          typeof meta.reason === "string"
+            ? meta.reason
+            : typeof meta.message === "string"
+            ? meta.message
+            : meta.name || meta.requester_name || meta.phone || meta.contact || meta.requester_phone
+            ? JSON.stringify({
+                name: meta.requester_name || meta.name,
+                phone: meta.requester_phone || meta.phone || meta.contact,
+                company: meta.requester_company || meta.company,
+                message:
+                  meta.message ||
+                  meta.reason ||
+                  (ev.event_type === "intent.pro_im_request"
+                    ? "상세 IM 자료(Pro IM) 열람을 요청했습니다."
+                    : "IM 열람을 요청했습니다."),
+              })
+            : ev.event_type === "intent.pro_im_request"
+            ? "상세 IM 자료(Pro IM) 열람을 요청했습니다."
+            : "IM 열람을 요청했습니다.";
+
+        const parsedReason = parseGateRequestReason(rawReasonInput);
+        const buildingTitle =
+          buildingTitleById.get(bId) ||
+          quickInventory.find((q) => q.buildingId === bId)?.title ||
+          String(meta.building_title || meta.building_name || "매물");
         const requesterName =
-          gr.requester?.display_name ||
+          meta.requester_name ||
+          meta.name ||
           parsedReason.requesterName ||
           "이름 미입력 고객";
         const requesterPhone =
-          gr.requester?.phone ||
+          meta.requester_phone ||
+          meta.phone ||
+          meta.contact ||
           parsedReason.requesterPhone ||
           "";
-        const requesterCompany = parsedReason.requesterCompany || "";
+        const requesterCompany =
+          meta.requester_company ||
+          meta.company ||
+          parsedReason.requesterCompany ||
+          "";
         const cleanMessage = parsedReason.cleanMessage;
-        const isPending =
-          gr.status === "submitted" ||
-          gr.status === "pending" ||
-          gr.status === "broker_review";
 
-        return {
-          id: gr.id,
+        gateItems.push({
+          id: gateId,
           type: "gate_request" as const,
-          status: gr.status,
-          building_id: gr.building_id,
-          buildingId: gr.building_id,
+          status: "submitted",
+          building_id: bId,
+          buildingId: bId,
           building_label: buildingTitle,
           buildingTitle,
           requester_name: requesterName,
@@ -343,16 +448,16 @@ export async function GET(req: NextRequest) {
           requesterPhone,
           requester_company: requesterCompany || null,
           requesterCompany,
-          requester_email: gr.requester?.email || null,
-          requested_level: gr.requested_level,
+          requester_email: meta.requester_email || meta.email || null,
+          requested_level: meta.requested_level || "G1",
           reason: cleanMessage,
           cleanMessage,
-          created_at: gr.created_at,
-          is_unread: isPending,
-        };
-      });
+          created_at: ev.created_at,
+          is_unread: true,
+        });
+      }
     } catch {
-      // ignore if table unavailable
+      // ignore if activity_events unavailable
     }
   }
 
@@ -393,9 +498,9 @@ export async function GET(req: NextRequest) {
       const { data: viewEvents } = await viewQuery;
 
       const filtered = (viewEvents || []).filter((evt: any) => {
-        if (buildingIds.includes(evt.entity_id)) return true;
+        if (allOwnedBuildingIds.includes(evt.entity_id)) return true;
         const meta = (evt.metadata as Record<string, any>) || {};
-        if (buildingIds.includes(meta.building_id)) return true;
+        if (allOwnedBuildingIds.includes(meta.building_id)) return true;
         if (meta.broker_id === userId) return true;
         return false;
       });

@@ -5,6 +5,15 @@ import { readBuilding } from "@/domain/building/im-core/read-building";
 import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import {
+  getInboxState,
+  getQuickImRecord,
+  isDealCardDeleted,
+  isUuid,
+  resolveOrSynthesizeQuickImRecord,
+} from "@/lib/im-lite/quick-generate-store";
+import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -38,69 +47,129 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (
+    isDealCardDeleted(id) ||
+    getInboxState().revokedBuildings[id]?.revoked ||
+    isBuildingShareLinkRevoked(id)
+  ) {
+    return new Response("Not Found", { status: 404 });
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
   const landingUrl = `${siteUrl}/dc/${id}`;
 
   let building: Record<string, any> | null = null;
   let teaserDoc: Record<string, any> | null = null;
+  let quickRec = getQuickImRecord(id);
 
   try {
     const supabase = createServiceClient();
+    if (!quickRec) {
+      quickRec = await resolveOrSynthesizeQuickImRecord(id, supabase);
+    }
+    if (quickRec?.isRevoked) {
+      return new Response("Not Found", { status: 404 });
+    }
+
     const bData = await readBuilding(id);
     building = bData as Record<string, any>;
+    if (building?.status === "archived") {
+      return new Response("Not Found", { status: 404 });
+    }
 
-    const { data: sData } = await supabase
-      .from("building_signal_cards")
-      .select("area_signal, asset_type, price_band, title")
-      .eq("building_id", id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    if (isUuid(id)) {
+      const { data: ssotRow } = await supabase
+        .from("building_ssot_lite")
+        .select("id, status")
+        .eq("id", id)
+        .maybeSingle();
+      if (ssotRow?.status === "archived") {
+        return new Response("Not Found", { status: 404 });
+      }
 
-    const { data: tData } = await supabase
-      .from("document_objects")
-      .select("*")
-      .eq("building_id", id)
-      .eq("document_type", "blind_teaser")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-    teaserDoc = tData;
+      const { data: sData } = await supabase
+        .from("building_signal_cards")
+        .select("area_signal, asset_type, price_band, title")
+        .eq("building_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (sData) {
-      if (!building) building = { id };
-      building.area_signal = building.area_signal || sData.area_signal;
-      building.asset_type = building.asset_type || sData.asset_type;
-      building.price_band = building.price_band || sData.price_band;
+      const { data: tData } = await supabase
+        .from("document_objects")
+        .select("*")
+        .eq("building_id", id)
+        .eq("document_type", "blind_teaser")
+        .neq("status", "archived")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      teaserDoc = tData;
+
+      if (sData) {
+        if (!building) building = { id };
+        building.area_signal = building.area_signal || sData.area_signal;
+        building.asset_type = building.asset_type || sData.asset_type;
+        building.price_band = building.price_band || sData.price_band;
+      }
     }
   } catch (e) {
     log.warn("Data fetch warning in 1-page card generator:", e);
   }
 
-  const safeBuilding = building || { id, area_signal: "서울 주요 권역", asset_type: "상업용 빌딩", price_band: "가격 협의" };
+  if (teaserDoc?.body?.is_revoked === true) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const card4 = quickRec?.card4 || (teaserDoc?.body as Record<string, any>)?.card4;
+  const safeBuilding = building || {
+    id,
+    area_signal: card4?.region || "서울 주요 권역",
+    asset_type: card4?.use || "상업용 빌딩",
+    price_band: card4?.priceBand || "가격 협의",
+  };
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
   const attrs = {
     ...rawAttrs,
-    areaSignal: rawAttrs.areaSignal || safeBuilding.area_signal,
-    priceBand: rawAttrs.priceBand || safeBuilding.price_band,
-    assetType: rawAttrs.assetType || safeBuilding.asset_type,
+    areaSignal: card4?.region || rawAttrs.areaSignal || safeBuilding.area_signal,
+    priceBand: card4?.priceBand || rawAttrs.priceBand || safeBuilding.price_band,
+    assetType: card4?.use || rawAttrs.assetType || safeBuilding.asset_type,
+    investmentPosture: card4?.posture || rawAttrs.investmentPosture,
   };
   const teaserView = projectToTeaser(attrs);
   const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
 
-  const hookCopy = imBody.hookCopy || teaserView.hookCopy || `${teaserView.region} 핵심 상업용 빌딩`;
-  const posture = teaserView.posture || "income";
+  const regionDisplay = cleanBlindPoints([card4?.region || teaserView.region || "서울 주요 권역"])[0] || "서울 주요 권역";
+  const useDisplay = cleanBlindPoints([card4?.use || teaserView.assetType || "상업용 빌딩"])[0] || "상업용 빌딩";
+  const priceBandDisplay = card4?.priceBand || teaserView.bandedPrice || "가격 협의";
+
+  const rawHookCopy =
+    card4?.headline ||
+    imBody.hookCopy ||
+    teaserView.hookCopy ||
+    `${regionDisplay} 핵심 ${useDisplay}`;
+  const hookCopy = cleanBlindPoints([rawHookCopy])[0] || `${regionDisplay} 핵심 ${useDisplay}`;
+  const posture = card4?.posture || teaserView.posture || "income";
   const postureLabel = teaserView.postureLabel || "임대수익형";
 
-  const rawTiles = teaserView.postureHeroTiles || [
-    { emoji: "💰", label: "매각가", value: teaserView.bandedPrice || "가격 협의" },
-    { emoji: "📍", label: "권역", value: teaserView.region },
-  ];
+  const rawTiles = (teaserView.postureHeroTiles || [
+    { emoji: "💰", label: "매각가", value: priceBandDisplay },
+    { emoji: "📍", label: "권역", value: regionDisplay },
+  ]).map((tile) => {
+    if (tile.label === "매각가") return { ...tile, value: priceBandDisplay };
+    if (tile.label === "권역") return { ...tile, value: regionDisplay };
+    return tile;
+  });
   const heroTiles = filterValidTiles(rawTiles).slice(0, 4);
 
-  const dealPoints = imBody.dealPoints || [
-    teaserView.highlightText || "안정적 임차 구성 및 우수한 접근성"
-  ];
+  const rawDealPoints =
+    (Array.isArray(card4?.points) && card4.points.length > 0 ? card4.points : imBody.dealPoints) || [
+      teaserView.highlightText || "안정적 임차 구성 및 우수한 접근성",
+    ];
+  const dealPoints = cleanBlindPoints(rawDealPoints);
+  if (dealPoints.length === 0) {
+    dealPoints.push("안정적 임차 구성 및 우수한 접근성");
+  }
 
   // Generate QR Code Data URL
   let qrDataUrl = "";
@@ -198,7 +267,7 @@ export async function GET(
               </span>
             </div>
             <span style={{ fontSize: "22px", color: "#9AA7B5", fontWeight: 500 }}>
-              📍 {teaserView.region} · 블라인드 부동산 티저
+              📍 {regionDisplay} · 블라인드 부동산 티저
             </span>
           </div>
 
@@ -257,8 +326,8 @@ export async function GET(
         {/* 4-Metric Grid with Glassmorphism */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            display: "flex",
+            flexWrap: "wrap",
             gap: "24px",
             marginTop: "40px",
           }}
@@ -267,6 +336,7 @@ export async function GET(
             <div
               key={i}
               style={{
+                width: "460px",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
@@ -283,6 +353,7 @@ export async function GET(
 
               <div
                 style={{
+                  display: "flex",
                   fontSize: i === 0 ? "48px" : "44px",
                   fontWeight: 900,
                   color: i === 0 ? "#5EEAD4" : "#FFFFFF",
@@ -307,7 +378,7 @@ export async function GET(
             marginTop: "32px",
           }}
         >
-          <div style={{ fontSize: "24px", fontWeight: 800, color: accentColor }}>
+          <div style={{ display: "flex", fontSize: "24px", fontWeight: 800, color: accentColor }}>
             💎 투자 핵심 포인트 (Deal Points)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -348,6 +419,7 @@ export async function GET(
           </div>
           <div
             style={{
+              display: "flex",
               fontSize: "20px",
               fontWeight: 800,
               color: "#0B0F14",

@@ -8,7 +8,7 @@ interface Props {
 
 export function DevelopmentWidget({ attrs }: Props) {
   const priceEok = Number(attrs.askingPriceKrw || 0) / 100000000;
-  const landAreaPyung = Number(attrs.landAreaPyung || attrs.effectiveLandAreaPyung || 100);
+  const landAreaPyung = Number(attrs.landAreaPyung || attrs.effectiveLandAreaPyung || 0);
 
   // Smart defaults
   const [targetFarPct, setTargetFarPct] = useState(400); // 400%
@@ -16,14 +16,18 @@ export function DevelopmentWidget({ attrs }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Calculations
-  const expectedTotalFloorAreaPyung = landAreaPyung * (targetFarPct / 100);
+  const expectedTotalFloorAreaPyung = landAreaPyung > 0 ? landAreaPyung * (targetFarPct / 100) : 0;
   const constructionCostEok = (expectedTotalFloorAreaPyung * costPerPyungManwon) / 10000;
   const totalProjectCostEok = priceEok + constructionCostEok + (priceEok * 0.05); // Land + Const + Admin/Tax
   
   // Conservative exit valuation (assuming 20% margin on total project cost)
   const estimatedExitValuationEok = totalProjectCostEok * 1.2;
   const estimatedProfitEok = estimatedExitValuationEok - totalProjectCostEok;
-  const estimatedIrrPct = Math.min(25, Math.max(5, Math.round((estimatedProfitEok / totalProjectCostEok) * 100 / 2.5)));
+  const estimatedIrrPct =
+    totalProjectCostEok > 0
+      ? Math.min(25, Math.max(5, Math.round((estimatedProfitEok / totalProjectCostEok) * 100 / 2.5)))
+      : 0;
+  const hasInputs = landAreaPyung > 0 && totalProjectCostEok > 0;
 
   return (
     <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 text-slate-100 shadow-xl space-y-3">
@@ -40,18 +44,24 @@ export function DevelopmentWidget({ attrs }: Props) {
       <div className="rounded-xl bg-slate-850 border border-slate-800 p-3.5 space-y-2">
         <div className="flex justify-between items-baseline text-xs text-slate-400">
           <span>예상 신축 연면적 (목표 용적률 {targetFarPct}%)</span>
-          <span className="text-sm font-bold text-slate-200">약 {Math.round(expectedTotalFloorAreaPyung)}평</span>
+          <span className="text-sm font-bold text-slate-200">
+            {landAreaPyung > 0 ? `약 ${Math.round(expectedTotalFloorAreaPyung)}평` : "대지면적 미제공"}
+          </span>
         </div>
 
         <div className="flex justify-between items-baseline text-xs text-slate-400">
           <span>가정 총 공사비</span>
-          <span className="text-sm font-bold text-slate-200">약 {constructionCostEok.toFixed(1)}억원</span>
+          <span className="text-sm font-bold text-slate-200">
+            {landAreaPyung > 0 ? `약 ${constructionCostEok.toFixed(1)}억원` : "—"}
+          </span>
         </div>
 
         <div className="flex justify-between items-baseline text-xs text-slate-400">
           <span>가정 개발이익 / 예상 IRR</span>
           <span className="text-base font-extrabold text-emerald-300">
-            약 {estimatedProfitEok.toFixed(1)}억 ({estimatedIrrPct}%대)
+            {hasInputs
+              ? `약 ${estimatedProfitEok.toFixed(1)}억 (${estimatedIrrPct}%대)`
+              : "제원 확인 후 산출 가능"}
           </span>
         </div>
 

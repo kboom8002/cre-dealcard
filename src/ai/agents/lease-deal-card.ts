@@ -27,6 +27,8 @@ import {
 import { getModel } from "../model-selector";
 import { safeParseAIResponse } from "@/ai/utils/ai-response-parser";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
+import { sanitizeMemo, desanitizeOutput } from "@/ai/sanitizer/memo-sanitizer";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 
 export interface LeaseBrokerDealCardInput {
   memo: string;
@@ -73,11 +75,16 @@ export async function runLeaseBrokerDealCard(
   const model = getModel("sol");
   let totalTokens = 0;
 
+  // Apply PII Sanitization
+  const sanitizationMap = sanitizeMemo(input.memo);
+  const { sanitizedText } = sanitizationMap;
+
   // Step 1: Parse lease memo
-  const memoPrompt = LEASE_MEMO_PARSER_USER_TEMPLATE.replace("{memo}", input.memo);
+  const memoPrompt = LEASE_MEMO_PARSER_USER_TEMPLATE.replace("{memo}", sanitizedText);
   const memoResult = await callOpenAI(LEASE_MEMO_PARSER_SYSTEM, memoPrompt, model);
   totalTokens += memoResult.tokens;
-  const memoParseResult = safeParseAIResponse(memoResult.content, LeaseMemoParserOutputSchema);
+  const restoredMemoContent = desanitizeOutput(memoResult.content, sanitizationMap);
+  const memoParseResult = safeParseAIResponse(restoredMemoContent, LeaseMemoParserOutputSchema);
   if (!memoParseResult.success) {
     throw new Error(`[lease-deal-card] Step1 파싱 실패: ${memoParseResult.error}`);
   }
@@ -86,7 +93,7 @@ export async function runLeaseBrokerDealCard(
   // Step 2: Build Lease Mini Truth (SSoT Lite)
   const truthPrompt = LEASE_MINI_TRUTH_USER_TEMPLATE.replace(
     "{raw_memo}",
-    input.memo,
+    sanitizedText,
   ).replace("{parsed_memo}", JSON.stringify(parsedMemo, null, 2));
   const truthResult = await callOpenAI(
     LEASE_MINI_TRUTH_SYSTEM,
@@ -94,7 +101,8 @@ export async function runLeaseBrokerDealCard(
     model,
   );
   totalTokens += truthResult.tokens;
-  const truthParseResult = safeParseAIResponse(truthResult.content, LeaseMiniTruthOutputSchema);
+  const restoredTruthContent = desanitizeOutput(truthResult.content, sanitizationMap);
+  const truthParseResult = safeParseAIResponse(restoredTruthContent, LeaseMiniTruthOutputSchema);
   if (!truthParseResult.success) {
     throw new Error(`[lease-deal-card] Step2 파싱 실패: ${truthParseResult.error}`);
   }
@@ -111,13 +119,14 @@ export async function runLeaseBrokerDealCard(
     model,
   );
   totalTokens += teaserResult.tokens;
-  const teaserParseResult = safeParseAIResponse(teaserResult.content, LeaseBlindTeaserOutputSchema);
+  const restoredTeaserContent = desanitizeOutput(teaserResult.content, sanitizationMap);
+  const teaserParseResult = safeParseAIResponse(restoredTeaserContent, LeaseBlindTeaserOutputSchema);
   if (!teaserParseResult.success) {
     throw new Error(`[lease-deal-card] Step3 파싱 실패: ${teaserParseResult.error}`);
   }
   const blindTeaser = teaserParseResult.data;
 
-  // ── 법적 가드레일 ──
+  // ── 법적 가드레일 & 블라인드 가드 ──
   const guardedTeaser = { ...blindTeaser };
   if (guardedTeaser.title) {
     guardedTeaser.title = rewriteUnsafeText(guardedTeaser.title).safeText;
@@ -133,9 +142,15 @@ export async function runLeaseBrokerDealCard(
   if (guardedTeaser.kakaoText) {
     guardedTeaser.kakaoText = rewriteUnsafeText(guardedTeaser.kakaoText).safeText;
   }
+  if (guardedTeaser.hookCopy) {
+    guardedTeaser.hookCopy = rewriteUnsafeText(guardedTeaser.hookCopy).safeText;
+  }
+  if (guardedTeaser.curiosityHook) {
+    guardedTeaser.curiosityHook = rewriteUnsafeText(guardedTeaser.curiosityHook).safeText;
+  }
   if (guardedTeaser.dealPoints) {
-    guardedTeaser.dealPoints = guardedTeaser.dealPoints.map(
-      (p) => rewriteUnsafeText(p).safeText
+    guardedTeaser.dealPoints = cleanBlindPoints(
+      guardedTeaser.dealPoints.map((p) => rewriteUnsafeText(p).safeText),
     );
   }
 

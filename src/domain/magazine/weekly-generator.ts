@@ -275,9 +275,9 @@ const fetchActiveDeals = async (supabase: Db, userId: string, errors: string[]):
     try {
       const { data: docData, error: docErr } = await supabase
         .from('document_objects')
-        .select('building_id, doc_type, body')
+        .select('building_id, document_type, body')
         .in('building_id', dealIds)
-        .in('doc_type', ['im_lite', 'im_lite_draft', 'mobile_im']);
+        .in('document_type', ['im_lite', 'im_lite_draft', 'mobile_im']);
       if (docErr) {
         errors.push(`document_objects: ${docErr.message}`);
       } else if (Array.isArray(docData)) {
@@ -300,15 +300,23 @@ const fetchActiveDeals = async (supabase: Db, userId: string, errors: string[]):
     const photoUrls = resolveDealPhotoUrls(photoSource);
     const coverPhoto = resolveDealCoverPhoto(photoSource);
     const resolvedUrls = coverPhoto ? [coverPhoto, ...photoUrls.filter((u) => u !== coverPhoto)] : photoUrls;
+    const areaSignalVal = str(b.area_signal);
+    const assetTypeVal = str(b.asset_type);
+    const priceBandVal = str(b.price_band);
     return {
       id: String(b.id),
       address: str(b.raw_address) ?? '',
-      area_signal: str(b.area_signal),
-      asset_type: str(b.asset_type),
-      price: str(b.price_band),
+      area_signal: areaSignalVal,
+      asset_type: assetTypeVal,
+      price: priceBandVal,
       status: String(b.status ?? ''),
       photo_urls: resolvedUrls,
-      attrs: layers,
+      attrs: {
+        ...layers,
+        ...(areaSignalVal && !layers.area_signal ? { area_signal: areaSignalVal } : {}),
+        ...(assetTypeVal && !layers.asset_type ? { asset_type: assetTypeVal } : {}),
+        ...(priceBandVal && !layers.price_band ? { price_band: priceBandVal } : {}),
+      },
       imDoc,
     };
   });
@@ -1043,7 +1051,17 @@ export const generateWeeklyMagazine = async (params: GenerateWeeklyParams): Prom
       .trim() ?? `${regionLabel ? `${regionLabel} ` : ''}CRE 주간 브리핑`;
   const editionTitle = `${regionLabel ? `${regionLabel} ` : ''}주간 CRE 매거진 — ${label}`;
 
-  const teaserCards = generateMagazineTeaserCards(deals.map((d) => ({ id: d.id, attrs: d.attrs })));
+  const teaserCards = generateMagazineTeaserCards(
+    deals.map((d) => ({
+      id: d.id,
+      attrs: {
+        ...d.attrs,
+        ...(d.area_signal && !d.attrs?.area_signal ? { area_signal: d.area_signal } : {}),
+        ...(d.asset_type && !d.attrs?.asset_type ? { asset_type: d.asset_type } : {}),
+        ...(d.price && !d.attrs?.price_band ? { price_band: d.price } : {}),
+      },
+    }))
+  );
   const monthlySummary = await buildMonthlySummary(supabase, regionKeywords, now);
 
   const content: EditionContentV1 = {

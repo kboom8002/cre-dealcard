@@ -18,6 +18,7 @@
 import { z } from 'zod';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
+import { parseLegacyBand } from '@/lib/deal-card/price-band';
 
 // ── Schema ──────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,7 @@ export function collectSensitiveNeedles(building: Record<string, any> | null | u
   const attrs = asRecord(building.attrs);
   const layers = asRecord(building.layers ?? attrs.layers);
   const location = asRecord(layers.location);
+  const assetIdentity = asRecord(layers.asset_identity);
   const needles = new Set<string>();
 
   const addAddress = (v: unknown) => {
@@ -170,17 +172,31 @@ export function collectSensitiveNeedles(building: Record<string, any> | null | u
     if (t.length >= 6) needles.add(t);
     // Exact jibun / building-number tokens such as "117-3번지", "117-3", "12번지"
     for (const m of t.matchAll(/\d{1,5}-\d{1,5}(?:번지)?|\d{1,5}번지/g)) needles.add(m[0]);
+    // Road-name + building-number patterns (e.g. "테헤란로 152", "도산대로45길 18")
+    for (const m of t.matchAll(/[가-힣0-9]+(?:대로|로|길)\s*(?:\d+(?:번)?길\s*)?\d+(?:-\d+)?/g)) needles.add(m[0].trim());
+    // Dong + parcel number patterns (e.g. "역삼동 823", "역삼동 147-8")
+    for (const m of t.matchAll(/[가-힣0-9]+(?:동|읍|면|가|리)\s+\d+(?:-\d+)?/g)) needles.add(m[0].trim());
     // Proper building names embedded in the address (e.g. "호산당빌딩", "OO타워")
-    for (const m of t.matchAll(/[^\s,()]{2,}(?:빌딩|타워|센터|플라자|오피스텔|스퀘어|빌라|맨션|하우스)/g)) needles.add(m[0]);
+    for (const m of t.matchAll(/[^\s,()]{2,}(?:빌딩|타워|센터|플라자|프라자|오피스텔|스퀘어|펠리스|팰리스|캐슬|빌라|맨션|하우스)/g)) needles.add(m[0]);
   };
   addAddress(building.raw_address);
   addAddress(building.address);
+  addAddress(building.road_address);
+  addAddress(building.jibun_address);
   addAddress(attrs.address);
   addAddress(attrs.rawAddress);
   addAddress(attrs.raw_address);
+  addAddress(attrs.roadAddress);
+  addAddress(attrs.jibunAddress);
   addAddress(location.raw_address);
   addAddress(location.exact_address);
   addAddress(location.address);
+  addAddress(location.road_address);
+  addAddress(location.jibun_address);
+  addAddress(assetIdentity.address);
+  addAddress(assetIdentity.raw_address);
+  addAddress(assetIdentity.road_address);
+  addAddress(assetIdentity.jibun_address);
 
   const publicArea = str(building.area_signal || attrs.areaSignal || '').trim();
   const publicAsset = str(building.asset_type || building.main_usage || attrs.assetType || '').trim();
@@ -252,12 +268,24 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
 
   const body = asRecord(signalCard?.body);
   const imBody = asRecord(teaserDoc?.body);
-  const card4 = asRecord(imBody.card4);
+  const layersCard4 = asRecord(asRecord(safeBuilding.layers).card4);
+  const bodyCard4 = asRecord(imBody.card4);
+  const card4 =
+    Number(layersCard4.card4_version || 0) >= Number(bodyCard4.card4_version || 0) &&
+    Object.keys(layersCard4).length > 0
+      ? { ...bodyCard4, ...layersCard4 }
+      : { ...layersCard4, ...bodyCard4 };
 
   // Server-only intermediate values — NEVER returned.
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
+  const card4Posture = strOrNull(card4.posture);
+  const mappedInvestmentPosture =
+    card4Posture === 'value_add'
+      ? 'development'
+      : card4Posture || strOrNull(imBody.investmentPosture) || strOrNull(rawAttrs.investmentPosture);
   const attrs: Record<string, unknown> = {
     ...rawAttrs,
+    ...(mappedInvestmentPosture ? { investmentPosture: mappedInvestmentPosture } : {}),
     areaSignal:
       rawAttrs.areaSignal ||
       signalCard?.area_signal ||
@@ -296,6 +324,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
       ? `${str(card4.region || safeBuilding.area_signal || '서울시')} ${str(card4.use || safeBuilding.asset_type || '근린생활시설')} ${str(card4.priceBand || safeBuilding.price_band || '')}`.trim()
       : '';
   const ogTitle = str(card4.headline)
+    || str(imBody.card4Headline)
     || str(imBody.kakaoOgTitle)
     || str(imBody.ogTitle)
     || str(signalCard?.title)
@@ -306,7 +335,11 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
   const card4PointsList = Array.isArray(card4.points)
     ? card4.points.filter((p: unknown): p is string => typeof p === 'string' && p.length > 0)
     : [];
-  const ogDescription = (card4PointsList.length > 0 ? card4PointsList.join(' · ') : '')
+  const imCard4PointsList = Array.isArray(imBody.card4Points)
+    ? imBody.card4Points.filter((p: unknown): p is string => typeof p === 'string' && p.length > 0)
+    : [];
+  const resolvedCard4Points = card4PointsList.length > 0 ? card4PointsList : imCard4PointsList;
+  const ogDescription = (resolvedCard4Points.length > 0 ? resolvedCard4Points.join(' · ') : '')
     || str(imBody.kakaoOgDescription)
     || str(imBody.ogDescription)
     || str(body.shortSummary)
@@ -315,6 +348,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
   // ── Hero ──
   const dealTitle =
     str(card4.headline) ||
+    str(imBody.card4Headline) ||
     str(imBody.title) ||
     str(body.title) ||
     str(signalCard?.title) ||
@@ -322,13 +356,15 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     '';
   const hookCopy = str(imBody.hookCopy) || str(body.hookCopy) || teaserView.hookCopy
     || `${str(card4.region) || teaserView.region || '비공개 권역'} ${str(card4.use) || safeBuilding.asset_type || '빌딩'} 매각`;
-  const posture = str(card4.posture) || teaserView.posture || 'income';
+  const posture = mappedInvestmentPosture || teaserView.posture || 'income';
   const postureLabel = teaserView.postureLabel || '임대수익형';
   const urgencyRaw = teaserView.urgencyTag || body.urgencyTag;
   const urgencyTag = urgencyRaw === 'urgent' || urgencyRaw === 'reviewing' || urgencyRaw === 'flexible' ? urgencyRaw : null;
 
   const rawDealPoints = card4PointsList.length > 0
     ? card4PointsList
+    : imCard4PointsList.length > 0
+    ? imCard4PointsList
     : Array.isArray(imBody.dealPoints) && imBody.dealPoints.length > 0
     ? imBody.dealPoints
     : Array.isArray(imBody.key_points)
@@ -339,7 +375,15 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     .map(clean);
 
   // ── Posture widget inputs (minimal, derived numbers only) ──
-  const askingPriceKrw = positiveOrNull(attrs.askingPriceKrw);
+  const parsedBand = parseLegacyBand(str(card4.priceBand) || str(teaserView.bandedPrice));
+  const bandedMidKrw =
+    parsedBand.minKrw > 0 && parsedBand.maxKrw > 0
+      ? (parsedBand.minKrw + parsedBand.maxKrw) / 2
+      : parsedBand.maxKrw > 0
+      ? parsedBand.maxKrw
+      : parsedBand.minKrw > 0
+      ? parsedBand.minKrw
+      : null;
   const monthlyRentKrw = positiveOrNull(attrs.monthlyRentKrw);
   const spec = asRecord(attrs.hospitalitySpec);
   const slider = teaserView.sliderAxis2;
@@ -347,8 +391,8 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
   const postureWidget: PublicPostureWidgetInput = {
     posture,
     assetType: str(attrs.assetType) || str(attrs.asset_type),
-    askingPriceEok: askingPriceKrw !== null ? round1(askingPriceKrw / 100_000_000) : null,
-    annualRentEok: monthlyRentKrw !== null ? round1((monthlyRentKrw * 12) / 100_000_000) : null,
+    askingPriceEok: bandedMidKrw !== null ? positiveOrNull(round1(bandedMidKrw / 100_000_000)) : null,
+    annualRentEok: monthlyRentKrw !== null ? positiveOrNull(round1((monthlyRentKrw * 12) / 100_000_000)) : null,
     totalFloorAreaPyung: positiveOrNull(attrs.totalFloorAreaPyung),
     landAreaPyung: positiveOrNull(attrs.landAreaPyung),
     roomCount: positiveOrNull(spec.totalRoomCount ?? attrs.roomCount),

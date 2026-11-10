@@ -11,6 +11,7 @@ import {
   type Card4Data,
   type DealCardPosture,
 } from '@/lib/deal-card/card4-schema';
+import { formatPriceRange } from '@/lib/deal-card/price-band';
 
 export interface QuickImRentRollRow {
   floor: string;
@@ -1250,10 +1251,9 @@ export function synthesizeQuickRecordFromImItem(
     imItem.floorsBelow
   );
 
-  const eok = Math.round((askingPriceManwon / 10000) * 10) / 10;
   const priceBand =
     askingPriceManwon > 0
-      ? `${Math.max(1, Math.floor(eok / 10) * 10)}~${Math.ceil((eok + 1) / 10) * 10}억`
+      ? formatPriceRange(askingPriceManwon * 10000)
       : '가격 협의';
 
   const resolvedClosingLine =
@@ -1406,11 +1406,24 @@ export async function resolveOrSynthesizeQuickImRecord(
       const { data: imEvents } = await dbClient
         .from('activity_events')
         .select('actor_id, entity_id, event_type, metadata, created_at')
-        .in('event_type', ['im_upserted', 'im_deleted', 'im_restored'])
+        .in('event_type', [
+          'im_upserted',
+          'im_deleted',
+          'im_restored',
+          'dealcard_upserted',
+          'dealcard_deleted',
+          'dealcard_restored',
+        ])
         .order('created_at', { ascending: false })
         .limit(200);
 
       if (Array.isArray(imEvents)) {
+        let pendingCard4Update: {
+          card4: Card4Data;
+          ownerId?: string;
+          brokerProfile?: StoredQuickImRecord['brokerProfile'];
+        } | null = null;
+
         for (const ev of imEvents) {
           const meta = (ev.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, any>;
           const evEntityId = String(ev.entity_id || '');
@@ -1426,10 +1439,26 @@ export async function resolveOrSynthesizeQuickImRecord(
           ) {
             continue;
           }
-          if (ev.event_type === 'im_deleted') {
-            return null;
+          if (ev.event_type === 'im_deleted' || ev.event_type === 'dealcard_deleted') {
+            if (!pendingCard4Update) {
+              deleteQuickImRecord(buildingId);
+              return null;
+            }
+            break;
           }
-          if (ev.event_type === 'im_upserted' && meta.im_item) {
+          if (
+            (ev.event_type === 'dealcard_upserted' || ev.event_type === 'dealcard_restored') &&
+            meta.card4 &&
+            !pendingCard4Update
+          ) {
+            pendingCard4Update = {
+              card4: meta.card4 as Card4Data,
+              ownerId: ev.actor_id || undefined,
+              brokerProfile: meta.broker_profile as StoredQuickImRecord['brokerProfile'] | undefined,
+            };
+            continue;
+          }
+          if ((ev.event_type === 'im_upserted' || ev.event_type === 'im_restored') && meta.im_item) {
             const itemToSynthesize: Record<string, any> = {
               ...(meta.im_item as Record<string, any>),
             };
@@ -1479,14 +1508,31 @@ export async function resolveOrSynthesizeQuickImRecord(
                 }
               }
             }
-            return synthesizeQuickRecordFromImItem(
+            const synthesized = synthesizeQuickRecordFromImItem(
               buildingId,
               itemToSynthesize,
               meta.broker_profile as Record<string, any> | undefined,
               ev.created_at,
               ev.actor_id
             );
+            if (pendingCard4Update) {
+              return (
+                updateQuickImCard4(buildingId, pendingCard4Update.card4, {
+                  ownerId: pendingCard4Update.ownerId,
+                  brokerProfile: pendingCard4Update.brokerProfile,
+                }) || synthesized
+              );
+            }
+            return synthesized;
           }
+        }
+
+        if (pendingCard4Update) {
+          const updated = updateQuickImCard4(buildingId, pendingCard4Update.card4, {
+            ownerId: pendingCard4Update.ownerId,
+            brokerProfile: pendingCard4Update.brokerProfile,
+          });
+          if (updated) return updated;
         }
       }
     } catch {
@@ -1505,17 +1551,98 @@ export function updateQuickImCard4(
     brokerProfile?: StoredQuickImRecord['brokerProfile'];
   }
 ): StoredQuickImRecord | null {
+  const isValidCard4 =
+    typeof card4?.region === 'string' &&
+    typeof card4?.use === 'string' &&
+    typeof card4?.priceBand === 'string' &&
+    Array.isArray(card4?.points) &&
+    (card4.region.trim().length > 0 ||
+      card4.use.trim().length > 0 ||
+      card4.priceBand.trim().length > 0 ||
+      card4.points.some((p) => typeof p === 'string' && p.trim().length > 0));
+
   const existing = getQuickImRecord(idOrDocId);
   if (!existing) {
+    if (!isValidCard4) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    const pts: [string, string, string] = [
+      card4.points[0] || '',
+      card4.points[1] || '',
+      card4.points[2] || '',
+    ];
+    const gfaSqm =
+      typeof card4.gfaPyung === 'number' && card4.gfaPyung > 0
+        ? Math.round(card4.gfaPyung * 3.3058 * 10) / 10
+        : 0;
+    const landAreaSqm =
+      typeof card4.landAreaPyung === 'number' && card4.landAreaPyung > 0
+        ? Math.round(card4.landAreaPyung * 3.3058 * 10) / 10
+        : 0;
+    const synthesized = buildSeedRecord({
+      buildingId: idOrDocId,
+      documentId: `im-doc-${idOrDocId}`,
+      address: card4.region || '',
+      buildingName: `${card4.region || ''} ${card4.use || ''}`.trim() || '상업용 매물',
+      region: card4.region || '',
+      use: card4.use || '근린생활시설',
+      priceBand: card4.priceBand || '가격 협의',
+      askingPriceManwon: 0,
+      posture: card4.posture || 'income',
+      points: pts,
+      gfaSqm,
+      landAreaSqm,
+      zoning: '',
+      completionDate: '',
+      floorsAbove: 0,
+      floorsBelow: 0,
+      isSynthesized: true,
+      updatedAt: now,
+      rentRoll: [],
+    });
+    synthesized.card4 = card4;
+    synthesized.ownerId = opts?.ownerId;
+    synthesized.brokerProfile = opts?.brokerProfile;
+    if (synthesized.fullDocBody) {
+      synthesized.fullDocBody.card4 = card4;
+      synthesized.fullDocBody.ssot_summary = {
+        ...(synthesized.fullDocBody.ssot_summary || {}),
+        area_signal: card4.region || synthesized.fullDocBody.ssot_summary?.area_signal,
+        asset_type: card4.use || synthesized.fullDocBody.ssot_summary?.asset_type,
+        price_band: card4.priceBand || synthesized.fullDocBody.ssot_summary?.price_band,
+      };
+      synthesized.docBody = synthesized.fullDocBody;
+    }
+    saveQuickImRecord(synthesized);
+    return synthesized;
+  }
+
+  if (!isValidCard4) {
     return null;
   }
+
   const now = new Date().toISOString();
+  const nextFullDocBody = existing.fullDocBody
+    ? {
+        ...existing.fullDocBody,
+        card4,
+        ssot_summary: {
+          ...(existing.fullDocBody.ssot_summary || {}),
+          area_signal: card4.region || existing.fullDocBody.ssot_summary?.area_signal,
+          asset_type: card4.use || existing.fullDocBody.ssot_summary?.asset_type,
+          price_band: card4.priceBand || existing.fullDocBody.ssot_summary?.price_band,
+        },
+      }
+    : existing.fullDocBody;
   const updated: StoredQuickImRecord = {
     ...existing,
-    buildingName: `${card4.region} ${card4.use}`,
+    buildingName: `${card4.region} ${card4.use}`.trim(),
     ownerId: opts?.ownerId || existing.ownerId,
     brokerProfile: opts?.brokerProfile || existing.brokerProfile,
     card4,
+    fullDocBody: nextFullDocBody,
+    docBody: nextFullDocBody || existing.docBody,
     updatedAt: now,
   };
   saveQuickImRecord(updated);

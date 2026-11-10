@@ -32,7 +32,9 @@ export function isTeaserVisible(slot: SlotDef): boolean {
  * - 예: 1,200억 원 -> "1,200억 원대"
  */
 export function formatBandedPrice(priceKrw: number): string {
-  if (!priceKrw || priceKrw <= 0) return '가격 협의';
+  if (typeof priceKrw !== 'number' || !Number.isFinite(priceKrw) || priceKrw <= 0) {
+    return '가격 협의';
+  }
 
   const manwon = Math.floor(priceKrw / 10000);
   const uk = manwon / 10000;
@@ -41,11 +43,21 @@ export function formatBandedPrice(priceKrw: number): string {
     // 10억 이상: 10억 단위 버림 (예: 195억 -> 190억, 85억 -> 80억, 125억 -> 120억)
     const bandedUk = Math.floor(uk / 10) * 10;
     return `${bandedUk.toLocaleString()}억 원대`;
-  } else {
-    // 10억 미만
+  }
+  if (uk >= 1) {
+    // 1억 이상 ~ 10억 미만
     const bandedUk = Math.floor(uk);
     return `${bandedUk}억 원대`;
   }
+  // 1억 미만: 천만(1,000만) 단위 밴드 ("0억 원대" 방지)
+  if (manwon >= 1000) {
+    const bandedMan = Math.floor(manwon / 1000) * 1000;
+    return `${bandedMan.toLocaleString()}만 원대`;
+  }
+  if (manwon > 0) {
+    return `${manwon.toLocaleString()}만 원대`;
+  }
+  return '가격 협의';
 }
 
 /**
@@ -56,7 +68,13 @@ export function formatBandedPrice(priceKrw: number): string {
  * - 예: 5.8% -> "5%대 후반"
  */
 export function formatBandedYield(yieldPct: number | null | undefined): string {
-  if (yieldPct === null || yieldPct === undefined || yieldPct <= 0) {
+  if (
+    yieldPct === null ||
+    yieldPct === undefined ||
+    typeof yieldPct !== 'number' ||
+    !Number.isFinite(yieldPct) ||
+    yieldPct <= 0
+  ) {
     return '수익률 산정 중';
   }
 

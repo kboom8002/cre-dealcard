@@ -48,7 +48,7 @@ export async function simulateReidentification(
 
   // Narrow bands reduce candidates
   if (price > 100_0000_0000) estimatedCandidates = Math.round(estimatedCandidates * 0.3);
-  if (price > 50_0000_0000) estimatedCandidates = Math.round(estimatedCandidates * 0.5);
+  else if (price > 50_0000_0000) estimatedCandidates = Math.round(estimatedCandidates * 0.5);
   if (area > 500) estimatedCandidates = Math.round(estimatedCandidates * 0.4);
   if (assetType === 'hotel' || assetType === 'industrial') {
     estimatedCandidates = Math.round(estimatedCandidates * 0.3);

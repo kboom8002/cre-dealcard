@@ -38,7 +38,7 @@ export function CuriosityLock({ curiositySlot, candidateCount, passed, posture =
               <span>💰</span> <span>정밀 호가 및 층별 보증금/임대료</span>
             </div>
             <div className="text-xs font-bold text-slate-300 blur-[4px] select-none">
-              매각 125,000,000,000원 / Cap Rate 5.24%
+              매각 ●●●억원 / 연 순수익률 ●.●%
             </div>
           </div>
           <span className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 px-2 py-1 rounded-md font-medium shrink-0 ml-2">
@@ -53,7 +53,7 @@ export function CuriosityLock({ curiositySlot, candidateCount, passed, posture =
               <span>📊</span> <span>10년 DCF & 금리 변동 민감도표</span>
             </div>
             <div className="text-xs font-bold text-slate-300 blur-[4px] select-none">
-              LTV 65% 적용 시 Leveraged IRR 12.8%
+              LTV ●●% 적용 시 자기자본수익률 ●●.●%
             </div>
           </div>
           <span className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 px-2 py-1 rounded-md font-medium shrink-0 ml-2">
@@ -68,7 +68,7 @@ export function CuriosityLock({ curiositySlot, candidateCount, passed, posture =
               <span>📋</span> <span>주요 임차인 만기일 및 명도 여건</span>
             </div>
             <div className="text-xs font-bold text-slate-300 blur-[4px] select-none">
-              앵커 테넌트 계약만기 2027.12 / 명도 협의가능
+              주요 임차인 계약만기 ●●●●.●●
             </div>
           </div>
           <span className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 px-2 py-1 rounded-md font-medium shrink-0 ml-2">

@@ -36,7 +36,7 @@ const DEFAULT_TONES: [DealCardPointTone, DealCardPointTone, DealCardPointTone] =
 
 export function KakaoBubblePreview({
   card4,
-  brokerName = '담당 공인중개사',
+  brokerName = '중개사 프로필 미설정',
   brokerSpecialty = '상업용 부동산 중개',
   brokerPhone,
   className = '',

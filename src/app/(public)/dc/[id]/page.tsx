@@ -10,12 +10,15 @@ import { evaluateDealCardPublicVisibility } from '@/domain/public-projection/vis
 import { isOwnerOrAdmin } from '@/domain/public-projection/access';
 import { getServerViewer } from '@/lib/server-viewer';
 import {
+  getInboxState,
   getQuickImRecord,
+  isDealCardDeleted,
   isUuid,
   resolveOrSynthesizeQuickImRecord,
   updateQuickImCard4,
   type StoredQuickImRecord,
 } from '@/lib/im-lite/quick-generate-store';
+import { isBuildingShareLinkRevoked } from '@/lib/security/share-link-tokens';
 
 // v3 Goldilocks components
 import { TeaserHeroHeader } from '@/components/teaser/TeaserHeroHeader';
@@ -107,8 +110,31 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
 // P0-SEC: React cache() — generateMetadata 와 page 가 같은 요청에서 한 번만 조회한다
 // (readWithMigration 의 lazy-write 부수효과 중복 방지).
 const getDealCardData = cache(async (id: string) => {
+  const emptyData = {
+    building: {} as Record<string, any>,
+    signalCard: null as any,
+    teaserDoc: null as any,
+    brokerProfile: null as Record<string, any> | null,
+    hasImDoc: false,
+    isPptxApproved: false,
+    pptxDownloadUrl: `/api/public/im-lite/${id}/pptx`,
+    ownerId: null as string | null,
+    buildingStatus: "archived" as string | null,
+  };
+
+  if (
+    isDealCardDeleted(id) ||
+    Boolean(getInboxState().revokedBuildings[id]?.revoked) ||
+    isBuildingShareLinkRevoked(id)
+  ) {
+    return { ...emptyData, buildingStatus: "archived" };
+  }
+
   const quickRec = getQuickImRecord(id);
-  if (quickRec) {
+  if (quickRec?.isRevoked) {
+    return { ...emptyData, buildingStatus: "archived" };
+  }
+  if (quickRec && quickRec.ownerId) {
     return buildDealCardDataFromQuickRecord(quickRec);
   }
 
@@ -116,15 +142,17 @@ const getDealCardData = cache(async (id: string) => {
 
   if (!isUuid(id)) {
     try {
-      const synthesizedNonUuid = await resolveOrSynthesizeQuickImRecord(id, supabase);
-      if (synthesizedNonUuid) {
-        return buildDealCardDataFromQuickRecord(synthesizedNonUuid);
-      }
       let actQuery: any = supabase
         .from("activity_events")
-        .select("actor_id, event_type, metadata, created_at");
+        .select("actor_id, entity_id, event_type, metadata, created_at");
       if (typeof actQuery.in === "function") {
-        actQuery = actQuery.in("event_type", ["dealcard_upserted", "dealcard_restored"]);
+        actQuery = actQuery.in("event_type", [
+          "dealcard_upserted",
+          "dealcard_restored",
+          "dealcard_deleted",
+          "link_revoked",
+          "link_restored",
+        ]);
       }
       if (typeof actQuery.order === "function") {
         actQuery = actQuery.order("created_at", { ascending: false });
@@ -133,8 +161,26 @@ const getDealCardData = cache(async (id: string) => {
         actQuery = actQuery.limit(50);
       }
       const { data: acts } = await actQuery;
-      const matched = (acts || []).find(
-        (a: any) => String(a?.metadata?.building_id || "").trim() === id && a?.metadata?.card4
+      const matchingActs = (acts || []).filter(
+        (a: any) => String(a?.metadata?.building_id || a?.entity_id || "").trim() === id
+      );
+      const latestLifecycle = matchingActs.find((a: any) =>
+        ["dealcard_upserted", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
+      );
+      const latestRevoke = matchingActs.find((a: any) =>
+        ["link_revoked", "link_restored"].includes(a?.event_type)
+      );
+      if (
+        latestLifecycle?.event_type === "dealcard_deleted" ||
+        latestRevoke?.event_type === "link_revoked"
+      ) {
+        return { ...emptyData, buildingStatus: "archived" };
+      }
+
+      const matched = matchingActs.find(
+        (a: any) =>
+          (a?.event_type === "dealcard_upserted" || a?.event_type === "dealcard_restored") &&
+          a?.metadata?.card4
       );
       if (matched) {
         const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
@@ -145,9 +191,29 @@ const getDealCardData = cache(async (id: string) => {
           return buildDealCardDataFromQuickRecord(hydrated);
         }
       }
+
+      const synthesizedNonUuid = await resolveOrSynthesizeQuickImRecord(id, supabase);
+      if (synthesizedNonUuid) {
+        if (matched?.metadata?.card4) {
+          const updated = updateQuickImCard4(id, matched.metadata.card4, {
+            ownerId: matched.actor_id,
+            brokerProfile: matched.metadata.broker_profile,
+          });
+          if (updated) {
+            return buildDealCardDataFromQuickRecord(updated);
+          }
+        }
+        return buildDealCardDataFromQuickRecord(synthesizedNonUuid);
+      }
     } catch {
       // ignore if activity_events unavailable
     }
+
+    if (quickRec) {
+      return buildDealCardDataFromQuickRecord(quickRec);
+    }
+
+    return { ...emptyData, buildingStatus: "archived" };
   }
 
   let targetBuildingId = id;
@@ -240,9 +306,15 @@ const getDealCardData = cache(async (id: string) => {
       try {
         let actQuery: any = supabase
           .from("activity_events")
-          .select("actor_id, event_type, metadata, created_at");
+          .select("actor_id, entity_id, event_type, metadata, created_at");
         if (typeof actQuery.in === "function") {
-          actQuery = actQuery.in("event_type", ["dealcard_upserted", "dealcard_restored"]);
+          actQuery = actQuery.in("event_type", [
+            "dealcard_upserted",
+            "dealcard_restored",
+            "dealcard_deleted",
+            "link_revoked",
+            "link_restored",
+          ]);
         }
         if (typeof actQuery.order === "function") {
           actQuery = actQuery.order("created_at", { ascending: false });
@@ -251,8 +323,25 @@ const getDealCardData = cache(async (id: string) => {
           actQuery = actQuery.limit(50);
         }
         const { data: acts } = await actQuery;
-        const matched = (acts || []).find(
-          (a: any) => String(a?.metadata?.building_id || "").trim() === id && a?.metadata?.card4
+        const matchingActs = (acts || []).filter(
+          (a: any) => String(a?.metadata?.building_id || a?.entity_id || "").trim() === id
+        );
+        const latestLifecycle = matchingActs.find((a: any) =>
+          ["dealcard_upserted", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
+        );
+        const latestRevoke = matchingActs.find((a: any) =>
+          ["link_revoked", "link_restored"].includes(a?.event_type)
+        );
+        if (
+          latestLifecycle?.event_type === "dealcard_deleted" ||
+          latestRevoke?.event_type === "link_revoked"
+        ) {
+          return { ...emptyData, buildingStatus: "archived" };
+        }
+        const matched = matchingActs.find(
+          (a: any) =>
+            (a?.event_type === "dealcard_upserted" || a?.event_type === "dealcard_restored") &&
+            a?.metadata?.card4
         );
         if (matched) {
           const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
@@ -270,7 +359,12 @@ const getDealCardData = cache(async (id: string) => {
   }
 
   const ownerId: string | null = ssotMetaRes.data?.owner_id ?? null;
-  const buildingStatus: string | null = ssotMetaRes.data?.status ?? null;
+  const isTeaserRevoked = Boolean(
+    (teaserDocRes.data?.body as Record<string, any> | undefined)?.is_revoked === true
+  );
+  const buildingStatus: string | null = isTeaserRevoked
+    ? "archived"
+    : (ssotMetaRes.data?.status ?? null);
 
   let brokerProfile: Record<string, any> | null = null;
   if (ownerId) {

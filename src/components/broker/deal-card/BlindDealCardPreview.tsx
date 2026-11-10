@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Building2, MapPin, DollarSign, CheckCircle2, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
+import { DealCardLineText } from "@/components/broker/deal-card/DealCardLineText";
 
 interface BlindDealCardPreviewProps {
   title: string;
@@ -71,9 +72,11 @@ export function BlindDealCardPreview({
 
       {/* Main Title & Hook */}
       <div className="space-y-1.5 pt-1">
-        <h2 className="text-xl font-black tracking-tight text-foreground leading-snug">
-          {title}
-        </h2>
+        <DealCardLineText
+          as="h1"
+          text={title}
+          className="text-xl font-black tracking-tight text-foreground"
+        />
         {(hookCopy || shortSummary) && (
           <p className="text-sm text-muted-foreground leading-relaxed">
             {hookCopy || shortSummary}
@@ -92,7 +95,7 @@ export function BlindDealCardPreview({
             {dealPoints.map((point, idx) => (
               <div key={idx} className="flex items-start gap-2 text-xs text-foreground font-medium leading-relaxed">
                 <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                <span>{point}</span>
+                <DealCardLineText as="span" text={point} />
               </div>
             ))}
           </div>

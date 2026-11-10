@@ -224,6 +224,8 @@ export async function GET(request: NextRequest) {
       landAreaPyung,
       priceBand,
       points,
+      ...(bodyCard4?.pointTones ? { pointTones: bodyCard4.pointTones } : {}),
+      ...(bodyCard4?.pointBriefs ? { pointBriefs: bodyCard4.pointBriefs } : {}),
       provenance: bodyCard4?.provenance || {
         points: ["public", "broker", "ai"],
       },
@@ -253,7 +255,8 @@ export async function GET(request: NextRequest) {
           p &&
           typeof p.url === "string" &&
           p.url.trim().length > 0 &&
-          !p.url.startsWith("/test-images/")
+          !p.url.startsWith("/test-images/") &&
+          !p.url.startsWith("blob:")
       );
       if (valid.length > 0) {
         realPhotosByBuildingId.set(d.building_id, valid);
@@ -406,7 +409,8 @@ export async function GET(request: NextRequest) {
             p &&
             typeof p.url === "string" &&
             p.url.trim().length > 0 &&
-            !p.url.startsWith("/test-images/")
+            !p.url.startsWith("/test-images/") &&
+            !p.url.startsWith("blob:")
         )
       : [];
     const effectiveRawPhotos =
@@ -666,6 +670,11 @@ export async function GET(request: NextRequest) {
     allQuickRecords.unshift(quickTargetRec);
   }
 
+  const hasOwnedDealcards =
+    dealcards.length > 0 ||
+    allQuickRecords.some((r) => r.ownerId === userId) ||
+    customUpsertedByBuilding.size > 0;
+
   for (const qRec of [...allQuickRecords].reverse()) {
     const existingDcIdx = dealcards.findIndex((dc) => dc.id === qRec.buildingId);
     const isSent = sentBuildingIds.has(qRec.buildingId) || isDealCardSent(qRec.buildingId);
@@ -683,7 +692,11 @@ export async function GET(request: NextRequest) {
       if (qRec.ownerId === userId) {
         dealcards[existingDcIdx] = mappedDc;
       }
-    } else if (qRec.ownerId === userId || dealcards.length < 3 || (targetId && qRec.buildingId === targetId)) {
+    } else if (
+      qRec.ownerId === userId ||
+      (!qRec.ownerId && !hasOwnedDealcards && dealcards.length === 0) ||
+      (targetId && qRec.buildingId === targetId)
+    ) {
       if (qRec.ownerId === userId || (targetId && qRec.buildingId === targetId)) {
         dealcards.unshift(mappedDc);
       } else {
@@ -889,6 +902,40 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = createServiceClient();
 
+  const existingQuick =
+    getQuickImRecord(buildingId) ||
+    (incomingImObj?.id ? getQuickImRecord(String(incomingImObj.id)) : null);
+
+  let uuidOwnerVerified = false;
+  if (isUuid(buildingId)) {
+    const ownerCheck = await assertBuildingOwner(supabase, buildingId, auth.user.id, {
+      allowAdmin: true,
+      role: auth.role,
+    });
+    if (!ownerCheck.ok) {
+      if (ownerCheck.status === 403 || action === "upsert") {
+        return ownerCheck.response;
+      }
+      if (existingQuick?.ownerId && existingQuick.ownerId !== auth.user.id && auth.role !== "admin") {
+        return NextResponse.json(
+          { ok: false, error: "이 매물에 대한 권한이 없습니다.", code: "FORBIDDEN" },
+          { status: 403 }
+        );
+      }
+    } else {
+      uuidOwnerVerified = true;
+    }
+  } else if (
+    existingQuick?.ownerId &&
+    existingQuick.ownerId !== auth.user.id &&
+    auth.role !== "admin"
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "이 매물에 대한 권한이 없습니다.", code: "FORBIDDEN" },
+      { status: 403 }
+    );
+  }
+
   // Fetch broker profile for attaching to QuickImStore record
   let brokerProfileMeta: {
     displayName?: string;
@@ -931,6 +978,28 @@ export async function PATCH(request: NextRequest) {
   // Handle delete action
   if (action === "delete") {
     markDealCardDeleted(buildingId);
+    if (isUuid(buildingId) && uuidOwnerVerified) {
+      const nowIso = new Date().toISOString();
+      try {
+        await Promise.allSettled([
+          supabase
+            .from("building_ssot_lite")
+            .update({ status: "archived", updated_at: nowIso })
+            .eq("id", buildingId),
+          supabase
+            .from("building_signal_cards")
+            .update({ status: "archived", updated_at: nowIso })
+            .eq("building_id", buildingId),
+          supabase
+            .from("document_objects")
+            .update({ status: "archived", updated_at: nowIso })
+            .eq("building_id", buildingId)
+            .eq("document_type", "blind_teaser"),
+        ]);
+      } catch {
+        // Non-blocking
+      }
+    }
     try {
       await supabase.from("activity_events").insert({
         actor_id: auth.user.id,
@@ -955,11 +1024,28 @@ export async function PATCH(request: NextRequest) {
   // Handle restore action (Undo delete)
   if (action === "restore") {
     markDealCardRestored(buildingId);
-    if (card4 && !isUuid(buildingId)) {
+    if (card4 && (!isUuid(buildingId) || uuidOwnerVerified)) {
       updateQuickImCard4(buildingId, card4, {
         ownerId: auth.user.id,
         brokerProfile: brokerProfileMeta,
       });
+    }
+    if (isUuid(buildingId) && uuidOwnerVerified) {
+      const nowIso = new Date().toISOString();
+      try {
+        await Promise.allSettled([
+          supabase
+            .from("building_ssot_lite")
+            .update({ status: "draft", updated_at: nowIso })
+            .eq("id", buildingId),
+          supabase
+            .from("building_signal_cards")
+            .update({ status: "draft", updated_at: nowIso })
+            .eq("building_id", buildingId),
+        ]);
+      } catch {
+        // Non-blocking
+      }
     }
     try {
       await supabase.from("activity_events").insert({
@@ -986,6 +1072,47 @@ export async function PATCH(request: NextRequest) {
   // Handle mark_sent action (after Kakao send or Copy Link)
   if (action === "mark_sent") {
     markDealCardSent(buildingId);
+    let persistedSentCard4: Card4Data | undefined;
+    if (card4) {
+      const normalizedSentCard4 = normalizeDealCardCopy(card4, { fillHeadline: true });
+      persistedSentCard4 = {
+        ...normalizedSentCard4,
+        ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
+        ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
+      };
+      if (isUuid(buildingId) && uuidOwnerVerified) {
+        try {
+          const updRes = await updateDealCard4(supabase, buildingId, {
+            card4: {
+              headline: persistedSentCard4.headline,
+              posture: persistedSentCard4.posture,
+              region: persistedSentCard4.region,
+              use: persistedSentCard4.use,
+              area: persistedSentCard4.area,
+              gfaPyung: persistedSentCard4.gfaPyung,
+              landAreaPyung: persistedSentCard4.landAreaPyung,
+              priceBand: persistedSentCard4.priceBand,
+              points: persistedSentCard4.points,
+              provenance: persistedSentCard4.provenance,
+            },
+            userId: auth.user.id,
+          });
+          if (updRes.card4) {
+            persistedSentCard4 = {
+              ...updRes.card4,
+              ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
+              ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
+            };
+          }
+        } catch {
+          // Non-blocking
+        }
+      }
+      updateQuickImCard4(buildingId, persistedSentCard4, {
+        ownerId: auth.user.id,
+        brokerProfile: brokerProfileMeta,
+      });
+    }
     try {
       await supabase.from("activity_events").insert({
         actor_id: auth.user.id,
@@ -994,9 +1121,12 @@ export async function PATCH(request: NextRequest) {
         entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
         metadata: {
           building_id: buildingId,
+          status: "sent",
+          ...(persistedSentCard4 ? { card4: persistedSentCard4 } : {}),
+          ...(brokerProfileMeta ? { broker_profile: brokerProfileMeta } : {}),
         },
       });
-      if (isUuid(buildingId)) {
+      if (isUuid(buildingId) && uuidOwnerVerified) {
         await supabase
           .from("document_objects")
           .update({ status: "published", updated_at: new Date().toISOString() })
@@ -1017,6 +1147,7 @@ export async function PATCH(request: NextRequest) {
       buildingId,
       status: "sent",
       persisted: true,
+      ...(persistedSentCard4 ? { card4: persistedSentCard4 } : {}),
     });
   }
 
@@ -1155,7 +1286,7 @@ export async function PATCH(request: NextRequest) {
         : 0;
 
     try {
-      if (isUuid(buildingId)) {
+      if (isUuid(buildingId) && uuidOwnerVerified) {
         const docQuery = supabase
           .from("document_objects")
           .select("id, status, body")
@@ -1658,6 +1789,8 @@ export async function PATCH(request: NextRequest) {
       card4.region || "",
       card4.use || "",
       card4.headline || "",
+      card4.area || "",
+      card4.priceBand || "",
     ],
     { region: card4.region, assetType: card4.use }
   );
@@ -1676,13 +1809,6 @@ export async function PATCH(request: NextRequest) {
 
   // Only enforce DB ownership if buildingId is a real UUID in building_ssot_lite
   if (isUuid(buildingId)) {
-    const ownerCheck = await assertBuildingOwner(supabase, buildingId, auth.user.id, {
-      allowAdmin: true,
-      role: auth.role,
-    });
-    if (!ownerCheck.ok) {
-      return ownerCheck.response;
-    }
     const result = await updateDealCard4(supabase, buildingId, {
       card4: {
         headline: card4.headline,
@@ -1704,8 +1830,15 @@ export async function PATCH(request: NextRequest) {
         { status: result.conflict ? 409 : 500 }
       );
     }
-    if (result.card4) {
-      updateQuickImCard4(buildingId, result.card4, {
+    const mergedUuidCard4: Card4Data | undefined = result.card4
+      ? {
+          ...result.card4,
+          ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
+          ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
+        }
+      : undefined;
+    if (mergedUuidCard4) {
+      updateQuickImCard4(buildingId, mergedUuidCard4, {
         ownerId: auth.user.id,
         brokerProfile: brokerProfileMeta,
       });
@@ -1718,7 +1851,7 @@ export async function PATCH(request: NextRequest) {
         entity_id: buildingId,
         metadata: {
           building_id: buildingId,
-          card4: result.card4,
+          card4: mergedUuidCard4,
           broker_profile: brokerProfileMeta,
         },
       });
@@ -1734,7 +1867,7 @@ export async function PATCH(request: NextRequest) {
       ok: true,
       buildingId,
       persisted: true,
-      card4: result.card4,
+      card4: mergedUuidCard4,
       version: result.version,
       hash: result.hash,
     });
@@ -1747,6 +1880,8 @@ export async function PATCH(request: NextRequest) {
   const hash = computeCard4Hash(normalizedCard4);
   const nextCard4: Card4Data = {
     ...normalizedCard4,
+    ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
+    ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
     card4_version: nextVersion,
     card4_hash: hash,
   };

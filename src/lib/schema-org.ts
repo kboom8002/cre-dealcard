@@ -15,6 +15,9 @@
  *   />
  */
 
+import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
 
@@ -36,6 +39,7 @@ export interface BuildingForSchema {
   current_use_signal?: string | null;
   fit_summary?: string | null;
   created_at?: string | null;
+  [key: string]: unknown;
 }
 
 export interface BrokerForSchema {
@@ -76,13 +80,17 @@ export function realEstateListing(building: BuildingForSchema) {
   const region = regionLabel(building.area_signal);
   const regionSlug =
     building.area_signal?.replace(/\s+/g, "-").toLowerCase() ?? "unknown";
+  const needles = collectSensitiveNeedles(building as Record<string, any>);
+  const sanitizedFitSummary = building.fit_summary
+    ? cleanBlindPoints([maskNeedles(building.fit_summary, needles)])[0]
+    : null;
 
   return {
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
     name: `${region} ${building.asset_type ?? "상업용 부동산"} 매물`,
     description:
-      building.fit_summary ??
+      sanitizedFitSummary ??
       `${region} 권역 ${building.asset_type ?? "상업용 부동산"} 딜카드. ${building.price_band ? `가격대: ${building.price_band}.` : ""} DealCard에서 확인하세요.`,
     url: `${BASE_URL}/deal/${regionSlug}/${building.id}`,
     image: `${BASE_URL}/api/og/deal/${building.id}`,

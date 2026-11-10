@@ -138,17 +138,6 @@ export default async function BrokerDealCardResultPage({
 
   if (!building) return notFound();
 
-  // Fetch broker slug for OG image
-  const brokerSlug = await (async () => {
-    if (!building.owner_id) return "js-realty";
-    const { data: bp } = await supabase
-      .from("broker_profiles")
-      .select("slug")
-      .eq("user_id", building.owner_id)
-      .maybeSingle();
-    return bp?.slug ?? "js-realty";
-  })();
-
   // Fetch signal card (for curiosity score or other signals)
   const { data: signalCard } = await supabase
     .from("building_signal_cards")

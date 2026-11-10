@@ -4,6 +4,15 @@ import { readBuilding } from "@/domain/building/im-core/read-building";
 import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import {
+  getInboxState,
+  getQuickImRecord,
+  isDealCardDeleted,
+  isUuid,
+  resolveOrSynthesizeQuickImRecord,
+} from "@/lib/im-lite/quick-generate-store";
+import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("og-kakao");
@@ -11,22 +20,6 @@ const log = createModuleLogger("og-kakao");
 export const runtime = "nodejs";
 
 let fontBuffer: ArrayBuffer | null = null;
-
-let fallbackFontBuffer: ArrayBuffer | null = null;
-async function getFallbackFont(): Promise<ArrayBuffer | null> {
-  if (fallbackFontBuffer) return fallbackFontBuffer;
-  try {
-    const res = await fetch(
-      "https://cdn.jsdelivr.net/font-noto-cjk/1.004/NotoSansKR-Bold.otf"
-    );
-    if (res.ok) {
-      fallbackFontBuffer = await res.arrayBuffer();
-    }
-  } catch (e) {
-    // ignore
-  }
-  return fallbackFontBuffer;
-}
 
 async function getFontData(): Promise<ArrayBuffer | null> {
   if (fontBuffer) return fontBuffer;
@@ -52,85 +45,127 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (
+    isDealCardDeleted(id) ||
+    getInboxState().revokedBuildings[id]?.revoked ||
+    isBuildingShareLinkRevoked(id)
+  ) {
+    return new Response("Not Found", { status: 404 });
+  }
 
   let building: Record<string, any> | null = null;
   let teaserDoc: Record<string, any> | null = null;
   let brokerProfile: Record<string, any> | null = null;
+  let quickRec = getQuickImRecord(id);
 
   try {
     const supabase = createServiceClient();
+    if (!quickRec) {
+      quickRec = await resolveOrSynthesizeQuickImRecord(id, supabase);
+    }
+    if (quickRec?.isRevoked) {
+      return new Response("Not Found", { status: 404 });
+    }
+
     const bData = await readBuilding(id);
     building = bData as Record<string, any>;
-
-    const { data: sData } = await supabase
-      .from("building_signal_cards")
-      .select("area_signal, asset_type, price_band, title")
-      .eq("building_id", id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const { data: tData } = await supabase
-      .from("document_objects")
-      .select("*")
-      .eq("building_id", id)
-      .eq("document_type", "blind_teaser")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    teaserDoc = tData;
-
-    const { data: imLiteData } = await supabase
-      .from("document_objects")
-      .select("body")
-      .eq("building_id", id)
-      .eq("document_type", "im_lite")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (sData && building) {
-      building.area_signal = building.area_signal || sData.area_signal;
-      building.asset_type = building.asset_type || sData.asset_type;
-      building.price_band = building.price_band || sData.price_band;
-    }
-    if (imLiteData?.body && building) {
-      const imLiteBody = imLiteData.body as Record<string, any>;
-      const imPosture = imLiteBody.investment_posture || imLiteBody.investmentPosture;
-      if (imPosture) {
-        building.investment_posture = imPosture;
-      }
+    if (building?.status === "archived") {
+      return new Response("Not Found", { status: 404 });
     }
 
-    // Try fetching broker profile if broker_id is known
-    const brokerId = building?.owner_id;
-    if (brokerId) {
-      const { data: pData } = await supabase
-        .from("profiles")
-        .select("display_name, company")
-        .eq("id", brokerId)
+    if (isUuid(id)) {
+      const { data: ssotRow } = await supabase
+        .from("building_ssot_lite")
+        .select("id, status")
+        .eq("id", id)
         .maybeSingle();
-      if (pData) {
-        brokerProfile = {
-          ...pData,
-          company_name: pData.company
-        };
+      if (ssotRow?.status === "archived") {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      const { data: sData } = await supabase
+        .from("building_signal_cards")
+        .select("area_signal, asset_type, price_band, title")
+        .eq("building_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: tData } = await supabase
+        .from("document_objects")
+        .select("*")
+        .eq("building_id", id)
+        .eq("document_type", "blind_teaser")
+        .neq("status", "archived")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      teaserDoc = tData;
+
+      const { data: imLiteData } = await supabase
+        .from("document_objects")
+        .select("body")
+        .eq("building_id", id)
+        .eq("document_type", "im_lite")
+        .neq("status", "archived")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (sData && building) {
+        building.area_signal = building.area_signal || sData.area_signal;
+        building.asset_type = building.asset_type || sData.asset_type;
+        building.price_band = building.price_band || sData.price_band;
+      }
+      if (imLiteData?.body && building) {
+        const imLiteBody = imLiteData.body as Record<string, any>;
+        const imPosture = imLiteBody.investment_posture || imLiteBody.investmentPosture;
+        if (imPosture) {
+          building.investment_posture = imPosture;
+        }
+      }
+
+      // Try fetching broker profile if broker_id is known
+      const brokerId = building?.owner_id || quickRec?.ownerId;
+      if (brokerId && isUuid(String(brokerId))) {
+        const { data: pData } = await supabase
+          .from("profiles")
+          .select("display_name, company")
+          .eq("id", brokerId)
+          .maybeSingle();
+        if (pData) {
+          brokerProfile = {
+            ...pData,
+            company_name: pData.company,
+          };
+        }
       }
     }
   } catch (e) {
     log.warn("[OG/kakao] Data fetch warning:", e);
   }
 
+  if (teaserDoc?.body?.is_revoked === true) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
+  const card4 = quickRec?.card4 || imBody?.card4;
+
   const safeBuilding = building || {
     id,
-    area_signal: "서울 핵심권역",
-    asset_type: "상업용 빌딩",
-    price_band: "가격 협의",
+    area_signal: card4?.region || "서울 핵심권역",
+    asset_type: card4?.use || "상업용 빌딩",
+    price_band: card4?.priceBand || "가격 협의",
   };
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
   const bLayers = (safeBuilding.layers || {}) as Record<string, any>;
-  const assetAndUseText = `${safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
-  const rawPosture = safeBuilding.investment_posture || bLayers.investment_posture || rawAttrs.investmentPosture;
+  const assetAndUseText = `${card4?.use || safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
+  const rawPosture =
+    card4?.posture ||
+    safeBuilding.investment_posture ||
+    bLayers.investment_posture ||
+    rawAttrs.investmentPosture;
   const inferredPosture =
     (!rawPosture || rawPosture === "income") && /나대지|토지|신축\s*부지|개발\s*부지/.test(assetAndUseText)
       ? "development"
@@ -138,39 +173,61 @@ export async function GET(
 
   const attrs = {
     ...rawAttrs,
-    areaSignal: rawAttrs.areaSignal || safeBuilding.area_signal,
-    priceBand: rawAttrs.priceBand || safeBuilding.price_band,
-    assetType: rawAttrs.assetType || safeBuilding.asset_type,
+    areaSignal: card4?.region || rawAttrs.areaSignal || safeBuilding.area_signal,
+    priceBand: card4?.priceBand || rawAttrs.priceBand || safeBuilding.price_band,
+    assetType: card4?.use || rawAttrs.assetType || safeBuilding.asset_type,
     investmentPosture: inferredPosture,
   };
   const teaserView = projectToTeaser(attrs);
-  const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
 
-  const regionDisplay = teaserView.region || safeBuilding.area_signal || "서울권역";
-  let hookCopy = 
-    imBody?.card4?.headline
-    || teaserDoc?.body?.ogTitle 
-    || imBody?.ogTitle 
-    || teaserDoc?.body?.kakaoOgTitle 
-    || imBody?.kakaoOgTitle 
-    || imBody?.hookCopy 
-    || teaserView.hookCopy 
-    || `${regionDisplay} 프라임 꼬마빌딩`;
+  const rawRegionDisplay = card4?.region || teaserView.region || safeBuilding.area_signal || "서울권역";
+  const regionDisplay = cleanBlindPoints([rawRegionDisplay])[0] || "서울권역";
+  const rawAssetTypeDisplay = card4?.use || teaserView.assetType || safeBuilding.asset_type || "근생·오피스";
+  const assetTypeDisplay = cleanBlindPoints([rawAssetTypeDisplay])[0] || "근생·오피스";
+
+  const rawHookCopy =
+    card4?.headline ||
+    imBody?.card4?.headline ||
+    teaserDoc?.body?.ogTitle ||
+    imBody?.ogTitle ||
+    teaserDoc?.body?.kakaoOgTitle ||
+    imBody?.kakaoOgTitle ||
+    imBody?.hookCopy ||
+    teaserView.hookCopy ||
+    `${regionDisplay} 프라임 ${assetTypeDisplay}`;
+  const hookCopy = cleanBlindPoints([rawHookCopy])[0] || `${regionDisplay} 프라임 ${assetTypeDisplay}`;
+
   const postureLabel = teaserView.postureLabel || "임대수익형";
-  const explicitBand = typeof safeBuilding.price_band === "string" && safeBuilding.price_band.trim() && safeBuilding.price_band !== "가격 협의"
-    ? safeBuilding.price_band.trim()
-    : null;
-  const priceDisplay = explicitBand || (teaserView.bandedPrice && teaserView.bandedPrice !== "가격 미정" ? teaserView.bandedPrice : null) || "가격 협의";
-  
-  const assetTypeDisplay = teaserView.assetType || safeBuilding.asset_type || "근생·오피스";
-  const brokerName = brokerProfile?.display_name || "담당 공인중개사";
-  const brokerCompany = brokerProfile?.company_name || "CREDEAL 파트너스";
+  const explicitBand =
+    (typeof card4?.priceBand === "string" && card4.priceBand.trim() ? card4.priceBand.trim() : null) ||
+    (typeof safeBuilding.price_band === "string" &&
+    safeBuilding.price_band.trim() &&
+    safeBuilding.price_band !== "가격 협의"
+      ? safeBuilding.price_band.trim()
+      : null);
+  const priceDisplay =
+    explicitBand ||
+    (teaserView.bandedPrice && teaserView.bandedPrice !== "가격 미정" ? teaserView.bandedPrice : null) ||
+    "가격 협의";
+
+  const brokerName =
+    brokerProfile?.display_name ||
+    quickRec?.brokerProfile?.displayName ||
+    "담당 공인중개사";
+  const brokerCompany =
+    brokerProfile?.company_name ||
+    quickRec?.brokerProfile?.company ||
+    "CREDEAL 파트너스";
 
   const rawTiles = (teaserView.postureHeroTiles || [
     { emoji: "💰", label: "매각가", value: priceDisplay },
     { emoji: "📍", label: "권역", value: regionDisplay },
   ]).map((tile) =>
-    tile.label === "매각가" ? { ...tile, value: priceDisplay } : tile
+    tile.label === "매각가"
+      ? { ...tile, value: priceDisplay }
+      : tile.label === "권역"
+      ? { ...tile, value: regionDisplay }
+      : tile
   );
   // Ensure no hardcoded dummy metrics (filter out 3.6%, 35%, 1,800만원 or fake metrics)
   const heroTiles = filterValidTiles(rawTiles)
@@ -180,7 +237,6 @@ export async function GET(
   const isVerified = safeBuilding.verification_status === "VERIFIED" || safeBuilding.is_verified === true;
 
   const fontData = await getFontData();
-  const fallbackFontData = await getFallbackFont();
   const fontsList: any[] = fontData
     ? [{ name: "Pretendard", data: fontData, style: "normal", weight: 700 }]
     : [];

@@ -38,10 +38,27 @@ function parsePriceKrw(priceText: string | null | undefined): number | null {
   return total > 0 ? total : null;
 }
 
+function sanitizePhotoUrls(urls?: string[]): string[] | undefined {
+  if (!Array.isArray(urls)) return undefined;
+  const filtered = urls
+    .map((u) => (typeof u === "string" ? u.trim() : ""))
+    .filter(
+      (u) =>
+        u.length > 0 &&
+        !u.startsWith("blob:") &&
+        !u.startsWith("/test-images/") &&
+        (u.startsWith("http://") ||
+          u.startsWith("https://") ||
+          u.startsWith("/") ||
+          u.startsWith("data:"))
+    );
+  return filtered.length > 0 ? filtered : undefined;
+}
+
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
   visibilityPreference: z.enum(["blind", "internal"]).default("blind"),
-  photoUrls: z.array(z.string().url()).optional(),
+  photoUrls: z.array(z.string()).optional(),
   /** 중복 감지 무시하고 새 물건으로 강제 생성 */
   forceNew: z.boolean().optional(),
   /** 기존 물건 업데이트 시 해당 building ID */
@@ -121,6 +138,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const cleanPhotoUrls = sanitizePhotoUrls(input.photoUrls);
+
     if (input.isAsync) {
       const jobId = crypto.randomUUID();
       const supabase = createServiceClient();
@@ -133,6 +152,7 @@ export async function POST(req: NextRequest) {
         input_ref: { 
           memo: sanitizedMemo, 
           visibilityPreference: input.visibilityPreference,
+          photoUrls: cleanPhotoUrls,
           existingBuildingId: input.existingBuildingId,
           forceNew: input.forceNew
         },
@@ -145,7 +165,7 @@ export async function POST(req: NextRequest) {
             {
               memo: sanitizedMemo,
               visibilityPreference: input.visibilityPreference,
-              photoUrls: input.photoUrls,
+              photoUrls: cleanPhotoUrls,
               existingBuildingId: input.existingBuildingId,
             },
             user!.id,
@@ -176,7 +196,7 @@ export async function POST(req: NextRequest) {
       {
         memo: sanitizedMemo,
         visibilityPreference: input.visibilityPreference,
-        photoUrls: input.photoUrls,
+        photoUrls: cleanPhotoUrls,
         existingBuildingId: input.existingBuildingId,
       },
       user!.id,
@@ -216,6 +236,8 @@ export async function POST(req: NextRequest) {
 
     return Response.json({
       ok: true,
+      ...result,
+      askingPriceKrw,
       data: { ...result, askingPriceKrw },
       archetypes,
       constraintWarnings,

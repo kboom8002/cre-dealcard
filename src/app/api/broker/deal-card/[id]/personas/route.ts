@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
+import { isUuid } from "@/lib/im-lite/quick-generate-store";
+import { z } from "zod";
 
 /**
  * GET /api/broker/deal-card/[id]/personas
@@ -14,6 +16,10 @@ export async function GET(
     const { id } = await params;
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
+
+    if (!isUuid(id)) {
+      return NextResponse.json({ ok: true, success: true, data: [] });
+    }
 
     const supabase = createServiceClient();
 
@@ -50,8 +56,6 @@ export async function GET(
  * POST /api/broker/deal-card/[id]/personas
  * 페르소나 데이터를 DB에 upsert합니다.
  */
-import { z } from 'zod';
-
 const postSchema = z.object({
   personasData: z.object({
     personas: z.array(z.any()).optional()
@@ -96,30 +100,32 @@ export async function POST(
       );
     }
 
-    const supabase = createServiceClient();
     let savedId = 'persona-1';
     let updatedAt = new Date().toISOString();
 
-    try {
-      const { data, error } = await supabase
-        .from("deal_card_personas")
-        .upsert(
-          {
-            building_ssot_lite_id: id,
-            broker_id: guard.user!.id,
-            personas_data: personasData,
-          },
-          { onConflict: "building_ssot_lite_id,broker_id" }
-        )
-        .select("id, updated_at")
-        .single();
+    if (isUuid(id)) {
+      try {
+        const supabase = createServiceClient();
+        const { data, error } = await supabase
+          .from("deal_card_personas")
+          .upsert(
+            {
+              building_ssot_lite_id: id,
+              broker_id: guard.user!.id,
+              personas_data: personasData,
+            },
+            { onConflict: "building_ssot_lite_id,broker_id" }
+          )
+          .select("id, updated_at")
+          .single();
 
-      if (!error && data) {
-        savedId = data.id;
-        updatedAt = data.updated_at;
+        if (!error && data) {
+          savedId = data.id;
+          updatedAt = data.updated_at;
+        }
+      } catch {
+        // Non-blocking in mock environments
       }
-    } catch {
-      // Non-blocking in mock environments
     }
 
     return NextResponse.json({ ok: true, success: true, id: savedId, updatedAt });
@@ -141,6 +147,10 @@ export async function DELETE(
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
 
+    if (!isUuid(id)) {
+      return NextResponse.json({ ok: true, success: true });
+    }
+
     const supabase = createServiceClient();
 
     const { error } = await supabase
@@ -153,7 +163,7 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true, success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

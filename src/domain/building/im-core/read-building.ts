@@ -30,6 +30,8 @@ export interface BuildingRecord {
   [key: string]: any;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Low-level pure read function without React cache.
  */
@@ -37,7 +39,7 @@ export async function readBuildingPure(
   buildingId: string,
   options?: { client?: { from: (table: string) => any; [key: string]: any } | any }
 ): Promise<BuildingRecord | null> {
-  if (!buildingId || typeof buildingId !== 'string') {
+  if (!buildingId || typeof buildingId !== 'string' || !UUID_RE.test(buildingId.trim())) {
     return null;
   }
 

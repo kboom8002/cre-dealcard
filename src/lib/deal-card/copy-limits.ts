@@ -21,12 +21,17 @@ const ELLIPSIS_RE = /…|⋯|‥|\.{2,}/g;
 /** 조사처럼 보이는 글자로 끝나지만 실제로는 완결 명사인 어휘 (상가·임차인·대로 등). */
 const NOUN_ENDING_WHITELIST: readonly string[] = [
   '상가', '호가', '시가', '평가', '단가', '대가', '지가', '주가', '원가', '증가', '추가', '부가', '휴가',
+  '매매가', '분양가', '감정가', '낙찰가', '전세가', '임대가', '공시가', '거래가',
+  '번화가', '학원가', '대학가', '주택가', '상권가',
   '임차인', '매수인', '매도인', '법인', '개인', '디자인', '확인', '주인', '거래인', '중개인',
-  '대로', '도로', '차로', '통로', '경로', '진로', '선로', '수로',
+  '직장인', '유동인', '승인', '할인', '요인',
+  '대로', '도로', '차로', '통로', '경로', '진로', '선로', '수로', '교차로',
+  '양화로', '논현로', '학동로', '언주로', '선릉로', '역삼로', '청담로', '뚝섬로', '독막로', '동교로', '홍익로', '신촌로', '통일로', '율곡로', '대학로', '보광로', '경인로', '가락로', '오금로', '을지로', '퇴계로', '종로', '성수로',
   '효과', '결과', '성과', '학과', '외과', '치과',
+  '내과', '안과', '피부과', '소아과', '이비인후과', '정신과', '산부인과', '가정의학과', '재활의학과',
   '회의', '합의', '논의', '주의',
   '높이', '길이', '차이', '깊이', '넓이',
-  '최소한', '최대한', '무제한', '유한',
+  '최소한', '최대한', '무제한', '유한', '기한', '상한', '하한', '권한',
   '창고', '광고', '최고', '재고', '층고', '신고', '보고',
   '동의', '정의',
 ];
@@ -42,7 +47,15 @@ const MULTI_CHAR_PARTICLES = ['에서', '으로', '에게', '부터', '까지', 
 const SINGLE_CHAR_PARTICLES = new Set(['이', '가', '은', '는', '을', '를', '의', '에', '로', '와', '과', '한', '된', '할', '던', '고', '며', '인']);
 
 function isWhitelistedNoun(token: string): boolean {
-  return NOUN_ENDING_WHITELIST.some((w) => token.endsWith(w));
+  if (NOUN_ENDING_WHITELIST.some((w) => token.endsWith(w))) return true;
+  if (
+    !token.endsWith('으로') &&
+    !/(?:오피스|건물|매물|빌딩|수익률|전용률|용적률|건폐율|구조|규모|용도|형태|상태|입지|가시성|접근성)로$/.test(token) &&
+    /.+[가-힣]{2,}로$/.test(token)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** 마지막 어절이 조사/관형어로 끝나 문장이 잘려 보이는지 판정. */
@@ -314,15 +327,36 @@ function normalizeNum(n: string): string {
   return n.replace(/,/g, '').replace(/\.0+$/, '');
 }
 
+function collectGroundedNumberSets(context: string): { known: Set<string>; knownPct: Set<string> } {
+  const known = new Set<string>();
+  const knownPct = new Set<string>();
+  const ctxStr = String(context ?? '');
+  for (const m of ctxStr.matchAll(NUM_WITH_UNIT_RE)) {
+    const num = normalizeNum(m[1]);
+    known.add(num);
+    if (m[2] === '%' || m[2] === '%p') {
+      knownPct.add(num);
+    }
+  }
+  for (const m of ctxStr.matchAll(/(?:yieldPct|수익률|공실률|용적률|건폐율)[^0-9]{0,15}(\d+(?:[.,]\d+)*)/gi)) {
+    const num = normalizeNum(m[1]);
+    known.add(num);
+    knownPct.add(num);
+  }
+  return { known, knownPct };
+}
+
 /** 출력 문구 중 입력(context)에 근거가 없는 숫자 목록 (단위 없는 1~2자리 정수는 무시). */
 export function findUngroundedNumbers(text: string, context: string): string[] {
-  const known = new Set<string>();
-  for (const m of String(context ?? '').matchAll(NUM_WITH_UNIT_RE)) known.add(normalizeNum(m[1]));
+  const { known, knownPct } = collectGroundedNumberSets(context);
   const unknown: string[] = [];
   for (const m of String(text ?? '').matchAll(NUM_WITH_UNIT_RE)) {
     const num = normalizeNum(m[1]);
-    if (!m[2] && /^\d{1,2}$/.test(num)) continue;
-    if (!known.has(num) && !unknown.includes(num)) unknown.push(num);
+    const unit = m[2];
+    if (!unit && /^\d{1,2}$/.test(num)) continue;
+    const isPct = unit === '%' || unit === '%p';
+    const isGrounded = isPct ? knownPct.has(num) : known.has(num);
+    if (!isGrounded && !unknown.includes(num)) unknown.push(num);
   }
   return unknown;
 }
@@ -331,13 +365,21 @@ export function findUngroundedNumbers(text: string, context: string): string[] {
 export function stripUngroundedNumbers(text: string, context: string): { cleaned: string; stripped: string[] } {
   const unknown = findUngroundedNumbers(text, context);
   if (unknown.length === 0) return { cleaned: text, stripped: [] };
+  const { known, knownPct } = collectGroundedNumberSets(context);
   let next = text;
   for (const num of unknown) {
     const escaped = num.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    next = next.replace(
-      new RegExp(`(?:연\\s*|약\\s*|도보\\s*|월\\s*)?${escaped}(?:[.,]\\d+)?\\s*(?:%p|%대|%|분|층|년|억|만|평|㎡|m|대|호|실|개|배)?대?`, 'g'),
-      ' ',
-    );
+    if (known.has(num) && !knownPct.has(num)) {
+      next = next.replace(
+        new RegExp(`(?:연\\s*|약\\s*)?(?<![0-9.,])${escaped}(?:[.,]\\d+)?\\s*(?:%p|%대|%)(?!\\d)`, 'g'),
+        ' ',
+      );
+    } else {
+      next = next.replace(
+        new RegExp(`(?:연\\s*|약\\s*|도보\\s*|월\\s*)?(?<![0-9.,])${escaped}(?:[.,]\\d+)?\\s*(?:%p|%대|%|분|층|년|억|만|평|㎡|m|대|호|실|개|배)?대?(?!\\d)`, 'g'),
+        ' ',
+      );
+    }
   }
   next = next.replace(/\s+/g, ' ').replace(/^[·,.\s]+|[·,.\s]+$/g, '').trim();
   return { cleaned: next, stripped: unknown };

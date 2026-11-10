@@ -70,7 +70,7 @@ function formatAmountWithoutWon(val: number): string {
  * E.g., 95억 KRW -> "90~100억".
  */
 export function formatPriceRange(priceKrw: number, bandType: PriceBandType = 'standard'): string {
-  if (!priceKrw || typeof priceKrw !== 'number' || isNaN(priceKrw) || priceKrw <= 0) {
+  if (!priceKrw || typeof priceKrw !== 'number' || !Number.isFinite(priceKrw) || priceKrw <= 0) {
     return '가격 협의';
   }
 
@@ -109,7 +109,7 @@ export function formatPriceRange(priceKrw: number, bandType: PriceBandType = 'st
  * E.g., 95억 KRW -> "90억 이상 100억 미만".
  */
 export function formatPriceRangeTooltip(priceKrw: number, bandType: PriceBandType = 'standard'): string {
-  if (!priceKrw || typeof priceKrw !== 'number' || isNaN(priceKrw) || priceKrw <= 0) {
+  if (!priceKrw || typeof priceKrw !== 'number' || !Number.isFinite(priceKrw) || priceKrw <= 0) {
     return '매도인과 가격 협의 필요';
   }
 
@@ -130,7 +130,7 @@ export function formatPriceRangeTooltip(priceKrw: number, bandType: PriceBandTyp
  * Zero-omission rules: 100억 (not 100억 0만).
  */
 export function formatKrw(val: number): string {
-  if (typeof val !== 'number' || isNaN(val)) {
+  if (typeof val !== 'number' || !Number.isFinite(val)) {
     return '가격 미정';
   }
   if (val === 0) return '0원';
@@ -173,7 +173,8 @@ export function parseLegacyBand(raw?: string | null): ParsedPriceBand {
     return { minKrw: 0, maxKrw: 0, label: '가격 협의' };
   }
 
-  const text = raw.trim();
+  const originalText = raw.trim();
+  const text = originalText.replace(/(\d),(?=\d{3}(?:\D|$))/g, '$1');
 
   if (text.includes('협의') || text.includes('미정')) {
     return { minKrw: 0, maxKrw: 0, label: '가격 협의' };
@@ -191,17 +192,18 @@ export function parseLegacyBand(raw?: string | null): ParsedPriceBand {
     };
   }
 
-  // Pattern 2: Single unit "90억대", "90억원대"
-  const daeMatch = text.match(/(\d+)\s*억(?:원)?대/);
+  // Pattern 2: Single unit "90억대", "90억원대", "1,200억대"
+  const daeMatch = text.match(/(\d+)\s*억\s*(?:원)?대/);
   if (daeMatch) {
     const baseEok = parseInt(daeMatch[1], 10);
-    const widthEok = baseEok < 30 ? 5 : 10;
-    const lower = Math.floor(baseEok / widthEok) * widthEok;
-    const upper = lower + widthEok;
+    const baseKrw = baseEok * EOK;
+    const width = getBandWidth(baseKrw, 'standard');
+    const lower = Math.floor(baseKrw / width) * width;
+    const upper = lower + width;
     return {
-      minKrw: lower * EOK,
-      maxKrw: upper * EOK,
-      label: `${lower}~${upper}억`,
+      minKrw: lower,
+      maxKrw: upper,
+      label: formatPriceRange(baseKrw, 'standard'),
     };
   }
 
@@ -258,5 +260,5 @@ export function parseLegacyBand(raw?: string | null): ParsedPriceBand {
     }
   }
 
-  return { minKrw: 0, maxKrw: 0, label: text };
+  return { minKrw: 0, maxKrw: 0, label: originalText };
 }

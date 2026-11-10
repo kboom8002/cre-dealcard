@@ -25,7 +25,7 @@ function getBandConfig(priceKrw: number): BandingConfig {
 
 /** Bands a price to a range string like "50~60억원대" */
 export function bandPrice(exactKrw: number): string {
-  if (exactKrw <= 0) return '가격 미정';
+  if (!Number.isFinite(exactKrw) || exactKrw <= 0) return '가격 미정';
   const config = getBandConfig(exactKrw);
   const lower = Math.floor(exactKrw / config.priceUnit) * config.priceUnit;
   const upper = lower + config.priceUnit;
@@ -39,7 +39,7 @@ export function bandPrice(exactKrw: number): string {
 
 /** Bands area to a range string like "300~400평대" */
 export function bandArea(exactPyung: number): string {
-  if (exactPyung <= 0) return '면적 미정';
+  if (!Number.isFinite(exactPyung) || exactPyung <= 0) return '면적 미정';
   const config = getBandConfig(exactPyung * 3000_0000); // rough price estimate
   const unit = config.areaUnit;
   const lower = Math.floor(exactPyung / unit) * unit;
@@ -49,7 +49,7 @@ export function bandArea(exactPyung: number): string {
 
 /** Bands cap rate to a range string like "4~5%대" */
 export function bandCapRate(exactPct: number): string {
-  if (exactPct <= 0) return '수익률 미정';
+  if (!Number.isFinite(exactPct) || exactPct <= 0) return '수익률 미정';
   const unit = 0.5;
   const lower = Math.floor(exactPct / unit) * unit;
   const upper = lower + unit;
@@ -58,7 +58,7 @@ export function bandCapRate(exactPct: number): string {
 
 /** Bands building era to a 5-year unit like "2010년대 초 준공" */
 export function bandBuildingEra(approvalYear: number): string {
-  if (approvalYear <= 0) return '준공연도 미상';
+  if (!Number.isFinite(approvalYear) || approvalYear < 1900) return '준공연도 미상';
   const decade = Math.floor(approvalYear / 10) * 10;
   const yearInDecade = approvalYear % 10;
   const part = yearInDecade < 5 ? '초' : '후반';
@@ -67,7 +67,7 @@ export function bandBuildingEra(approvalYear: number): string {
 
 /** Bands FAR headroom to a 20%p unit like "용적률 여유 100%p+" */
 export function bandFarHeadroom(headroomPp: number): string {
-  if (headroomPp <= 0) return '용적률 여유 없음';
+  if (!Number.isFinite(headroomPp) || headroomPp <= 0) return '용적률 여유 없음';
   const unit = 20;
   const lower = Math.floor(headroomPp / unit) * unit;
   return `용적률 여유 ${lower}%p+`;

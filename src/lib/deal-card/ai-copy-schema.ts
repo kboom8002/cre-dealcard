@@ -33,8 +33,8 @@ export const dealCardAiCopyRequestSchema = z.object({
 export type DealCardAiCopyRequest = z.infer<typeof dealCardAiCopyRequestSchema>;
 
 export const dealCardAiCopyLLMOutputSchema = z.object({
-  headline: z.string().trim().min(1).max(30).optional(),
-  points: z.array(z.string().trim().min(1).max(40)).min(3).max(3).optional(),
+  headline: z.string().trim().min(1).max(80).optional(),
+  points: z.array(z.string().trim().min(1).max(120)).min(3).optional(),
 });
 
 export interface DealCardAiCopyResponse {

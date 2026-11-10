@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { createTeaserEvent, inferIntentFromEvents } from '@/domain/deal/teaser/teaser-insight';
 import { createServiceClient } from '@/lib/supabase/service';
+import { isUuid } from '@/lib/im-lite/quick-generate-store';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -32,39 +33,68 @@ export async function POST(request: Request) {
 
     const supabase = createServiceClient();
 
-    // Save event to teaser_events table
-    const { error: insertError } = await supabase.from('teaser_events').insert({
-      teaser_config_id: effectiveConfigId,
-      visitor_fp: effectiveVisitorFp,
-      event_type: eventType,
-      event_data: effectiveEventData,
-    });
+    // Save event to teaser_events table (non-blocking: teaser_config_id may be a buildingId or non-UUID,
+    // and event_type may be 'intent.pro_im_request' which is not in teaser_events check constraint)
+    try {
+      const { error: insertError } = await supabase.from('teaser_events').insert({
+        teaser_config_id: effectiveConfigId,
+        visitor_fp: effectiveVisitorFp,
+        event_type: eventType,
+        event_data: effectiveEventData,
+      });
 
-    if (insertError) {
-      log.error('[teaser-event] Insert failed:', insertError);
-      return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
+      if (insertError) {
+        log.warn('[teaser-event] teaser_events insert skipped:', insertError.message);
+      }
+    } catch (e) {
+      log.warn('[teaser-event] teaser_events insert error:', e);
     }
 
-    // Also record to activity_events if buildingId is present
-    if (buildingId) {
-      await supabase.from('activity_events').insert({
-        building_ssot_lite_id: buildingId,
-        building_id: buildingId,
-        event_type: eventType,
-        metadata: effectiveEventData,
-      });
+    // Record to activity_events when buildingId or docId is present
+    // Note: activity_events does NOT have top-level building_ssot_lite_id or building_id columns;
+    // store them inside metadata and map 'view' -> 'deal_card_view'.
+    const targetBuildingId = buildingId || docId || (teaserConfigId && teaserConfigId !== 'anon-config' ? teaserConfigId : null);
+    if (targetBuildingId) {
+      const targetIdStr = String(targetBuildingId);
+      const mappedEventType = eventType === 'view' ? 'deal_card_view' : String(eventType);
+      try {
+        await supabase.from('activity_events').insert({
+          event_type: mappedEventType,
+          entity_type: 'building',
+          entity_id: isUuid(targetIdStr) ? targetIdStr : null,
+          metadata: {
+            ...(typeof effectiveEventData === 'object' && effectiveEventData !== null
+              ? effectiveEventData
+              : {}),
+            building_id: String(buildingId || targetIdStr),
+            ...(isUuid(targetIdStr) ? { building_ssot_lite_id: targetIdStr } : {}),
+            ...(docId ? { doc_id: String(docId) } : {}),
+            visitor_fp: effectiveVisitorFp,
+          },
+        });
+      } catch (actErr) {
+        log.warn('[teaser-event] activity_events insert failed:', actErr);
+      }
     }
 
     // On gate_request, infer buyer intent from all accumulated events
     if (eventType === 'gate_request') {
-      const { data: allEvents } = await supabase
-        .from('teaser_events')
-        .select('*')
-        .eq('visitor_fp', effectiveVisitorFp)
-        .eq('teaser_config_id', effectiveConfigId)
-        .order('created_at', { ascending: true });
+      let allEvents: any[] = [];
+      try {
+        const { data } = await supabase
+          .from('teaser_events')
+          .select('*')
+          .eq('visitor_fp', effectiveVisitorFp)
+          .eq('teaser_config_id', effectiveConfigId)
+          .order('created_at', { ascending: true });
+        if (Array.isArray(data)) {
+          allEvents = data;
+        }
+      } catch {
+        allEvents = [];
+      }
 
-      const mapped = (allEvents || []).map((e: any) =>
+      const mapped = allEvents.map((e: any) =>
         createTeaserEvent(e.teaser_config_id, e.visitor_fp, e.event_type, e.event_data || {})
       );
       const intent = inferIntentFromEvents(mapped);

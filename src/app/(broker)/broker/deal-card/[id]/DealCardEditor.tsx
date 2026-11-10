@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
-import { X, Plus, Save, Check, AlertCircle, Sparkles, MessageCircle, Image as ImageIcon, FileText } from "lucide-react";
+import React, { useState, useCallback, useMemo } from "react";
+import { X, Plus, Save, AlertCircle, Sparkles, MessageCircle, Image as ImageIcon, FileText } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
+import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import {
+  assessDealCardLine,
+  repairDealCardLine,
+  DEAL_CARD_LINE_MAX as DEAL_CARD_LINE_MAX_CHARS,
+} from "@/lib/deal-card/copy-limits";
 
 interface DealCardEditorProps {
   buildingId: string;
@@ -50,6 +56,25 @@ export function DealCardEditor({
   const [curiosityHook, setCuriosityHook] = useState(initialCuriosityHook);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [blindError, setBlindError] = useState<string | null>(null);
+
+  const shortSummary = summary;
+  const blindValidation = useMemo(
+    () => validateBlindPoints([title, shortSummary, ...dealPoints, kakaoText, ogTitle, ogDescription, hookCopy]),
+    [title, shortSummary, dealPoints, kakaoText, ogTitle, ogDescription, hookCopy]
+  );
+
+  const handleAutoClean = () => {
+    setTitle((prev) => repairDealCardLine(cleanBlindPoints([prev])[0] ?? prev, { fallback: '핵심 매물 안내' }));
+    setSummary((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setDealPoints((prev) => cleanBlindPoints(prev).map((p) => (p.trim() ? repairDealCardLine(p) : p)));
+    setKakaoText((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setOgTitle((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setOgDescription((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setHookCopy((prev) => cleanBlindPoints([prev])[0] ?? prev);
+    setBlindError(null);
+    sonnerToast.success("위치가 드러날 수 있는 표현을 자동으로 마스킹했습니다.");
+  };
 
   // ── Dirty check ──
   const isDirty = useCallback(() => {
@@ -82,15 +107,25 @@ export function DealCardEditor({
 
   // ── Save ──
   const handleSave = async () => {
+    const check = validateBlindPoints([title, shortSummary, ...dealPoints, kakaoText, ogTitle, ogDescription, hookCopy]);
+    if (!check.isValid) {
+      const msg = check.violations[0]?.reason || "상세 지번·건물명 등 위치 식별 표현을 제거해 주세요.";
+      setBlindError(msg);
+      sonnerToast.error(msg);
+      return;
+    }
+    setBlindError(null);
     setIsSaving(true);
+    const repairedTitle = repairDealCardLine(title, { fallback: '핵심 매물 안내' });
+    const repairedDealPoints = dealPoints.filter(Boolean).map((p) => repairDealCardLine(p));
     try {
       const res = await fetch(`/api/broker/deal-card/${buildingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: repairedTitle,
           shortSummary: summary,
-          dealPoints: dealPoints.filter(Boolean),
+          dealPoints: repairedDealPoints,
           cautionPoints: cautionPoints.filter(Boolean),
           kakaoText,
           ogTitle,
@@ -188,13 +223,16 @@ export function DealCardEditor({
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground font-semibold flex items-center justify-between">
                 <span>📌 딜카드 메인 제목</span>
-                <span className="text-[11px] text-muted-foreground/70">권역·자산유형·핵심특징 반영</span>
+                <span className="text-[11px] text-muted-foreground/70">
+                  {assessDealCardLine(title).count}/{DEAL_CARD_LINE_MAX_CHARS}자 · 권역·자산유형·핵심특징 반영
+                </span>
               </label>
               <input
                 type="text"
                 data-testid="deal-card-headline-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                onBlur={() => setTitle(repairDealCardLine(title, { fallback: '핵심 매물 안내' }))}
                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-primary transition-colors"
                 placeholder="예: 만실 운영 · 역세권 코너 · 잠원권 근생빌딩"
               />
@@ -245,6 +283,11 @@ export function DealCardEditor({
                       type="text"
                       value={point}
                       onChange={(e) => updateDealPoint(i, e.target.value)}
+                      onBlur={() => {
+                        if (point.trim()) {
+                          updateDealPoint(i, repairDealCardLine(point));
+                        }
+                      }}
                       className={`flex-1 bg-background border rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors ${
                         i < 3 ? "border-primary/40 focus:border-primary" : "border-border focus:border-muted-foreground"
                       }`}
@@ -332,6 +375,28 @@ export function DealCardEditor({
           </div>
         )}
       </div>
+
+      {/* Blind Guard Alert */}
+      {(!blindValidation.isValid || blindError) && (
+        <div
+          role="alert"
+          data-testid="deal-card-editor-blind-alert"
+          className="mx-4 mb-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex flex-wrap items-center justify-between gap-2 text-xs"
+        >
+          <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{blindError || blindValidation.violations[0]?.reason || "건물 위치가 드러날 수 있는 표현이 포함되어 있습니다."}</span>
+          </div>
+          <button
+            type="button"
+            data-testid="deal-card-editor-auto-clean-btn"
+            onClick={handleAutoClean}
+            className="px-3 py-1.5 rounded-lg bg-rose-600 text-white font-bold hover:bg-rose-700 transition-colors shrink-0"
+          >
+            자동 마스킹
+          </button>
+        </div>
+      )}
 
       {/* Footer Info */}
       <div className="px-4 py-3.5 bg-muted/20 border-t border-border flex items-center justify-between gap-3">

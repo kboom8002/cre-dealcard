@@ -13,6 +13,17 @@ interface BudgetSliderProps {
   annualRentEok?: number;
 }
 
+const POSTURE_BADGE_LABELS: Record<string, string> = {
+  income: '임대수익형',
+  core_income: '임대수익형',
+  development: '개발형',
+  value_add: '밸류애드형',
+  owner_occupied: '자가사용형',
+  owner_occupier: '자가사용형',
+  operating: '운영형',
+  trading: '단기매매형',
+};
+
 export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, posture = 'income', sliderAxis2Config, askingPriceEok, annualRentEok }: BudgetSliderProps) {
   const [budget, setBudget] = useState(defaultBudgetEok);
   const [isOpen, setIsOpen] = useState(false);
@@ -21,6 +32,7 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
   const [axis2, setAxis2] = useState(defaultAxis2);
 
   const axis2Config = sliderAxis2Config || { label: '대출활용 LTV', min: 0, max: 80, step: 5, unit: '%' };
+  const postureBadgeLabel = POSTURE_BADGE_LABELS[posture] || posture || '임대수익형';
 
   // debouncing
   useEffect(() => {
@@ -33,25 +45,20 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
 
   const ltv = axis2;
   const equity = Math.round(budget * (1 - ltv / 100));
-  const equityStr = `약 ${Math.max(1, equity)}억원`;
-  // Use actual financial data if available, otherwise estimate
-  let capLow: number;
-  let capHigh: number;
-  if (annualRentEok && askingPriceEok && askingPriceEok > 0) {
+  const equityStr = budget > 0 ? `약 ${Math.max(1, equity)}억원` : '매각가 정보 미제공';
+  const hasRealFinancialData = Boolean(
+    annualRentEok && annualRentEok > 0 && askingPriceEok && askingPriceEok > 0
+  );
+  let estimatedValueStr = '임대 수익 정보 미제공';
+  if (hasRealFinancialData) {
     // Real data: NOI-based cap rate adjusted for leverage
-    const baseCap = (annualRentEok / askingPriceEok) * 100;
+    const baseCap = (annualRentEok! / askingPriceEok!) * 100;
     const leverageBoost = ltv > 0 ? (baseCap - 2.5) * (ltv / 100) : 0;
     const leveragedReturn = baseCap + Math.max(0, leverageBoost);
-    capLow = Math.max(0.5, leveragedReturn - 0.3);
-    capHigh = leveragedReturn + 0.3;
-  } else {
-    // Estimate: base 3.5% + leverage effect
-    const baseCap = 3.5;
-    const leverageBoost = ltv > 0 ? (baseCap - 2.5) * (ltv / 100) : 0;
-    capLow = baseCap + leverageBoost - 0.2;
-    capHigh = baseCap + leverageBoost + 0.2;
+    const capLow = Math.max(0.5, leveragedReturn - 0.3);
+    const capHigh = leveragedReturn + 0.3;
+    estimatedValueStr = `${capLow.toFixed(1)}~${capHigh.toFixed(1)}%대`;
   }
-  const estimatedValueStr = `${capLow.toFixed(1)}~${capHigh.toFixed(1)}%대`;
 
   return (
     <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 text-slate-100 shadow-xl space-y-3">
@@ -60,7 +67,7 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
           <span>💰</span> 투자 수익률 시뮬레이터
         </h3>
         <span className="text-xs px-2 py-0.5 rounded bg-amber-400/10 text-amber-300 font-semibold border border-amber-400/20">
-          임대수익형
+          {postureBadgeLabel}
         </span>
       </div>
 

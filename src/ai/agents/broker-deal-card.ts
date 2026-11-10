@@ -9,6 +9,9 @@
 import { callLLM } from "@/ai/llm-client";
 import { sanitizeMemo, desanitizeOutput } from "@/ai/sanitizer/memo-sanitizer";
 import { derivePriceBand, resolveAreaSignal } from "@/domain/building/cre-area-ontology";
+import { extractSlotsFromMemo } from "@/domain/building/memo-slot-mapper";
+import { reconcileAskingPrice } from "@/domain/building/price-reconcile";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import {
   MemoParserOutputSchema,
   BlindTeaserOutputSchema,
@@ -256,8 +259,18 @@ export async function runBrokerDealCard(
     };
   }
 
-  // ── Post-processing: priceBand 자동 산출 (AI가 빈 값 반환 시 askingPriceManwon 기반) ──
-  if (!buildingTruth.priceBand && buildingTruth.askingPriceManwon && buildingTruth.askingPriceManwon > 0) {
+  // ── Post-processing: 매각가 교차 검증 (reconcileAskingPrice) 및 priceBand 자동 산출 (Step 3 진입 전) ──
+  const memoSlots = extractSlotsFromMemo(input.memo || "");
+  const slotAskingPriceKrw =
+    Number(memoSlots.slots.find((s) => s.key === "askingPriceKrw")?.value) || null;
+  const reconciled = reconcileAskingPrice(
+    buildingTruth.askingPriceManwon,
+    slotAskingPriceKrw,
+  );
+  if (reconciled.manwon && reconciled.manwon > 0) {
+    buildingTruth.askingPriceManwon = reconciled.manwon;
+    buildingTruth.priceBand = derivePriceBand(reconciled.manwon);
+  } else if (!buildingTruth.priceBand && buildingTruth.askingPriceManwon && buildingTruth.askingPriceManwon > 0) {
     buildingTruth.priceBand = derivePriceBand(buildingTruth.askingPriceManwon);
   }
 
@@ -363,8 +376,8 @@ export async function runBrokerDealCard(
     guardedTeaser.curiosityHook = rewriteUnsafeText(guardedTeaser.curiosityHook).safeText;
   }
   if (guardedTeaser.dealPoints) {
-    guardedTeaser.dealPoints = guardedTeaser.dealPoints.map(
-      (p) => rewriteUnsafeText(p).safeText
+    guardedTeaser.dealPoints = cleanBlindPoints(
+      guardedTeaser.dealPoints.map((p) => rewriteUnsafeText(p).safeText),
     );
   }
   if (guardedTeaser.hiddenInfoNotice) {
@@ -375,24 +388,31 @@ export async function runBrokerDealCard(
 
   // 딜카드 18자 문구: 결정적 후처리(교정 → 근거 없는 숫자 제거 → 대체). LLM 이 누락해도 dealPoints 에서 복구.
   const groundingContext = `${input.memo || ""} ${JSON.stringify(buildingTruth)}`;
-  const cardLineSource = (guardedTeaser.card4Points && guardedTeaser.card4Points.length > 0
-    ? guardedTeaser.card4Points
-    : guardedTeaser.dealPoints || []
-  ).map((p) => stripUngroundedNumbers(rewriteUnsafeText(String(p)).safeText, groundingContext).cleaned);
-  guardedTeaser.card4Points = repairDealCardPoints(cardLineSource, { fillEmpty: true });
+  const cardLineSource = cleanBlindPoints(
+    (guardedTeaser.card4Points && guardedTeaser.card4Points.length > 0
+      ? guardedTeaser.card4Points
+      : guardedTeaser.dealPoints || []
+    ).map((p) => stripUngroundedNumbers(rewriteUnsafeText(String(p)).safeText, groundingContext).cleaned),
+  );
+  guardedTeaser.card4Points = cleanBlindPoints(
+    repairDealCardPoints(cardLineSource, { fillEmpty: true }),
+  );
   const rawCardHeadline = guardedTeaser.card4Headline
-    ? stripUngroundedNumbers(rewriteUnsafeText(guardedTeaser.card4Headline).safeText, groundingContext).cleaned
+    ? cleanBlindPoints([
+        stripUngroundedNumbers(rewriteUnsafeText(guardedTeaser.card4Headline).safeText, groundingContext).cleaned,
+      ])[0]
     : "";
-  guardedTeaser.card4Headline =
+  guardedTeaser.card4Headline = cleanBlindPoints([
     repairDealCardLine(rawCardHeadline) ||
-    deriveDealCardHeadline({
-      posture: buildingTruth.investmentPosture === "owner_occupied"
-        ? "owner_occupied"
-        : buildingTruth.investmentPosture === "development"
-        ? "value_add"
-        : "income",
-      points: guardedTeaser.card4Points,
-    });
+      deriveDealCardHeadline({
+        posture: buildingTruth.investmentPosture === "owner_occupied"
+          ? "owner_occupied"
+          : buildingTruth.investmentPosture === "development"
+          ? "value_add"
+          : "income",
+        points: guardedTeaser.card4Points,
+      }),
+  ])[0];
 
   return {
     parsedMemo,

@@ -492,7 +492,7 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
               table === "document_objects"
                 ? { id: "doc-uuid-1", building_id: buildingId, body: {}, sections: [] }
                 : table === "building_ssot_lite"
-                ? { id: buildingId, ssot_summary: {} }
+                ? { id: buildingId, owner_id: "broker-1", ssot_summary: {} }
                 : null,
             error: null,
           }),

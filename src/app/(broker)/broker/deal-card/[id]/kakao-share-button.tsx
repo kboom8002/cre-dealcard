@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 
 interface KakaoShareButtonProps {
   text: string;
@@ -89,9 +90,11 @@ export function KakaoShareButton({
   const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
 
   function handleShare() {
-    const finalText = typeof window !== 'undefined' 
+    const rawText = typeof window !== 'undefined' 
       ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
       : editedText;
+    const finalText = cleanBlindPoints([rawText])[0] || rawText;
+    const safeTitle = cleanBlindPoints([dealTitle || "블라인드 딜카드"])[0] || "블라인드 딜카드";
 
     const currentOgImageUrl = `${ogImageUrl}?t=${Date.now()}`;
 
@@ -100,7 +103,7 @@ export function KakaoShareButton({
         (window.Kakao.Share as any).sendDefault({
           objectType: "feed",
           content: {
-            title: dealTitle || "블라인드 딜카드",
+            title: safeTitle,
             description: finalText.slice(0, 200),
             imageUrl: currentOgImageUrl,
             imageWidth: 1200,
@@ -185,8 +188,15 @@ export function KakaoShareButton({
   const readyClass = kakaoReady ? "" : "opacity-80";
 
   const handleSaveText = () => {
-    sessionStorage.setItem(`kakao_text_${buildingId}`, editedText);
+    const cleaned = cleanBlindPoints([editedText])[0] ?? editedText;
+    setEditedText(cleaned);
+    sessionStorage.setItem(`kakao_text_${buildingId}`, cleaned);
     window.dispatchEvent(new Event(`kakao_update_${buildingId}`));
+    fetch('/api/broker/deal-card/' + buildingId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kakaoText: cleaned }),
+    }).catch(() => null);
     setIsEditing(false);
   };
 

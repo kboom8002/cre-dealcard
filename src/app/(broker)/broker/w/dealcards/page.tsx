@@ -313,7 +313,7 @@ function DealCardsWorkspaceInner() {
   }, [activeBuildingId, persistItems]);
 
   const handleCreateNew = useCallback(() => {
-    const newId = `bld-${Date.now().toString().slice(-4)}`;
+    const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const newItem: BuildingListItem = {
       id: newId,
       title: "새 딜카드",
@@ -368,7 +368,7 @@ function DealCardsWorkspaceInner() {
 
   const handleDuplicateItem = (source: BuildingListItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const newId = `bld-${Date.now().toString().slice(-4)}`;
+    const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const cloned: BuildingListItem = {
       ...source,
       id: newId,
@@ -408,7 +408,21 @@ function DealCardsWorkspaceInner() {
     e.stopPropagation();
     const prevSnapshot = [...items];
     const remaining = items.filter((it) => it.id !== target.id);
-    const nextList = remaining.length > 0 ? remaining : [{ ...INITIAL_BUILDINGS[0], id: `bld-${Date.now().toString().slice(-4)}`, title: "새 딜카드", region: "", use: "", priceBand: "", card4: { ...EMPTY_CARD4 } }];
+    const nextList: BuildingListItem[] =
+      remaining.length > 0
+        ? remaining
+        : [
+            {
+              id: `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              title: "새 딜카드",
+              region: "",
+              use: "",
+              priceBand: "",
+              status: "draft",
+              updatedAt: "방금",
+              card4: { ...EMPTY_CARD4 },
+            },
+          ];
     setItems(nextList);
     persistItems(nextList);
     void fetch("/api/broker/workspace/summary", {
@@ -547,6 +561,8 @@ function DealCardsWorkspaceInner() {
             ...item.card4.points,
             item.card4.region || "",
             item.card4.use || "",
+            item.card4.area || "",
+            item.card4.priceBand || "",
             item.card4.headline || "",
           ]);
 
@@ -734,7 +750,7 @@ function DealCardsWorkspaceInner() {
         onClose={() => setIsPreSendOpen(false)}
         card4={effectiveCard4}
         dealId={activeBuildingId}
-        isSaved={autosave.status === "saved" || autosave.status === "idle"}
+        isSaved={!autosave.dirty && (autosave.status === "saved" || autosave.status === "idle")}
         onFlushSave={handleFlushSave}
         onSendToClient={() => {
           handleMarkSent();

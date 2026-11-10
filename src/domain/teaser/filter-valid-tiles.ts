@@ -1,4 +1,4 @@
-const EMPTY_PATTERNS = /미정|확인 필요|확인 중|정보 없음/;
+const EMPTY_PATTERNS = /미정|확인 필요|확인 중|정보 없음|NaN|Infinity/;
 
 export interface HeroTile {
   emoji: string;

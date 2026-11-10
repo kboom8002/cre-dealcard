@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
+import { isUuid } from "@/lib/im-lite/quick-generate-store";
 
 /**
  * DELETE /api/broker/deal-card/[id]/personas/[personaId]
@@ -15,15 +16,45 @@ export async function DELETE(
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
 
-    try {
-      const supabase = createServiceClient();
-      await supabase
-        .from("deal_card_personas")
-        .delete()
-        .eq("building_ssot_lite_id", id)
-        .eq("broker_id", guard.user!.id);
-    } catch {
-      // Non-blocking in mock environments
+    if (isUuid(id)) {
+      try {
+        const supabase = createServiceClient();
+        const { data: existingRow } = await supabase
+          .from("deal_card_personas")
+          .select("id, personas_data")
+          .eq("building_ssot_lite_id", id)
+          .eq("broker_id", guard.user!.id)
+          .maybeSingle();
+
+        const currentList = Array.isArray((existingRow?.personas_data as any)?.personas)
+          ? (existingRow!.personas_data as any).personas
+          : [];
+        const remaining = currentList.filter(
+          (p: any) => String(p?.id || p?.personaId || "") !== String(personaId)
+        );
+
+        if (existingRow && remaining.length > 0) {
+          await supabase
+            .from("deal_card_personas")
+            .update({
+              personas_data: {
+                ...(existingRow.personas_data as Record<string, any>),
+                personas: remaining,
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq("building_ssot_lite_id", id)
+            .eq("broker_id", guard.user!.id);
+        } else {
+          await supabase
+            .from("deal_card_personas")
+            .delete()
+            .eq("building_ssot_lite_id", id)
+            .eq("broker_id", guard.user!.id);
+        }
+      } catch {
+        // Non-blocking in mock environments
+      }
     }
 
     return NextResponse.json({ ok: true, success: true, deletedId: personaId });

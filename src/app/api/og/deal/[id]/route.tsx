@@ -4,6 +4,17 @@ import { readBuilding } from "@/domain/building/im-core/read-building";
 import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
+import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { formatPriceRange } from "@/lib/deal-card/price-band";
+import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
+import {
+  getInboxState,
+  getQuickImRecord,
+  isDealCardDeleted,
+  isUuid,
+  resolveOrSynthesizeQuickImRecord,
+} from "@/lib/im-lite/quick-generate-store";
+import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -58,34 +69,56 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const urlObj = new URL(request.url);
-  const isImType = urlObj.searchParams.get("type") === "im";
+  if (
+    isDealCardDeleted(id) ||
+    getInboxState().revokedBuildings[id]?.revoked ||
+    isBuildingShareLinkRevoked(id)
+  ) {
+    return new Response("Not Found", { status: 404 });
+  }
 
   let building: Record<string, any> | null = null;
   let teaser: Record<string, any> | null = null;
   let imBody: Record<string, any> | null = null;
-  let imDocTitle: string | null = null;
+  let signalCard: Record<string, any> | null = null;
   let targetBuildingId = id;
+  let quickRec = getQuickImRecord(id);
 
   try {
     const supabase = createServiceClient();
+    if (!quickRec) {
+      quickRec = await resolveOrSynthesizeQuickImRecord(id, supabase);
+    }
+    if (quickRec?.isRevoked) {
+      return new Response("Not Found", { status: 404 });
+    }
 
-    // 1. id가 document_objects의 PK인지 확인
-    const { data: directDoc } = await supabase
-      .from("document_objects")
-      .select("id, title, body, document_type, building_id")
-      .eq("id", id)
-      .maybeSingle();
+    if (isUuid(id)) {
+      // 1. id가 document_objects의 PK인지 확인
+      const { data: directDoc } = await supabase
+        .from("document_objects")
+        .select("id, title, body, document_type, building_id, status")
+        .eq("id", id)
+        .maybeSingle();
 
-    if (directDoc) {
-      if (directDoc.building_id) targetBuildingId = directDoc.building_id;
-      if (directDoc.body && typeof directDoc.body === "object") {
-        const bodyObj = directDoc.body as Record<string, any>;
-        if (["im_lite", "im_lite_draft", "mobile_im", "im_pro"].includes(directDoc.document_type) || bodyObj.im_type === "mobile_im_lite") {
-          imBody = bodyObj;
-          imDocTitle = directDoc.title;
-        } else {
-          teaser = bodyObj;
+      if (directDoc) {
+        if (directDoc.status === "archived") {
+          return new Response("Not Found", { status: 404 });
+        }
+        if (directDoc.building_id) targetBuildingId = directDoc.building_id;
+        if (directDoc.body && typeof directDoc.body === "object") {
+          const bodyObj = directDoc.body as Record<string, any>;
+          if (bodyObj.is_revoked === true) {
+            return new Response("Not Found", { status: 404 });
+          }
+          if (
+            ["im_lite", "im_lite_draft", "mobile_im", "im_pro"].includes(directDoc.document_type) ||
+            bodyObj.im_type === "mobile_im_lite"
+          ) {
+            imBody = bodyObj;
+          } else {
+            teaser = bodyObj;
+          }
         }
       }
     }
@@ -93,58 +126,91 @@ export async function GET(
     // 2. Building 데이터 조회 (순수 읽기)
     const bData = await readBuilding(targetBuildingId);
     building = bData as Record<string, any>;
-
-    // 3. building_signal_cards 조회 (최신 신호 데이터)
-    const { data: sData } = await supabase
-      .from("building_signal_cards")
-      .select("area_signal, asset_type, price_band, title")
-      .eq("building_id", targetBuildingId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // 4. document_objects 다중 조회 (blind_teaser, im_lite, mobile_im 등)
-    const { data: docList } = await supabase
-      .from("document_objects")
-      .select("id, title, body, document_type")
-      .eq("building_id", targetBuildingId)
-      .in("document_type", ["blind_teaser", "im_lite", "im_lite_draft", "mobile_im", "im_pro"])
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    if (docList && docList.length > 0) {
-      for (const d of docList) {
-        const b = d.body as Record<string, any>;
-        if (!imBody && (["im_lite", "im_lite_draft", "mobile_im", "im_pro"].includes(d.document_type) || b?.im_type === "mobile_im_lite")) {
-          imBody = b;
-          imDocTitle = d.title;
-        }
-        if (!teaser && d.document_type === "blind_teaser" && b?.im_type !== "mobile_im_lite") {
-          teaser = b;
-        }
-      }
+    if (building?.status === "archived") {
+      return new Response("Not Found", { status: 404 });
     }
 
-    if (sData) {
-      if (!building) building = { id: targetBuildingId };
-      building.area_signal = building.area_signal || sData.area_signal;
-      building.asset_type = building.asset_type || sData.asset_type;
-      building.price_band = building.price_band || sData.price_band;
+    if (isUuid(targetBuildingId)) {
+      const { data: ssotRow } = await supabase
+        .from("building_ssot_lite")
+        .select("id, status")
+        .eq("id", targetBuildingId)
+        .maybeSingle();
+      if (ssotRow?.status === "archived") {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      // 3. building_signal_cards 조회 (최신 신호 데이터)
+      const { data: sData } = await supabase
+        .from("building_signal_cards")
+        .select("area_signal, asset_type, price_band, title, visibility")
+        .eq("building_id", targetBuildingId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      signalCard = sData;
+      if (signalCard?.visibility === "internal_only") {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      // 4. document_objects 다중 조회 (blind_teaser, im_lite, mobile_im 등)
+      const { data: docList } = await supabase
+        .from("document_objects")
+        .select("id, title, body, document_type, status")
+        .eq("building_id", targetBuildingId)
+        .neq("status", "archived")
+        .in("document_type", ["blind_teaser", "im_lite", "im_lite_draft", "mobile_im", "im_pro"])
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (docList && docList.length > 0) {
+        for (const d of docList) {
+          const b = d.body as Record<string, any>;
+          if (!imBody && (["im_lite", "im_lite_draft", "mobile_im", "im_pro"].includes(d.document_type) || b?.im_type === "mobile_im_lite")) {
+            imBody = b;
+          }
+          if (!teaser && d.document_type === "blind_teaser" && b?.im_type !== "mobile_im_lite") {
+            teaser = b;
+          }
+        }
+      }
+
+      if (sData) {
+        if (!building) building = { id: targetBuildingId };
+        building.area_signal = building.area_signal || sData.area_signal;
+        building.asset_type = building.asset_type || sData.asset_type;
+        building.price_band = building.price_band || sData.price_band;
+      }
     }
   } catch (err) {
     log.warn("[OG/deal] Fetch error:", err);
   }
 
-  const safeBuilding = building || { id: targetBuildingId };
+  if (teaser?.is_revoked === true) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const card4 = quickRec?.card4 || teaser?.card4 || imBody?.card4;
+  const safeBuilding = building || {
+    id: targetBuildingId,
+    area_signal: card4?.region,
+    asset_type: card4?.use,
+    price_band: card4?.priceBand,
+  };
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
-  
+
   // imBody의 ssot_summary에서 값 우선 참조
   const imSsot = (imBody?.ssot_summary ?? {}) as Record<string, any>;
   const imAskingPriceManwon = imSsot.asking_price_manwon ? Number(imSsot.asking_price_manwon) : 0;
   const askingPriceKrw = imAskingPriceManwon > 0 ? imAskingPriceManwon * 10000 : Number(rawAttrs.askingPriceKrw || 0);
 
-  const rawPosture = imBody?.investmentPosture || imBody?.investment_posture || safeBuilding.investment_posture || rawAttrs.investmentPosture;
-  const assetAndUseText = `${imSsot.asset_type || safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
+  const rawPosture =
+    card4?.posture ||
+    imBody?.investmentPosture ||
+    imBody?.investment_posture ||
+    safeBuilding.investment_posture ||
+    rawAttrs.investmentPosture;
+  const assetAndUseText = `${card4?.use || imSsot.asset_type || safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
   const resolvedPosture = (!rawPosture || rawPosture === "income") && /나대지|토지|신축\s*부지|개발\s*부지/.test(assetAndUseText)
     ? "development"
     : (rawPosture || "income");
@@ -152,9 +218,14 @@ export async function GET(
   const attrs = {
     ...rawAttrs,
     askingPriceKrw,
-    areaSignal: imSsot.area_signal || rawAttrs.areaSignal || safeBuilding.area_signal,
-    priceBand: imSsot.price_band || safeBuilding.price_band || rawAttrs.priceBand || (imAskingPriceManwon > 0 ? `${Math.floor(imAskingPriceManwon / 100000) * 10}억대` : null),
-    assetType: imSsot.asset_type || rawAttrs.assetType || safeBuilding.asset_type,
+    areaSignal: card4?.region || imSsot.area_signal || rawAttrs.areaSignal || safeBuilding.area_signal,
+    priceBand:
+      card4?.priceBand ||
+      imSsot.price_band ||
+      safeBuilding.price_band ||
+      rawAttrs.priceBand ||
+      (imAskingPriceManwon > 0 ? formatPriceRange(imAskingPriceManwon * 10000) : null),
+    assetType: card4?.use || imSsot.asset_type || rawAttrs.assetType || safeBuilding.asset_type,
     investmentPosture: resolvedPosture,
   };
   const teaserView = projectToTeaser(attrs);
@@ -162,48 +233,59 @@ export async function GET(
   const POSTURE_KOREAN_MAP: Record<string, string> = {
     income: "임대수익형",
     development: "개발형",
+    value_add: "밸류애드형",
     owner_occupied: "자가사용형",
     trading: "단기매매형",
     operating: "운영형",
   };
 
-  const regionLabel = attrs.areaSignal || teaserView.region || safeBuilding.area_signal || "서울";
-  const assetType = attrs.assetType || teaserView.assetType || safeBuilding.asset_type || "상업용 부동산";
+  const needles = collectSensitiveNeedles(safeBuilding);
+  const sanitizeOgText = (text: string, fallback: string): string => {
+    const masked = maskNeedles(String(text || ""), needles);
+    return cleanBlindPoints([masked])[0] || fallback;
+  };
+
+  const rawRegionLabel = card4?.region || attrs.areaSignal || teaserView.region || safeBuilding.area_signal || "서울";
+  const regionLabel = sanitizeOgText(rawRegionLabel, "서울");
+  const rawAssetType = card4?.use || attrs.assetType || teaserView.assetType || safeBuilding.asset_type || "상업용 부동산";
+  const assetType = sanitizeOgText(rawAssetType, "상업용 부동산");
   const postureLabel = POSTURE_KOREAN_MAP[resolvedPosture] || teaserView.postureLabel || "임대수익형";
   const urgencyTag = teaserView.urgencyTag || (building?.urgency_tag as string);
-  const bandedPrice = attrs.priceBand || teaserView.bandedPrice || "가격 협의";
+  const bandedPrice = card4?.priceBand || attrs.priceBand || teaserView.bandedPrice || "가격 협의";
 
-  // Hook copy & title priority: broker DealCard 한 줄 제목(card4.headline SSOT) > broker custom edit > AI generated > fallback
-  const mainHeadline = 
-    teaser?.card4?.headline
-    || teaser?.ogTitle 
-    || imBody?.ogTitle 
-    || teaser?.kakaoOgTitle 
-    || imBody?.kakaoOgTitle
-    || imBody?.heroTitle 
-    || imDocTitle 
-    || teaser?.title 
-    || `${regionLabel} ${assetType} 매각`;
+  // Hook copy & title priority: broker DealCard 한 줄 제목(card4.headline SSOT) > broker custom edit > fallback (blind-safe only)
+  const rawMainHeadline =
+    card4?.headline ||
+    teaser?.card4?.headline ||
+    teaser?.ogTitle ||
+    imBody?.ogTitle ||
+    teaser?.kakaoOgTitle ||
+    imBody?.kakaoOgTitle ||
+    teaser?.title ||
+    `${regionLabel} ${assetType} 매각`;
 
-  const rawSubHeadline = 
-    teaser?.ogDescription 
-    || imBody?.ogDescription 
-    || teaser?.kakaoOgDescription
-    || imBody?.kakaoOgDescription
-    || imBody?.heroSubtitle 
-    || imBody?.keyInvestmentPoint 
-    || imBody?.heroCard?.keyInvestmentPoint 
-    || (imBody?.sections?.[0]?.markdown ? imBody.sections[0].markdown.replace(/[#*`\n]/g, ' ').slice(0, 80).trim() : null)
-    || teaser?.shortSummary 
-    || teaserView.hookCopy 
-    || `${regionLabel} ${assetType} 핵심 투자 기회`;
+  const mainHeadline = sanitizeOgText(rawMainHeadline, `${regionLabel} ${assetType} 매각`);
 
-  // 중복된 "권역 권역" 제거 및 공백 정제
-  const cleanedSub = String(rawSubHeadline || "")
+  const rawSubHeadline =
+    (Array.isArray(card4?.points) && card4.points.length > 0 ? card4.points[0] : null) ||
+    teaser?.ogDescription ||
+    imBody?.ogDescription ||
+    teaser?.kakaoOgDescription ||
+    imBody?.kakaoOgDescription ||
+    imBody?.heroSubtitle ||
+    imBody?.keyInvestmentPoint ||
+    imBody?.heroCard?.keyInvestmentPoint ||
+    teaser?.shortSummary ||
+    teaserView.hookCopy ||
+    `${regionLabel} ${assetType} 핵심 투자 기회`;
+
+  // 중복된 "권역 권역" 제거 및 공백 정제 + 민감정보 마스킹
+  const normalizedSub = String(rawSubHeadline || "")
     .replace(/권역\s*권역/g, "권역")
     .replace(/권역\s*소재\s*소재/g, "권역 소재")
     .replace(/\s+/g, " ")
     .trim();
+  const cleanedSub = sanitizeOgText(normalizedSub, `${regionLabel} ${assetType} 핵심 투자 기회`);
 
   const displayMain = mainHeadline.length > 36 ? mainHeadline.slice(0, 36) + "..." : mainHeadline;
   const displaySub = cleanedSub.length > 60 ? cleanedSub.slice(0, 58) + "..." : cleanedSub;
