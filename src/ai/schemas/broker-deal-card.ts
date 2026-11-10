@@ -3,6 +3,7 @@
  * Source: docs/09-ai-agent-contracts.md sections 7, 9, 10
  */
 import { z } from "zod/v4";
+import { DEAL_CARD_LINE_MAX, isCompleteDealCardLine } from "@/lib/deal-card/copy-limits";
 
 // ---- Memo Parser Output (section 7.3) ----
 
@@ -169,6 +170,34 @@ export const BlindTeaserOutputSchema = z.object({
   ogDescription: z.string().optional(),         // OG 카드 설명
   kakaoOgTitle: z.string().optional(),          // 카카오 OG 카드 제목
   kakaoOgDescription: z.string().optional(),    // 카카오 OG 카드 설명
+
+  // 딜카드 18자 문구 (편집기 "한 줄 제목"·"장점 3줄" 직결) — 에이전트가 copy-limits 로 결정적 교정 후 저장
+  card4Headline: z.string().optional(),
+  card4Points: z.array(z.string()).max(5).optional(),
 });
 
 export type BlindTeaserOutput = z.infer<typeof BlindTeaserOutputSchema>;
+
+// ---- Deal Card Copy Output (prompt_deal_card_copy_tf8_v1) ----
+// 1단계(느슨): LLM 원문 수용 — 길이 초과 문구도 받아서 결정적 교정기로 넘긴다.
+// 2단계(엄격): 교정 후 고객 화면 계약(≤18자 · 완결 체언 · 말줄임 없음) 검증.
+
+export const DealCardCopyLLMOutputSchema = z.object({
+  headline: z.string().trim().min(1).max(80).optional(),
+  points: z.array(z.string().trim().min(1).max(120)).min(3).optional(),
+});
+
+export type DealCardCopyLLMOutput = z.infer<typeof DealCardCopyLLMOutputSchema>;
+
+const strictLine = z
+  .string()
+  .refine((v) => isCompleteDealCardLine(v, DEAL_CARD_LINE_MAX), {
+    message: `각 줄은 ${DEAL_CARD_LINE_MAX}자 이내의 완결된 문구여야 합니다 (말줄임·조사 끝 금지).`,
+  });
+
+export const DealCardCopyStrictOutputSchema = z.object({
+  headline: strictLine.optional(),
+  points: z.tuple([strictLine, strictLine, strictLine]).optional(),
+});
+
+export type DealCardCopyStrictOutput = z.infer<typeof DealCardCopyStrictOutputSchema>;

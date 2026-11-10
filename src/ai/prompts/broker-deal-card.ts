@@ -173,7 +173,7 @@ JSON으로 응답해주세요.`;
 
 // ---- Blind Teaser ----
 
-export const BLIND_TEASER_PROMPT_ID = "prompt_blind_teaser_v2";
+export const BLIND_TEASER_PROMPT_ID = "prompt_blind_teaser_v3";
 
 export const BLIND_TEASER_SYSTEM = `당신은 한국 상업용부동산(CRE) 전문 중개인입니다. v3 블라인드 딜카드(티저)를 작성합니다.
 블라인드 티저는 잠재 매수자의 관심을 유도하는 구조화된 마케팅 카드입니다.
@@ -199,12 +199,19 @@ ${GLOBAL_SAFETY}
 × "스토리가 분명합니다", "스토리가 있다"
 × "경쟁력이 돋보입니다", "경쟁력을 높이는"
 
-대신 이렇게 쓰세요 (실제 중개인 어투):
+대신 이렇게 쓰세요 (실제 중개인 어투 — shortSummary·kakaoText 같은 **문장 필드에만** 적용):
 ○ "역세권 대로변에 위치한 ~건물입니다"
 ○ "주변 상권이 잘 형성되어 있습니다"
 ○ "3층 의원이 안정적으로 운영 중입니다"
 ○ "주차 30대 가능하여 임차인 유치에 유리합니다"
 ○ "대로변 코너 입지로 가시성이 좋습니다"
+
+[딜카드 18자 문구 — card4Headline · card4Points 전용 (문장형 금지)]
+- 고객 카톡 화면은 한 줄 제목 1줄 + 장점 3줄을 큰 글씨로 보여주며, 각 줄은 공백 포함 18자 이내여야 잘리지 않습니다.
+- 각 줄은 완결된 체언형(명사구)으로 끝내세요. "~습니다/~입니다" 문장형, 조사·관형어로 끝나는 미완성 문구(…이, …가, …한, …는, …의, …및), 말줄임표(…, ...)를 절대 쓰지 마세요.
+- GOOD: "8m 코너 입지 높은 가시성", "신사·잠원역 더블 역세권", "F&B·IT 오피스 만실 운영"
+- BAD: "8m 도로 코너 입지로 가시성이 좋습니다." (문장형·18자 초과), "F&B 및 IT·디자인 오피스가" (조사로 끝남)
+- 입력(Building SSoT Lite)에 없는 숫자·역명·상호는 만들지 마세요. card4Headline 에는 지역명·용도명·가격을 반복하지 마세요.
 
 [톤 & 스타일]
 - 간결하고 사실 중심으로 쓰세요. 수식어를 최소화하세요.
@@ -289,4 +296,195 @@ JSON 키별 작성 요령:
 - "kakaoOgTitle": 카카오 OG 카드 제목 (25자 이내). 매수자(60대)가 카톡에서 한눈에 파악할 제목. 한자어/영어 최소화. 형식: "{핵심매력} · {권역} {자산유형}"
 - "kakaoOgDescription": 카카오 OG 카드 설명 (40자 이내). 가격대+수익률+핵심 장점 1가지. 쉬운 한국어로.
 
+### 딜카드 18자 문구 (반드시 포함 — 편집기 "한 줄 제목"·"장점 3줄"에 그대로 들어갑니다)
+- "card4Headline": 수익률(입력에 있을 때만)·임차 안정성 중심 대표 장점 1줄. 공백 포함 18자 이내 체언형. 지역·용도·가격 반복 금지.
+- "card4Points": 정확히 3개 배열. 각 18자 이내 체언형. ①수익·임차 ②입지·교통 ③건물·활용 — 서로 다른 축, 중복 금지.
+
 JSON으로 응답해주세요.`;
+
+
+// ---- Deal Card Copy (한 줄 제목 + 장점 3줄) — TaskFlow TF8 ----
+// 소비처: /api/broker/deal-card/ai-copy ("AI로 쓰기" · "AI로 3줄 쓰기")
+// 출력 검증: src/ai/schemas/broker-deal-card.ts (DealCardCopyLLMOutputSchema / isDealCardCopyLineValid)
+// 결정적 교정·대체: src/lib/deal-card/copy-limits.ts (repairDealCardLine · deriveDealCardHeadline)
+
+export const DEAL_CARD_COPY_PROMPT_ID = "prompt_deal_card_copy_tf8_v1";
+export const DEAL_CARD_COPY_LINE_LIMIT = 18;
+
+export type DealCardCopyMode = "headline" | "points" | "both";
+
+/** TF8 블록 명세 ([T][A][W][O][L][F] + few-shot + self-check). 매거진 TF8 패턴과 동일 구조. */
+export interface DealCardCopyTf8Spec {
+  slotKey: "deal_card_copy_tf8";
+  version: string;
+  task: string;
+  audience: string;
+  warnings: readonly string[];
+  outputContract: string;
+  logicChain: readonly string[];
+  fewShotGood: readonly string[];
+  fewShotBad: readonly string[];
+  selfCheck: readonly string[];
+  fallbackRepair: string;
+}
+
+export const DEAL_CARD_COPY_TF8_SPEC: DealCardCopyTf8Spec = {
+  slotKey: "deal_card_copy_tf8",
+  version: "1.0",
+  task:
+    "상업용 부동산 매각 딜카드의 '한 줄 제목'(headline)과 '장점 3줄'(points)을 JSON으로 작성합니다. " +
+    "이 문구는 카카오톡 썸네일 아래와 고객이 링크를 눌렀을 때 보는 화면에 큰 글씨로 그대로 표시됩니다.",
+  audience:
+    "당신은 상업용 부동산 매각 전문 중개인 겸 카피라이터입니다. 독자는 카톡으로 매물을 받아보는 매수 검토 고객입니다. " +
+    "과장 없이 사실 중심의 짧은 실무 어휘를 씁니다. 독자의 연령·계층·성별을 문구에 직접 지칭하지 마십시오.",
+  warnings: [
+    `[18자] headline 과 points 의 각 줄은 공백 포함 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내입니다 (글자 단위로 셉니다). 넘칠 것 같으면 수식어를 빼고 어절을 줄이십시오.`,
+    "[완결 체언형] 각 줄은 명사(체언) 또는 '우수·가능·확보·보유·운영·만실' 같은 명사형으로 끝냅니다. '~습니다/~입니다/~해요' 문장형은 쓰지 않습니다.",
+    "[미완성 금지] 조사·관형어로 끝나는 문구(…이, …가, …은, …는, …의, …에, …로, …한, …및)를 절대 출력하지 마십시오.",
+    "[말줄임 금지] '…' 또는 '...' 를 쓰지 마십시오. 잘라서 줄이지 말고 완결된 짧은 문구로 다시 쓰십시오.",
+    "[근거 Grounding] [K] FactBook 에 있는 사실만 사용합니다. FactBook 에 없는 숫자(수익률 %, 도보 분, 층수, 연도, 금액, 평수, 주차 대수)·역 이름·임차인 상호를 만들지 마십시오. 숫자는 FactBook 에 그대로 있는 값만 씁니다.",
+    "[칩 중복 금지] 썸네일 칩(지역·용도·면적·가격)에 이미 보이는 지역명·용도명·면적·가격을 headline 에 반복하지 마십시오.",
+    "[장점 비중복] 장점 3줄은 서로 다른 축(①수익·임차 ②입지·교통 ③건물·활용)으로 쓰고, 같은 내용을 다른 표현으로 반복하지 마십시오. headline 을 장점에 그대로 복사하지 마십시오.",
+    "[블라인드] 상세 지번(번지), 건물 고유 이름(OO빌딩·OO타워), 프랜차이즈 상호, 소유주 정보를 쓰지 마십시오.",
+    "[금지 표현·용어] 투자 권유, 원금·수익 보장, 시세차익 단정 표현 금지. 한국 실무 용어 사용: '캡레이트' 대신 '연 순수익률', 'TI' 대신 '인테리어 지원금', '렌트프리(무상임대)'. 번역체·외래어 남용 금지.",
+  ],
+  outputContract: [
+    "반드시 아래 JSON 객체 하나만 반환하십시오 (설명·마크다운·코드펜스 금지):",
+    "{",
+    `  "headline": "${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형 — 수익률(있을 때만)·임차 안정성 중심 대표 장점 1줄",`,
+    `  "points": ["${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형", "${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형", "${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형"]`,
+    "}",
+    "요청모드가 headline 이면 points 를 생략할 수 있고, points 이면 headline 을 생략할 수 있습니다. both 는 둘 다 필수입니다.",
+  ].join("\n"),
+  logicChain: [
+    "사실 추출: [K] FactBook 에서 수익률·임차 현황·입지/교통·건물 상태·활용성 사실만 뽑습니다 (없는 사실은 비워 둡니다).",
+    "대표 장점 1개 선택(hero benefit): 임대수익용은 수익률 중심(FactBook 에 수익률이 있을 때만 숫자 사용, 없으면 임차 안정성), 사옥용은 활용성·접근성, 신축·개발용은 토지·개발 여력.",
+    `한 줄 제목 작성: hero benefit 으로 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형 headline 을 씁니다 (칩 중복 없음).`,
+    `장점 3줄 작성: 서로 다른 축 3개로 각 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형 points 를 씁니다.`,
+    "자체 검증(self-check): 아래 체크리스트를 한 줄씩 확인하고, 하나라도 어기면 그 줄만 다시 써서 모두 통과한 JSON 만 출력합니다.",
+  ],
+  fewShotGood: [
+    '"8m 코너 입지 높은 가시성"',
+    '"신사·잠원역 더블 역세권"',
+    '"F&B·IT 오피스 만실 운영"',
+    '"연 4.2% 우량임차 만실 코너" (FactBook 에 4.2% 가 있을 때만)',
+  ],
+  fewShotBad: [
+    '"8m 도로 코너 입지로 가시성이 좋습니다." → 문장형 · 18자 초과',
+    '"신사역과 잠원역 접근이 가능한 잠" → 단어 중간에서 잘림',
+    '"F&B 및 IT·디자인 오피스가" → 조사로 끝난 미완성 문구',
+    '"연 4%대 우량임차 만실" → FactBook 에 없는 수익률 창작',
+    '"서초구 잠원동 근린생활시설" → 썸네일 칩(지역·용도) 반복',
+    '"역세권 입지…" → 말줄임표',
+  ],
+  selfCheck: [
+    `모든 줄이 ${DEAL_CARD_COPY_LINE_LIMIT}자 이하인가?`,
+    "모든 줄이 체언형으로 끝나고 조사·관형어로 끝나지 않는가?",
+    "말줄임표가 없는가?",
+    "FactBook 밖의 숫자·역명·상호가 없는가?",
+    "headline 에 지역·용도·면적·가격 칩이 반복되지 않는가?",
+    "장점 3줄이 서로 다른 축인가?",
+    "유효한 JSON 객체 1개만 출력했는가?",
+  ],
+  fallbackRepair:
+    "규칙을 지키기 어려우면 숫자를 빼고 정성 표현(입지·가시성·임차 안정성·활용성)으로 짧게 쓰십시오. " +
+    "서버는 결정적 교정기로 모든 줄을 재검증하며, 위반 줄은 어절 경계에서 교정되거나 입력 기반 문구로 대체됩니다.",
+};
+
+function renderDealCardCopySystem(spec: DealCardCopyTf8Spec): string {
+  return [
+    `# TaskFlow TF8 Prompt Contract (${spec.slotKey} v${spec.version})`,
+    `[T] Task:\n${spec.task}`,
+    `[A] Audience & Persona:\n${spec.audience}`,
+    `[W] Warnings & Hard Constraints:\n${spec.warnings.map((w, i) => `${i + 1}. ${w}`).join("\n")}`,
+    `[O] Output Schema & Char Budgets:\n${spec.outputContract}`,
+    `[L] Logic Chain:\n${spec.logicChain.map((s, i) => `Step ${i + 1}. ${s}`).join("\n")}`,
+    `[E] Few-shot Examples:\nGOOD:\n${spec.fewShotGood.map((g) => `- ${g}`).join("\n")}\nBAD:\n${spec.fewShotBad.map((b) => `- ${b}`).join("\n")}`,
+    `[C] Self-check Checklist (출력 전 자체 검증):\n${spec.selfCheck.map((c) => `□ ${c}`).join("\n")}`,
+    `[F] Fallback & Repair:\n${spec.fallbackRepair}`,
+  ].join("\n\n");
+}
+
+/** ai-copy 라우트 시스템 프롬프트 (레거시 이름 DEAL_CARD_AI_SYSTEM_PROMPT 로도 re-export 됨). */
+export const DEAL_CARD_COPY_SYSTEM = renderDealCardCopySystem(DEAL_CARD_COPY_TF8_SPEC);
+
+export interface DealCardCopyPromptInput {
+  mode: DealCardCopyMode;
+  postureTitle: string;
+  postureSubtitle?: string;
+  region?: string;
+  use?: string;
+  area?: string;
+  priceBand?: string;
+  currentHeadline?: string;
+  currentPoints?: readonly string[];
+  facts?: Record<string, string | number | undefined>;
+}
+
+/**
+ * [S] Situation + [K] FactBook 사용자 프롬프트 생성.
+ * - FactBook 은 중개사 입력/구조화 사실만 포함한다 (바이너리·이미지 필드 금지 — Rule 11).
+ * - factContext 는 출력 숫자 근거 검증(findUngroundedNumbers)에 그대로 쓰인다.
+ */
+export function buildDealCardCopyPrompt(input: DealCardCopyPromptInput): {
+  promptId: string;
+  systemPrompt: string;
+  userPrompt: string;
+  factContext: string;
+} {
+  const points = (input.currentPoints ?? []).map((p) => String(p ?? "").trim()).filter(Boolean);
+  const factEntries = Object.entries(input.facts ?? {}).filter(
+    ([, v]) => (typeof v === "string" && v.trim().length > 0) || (typeof v === "number" && Number.isFinite(v)),
+  );
+  const factLabels: Record<string, string> = {
+    yieldPct: "수익률(%)",
+    completionYear: "준공연도",
+    roadContact: "도로 접면",
+    subwayWalkMinutes: "역 도보(분)",
+    floorsLabel: "층수",
+    zoning: "용도지역",
+  };
+
+  const knowledge = [
+    `- 썸네일 칩(제목에서 반복 금지): 지역=${input.region || "미입력"} | 용도=${input.use || "미입력"} | 면적=${input.area || "미입력"} | 가격=${input.priceBand || "미입력"}`,
+    `- 중개사 현재 제목: ${input.currentHeadline?.trim() || "(없음)"}`,
+    `- 중개사 현재 장점: ${points.length > 0 ? points.map((p, i) => `(${i + 1}) ${p}`).join(" ") : "(없음)"}`,
+    factEntries.length > 0
+      ? `- 추가 사실: ${factEntries.map(([k, v]) => `${factLabels[k] ?? k}=${v}`).join(" | ")}`
+      : "- 추가 사실: (없음 — 숫자 없이 정성 표현만 사용)",
+  ].join("\n");
+
+  const situation = [
+    `요청모드: ${input.mode}`,
+    `매물 유형: ${input.postureTitle}${input.postureSubtitle ? ` (${input.postureSubtitle})` : ""}`,
+    "중개사 현재 문구가 문장형이거나 18자를 넘으면, 같은 사실로 18자 이내 체언형으로 다시 쓰십시오.",
+  ].join("\n");
+
+  const factContext = [
+    input.region,
+    input.use,
+    input.area,
+    input.priceBand,
+    input.currentHeadline,
+    ...points,
+    ...factEntries.map(([, v]) => String(v)),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    promptId: DEAL_CARD_COPY_PROMPT_ID,
+    systemPrompt: DEAL_CARD_COPY_SYSTEM,
+    userPrompt: `[S] Situation:\n${situation}\n\n[K] Knowledge (FactBook — ONLY Grounded Source):\n${knowledge}`,
+    factContext,
+  };
+}
+
+/** 1차 응답이 스키마를 통과하지 못했을 때 1회 재시도용 핀포인트 교정 지시. */
+export function buildDealCardCopyRepairPrompt(previousRaw: string, violations: readonly string[]): string {
+  return [
+    "직전 응답이 출력 계약을 어겼습니다. 아래 위반만 고쳐 같은 JSON 형식으로 다시 출력하십시오.",
+    `위반: ${violations.join(" / ") || "JSON 형식 오류"}`,
+    `직전 응답(참고): ${previousRaw.slice(0, 600)}`,
+  ].join("\n");
+}

@@ -28,6 +28,8 @@ export interface MagazineDraftSnapshot {
 
 export interface MagazineQuickDraftCardProps {
   monthLabel: string;
+  /** 발행 주기 (일간·주간·월간) — AI 초안 프롬프트의 기간 표현·분량 기준 */
+  cadence?: "daily" | "weekly" | "monthly";
   regionFocus?: string;
   onChangeRegionFocus?: (region: string) => void;
   preferredRegions?: readonly string[];
@@ -40,6 +42,7 @@ export interface MagazineQuickDraftCardProps {
 
 export function MagazineQuickDraftCard({
   monthLabel,
+  cadence,
   regionFocus = "",
   onChangeRegionFocus,
   preferredRegions = [],
@@ -82,6 +85,7 @@ export function MagazineQuickDraftCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           monthLabel: monthLabel.trim() || "이번 달 뉴스레터",
+          ...(cadence ? { cadence } : {}),
           regionFocus: effectiveRegion.trim() || undefined,
           preferredRegions: preferredRegions.length > 0 ? [...preferredRegions] : undefined,
           preferredChannels: preferredChannels.length > 0 ? [...preferredChannels] : undefined,

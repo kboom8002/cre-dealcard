@@ -36,6 +36,12 @@ import {
   BLIND_TEASER_PROMPT_ID,
 } from "@/ai/prompts/broker-deal-card";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
+import {
+  deriveDealCardHeadline,
+  repairDealCardLine,
+  repairDealCardPoints,
+  stripUngroundedNumbers,
+} from "@/lib/deal-card/copy-limits";
 import { getModel } from "../model-selector";
 
 /** AI 응답에서 ```json ... ``` 코드블록을 제거하여 순수 JSON 문자열 추출 */
@@ -332,6 +338,10 @@ export async function runBrokerDealCard(
       ogDescription: parsedObj.ogDescription != null ? String(parsedObj.ogDescription) : (parsedObj.og_description != null ? String(parsedObj.og_description) : undefined),
       kakaoOgTitle: parsedObj.kakaoOgTitle != null ? String(parsedObj.kakaoOgTitle) : (parsedObj.kakao_og_title != null ? String(parsedObj.kakao_og_title) : undefined),
       kakaoOgDescription: parsedObj.kakaoOgDescription != null ? String(parsedObj.kakaoOgDescription) : (parsedObj.kakao_og_description != null ? String(parsedObj.kakao_og_description) : undefined),
+      card4Headline: parsedObj.card4Headline != null ? String(parsedObj.card4Headline) : undefined,
+      card4Points: Array.isArray(parsedObj.card4Points)
+        ? (parsedObj.card4Points as unknown[]).map((p) => String(p ?? ""))
+        : undefined,
     };
   }
 
@@ -362,6 +372,27 @@ export async function runBrokerDealCard(
       (item) => rewriteUnsafeText(item).safeText
     );
   }
+
+  // 딜카드 18자 문구: 결정적 후처리(교정 → 근거 없는 숫자 제거 → 대체). LLM 이 누락해도 dealPoints 에서 복구.
+  const groundingContext = `${input.memo || ""} ${JSON.stringify(buildingTruth)}`;
+  const cardLineSource = (guardedTeaser.card4Points && guardedTeaser.card4Points.length > 0
+    ? guardedTeaser.card4Points
+    : guardedTeaser.dealPoints || []
+  ).map((p) => stripUngroundedNumbers(rewriteUnsafeText(String(p)).safeText, groundingContext).cleaned);
+  guardedTeaser.card4Points = repairDealCardPoints(cardLineSource, { fillEmpty: true });
+  const rawCardHeadline = guardedTeaser.card4Headline
+    ? stripUngroundedNumbers(rewriteUnsafeText(guardedTeaser.card4Headline).safeText, groundingContext).cleaned
+    : "";
+  guardedTeaser.card4Headline =
+    repairDealCardLine(rawCardHeadline) ||
+    deriveDealCardHeadline({
+      posture: buildingTruth.investmentPosture === "owner_occupied"
+        ? "owner_occupied"
+        : buildingTruth.investmentPosture === "development"
+        ? "value_add"
+        : "income",
+      points: guardedTeaser.card4Points,
+    });
 
   return {
     parsedMemo,

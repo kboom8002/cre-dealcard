@@ -42,6 +42,10 @@ export const dynamic = "force-dynamic";
 
 const IssueBodySchema = z.object({
   editionId: z.string().max(100).nullable().optional(),
+  /** 발행 주기 (1.4 회고: monthly 하드코딩 제거 — 일간·주간·월간 모두 지원) */
+  editionType: z.enum(["daily", "weekly", "monthly"]).optional(),
+  /** 일간·주간 기준 날짜 (KST YYYY-MM-DD, 표시·감사용) */
+  issueAnchorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   slug: z.string().max(60).optional(),
   issueNumber: z.number().int().optional(),
   year: z.number().int().min(2020).max(2100).optional(),
@@ -141,16 +145,17 @@ export async function POST(request: NextRequest) {
     );
     const brokerKeys = Array.from(new Set([brokerSlug, ...ctx.brokerKeys]));
 
+    const editionType = data.editionType ?? "monthly";
     const rawLabel =
       data.slug?.trim() ||
-      (data.year && data.month
+      (editionType === "monthly" && data.year && data.month
         ? `${data.year}-${String(data.month).padStart(2, "0")}`
-        : defaultLabelForEditionType("monthly"));
+        : defaultLabelForEditionType(editionType));
     const safeLabel = /^[A-Za-z0-9가-힣][A-Za-z0-9가-힣 _.\-]{0,39}$/.test(rawLabel)
       ? rawLabel
-      : defaultLabelForEditionType("monthly");
+      : defaultLabelForEditionType(editionType);
 
-    // 1. 기존 에디션 확인 또는 월간 초안 생성
+    // 1. 기존 에디션 확인 또는 주기별(일간·주간·월간) 초안 생성
     let targetEdition: Record<string, unknown> | null = null;
     if (data.editionId) {
       targetEdition = await assertOwnsRow<Record<string, unknown>>(
@@ -167,7 +172,7 @@ export async function POST(request: NextRequest) {
         supabase,
         { slug: brokerSlug, brokerKeys },
         {
-          editionType: "monthly",
+          editionType,
           editionLabel: safeLabel,
           format: "simple",
         }
@@ -527,7 +532,7 @@ export async function POST(request: NextRequest) {
 
     if (newsExplicitlyEnabled && resolvedUnitIssues.length === 0) {
       resolvedUnitIssues = clusterArticlesIntoFiveIssues([], {
-        cadence: "monthly",
+        cadence: editionType,
         preferredRegions,
         preferredChannels,
         dealKeywords: hydratedDeals.map((d) => `${d.title ?? ""} ${d.address ?? ""}`),
@@ -589,7 +594,7 @@ export async function POST(request: NextRequest) {
         specialtyRegions: resolvedBroker?.specialtyRegions ?? [],
         specialtyAssets: resolvedBroker?.specialtyAssets ?? [],
       },
-      kind: "monthly",
+      kind: editionType,
       issueDate,
       weekLabel: safeLabel,
       nowIso,

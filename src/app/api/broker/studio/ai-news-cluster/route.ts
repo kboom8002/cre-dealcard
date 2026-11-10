@@ -11,7 +11,8 @@ import {
   normalizePreferredRegions,
 } from "@/domain/magazine/broker-preferences";
 import { clusterArticlesIntoFiveIssues } from "@/domain/magazine/issue-clustering";
-import type { NewsPoolItem } from "@/domain/magazine/news-channels";
+import { CURATED_CHANNEL_POOL, type NewsPoolItem } from "@/domain/magazine/news-channels";
+import { AxiosClusterOutputSchema } from "@/ai/schemas/magazine-taskflow";
 import type { AxiosUnitIssue } from "@/domain/magazine/types";
 import { requireBroker } from "@/lib/auth-guard";
 import { createModuleLogger } from "@/lib/logger";
@@ -117,8 +118,11 @@ export async function POST(req: NextRequest) {
   });
 
   // 2. TaskFlow TF8 프롬프트 생성
+  const cadence = parsed.data.cadence ?? "monthly";
   const { systemPrompt, userPrompt, factBookContext } = buildTf8AxiosClusterPrompt({
-    cadenceLabel: parsed.data.cadence ?? "monthly",
+    cadence,
+    cadenceLabel: cadence,
+    sourceArticles: [...articles, ...CURATED_CHANNEL_POOL],
     preferredRegions,
     preferredChannels,
     dealTitles,
@@ -160,6 +164,22 @@ export async function POST(req: NextRequest) {
       baselineClusters,
       factBookContext,
     );
+
+    // AI Core 출력 계약 검증: 교정 후에도 36/48자 카드 스키마를 위반하면 결정론적 클러스터로 안전 폴백
+    const contract = AxiosClusterOutputSchema.safeParse({ unitIssues });
+    if (!contract.success) {
+      log.warn("[ai-news-cluster] repaired output violated card contract, using deterministic fallback", {
+        issue: contract.error.issues[0]?.message,
+      });
+      const safe = repairAxiosClusterOutputBlock(baselineClusters, baselineClusters, factBookContext);
+      return NextResponse.json({
+        ok: true,
+        unitIssues: safe.unitIssues,
+        warnings: [...warnings, ...safe.warnings],
+        envelope: safe.envelope,
+        usedFallback: true,
+      });
+    }
 
     return NextResponse.json({
       ok: true,

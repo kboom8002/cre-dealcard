@@ -72,7 +72,7 @@ describe("Wave 2 Adversarial Stress Suite", () => {
 
       const redirectEl = container.querySelector('[data-testid="magazine-workspace-redirect"]');
       expect(redirectEl).not.toBeNull();
-      expect(redirectEl?.textContent).toContain("고객 소식지 편집실로 이동 중입니다");
+      expect(redirectEl?.textContent).toContain("뉴스레터 편집실로 이동 중입니다");
       expect(mockReplace).toHaveBeenCalledTimes(1);
       expect(mockReplace).toHaveBeenCalledWith("/broker/magazine-editor");
     });
@@ -85,7 +85,7 @@ describe("Wave 2 Adversarial Stress Suite", () => {
 
       const redirectEl = container.querySelector('[data-testid="magazine-workspace-redirect"]');
       expect(redirectEl).not.toBeNull();
-      expect(redirectEl?.textContent).toContain("고객 소식지 편집실로 이동 중입니다");
+      expect(redirectEl?.textContent).toContain("뉴스레터 편집실로 이동 중입니다");
       expect(mockReplace).toHaveBeenCalledTimes(1);
       // Query parameters are forwarded to /broker/magazine-editor preserving deep links
       expect(mockReplace).toHaveBeenCalledWith("/broker/magazine-editor?tab=theme_deals&mode=simple&edition=ed-999&utm_source=kakao");

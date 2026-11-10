@@ -159,7 +159,7 @@ export function EditionAirtableList({
                 }`}
               >
                 <span className="whitespace-nowrap">{meta.shortLabel} 편집</span>
-                <span className={`text-[11px] font-medium whitespace-nowrap ${isCurrent ? "text-white/90" : "text-slate-500"}`}>
+                <span className={`text-xs font-medium whitespace-nowrap ${isCurrent ? "text-white/90" : "text-slate-500"}`}>
                   {cad === "daily" ? "이슈5+딜" : cad === "weekly" ? "브리핑+이슈5" : "통계2+이슈5"}
                 </span>
               </button>

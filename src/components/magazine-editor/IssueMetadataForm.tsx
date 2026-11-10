@@ -6,6 +6,12 @@ import type { MarketTemperature } from "@/domain/magazine/types";
 import { MARKET_TEMP_CONFIG } from "@/domain/magazine/types";
 import { formatSingleLineTitle } from "@/domain/magazine/issue-clustering";
 import { kstParts } from "@/lib/magazine/kst";
+import {
+  NEWSLETTER_CADENCES,
+  NEWSLETTER_CADENCE_META,
+  deriveCadenceIssueMeta,
+  type NewsletterCadence,
+} from "@/lib/magazine/newsletter-cadence";
 
 export interface AutoIssueMetadata {
   year: number;
@@ -70,6 +76,12 @@ export interface IssueMetadataFormProps {
   onChangeSummary: (value: string) => void;
   marketTemp?: MarketTemperature | null;
   onChangeMarketTemp?: (value: MarketTemperature | null) => void;
+  /** 발행 주기 (일간·주간·월간). 미지정 시 월간 */
+  cadence?: NewsletterCadence;
+  onChangeCadence?: (next: NewsletterCadence) => void;
+  /** 일간·주간 기준 날짜 (KST YYYY-MM-DD) */
+  issueDate?: string;
+  onChangeIssueDate?: (next: string) => void;
 }
 
 const YEAR_OPTIONS = [2025, 2026, 2027] as const;
@@ -83,8 +95,8 @@ const MARKET_TEMP_LIST: readonly MarketTemperature[] = [
 ] as const;
 
 export function IssueMetadataForm({
-  year = 2026,
-  month = 11,
+  year,
+  month,
   onChangeYearMonth,
   headline,
   onChangeHeadline,
@@ -92,18 +104,26 @@ export function IssueMetadataForm({
   onChangeSummary,
   marketTemp = null,
   onChangeMarketTemp,
+  cadence = "monthly",
+  onChangeCadence,
+  issueDate,
+  onChangeIssueDate,
 }: IssueMetadataFormProps) {
-  const autoMeta = deriveAutoIssueMeta(year, month);
+  const nowKst = kstParts();
+  const safeYear = typeof year === "number" ? year : nowKst.year;
+  const safeMonth = typeof month === "number" ? month : nowKst.month;
+  const autoMeta = deriveAutoIssueMeta(safeYear, safeMonth);
+  const cadenceMeta = deriveCadenceIssueMeta(cadence, { year: safeYear, month: safeMonth, dateStr: issueDate });
   const headlineTooLong = headline.trim().length > 36;
   const summaryTooLong = summary.trim().length > 80;
 
   const handleYearChange = (nextYear: number) => {
-    const nextMeta = deriveAutoIssueMeta(nextYear, month);
+    const nextMeta = deriveAutoIssueMeta(nextYear, safeMonth);
     onChangeYearMonth?.(nextMeta);
   };
 
   const handleMonthChange = (nextMonth: number) => {
-    const nextMeta = deriveAutoIssueMeta(year, nextMonth);
+    const nextMeta = deriveAutoIssueMeta(safeYear, nextMonth);
     onChangeYearMonth?.(nextMeta);
   };
 
@@ -113,66 +133,125 @@ export function IssueMetadataForm({
       aria-label="뉴스레터 표지 기본 정보"
       className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-5"
     >
-      {/* 1. 연·월 선택 (발행 호수·주소 자동 생성, 입력칸 미노출) */}
+      {/* 1. 발행 주기(일간·주간·월간) + 호수 선택 (발행 호수·주소 자동 생성, 입력칸 미노출) */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-blue-700" aria-hidden="true" />
-            <span className="text-base font-extrabold text-slate-900">발행 연·월 선택</span>
+            <span className="text-base font-extrabold text-slate-900">
+              {onChangeCadence ? "발행 주기 · 호수 선택" : "발행 연·월 선택"}
+            </span>
           </div>
           <span
             data-testid="auto-issue-badge"
             className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-bold text-blue-900"
           >
-            {autoMeta.yearMonthLabel} · 제{autoMeta.issueNumber}호 자동 지정
+            {cadence === "monthly"
+              ? `${autoMeta.yearMonthLabel} · 제${autoMeta.issueNumber}호 자동 지정`
+              : `${cadenceMeta.yearMonthLabel} · ${cadenceMeta.rangeLabel} 자동 지정`}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label
-              htmlFor="newsletter-issue-year"
-              className="block text-sm font-bold text-slate-700 mb-1"
-            >
-              발행 연도
-            </label>
-            <select
-              id="newsletter-issue-year"
-              value={autoMeta.year}
-              onChange={(e) => handleYearChange(Number(e.target.value))}
-              className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              {YEAR_OPTIONS.map((y) => (
-                <option key={y} value={y}>
-                  {y}년
-                </option>
-              ))}
-            </select>
+        {onChangeCadence && (
+          <div
+            role="radiogroup"
+            aria-label="발행 주기 선택"
+            data-testid="metadata-cadence-selector"
+            className="grid grid-cols-3 gap-2"
+          >
+            {NEWSLETTER_CADENCES.map((key) => {
+              const meta = NEWSLETTER_CADENCE_META[key];
+              const selected = cadence === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  data-testid={`metadata-cadence-${key}`}
+                  onClick={() => onChangeCadence(key)}
+                  className={`min-h-[48px] rounded-xl border px-3 py-2 text-left transition ${
+                    selected
+                      ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="block text-sm font-extrabold">{meta.label} 뉴스레터</span>
+                  <span className="block text-sm font-medium text-slate-600">{meta.description}</span>
+                </button>
+              );
+            })}
           </div>
+        )}
 
+        {cadence === "monthly" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="newsletter-issue-year"
+                className="block text-sm font-bold text-slate-700 mb-1"
+              >
+                발행 연도
+              </label>
+              <select
+                id="newsletter-issue-year"
+                value={autoMeta.year}
+                onChange={(e) => handleYearChange(Number(e.target.value))}
+                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {YEAR_OPTIONS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}년
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="newsletter-issue-month"
+                className="block text-sm font-bold text-slate-700 mb-1"
+              >
+                발행 월
+              </label>
+              <select
+                id="newsletter-issue-month"
+                value={autoMeta.month}
+                onChange={(e) => handleMonthChange(Number(e.target.value))}
+                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {MONTH_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}월
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
           <div>
             <label
-              htmlFor="newsletter-issue-month"
+              htmlFor="newsletter-issue-date"
               className="block text-sm font-bold text-slate-700 mb-1"
             >
-              발행 월
+              {cadence === "weekly" ? "발행 주 선택 (그 주의 아무 날짜나 고르세요)" : "발행일 선택"}
             </label>
-            <select
-              id="newsletter-issue-month"
-              value={autoMeta.month}
-              onChange={(e) => handleMonthChange(Number(e.target.value))}
+            <input
+              id="newsletter-issue-date"
+              data-testid="newsletter-issue-date"
+              type="date"
+              value={cadenceMeta.cadence === "weekly" ? (issueDate ?? cadenceMeta.dateStr) : cadenceMeta.dateStr}
+              onChange={(e) => onChangeIssueDate?.(e.target.value)}
               className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              {MONTH_OPTIONS.map((m) => (
-                <option key={m} value={m}>
-                  {m}월
-                </option>
-              ))}
-            </select>
+            />
+            {cadence === "weekly" && (
+              <p className="mt-1 text-sm font-medium text-slate-600">
+                {cadenceMeta.rangeLabel} (월~일) 한 주 소식을 담습니다.
+              </p>
+            )}
           </div>
-        </div>
+        )}
       </div>
-
       {/* 2. 표지 제목 */}
       <div className="space-y-2">
         <label

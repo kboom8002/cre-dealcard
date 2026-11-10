@@ -403,7 +403,7 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
 
       const redirectEl = container.querySelector('[data-testid="magazine-workspace-redirect"]');
       expect(redirectEl).not.toBeNull();
-      expect(redirectEl?.textContent).toContain('고객 소식지 편집실로 이동 중입니다');
+      expect(redirectEl?.textContent).toContain('뉴스레터 편집실로 이동 중입니다');
       expect(mockReplace).toHaveBeenCalledWith('/broker/magazine-editor');
     });
   });

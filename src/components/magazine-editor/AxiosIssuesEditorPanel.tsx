@@ -4,7 +4,10 @@ import React, { useState } from "react";
 import { Sparkles, ArrowUp, ArrowDown, RefreshCw, Palette, Newspaper } from "lucide-react";
 import type { AxiosUnitIssue, PostItTone } from "@/domain/magazine/types";
 import {
+  AXIOS_BRIEF_MAX_CHARS,
+  AXIOS_TITLE_MAX_CHARS,
   ISSUE_CARD_COUNT,
+  charLength,
   POST_IT_TONES,
   POST_IT_TONE_META,
   clusterArticlesIntoFiveIssues,
@@ -102,8 +105,11 @@ export function AxiosIssuesEditorPanel({
     const currentTone = issues[idx]?.memoTone ?? POST_IT_TONES[idx % POST_IT_TONES.length];
     const replacement: AxiosUnitIssue = {
       id: String(item.id ?? `issue-${idx + 1}-${Date.now()}`),
-      title: formatAxiosCardTitle(item.title, 52),
-      brief: formatAxiosTwoLineBrief(item.summary, { title: item.title, channel: ch }),
+      title: formatAxiosCardTitle(item.cardTitle || item.title),
+      brief: formatAxiosTwoLineBrief(item.cardBrief || item.summary, {
+        title: formatAxiosCardTitle(item.cardTitle || item.title),
+        channel: ch,
+      }),
       memoTone: currentTone,
       channel: ch,
       topic: item.topic || ch,
@@ -141,7 +147,7 @@ export function AxiosIssuesEditorPanel({
               </span>
             </div>
             <p className="mt-1 text-sm font-medium text-slate-600">
-              내 주력 권역과 관심 분야 기사를 클러스터링하여 <strong>카드뉴스형 2줄 큰 제목 + 2줄 짧은 해설(AXIOS 스타일)</strong> 포스트잇으로 구성합니다.
+              내 주력 권역과 관심 분야 기사를 클러스터링하여 <strong>카드뉴스형 제목(36자 이내) + 짧은 해설(48자 이내, AXIOS 스타일)</strong> 글래스 카드로 구성합니다. 글자 수 안에서 쓰면 고객 화면에서 잘리지 않습니다.
             </p>
           </div>
 
@@ -223,8 +229,8 @@ export function AxiosIssuesEditorPanel({
                           aria-pressed={selected}
                           onClick={() => handleUpdateIssue(idx, { memoTone: t as PostItTone })}
                           style={{
-                            backgroundColor: m.cardBg,
-                            borderColor: selected ? m.accentBar : m.cardBorder,
+                            background: m.glassBackground,
+                            borderColor: selected ? m.glassAccent : "rgba(15,23,42,0.25)",
                           }}
                           className={`w-5 h-5 rounded-full border-2 transition-transform ${
                             selected ? "scale-110 ring-2 ring-slate-900/20" : "opacity-80 hover:opacity-100"
@@ -263,72 +269,119 @@ export function AxiosIssuesEditorPanel({
                 </div>
               </div>
 
-              {/* 카드뉴스형 2줄 제목 입력 */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor={`axios-issue-title-${idx}`}
-                    className="text-sm font-extrabold text-slate-800"
-                  >
-                    카드뉴스 헤드라인 제목 (최대 2줄 큰 글씨)
-                  </label>
-                  <span className="text-sm font-semibold text-slate-600">
-                    {issue.title.length}/52자
-                  </span>
-                </div>
-                <input
-                  id={`axios-issue-title-${idx}`}
-                  type="text"
-                  maxLength={54}
-                  value={issue.title}
-                  onChange={(e) =>
-                    handleUpdateIssue(idx, {
-                      title: e.target.value.replace(/[\r\n]+/g, " "),
-                    })
-                  }
-                  placeholder="고객 시선을 끄는 1~2줄 핵심 제목을 입력하세요"
-                  className="w-full min-h-11 rounded-lg border border-slate-300/90 bg-white/95 px-3.5 py-2 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
-                />
-              </div>
+              {/* 카드뉴스 제목 입력 (36자 예산 · 실시간 카운터 · 초과 시 경고 + 1-클릭 압축) */}
+              {(() => {
+                const titleLen = charLength(issue.title);
+                const briefLen = charLength(issue.brief);
+                const titleOver = titleLen > AXIOS_TITLE_MAX_CHARS;
+                const briefOver = briefLen > AXIOS_BRIEF_MAX_CHARS;
+                const channelForIssue = resolveNewsChannel({
+                  title: issue.title,
+                  summary: issue.brief,
+                  channel: issue.channel,
+                });
+                return (
+                  <>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor={`axios-issue-title-${idx}`}
+                          className="text-sm font-extrabold text-slate-800"
+                        >
+                          카드뉴스 제목 (36자 이내)
+                        </label>
+                        <span
+                          data-testid={`axios-issue-title-count-${idx}`}
+                          className={`text-sm font-bold ${titleOver ? "text-rose-700" : "text-slate-600"}`}
+                        >
+                          {titleLen}/{AXIOS_TITLE_MAX_CHARS}자
+                        </span>
+                      </div>
+                      <input
+                        id={`axios-issue-title-${idx}`}
+                        type="text"
+                        value={issue.title}
+                        aria-invalid={titleOver}
+                        onChange={(e) =>
+                          handleUpdateIssue(idx, {
+                            title: e.target.value.replace(/[\r\n]+/g, " "),
+                          })
+                        }
+                        onBlur={() => {
+                          if (titleOver) {
+                            handleUpdateIssue(idx, { title: formatAxiosCardTitle(issue.title) });
+                            editorToast.success(`${idx + 1}번 제목을 36자 이내 완결된 문장으로 다듬었습니다.`);
+                          }
+                        }}
+                        placeholder="고객 시선을 끄는 핵심 제목 (36자 이내)"
+                        className={`w-full min-h-11 rounded-lg border bg-white/95 px-3.5 py-2 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+                          titleOver ? "border-rose-500 focus:border-rose-600" : "border-slate-300/90 focus:border-blue-600"
+                        }`}
+                      />
+                      {titleOver && (
+                        <p role="status" className="text-sm font-bold text-rose-700">
+                          36자를 넘으면 고객 화면에서 길어져요. 입력칸을 벗어나면 자동으로 다듬어 드려요.
+                        </p>
+                      )}
+                    </div>
 
-              {/* 2줄 짧은 부제 해설 입력 */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor={`axios-issue-brief-${idx}`}
-                    className="text-sm font-extrabold text-slate-800"
-                  >
-                    AXIOS 부제형 짧은 해설 (2줄 · 2문장 요약)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const refined = formatAxiosTwoLineBrief(issue.brief, {
-                        title: issue.title,
-                        channel: resolveNewsChannel({
-                          title: issue.title,
-                          summary: issue.brief,
-                          channel: issue.channel,
-                        }),
-                      });
-                      handleUpdateIssue(idx, { brief: refined });
-                      editorToast.success("AXIOS 2줄 부제 형식으로 짧고 명확하게 정돈했습니다.");
-                    }}
-                    className="text-sm font-bold text-blue-800 hover:underline"
-                  >
-                    ✨ 2줄 부제형 자동 압축
-                  </button>
-                </div>
-                <textarea
-                  id={`axios-issue-brief-${idx}`}
-                  rows={2}
-                  value={issue.brief}
-                  onChange={(e) => handleUpdateIssue(idx, { brief: e.target.value })}
-                  placeholder="핵심 팩트 1문장 + 매수자 시사점 1문장(총 2줄 분량)으로 짧게 입력하세요"
-                  className="w-full rounded-lg border border-slate-300/90 bg-white/95 p-3 text-sm font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 resize-y"
-                />
-              </div>
-
+                    {/* 짧은 해설 입력 (48자 예산) */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <label
+                          htmlFor={`axios-issue-brief-${idx}`}
+                          className="text-sm font-extrabold text-slate-800"
+                        >
+                          짧은 해설 (48자 이내 · 1~2문장)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span
+                            data-testid={`axios-issue-brief-count-${idx}`}
+                            className={`text-sm font-bold ${briefOver ? "text-rose-700" : "text-slate-600"}`}
+                          >
+                            {briefLen}/{AXIOS_BRIEF_MAX_CHARS}자
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const refined = formatAxiosTwoLineBrief(issue.brief, {
+                                title: issue.title,
+                                channel: channelForIssue,
+                              });
+                              handleUpdateIssue(idx, { brief: refined });
+                              editorToast.success("48자 이내 완결된 해설로 짧고 명확하게 정돈했습니다.");
+                            }}
+                            className="text-sm font-bold text-blue-800 hover:underline"
+                          >
+                            ✨ 48자 자동 압축
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        id={`axios-issue-brief-${idx}`}
+                        rows={2}
+                        value={issue.brief}
+                        aria-invalid={briefOver}
+                        onChange={(e) => handleUpdateIssue(idx, { brief: e.target.value })}
+                        onBlur={() => {
+                          if (briefOver) {
+                            handleUpdateIssue(idx, {
+                              brief: formatAxiosTwoLineBrief(issue.brief, {
+                                title: issue.title,
+                                channel: channelForIssue,
+                              }),
+                            });
+                          }
+                        }}
+                        placeholder="핵심 팩트나 시사점을 48자 이내 1~2문장으로 짧게 입력하세요"
+                        className={`w-full rounded-lg border bg-white/95 p-3 text-sm font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none resize-y ${
+                          briefOver ? "border-rose-500 focus:border-rose-600" : "border-slate-300/90 focus:border-blue-600"
+                        }`}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
               {/* 기사 교체 드로어 */}
               {isSwapping && (
                 <div className="rounded-lg border border-slate-300 bg-white p-3 space-y-2.5">

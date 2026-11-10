@@ -204,7 +204,7 @@ export function LiveDealCardPreviewCard({
 
           {/* OG Card Text Box */}
           <div className="p-3.5 space-y-1.5 bg-neutral-900/90 text-left">
-            <p className="text-sm font-bold text-white line-clamp-1 leading-snug">
+            <p className="text-sm font-bold text-white break-keep whitespace-normal leading-snug">
               {displayTitle}
             </p>
             <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed">

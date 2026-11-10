@@ -26,6 +26,8 @@ import { TrustLine } from '@/components/teaser/TrustLine';
 import { PoweredByBadge } from '@/components/ui/PoweredByBadge';
 
 import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
+import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
+import { DealCardLineText } from '@/components/broker/deal-card/DealCardLineText';
 
 interface PageProps { 
   params: Promise<{ id: string }>;
@@ -456,12 +458,13 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
               {hero.bandedPrice || "—"}
             </div>
           </div>
-          <h1
-            data-single-line-title="true"
-            className="text-lg font-extrabold text-white text-center pt-1 break-keep"
-          >
-            {og.title || hero.title}
-          </h1>
+          {/* 한 줄 제목: 중개사 편집기 card4.headline 이 1순위 (toPublicDealCard og.title) — 18자 교정 · 줄바꿈 안전 */}
+          <DealCardLineText
+            as="h1"
+            testId="public-dealcard-title"
+            text={og.title || hero.title}
+            className="text-lg font-extrabold text-white text-center pt-1"
+          />
         </section>
 
         {/* ① 장점 3줄 (18자 이내 제목 3줄만 깔끔하게 표시) */}
@@ -503,8 +506,8 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
               <ul className="space-y-2.5">
                 {dp.map((pt: string, i: number) => {
                   const tone = postItStyles[i % postItStyles.length];
-                  const [headlinePart] = pt.split(" — ");
-                  const cleanTitle = headlinePart.trim().slice(0, 18);
+                  // 하드 절단(slice) 금지: 어절 경계 18자 교정 (copy-limits SSOT)
+                  const cleanTitle = repairDealCardLine(pt) || "—";
                   return (
                     <li
                       key={i}
@@ -518,13 +521,12 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
                       >
                         {tone.label}
                       </span>
-                      <p
-                        data-single-line-title="true"
-                        title={cleanTitle}
-                        className="text-base font-extrabold text-slate-950 leading-snug break-keep"
-                      >
-                        {cleanTitle}
-                      </p>
+                      <DealCardLineText
+                        testId={`public-dealcard-postit-text-${i}`}
+                        text={cleanTitle}
+                        preRepaired
+                        className="flex-1 text-base font-extrabold text-slate-950"
+                      />
                     </li>
                   );
                 })}

@@ -241,8 +241,11 @@ describe("Newsletter Service Advancement (7 Broker Requirements Verification)", 
           .split(/(?<=[.!?。])\s+/)
           .map((s) => s.trim())
           .filter(Boolean);
-        expect(sentences.length).toBeGreaterThanOrEqual(2);
-        expect(sentences.length).toBeLessThanOrEqual(4);
+        // 2026-11 사용자 스펙: 해설 48자 이내 1~2문장, 제목 36자 이내 (고객 화면 잘림 0건)
+        expect(sentences.length).toBeGreaterThanOrEqual(1);
+        expect(sentences.length).toBeLessThanOrEqual(2);
+        expect(Array.from(issue.brief).length).toBeLessThanOrEqual(48);
+        expect(Array.from(issue.title).length).toBeLessThanOrEqual(36);
       }
 
       const panelHtml = renderToStaticMarkup(
@@ -316,7 +319,9 @@ describe("Newsletter Service Advancement (7 Broker Requirements Verification)", 
       expect((viewHtml.match(/data-testid="axios-postit-card"/g) ?? []).length).toBe(5);
       for (const tone of POST_IT_TONES) {
         expect(viewHtml).toContain(`data-postit-tone="${tone}"`);
-        expect(viewHtml).toContain(POST_IT_TONE_META[tone].cardBg);
+        // 2026-11 사용자 스펙: 포스트잇 → 글래스모피즘·그래디언트 카드뉴스 배경
+        expect(viewHtml).toContain('data-card-style="glass"');
+        expect(POST_IT_TONE_META[tone].glassBackground).toMatch(/linear-gradient/);
       }
 
       // 7. Uncluttered detail view: no 6-button quick-scroll jump bar, no duplicate field_note quote in header

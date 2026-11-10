@@ -26,20 +26,21 @@ export const MARKET_TEMP_VALUES = [
 ] as const;
 
 export const MagazineDraftOutputSchema = z.object({
-  headline: z.string().min(6).max(52),
-  summary: z.string().min(15).max(160),
-  briefingTitle: z.string().min(6).max(48),
-  briefingBody: z.string().min(60).max(750),
+  headline: z.string().min(6).max(36),
+  summary: z.string().min(15).max(80),
+  briefingTitle: z.string().min(6).max(30),
+  briefingBody: z.string().min(60).max(400),
   marketTemp: z.enum(MARKET_TEMP_VALUES).optional(),
   coverKeywords: z.array(z.string().min(1).max(18)).max(5).optional(),
 });
 
 export type MagazineDraftOutput = z.infer<typeof MagazineDraftOutputSchema>;
 
+/** 카드뉴스 이슈 제목 36자 · 해설 48자 (issue-clustering AXIOS_TITLE_MAX_CHARS / AXIOS_BRIEF_MAX_CHARS 와 동일) */
 export const AxiosIssueItemSchema = z.object({
   id: z.string().min(1),
-  title: z.string().min(8).max(54),
-  brief: z.string().min(30).max(115),
+  title: z.string().min(8).max(36),
+  brief: z.string().min(12).max(48),
   memoTone: z.enum(POST_IT_TONE_IDS),
   channel: z.enum(SPECIFIC_CHANNEL_IDS),
   topic: z.string().optional(),
@@ -78,6 +79,10 @@ export interface TaskFlow8PromptSpec {
   situation: string;
   logicChain: readonly string[];
   fallbackRepair: string;
+  /** [E] 좋은 예 / 나쁜 예 Few-shot (선택) */
+  examples?: readonly string[];
+  /** [V] 출력 직전 자체 검증 체크리스트 (선택) */
+  selfCheck?: readonly string[];
 }
 
 export function renderTf8Prompt(spec: TaskFlow8PromptSpec): {
@@ -91,6 +96,12 @@ export function renderTf8Prompt(spec: TaskFlow8PromptSpec): {
     `[W] Warnings & Hard Constraints:\n${spec.warnings.map((w, i) => `${i + 1}. ${w}`).join("\n")}`,
     `[O] Output Schema & Char Budgets:\n${spec.outputContract}`,
     `[L] Logic Chain:\n${spec.logicChain.map((step, i) => `Step ${i + 1}. ${step}`).join("\n")}`,
+    ...(spec.examples && spec.examples.length > 0
+      ? [`[E] Examples (Good ✅ / Bad ❌):\n${spec.examples.join("\n")}`]
+      : []),
+    ...(spec.selfCheck && spec.selfCheck.length > 0
+      ? [`[V] Self-Verification Before Output:\n${spec.selfCheck.map((c, i) => `☐ ${i + 1}. ${c}`).join("\n")}`]
+      : []),
     `[F] Fallback & M11 Pinpoint Block Repair:\n${spec.fallbackRepair}`,
   ].join("\n\n");
 

@@ -11,6 +11,11 @@
 import { z } from 'zod';
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  deriveDealCardHeadline,
+  repairDealCardLine,
+  repairDealCardPoints,
+} from './copy-limits';
 
 export type ProvenanceSource = 'public' | 'broker' | 'ai';
 export type DealCardPosture = 'income' | 'owner_occupied' | 'value_add';
@@ -126,77 +131,39 @@ export function resolveAreaOnPostureChange(
 /**
  * Generates an <=18-char AI appeal copy (OG Title) focused on yield or key strength,
  * strictly avoiding tautological repetition of region, use, area, or priceBand (Req 2).
+ *
+ * Grounded: 수익률·특징은 장점 3줄에 실제로 있는 사실만 사용한다 (임의 "연 4%대" 생성 금지).
+ * SSOT: `deriveDealCardHeadline` (src/lib/deal-card/copy-limits.ts).
  */
 export function generateAiOgHeadline(card4: Partial<Card4Data>): string {
-  const posture: DealCardPosture = card4.posture || 'income';
-  const joinedPoints = (card4.points || []).join(' ');
-  const yieldMatch = joinedPoints.match(/(\d+(?:\.\d+)?\s*%)/);
-  const yieldStr = yieldMatch ? yieldMatch[1].replace(/\s+/g, '') : null;
-
-  if (posture === 'income') {
-    if (yieldStr) {
-      return `연 ${yieldStr} 우량임차 만실 빌딩`.slice(0, 18);
-    }
-    return '연 4%대 우량임차 만실 코너'.slice(0, 18);
-  }
-
-  if (posture === 'owner_occupied') {
-    return '즉시입주·가시성 우수 코너사옥'.slice(0, 18);
-  }
-
-  return '용적률 여유·신축 밸류업 최적'.slice(0, 18);
+  return deriveDealCardHeadline({
+    posture: card4.posture || 'income',
+    points: card4.points || [],
+  });
 }
 
 /**
- * AI Clustering helper: Reconstructs DealCard OG Headline (<=18 chars, zero tautology)
+ * AI Clustering helper (offline fallback): Reconstructs DealCard OG Headline (<=18 chars, zero tautology)
  * and 3 concise investment point titles (<=18 chars each, no verbose briefs).
+ * - 기존 장점이 있으면 18자 체언형으로 교정해 재사용하고, 빈 칸만 숫자 없는 정성 문구로 채운다.
  */
 export function reclusterDealCardPointsAsAxios(card4: Card4Data): Card4Data {
   const posture: DealCardPosture = card4.posture || 'income';
 
-  const defaultPointsByPosture: Record<
-    DealCardPosture,
-    {
-      headline: string;
-      points: [string, string, string];
-    }
-  > = {
-    income: {
-      headline: generateAiOgHeadline({ ...card4, posture: 'income' }),
-      points: [
-        '역세권 도보 3분 가시성 코너',
-        '우량 임차인 전층 만실 운영',
-        '연 4%대 안정 배당 수익권',
-      ],
-    },
-    owner_occupied: {
-      headline: generateAiOgHeadline({ ...card4, posture: 'owner_occupied' }),
-      points: [
-        '대로 이면 뛰어난 사옥 가시성',
-        '효율적 전용면적·주차 완비',
-        '인근 실거래 대비 합리적 호가',
-      ],
-    },
-    value_add: {
-      headline: generateAiOgHeadline({ ...card4, posture: 'value_add' }),
-      points: [
-        '용적률 여유·증축 잠재력 보유',
-        '리모델링 시 임대료 대폭 상승',
-        '토지 단가 중심 하방경직성 확보',
-      ],
-    },
+  const fallbackPointsByPosture: Record<DealCardPosture, [string, string, string]> = {
+    income: ['접근성 좋은 입지', '안정적 임차 구성', '꾸준한 임대수익 구조'],
+    owner_occupied: ['사옥 활용 쉬운 구조', '출퇴근 편한 입지', '즉시 검토 가능 매물'],
+    value_add: ['신축·리모델링 검토 부지', '밸류업 여지 보유', '토지 가치 중심 매물'],
   };
 
-  const preset = defaultPointsByPosture[posture];
-  const nextPoints: [string, string, string] = [
-    preset.points[0].slice(0, 18),
-    preset.points[1].slice(0, 18),
-    preset.points[2].slice(0, 18),
-  ];
+  const nextPoints = repairDealCardPoints(card4.points, {
+    fillEmpty: true,
+    fallbacks: fallbackPointsByPosture[posture],
+  });
 
   return {
     ...card4,
-    headline: preset.headline.slice(0, 18),
+    headline: deriveDealCardHeadline({ posture, points: nextPoints }),
     posture,
     area: resolveCard4AreaLabel({ ...card4, posture }),
     points: nextPoints,
@@ -318,12 +285,21 @@ export async function updateDealCard4(
   }
 
   const nextVersion = (currentVersion || 0) + 1;
-  const newHash = computeCard4Hash(input.card4);
+
+  // 18자 SSOT 교정: 장점 3줄은 어절 경계 교정, 한 줄 제목은 비어 있으면 근거 기반 파생 제목으로
+  // **같은 필드(card4.headline)** 에 채운다 → 편집기·OG·고객 화면이 한 값만 본다.
+  const repairedPoints = repairDealCardPoints(input.card4.points);
+  const requestedHeadline = repairDealCardLine(input.card4.headline ?? currentCard4?.headline ?? '');
+  const resolvedHeadline =
+    requestedHeadline ||
+    deriveDealCardHeadline({
+      posture: input.card4.posture ?? currentCard4?.posture,
+      points: repairedPoints,
+    });
+  const newHash = computeCard4Hash({ ...input.card4, headline: resolvedHeadline, points: repairedPoints });
 
   const fullCard4: Card4Data = {
-    ...(input.card4.headline ?? currentCard4?.headline
-      ? { headline: (input.card4.headline ?? currentCard4?.headline)?.trim().slice(0, 18) }
-      : {}),
+    headline: resolvedHeadline,
     ...(input.card4.posture ?? currentCard4?.posture
       ? { posture: input.card4.posture ?? currentCard4?.posture }
       : {}),
@@ -339,11 +315,7 @@ export async function updateDealCard4(
       ? { landAreaPyung: input.card4.landAreaPyung ?? currentCard4?.landAreaPyung }
       : {}),
     priceBand: input.card4.priceBand.trim(),
-    points: [
-      input.card4.points[0].trim(),
-      input.card4.points[1].trim(),
-      input.card4.points[2].trim(),
-    ],
+    points: repairedPoints,
     provenance: input.card4.provenance || currentCard4?.provenance || {
       points: ['broker', 'broker', 'broker'],
     },
@@ -356,6 +328,8 @@ export async function updateDealCard4(
     card4: fullCard4,
     title: fullCard4.headline || `${fullCard4.region} ${fullCard4.use} ${fullCard4.priceBand}`,
     kakaoOgTitle: fullCard4.headline || generateAiOgHeadline(fullCard4),
+    // 레거시 OG 라우트가 ogTitle 을 우선 읽으므로, 중개사 편집 제목과 항상 동기화한다.
+    ...(fullCard4.headline ? { ogTitle: fullCard4.headline } : {}),
     kakaoOgDescription: '',
     dealPoints: [...fullCard4.points],
   };

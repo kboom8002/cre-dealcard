@@ -16,6 +16,7 @@ import {
   type Card4Data,
 } from '@/lib/deal-card/card4-schema';
 import { validateBlindPoints } from '@/lib/deal-card/blind-guard';
+import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { copyText, COPY_FAILED_MESSAGE } from '@/lib/ux/clipboard';
 import { getSiteOrigin, shareKakaoFeed } from '@/lib/kakao/share';
 import { TERMS } from '@/lib/ux/lexicon';
@@ -118,7 +119,7 @@ export function PreSendConfirmationSheet({
   }`;
   const areaDisplay = resolveCard4AreaLabel(card4) || '—';
   const headlineDisplay =
-    (card4.headline || '').trim().slice(0, 18) ||
+    repairDealCardLine(card4.headline) ||
     generateAiOgHeadline(card4);
 
   const isAllValid =

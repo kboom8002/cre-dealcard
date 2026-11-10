@@ -173,9 +173,10 @@ export async function GET(
   const urgencyTag = teaserView.urgencyTag || (building?.urgency_tag as string);
   const bandedPrice = attrs.priceBand || teaserView.bandedPrice || "가격 협의";
 
-  // Hook copy & title priority: broker custom edit > AI generated > fallback
+  // Hook copy & title priority: broker DealCard 한 줄 제목(card4.headline SSOT) > broker custom edit > AI generated > fallback
   const mainHeadline = 
-    teaser?.ogTitle 
+    teaser?.card4?.headline
+    || teaser?.ogTitle 
     || imBody?.ogTitle 
     || teaser?.kakaoOgTitle 
     || imBody?.kakaoOgTitle

@@ -65,14 +65,17 @@ export const POST = withPublicGuard<PollBody>({
   const brokerParam = body.brokerId;
   const editionDate = body.editionDate;
 
-  // IP + UserAgent + 클라이언트 토큰 기반 서버측 방문자 해시 산출 (조작 방지 및 평문 식별자 저장 차단 — D-S1-04)
+  // IP + UserAgent 기반 서버측 방문자 해시 산출 (조작 방지 및 rate limiting 보강)
+  // 회고: 직전 커밋(D-S1-04)에서 클라이언트 visitorId 를 IP 결합 해시로 바꾸면서
+  //  ① 네트워크 변경 시 중복 투표 방지가 깨지고 ② magazine_analytics 방문자 키와 조인이 끊기는 회귀가 있어 원복한다.
+  //  클라이언트 visitorId 는 sanitizeVisitorId 로 검증된 무작위 가명 토큰(전화·이메일 등 PII 아님)이다.
   const userAgent = request.headers.get("user-agent");
-  const rawClientVisitor =
+  const serverVisitorHash = computeVisitorHash(ip, userAgent);
+
+  const visitorId =
     sanitizeVisitorId(body.visitorId) ??
-    sanitizeVisitorId(request.headers.get("x-visitor-id"));
-  const visitorId = rawClientVisitor
-    ? computeVisitorHash(ip, `${userAgent ?? ""}:${rawClientVisitor}`)
-    : computeVisitorHash(ip, userAgent);
+    sanitizeVisitorId(request.headers.get("x-visitor-id")) ??
+    serverVisitorHash;
 
   if (!visitorId) return fail(400, "BAD_REQUEST", "방문자를 확인할 수 없습니다.");
 

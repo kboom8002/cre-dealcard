@@ -12,6 +12,11 @@ import {
 } from "@/domain/magazine/broker-preferences";
 import { requireBroker } from "@/lib/auth-guard";
 import {
+  charLength,
+  condenseKoreanParagraph,
+  formatSingleLineTitle,
+} from "@/domain/magazine/issue-clustering";
+import {
   AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
   findNumbersNotInContext,
 } from "@/lib/magazine/ai-comment-schema";
@@ -38,7 +43,7 @@ export function sanitizeInvestmentSolicitation(text: string): string {
 }
 
 export const AI_DRAFT_SYSTEM_PROMPT = [
-  "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v2.0)",
+  "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v3.0)",
   "[T] Task: 공인중개사가 입력한 발행 연·월, 주력 권역, 관심 큐레이션 분야, 추천 매물, 기존 메모만을 바탕으로 정중하고 신뢰감 있는 한국어 뉴스레터 초안 JSON을 작성하세요.",
   "[A] Audience: 50~70대 중소형 빌딩 매수 대기자, 법인 사옥 실수요 대표, 건물주.",
   "[W] Warnings & Hard Constraints:",
@@ -50,6 +55,7 @@ export const AI_DRAFT_SYSTEM_PROMPT = [
 
 export const aiDraftRequestSchema = z.object({
   monthLabel: z.string().trim().min(1, "발행 연·월 정보가 필요합니다.").max(60),
+  cadence: z.enum(["daily", "weekly", "monthly"]).optional(),
   regionFocus: z.string().trim().max(120).optional(),
   preferredRegions: z.array(z.string().trim().max(40)).max(8).optional(),
   preferredChannels: z.array(z.string().trim().max(40)).max(5).optional(),
@@ -81,16 +87,22 @@ function fail(status: number, code: string, message: string) {
   return NextResponse.json({ ok: false, error: { code, message } }, { status });
 }
 
-function clampText(raw: unknown, maxLen: number): string {
+/**
+ * 하드 슬라이스(cleaned.slice) 금지 — 제목류는 어절 경계 압축 + 매달린 조사 제거,
+ * 문장류는 문장 단위 축약 + 완결 서술어 보강으로 "잘린 글"이 고객에게 노출되지 않게 한다.
+ */
+function clampText(raw: unknown, maxLen: number, kind: "title" | "text" = "text"): string {
   if (typeof raw !== "string") return "";
   const cleaned = sanitizeInvestmentSolicitation(raw.replace(/\s+/g, " ").trim());
-  return cleaned.length > maxLen ? cleaned.slice(0, maxLen).trim() : cleaned;
+  if (charLength(cleaned) <= maxLen) return cleaned;
+  return kind === "title" ? formatSingleLineTitle(cleaned, maxLen) : condenseKoreanParagraph(cleaned, maxLen);
 }
 
 function clampMultilineText(raw: unknown, maxLen: number): string {
   if (typeof raw !== "string") return "";
   const cleaned = sanitizeInvestmentSolicitation(raw.trim());
-  return cleaned.length > maxLen ? cleaned.slice(0, maxLen).trim() : cleaned;
+  if (charLength(cleaned) <= maxLen) return cleaned;
+  return condenseKoreanParagraph(cleaned, maxLen, { preserveParagraphs: true });
 }
 
 function extractJsonObject(rawContent: string): Record<string, unknown> | null {
@@ -165,6 +177,7 @@ export async function POST(req: NextRequest) {
 
   const tf8 = buildTf8DraftPrompt({
     monthLabel: input.monthLabel,
+    cadence: input.cadence,
     regionFocus: input.regionFocus,
     preferredRegions,
     preferredChannels,
@@ -201,9 +214,9 @@ export async function POST(req: NextRequest) {
     }
 
     const rawCandidate = {
-      headline: clampText(jsonObj.headline, 36),
+      headline: clampText(jsonObj.headline, 36, "title"),
       summary: clampText(jsonObj.summary, 80),
-      briefingTitle: clampText(jsonObj.briefingTitle, 30),
+      briefingTitle: clampText(jsonObj.briefingTitle, 30, "title"),
       briefingBody: clampMultilineText(jsonObj.briefingBody, 400),
     };
 

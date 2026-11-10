@@ -7,6 +7,7 @@ import { readBuilding } from '@/domain/building/im-core/read-building';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import { computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import { deriveDealCardHeadline, repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { isUuid, getQuickImRecord } from '@/lib/im-lite/quick-generate-store';
 import { createModuleLogger } from '@/lib/logger';
 
@@ -245,13 +246,17 @@ export async function POST(req: NextRequest) {
       assetType: extracted.use,
     });
 
+    // 18자 SSOT: 블라인드 정리 후 어절 경계 교정 (하드 절단·말줄임 금지)
     const finalPoints: [string, string, string] = [
-      validation.cleanedPoints[0] || '우수 입지',
-      validation.cleanedPoints[1] || '추천 매물',
-      validation.cleanedPoints[2] || '안정 수익',
+      repairDealCardLine(validation.cleanedPoints[0], { fallback: '우수 입지' }) || '우수 입지',
+      repairDealCardLine(validation.cleanedPoints[1], { fallback: '추천 매물' }) || '추천 매물',
+      repairDealCardLine(validation.cleanedPoints[2], { fallback: '안정 수익' }) || '안정 수익',
     ];
+    // 한 줄 제목은 편집기 입력과 같은 필드(card4.headline)에 채워 내려준다 (근거 기반 파생).
+    const headline = deriveDealCardHeadline({ posture: 'income', points: finalPoints });
 
     const card4: Card4Data = {
+      headline,
       region: extracted.region,
       use: extracted.use,
       priceBand: extracted.priceBand,
@@ -269,6 +274,7 @@ export async function POST(req: NextRequest) {
         use: extracted.use,
         priceBand: extracted.priceBand,
         points: finalPoints,
+        headline,
       }),
     };
 

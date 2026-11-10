@@ -11,6 +11,7 @@ import {
 import { BrokerAvatar } from "@/components/magazine/BrokerAvatar";
 import { GlossaryText } from "@/components/magazine/GlossaryText";
 import { DataBadge, SectionCard } from "@/components/magazine/viewer-primitives";
+import { AxiosGlassIssueCard } from "@/components/magazine/AxiosGlassIssueCard";
 import { isSingleCommentFieldNote } from "@/lib/magazine/simple-format";
 import {
   cleanNewsSummaryText,
@@ -31,7 +32,6 @@ import {
 } from "@/domain/magazine/news-channels";
 import {
   POST_IT_TONES,
-  POST_IT_TONE_META,
   formatAxiosBrief,
   formatAxiosCardTitle,
   formatAxiosTwoLineBrief,
@@ -421,7 +421,7 @@ export function NewsSection({
           topic: rawTopic,
           channel: u.channel || rawTopic,
         });
-        const cleanedTitle = formatAxiosCardTitle(rawTitle, 52) || rawTitle;
+        const cleanedTitle = formatAxiosCardTitle(rawTitle) || rawTitle;
         const cleanedBrief = formatAxiosTwoLineBrief(u.brief, {
           title: cleanedTitle,
           channel: channelId,
@@ -454,7 +454,7 @@ export function NewsSection({
         const topic = topicLabelKo(n.topic);
         const channelId = resolveNewsChannel(n);
         const channelMeta = NEWS_CHANNEL_MAP[channelId];
-        const cleanedTitle = formatAxiosCardTitle(n.title, 52) || n.title;
+        const cleanedTitle = formatAxiosCardTitle(n.title) || n.title;
         const cleanedBrief = formatAxiosTwoLineBrief(cleanNewsSummaryText(n.summary), {
           title: cleanedTitle,
           channel: channelId,
@@ -482,6 +482,8 @@ export function NewsSection({
       ? "월간 핵심 시장 이슈 5선"
       : cadence === "daily"
       ? "일간 핵심 시장 이슈 5선"
+      : cadence === "weekly"
+      ? "주간 핵심 시장 이슈 5선"
       : "핵심 이슈 브리프";
 
   return (
@@ -491,107 +493,31 @@ export function NewsSection({
       badge={<DataBadge type="realtime" />}
       defaultOpen
     >
+      {/* 카드뉴스형 글래스모피즘 이슈 카드 (제목 36자 · 해설 48자 · 잘림 없음) */}
       <ul className="space-y-3.5" data-testid="axios-postit-list">
-        {cards.map((card, i) => {
-          const toneMeta = POST_IT_TONE_META[card.tone] ?? POST_IT_TONE_META.amber;
-          return (
-            <li
-              key={card.id || i}
-              data-testid="axios-postit-card"
-              data-postit-tone={card.tone}
-              className="relative overflow-hidden rounded-2xl border-2 border-l-[6px] p-5 shadow-xs"
-              style={{
-                backgroundColor: toneMeta.cardBg,
-                borderColor: toneMeta.cardBorder,
-                borderLeftColor: toneMeta.accentBar,
-              }}
-            >
-              {/* 상단 와이드 포스트잇 핀/배지 바 */}
-              <div className="mb-2.5 flex flex-wrap items-center justify-between gap-1.5">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span
-                    className="inline-flex items-center rounded-md border px-2 py-0.5 text-caption font-extrabold tracking-wide"
-                    style={{
-                      backgroundColor: toneMeta.badgeBg,
-                      color: toneMeta.badgeText,
-                      borderColor: toneMeta.cardBorder,
-                    }}
-                  >
-                    ISSUE 0{i + 1}
-                  </span>
-                  {card.channelMeta && (
-                    <span
-                      className="rounded-md border border-slate-900/15 bg-white/85 px-2 py-0.5 text-caption font-bold text-slate-900"
-                      data-testid="viewer-news-channel-badge"
-                    >
-                      <span aria-hidden="true">{card.channelMeta.emoji}</span>{" "}
-                      {card.channelMeta.shortLabel}
-                    </span>
-                  )}
-                  <span className="rounded-md border border-slate-900/15 bg-white/80 px-1.5 py-0.5 text-caption font-bold text-slate-800">
-                    <span aria-hidden="true">{card.sentiment.symbol}</span>{" "}
-                    {card.sentiment.label}
-                  </span>
-                  {card.topic && (
-                    <span className="rounded-md bg-slate-900/10 px-2 py-0.5 text-caption font-bold text-slate-900">
-                      {card.topic}
-                    </span>
-                  )}
-                </div>
-                {card.clusterCount > 1 && (
-                  <span className="text-caption font-bold" style={{ color: toneMeta.metaColor }}>
-                    AI 클러스터링 {card.clusterCount}건
-                  </span>
-                )}
-              </div>
-
-              {/* 카드뉴스형 2줄 대형 헤드라인 (AXIOS Title) */}
-              <h3
-                data-testid="axios-postit-title"
-                data-axios-headline-lines="2"
-                title={card.title}
-                className="line-clamp-2 break-keep text-[19px] sm:text-[21px] font-black leading-[1.35] tracking-tight"
-                style={{ color: toneMeta.titleColor, wordBreak: "keep-all" }}
-              >
-                {card.title}
-              </h3>
-
-              {/* AXIOS 부제형 2줄 짧은 해설 브리프 (Why it matters 2-Line Deck) */}
-              {card.brief && (
-                <p
-                  data-testid="axios-postit-brief"
-                  data-axios-brief-lines="2"
-                  className="mt-2 line-clamp-2 break-keep text-[15px] sm:text-base font-semibold leading-[1.55]"
-                  style={{ color: toneMeta.bodyColor, wordBreak: "keep-all" }}
-                >
-                  {card.brief}
-                </p>
-              )}
-
-              {/* 하단 출처 & 원문 링크 */}
-              <div className="mt-3 pt-2.5 border-t border-slate-900/10 flex items-center justify-between gap-2">
-                {card.source ? (
-                  <p className="text-caption font-semibold" style={{ color: toneMeta.metaColor }}>
-                    출처: {card.source}
-                  </p>
-                ) : (
-                  <span />
-                )}
-                {card.safeUrl && (
-                  <a
-                    href={card.safeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-track="news_click"
-                    className="text-caption font-extrabold text-slate-900 underline decoration-slate-900/50 underline-offset-2 hover:opacity-80"
-                  >
-                    원문 보기 ↗
-                  </a>
-                )}
-              </div>
-            </li>
-          );
-        })}
+        {cards.map((card, i) => (
+          <AxiosGlassIssueCard
+            key={card.id || i}
+            index={i}
+            tone={card.tone}
+            title={card.title}
+            brief={card.brief}
+            size="viewer"
+            channelEmoji={card.channelMeta?.emoji}
+            channelLabel={card.channelMeta?.shortLabel}
+            sentimentSymbol={card.sentiment.symbol}
+            sentimentLabel={card.sentiment.label}
+            topic={card.topic}
+            source={card.source}
+            safeUrl={card.safeUrl}
+            clusterCount={card.clusterCount}
+            cardTestId="axios-postit-card"
+            titleTestId="axios-postit-title"
+            briefTestId="axios-postit-brief"
+            channelBadgeTestId="viewer-news-channel-badge"
+            titleAs="h3"
+          />
+        ))}
       </ul>
     </SectionCard>
   );

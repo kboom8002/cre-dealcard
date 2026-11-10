@@ -125,14 +125,15 @@ describe("1. 중개인 개인 설정(권역 · 뉴스 큐레이션 분야) 및 �
   });
 });
 
-describe("2. 고객 화면 포스트잇 뷰 AXIOS 카드뉴스형(2줄 큰 제목 + 2줄 짧은 부제 해설) 렌더링", () => {
-  it("formatAxiosCardTitle 은 52자까지 보존하고, formatAxiosTwoLineBrief 는 내부 라벨 없이 2문장 짧은 부제(98자 이내)로 압축한다", () => {
+describe("2. 고객 화면 카드뉴스 글래스 뷰 (제목 36자 + 해설 48자, 잘림 0건)", () => {
+  it("formatAxiosCardTitle 은 36자 이내 완결 명사구로 압축하고, formatAxiosTwoLineBrief 는 내부 라벨 없이 48자 이내 완결 문장으로 압축한다", () => {
     const title = formatAxiosCardTitle(
       "[한국경제] 강남·서초 역세권 꼬마빌딩, 금리 인하 기대감에 법인 사옥 매수세 뚜렷한 회복",
     );
     expect(title).not.toContain("[한국경제]");
-    expect(title.length).toBeGreaterThan(38);
-    expect(title.length).toBeLessThanOrEqual(52);
+    expect(Array.from(title).length).toBeLessThanOrEqual(36);
+    expect(Array.from(title).length).toBeGreaterThanOrEqual(8);
+    expect(title).not.toMatch(/…|\.\.\./);
 
     const brief = formatAxiosTwoLineBrief(
       "핵심 팩트: 기준금리 인하 기대감으로 강남·서초 중소형 빌딩 매수 문의가 빠르게 늘고 있습니다. | 브로커 임플리케이션: 대출 금리 하향 안정기에 맞춰 역세권 우량 매물을 선점하는 전략이 유리합니다. | 추천 액션: 4%대 수익형 빌딩을 검토하세요.",
@@ -142,16 +143,11 @@ describe("2. 고객 화면 포스트잇 뷰 AXIOS 카드뉴스형(2줄 큰 제�
     expect(brief).not.toContain("핵심 팩트:");
     expect(brief).not.toContain("브로커 임플리케이션:");
     expect(brief).not.toContain("추천 액션:");
-    expect(brief.length).toBeLessThanOrEqual(98);
-
-    const sentences = brief
-      .split(/(?<=[.!?。])\s+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    expect(sentences).toHaveLength(2);
+    expect(Array.from(brief).length).toBeLessThanOrEqual(48);
+    expect(brief).toMatch(/다\.$/);
   });
 
-  it("NewsSection 이 포스트잇 카드를 2줄 제목(line-clamp-2, data-axios-headline-lines='2')과 2줄 해설(line-clamp-2, data-axios-brief-lines='2')로 렌더링한다", () => {
+  it("NewsSection 이 글래스 카드(data-card-style='glass')를 line-clamp/truncate 없이 한 단계 작은 폰트로 렌더링한다", () => {
     const issues = clusterArticlesIntoFiveIssues([], {
       preferredRegions: ["강남·서초"],
       preferredChannels: ["real_estate", "economy_finance"],
@@ -163,20 +159,21 @@ describe("2. 고객 화면 포스트잇 뷰 AXIOS 카드뉴스형(2줄 큰 제�
 
     expect(html).toContain('data-testid="axios-postit-list"');
     expect((html.match(/data-testid="axios-postit-card"/g) ?? []).length).toBe(5);
+    expect((html.match(/data-card-style="glass"/g) ?? []).length).toBe(5);
     expect(html).toContain('data-axios-headline-lines="2"');
     expect(html).toContain('data-axios-brief-lines="2"');
-    expect(html).toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*line-clamp-2/);
-    expect(html).not.toMatch(/data-testid="axios-postit-title"[^>]*whitespace-nowrap/);
-    expect(html).toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*line-clamp-2/);
+    expect(html).not.toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*(?:line-clamp|truncate|whitespace-nowrap)/);
+    expect(html).not.toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*(?:line-clamp|truncate|whitespace-nowrap)/);
+    expect(html).toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*text-\[17px\]/);
+    expect(html).toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*text-\[14px\]/);
   });
 });
-
 describe("3. AI Core (AgentOutputEnvelope) & TaskFlow (TF8 + M11 핀포인트 교정) 프롬프트 하드닝", () => {
   it("TF8 프롬프트 빌더 3종이 [T][K][W][O][A][S][L][F] 8대 블록을 모두 포함하고 CrePromptRegistry 에 등록되어 있다", () => {
     const registry = CrePromptRegistry.getInstance();
-    expect(registry.getActivePrompt("magazine_draft_tf8")?.id).toBe("magazine_draft_tf8_v2");
+    expect(registry.getActivePrompt("magazine_draft_tf8")?.id).toBe("magazine_draft_tf8_v3");
     expect(registry.getActivePrompt("magazine_axios_cluster_tf8")?.id).toBe(
-      "magazine_axios_cluster_tf8_v2",
+      "magazine_axios_cluster_tf8_v3",
     );
     expect(registry.getActivePrompt("magazine_comment_tf8")?.id).toBe("magazine_comment_tf8_v2");
 

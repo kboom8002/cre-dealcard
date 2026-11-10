@@ -8,9 +8,24 @@ import { KakaoBubblePreview } from "@/components/broker/deal-card/KakaoBubblePre
 import { PreSendConfirmationSheet } from "@/components/broker/deal-card/PreSendConfirmationSheet";
 import { type Card4Data } from "@/lib/deal-card/card4-schema";
 import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
+import { normalizeDealCardCopy, repairDealCardLine } from "@/lib/deal-card/copy-limits";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
 import { POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
+
+/**
+ * 서버/로컬에서 불러온 카드의 문구를 18자 SSOT 로 맞춘다.
+ * - 장점 3줄: 어절 경계 교정 (하드 절단 금지)
+ * - 한 줄 제목이 비어 있고 카드 내용이 있으면, 미리보기/OG 가 쓰던 파생 제목을 **같은 입력 필드**에 채운다.
+ */
+function hydrateCard4(card4: Card4Data): Card4Data {
+  return normalizeDealCardCopy(card4, { fillHeadline: true });
+}
+
+function hydrateItem<T extends { card4: Card4Data }>(item: T): T {
+  const card4 = hydrateCard4(item.card4);
+  return card4 === item.card4 ? item : { ...item, card4 };
+}
 
 interface BuildingListItem {
   id: string;
@@ -115,7 +130,7 @@ function DealCardsWorkspaceInner() {
       if (savedRaw) {
         const parsed = JSON.parse(savedRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed);
+          setItems(parsed.map((it: BuildingListItem) => (it?.card4 ? hydrateItem(it) : it)));
         }
       }
     } catch {
@@ -132,7 +147,8 @@ function DealCardsWorkspaceInner() {
         if (data?.ok && Array.isArray(data.dealcards)) {
           setItems((prev) => {
             const localMap = new Map(prev.map((it) => [it.id, it]));
-            const merged: BuildingListItem[] = data.dealcards.map((srv: BuildingListItem) => {
+            const merged: BuildingListItem[] = data.dealcards.map((rawSrv: BuildingListItem) => {
+              const srv = rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv;
               const local = localMap.get(srv.id);
               const effectiveStatus =
                 srv.status === "sent" || local?.status === "sent" ? ("sent" as const) : srv.status;
@@ -361,7 +377,7 @@ function DealCardsWorkspaceInner() {
       updatedAt: "방금",
       card4: {
         ...source.card4,
-        headline: source.card4.headline ? source.card4.headline.slice(0, 18) : "",
+        headline: source.card4.headline ? repairDealCardLine(source.card4.headline) : "",
         card4_version: 1,
       },
     };

@@ -21,8 +21,54 @@ import {
   type ProvenanceSource,
 } from '@/lib/deal-card/card4-schema';
 import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
+import {
+  DEAL_CARD_LINE_MAX,
+  assessDealCardLine,
+  countDealCardChars,
+  deriveDealCardHeadline,
+  repairDealCardLine,
+} from '@/lib/deal-card/copy-limits';
 import { POSTURE_LABELS, TERMS } from '@/lib/ux/lexicon';
 import { showUndoToast } from '@/components/workspace/UndoConfirmToast';
+
+/**
+ * 입력 변경 시 18자 처리 규칙:
+ * - 한 글자씩 타이핑: 원문 그대로 둔다 (카운터가 넘침을 경고, blur 시 교정).
+ * - 붙여넣기/자동완성처럼 한 번에 2자 이상 늘어난 경우: 넘치거나 말줄임이 있으면 즉시 어절 경계 교정.
+ */
+function applyTypedLine(prev: string, next: string): string {
+  const jumped = countDealCardChars(next) - countDealCardChars(prev) > 1;
+  if (!jumped) return next;
+  const a = assessDealCardLine(next);
+  return a.isOver || a.hasEllipsis ? a.repaired : next;
+}
+
+function LineCounter({ text, testId, id }: { text: string; testId: string; id?: string }) {
+  const a = assessDealCardLine(text);
+  const warn = a.isOver || a.isDangling || a.hasEllipsis;
+  return (
+    <span
+      id={id}
+      data-testid={testId}
+      data-state={warn ? 'warn' : 'ok'}
+      aria-live="polite"
+      className={`text-sm font-extrabold tabular-nums shrink-0 ${warn ? 'text-red-700' : 'text-slate-500'}`}
+    >
+      {a.count}/{DEAL_CARD_LINE_MAX}
+    </span>
+  );
+}
+
+function LineRepairHint({ text, testId }: { text: string; testId: string }) {
+  const a = assessDealCardLine(text);
+  if (!text.trim() || a.ok) return null;
+  const reason = a.isOver ? '18자를 넘었어요' : a.hasEllipsis ? '말줄임표는 쓰지 않아요' : '문장이 끝나지 않았어요';
+  return (
+    <p data-testid={testId} role="status" className="text-sm font-bold text-red-700 break-keep">
+      ⚠ {reason} · 고객 화면에는 「{a.repaired || '—'}」로 보여요 (입력칸을 벗어나면 자동으로 다듬어요)
+    </p>
+  );
+}
 
 export interface Card4ConfirmCardProps {
   card4: Card4Data;
@@ -107,7 +153,15 @@ export function Card4ConfirmCard({
 
   const currentPosture: DealCardPosture = card4.posture || 'income';
   const currentArea = card4.area !== undefined ? card4.area : resolveCard4AreaLabel(card4);
-  const currentHeadline = (card4.headline ?? '').slice(0, 18);
+  const currentHeadline = card4.headline ?? '';
+  const hasCardContent = Boolean(
+    card4.region?.trim() || card4.use?.trim() || card4.priceBand?.trim() || card4.points?.some((p) => p?.trim()),
+  );
+  // 제목이 비어 있으면 미리보기와 **같은** 파생 제목을 편집기에 "AI 추천"으로 노출한다 (조용한 불일치 금지).
+  const suggestedHeadline = useMemo(
+    () => (hasCardContent && !currentHeadline.trim() ? deriveDealCardHeadline(card4) : ''),
+    [hasCardContent, currentHeadline, card4],
+  );
 
   // Validate blind guard rules across points + headline + quadrant fields
   const validation = useMemo(() => {
@@ -129,8 +183,19 @@ export function Card4ConfirmCard({
   const handleHeadlineChange = (headline: string) => {
     onChange({
       ...card4,
-      headline: headline.slice(0, 18),
+      headline: applyTypedLine(card4.headline ?? '', headline),
     });
+  };
+
+  const handleHeadlineBlur = () => {
+    const raw = card4.headline ?? '';
+    if (!raw.trim() || assessDealCardLine(raw).ok) return;
+    onChange({ ...card4, headline: repairDealCardLine(raw) });
+  };
+
+  const handleApplySuggestedHeadline = () => {
+    if (!suggestedHeadline) return;
+    onChange({ ...card4, headline: suggestedHeadline });
   };
 
   const handleAiHeadlineGenerate = async () => {
@@ -154,11 +219,14 @@ export function Card4ConfirmCard({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok && typeof data.result?.headline === 'string') {
-        const nextHeadline = data.result.headline.slice(0, 18);
+        const nextHeadline = repairDealCardLine(data.result.headline);
         onChange({
           ...card4,
           headline: nextHeadline,
         });
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+          setAiFeedback(String(data.warnings[0]));
+        }
         showUndoToast({
           message: 'AI가 한 줄 제목을 작성했어요',
           undoAction: () => onChange(prevSnapshot),
@@ -199,7 +267,7 @@ export function Card4ConfirmCard({
 
   const handlePointChange = (index: 0 | 1 | 2, text: string) => {
     const nextPoints: [string, string, string] = [...card4.points];
-    nextPoints[index] = text.slice(0, 18);
+    nextPoints[index] = applyTypedLine(card4.points[index] ?? '', text);
 
     const nextProvenance = { ...card4.provenance };
     const provenanceList: [ProvenanceSource, ProvenanceSource, ProvenanceSource] = [
@@ -213,6 +281,14 @@ export function Card4ConfirmCard({
       points: nextPoints,
       provenance: nextProvenance,
     });
+  };
+
+  const handlePointBlur = (index: 0 | 1 | 2) => {
+    const raw = card4.points[index] ?? '';
+    if (!raw.trim() || assessDealCardLine(raw).ok) return;
+    const nextPoints: [string, string, string] = [...card4.points];
+    nextPoints[index] = repairDealCardLine(raw);
+    onChange({ ...card4, points: nextPoints });
   };
 
   const handleAiRecluster = async () => {
@@ -237,18 +313,21 @@ export function Card4ConfirmCard({
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok && Array.isArray(data.result?.points) && data.result.points.length === 3) {
         const nextPts: [string, string, string] = [
-          String(data.result.points[0] || '').slice(0, 18),
-          String(data.result.points[1] || '').slice(0, 18),
-          String(data.result.points[2] || '').slice(0, 18),
+          repairDealCardLine(String(data.result.points[0] || '')),
+          repairDealCardLine(String(data.result.points[1] || '')),
+          repairDealCardLine(String(data.result.points[2] || '')),
         ];
         onChange({
           ...card4,
           ...(typeof data.result.headline === 'string' && !currentHeadline.trim()
-            ? { headline: data.result.headline.slice(0, 18) }
+            ? { headline: repairDealCardLine(data.result.headline) }
             : {}),
           points: nextPts,
           provenance: { points: ['ai', 'ai', 'ai'] },
         });
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+          setAiFeedback(String(data.warnings[0]));
+        }
         showUndoToast({
           message: 'AI가 장점 3줄을 작성했어요',
           undoAction: () => onChange(prevSnapshot),
@@ -284,10 +363,10 @@ export function Card4ConfirmCard({
       points: [...card4.points] as [string, string, string],
     };
     const cleanedPts = cleanBlindPoints(card4.points).map((p) =>
-      p.slice(0, 18)
+      repairDealCardLine(p)
     ) as [string, string, string];
     const cleanedHeadline = card4.headline
-      ? cleanBlindPoints([card4.headline])[0]?.slice(0, 18)
+      ? repairDealCardLine(cleanBlindPoints([card4.headline])[0] ?? '')
       : card4.headline;
     const cleanedRegion = cleanBlindPoints([card4.region])[0] || card4.region;
     const cleanedUse = cleanBlindPoints([card4.use])[0] || card4.use;
@@ -511,17 +590,44 @@ export function Card4ConfirmCard({
                 <span>{aiHeadlineBusy ? TERMS.aiWriting : TERMS.aiWriteButton}</span>
               </button>
             </div>
-            <input
-              id="card4-headline-input"
-              type="text"
-              maxLength={18}
-              data-testid="card4-headline-input"
-              data-single-line-title="true"
-              value={currentHeadline}
-              onChange={(e) => handleHeadlineChange(e.target.value)}
-              className="w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-900 bg-slate-50 rounded-xl border border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="지역·용도 반복 없이 핵심 장점을 18자 이내로 적어 주세요"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                id="card4-headline-input"
+                type="text"
+                data-testid="card4-headline-input"
+                data-single-line-title="true"
+                aria-describedby="card4-headline-counter"
+                aria-invalid={!assessDealCardLine(currentHeadline).ok && currentHeadline.trim().length > 0}
+                value={currentHeadline}
+                onChange={(e) => handleHeadlineChange(e.target.value)}
+                onBlur={handleHeadlineBlur}
+                className="w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-900 bg-slate-50 rounded-xl border border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                placeholder="지역·용도 반복 없이 핵심 장점을 18자 이내로 적어 주세요"
+              />
+              <LineCounter text={currentHeadline} testId="card4-headline-counter" id="card4-headline-counter" />
+            </div>
+            <LineRepairHint text={currentHeadline} testId="card4-headline-repair-hint" />
+            {suggestedHeadline && (
+              <div
+                data-testid="card4-headline-suggestion"
+                className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-blue-50 border border-blue-200"
+              >
+                <p className="text-sm font-bold text-blue-950 break-keep">
+                  AI 추천: <span data-testid="card4-headline-suggestion-text">{suggestedHeadline}</span>
+                  <span className="block text-sm font-semibold text-blue-800">
+                    지금 미리보기·카톡 썸네일에는 이 제목이 보여요
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  data-testid="card4-headline-suggestion-apply"
+                  onClick={handleApplySuggestedHeadline}
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
+                >
+                  적용
+                </button>
+              </div>
+            )}
             {headerFieldViolations.length > 0 && (
               <div className="space-y-1 pt-1" role="alert">
                 {headerFieldViolations.map((v, idx) => (
@@ -631,11 +737,12 @@ export function Card4ConfirmCard({
                   <input
                     id={`card4-point-input-${idx}`}
                     type="text"
-                    maxLength={18}
                     data-testid={`card4-point-input-${idx}`}
                     data-single-line-title="true"
+                    aria-describedby={`card4-point-counter-${idx}`}
                     value={ptText}
                     onChange={(e) => handlePointChange(idx, e.target.value)}
+                    onBlur={() => handlePointBlur(idx)}
                     className={`w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-950 rounded-lg border ${
                       pointViolations.length > 0
                         ? 'border-red-400 bg-red-50/60 focus:ring-red-500'
@@ -643,7 +750,13 @@ export function Card4ConfirmCard({
                     } focus:outline-none focus:ring-2 transition`}
                     placeholder={`장점 ${idx + 1} (18자 이내로 적어 주세요)`}
                   />
+                  <LineCounter
+                    text={ptText}
+                    testId={`card4-point-counter-${idx}`}
+                    id={`card4-point-counter-${idx}`}
+                  />
                 </div>
+                <LineRepairHint text={ptText} testId={`card4-point-repair-hint-${idx}`} />
 
                 {/* Point Violations Alert (Blind Guard) */}
                 {pointViolations.length > 0 && (

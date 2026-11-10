@@ -178,8 +178,9 @@ describe('에디션 · 브로커 결정', () => {
     const row = insertsOf('magazine_analytics_events')[0].payload as { metadata: Record<string, unknown>; edition_id: string };
     expect(JSON.stringify(row)).not.toContain('attacker-broker');
     expect(row.edition_id).toBe(ED);
-    const act = insertsOf('activity_events')[0].payload as { broker_id: string; actor_id: string };
-    expect(act.broker_id).toBe(BROKER_USER);
+    const act = insertsOf('activity_events')[0].payload as { actor_id: string; metadata: { broker_id?: string } };
+    // activity_events.broker_id 컬럼은 조건부 마이그레이션(미적용 시 42703)이라 metadata.broker_id + actor_id 로 기록한다
+    expect(act.metadata.broker_id).toBe(BROKER_USER);
     expect(act.actor_id).toBe(BROKER_USER);
   });
 });
@@ -215,7 +216,8 @@ describe('레거시 issue id 로 들어온 열람 기록 (404 로 버리지 않�
     expect(h.rpcCalls.filter((r) => r.name === 'increment_edition_views')).toHaveLength(0);
     // broker 는 호(issue)에서 서버가 결정 — 퍼널 이벤트도 legacy_issue_id 만 담고 edition_id 는 없다
     const act = insertsOf('activity_events')[0].payload as { broker_id: string; metadata: Record<string, unknown> };
-    expect(act.broker_id).toBe(BROKER_USER);
+    // activity_events.broker_id 컬럼은 조건부 마이그레이션(미적용 시 42703)이라 metadata.broker_id + actor_id 로 기록한다
+    expect(act.metadata.broker_id).toBe(BROKER_USER);
     expect(act.metadata).toMatchObject({ legacy_issue_id: ISSUE });
     expect(act.metadata.edition_id).toBeUndefined();
   });

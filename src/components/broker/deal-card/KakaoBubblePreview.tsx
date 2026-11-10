@@ -10,12 +10,13 @@
 
 import React, { useState } from 'react';
 import {
-  generateAiOgHeadline,
   resolveCard4AreaLabel,
   type Card4Data,
   type DealCardPointTone,
 } from '@/lib/deal-card/card4-schema';
+import { deriveDealCardHeadline, repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { POSTIT_TONE_STYLES } from '@/components/broker/deal-card/Card4ConfirmCard';
+import { DealCardLineText } from '@/components/broker/deal-card/DealCardLineText';
 import { TERMS } from '@/lib/ux/lexicon';
 
 export interface KakaoBubblePreviewProps {
@@ -54,9 +55,11 @@ export function KakaoBubblePreview({
       card4.points?.some((p) => p?.trim())
   );
 
+  // SSOT: 편집기 "한 줄 제목" 입력값(card4.headline)을 그대로 18자 교정해 쓴다.
+  // 비어 있을 때만 편집기의 "AI 추천"과 같은 파생 제목을 보여준다 (조용한 불일치 금지).
   const bubbleTitle =
-    card4.headline?.trim().slice(0, 18) ||
-    (hasCardContent ? generateAiOgHeadline(card4) : '한 줄 제목을 입력해 주세요');
+    repairDealCardLine(card4.headline) ||
+    (hasCardContent ? deriveDealCardHeadline(card4) : '한 줄 제목을 입력해 주세요');
 
   return (
     <div
@@ -172,14 +175,13 @@ export function KakaoBubblePreview({
 
             {/* Bubble Content Area: 18-char Title + CTA Button */}
             <div className="p-3.5 space-y-2.5">
-              <h4
-                data-testid="kakao-bubble-og-title"
-                data-single-line-title="true"
-                title={bubbleTitle}
-                className="font-extrabold text-slate-900 text-base leading-snug break-keep"
-              >
-                {bubbleTitle}
-              </h4>
+              <DealCardLineText
+                as="h4"
+                testId="kakao-bubble-og-title"
+                text={bubbleTitle}
+                preRepaired
+                className="font-extrabold text-slate-900 text-base"
+              />
 
               <div className="w-full py-2.5 bg-slate-100 text-slate-800 rounded-lg text-center font-bold text-sm border border-slate-200">
                 자세히 보기
@@ -222,12 +224,12 @@ export function KakaoBubblePreview({
                   {priceText}
                 </div>
               </div>
-              <p
-                data-single-line-title="true"
-                className="text-base font-extrabold text-white text-center pt-0.5 break-keep"
-              >
-                {bubbleTitle}
-              </p>
+              <DealCardLineText
+                testId="dealcard-preview-customer-title"
+                text={bubbleTitle}
+                preRepaired
+                className="text-base font-extrabold text-white text-center pt-0.5"
+              />
             </div>
 
             {/* 장점 3줄 */}
@@ -237,7 +239,7 @@ export function KakaoBubblePreview({
               </span>
 
               {([0, 1, 2] as const).map((idx) => {
-                const ptTitle = (card4.points[idx] || '').trim().slice(0, 18) || '—';
+                const ptTitle = repairDealCardLine(card4.points[idx] || '') || '—';
                 const toneKey: DealCardPointTone = card4.pointTones?.[idx] || DEFAULT_TONES[idx];
                 const toneStyle = POSTIT_TONE_STYLES[toneKey] || POSTIT_TONE_STYLES.amber;
 
@@ -260,13 +262,12 @@ export function KakaoBubblePreview({
                     >
                       0{idx + 1}
                     </span>
-                    <p
-                      data-single-line-title="true"
-                      title={ptTitle}
-                      className="text-base font-extrabold text-slate-950 break-keep"
-                    >
-                      {ptTitle}
-                    </p>
+                    <DealCardLineText
+                      testId={`dealcard-postit-preview-text-${idx}`}
+                      text={ptTitle}
+                      preRepaired
+                      className="flex-1 text-base font-extrabold text-slate-950"
+                    />
                   </div>
                 );
               })}

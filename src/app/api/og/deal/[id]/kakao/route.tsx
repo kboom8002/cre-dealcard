@@ -148,7 +148,8 @@ export async function GET(
 
   const regionDisplay = teaserView.region || safeBuilding.area_signal || "서울권역";
   let hookCopy = 
-    teaserDoc?.body?.ogTitle 
+    imBody?.card4?.headline
+    || teaserDoc?.body?.ogTitle 
     || imBody?.ogTitle 
     || teaserDoc?.body?.kakaoOgTitle 
     || imBody?.kakaoOgTitle 

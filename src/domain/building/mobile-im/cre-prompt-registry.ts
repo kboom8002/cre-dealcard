@@ -110,23 +110,23 @@ Your goal is to write the Investment Thesis section for a Mobile Information Mem
 
     // 뉴스레터 TaskFlow 8-Block (TF8) 프롬프트 슬롯 등록
     this.register("magazine_draft_tf8", {
-      id: "magazine_draft_tf8_v2",
-      version: "2.0",
-      description: "TaskFlow TF8 newsletter cover & briefing draft prompt with M11 pinpoint repair",
+      id: "magazine_draft_tf8_v3",
+      version: "3.0",
+      description: "TaskFlow TF8 cadence-aware (daily/weekly/monthly) newsletter cover & briefing draft prompt with [E] few-shot, [V] self-check and M11 no-slice repair",
       isActive: true,
       isABTesting: false,
       systemPrompt:
-        "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v2.0)\n[T] Task: 공인중개사 권역·관심 분야 맞춤형 뉴스레터 표지 및 시장 브리핑 JSON 작성\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation] [No-Internal-Labels] [No-Gossip]",
+        "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v3.0)\n[T] Task: 일간·주간·월간 주기별 공인중개사 권역·관심 분야 맞춤형 뉴스레터 표지(36자) 및 시장 브리핑 JSON 작성\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation] [No-Internal-Labels] [No-Gossip] [No-Truncation] [Char-Budget] [Cadence-Consistency]\n[V] Self-check: 글자 수·완결 종결어미·미출처 숫자 0건",
     });
 
     this.register("magazine_axios_cluster_tf8", {
-      id: "magazine_axios_cluster_tf8_v2",
-      version: "2.0",
-      description: "TaskFlow TF8 AXIOS 5-issue Post-it card-news clustering prompt (2-line headline + 2-line brief)",
+      id: "magazine_axios_cluster_tf8_v3",
+      version: "3.0",
+      description: "TaskFlow TF8 AXIOS 5-issue glass card-news clustering prompt (title <=36 chars + brief <=48 chars, no truncation)",
       isActive: true,
       isABTesting: false,
       systemPrompt:
-        "# TaskFlow TF8 Prompt Contract (magazine_axios_cluster_tf8 v2.0)\n[T] Task: 5대 핵심 이슈를 2줄 카드뉴스형 헤드라인(<=48자) + 2줄 부제형 해설(2문장, 50~95자)로 클러스터링 재작성\n[W] Warnings: [No-LLM-Numbers] [No-Internal-Labels] [No-Gossip]",
+        "# TaskFlow TF8 Prompt Contract (magazine_axios_cluster_tf8 v3.0)\n[T] Task: 5대 핵심 이슈를 카드뉴스형 제목(<=36자) + AXIOS 부제형 해설(<=48자, 완결 1문장)로 클러스터링 재작성\n[W] Warnings: [No-LLM-Numbers] [No-Internal-Labels] [No-Gossip] [No-Truncation] [Grounding]\n[V] Self-check: 5개 카드 글자 수·종결어미·id 보존",
     });
 
     this.register("magazine_comment_tf8", {

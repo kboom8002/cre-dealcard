@@ -49,6 +49,24 @@ export interface PostItToneMeta {
   titleColor: string;
   bodyColor: string;
   metaColor: string;
+  /** 글래스모피즘 카드뉴스 배경 (다크 베이스 + 톤 메시 그래디언트) */
+  glassBackground: string;
+  /** 카드 강조 포인트 색 (번호 칩 점 · 구분선 · 글로우 오브) */
+  glassAccent: string;
+  /** 카드 외곽 은은한 톤 글로우 그림자 */
+  glassGlow: string;
+}
+
+/**
+ * 다크 베이스 위에 톤 컬러 오브 2개를 겹친 메시 그래디언트 (카드뉴스형 글래스모피즘 배경)
+ * - 흰색 본문 텍스트 대비(WCAG AA 4.5:1 이상)를 보장하도록 베이스는 짙은 남색 계열로 고정
+ */
+function buildGlassMesh(orbA: string, orbB: string, baseFrom: string, baseTo: string): string {
+  return [
+    `radial-gradient(120% 95% at 0% 0%, ${orbA} 0%, rgba(0,0,0,0) 58%)`,
+    `radial-gradient(95% 85% at 100% 100%, ${orbB} 0%, rgba(0,0,0,0) 62%)`,
+    `linear-gradient(140deg, ${baseFrom} 0%, ${baseTo} 100%)`,
+  ].join(', ');
 }
 
 export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
@@ -64,6 +82,9 @@ export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
     titleColor: '#0F172A',
     bodyColor: '#334155',
     metaColor: '#713F12',
+    glassBackground: buildGlassMesh('rgba(251,191,36,0.62)', 'rgba(249,115,22,0.42)', '#2A1A06', '#0F172A'),
+    glassAccent: '#FCD34D',
+    glassGlow: '0 18px 40px -18px rgba(245,158,11,0.55)',
   },
   sky: {
     tone: 'sky',
@@ -77,6 +98,9 @@ export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
     titleColor: '#0F172A',
     bodyColor: '#1E293B',
     metaColor: '#0369A1',
+    glassBackground: buildGlassMesh('rgba(56,189,248,0.60)', 'rgba(99,102,241,0.45)', '#06213A', '#0F172A'),
+    glassAccent: '#7DD3FC',
+    glassGlow: '0 18px 40px -18px rgba(14,165,233,0.55)',
   },
   mint: {
     tone: 'mint',
@@ -90,6 +114,9 @@ export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
     titleColor: '#0F172A',
     bodyColor: '#1E293B',
     metaColor: '#15803D',
+    glassBackground: buildGlassMesh('rgba(52,211,153,0.58)', 'rgba(34,211,238,0.40)', '#062A22', '#0F172A'),
+    glassAccent: '#6EE7B7',
+    glassGlow: '0 18px 40px -18px rgba(16,185,129,0.55)',
   },
   lavender: {
     tone: 'lavender',
@@ -103,6 +130,9 @@ export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
     titleColor: '#1E1B4B',
     bodyColor: '#312E81',
     metaColor: '#6B21A8',
+    glassBackground: buildGlassMesh('rgba(167,139,250,0.62)', 'rgba(236,72,153,0.40)', '#1E0E3A', '#0F172A'),
+    glassAccent: '#C4B5FD',
+    glassGlow: '0 18px 40px -18px rgba(139,92,246,0.55)',
   },
   peach: {
     tone: 'peach',
@@ -116,6 +146,9 @@ export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
     titleColor: '#0F172A',
     bodyColor: '#334155',
     metaColor: '#BE123C',
+    glassBackground: buildGlassMesh('rgba(251,113,133,0.60)', 'rgba(251,146,60,0.40)', '#330B18', '#0F172A'),
+    glassAccent: '#FDA4AF',
+    glassGlow: '0 18px 40px -18px rgba(244,63,94,0.55)',
   },
 };
 
@@ -128,9 +161,188 @@ function decodeBasicEntities(raw: string): string {
     .replace(/&gt;/gi, '>');
 }
 
+/** 카드뉴스 포스트잇 이슈 제목 최대 글자 수 (중개인 요구 1.1: 36자 이내 · 잘림 0건) */
+export const AXIOS_TITLE_MAX_CHARS = 36;
+/** 카드뉴스 포스트잇 이슈 해설 최대 글자 수 (중개인 요구 1.2: 48자 이내 · 잘림 0건) */
+export const AXIOS_BRIEF_MAX_CHARS = 48;
+
+/** 서로게이트 쌍(이모지 등)을 1자로 세는 화면 기준 글자 수 */
+export function charLength(text: string): number {
+  return Array.from(text).length;
+}
+
+const TRAILING_PUNCT_RE = /[\s,，·:：…\-–—|;]+$/;
+
+/* ── 한국어 어절 판별기 (제목·해설 공용) ─────────────────────────────── */
+
+/** 단독으로 끝나면 문장이 매달리는 접속·후치 어절 */
+const DANGLING_STANDALONE_RE =
+  /^(?:및|또|또한|그리고|그러나|하지만|등|등의|통해|위해|대해|따라|관련|중심|가운데|vs|VS|대비|위한|따른|대한|인한|통한|관한|향한)$/;
+/** 관형형·연결형으로 끝나 뒤 어절이 필요한 어미 */
+const DANGLING_MODIFIER_SUFFIX_RE =
+  /(?:따른|위한|대한|인한|통한|관한|향한|앞둔|맞은|하는|되는|있는|없는|이는|라는|이라는|하던|되던|에서의|으로의|와의|과의|하고|하며|하면서|되며|되고|되면서|이며|이고|이자|돼|면서|지만|는데)$/;
+/** 관형형 1음절 어미 (명사 예외는 별도 처리) */
+const DANGLING_ADNOMINAL_RE = /(?:한|된|할|될|던|의)$/;
+const ADNOMINAL_NOUN_EXCEPTION_RE =
+  /(?:제한|기한|권한|상한|하한|무한|유한|역할|합의|협의|회의|논의|동의|건의|심의|문의|강의|주의|정의|의의|창의|호의|편의|유의|대의|민의)$/;
+/** 매달린 조사 (어절 끝) */
+const DANGLING_PARTICLE_RE = /(?:을|를|은|는|에|에서|으로|에게|부터|까지|조차|마저|와|과|로|보다|처럼|만큼|이나|라도)$/;
+/** 주격 조사 이/가 — 받침 규칙으로만 판별 (물가·주가·길이 등 명사 예외) */
+function endsWithSubjectParticle(core: string): boolean {
+  const chars = Array.from(core);
+  if (chars.length < 2) return false;
+  const tail = chars[chars.length - 1];
+  const prev = chars[chars.length - 2];
+  if (tail === '이') return hasBatchim(prev) && !/(?:길이|높이|깊이|넓이|놀이|먹이)$/.test(core);
+  if (tail === '가') {
+    return !hasBatchim(prev) && !/^(?:유가|요가|주가|시가|지가|호가|대가|고가|저가|매가|추가|감가|부가|차가|소가|평가)$/.test(core) && !/(?:투자가|애호가)$/.test(core);
+  }
+  return false;
+}
+const PARTICLE_NOUN_EXCEPTION_RE = /(?:가을|마을|노을|고을|효과|결과|성과|사과|과정|도로|경로|통로|진로|선로|항로|노로|기와)$/;
+
+function hasBatchim(syllable: string): boolean {
+  const code = syllable.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
+}
+
+function stripWordPunct(word: string): string {
+  return word.replace(/^[\s'"‘’“”「」『』(（[\]]+|[\s'"‘’“”「」『』)）\]]+$/g, '').replace(TRAILING_PUNCT_RE, '');
+}
+
+/** 마지막 어절이 문장을 매달리게 만드는 수식·접속·조사 어절인지 판별 */
+export function isDanglingKoreanWord(word: string): boolean {
+  const core = stripWordPunct(word);
+  if (!core) return true;
+  if (DANGLING_STANDALONE_RE.test(core)) return true;
+  if (charLength(core) >= 2 && DANGLING_MODIFIER_SUFFIX_RE.test(core)) return true;
+  if (
+    charLength(core) >= 2 &&
+    DANGLING_ADNOMINAL_RE.test(core) &&
+    !ADNOMINAL_NOUN_EXCEPTION_RE.test(core)
+  ) {
+    return true;
+  }
+  if (
+    charLength(core) >= 2 &&
+    DANGLING_PARTICLE_RE.test(core) &&
+    !PARTICLE_NOUN_EXCEPTION_RE.test(core)
+  ) {
+    return true;
+  }
+  if (endsWithSubjectParticle(core)) return true;
+  return false;
+}
+
+/** 홀수 개로 남은 따옴표를 제거해 시각적 미완결(열린 따옴표)을 방지 */
+function balanceQuotes(text: string): string {
+  let out = text;
+  for (const q of ["'", '"']) {
+    const count = out.split(q).length - 1;
+    if (count % 2 === 1) out = out.split(q).join('');
+  }
+  const pairs: Array<[string, string]> = [['‘', '’'], ['“', '”'], ['(', ')'], ['「', '」']];
+  for (const [open, close] of pairs) {
+    const o = out.split(open).length - 1;
+    const c = out.split(close).length - 1;
+    if (o !== c) out = out.split(open).join('').split(close).join('');
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/** 제목 끝에 매달린 조사·관형형·접속 어절을 최대 3개까지 걷어낸다 */
+function tidyTitleTail(text: string, minChars = 8): string {
+  let words = balanceQuotes(text.replace(TRAILING_PUNCT_RE, '')).split(' ').filter(Boolean);
+  for (let i = 0; i < 3 && words.length > 1; i++) {
+    const last = words[words.length - 1];
+    const core = stripWordPunct(last);
+    // 인용 관형형 '~다는' → 종결형 '~다' (예: 수천만원을 가른다는 → 가른다)
+    if (/[가-힣]다는$/.test(core)) {
+      words[words.length - 1] = core.replace(/는$/, '');
+      break;
+    }
+    // 주격 조사로 끝나면 어절은 살리고 조사만 제거 (예: 영수증이 → 영수증)
+    if (endsWithSubjectParticle(core)) {
+      words[words.length - 1] = Array.from(core).slice(0, -1).join('');
+      break;
+    }
+    if (!isDanglingKoreanWord(last)) break;
+    const next = words.slice(0, -1);
+    if (charLength(next.join(' ')) < minChars) break;
+    words = next;
+  }
+  return balanceQuotes(words.join(' ').replace(TRAILING_PUNCT_RE, ''));
+}
+
+/**
+ * 한국어 헤드라인을 글자 수 예산 이내로 "자르지 않고" 압축한다.
+ * 1) 괄호 보조설명 제거 → 2) '및/그리고' 가운뎃점 축약 → 3) 쉼표·대시 절 단위 조합
+ * → 4) 어절 경계 누적 + 매달린 어절 제거. 말줄임표(…)는 절대 붙이지 않는다.
+ */
+function compressKoreanTitle(input: string, maxChars: number): string {
+  let s = input.replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  if (charLength(s) <= maxChars) return tidyTitleTail(s, Math.min(8, charLength(s)));
+
+  const noParen = s
+    .replace(/\s*[(（][^)）]*[)）]\s*/g, ' ')
+    .replace(/\s*[[【][^\]】]*[\]】]\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (noParen) s = noParen;
+  if (charLength(s) <= maxChars) return tidyTitleTail(s);
+
+  const compact = s
+    .replace(/\s+(?:및|그리고)\s+/g, '·')
+    .replace(/\s*(?:본격적으로|사실상|이른바|일제히)\s+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (compact) s = compact;
+  if (charLength(s) <= maxChars) return tidyTitleTail(s);
+
+  const clauses = s.split(/\s*(?:,|，|—|–|\s-\s|:|：|\||;)\s*/).filter(Boolean);
+  if (clauses.length > 1) {
+    let acc = '';
+    for (const clause of clauses) {
+      const next = acc ? `${acc}, ${clause}` : clause;
+      if (charLength(next) <= maxChars) acc = next;
+      else break;
+    }
+    if (acc && charLength(acc) >= Math.min(14, Math.floor(maxChars * 0.45))) {
+      return tidyTitleTail(acc);
+    }
+  }
+
+  const words = s.split(' ');
+  const kept: string[] = [];
+  for (const w of words) {
+    const cand = [...kept, w].join(' ');
+    if (charLength(cand) <= maxChars) kept.push(w);
+    else break;
+  }
+  if (kept.length === 0) {
+    return Array.from(s).slice(0, maxChars).join('').replace(TRAILING_PUNCT_RE, '');
+  }
+  return tidyTitleTail(kept.join(' '));
+}
+
+/** 문자열 전체를 감싼 따옴표 한 쌍만 제거한다 ("공실" 증가 처럼 내부 인용은 보존) */
+function stripWrappingQuotes(text: string): string {
+  const pairs: Array<[string, string]> = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
+  for (const [open, close] of pairs) {
+    if (text.length >= 2 && text.startsWith(open) && text.endsWith(close)) {
+      const inner = text.slice(open.length, text.length - close.length);
+      if (!inner.includes(open) && !inner.includes(close)) return inner.trim();
+    }
+  }
+  return text;
+}
+
 /**
  * 뉴스레터 표지 제목 등을 깔끔한 1줄(single-line)로 정제한다.
  * - 앞쪽 `[매체명]` 제거, 줄바꿈 제거, 불필요한 따옴표·말줄임 정리 (말줄임표 `…`/`...` 절대 미부착)
+ * - 글자 수 초과 시 어절 경계 압축 + 매달린 조사·관형형 제거로 완결된 명사구 유지
  */
 export function formatSingleLineTitle(raw: unknown, maxChars = 38): string {
   if (typeof raw !== 'string') return '';
@@ -140,30 +352,19 @@ export function formatSingleLineTitle(raw: unknown, maxChars = 38): string {
     .replace(/\s+/g, ' ')
     .replace(/,\s*,+/g, ',')
     .replace(/^\[[^\]]+\]\s*/, '')
-    .replace(/^[""'']+|[""'']+$/g, '')
     .replace(/[.。,·:：-]+$/, '')
     .trim();
 
   if (!cleaned) return '';
-  if (cleaned.length <= maxChars) return cleaned;
-
-  const sliced = cleaned.slice(0, maxChars);
-  const lastSpace = sliced.lastIndexOf(' ');
-  const candidate =
-    lastSpace >= Math.floor(maxChars * 0.55) ? sliced.slice(0, lastSpace) : sliced;
-  return candidate
-    .replace(/[,·:：…-]+$/, '')
-    .replace(/\s+(?:및|과|와|의|에|을|를|은|는|이|가|로|으로)$/, '')
-    .trim();
+  return compressKoreanTitle(stripWrappingQuotes(cleaned), maxChars);
 }
 
 /**
- * 카드뉴스형 포스트잇 뷰를 위한 AXIOS 2줄 헤드라인 정제기 (최대 52자)
- * - 1줄 강제 말줄임(38자)으로 문맥이 잘리는 문제를 방지하고,
- *   모바일/데스크톱 포스트잇 카드에서 큼직한 2줄(line-clamp-2)로 완결성 있게 읽히도록 정제한다.
+ * 카드뉴스형 포스트잇 이슈 제목 정제기 (기본 36자 = AXIOS_TITLE_MAX_CHARS)
+ * - 고객 화면에서 한 단계 작아진 폰트로 2줄 안에 잘림 없이 읽히도록 36자 예산을 강제한다.
  */
-export function formatAxiosCardTitle(raw: unknown, maxChars = 52): string {
-  return formatSingleLineTitle(raw, maxChars);
+export function formatAxiosCardTitle(raw: unknown, maxChars = AXIOS_TITLE_MAX_CHARS): string {
+  return formatSingleLineTitle(raw, Math.min(maxChars, AXIOS_TITLE_MAX_CHARS));
 }
 
 /**
@@ -185,60 +386,194 @@ export function splitKoreanSentences(text: string): string[] {
   return rawParts.map((s) => (/[.!?。]$/.test(s) ? s : `${s}.`));
 }
 
-const DANGLING_KO_ENDING_RE =
-  /(?:\s+(?:및|또한|그리고|통해|통한|위한|따른|인한|대한|관한|중심으로|바탕으로|가운데|속에서|높일|낮출|늘릴|줄일)|\s+\S+(?:하고|하며|하는|되는|있는|없는|위한|따른|통한|높일|낮출|늘릴|줄일|의|에|을|를|은|는|이|가|과|와|로|으로|에서|부터|까지))$/;
+/* ── 해설(Deck) 완결 서술어 엔진 ─────────────────────────────────────── */
 
-function ensureCompleteKoreanPredicate(clause: string): string {
+const COMPLETE_ENDING_RE = /(?:다|요|음|됨|함|임|세요|십시오|죠)$/;
+const CONNECTIVE_WORD_RE = /(?:면서|으며|며|고|지만|는데|어서|아서|해서|돼서|여서|므로|으므로|니까|으니)$/;
+
+/** 연결어미(…하며/…되면서/…있고/…지며)를 종결형(…합니다/…됩니다/…있습니다/…집니다)으로 바꾼다 */
+function convertConnectiveToFinal(clause: string): string | null {
+  const rules: Array<[RegExp, string]> = [
+    [/^(.*)있(?:으며|으면서|고|지만|는데|어서|어|으므로|으니까|으니)$/, '$1있습니다'],
+    [/^(.*)없(?:으며|으면서|고|지만|는데|어서|어|으므로|으니까|으니)$/, '$1없습니다'],
+    [/^(.*)(?:하|해)(?:면서|며|고|지만|는데|서|여서|여|므로|니까|니)$/, '$1합니다'],
+    [/^(.*)(?:되|돼)(?:면서|며|고|지만|는데|서|어서|어|므로|니까|니)$/, '$1됩니다'],
+    [/^(.*[가-힣])지(?:면서|며|고|지만|는데)$/, '$1집니다'],
+    [/^(.*[가-힣])이(?:며|고|지만|는데)$/, '$1입니다'],
+  ];
+  for (const [re, rep] of rules) {
+    if (re.test(clause)) {
+      const out = clause.replace(re, rep).trim();
+      return charLength(out) >= 6 ? out : null;
+    }
+  }
+  return null;
+}
+
+const HADA_VERBAL_NOUN_RE =
+  /(?:증가|감소|상승|하락|급증|급감|반등|주목|검토|필요|중요|유리|불리|가능|확인|선호|집중|유지|지속|기대|전망|예상|우세|부상|등장|성장|주도|견인|점검|제안|추천)$/;
+const DOEDA_VERBAL_NOUN_RE =
+  /(?:확대|축소|강화|완화|개선|악화|회복|유입|확산|둔화|재편|부각|본격화|가속화|활성화|정상화|양극화|차별화|다변화|구체화|시행|도입|적용|마련|추진|형성|조정|인하|인상|동결)$/;
+
+/** 어절 끝 조사를 받침 규칙에 맞춰 안전하게 제거 (예: 수요가→수요, 공실이→공실, 금리를→금리) */
+function stripTrailingParticle(base: string): string {
+  const words = base.split(' ');
+  const last = words[words.length - 1] ?? '';
+  const chars = Array.from(last);
+  if (chars.length < 2) return base;
+
+  const multi = last.match(/^(.+?)(에서|으로|에게|부터|까지|조차|마저)$/);
+  if (multi && charLength(multi[1]) >= 1) {
+    words[words.length - 1] = multi[1];
+    return words.join(' ');
+  }
+
+  const tail = chars[chars.length - 1];
+  const prev = chars[chars.length - 2];
+  const stem = chars.slice(0, -1).join('');
+  let strip = false;
+  if ((tail === '을' || tail === '은' || tail === '과') && hasBatchim(prev)) strip = true;
+  if ((tail === '를' || tail === '는' || tail === '와') && !hasBatchim(prev)) strip = true;
+  if (tail === '이' && hasBatchim(prev) && !/(?:길이|높이|깊이|넓이|놀이|먹이)$/.test(last)) strip = true;
+  if (
+    tail === '가' &&
+    !hasBatchim(prev) &&
+    !/^(?:유가|요가|주가|시가|지가|호가|대가|고가|저가|매가|추가|감가|부가|차가|소가|평가)$/.test(last) &&
+    !/(?:투자가|애호가)$/.test(last)
+  ) {
+    strip = true;
+  }
+  if (tail === '에' && chars.length >= 2) strip = true;
+  if (tail === '의' && !ADNOMINAL_NOUN_EXCEPTION_RE.test(last)) strip = true;
+  if (tail === '로' && !hasBatchim(prev) && !PARTICLE_NOUN_EXCEPTION_RE.test(last)) strip = true;
+  if (PARTICLE_NOUN_EXCEPTION_RE.test(last)) strip = false;
+
+  if (strip && charLength(stem) >= 1) {
+    words[words.length - 1] = stem;
+    return words.join(' ');
+  }
+  return base;
+}
+
+/** 명사구·연결형으로 끝난 절을 완결된 한국어 평서문(…다.)으로 마감한다 */
+function finalizeKoreanSentence(clause: string, minChars = 8): string {
   let base = clause
-    .replace(/[,·:：….-]+$/, '')
+    .replace(/[,·:：….\-–—]+$/, '')
     .replace(/\s+/g, ' ')
     .trim();
   if (!base) return '';
+  base = balanceQuotes(base);
+  if (COMPLETE_ENDING_RE.test(base)) return `${base}.`;
 
-  // 완결 종결어미로 이미 끝나는 경우 마침표만 부착
-  if (/(?:다|요|음|됨|함|임|세요|십시오)$/.test(base)) {
-    return `${base}.`;
+  const converted = convertConnectiveToFinal(base);
+  if (converted) return `${converted}.`;
+
+  // 관형형·접속 어절이 매달려 있으면 최대 3개까지 걷어낸다 (조사는 아래에서 어절 내부만 제거)
+  for (let i = 0; i < 3; i++) {
+    const words = base.split(' ');
+    if (words.length < 2) break;
+    const last = stripWordPunct(words[words.length - 1]);
+    const isModifierOrConj =
+      DANGLING_STANDALONE_RE.test(last) ||
+      DANGLING_MODIFIER_SUFFIX_RE.test(last) ||
+      (DANGLING_ADNOMINAL_RE.test(last) && !/의$/.test(last) && !ADNOMINAL_NOUN_EXCEPTION_RE.test(last)) ||
+      (CONNECTIVE_WORD_RE.test(last) && !convertConnectiveToFinal(last));
+    if (!isModifierOrConj) break;
+    const stripped = words.slice(0, -1).join(' ').replace(TRAILING_PUNCT_RE, '');
+    if (charLength(stripped) < minChars) break;
+    base = stripped;
+    if (COMPLETE_ENDING_RE.test(base)) return `${base}.`;
+    const conv = convertConnectiveToFinal(base);
+    if (conv) return `${conv}.`;
   }
 
-  // 뒤에 불완전한 수식어/조사 어절이 매달려 있으면 최대 2회 제거 후 서술어 보강
-  for (let i = 0; i < 2; i++) {
-    if (DANGLING_KO_ENDING_RE.test(base)) {
-      const stripped = base.replace(DANGLING_KO_ENDING_RE, '').trim();
-      if (stripped.length >= 10) {
-        base = stripped;
-      }
-    }
-  }
-
-  base = base.replace(/(?:의|에|을|를|은|는|이|가|과|와|로|으로|에서|부터|까지)$/, '').trim();
-  if (/(?:다|요|음|됨|함|임|세요|십시오)$/.test(base)) {
-    return `${base}.`;
-  }
+  base = stripTrailingParticle(base).replace(TRAILING_PUNCT_RE, '');
+  if (COMPLETE_ENDING_RE.test(base)) return `${base}.`;
+  if (/중$/.test(base)) return `${base}입니다.`;
+  if (HADA_VERBAL_NOUN_RE.test(base)) return `${base}합니다.`;
+  if (DOEDA_VERBAL_NOUN_RE.test(base)) return `${base}됩니다.`;
   return `${base}입니다.`;
 }
 
-function condenseSentence(sentence: string, maxLen = 52): string {
+/**
+ * 한 문장을 글자 수 예산(기본 48자) 이내의 완결된 평서문으로 압축한다.
+ * 1) 그대로 맞으면 서술어만 보정 → 2) 쉼표 절 단위 → 3) 연결어미 어절 경계에서 종결형 변환
+ * → 4) 어절 경계 누적 후 서술어 보강. 말줄임표(…)는 절대 붙이지 않는다.
+ */
+function condenseSentence(sentence: string, maxLen = AXIOS_BRIEF_MAX_CHARS): string {
   const cleaned = sentence
     .replace(/…|\.{2,}/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^(?:특히|또한|아울러|한편|이에\s*따라|이와\s*함께)\s*,?\s*/g, '')
     .trim();
   if (!cleaned) return '';
-  if (cleaned.length <= maxLen) {
-    const withoutDot = cleaned.replace(/[.!?。]+$/, '').trim();
-    if (DANGLING_KO_ENDING_RE.test(withoutDot)) {
-      return ensureCompleteKoreanPredicate(withoutDot);
-    }
-    return /[.!?。]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+  const body = cleaned.replace(/[.!?。]+$/, '').trim();
+  if (!body) return '';
+
+  const direct = finalizeKoreanSentence(body);
+  if (charLength(direct) <= maxLen) return direct;
+
+  const commaParts = body.split(/\s*,\s*/).filter(Boolean);
+  for (let n = commaParts.length - 1; n >= 1; n--) {
+    const head = commaParts.slice(0, n).join(', ');
+    if (charLength(head) < 10) continue;
+    const fin = finalizeKoreanSentence(head);
+    if (charLength(fin) <= maxLen) return fin;
   }
 
-  // 쉼표나 연결어미 기준으로 앞부분 핵심 절을 우선 보존하되 완결된 한국어 서술어로 마감
-  const cut = cleaned.slice(0, Math.max(16, maxLen - 4));
-  const lastSpace = cut.lastIndexOf(' ');
-  const base = (lastSpace >= Math.floor(cut.length * 0.6) ? cut.slice(0, lastSpace) : cut)
-    .replace(/[,·:：…-]+$/, '')
-    .trim();
-  return ensureCompleteKoreanPredicate(base);
+  const words = body.split(' ');
+  for (let i = words.length - 1; i >= 2; i--) {
+    const lastWord = stripWordPunct(words[i - 1]);
+    if (!CONNECTIVE_WORD_RE.test(lastWord)) continue;
+    const head = words.slice(0, i).join(' ');
+    const conv = convertConnectiveToFinal(head);
+    if (conv && charLength(conv) + 1 <= maxLen) return `${conv}.`;
+  }
+
+  for (let i = words.length - 1; i >= 2; i--) {
+    const fin = finalizeKoreanSentence(words.slice(0, i).join(' '));
+    if (fin && charLength(fin) <= maxLen) return fin;
+  }
+
+  return finalizeKoreanSentence(Array.from(body).slice(0, Math.max(10, maxLen - 6)).join(''), 4);
+}
+
+/**
+ * 여러 문장(문단 포함)을 글자 수 예산 이내로 "문장 단위"로 줄인다 (하드 슬라이스 금지).
+ * - 예산 안에 들어오는 앞 문장들을 유지하고, 첫 문장조차 넘치면 condenseSentence로 완결 압축
+ * - preserveParagraphs=true 이면 빈 줄(\n\n) 문단 구분을 유지
+ */
+export function condenseKoreanParagraph(
+  text: string,
+  maxLen: number,
+  opts: { preserveParagraphs?: boolean } = {},
+): string {
+  const source = typeof text === 'string' ? text.trim() : '';
+  if (!source) return '';
+  if (charLength(source) <= maxLen) return source;
+
+  const paragraphs = opts.preserveParagraphs
+    ? source.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+    : [source];
+  const outParas: string[] = [];
+  let used = 0;
+  for (const para of paragraphs) {
+    const kept: string[] = [];
+    for (const s of splitKoreanSentences(para)) {
+      const sep = kept.length > 0 ? 1 : outParas.length > 0 ? 2 : 0;
+      if (used + sep + charLength(s) <= maxLen) {
+        kept.push(s);
+        used += sep + charLength(s);
+      } else {
+        break;
+      }
+    }
+    if (kept.length === 0) break;
+    outParas.push(kept.join(' '));
+  }
+  if (outParas.length > 0) return outParas.join('\n\n');
+  const first = splitKoreanSentences(source)[0] ?? source;
+  return condenseSentence(first, maxLen);
 }
 
 const INTERNAL_LABEL_RE =
@@ -268,10 +603,10 @@ const CONCISE_CHANNEL_FALLBACKS: Readonly<Record<SpecificNewsChannelId, readonly
 };
 
 /**
- * AXIOS 카드뉴스형 2줄 부제(Subtitle/Deck) 포맷터
- * - 원문 뉴스 요약(파이프 `|` 구분자 구조 포함)에서 핵심 팩트 1문장 + 매수자 시사점 1문장(총 2문장, 약 50~98자)으로 압축
+ * AXIOS 카드뉴스형 짧은 부제(Deck) 포맷터 — 기본 48자(AXIOS_BRIEF_MAX_CHARS) 이내
+ * - 원문 요약(파이프 `|` 구분 구조 포함)에서 핵심 1문장을 완결된 평서문으로 압축하고,
+ *   예산이 남을 때만 두 번째 문장을 덧붙인다 (총합 48자 이내 · 잘림 0건 · 말줄임표 0건).
  * - 내부 라벨(`핵심 팩트:`, `브로커 임플리케이션:`, `추천 액션:`) 및 파이프(`|`) 노출 100% 제거
- * - 최소 2문장, 최대 2문장(레거시 호환 2~4문장 범위 내)으로 고정해 포스트잇 2줄(line-clamp-2) 서피스에 최적화
  */
 export function formatAxiosTwoLineBrief(
   rawSummary: unknown,
@@ -282,39 +617,30 @@ export function formatAxiosTwoLineBrief(
     maxTotalChars?: number;
   } = {},
 ): string {
-  const maxTotalChars = opts.maxTotalChars ?? 98;
+  const maxTotalChars = Math.min(opts.maxTotalChars ?? AXIOS_BRIEF_MAX_CHARS, AXIOS_BRIEF_MAX_CHARS);
   const raw = typeof rawSummary === 'string' ? decodeBasicEntities(rawSummary).trim() : '';
+  const titleKey = (opts.title ?? '').replace(/\s+/g, '');
   const sentences: string[] = [];
 
-  if (raw.includes('|')) {
-    const segments = raw
-      .split('|')
-      .map((seg) =>
-        seg
-          .replace(INTERNAL_LABEL_RE, '')
-          .replace(/\s+/g, ' ')
-          .trim(),
-      )
-      .filter(Boolean);
+  const pushCondensed = (s: string) => {
+    const condensed = condenseSentence(s, maxTotalChars);
+    if (!condensed) return;
+    const key = condensed.replace(/\s+/g, '');
+    // 제목을 그대로 반복하는 해설은 정보 가치가 없으므로 건너뛴다
+    if (titleKey && key.replace(/[.]$/, '') === titleKey) return;
+    if (!sentences.some((x) => x.replace(/\s+/g, '') === key)) sentences.push(condensed);
+  };
 
-    for (const seg of segments) {
-      for (const s of splitKoreanSentences(seg)) {
-        const condensed = condenseSentence(s, 54);
-        if (sentences.length < 2 && !sentences.includes(condensed)) {
-          sentences.push(condensed);
-        }
-      }
-    }
-  } else if (raw) {
-    const cleaned = raw
-      .replace(INTERNAL_LABEL_RE, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    for (const s of splitKoreanSentences(cleaned)) {
-      const condensed = condenseSentence(s, 54);
-      if (sentences.length < 2 && !sentences.includes(condensed)) {
-        sentences.push(condensed);
-      }
+  const segments = raw
+    ? raw
+        .split('|')
+        .map((seg) => seg.replace(INTERNAL_LABEL_RE, '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+    : [];
+  for (const seg of segments) {
+    for (const s of splitKoreanSentences(seg)) {
+      if (sentences.length >= 3) break;
+      pushCondensed(s);
     }
   }
 
@@ -323,38 +649,27 @@ export function formatAxiosTwoLineBrief(
       .split('|')[0]
       ?.replace(INTERNAL_LABEL_RE, '')
       .trim();
-    if (secRaw) {
-      const secSentences = splitKoreanSentences(secRaw);
-      if (secSentences[0]) {
-        const condensed = condenseSentence(secSentences[0], 50);
-        if (!sentences.includes(condensed)) {
-          sentences.push(condensed);
-        }
-      }
-    }
+    const first = secRaw ? splitKoreanSentences(secRaw)[0] : undefined;
+    if (first) pushCondensed(first);
   }
 
-  if (sentences.length < 2) {
+  if (sentences.length === 0) {
     const channelKey = opts.channel ?? 'real_estate';
     const extras = CONCISE_CHANNEL_FALLBACKS[channelKey] ?? CONCISE_CHANNEL_FALLBACKS.real_estate;
-    for (const ex of extras) {
-      if (sentences.length < 2 && !sentences.includes(ex)) {
-        sentences.push(condenseSentence(ex, 52));
-      }
-    }
+    for (const ex of extras) pushCondensed(ex);
   }
 
-  let joined = sentences.slice(0, 2).join(' ');
-  if (joined.length > maxTotalChars && sentences.length === 2) {
-    const s1 = condenseSentence(sentences[0], Math.floor(maxTotalChars * 0.52));
-    const s2 = condenseSentence(sentences[1], Math.floor(maxTotalChars * 0.46));
-    joined = `${s1} ${s2}`;
+  let joined = sentences[0] ?? '';
+  for (const next of sentences.slice(1)) {
+    const candidate = `${joined} ${next}`;
+    if (charLength(candidate) <= maxTotalChars) joined = candidate;
+    else break;
   }
   return joined;
 }
 
 /**
- * 하위호환 및 AXIOS 브리프 표준 함수 (2줄 부제형 2문장 요약 반환)
+ * 하위호환 및 AXIOS 브리프 표준 함수 (48자 이내 짧은 부제형 요약 반환)
  */
 export function formatAxiosBrief(
   rawSummary: unknown,
@@ -365,6 +680,20 @@ export function formatAxiosBrief(
   } = {},
 ): string {
   return formatAxiosTwoLineBrief(rawSummary, opts);
+}
+
+/**
+ * 단위 이슈 1건의 제목(36자)·해설(48자) 카피 예산을 강제하는 단일 정규화 진입점
+ * (AI 생성 결과 · 중개사 수동 편집 · 저장 · 고객 뷰어 렌더링 공용)
+ */
+export function normalizeAxiosIssueCopy(input: {
+  title: unknown;
+  brief: unknown;
+  channel?: SpecificNewsChannelId;
+}): { title: string; brief: string } {
+  const title = formatAxiosCardTitle(input.title);
+  const brief = formatAxiosTwoLineBrief(input.brief, { title, channel: input.channel });
+  return { title, brief };
 }
 
 export interface ClusterIssuesOptions {
@@ -439,7 +768,7 @@ export function clusterArticlesIntoFiveIssues(
 
   const pushItem = (item: NewsPoolItem, isUserProvided = false) => {
     if (!isCreRelevantArticle(item)) return;
-    const title = formatAxiosCardTitle(item.title, 80);
+    const title = formatSingleLineTitle(item.title, 80);
     if (!title) return;
     const key = String(item.id ?? title).trim();
     const normTitle = title.replace(/\s+/g, '');
@@ -550,9 +879,10 @@ export function clusterArticlesIntoFiveIssues(
     const { primary, related, channel } = cluster;
     const memoTone = POST_IT_TONES[idx % POST_IT_TONES.length];
     const title =
-      formatAxiosCardTitle(primary.title, 52) || `핵심 상업용 부동산 이슈 #${idx + 1}`;
-    const brief = formatAxiosTwoLineBrief(primary.summary, {
-      secondarySummary: related[0]?.summary,
+      formatAxiosCardTitle(primary.cardTitle || primary.title) ||
+      `핵심 상업용 부동산 이슈 #${idx + 1}`;
+    const brief = formatAxiosTwoLineBrief(primary.cardBrief || primary.summary, {
+      secondarySummary: related[0]?.cardBrief || related[0]?.summary,
       title,
       channel,
     });
@@ -604,7 +934,7 @@ export function resolveUnitIssuesFromData(
       const raw = data.unitIssues[i];
       if (!raw || typeof raw !== 'object') continue;
       const r = raw as Record<string, unknown>;
-      const title = formatAxiosCardTitle(r.title, 52);
+      const title = formatAxiosCardTitle(r.title);
       if (!title) continue;
       if (!isCreRelevantArticle({ title, summary: typeof r.brief === 'string' ? r.brief : '' })) {
         continue;
@@ -663,7 +993,7 @@ export function resolveUnitIssuesFromData(
     const n = rawNews[i];
     if (!n || typeof n !== 'object') continue;
     const r = n as Record<string, unknown>;
-    const title = formatAxiosCardTitle(r.title, 52);
+    const title = formatAxiosCardTitle(r.title);
     if (!title) continue;
     if (!isCreRelevantArticle({ title, summary: typeof r.summary === 'string' ? r.summary : '' })) {
       continue;

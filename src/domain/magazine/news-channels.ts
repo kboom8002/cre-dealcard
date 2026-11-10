@@ -159,11 +159,19 @@ export interface CuratedChannelNewsItem {
   topic: string;
   channel: SpecificNewsChannelId;
   created_at?: string;
+  /** 카드뉴스 포스트잇 전용 편집 제목 (36자 이내, 완결된 명사구) */
+  cardTitle?: string;
+  /** 카드뉴스 포스트잇 전용 편집 해설 (48자 이내, 완결된 1문장) */
+  cardBrief?: string;
 }
 
 export type NewsPoolItem = {
   id?: string;
   title: string;
+  /** 카드뉴스 포스트잇 전용 편집 제목 (36자 이내) — 있으면 title 대신 우선 사용 */
+  cardTitle?: string;
+  /** 카드뉴스 포스트잇 전용 편집 해설 (48자 이내) — 있으면 summary 대신 우선 사용 */
+  cardBrief?: string;
   summary?: string;
   source?: string;
   url?: string;
@@ -239,6 +247,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-re-1",
     title: "역세권 꼬마빌딩, 수익률보다 '사옥 실수요·리모델링 밸류애드' 중심으로 매수세 재편",
+    cardTitle: "역세권 꼬마빌딩, 사옥 실수요·밸류애드 중심 매수 재편",
+    cardBrief: "표면 수익률보다 명도 여건과 리모델링 여력이 성사를 좌우합니다.",
     summary:
       "핵심 팩트: 강남·성수·마포 역세권 빌딩에 법인 사옥 겸 임대 매수 문의가 집중됩니다. | 브로커 임플리케이션: 표면 수익률보다 명도 여건과 리모델링 가치 상승 여력이 성사를 좌우합니다. | 추천 액션: 노후 근생 매도 시 리모델링 평면과 사옥 활용 포인트를 함께 제시하세요.",
     source: "한경 부동산·CRE 리포트",
@@ -251,6 +261,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-re-2",
     title: "서울시 지구단위계획 및 역세권 활성화 사업 확대로 중소형 빌딩 용적률 상향 기대감",
+    cardTitle: "역세권 활성화 확대, 중소형 빌딩 용적률 상향 기대",
+    cardBrief: "대지 지분이 높은 코너 필지는 개발 매수자에게 프리미엄 소구가 가능합니다.",
     summary:
       "핵심 팩트: 노후 상업·준주거지역 도시계획 유연화로 신축·증축 검토가 활발해졌습니다. | 브로커 임플리케이션: 대지 지분이 높은 코너 필지는 개발 매수자에게 프리미엄 소구가 가능합니다. | 추천 액션: 보유 매물의 용도지역과 전면 도로 폭을 재점검해 브리핑을 준비하세요.",
     source: "매일경제 부동산",
@@ -263,6 +275,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-re-3",
     title: "중소형 오피스·근생 임대 시장, '우량 임차인 장기 계약' 여부에 따른 건물 가치 양극화",
+    cardTitle: "오피스·근생 임대, 우량 임차인 장기 계약이 가치 가른다",
+    cardBrief: "입지와 승강기가 우수한 건물로 임차 수요가 쏠리고 있습니다.",
     summary:
       "핵심 팩트: 관리비와 인테리어 부담 증가로 입지·승강기 우수 건물에 임차 수요가 쏠립니다. | 브로커 임플리케이션: 공실 위험을 낮추려면 임차인 업종 건전성과 잔여 계약기간 관리가 필수입니다. | 추천 액션: 매수 고객에게 층별 임차 구성과 주변 대비 임대 경쟁력을 명확히 설명하세요.",
     source: "서울경제 부동산",
@@ -277,6 +291,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-eco-1",
     title: "통화정책 전환기 진입에 따른 시중은행 기업·빌딩 담보대출 금리 스프레드 점검",
+    cardTitle: "통화정책 전환기, 빌딩 담보대출 금리 스프레드 점검",
+    cardBrief: "조달 금리가 낮아지면 자기자본수익률이 개선돼 매수 결정이 빨라집니다.",
     summary:
       "핵심 팩트: 기준금리 인하 논의와 함께 우량 담보물의 기업시설자금 대출 조건이 완화됩니다. | 브로커 임플리케이션: 조달 금리가 낮아지면 자기자본수익률이 개선되어 매수 의사결정이 빨라집니다. | 추천 액션: 매수 희망 고객에게 금리별 월 이자 부담을 수지분석 계산기로 안내하세요.",
     source: "한국경제 금융·거시",
@@ -289,6 +305,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-eco-2",
     title: "글로벌 자산시장 변동성 확대 속 고액자산가의 '도심 실물 수익형 부동산' 선호 지속",
+    cardTitle: "변동성 확대 속 자산가, 도심 실물 수익형 빌딩 선호",
+    cardBrief: "주식·채권 대비 실물 빌딩의 물가 헤지와 안정적 임대수익이 부각됩니다.",
     summary:
       "핵심 팩트: 금융시장 변동성 확대 속 PB 고객들이 서울 핵심지 중소형 빌딩을 편입합니다. | 브로커 임플리케이션: 주식·채권 대비 실물 빌딩의 물가 헤지와 안정적 임대 배당 매력이 부각됩니다. | 추천 액션: 금융자산 비중이 높은 고객에게 도심 우량 빌딩의 가치 보존 사례를 안내하세요.",
     source: "매경 이코노미·금융",
@@ -301,6 +319,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-eco-3",
     title: "신탁 방식 및 프로젝트 리파이낸싱 활용, 중소형 빌딩 매수·개발 자금 조달 해법 부상",
+    cardTitle: "신탁·리파이낸싱 활용, 빌딩 매수 자금 조달 해법 부상",
+    cardBrief: "자기자본에 맞춘 레버리지 비율 안내가 거래 성사율을 높입니다.",
     summary:
       "핵심 팩트: 담보대출 한도를 보완하려 담보신탁과 법인 크레딧을 결합한 금융 상담이 늘었습니다. | 브로커 임플리케이션: 자기자본 규모에 맞춰 최적 레버리지 비율을 안내하면 성사율이 높아집니다. | 추천 액션: 제1금융권 기업금융 지점 및 신탁사 조건을 파악해 브리핑에 활용하세요.",
     source: "서울경제 금융",
@@ -315,6 +335,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-tax-1",
     title: "꼬마빌딩 증여·상속 시 국세청 감정평가 사업 확대와 사전 감정평가·부담부증여 비교 필수",
+    cardTitle: "꼬마빌딩 증여·상속, 사전 감정평가와 부담부증여 비교 필수",
+    cardBrief: "시가 과세 원칙이 강화돼 증여 전 사전 감정평가가 중요해졌습니다.",
     summary:
       "핵심 팩트: 비주거용 빌딩 상속·증여 시 시가 과세 원칙 강화로 사전 감정평가가 중요해졌습니다. | 브로커 임플리케이션: 보증금·대출을 승계하는 부담부증여와 매각 후 증여의 실익 비교가 핵심입니다. | 추천 액션: 장기 보유 건물주에게 증여·매각 세무 체크포인트를 안부와 함께 전하세요.",
     source: "한경 자산관리·세무",
@@ -327,6 +349,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-tax-2",
     title: "개인 명의 vs 가족법인 명의 빌딩 매수, 취득·보유·양도 단계별 세무 유불리 핵심 점검",
+    cardTitle: "개인 vs 가족법인 명의 빌딩 매수, 단계별 세무 유불리",
+    cardBrief: "소득 분산과 승계를 위해 법인 매수를 검토하는 자산가가 늘고 있습니다.",
     summary:
       "핵심 팩트: 최고세율 구간 전문직·CEO들이 소득 분산과 승계를 위해 법인 매수를 검토합니다. | 브로커 임플리케이션: 과밀억제권역 중과 예외와 임대 조건을 안내하면 중개 전문성 신뢰가 높아집니다. | 추천 액션: 법인 매수 검토 고객에게는 계약 전 세무사 사전 검토 리스트를 안내하세요.",
     source: "매경 세무·PB 칼럼",
@@ -339,6 +363,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-tax-3",
     title: "상가·겸용주택 리모델링 및 용도변경 시 양도소득세·부가가치세 절세 체크포인트",
+    cardTitle: "상가·겸용주택 용도변경 시 양도세·부가세 절세 포인트",
+    cardBrief: "공부상 용도와 실제 현황에 따라 양도세가 달라져 사전 확인이 필요합니다.",
     summary:
       "핵심 팩트: 근생·주택 혼합 건물 매매 시 공부상 용도와 실제 현황에 따라 양도세가 달라집니다. | 브로커 임플리케이션: 잔금 전 용도변경 특약과 자본적 지출 증빙 보관이 실수령액을 좌우합니다. | 추천 액션: 매도 의뢰 건물주에게 공사 세금계산서 보관과 층별 실제 용도를 확인하세요.",
     source: "국세·자산관리 브리핑",
@@ -353,6 +379,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-cul-1",
     title: "도심 빌딩 로비와 갤러리의 만남, 자산가들이 주목하는 '아트테크·프라이빗 전시' 트렌드",
+    cardTitle: "빌딩 로비가 갤러리로, 자산가가 주목하는 아트테크 트렌드",
+    cardBrief: "사옥 로비 미술품 전시가 공간 브랜딩과 세제 혜택으로 주목받습니다.",
     summary:
       "핵심 팩트: 기업인·건물주 컬렉터가 늘며 사옥 로비에 미술품을 전시하는 사례가 확산됩니다. | 브로커 임플리케이션: 업무용 미술품 손금산입 혜택과 공간 브랜딩이 사옥 매수 고객의 호응을 얻습니다. | 추천 액션: 주말에 둘러보기 좋은 도심 미술관 전시 소식을 안부 인사에 담아 보세요.",
     source: "한경 아르떼(Arte)·문화",
@@ -365,6 +393,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-cul-2",
     title: "'붉은 벽돌과 중정(中庭)의 미학' 오래된 골목 건물을 명소로 바꾸는 건축·공간 디자인",
+    cardTitle: "붉은 벽돌과 중정, 골목 노후 건물을 명소로 바꾸는 디자인",
+    cardBrief: "감각적인 외관 리모델링이 이면도로 노후 건물의 임대료를 끌어올립니다.",
     summary:
       "핵심 팩트: 건물의 시간성을 살린 벽돌 리노베이션과 자연 채광 설계가 큰 호응을 얻고 있습니다. | 브로커 임플리케이션: 감각적인 외관 리모델링은 이면도로 노후 건물의 임대료를 크게 끌어올립니다. | 추천 액션: 리모델링 예정 매물 소개 시 우수 건축 리노베이션 트렌드를 함께 언급하세요.",
     source: "문화·건축 디자인 저널",
@@ -377,6 +407,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-cul-3",
     title: "시니어 자산가의 웰니스 라이프, 프라이빗 건강관리·클래식 공연·계절 미식 기행 인기",
+    cardTitle: "시니어 자산가의 웰니스, 건강관리·클래식·미식 기행 인기",
+    cardBrief: "고객의 건강과 문화 취향을 배려한 안부가 장기 신뢰 관계를 만듭니다.",
     summary:
       "핵심 팩트: 액티브 시니어 자산가 층에서 예방 의학 케어와 클래식 공연·미식 관심이 높습니다. | 브로커 임플리케이션: 고객의 건강과 문화 취향을 배려하는 인사가 장기 전속 중개 관계를 만듭니다. | 추천 액션: 뉴스레터 브리핑에 계절 건강 인사와 문화 칼럼 소식을 함께 배치해 보세요.",
     source: "서경 라이프·웰니스",
@@ -391,6 +423,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-trd-1",
     title: "성수·한남·도산공원 상권, 글로벌 플래그십과 팝업스토어가 이끄는 리테일 지형 변화",
+    cardTitle: "성수·한남·도산공원, 플래그십·팝업이 바꾸는 리테일 지형",
+    cardBrief: "층고가 높고 전면 노출이 좋은 저층 근생은 팝업 대관 수요가 높습니다.",
     summary:
       "핵심 팩트: 패션·뷰티 브랜드들이 골목 상권 단독 건물을 통임차해 체험 공간으로 꾸미고 있습니다. | 브로커 임플리케이션: 층고가 높고 전면 노출이 좋은 저층 근생은 팝업 대관으로 고수익 창출이 가능합니다. | 추천 액션: 상권 내 유동인구 변화와 신규 앵커 브랜드 입점 소식을 고객에게 공유하세요.",
     source: "매경 유통·상권 트렌드",
@@ -403,6 +437,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-trd-2",
     title: "건물주가 가장 선호하는 '불황 무풍' 우량 임차인, 피부과·치과·메디컬 & 대형 베이커리 카페",
+    cardTitle: "건물주 선호 '불황 무풍' 임차인, 메디컬·베이커리 카페",
+    cardBrief: "헬스케어 수요 증가로 역세권 빌딩의 병의원 장기 임차 수요가 탄탄합니다.",
     summary:
       "핵심 팩트: 헬스케어 수요 증가로 역세권 중소형 빌딩에 병의원·약국 장기 임차 수요가 탄탄합니다. | 브로커 임플리케이션: 근린생활시설 용도와 침대용·장애인 승강기 스펙이 건물 가치를 결정합니다. | 추천 액션: 공실 층이 있는 건물주에게 메디컬·프랜차이즈 임차 유치 조건을 제안하세요.",
     source: "한경 상권·리테일 분석",
@@ -415,6 +451,8 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
   {
     id: "curated-trd-3",
     title: "AI·디지털 자산관리 도구의 진화, 빌딩 경영과 임대차 관리를 바꾸는 프롭테크 트렌드",
+    cardTitle: "AI·디지털 자산관리 진화, 빌딩 경영 바꾸는 프롭테크",
+    cardBrief: "데이터 기반 수지분석과 정기 모바일 브리핑이 고객 신뢰를 높입니다.",
     summary:
       "핵심 팩트: 실거래 자동 분석부터 모바일 소식지 발행까지 중소형 빌딩 관리 효율이 높아졌습니다. | 브로커 임플리케이션: 데이터 기반 수지분석과 정기 모바일 브리핑이 자산가 고객의 신뢰를 높입니다. | 추천 액션: 고객에게 뉴스레터 내 수익률 계산기와 맞춤형 딜카드 열람 기능을 안내하세요.",
     source: "테크·비즈니스 인사이트",

@@ -18,8 +18,6 @@ import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { UndoToastProvider } from "@/components/workspace/UndoConfirmToast";
 import {
   IssueMetadataForm,
-  deriveAutoIssueMeta,
-  parseYearMonthFromSlug,
   type AutoIssueMetadata,
 } from "@/components/magazine-editor/IssueMetadataForm";
 import {
@@ -57,11 +55,9 @@ import {
   type SimpleFormatActionId,
 } from "@/lib/magazine/simple-format";
 import {
-  POST_IT_TONE_META,
   clusterArticlesIntoFiveIssues,
-  formatAxiosCardTitle,
-  formatAxiosTwoLineBrief,
   formatSingleLineTitle,
+  normalizeAxiosIssueCopy,
   resolveUnitIssuesFromData,
 } from "@/domain/magazine/issue-clustering";
 import {
@@ -82,7 +78,16 @@ import { AxiosIssuesEditorPanel } from "@/components/magazine-editor/AxiosIssues
 import type { AxiosUnitIssue, EditionType, MarketTemperature } from "@/domain/magazine/types";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
-import { kstParts } from "@/lib/magazine/kst";
+import { kstParts, todayKst } from "@/lib/magazine/kst";
+import {
+  NEWSLETTER_CADENCES,
+  NEWSLETTER_CADENCE_META,
+  deriveCadenceIssueMeta,
+  normalizeNewsletterCadence,
+  parseCadenceAnchor,
+  type NewsletterCadence,
+} from "@/lib/magazine/newsletter-cadence";
+import { AxiosGlassIssueCard } from "@/components/magazine/AxiosGlassIssueCard";
 import { MAGAZINE_SEND_DAY_LABEL } from "@/lib/magazine/schedule-labels";
 import { formatPriceKo, sanitizeDealAddress } from "@/lib/magazine/view-helpers";
 import type { HonestSaveState } from "@/lib/ux/lexicon";
@@ -156,6 +161,8 @@ interface SavedEditionSummary {
   unitIssues?: AxiosUnitIssue[];
   issueDate?: string;
   publicUrl?: string;
+  /** 발행 주기 (magazine_editions.edition_type) */
+  cadence?: NewsletterCadence | "special";
 }
 
 const LOCAL_DRAFT_STORAGE_KEY = "cre-newsletter-local-draft-v2";
@@ -170,12 +177,22 @@ function formatDealPriceLabel(rawWon: unknown, priceBand?: unknown): string {
 export default function MagazineEditorPage() {
   // ── 1. 단계 및 기본 메타 상태 (KST 현재 연·월 SSOT) ──
   const [activeStep, setActiveStep] = useState<NewsletterStepKey>("title");
+  // 1.4 회고: 일간·주간·월간 발행 주기 SSOT (기존 monthly 하드코딩 제거)
+  const [cadence, setCadence] = useState<NewsletterCadence>("monthly");
+  const [issueDateStr, setIssueDateStr] = useState<string>(() => todayKst());
+  const [editionCadenceFilter, setEditionCadenceFilter] = useState<NewsletterCadence | "all">("all");
   const [issueYear, setIssueYear] = useState<number>(() => kstParts().year);
   const [issueMonth, setIssueMonth] = useState<number>(() => kstParts().month);
   const autoMeta = useMemo(
-    () => deriveAutoIssueMeta(issueYear, issueMonth),
-    [issueYear, issueMonth],
+    () =>
+      deriveCadenceIssueMeta(cadence, {
+        year: issueYear,
+        month: issueMonth,
+        dateStr: issueDateStr,
+      }),
+    [cadence, issueYear, issueMonth, issueDateStr],
   );
+  const cadenceMeta = NEWSLETTER_CADENCE_META[cadence];
 
   // ── 2. 뉴스레터 통합 초안 상태 ──
   const [editionId, setEditionId] = useState<string | null>(null);
@@ -255,6 +272,12 @@ export default function MagazineEditorPage() {
         if (typeof parsed.briefingBody === "string") setBriefingBody(parsed.briefingBody);
         if (typeof parsed.issueYear === "number") setIssueYear(parsed.issueYear);
         if (typeof parsed.issueMonth === "number") setIssueMonth(parsed.issueMonth);
+        if (typeof parsed.cadence === "string") {
+          setCadence(normalizeNewsletterCadence(parsed.cadence));
+        }
+        if (typeof parsed.issueDateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.issueDateStr)) {
+          setIssueDateStr(parsed.issueDateStr);
+        }
         if (typeof parsed.marketTemp === "string" || parsed.marketTemp === null) {
           setMarketTemp((parsed.marketTemp as MarketTemperature | null) ?? null);
         }
@@ -311,7 +334,7 @@ export default function MagazineEditorPage() {
       if (typeof fetch === "undefined") return;
       try {
         const [editionsRes, buildingsRes] = await Promise.all([
-          fetch("/api/magazine/editions?broker_id=me&type=all").catch(() => null),
+          fetch("/api/magazine/editions?broker_id=me&type=all&limit=50").catch(() => null),
           fetch("/api/broker/buildings").catch(() => null),
         ]);
 
@@ -474,6 +497,13 @@ export default function MagazineEditorPage() {
                     unitIssues: extractedUnitIssues,
                     issueDate: rawIssueDate || undefined,
                     publicUrl: computedPublicUrl,
+                    cadence:
+                      row.edition_type === "special"
+                        ? "special"
+                        : parseCadenceAnchor(
+                            rowSlug,
+                            typeof row.edition_type === "string" ? row.edition_type : null,
+                          ).cadence,
                   };
                 });
               setEditions(mapped);
@@ -542,6 +572,8 @@ export default function MagazineEditorPage() {
       preferredRegions: string[];
       preferredChannels: SpecificNewsChannelId[];
       unitIssues: AxiosUnitIssue[];
+      cadence: NewsletterCadence;
+      issueDateStr: string;
     }>) => {
       try {
         if (typeof window !== "undefined") {
@@ -560,6 +592,8 @@ export default function MagazineEditorPage() {
             preferredRegions: nextPatch?.preferredRegions ?? preferredRegions,
             preferredChannels: nextPatch?.preferredChannels ?? preferredChannels,
             unitIssues: nextPatch?.unitIssues ?? unitIssues,
+            cadence: nextPatch?.cadence ?? cadence,
+            issueDateStr: nextPatch?.issueDateStr ?? issueDateStr,
             serverPublished: false,
             savedAt: new Date().toISOString(),
           };
@@ -586,6 +620,8 @@ export default function MagazineEditorPage() {
       preferredRegions,
       preferredChannels,
       unitIssues,
+      cadence,
+      issueDateStr,
     ],
   );
 
@@ -628,6 +664,8 @@ export default function MagazineEditorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           editionId,
+          editionType: cadence,
+          issueAnchorDate: autoMeta.dateStr,
           slug: issueSlug,
           issueNumber: autoMeta.issueNumber,
           year: autoMeta.year,
@@ -687,11 +725,16 @@ export default function MagazineEditorPage() {
             dealComments: { ...dealComments },
             unitIssues: [...unitIssues],
             publicUrl: resolvedUrl,
+            cadence,
           };
-          const exists = prev.some((e) => e.id === effectiveId || e.slug === issueSlug);
+          const exists = prev.some(
+            (e) => e.id === effectiveId || (e.slug === issueSlug && (e.cadence ?? "monthly") === cadence),
+          );
           if (exists) {
             return prev.map((e) =>
-              e.id === effectiveId || e.slug === issueSlug ? nextEntry : e,
+              e.id === effectiveId || (e.slug === issueSlug && (e.cadence ?? "monthly") === cadence)
+                ? nextEntry
+                : e,
             );
           }
           return [nextEntry, ...prev];
@@ -714,6 +757,8 @@ export default function MagazineEditorPage() {
                 briefingBody: briefingBody.trim(),
                 issueYear: autoMeta.year,
                 issueMonth: autoMeta.month,
+                cadence,
+                issueDateStr,
                 selectedDealIds,
                 dealComments,
                 preferredRegions,
@@ -765,6 +810,8 @@ export default function MagazineEditorPage() {
     }
   }, [
     autoMeta,
+    cadence,
+    issueDateStr,
     editionId,
     headline,
     summary,
@@ -792,12 +839,22 @@ export default function MagazineEditorPage() {
     }
   }, []);
 
-  // ── 8. 빠른 시작: 이번 달 뉴스레터 새로 쓰기 / 이전 호 불러오기 ──
-  const handleStartNewThisMonth = () => {
+  // ── 8. 빠른 시작: 주기별(일간·주간·월간) 새로 쓰기 / 이전 호 불러오기 ──
+  const findEditionFor = useCallback(
+    (nextCadence: NewsletterCadence, slug: string) =>
+      editions.find((e) => e.slug === slug && (e.cadence ?? "monthly") === nextCadence),
+    [editions],
+  );
+
+  const handleStartNewThisMonth = (overrideCadence?: NewsletterCadence) => {
+    const nextCadence = overrideCadence ?? cadence;
     const nowKst = kstParts();
+    const today = todayKst();
+    setCadence(nextCadence);
     setEditionId(null);
     setIssueYear(nowKst.year);
     setIssueMonth(nowKst.month);
+    setIssueDateStr(today);
     setHeadline("");
     setSummary("");
     setBriefingTitle("");
@@ -807,7 +864,7 @@ export default function MagazineEditorPage() {
     setDealComments({});
     setUnitIssues(
       clusterArticlesIntoFiveIssues(newsPool, {
-        cadence: "monthly",
+        cadence: nextCadence,
         preferredRegions,
         preferredChannels,
       }),
@@ -816,17 +873,61 @@ export default function MagazineEditorPage() {
     setPublishedUrl(null);
     setActiveStep("title");
     setSaveState("idle");
+    const meta = NEWSLETTER_CADENCE_META[nextCadence];
     setStatusBanner({
       tone: "info",
-      message: "이번 달 새 뉴스레터 양식을 열었습니다. 표지 제목부터 작성해 보세요.",
+      message: `${meta.periodWord} 새 ${meta.label} 뉴스레터 양식을 열었습니다. 표지 제목부터 작성해 보세요.`,
     });
   };
 
+  /** 발행 주기 전환: 작성 중인 글은 유지하고, 같은 주기·같은 호수의 저장본이 있으면 그 호에 연결한다 */
+  const handleChangeCadence = (nextCadence: NewsletterCadence) => {
+    if (nextCadence === cadence) return;
+    const nextMeta = deriveCadenceIssueMeta(nextCadence, {
+      year: issueYear,
+      month: issueMonth,
+      dateStr: issueDateStr,
+    });
+    setCadence(nextCadence);
+    const match = findEditionFor(nextCadence, nextMeta.slug);
+    if (match) {
+      setEditionId(match.id);
+      setIsPublished(match.status === "published");
+      setPublishedUrl(match.status === "published" ? match.publicUrl ?? null : null);
+    } else {
+      setEditionId(null);
+      setIsPublished(false);
+      setPublishedUrl(null);
+    }
+    persistLocalDraft({ cadence: nextCadence });
+    setStatusBanner({
+      tone: "info",
+      message: `${NEWSLETTER_CADENCE_META[nextCadence].label} 뉴스레터(${nextMeta.yearMonthLabel})로 전환했어요.`,
+    });
+  };
+
+  /** 일간·주간 발행 기준 날짜 변경 (주간은 해당 주 시작일 기준 호수로 자동 정렬) */
+  const handleChangeIssueDate = (nextDate: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) return;
+    setIssueDateStr(nextDate);
+    const nextMeta = deriveCadenceIssueMeta(cadence, { dateStr: nextDate });
+    const match = findEditionFor(cadence, nextMeta.slug);
+    if (match) {
+      setEditionId(match.id);
+    } else {
+      setEditionId(null);
+      setIsPublished(false);
+      setPublishedUrl(null);
+    }
+    persistLocalDraft({ issueDateStr: nextDate });
+  };
   const handleSelectExistingEdition = (ed: SavedEditionSummary) => {
     setEditionId(ed.id);
-    const ym = parseYearMonthFromSlug(ed.slug);
-    setIssueYear(ym.year);
-    setIssueMonth(ym.month);
+    const anchor = parseCadenceAnchor(ed.slug, ed.cadence === "special" ? "weekly" : ed.cadence);
+    setCadence(anchor.cadence);
+    setIssueYear(anchor.year);
+    setIssueMonth(anchor.month);
+    setIssueDateStr(anchor.dateStr);
     setHeadline(ed.title ?? "");
     setSummary(typeof ed.summary === "string" ? ed.summary : "");
     setBriefingTitle(typeof ed.briefingTitle === "string" ? ed.briefingTitle : "");
@@ -912,7 +1013,7 @@ export default function MagazineEditorPage() {
         : [...prev, regionLabel].slice(0, 5);
       setRegionFocus(next.join(", "));
       const reclustered = clusterArticlesIntoFiveIssues(newsPool, {
-        cadence: "monthly",
+        cadence,
         preferredRegions: next,
         preferredChannels,
         dealKeywords: deals.filter((d) => selectedDealIds.includes(d.id)).map((d) => d.title),
@@ -932,7 +1033,7 @@ export default function MagazineEditorPage() {
           : prev
         : [...prev, channelId];
       const reclustered = clusterArticlesIntoFiveIssues(newsPool, {
-        cadence: "monthly",
+        cadence,
         preferredRegions,
         preferredChannels: next,
         dealKeywords: deals.filter((d) => selectedDealIds.includes(d.id)).map((d) => d.title),
@@ -960,7 +1061,7 @@ export default function MagazineEditorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cadence: "monthly",
+          cadence,
           preferredRegions: [...activeRegions],
           preferredChannels: [...activeChannels],
           dealTitles: activeDealTitles,
@@ -986,7 +1087,7 @@ export default function MagazineEditorPage() {
     }
 
     const fallback = clusterArticlesIntoFiveIssues(newsPool, {
-      cadence: "monthly",
+      cadence,
       preferredRegions: activeRegions,
       preferredChannels: activeChannels,
       dealKeywords: activeDealTitles,
@@ -1310,52 +1411,132 @@ export default function MagazineEditorPage() {
   );
 
   // ════════════════════════════════════════════════════════════════════
-  //  1열 (listSlot): 호수 선택 + 빠른 시작 카드 + 단계 요약
+  //  1열 (listSlot): 발행 주기(일간·주간·월간) + 빠른 시작 카드 + 주기별 이전 호
   // ════════════════════════════════════════════════════════════════════
+  const cadenceCounts = NEWSLETTER_CADENCES.reduce<Record<NewsletterCadence, number>>(
+    (acc, key) => {
+      acc[key] = editions.filter((e) => (e.cadence ?? "monthly") === key).length;
+      return acc;
+    },
+    { daily: 0, weekly: 0, monthly: 0 },
+  );
+  const visibleEditions =
+    editionCadenceFilter === "all"
+      ? editions
+      : editions.filter((e) => (e.cadence ?? "monthly") === editionCadenceFilter);
+
+  const cadenceSelector = (testIdPrefix: string) => (
+    <div
+      role="radiogroup"
+      aria-label="뉴스레터 발행 주기 선택"
+      data-testid={`${testIdPrefix}-cadence-selector`}
+      className="grid grid-cols-3 gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1"
+    >
+      {NEWSLETTER_CADENCES.map((key) => {
+        const meta = NEWSLETTER_CADENCE_META[key];
+        const selected = cadence === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            data-testid={`${testIdPrefix}-cadence-${key}`}
+            onClick={() => handleChangeCadence(key)}
+            className={`min-h-[44px] rounded-lg px-2 py-2 text-sm font-extrabold transition ${
+              selected
+                ? "bg-blue-700 text-white shadow-xs"
+                : "bg-transparent text-slate-700 hover:bg-white"
+            }`}
+          >
+            {meta.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   const listSlot = (
     <div
       data-testid="magazine-list-slot"
       className="p-4 space-y-4 text-slate-900"
     >
-      {/* <EditionAirtableList /> 호환 슬롯 */}
+      {/* <EditionAirtableList /> 호환 슬롯 — 주기별 탭(일간·주간·월간) 복원 */}
       {/* 빠른 시작 카드 */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
         <div className="space-y-1">
-          <p className="text-sm font-bold text-blue-700">빠른 시작</p>
-          <h2 className="text-base font-extrabold text-slate-900">
+          <p className="text-sm font-bold text-blue-700">빠른 시작 · 발행 주기</p>
+          {cadenceSelector("quickstart")}
+          <h2 data-testid="current-issue-label" className="pt-1 text-base font-extrabold text-slate-900">
             {autoMeta.yearMonthLabel} 뉴스레터
           </h2>
           <p className="text-sm font-medium text-slate-600">
-            제목·내용·보내기 3단계로 이번 달 뉴스레터를 완성하세요.
+            제목·내용·보내기 3단계로 {cadenceMeta.periodWord} {cadenceMeta.label} 뉴스레터를 완성하세요.
           </p>
         </div>
 
         <button
           type="button"
           data-testid="new-newsletter-btn"
-          onClick={handleStartNewThisMonth}
+          onClick={() => handleStartNewThisMonth()}
           className="w-full min-h-[48px] rounded-xl bg-blue-700 px-4 py-2.5 text-base font-extrabold text-white shadow-xs transition hover:bg-blue-800 flex items-center justify-center gap-2"
         >
           <FilePlus2 className="h-5 w-5" aria-hidden="true" />
-          <span>이번 달 뉴스레터 새로 쓰기</span>
+          <span>{cadenceMeta.newButtonLabel}</span>
         </button>
       </div>
 
-      {/* 이전 호 불러오기 목록 */}
+      {/* 이전 호 불러오기 목록 (주기별 필터) */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-extrabold text-slate-800">이전 호 불러오기</h3>
-          <span className="text-sm font-bold text-slate-600">{editions.length}건</span>
+          <span className="text-sm font-bold text-slate-600">{visibleEditions.length}건</span>
         </div>
 
-        {editions.length === 0 ? (
+        <div
+          role="tablist"
+          aria-label="이전 호 주기별 보기"
+          className="flex flex-wrap gap-1.5"
+        >
+          {(
+            [
+              { key: "all", label: `전체 (${editions.length})` },
+              ...NEWSLETTER_CADENCES.map((key) => ({
+                key,
+                label: `${NEWSLETTER_CADENCE_META[key].label} (${cadenceCounts[key]})`,
+              })),
+            ] as Array<{ key: NewsletterCadence | "all"; label: string }>
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={editionCadenceFilter === tab.key}
+              data-testid={`edition-filter-${tab.key}`}
+              onClick={() => setEditionCadenceFilter(tab.key)}
+              className={`min-h-[36px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
+                editionCadenceFilter === tab.key
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {visibleEditions.length === 0 ? (
           <p className="text-sm font-medium text-slate-600 py-2">
-            아직 발행한 이전 호가 없습니다. 이번 달 첫 뉴스레터를 시작해 보세요.
+            아직 발행한 이전 호가 없습니다. {cadenceMeta.periodWord} 첫 {cadenceMeta.label} 뉴스레터를 시작해 보세요.
           </p>
         ) : (
           <ul className="space-y-2" role="list">
-            {editions.map((ed) => {
+            {visibleEditions.map((ed) => {
               const isCurrent = editionId === ed.id;
+              const edCadenceLabel =
+                ed.cadence === "special"
+                  ? "호외"
+                  : NEWSLETTER_CADENCE_META[ed.cadence ?? "monthly"].label;
               return (
                 <li key={ed.id}>
                   <button
@@ -1378,6 +1559,12 @@ export default function MagazineEditorPage() {
                       </span>
                     </div>
                     <p className="text-sm font-medium text-slate-600">
+                      <span
+                        data-testid={`edition-cadence-badge-${ed.id}`}
+                        className="mr-1 rounded bg-blue-50 px-1.5 py-0.5 text-sm font-extrabold text-blue-800"
+                      >
+                        {edCadenceLabel}
+                      </span>
                       {ed.slug} · 추천 매물 {ed.dealCount}건
                     </p>
                   </button>
@@ -1480,6 +1667,7 @@ export default function MagazineEditorPage() {
 
             <MagazineQuickDraftCard
               monthLabel={autoMeta.yearMonthLabel}
+              cadence={cadence}
               regionFocus={regionFocus}
               onChangeRegionFocus={setRegionFocus}
               preferredRegions={preferredRegions}
@@ -1509,10 +1697,14 @@ export default function MagazineEditorPage() {
             <IssueMetadataForm
               year={issueYear}
               month={issueMonth}
+              cadence={cadence}
+              onChangeCadence={handleChangeCadence}
+              issueDate={issueDateStr}
+              onChangeIssueDate={handleChangeIssueDate}
               onChangeYearMonth={(meta: AutoIssueMetadata) => {
                 setIssueYear(meta.year);
                 setIssueMonth(meta.month);
-                const existingMatch = editions.find((e) => e.slug === meta.slug);
+                const existingMatch = findEditionFor("monthly", meta.slug);
                 if (existingMatch) {
                   setEditionId(existingMatch.id);
                 } else {
@@ -1691,7 +1883,7 @@ export default function MagazineEditorPage() {
             )}
 
             {/* 월간 통계 코너 정직한 상태 표시 (NL-01) */}
-            {isSectionEnabled("market_data") && (
+            {cadence === "monthly" && isSectionEnabled("market_data") && (
               <section
                 data-testid="monthly-stats-honest-card"
                 aria-label="이번 달 통계 데이터 상태"
@@ -1870,7 +2062,7 @@ export default function MagazineEditorPage() {
 
           <h2
             data-single-line-title="true"
-            className="line-clamp-2 break-keep leading-snug text-xl font-extrabold text-slate-900"
+            className="break-keep leading-snug text-xl font-extrabold text-slate-900"
           >
             {headline.trim() || "표지 제목을 입력하면 이곳에 바로 표시됩니다"}
           </h2>
@@ -1891,7 +2083,7 @@ export default function MagazineEditorPage() {
         {isSectionEnabled("field_note") && (
           <section className="space-y-2">
             <h3 className="text-base font-extrabold text-slate-900">
-              {briefingTitle.trim() || "이달의 시장 브리핑"}
+              {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
             </h3>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 whitespace-pre-line leading-relaxed">
               {formattedPreviewBriefing.trim() ||
@@ -1900,7 +2092,7 @@ export default function MagazineEditorPage() {
           </section>
         )}
 
-        {/* 핵심 이슈 포스트잇 5선 미리보기 (카드뉴스형 2줄 큰 제목 + 2줄 짧은 부제 해설) */}
+        {/* 핵심 이슈 5선 미리보기 — 카드뉴스형 글래스모피즘 (제목 36자 · 해설 48자 · 잘림 없음) */}
         {isSectionEnabled("news_curation") && unitIssues.length > 0 && (
           <section
             data-testid="preview-axios-postit-section"
@@ -1908,7 +2100,7 @@ export default function MagazineEditorPage() {
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-base font-extrabold text-slate-900">
-                핵심 시장 이슈 5선
+                {cadenceMeta.label} 핵심 시장 이슈 5선
               </h3>
               <span className="text-sm font-bold text-slate-600">
                 {preferredRegions.slice(0, 2).join(" · ")} 맞춤
@@ -1916,61 +2108,35 @@ export default function MagazineEditorPage() {
             </div>
             <ul className="space-y-3" role="list">
               {unitIssues.slice(0, 5).map((issue, idx) => {
-                const toneMeta =
-                  POST_IT_TONE_META[issue.memoTone] ?? POST_IT_TONE_META.amber;
                 const chMeta =
                   issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
                     ? NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
                     : NEWS_CHANNEL_MAP.real_estate;
-                const cardTitle = formatAxiosCardTitle(issue.title, 52) || issue.title;
-                const cardBrief = formatAxiosTwoLineBrief(issue.brief, {
-                  title: cardTitle,
+                const copy = normalizeAxiosIssueCopy({
+                  title: issue.title,
+                  brief: issue.brief,
                   channel: chMeta.id === "all" ? "real_estate" : chMeta.id,
                 });
                 return (
-                  <li
+                  <AxiosGlassIssueCard
                     key={issue.id || idx}
-                    data-testid={`preview-postit-card-${idx}`}
-                    style={{
-                      backgroundColor: toneMeta.cardBg,
-                      borderColor: toneMeta.cardBorder,
-                      borderLeftColor: toneMeta.accentBar,
-                    }}
-                    className="rounded-2xl border-2 border-l-[6px] p-4 shadow-2xs space-y-2"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-1.5">
-                      <span
-                        style={{
-                          backgroundColor: toneMeta.badgeBg,
-                          color: toneMeta.badgeText,
-                        }}
-                        className="rounded-md px-2 py-0.5 text-sm font-extrabold"
-                      >
-                        ISSUE 0{idx + 1}
-                      </span>
-                      <span className="rounded-md border border-slate-900/15 bg-white/85 px-2 py-0.5 text-sm font-bold text-slate-900">
-                        {chMeta.emoji} {chMeta.shortLabel}
-                      </span>
-                    </div>
-                    <h4
-                      className="line-clamp-2 break-keep text-lg font-black leading-[1.35] tracking-tight"
-                      style={{ color: toneMeta.titleColor }}
-                    >
-                      {cardTitle}
-                    </h4>
-                    <p
-                      className="line-clamp-2 break-keep text-sm font-semibold leading-[1.55]"
-                      style={{ color: toneMeta.bodyColor }}
-                    >
-                      {cardBrief}
-                    </p>
-                  </li>
+                    index={idx}
+                    tone={issue.memoTone}
+                    title={copy.title || issue.title}
+                    brief={copy.brief}
+                    size="preview"
+                    channelEmoji={chMeta.emoji}
+                    channelLabel={chMeta.shortLabel}
+                    cardTestId={`preview-postit-card-${idx}`}
+                    titleTestId={`preview-postit-title-${idx}`}
+                    briefTestId={`preview-postit-brief-${idx}`}
+                    titleAs="h4"
+                  />
                 );
               })}
             </ul>
           </section>
         )}
-
         {/* 추천 매물 미리보기 */}
         {isSectionEnabled("featured_deals") && (
           <section className="space-y-3">
@@ -2027,7 +2193,7 @@ export default function MagazineEditorPage() {
         )}
 
         {/* 월간 통계 코너 미리보기 (NL-01: 임의 수치 대신 정직한 통계 준비 중 표시) */}
-        {isSectionEnabled("market_data") && (
+        {cadence === "monthly" && isSectionEnabled("market_data") && (
           <section
             data-testid="preview-monthly-stats-section"
             className="space-y-2"
