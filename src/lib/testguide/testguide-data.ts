@@ -857,10 +857,10 @@ export const WAVE_C_MISSIONS = [
   },
   {
     id: 'C-3',
-    title: '미션 C-3. 매거진 뉴스레터(/broker/w/newsletter) 3개 매물 편성 · 순서 이동(▲/▼) · 삭제 확인 모달',
+    title: '미션 C-3. 매거진 뉴스레터(/broker/magazine-editor) 3개 매물 편성 · 순서 이동(▲/▼) · 삭제 확인 모달',
     testerRole: '테스터 A 단독 수행',
     steps: [
-      '테스터 A: [③ 뉴스레터 매거진 (/broker/w/newsletter)]으로 이동하여 오늘 만든 매물들을 블록으로 확인/편성합니다.',
+      '테스터 A: [③ 뉴스레터 스튜디오 (/broker/magazine-editor)]로 이동하여 오늘 만든 매물들을 블록으로 확인/편성합니다.',
       '블록 우측 상단의 ▲(위로) / ▼(아래로) 버튼을 눌러 카드 순서가 즉시 이동하는지 확인합니다.',
       '블록 우측 상단의 ✕(삭제) 버튼을 눌렀을 때 즉시 삭제되지 않고 "삭제하시겠습니까?" 확인 모달(또는 되돌리기 안전장치)이 뜨는지 확인합니다.',
     ],
@@ -898,3 +898,456 @@ export const PPTX_10_AUDIT_ITEMS = [
   { no: 9, title: '지적도·위치도·첨부사진 4장 품질', method: '표지(1면), 입지/토지(4~5면), 현장사진(9면) 확인', criteria: '첨부한 JPG·PNG·WebP 4장 및 지적도 선명' },
   { no: 10, title: '한글 폰트·표 넘침(Overflow)', method: '글자 네모(□□□) 깨짐 및 표 하단 침범 확인', criteria: '폰트 깨짐 0건, 표 잘림 0건' },
 ];
+
+// ───────────────────────────────────────────────────────────────────────────
+// 📰 뉴스레터 스튜디오 & 💬 소통 관리함 30문항 상용화 골든테스트 SSOT 데이터
+// ───────────────────────────────────────────────────────────────────────────
+
+export interface CopyPresetItem {
+  id: string;
+  label: string;
+  targetField: string;
+  value: string;
+  note?: string;
+}
+
+export const NEWSLETTER_COPY_PRESETS: CopyPresetItem[] = [
+  {
+    id: 'nl-headline',
+    label: '① 표지 제목 (Headline)',
+    targetField: '뉴스레터 [① 표지 제목] 입력칸',
+    value: '2026년 11월 강남·마포·수도권 상업용 빌딩 시장 브리핑 & 핵심 추천 매물 3선',
+    note: 'NL-G01 / NL-G02 검증용 표지 제목',
+  },
+  {
+    id: 'nl-summary',
+    label: '① 표지 한 줄 요약 (Summary)',
+    targetField: '뉴스레터 [① 표지 제목 → 한 줄 요약] 입력칸',
+    value: '금리 인하 기대감 속 역세권 꼬마빌딩·안정형 근생·강남 프라임 오피스 실거래 동향과 검증된 알짜 매물 3선을 전해드립니다.',
+    note: '카톡 공유 설명 및 상단 인트로에 반영',
+  },
+  {
+    id: 'nl-briefing-title',
+    label: '② 시장 이야기 제목',
+    targetField: '뉴스레터 [② 이번 달 시장 이야기 → 소제목] 입력칸',
+    value: '11월 상업용 빌딩 매수 심리 회복세 — 역세권 대수선·만실 수익형 양극화 뚜렷',
+    note: 'NL-G03 검증용 브리핑 제목',
+  },
+  {
+    id: 'nl-briefing-body',
+    label: '② 시장 이야기 본문 원문 (서식 포함)',
+    targetField: '뉴스레터 [② 이번 달 시장 이야기 → 본문] 입력칸',
+    value: `## 강남·마포 역세권 거래량 반등\n최근 기준금리 인하 기조와 함께 **마포·연남 상권 밸류애드 매물**과 **수도권 7%대 고수익 근생빌딩**을 중심으로 법인 및 자산가 매수 문의가 빠르게 늘고 있습니다.\n\n---\n\n## 이번 달 추천 매물 핵심 포인트\n- **마포구 동교동 코너빌딩 (77억)**: 홍대입구역 도보 4분, 신축·리모델링 밸류애드 최적 입지\n- **부천 원미구 상동 동아빌딩 (58억)**: 전 층 우량 임차인 만실 운영, 연 수익률 7.5% 안정적 현금흐름\n- **강남구 역삼동 테헤란로 프라임 오피스 (2,000억)**: 테헤란로 대로변 랜드마크, 글로벌 IT·금융사 사옥 및 코어 자산`,
+    note: 'NL-G03 서식 도구(소제목/강조/구분선) 적용 원문',
+  },
+  {
+    id: 'nl-deal-comment-1',
+    label: '③ 매물 #1 추천 코멘트 (동교동 77억)',
+    targetField: '뉴스레터 [③ 추천 매물 넣기] → 매물 #1 한 줄 코멘트',
+    value: '홍대입구역 도보 4분 코너 필지, 리모델링 후 임대료 40% 상승 기대 밸류애드 매물',
+    note: 'NL-G04 매물 #1 큐레이션 코멘트',
+  },
+  {
+    id: 'nl-deal-comment-2',
+    label: '③ 매물 #2 추천 코멘트 (부천 동아빌딩 58억)',
+    targetField: '뉴스레터 [③ 추천 매물 넣기] → 매물 #2 한 줄 코멘트',
+    value: '우량 학원·메디컬 전 층 만실 성업 중, 대출 활용 시 자기자본 수익률 11% 상회',
+    note: 'NL-G04 매물 #2 큐레이션 코멘트',
+  },
+  {
+    id: 'nl-deal-comment-3',
+    label: '③ 매물 #3 추천 코멘트 (역삼동 2,000억)',
+    targetField: '뉴스레터 [③ 추천 매물 넣기] → 매물 #3 한 줄 코멘트',
+    value: '테헤란로 초역세권 가시성 최상급 프라임 오피스, 법인 사옥 및 장기 코어 투자 최적',
+    note: 'NL-G04 매물 #3 큐레이션 코멘트',
+  },
+];
+
+export const INBOX_COPY_PRESETS: CopyPresetItem[] = [
+  {
+    id: 'ib-buyer-name',
+    label: '[테스터 B] 열람 신청 성함',
+    targetField: '딜카드 [IM 요청하기] 모달 → 이름 (필수)',
+    value: '박매수 상무',
+    note: 'IB-G01 시크릿 창 매수자 열람 신청용',
+  },
+  {
+    id: 'ib-buyer-phone',
+    label: '[테스터 B] 열람 신청 연락처',
+    targetField: '딜카드 [IM 요청하기] 모달 → 연락처 (필수)',
+    value: '010-8888-7777',
+    note: 'IB-G01 시크릿 창 매수자 연락처',
+  },
+  {
+    id: 'ib-buyer-company',
+    label: '[테스터 B] 열람 신청 소속·기관명',
+    targetField: '딜카드 [IM 요청하기] 모달 → 소속 · 기관명',
+    value: '케이리츠자산운용',
+    note: 'IB-G01 / IB-G02 소속 파싱 검증용',
+  },
+  {
+    id: 'ib-buyer-message',
+    label: '[테스터 B] 열람 신청 문의 내용',
+    targetField: '딜카드 [IM 요청하기] 모달 → 문의 내용',
+    value: '투심위 상정용 렌트롤 및 상세 IM 요청드립니다',
+    note: 'IB-G01 / IB-G02 JSON 파싱 무결성 검증용',
+  },
+  {
+    id: 'ib-kakao-headline',
+    label: '[테스터 A] 카톡 메시지 한 줄 제목',
+    targetField: '소통함 [메시지] 탭 → 카톡 한 줄 제목',
+    value: '[케이리츠자산운용 박매수 상무님 전용] 요청하신 상세 IM 및 층별 임대 현황 보내드립니다',
+    note: 'IB-G06 맞춤 카톡 메시지 발송용',
+  },
+  {
+    id: 'ib-kakao-brief',
+    label: '[테스터 A] 카톡 메시지 핵심 설명',
+    targetField: '소통함 [메시지] 탭 → 카톡 핵심 설명',
+    value: '투심위 검토에 필요한 층별 보증금·임대료 현황과 수익률 시뮬레이션이 포함된 검증본입니다.',
+    note: 'IB-G06 맞춤 카톡 메시지 설명',
+  },
+  {
+    id: 'ib-call-note',
+    label: '[테스터 A] 통화 및 상담 메모 샘플',
+    targetField: '소통함 [기록] 탭 → 통화 및 상담 메모 입력칸',
+    value: '금일 14시 박매수 상무 통화 완료 — 다음 주 화요일 오전 11시 현장 투어 확정, 1층 카페 명도 조건 추가 확인 요청',
+    note: 'IB-G09 타임라인 영속성 검증용',
+  },
+  {
+    id: 'ib-correction-notice',
+    label: '[테스터 A] 수치 정정 안내 문구',
+    targetField: '소통함 우측 [수치 정정 안내 배너] → 정정 문구 입력칸',
+    value: '3층 임대료가 450만원→480만원으로 정정되었습니다.',
+    note: 'IB-G11 / IB-G12 수신자 뷰어 상단 정정 배너 연동용',
+  },
+  {
+    id: 'ib-vip-name',
+    label: '[테스터 A] 신규 VIP 고객 성함',
+    targetField: '소통함 [+ 고객 직접 등록] 모달 → 고객 성함',
+    value: '최대표',
+    note: 'IB-G16 신규 고객 등록용',
+  },
+  {
+    id: 'ib-vip-phone',
+    label: '[테스터 A] 신규 VIP 고객 연락처',
+    targetField: '소통함 [+ 고객 직접 등록] 모달 → 연락처',
+    value: '010-5555-4444',
+    note: 'IB-G16 신규 고객 연락처',
+  },
+  {
+    id: 'ib-vip-budget',
+    label: '[테스터 A] 신규 VIP 고객 희망 예산',
+    targetField: '소통함 [+ 고객 직접 등록] 모달 → 희망 예산',
+    value: '60억',
+    note: 'IB-G16 우측 매칭 매물 자동 추천 검증용',
+  },
+  {
+    id: 'ib-vip-region',
+    label: '[테스터 A] 신규 VIP 고객 선호 권역',
+    targetField: '소통함 [+ 고객 직접 등록] 모달 → 선호 권역',
+    value: '부천·수도권 역세권',
+    note: 'IB-G16 선호 권역 저장 검증용',
+  },
+  {
+    id: 'ib-vip-building',
+    label: '[테스터 A] 신규 VIP 고객 관심 매물명',
+    targetField: '소통함 [+ 고객 직접 등록] 모달 → 관심 매물명',
+    value: '부천 동아빌딩',
+    note: 'IB-G16 관심 매물 연동 검증용',
+  },
+];
+
+export interface Golden30ScenarioItem {
+  id: string;
+  wave: 'Wave 1 · 뉴스레터 (8문항)' | 'Wave 2 · 소통 관리함 (16문항)' | 'Wave 3 · 보안 격리 & 모바일 (6문항)';
+  actor:
+    | '테스터 A (중개사 #1)'
+    | '테스터 B (시크릿 창 매수자)'
+    | '테스터 B (중개사 #2)'
+    | '테스터 A·B 합동'
+    | '테스터 B → A'
+    | '테스터 A → B';
+  title: string;
+  action: string;
+  expected: string;
+  invariantCode: string;
+}
+
+export const NL_INBOX_GOLDEN_30_ITEMS: Golden30ScenarioItem[] = [
+  // Wave 1: Newsletter (NL-G01 ~ NL-G08)
+  {
+    id: 'NL-G01',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '새 호수 초기화 및 빈 제목 발송 방어',
+    action: '/broker/magazine-editor 진입 → [이번 달 새로 쓰기] 클릭 → 표지 제목을 비운 채 [뉴스레터 발행하고 보내기] 클릭',
+    expected: '발행이 차단되고 ① 표지 제목 단계로 자동 포커스 이동 및 친절한 한국어 안내 배너 노출',
+    invariantCode: 'NL-03',
+  },
+  {
+    id: 'NL-G02',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '표지 제목·요약 입력 및 로컬 초안 배지 구분',
+    action: '발행 연월(2026년 11월호) 선택, 표지 제목 및 한 줄 요약 입력 후 상단 저장 상태 배지 확인',
+    expected: '우측 미리보기에 즉시 반영되며, 서버 발행 전에는 [이 기기에만 임시저장됨] 배지가 명확히 구분 표시됨',
+    invariantCode: 'NL-05',
+  },
+  {
+    id: 'NL-G03',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '이번 달 시장 이야기 작성 및 3종 서식 막대 작동',
+    action: '② 이번 달 시장 이야기 단계에서 [예시 문구 넣기] 또는 샘플 원문 붙여넣기 후 [소제목], [강조], [구분선] 서식 버튼 클릭',
+    expected: '본문과 우측 미리보기에 마크다운 깨짐이나 raw 기호 노출 없이 깔끔한 타이포그래피로 렌더링됨',
+    invariantCode: 'NL-11',
+  },
+  {
+    id: 'NL-G04',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '보유 매물 3건 큐레이션 및 가짜 샘플 사진 0건 검증',
+    action: '③ 추천 매물 넣기 단계에서 보유 매물 3건(동교동 77억·부천 58억·역삼동 2,000억) 체크 및 각 매물 한 줄 추천 코멘트 입력',
+    expected: '우측 미리보기에 3개 매물 카드와 코멘트가 표시되며, 사진 미등록 매물에 가짜 샘플 빌딩 사진이 절대 노출되지 않음',
+    invariantCode: 'NL-02',
+  },
+  {
+    id: 'NL-G05',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '서버 정식 발행 및 공개 URL 클립보드 복사',
+    action: '④ 확인하고 보내기 단계에서 발송 대상(전체 구독자) 선택 후 [뉴스레터 발행하고 보내기] 또는 [링크 복사] 클릭',
+    expected: 'POST /api/magazine/issues 200 OK 응답 후 상단 배지가 [발행됨]으로 전환되고 실제 공개 URL이 클립보드에 복사됨',
+    invariantCode: 'NL-04 · NL-13',
+  },
+  {
+    id: 'NL-G06',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 B (시크릿 창 매수자)',
+    title: '비로그인 시크릿 창에서 발행된 공개 뉴스레터 열람',
+    action: '테스터 A가 복사한 공개 URL(/magazine/[brokerSlug]/[issueDate]?edition=...)을 시크릿 창에서 접속',
+    expected: '로그인 없이 표지 제목, 시장 브리핑, 큐레이션한 매물 3건 및 추천 코멘트가 깨짐 없이 100% 일치 렌더링됨',
+    invariantCode: 'NL-08',
+  },
+  {
+    id: 'NL-G07',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 B (시크릿 창 매수자)',
+    title: '뉴스레터 내 매물 카드 → 딜카드/IM 상세 페이지 이동',
+    action: '공개 뉴스레터 뷰어 내 추천 매물 카드의 [모바일 IM 열람] 클릭',
+    expected: '해당 매물의 공개 딜카드(/dc/[id]) 또는 IM 페이지로 깨짐 없이 정상 이동함',
+    invariantCode: 'NL-07',
+  },
+  {
+    id: 'NL-G08',
+    wave: 'Wave 1 · 뉴스레터 (8문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '발행한 호수의 좌측 목록 실측 매물 수(3건) 및 F5 보존',
+    action: '/broker/magazine-editor 좌측 [① 고르기] 목록 확인 및 브라우저 F5 새로고침',
+    expected: '방금 발행한 호수의 매물 수가 가짜 기본값(2건)이 아닌 실제 선택한 3건으로 정확히 표시되고 새로고침 후에도 유지됨',
+    invariantCode: 'NL-01',
+  },
+
+  // Wave 2: Inbox & CRM (IB-G01 ~ IB-G16)
+  {
+    id: 'IB-G01',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 B (시크릿 창 매수자)',
+    title: '딜카드에서 상세 IM 열람 신청 제출 (박매수 상무)',
+    action: '매물 딜카드(/dc/[id]) 하단 [IM 요청하기] 클릭 → 박매수 상무 / 010-8888-7777 / 케이리츠자산운용 / 투심위 상정용 렌트롤 및 상세 IM 요청드립니다 입력 후 제출',
+    expected: '신청 접수 완료 안내 모달이 표시되고 서버 gate_requests 레코드가 정상 생성됨',
+    invariantCode: 'IB-09',
+  },
+  {
+    id: 'IB-G02',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '소통함 [할 일] 탭 수신 및 JSON 날것 노출 0건 검증',
+    action: '/broker/w/inbox 접속 또는 새로고침 → [할 일] 탭 및 상단 요약 카드 확인',
+    expected: '박매수 상무 (케이리츠자산운용) 스레드가 최상단에 표시되며 {"type":"anonymous_lead"...} 날것의 JSON 문자열이 절대 노출되지 않음',
+    invariantCode: 'IB-09 · IB-11',
+  },
+  {
+    id: 'IB-G03',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '1클릭 [자료 보내기 (승인)] 및 전용 토큰 링크 자동 복사',
+    action: '박매수 상무 스레드 선택 → 중앙 [할 일] 탭에서 [자료 보내기 (승인)] 버튼 클릭',
+    expected: '승인 완료 피드백과 함께 전용 토큰 링크(/im-lite/[id]?token=slk...)가 클립보드에 자동 복사되고 상태가 열람 가능으로 전환됨',
+    invariantCode: 'IB-13',
+  },
+  {
+    id: 'IB-G04',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 B (시크릿 창 매수자)',
+    title: '승인된 전용 토큰 링크로 10개 섹션 상세 IM 열람',
+    action: '테스터 A에게 전달받은 전용 토큰 링크(/im-lite/[id]?token=slk...)를 시크릿 창에서 열람하고 임대 현황·수익률 섹션 스크롤',
+    expected: '블라인드 없이 매물 10개 섹션 전체 데이터와 층별 임대 현황이 정상 표시됨',
+    invariantCode: 'IB-04',
+  },
+  {
+    id: 'IB-G05',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 B → A',
+    title: '3회 이상 반복 열람 시 🔥 반복 열람 배지 및 지금 전화 콜아웃',
+    action: '테스터 B가 전용 링크를 3회 이상 새로고침/열람한 뒤 테스터 A가 /broker/w/inbox 확인',
+    expected: '열람 횟수(N회) 증가, [🔥 반복 열람] 배지 및 우측 패널 상단에 [🔥 지금 전화] 콜아웃이 활성화됨',
+    invariantCode: 'IB-07',
+  },
+  {
+    id: 'IB-G06',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '[메시지] 탭에서 맞춤 카톡 문구 작성 및 딜카드 보내기',
+    action: '중앙 [메시지] 탭 클릭 → 카톡 한 줄 제목과 핵심 설명 수정 후 [카톡으로 딜카드 보내기] 클릭',
+    expected: '맞춤 제목·설명이 반영된 공유 링크가 복사(또는 카톡 공유창 오픈)되고 타임라인에 발송 이력이 기록됨',
+    invariantCode: 'IB-12',
+  },
+  {
+    id: 'IB-G07',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '[메시지] 탭에서 이번 달 뉴스레터 1클릭 보내기',
+    action: '중앙 [메시지] 탭에서 [이번 달 뉴스레터 보내기] 클릭',
+    expected: '발행된 뉴스레터 링크가 복사/공유되고 활동 타임라인에 뉴스레터 발송 이력이 즉시 추가됨',
+    invariantCode: 'IB-12',
+  },
+  {
+    id: 'IB-G08',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '우측 패널 [보유 매물 다른 딜카드 추천]에서 대체 매물 발송',
+    action: '우측 패널 [보유 매물 자료 보내기] 클릭 → 보유 중인 다른 매물(예: 부천 동아빌딩) 선택 후 [딜카드] 클릭',
+    expected: '선택한 대체 매물의 전용 링크가 즉시 복사되고 타임라인에 추천 발송 기록이 남음',
+    invariantCode: 'IB-17',
+  },
+  {
+    id: 'IB-G09',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '[기록] 탭 통화·상담 메모 저장 및 타임라인 최상단 반영',
+    action: '중앙 [기록] 탭 클릭 → 통화 메모 샘플 입력 후 [기록 남기기] 클릭',
+    expected: '입력창이 비워지고 활동 타임라인 최상단에 방금 입력한 통화 기록이 즉시 추가됨',
+    invariantCode: 'IB-04',
+  },
+  {
+    id: 'IB-G10',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '브라우저 F5 새로고침 후 승인 상태 및 통화 기록 영속성',
+    action: '/broker/w/inbox 브라우저 F5 새로고침 후 박매수 상무 스레드 재확인',
+    expected: '승인 완료 상태(approved)와 방금 남긴 통화 메모가 휘발되지 않고 그대로 유지됨',
+    invariantCode: 'IB-04',
+  },
+  {
+    id: 'IB-G11',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '우측 패널 [⚠️ 수치 정정 안내 띄우기] 배너 게시',
+    action: '우측 패널 [전용 링크 열람 권한] 카드 하단의 [⚠️ 수치 정정 안내 띄우기] 클릭 → 정정 문구 입력 후 [정정 안내 게시] 클릭',
+    expected: '상태가 [표시 중]으로 바뀌고 타임라인에 매물 정정 안내 게시 이력이 기록됨',
+    invariantCode: 'IB-16',
+  },
+  {
+    id: 'IB-G12',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 B → A',
+    title: '수신자 IM 뷰어 상단 정정 배너 노출 및 [정정 안내 내리기] 해제',
+    action: '테스터 B가 전용 링크(/im-lite/[id]?token=...) 새로고침하여 상단 노란색 정정 배너 확인 → 테스터 A가 [정정 안내 내리기] 클릭 후 테스터 B 재확인',
+    expected: '테스터 B 화면 상단에 정정 문구가 즉시 노출되었다가, 내리기 클릭 후 새로고침 시 깔끔하게 사라짐',
+    invariantCode: 'IB-16',
+  },
+  {
+    id: 'IB-G13',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: 'window.prompt 없는 인라인 확인 UI로 [보낸 링크 잠그기]',
+    action: '우측 패널에서 [보낸 링크 잠그기] 클릭 → 인라인 확인창("이 고객의 열람 링크를 잠글까요?")에서 [잠그기] 클릭',
+    expected: '브라우저 기본 prompt 창 없이 인라인 UI로 확인되며, 스레드 상태가 [링크 잠김]으로 즉시 변경됨',
+    invariantCode: 'IB-16',
+  },
+  {
+    id: 'IB-G14',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 B (시크릿 창 매수자)',
+    title: '잠긴 전용 토큰 링크 접속 시 매물 데이터 100% 차단',
+    action: '테스터 B가 시크릿 창에서 기존 전용 링크(/im-lite/[id]?token=...) 새로고침',
+    expected: '매물 상세 수치와 임대 현황이 100% 차단되고 "열람 권한이 회수되었거나 만료된 링크입니다" 안내 화면이 표시됨',
+    invariantCode: 'IB-04',
+  },
+  {
+    id: 'IB-G15',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A → B',
+    title: '[링크 다시 열기] 복구 후 수신자 IM 재열람 정상 작동',
+    action: '테스터 A가 우측 패널에서 [링크 다시 열기] 클릭 → 테스터 B가 시크릿 창 새로고침',
+    expected: '스레드 상태가 [열람 가능]으로 복원되고 테스터 B 화면에서 다시 상세 IM 열람이 정상 작동함',
+    invariantCode: 'IB-04',
+  },
+  {
+    id: 'IB-G16',
+    wave: 'Wave 2 · 소통 관리함 (16문항)',
+    actor: '테스터 A (중개사 #1)',
+    title: '[+ 고객 직접 등록] 모달로 VIP 고객 등록 및 가짜 전화번호 0건',
+    action: '좌측 상단 [+ 고객 직접 등록] 클릭 → 최대표 / 010-5555-4444 / VIP / 예산 60억 / 부천·수도권 역세권 / 부천 동아빌딩 입력 후 등록 → ESC 닫기 및 F5 확인',
+    expected: '[전체 고객] 목록에 최대표(VIP)가 생성되고 우측 요약 카드에 희망 예산(60억)·선호 권역이 표시되며 010-0000-0000 가짜 번호가 절대 생성되지 않음',
+    invariantCode: 'IB-20 · IB-26',
+  },
+
+  // Wave 3: Security & Mobile (SEC-G01 ~ SEC-G06)
+  {
+    id: 'SEC-G01',
+    wave: 'Wave 3 · 보안 격리 & 모바일 (6문항)',
+    actor: '테스터 B (시크릿 창 매수자)',
+    title: '비로그인 상태에서 중개사 전용 페이지/API 접근 차단 (401)',
+    action: '비로그인 시크릿 창에서 /broker/w/inbox, /broker/magazine-editor 또는 GET /api/broker/inbox?workspace=1 직접 호출',
+    expected: '로그인 페이지로 리다이렉트되거나 API가 401 Unauthorized를 반환하여 비인가 접근을 100% 차단함',
+    invariantCode: 'IB-01 · NL-09',
+  },
+  {
+    id: 'SEC-G02',
+    wave: 'Wave 3 · 보안 격리 & 모바일 (6문항)',
+    actor: '테스터 B (시크릿 창 매수자)',
+    title: '비로그인 상태에서 배지 카운트 API 호출 시 200 { count: 0 } 무소음 처리',
+    action: '비로그인 시크릿 창에서 GET /api/broker/inbox/pending-count 호출 및 콘솔 확인',
+    expected: '콘솔 401 에러 로그 없이 200 OK { "ok": true, "count": 0 }을 반환함',
+    invariantCode: 'IB-28',
+  },
+  {
+    id: 'SEC-G03',
+    wave: 'Wave 3 · 보안 격리 & 모바일 (6문항)',
+    actor: '테스터 B (중개사 #2)',
+    title: '타 중개사 계정(#2) 로그인 시 테스터 A의 고객·호수 노출 0건 격리',
+    action: '타 중개사 계정(#2)으로 로그인 후 /broker/w/inbox 및 /broker/magazine-editor 진입',
+    expected: '테스터 A의 고객(박매수 상무, 최대표) 및 테스터 A의 뉴스레터 호수가 단 1건도 노출되지 않음',
+    invariantCode: 'IB-02 · NL-09',
+  },
+  {
+    id: 'SEC-G04',
+    wave: 'Wave 3 · 보안 격리 & 모바일 (6문항)',
+    actor: '테스터 B (중개사 #2)',
+    title: '타 중개사 계정(#2)에서 테스터 A의 매물/스레드 위변조 요청 시 403 차단',
+    action: '타 중개사 계정(#2) 세션에서 테스터 A의 buildingId로 POST /api/broker/inbox/actions (approve_gate 또는 revoke_link) 호출',
+    expected: '403 Forbidden ("본인 소유 매물의 요청만 처리할 수 있습니다.")으로 즉시 차단됨',
+    invariantCode: 'IB-03 · NL-09',
+  },
+  {
+    id: 'SEC-G05',
+    wave: 'Wave 3 · 보안 격리 & 모바일 (6문항)',
+    actor: '테스터 A·B 합동',
+    title: '모바일 뷰포트(375×812) 뉴스레터 에디터 가로 스크롤 0px 및 탭 전환',
+    action: 'Chrome 개발자도구 모바일 뷰(375×812)에서 /broker/magazine-editor 진입 → [① 고르기] · [② 채우기] · [③ 확인·보내기] 하단/상단 탭 전환',
+    expected: '가로 스크롤(scrollWidth > clientWidth) 0px이며, 모든 버튼 터치 타겟이 48px 이상으로 쾌적하게 작동함',
+    invariantCode: 'NL-11',
+  },
+  {
+    id: 'SEC-G06',
+    wave: 'Wave 3 · 보안 격리 & 모바일 (6문항)',
+    actor: '테스터 A·B 합동',
+    title: '모바일 뷰포트(375×812) 소통 관리함 리스트↔상세 푸시 이동 및 가로 스크롤 0px',
+    action: '모바일 뷰(375×812)에서 /broker/w/inbox 진입 → 고객 스레드 탭하여 상세 진입 → 상단 [← 고객 목록으로] 탭하여 복귀',
+    expected: '초기 진입 시 고객 목록이 먼저 보이고, 스레드 탭 시 상세 화면으로 전환되며 가로 스크롤 0px 유지',
+    invariantCode: 'IB-19',
+  },
+];
+

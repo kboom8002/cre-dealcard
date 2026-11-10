@@ -8,6 +8,8 @@ import { todayKst } from "@/lib/magazine/kst";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { normalizeContentForPublish, DEFAULT_THEME_COLOR } from "@/lib/magazine/edition-save";
 import { getOrCreateDraftEdition, defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
+import { sanitizeDealAddress } from "@/lib/magazine/view-helpers";
+import { listAllQuickImRecords } from "@/lib/im-lite/quick-generate-store";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-issues");
@@ -27,6 +29,7 @@ const IssueBodySchema = z.object({
   briefingBody: z.string().max(30000).optional(),
   marketTemp: z.string().max(30).nullable().optional(),
   featuredDealIds: z.array(z.string().max(100)).max(50).optional(),
+  featuredDeals: z.array(z.record(z.string(), z.unknown())).max(50).optional(),
   dealComments: z.record(z.string(), z.string().max(1000)).optional(),
   sections: z
     .array(
@@ -180,6 +183,68 @@ export async function POST(request: NextRequest) {
         ? (targetEdition.content as Record<string, unknown>)
         : {};
 
+    // 2-B. 선택된 매물(featuredDealIds) 스냅샷 하이드레이션 (NL-G04, NL-G06, NL-G07)
+    const dealIds = data.featuredDealIds ?? [];
+    const commentsMap = data.dealComments ?? {};
+    const clientSnapshots = Array.isArray(data.featuredDeals) ? data.featuredDeals : [];
+    const hydratedDeals: Array<Record<string, unknown>> = [];
+
+    if (dealIds.length > 0) {
+      const quickRecords = listAllQuickImRecords();
+      let dbBuildings: Array<Record<string, unknown>> = [];
+      try {
+        const { data: bRows } = await supabase
+          .from("building_ssot_lite")
+          .select("id, address, area_signal, asset_type, price_band, fit_summary")
+          .in("id", dealIds);
+        if (Array.isArray(bRows)) {
+          dbBuildings = bRows as Array<Record<string, unknown>>;
+        }
+      } catch {
+        // ignore if non-UUID IDs in dealIds
+      }
+
+      for (const dId of dealIds) {
+        const snap = clientSnapshots.find((s) => String(s.id ?? "") === dId) || {};
+        const dbRow = dbBuildings.find((b) => String(b.id ?? "") === dId);
+        const qRec = quickRecords.find((r) => r.buildingId === dId);
+        const comment = commentsMap[dId]?.trim() || String(snap.investmentPoint ?? snap.point ?? "").trim();
+
+        const rawTitle =
+          String(snap.title ?? snap.assetType ?? "").trim() ||
+          qRec?.buildingName ||
+          String(dbRow?.area_signal ?? dbRow?.asset_type ?? "").trim() ||
+          "추천 상업용 빌딩";
+        const rawAddr =
+          String(snap.address ?? "").trim() ||
+          qRec?.address ||
+          String(dbRow?.address ?? dbRow?.area_signal ?? "").trim();
+        const safeAddr = sanitizeDealAddress(rawAddr) || "수도권 역세권";
+        const priceVal =
+          snap.price ??
+          qRec?.card4?.priceBand ??
+          dbRow?.price_band ??
+          (qRec?.askingPriceManwon ? `${(qRec.askingPriceManwon / 10000).toFixed(0)}억` : "가격 협의");
+        const yieldNum =
+          typeof snap.grossYieldNetOfDeposit === "number"
+            ? snap.grossYieldNetOfDeposit
+            : qRec?.basicImDoc?.facts?.valuation?.capRatePct ?? undefined;
+
+        hydratedDeals.push({
+          id: dId,
+          title: rawTitle,
+          assetType: rawTitle,
+          address: safeAddr,
+          price: priceVal,
+          grossYieldNetOfDeposit: yieldNum,
+          investmentPoint: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
+          point: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
+          photoUrl: typeof snap.photoUrl === "string" && snap.photoUrl.trim() ? snap.photoUrl : null,
+          imUrl: `/dc/${encodeURIComponent(dId)}`,
+        });
+      }
+    }
+
     const rawContentForNormalize: Record<string, unknown> = {
       ...existingContent,
       format: "simple",
@@ -190,8 +255,10 @@ export async function POST(request: NextRequest) {
       field_note: fieldNote,
       theme_title: data.briefingTitle?.trim() || "",
       theme_body_md: effectiveBriefing,
-      featured_deal_ids: data.featuredDealIds ?? [],
-      deal_comments: data.dealComments ?? {},
+      featured_deal_ids: dealIds,
+      featured_deals: hydratedDeals,
+      dealHighlights: hydratedDeals,
+      deal_comments: commentsMap,
       sections: data.sections,
       target_segment: data.targetSegment ?? "all",
     };
@@ -239,6 +306,9 @@ export async function POST(request: NextRequest) {
     const finalContent: Record<string, unknown> = {
       ...normalized.content,
       id: editionId,
+      featured_deal_ids: dealIds,
+      featured_deals: hydratedDeals,
+      dealHighlights: hydratedDeals,
       deal_comments: data.dealComments ?? {},
       ...(Array.isArray(data.sections) && data.sections.length > 0
         ? { sections: data.sections }

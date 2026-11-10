@@ -10,7 +10,8 @@ const log = createModuleLogger('route');
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { teaserConfigId, visitorFp, eventType, eventData, buildingId, docId } = body;
+    const { teaserConfigId, visitorFp, eventType, eventData, metadata, buildingId, docId } = body;
+    const effectiveEventData = eventData || metadata || {};
 
     if (!eventType) {
       return NextResponse.json({ ok: false, error: 'Missing required field: eventType' }, { status: 400 });
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       teaser_config_id: effectiveConfigId,
       visitor_fp: effectiveVisitorFp,
       event_type: eventType,
-      event_data: eventData || {},
+      event_data: effectiveEventData,
     });
 
     if (insertError) {
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
         building_ssot_lite_id: buildingId,
         building_id: buildingId,
         event_type: eventType,
-        metadata: eventData || {},
+        metadata: effectiveEventData,
       });
     }
 

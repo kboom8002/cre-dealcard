@@ -103,7 +103,8 @@ export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_REGEX.test(value.trim());
 }
 
-const STORE_FILE = path.join(os.tmpdir(), 'cre-v3-quick-generate-store.json');
+const TEST_WORKER_SUFFIX = process.env.VITEST ? `-${process.pid}` : '';
+const STORE_FILE = path.join(os.tmpdir(), `cre-v3-quick-generate-store${TEST_WORKER_SUFFIX}.json`);
 
 declare global {
   // eslint-disable-next-line no-var
@@ -421,7 +422,7 @@ export function listAllQuickImRecords(): StoredQuickImRecord[] {
   return Array.from(uniqueByBuilding.values());
 }
 
-const INBOX_STATE_FILE = path.join(os.tmpdir(), 'cre-v3-inbox-state-store.json');
+const INBOX_STATE_FILE = path.join(os.tmpdir(), `cre-v3-inbox-state-store${TEST_WORKER_SUFFIX}.json`);
 
 declare global {
   // eslint-disable-next-line no-var

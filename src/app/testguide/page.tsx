@@ -5,11 +5,15 @@ import {
   TESTGUIDE_DEALS,
   WAVE_C_MISSIONS,
   PPTX_10_AUDIT_ITEMS,
+  NEWSLETTER_COPY_PRESETS,
+  INBOX_COPY_PRESETS,
+  NL_INBOX_GOLDEN_30_ITEMS,
   type TestGuideDeal,
 } from "@/lib/testguide/testguide-data";
 
-type ActiveTabId = "overview" | "deal1" | "deal2" | "deal3" | "wavec" | "scorecard";
+type ActiveTabId = "overview" | "deal1" | "deal2" | "deal3" | "wavec" | "nlinbox" | "scorecard";
 type CheckStatus = "PASS" | "FAIL" | "PENDING";
+type TimerTargetId = "deal1" | "deal2" | "deal3" | "newsletter" | "inbox";
 
 interface DealMetrics {
   seconds: number;
@@ -32,7 +36,7 @@ interface DefectEntry {
 
 const STORAGE_KEY = "credeal-testguide-state-v1";
 
-const INITIAL_METRICS: Record<"deal1" | "deal2" | "deal3", DealMetrics> = {
+const INITIAL_METRICS: Record<TimerTargetId, DealMetrics> = {
   deal1: {
     seconds: 0,
     hesitations: 0,
@@ -63,6 +67,26 @@ const INITIAL_METRICS: Record<"deal1" | "deal2" | "deal3", DealMetrics> = {
     actualOccupancy: "100.0%",
     actualYieldChange: "2.50% → 2.63%",
   },
+  newsletter: {
+    seconds: 0,
+    hesitations: 0,
+    misclicks: 0,
+    satisfaction: 5,
+    actualLandGfa: "-",
+    actualDepositRent: "-",
+    actualOccupancy: "-",
+    actualYieldChange: "-",
+  },
+  inbox: {
+    seconds: 0,
+    hesitations: 0,
+    misclicks: 0,
+    satisfaction: 5,
+    actualLandGfa: "-",
+    actualDepositRent: "-",
+    actualOccupancy: "-",
+    actualYieldChange: "-",
+  },
 };
 
 function formatTime(sec: number): string {
@@ -77,12 +101,12 @@ export default function TestGuidePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Stopwatch state
-  const [timerDealId, setTimerDealId] = useState<"deal1" | "deal2" | "deal3">("deal1");
+  const [timerDealId, setTimerDealId] = useState<TimerTargetId>("deal1");
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
   // Persisted test results
   const [testerName, setTesterName] = useState<string>("테스터 A & B");
-  const [metrics, setMetrics] = useState<Record<"deal1" | "deal2" | "deal3", DealMetrics>>(
+  const [metrics, setMetrics] = useState<Record<TimerTargetId, DealMetrics>>(
     INITIAL_METRICS
   );
   const [checkMap, setCheckMap] = useState<Record<string, CheckStatus>>({});
@@ -308,6 +332,23 @@ export default function TestGuidePage() {
     }
     lines.push(``);
 
+    lines.push(`## 3-B. 뉴스레터 스튜디오 & 소통 관리함 상용화 골든테스트 (30문항)`);
+    lines.push(
+      `- **뉴스레터 발행 소요시간 (목표 ≤3분)**: ${formatTime(metrics.newsletter?.seconds || 0)} (망설임 ${metrics.newsletter?.hesitations || 0}회 / 오작동 ${metrics.newsletter?.misclicks || 0}회)`
+    );
+    lines.push(
+      `- **소통함 승인·발송 소요시간 (목표 ≤1분)**: ${formatTime(metrics.inbox?.seconds || 0)} (망설임 ${metrics.inbox?.hesitations || 0}회 / 오작동 ${metrics.inbox?.misclicks || 0}회)`
+    );
+    lines.push(`| 코드 | 영역 | 수행 주체 | 검증 시나리오 | 불변규칙 | 판정 |`);
+    lines.push(`|:---:|:---|:---:|:---|:---:|:---:|`);
+    for (const item of NL_INBOX_GOLDEN_30_ITEMS) {
+      const st = checkMap[item.id] || "PENDING";
+      lines.push(
+        `| ${item.id} | ${item.wave} | ${item.actor} | ${item.title} | ${item.invariantCode} | **${st}** |`
+      );
+    }
+    lines.push(``);
+
     lines.push(`## 4. PPTX 10대 정밀 검수표`);
     lines.push(`| 번호 | 검수 항목 | 매물 #1 (동교동) | 매물 #2 (부천) | 매물 #3 (역삼동) |`);
     lines.push(`|:---:|:---|:---:|:---:|:---:|`);
@@ -345,6 +386,59 @@ export default function TestGuidePage() {
     URL.revokeObjectURL(url);
     showToast("⬇️ 채점 결과 마크다운(.md) 파일이 다운로드되었습니다!");
   }, [generateScorecardMarkdown, showToast]);
+
+  const generateNlInboxReportMarkdown = useCallback(() => {
+    const passCount = NL_INBOX_GOLDEN_30_ITEMS.filter((it) => checkMap[it.id] === "PASS").length;
+    const failCount = NL_INBOX_GOLDEN_30_ITEMS.filter((it) => checkMap[it.id] === "FAIL").length;
+    const pendingCount = NL_INBOX_GOLDEN_30_ITEMS.length - passCount - failCount;
+
+    const lines: string[] = [
+      `# 📰·💬 뉴스레터 스튜디오 & 소통 관리함 상용화 골든테스트 채점 결과서 (30문항)`,
+      `- **작성자(테스터)**: ${testerName}`,
+      `- **제출일시**: ${new Date().toLocaleString("ko-KR")}`,
+      `- **종합 판정**: 총 30문항 중 **PASS ${passCount}건** / FAIL ${failCount}건 / 미점검 ${pendingCount}건`,
+      `- **뉴스레터 발행 소요시간 (목표 ≤ 3분 00초)**: ${formatTime(metrics.newsletter?.seconds || 0)} (망설임 ${metrics.newsletter?.hesitations || 0}회, 오작동 ${metrics.newsletter?.misclicks || 0}회, 만족도 ${metrics.newsletter?.satisfaction || 5}점/5)`,
+      `- **소통함 열람승인·발송 소요시간 (목표 ≤ 1분 00초)**: ${formatTime(metrics.inbox?.seconds || 0)} (망설임 ${metrics.inbox?.hesitations || 0}회, 오작동 ${metrics.inbox?.misclicks || 0}회, 만족도 ${metrics.inbox?.satisfaction || 5}점/5)`,
+      ``,
+      `## 1. 30개 골든 시나리오 상세 채점표`,
+      `| ID | 구분 | 수행 주체 | 시나리오 제목 | 기대 결과 | 불변규칙 | 결과 |`,
+      `|:---:|:---|:---:|:---|:---|:---:|:---:|`,
+    ];
+
+    for (const item of NL_INBOX_GOLDEN_30_ITEMS) {
+      const st = checkMap[item.id] || "PENDING";
+      lines.push(
+        `| **${item.id}** | ${item.wave} | ${item.actor} | ${item.title} | ${item.expected} | \`${item.invariantCode}\` | **${st}** |`
+      );
+    }
+
+    const activeDefects = defects.filter((df) => df.description.trim().length > 0);
+    lines.push(``);
+    lines.push(`## 2. 발견된 결함 / 개선 요청 (${activeDefects.length}건)`);
+    if (activeDefects.length === 0) {
+      lines.push(`- 발견된 결함 없음 (0건)`);
+    } else {
+      for (const df of activeDefects) {
+        lines.push(`- **[${df.severity}] ${df.dealCode} (${df.location || "공통"})**: ${df.description}`);
+      }
+    }
+
+    return lines.join("\n");
+  }, [testerName, checkMap, metrics, defects]);
+
+  const handleDownloadNlInboxMd = useCallback(() => {
+    const md = generateNlInboxReportMarkdown();
+    const blob = new Blob(["\uFEFF" + md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `뉴스레터_소통함_골든테스트_결과_${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("⬇️ 뉴스레터·소통함 30문항 채점 결과(.md) 파일이 다운로드되었습니다!");
+  }, [generateNlInboxReportMarkdown, showToast]);
 
   const CopyFieldRow = ({
     label,
@@ -449,20 +543,22 @@ export default function TestGuidePage() {
                 🃏 ① 딜카드
               </a>
               <a
-                href="/broker/w/newsletter"
+                href="/broker/magazine-editor"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
+                data-testid="launcher-newsletter-studio"
+                className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-extrabold transition"
               >
-                📰 ③ 뉴스레터
+                📰 ③ 뉴스레터 스튜디오
               </a>
               <a
                 href="/broker/w/inbox"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
+                data-testid="launcher-inbox-workspace"
+                className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-extrabold transition"
               >
-                📥 ④ 인박스
+                💬 ④ 소통 관리함
               </a>
             </div>
           </div>
@@ -476,13 +572,15 @@ export default function TestGuidePage() {
                 value={timerDealId}
                 onChange={(e) => {
                   setIsTimerRunning(false);
-                  setTimerDealId(e.target.value as "deal1" | "deal2" | "deal3");
+                  setTimerDealId(e.target.value as TimerTargetId);
                 }}
                 className="bg-slate-800 text-white font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-xs sm:text-sm outline-none"
               >
-                <option value="deal1">매물 #1 (동교동 77억)</option>
-                <option value="deal2">매물 #2 (부천 58억)</option>
-                <option value="deal3">매물 #3 (역삼동 2,000억)</option>
+                <option value="deal1">매물 #1 (동교동 77억 · 목표 ≤8분)</option>
+                <option value="deal2">매물 #2 (부천 58억 · 목표 ≤8분)</option>
+                <option value="deal3">매물 #3 (역삼동 2,000억 · 목표 ≤8분)</option>
+                <option value="newsletter">📰 뉴스레터 발행 (목표 ≤3분)</option>
+                <option value="inbox">💬 소통함 승인·발송 (목표 ≤1분)</option>
               </select>
               <span className="font-mono text-base sm:text-lg font-extrabold text-emerald-400 px-2">
                 {formatTime(currentTimerMetric.seconds)}
@@ -570,6 +668,7 @@ export default function TestGuidePage() {
               { id: "deal2", label: "🏥 2. 매물 #2 부천 (58억)" },
               { id: "deal3", label: "🏙️ 3. 매물 #3 역삼동 (2,000억)" },
               { id: "wavec", label: "🤝 4. Wave C 합동·보안 미션" },
+              { id: "nlinbox", label: "📰·💬 뉴스레터·소통함 골든테스트 (30문항)" },
               { id: "scorecard", label: "📊 5. PPTX 검수 & 채점표 제출" },
             ].map((tab) => {
               const isSelected = activeTab === tab.id;
@@ -577,6 +676,7 @@ export default function TestGuidePage() {
                 <button
                   key={tab.id}
                   type="button"
+                  data-testid={`tab-${tab.id}`}
                   onClick={() => setActiveTab(tab.id as ActiveTabId)}
                   className={`shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
                     isSelected
@@ -1445,6 +1545,294 @@ export default function TestGuidePage() {
                 })}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ──────── TAB 4-B: NEWSLETTER & INBOX 30-ITEM GOLDEN TEST WORKBENCH ──────── */}
+        {activeTab === "nlinbox" && (
+          <div className="space-y-6" data-testid="testguide-nlinbox-panel">
+            {/* Header & Live 30-Item Score Summary */}
+            <section className="bg-white rounded-2xl border-2 border-indigo-600 p-6 shadow-xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div>
+                  <span className="text-xs font-extrabold text-white bg-indigo-600 px-2.5 py-1 rounded-md">
+                    📰 뉴스레터 스튜디오 & 💬 소통 관리함 — 30문항 합동 골든테스트
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1.5">
+                    1클릭 복붙 프리셋 & 30개 골든 시나리오 실시간 채점 워크벤치
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                    테스터 A(발신 중개사 #1)와 테스터 B(시크릿 창 매수고객 & 타 중개사 #2)가 아래 [📋 클릭 복사] 버튼만으로 15~20분 내에 30개 항목(NL-G01~08, IB-G01~16, SEC-G01~06)을 완주합니다.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="nlinbox-mark-all-pass-btn"
+                    onClick={() =>
+                      markAllChecksPass(NL_INBOX_GOLDEN_30_ITEMS.map((it) => it.id))
+                    }
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                  >
+                    ✅ 30문항 전체 PASS 일괄 체크
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="nlinbox-copy-report-btn"
+                    onClick={() =>
+                      handleCopy(
+                        generateNlInboxReportMarkdown(),
+                        "뉴스레터·소통함 30문항 채점 결과서",
+                        "nlinbox-md-copy"
+                      )
+                    }
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                  >
+                    📋 30문항 결과서 전체 복사
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="nlinbox-download-md-btn"
+                    onClick={handleDownloadNlInboxMd}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold cursor-pointer"
+                  >
+                    ⬇️ 결과서(.md) 다운로드
+                  </button>
+                </div>
+              </div>
+
+              {/* Score Progress Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs font-bold text-slate-500">총 골든 시나리오</div>
+                  <div className="text-xl font-black text-slate-900 mt-0.5">
+                    {NL_INBOX_GOLDEN_30_ITEMS.length}문항
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <div className="text-xs font-bold text-emerald-700">PASS 통과</div>
+                  <div
+                    className="text-xl font-black text-emerald-700 mt-0.5"
+                    data-testid="nlinbox-pass-count"
+                  >
+                    {
+                      NL_INBOX_GOLDEN_30_ITEMS.filter((it) => checkMap[it.id] === "PASS")
+                        .length
+                    }
+                    건
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+                  <div className="text-xs font-bold text-rose-700">FAIL 결함</div>
+                  <div
+                    className="text-xl font-black text-rose-700 mt-0.5"
+                    data-testid="nlinbox-fail-count"
+                  >
+                    {
+                      NL_INBOX_GOLDEN_30_ITEMS.filter((it) => checkMap[it.id] === "FAIL")
+                        .length
+                    }
+                    건
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="text-xs font-bold text-amber-800">미점검 (PENDING)</div>
+                  <div className="text-xl font-black text-amber-800 mt-0.5">
+                    {
+                      NL_INBOX_GOLDEN_30_ITEMS.filter(
+                        (it) => !checkMap[it.id] || checkMap[it.id] === "PENDING"
+                      ).length
+                    }
+                    건
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 1-Click Copy Presets: Newsletter & Inbox Side-by-Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: Newsletter Copy Presets */}
+              <section
+                className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3.5"
+                data-testid="nlinbox-newsletter-presets"
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                  <div>
+                    <span className="text-xs font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
+                      Wave 1 복붙 프리셋 (테스터 A)
+                    </span>
+                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
+                      📰 뉴스레터 스튜디오 1클릭 입력값 (7종)
+                    </h3>
+                  </div>
+                  <a
+                    href="/broker/magazine-editor"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold transition shrink-0"
+                  >
+                    📰 뉴스레터 열기 ↗
+                  </a>
+                </div>
+                <div className="space-y-2.5">
+                  {NEWSLETTER_COPY_PRESETS.map((preset) => (
+                    <CopyFieldRow
+                      key={preset.id}
+                      label={preset.label}
+                      value={preset.value}
+                      subNote={`${preset.targetField}${preset.note ? ` · ${preset.note}` : ""}`}
+                      keyId={preset.id}
+                      highlight={preset.id === "nl-headline" || preset.id === "nl-briefing-body"}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              {/* Right: Inbox Copy Presets */}
+              <section
+                className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3.5"
+                data-testid="nlinbox-inbox-presets"
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                  <div>
+                    <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
+                      Wave 2 복붙 프리셋 (테스터 B 신청 & 테스터 A 응대)
+                    </span>
+                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
+                      💬 소통 관리함 & 매수고객 신청 1클릭 입력값 (13종)
+                    </h3>
+                  </div>
+                  <a
+                    href="/broker/w/inbox"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition shrink-0"
+                  >
+                    💬 소통 관리함 열기 ↗
+                  </a>
+                </div>
+                <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
+                  {INBOX_COPY_PRESETS.map((preset) => (
+                    <CopyFieldRow
+                      key={preset.id}
+                      label={preset.label}
+                      value={preset.value}
+                      subNote={`${preset.targetField}${preset.note ? ` · ${preset.note}` : ""}`}
+                      keyId={preset.id}
+                      highlight={
+                        preset.id === "ib-buyer-name" ||
+                        preset.id === "ib-call-note" ||
+                        preset.id === "ib-correction-notice" ||
+                        preset.id === "ib-vip-name"
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {/* 30 Golden Scenarios Checklist Grouped by Wave */}
+            {(
+              [
+                "Wave 1 · 뉴스레터 (8문항)",
+                "Wave 2 · 소통 관리함 (16문항)",
+                "Wave 3 · 보안 격리 & 모바일 (6문항)",
+              ] as const
+            ).map((waveTitle) => {
+              const waveItems = NL_INBOX_GOLDEN_30_ITEMS.filter((it) => it.wave === waveTitle);
+              return (
+                <section
+                  key={waveTitle}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                    <div>
+                      <h3 className="text-lg font-extrabold text-slate-900">{waveTitle}</h3>
+                      <p className="text-xs text-slate-500">
+                        각 항목을 수행한 뒤 기대 결과와 일치하면 [PASS], 어긋나면 [FAIL]을 눌러주세요.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => markAllChecksPass(waveItems.map((it) => it.id))}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold cursor-pointer"
+                    >
+                      {waveTitle} 일괄 PASS
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {waveItems.map((item) => {
+                      const st = checkMap[item.id] || "PENDING";
+                      return (
+                        <div
+                          key={item.id}
+                          data-testid={`golden30-row-${item.id}`}
+                          className={`p-4 rounded-xl border transition flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                            st === "PASS"
+                              ? "bg-emerald-50/40 border-emerald-300"
+                              : st === "FAIL"
+                              ? "bg-rose-50/40 border-rose-300"
+                              : "bg-slate-50/70 border-slate-200"
+                          }`}
+                        >
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-xs font-extrabold">
+                                {item.id}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-900 text-xs font-bold">
+                                {item.actor}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-xs font-bold">
+                                불변규칙: {item.invariantCode}
+                              </span>
+                              <span className="text-sm sm:text-base font-extrabold text-slate-900">
+                                {item.title}
+                              </span>
+                            </div>
+                            <div className="text-xs sm:text-sm text-slate-700">
+                              <strong>수행 동작:</strong> {item.action}
+                            </div>
+                            <div className="text-xs sm:text-sm text-emerald-900 font-semibold">
+                              <strong>합격 기준(Oracle):</strong> {item.expected}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              data-testid={`golden30-pass-${item.id}`}
+                              onClick={() => toggleCheck(item.id, "PASS")}
+                              className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                                st === "PASS"
+                                  ? "bg-emerald-600 text-white shadow-xs"
+                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+                              }`}
+                            >
+                              PASS
+                            </button>
+                            <button
+                              type="button"
+                              data-testid={`golden30-fail-${item.id}`}
+                              onClick={() => toggleCheck(item.id, "FAIL")}
+                              className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                                st === "FAIL"
+                                  ? "bg-rose-600 text-white shadow-xs"
+                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+                              }`}
+                            >
+                              FAIL
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         )}
 

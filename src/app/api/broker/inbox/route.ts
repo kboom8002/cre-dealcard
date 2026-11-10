@@ -172,6 +172,7 @@ export async function GET(req: NextRequest) {
 
   // ── 0. 내 빌딩 목록 조회 ──
   let buildingIds: string[] = [];
+  let bldgQuerySucceeded = false;
   const buildingTitleById = new Map<string, string>();
   try {
     const bldgQuery: any = supabase
@@ -180,6 +181,7 @@ export async function GET(req: NextRequest) {
       .eq("owner_id", userId);
     const { data: myBuildings } = await bldgQuery;
     if (Array.isArray(myBuildings)) {
+      bldgQuerySucceeded = true;
       buildingIds = myBuildings.map((b: any) => String(b.id)).filter(Boolean);
       for (const b of myBuildings) {
         if (b?.id) {
@@ -204,9 +206,16 @@ export async function GET(req: NextRequest) {
     // ignore if table unavailable in unit test
   }
 
+  const allOwnedBuildingIds = Array.from(
+    new Set([...buildingIds, ...quickInventory.map((q) => String(q.buildingId)).filter(Boolean)])
+  );
+
   // ── 1. Gate Requests (IM 열람 요청) ──
   let gateItems: any[] = [];
-  if (filter === "all" || filter === "requests") {
+  if (
+    (filter === "all" || filter === "requests") &&
+    (!bldgQuerySucceeded || allOwnedBuildingIds.length > 0)
+  ) {
     try {
       let grQuery: any = supabase
         .from("gate_requests")
@@ -227,7 +236,11 @@ export async function GET(req: NextRequest) {
       const filteredGateRequests = (gateRequests || []).filter((gr: any) => {
         const bldgOwner = gr.building?.owner_id || gr.buildings?.owner_id || gr.broker_id;
         if (bldgOwner && String(bldgOwner) !== userId) return false;
-        if (buildingIds.length > 0 && gr.building_id && !buildingIds.includes(String(gr.building_id))) {
+        if (
+          allOwnedBuildingIds.length > 0 &&
+          gr.building_id &&
+          !allOwnedBuildingIds.includes(String(gr.building_id))
+        ) {
           return false;
         }
         return true;
@@ -750,6 +763,11 @@ export async function GET(req: NextRequest) {
         ? ("pending_gate" as const)
         : ("active" as const),
       shareToken: decisionOverride?.shareToken || matchingLink?.token || "",
+      hasCorrectionNotice: Boolean(
+        gr.building_id && inboxState.correctionNotices?.[String(gr.building_id)]?.message
+      ),
+      correctionMessage:
+        (gr.building_id && inboxState.correctionNotices?.[String(gr.building_id)]?.message) || "",
       budget: "",
       preferredRegion: "",
       focusedSections,
@@ -855,6 +873,11 @@ export async function GET(req: NextRequest) {
       isRead: true,
       status: isRevoked ? ("revoked" as const) : ("active" as const),
       shareToken: matchingLink?.token || "",
+      hasCorrectionNotice: Boolean(
+        bId && inboxState.correctionNotices?.[String(bId)]?.message
+      ),
+      correctionMessage:
+        (bId && inboxState.correctionNotices?.[String(bId)]?.message) || "",
       budget,
       preferredRegion,
       focusedSections: [],

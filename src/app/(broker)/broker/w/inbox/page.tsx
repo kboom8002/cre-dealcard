@@ -267,6 +267,11 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [showShareSheet, setShowShareSheet] = useState(false);
   // Inline lock confirmation state (replaces window.prompt — IB-16)
   const [confirmLockOpen, setConfirmLockOpen] = useState(false);
+  // Inline correction notice state (IB-G11, IB-G12)
+  const [correctionNoticeOpen, setCorrectionNoticeOpen] = useState(false);
+  const [correctionNoticeText, setCorrectionNoticeText] = useState(
+    "3층 임대료가 450만원→480만원으로 정정되었습니다."
+  );
 
   // Accessible Client Registration Modal state (IB-26)
   const [showNewClientModal, setShowNewClientModal] = useState(false);
@@ -726,6 +731,116 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const msg = `${targetThread.clientName}님의 전용 링크를 다시 열었습니다.`;
     setStatusFeedback(msg);
     showUndoToast(msg);
+  };
+
+  // Correction Notice publish & clear (IB-G11, IB-G12)
+  const handlePublishCorrectionNotice = async (thread?: InboxThreadItem) => {
+    const targetThread = thread ?? activeThread;
+    if (!targetThread) return;
+    const msgText =
+      correctionNoticeText.trim() ||
+      `${targetThread.buildingTitle} 매물 제원 및 임대 현황이 최신 기준으로 업데이트되었습니다.`;
+
+    try {
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "correction_notice",
+          threadId: targetThread.id,
+          buildingId: targetThread.buildingId,
+          message: msgText,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res && !res.ok && json?.error) {
+        setStatusFeedback(json.error);
+        showUndoToast(json.error);
+        return;
+      }
+    } catch {
+      // continue local update in offline test
+    }
+
+    const newEvent: RecipientEvent = {
+      id: `ev-corr-${Date.now()}`,
+      eventType: "share",
+      description: `⚠️ 매물 정정 안내 게시: ${msgText}`,
+      timestamp: "방금",
+    };
+
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.buildingId === targetThread.buildingId || t.id === targetThread.id
+          ? {
+              ...t,
+              hasCorrectionNotice: true,
+              correctionMessage: msgText,
+              latestEvent: `정정 안내 게시: ${msgText}`,
+              events: [newEvent, ...t.events],
+            }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
+
+    setCorrectionNoticeOpen(false);
+    const toastMsg = `⚠️ 매물 정보가 정정되었습니다: ${msgText}`;
+    setStatusFeedback(toastMsg);
+    showUndoToast(toastMsg);
+  };
+
+  const handleClearCorrectionNotice = async (thread?: InboxThreadItem) => {
+    const targetThread = thread ?? activeThread;
+    if (!targetThread) return;
+
+    try {
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "clear_correction_notice",
+          threadId: targetThread.id,
+          buildingId: targetThread.buildingId,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res && !res.ok && json?.error) {
+        setStatusFeedback(json.error);
+        showUndoToast(json.error);
+        return;
+      }
+    } catch {
+      // continue local update in offline test
+    }
+
+    const newEvent: RecipientEvent = {
+      id: `ev-corr-clear-${Date.now()}`,
+      eventType: "share",
+      description: "수치 정정 안내 배너를 내렸습니다.",
+      timestamp: "방금",
+    };
+
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.buildingId === targetThread.buildingId || t.id === targetThread.id
+          ? {
+              ...t,
+              hasCorrectionNotice: false,
+              correctionMessage: undefined,
+              latestEvent: "수치 정정 안내 배너를 내렸습니다.",
+              events: [newEvent, ...t.events],
+            }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
+
+    const toastMsg = "수치 정정 안내 배너를 내렸습니다.";
+    setStatusFeedback(toastMsg);
+    showUndoToast(toastMsg);
   };
 
   // Call / Consultation Note (honest persistence)
@@ -1682,18 +1797,103 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   >
                     잠그기
                   </button>
+                    <button
+                      type="button"
+                      data-testid="cancel-lock-link-btn"
+                      onClick={() => setConfirmLockOpen(false)}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 수치 정정 안내 제어 (IB-G11, IB-G12) */}
+              <div
+                data-testid="inbox-correction-notice-section"
+                className="mt-4 border-t border-slate-200 pt-3.5 space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-slate-900">
+                    수치 정정 안내 배너
+                  </span>
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${
+                      activeThread.hasCorrectionNotice
+                        ? "bg-amber-100 text-amber-900"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {activeThread.hasCorrectionNotice ? "표시 중" : "꺼짐"}
+                  </span>
+                </div>
+
+                {activeThread.hasCorrectionNotice ? (
+                  <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                    <p className="text-sm font-semibold text-amber-900 leading-snug">
+                      ⚠️ {activeThread.correctionMessage || "매물 제원이 최신 기준으로 정정되었습니다."}
+                    </p>
+                    <button
+                      type="button"
+                      data-testid="clear-correction-notice-btn"
+                      onClick={() => handleClearCorrectionNotice()}
+                      className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-400 bg-white px-4 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                    >
+                      정정 안내 내리기
+                    </button>
+                  </div>
+                ) : !correctionNoticeOpen ? (
                   <button
                     type="button"
-                    data-testid="cancel-lock-link-btn"
-                    onClick={() => setConfirmLockOpen(false)}
-                    className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                    data-testid="open-correction-notice-btn"
+                    onClick={() => setCorrectionNoticeOpen(true)}
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-900 transition hover:bg-amber-100 cursor-pointer"
                   >
-                    취소
+                    ⚠️ 수치 정정 안내 띄우기
                   </button>
-                </div>
+                ) : (
+                  <div
+                    data-testid="correction-notice-inline-box"
+                    className="space-y-2.5 rounded-xl border border-amber-300 bg-amber-50/80 p-3.5"
+                  >
+                    <label
+                      htmlFor="correction-notice-input"
+                      className="block text-sm font-bold text-amber-950"
+                    >
+                      수신자 화면 상단에 띄울 정정 문구
+                    </label>
+                    <input
+                      id="correction-notice-input"
+                      data-testid="correction-notice-input"
+                      type="text"
+                      value={correctionNoticeText}
+                      onChange={(e) => setCorrectionNoticeText(e.target.value)}
+                      placeholder="예: 3층 임대료가 450만원→480만원으로 정정되었습니다."
+                      className="w-full min-h-[48px] rounded-lg border border-amber-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-amber-600 focus:outline-none"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        data-testid="submit-correction-notice-btn"
+                        onClick={() => handlePublishCorrectionNotice()}
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-amber-500 px-3 py-2 text-sm font-extrabold text-slate-950 hover:bg-amber-600 cursor-pointer"
+                      >
+                        정정 안내 게시
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="cancel-correction-notice-btn"
+                        onClick={() => setCorrectionNoticeOpen(false)}
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
         </>
       )}
     </div>

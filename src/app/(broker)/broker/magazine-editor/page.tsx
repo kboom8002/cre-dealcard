@@ -355,6 +355,25 @@ export default function MagazineEditorPage() {
     const defaultPublicUrl = `${getSiteOrigin()}/m/${encodeURIComponent(issueSlug)}`;
 
     try {
+      const selectedDealSnapshots = selectedDealIds.map((id) => {
+        const d = deals.find((item) => item.id === id);
+        const comment = dealComments[id]?.trim() || "";
+        const yieldNum = d?.yield ? parseFloat(String(d.yield).replace(/[^0-9.]/g, "")) : NaN;
+        return {
+          id,
+          title: d?.title || "추천 매물",
+          assetType: d?.title || "상업용 빌딩",
+          address: d?.address || "",
+          price: d?.price || "가격 문의",
+          yield: d?.yield || "-",
+          grossYieldNetOfDeposit: Number.isFinite(yieldNum) && yieldNum > 0 ? yieldNum : undefined,
+          investmentPoint: comment || undefined,
+          point: comment || undefined,
+          photoUrl: d?.photoUrl || null,
+          imUrl: `/dc/${encodeURIComponent(id)}`,
+        };
+      });
+
       const res = await fetch("/api/magazine/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -370,6 +389,7 @@ export default function MagazineEditorPage() {
           briefingBody: briefingBody.trim(),
           marketTemp,
           featuredDealIds: selectedDealIds,
+          featuredDeals: selectedDealSnapshots,
           dealComments,
           sections,
           targetSegment,
@@ -391,7 +411,28 @@ export default function MagazineEditorPage() {
               ? json.editionId
               : editionId;
 
+        const nowIso = new Date().toISOString();
+        const effectiveId = nextId || `ed-${issueSlug}`;
         if (nextId) setEditionId(nextId);
+        setEditions((prev) => {
+          const nextEntry: SavedEditionSummary = {
+            id: effectiveId,
+            slug: issueSlug,
+            title: headline.trim(),
+            status: "published",
+            updatedAt: nowIso,
+            publishedAt: nowIso,
+            dealCount: selectedDealIds.length,
+            hasBriefing: Boolean(briefingBody.trim() || summary.trim()),
+          };
+          const exists = prev.some((e) => e.id === effectiveId || e.slug === issueSlug);
+          if (exists) {
+            return prev.map((e) =>
+              e.id === effectiveId || e.slug === issueSlug ? nextEntry : e,
+            );
+          }
+          return [nextEntry, ...prev];
+        });
         setPublishedUrl(resolvedUrl);
         setIsPublished(true);
         setLocalStorageMode("none");
@@ -438,6 +479,7 @@ export default function MagazineEditorPage() {
     briefingBody,
     marketTemp,
     selectedDealIds,
+    deals,
     dealComments,
     sections,
     targetSegment,

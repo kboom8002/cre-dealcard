@@ -7,6 +7,7 @@
  */
 import { createServiceClient } from "@/lib/supabase/service";
 import { recordEvent } from "@/domain/analytics/record-event";
+import { getQuickImRecord } from "@/lib/im-lite/quick-generate-store";
 import type { GateLevel, GateRequestStatus } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -44,7 +45,8 @@ export async function createGateRequest(
     .eq("id", input.buildingId)
     .single();
 
-  if (buildingErr || !building) {
+  const quickRec = (!building || buildingErr) ? getQuickImRecord(input.buildingId) : null;
+  if ((buildingErr || !building) && !quickRec) {
     throw new Error("건물 정보를 찾을 수 없습니다.");
   }
 
