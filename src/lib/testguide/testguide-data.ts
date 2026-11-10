@@ -157,16 +157,44 @@ function csvToTsv(csv: string): string {
     .join('\n');
 }
 
+export const TESTGUIDE_IMAGE_CDN_MAP: Record<string, string> = {
+  '01_동교동_THEPARK_전면외관.jpg':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/01_exterior.jpg',
+  '02_동교동_THEPARK_1층출입구.jpg':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/02_entrance.jpg',
+  '03_동교동_THEPARK_내부실내.png':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/03_interior.png',
+  '04_동교동_THEPARK_루프탑테라스.webp':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/04_rooftop.webp',
+  '01_부천_동아빌딩_전면외관.jpg':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/01_exterior.jpg',
+  '02_부천_동아빌딩_1층로비출입구.jpg':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/02_lobby.jpg',
+  '03_부천_동아빌딩_기준층내부실내.png':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/03_interior.png',
+  '04_부천_동아빌딩_주차장설비.webp':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/04_parking.webp',
+  '01_역삼동_여삼빌딩_전면외관.jpg':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/01_exterior.jpg',
+  '02_역삼동_여삼빌딩_메인로비.jpg':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/02_lobby.jpg',
+  '03_역삼동_여삼빌딩_오피스내부.png':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/03_interior.png',
+  '04_역삼동_여삼빌딩_지하주차장.webp':
+    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/04_parking.webp',
+};
+
 function buildImageList(
   folder: string,
   items: Array<{ filename: string; format: 'JPG' | 'PNG' | 'WEBP'; roleLabel: string; caption: string }>
 ): TestGuideImageAsset[] {
   return items.map((it) => {
-    const baseUrl = `/api/public/testguide-assets/images/${encodeURIComponent(folder)}/${encodeURIComponent(it.filename)}`;
+    const apiBaseUrl = `/api/public/testguide-assets/images/${encodeURIComponent(folder)}/${encodeURIComponent(it.filename)}`;
+    const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[it.filename] || apiBaseUrl;
     return {
       ...it,
-      previewUrl: baseUrl,
-      downloadUrl: `${baseUrl}?download=1`,
+      previewUrl: cdnUrl,
+      downloadUrl: `${apiBaseUrl}?download=1`,
     };
   });
 }

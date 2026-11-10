@@ -175,23 +175,75 @@ export default function TestGuidePage() {
     [showToast]
   );
 
-  const handleDownloadAllDealImages = useCallback(
+  const handleDownloadCsv = useCallback(
     (deal: TestGuideDeal) => {
+      try {
+        const blob = new Blob(["\uFEFF" + deal.csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = deal.csvFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.setTimeout(() => URL.revokeObjectURL(url), 3000);
+        showToast(`⬇️ [${deal.csvFilename}] 다운로드가 완료되었습니다!`);
+      } catch {
+        window.location.href = deal.csvDownloadUrl;
+      }
+    },
+    [showToast]
+  );
+
+  const handleDownloadSingleImage = useCallback(
+    async (
+      img: { filename: string; previewUrl: string; downloadUrl: string },
+      silent = false
+    ) => {
+      try {
+        let res = await fetch(img.previewUrl, { mode: "cors" });
+        if (!res.ok) {
+          res = await fetch(img.downloadUrl);
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = img.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+        if (!silent) {
+          showToast(`⬇️ [${img.filename}] 다운로드가 완료되었습니다!`);
+        }
+      } catch {
+        const a = document.createElement("a");
+        a.href = img.downloadUrl;
+        a.download = img.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    },
+    [showToast]
+  );
+
+  const handleDownloadAllDealImages = useCallback(
+    async (deal: TestGuideDeal) => {
       showToast(
         `📦 [${deal.shortName}] 사진 4장(JPG 2 + PNG 1 + WebP 1) 연속 다운로드를 시작합니다!`
       );
-      deal.images.forEach((img, idx) => {
-        window.setTimeout(() => {
-          const a = document.createElement("a");
-          a.href = img.downloadUrl;
-          a.download = img.filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }, idx * 380);
-      });
+      for (let i = 0; i < deal.images.length; i++) {
+        await handleDownloadSingleImage(deal.images[i], true);
+        await new Promise((r) => window.setTimeout(r, 280));
+      }
+      showToast(`✅ [${deal.shortName}] 사진 4장 다운로드가 모두 완료되었습니다!`);
     },
-    [showToast]
+    [handleDownloadSingleImage, showToast]
   );
 
   const toggleCheck = useCallback((checkId: string, nextStatus: CheckStatus) => {
@@ -852,13 +904,13 @@ export default function TestGuidePage() {
                       : "📋 방법 A: 엑셀 붙여넣기용(TSV) 원클릭 복사"}
                   </button>
 
-                  <a
-                    href={activeDeal.csvDownloadUrl}
-                    download={activeDeal.csvFilename}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition flex items-center gap-1.5"
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadCsv(activeDeal)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>⬇️ 방법 B: {activeDeal.csvFilename} 다운로드</span>
-                  </a>
+                  </button>
                 </div>
               </div>
 
@@ -1052,13 +1104,13 @@ export default function TestGuidePage() {
                       </div>
                     </div>
                     <div className="p-3 pt-0">
-                      <a
-                        href={img.downloadUrl}
-                        download={img.filename}
-                        className="w-full py-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-xs font-extrabold flex items-center justify-center gap-1 transition"
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadSingleImage(img)}
+                        className="w-full py-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-xs font-extrabold flex items-center justify-center gap-1 transition cursor-pointer"
                       >
                         <span>⬇️ 개별 다운로드 ({img.format})</span>
-                      </a>
+                      </button>
                     </div>
                   </div>
                 ))}

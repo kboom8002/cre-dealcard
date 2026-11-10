@@ -1,33 +1,16 @@
 /**
  * @file src/app/api/public/testguide-assets/[...slug]/route.ts
  * @description Serves CSV rent rolls (with UTF-8 BOM) and 12 test images (JPG/PNG/WebP)
- * for https://credeal.net/testguide without committing new binary files to git (Rule 47).
+ * for https://credeal.net/testguide via Supabase Storage CDN or local files without committing binaries to git (Rule 47).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
-import { TESTGUIDE_DEALS } from '@/lib/testguide/testguide-data';
+import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from '@/lib/testguide/testguide-data';
 
 export const runtime = 'nodejs';
-
-const BASE_IMAGE_MAP: Record<string, { baseFile: string; width: number; height: number; tint?: { brightness?: number; saturation?: number } }> = {
-  '01_동교동_THEPARK_전면외관.jpg': { baseFile: '01_exterior.jpg', width: 1600, height: 1067 },
-  '02_동교동_THEPARK_1층출입구.jpg': { baseFile: '03_entrance.jpg', width: 1280, height: 853, tint: { brightness: 1.03, saturation: 1.05 } },
-  '03_동교동_THEPARK_내부실내.png': { baseFile: '05_interior.jpg', width: 1280, height: 853 },
-  '04_동교동_THEPARK_루프탑테라스.webp': { baseFile: '08_rooftop.jpg', width: 1280, height: 853 },
-
-  '01_부천_동아빌딩_전면외관.jpg': { baseFile: '02_exterior_side.jpg', width: 1600, height: 1067, tint: { brightness: 1.02, saturation: 0.96 } },
-  '02_부천_동아빌딩_1층로비출입구.jpg': { baseFile: '04_lobby.jpg', width: 1280, height: 853 },
-  '03_부천_동아빌딩_기준층내부실내.png': { baseFile: '06_office_room.jpg', width: 1280, height: 853, tint: { brightness: 1.04 } },
-  '04_부천_동아빌딩_주차장설비.webp': { baseFile: 'dangsan/07_parking.jpg', width: 1280, height: 853 },
-
-  '01_역삼동_여삼빌딩_전면외관.jpg': { baseFile: '01_exterior.jpg', width: 1600, height: 1067, tint: { brightness: 0.98, saturation: 1.08 } },
-  '02_역삼동_여삼빌딩_메인로비.jpg': { baseFile: '04_lobby.jpg', width: 1280, height: 853 },
-  '03_역삼동_여삼빌딩_오피스내부.png': { baseFile: '06_office_room.jpg', width: 1280, height: 853 },
-  '04_역삼동_여삼빌딩_지하주차장.webp': { baseFile: 'dangsan/07_parking.jpg', width: 1280, height: 853 },
-};
 
 export async function GET(
   req: NextRequest,
@@ -52,7 +35,7 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(deal.csvFilename)}`,
+        'Content-Disposition': `attachment; filename="${deal.csvFilename}"; filename*=UTF-8''${encodeURIComponent(deal.csvFilename)}`,
         'Cache-Control': 'public, max-age=3600',
       },
     });
@@ -81,49 +64,60 @@ export async function GET(
       'Cache-Control': 'public, max-age=86400',
     };
     if (isDownload) {
-      headers['Content-Disposition'] = `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`;
+      const asciiFallback = `building_photo${ext || '.jpg'}`;
+      headers['Content-Disposition'] = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
     }
 
-    // Check local pre-generated file in docs/im261110/images/[folder]/[filename] first
-    const localDocImgPath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs', 'im261110', 'images', folder, filename);
+    // A) Check local pre-generated file in docs/im261110/images/[folder]/[filename] first
+    const localDocImgPath = path.join(
+      /*turbopackIgnore: true*/ process.cwd(),
+      'docs',
+      'im261110',
+      'images',
+      folder,
+      filename
+    );
     if (fs.existsSync(/*turbopackIgnore: true*/ localDocImgPath)) {
       const buf = fs.readFileSync(/*turbopackIgnore: true*/ localDocImgPath);
       return new NextResponse(new Uint8Array(buf), { status: 200, headers });
     }
 
-    // Serverless fallback: synthesize from public/test-images/ via sharp
-    const spec = BASE_IMAGE_MAP[filename] || {
-      baseFile: '01_exterior.jpg',
-      width: 1280,
-      height: 853,
-    };
-    const publicImgDir = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', 'test-images');
-    const candidateBase = path.join(/*turbopackIgnore: true*/ publicImgDir, spec.baseFile);
-    const fallbackBase = path.join(/*turbopackIgnore: true*/ publicImgDir, '01_exterior.jpg');
-    const sourcePath = fs.existsSync(/*turbopackIgnore: true*/ candidateBase) ? candidateBase : fallbackBase;
-
-    if (!fs.existsSync(/*turbopackIgnore: true*/ sourcePath)) {
-      return NextResponse.json({ error: 'Base image asset missing' }, { status: 404 });
+    // B) Production Vercel: Fetch real uploaded asset from Supabase Storage public CDN
+    const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[filename];
+    if (cdnUrl) {
+      try {
+        const upstream = await fetch(cdnUrl, { next: { revalidate: 86400 } });
+        if (upstream.ok) {
+          const arrBuf = await upstream.arrayBuffer();
+          return new NextResponse(new Uint8Array(arrBuf), { status: 200, headers });
+        }
+      } catch {
+        // Fall through to in-memory sharp synthesis if network fails
+      }
     }
 
-    let pipeline = sharp(fs.readFileSync(/*turbopackIgnore: true*/ sourcePath)).resize(
-      spec.width,
-      spec.height,
-      { fit: 'cover', position: 'center' }
-    );
-    if (spec.tint) {
-      pipeline = pipeline.modulate(spec.tint);
-    }
+    // C) Zero-disk in-memory fallback via sharp (never 404s)
+    const pipeline = sharp({
+      create: {
+        width: 1280,
+        height: 853,
+        channels: 3,
+        background: { r: 30, g: 41, b: 59 },
+      },
+    });
 
     const outBuffer =
       ext === '.png'
         ? await pipeline.png({ compressionLevel: 8 }).toBuffer()
         : ext === '.webp'
-        ? await pipeline.webp({ quality: 86 }).toBuffer()
+        ? await pipeline.webp({ quality: 88 }).toBuffer()
         : await pipeline.jpeg({ quality: 88, mozjpeg: true }).toBuffer();
 
-    return new NextResponse(new Uint8Array(outBuffer), { status: 200, headers });
+    return new NextResponse(new Uint8Array(outBuffer), {
+      status: 200,
+      headers,
+    });
   }
 
-  return NextResponse.json({ error: 'Unknown asset type' }, { status: 404 });
+  return NextResponse.json({ error: 'Unknown asset kind' }, { status: 404 });
 }
