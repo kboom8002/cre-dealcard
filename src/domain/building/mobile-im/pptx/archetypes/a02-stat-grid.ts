@@ -323,7 +323,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // D42 SOTA: 내적 독백 및 단순 행정 체크리스트 문구 필터링 (Rule 1 & Rule 2 준수)
   const INTERNAL_MONOLOGUE = /(내적|사료됨|판단됨|실사\s*점검|정밀\s*진단|공부\s*확인|권리관계\s*정밀|검토(\s*필요)?$|안정적\s*수요\s*검토|의견으로는|자료입니다|수준의\s*가격대)/;
   // 검증 가능한 구체적 앵커(숫자, 역, 도로, 지표 등)가 있는 문장만 인정
-  const VERIFIABLE_ANCHOR = /(역|도보|호선|도로|접면|대로|%|Cap|억|평|㎡|공실|만실|사옥|임대료|임차|호실|수익률|지분|공시지가|용적률|준공)/i;
+  const VERIFIABLE_ANCHOR = /(역|도보|호선|도로|접면|대로|%|Cap|억|평|㎡|공실|만실|사옥|임대료|임차|호실|수익률|지분|공시지가|용적률|준공|리모델링|코너|랜드마크|실전검증|수동편집)/i;
   // 2026-10-05: 템플릿 상투 문구(premium-template-engine 폴백) 및 리드 문장과 같은 포인트 제거 (Rule 4)
   const filteredKP = keyPoints.filter(pt => !SPEC_TERMS.test(pt.trim()) && !INTERNAL_MONOLOGUE.test(pt.trim()) && VERIFIABLE_ANCHOR.test(pt.trim())
     && !isBoilerplateHighlight(pt) && !(leadSentence && isNearDuplicate(leadSentence, pt)))

@@ -189,16 +189,20 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
         const buildingMgtNo = item.bdMgtSn || "";
 
         let pnuFromBdMgtSn = buildingMgtNo.substring(0, 19) || "";
-        if (!pnuFromBdMgtSn && item.admCd) {
+        const admCdStr = String(item.admCd || "").trim();
+        if (!pnuFromBdMgtSn && admCdStr.length === 10) {
           // 나대지: admCd 기반 PNU 직접 구성
           const mtYn = item.mtYn === '1' ? '2' : '1';
-          const admPnu = String(item.admCd) + mtYn + String(item.lnbrMnnm || '0').padStart(4, '0') + String(item.lnbrSlno || '0').padStart(4, '0');
+          const admPnu = admCdStr + mtYn + String(item.lnbrMnnm || '0').padStart(4, '0') + String(item.lnbrSlno || '0').padStart(4, '0');
           pnuFromBdMgtSn = admPnu;
+        } else if (pnuFromBdMgtSn.length === 19 && admCdStr.length === 10 && pnuFromBdMgtSn.substring(0, 10) !== admCdStr) {
+          // 행정구역 코드 개편(예: 부천시 원미구 구코드 41195 → 현행 41192) 시 현행 법정동코드(admCd) 우선 적용
+          pnuFromBdMgtSn = admCdStr + pnuFromBdMgtSn.substring(10);
         }
         
-        const legalDongCode = pnuFromBdMgtSn.substring(0, 10);
-        const sigunguCd = pnuFromBdMgtSn.substring(0, 5);
-        const bjdongCd = pnuFromBdMgtSn.substring(5, 10);
+        const legalDongCode = admCdStr.length === 10 ? admCdStr : pnuFromBdMgtSn.substring(0, 10);
+        const sigunguCd = legalDongCode.substring(0, 5);
+        const bjdongCd = legalDongCode.substring(5, 10);
 
         // W-1.2: 지번주소에서 PNU를 별도 생성하여 합필 의심 감지
         const jibunParsed = parseJibunAddress(jibunAddress);

@@ -221,6 +221,17 @@ export function normalizeBuildingUseCategory(
   return '근린생활';
 }
 
+const SIGUNGU_CODE_ALIASES: Record<string, string[]> = {
+  // 경기도 부천시 행정구역 개편 호환 (구코드 41195/41197/41199 ↔ 현행 41192/41194/41196 ↔ 통합 41190)
+  '41195': ['41195', '41192', '41190'],
+  '41192': ['41192', '41195', '41190'],
+  '41197': ['41197', '41194', '41190'],
+  '41194': ['41194', '41197', '41190'],
+  '41199': ['41199', '41196', '41190'],
+  '41196': ['41196', '41199', '41190'],
+  '41190': ['41190', '41192', '41194', '41196', '41195', '41197', '41199'],
+};
+
 /**
  * @param hintBuildingUse 딜카드에서 입력된 건물 용도 (선택). 다동 필지에서 올바른 동을 선택하는 데 사용.
  */
@@ -235,14 +246,24 @@ export async function fetchBuildingRegister(
   const apiKey = process.env.DATA_GO_KR_API_KEY;
 
   if (apiKey && apiKey !== "") {
+    const candidateSigunguCodes = SIGUNGU_CODE_ALIASES[sigunguCd] || [sigunguCd];
     // 두 엔드포인트 시도: HubService(신규) → v2(기존) fallback
     // numOfRows=30: 한 필지에 여러 동이 있을 수 있으므로 충분히 가져온다
-    const endpoints = [
-      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=${platGbCd || '0'}&bun=${bun}&ji=${ji}&numOfRows=30&pageNo=1&_type=json`,
-      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=30&pageNo=1&_type=json`,
-    ];
+    const endpoints: Array<{ url: string; sgg: string }> = [];
+    for (const sgg of candidateSigunguCodes) {
+      endpoints.push(
+        {
+          sgg,
+          url: `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sgg}&bjdongCd=${bjdongCd}&platGbCd=${platGbCd || '0'}&bun=${bun}&ji=${ji}&numOfRows=30&pageNo=1&_type=json`,
+        },
+        {
+          sgg,
+          url: `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sgg}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=30&pageNo=1&_type=json`,
+        },
+      );
+    }
 
-    for (const url of endpoints) {
+    for (const { url, sgg: activeSigunguCd } of endpoints) {
       try {
         const res = await fetchWithRetry(url, { timeoutMs: 15_000, maxRetries: 1 });
         if (!res.ok) continue;
@@ -319,7 +340,7 @@ export async function fetchBuildingRegister(
         const targetPk = targetItem.mgmBldrgstPk ? String(targetItem.mgmBldrgstPk).trim() : undefined;
 
         const floors = await fetchBuildingFloors(
-          sigunguCd,
+          activeSigunguCd,
           bjdongCd,
           bun,
           ji,

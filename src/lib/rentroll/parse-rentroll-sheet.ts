@@ -499,6 +499,14 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
     } else if (vacantIdx >= 0 && cols[vacantIdx] != null) {
       const val = String(cols[vacantIdx]).toLowerCase().trim();
       isVacant = val === "y" || val === "1" || val === "공실" || val === "true" || val === "yes" || val === "●";
+    } else if (bizTypeIdx >= 0 && tenantNameIdx >= 0 && bizTypeIdx !== tenantNameIdx) {
+      const bizVal = text(bizTypeIdx);
+      const tVal = text(tenantNameIdx);
+      if (bizVal === "공실" || tVal === "공실" || ((bizVal === "" || bizVal === "-") && (tVal === "" || tVal === "-"))) {
+        isVacant = true;
+      } else if (/자가사용|자가점유|사옥|직영|오너/i.test(`${tVal} ${rawNoteCell}`)) {
+        leaseState = "자가사용";
+      }
     } else if (bizTypeIdx >= 0) {
       const bizVal = text(bizTypeIdx);
       if (bizVal === "" || bizVal === "-" || bizVal === "공실") isVacant = true;

@@ -123,9 +123,7 @@ export function RentRollGrid({
     const isVacant = status === "vacant";
     handleUpdateRow(index, {
       status,
-      use: isVacant ? "공실" : (row.use === "공실" ? "근린생활시설" : row.use),
-      monthlyRentManwon: isVacant ? 0 : row.monthlyRentManwon,
-      maintenanceManwon: isVacant ? 0 : row.maintenanceManwon,
+      use: isVacant && (!row.use || row.use === "근린생활시설" || row.use === "업무시설") ? "공실" : (row.use === "공실" ? "근린생활시설" : row.use),
     });
   };
 
@@ -218,10 +216,19 @@ export function RentRollGrid({
 
   // Summary calculations
   const totals = useMemo(() => {
-    const totalDeposit = rows.reduce((s, r) => s + (r.depositManwon || 0), 0);
-    const totalRent = rows.reduce((s, r) => s + (r.monthlyRentManwon || 0), 0);
-    const totalMaintenance = rows.reduce((s, r) => s + (r.maintenanceManwon || 0), 0);
-    const annualRent = totalRent * 12;
+    const totalDeposit =
+      Math.round(
+        rows.reduce((s, r) => s + (r.status !== "vacant" ? r.depositManwon || 0 : 0), 0) * 10
+      ) / 10;
+    const totalRent =
+      Math.round(
+        rows.reduce((s, r) => s + (r.status !== "vacant" ? r.monthlyRentManwon || 0 : 0), 0) * 10
+      ) / 10;
+    const totalMaintenance =
+      Math.round(
+        rows.reduce((s, r) => s + (r.status !== "vacant" ? r.maintenanceManwon || 0 : 0), 0) * 10
+      ) / 10;
+    const annualRent = Math.round(totalRent * 12 * 10) / 10;
 
     let capRate: number | null = null;
     if (askingPriceManwon && askingPriceManwon > 0) {

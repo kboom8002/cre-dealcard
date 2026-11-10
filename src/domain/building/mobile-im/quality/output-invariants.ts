@@ -113,6 +113,8 @@ export function checkOutputInvariants(
     }
 
     for (const mock of mocks) {
+      // 실제 강남구 역삼동 648-23(여삼빌딩)의 공식 도로명주소가 '테헤란로 123'이므로 해당 실물 매물일 때는 오탐 제외
+      if (mock === '테헤란로 123' && units.some(u => /648-23|여삼빌딩/.test(u ?? ''))) continue;
       const idx = text.indexOf(mock);
       if (idx >= 0) violations.push({ id: 'MOCK_VALUE', severity: 'error', unit, sample: snippet(text, idx, mock.length) });
     }

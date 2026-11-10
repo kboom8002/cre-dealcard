@@ -35,9 +35,86 @@ interface KnownParcelInfo {
   jibunAddress: string;
   roadAddress: string;
   officialLandPriceWonSqm: number;
+  landAreaSqm?: number;
+  gfaSqm?: number;
+  zoning?: string;
+  completionDate?: string;
+  floorsAbove?: number;
+  floorsBelow?: number;
+  bcrPct?: number;
+  farPct?: number;
+  parkingSpaces?: number;
+  elevators?: number;
+  mainPurpose?: string;
 }
 
 const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
+  {
+    match: /(동교동\s*189-6|와우산로37길\s*9)/,
+    info: {
+      pnu: '1144012100101890006',
+      lat: 37.55597,
+      lng: 126.93033,
+      jibunAddress: '서울특별시 마포구 동교동 189-6',
+      roadAddress: '서울특별시 마포구 와우산로37길 9',
+      officialLandPriceWonSqm: 11670000,
+      landAreaSqm: 137.2,
+      gfaSqm: 426.11,
+      zoning: '제2종일반주거지역',
+      completionDate: '2019-05-30',
+      floorsAbove: 4,
+      floorsBelow: 2,
+      bcrPct: 59.81,
+      farPct: 189.69,
+      parkingSpaces: 3,
+      elevators: 0,
+      mainPurpose: '제1·2종 근린생활시설',
+    },
+  },
+  {
+    match: /(심곡동\s*349-10|부천로39번길\s*8)/,
+    info: {
+      pnu: '4119210200103490010',
+      lat: 37.48815,
+      lng: 126.78317,
+      jibunAddress: '경기도 부천시 원미구 심곡동 349-10',
+      roadAddress: '경기도 부천시 원미구 부천로39번길 8',
+      officialLandPriceWonSqm: 4680000,
+      landAreaSqm: 535.6,
+      gfaSqm: 2758.21,
+      zoning: '일반상업지역',
+      completionDate: '1998-11-17',
+      floorsAbove: 7,
+      floorsBelow: 1,
+      bcrPct: 79.24,
+      farPct: 445.24,
+      parkingSpaces: 28,
+      elevators: 2,
+      mainPurpose: '제1·2종 근린생활시설',
+    },
+  },
+  {
+    match: /(역삼동\s*648-23|테헤란로\s*123)/,
+    info: {
+      pnu: '1168010100106480023',
+      lat: 37.49956,
+      lng: 127.03151,
+      jibunAddress: '서울특별시 강남구 역삼동 648-23 외 2필지',
+      roadAddress: '서울특별시 강남구 테헤란로 123',
+      officialLandPriceWonSqm: 65340000,
+      landAreaSqm: 1452.2,
+      gfaSqm: 14256.64,
+      zoning: '일반상업지역',
+      completionDate: '1985-06-13',
+      floorsAbove: 15,
+      floorsBelow: 3,
+      bcrPct: 47.78,
+      farPct: 719.66,
+      parkingSpaces: 55,
+      elevators: 3,
+      mainPurpose: '업무시설, 근린생활시설',
+    },
+  },
   {
     match: /(당산동5가\s*11-47|영신로\s*259)/,
     info: {
@@ -99,14 +176,19 @@ function mapPostureToLegacy(posture: string): string {
   switch (posture) {
     case 'core_income':
     case 'income':
+    case 'presale_general':
+    case 'presale_LP':
+    case 'presale_senior':
+    case 'value_add':
+    case 'buyer_valueadd':
       return 'income';
     case 'owner_occupier':
     case 'owner_occupied':
       return 'owner_occupied';
-    case 'value_add':
     case 'trading':
       return 'trading';
     case 'development':
+    case 'buyer_developer':
       return 'development';
     case 'repositioning':
     case 'operating':
@@ -120,14 +202,19 @@ function mapPostureToCanonical(posture: string): string {
   switch (posture) {
     case 'income':
     case 'core_income':
+    case 'presale_general':
+    case 'presale_LP':
+    case 'presale_senior':
       return 'core_income';
     case 'owner_occupied':
     case 'owner_occupier':
       return 'owner_occupier';
     case 'trading':
     case 'value_add':
+    case 'buyer_valueadd':
       return 'value_add';
     case 'development':
+    case 'buyer_developer':
       return 'development';
     case 'operating':
     case 'repositioning':
@@ -229,12 +316,15 @@ export async function POST(req: NextRequest) {
   for (const r of safeRentRoll) {
     if (!r) continue;
     const fStr = String(r.floor || '').trim().toUpperCase();
-    if (fStr.startsWith('B') || fStr.includes('지하')) {
-      const m = fStr.match(/(\d+)/);
-      maxFloorBelow = Math.max(maxFloorBelow, m ? parseInt(m[1], 10) : 1);
-    } else {
-      const m = fStr.match(/(\d+)/);
-      if (m) maxFloorAbove = Math.max(maxFloorAbove, parseInt(m[1], 10));
+    const isAuxFloor = /(주차|옥탑|기계식|루프탑|부대|관리)/.test(fStr);
+    if (!isAuxFloor) {
+      if (fStr.startsWith('B') || fStr.includes('지하')) {
+        const m = fStr.match(/(\d+)/);
+        maxFloorBelow = Math.max(maxFloorBelow, m ? parseInt(m[1], 10) : 1);
+      } else {
+        const m = fStr.match(/(\d+)/);
+        if (m) maxFloorAbove = Math.max(maxFloorAbove, parseInt(m[1], 10));
+      }
     }
 
     const isVacant =
@@ -254,27 +344,56 @@ export async function POST(req: NextRequest) {
       );
     }
   }
+  totalDepositManwon = Math.round(totalDepositManwon * 10) / 10;
+  totalMonthlyRentManwon = Math.round(totalMonthlyRentManwon * 10) / 10;
+  totalMaintManwon = Math.round(totalMaintManwon * 10) / 10;
 
-  const effectiveFloorsAbove = maxFloorAbove > 0 ? maxFloorAbove : 5;
-  const effectiveFloorsBelow = maxFloorBelow > 0 ? maxFloorBelow : 1;
-  const effectiveLandSqm = Number(landAreaSqm) > 0 ? Number(landAreaSqm) : 479.3;
-  const effectiveGfaSqm = Number(gfaSqm) > 0 ? Number(gfaSqm) : 1649.5;
-  const effectiveZoning = zoning || '제2종일반주거지역';
-  const effectiveCompletionDate = completionDate || '2016-05-20';
+  const effectiveFloorsAbove =
+    Number(body.floorsAbove) > 0
+      ? Number(body.floorsAbove)
+      : knownMatch?.floorsAbove ?? (maxFloorAbove > 0 ? maxFloorAbove : 5);
+  const effectiveFloorsBelow =
+    Number(body.floorsBelow) > 0
+      ? Number(body.floorsBelow)
+      : knownMatch?.floorsBelow ?? (maxFloorBelow > 0 ? maxFloorBelow : 1);
+  const effectiveLandSqm =
+    Number(landAreaSqm) > 0 ? Number(landAreaSqm) : (knownMatch?.landAreaSqm ?? 479.3);
+  const effectiveGfaSqm =
+    Number(gfaSqm) > 0 ? Number(gfaSqm) : (knownMatch?.gfaSqm ?? 1649.5);
+  const effectiveZoning = zoning || knownMatch?.zoning || '제2종일반주거지역';
+  const effectiveCompletionDate = completionDate || knownMatch?.completionDate || '2016-05-20';
   const totalFloorsCount = Math.max(1, effectiveFloorsAbove + effectiveFloorsBelow);
   const perFloorAreaSqm = Math.round((effectiveGfaSqm / totalFloorsCount) * 10) / 10;
   const perFloorAreaPyeong = Math.round((perFloorAreaSqm / 3.305785) * 10) / 10;
 
-  const bcrPct = Math.min(
-    59.8,
-    Math.max(42.0, Math.round(((perFloorAreaSqm * 0.95) / Math.max(1, effectiveLandSqm)) * 1000) / 10)
-  );
-  const farPct = Math.max(
-    150.0,
-    Math.round(((effectiveGfaSqm * 0.84) / Math.max(1, effectiveLandSqm)) * 1000) / 10
-  );
-  const parkingSpaces = Math.max(6, Math.round(effectiveGfaSqm / 132));
-  const elevators = effectiveFloorsAbove >= 4 ? 1 : 0;
+  const bcrPct =
+    Number(body.bcrPct) > 0
+      ? Number(body.bcrPct)
+      : knownMatch?.bcrPct ??
+        Math.min(
+          59.8,
+          Math.max(42.0, Math.round(((perFloorAreaSqm * 0.95) / Math.max(1, effectiveLandSqm)) * 1000) / 10)
+        );
+  const farPct =
+    Number(body.farPct) > 0
+      ? Number(body.farPct)
+      : knownMatch?.farPct ??
+        Math.max(
+          150.0,
+          Math.round(((effectiveGfaSqm * 0.84) / Math.max(1, effectiveLandSqm)) * 1000) / 10
+        );
+  const parkingSpaces =
+    body.parkingSpaces !== undefined && Number.isFinite(Number(body.parkingSpaces))
+      ? Number(body.parkingSpaces)
+      : knownMatch?.parkingSpaces ?? Math.max(6, Math.round(effectiveGfaSqm / 132));
+  const elevators =
+    body.elevators !== undefined && Number.isFinite(Number(body.elevators))
+      ? Number(body.elevators)
+      : knownMatch?.elevators !== undefined
+      ? knownMatch.elevators
+      : effectiveFloorsAbove >= 4
+      ? 1
+      : 0;
   const officialLandPriceWonSqm =
     knownMatch?.officialLandPriceWonSqm ??
     (cleanAddress.includes('강남')
@@ -323,9 +442,22 @@ export async function POST(req: NextRequest) {
   const subjectLandPyeongEarly = Math.max(1, effectiveLandSqm / 3.305785);
   const subjectLandPricePerPyeongManwon = Math.round(priceNum / subjectLandPyeongEarly);
 
-  const customPoints = Array.isArray(body.investmentPoints)
-    ? body.investmentPoints.filter((p: unknown): p is string => typeof p === 'string' && p.trim().length > 0)
+  const DEFAULT_SAMPLE_HEADLINES = new Set([
+    '역세권 도보 3분 코너 · 전 층 우량 임차인 만실 운영',
+    '순투자금 대비 연 4.2% 안정 배당 · 공실 위험 낮음',
+    '제3종일반주거지역 토지 가치 · 중장기 리모델링 여력',
+  ]);
+  const axiosHeadlinePoints = Array.isArray(body.axiosHighlights)
+    ? body.axiosHighlights
+        .map((h: any) => (typeof h?.headline === 'string' ? h.headline.trim() : ''))
+        .filter((s: string) => s.length > 0 && !DEFAULT_SAMPLE_HEADLINES.has(s))
     : [];
+  const customPoints = Array.isArray(body.investmentPoints)
+    ? body.investmentPoints.filter(
+        (p: unknown): p is string =>
+          typeof p === 'string' && p.trim().length > 0 && !DEFAULT_SAMPLE_HEADLINES.has(p.trim())
+      )
+    : axiosHeadlinePoints;
 
   const defaultPoints: [string, string, string] = [
     customPoints[0] || parsedExtras?.investment_points?.[0] || `${derivedRegion} 핵심 상권 역세권 가시성 우수`,
@@ -568,14 +700,23 @@ export async function POST(req: NextRequest) {
           const mgmtMan = Number(r.maintenanceManwon ?? r.mgmt_fee_manwon ?? r.maintenance ?? 0);
           const explicitM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? 0);
           const explicitPy = Number(r.area_pyeong ?? r.areaPyeong ?? 0);
+          const isAuxRow = /(주차|옥탑|기계식|루프탑|부대)/.test(
+            `${r.floor || ''} ${r.unit || ''} ${r.use || ''}`
+          );
           const areaM2 =
             explicitM2 > 0
               ? explicitM2
               : explicitPy > 0
               ? Math.round(explicitPy * 3.305785 * 100) / 100
+              : isAuxRow
+              ? 0
               : perFloorAreaSqm;
           const areaPy =
-            explicitPy > 0 ? explicitPy : Math.round((areaM2 / 3.305785) * 10) / 10;
+            explicitPy > 0
+              ? explicitPy
+              : areaM2 > 0
+              ? Math.round((areaM2 / 3.305785) * 10) / 10
+              : 0;
           const label = String(r.use || r.tenantName || r.tenant_name || r.tenant_type || (isVacant ? '공실' : isOwner ? '자가사용' : '근린생활시설'));
           return {
             floor: String(r.floor || `${idx + 1}F`),

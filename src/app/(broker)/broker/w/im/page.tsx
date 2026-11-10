@@ -290,21 +290,32 @@ function ImWorkspaceInner() {
 
   // Calculate yield & rent totals
   const totalRentManwon = useMemo(() => {
-    return rentRoll.reduce(
-      (s, r) =>
-        s +
-        (r.status !== "vacant"
-          ? Number(r.monthlyRentManwon ?? (r as unknown as Record<string, unknown>).rent_manwon ?? 0)
-          : 0),
-      0
+    return (
+      Math.round(
+        rentRoll.reduce(
+          (s, r) =>
+            s +
+            (r.status !== "vacant"
+              ? Number(r.monthlyRentManwon ?? (r as unknown as Record<string, unknown>).rent_manwon ?? 0)
+              : 0),
+          0
+        ) * 10
+      ) / 10
     );
   }, [rentRoll]);
 
   const totalDepositManwon = useMemo(() => {
-    return rentRoll.reduce(
-      (s, r) =>
-        s + Number(r.depositManwon ?? (r as unknown as Record<string, unknown>).deposit_manwon ?? 0),
-      0
+    return (
+      Math.round(
+        rentRoll.reduce(
+          (s, r) =>
+            s +
+            (r.status !== "vacant"
+              ? Number(r.depositManwon ?? (r as unknown as Record<string, unknown>).deposit_manwon ?? 0)
+              : 0),
+          0
+        ) * 10
+      ) / 10
     );
   }, [rentRoll]);
 
@@ -398,11 +409,20 @@ function ImWorkspaceInner() {
         if (it.id !== targetId) return it;
         const nextPrice = patch.askingPriceManwon ?? it.askingPriceManwon ?? 0;
         const nextRentRoll = patch.rentRoll ?? it.rentRoll ?? [];
-        const depSum = nextRentRoll.reduce((s, r) => s + Number(r.depositManwon || 0), 0);
-        const rentSum = nextRentRoll.reduce(
-          (s, r) => s + (r.status !== "vacant" ? Number(r.monthlyRentManwon || 0) : 0),
-          0
-        );
+        const depSum =
+          Math.round(
+            nextRentRoll.reduce(
+              (s, r) => s + (r.status !== "vacant" ? Number(r.depositManwon || 0) : 0),
+              0
+            ) * 10
+          ) / 10;
+        const rentSum =
+          Math.round(
+            nextRentRoll.reduce(
+              (s, r) => s + (r.status !== "vacant" ? Number(r.monthlyRentManwon || 0) : 0),
+              0
+            ) * 10
+          ) / 10;
         const netInv = nextPrice - depSum;
         const nextYield =
           netInv > 0 && rentSum > 0
@@ -664,25 +684,39 @@ function ImWorkspaceInner() {
 
   const handleExcelRentRollImport = (payload: RentRollImportPayload) => {
     if (Array.isArray(payload.floorLeases) && payload.floorLeases.length > 0) {
-      const mappedRows: RentRollRowItem[] = payload.floorLeases.map((r, idx) => ({
-        id: `r-xlsx-${Date.now()}-${idx}`,
-        floor: r.floor || `${idx + 1}F`,
-        unit: r.unit_label || `${idx + 1}01호`,
-        use:
-          Array.from(
-            new Set([r.tenant_name?.trim(), r.tenant_type?.trim()].filter(Boolean))
-          ).join(" / ") || (r.is_vacant ? "공실" : "근린생활시설"),
-        depositManwon: Number(r.deposit_manwon ?? 0),
-        monthlyRentManwon: Number(r.rent_manwon ?? 0),
-        maintenanceManwon: Number(r.mgmt_fee_manwon ?? 0),
-        leaseExpiry: r.lease_end || "-",
-        status:
-          r.lease_state === "자가사용"
-            ? "owner"
-            : r.lease_state === "공실" || r.is_vacant
-            ? "vacant"
-            : "occupied",
-      }));
+      const mappedRows: RentRollRowItem[] = payload.floorLeases.map((r, idx) => {
+        let dep = Number(r.deposit_manwon ?? 0);
+        let rent = Number(r.rent_manwon ?? 0);
+        let mgmt = Number(r.mgmt_fee_manwon ?? 0);
+        if ((r.is_vacant || r.lease_state === "공실") && dep === 0 && rent === 0 && r.note) {
+          const depM = r.note.match(/보증금\s*([\d,.]+)/);
+          const rentM = r.note.match(/월세\s*([\d,.]+)/);
+          const mgmtM = r.note.match(/관리비\s*([\d,.]+)/);
+          if (depM) dep = parseFloat(depM[1].replace(/,/g, "")) || 0;
+          if (rentM) rent = parseFloat(rentM[1].replace(/,/g, "")) || 0;
+          if (mgmtM) mgmt = parseFloat(mgmtM[1].replace(/,/g, "")) || 0;
+        }
+        return {
+          id: `r-xlsx-${Date.now()}-${idx}`,
+          floor: r.floor || `${idx + 1}F`,
+          unit: r.unit_label || `${idx + 1}01호`,
+          use:
+            Array.from(
+              new Set([r.tenant_name?.trim(), r.tenant_type?.trim()].filter(Boolean))
+            ).join(" / ") || (r.is_vacant ? "공실" : "근린생활시설"),
+          areaSqm: r.area_sqm ?? r.exclusive_area_sqm,
+          depositManwon: dep,
+          monthlyRentManwon: rent,
+          maintenanceManwon: mgmt,
+          leaseExpiry: r.lease_end || "-",
+          status:
+            r.lease_state === "자가사용"
+              ? "owner"
+              : r.lease_state === "공실" || r.is_vacant
+              ? "vacant"
+              : "occupied",
+        };
+      });
       const prevRows = [...rentRoll];
       setRentRoll(mappedRows);
       const patch: Partial<ImListItem> = { rentRoll: mappedRows };
