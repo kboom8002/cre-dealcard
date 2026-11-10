@@ -35,7 +35,7 @@ export default async function BrokerPage() {
   const homeData = await getAggregatedBrokerHomeData(supabase, user.id);
 
   return (
-    <main className="min-h-[calc(100vh-56px)] bg-[#F3F2EE] text-[#0F172A] py-4">
+    <main className="min-h-[calc(100vh-56px)] bg-transparent text-[#1D1D1F] py-4">
       <BrokerHome4Doors data={homeData} />
     </main>
   );

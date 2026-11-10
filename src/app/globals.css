@@ -27,16 +27,16 @@
   --font-scale-large: 19px;
   --font-scale-xlarge: 21px;
 
-  /* Workspace Paper Theme & Contrast Tokens */
-  --ws-canvas: #F3F2EE;
-  --ws-panel: #FAF9F5;
-  --ws-card: #FFFFFF;
-  --ws-text: #0F172A;
-  --ws-text-2: #334155;
-  --ws-text-3: #475569;
-  --ws-control-border: #64748B;
-  --ws-divider: #CBD5E1;
-  --ws-focus-ring: #1D4ED8;
+  /* Workspace Cupertino Daylight & Liquid Glass Tokens */
+  --ws-canvas: #F5F5F7;
+  --ws-panel: rgba(255, 255, 255, 0.72);
+  --ws-card: rgba(255, 255, 255, 0.84);
+  --ws-text: #1D1D1F;
+  --ws-text-2: #3A3A3C;
+  --ws-text-3: #515154;
+  --ws-control-border: rgba(15, 23, 42, 0.14);
+  --ws-divider: rgba(15, 23, 42, 0.075);
+  --ws-focus-ring: #007AFF;
   --ws-touch-min: 48px;
   --ws-touch-primary: 56px;
   --ws-caption-min: 14px;
@@ -472,35 +472,88 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * 60대 중개인 맞춤형 SOTA 고대비 주간 테마 (Warm Alabaster & Paper Elevation)
- * - 4-Tier Surface Hierarchy: L0 Canvas(#F3F2EE) → L1 Panel(#FAF9F5) → L2 Card(#FFFFFF) → L3 Control(#F1F5F9)
+ * Apple iOS 18 / macOS Sequoia SOTA "Cupertino Daylight & Spatial Liquid Glass" 테마
+ * - 4-Tier Spatial Glass Hierarchy:
+ *   L0 Ambient Mesh Canvas (#F5F5F7 + Aurora Radial Mesh)
+ *   → L1 Frosted Chrome (rgba(255,255,255,0.72), blur 28px saturate 190%)
+ *   → L2 Floating Glass Card (rgba(255,255,255,0.84), blur 20px saturate 180%, 1px Specular Rim)
+ *   → L3 Tactile Control & Segmented Track (rgba(118,118,128,0.11))
+ * - Ergonomic Preservation: 17px 본문 스케일, 48px~56px 터치 타깃, WCAG AAA(7:1~15.8:1) 명도비 보존
  * - Hardware/Preview Lock: [data-theme-lock="dark"] 내부는 다크 베젤·노치·프리뷰 원형 100% 보존
- * - WCAG AAA(7:1~10.4:1) 명도비: 모든 Tailwind v4 투명도 수식어(/80, /90 등) 완벽 포착
  * ═══════════════════════════════════════════════════════════════════════════ */
 .broker-paper-theme {
-  --background: #F3F2EE;
-  --foreground: #0F172A;
-  --muted: #EAE8E1;
-  --muted-foreground: #334155;
-  --card: #FFFFFF;
-  --card-foreground: #0F172A;
-  --primary: #1D4ED8;
+  --ios-canvas-bg: #F5F5F7;
+  --ios-canvas-mesh:
+    radial-gradient(at 12% 8%, rgba(0, 122, 255, 0.055) 0px, transparent 48%),
+    radial-gradient(at 88% 12%, rgba(88, 86, 214, 0.045) 0px, transparent 45%),
+    radial-gradient(at 50% 92%, rgba(52, 199, 89, 0.035) 0px, transparent 50%);
+  --ios-glass-chrome: rgba(255, 255, 255, 0.72);
+  --ios-glass-card: rgba(255, 255, 255, 0.84);
+  --ios-glass-card-hover: rgba(255, 255, 255, 0.94);
+  --ios-fill-tertiary: rgba(118, 118, 128, 0.11);
+  --ios-specular-rim: inset 0 1px 0 0 rgba(255, 255, 255, 0.88), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5);
+  --ios-hairline-border: rgba(15, 23, 42, 0.075);
+  --ios-label-primary: #1D1D1F;
+  --ios-label-secondary: #3A3A3C;
+  --ios-label-tertiary: #515154;
+  --ios-blue: #007AFF;
+  --ios-blue-ink: #0040DD;
+  --ios-indigo: #5856D6;
+  --ios-indigo-ink: #3634A3;
+  --ios-green: #28CD41;
+  --ios-green-ink: #116B22;
+  --ios-amber: #FF9500;
+  --ios-amber-ink: #8A4B00;
+  --ios-rose: #FF2D55;
+  --ios-rose-ink: #C8102E;
+  --ios-shadow-chrome:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.82),
+    0 1px 0 0 rgba(15, 23, 42, 0.06),
+    0 8px 24px -4px rgba(15, 23, 42, 0.04);
+  --ios-shadow-card:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.88),
+    0 1px 2px 0 rgba(15, 23, 42, 0.03),
+    0 8px 24px -6px rgba(15, 23, 42, 0.055);
+  --ios-shadow-card-hover:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.96),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06),
+    0 16px 36px -8px rgba(0, 122, 255, 0.09);
+  --ios-shadow-pill:
+    inset 0 0.5px 0 0 rgba(255, 255, 255, 1),
+    0 3px 8px 0 rgba(15, 23, 42, 0.12),
+    0 1px 1px 0 rgba(15, 23, 42, 0.04);
+  --ios-shadow-cta-blue:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    0 2px 6px 0 rgba(0, 122, 255, 0.25),
+    0 8px 20px -4px rgba(0, 122, 255, 0.32);
+
+  --background: #F5F5F7;
+  --foreground: #1D1D1F;
+  --muted: rgba(118, 118, 128, 0.10);
+  --muted-foreground: #515154;
+  --card: rgba(255, 255, 255, 0.84);
+  --card-foreground: #1D1D1F;
+  --primary: #007AFF;
   --primary-foreground: #FFFFFF;
-  --secondary: #E2E8F0;
-  --secondary-foreground: #0F172A;
-  --accent: #DBEAFE;
-  --accent-foreground: #1E3A8A;
-  --border: #CBD5E1;
-  --ring: #1D4ED8;
-  --color-ink-muted: #1E293B;
-  --color-ink-subtle: #475569;
-  background-color: #F3F2EE !important;
-  color: #0F172A !important;
+  --secondary: rgba(118, 118, 128, 0.12);
+  --secondary-foreground: #1D1D1F;
+  --accent: rgba(0, 122, 255, 0.10);
+  --accent-foreground: #0040DD;
+  --border: rgba(15, 23, 42, 0.075);
+  --ring: #007AFF;
+  --color-ink-muted: #3A3A3C;
+  --color-ink-subtle: #515154;
+  background-color: var(--ios-canvas-bg) !important;
+  background-image: var(--ios-canvas-mesh);
+  background-attachment: fixed;
+  color: var(--ios-label-primary) !important;
   font-size: 17px;
   line-height: 1.65;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* L0. 전체 앱 캔버스 바탕 (따뜻한 스톤 알라바스터 — 눈부심 방지 & 흰색 카드 부각) */
+/* L0. 전체 앱 캔버스 바탕 (Cupertino Cool Alabaster + Ambient Aurora Mesh) */
 .broker-paper-theme .bg-neutral-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-gray-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-slate-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -508,18 +561,23 @@
 .broker-paper-theme .bg-\[\#090D16\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0A0A0A\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0B0F19\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#F3F2EE\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-[#0B1120]"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #F3F2EE !important;
-  color: #0F172A !important;
+  background-color: var(--ios-canvas-bg) !important;
+  background-image: var(--ios-canvas-mesh);
+  color: var(--ios-label-primary) !important;
 }
 
-/* L1. 워크스페이스 사이드바 및 섹션 컨테이너 (따뜻한 아이보리 페이퍼) */
-.broker-paper-theme [class*="bg-[#111827]"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #FAF9F5 !important;
-  color: #0F172A !important;
+/* L1. 워크스페이스 사이드바 및 크롬 패널 (Frosted Translucent Chrome) */
+.broker-paper-theme [class*="bg-[#111827]"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .bg-\[\#FAF9F5\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  background-color: var(--ios-glass-chrome) !important;
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  color: var(--ios-label-primary) !important;
 }
 
-/* L2. 독립 카드 및 엘리베이션 패널 (순백색 카드 + 정교한 입체 그림자) */
+/* L2. 독립 카드 및 엘리베이션 패널 (Liquid Glass Card + Specular Inner Rim) */
 .broker-paper-theme .bg-neutral-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-gray-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-slate-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -542,20 +600,22 @@
 .broker-paper-theme .bg-\[\#0f1523\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#0e1424\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-\[\#131b2e\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #FFFFFF !important;
-  color: #0F172A !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  background-color: var(--ios-glass-card) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: var(--ios-label-primary) !important;
+  box-shadow: var(--ios-shadow-card);
 }
 
-/* L2-1. 어두운 그라데이션 시작/중간/꼬리(from/via/to-slate-900·950 등)를 밝은 종이 표면으로 전환 */
+/* L2-1. 어두운 그라데이션 시작/중간/꼬리(from/via/to-slate-900·950 등)를 반투명 유리 표면으로 전환 */
 .broker-paper-theme .from-slate-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-slate-900/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .from-slate-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-slate-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .from-neutral-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-neutral-900/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  --tw-gradient-from: #FFFFFF var(--tw-gradient-from-position) !important;
-  background-color: #FFFFFF !important;
+  --tw-gradient-from: rgba(255, 255, 255, 0.88) var(--tw-gradient-from-position) !important;
+  background-color: rgba(255, 255, 255, 0.84) !important;
 }
 
 .broker-paper-theme .via-slate-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -563,7 +623,7 @@
 .broker-paper-theme .via-slate-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="via-slate-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .via-neutral-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  --tw-gradient-via: #F8FAFC var(--tw-gradient-via-position) !important;
+  --tw-gradient-via: rgba(248, 250, 252, 0.82) var(--tw-gradient-via-position) !important;
 }
 
 .broker-paper-theme .to-slate-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -577,11 +637,11 @@
 .broker-paper-theme [class*="to-neutral-950/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .to-gray-900:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .to-gray-950:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position) !important;
-  background-color: #FFFFFF !important;
+  --tw-gradient-to: rgba(255, 255, 255, 0.78) var(--tw-gradient-to-position) !important;
+  background-color: rgba(255, 255, 255, 0.84) !important;
 }
 
-/* L3. 보조 칩/버튼/인터랙티브 표면 */
+/* L3. 보조 칩/버튼/세그먼트 트랙 (iOS Tertiary Translucent Fill) */
 .broker-paper-theme .bg-neutral-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-gray-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-slate-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -595,11 +655,14 @@
 .broker-paper-theme [class*="bg-white/12"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-white\/\[0\.03\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .bg-white\/\[0\.04\]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #F1F5F9 !important;
-  color: #0F172A !important;
+  background-color: var(--ios-fill-tertiary) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ios-label-primary) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.55);
 }
 
-/* 4. 카드 및 구획 테두리 고대비화 */
+/* 4. 카드 및 구획 테두리 정밀화 (투박한 색연필 테두리 #CBD5E1 대신 Apple 광학 헤어라인 적용) */
 .broker-paper-theme .border-neutral-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-gray-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -608,6 +671,8 @@
 .broker-paper-theme .border-gray-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-zinc-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .border-slate-300:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme .border-slate-200:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-slate-700/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-zinc-700/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-slate-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -616,10 +681,16 @@
 .broker-paper-theme [class*="border-zinc-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-600:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-white/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  border-color: #CBD5E1 !important;
+  border-color: var(--ios-hairline-border) !important;
 }
 
-/* 5. 본문 및 제목 텍스트 진한 먹색(Ink) 적용 (단일 :not()으로 특이도 (0,3,0) 유지) */
+/* 4-B. 두꺼운 border-2 상자를 정교한 1px 헤어라인 + 스페큘러 인셋으로 승격 */
+.broker-paper-theme .border-2:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  border-width: 1px !important;
+  box-shadow: var(--ios-shadow-card);
+}
+
+/* 5. 본문 및 제목 텍스트 Apple Label Hierarchy (#1D1D1F / #3A3A3C / #515154) */
 .broker-paper-theme .text-white:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-neutral-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-neutral-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -630,14 +701,14 @@
 .broker-paper-theme [class*="text-zinc-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-zinc-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .text-ink-muted:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #0F172A !important;
+  color: var(--ios-label-primary) !important;
 }
 
 .broker-paper-theme [class*="text-neutral-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-gray-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-zinc-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #1E293B !important;
+  color: var(--ios-label-secondary) !important;
 }
 
 .broker-paper-theme [class*="text-neutral-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -649,11 +720,21 @@
 .broker-paper-theme [class*="text-slate-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-zinc-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .text-ink-subtle:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #334155 !important;
+  color: var(--ios-label-tertiary) !important;
 }
 
-/* 6. 주간 모드용 반투명/다크 틴트 콜아웃 & 배지 표면 WCAG AAA 명도비(8:1~10.4:1) 보정 */
-/* 6-A. Amber / Yellow / Orange 콜아웃 및 배지 (크림 페이퍼 #FFFBEB + 에스프레소 브라운 #78350F) */
+/* 5-B. 타이포그래피 광학 웨이트 정제 (크기는 100% 보존하되 둔탁한 800 웨이트를 Apple 600/700으로 조율) */
+.broker-paper-theme .font-extrabold:not(h1, h2, h3, [data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.broker-paper-theme :is(h1, h2, h3).font-extrabold:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  font-weight: 700;
+  letter-spacing: -0.024em;
+}
+
+/* 6. 주간 모드용 iOS Tinted Glass 콜아웃 & 배지 표면 (투명 유리 질감 + WCAG AAA 고명도비) */
+/* 6-A. System Amber 콜아웃 및 배지 (Tinted Amber Glass + Deep Warm Amber #8A4B00) */
 .broker-paper-theme [class*="bg-amber-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-amber-400/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-amber-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -666,11 +747,14 @@
 .broker-paper-theme [class*="from-amber-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-amber-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-amber-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #FFFBEB !important;
-  --tw-gradient-from: #FFFBEB !important;
-  --tw-gradient-to: #FEF3C7 !important;
-  border-color: #F59E0B !important;
-  color: #78350F !important;
+  background-color: rgba(255, 149, 0, 0.09) !important;
+  --tw-gradient-from: rgba(255, 149, 0, 0.11) !important;
+  --tw-gradient-to: rgba(255, 149, 0, 0.05) !important;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-color: rgba(255, 149, 0, 0.24) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
+  color: var(--ios-amber-ink) !important;
 }
 
 .broker-paper-theme [class*="text-amber-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -684,10 +768,10 @@
 .broker-paper-theme [class*="text-orange-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-orange-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-orange-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #92400E !important;
+  color: var(--ios-amber-ink) !important;
 }
 
-/* 6-B. Indigo / Blue / Sky / Cyan 콜아웃 및 배지 (아이스 블루 #EFF6FF + 딥 로열 네이비 #1E3A8A) */
+/* 6-B. System Blue / Indigo 콜아웃 및 배지 (Tinted Cupertino Blue Glass + #0040DD) */
 .broker-paper-theme [class*="bg-indigo-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-indigo-400/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-indigo-600/1"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -709,11 +793,14 @@
 .broker-paper-theme [class*="from-indigo-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-indigo-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-cyan-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #EFF6FF !important;
-  --tw-gradient-from: #EFF6FF !important;
-  --tw-gradient-to: #DBEAFE !important;
-  border-color: #93C5FD !important;
-  color: #1E3A8A !important;
+  background-color: rgba(0, 122, 255, 0.085) !important;
+  --tw-gradient-from: rgba(0, 122, 255, 0.10) !important;
+  --tw-gradient-to: rgba(88, 86, 214, 0.05) !important;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-color: rgba(0, 122, 255, 0.22) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
+  color: var(--ios-blue-ink) !important;
 }
 
 .broker-paper-theme [class*="text-blue-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -729,10 +816,10 @@
 .broker-paper-theme [class*="text-indigo-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-indigo-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-indigo-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #1E3A8A !important;
+  color: var(--ios-blue-ink) !important;
 }
 
-/* 6-C. Emerald / Green / Teal 콜아웃 및 배지 (민트 페이퍼 #ECFDF5 + 딥 포레스트 에메랄드 #065F46) */
+/* 6-C. System Green 콜아웃 및 배지 (Tinted Emerald Glass + #116B22) */
 .broker-paper-theme [class*="bg-emerald-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-emerald-400/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-emerald-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -742,11 +829,14 @@
 .broker-paper-theme [class*="bg-teal-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-emerald-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-emerald-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #ECFDF5 !important;
-  --tw-gradient-from: #ECFDF5 !important;
-  --tw-gradient-to: #D1FAE5 !important;
-  border-color: #6EE7B7 !important;
-  color: #065F46 !important;
+  background-color: rgba(40, 205, 65, 0.09) !important;
+  --tw-gradient-from: rgba(40, 205, 65, 0.11) !important;
+  --tw-gradient-to: rgba(40, 205, 65, 0.05) !important;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-color: rgba(40, 205, 65, 0.24) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
+  color: var(--ios-green-ink) !important;
 }
 
 .broker-paper-theme [class*="text-emerald-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -758,10 +848,10 @@
 .broker-paper-theme [class*="text-green-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-teal-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-teal-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #065F46 !important;
+  color: var(--ios-green-ink) !important;
 }
 
-/* 6-D. Rose / Pink / Red 콜아웃 및 배지 (로즈 페이퍼 #FFF1F2 + 딥 크림슨 #9F1239) */
+/* 6-D. System Rose 콜아웃 및 배지 (Tinted Rose Glass + #C8102E) */
 .broker-paper-theme [class*="bg-rose-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-rose-600/2"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-rose-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -772,11 +862,14 @@
 .broker-paper-theme [class*="from-rose-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-rose-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-rose-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #FFF1F2 !important;
-  --tw-gradient-from: #FFF1F2 !important;
-  --tw-gradient-to: #FFE4E6 !important;
-  border-color: #FDA4AF !important;
-  color: #9F1239 !important;
+  background-color: rgba(255, 45, 85, 0.085) !important;
+  --tw-gradient-from: rgba(255, 45, 85, 0.10) !important;
+  --tw-gradient-to: rgba(255, 45, 85, 0.04) !important;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-color: rgba(255, 45, 85, 0.22) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
+  color: var(--ios-rose-ink) !important;
 }
 
 .broker-paper-theme [class*="text-pink-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -787,10 +880,10 @@
 .broker-paper-theme [class*="text-rose-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-red-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-red-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #9F1239 !important;
+  color: var(--ios-rose-ink) !important;
 }
 
-/* 6-E. Purple / Violet 콜아웃 및 배지 (라벤더 페이퍼 #F5F3FF + 딥 로열 바이올렛 #5B21B6) */
+/* 6-E. System Indigo / Violet 콜아웃 및 배지 (Tinted Indigo Glass + #3634A3) */
 .broker-paper-theme [class*="bg-purple-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-purple-600/5"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-purple-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -799,11 +892,14 @@
 .broker-paper-theme [class*="bg-violet-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-purple-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-purple-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #F5F3FF !important;
-  --tw-gradient-from: #F5F3FF !important;
-  --tw-gradient-to: #EDE9FE !important;
-  border-color: #C4B5FD !important;
-  color: #5B21B6 !important;
+  background-color: rgba(88, 86, 214, 0.085) !important;
+  --tw-gradient-from: rgba(88, 86, 214, 0.10) !important;
+  --tw-gradient-to: rgba(88, 86, 214, 0.04) !important;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-color: rgba(88, 86, 214, 0.22) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
+  color: var(--ios-indigo-ink) !important;
 }
 
 .broker-paper-theme [class*="text-purple-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -812,25 +908,34 @@
 .broker-paper-theme [class*="text-violet-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-violet-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-violet-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  color: #5B21B6 !important;
+  color: var(--ios-indigo-ink) !important;
 }
 
-/* 7. 단색 강조 버튼 · 배지 · 슬라이딩 탭 필(layoutId) 고대비 보장 (특이도 (0,4,0)~(0,5,0)으로 Section 5 완벽 우선) */
-/* 7-A. 녹색/파란색 500·600 톤을 주간 모드에서 한 단계 깊은 고명도비 채도(#047857 / #1D4ED8)로 심화 */
-.broker-paper-theme.broker-paper-theme :is(.bg-emerald-500, .bg-emerald-600, .bg-emerald-600\/90):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #047857 !important;
+/* 7. Tactile System Accent 버튼 · 배지 · 슬라이딩 탭 필(layoutId) 고대비 & 스페큘러 광택 보장 */
+/* 7-A. Apple System Color + 상단 미세 하이라이트(inset 0 1px 0 rgba(255,255,255,0.35)) */
+.broker-paper-theme.broker-paper-theme :is(.bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-emerald-600\/90):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  background-color: #1D9E34 !important;
+  background-image: linear-gradient(180deg, #24B63E 0%, #188C2C 100%) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(29, 158, 52, 0.22);
 }
-.broker-paper-theme.broker-paper-theme :is(.bg-blue-500, .bg-blue-600):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #1D4ED8 !important;
+.broker-paper-theme.broker-paper-theme :is(.bg-blue-500, .bg-blue-600, .bg-blue-700):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  background-color: #007AFF !important;
+  background-image: linear-gradient(180deg, #1A88FF 0%, #0066E6 100%) !important;
+  box-shadow: var(--ios-shadow-cta-blue);
 }
-.broker-paper-theme.broker-paper-theme :is(.bg-indigo-500, .bg-indigo-600, .bg-indigo-600\/90):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #4338CA !important;
+.broker-paper-theme.broker-paper-theme :is(.bg-indigo-500, .bg-indigo-600, .bg-indigo-700, .bg-indigo-600\/90):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+  background-color: #5856D6 !important;
+  background-image: linear-gradient(180deg, #6B69E6 0%, #4A48C4 100%) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.35), 0 2px 8px rgba(88, 86, 214, 0.26);
 }
 .broker-paper-theme.broker-paper-theme :is(.bg-rose-500, .bg-rose-600):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #BE123C !important;
+  background-color: #E01E45 !important;
+  background-image: linear-gradient(180deg, #FF2D55 0%, #D4193E 100%) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(255, 45, 85, 0.25);
 }
 .broker-paper-theme.broker-paper-theme :is(.bg-red-500, .bg-red-600, .bg-red-600\/80):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #B91C1C !important;
+  background-color: #D72828 !important;
+  background-image: linear-gradient(180deg, #FF3B30 0%, #C81E1E 100%) !important;
 }
 
 /* 7-B. 모든 단색/그라데이션 진한 배경 및 활성 슬라이딩 탭 필 위에서는 본인과 하위 요소(*) 모두 순백색(#FFFFFF) 글씨 강제 */
@@ -851,9 +956,9 @@
   .bg-primary, .bg-grade-s, .bg-grade-a,
   .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
   .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
-  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\],
-  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\],
-  .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\],
+  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\],
+  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\], .bg-\[\#1D9E34\],
+  .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\], .bg-\[\#5856D6\],
   .from-blue-500, .from-blue-600, .from-blue-700,
   .from-indigo-500, .from-indigo-600, .from-indigo-700,
   .from-emerald-500, .from-emerald-600, .from-emerald-700,
@@ -882,9 +987,9 @@
   .bg-primary, .bg-grade-s, .bg-grade-a,
   .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
   .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
-  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\],
-  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\],
-  .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\],
+  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\],
+  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\], .bg-\[\#1D9E34\],
+  .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\], .bg-\[\#5856D6\],
   .from-blue-500, .from-blue-600, .from-blue-700,
   .from-indigo-500, .from-indigo-600, .from-indigo-700,
   .from-emerald-500, .from-emerald-600, .from-emerald-700,
@@ -907,7 +1012,7 @@
   [role="tab"].bg-slate-900, [role="tab"].bg-slate-800,
   [role="button"].bg-slate-900, [role="button"].bg-slate-800
 ):is(.text-white, .text-zinc-50):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
-  background-color: #0F172A !important;
+  background-color: #1D1D1F !important;
   color: #FFFFFF !important;
 }
 .broker-paper-theme.broker-paper-theme :is(
@@ -933,7 +1038,7 @@
   color: #FFFFFF !important;
 }
 
-/* 7-C. 밝은 골드/앰버(amber-400/500, yellow-400/500) 버튼 위에서는 진한 먹색(#0F172A, 9.2:1 명도비) 강제 */
+/* 7-C. 밝은 골드/앰버(amber-400/500, yellow-400/500) 버튼 위에서는 진한 차콜(#1D1D1F, 10.5:1 명도비) 강제 */
 .broker-paper-theme.broker-paper-theme :is(
   .bg-amber-400, .bg-amber-500, .bg-yellow-400, .bg-yellow-500,
   .from-amber-400, .from-amber-500
@@ -942,49 +1047,110 @@
   .bg-amber-400, .bg-amber-500, .bg-yellow-400, .bg-yellow-500,
   .from-amber-400, .from-amber-500
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) * {
-  color: #0F172A !important;
+  color: #1D1D1F !important;
 }
 
-/* 7-D. 다크 모드용 투명 클립 그라데이션 텍스트(bg-clip-text text-transparent)를 주간 모드에서 선명한 먹색으로 전환 */
+/* 7-D. 다크 모드용 투명 클립 그라데이션 텍스트(bg-clip-text text-transparent)를 주간 모드에서 선명한 차콜로 전환 */
 .broker-paper-theme .bg-clip-text.text-transparent:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   background-image: none !important;
-  color: #0F172A !important;
-  -webkit-text-fill-color: #0F172A !important;
+  color: var(--ios-label-primary) !important;
+  -webkit-text-fill-color: var(--ios-label-primary) !important;
 }
 
-/* 8. 입력창(Input / Textarea / Select) 전경-배경(Figure-Ground) 명확화 & 포커스 링 */
+/* 8. 입력창(Input / Textarea / Select) Optical Crisp Glass & iOS System Blue Focus Ring */
 .broker-paper-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([data-theme-lock="dark"] *),
 .broker-paper-theme textarea:not([data-theme-lock="dark"] *),
 .broker-paper-theme select:not([data-theme-lock="dark"] *) {
-  background-color: #FFFFFF !important;
-  color: #0F172A !important;
-  border: 1.5px solid #94A3B8 !important;
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  color: var(--ios-label-primary) !important;
+  border: 1px solid rgba(15, 23, 42, 0.14) !important;
   font-size: max(16px, 1rem);
   font-weight: 500;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03), 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: border-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease;
 }
 
 .broker-paper-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([data-theme-lock="dark"] *):hover,
 .broker-paper-theme textarea:not([data-theme-lock="dark"] *):hover,
 .broker-paper-theme select:not([data-theme-lock="dark"] *):hover {
-  border-color: #64748B !important;
+  background-color: #FFFFFF !important;
+  border-color: rgba(15, 23, 42, 0.26) !important;
 }
 
 .broker-paper-theme input:not([data-theme-lock="dark"] *)::placeholder,
 .broker-paper-theme textarea:not([data-theme-lock="dark"] *)::placeholder {
-  color: #64748B !important;
+  color: #6E6E73 !important;
   opacity: 1;
 }
 
 .broker-paper-theme input:not([data-theme-lock="dark"] *):focus,
 .broker-paper-theme textarea:not([data-theme-lock="dark"] *):focus,
 .broker-paper-theme select:not([data-theme-lock="dark"] *):focus {
-  border-color: #1D4ED8 !important;
-  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.15) !important;
+  background-color: #FFFFFF !important;
+  border-color: #007AFF !important;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.18) !important;
+  outline: none;
 }
 
-/* 9. Senior Typography Scaling & Touch Targets (WP-P2-01) */
+/* 9. Apple iOS Spatial Glass Reusable Component Utilities */
+.ios-glass-chrome {
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border-color: rgba(15, 23, 42, 0.075);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    0 1px 0 0 rgba(15, 23, 42, 0.06),
+    0 8px 24px -4px rgba(15, 23, 42, 0.04);
+}
+
+.ios-glass-card {
+  background-color: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(15, 23, 42, 0.075);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px 0 rgba(15, 23, 42, 0.03),
+    0 10px 28px -6px rgba(15, 23, 42, 0.055);
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.24s ease;
+}
+
+.ios-glass-card:hover {
+  background-color: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.98),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06),
+    0 18px 38px -8px rgba(0, 122, 255, 0.085);
+}
+
+.ios-glass-pill {
+  background-color: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px 0 rgba(15, 23, 42, 0.04);
+}
+
+.ios-segmented-track {
+  background-color: rgba(118, 118, 128, 0.11);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.ios-segmented-pill {
+  background-color: #FFFFFF;
+  box-shadow:
+    inset 0 0.5px 0 0 rgba(255, 255, 255, 1),
+    0 3px 8px 0 rgba(15, 23, 42, 0.12),
+    0 1px 1px 0 rgba(15, 23, 42, 0.04);
+}
+
+/* 10. Senior Typography Scaling & Touch Targets (WP-P2-01 — 100% Preserved) */
 [data-font-scale="normal"] {
   font-size: 17px;
 }

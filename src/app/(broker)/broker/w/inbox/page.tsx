@@ -994,23 +994,23 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(`${created.clientName} 고객이 등록되었습니다.`);
   };
 
-  /* ──────── Column 1: 할 일 요약 카드 + 3개 필터 칩 + 고객 목록 ──────── */
+  /* ──────── Column 1: 할 일 요약 카드 + 3개 필터 칩 + 고객 목록 (Apple iOS Frosted Rail) ──────── */
   const listSlot = (
     <div
-      className="flex h-full flex-col space-y-3 bg-[#FAF9F5] p-3.5"
+      className="flex h-full flex-col space-y-3 bg-transparent p-3.5"
       data-testid="inbox-list-slot"
     >
-      {/* 1열 상단 고정: "지금 할 일 {N}건" 요약 카드 (IB-11) */}
+      {/* 1열 상단 고정: "지금 할 일 {N}건" 요약 카드 (IB-11 — Spatial Tinted Glass) */}
       <div
         data-testid="inbox-todo-summary-card"
-        className="rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 shadow-xs"
+        className="rounded-2xl border border-[#FF9500]/24 bg-[#FF9500]/[0.08] backdrop-blur-xl p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_rgba(255,149,0,0.08)]"
       >
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-base font-extrabold text-slate-900">
+            <p className="text-base font-bold text-[#1D1D1F]">
               지금 할 일 {pendingCount}건
             </p>
-            <p className="mt-0.5 text-sm text-slate-700">
+            <p className="mt-0.5 text-sm text-[#3A3A3C]">
               {pendingCount > 0
                 ? "승인을 기다리는 IM 열람 요청을 바로 처리해 보세요."
                 : "대기 중인 IM 열람 요청이 없습니다."}
@@ -1020,24 +1020,24 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             type="button"
             onClick={() => setShowNewClientModal(true)}
             data-testid="open-new-client-modal-btn"
-            className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-900 shadow-xs transition hover:bg-slate-100 cursor-pointer"
+            className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl ios-glass-pill border border-slate-900/[0.08] bg-white/88 px-3.5 py-2 text-sm font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:bg-white cursor-pointer"
           >
             + 고객 직접 등록
           </button>
         </div>
 
         {pendingThreads.length > 0 && (
-          <div className="mt-3 space-y-2 border-t border-amber-200/80 pt-3">
+          <div className="mt-3 space-y-2 border-t border-[#FF9500]/20 pt-3">
             {pendingThreads.slice(0, 1).map((pt) => (
               <div
                 key={`todo-quick-${pt.id}`}
-                className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2"
+                className="flex items-center justify-between gap-2 rounded-xl border border-[#FF9500]/22 bg-white/90 px-3 py-2 shadow-2xs"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">
+                  <p className="truncate text-sm font-bold text-[#1D1D1F]">
                     {pt.clientName} · {pt.buildingTitle}
                   </p>
-                  <p className="truncate text-sm text-slate-600">
+                  <p className="truncate text-sm text-[#515154]">
                     {pt.cleanMessage || "IM 열람 요청"}
                   </p>
                 </div>
@@ -1048,14 +1048,14 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     e.stopPropagation();
                     handleApproveAndSendIm(pt);
                   }}
-                  className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-bold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
+                  className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-[#24B63E] to-[#188C2C] px-3.5 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_6px_rgba(29,158,52,0.22)] transition hover:brightness-105 cursor-pointer"
                 >
                   자료 보내기
                 </button>
               </div>
             ))}
             {pendingThreads.length > 1 && (
-              <p className="px-1 text-sm font-semibold text-amber-900">
+              <p className="px-1 text-sm font-semibold text-[#8A4B00]">
                 외 {pendingThreads.length - 1}건의 대기 요청이 아래 목록에 있습니다.
               </p>
             )}
@@ -1063,12 +1063,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         )}
       </div>
 
-      {/* 1열 필터 칩 3개: 할 일 · 열람 · 전체 고객 (IB-12) */}
+      {/* 1열 필터 칩 3개: 할 일 · 열람 · 전체 고객 (IB-12 — iOS Segmented Control) */}
       <div
         role="tablist"
         aria-label="고객 소통함 필터"
         data-testid="inbox-filter-tabs"
-        className="grid grid-cols-3 gap-1.5 rounded-xl border border-slate-200 bg-slate-200/70 p-1"
+        className="grid grid-cols-3 gap-1 rounded-2xl border border-white/60 ios-segmented-track bg-[#767680]/[0.11] p-1"
       >
         {(
           [
@@ -1086,10 +1086,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               aria-selected={isSelected}
               data-testid={`inbox-filter-chip-${flt.key}`}
               onClick={() => setActiveFilter(flt.key)}
-              className={`min-h-[48px] rounded-lg px-2.5 py-2 text-sm font-bold transition cursor-pointer ${
+              className={`min-h-[44px] rounded-xl px-2.5 py-2 text-sm font-semibold transition-all cursor-pointer ${
                 isSelected
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-transparent text-slate-700 hover:bg-white/70 hover:text-slate-900"
+                  ? "ios-segmented-pill bg-white text-[#007AFF]"
+                  : "bg-transparent text-[#3A3A3C] hover:text-[#1D1D1F]"
               }`}
             >
               {flt.label}
@@ -1109,7 +1109,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="고객명, 매물명 검색"
-          className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+          className="min-h-[48px] w-full rounded-2xl border border-slate-900/[0.12] bg-white/92 px-3.5 py-2.5 text-base text-[#1D1D1F] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 focus:outline-none transition-all"
         />
       </div>
 

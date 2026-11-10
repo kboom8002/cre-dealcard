@@ -1661,15 +1661,15 @@ function ImWorkspaceInner() {
     });
   };
 
-  /* ──────── Column 1: Item List ──────── */
+  /* ──────── Column 1: Item List (Apple iOS Frosted Rail) ──────── */
   const listSlot = (
-    <div className="flex flex-col h-full bg-[#FAF9F5] p-3 space-y-3" data-testid="im-list-slot">
+    <div className="flex flex-col h-full bg-transparent p-3 space-y-3" data-testid="im-list-slot">
       {/* Header Banner */}
-      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F172A] text-white">
-        <span className="text-sm font-extrabold text-white">
+      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-[#1D1D1F] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_12px_rgba(15,23,42,0.12)]">
+        <span className="text-sm font-semibold text-white">
           보유 IM 목록
         </span>
-        <span className="text-sm font-bold text-amber-300">
+        <span className="text-sm font-semibold text-[#FFAA00]">
           총 {filteredItems.length}건
         </span>
       </div>
@@ -1679,7 +1679,7 @@ function ImWorkspaceInner() {
         type="button"
         data-testid="im-create-new-btn"
         onClick={handleCreateNew}
-        className="w-full min-h-[52px] px-4 py-3 bg-[#0F172A] text-white rounded-xl font-bold text-base hover:bg-[#1E293B] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+        className="w-full min-h-[52px] px-4 py-3 bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white rounded-2xl font-semibold text-base hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_14px_rgba(0,122,255,0.28)]"
       >
         <span>+ 새 IM 만들기</span>
       </button>
@@ -1695,16 +1695,16 @@ function ImWorkspaceInner() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="매물 이름 또는 주소로 찾기..."
-          className="w-full min-h-[48px] px-3.5 bg-white text-base rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+          className="w-full min-h-[48px] px-3.5 bg-white/92 text-base rounded-2xl border border-slate-900/[0.12] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 outline-none transition-all"
         />
       </div>
 
-      {/* 매물 유형 필터 */}
+      {/* 매물 유형 필터 (iOS Segmented Control) */}
       <div
         role="tablist"
         aria-label="매물 유형별 IM 보기"
         data-testid="im-posture-switcher"
-        className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-slate-200 border border-slate-300"
+        className="grid grid-cols-4 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
       >
         {(
           [
@@ -1723,10 +1723,10 @@ function ImWorkspaceInner() {
               aria-selected={active}
               data-testid={`im-posture-tab-${tab.id}`}
               onClick={() => setPostureFilter(tab.id)}
-              className={`min-h-[48px] px-1.5 py-1 rounded-lg text-sm font-extrabold flex items-center justify-center transition cursor-pointer ${
+              className={`min-h-[44px] px-1.5 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
                 active
-                  ? "bg-white text-[#0F172A] shadow-xs border border-blue-300"
-                  : "text-slate-700 hover:text-slate-950"
+                  ? "ios-segmented-pill bg-white text-[#007AFF]"
+                  : "text-[#3A3A3C] hover:text-[#1D1D1F]"
               }`}
             >
               {tab.label}
@@ -1737,13 +1737,13 @@ function ImWorkspaceInner() {
 
       <div
         data-testid="im-standard-formula-banner"
-        className="px-3.5 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-950 font-semibold leading-snug"
+        className="px-3.5 py-2.5 rounded-2xl bg-[#007AFF]/[0.08] border border-[#007AFF]/20 text-sm text-[#0040DD] font-medium leading-snug backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
       >
-        <span className="font-extrabold text-blue-900">[모바일·Basic IM 표준 구성]</span>{" "}
+        <span className="font-semibold text-[#0040DD]">[모바일·Basic IM 표준 구성]</span>{" "}
         건물 정보 + 층별 임대 현황 + 핵심 장점 3가지 + 사진·지적도
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1" role="list">
+      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1" role="list">
         {filteredItems.map((item) => {
           const isSelected = item.id === selectedId;
           const itemPostureLabel =
@@ -1763,37 +1763,37 @@ function ImWorkspaceInner() {
                   setSelectedId(item.id);
                 }
               }}
-              className={`w-full min-h-[88px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
+              className={`w-full min-h-[88px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ios-glass-card ${
                 isSelected
-                  ? "bg-white border-[#1D4ED8] shadow-sm ring-2 ring-[#1D4ED8]/20"
-                  : "bg-white border-[#E2E8F0] hover:border-[#64748B]"
+                  ? "bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
+                  : "bg-white/82 border-slate-900/[0.075] hover:bg-white/95"
               }`}
             >
               {isSelected && (
-                <div className="absolute left-0 top-3 bottom-3 w-1.5 bg-[#1D4ED8] rounded-r" />
+                <div className="absolute left-0 top-3 bottom-3 w-1.5 bg-[#007AFF] rounded-r-full" />
               )}
               <div className="flex items-center justify-between gap-2 mb-1 pl-2">
                 <span
                   data-single-line-title="true"
                   title={item.title}
-                  className="font-bold text-base text-[#0F172A] break-keep"
+                  className="font-bold text-base text-[#1D1D1F] break-keep"
                 >
                   {item.title || "새 IM"}
                 </span>
                 <span
-                  className={`text-sm font-bold px-2.5 py-0.5 rounded-full shrink-0 ${
+                  className={`text-sm font-semibold px-2.5 py-0.5 rounded-full shrink-0 border ${
                     item.status === "published"
-                      ? "bg-[#D1FAE5] text-[#065F46]"
-                      : "bg-[#FEF3C7] text-[#92400E]"
+                      ? "bg-[#28CD41]/12 text-[#116B22] border-[#28CD41]/25"
+                      : "bg-[#FF9500]/12 text-[#8A4B00] border-[#FF9500]/25"
                   }`}
                 >
                   {item.status === "published" ? TERMS.statusPublished : TERMS.statusDraft}
                 </span>
               </div>
-              <p className="text-sm text-[#475569] pl-2 break-keep">
+              <p className="text-sm text-[#515154] pl-2 break-keep">
                 {item.address || "주소 미입력"}
               </p>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-[#0F172A] mt-2 pt-2 border-t border-[#F1F5F9] pl-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-[#1D1D1F] mt-2 pt-2 border-t border-slate-900/[0.06] pl-2">
                 <div className="flex items-center gap-2">
                   <span>
                     {item.askingPriceManwon && item.askingPriceManwon > 0
@@ -1801,7 +1801,7 @@ function ImWorkspaceInner() {
                       : "가격 미입력"}
                   </span>
                   <span>·</span>
-                  <span className="text-[#065F46]">
+                  <span className="text-[#116B22]">
                     {item.grossYieldPct > 0 ? `수익률 ${item.grossYieldPct}%` : itemPostureLabel}
                   </span>
                 </div>
@@ -1810,7 +1810,7 @@ function ImWorkspaceInner() {
                     type="button"
                     data-testid={`im-duplicate-${item.id}`}
                     onClick={(e) => handleDuplicateIm(item, e)}
-                    className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
+                    className="min-h-[36px] text-sm font-semibold px-2.5 py-1 rounded-xl bg-[#767680]/10 hover:bg-[#767680]/18 text-[#3A3A3C] border border-slate-900/[0.08] cursor-pointer transition-colors"
                   >
                     복제
                   </button>
@@ -1818,7 +1818,7 @@ function ImWorkspaceInner() {
                     type="button"
                     data-testid={`im-delete-${item.id}`}
                     onClick={(e) => handleDeleteIm(item, e)}
-                    className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 cursor-pointer"
+                    className="min-h-[36px] text-sm font-semibold px-2.5 py-1 rounded-xl bg-[#FF2D55]/10 hover:bg-[#FF2D55]/18 text-[#C8102E] border border-[#FF2D55]/22 cursor-pointer transition-colors"
                   >
                     삭제
                   </button>
@@ -1839,24 +1839,24 @@ function ImWorkspaceInner() {
     { bg: string; border: string; badgeBg: string; badgeText: string; label: string }
   > = {
     amber: {
-      bg: "#FEF9C3",
-      border: "#FDE047",
-      badgeBg: "#FEF08A",
-      badgeText: "#854D0E",
+      bg: "rgba(255, 149, 0, 0.085)",
+      border: "rgba(255, 149, 0, 0.28)",
+      badgeBg: "rgba(255, 149, 0, 0.14)",
+      badgeText: "#8A4B00",
       label: "장점 01 · 입지·임차",
     },
     sky: {
-      bg: "#E0F2FE",
-      border: "#7DD3FC",
-      badgeBg: "#BAE6FD",
-      badgeText: "#075985",
+      bg: "rgba(0, 122, 255, 0.08)",
+      border: "rgba(0, 122, 255, 0.25)",
+      badgeBg: "rgba(0, 122, 255, 0.14)",
+      badgeText: "#0040DD",
       label: "장점 02 · 수익률",
     },
     mint: {
-      bg: "#DCFCE7",
-      border: "#86EFAC",
-      badgeBg: "#BBF7D0",
-      badgeText: "#166534",
+      bg: "rgba(40, 205, 65, 0.085)",
+      border: "rgba(40, 205, 65, 0.28)",
+      badgeBg: "rgba(40, 205, 65, 0.14)",
+      badgeText: "#116B22",
       label: "장점 03 · 건물·토지 가치",
     },
   };
@@ -1864,13 +1864,13 @@ function ImWorkspaceInner() {
   /* ──────── Column 2: 4 Top Tabs + Editor Panels ──────── */
   const editorSlot = (
     <div className="p-4 sm:p-6 space-y-5 max-w-4xl mx-auto" data-testid="im-editor-slot">
-      {/* Top Action Bar */}
-      <div className="bg-gradient-to-r from-[#EFF6FF] to-[#FAF9F5] rounded-2xl border border-[#1D4ED8]/30 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Top Action Bar (Cupertino Liquid Glass Banner) */}
+      <div className="ios-glass-card bg-white/86 backdrop-blur-2xl rounded-3xl border border-[#007AFF]/20 p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_10px_28px_-6px_rgba(0,122,255,0.08)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-base font-extrabold text-[#0F172A]">
+          <p className="text-base font-bold text-[#1D1D1F]">
             건물 주소와 가격만 적어도 모바일 IM과 10장 발표자료(PPTX)가 함께 만들어집니다
           </p>
-          <p className="text-sm text-[#334155]">
+          <p className="text-sm text-[#3A3A3C]">
             10면 슬라이드별 문구·도표 미세 편집이 필요할 때만 오른쪽 버튼을 눌러 주세요.
           </p>
         </div>
@@ -2972,22 +2972,22 @@ function ImWorkspaceInner() {
     </div>
   );
 
-  /* ──────── Column 3: Live Preview ──────── */
+  /* ──────── Column 3: Live Preview (iOS Segmented Switcher & Glass Frame) ──────── */
   const previewTabSlot = (
     <div
       role="tablist"
       aria-label="IM 미리보기 방식"
-      className="inline-flex rounded-xl border border-[#CBD5E1] p-1 bg-[#FAF9F5] shrink-0"
+      className="inline-flex rounded-xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60 p-0.5 shrink-0"
     >
       <button
         type="button"
         role="tab"
         aria-selected={previewTab === "mobile"}
         onClick={() => setPreviewTab("mobile")}
-        className={`min-h-[40px] px-3 py-1 text-sm font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+        className={`min-h-[38px] px-3 py-1 text-sm font-semibold rounded-[10px] transition-all cursor-pointer shrink-0 ${
           previewTab === "mobile"
-            ? "bg-[#0F172A] text-white shadow-xs"
-            : "text-[#475569] hover:text-[#0F172A]"
+            ? "ios-segmented-pill bg-white text-[#007AFF]"
+            : "text-[#3A3A3C] hover:text-[#1D1D1F]"
         }`}
       >
         모바일 IM
@@ -2997,10 +2997,10 @@ function ImWorkspaceInner() {
         role="tab"
         aria-selected={previewTab === "pptx"}
         onClick={() => setPreviewTab("pptx")}
-        className={`min-h-[40px] px-3 py-1 text-sm font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+        className={`min-h-[38px] px-3 py-1 text-sm font-semibold rounded-[10px] transition-all cursor-pointer shrink-0 ${
           previewTab === "pptx"
-            ? "bg-[#0F172A] text-white shadow-xs"
-            : "text-[#475569] hover:text-[#0F172A]"
+            ? "ios-segmented-pill bg-white text-[#007AFF]"
+            : "text-[#3A3A3C] hover:text-[#1D1D1F]"
         }`}
       >
         발표자료 10면

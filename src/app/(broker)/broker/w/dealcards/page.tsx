@@ -450,22 +450,22 @@ function DealCardsWorkspaceInner() {
       {/* Header Summary */}
       <div
         data-theme-lock="dark"
-        className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white"
+        className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-[#1D1D1F] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_12px_rgba(15,23,42,0.12)]"
       >
-        <span className="text-sm font-extrabold text-white">
+        <span className="text-sm font-semibold text-white">
           내 딜카드 목록
         </span>
-        <span className="text-sm font-bold text-amber-300">
+        <span className="text-sm font-semibold text-[#FFAA00]">
           총 {filteredItems.length}건
         </span>
       </div>
 
-      {/*Primary Create Button */}
+      {/* Primary Create Button */}
       <button
         type="button"
         onClick={handleCreateNew}
         data-testid="workspace-new-dealcard-btn"
-        className="w-full min-h-[52px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-base flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+        className="w-full min-h-[52px] rounded-2xl bg-gradient-to-b from-[#1A88FF] to-[#007AFF] hover:brightness-105 text-white font-semibold text-base flex items-center justify-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_14px_rgba(0,122,255,0.28)] transition-all cursor-pointer"
       >
         <span>＋</span>
         <span>새 딜카드 만들기</span>
@@ -482,16 +482,16 @@ function DealCardsWorkspaceInner() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="지역, 용도, 제목으로 찾기..."
-          className="w-full min-h-[48px] px-3.5 rounded-xl bg-white border border-slate-400 text-base text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+          className="w-full min-h-[48px] px-3.5 rounded-2xl bg-white/92 border border-slate-900/[0.12] text-base text-[#1D1D1F] placeholder:text-[#6E6E73] focus:outline-none focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 transition-all"
         />
       </div>
 
-      {/* 매물 유형 필터 (3개) */}
+      {/* 매물 유형 필터 (iOS Segmented Control) */}
       <div
         role="tablist"
         aria-label="매물 유형별 보기"
         data-testid="dealcard-posture-switcher"
-        className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-200 border border-slate-300"
+        className="grid grid-cols-3 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
       >
         {(
           [
@@ -509,10 +509,10 @@ function DealCardsWorkspaceInner() {
               aria-selected={active}
               data-testid={`dealcard-posture-tab-${tab.id}`}
               onClick={() => setPostureFilter(tab.id)}
-              className={`min-h-[44px] px-2 py-1.5 rounded-lg text-sm font-extrabold flex items-center justify-center transition cursor-pointer ${
+              className={`min-h-[44px] px-2 py-1.5 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
                 active
-                  ? "bg-white text-blue-950 shadow-xs border border-blue-300"
-                  : "text-slate-700 hover:text-slate-950"
+                  ? "ios-segmented-pill bg-white text-[#007AFF]"
+                  : "text-[#3A3A3C] hover:text-[#1D1D1F]"
               }`}
             >
               {tab.label}
@@ -521,8 +521,8 @@ function DealCardsWorkspaceInner() {
         })}
       </div>
 
-      {/* Items List (2-line Senior-Friendly Cards) */}
-      <div className="space-y-2 pt-1" role="list">
+      {/* Items List (Spatial Liquid Glass Cards) */}
+      <div className="space-y-2.5 pt-1" role="list">
         {filteredItems.map((item) => {
           const isSelected = item.id === activeBuildingId;
           const itemPosture = item.card4.posture || "income";
@@ -550,14 +550,14 @@ function DealCardsWorkspaceInner() {
                   router.replace(`/broker/w/dealcards?buildingId=${item.id}&tab=editor`);
                 }
               }}
-              className={`relative min-h-[84px] p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-center ${
+              className={`relative min-h-[84px] p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card ${
                 isSelected
-                  ? "bg-white border-blue-600 shadow-sm"
-                  : "bg-white/90 border-slate-300 hover:border-slate-400 hover:bg-white"
+                  ? "bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
+                  : "bg-white/82 border-slate-900/[0.075] hover:bg-white/95"
               }`}
             >
               {isSelected && (
-                <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-blue-600 rounded-r-full" />
+                <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-[#007AFF] rounded-r-full" />
               )}
 
               {/* Line 1: Title + Status Badge */}
@@ -566,18 +566,18 @@ function DealCardsWorkspaceInner() {
                   data-single-line-title="true"
                   title={item.card4.headline || item.title}
                   className={`text-base break-keep ${
-                    isSelected ? "font-extrabold text-blue-950" : "font-bold text-slate-900"
+                    isSelected ? "font-bold text-[#0040DD]" : "font-bold text-[#1D1D1F]"
                   }`}
                 >
                   {item.title || "새 딜카드"}
                 </h3>
                 <span
-                  className={`text-sm px-2.5 py-0.5 rounded-full font-extrabold shrink-0 ${
+                  className={`text-sm px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${
                     !itemBlind.isValid
-                      ? "bg-red-100 text-red-900 border border-red-300"
+                      ? "bg-[#FF2D55]/12 text-[#C8102E] border-[#FF2D55]/25"
                       : item.status === "sent"
-                      ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
-                      : "bg-slate-100 text-slate-800 border border-slate-300"
+                      ? "bg-[#28CD41]/12 text-[#116B22] border-[#28CD41]/25"
+                      : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08]"
                   }`}
                 >
                   {!itemBlind.isValid
@@ -590,8 +590,8 @@ function DealCardsWorkspaceInner() {
 
               {/* Line 2: Price + Posture + Quick Actions */}
               <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-2">
-                <div className="flex items-center gap-1.5 text-sm text-slate-600 font-semibold">
-                  <span className="font-extrabold text-slate-900">
+                <div className="flex items-center gap-1.5 text-sm text-[#515154] font-medium">
+                  <span className="font-bold text-[#1D1D1F]">
                     {item.priceBand || "가격 미입력"}
                   </span>
                   <span>·</span>
@@ -740,7 +740,7 @@ export default function DealCardsWorkspacePage() {
     <UndoToastProvider>
       <Suspense
         fallback={
-          <div className="flex items-center justify-center h-screen bg-[#F3F2EE] text-slate-700 font-bold text-lg">
+          <div className="flex items-center justify-center h-screen bg-[#F5F5F7] text-[#3A3A3C] font-semibold text-lg">
             딜카드 작업공간을 불러오는 중...
           </div>
         }

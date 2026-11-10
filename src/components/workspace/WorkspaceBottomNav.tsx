@@ -53,9 +53,9 @@ export function WorkspaceBottomNav({
     <nav
       data-testid="workspace-bottom-nav"
       aria-label="모바일 하단 내비게이션"
-      className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-300 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom,0px)] ${className}`}
+      className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 ios-glass-chrome bg-white/80 backdrop-blur-2xl backdrop-saturate-[190%] border-t border-white/75 shadow-[0_-4px_24px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] pb-[env(safe-area-inset-bottom,0px)] ${className}`}
     >
-      <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1">
+      <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1.5 py-1 gap-1">
         {tabs.map((tab) => {
           const isActive = activeTabId
             ? activeTabId === tab.id
@@ -71,15 +71,15 @@ export function WorkspaceBottomNav({
               href={tab.href}
               data-testid={`workspace-tab-${tab.id}`}
               data-active={isActive ? "true" : undefined}
-              className={`relative flex flex-col items-center justify-center min-h-[48px] min-w-[48px] rounded-xl transition-colors py-1 ${
+              className={`relative flex flex-col items-center justify-center min-h-[48px] min-w-[48px] rounded-2xl transition-all py-1 ${
                 isActive
-                  ? "text-blue-700 font-extrabold"
-                  : "text-slate-600 hover:text-slate-900 font-bold"
+                  ? "bg-[#007AFF]/10 text-[#0051D5] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+                  : "text-[#515154] hover:text-[#1D1D1F] hover:bg-black/[0.04] font-medium"
               }`}
             >
-              {/* Active indicator top bar */}
+              {/* Active indicator top capsule */}
               {isActive && (
-                <span className="absolute top-0 left-2 right-2 h-1 bg-blue-600 rounded-full" />
+                <span className="absolute top-0.5 left-4 right-4 h-0.5 bg-[#007AFF] rounded-full" />
               )}
 
               {/* Icon & optional badge */}
@@ -88,7 +88,7 @@ export function WorkspaceBottomNav({
                 {tab.badge !== undefined && (
                   <span
                     aria-label={`처리할 일 ${tab.badge}건`}
-                    className="absolute -top-1.5 -right-3 min-w-[22px] h-[22px] px-1 rounded-full bg-rose-600 text-white text-sm font-extrabold flex items-center justify-center"
+                    className="absolute -top-1.5 -right-3 min-w-[22px] h-[22px] px-1 rounded-full bg-gradient-to-b from-[#FF3B5C] to-[#FF2D55] text-white text-sm font-bold shadow-[0_2px_6px_rgba(255,45,85,0.35)] flex items-center justify-center"
                   >
                     {tab.badge}
                   </span>

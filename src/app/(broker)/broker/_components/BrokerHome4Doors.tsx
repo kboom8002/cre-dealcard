@@ -45,44 +45,48 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
       testId: "home-task-dealcards",
       aliasTestId: "quick-action-dealcard",
       badgeTestId: "home-door-badge-dealcards",
-      colorClass: "border-blue-300 hover:border-blue-500 bg-white",
-      accentBg: "bg-blue-600 text-white",
+      glowClass: "from-[#007AFF]/[0.07] via-transparent to-transparent",
+      accentBg:
+        "bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(0,122,255,0.28)]",
       badgeClass: doors.dealcards.badge.highlight
-        ? "bg-blue-100 text-blue-900 border-blue-300 hover:bg-blue-200"
-        : "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200",
+        ? "bg-[#007AFF]/10 text-[#0040DD] border-[#007AFF]/22 hover:bg-[#007AFF]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
     },
     {
       config: doors.im,
       testId: "home-task-im",
       aliasTestId: "quick-action-im",
       badgeTestId: "home-door-badge-im",
-      colorClass: "border-emerald-300 hover:border-emerald-500 bg-white",
-      accentBg: "bg-emerald-600 text-white",
+      glowClass: "from-[#28CD41]/[0.07] via-transparent to-transparent",
+      accentBg:
+        "bg-gradient-to-b from-[#24B63E] to-[#188C2C] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(29,158,52,0.25)]",
       badgeClass: doors.im.badge.highlight
-        ? "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200"
-        : "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200",
+        ? "bg-[#28CD41]/10 text-[#116B22] border-[#28CD41]/25 hover:bg-[#28CD41]/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
     },
     {
       config: doors.magazine,
       testId: "home-task-magazine",
       aliasTestId: "quick-action-magazine",
       badgeTestId: "home-door-badge-magazine",
-      colorClass: "border-indigo-300 hover:border-indigo-500 bg-white",
-      accentBg: "bg-indigo-600 text-white",
+      glowClass: "from-[#5856D6]/[0.07] via-transparent to-transparent",
+      accentBg:
+        "bg-gradient-to-b from-[#6B69E6] to-[#4A48C4] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(88,86,214,0.26)]",
       badgeClass: doors.magazine.badge.highlight
-        ? "bg-indigo-100 text-indigo-900 border-indigo-300 hover:bg-indigo-200"
-        : "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200",
+        ? "bg-[#5856D6]/10 text-[#3634A3] border-[#5856D6]/22 hover:bg-[#5856D6]/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
     },
     {
       config: doors.inbox,
       testId: "home-task-inbox",
       aliasTestId: "quick-action-inbox",
       badgeTestId: "home-door-badge-inbox",
-      colorClass: "border-amber-300 hover:border-amber-500 bg-white",
-      accentBg: "bg-amber-600 text-white",
+      glowClass: "from-[#FF9500]/[0.08] via-transparent to-transparent",
+      accentBg:
+        "bg-gradient-to-b from-[#FFAA00] to-[#E68600] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(255,149,0,0.28)]",
       badgeClass: doors.inbox.badge.highlight
-        ? "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200"
-        : "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200",
+        ? "bg-[#FF9500]/12 text-[#8A4B00] border-[#FF9500]/26 hover:bg-[#FF9500]/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
     },
   ];
 
@@ -91,7 +95,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
       {/* ── 1. Greeting Header ── */}
       <header className="flex flex-wrap items-center justify-between gap-4 pb-2">
         <div>
-          <span className="text-sm font-bold text-slate-500">
+          <span className="text-sm font-semibold text-[#515154]">
             {new Intl.DateTimeFormat("ko-KR", {
               year: "numeric",
               month: "long",
@@ -99,10 +103,10 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
               weekday: "long",
             }).format(new Date())}
           </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#1D1D1F] tracking-tight mt-0.5">
             {data.profile.displayName} 대표님, 환영합니다
           </h1>
-          <p className="text-base text-slate-600 mt-1">
+          <p className="text-base text-[#3A3A3C] mt-1">
             진행하실 중개 업무를 선택하세요. (숫자키 1~4 단축키)
           </p>
         </div>
@@ -110,33 +114,33 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
         <Link
           href="/broker/profile"
           data-testid="home-profile-settings-btn"
-          className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-xl bg-white hover:bg-slate-50 border-2 border-slate-300 text-slate-900 font-extrabold text-base shadow-2xs transition-colors shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-2xl ios-glass-pill bg-white/82 hover:bg-white/95 border border-slate-900/[0.08] text-[#1D1D1F] font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_rgba(15,23,42,0.04)] transition-all shrink-0"
         >
           <span>👤 내 프로필 · 사무소 설정</span>
         </Link>
       </header>
 
-      {/* ── 2. WP-P2-05: 1-Line "이어서 하기" Resume Bar ── */}
+      {/* ── 2. WP-P2-05: 1-Line "이어서 하기" Spatial Glass Resume Bar ── */}
       {resumeItem && (
         <section
           data-testid="home-resume-bar"
-          className="relative bg-white border-2 border-amber-400 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow"
+          className="relative ios-glass-card bg-white/86 backdrop-blur-2xl border border-[#FF9500]/24 rounded-3xl p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_10px_28px_-6px_rgba(255,149,0,0.10)] transition-all"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-100 text-amber-900 font-extrabold text-lg shrink-0">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <span className="flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-[#FFAA00] to-[#FF9500] text-white font-bold text-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(255,149,0,0.28)] shrink-0">
                 ⚡
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-extrabold px-2 py-0.5 bg-amber-100 text-amber-900 rounded-md">
+                  <span className="text-sm font-semibold px-2.5 py-0.5 bg-[#FF9500]/12 text-[#8A4B00] border border-[#FF9500]/24 rounded-full">
                     이어서 하기
                   </span>
-                  <span className="text-sm text-slate-500 font-medium">
+                  <span className="text-sm text-[#515154] font-medium">
                     {resumeItem.timeAgo}
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-slate-900 truncate mt-0.5">
+                <h2 className="text-lg font-bold text-[#1D1D1F] truncate mt-0.5">
                   {resumeItem.title}
                 </h2>
               </div>
@@ -144,7 +148,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
 
             <Link
               href={resumeItem.href}
-              className="inline-flex items-center justify-center px-4 py-2.5 min-h-[48px] rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-base shadow-sm transition-colors shrink-0"
+              className="inline-flex items-center justify-center px-4.5 py-2.5 min-h-[48px] rounded-2xl bg-gradient-to-b from-[#1A88FF] to-[#007AFF] hover:brightness-105 text-white font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_12px_rgba(0,122,255,0.28)] transition-all shrink-0"
             >
               편집 계속하기 →
             </Link>
@@ -152,18 +156,24 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
         </section>
       )}
 
-      {/* ── 3. WP-P2-04: 4-Door Task Hub Grid (2x2 on desktop, 1-col on mobile) ── */}
+      {/* ── 3. WP-P2-04: 4-Door Task Hub Grid (Spatial Liquid Glass Cards) ── */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
         {doorList.map((door) => (
           <div
             key={door.config.id}
-            className={`relative group rounded-2xl border-2 ${door.colorClass} shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col justify-between p-6 min-h-[190px]`}
+            className="relative group rounded-3xl ios-glass-card bg-white/84 backdrop-blur-2xl backdrop-saturate-[180%] border border-slate-900/[0.075] shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_10px_28px_-6px_rgba(15,23,42,0.055)] hover:bg-white/95 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.98),0_18px_38px_-8px_rgba(0,122,255,0.09)] transition-all duration-200 overflow-hidden flex flex-col justify-between p-6 min-h-[190px]"
           >
+            {/* Subtle Ambient Top Radial Glow */}
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b ${door.glowClass}`}
+            />
+
             {/* Top Bar with Number Badge & Clickable Live Status Badge */}
-            <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="relative z-10 flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2.5">
                 <span
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-lg ${door.accentBg}`}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-lg ${door.accentBg}`}
                 >
                   {door.config.shortcutNumber}
                 </span>
@@ -174,7 +184,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
               <Link
                 href={door.config.badge.href}
                 data-testid={door.badgeTestId}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 min-h-[38px] rounded-full border text-sm font-extrabold transition-colors shadow-2xs ${door.badgeClass}`}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 min-h-[38px] rounded-full border text-sm font-semibold transition-all backdrop-blur-md ${door.badgeClass}`}
                 title={`${door.config.title} 목록 바로가기`}
               >
                 <span>{door.config.badge.label}</span>
@@ -183,20 +193,20 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
             </div>
 
             {/* Door Main Action Link */}
-            <div>
+            <div className="relative z-10">
               <Link
                 href={door.config.href}
                 data-testid={door.testId}
                 data-alias-testid={door.aliasTestId}
-                className="block group-hover:text-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 rounded-lg"
+                className="block group-hover:text-[#007AFF] transition-colors focus:outline-none focus:ring-2 focus:ring-[#007AFF] rounded-xl"
               >
-                <h3 className="text-2xl font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-[#1D1D1F] group-hover:text-[#007AFF] transition-colors flex items-center justify-between">
                   <span>{door.config.title}</span>
-                  <span className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all text-xl">
+                  <span className="text-[#515154] group-hover:text-[#007AFF] group-hover:translate-x-1 transition-all text-xl">
                     →
                   </span>
                 </h3>
-                <p className="text-base text-slate-600 font-medium mt-1">
+                <p className="text-base text-[#3A3A3C] font-medium mt-1">
                   {door.config.subtitle}
                 </p>
               </Link>
