@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       ? supabase
           .from("document_objects")
           .select(
-            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases, axios_highlights:body->axios_highlights, handover_note:body->handover_note, broker_contact:body->broker_contact, investment_posture:body->investment_posture"
+            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases, axios_highlights:body->axios_highlights, handover_note:body->handover_note, broker_contact:body->broker_contact, investment_posture:body->investment_posture, photos_v2:body->photos_v2, photos:body->photos"
           )
           .in("building_id", buildingIds)
       : null;
@@ -193,9 +193,11 @@ export async function GET(request: NextRequest) {
       Number(ssotSummary.asking_price_manwon || layers.deal_terms?.asking_price_manwon) || 950000;
     const versionNo = Number(d.version_no ?? d.body?.version_no ?? 1);
     const isPublished = d.status === "published" || d.status === "broker_reviewed";
-    const rawDocRentRoll = d.rent_roll ?? d.floor_leases ?? d.body?.rent_roll ?? d.body?.floor_leases;
+    const rawFloorLeases = d.floor_leases ?? d.body?.floor_leases;
+    const rawDocRentRoll = d.rent_roll ?? d.body?.rent_roll ?? rawFloorLeases;
     const normalizedDocRentRoll = Array.isArray(rawDocRentRoll)
       ? rawDocRentRoll.map((r: any, rIdx: number) => {
+          const flMatch = Array.isArray(rawFloorLeases) ? rawFloorLeases[rIdx] : undefined;
           const isVac = Boolean(
             r?.status === "vacant" ||
               r?.is_vacant === true ||
@@ -211,19 +213,54 @@ export async function GET(request: NextRequest) {
                 r?.tenant_name === "자가" ||
                 r?.use === "자가사용")
           );
+          const rawUseParts = [
+            ...(r?.use ? String(r.use).split(/\s*\/\s*/) : []),
+            r?.tenant_name || r?.tenantName || flMatch?.tenant_name,
+            r?.tenant_type || r?.business_type || flMatch?.tenant_type,
+          ]
+            .map((s) => String(s || "").trim())
+            .filter(Boolean);
+          const dedupUse = Array.from(new Set(rawUseParts)).join(" / ");
           const useLabel =
-            r?.use ||
-            [r?.tenant_name || r?.tenantName, r?.tenant_type].filter(Boolean).join(" / ") ||
-            (isVac ? "공실" : isOwn ? "자가사용" : "근린생활시설");
+            dedupUse || (isVac ? "공실" : isOwn ? "자가사용" : "근린생활시설");
+          const rawFl = String(r?.floor || flMatch?.floor || `${rIdx + 1}F`).trim();
+          const rawUn = String(r?.unit || r?.unit_label || flMatch?.unit_label || "").trim();
+          const isFlRoomNum = /^(?:B|지하\s*)?\d{3,4}\s*호$/i.test(rawFl);
+          const resolvedUnit = isFlRoomNum ? rawFl : rawUn || `${rIdx + 1}01호`;
+          const rawAreaSqm = Number(
+            r?.areaSqm ??
+              r?.area_sqm ??
+              r?.area_m2 ??
+              r?.exclusive_area_sqm ??
+              flMatch?.area_sqm ??
+              flMatch?.area_m2 ??
+              flMatch?.exclusive_area_sqm ??
+              0
+          );
+          const validAreaSqm =
+            rawAreaSqm > 0 && Math.abs(rawAreaSqm - 2.45) > 0.05 ? rawAreaSqm : undefined;
+          const rawExclSqm = Number(
+            r?.exclusiveAreaSqm ?? r?.exclusive_area_sqm ?? flMatch?.exclusive_area_sqm ?? 0
+          );
           return {
             id: r?.id || `r-db-${d.id}-${rIdx}`,
-            floor: String(r?.floor || `${rIdx + 1}F`),
-            unit: String(r?.unit || r?.unit_label || `${rIdx + 1}01호`),
+            floor: rawFl,
+            unit: resolvedUnit,
             use: String(useLabel),
-            depositManwon: Number(r?.depositManwon ?? r?.deposit_manwon ?? 0),
-            monthlyRentManwon: Number(r?.monthlyRentManwon ?? r?.rent_manwon ?? 0),
-            maintenanceManwon: Number(r?.maintenanceManwon ?? r?.mgmt_fee_manwon ?? 0),
-            leaseExpiry: String(r?.leaseExpiry || r?.lease_end || r?.expiryDate || "-"),
+            ...(validAreaSqm ? { areaSqm: validAreaSqm } : {}),
+            ...(rawExclSqm > 0 ? { exclusiveAreaSqm: rawExclSqm } : {}),
+            depositManwon: Number(
+              r?.depositManwon ?? r?.deposit_manwon ?? flMatch?.deposit_manwon ?? 0
+            ),
+            monthlyRentManwon: Number(
+              r?.monthlyRentManwon ?? r?.rent_manwon ?? flMatch?.rent_manwon ?? 0
+            ),
+            maintenanceManwon: Number(
+              r?.maintenanceManwon ?? r?.mgmt_fee_manwon ?? flMatch?.mgmt_fee_manwon ?? 0
+            ),
+            leaseExpiry: String(
+              r?.leaseExpiry || r?.lease_end || r?.expiryDate || flMatch?.lease_end || "-"
+            ),
             status: isVac ? ("vacant" as const) : isOwn ? ("owner" as const) : ("occupied" as const),
           };
         })
@@ -258,6 +295,24 @@ export async function GET(request: NextRequest) {
 
     const rawAxiosHighlights = d.axios_highlights ?? d.body?.axios_highlights;
     const brokerContact = d.broker_contact ?? d.body?.broker_contact;
+    const rawDocPhotos = d.photos_v2 ?? d.photos ?? d.body?.photos_v2 ?? d.body?.photos;
+    const normalizedDocPhotos = Array.isArray(rawDocPhotos)
+      ? rawDocPhotos
+          .filter(
+            (p: any) =>
+              p &&
+              typeof p.url === "string" &&
+              p.url.trim().length > 0 &&
+              !p.url.startsWith("/test-images/")
+          )
+          .map((p: any, idx: number) => ({
+            url: String(p.url),
+            caption: String(p.caption || p.label || `현장 사진 ${idx + 1}`),
+            category: String(p.category || p.type || (idx === 0 ? "exterior" : "interior")),
+            role: p.role || (idx === 0 ? "cover" : undefined),
+            isHero: Boolean(p.isHero ?? idx === 0),
+          }))
+      : undefined;
 
     return {
       id: d.id,
@@ -270,6 +325,7 @@ export async function GET(request: NextRequest) {
       versionLabel: isPublished ? `v${versionNo} 공개 중 ★` : `v${versionNo} 작성 중`,
       updatedAt: formatRelativeTime(d.updated_at || d.created_at),
       rentRoll: (normalizedDocRentRoll && normalizedDocRentRoll.length > 0 ? normalizedDocRentRoll : undefined) as any[] | undefined,
+      ...(normalizedDocPhotos && normalizedDocPhotos.length > 0 ? { photos: normalizedDocPhotos } : {}),
       investmentPosture: rawPosture,
       gfaSqm: ssotSummary.total_gross_area_sqm ? String(ssotSummary.total_gross_area_sqm) : undefined,
       landAreaSqm: ssotSummary.land_area_sqm ? String(ssotSummary.land_area_sqm) : undefined,
@@ -789,22 +845,111 @@ export async function PATCH(request: NextRequest) {
           const prevBody = (latestDoc.body && typeof latestDoc.body === "object" ? latestDoc.body : {}) as Record<string, any>;
           const prevSsot = (prevBody.ssot_summary && typeof prevBody.ssot_summary === "object" ? prevBody.ssot_summary : {}) as Record<string, any>;
           const prevHero = (prevBody.heroCard && typeof prevBody.heroCard === "object" ? prevBody.heroCard : {}) as Record<string, any>;
+          const prevFloorLeases = Array.isArray(prevBody.floor_leases) ? prevBody.floor_leases : [];
           const cleanHighlights = Array.isArray(imItem.axiosHighlights)
-            ? imItem.axiosHighlights.filter((h: unknown) => typeof h === "string" && h.trim().length > 0)
+            ? imItem.axiosHighlights
+                .map((h: any, idx: number) => {
+                  if (typeof h === "string" && h.trim().length > 0) {
+                    return {
+                      headline: h.trim(),
+                      brief: "",
+                      tone: idx === 1 ? "sky" : idx === 2 ? "mint" : "amber",
+                    };
+                  }
+                  if (h && typeof h === "object" && typeof h.headline === "string" && h.headline.trim().length > 0) {
+                    return {
+                      headline: h.headline.trim(),
+                      brief: typeof h.brief === "string" ? h.brief.trim() : "",
+                      tone: h.tone === "sky" || h.tone === "mint" ? h.tone : idx === 1 ? "sky" : idx === 2 ? "mint" : "amber",
+                    };
+                  }
+                  return null;
+                })
+                .filter(Boolean)
             : undefined;
+          const cleanKeyPoints = cleanHighlights
+            ? cleanHighlights.map((h: any) => h.headline).filter(Boolean)
+            : undefined;
+          const normalizedFloorLeases = Array.isArray(imItem.rentRoll)
+            ? imItem.rentRoll.map((r: any, idx: number) => {
+                const prevFl = prevFloorLeases[idx] || {};
+                const isVac =
+                  r?.status === "vacant" ||
+                  r?.is_vacant === true ||
+                  r?.lease_state === "공실" ||
+                  r?.use === "공실";
+                const isOwn =
+                  !isVac &&
+                  (r?.status === "owner" ||
+                    r?.lease_state === "자가사용" ||
+                    r?.use === "자가사용" ||
+                    r?.use === "자가");
+                const depMan = Number(r?.depositManwon ?? r?.deposit_manwon ?? prevFl.deposit_manwon ?? 0);
+                const rentMan = Number(r?.monthlyRentManwon ?? r?.rent_manwon ?? prevFl.rent_manwon ?? 0);
+                const mgmtMan = Number(r?.maintenanceManwon ?? r?.mgmt_fee_manwon ?? prevFl.mgmt_fee_manwon ?? 0);
+                const rawAreaM2 = Number(
+                  r?.areaSqm ?? r?.area_sqm ?? r?.area_m2 ?? prevFl.area_sqm ?? prevFl.area_m2 ?? 0
+                );
+                const areaM2 = rawAreaM2 > 0 && Math.abs(rawAreaM2 - 2.45) > 0.05 ? rawAreaM2 : 0;
+                const exclM2 = Number(
+                  r?.exclusiveAreaSqm ?? r?.exclusive_area_sqm ?? prevFl.exclusive_area_sqm ?? 0
+                );
+                const rawUseParts = String(r?.use || prevFl.tenant_type || prevFl.tenant_name || "")
+                  .split(/\s*\/\s*/)
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                const dedupLabel =
+                  Array.from(new Set(rawUseParts)).join(" / ") ||
+                  (isVac ? "공실" : isOwn ? "자가사용" : "근린생활시설");
+                const rawFlStr = String(r?.floor || prevFl.floor || `${idx + 1}F`).trim();
+                const roomNumMatch = rawFlStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호$/i);
+                const normFloor = roomNumMatch
+                  ? roomNumMatch[1]
+                    ? `B${parseInt(roomNumMatch[2], 10)}`
+                    : `${parseInt(roomNumMatch[2], 10)}F`
+                  : rawFlStr;
+                const normUnit = roomNumMatch
+                  ? `${roomNumMatch[1] ? "B" : ""}${roomNumMatch[2]}${roomNumMatch[3]}호`
+                  : String(r?.unit || r?.unit_label || prevFl.unit_label || `${idx + 1}01호`);
+                return {
+                  ...prevFl,
+                  floor: normFloor,
+                  unit_label: normUnit,
+                  tenant_name: isVac ? "공실" : isOwn ? "자가사용" : "",
+                  tenant_type: isVac ? "공실" : dedupLabel,
+                  use: isVac ? "공실" : dedupLabel,
+                  ...(areaM2 > 0
+                    ? {
+                        area_sqm: areaM2,
+                        area_m2: areaM2,
+                        area_pyeong: Math.round((areaM2 / 3.305785) * 10) / 10,
+                      }
+                    : {}),
+                  ...(exclM2 > 0 ? { exclusive_area_sqm: exclM2 } : {}),
+                  deposit_manwon: isVac ? 0 : depMan,
+                  deposit_krw: isVac ? 0 : depMan * 10000,
+                  rent_manwon: isVac ? 0 : rentMan,
+                  rent_krw: isVac ? 0 : rentMan * 10000,
+                  mgmt_fee_manwon: isVac ? 0 : mgmtMan,
+                  lease_state: isVac ? "공실" : isOwn ? "자가사용" : "임대중",
+                  is_vacant: isVac,
+                  lease_end: String(r?.leaseExpiry || r?.lease_end || prevFl.lease_end || "2027.12"),
+                  source: prevFl.source || "broker",
+                };
+              })
+            : prevBody.floor_leases;
           const nextBody = {
             ...prevBody,
-            basicImDocument: undefined,
             heroTitle: imItem.title || prevBody.heroTitle,
             investment_posture: imItem.investmentPosture || prevBody.investment_posture,
             handover_note: imItem.handoverNote ?? prevBody.handover_note,
-            axios_highlights: cleanHighlights ?? prevBody.axios_highlights,
+            axios_highlights: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevBody.axios_highlights,
             rent_roll: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.rent_roll,
-            floor_leases: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.floor_leases,
+            floor_leases: normalizedFloorLeases,
             heroCard: {
               ...prevHero,
               posture: imItem.investmentPosture || prevHero.posture,
-              keyPoints: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevHero.keyPoints,
+              keyPoints: cleanKeyPoints && cleanKeyPoints.length > 0 ? cleanKeyPoints : prevHero.keyPoints,
             },
             ssot_summary: {
               ...prevSsot,

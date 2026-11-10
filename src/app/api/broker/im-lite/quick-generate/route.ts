@@ -170,6 +170,28 @@ const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
       officialLandPriceWonSqm: 6420000,
     },
   },
+  {
+    match: /(보정동\s*1323-2|신촌로47번길\s*6)/,
+    info: {
+      pnu: '4146311800113230002',
+      lat: 37.3079134604492,
+      lng: 127.110304201949,
+      jibunAddress: '경기도 용인시 기흥구 보정동 1323-2',
+      roadAddress: '경기도 용인시 기흥구 신촌로47번길 6 (보정동)',
+      officialLandPriceWonSqm: 2790000,
+      landAreaSqm: 440,
+      gfaSqm: 1230.46,
+      zoning: '제3종일반주거지역',
+      completionDate: '2004-12-23',
+      floorsAbove: 5,
+      floorsBelow: 1,
+      bcrPct: 49.91,
+      farPct: 209.24,
+      parkingSpaces: 7,
+      elevators: 1,
+      mainPurpose: '제1·2종 근린생활시설',
+    },
+  },
 ];
 
 function mapPostureToLegacy(posture: string): string {
@@ -293,6 +315,163 @@ export async function POST(req: NextRequest) {
   const cleanAddress = address.trim();
   const knownMatch = KNOWN_PARCEL_REGISTRY.find((entry) => entry.match.test(cleanAddress))?.info;
 
+  // Generate deterministic/unique IDs (reuse valid UUID buildingId if supplied)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const requestedBuildingId =
+    typeof body.buildingId === 'string' && uuidRegex.test(body.buildingId)
+      ? body.buildingId
+      : null;
+  const buildingId = requestedBuildingId || crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+
+  // Preserve existing DB metadata (PNU, coordinates, enrichment, photos, floor_leases) when regenerating an existing IM
+  let existingPnu: string | undefined;
+  let existingCoords: { lat: number; lng: number } | undefined;
+  let existingRoadAddress: string | undefined;
+  let existingJibunAddress: string | undefined;
+  let existingEnrichment: Record<string, any> | undefined;
+  let existingSsot: Record<string, any> | undefined;
+  let existingRealPhotos: any[] = [];
+  let existingFloorLeases: any[] = [];
+
+  const isDangsanAddress = /(당산|양평|영신로)/.test(cleanAddress);
+
+  if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+    if (requestedBuildingId) {
+      try {
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        const supabase = createServiceClient();
+        if (supabase && typeof supabase.from === 'function') {
+          const [{ data: bRow }, { data: docRows }] = await Promise.all([
+            supabase
+              .from('building_ssot_lite')
+              .select('pnu, raw_address, layers')
+              .eq('id', requestedBuildingId)
+              .maybeSingle(),
+            supabase
+              .from('document_objects')
+              .select('body')
+              .eq('building_id', requestedBuildingId)
+              .eq('document_type', 'mobile_im')
+              .order('created_at', { ascending: false })
+              .limit(3),
+          ]);
+          const validPnu = (p?: string | null) =>
+            typeof p === 'string' &&
+            /^\d{19}$/.test(p) &&
+            (isDangsanAddress || p !== '1156011500100110047');
+          const validCoords = (c?: any) =>
+            c &&
+            Number(c.lat) > 33 &&
+            Number(c.lng) > 124 &&
+            (isDangsanAddress ||
+              !(Math.abs(Number(c.lat) - 37.5342) < 0.0005 && Math.abs(Number(c.lng) - 126.9022) < 0.0005));
+
+          if (bRow) {
+            const bLayers = (bRow.layers as Record<string, any>) || {};
+            if (validPnu(bRow.pnu)) existingPnu = bRow.pnu;
+            else if (validPnu(bLayers.location?.pnu)) existingPnu = bLayers.location.pnu;
+            if (validCoords(bLayers.coordinates)) {
+              existingCoords = {
+                lat: Number(bLayers.coordinates.lat),
+                lng: Number(bLayers.coordinates.lng),
+              };
+            }
+          }
+
+          for (const dRow of docRows || []) {
+            const dBody = (dRow?.body as Record<string, any>) || {};
+            const dSsot = (dBody.ssot_summary as Record<string, any>) || {};
+            if (!existingPnu) {
+              if (validPnu(dBody.pnu)) existingPnu = dBody.pnu;
+              else if (validPnu(dSsot.pnu)) existingPnu = dSsot.pnu;
+            }
+            if (!existingCoords) {
+              if (validCoords(dBody.coordinates)) {
+                existingCoords = {
+                  lat: Number(dBody.coordinates.lat),
+                  lng: Number(dBody.coordinates.lng),
+                };
+              } else if (validCoords(dSsot.coordinates)) {
+                existingCoords = {
+                  lat: Number(dSsot.coordinates.lat),
+                  lng: Number(dSsot.coordinates.lng),
+                };
+              }
+            }
+            if (!existingRoadAddress && dSsot.road_address && dSsot.road_address !== cleanAddress) {
+              existingRoadAddress = String(dSsot.road_address);
+            }
+            if (!existingJibunAddress && dSsot.jibun_address && dSsot.jibun_address !== cleanAddress) {
+              existingJibunAddress = String(dSsot.jibun_address);
+            }
+            if (!existingEnrichment && dBody.enrichment && typeof dBody.enrichment === 'object') {
+              existingEnrichment = dBody.enrichment;
+            }
+            if (!existingSsot && Object.keys(dSsot).length > 0) {
+              existingSsot = dSsot;
+            }
+            if (existingRealPhotos.length === 0) {
+              const candPhotos = Array.isArray(dBody.photos_v2)
+                ? dBody.photos_v2
+                : Array.isArray(dBody.photos)
+                ? dBody.photos
+                : [];
+              const realList = candPhotos.filter(
+                (p: any) =>
+                  p &&
+                  typeof p.url === 'string' &&
+                  p.url.length > 0 &&
+                  !p.url.startsWith('/test-images/')
+              );
+              if (realList.length > 0) {
+                existingRealPhotos = realList;
+              }
+            }
+            if (existingFloorLeases.length === 0 && Array.isArray(dBody.floor_leases)) {
+              const hasValidArea = dBody.floor_leases.some((fl: any) => {
+                const a = Number(fl?.area_sqm ?? fl?.area_m2 ?? fl?.exclusive_area_sqm ?? 0);
+                return a > 0 && Math.abs(a - 2.45) > 0.05;
+              });
+              if (hasValidArea) {
+                existingFloorLeases = dBody.floor_leases;
+              }
+            }
+          }
+        }
+      } catch {
+        // Non-blocking DB lookup fallback
+      }
+    }
+
+    // If address is neither in KNOWN_PARCEL_REGISTRY nor in existing DB, resolve live via address-resolver
+    if (!knownMatch && (!existingPnu || !existingCoords)) {
+      try {
+        const { resolveAddress } = await import('@/lib/external/address-resolver');
+        const resolved = await Promise.race([
+          resolveAddress(cleanAddress),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500)),
+        ]);
+        if (resolved) {
+          if (!existingPnu && resolved.pnu && /^\d{19}$/.test(resolved.pnu)) {
+            existingPnu = resolved.pnu;
+          }
+          if (!existingCoords && resolved.lat && resolved.lng) {
+            existingCoords = { lat: Number(resolved.lat), lng: Number(resolved.lng) };
+          }
+          if (!existingRoadAddress && resolved.roadAddress) {
+            existingRoadAddress = resolved.roadAddress;
+          }
+          if (!existingJibunAddress && resolved.jibunAddress) {
+            existingJibunAddress = resolved.jibunAddress;
+          }
+        }
+      } catch {
+        // Non-blocking address resolver fallback
+      }
+    }
+  }
+
   // Derive region from address (e.g. "서울특별시 영등포구 당산동5가 11-47" -> "영등포구 당산동5가")
   const addrParts = cleanAddress.split(/\s+/);
   let derivedRegion = '수도권';
@@ -318,12 +497,27 @@ export async function POST(req: NextRequest) {
     const fStr = String(r.floor || '').trim().toUpperCase();
     const isAuxFloor = /(주차|옥탑|기계식|루프탑|부대|관리)/.test(fStr);
     if (!isAuxFloor) {
-      if (fStr.startsWith('B') || fStr.includes('지하')) {
+      const unitFloorMatch = fStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
+      if (unitFloorMatch) {
+        const parsedFl = parseInt(unitFloorMatch[2], 10);
+        if (unitFloorMatch[1]) {
+          maxFloorBelow = Math.max(maxFloorBelow, parsedFl || 1);
+        } else if (parsedFl > 0 && parsedFl < 100) {
+          maxFloorAbove = Math.max(maxFloorAbove, parsedFl);
+        }
+      } else if (fStr.startsWith('B') || fStr.includes('지하')) {
         const m = fStr.match(/(\d+)/);
-        maxFloorBelow = Math.max(maxFloorBelow, m ? parseInt(m[1], 10) : 1);
+        const rawBelow = m ? parseInt(m[1], 10) : 1;
+        maxFloorBelow = Math.max(maxFloorBelow, rawBelow >= 100 ? Math.floor(rawBelow / 100) : rawBelow);
       } else {
         const m = fStr.match(/(\d+)/);
-        if (m) maxFloorAbove = Math.max(maxFloorAbove, parseInt(m[1], 10));
+        if (m) {
+          const rawAbove = parseInt(m[1], 10);
+          const normAbove = rawAbove >= 100 ? Math.floor(rawAbove / 100) : rawAbove;
+          if (normAbove > 0 && normAbove < 100) {
+            maxFloorAbove = Math.max(maxFloorAbove, normAbove);
+          }
+        }
       }
     }
 
@@ -348,20 +542,50 @@ export async function POST(req: NextRequest) {
   totalMonthlyRentManwon = Math.round(totalMonthlyRentManwon * 10) / 10;
   totalMaintManwon = Math.round(totalMaintManwon * 10) / 10;
 
+  const existingFloorsAbove = Number(
+    existingEnrichment?.buildingRegister?.floorsAbove ?? existingSsot?.floors_above ?? 0
+  );
+  const existingFloorsBelow = Number(
+    existingEnrichment?.buildingRegister?.floorsBelow ?? existingSsot?.floors_below ?? 0
+  );
   const effectiveFloorsAbove =
-    Number(body.floorsAbove) > 0
+    Number(body.floorsAbove) > 0 && Number(body.floorsAbove) < 100
       ? Number(body.floorsAbove)
-      : knownMatch?.floorsAbove ?? (maxFloorAbove > 0 ? maxFloorAbove : 5);
+      : knownMatch?.floorsAbove ??
+        (existingFloorsAbove > 0 && existingFloorsAbove < 100
+          ? existingFloorsAbove
+          : maxFloorAbove > 0
+          ? maxFloorAbove
+          : 5);
   const effectiveFloorsBelow =
-    Number(body.floorsBelow) > 0
+    Number(body.floorsBelow) > 0 && Number(body.floorsBelow) < 20
       ? Number(body.floorsBelow)
-      : knownMatch?.floorsBelow ?? (maxFloorBelow > 0 ? maxFloorBelow : 1);
+      : knownMatch?.floorsBelow ??
+        (existingFloorsBelow > 0 && existingFloorsBelow < 20
+          ? existingFloorsBelow
+          : maxFloorBelow > 0
+          ? maxFloorBelow
+          : 1);
   const effectiveLandSqm =
-    Number(landAreaSqm) > 0 ? Number(landAreaSqm) : (knownMatch?.landAreaSqm ?? 479.3);
+    Number(landAreaSqm) > 0
+      ? Number(landAreaSqm)
+      : knownMatch?.landAreaSqm ?? Number(existingSsot?.land_area_sqm || 479.3);
   const effectiveGfaSqm =
-    Number(gfaSqm) > 0 ? Number(gfaSqm) : (knownMatch?.gfaSqm ?? 1649.5);
-  const effectiveZoning = zoning || knownMatch?.zoning || '제2종일반주거지역';
-  const effectiveCompletionDate = completionDate || knownMatch?.completionDate || '2016-05-20';
+    Number(gfaSqm) > 0
+      ? Number(gfaSqm)
+      : knownMatch?.gfaSqm ?? Number(existingSsot?.total_gross_area_sqm || 1649.5);
+  const effectiveZoning =
+    zoning ||
+    knownMatch?.zoning ||
+    existingEnrichment?.landUsePlan?.zoning ||
+    existingSsot?.zoning ||
+    '제2종일반주거지역';
+  const effectiveCompletionDate =
+    completionDate ||
+    knownMatch?.completionDate ||
+    existingEnrichment?.buildingRegister?.completionDate ||
+    existingSsot?.completion_date ||
+    '2016-05-20';
   const totalFloorsCount = Math.max(1, effectiveFloorsAbove + effectiveFloorsBelow);
   const perFloorAreaSqm = Math.round((effectiveGfaSqm / totalFloorsCount) * 10) / 10;
   const perFloorAreaPyeong = Math.round((perFloorAreaSqm / 3.305785) * 10) / 10;
@@ -370,46 +594,52 @@ export async function POST(req: NextRequest) {
     Number(body.bcrPct) > 0
       ? Number(body.bcrPct)
       : knownMatch?.bcrPct ??
-        Math.min(
-          59.8,
-          Math.max(42.0, Math.round(((perFloorAreaSqm * 0.95) / Math.max(1, effectiveLandSqm)) * 1000) / 10)
-        );
+        (Number(existingEnrichment?.buildingRegister?.bcr) > 0
+          ? Number(existingEnrichment?.buildingRegister?.bcr)
+          : Math.min(
+              59.8,
+              Math.max(42.0, Math.round(((perFloorAreaSqm * 0.95) / Math.max(1, effectiveLandSqm)) * 1000) / 10)
+            ));
   const farPct =
     Number(body.farPct) > 0
       ? Number(body.farPct)
       : knownMatch?.farPct ??
-        Math.max(
-          150.0,
-          Math.round(((effectiveGfaSqm * 0.84) / Math.max(1, effectiveLandSqm)) * 1000) / 10
-        );
+        (Number(existingEnrichment?.buildingRegister?.far) > 0
+          ? Number(existingEnrichment?.buildingRegister?.far)
+          : Math.max(
+              150.0,
+              Math.round(((effectiveGfaSqm * 0.84) / Math.max(1, effectiveLandSqm)) * 1000) / 10
+            ));
   const parkingSpaces =
     body.parkingSpaces !== undefined && Number.isFinite(Number(body.parkingSpaces))
       ? Number(body.parkingSpaces)
-      : knownMatch?.parkingSpaces ?? Math.max(6, Math.round(effectiveGfaSqm / 132));
+      : knownMatch?.parkingSpaces ??
+        (Number.isFinite(Number(existingEnrichment?.buildingRegister?.parkingSpaces))
+          ? Number(existingEnrichment?.buildingRegister?.parkingSpaces)
+          : Math.max(6, Math.round(effectiveGfaSqm / 132)));
   const elevators =
     body.elevators !== undefined && Number.isFinite(Number(body.elevators))
       ? Number(body.elevators)
       : knownMatch?.elevators !== undefined
       ? knownMatch.elevators
+      : Number.isFinite(Number(existingEnrichment?.buildingRegister?.elevators))
+      ? Number(existingEnrichment?.buildingRegister?.elevators)
       : effectiveFloorsAbove >= 4
       ? 1
       : 0;
   const officialLandPriceWonSqm =
     knownMatch?.officialLandPriceWonSqm ??
-    (cleanAddress.includes('강남')
+    (Number(existingEnrichment?.landPrice?.officialPricePerM2) > 0
+      ? Number(existingEnrichment?.landPrice?.officialPricePerM2)
+      : Number(existingSsot?.official_land_price_per_sqm) > 0 &&
+        Number(existingSsot?.official_land_price_per_sqm) !== 8950000
+      ? Number(existingSsot?.official_land_price_per_sqm)
+      : cleanAddress.includes('강남')
       ? 22000000
       : cleanAddress.includes('서초')
       ? 15800000
       : 8950000);
 
-  // Generate deterministic/unique IDs (reuse valid UUID buildingId if supplied)
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const requestedBuildingId =
-    typeof body.buildingId === 'string' && uuidRegex.test(body.buildingId)
-      ? body.buildingId
-      : null;
-  const buildingId = requestedBuildingId || crypto.randomUUID();
-  const documentId = crypto.randomUUID();
   const resolvedTitle = title || buildingName || `${derivedRegion} 근생빌딩`;
   const hasExplicitRentRoll = safeRentRoll.length > 0;
   const isNonIncomePosture = legacyPosture === 'owner_occupied' || legacyPosture === 'development';
@@ -627,7 +857,12 @@ export async function POST(req: NextRequest) {
         .filter((p: any) => Boolean(p.url))
     : [];
 
-  let defaultPhotos = userSubmittedPhotos.length > 0 ? userSubmittedPhotos : fallbackDefaultPhotos;
+  let defaultPhotos =
+    userSubmittedPhotos.length > 0
+      ? userSubmittedPhotos
+      : existingRealPhotos.length > 0
+      ? existingRealPhotos
+      : fallbackDefaultPhotos;
 
   // Upload any data:image/... URIs to Supabase Storage (building_photos) so DB persistence keeps valid URLs
   if (
@@ -676,13 +911,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const resolvedPnu = rawPnu || knownMatch?.pnu || '1156011500100110047';
+  const resolvedPnu = rawPnu || knownMatch?.pnu || existingPnu || '1156011500100110047';
   const resolvedCoords =
     body.coordinates && Number(body.coordinates.lat) && Number(body.coordinates.lng)
       ? { lat: Number(body.coordinates.lat), lng: Number(body.coordinates.lng) }
       : knownMatch
       ? { lat: knownMatch.lat, lng: knownMatch.lng }
+      : existingCoords
+      ? existingCoords
       : { lat: 37.5342, lng: 126.9022 };
+  const resolvedRoadAddress = knownMatch?.roadAddress || existingRoadAddress || cleanAddress;
+  const resolvedJibunAddress = knownMatch?.jibunAddress || existingJibunAddress || cleanAddress;
 
   const subjectLandPyeong = Math.max(1, effectiveLandSqm / 3.305785);
   const subjectLandPricePerPyeongWon = Math.round((priceNum * 10000) / subjectLandPyeong);
@@ -720,7 +959,7 @@ export async function POST(req: NextRequest) {
     title: resolvedTitle,
     building_name: resolvedTitle,
     address: cleanAddress,
-    road_address: knownMatch?.roadAddress || cleanAddress,
+    road_address: resolvedRoadAddress,
     pnu: resolvedPnu,
     posture,
     asking_price_manwon: priceNum,
@@ -780,6 +1019,7 @@ export async function POST(req: NextRequest) {
   const mappedFloorLeases =
     safeRentRoll.length > 0
       ? safeRentRoll.map((r: any, idx: number) => {
+          const prevFl = existingFloorLeases[idx] || {};
           const isVacant =
             r.status === 'vacant' ||
             r.is_vacant === true ||
@@ -792,8 +1032,17 @@ export async function POST(req: NextRequest) {
             r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? r.rent ?? 0
           );
           const mgmtMan = Number(r.maintenanceManwon ?? r.mgmt_fee_manwon ?? r.maintenance ?? 0);
-          const explicitM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? 0);
-          const explicitPy = Number(r.area_pyeong ?? r.areaPyeong ?? 0);
+          const rawExplicitM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? 0);
+          const prevM2 = Number(prevFl.area_sqm ?? prevFl.area_m2 ?? prevFl.exclusive_area_sqm ?? 0);
+          const explicitM2 =
+            rawExplicitM2 > 0 && Math.abs(rawExplicitM2 - 2.45) > 0.05
+              ? rawExplicitM2
+              : prevM2 > 0 && Math.abs(prevM2 - 2.45) > 0.05
+              ? prevM2
+              : 0;
+          const rawExplicitPy = Number(r.area_pyeong ?? r.areaPyeong ?? 0);
+          const explicitPy =
+            rawExplicitPy > 0 && Math.abs(rawExplicitPy - 0.8) > 0.05 ? rawExplicitPy : 0;
           const isAuxRow = /(주차|옥탑|기계식|루프탑|부대)/.test(
             `${r.floor || ''} ${r.unit || ''} ${r.use || ''}`
           );
@@ -811,14 +1060,53 @@ export async function POST(req: NextRequest) {
               : areaM2 > 0
               ? Math.round((areaM2 / 3.305785) * 10) / 10
               : 0;
-          const label = String(r.use || r.tenantName || r.tenant_name || r.tenant_type || (isVacant ? '공실' : isOwner ? '자가사용' : '근린생활시설'));
+          const exclusiveSqm =
+            Number(
+              r.exclusiveAreaSqm ??
+                r.exclusive_area_sqm ??
+                prevFl.exclusive_area_sqm ??
+                prevFl.exclusiveAreaSqm ??
+                0
+            ) || undefined;
+          let rawUse = String(
+            r.use ||
+              r.tenantName ||
+              r.tenant_name ||
+              r.tenant_type ||
+              (isVacant ? '공실' : isOwner ? '자가사용' : '근린생활시설')
+          ).trim();
+          const slashParts = rawUse.split(/\s*\/\s*/).filter(Boolean);
+          if (slashParts.length === 2 && slashParts[0] === slashParts[1]) {
+            rawUse = slashParts[0];
+          }
+          const rawFloorStr = String(r.floor || `${idx + 1}F`).trim();
+          const rawUnitStr = String(r.unit || r.unit_label || '').trim();
+          const unitFloorMatch = rawFloorStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
+          const normFloor = unitFloorMatch
+            ? `${unitFloorMatch[1] ? 'B' : ''}${parseInt(unitFloorMatch[2], 10)}F`
+            : rawFloorStr;
+          const normUnit = unitFloorMatch
+            ? rawFloorStr.endsWith('호')
+              ? rawFloorStr
+              : `${rawFloorStr}호`
+            : rawUnitStr || String(prevFl.unit_label || prevFl.unit || `${idx + 1}01호`);
+          const explicitTenantName = String(r.tenantName || r.tenant_name || '').trim();
           return {
-            floor: String(r.floor || `${idx + 1}F`),
-            unit_label: String(r.unit || r.unit_label || `${idx + 1}01호`),
-            tenant_name: isVacant ? '공실' : label,
-            tenant_type: isVacant ? '공실' : label,
+            floor: normFloor,
+            unit_label: normUnit,
+            tenant_name: isVacant
+              ? '공실'
+              : isOwner
+              ? '자가사용'
+              : explicitTenantName && explicitTenantName !== rawUse
+              ? explicitTenantName
+              : rawUse,
+            tenant_type: isVacant ? '공실' : rawUse,
+            use: isVacant ? '공실' : rawUse,
+            area_sqm: areaM2,
             area_m2: areaM2,
             area_pyeong: areaPy,
+            ...(exclusiveSqm ? { exclusive_area_sqm: exclusiveSqm } : {}),
             deposit_manwon: isVacant ? 0 : depMan,
             deposit_krw: isVacant ? 0 : depMan * 10000,
             rent_manwon: isVacant ? 0 : rentMan,
@@ -826,7 +1114,7 @@ export async function POST(req: NextRequest) {
             mgmt_fee_manwon: isVacant ? 0 : mgmtMan,
             lease_state: isVacant ? '공실' : isOwner ? '자가사용' : '임대중',
             is_vacant: isVacant,
-            lease_end: String(r.leaseExpiry || r.lease_end || r.expiryDate || '2027.12'),
+            lease_end: String(r.leaseExpiry || r.lease_end || r.expiryDate || prevFl.lease_end || '2027.12'),
             source: 'broker',
           };
         })
@@ -836,6 +1124,8 @@ export async function POST(req: NextRequest) {
             unit_label: '101호',
             tenant_name: '근린생활시설',
             tenant_type: '근린생활시설',
+            use: '근린생활시설',
+            area_sqm: perFloorAreaSqm,
             area_m2: perFloorAreaSqm,
             area_pyeong: perFloorAreaPyeong,
             deposit_manwon: effectiveDepositManwon,
@@ -867,8 +1157,8 @@ export async function POST(req: NextRequest) {
   const ssotSummary = {
     address: cleanAddress,
     raw_address: cleanAddress,
-    road_address: knownMatch?.roadAddress || cleanAddress,
-    jibun_address: knownMatch?.jibunAddress || cleanAddress,
+    road_address: resolvedRoadAddress,
+    jibun_address: resolvedJibunAddress,
     pnu: resolvedPnu,
     coordinates: resolvedCoords,
     building_name: resolvedTitle,
@@ -940,7 +1230,7 @@ export async function POST(req: NextRequest) {
       section_type: 'location_access',
       title: '입지 및 교통 여건',
       markdown: [
-        `- **소재지**: ${cleanAddress} (${knownMatch?.roadAddress || cleanAddress})`,
+        `- **소재지**: ${cleanAddress} (${resolvedRoadAddress})`,
         `- **대중교통 접근성**: 주요 지하철역 도보권 역세권 입지로 직장인 및 상권 유동인구 유입이 활발합니다.`,
         `- **도로 및 가시성**: 전면 도로 접면이 우수하여 차량 진출입과 상업적 가시성이 뛰어납니다.`,
         `- **배후 상권**: 업무·상업·주거 배후수요가 밀집된 핵심 권역으로 임차 수요가 견고합니다.`,
@@ -952,7 +1242,7 @@ export async function POST(req: NextRequest) {
       markdown: [
         `| 항목 | 내용 |`,
         `|---|---|`,
-        `| 지번주소 | ${knownMatch?.jibunAddress || cleanAddress} |`,
+        `| 지번주소 | ${resolvedJibunAddress} |`,
         `| 지목 / 대지면적 | 대 / ${effectiveLandSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
         `| 용도지역 | ${effectiveZoning} |`,
         `| 개별공시지가 | ㎡당 ${officialLandPriceWonSqm.toLocaleString()}원 |`,
@@ -1064,6 +1354,7 @@ export async function POST(req: NextRequest) {
     rent_roll: safeRentRoll,
     floor_leases: mappedFloorLeases,
     ssot_summary: ssotSummary,
+    ...(existingEnrichment ? { enrichment: existingEnrichment } : {}),
     ...(normalizedAxiosHighlights ? { axios_highlights: normalizedAxiosHighlights } : {}),
     ...(handoverNote ? { handover_note: String(handoverNote) } : {}),
     heroCard: {
@@ -1153,7 +1444,6 @@ export async function POST(req: NextRequest) {
               input_type: 'manual_form',
               raw_input: cleanAddress,
               raw_address: cleanAddress,
-              pnu: resolvedPnu,
               area_signal: card4.region,
               asset_type: card4.use,
               price_band: card4.priceBand,

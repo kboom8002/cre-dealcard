@@ -134,6 +134,7 @@ interface ImListItem {
   zoning?: string;
   handoverNote?: string;
   photoNames?: string[];
+  photos?: ImPhotoEntry[];
   brokerName?: string;
   brokerageName?: string;
   brokerPhone?: string;
@@ -329,7 +330,23 @@ function ImWorkspaceInner() {
     setLandAreaSqm(item.landAreaSqm ?? "");
     setZoning(item.zoning ?? "");
     setHandoverNote(item.handoverNote ?? "");
-    setPhotoNames(item.photoNames ?? []);
+    if (Array.isArray(item.photos) && item.photos.length > 0) {
+      setPhotoEntries(
+        item.photos.map((p: any, idx: number) => ({
+          name: p.name || p.caption || `현장 사진 ${idx + 1}`,
+          url: p.url,
+          category: p.category || (idx === 0 ? "exterior" : "interior"),
+          caption: p.caption || `현장 사진 ${idx + 1}`,
+        }))
+      );
+      setPhotoNames(
+        item.photoNames && item.photoNames.length > 0
+          ? item.photoNames
+          : item.photos.map((p: any, idx: number) => p.name || p.caption || `현장 사진 ${idx + 1}`)
+      );
+    } else {
+      setPhotoNames(item.photoNames ?? []);
+    }
     setBrokerName(item.brokerName || profileDefaultsRef.current.brokerName || "");
     setBrokerageName(item.brokerageName || profileDefaultsRef.current.brokerageName || "");
     setBrokerPhone(item.brokerPhone || profileDefaultsRef.current.brokerPhone || "");
@@ -564,6 +581,33 @@ function ImWorkspaceInner() {
               const resolvedHandoverNote = local?.isDirty
                 ? local.handoverNote
                 : srv.handoverNote || local?.handoverNote;
+              const baseRentRoll =
+                local?.isDirty && Array.isArray(local.rentRoll) && local.rentRoll.length > 0
+                  ? local.rentRoll
+                  : Array.isArray(srv.rentRoll) && srv.rentRoll.length > 0
+                  ? srv.rentRoll
+                  : generateFloorScaffolding(3, 1);
+              const cleanedRentRoll = baseRentRoll.map((r: any, idx: number) => {
+                const srvRow = (Array.isArray(srv.rentRoll) ? srv.rentRoll[idx] : undefined) as any;
+                let cleanUse = String(r.use || "");
+                const slashParts = cleanUse.split(/\s*\/\s*/).filter(Boolean);
+                if (slashParts.length === 2 && slashParts[0] === slashParts[1]) {
+                  cleanUse = slashParts[0];
+                }
+                const rawArea = Number(r.areaSqm ?? r.area_sqm ?? 0);
+                const srvArea = Number(srvRow?.areaSqm ?? srvRow?.area_sqm ?? 0);
+                const nextArea =
+                  rawArea > 0 && Math.abs(rawArea - 2.45) > 0.05
+                    ? rawArea
+                    : srvArea > 0 && Math.abs(srvArea - 2.45) > 0.05
+                    ? srvArea
+                    : undefined;
+                return {
+                  ...r,
+                  use: cleanUse,
+                  ...(nextArea ? { areaSqm: nextArea } : {}),
+                };
+              });
               return {
                 ...srv,
                 ...(local?.isDirty ? local : {}),
@@ -572,13 +616,9 @@ function ImWorkspaceInner() {
                 axiosHighlights: resolvedAxiosHighlights,
                 handoverNote: resolvedHandoverNote,
                 brokerExtrasForm: local?.brokerExtrasForm || srv.brokerExtrasForm,
-                photoNames: local?.photoNames || srv.photoNames,
-                rentRoll:
-                  local?.isDirty && Array.isArray(local.rentRoll) && local.rentRoll.length > 0
-                    ? local.rentRoll
-                    : Array.isArray(srv.rentRoll) && srv.rentRoll.length > 0
-                    ? srv.rentRoll
-                    : generateFloorScaffolding(3, 1),
+                photoNames: local?.photoNames?.length ? local.photoNames : srv.photoNames,
+                photos: local?.photos?.length ? local.photos : srv.photos,
+                rentRoll: cleanedRentRoll,
               };
             });
             const localOnlyItems: ImListItem[] = [];
