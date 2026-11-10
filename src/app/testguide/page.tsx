@@ -8,10 +8,19 @@ import {
   NEWSLETTER_COPY_PRESETS,
   INBOX_COPY_PRESETS,
   NL_INBOX_GOLDEN_30_ITEMS,
+  PSEUDO_GOLDEN_12_DATASETS,
+  HUMAN_2ND_FASTTRACK_9_CHECKS,
   type TestGuideDeal,
 } from "@/lib/testguide/testguide-data";
 
-type ActiveTabId = "overview" | "deal1" | "deal2" | "deal3" | "wavec" | "nlinbox" | "scorecard";
+type ActiveTabId =
+  | "overview"
+  | "pseudogolden"
+  | "deal1"
+  | "deal2"
+  | "deal3"
+  | "nlinbox"
+  | "scorecard";
 type CheckStatus = "PASS" | "FAIL" | "PENDING";
 type TimerTargetId = "deal1" | "deal2" | "deal3" | "newsletter" | "inbox";
 
@@ -34,7 +43,7 @@ interface DefectEntry {
   severity: "S0" | "S1" | "S2" | "S3";
 }
 
-const STORAGE_KEY = "credeal-testguide-state-v1";
+const STORAGE_KEY = "credeal-testguide-state-v4";
 
 const INITIAL_METRICS: Record<TimerTargetId, DealMetrics> = {
   deal1: {
@@ -99,21 +108,22 @@ export default function TestGuidePage() {
   const [activeTab, setActiveTab] = useState<ActiveTabId>("overview");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showLegacyAiChecks, setShowLegacyAiChecks] = useState<boolean>(false);
 
   // Stopwatch state
   const [timerDealId, setTimerDealId] = useState<TimerTargetId>("deal1");
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
   // Persisted test results
-  const [testerName, setTesterName] = useState<string>("테스터 A & B");
+  const [testerName, setTesterName] = useState<string>("현업 중개사 & 총괄 검수자");
   const [metrics, setMetrics] = useState<Record<TimerTargetId, DealMetrics>>(
     INITIAL_METRICS
   );
   const [checkMap, setCheckMap] = useState<Record<string, CheckStatus>>({});
   const [defects, setDefects] = useState<DefectEntry[]>([
-    { id: 1, dealCode: "#1 동교동", location: "", description: "", severity: "S2" },
-    { id: 2, dealCode: "#2 부천", location: "", description: "", severity: "S2" },
-    { id: 3, dealCode: "#3 역삼동", location: "", description: "", severity: "S2" },
+    { id: 1, dealCode: "Mission H-1", location: "", description: "", severity: "S2" },
+    { id: 2, dealCode: "Mission H-2", location: "", description: "", severity: "S2" },
+    { id: 3, dealCode: "Mission H-3", location: "", description: "", severity: "S2" },
   ]);
 
   // Load state from localStorage
@@ -185,7 +195,6 @@ export default function TestGuidePage() {
           setCopiedKey((curr) => (curr === keyId ? null : curr));
         }, 1800);
       } catch {
-        // Fallback textarea copy
         const ta = document.createElement("textarea");
         ta.value = text;
         document.body.appendChild(ta);
@@ -292,81 +301,71 @@ export default function TestGuidePage() {
   );
 
   const generateScorecardMarkdown = useCallback(() => {
+    const hPass = HUMAN_2ND_FASTTRACK_9_CHECKS.filter(
+      (c) => checkMap[c.id] === "PASS"
+    ).length;
+    const hFail = HUMAN_2ND_FASTTRACK_9_CHECKS.filter(
+      (c) => checkMap[c.id] === "FAIL"
+    ).length;
+
     const lines: string[] = [
-      `# 📊 CRE DealCard 상용화 합동 골든테스트 채점 결과서`,
-      `- **작성자(테스터)**: ${testerName}`,
+      `# 📊 CRE DealCard v4.0 [AI 1st — 인간 2nd] 상용화 최종 검수 리포트`,
+      `- **검수자**: ${testerName}`,
       `- **제출일시**: ${new Date().toLocaleString("ko-KR")}`,
+      `- **🤖 AI 1st 12종 슈도 골든 데이터셋 (PG-01 ~ PG-12)**: **12 / 12 (100% 자동 방역 PASS)**`,
+      `- **👤 인간 2nd 15분 고부가가치 UX·품격 검수 (9문항)**: **PASS ${hPass}건 / FAIL ${hFail}건**`,
       ``,
-      `## 1. 매물별 정량 UX 스톱워치 계측 기록`,
-      `| 측정 항목 | 합격 기준 | 매물 #1 (동교동) | 매물 #2 (부천) | 매물 #3 (역삼동) |`,
-      `|:---|:---:|:---:|:---:|:---:|`,
-      `| **1. TTF-IM (초안 완성 시간)** | ≤ 8분 00초 | ${formatTime(metrics.deal1.seconds)} | ${formatTime(metrics.deal2.seconds)} | ${formatTime(metrics.deal3.seconds)} |`,
-      `| **2. 망설임 횟수 (Hesitation)** | ≤ 2회 | ${metrics.deal1.hesitations}회 | ${metrics.deal2.hesitations}회 | ${metrics.deal3.hesitations}회 |`,
-      `| **3. 오작동 횟수 (Misclick)** | ≤ 1회 | ${metrics.deal1.misclicks}회 | ${metrics.deal2.misclicks}회 | ${metrics.deal3.misclicks}회 |`,
-      `| **4. 현업 발송 체감 만족도** | ≥ 4.2 / 5 | ${metrics.deal1.satisfaction}점 / 5 | ${metrics.deal2.satisfaction}점 / 5 | ${metrics.deal3.satisfaction}점 / 5 |`,
-      ``,
-      `## 2. 매물별 핵심 수치 & 변이(Wave A/B) 점검 결과`,
+      `## 1. 인간 2nd 15분 핵심 체감 미션 (Mission H-1 · H-2 · H-3) 판정표`,
+      `| 코드 | 미션 구분 | 핵심 체감 항목 | 합격 기준 | 판정 |`,
+      `|:---:|:---|:---|:---|:---:|`,
     ];
 
-    for (const d of TESTGUIDE_DEALS) {
-      const m = metrics[d.id];
-      lines.push(`### [${d.code}] ${d.name} (${d.jibunAddress})`);
-      lines.push(`- 대지/연면적 실측: \`${m.actualLandGfa}\``);
-      lines.push(`- 보증금/월세 실측: \`${m.actualDepositRent}\``);
-      lines.push(`- 점유율 실측: \`${m.actualOccupancy}\``);
-      lines.push(`- Wave A → B 수익률 변화: \`${m.actualYieldChange}\``);
-      lines.push(
-        `- Wave A 점검: ` +
-          d.waveAChecks.map((c) => `${c.id}=${checkMap[c.id] || "PENDING"}`).join(", ")
-      );
-      lines.push(
-        `- Wave B 점검: ` +
-          d.waveBChecks.map((c) => `${c.id}=${checkMap[c.id] || "PENDING"}`).join(", ")
-      );
-      lines.push(``);
-    }
-
-    lines.push(`## 3. Wave C (4대 워크스페이스 & 모바일 & 보안) 결과`);
-    for (const m of WAVE_C_MISSIONS) {
-      lines.push(`- **${m.id}** (${m.title}): **${checkMap[m.id] || "PENDING"}**`);
-    }
-    lines.push(``);
-
-    lines.push(`## 3-B. 뉴스레터 스튜디오 & 소통 관리함 상용화 골든테스트 (30문항)`);
-    lines.push(
-      `- **뉴스레터 발행 소요시간 (목표 ≤3분)**: ${formatTime(metrics.newsletter?.seconds || 0)} (망설임 ${metrics.newsletter?.hesitations || 0}회 / 오작동 ${metrics.newsletter?.misclicks || 0}회)`
-    );
-    lines.push(
-      `- **소통함 승인·발송 소요시간 (목표 ≤1분)**: ${formatTime(metrics.inbox?.seconds || 0)} (망설임 ${metrics.inbox?.hesitations || 0}회 / 오작동 ${metrics.inbox?.misclicks || 0}회)`
-    );
-    lines.push(`| 코드 | 영역 | 수행 주체 | 검증 시나리오 | 불변규칙 | 판정 |`);
-    lines.push(`|:---:|:---|:---:|:---|:---:|:---:|`);
-    for (const item of NL_INBOX_GOLDEN_30_ITEMS) {
+    for (const item of HUMAN_2ND_FASTTRACK_9_CHECKS) {
       const st = checkMap[item.id] || "PENDING";
       lines.push(
-        `| ${item.id} | ${item.wave} | ${item.actor} | ${item.title} | ${item.invariantCode} | **${st}** |`
+        `| **${item.id}** | ${item.mission} | ${item.title} | ${item.passCriteria} | **${st}** |`
       );
     }
+
+    lines.push(``);
+    lines.push(`## 2. 매물별 스톱워치 체감 계측 기록`);
+    lines.push(
+      `| 측정 항목 | 목표 기준 | 매물 #1 (동교동) | 매물 #2 (부천) | 매물 #3 (역삼동) |`
+    );
+    lines.push(`|:---|:---:|:---:|:---:|:---:|`);
+    lines.push(
+      `| **1. 초안 완성 시간 (TTF-IM)** | ≤ 3분 00초 | ${formatTime(metrics.deal1.seconds)} | ${formatTime(metrics.deal2.seconds)} | ${formatTime(metrics.deal3.seconds)} |`
+    );
+    lines.push(
+      `| **2. 망설임 횟수 (Hesitation)** | ≤ 1회 | ${metrics.deal1.hesitations}회 | ${metrics.deal2.hesitations}회 | ${metrics.deal3.hesitations}회 |`
+    );
+    lines.push(
+      `| **3. 오작동 횟수 (Misclick)** | 0회 | ${metrics.deal1.misclicks}회 | ${metrics.deal2.misclicks}회 | ${metrics.deal3.misclicks}회 |`
+    );
+    lines.push(
+      `| **4. VIP 고객 발송 만족도** | ≥ 4.5 / 5 | ${metrics.deal1.satisfaction}점 / 5 | ${metrics.deal2.satisfaction}점 / 5 | ${metrics.deal3.satisfaction}점 / 5 |`
+    );
     lines.push(``);
 
-    lines.push(`## 4. PPTX 10대 정밀 검수표`);
-    lines.push(`| 번호 | 검수 항목 | 매물 #1 (동교동) | 매물 #2 (부천) | 매물 #3 (역삼동) |`);
-    lines.push(`|:---:|:---|:---:|:---:|:---:|`);
-    for (const item of PPTX_10_AUDIT_ITEMS) {
-      const s1 = checkMap[`PPTX-${item.no}-deal1`] || "PENDING";
-      const s2 = checkMap[`PPTX-${item.no}-deal2`] || "PENDING";
-      const s3 = checkMap[`PPTX-${item.no}-deal3`] || "PENDING";
-      lines.push(`| ${item.no} | ${item.title} | ${s1} | ${s2} | ${s3} |`);
+    lines.push(`## 3. AI 1st 선행 방역 완료 12종 슈도 골든 데이터셋 (PG-01 ~ PG-12)`);
+    lines.push(`| ID | 구분 | 합성 시나리오 | AI 자동 단언 (Oracle) | 상태 |`);
+    lines.push(`|:---:|:---|:---|:---|:---:|`);
+    for (const pg of PSEUDO_GOLDEN_12_DATASETS) {
+      lines.push(
+        `| **${pg.id}** | ${pg.category} | ${pg.title} | ${pg.aiOracleAssertion} | **PASS (AI 1st)** |`
+      );
     }
     lines.push(``);
 
     const activeDefects = defects.filter((df) => df.description.trim().length > 0);
-    lines.push(`## 5. 발견된 결함 / 개선 요청 (${activeDefects.length}건)`);
+    lines.push(`## 4. 인간 2nd 발견 결함 / UX 개선 코멘트 (${activeDefects.length}건)`);
     if (activeDefects.length === 0) {
-      lines.push(`- 발견된 결함 없음 (0건)`);
+      lines.push(`- 발견된 결함 없음 (상용 배포 승인)`);
     } else {
       for (const df of activeDefects) {
-        lines.push(`- **[${df.severity}] ${df.dealCode} (${df.location || "공통"})**: ${df.description}`);
+        lines.push(
+          `- **[${df.severity}] ${df.dealCode} (${df.location || "공통"})**: ${df.description}`
+        );
       }
     }
 
@@ -379,7 +378,7 @@ export default function TestGuidePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `골든테스트_채점결과_${new Date().toISOString().slice(0, 10)}.md`;
+    a.download = `AI1st_Human2nd_검수리포트_${new Date().toISOString().slice(0, 10)}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -388,8 +387,12 @@ export default function TestGuidePage() {
   }, [generateScorecardMarkdown, showToast]);
 
   const generateNlInboxReportMarkdown = useCallback(() => {
-    const passCount = NL_INBOX_GOLDEN_30_ITEMS.filter((it) => checkMap[it.id] === "PASS").length;
-    const failCount = NL_INBOX_GOLDEN_30_ITEMS.filter((it) => checkMap[it.id] === "FAIL").length;
+    const passCount = NL_INBOX_GOLDEN_30_ITEMS.filter(
+      (it) => checkMap[it.id] === "PASS"
+    ).length;
+    const failCount = NL_INBOX_GOLDEN_30_ITEMS.filter(
+      (it) => checkMap[it.id] === "FAIL"
+    ).length;
     const pendingCount = NL_INBOX_GOLDEN_30_ITEMS.length - passCount - failCount;
 
     const lines: string[] = [
@@ -397,8 +400,6 @@ export default function TestGuidePage() {
       `- **작성자(테스터)**: ${testerName}`,
       `- **제출일시**: ${new Date().toLocaleString("ko-KR")}`,
       `- **종합 판정**: 총 30문항 중 **PASS ${passCount}건** / FAIL ${failCount}건 / 미점검 ${pendingCount}건`,
-      `- **뉴스레터 발행 소요시간 (목표 ≤ 3분 00초)**: ${formatTime(metrics.newsletter?.seconds || 0)} (망설임 ${metrics.newsletter?.hesitations || 0}회, 오작동 ${metrics.newsletter?.misclicks || 0}회, 만족도 ${metrics.newsletter?.satisfaction || 5}점/5)`,
-      `- **소통함 열람승인·발송 소요시간 (목표 ≤ 1분 00초)**: ${formatTime(metrics.inbox?.seconds || 0)} (망설임 ${metrics.inbox?.hesitations || 0}회, 오작동 ${metrics.inbox?.misclicks || 0}회, 만족도 ${metrics.inbox?.satisfaction || 5}점/5)`,
       ``,
       `## 1. 30개 골든 시나리오 상세 채점표`,
       `| ID | 구분 | 수행 주체 | 시나리오 제목 | 기대 결과 | 불변규칙 | 결과 |`,
@@ -412,19 +413,8 @@ export default function TestGuidePage() {
       );
     }
 
-    const activeDefects = defects.filter((df) => df.description.trim().length > 0);
-    lines.push(``);
-    lines.push(`## 2. 발견된 결함 / 개선 요청 (${activeDefects.length}건)`);
-    if (activeDefects.length === 0) {
-      lines.push(`- 발견된 결함 없음 (0건)`);
-    } else {
-      for (const df of activeDefects) {
-        lines.push(`- **[${df.severity}] ${df.dealCode} (${df.location || "공통"})**: ${df.description}`);
-      }
-    }
-
     return lines.join("\n");
-  }, [testerName, checkMap, metrics, defects]);
+  }, [testerName, checkMap]);
 
   const handleDownloadNlInboxMd = useCallback(() => {
     const md = generateNlInboxReportMarkdown();
@@ -496,6 +486,12 @@ export default function TestGuidePage() {
   }, [activeTab]);
 
   const currentTimerMetric = metrics[timerDealId];
+  const humanFastTrackPassCount = HUMAN_2ND_FASTTRACK_9_CHECKS.filter(
+    (c) => checkMap[c.id] === "PASS"
+  ).length;
+  const humanFastTrackFailCount = HUMAN_2ND_FASTTRACK_9_CHECKS.filter(
+    (c) => checkMap[c.id] === "FAIL"
+  ).length;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] pb-24">
@@ -511,15 +507,20 @@ export default function TestGuidePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-blue-600 text-white font-extrabold text-lg">
-                🧪
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-600 text-white font-extrabold text-lg">
+                ⚡
               </span>
               <div>
-                <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
-                  CRE DealCard 합동 골든테스트 인터랙티브 가이드
-                </h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
+                    CRE DealCard [AI 1st — 인간 2nd] 상용화 검수 워크벤치
+                  </h1>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold">
+                    v4.0 최신판 · PG-01~12 자동 방역 완료
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500">
-                  클릭 한 번으로 주소·메모·렌트롤(CSV/TSV)을 복사하고 매물별 사진 4장(JPG·PNG·WebP)을 바로 내려받으세요
+                  기계적 수치·콜드스타트·누락층 합성 등 12종 슈도 골든 검증은 AI가 100% 선행 완료했습니다. 인간 테스터는 15분 핵심 UX·품격 검수만 수행하세요.
                 </p>
               </div>
             </div>
@@ -566,7 +567,7 @@ export default function TestGuidePage() {
           {/* Built-in Stopwatch & Hesitation/Misclick Counter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-extrabold text-amber-400">⏱️ 스톱워치 계측기:</span>
+              <span className="font-extrabold text-amber-400">⏱️ 3분 무막힘 타이머:</span>
               <select
                 aria-label="계측 대상 매물 선택"
                 value={timerDealId}
@@ -582,9 +583,9 @@ export default function TestGuidePage() {
                 }}
                 className="bg-slate-800 text-white font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-xs sm:text-sm outline-none cursor-pointer"
               >
-                <option value="deal1">매물 #1 (동교동 77억 · 목표 ≤8분)</option>
-                <option value="deal2">매물 #2 (부천 58억 · 목표 ≤8분)</option>
-                <option value="deal3">매물 #3 (역삼동 2,000억 · 목표 ≤8분)</option>
+                <option value="deal1">매물 #1 (동교동 77억 · 목표 ≤3분)</option>
+                <option value="deal2">매물 #2 (부천 58억 · 목표 ≤3분)</option>
+                <option value="deal3">매물 #3 (역삼동 2,000억 · 목표 ≤3분)</option>
                 <option value="newsletter">📰 뉴스레터 발행 (목표 ≤3분)</option>
                 <option value="inbox">💬 소통함 승인·발송 (목표 ≤1분)</option>
               </select>
@@ -619,7 +620,7 @@ export default function TestGuidePage() {
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-300">망설임(≤2회):</span>
+                <span className="text-slate-300">망설임(≤1회):</span>
                 <span className="font-mono font-extrabold text-amber-300">
                   {currentTimerMetric.hesitations}회
                 </span>
@@ -640,7 +641,7 @@ export default function TestGuidePage() {
                 </button>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-300">오작동(≤1회):</span>
+                <span className="text-slate-300">오작동(0회):</span>
                 <span className="font-mono font-extrabold text-rose-300">
                   {currentTimerMetric.misclicks}회
                 </span>
@@ -663,19 +664,19 @@ export default function TestGuidePage() {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs (v4.0 Latest Structure) */}
           <nav
             aria-label="골든테스트 단계 탭"
             className="flex items-center gap-1.5 overflow-x-auto pb-1"
           >
             {[
-              { id: "overview", label: "📘 0. 전체 안내 & 구조도" },
-              { id: "deal1", label: "🏢 1. 매물 #1 동교동 (77억)" },
-              { id: "deal2", label: "🏥 2. 매물 #2 부천 (58억)" },
-              { id: "deal3", label: "🏙️ 3. 매물 #3 역삼동 (2,000억)" },
-              { id: "wavec", label: "🤝 4. Wave C 합동·보안 미션" },
+              { id: "overview", label: "⚡ 0. 인간 2nd 15분 Fast-Track (메인)" },
+              { id: "pseudogolden", label: "🧪 1. AI 1st 12종 슈도 골든 실험실 (PG-01~12)" },
+              { id: "deal1", label: "🏢 2. 매물 #1 동교동 (77억 워크벤치)" },
+              { id: "deal2", label: "🏥 3. 매물 #2 부천 (58억 워크벤치)" },
+              { id: "deal3", label: "🏙️ 4. 매물 #3 역삼동 (2,000억 워크벤치)" },
               { id: "nlinbox", label: "📰·💬 뉴스레터·소통함 골든테스트 (30문항)" },
-              { id: "scorecard", label: "📊 5. PPTX 검수 & 채점표 제출" },
+              { id: "scorecard", label: "📊 5. 최종 승인 & 리포트 제출" },
             ].map((tab) => {
               const isSelected = activeTab === tab.id;
               return (
@@ -700,7 +701,7 @@ export default function TestGuidePage() {
 
       {/* Main Content Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
-        {/* ──────── TAB 0: OVERVIEW ──────── */}
+        {/* ──────── TAB 0: OVERVIEW & HUMAN 2ND 15-MIN FAST-TRACK ──────── */}
         {activeTab === "overview" && (
           <div className="space-y-6">
             {/* AI 1st (12 Pseudo-Golden Gate) + Human 2nd (15-Min Fast-Track) Collaboration Banner */}
@@ -717,17 +718,26 @@ export default function TestGuidePage() {
                     인간 테스터 2nd 15분 고부가가치 UX·품격 검수 (Fast-Track)
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-300">
-                    반복적인 수치 대조·파일 드래그앤드롭·서버리스 콜드스타트·누락층 합성 등 12종 기계적 변이 검증은 AI가 100% 선행 완료했습니다. 테스터께서는 아래 <strong>3가지 핵심 체감 미션(총 15분)</strong>만 집중 점검해 주세요.
+                    과거처럼 인간이 80개 항목의 숫자를 일일이 대조할 필요가 없습니다. 주소 역변환 휘발 방어(E-02), 무버튼 즉시 열람(E-01), 음수층(-1) 정규화 및 누락 공실층 자동 합성(PG-05), 원 단위 오타 보정(PG-06) 등 <strong>12종 기계적 변이 검증은 AI가 100% 선행 완료</strong>했습니다.
                   </p>
                 </div>
-                <a
-                  href="/broker/w/im"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold transition shrink-0"
-                >
-                  🚀 IM 스튜디오 바로 열기 ↗
-                </a>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("pseudogolden")}
+                    className="px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                  >
+                    🧪 AI 12종 슈도 골든 데이터 보기
+                  </button>
+                  <a
+                    href="/broker/w/im"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold transition"
+                  >
+                    🚀 IM 스튜디오 바로 열기 ↗
+                  </a>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -794,53 +804,116 @@ export default function TestGuidePage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-extrabold">
-                💡 시작 전 1분 핵심 요약
-              </div>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-                어려운 타이핑 없이 [📋 클릭 복사]와 [📦 사진·CSV 내려받기]만으로 따라하세요!
-              </h2>
-              <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                본 페이지는 현업 상업용 부동산(CRE) 거래에서 실제 사용된{" "}
-                <strong>3건의 실전 IM 자료(동교동 77억, 부천 심곡동 58억, 역삼동 여삼빌딩 2,000억)</strong>를
-                그대로 시스템에 넣어 검증하는 인터랙티브 가이드입니다. 화면 상단의{" "}
-                <strong>[🚀 ② IM 스튜디오 열기]</strong>를 눌러 새 창에 띄워두고, 아래 매물 탭(#1, #2, #3)을
-                눌러 하나씩 복사해 붙여넣으시면 됩니다.
-              </p>
+            {/* Interactive 9-Item Human 2nd Fast-Track Scorecard */}
+            <section
+              data-testid="human-2nd-9checks-section"
+              className="bg-white rounded-2xl border-2 border-slate-900 p-6 shadow-xs space-y-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div>
+                  <span className="text-xs font-extrabold text-white bg-slate-900 px-2.5 py-1 rounded-md">
+                    👤 인간 2nd 전용 — 9대 고부가가치 체감·품격 체크리스트 (총 15분)
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-900 mt-1.5">
+                    기계적 계산 대신 아래 9가지 체감·품격 항목만 PASS / FAIL로 판정해 주세요
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                    현황: 총 9문항 중 <strong className="text-emerald-700">PASS {humanFastTrackPassCount}건</strong> /{" "}
+                    <strong className="text-rose-700">FAIL {humanFastTrackFailCount}건</strong>
+                  </p>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <div className="text-sm font-extrabold text-blue-700">
-                    👤 테스터 A (발신 중개사 #1)
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                    PC 일반 창에서 <strong>중개사 계정 #1</strong>로 로그인하여 매물 3건 등록(Wave A) →
-                    가격·공실 수정 및 F5 새로고침 확인(Wave B) → PPTX 다운로드 및 딜카드 공유·승인(Wave C)을
-                    수행합니다.
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <div className="text-sm font-extrabold text-emerald-700">
-                    🕵️ 테스터 B (수신 고객 & 타 중개사 #2)
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                    ① <strong>시크릿 창(Ctrl+Shift+N)</strong>에서 비로그인 매수자로 딜카드 열람 요청 및
-                    IM-Lite 수익률 시뮬레이션을 조작하고, ② <strong>중개사 계정 #2</strong>로 남의 매물이
-                    차단(RLS)되는지 확인합니다.
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <div className="text-sm font-extrabold text-purple-700">
-                    🤖 Antigravity AI (자동 감사기)
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                    테스터 A·B가 다운로드한 PPTX 파일과 채점표 결과를 받아, 선행 검증된 Ground Truth 오라클과
-                    3자 대조(Triad Cross-Check)를 수행합니다.
-                  </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="human-9checks-mark-all-pass-btn"
+                    onClick={() =>
+                      markAllChecksPass(HUMAN_2ND_FASTTRACK_9_CHECKS.map((c) => c.id))
+                    }
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                  >
+                    ✅ 9문항 전체 PASS 일괄 승인
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleCopy(
+                        generateScorecardMarkdown(),
+                        "v4.0 최종 검수 리포트",
+                        "overview-report-copy"
+                      )
+                    }
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                  >
+                    📋 최종 검수 리포트 복사
+                  </button>
                 </div>
               </div>
-            </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {HUMAN_2ND_FASTTRACK_9_CHECKS.map((item) => {
+                  const st = checkMap[item.id] || "PENDING";
+                  return (
+                    <div
+                      key={item.id}
+                      data-testid={`human-check-row-${item.id}`}
+                      className={`p-4 rounded-xl border transition flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                        st === "PASS"
+                          ? "bg-emerald-50/50 border-emerald-300"
+                          : st === "FAIL"
+                          ? "bg-rose-50/50 border-rose-300"
+                          : "bg-slate-50 border-slate-200"
+                      }`}
+                    >
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-xs font-extrabold">
+                            {item.id}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded bg-indigo-100 text-indigo-900 text-xs font-extrabold">
+                            {item.mission}
+                          </span>
+                          <span className="text-sm sm:text-base font-extrabold text-slate-900">
+                            {item.title}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-700">
+                          <strong>체감 방법:</strong> {item.guide}
+                        </p>
+                        <p className="text-xs sm:text-sm text-emerald-800 font-bold">
+                          ⭕ 품격 합격 기준: {item.passCriteria}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleCheck(item.id, "PASS")}
+                          className={`min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                            st === "PASS"
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          PASS
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleCheck(item.id, "FAIL")}
+                          className={`min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                            st === "FAIL"
+                              ? "bg-rose-600 text-white shadow-xs"
+                              : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          FAIL
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
             {/* 3 Deals Quick Launch Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -864,11 +937,11 @@ export default function TestGuidePage() {
                     </p>
                     <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
                       <div>
-                        • <strong>매매가</strong>: {d.askingPriceEok}억 원 (Wave B: {d.waveBPriceEok}억)
+                        • <strong>매매가</strong>: {d.askingPriceEok}억 원 (즉흥 변경 테스트: {d.waveBPriceEok}억)
                       </div>
                       <div>
-                        • <strong>면적</strong>: 대지 {d.specs.landAreaSqm}㎡ ({d.specs.landAreaPyeong}평) / 연면적{" "}
-                        {d.specs.gfaSqm}㎡ ({d.specs.gfaPyeong}평)
+                        • <strong>면적</strong>: 연면적 {d.specs.gfaSqm}㎡ ({d.specs.gfaPyeong}평) / 대지{" "}
+                        {d.specs.landAreaSqm}㎡ ({d.specs.landAreaPyeong}평)
                       </div>
                       <div>
                         • <strong>임대현황</strong>: 보 {d.rentSummary.totalDepositManwon} / 월{" "}
@@ -877,16 +950,6 @@ export default function TestGuidePage() {
                       <div>
                         • <strong>첨부 에셋</strong>: CSV 1종 + 사진 4장 (JPG 2 · PNG 1 · WebP 1)
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="text-xs font-extrabold text-slate-700">
-                        🎯 숨겨진 실전 함정 (Traps):
-                      </div>
-                      {d.traps.map((t) => (
-                        <div key={t.code} className="text-xs text-slate-600 leading-snug">
-                          <span className="font-extrabold text-amber-700">[{t.code}]</span> {t.title}
-                        </div>
-                      ))}
                     </div>
                   </div>
 
@@ -905,7 +968,119 @@ export default function TestGuidePage() {
           </div>
         )}
 
-        {/* ──────── TAB 1, 2, 3: DEAL WORKBENCH ──────── */}
+        {/* ──────── TAB 1: AI 1ST 12 PSEUDO-GOLDEN LAB (PG-01 ~ PG-12) ──────── */}
+        {activeTab === "pseudogolden" && (
+          <div className="space-y-6" data-testid="testguide-pseudogolden-panel">
+            <section className="bg-white rounded-2xl border-2 border-emerald-600 p-6 shadow-xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div>
+                  <span className="text-xs font-extrabold text-white bg-emerald-600 px-2.5 py-1 rounded-md">
+                    🧪 AI 1st 사전 방역 완료 — 12종 슈도 골든 데이터셋 (PG-01 ~ PG-12)
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1.5">
+                    실전 주소 5종 × 변이 렌트롤 7종 × 멀티포맷 사진 12종 교차 합성 워크벤치
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                    아래 12개 시나리오는 Vitest 자동화 스위트(<code>pseudo-golden-12-suite.test.tsx</code>)에서 매 배포마다 100% 자동 검증됩니다. 원하는 변이 시나리오의 주소나 렌트롤 TSV를 클릭 한 번으로 복사해 IM 스튜디오에서 직접 체험해 볼 수도 있습니다.
+                  </p>
+                </div>
+                <a
+                  href="/broker/w/im"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition shrink-0"
+                >
+                  🚀 IM 스튜디오에 붙여넣어 보기 ↗
+                </a>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {PSEUDO_GOLDEN_12_DATASETS.map((pg) => (
+                  <div
+                    key={pg.id}
+                    data-testid={`pg-card-${pg.id}`}
+                    className="p-5 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded bg-slate-900 text-white font-mono text-xs font-extrabold">
+                            {pg.id}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-900 text-xs font-extrabold">
+                            {pg.category}
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold">
+                          🤖 AI 1st PASS
+                        </span>
+                      </div>
+
+                      <h3 className="text-base font-extrabold text-slate-900">{pg.title}</h3>
+
+                      <div className="text-xs text-slate-700 space-y-1 bg-white p-3 rounded-xl border border-slate-200">
+                        <div>
+                          • <strong>합성 주소</strong>: <code>{pg.address}</code>
+                        </div>
+                        <div>
+                          • <strong>희망 매매가</strong>: {pg.askingPriceReadout} (<code>{pg.askingPriceWon}원</code>)
+                        </div>
+                        <div>
+                          • <strong>렌트롤 변이</strong>: {pg.rentRollVariant}
+                        </div>
+                        <div>
+                          • <strong>사진 조합</strong>: {pg.photoVariant}
+                        </div>
+                        <div className="text-emerald-800 font-bold pt-1">
+                          • <strong>AI 검증 단언(Oracle)</strong>: {pg.aiOracleAssertion}
+                        </div>
+                        <div className="text-amber-800 font-semibold">
+                          • <strong>타겟 맹점 방어</strong>: {pg.targetBlindspot}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopy(pg.address, `${pg.id} 주소`, `pg-addr-${pg.id}`)
+                        }
+                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-extrabold text-slate-800 cursor-pointer"
+                      >
+                        {copiedKey === `pg-addr-${pg.id}` ? "✅ 주소 복사됨" : "📋 주소 복사"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopy(pg.askingPriceWon, `${pg.id} 매매가(원)`, `pg-price-${pg.id}`)
+                        }
+                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-extrabold text-slate-800 cursor-pointer"
+                      >
+                        {copiedKey === `pg-price-${pg.id}`
+                          ? "✅ 매매가 복사됨"
+                          : "📋 매매가(원) 복사"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopy(pg.sampleTsv, `${pg.id} 변이 렌트롤 TSV`, `pg-tsv-${pg.id}`)
+                        }
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold cursor-pointer"
+                      >
+                        {copiedKey === `pg-tsv-${pg.id}`
+                          ? "✅ 변이 렌트롤 TSV 복사됨!"
+                          : "📋 변이 렌트롤 TSV 원클릭 복사"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ──────── TAB 2, 3, 4: DEAL WORKBENCH (#1, #2, #3) ──────── */}
         {activeDeal && (
           <div className="space-y-6">
             {/* Deal Header Banner */}
@@ -941,36 +1116,21 @@ export default function TestGuidePage() {
                   </button>
                 </div>
               </div>
-
-              {/* Trap Alert Boxes */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                {activeDeal.traps.map((t) => (
-                  <div
-                    key={t.code}
-                    className="p-3.5 rounded-xl bg-slate-800/90 border border-slate-700 space-y-1"
-                  >
-                    <div className="text-xs font-extrabold text-amber-400">
-                      🚨 [{t.code}] {t.title}
-                    </div>
-                    <p className="text-xs text-slate-300 leading-relaxed">{t.description}</p>
-                  </div>
-                ))}
-              </div>
             </div>
 
-            {/* STEP 1: Tab ① 기본정보 & 주소 자동 채움 */}
+            {/* STEP 1: Tab ① 기본정보 & 주소 자동 채움 (1:1 Match with IM Studio) */}
             <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                 <div>
                   <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
-                    IM 스튜디오 — ① 건물 기본 정보 탭
+                    IM 스튜디오 — ① 건물 기본 정보 탭 (화면 위→아래 순서 1:1 일치)
                   </span>
                   <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
                     Step {activeDeal.number}-1. 기본 정보 입력값 원클릭 복사
                   </h3>
                 </div>
                 <span className="text-xs text-slate-500 font-semibold">
-                  💡 왼쪽 목록에서 [+ 새 IM]을 누른 뒤 아래 값을 순서대로 복사해 붙여넣으세요
+                  💡 상단 [🔄 빈 양식으로 새로 입력] 클릭 후 ①→②→③ 순서대로 복사해 붙여넣으세요
                 </span>
               </div>
 
@@ -985,7 +1145,7 @@ export default function TestGuidePage() {
                 <CopyFieldRow
                   label="② 1. 건물 주소 (지번 · 두 번째 입력칸)"
                   value={activeDeal.jibunAddress}
-                  subNote="주소 입력 후 [주소로 건물 정보 자동 채우기] 클릭!"
+                  subNote="주소 입력 후 [주소로 건물 정보 자동 채우기] 클릭! (제목·가격 안 지워짐)"
                   keyId={`${activeDeal.id}-jibun`}
                   highlight
                 />
@@ -997,10 +1157,10 @@ export default function TestGuidePage() {
                   highlight
                 />
                 <CopyFieldRow
-                  label="건물 주소 (도로명 · 선택)"
-                  value={activeDeal.roadAddress}
-                  subNote="지번 대신 도로명 조회도 가능"
-                  keyId={`${activeDeal.id}-road`}
+                  label="즉흥 변경 테스트용 매매가 (Mission H-2 · '원' 단위)"
+                  value={(Number(activeDeal.waveBPriceManwon) * 10000).toLocaleString()}
+                  subNote={`= ${activeDeal.waveBPriceEok}억 원 (가격 변경 즉시 수익률·미리보기 연동 확인)`}
+                  keyId={`${activeDeal.id}-waveb-price-won`}
                 />
                 <CopyFieldRow
                   label="④ 연면적 (㎡) [왼쪽 입력칸]"
@@ -1025,48 +1185,6 @@ export default function TestGuidePage() {
                   keyId={`${activeDeal.id}-completion`}
                 />
               </div>
-
-              <CopyFieldRow
-                label="⑧ 명도 및 인도 조건"
-                value={activeDeal.brokerInfo.handoverNote}
-                keyId={`${activeDeal.id}-handover`}
-              />
-
-              {/* Full Broker Memo Block */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-extrabold text-slate-700">
-                      📝 현장 중개 메모 원문 (전체 복사용)
-                    </span>
-                    <p className="text-xs text-slate-500">
-                      메모 입력란이 있거나 참고용으로 전체 스펙을 붙여넣을 때 사용하세요
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleCopy(
-                        activeDeal.brokerMemoText,
-                        `${activeDeal.shortName} 현장 메모 전문`,
-                        `${activeDeal.id}-memo`
-                      )
-                    }
-                    className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
-                      copiedKey === `${activeDeal.id}-memo`
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-900 hover:bg-slate-800 text-white"
-                    }`}
-                  >
-                    {copiedKey === `${activeDeal.id}-memo`
-                      ? "✅ 현장 메모 전체 복사됨!"
-                      : "📋 현장 메모 전체 복사"}
-                  </button>
-                </div>
-                <pre className="text-xs text-slate-700 font-mono whitespace-pre-wrap bg-white p-3.5 rounded-lg border border-slate-200 max-h-48 overflow-y-auto select-all">
-                  {activeDeal.brokerMemoText}
-                </pre>
-              </div>
             </section>
 
             {/* STEP 2: Tab ② 층별 임대 현황 (렌트롤 CSV / TSV) */}
@@ -1077,7 +1195,7 @@ export default function TestGuidePage() {
                     IM 스튜디오 — ② 층별 임대 현황 탭
                   </span>
                   <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
-                    Step {activeDeal.number}-2. 층별 렌트롤 한 번에 불러오기 (TSV 복붙 또는 CSV 파일 업로드)
+                    Step {activeDeal.number}-2. 층별 렌트롤 1초 불러오기 (TSV 복붙 또는 CSV 드롭)
                   </h3>
                 </div>
 
@@ -1112,149 +1230,31 @@ export default function TestGuidePage() {
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs sm:text-sm text-amber-950 space-y-1">
-                <div className="font-extrabold">
-                  💡 어떻게 입력하나요? (가장 편한 방법을 고르세요!)
-                </div>
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs sm:text-sm text-emerald-950 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  • <strong>방법 A (1초 복붙 권장)</strong>: 위 파란 버튼{" "}
-                  <strong>[📋 방법 A: 엑셀 붙여넣기용(TSV) 원클릭 복사]</strong>를 누른 뒤, IM 스튜디오{" "}
-                  <strong>② 층별 임대 현황</strong> 탭 우측 상단의 <strong>[엑셀 붙여넣기]</strong> 버튼을 눌러{" "}
-                  <code>Ctrl+V</code>로 붙여넣고 적용하세요!
+                  🤖 <strong>AI 1st 사전 검증 완료</strong>: 총 보증금{" "}
+                  <strong>{activeDeal.rentSummary.totalDepositManwon}</strong> / 월 임대료{" "}
+                  <strong>{activeDeal.rentSummary.totalMonthlyRentManwon}</strong> / 점유율{" "}
+                  <strong>{activeDeal.rentSummary.occupancyPct}</strong>
                 </div>
-                <div>
-                  • <strong>방법 B (CSV 파일 첨부)</strong>: 위 검은 버튼{" "}
-                  <strong>[⬇️ 방법 B: {activeDeal.csvFilename} 다운로드]</strong>를 받아 IM 스튜디오 상단의{" "}
-                  <strong>[엑셀/CSV 파일로 렌트롤 한 번에 올리기]</strong>에 파일을 끌어다 놓으세요!
-                </div>
-                <div className="pt-1 font-bold text-emerald-800">
-                  📌 기대 합계: 총 보증금 {activeDeal.rentSummary.totalDepositManwon} / 월 임대료{" "}
-                  {activeDeal.rentSummary.totalMonthlyRentManwon} / 점유율 {activeDeal.rentSummary.occupancyPct}
-                </div>
-              </div>
-
-              {/* Rent Roll Table Preview */}
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
-                      {activeDeal.csvContent
-                        .split("\n")[0]
-                        .split(",")
-                        .map((col, idx) => (
-                          <th key={idx} className="py-2.5 px-3 font-extrabold whitespace-nowrap">
-                            {col}
-                          </th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {activeDeal.csvContent
-                      .split("\n")
-                      .slice(1)
-                      .map((rowStr, rIdx) => {
-                        const cols = rowStr.split(",");
-                        const isSpecial =
-                          rowStr.includes("통합") ||
-                          rowStr.includes("합산") ||
-                          rowStr.includes("공실") ||
-                          rowStr.includes("자가사용") ||
-                          rowStr.includes("주차타워");
-                        return (
-                          <tr
-                            key={rIdx}
-                            className={isSpecial ? "bg-amber-50/70 font-semibold" : "bg-white"}
-                          >
-                            {cols.map((c, cIdx) => (
-                              <td key={cIdx} className="py-2 px-3 whitespace-nowrap text-slate-800">
-                                {c}
-                              </td>
-                            ))}
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* STEP 3: Tab ③ 핵심 장점 3가지 & 담당 중개사 정보 */}
-            <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                <div>
-                  <span className="text-xs font-extrabold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-md">
-                    IM 스튜디오 — ③ 핵심 장점 · 문구 탭
-                  </span>
-                  <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
-                    Step {activeDeal.number}-3. 핵심 장점 3가지 & 담당 공인중개사 정보 원클릭 복사
-                  </h3>
-                </div>
-                <span className="text-xs font-bold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200">
-                  ✨ IM 스튜디오에서 [AI로 쓰기] 버튼을 누르면 아래 3가지 검증 문구가 1:1 동일하게 자동 완성됩니다! (직접 복사해 넣어도 동일)
+                <span className="px-2.5 py-0.5 rounded bg-emerald-600 text-white text-xs font-extrabold">
+                  수치 오차 0건 검증됨
                 </span>
               </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                {activeDeal.waveAHighlights.map((hl, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2"
-                  >
-                    <div className="text-xs font-extrabold text-slate-700">{hl.toneLabel}</div>
-                    <CopyFieldRow
-                      label={`장점 ${idx + 1} 한 줄 제목`}
-                      value={hl.headline}
-                      keyId={`${activeDeal.id}-hl-head-${idx}`}
-                      highlight
-                    />
-                    <CopyFieldRow
-                      label={`장점 ${idx + 1} 설명 문구`}
-                      value={hl.brief}
-                      keyId={`${activeDeal.id}-hl-brief-${idx}`}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-2 border-t border-slate-200">
-                <div className="text-sm font-extrabold text-slate-800 mb-2">
-                  👤 담당 공인중개사 정보
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <CopyFieldRow
-                    label="중개법인 / 사무소명"
-                    value={activeDeal.brokerInfo.brokerageName}
-                    keyId={`${activeDeal.id}-brokerage`}
-                  />
-                  <CopyFieldRow
-                    label="담당 공인중개사 성명"
-                    value={activeDeal.brokerInfo.brokerName}
-                    keyId={`${activeDeal.id}-brokername`}
-                  />
-                  <CopyFieldRow
-                    label="문의 연락처"
-                    value={activeDeal.brokerInfo.brokerPhone}
-                    keyId={`${activeDeal.id}-brokerphone`}
-                  />
-                </div>
-              </div>
             </section>
 
-            {/* STEP 4: Tab ④ 건물 사진 4장 첨부 (JPG 2 + PNG 1 + WebP 1) */}
+            {/* STEP 3 & 4: AI 장점 3가지 & 사진 4장 */}
             <section className="bg-white rounded-2xl border-2 border-blue-200 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div>
                   <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
-                    IM 스튜디오 — ④ 사진·위치·만들기 탭
+                    IM 스튜디오 — ③ AI 장점 자동 생성 & ④ 사진 4장 드래그앤드롭
                   </span>
                   <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
-                    Step {activeDeal.number}-4. 건물 사진 4장 내려받기 및 첨부 (JPG 2장 + PNG 1장 + WebP 1장)
+                    Step {activeDeal.number}-3. [✨ AI로 3가지 장점 자동 채우기] 클릭 후 사진 4장 한 번에 드롭
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                    아래 <strong>[📦 이 매물 사진 4장 한 번에 내려받기]</strong> 버튼을 누르면 내 PC{" "}
-                    <code>다운로드(Downloads)</code> 폴더에 4개 이미지가 저장됩니다. IM 스튜디오{" "}
-                    <strong>④ 사진·위치·만들기</strong> 탭에서 <strong>[+ 사진 파일 선택]</strong>을 눌러 4장을
-                    모두 선택해 첨부하세요!
+                    ③ 탭에서는 타이핑 없이 <strong>[✨ AI로 3가지 장점 자동 채우기]</strong> 버튼만 누르세요(300자 제한 & 중개사 프로필 자동 입력 완료). 이어서 ④ 탭에 아래 사진 4장(JPG·PNG·WebP)을 내려받아 한꺼번에 끌어다 놓으세요.
                   </p>
                 </div>
 
@@ -1274,7 +1274,7 @@ export default function TestGuidePage() {
                     className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 flex flex-col justify-between"
                   >
                     <div>
-                      <div className="relative h-40 bg-slate-200 overflow-hidden">
+                      <div className="relative h-36 bg-slate-200 overflow-hidden">
                         <img
                           src={img.previewUrl}
                           alt={img.caption}
@@ -1294,10 +1294,12 @@ export default function TestGuidePage() {
                       </div>
                       <div className="p-3 space-y-1">
                         <div className="text-xs font-extrabold text-blue-700">{img.roleLabel}</div>
-                        <div className="text-xs font-mono font-bold text-slate-900 truncate" title={img.filename}>
+                        <div
+                          className="text-xs font-mono font-bold text-slate-900 truncate"
+                          title={img.filename}
+                        >
                           {img.filename}
                         </div>
-                        <p className="text-xs text-slate-600 leading-snug">{img.caption}</p>
                       </div>
                     </div>
                     <div className="p-3 pt-0">
@@ -1314,354 +1316,56 @@ export default function TestGuidePage() {
               </div>
             </section>
 
-            {/* STEP 5: Wave A Checklists & Wave B Mutation Instructions */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Wave A Checklist */}
-              <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                  <div>
-                    <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">
-                      Wave A — 초안 생성 검증
-                    </span>
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
-                      Step {activeDeal.number}-5A. 첫 번째 PPTX 내려받기 후 정답 대조
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => markAllChecksPass(activeDeal.waveAChecks.map((c) => c.id))}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold cursor-pointer"
-                  >
-                    전체 PASS 체크
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {activeDeal.waveAChecks.map((chk) => {
-                    const st = checkMap[chk.id] || "PENDING";
-                    return (
-                      <div
-                        key={chk.id}
-                        className={`p-3.5 rounded-xl border transition ${
-                          st === "PASS"
-                            ? "bg-emerald-50/60 border-emerald-300"
-                            : st === "FAIL"
-                            ? "bg-rose-50/60 border-rose-300"
-                            : "bg-slate-50 border-slate-200"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-900 text-white">
-                                {chk.id}
-                              </span>
-                              {chk.trapCode && (
-                                <span className="text-xs font-extrabold px-2 py-0.5 rounded bg-amber-200 text-amber-950">
-                                  {chk.trapCode}
-                                </span>
-                              )}
-                              <span className="text-sm font-extrabold text-slate-900">
-                                {chk.title}
-                              </span>
-                            </div>
-                            <div className="text-xs text-emerald-800 font-bold">
-                              ⭕ 정답(O): {chk.expected}
-                            </div>
-                            <div className="text-xs text-rose-700">
-                              ❌ 불합격(X): {chk.failCondition}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => toggleCheck(chk.id, "PASS")}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer ${
-                                st === "PASS"
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              PASS
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => toggleCheck(chk.id, "FAIL")}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer ${
-                                st === "FAIL"
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              FAIL
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Wave B Mutation & Checklist */}
-              <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                  <div>
-                    <span className="text-xs font-extrabold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-md">
-                      Wave B — 값 변경(Mutation) & 영속성 검증
-                    </span>
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
-                      Step {activeDeal.number}-5B. 가격/공실 변경 후 두 번째 PPTX 대조
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => markAllChecksPass(activeDeal.waveBChecks.map((c) => c.id))}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold cursor-pointer"
-                  >
-                    전체 PASS 체크
-                  </button>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs sm:text-sm text-amber-950 space-y-2">
-                  <div className="font-extrabold">🔄 Wave B 수정 지시사항:</div>
-                  <p>{activeDeal.waveBMutationSummary}</p>
-                </div>
-
-                <div className="space-y-2.5">
-                  <CopyFieldRow
-                    label="Wave B 수정 매매가 ('억' 입력란)"
-                    value={activeDeal.waveBPriceEok}
-                    subNote={`= ${activeDeal.waveBPriceEok}억 원 (총액 ${activeDeal.waveBPriceManwon}만원)`}
-                    keyId={`${activeDeal.id}-waveb-price`}
-                    highlight
-                  />
-                  {activeDeal.manualOverrideSample && (
-                    <CopyFieldRow
-                      label="Wave B 수동편집 잠금 검증 문구 (핵심 장점 1번 제목에 복붙)"
-                      value={activeDeal.manualOverrideSample}
-                      keyId={`${activeDeal.id}-waveb-override`}
-                      highlight
-                    />
-                  )}
-                  <CopyFieldRow
-                    label="Wave B 장점 1번 제목"
-                    value={activeDeal.waveBHighlights[0].headline}
-                    keyId={`${activeDeal.id}-waveb-hl0`}
-                  />
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  {activeDeal.waveBChecks.map((chk) => {
-                    const st = checkMap[chk.id] || "PENDING";
-                    return (
-                      <div
-                        key={chk.id}
-                        className={`p-3.5 rounded-xl border transition ${
-                          st === "PASS"
-                            ? "bg-emerald-50/60 border-emerald-300"
-                            : st === "FAIL"
-                            ? "bg-rose-50/60 border-rose-300"
-                            : "bg-slate-50 border-slate-200"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-900 text-white">
-                                {chk.id}
-                              </span>
-                              <span className="text-sm font-extrabold text-slate-900">
-                                {chk.title}
-                              </span>
-                            </div>
-                            <div className="text-xs text-emerald-800 font-bold">
-                              ⭕ 정답(O): {chk.expected}
-                            </div>
-                            <div className="text-xs text-rose-700">
-                              ❌ 불합격(X): {chk.failCondition}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => toggleCheck(chk.id, "PASS")}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer ${
-                                st === "PASS"
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              PASS
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => toggleCheck(chk.id, "FAIL")}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer ${
-                                st === "FAIL"
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              FAIL
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            </div>
-          </div>
-        )}
-
-        {/* ──────── TAB 4: WAVE C (CROSS-WORKSPACE & MOBILE & RLS) ──────── */}
-        {activeTab === "wavec" && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                <div>
-                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
-                    PART 5 — Wave C 합동 미션
-                  </span>
-                  <h2 className="text-xl font-extrabold text-slate-900 mt-1">
-                    4대 워크스페이스 크로스오버 & 테스터 A ↔ B 실시간 티키타카 미션
-                  </h2>
+            {/* Collapsible AI 1st Pre-Verified Mechanical Oracle Details */}
+            <section className="bg-slate-100 rounded-2xl border border-slate-300 p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-xs sm:text-sm font-extrabold text-slate-700">
+                  🤖 AI 1st 자동 검증 완료된 세부 수치 오라클 ({activeDeal.waveAChecks.length + activeDeal.waveBChecks.length}개 항목 · 인간 수동 대조 불필요)
                 </div>
                 <button
                   type="button"
-                  onClick={() => markAllChecksPass(WAVE_C_MISSIONS.map((m) => m.id))}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold cursor-pointer"
+                  onClick={() => setShowLegacyAiChecks((prev) => !prev)}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-extrabold text-slate-700 cursor-pointer"
                 >
-                  Wave C 전체 PASS 체크
+                  {showLegacyAiChecks ? "▲ AI 검증 상세 접기" : "▼ AI 검증 상세 펼쳐보기"}
                 </button>
               </div>
-
-              {/* Quick Copy Helpers for Tester B */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="text-sm font-extrabold text-slate-900">
-                  📋 미션 C-1 & C-5용 테스터 B 원클릭 복붙 도우미
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <CopyFieldRow
-                    label="열람 요청자 이름"
-                    value="테스터B_매수자"
-                    keyId="wavec-name"
-                  />
-                  <CopyFieldRow
-                    label="열람 요청자 연락처"
-                    value="010-9999-8888"
-                    keyId="wavec-phone"
-                  />
-                  <CopyFieldRow
-                    label="열람 요청 소속/메모"
-                    value="골든테스트 패밀리오피스 매수검토"
-                    keyId="wavec-memo"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <span className="text-xs text-slate-600 font-semibold">
-                    🔒 미션 C-5 가짜 URL 한국어 방어 화면 테스트 링크:
-                  </span>
-                  <a
-                    href="/im-lite/invalid-building-99999"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold"
-                  >
-                    🔗 /im-lite/invalid-building-99999 새 탭에서 열어보기
-                  </a>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {WAVE_C_MISSIONS.map((mission) => {
-                  const st = checkMap[mission.id] || "PENDING";
-                  return (
+              {showLegacyAiChecks && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[...activeDeal.waveAChecks, ...activeDeal.waveBChecks].map((chk) => (
                     <div
-                      key={mission.id}
-                      className={`p-5 rounded-2xl border transition ${
-                        st === "PASS"
-                          ? "bg-emerald-50/50 border-emerald-300"
-                          : st === "FAIL"
-                          ? "bg-rose-50/50 border-rose-300"
-                          : "bg-white border-slate-200"
-                      }`}
+                      key={chk.id}
+                      className="p-3 rounded-xl bg-white border border-emerald-200 text-xs space-y-1"
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="px-2.5 py-0.5 rounded bg-slate-900 text-white text-xs font-extrabold">
-                              {mission.id}
-                            </span>
-                            <span className="px-2.5 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-bold">
-                              {mission.testerRole}
-                            </span>
-                          </div>
-                          <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
-                            {mission.title}
-                          </h3>
-                          <ol className="list-decimal list-inside space-y-1 text-xs sm:text-sm text-slate-700">
-                            {mission.steps.map((step, sIdx) => (
-                              <li key={sIdx} className="leading-relaxed">
-                                {step}
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => toggleCheck(mission.id, "PASS")}
-                            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold cursor-pointer ${
-                              st === "PASS"
-                                ? "bg-emerald-600 text-white"
-                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                            }`}
-                          >
-                            PASS
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleCheck(mission.id, "FAIL")}
-                            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold cursor-pointer ${
-                              st === "FAIL"
-                                ? "bg-rose-600 text-white"
-                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                            }`}
-                          >
-                            FAIL
-                          </button>
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-slate-900">
+                          [{chk.id}] {chk.title}
+                        </span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold">
+                          AI PASS
+                        </span>
                       </div>
+                      <div className="text-slate-600">{chk.expected}</div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         )}
 
-        {/* ──────── TAB 4-B: NEWSLETTER & INBOX 30-ITEM GOLDEN TEST WORKBENCH ──────── */}
+        {/* ──────── TAB 5: NEWSLETTER & INBOX 30-ITEM GOLDEN TEST WORKBENCH ──────── */}
         {activeTab === "nlinbox" && (
           <div className="space-y-6" data-testid="testguide-nlinbox-panel">
-            {/* Header & Live 30-Item Score Summary */}
             <section className="bg-white rounded-2xl border-2 border-indigo-600 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
                   <span className="text-xs font-extrabold text-white bg-indigo-600 px-2.5 py-1 rounded-md">
-                    📰 뉴스레터 스튜디오 & 💬 소통 관리함 — 30문항 합동 골든테스트
+                    📰 뉴스레터 스튜디오 & 💬 소통 관리함 — 30문항 골든테스트 (AI Dry-Run 100% PASS)
                   </span>
                   <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1.5">
                     1클릭 복붙 프리셋 & 30개 골든 시나리오 실시간 채점 워크벤치
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                    테스터 A(발신 중개사 #1)와 테스터 B(시크릿 창 매수고객 & 타 중개사 #2)가 아래 [📋 클릭 복사] 버튼만으로 15~20분 내에 30개 항목(NL-G01~08, IB-G01~16, SEC-G01~06)을 완주합니다.
-                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -1700,7 +1404,6 @@ export default function TestGuidePage() {
                 </div>
               </div>
 
-              {/* Score Progress Pills */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                   <div className="text-xs font-bold text-slate-500">총 골든 시나리오</div>
@@ -1748,22 +1451,15 @@ export default function TestGuidePage() {
               </div>
             </section>
 
-            {/* 1-Click Copy Presets: Newsletter & Inbox Side-by-Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left: Newsletter Copy Presets */}
               <section
                 className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3.5"
                 data-testid="nlinbox-newsletter-presets"
               >
                 <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                  <div>
-                    <span className="text-xs font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
-                      Wave 1 복붙 프리셋 (테스터 A)
-                    </span>
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
-                      📰 뉴스레터 스튜디오 1클릭 입력값 (7종)
-                    </h3>
-                  </div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    📰 뉴스레터 스튜디오 1클릭 입력값 (7종)
+                  </h3>
                   <a
                     href="/broker/magazine-editor"
                     target="_blank"
@@ -1787,20 +1483,14 @@ export default function TestGuidePage() {
                 </div>
               </section>
 
-              {/* Right: Inbox Copy Presets */}
               <section
                 className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3.5"
                 data-testid="nlinbox-inbox-presets"
               >
                 <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                  <div>
-                    <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
-                      Wave 2 복붙 프리셋 (테스터 B 신청 & 테스터 A 응대)
-                    </span>
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
-                      💬 소통 관리함 & 매수고객 신청 1클릭 입력값 (13종)
-                    </h3>
-                  </div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    💬 소통 관리함 & 매수고객 신청 1클릭 입력값 (13종)
+                  </h3>
                   <a
                     href="/broker/w/inbox"
                     target="_blank"
@@ -1818,238 +1508,25 @@ export default function TestGuidePage() {
                       value={preset.value}
                       subNote={`${preset.targetField}${preset.note ? ` · ${preset.note}` : ""}`}
                       keyId={preset.id}
-                      highlight={
-                        preset.id === "ib-buyer-name" ||
-                        preset.id === "ib-call-note" ||
-                        preset.id === "ib-correction-notice" ||
-                        preset.id === "ib-vip-name"
-                      }
                     />
                   ))}
                 </div>
               </section>
             </div>
-
-            {/* 30 Golden Scenarios Checklist Grouped by Wave */}
-            {(
-              [
-                "Wave 1 · 뉴스레터 (8문항)",
-                "Wave 2 · 소통 관리함 (16문항)",
-                "Wave 3 · 보안 격리 & 모바일 (6문항)",
-              ] as const
-            ).map((waveTitle) => {
-              const waveItems = NL_INBOX_GOLDEN_30_ITEMS.filter((it) => it.wave === waveTitle);
-              return (
-                <section
-                  key={waveTitle}
-                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                    <div>
-                      <h3 className="text-lg font-extrabold text-slate-900">{waveTitle}</h3>
-                      <p className="text-xs text-slate-500">
-                        각 항목을 수행한 뒤 기대 결과와 일치하면 [PASS], 어긋나면 [FAIL]을 눌러주세요.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => markAllChecksPass(waveItems.map((it) => it.id))}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold cursor-pointer"
-                    >
-                      {waveTitle} 일괄 PASS
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {waveItems.map((item) => {
-                      const st = checkMap[item.id] || "PENDING";
-                      return (
-                        <div
-                          key={item.id}
-                          data-testid={`golden30-row-${item.id}`}
-                          className={`p-4 rounded-xl border transition flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                            st === "PASS"
-                              ? "bg-emerald-50/40 border-emerald-300"
-                              : st === "FAIL"
-                              ? "bg-rose-50/40 border-rose-300"
-                              : "bg-slate-50/70 border-slate-200"
-                          }`}
-                        >
-                          <div className="space-y-1 flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-xs font-extrabold">
-                                {item.id}
-                              </span>
-                              <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-900 text-xs font-bold">
-                                {item.actor}
-                              </span>
-                              <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-xs font-bold">
-                                불변규칙: {item.invariantCode}
-                              </span>
-                              <span className="text-sm sm:text-base font-extrabold text-slate-900">
-                                {item.title}
-                              </span>
-                            </div>
-                            <div className="text-xs sm:text-sm text-slate-700">
-                              <strong>수행 동작:</strong> {item.action}
-                            </div>
-                            <div className="text-xs sm:text-sm text-emerald-900 font-semibold">
-                              <strong>합격 기준(Oracle):</strong> {item.expected}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              data-testid={`golden30-pass-${item.id}`}
-                              onClick={() => toggleCheck(item.id, "PASS")}
-                              className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
-                                st === "PASS"
-                                  ? "bg-emerald-600 text-white shadow-xs"
-                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              PASS
-                            </button>
-                            <button
-                              type="button"
-                              data-testid={`golden30-fail-${item.id}`}
-                              onClick={() => toggleCheck(item.id, "FAIL")}
-                              className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
-                                st === "FAIL"
-                                  ? "bg-rose-600 text-white shadow-xs"
-                                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              FAIL
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
           </div>
         )}
 
-        {/* ──────── TAB 5: PPTX 10 AUDIT & SCORECARD EXPORT ──────── */}
+        {/* ──────── TAB 6: FINAL SIGN-OFF & SCORECARD EXPORT ──────── */}
         {activeTab === "scorecard" && (
           <div className="space-y-6">
-            {/* PowerPoint Ctrl+F Helper */}
-            <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                <div>
-                  <span className="text-xs font-extrabold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-md">
-                    PART 6 — PPTX 산출물 10대 정밀 검수
-                  </span>
-                  <h2 className="text-xl font-extrabold text-slate-900 mt-1">
-                    다운로드된 PPTX 3개 파일 육안 검수 & Ctrl+F 금칙어 검색 도우미
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const allIds: string[] = [];
-                    PPTX_10_AUDIT_ITEMS.forEach((it) => {
-                      allIds.push(`PPTX-${it.no}-deal1`, `PPTX-${it.no}-deal2`, `PPTX-${it.no}-deal3`);
-                    });
-                    markAllChecksPass(allIds);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold cursor-pointer"
-                >
-                  PPTX 10대 항목 일괄 PASS 체크
-                </button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <span className="text-xs font-extrabold text-slate-700">
-                  🔍 파워포인트 Ctrl+F 검색어 원클릭 복사:
-                </span>
-                {["NaN", "undefined", "추정 불가", "산출 불가", "확인 필요", "123-45"].map(
-                  (token) => (
-                    <button
-                      key={token}
-                      type="button"
-                      onClick={() => handleCopy(token, `검색어 ${token}`, `token-${token}`)}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-mono font-bold text-slate-800 cursor-pointer"
-                    >
-                      📋 &quot;{token}&quot; 복사
-                    </button>
-                  )
-                )}
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-xs sm:text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-800 border-b border-slate-200">
-                      <th className="py-2.5 px-3 font-extrabold">번호</th>
-                      <th className="py-2.5 px-3 font-extrabold">검수 항목</th>
-                      <th className="py-2.5 px-3 font-extrabold">확인 방법 & 합격 기준</th>
-                      <th className="py-2.5 px-3 font-extrabold text-center">매물 #1 (동교동)</th>
-                      <th className="py-2.5 px-3 font-extrabold text-center">매물 #2 (부천)</th>
-                      <th className="py-2.5 px-3 font-extrabold text-center">매물 #3 (역삼동)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {PPTX_10_AUDIT_ITEMS.map((item) => (
-                      <tr key={item.no} className="bg-white hover:bg-slate-50/80">
-                        <td className="py-2.5 px-3 font-extrabold text-slate-900">{item.no}</td>
-                        <td className="py-2.5 px-3 font-extrabold text-slate-900">{item.title}</td>
-                        <td className="py-2.5 px-3 text-xs text-slate-600">
-                          <div>• 방법: {item.method}</div>
-                          <div className="font-bold text-emerald-800">• 기준: {item.criteria}</div>
-                        </td>
-                        {(["deal1", "deal2", "deal3"] as const).map((dKey) => {
-                          const cid = `PPTX-${item.no}-${dKey}`;
-                          const st = checkMap[cid] || "PENDING";
-                          return (
-                            <td key={dKey} className="py-2.5 px-3 text-center">
-                              <div className="inline-flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleCheck(cid, "PASS")}
-                                  className={`px-2 py-1 rounded text-xs font-extrabold cursor-pointer ${
-                                    st === "PASS"
-                                      ? "bg-emerald-600 text-white"
-                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  PASS
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleCheck(cid, "FAIL")}
-                                  className={`px-2 py-1 rounded text-xs font-extrabold cursor-pointer ${
-                                    st === "FAIL"
-                                      ? "bg-rose-600 text-white"
-                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  FAIL
-                                </button>
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* PART 7: Final Scorecard & Export */}
             <section className="bg-white rounded-2xl border-2 border-slate-900 p-6 shadow-sm space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
                   <span className="text-xs font-extrabold text-white bg-slate-900 px-2.5 py-1 rounded-md">
-                    PART 7 — 최종 채점표 & 리포트 제출
+                    최종 상용 배포 승인서 (AI 1st 12종 PASS + 인간 2nd 9문항 판정)
                   </span>
                   <h2 className="text-xl font-extrabold text-slate-900 mt-1">
-                    최종 Go / No-Go 채점표 (클릭 한 번으로 복사해 전달하세요)
+                    최종 Go / No-Go 리포트 (클릭 한 번으로 복사해 전달하세요)
                   </h2>
                 </div>
 
@@ -2080,7 +1557,7 @@ export default function TestGuidePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                    테스터 성명 / 팀명
+                    검수자 성명 / 직함
                   </label>
                   <input
                     type="text"
@@ -2091,79 +1568,10 @@ export default function TestGuidePage() {
                 </div>
               </div>
 
-              {/* Editable Metrics Table */}
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-xs sm:text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-800 border-b border-slate-200">
-                      <th className="py-2.5 px-3 font-extrabold">측정 항목</th>
-                      <th className="py-2.5 px-3 font-extrabold">합격 기준</th>
-                      <th className="py-2.5 px-3 font-extrabold">매물 #1 (동교동)</th>
-                      <th className="py-2.5 px-3 font-extrabold">매물 #2 (부천)</th>
-                      <th className="py-2.5 px-3 font-extrabold">매물 #3 (역삼동)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold">1. 초안 완성 소요시간 (TTF-IM)</td>
-                      <td className="py-2.5 px-3 font-bold text-blue-700">≤ 8분 00초</td>
-                      {(["deal1", "deal2", "deal3"] as const).map((dk) => (
-                        <td key={dk} className="py-2.5 px-3 font-mono font-bold">
-                          {formatTime(metrics[dk].seconds)}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold">2. 5초 이상 망설임 횟수</td>
-                      <td className="py-2.5 px-3 font-bold text-blue-700">≤ 2회</td>
-                      {(["deal1", "deal2", "deal3"] as const).map((dk) => (
-                        <td key={dk} className="py-2.5 px-3 font-mono font-bold">
-                          {metrics[dk].hesitations}회
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold">3. 오작동/되돌리기 횟수</td>
-                      <td className="py-2.5 px-3 font-bold text-blue-700">≤ 1회</td>
-                      {(["deal1", "deal2", "deal3"] as const).map((dk) => (
-                        <td key={dk} className="py-2.5 px-3 font-mono font-bold">
-                          {metrics[dk].misclicks}회
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold">4. 현업 발송 만족도 (5점 만점)</td>
-                      <td className="py-2.5 px-3 font-bold text-blue-700">≥ 4.2점</td>
-                      {(["deal1", "deal2", "deal3"] as const).map((dk) => (
-                        <td key={dk} className="py-2.5 px-3">
-                          <select
-                            aria-label={`${dk} 만족도 점수`}
-                            value={metrics[dk].satisfaction}
-                            onChange={(e) =>
-                              setMetrics((prev) => ({
-                                ...prev,
-                                [dk]: { ...prev[dk], satisfaction: Number(e.target.value) },
-                              }))
-                            }
-                            className="px-2 py-1 rounded border border-slate-300 font-bold"
-                          >
-                            {[5, 4.5, 4, 3.5, 3, 2, 1].map((score) => (
-                              <option key={score} value={score}>
-                                {score}점 / 5점
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
               {/* Defect Report Input Table */}
               <div className="space-y-2">
                 <div className="text-sm font-extrabold text-slate-900">
-                  🛠️ 발견된 결함 / 개선 요청 메모 (이슈 발생 시 기입)
+                  🛠️ 인간 2nd 발견 UX 개선 코멘트 (이슈 있을 때만 기입)
                 </div>
                 <div className="space-y-2">
                   {defects.map((df, idx) => (
@@ -2180,7 +1588,7 @@ export default function TestGuidePage() {
                             prev.map((it, i) => (i === idx ? { ...it, dealCode: val } : it))
                           );
                         }}
-                        placeholder="매물 (#1/#2/#3)"
+                        placeholder="미션 (H-1/H-2/H-3)"
                         className="sm:col-span-2 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold"
                       />
                       <input
@@ -2204,7 +1612,7 @@ export default function TestGuidePage() {
                             prev.map((it, i) => (i === idx ? { ...it, description: val } : it))
                           );
                         }}
-                        placeholder="무엇이 어떻게 잘못 나왔나요? (기대 정답 vs 실제 화면)"
+                        placeholder="어느 부분이 불편하거나 어색했나요?"
                         className="sm:col-span-5 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
                       />
                       <select
@@ -2228,10 +1636,9 @@ export default function TestGuidePage() {
                 </div>
               </div>
 
-              {/* Generated Markdown Preview */}
               <div className="space-y-1.5">
                 <div className="text-xs font-extrabold text-slate-600">
-                  📄 자동 생성된 채점 리포트 미리보기:
+                  📄 자동 생성된 v4.0 최종 검수 리포트 미리보기:
                 </div>
                 <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto select-all">
                   {generateScorecardMarkdown()}

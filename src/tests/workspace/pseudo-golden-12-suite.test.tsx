@@ -261,7 +261,7 @@ describe("AI 1st — Human 2nd: 12-Scenario Pseudo-Golden Dataset Suite (PG-01 ~
     expect(screen.getByTestId("im-price-readout").textContent).toContain("77억");
   });
 
-  it("Verifies /testguide renders the 'AI 1st 12종 슈도 골든 100% PASS & 인간 2nd 15분 고부가가치 UX·품격 검수' Fast-Track Panel (Mission H-1 · H-2 · H-3)", () => {
+  it("Verifies /testguide v4.0 completely replaces the legacy manual grind with the 'AI 1st 12종 슈도 골든 실험실 (PG-01~12)' & '인간 2nd 15분 9문항 Fast-Track' workbench", () => {
     render(<TestGuidePage />);
     const panel = screen.getByTestId("ai1st-human2nd-fasttrack-panel");
     expect(panel).toBeTruthy();
@@ -269,5 +269,20 @@ describe("AI 1st — Human 2nd: 12-Scenario Pseudo-Golden Dataset Suite (PG-01 ~
     expect(panel.textContent).toContain("Mission H-1");
     expect(panel.textContent).toContain("Mission H-2");
     expect(panel.textContent).toContain("Mission H-3");
+
+    // Verify 9-item Human 2nd Fast-Track checklist on main overview tab
+    const humanSection = screen.getByTestId("human-2nd-9checks-section");
+    expect(humanSection.textContent).toContain("H1-01");
+    expect(humanSection.textContent).toContain("H3-03");
+    fireEvent.click(screen.getByTestId("human-9checks-mark-all-pass-btn"));
+    expect(humanSection.textContent).toContain("PASS 9건");
+
+    // Switch to Tab 1 (AI 1st 12종 슈도 골든 실험실) and verify all 12 PG cards render
+    fireEvent.click(screen.getByTestId("tab-pseudogolden"));
+    const pgPanel = screen.getByTestId("testguide-pseudogolden-panel");
+    expect(pgPanel).toBeTruthy();
+    expect(screen.getByTestId("pg-card-PG-01")).toBeTruthy();
+    expect(screen.getByTestId("pg-card-PG-05").textContent).toContain("당산동5가 11-47");
+    expect(screen.getByTestId("pg-card-PG-12")).toBeTruthy();
   });
 });
