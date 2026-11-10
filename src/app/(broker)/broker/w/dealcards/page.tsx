@@ -625,8 +625,31 @@ function DealCardsWorkspaceInner() {
   );
 
   /* ── Column 2: ② 채우기 (Card4 Editor) ── */
+  const isSampleCard =
+    activeBuildingId === "bld-01" &&
+    !isBlankCard &&
+    (effectiveCard4.region?.includes("양평동") || activeItem?.title?.includes("양평동"));
+
   const editorSlot = (
     <div className="space-y-4">
+      {isSampleCard && (
+        <div
+          data-testid="dealcard-sample-banner"
+          className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-3"
+        >
+          <p className="text-sm font-bold text-amber-950">
+            💡 현재 예시 딜카드(영등포구 양평동)가 열려 있습니다. 새 매물을 작성하려면 오른쪽 버튼을 눌러 빈 양식으로 시작하세요.
+          </p>
+          <button
+            type="button"
+            data-testid="dealcard-sample-reset-btn"
+            onClick={handleCreateNew}
+            className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
+          >
+            새 빈 딜카드로 시작하기
+          </button>
+        </div>
+      )}
       {isBlankCard && (
         <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 flex flex-wrap items-center justify-between gap-3">
           <p className="text-base font-bold text-blue-950">

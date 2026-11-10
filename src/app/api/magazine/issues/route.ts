@@ -9,10 +9,25 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { normalizeContentForPublish, DEFAULT_THEME_COLOR } from "@/lib/magazine/edition-save";
 import { getOrCreateDraftEdition, defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { sanitizeDealAddress } from "@/lib/magazine/view-helpers";
-import { listAllQuickImRecords } from "@/lib/im-lite/quick-generate-store";
+import {
+  normalizeReadableBriefingText,
+  stripUneditedFormatPlaceholders,
+} from "@/lib/magazine/simple-format";
+import {
+  isUuid,
+  listAllQuickImRecords,
+  resolveOrSynthesizeQuickImRecord,
+} from "@/lib/im-lite/quick-generate-store";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-issues");
+const FAKE_TEST_IMAGE_PREFIX = "/test-" + "images/";
+
+function isRealPhotoUrl(url: unknown): url is string {
+  if (typeof url !== "string") return false;
+  const trimmed = url.trim();
+  return trimmed.length > 0 && !trimmed.startsWith(FAKE_TEST_IMAGE_PREFIX);
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -165,17 +180,37 @@ export async function POST(request: NextRequest) {
       phone = (prof as { phone: string }).phone;
     }
 
+    const cleanedSummary = stripUneditedFormatPlaceholders(data.summary?.trim() || "");
+    const cleanedBriefingTitle = stripUneditedFormatPlaceholders(data.briefingTitle?.trim() || "");
+    const cleanedBriefingBody = normalizeReadableBriefingText(data.briefingBody?.trim() || "");
+
+    const composedBriefingBody =
+      cleanedBriefingTitle &&
+      cleanedBriefingBody &&
+      !cleanedBriefingBody.startsWith(`■ ${cleanedBriefingTitle}`) &&
+      !cleanedBriefingBody.startsWith(cleanedBriefingTitle)
+        ? `■ ${cleanedBriefingTitle}\n\n${cleanedBriefingBody}`
+        : cleanedBriefingBody || cleanedBriefingTitle;
+
     const effectiveBriefing =
-      data.briefingBody?.trim() ||
-      data.summary?.trim() ||
+      composedBriefingBody ||
+      cleanedSummary ||
       `${data.headline.trim()} 핵심 내용을 정리해 전해드립니다.`;
+
+    const hasDistinctSummaryAndBody =
+      Boolean(cleanedSummary) &&
+      Boolean(composedBriefingBody) &&
+      cleanedSummary.replace(/\s+/g, " ") !== composedBriefingBody.replace(/\s+/g, " ");
+
+    const primaryBriefingText = hasDistinctSummaryAndBody ? cleanedSummary : effectiveBriefing;
+    const secondaryFieldComment = hasDistinctSummaryAndBody ? composedBriefingBody : "";
 
     const fieldNote = {
       question: "",
       buyerReaction: "",
       sellerReaction: "",
       marketJudgment: "",
-      comment: effectiveBriefing,
+      comment: secondaryFieldComment,
     };
 
     const existingContent =
@@ -192,43 +227,128 @@ export async function POST(request: NextRequest) {
     if (dealIds.length > 0) {
       const quickRecords = listAllQuickImRecords();
       let dbBuildings: Array<Record<string, unknown>> = [];
-      try {
-        const { data: bRows } = await supabase
-          .from("building_ssot_lite")
-          .select("id, address, area_signal, asset_type, price_band, fit_summary")
-          .in("id", dealIds);
-        if (Array.isArray(bRows)) {
-          dbBuildings = bRows as Array<Record<string, unknown>>;
+      const docPhotosByBuildingId = new Map<string, string>();
+      const docMetaByBuildingId = new Map<string, Record<string, unknown>>();
+      const uuidDealIds = dealIds.filter((id) => isUuid(id));
+
+      if (uuidDealIds.length > 0) {
+        try {
+          const [bRes, dRes] = await Promise.all([
+            supabase
+              .from("building_ssot_lite")
+              .select("id, address, area_signal, asset_type, price_band, fit_summary, layers")
+              .in("id", uuidDealIds),
+            supabase
+              .from("document_objects")
+              .select(
+                "id, building_id, title, status, ssot_summary:body->ssot_summary, photos_v2:body->photos_v2, photos:body->photos, photo_urls:body->photo_urls"
+              )
+              .in("building_id", uuidDealIds)
+              .neq("status", "archived")
+              .order("created_at", { ascending: false })
+              .limit(30),
+          ]);
+          if (Array.isArray(bRes?.data)) {
+            dbBuildings = bRes.data as Array<Record<string, unknown>>;
+          }
+          if (Array.isArray(dRes?.data)) {
+            for (const dRow of dRes.data as Array<Record<string, unknown>>) {
+              const bId = String(dRow.building_id || "");
+              if (!bId) continue;
+              if (!docMetaByBuildingId.has(bId) || dRow.status === "published") {
+                docMetaByBuildingId.set(bId, dRow);
+              }
+              if (!docPhotosByBuildingId.has(bId)) {
+                const cand = Array.isArray(dRow.photos_v2) && dRow.photos_v2.length > 0
+                  ? dRow.photos_v2
+                  : Array.isArray(dRow.photos) && dRow.photos.length > 0
+                  ? dRow.photos
+                  : Array.isArray(dRow.photo_urls)
+                  ? dRow.photo_urls
+                  : [];
+                for (const p of cand) {
+                  const u = typeof p === "string" ? p : String((p as Record<string, unknown>)?.url || "");
+                  if (isRealPhotoUrl(u)) {
+                    docPhotosByBuildingId.set(bId, u.trim());
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          // ignore if non-UUID IDs or mock DB
         }
-      } catch {
-        // ignore if non-UUID IDs in dealIds
       }
 
       for (const dId of dealIds) {
         const snap = clientSnapshots.find((s) => String(s.id ?? "") === dId) || {};
         const dbRow = dbBuildings.find((b) => String(b.id ?? "") === dId);
-        const qRec = quickRecords.find((r) => r.buildingId === dId);
+        const docMeta = docMetaByBuildingId.get(dId);
+        const docSsot =
+          (docMeta?.ssot_summary && typeof docMeta.ssot_summary === "object"
+            ? (docMeta.ssot_summary as Record<string, unknown>)
+            : {}) || {};
+        let qRec = (await resolveOrSynthesizeQuickImRecord(dId, supabase)) ?? quickRecords.find((r) => r.buildingId === dId);
         const comment = commentsMap[dId]?.trim() || String(snap.investmentPoint ?? snap.point ?? "").trim();
 
+        const layers = (dbRow?.layers && typeof dbRow.layers === "object" ? (dbRow.layers as Record<string, unknown>) : {}) || {};
+        const dealTerms = (layers.deal_terms && typeof layers.deal_terms === "object" ? (layers.deal_terms as Record<string, unknown>) : {}) || {};
+        const finance = (layers.finance && typeof layers.finance === "object" ? (layers.finance as Record<string, unknown>) : {}) || {};
+        const leaseSummary = (layers.lease_summary && typeof layers.lease_summary === "object" ? (layers.lease_summary as Record<string, unknown>) : {}) || {};
+        const locationLayer = (layers.location && typeof layers.location === "object" ? (layers.location as Record<string, unknown>) : {}) || {};
+
+        const snapTitle = String(snap.title ?? snap.assetType ?? "").trim();
         const rawTitle =
-          String(snap.title ?? snap.assetType ?? "").trim() ||
+          (snapTitle && snapTitle !== "추천 매물" ? snapTitle : "") ||
           qRec?.buildingName ||
-          String(dbRow?.area_signal ?? dbRow?.asset_type ?? "").trim() ||
+          String(docMeta?.title ?? docSsot.building_name ?? dbRow?.area_signal ?? dbRow?.asset_type ?? "").trim() ||
           "추천 상업용 빌딩";
         const rawAddr =
           String(snap.address ?? "").trim() ||
           qRec?.address ||
-          String(dbRow?.address ?? dbRow?.area_signal ?? "").trim();
+          String(docSsot.address ?? locationLayer.road_address ?? locationLayer.address ?? dbRow?.address ?? dbRow?.area_signal ?? "").trim();
         const safeAddr = sanitizeDealAddress(rawAddr) || "수도권 역세권";
+
+        const askingManwon =
+          Number(qRec?.askingPriceManwon || 0) ||
+          Number(docSsot.asking_price_manwon || 0) ||
+          Number(dealTerms.asking_price_manwon || 0) ||
+          Number(finance.asking_price_manwon || 0) ||
+          (Number(finance.asking_price_krw || 0) > 0 ? Math.round(Number(finance.asking_price_krw) / 10_000) : 0) ||
+          Number(leaseSummary.asking_price_manwon || 0);
+
+        const formattedAskingEok =
+          askingManwon > 0
+            ? `${Number.isInteger(askingManwon / 10000) ? (askingManwon / 10000).toFixed(0) : (askingManwon / 10000).toFixed(1)}억`
+            : null;
+
+        const snapPriceStr = typeof snap.price === "string" ? snap.price.trim() : "";
+        const validSnapPrice =
+          snapPriceStr && snapPriceStr !== "-" && snapPriceStr !== "가격 문의" && snapPriceStr !== "가격 협의"
+            ? snapPriceStr
+            : typeof snap.price === "number" && snap.price > 0
+            ? snap.price
+            : null;
+
         const priceVal =
-          snap.price ??
+          validSnapPrice ??
+          formattedAskingEok ??
           qRec?.card4?.priceBand ??
-          dbRow?.price_band ??
-          (qRec?.askingPriceManwon ? `${(qRec.askingPriceManwon / 10000).toFixed(0)}억` : "가격 협의");
+          (typeof dbRow?.price_band === "string" && dbRow.price_band !== "가격 협의" ? dbRow.price_band : null) ??
+          "가격 협의";
+
         const yieldNum =
-          typeof snap.grossYieldNetOfDeposit === "number"
+          typeof snap.grossYieldNetOfDeposit === "number" && snap.grossYieldNetOfDeposit > 0
             ? snap.grossYieldNetOfDeposit
-            : qRec?.basicImDoc?.facts?.valuation?.capRatePct ?? undefined;
+            : Number(qRec?.basicImDoc?.facts?.valuation?.capRatePct || docSsot.cap_rate_pct || dealTerms.cap_rate_pct || finance.noi_yield_pct || 0) || undefined;
+
+        const qRecRealPhoto = Array.isArray(qRec?.fullDocBody?.photos)
+          ? qRec.fullDocBody.photos.find((p: any) => isRealPhotoUrl(p?.url))?.url
+          : null;
+        const resolvedPhotoUrl = isRealPhotoUrl(snap.photoUrl)
+          ? snap.photoUrl.trim()
+          : docPhotosByBuildingId.get(dId) || qRecRealPhoto || null;
 
         hydratedDeals.push({
           id: dId,
@@ -236,25 +356,41 @@ export async function POST(request: NextRequest) {
           assetType: rawTitle,
           address: safeAddr,
           price: priceVal,
+          ...(askingManwon > 0 ? { priceWon: askingManwon * 10_000 } : {}),
           grossYieldNetOfDeposit: yieldNum,
           investmentPoint: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
           point: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
-          photoUrl: typeof snap.photoUrl === "string" && snap.photoUrl.trim() ? snap.photoUrl : null,
-          imUrl: `/dc/${encodeURIComponent(dId)}`,
+          photoUrl: resolvedPhotoUrl,
+          imUrl: `/im-lite/${encodeURIComponent(dId)}`,
         });
       }
     }
 
+    const newsExplicitlyEnabled =
+      Array.isArray(data.sections) &&
+      data.sections.some((s) => s.id === "news_curation" && s.enabled === true);
+
+    const sanitizedExistingContent: Record<string, unknown> = { ...existingContent };
+    if (!newsExplicitlyEnabled) {
+      delete sanitizedExistingContent.topNews;
+      delete sanitizedExistingContent.news_curation;
+      delete sanitizedExistingContent.selected_news_ids;
+      delete sanitizedExistingContent.unitIssues;
+      delete sanitizedExistingContent.unit_issues;
+    }
+
     const rawContentForNormalize: Record<string, unknown> = {
-      ...existingContent,
+      ...sanitizedExistingContent,
       format: "simple",
       headline: data.headline.trim(),
-      briefing: data.summary?.trim() || effectiveBriefing,
-      ai_briefing: data.summary?.trim() || effectiveBriefing,
+      summary: cleanedSummary,
+      briefing_title: cleanedBriefingTitle,
+      briefing: primaryBriefingText,
+      ai_briefing: primaryBriefingText,
       market_temp: data.marketTemp ?? null,
       field_note: fieldNote,
-      theme_title: data.briefingTitle?.trim() || "",
-      theme_body_md: effectiveBriefing,
+      theme_title: "",
+      theme_body_md: "",
       featured_deal_ids: dealIds,
       featured_deals: hydratedDeals,
       dealHighlights: hydratedDeals,
@@ -303,24 +439,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Merge client section toggles (3 items) into the normalized 13-section array without wiping hidden section flags
+    const baseSections = Array.isArray(normalized.content.sections)
+      ? (normalized.content.sections as Array<{ id: string; enabled: boolean }>)
+      : [];
+    const clientSectionMap = new Map<string, boolean>();
+    if (Array.isArray(data.sections)) {
+      for (const s of data.sections) {
+        clientSectionMap.set(s.id, s.enabled);
+      }
+    }
+    const briefingToggleEnabled = clientSectionMap.has("field_note")
+      ? clientSectionMap.get("field_note")!
+      : true;
+
+    const mergedSections = baseSections.map((sec) => {
+      if (sec.id === "ai_briefing") {
+        return { id: sec.id, enabled: briefingToggleEnabled };
+      }
+      if (sec.id === "field_note") {
+        return { id: sec.id, enabled: briefingToggleEnabled && Boolean(secondaryFieldComment) };
+      }
+      if (sec.id === "theme_of_week") {
+        return { id: sec.id, enabled: false };
+      }
+      if (sec.id === "news_curation") {
+        return { id: sec.id, enabled: newsExplicitlyEnabled };
+      }
+      if (clientSectionMap.has(sec.id)) {
+        return { id: sec.id, enabled: clientSectionMap.get(sec.id)! };
+      }
+      return sec;
+    });
+
     const finalContent: Record<string, unknown> = {
       ...normalized.content,
       id: editionId,
+      summary: cleanedSummary,
+      briefing_title: cleanedBriefingTitle,
+      briefing_body_md: cleanedBriefingBody,
       featured_deal_ids: dealIds,
       featured_deals: hydratedDeals,
       dealHighlights: hydratedDeals,
       deal_comments: data.dealComments ?? {},
-      ...(Array.isArray(data.sections) && data.sections.length > 0
-        ? { sections: data.sections }
-        : {}),
+      sections: mergedSections,
     };
 
     const editionUpdate: Record<string, unknown> = {
       title: data.headline.trim(),
       market_temp: data.marketTemp ?? null,
       field_note: fieldNote,
-      theme_title: data.briefingTitle?.trim() || null,
-      theme_body_md: effectiveBriefing,
+      theme_title: cleanedBriefingTitle || null,
+      theme_body_md: cleanedBriefingBody || effectiveBriefing,
       featured_deal_ids: data.featuredDealIds ?? [],
       target_segments: [data.targetSegment ?? "all"],
       status: "published",

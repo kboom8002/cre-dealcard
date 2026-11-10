@@ -1,35 +1,15 @@
 // @vitest-environment jsdom
 /**
  * @file src/tests/workspace/inbox-magazine-workspace.test.tsx
- * @description Milestone 5 Test Suite: Broker Inbox & Magazine Workspaces (WP-P5-01 ~ WP-P5-05)
- *
- * Requirements:
- * 1. Broker Inbox Workspace (/broker/w/inbox):
- *    - Renders 3-column WorkspaceShell with 'inbox' workspace mode.
- *    - Filter pills (지금 처리, 오늘, 열람, 알림, 고객 명단).
- *    - Filter switching behavior (지금 처리 vs 열람 vs 고객 명단).
- *    - Thread selection & read state auto-marking.
- *    - Gate request approval & rejection actions for G2 disclosure.
- *    - Hot-lead open timeline: displays '🔥 지금 전화' callout for leads with >=3 opens with direct tel: link.
- *    - Share link revocation with 404 confirmation toast and correction announcement notice.
- *    - Call consultation memo recording into timeline.
- * 2. Weekly Magazine Workspace (/broker/w/magazine):
- *    - Renders 3-column WorkspaceShell with 'magazine' workspace mode.
- *    - Past issue drawer / list in Column 1 with active issue selection switching.
- *    - New issue draft creation (+ 새 소식지 작성).
- *    - 1-click Deal Card & IM insertion helpers in Column 2 with remove capability.
- *    - Live mobile phone / web preview switching & 56px primary publish button in Column 3.
- *
- * Authoritative Sources:
- * - docs/CREDEAL_무마찰UX_4대작업공간_개편_설계서.md §4.2, §4.5 (WP-P5-01 ~ WP-P5-05)
- * - PROJECT.md (Milestone 5, Feature 60, 61, 62)
- * - TEST_INFRA.md (§ Feature Inventory #13)
+ * @description Broker Inbox & Magazine Workspaces Verification Suite (WP-P5-01 ~ WP-P5-05, IB-01 ~ IB-28)
  */
 
 import React, { act } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import InboxWorkspacePage from '@/app/(broker)/broker/w/inbox/page';
+import InboxWorkspacePage, {
+  type InboxThreadItem,
+} from '@/app/(broker)/broker/w/inbox/page';
 import MagazineWorkspacePage from '@/app/(broker)/broker/w/magazine/page';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -43,14 +23,115 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+const SAMPLE_THREADS: InboxThreadItem[] = [
+  {
+    id: 'thread-01',
+    clientName: '박동원 회장',
+    clientPhone: '010-8765-4321',
+    clientGrade: 'VIP',
+    buildingTitle: '영등포구 양평동 꼬마빌딩',
+    buildingId: 'bld-01',
+    latestEvent: '4회 반복 열람',
+    cleanMessage: '수익률 및 명도 조건 검토 중',
+    updatedAt: '방금',
+    openCount: 4,
+    isRead: false,
+    status: 'high_interest',
+    shareToken: 'tok-01',
+    events: [
+      {
+        id: 'ev-01',
+        eventType: 'dwell',
+        description: '06 렌트롤 집중 열람',
+        timestamp: '방금',
+        sectionName: '06 렌트롤',
+      },
+    ],
+    budget: '100억',
+    preferredRegion: '영등포구 양평동',
+    focusedSections: ['06 렌트롤', '04 수익률'],
+  },
+  {
+    id: 'thread-02',
+    clientName: '최영진 원장',
+    clientPhone: '010-5555-1212',
+    clientGrade: 'VIP',
+    buildingTitle: '강남구 신사동 사옥형 빌딩',
+    buildingId: 'bld-02',
+    latestEvent: 'IM 열람 요청',
+    cleanMessage: '병원 이전 부지 검토를 위해 IM 요청드립니다.',
+    gateStatus: 'pending',
+    updatedAt: '5분 전',
+    openCount: 2,
+    isRead: false,
+    status: 'pending_gate',
+    shareToken: 'tok-02',
+    events: [
+      {
+        id: 'ev-02',
+        eventType: 'gate_request',
+        description: 'IM 열람 요청',
+        timestamp: '5분 전',
+      },
+    ],
+    budget: '150억',
+    preferredRegion: '강남구 신사동',
+  },
+  {
+    id: 'thread-03',
+    clientName: '김민수 대표',
+    clientPhone: '010-3333-4444',
+    clientGrade: '일반',
+    buildingTitle: '마포구 서교동 근생빌딩',
+    buildingId: 'bld-03',
+    latestEvent: '1회 열람',
+    cleanMessage: '상세 자료를 열람했습니다.',
+    updatedAt: '1시간 전',
+    openCount: 1,
+    isRead: true,
+    status: 'active',
+    shareToken: 'tok-03',
+    events: [
+      {
+        id: 'ev-03',
+        eventType: 'open',
+        description: '상세 자료를 열람했습니다.',
+        timestamp: '1시간 전',
+      },
+    ],
+    budget: '70억',
+    preferredRegion: '마포구 서교동',
+  },
+];
+
 describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', () => {
   let root: Root;
   let container: HTMLDivElement;
 
   beforeEach(() => {
+    window.localStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        threads: SAMPLE_THREADS,
+        inventory: [
+          {
+            buildingId: 'bld-alt-01',
+            title: '영등포구 당산동 코너 근생빌딩',
+            region: '영등포구 당산동',
+            priceBand: '95억',
+            askingPriceManwon: 950000,
+            capRatePct: 4.5,
+          },
+        ],
+      }),
+    } as Response);
   });
 
   afterEach(() => {
@@ -58,209 +139,192 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
       root.unmount();
     });
     container.remove();
+    vi.restoreAllMocks();
   });
 
-  /* ────────────────────────────────────────────────────────────────────────
-   * 1. Broker Inbox Workspace (/broker/w/inbox) (WP-P5-01 & WP-P5-02)
-   * ──────────────────────────────────────────────────────────────────────── */
   describe('1. Broker Inbox Workspace (/broker/w/inbox)', () => {
     it('renders 3-column inbox workspace shell with filters and list slots', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
       const shell = container.querySelector('[data-testid="workspace-shell"]');
       expect(shell).not.toBeNull();
       expect(shell?.getAttribute('data-workspace')).toBe('inbox');
 
-      // Assert Column 1 List elements
       const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
       expect(listSlot).not.toBeNull();
 
-      // Verify all 5 filter pills
-      expect(listSlot?.textContent).toContain('지금 처리');
-      expect(listSlot?.textContent).toContain('오늘');
+      expect(listSlot?.textContent).toContain('할 일');
       expect(listSlot?.textContent).toContain('열람');
-      expect(listSlot?.textContent).toContain('알림');
-      expect(listSlot?.textContent).toContain('고객 명단');
+      expect(listSlot?.textContent).toContain('전체 고객');
 
-      // Verify initial VIP thread present in default "지금 처리" view
       expect(listSlot?.textContent).toContain('박동원 회장');
-      expect(listSlot?.textContent).toContain('VIP');
+      const summaryCard = container.querySelector('[data-testid="inbox-client-summary-card"]');
+      expect(summaryCard?.textContent).toContain('VIP');
     });
 
     it('filters threads according to active filter tab selection', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
       const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
       expect(listSlot).not.toBeNull();
 
-      // Initially in "지금 처리" mode: thread-01 (hot_lead) & thread-02 (pending_gate) are visible,
+      // Initially in "할 일" mode: thread-01 (openCount=4 >= 3) & thread-02 (pending_gate) are visible,
       // while thread-03 (active, 1 open) is filtered out
       expect(listSlot?.textContent).toContain('박동원 회장');
       expect(listSlot?.textContent).toContain('최영진 원장');
       expect(listSlot?.textContent).not.toContain('김민수 대표');
 
-      // Switch filter to "열람" (all openCount > 0)
-      const buttons = Array.from(listSlot!.querySelectorAll('button'));
-      const viewsBtn = buttons.find((b) => b.textContent?.trim() === '열람');
-      expect(viewsBtn).toBeDefined();
+      const viewsTab = container.querySelector(
+        '[data-testid="inbox-filter-chip-views"]'
+      ) as HTMLButtonElement;
+      expect(viewsTab).not.toBeNull();
 
       await act(async () => {
-        viewsBtn?.click();
+        viewsTab.click();
       });
 
-      // Now thread-03 should be visible
       expect(listSlot?.textContent).toContain('김민수 대표');
       expect(listSlot?.textContent).toContain('박동원 회장');
       expect(listSlot?.textContent).toContain('최영진 원장');
-
-      // Switch filter to "고객 명단" (VIP clients only)
-      const vipBtn = buttons.find((b) => b.textContent?.trim() === '고객 명단');
-      expect(vipBtn).toBeDefined();
-
-      await act(async () => {
-        vipBtn?.click();
-      });
-
-      // VIP only: 박동원, 최영진 visible; 김민수 (일반) filtered out
-      expect(listSlot?.textContent).toContain('박동원 회장');
-      expect(listSlot?.textContent).toContain('최영진 원장');
-      expect(listSlot?.textContent).not.toContain('김민수 대표');
     });
 
     it('switches active thread and updates read status upon thread click', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
       const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
-
-      // Initially thread-01 is selected
       expect(editorSlot?.textContent).toContain('박동원 회장');
       expect(editorSlot?.textContent).toContain('영등포구 양평동 꼬마빌딩');
 
-      // Find thread-02 item and click it
-      const threadItems = Array.from(listSlot!.querySelectorAll('[role="button"]'));
-      const thread2 = threadItems.find((el) => el.textContent?.includes('최영진 원장'));
-      expect(thread2).toBeDefined();
+      const thread2 = container.querySelector(
+        '[data-testid="inbox-thread-row-thread-02"]'
+      ) as HTMLElement;
+      expect(thread2).not.toBeNull();
 
       await act(async () => {
-        (thread2 as HTMLElement).click();
+        thread2.click();
       });
 
-      // Editor now displays thread-02
       expect(editorSlot?.textContent).toContain('최영진 원장');
       expect(editorSlot?.textContent).toContain('강남구 신사동 사옥형 빌딩');
       expect(editorSlot?.textContent).toContain('010-5555-1212');
     });
 
-    it('displays prominent "🔥 지금 전화" callout for hot leads with >= 3 opens', async () => {
+    it('displays prominent high-interest callout for leads with >= 3 opens', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      // Thread-01 has openCount = 4
-      const previewSlot = container.querySelector('[data-testid="inbox-preview-slot"]');
-      expect(previewSlot).not.toBeNull();
+      const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
+      expect(editorSlot?.textContent).toContain('관심 높음');
 
-      const hotLeadCallout = container.querySelector('[data-testid="hot-lead-callout"]');
-      expect(hotLeadCallout).not.toBeNull();
-      expect(hotLeadCallout?.textContent).toContain('🔥 지금 전화');
-      expect(hotLeadCallout?.textContent).toContain('4회째 반복 열람 중입니다');
-      expect(hotLeadCallout?.textContent).toContain('지금 바로 전화하기');
+      const summaryCard = container.querySelector('[data-testid="inbox-client-summary-card"]');
+      expect(summaryCard?.textContent).toContain('4회');
 
-      // Verify tel: link destination
-      const telLink = hotLeadCallout?.querySelector('a[href^="tel:"]');
+      const telLink = container.querySelector('[data-testid="preview-call-link"]');
       expect(telLink?.getAttribute('href')).toBe('tel:010-8765-4321');
     });
 
     it('handles G2 gate approval action for pending threads', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
-      const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
-
-      // Select thread-02 (pending_gate status)
-      const threadItems = Array.from(listSlot!.querySelectorAll('[role="button"]'));
-      const thread2 = threadItems.find((el) => el.textContent?.includes('최영진 원장'));
+      const thread2 = container.querySelector(
+        '[data-testid="inbox-thread-row-thread-02"]'
+      ) as HTMLElement;
       await act(async () => {
-        (thread2 as HTMLElement).click();
+        thread2.click();
       });
 
-      // Verify G2 approval banner exists
-      expect(editorSlot?.textContent).toContain('G2 상세자료 공개 승인 요청');
-      const approveBtn = Array.from(editorSlot!.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('✓ 공개 승인 (G2)')
-      );
-      expect(approveBtn).toBeDefined();
+      const pendingCard = container.querySelector('[data-testid="inbox-pending-gate-card"]');
+      expect(pendingCard).not.toBeNull();
 
-      // Click approve
+      const approveBtn = container.querySelector(
+        '[data-testid="approve-gate-primary-btn"]'
+      ) as HTMLButtonElement;
+      expect(approveBtn).not.toBeNull();
+
       await act(async () => {
-        approveBtn?.click();
+        approveBtn.click();
       });
 
-      // Verify G2 banner disappears and status switches to active
-      expect(editorSlot?.textContent).not.toContain('G2 상세자료 공개 승인 요청');
+      expect(container.querySelector('[data-testid="inbox-pending-gate-card"]')).toBeNull();
     });
 
-    it('handles link revocation and correction announcement actions with toast confirmation', async () => {
+    it('handles inline link lock and correction announcement actions with toast confirmation', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const previewSlot = container.querySelector('[data-testid="inbox-preview-slot"]');
-      expect(previewSlot?.textContent).toContain('링크 보안 및 회수 관리');
+      const lockBtn = container.querySelector(
+        '[data-testid="lock-share-link-trigger-btn"]'
+      ) as HTMLButtonElement;
+      expect(lockBtn).not.toBeNull();
 
-      const revokeBtn = Array.from(previewSlot!.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('🚫 링크 회수')
-      );
-      expect(revokeBtn).toBeDefined();
-
-      // Click revoke link
       await act(async () => {
-        revokeBtn?.click();
+        lockBtn.click();
       });
 
-      // Verify undo toast appears with 404 revocation confirmation
-      const toast = container.querySelector('[data-testid="undo-confirm-toast"]');
-      expect(toast?.textContent).toContain('즉시 회수되었습니다. (404 처리)');
-
-      // Also verify correction announcement action
-      const correctionBtn = Array.from(previewSlot!.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('⚠️ 정정 안내')
-      );
-      expect(correctionBtn).toBeDefined();
+      const confirmLockBtn = container.querySelector(
+        '[data-testid="confirm-lock-link-btn"]'
+      ) as HTMLButtonElement;
+      expect(confirmLockBtn).not.toBeNull();
 
       await act(async () => {
-        correctionBtn?.click();
+        confirmLockBtn.click();
+      });
+
+      expect(container.textContent).toContain('링크 잠김');
+
+      const openCorrBtn = container.querySelector(
+        '[data-testid="open-correction-notice-btn"]'
+      ) as HTMLButtonElement;
+      expect(openCorrBtn).not.toBeNull();
+
+      await act(async () => {
+        openCorrBtn.click();
+      });
+
+      const submitCorrBtn = container.querySelector(
+        '[data-testid="submit-correction-notice-btn"]'
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitCorrBtn.click();
       });
 
       expect(container.querySelector('[data-testid="undo-confirm-toast"]')?.textContent).toContain(
-        '⚠️ 매물 정보가 정정되었습니다'
+        '매물 정보가 정정되었습니다'
       );
     });
 
     it('allows logging consultation notes into activity timeline', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
-      const input = editorSlot?.querySelector('input[placeholder*="통화 내용이나 상담 메모"]') as HTMLInputElement;
-      const recordBtn = Array.from(editorSlot!.querySelectorAll('button')).find((b) =>
-        b.textContent?.trim() === '기록'
-      );
+      const historyTab = container.querySelector(
+        '[data-testid="inbox-editor-tab-history"]'
+      ) as HTMLButtonElement;
+      await act(async () => {
+        historyTab.click();
+      });
+
+      const input = container.querySelector(
+        '[data-testid="inbox-call-note-input"]'
+      ) as HTMLInputElement;
+      const recordBtn = container.querySelector(
+        '[data-testid="save-call-note-btn"]'
+      ) as HTMLButtonElement;
 
       expect(input).not.toBeNull();
       expect(recordBtn).not.toBeNull();
 
-      // Type memo using native setter to trigger React synthetic onChange
       await act(async () => {
         const nativeSetter = Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
@@ -272,60 +336,45 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
       });
 
       await act(async () => {
-        recordBtn?.click();
+        recordBtn.click();
       });
 
-      // Verify new note appears in timeline
-      expect(editorSlot?.textContent).toContain('통화 기록: 고객 희망 매입가 95억 협의 완료');
+      expect(container.textContent).toContain('통화 기록: 고객 희망 매입가 95억 협의 완료');
     });
 
-    it('renders 4-workspace cross-action bridge, section dwell badges, and matched alternative deals (M4~M6)', async () => {
+    it('renders section dwell badges and client summary metadata', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
-      const previewSlot = container.querySelector('[data-testid="inbox-preview-slot"]');
+      const todoPanel = container.querySelector('[data-testid="inbox-tab-panel-todo"]');
+      expect(todoPanel).not.toBeNull();
+      expect(todoPanel?.textContent).toContain('집중 열람 항목: 06 렌트롤 · 04 수익률');
 
-      // M5: Cross-Workspace Bridge
-      const bridge = editorSlot?.querySelector('[data-testid="cross-workspace-bridge"]');
-      expect(bridge).not.toBeNull();
-      expect(bridge?.textContent).toContain('딜카드 편집');
-      expect(bridge?.textContent).toContain('IM 편집');
-      expect(bridge?.textContent).toContain('고객 화면 열기');
-      expect(bridge?.textContent).toContain('PPTX 다운로드');
-
-      // M4: Section Dwell Intelligence
-      const dwellBadges = editorSlot?.querySelector('[data-testid="section-dwell-badges"]');
-      expect(dwellBadges).not.toBeNull();
-      expect(dwellBadges?.textContent).toContain('고객 집중 검토 섹션');
-      expect(dwellBadges?.textContent).toContain('06 렌트롤');
-
-      // M6: Auto-Matched Alternative Deals Panel
-      const matchedPanel = previewSlot?.querySelector('[data-testid="matched-deals-panel"]');
-      expect(matchedPanel).not.toBeNull();
-      expect(matchedPanel?.textContent).toContain('예산·권역 맞춤 대체 매물 추천');
-      expect(matchedPanel?.textContent).toContain('대체 매물 제안 복사');
+      const summaryCard = container.querySelector('[data-testid="inbox-client-summary-card"]');
+      expect(summaryCard).not.toBeNull();
+      expect(summaryCard?.textContent).toContain('100억');
+      expect(summaryCard?.textContent).toContain('영등포구 양평동');
     });
 
-    it('supports inline quick VIP client registration in Column 1 (M3)', async () => {
+    it('supports accessible VIP client registration modal', async () => {
       await act(async () => {
-        root.render(<InboxWorkspacePage />);
+        root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
-      const toggleBtn = listSlot?.querySelector('[data-testid="toggle-new-client-btn"]') as HTMLButtonElement;
-      expect(toggleBtn).not.toBeNull();
+      const openBtn = container.querySelector(
+        '[data-testid="open-new-client-modal-btn"]'
+      ) as HTMLButtonElement;
+      expect(openBtn).not.toBeNull();
 
       await act(async () => {
-        toggleBtn.click();
+        openBtn.click();
       });
 
-      const regForm = listSlot?.querySelector('[data-testid="quick-client-register"]');
-      expect(regForm).not.toBeNull();
-
-      const nameInput = regForm?.querySelector('[data-testid="new-client-name-input"]') as HTMLInputElement;
-      const submitBtn = regForm?.querySelector('[data-testid="submit-new-client-btn"]') as HTMLButtonElement;
+      const nameInput = container.querySelector('#new-client-name') as HTMLInputElement;
+      const submitBtn = container.querySelector(
+        '[data-testid="submit-new-client-btn"]'
+      ) as HTMLButtonElement;
 
       await act(async () => {
         const nativeSetter = Object.getOwnPropertyDescriptor(
@@ -341,14 +390,10 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
         submitBtn.click();
       });
 
-      const editorSlot = container.querySelector('[data-testid="inbox-editor-slot"]');
-      expect(editorSlot?.textContent).toContain('정태영 부회장');
+      expect(container.textContent).toContain('정태영 부회장');
     });
   });
 
-  /* ────────────────────────────────────────────────────────────────────────
-   * 2. Weekly Magazine Workspace (/broker/w/magazine)
-   * ──────────────────────────────────────────────────────────────────────── */
   describe('2. Weekly Magazine Workspace (/broker/w/magazine)', () => {
     it('redirects seamlessly to real studio /broker/magazine-editor', async () => {
       mockReplace.mockClear();

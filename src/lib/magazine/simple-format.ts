@@ -355,7 +355,7 @@ export function applySimpleTextFormat(
   currentText: string,
   action: SimpleFormatActionId,
   selection?: { start: number; end: number },
-): { text: string; cursorOffset: number } {
+): { text: string; cursorOffset: number; selectionStart: number; selectionEnd: number } {
   const safeText = currentText ?? '';
   const start = Math.max(0, Math.min(selection?.start ?? safeText.length, safeText.length));
   const end = Math.max(start, Math.min(selection?.end ?? safeText.length, safeText.length));
@@ -368,28 +368,54 @@ export function applySimpleTextFormat(
     const suffix = after.startsWith('\n') ? '' : '\n';
     const titleText = selected || '소제목을 입력해 주세요';
     const inserted = `${prefix}■ ${titleText}${suffix}`;
+    const selectionStart = before.length + prefix.length + 2;
+    const selectionEnd = selectionStart + titleText.length;
     return {
       text: `${before}${inserted}${after}`,
       cursorOffset: before.length + inserted.length,
+      selectionStart,
+      selectionEnd,
     };
   }
 
   if (action === 'emphasis') {
     const target = selected || '강조할 문구';
     const inserted = `「${target}」`;
+    const selectionStart = before.length + 1;
+    const selectionEnd = selectionStart + target.length;
     return {
       text: `${before}${inserted}${after}`,
       cursorOffset: before.length + inserted.length,
+      selectionStart,
+      selectionEnd,
     };
   }
 
   const prefix = before.length > 0 && !before.endsWith('\n') ? '\n\n' : '';
   const suffix = after.length > 0 && !after.startsWith('\n') ? '\n\n' : '';
   const inserted = `${prefix}────────────────────${suffix}`;
+  const cursorOffset = before.length + inserted.length;
   return {
     text: `${before}${inserted}${after}`,
-    cursorOffset: before.length + inserted.length,
+    cursorOffset,
+    selectionStart: cursorOffset,
+    selectionEnd: cursorOffset,
   };
+}
+
+/**
+ * 서식 버튼을 누른 뒤 플레이스홀더('소제목을 입력해 주세요', '강조할 문구')를 지우지 않고
+ * 그대로 둔 채 발행하거나 바로 뒤에 이어 쓴 경우 잔여 플레이스홀더를 깔끔하게 제거한다.
+ */
+export function stripUneditedFormatPlaceholders(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^■[ \t]*소제목을 입력해 주세요[ \t]+(.+)$/gm, '■ $1')
+    .replace(/^■[ \t]*소제목을 입력해 주세요[ \t]*\n?/gm, '')
+    .replace(/「[ \t]*강조할 문구[ \t]*」/g, '')
+    .replace(/(?:\n[ \t]*)*─{3,}[ \t]*$/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /**
@@ -398,9 +424,10 @@ export function applySimpleTextFormat(
  */
 export function normalizeReadableBriefingText(raw: string): string {
   if (!raw) return '';
-  return raw
+  const converted = raw
     .replace(/^#{1,3}\s+/gm, '■ ')
     .replace(/\*\*([^*]+)\*\*/g, '「$1」')
     .replace(/^-{3,}$/gm, '────────────────────');
+  return stripUneditedFormatPlaceholders(converted);
 }
 

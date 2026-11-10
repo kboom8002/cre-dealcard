@@ -643,6 +643,16 @@ export function WorkspaceShell({
                 </div>
               )}
 
+              <button
+                type="button"
+                data-testid="workspace-editor-preview-drawer-btn"
+                onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
+                aria-expanded={isPreviewDrawerOpen}
+                className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[40px] rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm font-extrabold text-blue-900 transition-colors cursor-pointer shrink-0"
+              >
+                <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
+              </button>
+
               {mobileView === "editor" && (
                 <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300 shrink-0">
                   <button
@@ -726,7 +736,7 @@ export function WorkspaceShell({
                   type="button"
                   onClick={() => setIsPreviewDrawerOpen(false)}
                   aria-label="미리보기 닫기"
-                  className="hidden lg:inline-flex xl:hidden px-2.5 min-h-[38px] items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-extrabold hover:bg-slate-100 cursor-pointer"
+                  className="hidden lg:inline-flex xl:hidden px-2.5 min-h-[38px] items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-extrabold hover:bg-slate-100 cursor-pointer"
                 >
                   ✕ 닫기
                 </button>

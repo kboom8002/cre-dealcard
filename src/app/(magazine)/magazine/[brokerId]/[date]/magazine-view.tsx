@@ -118,12 +118,30 @@ export function MagazineView({
   const fieldNote: Record<string, string> = Object.fromEntries(
     Object.entries(rawFieldNote).map(([k, v]) => [k, typeof v === "string" ? (cleanScoreText(v, scoreEvidence) as string) : v]),
   );
-  const hasFieldNote = !!(fieldNote.question || fieldNote.buyerReaction || fieldNote.sellerReaction || fieldNote.marketJudgment || fieldNote.comment);
+  const normBriefing = briefingText.replace(/\s+/g, " ").trim();
+  const normFieldComment = (fieldNote.comment ?? "").replace(/\s+/g, " ").trim();
+  const aiBriefingWillRender = Boolean(normBriefing) && isSectionEnabled(data.sections, "ai_briefing");
+  const isDuplicateSingleFieldNote =
+    aiBriefingWillRender &&
+    normFieldComment.length > 0 &&
+    normFieldComment === normBriefing &&
+    !fieldNote.question &&
+    !fieldNote.buyerReaction &&
+    !fieldNote.sellerReaction &&
+    !fieldNote.marketJudgment;
+  const hasFieldNote =
+    !isDuplicateSingleFieldNote &&
+    !!(fieldNote.question || fieldNote.buyerReaction || fieldNote.sellerReaction || fieldNote.marketJudgment || fieldNote.comment);
 
   // ── Theme of week ──
   const themeTitle = cleanScoreText(data.theme_title as string | null | undefined, scoreEvidence);
   const themeBodyMd = cleanScoreText(data.theme_body_md as string | null | undefined, scoreEvidence);
   const themeAssetTypes = strArray(data.theme_asset_types);
+  const normThemeBody = (themeBodyMd ?? "").replace(/\s+/g, " ").trim();
+  const isDuplicateTheme =
+    normThemeBody.length > 0 &&
+    (normThemeBody === normBriefing || normThemeBody === normFieldComment) &&
+    themeAssetTypes.length === 0;
 
   // ── Deals ──
   const featuredDeals: any[] = Array.isArray(data.featured_deals) ? data.featured_deals : Array.isArray(data.dealHighlights) ? data.dealHighlights : []; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -317,7 +335,12 @@ export function MagazineView({
                 ? deal.price
                 : null;
             const priceLabel = formatPriceKo(rawPriceWon || deal.price);
-            const priceDisplay = priceLabel.endsWith("원") || priceLabel === "-" ? priceLabel : `${priceLabel} 원`;
+            const priceDisplay =
+              priceLabel === "-" ||
+              priceLabel.endsWith("원") ||
+              /(?:억대|만대|협의|문의|확인)/.test(priceLabel)
+                ? priceLabel
+                : `${priceLabel} 원`;
 
             // 실질 수익률 (보증금 차감)
             const yieldVal =
@@ -557,7 +580,7 @@ export function MagazineView({
     switch (id) {
       case "ai_briefing": return data.briefing || data.headline ? renderAiBriefing() : null;
       case "field_note": return hasFieldNote ? renderFieldNote() : null;
-      case "theme_of_week": return themeTitle ? renderThemeOfWeek() : null;
+      case "theme_of_week": return themeTitle && !isDuplicateTheme ? renderThemeOfWeek() : null;
       case "featured_deals": return featuredDeals.length > 0 ? renderFeaturedDeals() : null;
       case "poll":
         return hasPoll ? (

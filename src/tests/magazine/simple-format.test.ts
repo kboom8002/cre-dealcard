@@ -15,6 +15,7 @@ import {
   isSingleCommentFieldNote,
   normalizeReadableBriefingText,
   resolveEditorMode,
+  stripUneditedFormatPlaceholders,
 } from "@/lib/magazine/simple-format";
 import { isSectionEnabled } from "@/lib/magazine/view-helpers";
 
@@ -31,6 +32,17 @@ describe("simple-format — NL-16 3버튼 서식 도구 ([소제목] [강조] [�
     const subheadingRes = applySimpleTextFormat("첫 문단입니다.", "subheading");
     expect(subheadingRes.text).toContain("■ ");
     expect(subheadingRes.text).not.toContain("##");
+    expect(
+      subheadingRes.text.slice(subheadingRes.selectionStart, subheadingRes.selectionEnd)
+    ).toBe("소제목을 입력해 주세요");
+
+    const emphasisPlaceholderRes = applySimpleTextFormat("첫 문단입니다.", "emphasis");
+    expect(
+      emphasisPlaceholderRes.text.slice(
+        emphasisPlaceholderRes.selectionStart,
+        emphasisPlaceholderRes.selectionEnd
+      )
+    ).toBe("강조할 문구");
 
     const emphasisRes = applySimpleTextFormat(
       "이번 달 역세권 거래량이 중요합니다.",
@@ -42,6 +54,17 @@ describe("simple-format — NL-16 3버튼 서식 도구 ([소제목] [강조] [�
 
     const dividerRes = applySimpleTextFormat("위 문단", "divider");
     expect(dividerRes.text).toContain("────────────────────");
+  });
+
+  it("stripUneditedFormatPlaceholders 와 normalizeReadableBriefingText 는 미편집 서식 플레이스홀더를 자동 제거한다", () => {
+    const rawWithPlaceholders =
+      "이번 11월호에서는 주요 흐름을 소개합니다.\n\n■ 소제목을 입력해 주세요\n「강조할 문구」\n\n────────────────────";
+    expect(stripUneditedFormatPlaceholders(rawWithPlaceholders)).toBe(
+      "이번 11월호에서는 주요 흐름을 소개합니다."
+    );
+    expect(normalizeReadableBriefingText(rawWithPlaceholders)).toBe(
+      "이번 11월호에서는 주요 흐름을 소개합니다."
+    );
   });
 
   it("normalizeReadableBriefingText 는 기존 마크다운 기호(##, **, ---)도 읽기 쉬운 서식으로 정리한다", () => {

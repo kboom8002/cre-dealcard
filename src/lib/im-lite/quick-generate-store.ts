@@ -749,9 +749,15 @@ export function synthesizeQuickRecordFromImItem(
     extractedPoints[2] || `${zoning} 토지 및 건물 가치 우수`,
   ];
 
-  const rawPhotos = Array.isArray(imItem.photos) ? imItem.photos : [];
+  const rawPhotos = Array.isArray(imItem.photos) && imItem.photos.length > 0
+    ? imItem.photos
+    : Array.isArray(imItem.photos_v2) && imItem.photos_v2.length > 0
+    ? imItem.photos_v2
+    : Array.isArray(imItem.photo_urls) && imItem.photo_urls.length > 0
+    ? imItem.photo_urls
+    : [];
   const rawPhotoNames = Array.isArray(imItem.photoNames) ? imItem.photoNames : [];
-  const resolvedPhotos =
+  let resolvedPhotos =
     rawPhotos.length > 0
       ? rawPhotos
           .map((p: any, idx: number) => {
@@ -783,6 +789,24 @@ export function synthesizeQuickRecordFromImItem(
             };
           })
           .filter(Boolean);
+
+  if (resolvedPhotos.length === 0) {
+    const existingMem =
+      getQuickImRecord(buildingId) ||
+      (imItem.id ? getQuickImRecord(String(imItem.id)) : null);
+    const existingRealPhotos = Array.isArray(existingMem?.fullDocBody?.photos)
+      ? existingMem.fullDocBody.photos.filter(
+          (p: any) =>
+            p &&
+            typeof p.url === 'string' &&
+            p.url.trim().length > 0 &&
+            !p.url.startsWith('/test-images/')
+        )
+      : [];
+    if (existingRealPhotos.length > 0) {
+      resolvedPhotos = existingRealPhotos;
+    }
+  }
 
   const eok = Math.round((askingPriceManwon / 10000) * 10) / 10;
   const priceBand = `${Math.max(1, Math.floor(eok / 10) * 10)}~${Math.ceil((eok + 1) / 10) * 10}억`;
@@ -891,9 +915,55 @@ export async function resolveOrSynthesizeQuickImRecord(
             return null;
           }
           if (ev.event_type === 'im_upserted' && meta.im_item) {
+            const itemToSynthesize: Record<string, any> = {
+              ...(meta.im_item as Record<string, any>),
+            };
+            const hasExplicitPhotos =
+              Array.isArray(itemToSynthesize.photos) && itemToSynthesize.photos.length > 0;
+            if (!hasExplicitPhotos) {
+              const targetBldUuid = isUuid(buildingId)
+                ? buildingId
+                : isUuid(evBId)
+                ? evBId
+                : isUuid(evItemBid)
+                ? evItemBid
+                : null;
+              if (targetBldUuid) {
+                try {
+                  const { data: docRows } = await supabase
+                    .from('document_objects')
+                    .select('id, status, photos:body->photos, photos_v2:body->photos_v2, photo_urls:body->photo_urls')
+                    .eq('building_id', targetBldUuid)
+                    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft'])
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                  if (Array.isArray(docRows)) {
+                    for (const dr of docRows) {
+                      const candPhotos = Array.isArray((dr as any).photos_v2) && (dr as any).photos_v2.length > 0
+                        ? (dr as any).photos_v2
+                        : Array.isArray((dr as any).photos) && (dr as any).photos.length > 0
+                        ? (dr as any).photos
+                        : Array.isArray((dr as any).photo_urls)
+                        ? (dr as any).photo_urls.map((u: string) => ({ url: u }))
+                        : [];
+                      const realPhotos = candPhotos.filter((p: any) => {
+                        const u = typeof p === 'string' ? p : String(p?.url || '');
+                        return u.trim().length > 0 && !u.startsWith('/test-images/');
+                      });
+                      if (realPhotos.length > 0) {
+                        itemToSynthesize.photos = realPhotos;
+                        break;
+                      }
+                    }
+                  }
+                } catch {
+                  // Non-blocking
+                }
+              }
+            }
             return synthesizeQuickRecordFromImItem(
               buildingId,
-              meta.im_item as Record<string, any>,
+              itemToSynthesize,
               meta.broker_profile as Record<string, any> | undefined,
               ev.actor_id
             );

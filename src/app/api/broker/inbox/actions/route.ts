@@ -220,11 +220,40 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'send_magazine' || action === 'send_newsletter') {
+      let resolvedMagazineUrl =
+        typeof body?.publicUrl === 'string' && body.publicUrl.trim()
+          ? body.publicUrl.trim()
+          : '/magazine';
+      if (resolvedMagazineUrl === '/magazine') {
+        try {
+          const supabase = createServiceClient();
+          const { data: bp } = await supabase
+            .from('broker_profiles')
+            .select('slug')
+            .eq('user_id', userId)
+            .maybeSingle();
+          const slug = bp?.slug ? String(bp.slug).trim() : '';
+          if (slug) {
+            const { data: latestIssue } = await supabase
+              .from('magazine_issues')
+              .select('issue_date')
+              .eq('broker_id', slug)
+              .order('issue_date', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            resolvedMagazineUrl = latestIssue?.issue_date
+              ? `/magazine/${encodeURIComponent(slug)}/${encodeURIComponent(String(latestIssue.issue_date))}`
+              : `/magazine/${encodeURIComponent(slug)}`;
+          }
+        } catch {
+          // non-blocking fallback to /magazine
+        }
+      }
       return NextResponse.json({
         ok: true,
         action,
         buildingId,
-        shareUrl: '/magazine',
+        shareUrl: resolvedMagazineUrl,
       });
     }
 
@@ -280,6 +309,19 @@ export async function POST(req: NextRequest) {
             .update({ body: nextBody })
             .eq('id', latestDoc.id);
         }
+
+        await supabase.from('activity_events').insert({
+          actor_id: userId,
+          event_type: revoked ? 'link_revoked' : 'link_restored',
+          entity_type: 'building',
+          entity_id: isUuid(buildingId) ? buildingId : userId,
+          metadata: {
+            thread_id: threadId,
+            building_id: buildingId,
+            share_token: shareToken,
+            revoked,
+          },
+        });
       } catch {
         // non-blocking
       }
@@ -326,6 +368,18 @@ export async function POST(req: NextRequest) {
             .update({ body: nextBody })
             .eq('id', latestDoc.id);
         }
+
+        await supabase.from('activity_events').insert({
+          actor_id: userId,
+          event_type: message ? 'correction_notice_published' : 'correction_notice_cleared',
+          entity_type: 'building',
+          entity_id: isUuid(buildingId) ? buildingId : userId,
+          metadata: {
+            thread_id: threadId,
+            building_id: buildingId,
+            message,
+          },
+        });
       } catch {
         // non-blocking
       }

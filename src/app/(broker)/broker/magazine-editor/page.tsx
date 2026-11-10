@@ -124,6 +124,14 @@ interface SavedEditionSummary {
   publishedAt: string | null;
   dealCount: number;
   hasBriefing: boolean;
+  summary?: string;
+  briefingTitle?: string;
+  briefingBody?: string;
+  marketTemp?: MarketTemperature | null;
+  selectedDealIds?: string[];
+  dealComments?: Record<string, string>;
+  issueDate?: string;
+  publicUrl?: string;
 }
 
 const LOCAL_DRAFT_STORAGE_KEY = "cre-newsletter-local-draft-v2";
@@ -233,6 +241,8 @@ export default function MagazineEditorPage() {
             if (typeof edJson.highInterestCount === "number") setHighInterestCount(edJson.highInterestCount);
 
             if (Array.isArray(edJson.editions)) {
+              const resolvedBrokerSlug =
+                typeof edJson.brokerSlug === "string" ? edJson.brokerSlug.trim() : "";
               const mapped: SavedEditionSummary[] = edJson.editions
                 .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
                 .map((row) => {
@@ -244,21 +254,74 @@ export default function MagazineEditorPage() {
                     row.field_note && typeof row.field_note === "object"
                       ? (row.field_note as Record<string, unknown>)
                       : {};
-                  const dealIds = Array.isArray(row.featured_deal_ids)
+                  const rawDealIds = Array.isArray(row.featured_deal_ids)
                     ? row.featured_deal_ids
+                    : Array.isArray(content.featured_deal_ids)
+                    ? content.featured_deal_ids
                     : [];
+                  const dealIds = rawDealIds
+                    .map((d) => String(d ?? "").trim())
+                    .filter(Boolean);
+                  const rawComments =
+                    content.deal_comments && typeof content.deal_comments === "object"
+                      ? (content.deal_comments as Record<string, unknown>)
+                      : {};
+                  const dealCommentsMap: Record<string, string> = {};
+                  for (const [k, v] of Object.entries(rawComments)) {
+                    if (typeof v === "string") dealCommentsMap[k] = v;
+                  }
+                  const rawIssueDate =
+                    typeof content.issueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(content.issueDate)
+                      ? content.issueDate
+                      : typeof content.issue_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(content.issue_date)
+                      ? content.issue_date
+                      : typeof row.published_at === "string" && row.published_at.length >= 10
+                      ? row.published_at.slice(0, 10)
+                      : typeof row.created_at === "string" && row.created_at.length >= 10
+                      ? row.created_at.slice(0, 10)
+                      : "";
+                  const rowId = String(row.id ?? "");
+                  const rowSlug = String(row.edition_label ?? "");
+                  const computedPublicUrl =
+                    resolvedBrokerSlug && rawIssueDate
+                      ? `${getSiteOrigin()}/magazine/${encodeURIComponent(resolvedBrokerSlug)}/${encodeURIComponent(rawIssueDate)}?edition=${encodeURIComponent(rowId)}`
+                      : `${getSiteOrigin()}/magazine/${encodeURIComponent(resolvedBrokerSlug || "me")}/${encodeURIComponent(rowSlug || rowId)}?edition=${encodeURIComponent(rowId)}`;
+                  const extractedBriefing = String(
+                    content.briefing_body_md ?? row.theme_body_md ?? fieldNote.comment ?? content.theme_body_md ?? content.briefing ?? "",
+                  ).trim();
+                  const rawSummaryCandidate = String(
+                    content.summary ?? content.briefing ?? content.ai_briefing ?? "",
+                  ).trim();
+                  const extractedSummary =
+                    rawSummaryCandidate && rawSummaryCandidate !== extractedBriefing
+                      ? rawSummaryCandidate
+                      : "";
+                  const extractedThemeTitle = String(
+                    row.theme_title ?? content.briefing_title ?? content.theme_title ?? "",
+                  ).trim();
                   return {
-                    id: String(row.id ?? ""),
-                    slug: String(row.edition_label ?? ""),
+                    id: rowId,
+                    slug: rowSlug,
                     title: String(row.title ?? content.headline ?? "").trim(),
                     status: String(row.status ?? "draft"),
                     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
                     publishedAt: typeof row.published_at === "string" ? row.published_at : null,
                     // NL-01 / P1: 실제 개수만 표시 (임의 기본값 금지)
                     dealCount: dealIds.length,
-                    hasBriefing: Boolean(
-                      String(fieldNote.comment ?? content.briefing ?? "").trim(),
-                    ),
+                    hasBriefing: Boolean(extractedBriefing || extractedSummary),
+                    summary: extractedSummary,
+                    briefingTitle: extractedThemeTitle,
+                    briefingBody: extractedBriefing,
+                    marketTemp:
+                      typeof row.market_temp === "string"
+                        ? (row.market_temp as MarketTemperature)
+                        : typeof content.market_temp === "string"
+                        ? (content.market_temp as MarketTemperature)
+                        : null,
+                    selectedDealIds: dealIds,
+                    dealComments: dealCommentsMap,
+                    issueDate: rawIssueDate || undefined,
+                    publicUrl: computedPublicUrl,
                   };
                 });
               setEditions(mapped);
@@ -352,7 +415,7 @@ export default function MagazineEditorPage() {
   }> => {
     setSaveState("saving");
     const issueSlug = autoMeta.slug;
-    const defaultPublicUrl = `${getSiteOrigin()}/m/${encodeURIComponent(issueSlug)}`;
+    const defaultPublicUrl = `${getSiteOrigin()}/magazine/${encodeURIComponent(brokerSlug || "me")}/${encodeURIComponent(issueSlug)}`;
 
     try {
       const selectedDealSnapshots = selectedDealIds.map((id) => {
@@ -370,7 +433,7 @@ export default function MagazineEditorPage() {
           investmentPoint: comment || undefined,
           point: comment || undefined,
           photoUrl: d?.photoUrl || null,
-          imUrl: `/dc/${encodeURIComponent(id)}`,
+          imUrl: `/im-lite/${encodeURIComponent(id)}`,
         };
       });
 
@@ -424,6 +487,13 @@ export default function MagazineEditorPage() {
             publishedAt: nowIso,
             dealCount: selectedDealIds.length,
             hasBriefing: Boolean(briefingBody.trim() || summary.trim()),
+            summary: summary.trim(),
+            briefingTitle: briefingTitle.trim(),
+            briefingBody: briefingBody.trim(),
+            marketTemp,
+            selectedDealIds: [...selectedDealIds],
+            dealComments: { ...dealComments },
+            publicUrl: resolvedUrl,
           };
           const exists = prev.some((e) => e.id === effectiveId || e.slug === issueSlug);
           if (exists) {
@@ -489,11 +559,14 @@ export default function MagazineEditorPage() {
   const handleSelectStep = useCallback((nextStep: NewsletterStepKey) => {
     setActiveStep(nextStep);
     setStatusBanner(null);
+    if (nextStep === "send" && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("workspace:open-preview"));
+    }
   }, []);
 
   // ── 8. 빠른 시작: 이번 달 뉴스레터 새로 쓰기 / 이전 호 불러오기 ──
   const handleStartNewThisMonth = () => {
-    const now = new Date("2026-11-08T00:00:00+09:00");
+    const now = new Date();
     setEditionId(null);
     setIssueYear(now.getFullYear());
     setIssueMonth(now.getMonth() + 1);
@@ -519,12 +592,19 @@ export default function MagazineEditorPage() {
     setIssueYear(ym.year);
     setIssueMonth(ym.month);
     setHeadline(ed.title);
+    if (typeof ed.summary === "string") setSummary(ed.summary);
+    if (typeof ed.briefingTitle === "string") setBriefingTitle(ed.briefingTitle);
+    if (typeof ed.briefingBody === "string") setBriefingBody(ed.briefingBody);
+    if (ed.marketTemp !== undefined) setMarketTemp(ed.marketTemp);
+    if (Array.isArray(ed.selectedDealIds)) setSelectedDealIds(ed.selectedDealIds);
+    if (ed.dealComments && typeof ed.dealComments === "object") setDealComments(ed.dealComments);
     setIsPublished(ed.status === "published");
-    setPublishedUrl(
-      ed.status === "published"
-        ? `${getSiteOrigin()}/m/${encodeURIComponent(ed.slug)}`
-        : null,
-    );
+    const resolvedPubUrl =
+      ed.publicUrl ||
+      (brokerSlug && ed.issueDate
+        ? `${getSiteOrigin()}/magazine/${encodeURIComponent(brokerSlug)}/${encodeURIComponent(ed.issueDate)}?edition=${encodeURIComponent(ed.id)}`
+        : `${getSiteOrigin()}/magazine/${encodeURIComponent(brokerSlug || "me")}/${encodeURIComponent(ed.slug)}?edition=${encodeURIComponent(ed.id)}`);
+    setPublishedUrl(ed.status === "published" ? resolvedPubUrl : null);
     setSaveState("saved");
     setLastSavedAt(ed.updatedAt);
     setStatusBanner(null);
@@ -536,7 +616,11 @@ export default function MagazineEditorPage() {
     const selection = el
       ? { start: el.selectionStart ?? briefingBody.length, end: el.selectionEnd ?? briefingBody.length }
       : undefined;
-    const { text: nextText, cursorOffset } = applySimpleTextFormat(briefingBody, action, selection);
+    const { text: nextText, selectionStart, selectionEnd } = applySimpleTextFormat(
+      briefingBody,
+      action,
+      selection,
+    );
     setBriefingBody(nextText);
     persistLocalDraft({ briefingBody: nextText });
 
@@ -544,7 +628,7 @@ export default function MagazineEditorPage() {
       requestAnimationFrame(() => {
         try {
           el.focus();
-          el.setSelectionRange(cursorOffset, cursorOffset);
+          el.setSelectionRange(selectionStart, selectionEnd);
         } catch {
           // ignore selection error in headless test env
         }

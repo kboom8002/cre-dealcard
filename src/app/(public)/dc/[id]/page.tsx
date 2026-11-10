@@ -12,6 +12,7 @@ import { getServerViewer } from '@/lib/server-viewer';
 import {
   getQuickImRecord,
   isUuid,
+  resolveOrSynthesizeQuickImRecord,
   updateQuickImCard4,
   type StoredQuickImRecord,
 } from '@/lib/im-lite/quick-generate-store';
@@ -225,6 +226,40 @@ const getDealCardData = cache(async (id: string) => {
       ]);
     } else if (quickRec) {
       return buildDealCardDataFromQuickRecord(quickRec);
+    } else {
+      const synthesized = await resolveOrSynthesizeQuickImRecord(id, supabase);
+      if (synthesized) {
+        return buildDealCardDataFromQuickRecord(synthesized);
+      }
+      try {
+        let actQuery: any = supabase
+          .from("activity_events")
+          .select("actor_id, event_type, metadata, created_at");
+        if (typeof actQuery.in === "function") {
+          actQuery = actQuery.in("event_type", ["dealcard_upserted", "dealcard_restored"]);
+        }
+        if (typeof actQuery.order === "function") {
+          actQuery = actQuery.order("created_at", { ascending: false });
+        }
+        if (typeof actQuery.limit === "function") {
+          actQuery = actQuery.limit(50);
+        }
+        const { data: acts } = await actQuery;
+        const matched = (acts || []).find(
+          (a: any) => String(a?.metadata?.building_id || "").trim() === id && a?.metadata?.card4
+        );
+        if (matched) {
+          const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
+            ownerId: matched.actor_id,
+            brokerProfile: matched.metadata.broker_profile,
+          });
+          if (hydrated) {
+            return buildDealCardDataFromQuickRecord(hydrated);
+          }
+        }
+      } catch {
+        // ignore if activity_events unavailable
+      }
     }
   }
 

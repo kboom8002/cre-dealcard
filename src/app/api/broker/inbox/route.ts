@@ -206,6 +206,63 @@ export async function GET(req: NextRequest) {
     // ignore if table unavailable in unit test
   }
 
+  // ── 0-B. activity_events 기반 내 매물(im_upserted, dealcard_upserted) 병합 (L-05 Serverless 소유 매물 누락 방지) ──
+  try {
+    let ownedActQuery: any = supabase
+      .from("activity_events")
+      .select("event_type, entity_id, metadata, created_at")
+      .eq("actor_id", userId);
+    if (typeof ownedActQuery.in === "function") {
+      ownedActQuery = ownedActQuery.in("event_type", [
+        "im_upserted",
+        "im_restored",
+        "dealcard_upserted",
+        "dealcard_restored",
+      ]);
+    }
+    if (typeof ownedActQuery.order === "function") {
+      ownedActQuery = ownedActQuery.order("created_at", { ascending: false });
+    }
+    if (typeof ownedActQuery.limit === "function") {
+      ownedActQuery = ownedActQuery.limit(60);
+    }
+    const { data: ownedActs } = await ownedActQuery;
+    for (const act of ownedActs || []) {
+      const meta = (act.metadata as Record<string, any>) || {};
+      const imItem = (meta.im_item as Record<string, any>) || {};
+      const card4 = (meta.card4 as Record<string, any>) || {};
+      const bIdStr = String(meta.building_id || imItem.buildingId || imItem.id || act.entity_id || "").trim();
+      if (!bIdStr || bIdStr === userId) continue;
+      if (!buildingIds.includes(bIdStr)) {
+        buildingIds.push(bIdStr);
+      }
+      const titleCandidate = String(
+        imItem.title ||
+          imItem.buildingName ||
+          card4.headline ||
+          `${card4.region || ""} ${card4.use || ""}`.trim() ||
+          imItem.address ||
+          ""
+      ).trim();
+      if (titleCandidate && !buildingTitleById.has(bIdStr)) {
+        buildingTitleById.set(bIdStr, titleCandidate);
+      }
+      if (!quickInventory.some((q) => q.buildingId === bIdStr)) {
+        quickInventory.push({
+          buildingId: bIdStr,
+          title: titleCandidate || "보유 매물",
+          region: String(card4.region || imItem.address || ""),
+          priceBand: String(card4.priceBand || (imItem.askingPriceManwon ? `${Math.round(Number(imItem.askingPriceManwon) / 10000)}억` : "가격 협의")),
+          askingPriceManwon: Number(imItem.askingPriceManwon || 0),
+          capRatePct: Number(imItem.grossYieldPct || 0),
+          posture: String(imItem.investmentPosture || card4.posture || "income"),
+        });
+      }
+    }
+  } catch {
+    // ignore if activity_events unavailable
+  }
+
   const allOwnedBuildingIds = Array.from(
     new Set([...buildingIds, ...quickInventory.map((q) => String(q.buildingId)).filter(Boolean)])
   );
@@ -581,6 +638,10 @@ export async function GET(req: NextRequest) {
         "gate_request_approved",
         "gate_request_rejected",
         "call_note_recorded",
+        "link_revoked",
+        "link_restored",
+        "correction_notice_published",
+        "correction_notice_cleared",
       ]);
     }
     if (typeof brokerActQuery.order === "function") {
@@ -590,10 +651,13 @@ export async function GET(req: NextRequest) {
       brokerActQuery = brokerActQuery.limit(100);
     }
     const { data: brokerActs } = await brokerActQuery;
+    const seenRevokeDecision = new Set<string>();
+    const seenCorrectionDecision = new Set<string>();
     for (const act of brokerActs || []) {
       const meta = (act.metadata as Record<string, any>) || {};
       const tKey = String(meta.thread_id || meta.request_id || act.entity_id || "");
       const rawKey = String(meta.request_id || meta.raw_client_id || "").trim();
+      const bKey = String(meta.building_id || act.entity_id || "").trim();
       if (
         (act.event_type === "gate_request_approved" || act.event_type === "gate_request_rejected") &&
         tKey
@@ -624,6 +688,34 @@ export async function GET(req: NextRequest) {
           if (!existing.some((e) => e.description === noteItem.description)) {
             existing.push(noteItem);
             callNotesByThreadId.set(key, existing);
+          }
+        }
+      } else if (
+        (act.event_type === "link_revoked" || act.event_type === "link_restored") &&
+        bKey &&
+        !seenRevokeDecision.has(bKey)
+      ) {
+        seenRevokeDecision.add(bKey);
+        if (!inboxState.revokedBuildings[bKey]) {
+          inboxState.revokedBuildings[bKey] = {
+            revoked: act.event_type === "link_revoked",
+            revokedAt: act.created_at,
+            shareToken: meta.share_token || undefined,
+          };
+        }
+      } else if (
+        (act.event_type === "correction_notice_published" ||
+          act.event_type === "correction_notice_cleared") &&
+        bKey &&
+        !seenCorrectionDecision.has(bKey)
+      ) {
+        seenCorrectionDecision.add(bKey);
+        if (act.event_type === "correction_notice_published" && meta.message) {
+          if (!inboxState.correctionNotices[bKey]) {
+            inboxState.correctionNotices[bKey] = {
+              message: String(meta.message),
+              updatedAt: act.created_at,
+            };
           }
         }
       }

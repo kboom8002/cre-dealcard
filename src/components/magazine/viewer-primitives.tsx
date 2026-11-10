@@ -8,6 +8,7 @@
 import React from "react";
 // 주의: isomorphic-dompurify(jsdom)는 Vercel 런타임에서 ERR_REQUIRE_ESM 으로 모듈 로딩이 실패해 뷰어 전체가 500 이 됐다 (2026-10-16). 서버 렌더 경로에 쓰지 말 것.
 import { escapeHtml } from "@/lib/magazine/escape";
+import { stripUneditedFormatPlaceholders } from "@/lib/magazine/simple-format";
 
 export { SectionCard } from "./SectionCard";
 
@@ -29,17 +30,22 @@ export function DataBadge({ type }: { type: "ai" | "public" | "realtime" }) {
 export function briefingParaToSafeHtml(para: string): string {
   return escapeHtml(para)
     .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+    .replace(/「(.*?)」/g, '<strong class="text-white font-bold">「$1」</strong>')
     .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-200 font-bold font-mono">$1</span>')
     .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-200 font-bold">$1</span>');
 }
 
 /** 브리핑/테마 본문. 독자 본문 16px(text-reader). 강조 span 은 이스케이프 후 고정 태그로만 만든다. */
 export function RichBriefing({ text }: { text: string }) {
-  const paras = text.split(/\n{1,2}/).filter(Boolean);
+  const cleaned = stripUneditedFormatPlaceholders(text);
+  const paras = cleaned.split(/\n{1,2}/).filter(Boolean);
   return (
     <div className="space-y-3">
       {paras.map((para, i) => {
-        const isHeading = /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/u.test(para) || /^\*\*.*\*\*$/.test(para.trim());
+        const isHeading =
+          /^■\s+/.test(para.trim()) ||
+          /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/u.test(para) ||
+          /^\*\*.*\*\*$/.test(para.trim());
         const html = briefingParaToSafeHtml(para);
         const cls = isHeading ? "pt-1 text-title font-extrabold leading-snug text-white" : "text-reader leading-relaxed text-slate-200";
         // html 은 escapeHtml 로 전체 이스케이프된 뒤 고정 strong/span 태그만 삽입됨

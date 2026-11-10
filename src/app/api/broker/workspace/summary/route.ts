@@ -186,9 +186,35 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  const realPhotosByBuildingId = new Map<string, any[]>();
+  for (const d of docs) {
+    if (!d.building_id || realPhotosByBuildingId.has(d.building_id)) continue;
+    const cand = d.photos_v2 ?? d.photos ?? d.body?.photos_v2 ?? d.body?.photos;
+    if (Array.isArray(cand)) {
+      const valid = cand.filter(
+        (p: any) =>
+          p &&
+          typeof p.url === "string" &&
+          p.url.trim().length > 0 &&
+          !p.url.startsWith("/test-images/")
+      );
+      if (valid.length > 0) {
+        realPhotosByBuildingId.set(d.building_id, valid);
+      }
+    }
+  }
+
+  const sortedImCandidateDocs = [...docs]
+    .filter((d) => ["mobile_im", "im_lite", "im_lite_draft"].includes(d.document_type))
+    .sort((a, b) => {
+      const aPub = a.status === "published" || a.status === "broker_reviewed" ? 1 : 0;
+      const bPub = b.status === "published" || b.status === "broker_reviewed" ? 1 : 0;
+      if (aPub !== bPub) return bPub - aPub;
+      return new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime();
+    });
+
   const seenImBuildingIds = new Set<string>();
-  const imDocs = docs.filter((d) => {
-    if (!["mobile_im", "im_lite", "im_lite_draft"].includes(d.document_type)) return false;
+  const imDocs = sortedImCandidateDocs.filter((d) => {
     if (d.building_id) {
       if (seenImBuildingIds.has(d.building_id)) return false;
       seenImBuildingIds.add(d.building_id);
@@ -311,24 +337,37 @@ export async function GET(request: NextRequest) {
 
     const rawAxiosHighlights = d.axios_highlights ?? d.body?.axios_highlights;
     const brokerContact = d.broker_contact ?? d.body?.broker_contact;
-    const rawDocPhotos = d.photos_v2 ?? d.photos ?? d.body?.photos_v2 ?? d.body?.photos;
-    const normalizedDocPhotos = Array.isArray(rawDocPhotos)
-      ? rawDocPhotos
-          .filter(
-            (p: any) =>
-              p &&
-              typeof p.url === "string" &&
-              p.url.trim().length > 0 &&
-              !p.url.startsWith("/test-images/")
-          )
-          .map((p: any, idx: number) => ({
+    const rawDocPhotos =
+      d.photos_v2 ??
+      d.photos ??
+      d.body?.photos_v2 ??
+      d.body?.photos ??
+      (d.building_id ? realPhotosByBuildingId.get(d.building_id) : undefined);
+    const filteredDocPhotos = Array.isArray(rawDocPhotos)
+      ? rawDocPhotos.filter(
+          (p: any) =>
+            p &&
+            typeof p.url === "string" &&
+            p.url.trim().length > 0 &&
+            !p.url.startsWith("/test-images/")
+        )
+      : [];
+    const effectiveRawPhotos =
+      filteredDocPhotos.length > 0
+        ? filteredDocPhotos
+        : d.building_id && realPhotosByBuildingId.has(d.building_id)
+        ? realPhotosByBuildingId.get(d.building_id)!
+        : [];
+    const normalizedDocPhotos =
+      effectiveRawPhotos.length > 0
+        ? effectiveRawPhotos.map((p: any, idx: number) => ({
             url: String(p.url),
             caption: String(p.caption || p.label || `현장 사진 ${idx + 1}`),
             category: String(p.category || p.type || (idx === 0 ? "exterior" : "interior")),
             role: p.role || (idx === 0 ? "cover" : undefined),
             isHero: Boolean(p.isHero ?? idx === 0),
           }))
-      : undefined;
+        : undefined;
 
     return {
       id: d.id,
@@ -620,9 +659,12 @@ export async function GET(request: NextRequest) {
         (it.id && im.id === it.id) ||
         (it.buildingId && im.buildingId === it.buildingId)
     );
+    const prevPhotos = idx >= 0 ? (imList[idx] as any).photos : undefined;
+    const itPhotos = Array.isArray(it.photos) && it.photos.length > 0 ? it.photos : prevPhotos;
     const mergedIm = {
       ...(idx >= 0 ? imList[idx] : {}),
       ...it,
+      ...(itPhotos && itPhotos.length > 0 ? { photos: itPhotos } : {}),
       id: String(it.id || (idx >= 0 ? imList[idx].id : it.buildingId)),
       buildingId: String(it.buildingId || (idx >= 0 ? imList[idx].buildingId : it.id)),
       brokerName: cleanBrokerField(it.brokerName, brokerProfile?.displayName),
@@ -860,20 +902,83 @@ export async function PATCH(request: NextRequest) {
     const imId = String(imItem.id || buildingId);
     try {
       if (isUuid(buildingId)) {
-        const { data: latestDoc } = await supabase
+        const docQuery = supabase
           .from("document_objects")
-          .select("id, body")
+          .select("id, status, body")
           .eq("building_id", buildingId)
           .in("document_type", ["mobile_im", "im_lite", "im_lite_draft"])
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(5);
+        const rawDocRes = await (typeof (docQuery as any).then === "function"
+          ? docQuery
+          : (docQuery as any).maybeSingle?.());
+        const candidateDocs: any[] = Array.isArray(rawDocRes?.data)
+          ? rawDocRes.data
+          : rawDocRes?.data
+          ? [rawDocRes.data]
+          : [];
+        const latestDoc =
+          candidateDocs.find((d) => String(d?.id) === imId) ||
+          candidateDocs.find((d) => d?.status === "published" || d?.status === "broker_reviewed") ||
+          candidateDocs[0] ||
+          null;
+
+        let siblingRealPhotos: any[] | undefined;
+        for (const cd of candidateDocs) {
+          const cb = (cd?.body && typeof cd.body === "object" ? cd.body : {}) as Record<string, any>;
+          const cp = Array.isArray(cb.photos_v2) && cb.photos_v2.length > 0 ? cb.photos_v2 : cb.photos;
+          if (Array.isArray(cp)) {
+            const valid = cp.filter(
+              (p: any) =>
+                p &&
+                typeof p.url === "string" &&
+                p.url.trim().length > 0 &&
+                !p.url.startsWith("/test-images/")
+            );
+            if (valid.length > 0) {
+              siblingRealPhotos = valid;
+              break;
+            }
+          }
+        }
+
+        const nextDocStatus =
+          imItem.status === "completed" || imItem.status === "published"
+            ? "published"
+            : undefined;
 
         if (latestDoc?.id) {
           const prevBody = (latestDoc.body && typeof latestDoc.body === "object" ? latestDoc.body : {}) as Record<string, any>;
           const prevSsot = (prevBody.ssot_summary && typeof prevBody.ssot_summary === "object" ? prevBody.ssot_summary : {}) as Record<string, any>;
           const prevHero = (prevBody.heroCard && typeof prevBody.heroCard === "object" ? prevBody.heroCard : {}) as Record<string, any>;
           const prevFloorLeases = Array.isArray(prevBody.floor_leases) ? prevBody.floor_leases : [];
+          const incomingRealPhotos = Array.isArray(imItem.photos)
+            ? imItem.photos.filter((p: any) => {
+                const u = typeof p === "string" ? p : String(p?.url || p?.dataUrl || p?.previewUrl || "");
+                return u.trim().length > 0 && !u.startsWith("/test-images/");
+              })
+            : [];
+          const prevRealPhotos = Array.isArray(prevBody.photos)
+            ? prevBody.photos.filter(
+                (p: any) =>
+                  p &&
+                  typeof p.url === "string" &&
+                  p.url.trim().length > 0 &&
+                  !p.url.startsWith("/test-images/")
+              )
+            : [];
+          const preservedPhotos =
+            incomingRealPhotos.length > 0
+              ? incomingRealPhotos.map((p: any, idx: number) => ({
+                  url: typeof p === "string" ? p : String(p.url || p.dataUrl || p.previewUrl),
+                  caption: p?.caption || p?.name || `${imItem.title || "매물"} 현장 사진 ${idx + 1}`,
+                  category: p?.category || (idx === 0 ? "exterior" : "interior"),
+                  role: idx === 0 ? "cover" : "interior",
+                  isHero: idx === 0,
+                }))
+              : prevRealPhotos.length > 0
+              ? prevBody.photos
+              : siblingRealPhotos || prevBody.photos;
           const cleanHighlights = Array.isArray(imItem.axiosHighlights)
             ? imItem.axiosHighlights
                 .map((h: any, idx: number) => {
@@ -974,6 +1079,12 @@ export async function PATCH(request: NextRequest) {
             axios_highlights: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevBody.axios_highlights,
             rent_roll: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.rent_roll,
             floor_leases: normalizedFloorLeases,
+            ...(Array.isArray(preservedPhotos) && preservedPhotos.length > 0
+              ? {
+                  photos: preservedPhotos,
+                  photo_urls: preservedPhotos.map((p: any) => p?.url).filter(Boolean),
+                }
+              : {}),
             heroCard: {
               ...prevHero,
               posture: imItem.investmentPosture || prevHero.posture,
@@ -995,10 +1106,48 @@ export async function PATCH(request: NextRequest) {
             .from("document_objects")
             .update({
               title: imItem.title || undefined,
+              ...(nextDocStatus ? { status: nextDocStatus } : {}),
               body: nextBody,
               updated_at: new Date().toISOString(),
             })
             .eq("id", latestDoc.id);
+        }
+
+        const nextAskingManwon = Number(imItem.askingPriceManwon || 0);
+        if (nextAskingManwon > 0) {
+          try {
+            const eokVal = Math.round((nextAskingManwon / 10000) * 10) / 10;
+            const nextPriceBand = `${Number.isInteger(eokVal) ? eokVal : eokVal.toFixed(1)}억`;
+            const { data: bldRow } = await supabase
+              .from("building_ssot_lite")
+              .select("id, layers")
+              .eq("id", buildingId)
+              .maybeSingle();
+            if (bldRow) {
+              const curLayers = (bldRow.layers && typeof bldRow.layers === "object" ? bldRow.layers : {}) as Record<string, any>;
+              await supabase
+                .from("building_ssot_lite")
+                .update({
+                  price_band: nextPriceBand,
+                  layers: {
+                    ...curLayers,
+                    deal_terms: {
+                      ...(curLayers.deal_terms || {}),
+                      asking_price_manwon: nextAskingManwon,
+                    },
+                    finance: {
+                      ...(curLayers.finance || {}),
+                      asking_price_manwon: nextAskingManwon,
+                      asking_price_krw: nextAskingManwon * 10000,
+                    },
+                  },
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", buildingId);
+            }
+          } catch {
+            // Non-blocking
+          }
         }
       }
 
