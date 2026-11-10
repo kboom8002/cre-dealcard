@@ -77,12 +77,12 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const validPhotos = targetPhotos.filter(p => !!p.url);
 
   const renderFallbackGallery = (): ArchetypeOutput => {
-    const slide = L.light(input.pres);
-    // D4: 중개인 도면 면(suppressOnEmpty)은 이미지를 못 불러오면 일반 '현장 실사' 대체 카드 대신 면을 생략한다
+    // D4 / Rule 45: 중개인 도면 면(suppressOnEmpty)은 L.light(input.pres) 호출 전에 억제하여 빈 슬라이드가 pres에 추가되지 않게 한다
     if (input.data.suppressOnEmpty) {
       warnings.push('도면 이미지 로딩 실패 — 지구단위계획·도면 면 생략');
-      return { slide, warnings, suppress: true };
+      return { slide: undefined as any, warnings, suppress: true };
     }
+    const slide = L.light(input.pres);
     L.head(slide, input.slideNum, input.data.kicker || 'Gallery', input.data.title || '현장 사진');
     L.fallbackCard(slide, M, 1.50, CW, 5.00, {
       badge: '현장 실사 예정',

@@ -20,6 +20,7 @@ import { formatLeaseArea, leaseAreaHeader } from "./lease-area-format";
 import { resolveAreaInputUnit } from "../../rentroll-meta";
 import { normalizeBuildingRegister } from "@/lib/external/building-register-normalize";
 import { verifiedLegalLimits } from "./legal-limits";
+import { resolveDisplayAreas, isRegisterTrustworthy } from "./display-areas";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -261,8 +262,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     devMetrics: {
       landAreaPyeong: core.physical.landAreaSqm ? (sqmToPyeong(core.physical.landAreaSqm)).toFixed(1) : '-',
       targetGrossAreaPyeong: core.physical.totalGrossAreaSqm ? (sqmToPyeong(core.physical.totalGrossAreaSqm)).toFixed(1) : '-',
-      expectedBcrPct: core.physical.bcrPct ?? 60,
-      expectedFarPct: core.physical.farPct ?? 400,
+      expectedBcrPct: core.physical.bcrPct ?? undefined,
+      expectedFarPct: core.physical.farPct ?? undefined,
     },
     regulationExpiry: (core.physical as any).regulationExpiry ?? null,
     regulationDaysLeft: (core.physical as any).regulationDaysLeft ?? null,
@@ -386,9 +387,15 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     //   V-World landUsePlan/landPrice.landArea는 '대표 필지' 1개 면적이라 다필지 대지(예: 117번지 외 2필지)에서 과소 표기됨
     //   → SSoT/건축물대장 대지면적 우선, V-World는 최후 폴백.
     const parcelSum = summarizeParcels(body?.parcels);
+    const pyToSqmExt = (py: unknown) => (Number.isFinite(Number(py)) && Number(py) > 0 ? pyeongToSqm(Number(py)) : undefined);
+    const dispAreasExt = resolveDisplayAreas({
+      brokerLandSqm: Number(body?.ssot_summary?.land_area_sqm) || Number(body?.ssot_summary?.plat_area_sqm) || Number(body?.heroCard?.landAreaM2) || pyToSqmExt(body?.heroCard?.landAreaPyeong ?? body?.ssot_summary?.land_area_pyeong),
+      brokerGfaSqm: Number(body?.ssot_summary?.total_gross_area_sqm) || Number(body?.heroCard?.totalGrossAreaM2 ?? body?.heroCard?.grossFloorAreaM2) || pyToSqmExt(body?.heroCard?.totalGrossAreaPyeong ?? body?.ssot_summary?.total_gross_area_pyeong),
+      register: enrichment.buildingRegister ?? null,
+    });
     const effectiveLandArea = [
+      dispAreasExt.landSqm,
       body?.ssot_summary?.land_area_sqm,
-      regPlatArea,
       body?.ssot_summary?.plat_area_sqm,
       body?.heroCard?.landAreaM2,
       lup?.landArea,
@@ -518,7 +525,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     }
 
     const br = enrichment.buildingRegister;
-    if (br && lup) {
+    if (br && isRegisterTrustworthy(br) && lup) {
     const nbr = normalizeBuildingRegister(br); // 대장 키 별칭(grndFlrCnt/groundFloors/approvalDate…) 단일 흡수
     const brRows: string[][] = [];
     if (nbr.buildingName) brRows.push(['건물명', nbr.buildingName]);

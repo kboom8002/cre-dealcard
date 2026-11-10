@@ -46,7 +46,7 @@ export interface ExternalDataEnrichmentResult {
   mapImageUrl: string | null;
   registryData: RegistryData | null;
   commercialDistrict: CommercialDistrictAnalysis | null;
-  cadastralMapImage: { buffer: Buffer; base64: string; width: number; height: number; bbox: [number, number, number, number]; _source: 'vworld_wms' } | null;
+  cadastralMapImage: { buffer: Buffer; base64: string; width: number; height: number; bbox: [number, number, number, number]; _source: 'vworld_wms' } | string | null;
   secondaryParcels?: { pnu: string; platArea: number }[];
   enrichedAt: string;
   errors: { api: string; message: string }[];
@@ -86,11 +86,18 @@ export async function enrichBuildingData(
         log.info(`Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
         const result = reconstructFromCache(data);
         if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
-          try {
-            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150, result.resolvedAddress?.pnu);
-          } catch (e) {
+          const cadResult = await fetchCadastralMapImage(
+            result.resolvedAddress.lat,
+            result.resolvedAddress.lng,
+            800,
+            600,
+            150,
+            result.resolvedAddress?.pnu
+          ).catch((e) => {
             log.warn("Failed to re-fetch cadastral map on cache hit", e);
-          }
+            return null;
+          });
+          result.cadastralMapImage = cadResult?.base64 ?? null;
         }
         return result;
       }

@@ -28,6 +28,7 @@ export interface ArchetypeOutput {
 function isBasicCoverMode(input: ArchetypeInput): boolean {
   return (
     THEME_META.presetId === 'credeal_basic' ||
+    (input as any).preset === 'credeal_basic' ||
     input.data?.preset === 'credeal_basic' ||
     input.data?.templateId === 'credeal_basic'
   );
@@ -414,7 +415,7 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
   // ── Step 1: Cover image attempt (determines fallback need) ──
   let imgAdded = false;
   // Basic IM 표지: 스펙 §2 "건물 사진을 넣지 않는다" — 추상 실루엣만 사용
-  const isBasicPreset = input.data?.preset === 'credeal_basic' || input.data?.templateId === 'credeal_basic';
+  const isBasicPreset = isBasicCoverMode(input);
   
   if (!isBasicPreset) {
     if (input.data?.coverImageUrl) {

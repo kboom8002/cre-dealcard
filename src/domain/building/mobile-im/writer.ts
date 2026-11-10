@@ -772,6 +772,18 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       if (enrichmentResult.landPriceHistory) {
         enrichmentData.landPriceHistory = enrichmentResult.landPriceHistory;
       }
+      if (!enrichmentData.landUsePlan && enrichmentResult.landUsePlan) {
+        enrichmentData.landUsePlan = enrichmentResult.landUsePlan;
+      }
+      if (!enrichmentData.landUseRegulations && enrichmentResult.landUseRegulations) {
+        enrichmentData.landUseRegulations = enrichmentResult.landUseRegulations;
+      }
+      if (!enrichmentData.landUseByParcel && enrichmentResult.landUseByParcel) {
+        enrichmentData.landUseByParcel = enrichmentResult.landUseByParcel;
+      }
+      if (!enrichmentData.apartmentHouseholds && enrichmentResult.apartmentHouseholds) {
+        enrichmentData.apartmentHouseholds = enrichmentResult.apartmentHouseholds;
+      }
       
       // 카카오맵 + POI 랜드마크 지도 생성 (POI 없어도 좌표만 있으면 기본 지도 생성)
       try {

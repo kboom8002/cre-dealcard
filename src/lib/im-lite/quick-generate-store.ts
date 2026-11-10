@@ -44,9 +44,21 @@ export interface SeedSpec {
   completionDate: string;
   floorsAbove: number;
   floorsBelow: number;
+  bcrPct?: number;
+  farPct?: number;
+  parkingSpaces?: number;
+  elevators?: number;
   pnu?: string;
+  lat?: number;
+  lng?: number;
   coordinates?: { lat: number; lng: number };
   officialLandPriceWonSqm?: number;
+  officialLandPricePerSqm?: number;
+  parcels?: any[];
+  closingLine?: string;
+  isSynthesized?: boolean;
+  updatedAt?: string;
+  mainPurpose?: string;
   handoverNote?: string;
   photos?: Array<Record<string, any>>;
   rentRoll: QuickImRentRollRow[];
@@ -61,8 +73,13 @@ export interface StoredQuickImRecord {
   askingPriceManwon: number;
   posture: string;
   pnu?: string;
+  lat?: number;
+  lng?: number;
   coordinates?: { lat: number; lng: number };
   officialLandPriceWonSqm?: number;
+  officialLandPricePerSqm?: number;
+  parcels?: any[];
+  closingLine?: string;
   floorsAbove?: number;
   floorsBelow?: number;
   card4: Card4Data;
@@ -76,7 +93,15 @@ export interface StoredQuickImRecord {
     handoverNote?: string;
     floorsAbove?: number;
     floorsBelow?: number;
+    bcrPct?: number;
+    farPct?: number;
+    parkingSpaces?: number;
+    elevators?: number;
     officialLandPriceWonSqm?: number;
+    officialLandPricePerSqm?: number;
+    parcels?: any[];
+    closingLine?: string;
+    mainPurpose?: string;
   };
   brokerProfile?: {
     displayName?: string;
@@ -91,6 +116,7 @@ export interface StoredQuickImRecord {
     specialtyAssets?: string[];
     bio?: string | null;
   };
+  docBody?: Record<string, any>;
   fullDocBody?: Record<string, any>;
   isRevoked?: boolean;
   revokedTokens?: string[];
@@ -338,7 +364,16 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
       ? Number(((vacancyCount / params.rentRoll.length) * 100).toFixed(1))
       : 0;
 
-  const officialLandPriceWonSqm = Number(params.officialLandPriceWonSqm) || 0;
+  const officialLandPriceWonSqm =
+    Number(params.officialLandPriceWonSqm ?? params.officialLandPricePerSqm) || 0;
+  const resolvedCoords =
+    params.coordinates ||
+    (Number.isFinite(Number(params.lat)) &&
+    Number.isFinite(Number(params.lng)) &&
+    Number(params.lat) !== 0 &&
+    Number(params.lng) !== 0
+      ? { lat: Number(params.lat), lng: Number(params.lng) }
+      : undefined);
 
   const isSeedId =
     params.buildingId === 'bld-01' ||
@@ -385,7 +420,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     address: params.address,
     building_name: params.buildingName,
     pnu: params.pnu,
-    coordinates: params.coordinates,
+    coordinates: resolvedCoords,
     sale_price_manwon: params.askingPriceManwon,
     deposit_total_manwon: totalDepositManwon,
     monthly_rent_total_manwon: totalRentManwon,
@@ -502,7 +537,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
       mgmt_fee_manwon: isVac ? 0 : Number(r.maintenanceManwon || 0),
       lease_state: isVac ? '공실' : isOwn ? '자가사용' : '임대중',
       is_vacant: isVac,
-      lease_end: r.leaseExpiry || '2027.12',
+      lease_end: r.leaseExpiry || '-',
       ...(r.note ? { note: r.note, remark: r.note } : {}),
       source: 'broker',
     };
@@ -510,19 +545,37 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
 
   const exactEokNum = Math.round((params.askingPriceManwon / 10000) * 100) / 100;
   const exactEokDisplay = `${exactEokNum}억 원`;
-  const bcrPct =
-    params.landAreaSqm > 0 && perFloorAreaSqm > 0
-      ? Math.min(
-          59.8,
-          Math.max(42.0, Math.round(((perFloorAreaSqm * 0.95) / Math.max(1, params.landAreaSqm)) * 1000) / 10)
-        )
-      : 0;
-  const farPct =
-    params.landAreaSqm > 0 && params.gfaSqm > 0
-      ? Math.max(150.0, Math.round(((params.gfaSqm * 0.84) / Math.max(1, params.landAreaSqm)) * 1000) / 10)
-      : 0;
-  const parkingSpaces = params.gfaSqm > 0 ? Math.max(4, Math.round(params.gfaSqm / 132)) : 0;
-  const elevators = floorsAbove >= 4 ? 1 : 0;
+  const useExplicitSpecs =
+    params.isSynthesized ||
+    params.bcrPct !== undefined ||
+    params.farPct !== undefined ||
+    params.parkingSpaces !== undefined ||
+    params.elevators !== undefined;
+  const bcrPct = useExplicitSpecs
+    ? Number(params.bcrPct || 0)
+    : params.landAreaSqm > 0 && perFloorAreaSqm > 0
+    ? Math.min(
+        59.8,
+        Math.max(42.0, Math.round(((perFloorAreaSqm * 0.95) / Math.max(1, params.landAreaSqm)) * 1000) / 10)
+      )
+    : 0;
+  const farPct = useExplicitSpecs
+    ? Number(params.farPct || 0)
+    : params.landAreaSqm > 0 && params.gfaSqm > 0
+    ? Math.max(150.0, Math.round(((params.gfaSqm * 0.84) / Math.max(1, params.landAreaSqm)) * 1000) / 10)
+    : 0;
+  const parkingSpaces = useExplicitSpecs
+    ? Number(params.parkingSpaces ?? 0)
+    : params.gfaSqm > 0
+    ? Math.max(4, Math.round(params.gfaSqm / 132))
+    : 0;
+  const elevators = useExplicitSpecs
+    ? Number(params.elevators ?? 0)
+    : floorsAbove >= 4
+    ? 1
+    : 0;
+  const buildingRegisterSource =
+    params.bcrPct || params.farPct ? 'api' : params.isSynthesized ? 'manual' : 'api';
 
   const ssotSummary = {
     address: params.address,
@@ -530,7 +583,9 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     road_address: params.address,
     jibun_address: params.address,
     pnu: params.pnu,
-    coordinates: params.coordinates,
+    coordinates: resolvedCoords,
+    lat: resolvedCoords?.lat ?? params.lat,
+    lng: resolvedCoords?.lng ?? params.lng,
     building_name: params.buildingName,
     asset_type: params.use || '근린생활시설',
     area_signal: params.region,
@@ -555,10 +610,14 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     bcr_pct: bcrPct,
     far_pct: farPct,
     parking_count: parkingSpaces,
+    parking_total: parkingSpaces,
     elevator_count: elevators,
-    main_usage: params.use || '제1·2종 근린생활시설',
+    main_usage: params.mainPurpose || params.use || '제1·2종 근린생활시설',
     structure: '철근콘크리트구조',
     official_land_price_per_sqm: officialLandPriceWonSqm,
+    official_land_price_krw: officialLandPriceWonSqm,
+    ...(params.parcels ? { parcels: params.parcels } : {}),
+    ...(params.closingLine ? { closing_line: params.closingLine } : {}),
     vacancy_pct: vacancyRatePct,
     vacancy_rate_pct: vacancyRatePct,
     vacancy_signal: vacancyRatePct === 0 ? '만실' : `공실률 ${vacancyRatePct}%`,
@@ -570,7 +629,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
         : params.posture === 'development' || params.posture === 'value_add'
         ? 'development'
         : 'income',
-    building_register_source: 'api',
+    building_register_source: buildingRegisterSource,
   };
 
   const rentTableLines = [
@@ -683,7 +742,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     },
   ];
 
-  const fullDocBody = {
+  const fullDocBody: Record<string, any> = {
     schemaVersion: '3.0',
     tier: 'basic',
     preset: 'credeal_basic',
@@ -691,7 +750,13 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     buildingName: params.buildingName,
     resolved_address: params.address,
     pnu: params.pnu,
-    coordinates: params.coordinates,
+    coordinates: resolvedCoords,
+    lat: resolvedCoords?.lat ?? params.lat,
+    lng: resolvedCoords?.lng ?? params.lng,
+    official_land_price_per_sqm: officialLandPriceWonSqm,
+    official_land_price_krw: officialLandPriceWonSqm,
+    ...(params.parcels ? { parcels: params.parcels } : {}),
+    ...(params.closingLine ? { closingLine: params.closingLine, closing_line: params.closingLine } : {}),
     investment_posture: ssotSummary.investment_posture,
     posture: ssotSummary.investment_posture,
     dataGrade: 'A',
@@ -734,8 +799,13 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     askingPriceManwon: params.askingPriceManwon,
     posture: params.posture,
     pnu: params.pnu,
-    coordinates: params.coordinates,
+    lat: resolvedCoords?.lat ?? params.lat,
+    lng: resolvedCoords?.lng ?? params.lng,
+    coordinates: resolvedCoords,
     officialLandPriceWonSqm,
+    officialLandPricePerSqm: officialLandPriceWonSqm,
+    ...(params.parcels ? { parcels: params.parcels } : {}),
+    ...(params.closingLine ? { closingLine: params.closingLine } : {}),
     floorsAbove,
     floorsBelow,
     card4,
@@ -749,11 +819,20 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
       handoverNote: params.handoverNote,
       floorsAbove,
       floorsBelow,
+      bcrPct,
+      farPct,
+      parkingSpaces,
+      elevators,
       officialLandPriceWonSqm,
+      officialLandPricePerSqm: officialLandPriceWonSqm,
+      ...(params.parcels ? { parcels: params.parcels } : {}),
+      ...(params.closingLine ? { closingLine: params.closingLine } : {}),
+      ...(params.mainPurpose ? { mainPurpose: params.mainPurpose } : {}),
     },
+    docBody: fullDocBody,
     fullDocBody,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: params.updatedAt || now,
   };
 }
 
@@ -936,6 +1015,7 @@ export function synthesizeQuickRecordFromImItem(
   buildingIdOrItem: string | Record<string, any>,
   imItemOrBrokerProfile?: Record<string, any> | null,
   brokerProfileOrOwnerId?: Record<string, any> | string | null,
+  eventCreatedAt?: string | null,
   maybeOwnerId?: string | null
 ): StoredQuickImRecord {
   const isSingleObjectArg =
@@ -949,9 +1029,20 @@ export function synthesizeQuickRecordFromImItem(
   const brokerProfile: Record<string, any> | null | undefined = isSingleObjectArg
     ? (imItemOrBrokerProfile as Record<string, any> | null | undefined)
     : (brokerProfileOrOwnerId as Record<string, any> | null | undefined);
+  const isFourthArgTimestamp =
+    typeof eventCreatedAt === 'string' && /^\d{4}-\d{2}/.test(eventCreatedAt);
   const ownerId: string | null | undefined = isSingleObjectArg
-    ? (typeof brokerProfileOrOwnerId === 'string' ? brokerProfileOrOwnerId : imItem.ownerId)
-    : maybeOwnerId;
+    ? (typeof brokerProfileOrOwnerId === 'string' && !/^\d{4}-\d{2}/.test(brokerProfileOrOwnerId)
+        ? brokerProfileOrOwnerId
+        : imItem.ownerId)
+    : maybeOwnerId || imItem.ownerId || (!isFourthArgTimestamp ? eventCreatedAt : undefined);
+  const resolvedEventCreatedAt: string | undefined = isSingleObjectArg
+    ? (typeof brokerProfileOrOwnerId === 'string' && /^\d{4}-\d{2}/.test(brokerProfileOrOwnerId)
+        ? brokerProfileOrOwnerId
+        : undefined)
+    : isFourthArgTimestamp
+    ? eventCreatedAt || undefined
+    : undefined;
 
   const address = String(imItem.address || '').trim();
   const title = String(imItem.title || imItem.buildingName || '상업용 근생빌딩').trim();
@@ -1016,7 +1107,7 @@ export function synthesizeQuickRecordFromImItem(
             depositManwon: Number(r.depositManwon ?? r.deposit_manwon ?? 0),
             monthlyRentManwon: Number(r.monthlyRentManwon ?? r.rent_manwon ?? 0),
             maintenanceManwon: Number(r.maintenanceManwon ?? r.mgmt_fee_manwon ?? 0),
-            leaseExpiry: String(r.leaseExpiry || r.lease_end || '2027-12'),
+            leaseExpiry: String(r.leaseExpiry || r.lease_end || ''),
             ...(note ? { note } : {}),
             status: isVac
               ? ('vacant' as const)
@@ -1027,8 +1118,8 @@ export function synthesizeQuickRecordFromImItem(
         })
       : [];
 
-  let gfaSqm = Number(imItem.gfaSqm) || 0;
-  let landAreaSqm = Number(imItem.landAreaSqm) || 0;
+  let gfaSqm = Number(String(imItem.gfaSqm ?? '').replace(/,/g, '')) || 0;
+  let landAreaSqm = Number(String(imItem.landAreaSqm ?? '').replace(/,/g, '')) || 0;
   // Auto-correct swapped GFA and Land Area on multi-story buildings
   if (gfaSqm > 0 && landAreaSqm > 0 && gfaSqm < landAreaSqm && normalizedRentRoll.length >= 2) {
     const tmp = gfaSqm;
@@ -1036,8 +1127,8 @@ export function synthesizeQuickRecordFromImItem(
     landAreaSqm = tmp;
   }
 
-  const zoning = String(imItem.zoning || '제2종일반주거지역').trim();
-  const completionDate = String(imItem.completionDate || '2019-06-21').trim();
+  const zoning = String(imItem.zoning || '').trim();
+  const completionDate = String(imItem.completionDate || '').trim();
   const posture = String(imItem.investmentPosture || imItem.posture || 'core_income').trim();
 
   const knownGolden = address
@@ -1068,7 +1159,7 @@ export function synthesizeQuickRecordFromImItem(
         (sameExistingAddress ? existingMem?.coordinates : undefined);
 
   const officialLandPriceWonSqm =
-    Number(imItem.officialLandPriceWonSqm) ||
+    Number(imItem.officialLandPriceWonSqm ?? imItem.officialLandPricePerSqm) ||
     knownGolden?.officialLandPriceWonSqm ||
     (sameExistingAddress ? existingMem?.officialLandPriceWonSqm : undefined) ||
     0;
@@ -1084,7 +1175,7 @@ export function synthesizeQuickRecordFromImItem(
   const points: [string, string, string] = [
     extractedPoints[0] || `${region} 핵심 상권 가시성 우수`,
     extractedPoints[1] || '우량 임차인 안정적 임대수익 확보',
-    extractedPoints[2] || `${zoning} 토지 및 건물 가치 우수`,
+    extractedPoints[2] || `${zoning || '상업·업무 권역'} 토지 및 건물 가치 우수`,
   ];
 
   const rawPhotos = Array.isArray(imItem.photos) && imItem.photos.length > 0
@@ -1165,30 +1256,58 @@ export function synthesizeQuickRecordFromImItem(
       ? `${Math.max(1, Math.floor(eok / 10) * 10)}~${Math.ceil((eok + 1) / 10) * 10}억`
       : '가격 협의';
 
+  const resolvedClosingLine =
+    String(
+      imItem.closingLine ||
+        imItem.brokerExtras?.closingLine ||
+        imItem.brokerExtrasForm?.closingLine ||
+        ''
+    ).trim() || undefined;
+
   const rec = buildSeedRecord({
     buildingId,
     documentId: String(imItem.id || `im-doc-${buildingId}`),
     address,
     buildingName: title,
     region,
-    use: '근린생활시설',
+    use: String(imItem.mainPurpose || '근린생활시설'),
+    mainPurpose: imItem.mainPurpose ? String(imItem.mainPurpose) : undefined,
     priceBand,
     askingPriceManwon,
     posture,
-    pnu: resolvedPnu,
+    isSynthesized: true,
+    bcrPct: Number(imItem.bcrPct || 0),
+    farPct: Number(imItem.farPct || 0),
+    parkingSpaces: Number(imItem.parkingTotal ?? imItem.parkingSpaces ?? 0),
+    elevators: Number(imItem.elevatorCount ?? imItem.elevators ?? 0),
+    pnu: resolvedPnu || imItem.pnu,
+    lat: resolvedCoordinates?.lat ?? imItem.lat,
+    lng: resolvedCoordinates?.lng ?? imItem.lng,
     coordinates: resolvedCoordinates,
     officialLandPriceWonSqm,
+    officialLandPricePerSqm:
+      Number(imItem.officialLandPricePerSqm || 0) || officialLandPriceWonSqm,
+    parcels: imItem.parcels,
+    closingLine: resolvedClosingLine,
     points,
     gfaSqm,
     landAreaSqm,
     zoning,
     completionDate,
-    floorsAbove,
-    floorsBelow,
+    floorsAbove: Number(imItem.floorsAbove || floorsAbove || 0),
+    floorsBelow: Number(imItem.floorsBelow ?? floorsBelow ?? 0),
     rentRoll: normalizedRentRoll,
     ...(resolvedPhotos.length > 0 ? { photos: resolvedPhotos as any } : {}),
     ...(imItem.handoverNote ? { handoverNote: imItem.handoverNote } : {}),
   });
+
+  const validItemUpdatedAt =
+    typeof imItem.updatedAt === 'string' &&
+    imItem.updatedAt.trim().length > 0 &&
+    !/방금|전$/.test(imItem.updatedAt.trim())
+      ? imItem.updatedAt.trim()
+      : undefined;
+  rec.updatedAt = resolvedEventCreatedAt || validItemUpdatedAt || rec.updatedAt;
 
   const cleanBrokerStr = (val: unknown): string => {
     if (typeof val !== 'string') return '';
@@ -1242,6 +1361,9 @@ export function synthesizeQuickRecordFromImItem(
     };
   }
   if (rec.fullDocBody) {
+    if (rawHighlights.length > 0) {
+      rec.fullDocBody.axios_highlights = rawHighlights;
+    }
     rec.fullDocBody.broker_contact = {
       name: resolvedBrokerName,
       company: resolvedBrokerageName,
@@ -1251,7 +1373,11 @@ export function synthesizeQuickRecordFromImItem(
       brokerageName: resolvedBrokerageName,
       brokerPhone: resolvedBrokerPhone,
       registrationNo: resolvedBrokerRegNo,
+      ...(resolvedClosingLine
+        ? { closingLine: resolvedClosingLine, closing_line: resolvedClosingLine }
+        : {}),
     };
+    rec.docBody = rec.fullDocBody;
   }
 
   saveQuickImRecord(rec);
@@ -1279,22 +1405,24 @@ export async function resolveOrSynthesizeQuickImRecord(
     try {
       const { data: imEvents } = await dbClient
         .from('activity_events')
-        .select('actor_id, event_type, metadata, created_at')
+        .select('actor_id, entity_id, event_type, metadata, created_at')
         .in('event_type', ['im_upserted', 'im_deleted', 'im_restored'])
         .order('created_at', { ascending: false })
-        .limit(80);
+        .limit(200);
 
       if (Array.isArray(imEvents)) {
         for (const ev of imEvents) {
           const meta = (ev.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, any>;
+          const evEntityId = String(ev.entity_id || '');
           const evBId = String(meta.building_id || '');
           const evImId = String(meta.im_id || meta.im_item?.id || '');
           const evItemBid = String(meta.im_item?.buildingId || '');
           if (
+            evEntityId !== buildingId &&
             evBId !== buildingId &&
             evImId !== buildingId &&
             evItemBid !== buildingId &&
-            (!docId || (evBId !== docId && evImId !== docId))
+            (!docId || (evEntityId !== docId && evBId !== docId && evImId !== docId))
           ) {
             continue;
           }
@@ -1305,6 +1433,9 @@ export async function resolveOrSynthesizeQuickImRecord(
             const itemToSynthesize: Record<string, any> = {
               ...(meta.im_item as Record<string, any>),
             };
+            if (ev.actor_id && !itemToSynthesize.ownerId) {
+              itemToSynthesize.ownerId = ev.actor_id;
+            }
             const hasExplicitPhotos =
               Array.isArray(itemToSynthesize.photos) && itemToSynthesize.photos.length > 0;
             if (!hasExplicitPhotos) {
@@ -1352,6 +1483,7 @@ export async function resolveOrSynthesizeQuickImRecord(
               buildingId,
               itemToSynthesize,
               meta.broker_profile as Record<string, any> | undefined,
+              ev.created_at,
               ev.actor_id
             );
           }
@@ -1374,60 +1506,20 @@ export function updateQuickImCard4(
   }
 ): StoredQuickImRecord | null {
   const existing = getQuickImRecord(idOrDocId);
+  if (!existing) {
+    return null;
+  }
   const now = new Date().toISOString();
-  if (existing) {
-    const updated: StoredQuickImRecord = {
-      ...existing,
-      buildingName: `${card4.region} ${card4.use}`,
-      ownerId: opts?.ownerId || existing.ownerId,
-      brokerProfile: opts?.brokerProfile || existing.brokerProfile,
-      card4,
-      updatedAt: now,
-    };
-    saveQuickImRecord(updated);
-    return updated;
-  }
-
-  // Upsert a new record for newly created DealCards (e.g., bld-xxxx)
-  const priceMatch = String(card4.priceBand || '').match(/(\d+)/);
-  const askingPriceManwon = priceMatch ? Number(priceMatch[1]) * 10000 + 5000 : 850000;
-  const created = buildSeedRecord({
-    buildingId: idOrDocId,
-    documentId: idOrDocId.startsWith('im-doc-') ? idOrDocId : `im-doc-${idOrDocId}`,
-    address: `서울시 ${card4.region} 100-1`,
+  const updated: StoredQuickImRecord = {
+    ...existing,
     buildingName: `${card4.region} ${card4.use}`,
-    region: card4.region,
-    use: card4.use,
-    priceBand: card4.priceBand,
-    askingPriceManwon,
-    posture: 'core_income',
-    points: card4.points,
-    gfaSqm: 1200.0,
-    landAreaSqm: 360.0,
-    zoning: '제3종일반주거지역',
-    completionDate: '2019-05-10',
-    floorsAbove: 5,
-    floorsBelow: 1,
-    rentRoll: [
-      { floor: '1F', unit: '101', use: card4.use || '근린생활시설', depositManwon: 8000, monthlyRentManwon: 650, maintenanceManwon: 60, leaseExpiry: '2027-06', status: 'occupied' },
-      { floor: '2F~5F', unit: '전층', use: '오피스 및 근생', depositManwon: 15000, monthlyRentManwon: 1850, maintenanceManwon: 150, leaseExpiry: '2027-12', status: 'occupied' },
-    ],
-  });
-  created.card4 = card4;
-  if (opts?.ownerId) created.ownerId = opts.ownerId;
-  if (opts?.brokerProfile) {
-    created.brokerProfile = opts.brokerProfile;
-    if (created.basicImDoc?.facts) {
-      created.basicImDoc.facts.brokerOffice = {
-        name: opts.brokerProfile.company || '담당 중개사무소',
-        representative: opts.brokerProfile.displayName || '담당 공인중개사',
-        registrationNo: opts.brokerProfile.registrationNo || '-',
-        phone: opts.brokerProfile.phone || '-',
-      };
-    }
-  }
-  saveQuickImRecord(created);
-  return created;
+    ownerId: opts?.ownerId || existing.ownerId,
+    brokerProfile: opts?.brokerProfile || existing.brokerProfile,
+    card4,
+    updatedAt: now,
+  };
+  saveQuickImRecord(updated);
+  return updated;
 }
 
 export function listAllQuickImRecords(): StoredQuickImRecord[] {

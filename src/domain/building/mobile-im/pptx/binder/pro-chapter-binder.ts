@@ -15,7 +15,7 @@ import type { SectionData } from './binder-types';
 import { buildProRentRollTable, detectProAreaMode } from './pro-rentroll-table';
 import { buildProEvictionData, PRO_EVICTION_DATA_KEY } from './pro-eviction';
 import { PYEONG_TO_SQM_V15, resolveAreaInputUnit } from '../../rentroll-meta';
-import { resolveLeaseOccupancy, sumLeasedRentRoll } from '../../lease-vacancy';
+import { resolveLeaseOccupancy, isNonLeasableLeaseRow, sumLeasedRentRoll } from '../../lease-vacancy';
 import { splitFloorAndUnit } from '../../floor-unit-resolver';
 import { formatAreaNumber, sumLeaseAreaInUnit } from '../../lease-area-cell';
 import { createModuleLogger } from '@/lib/logger';
@@ -179,7 +179,7 @@ export function bindProImChapterData(
         const excPyRaw = Number(item.exclusiveAreaPyeong ?? item.exclusive_area_pyeong ?? (excM2Raw / PYEONG_TO_SQM_V15)) || 0;
         // 점유 상태 SSOT (floor_leases 행만): 공실·자가사용 행은 임차인이 아니다 → 금액·만기·갱신권 없음, 임차인 수 제외
         const occupancy = fromFloorLeases ? resolveLeaseOccupancy(item) : '임대중';
-        const notLeased = occupancy !== '임대중';
+        const nonLeasable = fromFloorLeases && isNonLeasableLeaseRow(item); const notLeased = nonLeasable || occupancy !== '임대중';
         const depKrw = notLeased ? 0 : item.deposit_manwon != null
           ? Number(item.deposit_manwon) * 10000
           : Number(item.depositKrw ?? item.deposit_krw ?? item.deposit ?? 0);
@@ -197,7 +197,7 @@ export function bindProImChapterData(
           floor: splitFloorAndUnit(String(item.floor || `${idx + 1}F`), item.unitNumber || item.unit_number || item.unit_label || item.unit).floorLabel,
           // 호실번호는 입력된 값만 — 층 + '01호' 같은 지어낸 호실을 만들지 않는다
           unitNumber: splitFloorAndUnit(String(item.floor || `${idx + 1}F`), item.unitNumber || item.unit_number || item.unit_label || item.unit).unitLabel || String(item.unitNumber || item.unit_number || '-'),
-          tenantName: notLeased ? occupancy : String(item.tenantName || item.tenant_name || item.name || '임차인'),
+          tenantName: nonLeasable ? String(item.tenantName || item.tenant_name || item.name || occupancy) : notLeased ? occupancy : String(item.tenantName || item.tenant_name || item.name || '임차인'),
           // 업종: 입력된 값만 (floor_leases.tenant_type 포함). 없으면 '-' (기존의 '일반업무' 기본값은 지어낸 값)
           industry: notLeased ? '-' : String(item.industry || item.category || item.tenant_type || '-'),
           leasedAreaM2: Math.round(areaM2 * 100) / 100,
@@ -209,7 +209,7 @@ export function bindProImChapterData(
           leaseEndDate: notLeased ? '' : (item.leaseEndDate || item.lease_end_date || item.lease_end || ''),
           statutoryProtection10Y: notLeased ? false : Boolean(item.statutoryProtection10Y ?? item.statutory_protection_10y ?? true),
           isAnchor: Boolean(item.isAnchor ?? item.is_anchor ?? false),
-          ...(notLeased ? { renewalOption: '-', occupancyType: occupancy === '공실' ? ('vacant' as const) : ('owner_occupied' as const) } : {}),
+          ...(notLeased ? { renewalOption: '-', occupancyType: occupancy === '공실' && !nonLeasable ? ('vacant' as const) : ('owner_occupied' as const) } : {}),
           ...(excM2Raw > 0 ? { exclusiveAreaM2: Math.round(excM2Raw * 100) / 100, exclusiveAreaPyeong: Math.round(excPyRaw * 100) / 100 } : {}),
         };
         const grp = String(item.contract_group ?? item.contractGroup ?? '').trim();
@@ -762,7 +762,7 @@ export function bindProImChapterData(
         rows: [
           ['권역 A급 평균', '-'],
           ['권역 B급 평균', '-'],
-          ['대상 자산 수준', `보증금 ${Math.round(totalDepositKrw / grossFloorAreaPy / 10000).toLocaleString()}만 원 / 월세 ${Math.round(annualRentKrw / 12 / grossFloorAreaPy / 10000).toLocaleString()}만 원`],
+          ['대상 자산 수준', grossFloorAreaPy > 0 ? `보증금 ${Math.round(totalDepositKrw / grossFloorAreaPy / 10000).toLocaleString()}만 원 / 월세 ${Math.round(annualRentKrw / 12 / grossFloorAreaPy / 10000).toLocaleString()}만 원` : '-'],
           ['임대료 경쟁력', '인근 시세 대비 적정 수준 유지로 임차인 락인(Lock-in) 효과'],
         ],
       },

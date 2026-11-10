@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
 import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
-import { studioService } from '@/domain/building/pptx-studio/studio-service';
+import {
+  studioService,
+  buildBasicImSlideDefaults,
+} from '@/domain/building/pptx-studio/studio-service';
+import { resolveOrSynthesizeQuickImRecord } from '@/lib/im-lite/quick-generate-store';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { ReleaseTier } from '@/domain/building/im-core/release-tier';
+
+const isUuid = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 export async function GET(
   req: NextRequest,
@@ -46,20 +53,33 @@ export async function GET(
       try {
         const actualId = id.replace(/^basic-/, '');
         const recoverySupabase = createServiceClient();
-        const { data: recoveryDocs } = await recoverySupabase
-          .from('document_objects')
-          .select('id, title, body, building_id')
-          .or(`building_id.eq.${actualId},id.eq.${actualId}`)
-          .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
-          .order('created_at', { ascending: false })
-          .limit(3);
+        let recoveryDoc: any = null;
+        if (isUuid(actualId)) {
+          const { data: recoveryDocs } = await recoverySupabase
+            .from('document_objects')
+            .select('id, title, body, building_id')
+            .or(`building_id.eq.${actualId},id.eq.${actualId}`)
+            .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
+            .order('created_at', { ascending: false })
+            .limit(3);
 
-        const recoveryDoc = (recoveryDocs || []).find(
-          (d: any) => d?.body && !Array.isArray(d.body.slides)
-        );
+          recoveryDoc = (recoveryDocs || []).find(
+            (d: any) => d?.body && !Array.isArray(d.body.slides)
+          );
+        }
         if (recoveryDoc?.body) {
           project = await studioService.createBasicImProject(actualId, recoveryDoc.title || 'Basic IM', recoveryDoc.body);
           console.warn(`[basic-im-studio/download] P-C4: cold start 복구 후 프로젝트 재생성 (${actualId})`);
+        } else {
+          const synth = await resolveOrSynthesizeQuickImRecord(actualId, recoverySupabase);
+          if (synth) {
+            project = await studioService.createBasicImProject(
+              actualId,
+              synth.buildingName || 'Basic IM',
+              synth.fullDocBody || {}
+            );
+            console.warn(`[basic-im-studio/download] P-C4: QuickImStore 복구 후 프로젝트 재생성 (${actualId})`);
+          }
         }
       } catch (recoverErr) {
         console.warn('[basic-im-studio/download] P-C4: 복구 실패:', recoverErr);
@@ -115,19 +135,21 @@ export async function GET(
     let broker: Record<string, any> | null = null;
 
     try {
-      const { data: docRows } = await supabase
-        .from('document_objects')
-        .select('id, title, body, building_id, broker_id, owner_id, document_type')
-        .or(`building_id.eq.${project.dealId},id.eq.${project.dealId}`)
-        .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
-        .order('created_at', { ascending: false })
-        .limit(3);
+      if (isUuid(project.dealId)) {
+        const { data: docRows } = await supabase
+          .from('document_objects')
+          .select('id, title, body, building_id, broker_id, owner_id, document_type')
+          .or(`building_id.eq.${project.dealId},id.eq.${project.dealId}`)
+          .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
+          .order('created_at', { ascending: false })
+          .limit(3);
 
-      // Select the latest real IM document (not a PptxProject row)
-      doc = (docRows || []).find((r: any) => r?.body && !Array.isArray(r.body.slides)) ?? null;
+        // Select the latest real IM document (not a PptxProject row)
+        doc = (docRows || []).find((r: any) => r?.body && !Array.isArray(r.body.slides)) ?? null;
+      }
 
       const targetBuildingId = doc?.building_id || project.dealId;
-      if (targetBuildingId) {
+      if (targetBuildingId && isUuid(targetBuildingId)) {
         const { data: bldg } = await supabase
           .from('building_ssot_lite')
           .select('*')
@@ -144,6 +166,11 @@ export async function GET(
     }
 
     const baseBody = doc?.body ?? project.buildingContext ?? {};
+    const studioDocBody = baseBody;
+    const initialOverrides =
+      Object.keys(studioInitialOverrides).length > 0
+        ? studioInitialOverrides
+        : buildBasicImSlideDefaults(structuredClone(studioDocBody));
 
     // Apply closing/cover broker overrides to broker object if specified in Studio
     const closingOv = studioSlideOverrides['closing'] || {};
@@ -159,7 +186,7 @@ export async function GET(
 
     const effectiveBroker = {
       ...(broker || {}),
-      company_name: effectiveCompanyName || broker?.company_name || 'CRE DEAL 파트너스 중개법인',
+      company_name: effectiveCompanyName || broker?.company_name || '',
       display_name: closingOv.brokerName || coverOv.brokerName || broker?.display_name || '',
       phone: closingOv.brokerPhone || coverOv.brokerPhone || broker?.phone || '',
       email: closingOv.brokerEmail || broker?.email || '',
@@ -179,11 +206,11 @@ export async function GET(
     const effectiveLayoutStyle = (queryLayoutStyle || project.layoutStyle) as any;
 
     const fullBody: Record<string, any> = {
-      ...baseBody,
+      ...studioDocBody,
       ...studioSlideOverrides,
       preset: 'credeal_basic',
       _studioSlideOverrides: studioSlideOverrides,
-      _studioInitialOverrides: studioInitialOverrides,
+      _studioInitialOverrides: initialOverrides,
       _studioSlideTitles: studioSlideTitles,
       _studioHiddenDataKeys: studioHiddenDataKeys,
       _studioSlideOrder: studioSlideOrder,
@@ -195,10 +222,11 @@ export async function GET(
         layoutStyle: effectiveLayoutStyle,
       },
     };
+    (studioDocBody as any)._studioInitialOverrides = initialOverrides;
 
     // Sync edited Studio Rent Roll tenantData into fullBody.floor_leases & rentRoll
     const rrSlideOv = studioSlideOverrides['rentroll'] || studioSlideOverrides['rentRoll'];
-    const rrInitOv = studioInitialOverrides['rentroll'] || studioInitialOverrides['rentRoll'];
+    const rrInitOv = initialOverrides['rentroll'] || initialOverrides['rentRoll'];
     if (Array.isArray(rrSlideOv?.tenantData) && rrSlideOv.tenantData.length > 0) {
       const isTenantDataEdited =
         !rrInitOv?.tenantData ||

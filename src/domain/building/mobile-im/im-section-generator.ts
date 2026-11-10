@@ -473,7 +473,7 @@ export async function generateSingleSection(
       const pnu = supplemental.resolved_pnu || externalData?.resolvedAddress?.pnu || '';
       if (areaM2 > 0 || pnu) {
         parcels.push({
-          pnu: pnu || '1100000000',
+          pnu: pnu || '',
           jimok: String((supplemental as any)?.jimok || '대'),
           areaM2: areaM2 || 0,
           ownershipRatio: 1,

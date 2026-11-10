@@ -184,7 +184,7 @@ import type { PermitZoneResult } from '@/domain/building/im-core/permit-zone';
 import type { ConvertedDepositResult, EffectiveRentResult } from '@/domain/building/im-core/lease-calc';
 import type { KoreanLegalFields } from '@/domain/building/im-core/korean-legal';
 import { calculateWALE, type LeaseUnit, type WaleResult } from '../wale-calculator';
-import { isVacantLeaseRow, isOwnerUseLeaseRow } from '../lease-vacancy';
+import { isVacantLeaseRow, isOwnerUseLeaseRow, isNonLeasableLeaseRow, resolveLeaseOccupancy, summarizeLeaseOccupancy, sumLeasedRentRoll } from '../lease-vacancy';
 import { PRIME_TEMPLATE_ALIASES } from './pptx-theme';
 import { calculateSetbackRatio, inferTenantCategory } from './archetypes/a22-stacking-plan';
 import type { StackingPlanFloor, StackingPlanSummary } from '../types';
@@ -374,23 +374,25 @@ export function bindSectionData(
     if (sectionType === 'lease_status' || sectionType === 'stacking_plan') {
       const stabilityProps = transformForArchetype(cleanMarkdown, tables, 'A04');
 
-      // D41 A4: floor_leases 기반 공실률/임대료 직접 계산
+      // D41 A4: floor_leases 기반 공실률/임대료 직접 계산 (Rule 76: summarizeLeaseOccupancy & sumLeasedRentRoll SSOT)
       const leases: any[] = (doc.body?.floor_leases ?? []).filter(Boolean);
       if (leases.length > 0) {
-        // 점유 상태 SSOT(lease-vacancy): 자가사용은 공실 아님 + 공실률 분모 제외, 통합계약 후행(월세 0)은 공실 아님
-        const totalSpaces = leases.length - leases.filter((l: any) => isOwnerUseLeaseRow(l)).length;
-        const vacantSpaces = leases.filter((l: any) => l && isVacantLeaseRow(l)).length;
-        const occupiedSpaces = totalSpaces - vacantSpaces;
+        // 점유 상태 SSOT(lease-vacancy): 자가사용·비임대 구획(공용/주차/기계실 등)은 공실 아님 + 공실률 분모 제외, 통합계약 후행(월세 0)은 공실 아님
+        const occSummary = summarizeLeaseOccupancy(leases);
+        const totalSpaces = occSummary.total - occSummary.ownerUse;
+        const vacantSpaces = occSummary.vacant;
+        const occupiedSpaces = occSummary.leased;
         const vacancyRate = totalSpaces > 0 ? ((vacantSpaces / totalSpaces) * 100).toFixed(1) : '0.0';
-        const monthlyRent = leases.reduce((sum: number, l: any) => sum + (l?.rent_manwon ?? 0), 0);
+        const monthlyRent = sumLeasedRentRoll(leases).rentManwon;
         const annualRent = monthlyRent * 12;
+        const activeLeases = leases.filter((l: any) => !isNonLeasableLeaseRow(l) && resolveLeaseOccupancy(l) === '임대중');
 
         // stability rows에 계산된 수치 주입
         const computedRows: [string, string][] = [
           ['공실 현황', vacantSpaces === 0 ? `공실 없음 (${totalSpaces}구획 중 ${occupiedSpaces}구획 임대중)` : `${vacantSpaces}구획 공실 (공실률 ${vacancyRate}%)`],
           ['월 임대료 합계', `${monthlyRent.toLocaleString()}만 원/월`],
           ['연 임대 수입', `약 ${(annualRent / 10000).toFixed(1)}억 원/년`],
-          ['임차인 구성', leases.filter((l: any) => l.tenant_name && (l.rent_manwon ?? 0) > 0).map((l: any) => `${l.floor} ${l.tenant_name}`).join(', ')],
+          ['임차인 구성', activeLeases.filter((l: any) => l.tenant_name).map((l: any) => `${l.floor} ${l.tenant_name}`).join(', ') || '-'],
         ];
 
         if (stabilityProps.left) {
@@ -399,7 +401,7 @@ export function bindSectionData(
           stabilityProps.left = { sub: '임대 안정성 지표 (렌트롤 기반)', rows: computedRows };
         }
         // 우측에 "비공개 처리" 안내 제거 — 빈 callout 대신 업종 분포 표시
-        const typeDistribution = leases.filter((l: any) => l.tenant_type).reduce((acc: Record<string, number>, l: any) => {
+        const typeDistribution = activeLeases.filter((l: any) => l.tenant_type).reduce((acc: Record<string, number>, l: any) => {
           acc[l.tenant_type] = (acc[l.tenant_type] ?? 0) + 1;
           return acc;
         }, {} as Record<string, number>);

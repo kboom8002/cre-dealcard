@@ -3,7 +3,7 @@
 // 1차: 브이월드(V-World) 토지특성속성조회 API
 // 2차: data.go.kr LURIS (레거시 폴백)
 import { fetchWithRetry } from './fetch-with-retry';
-import { getVWorldApiKey, getVWorldReferer } from './vworld-config';
+import { getVWorldApiKey, getVWorldReferer, getVWorldDomain } from './vworld-config';
 import { createModuleLogger } from '@/lib/logger';
 
 const logger = createModuleLogger('land-use-api');
@@ -390,7 +390,7 @@ export async function fetchLandUseRegulations(pnu: string): Promise<LandUseRegul
 
   const referer = getVWorldReferer();
   try {
-    const url = `https://api.vworld.kr/ned/data/getLandUseAttr?key=${vworldKey}&domain=${encodeURIComponent(referer)}&pnu=${pnu}&format=json&numOfRows=100`;
+    const url = `https://api.vworld.kr/ned/data/getLandUseAttr?key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}&pnu=${pnu}&format=json&numOfRows=100`;
     const res = await fetchWithRetry(url, {
       timeoutMs: 8_000,
       maxRetries: 1,

@@ -48,7 +48,8 @@ export async function GET(
   const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
   const presetParam = searchParams.get('preset');
 
-  const { getQuickImRecord, resolveOrSynthesizeQuickImRecord, isUuid } = await import('@/lib/im-lite/quick-generate-store');
+  const { getQuickImRecord, resolveOrSynthesizeQuickImRecord, isUuid, getInboxState } = await import('@/lib/im-lite/quick-generate-store');
+  const { isBuildingShareLinkRevoked } = await import('@/lib/security/share-link-tokens');
   const memRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
 
   // Create Supabase client
@@ -57,10 +58,79 @@ export async function GET(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  let quickRec = (await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)) || memRec;
+  let viewer: any = null;
+  try {
+    viewer = await getServerViewer();
+  } catch {
+    viewer = null;
+  }
+
+  let latestDeletedTime = 0;
+  let dbRevoked: boolean | undefined;
+  let dbRevokeTime = 0;
+  try {
+    const [{ data: imEvents }, { data: govEvents }] = await Promise.all([
+      supabase
+        .from('activity_events')
+        .select('event_type, entity_id, metadata, created_at')
+        .in('event_type', ['im_upserted', 'im_deleted', 'im_restored'])
+        .order('created_at', { ascending: false })
+        .limit(80),
+      supabase
+        .from('activity_events')
+        .select('event_type, entity_id, metadata, created_at')
+        .in('event_type', ['link_revoked', 'link_restored'])
+        .order('created_at', { ascending: false })
+        .limit(80),
+    ]);
+
+    if (Array.isArray(imEvents)) {
+      for (const ev of imEvents) {
+        const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, any>;
+        const evBId = String(meta.building_id || ev?.entity_id || '');
+        const evImId = String(meta.im_id || meta.im_item?.id || '');
+        const evItemBid = String(meta.im_item?.buildingId || '');
+        if (
+          evBId !== buildingId &&
+          evImId !== buildingId &&
+          evItemBid !== buildingId &&
+          (!docId || (evBId !== docId && evImId !== docId))
+        ) {
+          continue;
+        }
+        if (ev.event_type === 'im_deleted') {
+          latestDeletedTime = Date.parse(ev.created_at || '') || Date.now();
+        }
+        break;
+      }
+    }
+
+    if (Array.isArray(govEvents)) {
+      for (const row of govEvents) {
+        const meta = (row?.metadata && typeof row.metadata === 'object' ? row.metadata : {}) as Record<string, any>;
+        const evBldId = String(meta.building_id || row?.entity_id || '').trim();
+        if (evBldId !== buildingId) continue;
+        if (row.event_type === 'link_revoked') {
+          dbRevoked = true;
+          dbRevokeTime = Date.parse(String(meta.revoked_at || row.created_at || '')) || 0;
+          break;
+        }
+        if (row.event_type === 'link_restored') {
+          dbRevoked = false;
+          dbRevokeTime = Date.parse(String(meta.restored_at || row.created_at || '')) || 0;
+          break;
+        }
+      }
+    }
+  } catch {
+    // Non-blocking
+  }
+
+  let quickRec = latestDeletedTime > 0
+    ? null
+    : (await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)) || memRec;
 
   let buildingRow: any = null;
-  let viewer: any = null;
   let buildingOwnerId: string | null = null;
   const IM_DOC_TYPES = ['mobile_im', 'im_lite', 'im_lite_draft'];
   let dbDoc: any = null;
@@ -68,18 +138,18 @@ export async function GET(
   if (isUuid(buildingId) || !quickRec?.fullDocBody) {
     try {
       // 1. Fetch building (owner) first — P0-SEC: 문서 상태/소유자 판정에 사용
-      const { data: bRow } = await supabase
-        .from('building_ssot_lite')
-        .select('*')
-        .eq('id', buildingId)
-        .maybeSingle();
-      buildingRow = bRow;
+      if (isUuid(buildingId)) {
+        const { data: bRow } = await supabase
+          .from('building_ssot_lite')
+          .select('*')
+          .eq('id', buildingId)
+          .maybeSingle();
+        buildingRow = bRow;
+      }
 
-      // P0-SEC: 요청자 판정 (쿠키 세션). 소유자·admin 만 비공개 상태(draft 등) 문서를 받을 수 있다.
-      viewer = await getServerViewer();
       buildingOwnerId = (buildingRow?.owner_id as string | null | undefined) ?? null;
 
-      if (docId) {
+      if (docId && isUuid(buildingId)) {
         const { data: requested } = await supabase
           .from('document_objects')
           .select('*')
@@ -93,7 +163,7 @@ export async function GET(
         }
       }
 
-      if (!dbDoc) {
+      if (!dbDoc && isUuid(buildingId)) {
         const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
         let latestQuery = supabase
           .from('document_objects')
@@ -111,13 +181,34 @@ export async function GET(
     }
   }
 
+  // Check if latest lifecycle event in activity_events is im_deleted and newer than dbDoc?.updated_at
+  if (latestDeletedTime > 0) {
+    const dbDocUpdatedTime = Date.parse(dbDoc?.updated_at || dbDoc?.created_at || '') || 0;
+    if (!dbDoc || latestDeletedTime >= dbDocUpdatedTime) {
+      return NextResponse.json({ error: 'IM document has been deleted' }, { status: 404 });
+    }
+  }
+
+  // Link revocation check
+  const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
+  const localRevoked = Boolean(inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId));
+  const localRevokeTime = inboxRevokedEntry?.revokedAt ? Date.parse(inboxRevokedEntry.revokedAt) || 0 : 0;
+  const effectiveRevoked =
+    typeof dbRevoked === 'boolean' && (!localRevokeTime || dbRevokeTime >= localRevokeTime)
+      ? dbRevoked
+      : localRevoked || dbRevoked === true || Boolean(quickRec?.isRevoked) || dbDoc?.body?.is_revoked === true;
+
+  if (effectiveRevoked && !isOwnerOrAdmin(viewer, buildingOwnerId, dbDoc?.owner_id ?? (quickRec as any)?.ownerId)) {
+    return NextResponse.json({ ok: false, error: 'LINK_REVOKED' }, { status: 403 });
+  }
+
   let doc: any = null;
   if (dbDoc?.body && quickRec?.fullDocBody) {
     const dbBody = dbDoc.body as Record<string, any>;
     const qrBody = quickRec.fullDocBody as Record<string, any>;
     const dbTime = Date.parse(dbDoc.updated_at || dbBody.updated_at || dbBody.approved_at || dbDoc.created_at || '') || 0;
-    const memTime = Date.parse(memRec?.updatedAt || memRec?.createdAt || '') || 0;
-    const dbIsNewer = dbTime > 0 && memTime > 0 && dbTime > memTime && quickRec === memRec;
+    const qrTime = Date.parse(quickRec?.updatedAt || quickRec?.createdAt || '') || 0;
+    const dbIsNewer = dbTime > 0 && (qrTime === 0 || dbTime > qrTime);
     const primary = dbIsNewer ? dbBody : qrBody;
     const secondary = dbIsNewer ? qrBody : dbBody;
 
@@ -228,7 +319,10 @@ export async function GET(
   }
 
   // 소유자·admin 여부 (워터마크 해제 권한)
-  const isPrivilegedViewer = Boolean(quickRec?.fullDocBody) || isOwnerOrAdmin(viewer, buildingOwnerId, doc.owner_id);
+  const isPrivilegedViewer = isOwnerOrAdmin(viewer, buildingOwnerId, doc.owner_id ?? (quickRec as any)?.ownerId);
+  if (doc.body?.is_revoked === true && !isPrivilegedViewer) {
+    return NextResponse.json({ ok: false, error: 'LINK_REVOKED' }, { status: 403 });
+  }
 
   // Poison coordinate / PNU guard (Dangsan 11-47 leak) & on-the-fly geocoding
   const rawAddr = String(

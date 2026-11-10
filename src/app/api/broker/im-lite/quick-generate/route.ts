@@ -659,7 +659,7 @@ export async function POST(req: NextRequest) {
           ? existingFloorsAbove
           : maxFloorAbove > 0
           ? maxFloorAbove
-          : 5);
+          : 0);
   const effectiveFloorsBelow =
     rawFloorsBelow !== undefined &&
     rawFloorsBelow !== null &&
@@ -673,77 +673,82 @@ export async function POST(req: NextRequest) {
           ? existingFloorsBelow
           : maxFloorBelow > 0
           ? maxFloorBelow
-          : safeRentRoll.length > 0
-          ? 0
-          : 1);
+          : 0);
   let effectiveLandSqm =
     Number(landAreaSqm) > 0
       ? Number(landAreaSqm)
-      : knownMatch?.landAreaSqm ?? Number(existingSsot?.land_area_sqm || 479.3);
+      : knownMatch?.landAreaSqm ?? Number(existingSsot?.land_area_sqm || 0);
   let effectiveGfaSqm =
     Number(gfaSqm) > 0
       ? Number(gfaSqm)
-      : knownMatch?.gfaSqm ?? Number(existingSsot?.total_gross_area_sqm || 1649.5);
+      : knownMatch?.gfaSqm ?? Number(existingSsot?.total_gross_area_sqm || 0);
   if (effectiveFloorsAbove >= 2 && effectiveGfaSqm > 0 && effectiveLandSqm > 0 && effectiveGfaSqm < effectiveLandSqm) {
     const tmp = effectiveGfaSqm;
     effectiveGfaSqm = effectiveLandSqm;
     effectiveLandSqm = tmp;
   }
+  const rawZoning = typeof zoning === 'string' ? zoning.trim() : '';
   const effectiveZoning =
-    zoning ||
+    rawZoning ||
     knownMatch?.zoning ||
-    existingEnrichment?.landUsePlan?.zoning ||
-    existingSsot?.zoning ||
-    '제2종일반주거지역';
+    String(existingEnrichment?.landUsePlan?.zoning || existingSsot?.zoning || '').trim() ||
+    '';
+  const rawCompletionDate = typeof completionDate === 'string' ? completionDate.trim() : '';
   const effectiveCompletionDate =
-    completionDate ||
+    rawCompletionDate ||
     knownMatch?.completionDate ||
-    existingEnrichment?.buildingRegister?.completionDate ||
-    existingSsot?.completion_date ||
-    '2016-05-20';
+    String(
+      existingEnrichment?.buildingRegister?.completionDate || existingSsot?.completion_date || ''
+    ).trim() ||
+    '';
   const totalFloorsCount = Math.max(1, effectiveFloorsAbove + effectiveFloorsBelow);
   const perFloorAreaSqm = Math.round((effectiveGfaSqm / totalFloorsCount) * 10) / 10;
 
+  const rawBcrPct = Number(body.bcrPct);
   const bcrPct =
-    Number(body.bcrPct) > 0
-      ? Number(body.bcrPct)
+    rawBcrPct > 0
+      ? rawBcrPct
       : knownMatch?.bcrPct ??
         (Number(existingEnrichment?.buildingRegister?.bcr) > 0
           ? Number(existingEnrichment?.buildingRegister?.bcr)
-          : Math.min(
-              59.8,
-              Math.max(42.0, Math.round(((perFloorAreaSqm * 0.95) / Math.max(1, effectiveLandSqm)) * 1000) / 10)
-            ));
+          : Number(existingSsot?.bcr_pct || 0));
+  const rawFarPct = Number(body.farPct);
   const farPct =
-    Number(body.farPct) > 0
-      ? Number(body.farPct)
+    rawFarPct > 0
+      ? rawFarPct
       : knownMatch?.farPct ??
         (Number(existingEnrichment?.buildingRegister?.far) > 0
           ? Number(existingEnrichment?.buildingRegister?.far)
-          : Math.max(
-              150.0,
-              Math.round(((effectiveGfaSqm * 0.84) / Math.max(1, effectiveLandSqm)) * 1000) / 10
-            ));
+          : Number(existingSsot?.far_pct || 0));
+  const rawParkingSpaces = body.parkingSpaces ?? body.parkingTotal;
   const parkingSpaces =
-    body.parkingSpaces !== undefined && Number.isFinite(Number(body.parkingSpaces))
-      ? Number(body.parkingSpaces)
+    rawParkingSpaces !== undefined &&
+    rawParkingSpaces !== null &&
+    rawParkingSpaces !== '' &&
+    Number.isFinite(Number(rawParkingSpaces))
+      ? Number(rawParkingSpaces)
       : knownMatch?.parkingSpaces ??
         (Number.isFinite(Number(existingEnrichment?.buildingRegister?.parkingSpaces))
           ? Number(existingEnrichment?.buildingRegister?.parkingSpaces)
-          : Math.max(6, Math.round(effectiveGfaSqm / 132)));
+          : Number(existingSsot?.parking_total ?? existingSsot?.parking_count ?? 0));
+  const rawElevators = body.elevators ?? body.elevatorCount;
   const elevators =
-    body.elevators !== undefined && Number.isFinite(Number(body.elevators))
-      ? Number(body.elevators)
+    rawElevators !== undefined &&
+    rawElevators !== null &&
+    rawElevators !== '' &&
+    Number.isFinite(Number(rawElevators))
+      ? Number(rawElevators)
       : knownMatch?.elevators !== undefined
       ? knownMatch.elevators
       : Number.isFinite(Number(existingEnrichment?.buildingRegister?.elevators))
       ? Number(existingEnrichment?.buildingRegister?.elevators)
-      : effectiveFloorsAbove >= 4
-      ? 1
-      : 0;
+      : Number(existingSsot?.elevator_count ?? 0);
+  const rawOfficialLandPrice = Number(
+    body.officialLandPriceWonSqm || body.officialLandPricePerSqm || 0
+  );
   const officialLandPriceWonSqm =
-    Number(body.officialLandPriceWonSqm) > 0
-      ? Number(body.officialLandPriceWonSqm)
+    rawOfficialLandPrice > 0
+      ? rawOfficialLandPrice
       : knownMatch?.officialLandPriceWonSqm ??
         (Number(existingEnrichment?.landPrice?.officialPricePerM2) > 0
           ? Number(existingEnrichment?.landPrice?.officialPricePerM2)
@@ -770,6 +775,14 @@ export async function POST(req: NextRequest) {
       parsedExtras = parsed.value;
     }
   }
+  const closingLine = String(
+    body.closingLine ||
+      body.brokerExtras?.closingLine ||
+      body.brokerExtras?.closing_line ||
+      parsedExtras?.closing_line ||
+      existingSsot?.closing_line ||
+      ''
+  ).trim();
 
   const subjectLandPyeongEarly = Math.max(1, effectiveLandSqm / 3.305785);
   const subjectLandPricePerPyeongManwon = Math.round(priceNum / subjectLandPyeongEarly);
@@ -908,9 +921,15 @@ export async function POST(req: NextRequest) {
           const rawUrl = typeof p === 'string' ? p : String(p.url || '');
           const rawName = typeof p === 'object' ? String(p.name || p.caption || '') : '';
           const knownTestUrl = resolveKnownTestAssetUrl(rawName || rawUrl);
-          const resolvedPhotoUrl = knownTestUrl || rawUrl;
+          const resolvedPhotoUrl = (knownTestUrl || rawUrl).trim();
+          const isValidPhotoScheme =
+            resolvedPhotoUrl.startsWith('http://') ||
+            resolvedPhotoUrl.startsWith('https://') ||
+            resolvedPhotoUrl.startsWith('/') ||
+            resolvedPhotoUrl.startsWith('data:');
           if (
             !resolvedPhotoUrl ||
+            !isValidPhotoScheme ||
             resolvedPhotoUrl.startsWith('blob:') ||
             resolvedPhotoUrl.startsWith('/test-images/')
           ) {
@@ -1039,7 +1058,7 @@ export async function POST(req: NextRequest) {
     parsedExtras?.market_comps && parsedExtras.market_comps.length > 0
       ? parsedExtras.market_comps.map((c, idx) => ({
           distance: c.location || `${derivedRegion} 인근 사례 ${idx + 1}`,
-          dealDate: c.as_of || '2025.11',
+          dealDate: String((c as any).date || c.as_of || '').trim() || '-',
           buildingUse: c.note || '근린생활시설',
           pricePerPyeongLandWon:
             (c.land_price_per_pyeong_manwon || Math.round(subjectLandPricePerPyeongWon / 10000)) *
@@ -1223,7 +1242,9 @@ export async function POST(req: NextRequest) {
             mgmt_fee_manwon: isVacant ? 0 : mgmtMan,
             lease_state: isVacant ? '공실' : isOwner ? '자가사용' : '임대중',
             is_vacant: isVacant,
-            lease_end: String(r.leaseExpiry || r.lease_end || r.expiryDate || prevFl.lease_end || '2027.12'),
+            lease_end: isVacant
+              ? '-'
+              : String(r.leaseExpiry || r.lease_end || r.expiryDate || prevFl.lease_end || '-'),
             ...(rowNote ? { note: rowNote, remark: rowNote } : {}),
             source: 'broker',
           };
@@ -1243,6 +1264,12 @@ export async function POST(req: NextRequest) {
 
   const exactEokNum = Math.round((priceNum / 10000) * 100) / 100;
   const exactEokDisplay = `${exactEokNum}억 원`;
+
+  const resolvedParcels = Array.isArray(body.parcels)
+    ? body.parcels
+    : Array.isArray(existingSsot?.parcels)
+    ? existingSsot.parcels
+    : undefined;
 
   const ssotSummary = {
     address: cleanAddress,
@@ -1272,18 +1299,24 @@ export async function POST(req: NextRequest) {
     floors_below: effectiveFloorsBelow,
     bcr_pct: bcrPct,
     far_pct: farPct,
+    parking_total: parkingSpaces,
     parking_count: parkingSpaces,
     elevator_count: elevators,
-    main_usage: '제1·2종 근린생활시설',
+    main_usage: body.mainPurpose || knownMatch?.mainPurpose || '제1·2종 근린생활시설',
     structure: '철근콘크리트구조',
     official_land_price_per_sqm: officialLandPriceWonSqm,
+    ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
     vacancy_pct: vacancyPct,
     vacancy_signal: vacancyPct === 0 ? '만실' : `공실률 ${vacancyPct}%`,
     cap_rate_pct: basicImDoc.facts.valuation.capRatePct,
     gross_yield_pct: basicImDoc.facts.valuation.grossYieldPct,
     handover_note: handoverNote || undefined,
+    ...(closingLine ? { closing_line: closingLine } : {}),
     investment_posture: legacyPosture,
-    building_register_source: 'api',
+    building_register_source:
+      rawBcrPct > 0 || rawFarPct > 0
+        ? 'api'
+        : existingSsot?.building_register_source || 'manual',
   };
 
   const rentTableLines = [
@@ -1471,6 +1504,8 @@ export async function POST(req: NextRequest) {
     photos: defaultPhotos,
     photo_urls: defaultPhotos.map((p: any) => p.url),
     sections: pptxSections,
+    ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
+    ...(closingLine ? { closingLine, closing_line: closingLine } : {}),
     ...(parsedExtras ? { broker_extras: parsedExtras } : {}),
     broker_contact: {
       name: brokerOfficeObj.representative,
@@ -1481,6 +1516,7 @@ export async function POST(req: NextRequest) {
       brokerageName: brokerOfficeObj.name,
       brokerPhone: brokerOfficeObj.phone,
       registrationNo: brokerOfficeObj.registrationNo,
+      ...(closingLine ? { closingLine, closing_line: closingLine } : {}),
     },
     generated_at: nowIso,
     approved_at: nowIso,
@@ -1511,6 +1547,13 @@ export async function POST(req: NextRequest) {
       floorsAbove: effectiveFloorsAbove,
       floorsBelow: effectiveFloorsBelow,
       officialLandPriceWonSqm,
+      bcrPct,
+      farPct,
+      parkingSpaces,
+      elevators,
+      ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
+      ...(closingLine ? { closingLine } : {}),
+      ...(body.mainPurpose ? { mainPurpose: String(body.mainPurpose) } : {}),
     },
     brokerProfile: {
       displayName: brokerOfficeObj.representative,
@@ -1579,12 +1622,14 @@ export async function POST(req: NextRequest) {
               ...fullDocBody,
               cadastralMapImage: undefined,
             });
-            const httpPhotos = Array.isArray(defaultPhotos)
+            const urlPhotos = Array.isArray(defaultPhotos)
               ? defaultPhotos.filter(
                   (p: any) =>
                     p &&
                     typeof p.url === 'string' &&
-                    (p.url.startsWith('http://') || p.url.startsWith('https://'))
+                    (p.url.startsWith('http://') ||
+                      p.url.startsWith('https://') ||
+                      p.url.startsWith('/'))
                 )
               : [];
             const dataUriPhotos = Array.isArray(defaultPhotos)
@@ -1593,12 +1638,12 @@ export async function POST(req: NextRequest) {
                     (p: any) =>
                       p &&
                       typeof p.url === 'string' &&
-                      p.url.startsWith('data:image/') &&
-                      p.url.length < 350_000
+                      p.url.startsWith('data:') &&
+                      p.url.length < 1_500_000
                   )
-                  .slice(0, 4)
+                  .slice(0, 8)
               : [];
-            const persistedPhotos = httpPhotos.length > 0 ? httpPhotos : dataUriPhotos;
+            const persistedPhotos = [...urlPhotos, ...dataUriPhotos];
             dbDocBody.photos = persistedPhotos;
             dbDocBody.photos_v2 = persistedPhotos;
             dbDocBody.photo_urls = persistedPhotos.map((p: any) => p.url);

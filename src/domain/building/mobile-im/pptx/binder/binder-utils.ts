@@ -256,7 +256,7 @@ export function parseMarkdownTable(markdown: string): ParsedTable[] {
     const line = lines[i].trim();
     if (line.startsWith('|')) {
       const cells = line.split('|').map(c => c.trim()).filter((_, index, arr) => index > 0 && index < arr.length - 1);
-      const isSep = cells.every(c => /^[-:]+$/.test(c));
+      const isSep = cells.length > 0 && cells.every(c => /^[-:]+$/.test(c));
       
       if (isSep) {
         if (currentTable && currentTable.rows.length > 0) {
@@ -275,8 +275,10 @@ export function parseMarkdownTable(markdown: string): ParsedTable[] {
       } else {
         // 다음 행이 테이블 구분선인지 확인 (헤더 탐지)
         const nextLine = lines[i + 1]?.trim() || '';
-        const nextIsSep = nextLine.startsWith('|') &&
-          nextLine.split('|').map(c => c.trim()).filter((_, idx, a) => idx > 0 && idx < a.length - 1).every(c => /^[-:]+$/.test(c));
+        const nextCells = nextLine.startsWith('|')
+          ? nextLine.split('|').map(c => c.trim()).filter((_, idx, a) => idx > 0 && idx < a.length - 1)
+          : [];
+        const nextIsSep = nextCells.length > 0 && nextCells.every(c => /^[-:]+$/.test(c));
 
         if (nextIsSep) {
           tables.push(currentTable);

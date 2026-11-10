@@ -25,7 +25,7 @@ export interface CommercialDistrictAnalysis {
  * PNU (19 digits) -> Legal Dong Code (10 digits)
  */
 export function pnuToLegalDongCode(pnu: string): string {
-  if (!pnu || pnu.length < 10) return "1168010800"; // Fallback to 역삼동
+  if (!pnu || pnu.length < 10) return "";
   return pnu.substring(0, 10);
 }
 
@@ -40,6 +40,10 @@ export async function fetchCommercialDistrictFull(
   pnu: string
 ): Promise<CommercialDistrictAnalysis | null> {
   const ldongCd = pnuToLegalDongCode(pnu);
+  if (!ldongCd) {
+    logger.warn(`Invalid or missing PNU for SEMAS commercial analysis: "${pnu}"`);
+    return null;
+  }
   const districtName = DONG_NAMES[ldongCd] || "해당 상권";
   const apiKey = getApiKey();
 
@@ -103,30 +107,23 @@ export async function fetchCommercialDistrictFull(
       .sort((a, b) => b.count - a.count)
       .slice(0, 3);
 
-    // 나머지 4개 엔드포인트의 결과를 시뮬레이션 (API 한계상)
-    // 실제 응답이 있는 경우 파싱 로직을 여기에 추가합니다.
-    const salesIdx = Math.min(100, Math.round((storeCount / 500) * 80));
-    const footfallIdx = Math.min(100, Math.round((storeCount / 400) * 80));
-    const closingRate = Math.min(20, Math.round(15 - (salesIdx / 10)));
-    const avgMonthlyRevenue = 3000 + Math.round(salesIdx * 100);
+    // 실측 미제공 지표는 추정·날조하지 않고 0 / 빈 배열로 반환 (Rule 34)
+    const salesIdx = 0;
+    const closingRate = 0;
+    const avgMonthlyRevenue = 0;
 
     const analysis: CommercialDistrictAnalysis = {
       districtCode: ldongCd,
       districtName: districtName.endsWith('상권') ? districtName : `${districtName} 상권`,
       storeCount,
       avgMonthlyRevenue,
-      footfallDaily: 15000 + Math.round(footfallIdx * 500),
-      footfallByTime: [
-        { hour: "08-11", count: 20 },
-        { hour: "11-14", count: 35 },
-        { hour: "14-17", count: 15 },
-        { hour: "17-21", count: 30 },
-      ],
+      footfallDaily: 0,
+      footfallByTime: [],
       closingRate,
       topCategories,
       salesIndex: salesIdx,
-      competitionIndex: Math.min(100, Math.round((storeCount / 300) * 70)),
-      growthTrend: salesIdx > 70 ? "up" : salesIdx > 40 ? "stable" : "down",
+      competitionIndex: 0,
+      growthTrend: "stable",
     };
 
     // NOTE: 과거에는 이 (일부 시뮬레이션 값이 포함된) 분석을 commercial_district 에 upsert(캐시) 했으나,

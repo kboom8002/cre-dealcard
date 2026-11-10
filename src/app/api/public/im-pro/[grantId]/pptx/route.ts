@@ -60,25 +60,84 @@ export async function GET(
   }
 
   // 3. Fetch IM document
-  const { data: doc } = await supabase
+  const { data: docRows } = await supabase
     .from('document_objects')
     .select('*')
     .eq('building_id', buildingId)
-    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser', 'im_pro'])
+    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'im_pro'])
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(5);
+
+  let doc: any = Array.isArray(docRows)
+    ? docRows.find(
+        (d: any) =>
+          Array.isArray(d?.body?.sections) &&
+          d.body.sections.length > 0 &&
+          !Array.isArray(d?.body?.slides)
+      )
+    : null;
+
+  if (!doc?.body) {
+    const { resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
+    const quickRec = await resolveOrSynthesizeQuickImRecord(grant.building_id || buildingId, supabase);
+    if (quickRec?.fullDocBody) {
+      doc = {
+        id: quickRec.documentId,
+        building_id: quickRec.buildingId,
+        owner_id: quickRec.ownerId ?? null,
+        title: quickRec.buildingName,
+        status: 'published',
+        body: { ...quickRec.fullDocBody },
+      };
+    }
+  }
 
   if (!doc?.body) {
     return NextResponse.json({ error: 'IM document not found' }, { status: 404 });
   }
 
   // 4. Fetch building + broker
-  const { data: building } = await supabase
+  const { data: buildingRow } = await supabase
     .from('building_ssot_lite')
-    .select('owner_id, area_signal, asset_type, price_band, investment_posture')
+    .select('*')
     .eq('id', buildingId)
     .maybeSingle();
+
+  const rawAddr = String(
+    doc.body?.ssot_summary?.address ||
+    doc.body?.resolved_address ||
+    doc.body?.address ||
+    buildingRow?.raw_address ||
+    ''
+  ).trim();
+  const coordLat = Number(doc.body?.coordinates?.lat ?? doc.body?.ssot_summary?.coordinates?.lat ?? buildingRow?.lat ?? 0) || null;
+  const coordLng = Number(doc.body?.coordinates?.lng ?? doc.body?.ssot_summary?.coordinates?.lng ?? buildingRow?.lng ?? 0) || null;
+  const resolvedPnu = String(doc.body?.ssot_summary?.pnu || doc.body?.pnu || buildingRow?.pnu || '').trim() || null;
+
+  const building = buildingRow
+    ? {
+        ...buildingRow,
+        raw_address: buildingRow.raw_address || rawAddr,
+        address: rawAddr || buildingRow.raw_address,
+        pnu: resolvedPnu,
+        lat: coordLat,
+        lng: coordLng,
+      }
+    : doc.body?.ssot_summary || rawAddr
+    ? {
+        id: buildingId,
+        owner_id: doc.owner_id ?? null,
+        raw_address: rawAddr,
+        address: rawAddr,
+        pnu: resolvedPnu,
+        lat: coordLat,
+        lng: coordLng,
+        investment_posture:
+          doc.body?.ssot_summary?.investment_posture ||
+          doc.body?.investmentPosture ||
+          'income',
+      }
+    : null;
 
   // 브로커 연락처 SSoT resolver — 실제 DB 값만, 부재 시 생략
   const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;

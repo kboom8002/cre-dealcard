@@ -417,17 +417,19 @@ function renderEviction(slide: Slide, data: Record<string, any>): void {
 export function buildA26BrokerExtras(input: ArchetypeInput): ArchetypeOutput {
   const warnings: string[] = [];
   const data = input.data || {};
+  const mode = data.mode;
+  if (mode !== 'points' && mode !== 'regulation' && mode !== 'comps' && mode !== 'eviction') {
+    warnings.push(`[A26] 알 수 없는 mode(${String(mode)}) — 슬라이드 억제`);
+    return { slide: undefined as any, warnings, suppress: true };
+  }
   const slide = L.light(input.pres);
   L.head(slide, input.slideNum, data.kicker || 'SECTION', data.title || '중개인 제공 정보');
 
-  switch (data.mode) {
+  switch (mode) {
     case 'points': renderPoints(slide, data); break;
     case 'regulation': renderRegulation(slide, data); break;
     case 'comps': renderComps(slide, data); break;
     case 'eviction': renderEviction(slide, data); break;
-    default:
-      warnings.push(`[A26] 알 수 없는 mode(${String(data.mode)}) — 슬라이드 억제`);
-      return { slide, warnings, suppress: true };
   }
 
   // 명도 분석은 중개인 입력이 아니다 → 중개인 출처 칩/미검증 태그를 달지 않는다 (본문의 '추정·기준일' 칩이 출처 표기)

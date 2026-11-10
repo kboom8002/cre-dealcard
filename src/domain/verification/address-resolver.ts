@@ -5,7 +5,7 @@
  * API 문서: https://business.juso.go.kr/addrlink/openApi/searchApi.do
  */
 
-import { getVWorldApiKey, getVWorldReferer } from "@/lib/external/vworld-config";
+import { getVWorldApiKey, getVWorldReferer, getVWorldDomain } from "@/lib/external/vworld-config";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('address-resolver');
@@ -163,7 +163,7 @@ export async function searchAddress(
   const vworldKey = getVWorldApiKey();
   if (vworldKey) {
     try {
-      const vworldUrl = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=${countPerPage}&page=1&query=${encodeURIComponent(trimmed)}&type=address&category=parcel&format=json&errorformat=json&key=${vworldKey}&domain=${encodeURIComponent(getVWorldReferer())}`;
+      const vworldUrl = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=${countPerPage}&page=1&query=${encodeURIComponent(trimmed)}&type=address&category=parcel&format=json&errorformat=json&key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}`;
       const res = await fetch(vworldUrl, {
         headers: { Referer: getVWorldReferer() },
         signal: AbortSignal.timeout(5000),

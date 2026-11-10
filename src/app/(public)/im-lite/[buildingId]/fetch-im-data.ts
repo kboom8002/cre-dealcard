@@ -34,7 +34,7 @@ function isValidPhotoUrl(url: unknown): url is string {
     t.startsWith("http://") ||
     t.startsWith("https://") ||
     t.startsWith("/") ||
-    t.startsWith("data:image/")
+    t.startsWith("data:")
   );
 }
 
@@ -345,7 +345,9 @@ function hydrateQuickRecordToMobileIM(
   }
 
   const rawPhotosList =
-    Array.isArray(quickRec.fullDocBody?.photos) && quickRec.fullDocBody.photos.length > 0
+    Array.isArray(quickRec.fullDocBody?.photos_v2) && quickRec.fullDocBody.photos_v2.length > 0
+      ? quickRec.fullDocBody.photos_v2
+      : Array.isArray(quickRec.fullDocBody?.photos) && quickRec.fullDocBody.photos.length > 0
       ? quickRec.fullDocBody.photos
       : facts.photos || [];
   const filteredPhotos = rawPhotosList
@@ -663,7 +665,7 @@ export async function fetchIMData(
     }
   }
 
-  // 0. Quick-Generate Store lookup (non-UUID or matching quick-generate document)
+  // 0. Quick-Generate Store lookup (short-circuit before document_objects only when !isUuid(buildingId))
   const memQuickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
   const earlyQuickRec =
     latestImUpsert?.imItem && (memQuickRec || !isUuid(buildingId))
@@ -676,7 +678,7 @@ export async function fetchIMData(
         (!isUuid(buildingId)
           ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)
           : null);
-  if (earlyQuickRec && (!docId || earlyQuickRec.documentId === docId || !isUuid(buildingId))) {
+  if (!isUuid(buildingId) && earlyQuickRec) {
     return hydrateQuickRecordToMobileIM(buildingId, earlyQuickRec, dbGovernance);
   }
 
@@ -685,6 +687,9 @@ export async function fetchIMData(
   if (demo) return attachInboxGovernanceOverlay(demo, buildingId, undefined, dbGovernance);
 
   if (!supabase) {
+    if (earlyQuickRec) {
+      return hydrateQuickRecordToMobileIM(buildingId, earlyQuickRec, dbGovernance);
+    }
     return null;
   }
 
@@ -767,6 +772,37 @@ export async function fetchIMData(
     
     const enriched = resolveEnrichment(document.body);
 
+    // Poison coordinate / PNU guard (Dangsan 11-47 leak)
+    const rawAddrForGuard = String(
+      enriched.meta.address ||
+      ssotSummary.address ||
+      document.body.ssot_summary?.address ||
+      document.body.resolved_address ||
+      document.body.address ||
+      ssotSummary.raw_address ||
+      ""
+    ).trim();
+    const coordLatGuard = Number(document.body.coordinates?.lat ?? ssotSummary.coordinates?.lat ?? 0) || null;
+    const coordLngGuard = Number(document.body.coordinates?.lng ?? ssotSummary.coordinates?.lng ?? 0) || null;
+    const resolvedPnuGuard = String(ssotSummary.pnu || document.body.pnu || "").trim() || null;
+    const isDangsanAddr = /당산|양평/.test(rawAddrForGuard);
+    const isDangsanCoord =
+      coordLatGuard != null &&
+      coordLngGuard != null &&
+      Math.abs(coordLatGuard - 37.5342) < 0.0005 &&
+      Math.abs(coordLngGuard - 126.9022) < 0.0005;
+    const isDangsanPnu = resolvedPnuGuard === "1156011500100110047";
+    if (rawAddrForGuard && !isDangsanAddr && (isDangsanCoord || isDangsanPnu)) {
+      if (document.body.coordinates) delete document.body.coordinates;
+      if (document.body.ssot_summary?.coordinates) delete document.body.ssot_summary.coordinates;
+      if (ssotSummary.coordinates) delete ssotSummary.coordinates;
+      if (document.body.pnu === "1156011500100110047") delete document.body.pnu;
+      if (document.body.ssot_summary?.pnu === "1156011500100110047") delete document.body.ssot_summary.pnu;
+      if (ssotSummary.pnu === "1156011500100110047") delete ssotSummary.pnu;
+      if (document.body.enrichment?.cadastralMapImage) delete document.body.enrichment.cadastralMapImage;
+      if ((enriched as any)?.cadastralMapImage) delete (enriched as any).cadastralMapImage;
+    }
+
     // Resolve coordinates & Kakao Map URL
     const finalCoordinates = document.body.coordinates || await (async () => {
       const addr = enriched.meta.address
@@ -777,13 +813,17 @@ export async function fetchIMData(
       return undefined;
     })();
 
-    const rawPhotos = (document.body.photos
+    const rawPhotos = (
+      (Array.isArray(document.body.photos_v2) && document.body.photos_v2.length > 0
+        ? document.body.photos_v2
+        : document.body.photos)
       ?? (document.body.photo_urls || []).map((url: string, i: number) => ({
         url,
         type: i === 0 ? 'exterior' as const : 'interior' as const,
         label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
         caption: undefined as string | undefined,
-      }))).filter((p: any) => p?.url && p.excluded !== true // 중개인 'IM 제외' 지정 자산 제거 (PPTX resolvePhotos와 동일)
+      }))
+    ).filter((p: any) => p?.url && p.excluded !== true // 중개인 'IM 제외' 지정 자산 제거 (PPTX resolvePhotos와 동일)
         && isValidPhotoUrl(p.url));
 
     if (finalCoordinates) {
@@ -911,7 +951,7 @@ export async function fetchIMData(
           hasPublicData: !!(enriched.meta.hasPublicData || enriched.meta.enrichedAt),
           hasMonthlyRent: !!ssotSummary.monthly_rent_total_krw || !!ssotSummary.monthly_rent_total,
           hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
-          hasPhotos: (document.body.photos || document.body.photo_urls || []).length > 0,
+          hasPhotos: ((Array.isArray(document.body.photos_v2) && document.body.photos_v2.length > 0 ? document.body.photos_v2 : document.body.photos) ?? (document.body.photo_urls || [])).length > 0,
           hasAskingPrice: !!(document.body.heroCard?.askingPriceBil || ssotSummary.asking_price_manwon),
           hasLoanAmount: !!(document.body.financials?.loanAmountBil || ssotSummary.loan_amount_manwon),
           hasFloorLeases: !!(document.body.heroCard?.waleTotalYears),
@@ -1070,20 +1110,102 @@ export async function fetchIMData(
         (mappedResult as any).rentRoll = it.rentRoll;
         (mappedResult as any).floor_leases = it.rentRoll;
       }
+      const resolvedLat = Number(it.coordinates?.lat ?? it.lat) || undefined;
+      const resolvedLng = Number(it.coordinates?.lng ?? it.lng) || undefined;
+      const resolvedOfficialLandPrice =
+        Number(it.officialLandPricePerSqm ?? it.officialLandPriceWonSqm) || undefined;
+
       const nextSsot = {
         ...((mappedResult as any).ssotSummary || {}),
         ...(it.address ? { address: it.address } : {}),
-        ...(it.investmentPosture ? { investment_posture: it.investmentPosture } : {}),
+        ...(it.pnu ? { pnu: it.pnu } : {}),
+        ...(resolvedLat && resolvedLng
+          ? { coordinates: { lat: resolvedLat, lng: resolvedLng } }
+          : {}),
+        ...(it.investmentPosture || it.posture
+          ? { investment_posture: it.investmentPosture || it.posture }
+          : {}),
         ...(Number(it.askingPriceManwon) ? { asking_price_manwon: Number(it.askingPriceManwon) } : {}),
-        ...(Number(it.gfaSqm) ? { total_gross_area_sqm: Number(it.gfaSqm) } : {}),
-        ...(Number(it.landAreaSqm) ? { land_area_sqm: Number(it.landAreaSqm) } : {}),
+        ...(Number(it.gfaSqm)
+          ? { total_gross_area_sqm: Number(it.gfaSqm), total_gross_area_m2: Number(it.gfaSqm) }
+          : {}),
+        ...(Number(it.landAreaSqm)
+          ? { land_area_sqm: Number(it.landAreaSqm), land_area_m2: Number(it.landAreaSqm) }
+          : {}),
         ...(it.zoning ? { zoning: it.zoning } : {}),
         ...(it.completionDate ? { completion_date: it.completionDate } : {}),
+        ...(Number(it.floorsAbove) ? { floors_above: Number(it.floorsAbove) } : {}),
+        ...(it.floorsBelow !== undefined && Number.isFinite(Number(it.floorsBelow))
+          ? { floors_below: Number(it.floorsBelow) }
+          : {}),
+        ...(Number(it.bcrPct) ? { bcr_pct: Number(it.bcrPct) } : {}),
+        ...(Number(it.farPct) ? { far_pct: Number(it.farPct) } : {}),
+        ...(Number(it.parkingTotal) ? { parking_count: Number(it.parkingTotal) } : {}),
+        ...(it.elevatorCount !== undefined && Number.isFinite(Number(it.elevatorCount))
+          ? { elevator_count: Number(it.elevatorCount) }
+          : {}),
+        ...(resolvedOfficialLandPrice
+          ? { official_land_price_per_sqm: resolvedOfficialLandPrice }
+          : {}),
+        ...(Array.isArray(it.parcels) && it.parcels.length > 0 ? { parcels: it.parcels } : {}),
         ...(it.handoverNote !== undefined ? { handover_note: it.handoverNote } : {}),
       };
       (mappedResult as any).ssotSummary = nextSsot;
+
+      if (it.pnu) {
+        (mappedResult as any).pnu = it.pnu;
+      }
+      if (resolvedLat && resolvedLng) {
+        mappedResult.coordinates = { lat: resolvedLat, lng: resolvedLng };
+      }
+      if (Array.isArray(it.parcels) && it.parcels.length > 0) {
+        (mappedResult as any).parcels = it.parcels;
+      }
+      const itPhotos =
+        Array.isArray(it.photos_v2) && it.photos_v2.length > 0
+          ? it.photos_v2
+          : Array.isArray(it.photos) && it.photos.length > 0
+          ? it.photos
+          : null;
+      if (itPhotos) {
+        const validItPhotos = itPhotos
+          .map((p: any, i: number) => {
+            const url = typeof p === "string" ? p : p?.dataUrl || p?.url || p?.previewUrl;
+            if (!isValidPhotoUrl(url)) return null;
+            return {
+              url,
+              type: p?.type || p?.category || (i === 0 ? ("exterior" as const) : ("interior" as const)),
+              label: p?.caption || p?.label || p?.name || (i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`),
+              caption: p?.caption,
+            };
+          })
+          .filter(Boolean);
+        if (validItPhotos.length > 0) {
+          mappedResult.photos = validItPhotos as any;
+          (mappedResult as any).photos_v2 = validItPhotos;
+        }
+      }
+
+      const bp = latestImUpsert.brokerProfile || {};
+      const brokerName = it.brokerName || bp.displayName || bp.display_name || bp.name;
+      const brokerageName = it.brokerageName || bp.company || bp.office;
+      const brokerPhone = it.brokerPhone || bp.phone;
+      const closingLine = it.closingLine || bp.tagline;
+      if (brokerName || brokerageName || brokerPhone || closingLine) {
+        const prevBroker = (mappedResult.broker || {}) as any;
+        mappedResult.broker = {
+          ...prevBroker,
+          ...(brokerName ? { displayName: brokerName, name: brokerName } : {}),
+          ...(brokerageName ? { company: brokerageName, office: brokerageName } : {}),
+          ...(brokerPhone ? { phone: brokerPhone } : {}),
+          ...(closingLine ? { tagline: closingLine } : {}),
+        };
+      }
+
       if (mappedResult.heroCard) {
-        if (it.investmentPosture) (mappedResult.heroCard as any).posture = it.investmentPosture;
+        if (it.investmentPosture || it.posture) {
+          (mappedResult.heroCard as any).posture = it.investmentPosture || it.posture;
+        }
         if (Array.isArray(it.axiosHighlights)) {
           const cleanPts = formatAxiosHighlights(it.axiosHighlights);
           if (cleanPts.length > 0) {
@@ -1092,13 +1214,39 @@ export async function fetchIMData(
           }
         }
       }
-      delete (mappedResult as any).basicImDocument;
+
+      const mergedItForSynth = {
+        address: nextSsot.address,
+        title: mappedResult.blindName,
+        askingPriceManwon: nextSsot.asking_price_manwon,
+        gfaSqm: nextSsot.total_gross_area_sqm ?? nextSsot.total_gross_area_m2,
+        landAreaSqm: nextSsot.land_area_sqm ?? nextSsot.land_area_m2,
+        zoning: nextSsot.zoning,
+        completionDate: nextSsot.completion_date,
+        floorsAbove: nextSsot.floors_above,
+        floorsBelow: nextSsot.floors_below,
+        bcrPct: nextSsot.bcr_pct,
+        farPct: nextSsot.far_pct,
+        parkingTotal: nextSsot.parking_count,
+        elevatorCount: nextSsot.elevator_count,
+        officialLandPriceWonSqm: nextSsot.official_land_price_per_sqm,
+        pnu: (mappedResult as any).pnu,
+        coordinates: mappedResult.coordinates,
+        rentRoll: (mappedResult as any).rentRoll,
+        photos: mappedResult.photos,
+        ...it,
+      };
+      (mappedResult as any).basicImDocument = synthesizeQuickRecordFromImItem(
+        buildingId,
+        mergedItForSynth,
+        latestImUpsert.brokerProfile
+      ).basicImDoc;
     }
 
     return attachInboxGovernanceOverlay(mappedResult, buildingId, document.body, dbGovernance);
   }
 
-  // 3. Fallback: If broker saved/published via IM Workspace (activity_events im_upserted), synthesize directly before bare SSoT stub
+  // 3. Fallback: If broker saved/published via IM Workspace (activity_events im_upserted) or in-memory quick store, synthesize directly before bare SSoT stub
   if (latestImUpsert?.imItem) {
     const synthRec = synthesizeQuickRecordFromImItem(
       buildingId,
@@ -1106,6 +1254,9 @@ export async function fetchIMData(
       latestImUpsert.brokerProfile
     );
     return hydrateQuickRecordToMobileIM(buildingId, synthRec, dbGovernance);
+  }
+  if (earlyQuickRec) {
+    return hydrateQuickRecordToMobileIM(buildingId, earlyQuickRec, dbGovernance);
   }
 
   const result = await readBuilding(buildingId);

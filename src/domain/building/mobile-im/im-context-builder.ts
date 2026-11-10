@@ -245,7 +245,6 @@ export async function buildIMContext(
     : vacancyStr.includes("거의 만실") ? 5
     : vacancyStr.includes("반공실") ? 50
     : vacancyStr.includes("전체 공실") || vacancyStr.includes("올공실") ? 100
-    : vacancyStr.includes("공실") ? 30
     : vacancyStr.match(/(\d+)\s*%/) ? parseInt(vacancyStr.match(/(\d+)\s*%/)![1], 10)
     : null;
   if (vacancyPct == null) {

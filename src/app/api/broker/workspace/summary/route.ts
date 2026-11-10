@@ -26,6 +26,11 @@ import {
   resolveKnownTestAssetUrl,
 } from "@/lib/im-lite/quick-generate-store";
 import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
+import {
+  normalizeDealCardCopy,
+  repairDealCardLine,
+  repairDealCardPoints,
+} from "@/lib/deal-card/copy-limits";
 
 function cleanBrokerField(val: unknown, fallback?: string): string | undefined {
   if (typeof val !== "string") return fallback;
@@ -53,6 +58,43 @@ function formatRelativeTime(isoString?: string | null): string {
   if (hours < 24) return `${hours}시간 전`;
   const days = Math.floor(hours / 24);
   return `${days}일 전`;
+}
+
+export interface ImSummaryItem {
+  id: string;
+  buildingId: string;
+  title: string;
+  address: string;
+  askingPriceManwon: number;
+  grossYieldPct: number;
+  status: "draft" | "published";
+  versionLabel: string;
+  updatedAt: string;
+  rentRoll?: any[];
+  photos?: any[];
+  investmentPosture?: string;
+  gfaSqm?: string;
+  landAreaSqm?: string;
+  zoning?: string;
+  completionDate?: string;
+  handoverNote?: string;
+  axiosHighlights?: any[];
+  brokerName?: string;
+  brokerageName?: string;
+  brokerPhone?: string;
+  pnu?: string;
+  lat?: number;
+  lng?: number;
+  floorsAbove?: number;
+  floorsBelow?: number;
+  bcrPct?: number;
+  farPct?: number;
+  parkingTotal?: number;
+  elevatorCount?: number;
+  officialLandPricePerSqm?: number;
+  parcels?: any[];
+  mainPurpose?: string;
+  closingLine?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -105,7 +147,7 @@ export async function GET(request: NextRequest) {
       ? supabase
           .from("document_objects")
           .select(
-            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases, axios_highlights:body->axios_highlights, handover_note:body->handover_note, broker_contact:body->broker_contact, investment_posture:body->investment_posture, photos_v2:body->photos_v2, photos:body->photos"
+            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, card4Headline:body->card4Headline, card4Points:body->card4Points, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases, axios_highlights:body->axios_highlights, handover_note:body->handover_note, broker_contact:body->broker_contact, investment_posture:body->investment_posture, photos_v2:body->photos_v2, photos:body->photos"
           )
           .in("building_id", buildingIds)
       : null;
@@ -130,22 +172,29 @@ export async function GET(request: NextRequest) {
     );
     const bodyCard4 = (teaserDoc?.card4 ?? teaserDoc?.body?.card4) as Partial<Card4Data> | undefined;
     const teaserDealPoints = teaserDoc?.dealPoints ?? teaserDoc?.body?.dealPoints;
+    // from-memo 파이프라인이 생성한 18자 딜카드 전용 문구 (BlindTeaser card4Headline/card4Points)
+    const teaserCard4Points = teaserDoc?.card4Points ?? teaserDoc?.body?.card4Points;
+    const teaserCard4Headline = teaserDoc?.card4Headline ?? teaserDoc?.body?.card4Headline;
     const region = bodyCard4?.region || b.area_signal || "서울시 핵심 권역";
     const use = bodyCard4?.use || b.asset_type || "근린생활시설";
     const priceBand = bodyCard4?.priceBand || b.price_band || "가격 협의";
     const rawPoints: string[] = Array.isArray(bodyCard4?.points)
       ? bodyCard4!.points
+      : Array.isArray(teaserCard4Points) && teaserCard4Points.length > 0
+      ? teaserCard4Points
       : Array.isArray(teaserDealPoints)
       ? teaserDealPoints
       : [
-          b.fit_summary ? String(b.fit_summary).slice(0, 18) : `${region} 핵심 입지`,
+          b.fit_summary ? String(b.fit_summary) : `${region} 핵심 입지`,
           `${use} 추천 매물`,
           "상세 수익률 및 임대현황 확인 가능",
         ];
+    // 18자 SSOT: 하드 절단 대신 어절 경계 교정 (copy-limits)
+    const repairedPoints = repairDealCardPoints(rawPoints);
     const points: [string, string, string] = [
-      rawPoints[0] || `${region} 핵심 입지`,
-      rawPoints[1] || `${use} 추천 매물`,
-      rawPoints[2] || "안정적 임대수익 기대",
+      repairedPoints[0] || repairDealCardLine(`${region} 핵심 입지`),
+      repairedPoints[1] || repairDealCardLine(`${use} 추천 매물`),
+      repairedPoints[2] || "안정적 임대수익 기대",
     ];
     const hash = bodyCard4?.card4_hash || computeCard4Hash({ region, use, priceBand, points });
     const layersObj = (b.layers as Record<string, any>) || {};
@@ -158,7 +207,12 @@ export async function GET(request: NextRequest) {
       { ...bodyCard4, posture, gfaPyung, landAreaPyung },
       { gfaPyung, landAreaPyung }
     );
-    const headline = bodyCard4?.headline?.slice(0, 18) || "";
+    // 한 줄 제목 SSOT: 저장된 card4.headline → AI 딜카드 제목 → 장점 기반 파생 제목.
+    // 편집기 "한 줄 제목" 입력과 OG/고객 화면이 같은 필드를 보도록 card4.headline 에 채워 내려준다.
+    const headline =
+      repairDealCardLine(bodyCard4?.headline) ||
+      repairDealCardLine(typeof teaserCard4Headline === "string" ? teaserCard4Headline : "") ||
+      generateAiOgHeadline({ posture: bodyCard4?.posture || "income", points });
 
     const card4: Card4Data = {
       headline,
@@ -225,7 +279,7 @@ export async function GET(request: NextRequest) {
     return true;
   });
 
-  const imList = imDocs.map((d) => {
+  const imList: ImSummaryItem[] = imDocs.map((d) => {
     const ssotSummary = d.ssot_summary || d.body?.ssot_summary || {};
     const bld = buildings.find((b) => b.id === d.building_id);
     const layers = (bld?.layers as Record<string, any>) || {};
@@ -235,7 +289,7 @@ export async function GET(request: NextRequest) {
       bld?.area_signal ||
       "서울시 핵심 상권";
     const askingPriceManwon =
-      Number(ssotSummary.asking_price_manwon || layers.deal_terms?.asking_price_manwon) || 950000;
+      Number(ssotSummary.asking_price_manwon || layers.deal_terms?.asking_price_manwon) || 0;
     const versionNo = Number(d.version_no ?? d.body?.version_no ?? 1);
     const isPublished = d.status === "published" || d.status === "broker_reviewed";
     const rawFloorLeases = d.floor_leases ?? d.body?.floor_leases;
@@ -394,6 +448,73 @@ export async function GET(request: NextRequest) {
       brokerName: cleanBrokerField(brokerContact?.brokerName || brokerContact?.name),
       brokerageName: cleanBrokerField(brokerContact?.brokerageName || brokerContact?.company),
       brokerPhone: cleanBrokerField(brokerContact?.brokerPhone || brokerContact?.phone),
+      pnu: ssotSummary.pnu || d.body?.pnu || layers.asset_identity?.pnu || undefined,
+      lat:
+        ssotSummary.coordinates?.lat ??
+        ssotSummary.lat ??
+        d.body?.coordinates?.lat ??
+        d.body?.lat ??
+        layers.asset_identity?.coordinates?.lat ??
+        undefined,
+      lng:
+        ssotSummary.coordinates?.lng ??
+        ssotSummary.lng ??
+        d.body?.coordinates?.lng ??
+        d.body?.lng ??
+        layers.asset_identity?.coordinates?.lng ??
+        undefined,
+      floorsAbove:
+        ssotSummary.floors_above !== undefined
+          ? Number(ssotSummary.floors_above)
+          : layers.building_register?.floors_above !== undefined
+          ? Number(layers.building_register.floors_above)
+          : undefined,
+      floorsBelow:
+        ssotSummary.floors_below !== undefined
+          ? Number(ssotSummary.floors_below)
+          : layers.building_register?.floors_below !== undefined
+          ? Number(layers.building_register.floors_below)
+          : undefined,
+      bcrPct:
+        ssotSummary.bcr_pct !== undefined
+          ? Number(ssotSummary.bcr_pct)
+          : layers.building_register?.bcr_pct !== undefined
+          ? Number(layers.building_register.bcr_pct)
+          : undefined,
+      farPct:
+        ssotSummary.far_pct !== undefined
+          ? Number(ssotSummary.far_pct)
+          : layers.building_register?.far_pct !== undefined
+          ? Number(layers.building_register.far_pct)
+          : undefined,
+      parkingTotal:
+        ssotSummary.parking_total !== undefined
+          ? Number(ssotSummary.parking_total)
+          : ssotSummary.parking_count !== undefined
+          ? Number(ssotSummary.parking_count)
+          : undefined,
+      elevatorCount:
+        ssotSummary.elevator_count !== undefined ? Number(ssotSummary.elevator_count) : undefined,
+      officialLandPricePerSqm:
+        ssotSummary.official_land_price_per_sqm !== undefined
+          ? Number(ssotSummary.official_land_price_per_sqm)
+          : ssotSummary.official_land_price_krw !== undefined
+          ? Number(ssotSummary.official_land_price_krw)
+          : undefined,
+      parcels: Array.isArray(ssotSummary.parcels)
+        ? ssotSummary.parcels
+        : Array.isArray(d.body?.parcels)
+        ? d.body.parcels
+        : undefined,
+      mainPurpose:
+        ssotSummary.main_usage || ssotSummary.asset_type || bld?.asset_type || undefined,
+      closingLine:
+        ssotSummary.closing_line ||
+        brokerContact?.closingLine ||
+        brokerContact?.closing_line ||
+        d.body?.closingLine ||
+        d.body?.closing_line ||
+        undefined,
     };
   });
 
@@ -556,7 +677,7 @@ export async function GET(request: NextRequest) {
       priceBand: qRec.card4.priceBand,
       status: (isSent ? "sent" : "draft") as "draft" | "sent",
       updatedAt: formatRelativeTime(qRec.updatedAt),
-      card4: qRec.card4,
+      card4: normalizeDealCardCopy(qRec.card4, { fillHeadline: true }),
     };
     if (existingDcIdx >= 0) {
       if (qRec.ownerId === userId) {
@@ -573,7 +694,9 @@ export async function GET(request: NextRequest) {
     const existingImIdx = imList.findIndex(
       (im) => im.id === qRec.documentId || im.buildingId === qRec.buildingId
     );
-    const mappedIm = {
+    const qDocBody = ((qRec as any).docBody || qRec.fullDocBody || {}) as Record<string, any>;
+    const qSsot = (qDocBody.ssot_summary || {}) as Record<string, any>;
+    const mappedIm: ImSummaryItem = {
       id: qRec.documentId,
       buildingId: qRec.buildingId,
       title: qRec.buildingName || `${qRec.card4.region} ${qRec.card4.use}`.trim(),
@@ -590,7 +713,11 @@ export async function GET(request: NextRequest) {
       zoning: qRec.specs?.zoning || undefined,
       completionDate: qRec.specs?.completionDate || undefined,
       handoverNote: qRec.specs?.handoverNote || undefined,
-      axiosHighlights: undefined as any[] | undefined,
+      axiosHighlights: Array.isArray((qRec.docBody as any)?.axios_highlights)
+        ? (qRec.docBody as any).axios_highlights
+        : Array.isArray(qDocBody.axios_highlights)
+        ? qDocBody.axios_highlights
+        : undefined,
       brokerName: cleanBrokerField(
         qRec.brokerProfile?.displayName || qRec.basicImDoc?.facts?.brokerOffice?.representative,
         brokerProfile?.displayName
@@ -603,6 +730,46 @@ export async function GET(request: NextRequest) {
         qRec.brokerProfile?.phone || qRec.basicImDoc?.facts?.brokerOffice?.phone,
         brokerProfile?.phone
       ),
+      pnu: qRec.pnu || qSsot.pnu || qDocBody.pnu || undefined,
+      lat:
+        qRec.coordinates?.lat ??
+        qRec.lat ??
+        qSsot.coordinates?.lat ??
+        qSsot.lat ??
+        qDocBody.coordinates?.lat ??
+        undefined,
+      lng:
+        qRec.coordinates?.lng ??
+        qRec.lng ??
+        qSsot.coordinates?.lng ??
+        qSsot.lng ??
+        qDocBody.coordinates?.lng ??
+        undefined,
+      floorsAbove: qRec.floorsAbove ?? qRec.specs?.floorsAbove ?? qSsot.floors_above ?? undefined,
+      floorsBelow: qRec.floorsBelow ?? qRec.specs?.floorsBelow ?? qSsot.floors_below ?? undefined,
+      bcrPct: qRec.specs?.bcrPct ?? qSsot.bcr_pct ?? undefined,
+      farPct: qRec.specs?.farPct ?? qSsot.far_pct ?? undefined,
+      parkingTotal:
+        qRec.specs?.parkingSpaces ?? qSsot.parking_total ?? qSsot.parking_count ?? undefined,
+      elevatorCount: qRec.specs?.elevators ?? qSsot.elevator_count ?? undefined,
+      officialLandPricePerSqm:
+        qRec.officialLandPricePerSqm ??
+        qRec.officialLandPriceWonSqm ??
+        qRec.specs?.officialLandPricePerSqm ??
+        qRec.specs?.officialLandPriceWonSqm ??
+        qSsot.official_land_price_per_sqm ??
+        undefined,
+      parcels:
+        qRec.parcels ?? qRec.specs?.parcels ?? qSsot.parcels ?? qDocBody.parcels ?? undefined,
+      mainPurpose:
+        qRec.specs?.mainPurpose || qSsot.main_usage || qRec.card4.use || undefined,
+      closingLine:
+        qRec.closingLine ||
+        qRec.specs?.closingLine ||
+        qSsot.closing_line ||
+        qDocBody.closingLine ||
+        qDocBody.broker_contact?.closingLine ||
+        undefined,
     };
     if (existingImIdx >= 0) {
       if (qRec.ownerId === userId) {
@@ -621,7 +788,7 @@ export async function GET(request: NextRequest) {
   for (const [bId, customEntry] of customUpsertedByBuilding.entries()) {
     const idx = dealcards.findIndex((dc) => dc.id === bId);
     const isSent = sentBuildingIds.has(bId) || isDealCardSent(bId) || customEntry.status === "sent";
-    const c4 = customEntry.card4;
+    const c4 = normalizeDealCardCopy(customEntry.card4, { fillHeadline: true });
     const itemObj = {
       id: bId,
       title: `${c4.region || "새"} ${c4.use || "딜카드"}`.trim(),
@@ -1174,7 +1341,7 @@ export async function PATCH(request: NextRequest) {
                   mgmt_fee_manwon: isVac ? 0 : mgmtMan,
                   lease_state: isVac ? "공실" : isOwn ? "자가사용" : "임대중",
                   is_vacant: isVac,
-                  lease_end: String(r?.leaseExpiry || r?.lease_end || prevFl.lease_end || "2027.12"),
+                  lease_end: String(r?.leaseExpiry || r?.lease_end || prevFl.lease_end || "-"),
                   ...(rowNote ? { note: rowNote, remark: rowNote } : {}),
                   source: prevFl.source || "broker",
                 };
@@ -1222,6 +1389,13 @@ export async function PATCH(request: NextRequest) {
               : undefined) ||
             prevSsot.coordinates ||
             prevBody.coordinates;
+          const resolvedClosingLine =
+            imItem.closingLine ??
+            imItem.brokerExtras?.closingLine ??
+            imItem.brokerExtrasForm?.closingLine ??
+            prevSsot.closing_line ??
+            prevBody.closingLine ??
+            prevBrokerContact.closingLine;
 
           const effectiveAskManwon =
             askingPriceManwonNum || Number(prevSsot.asking_price_manwon) || 0;
@@ -1254,7 +1428,23 @@ export async function PATCH(request: NextRequest) {
             ...prevBody,
             heroTitle: imItem.title || prevBody.heroTitle,
             ...(resolvedPnu ? { pnu: resolvedPnu } : {}),
-            ...(resolvedCoordinates ? { coordinates: resolvedCoordinates } : {}),
+            ...(resolvedCoordinates
+              ? {
+                  coordinates: resolvedCoordinates,
+                  lat: resolvedCoordinates.lat,
+                  lng: resolvedCoordinates.lng,
+                }
+              : {}),
+            ...(imItem.parcels !== undefined ? { parcels: imItem.parcels } : {}),
+            ...(resolvedClosingLine !== undefined
+              ? { closingLine: resolvedClosingLine, closing_line: resolvedClosingLine }
+              : {}),
+            ...(imItem.officialLandPricePerSqm !== undefined
+              ? {
+                  official_land_price_per_sqm: Number(imItem.officialLandPricePerSqm),
+                  official_land_price_krw: Number(imItem.officialLandPricePerSqm),
+                }
+              : {}),
             investment_posture: imItem.investmentPosture || prevBody.investment_posture,
             handover_note: imItem.handoverNote ?? prevBody.handover_note,
             axios_highlights: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevBody.axios_highlights,
@@ -1271,18 +1461,33 @@ export async function PATCH(request: NextRequest) {
               brokerName: nextBrokerName,
               brokerageName: nextBrokerageName,
               brokerPhone: nextBrokerPhone,
+              ...(resolvedClosingLine !== undefined
+                ? { closingLine: resolvedClosingLine, closing_line: resolvedClosingLine }
+                : {}),
             },
             heroCard: {
               ...prevHero,
               posture: imItem.investmentPosture || prevHero.posture,
               capRateBase: nextCapRatePct || prevHero.capRateBase,
               keyPoints: cleanKeyPoints && cleanKeyPoints.length > 0 ? cleanKeyPoints : prevHero.keyPoints,
+              ...(imItem.parkingTotal !== undefined
+                ? { parkingCount: Number(imItem.parkingTotal) }
+                : {}),
+              ...(imItem.elevatorCount !== undefined
+                ? { elevatorCount: Number(imItem.elevatorCount) }
+                : {}),
             },
             ssot_summary: {
               ...prevSsot,
               address: imItem.address || prevSsot.address,
               ...(resolvedPnu ? { pnu: resolvedPnu } : {}),
-              ...(resolvedCoordinates ? { coordinates: resolvedCoordinates } : {}),
+              ...(resolvedCoordinates
+                ? {
+                    coordinates: resolvedCoordinates,
+                    lat: resolvedCoordinates.lat,
+                    lng: resolvedCoordinates.lng,
+                  }
+                : {}),
               investment_posture: imItem.investmentPosture || prevSsot.investment_posture,
               asking_price_manwon: effectiveAskManwon || prevSsot.asking_price_manwon,
               monthly_rent_total_manwon: nextMonthlyRentManwon,
@@ -1294,11 +1499,43 @@ export async function PATCH(request: NextRequest) {
               vacancy_signal: nextVacancyPct === 0 ? "만실" : `공실률 ${nextVacancyPct}%`,
               cap_rate_pct: nextCapRatePct,
               gross_yield_pct: nextGrossYieldPct,
-              total_gross_area_sqm: imItem.gfaSqm ? Number(imItem.gfaSqm) : prevSsot.total_gross_area_sqm,
-              land_area_sqm: imItem.landAreaSqm ? Number(imItem.landAreaSqm) : prevSsot.land_area_sqm,
+              total_gross_area_sqm: imItem.gfaSqm
+                ? Number(String(imItem.gfaSqm).replace(/,/g, ""))
+                : prevSsot.total_gross_area_sqm,
+              land_area_sqm: imItem.landAreaSqm
+                ? Number(String(imItem.landAreaSqm).replace(/,/g, ""))
+                : prevSsot.land_area_sqm,
               zoning: imItem.zoning || prevSsot.zoning,
               completion_date: imItem.completionDate || prevSsot.completion_date,
               handover_note: imItem.handoverNote ?? prevSsot.handover_note,
+              ...(imItem.floorsAbove !== undefined
+                ? { floors_above: Number(imItem.floorsAbove) }
+                : {}),
+              ...(imItem.floorsBelow !== undefined
+                ? { floors_below: Number(imItem.floorsBelow) }
+                : {}),
+              ...(imItem.bcrPct !== undefined ? { bcr_pct: Number(imItem.bcrPct) } : {}),
+              ...(imItem.farPct !== undefined ? { far_pct: Number(imItem.farPct) } : {}),
+              ...(imItem.parkingTotal !== undefined
+                ? {
+                    parking_total: Number(imItem.parkingTotal),
+                    parking_count: Number(imItem.parkingTotal),
+                  }
+                : {}),
+              ...(imItem.elevatorCount !== undefined
+                ? { elevator_count: Number(imItem.elevatorCount) }
+                : {}),
+              ...(imItem.officialLandPricePerSqm !== undefined
+                ? {
+                    official_land_price_per_sqm: Number(imItem.officialLandPricePerSqm),
+                    official_land_price_krw: Number(imItem.officialLandPricePerSqm),
+                  }
+                : {}),
+              ...(imItem.parcels !== undefined ? { parcels: imItem.parcels } : {}),
+              ...(imItem.mainPurpose !== undefined ? { main_usage: imItem.mainPurpose } : {}),
+              ...(resolvedClosingLine !== undefined
+                ? { closing_line: resolvedClosingLine }
+                : {}),
             },
           };
           await supabase
@@ -1504,10 +1741,12 @@ export async function PATCH(request: NextRequest) {
   }
 
   // Non-UUID local draft ID: compute deterministic hash & increment version, update QuickImStore + activity_events
+  // 18자 SSOT 교정 + 빈 한 줄 제목은 파생 제목으로 같은 필드(card4.headline)에 채워 저장한다.
+  const normalizedCard4 = normalizeDealCardCopy(card4, { fillHeadline: true });
   const nextVersion = (card4.card4_version || 1) + 1;
-  const hash = computeCard4Hash(card4);
+  const hash = computeCard4Hash(normalizedCard4);
   const nextCard4: Card4Data = {
-    ...card4,
+    ...normalizedCard4,
     card4_version: nextVersion,
     card4_hash: hash,
   };

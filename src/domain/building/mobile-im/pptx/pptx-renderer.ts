@@ -914,64 +914,6 @@ export class MobileImPptxRenderer {
           dataMap['cadastralMap'].cadastralImage = cadastralImg;
           dataMap['cadastralMap'].mapImageUrl = cadastralImg;
         }
-        // 지적도를 토지 슬라이드에도 전달 (좌측 이미지 영역용)
-        if (isBasicPreset) {
-          if (!dataMap['land']) dataMap['land'] = { title: '토지 정보', content: '', tables: [], metrics: {} };
-          dataMap['land'].cadastralImage = cadastralImg;
-          dataMap['land'].mapImageUrl = cadastralImg;
-          dataMap['land'].photoUrl = cadastralImg;
-
-          // A06 호환: left.rows의 토지 제원을 right.rows로 매핑
-          const leftRows = dataMap['land'].left?.rows ?? [];
-          if (!dataMap['land'].right) dataMap['land'].right = {};
-          if (leftRows.length > 0 && (!dataMap['land'].right.rows || dataMap['land'].right.rows.length === 0)) {
-            dataMap['land'].right.rows = leftRows;
-          }
-          if (!dataMap['land'].right.sub) {
-            dataMap['land'].right.sub = '토지이용계획 · 규제 분석';
-          }
-
-          // A06 호환: right.callout 단일 객체 보장
-          if (!dataMap['land'].right.callout && dataMap['land'].right.callouts?.length > 0) {
-            const first = dataMap['land'].right.callouts[0];
-            dataMap['land'].right.callout = {
-              kind: first.kind || 'info',
-              title: first.title || '토지 규제 및 공법 분석',
-              body: first.body || '',
-            };
-          } else if (!dataMap['land'].right.callout) {
-            const ssot = input.doc.body?.ssot_summary ?? {};
-            const bcr = ssot.bcr_pct;
-            const far = ssot.far_pct;
-            // 법정 상한: 공식 출처만 (기존 50/250 하드코딩 기본값은 날조라 제거 — Rule 34)
-            const { bcrMax: maxBcr, farMax: maxFar } = verifiedLegalLimitsFromSsot(ssot);
-            const road = ssot.road_condition ?? '';
-            const zoning = ssot.zoning ?? '';
-            const bullets: string[] = [];
-            if (bcr && far) {
-              bullets.push(maxBcr && maxFar
-                ? `• 현 건폐율 ${bcr}%, 용적률 ${far}% (법정 상한: 건폐율 ${maxBcr}%, 용적률 ${maxFar}%)`
-                : `• 현 건폐율 ${bcr}%, 용적률 ${far}%${zoning ? ` (${zoning})` : ''}`);
-              const farGap = maxFar ? Number(maxFar) - Number(far) : 0;
-              if (farGap > 5) {
-                bullets.push(`• ${zoning} 기준 법정 상한 대비 용적률 ${farGap.toFixed(1)}%p 여유`);
-              }
-            }
-            if (road) {
-              bullets.push(`• 도로접면: ${road}`);
-            }
-            if (bullets.length > 0) {
-              dataMap['land'].right.callout = {
-                kind: 'info',
-                title: '토지 규제 및 공법 분석',
-                body: bullets.join('\n'),
-              };
-            }
-          }
-
-          if (!dataMap['land'].left) dataMap['land'].left = {};
-          dataMap['land'].left.source = '출처: 토지이음 · V-World 국토교통부';
-        }
       }
 
       // ── D4/D8/R6: 중개인 제공 정보 + 토지이용계획확인원 양식 바인딩 (Basic IM 전용) ──

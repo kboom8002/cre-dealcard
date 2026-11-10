@@ -12,8 +12,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { fetchIMData } from "@/app/(public)/im-lite/[buildingId]/fetch-im-data";
-import { getInboxState } from "@/lib/im-lite/quick-generate-store";
+import { getInboxState, isUuid, resolveOrSynthesizeQuickImRecord } from "@/lib/im-lite/quick-generate-store";
 import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+import { getServerViewer } from "@/lib/server-viewer";
+import { isOwnerOrAdmin } from "@/domain/public-projection/access";
+import { isImDocStatusPublic } from "@/domain/public-projection/visibility";
 
 export async function GET(
   req: NextRequest,
@@ -21,7 +24,7 @@ export async function GET(
 ) {
   try {
     const { buildingId } = await params;
-    const docId = req.nextUrl.searchParams.get("doc");
+    const docId = req.nextUrl.searchParams.get("doc") || req.nextUrl.searchParams.get("doc_id");
     const token = req.nextUrl.searchParams.get("token");
 
     if (token) {
@@ -40,22 +43,9 @@ export async function GET(
       }
     }
 
-    // ── 1. Check demo data first ─────────────────────────────────────
-    const demo = getDemoMobileIM(buildingId);
-    if (demo) {
-      return NextResponse.json(
-        { ok: true, data: demo, source: "demo" },
-        {
-          headers: {
-            "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
-          },
-        },
-      );
-    }
-
     const supabase = createServiceClient();
 
-    // ── 1b. Enforce building-level revocation across all paths (S1-1..S1-5) ──
+    // ── 1a. Enforce building-level revocation across all paths (before demo return) ──
     try {
       const { data: govEvents } = await supabase
         .from("activity_events")
@@ -114,17 +104,87 @@ export async function GET(
         );
       }
     } catch {
-      // Fall through if activity_events query fails
+      const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
+      if (inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "LINK_REVOKED",
+              message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+            },
+          },
+          { status: 403 }
+        );
+      }
     }
 
+    // ── 1b. Check demo data ─────────────────────────────────────
+    const demo = getDemoMobileIM(buildingId);
+    if (demo) {
+      return NextResponse.json(
+        { ok: true, data: demo, source: "demo" },
+        {
+          headers: {
+            "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
+          },
+        },
+      );
+    }
+
+    let viewer: any = null;
+    try {
+      viewer = await getServerViewer();
+    } catch {
+      viewer = null;
+    }
+
+    // Non-UUID buildingId (e.g. bld-01, quick-*): delegate to fetchIMData / QuickImStore
+    if (!isUuid(buildingId)) {
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
+      if (fallbackIm) {
+        if ((fallbackIm as any).isRevoked) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "LINK_REVOKED",
+                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+              },
+            },
+            { status: 403 },
+          );
+        }
+        return NextResponse.json(
+          { ok: true, data: fallbackIm, source: "im_workspace" },
+          { status: 200 },
+        );
+      }
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
+        { status: 404 },
+      );
+    }
+
+    const { data: buildingAccess } = await supabase
+      .from("building_ssot_lite")
+      .select("owner_id, status")
+      .eq("id", buildingId)
+      .maybeSingle();
+    const buildingOwnerId: string | null = buildingAccess?.owner_id ?? null;
+
     // ── 2a. Auto-resolve docId if not provided ──────────────────────
-    let resolvedDocId = docId;
+    let resolvedDocId = docId && isUuid(docId) ? docId : null;
     if (!resolvedDocId) {
+      const allowedStatuses = isOwnerOrAdmin(viewer, buildingOwnerId)
+        ? ["published", "broker_reviewed", "draft"]
+        : ["published", "broker_reviewed"];
       const { data: latestDoc } = await supabase
         .from('document_objects')
         .select('id')
         .eq('building_id', buildingId)
         .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
+        .in('status', allowedStatuses)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -134,16 +194,46 @@ export async function GET(
       }
     }
 
+    const quickRec = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId || undefined);
+
     // ── 2. If docId is provided (or auto-resolved), fetch the generated document ────────
     if (resolvedDocId) {
       const { data: document, error: docError } = await supabase
         .from("document_objects")
-        .select("body, owner_id, created_at")
+        .select("body, owner_id, created_at, updated_at, status")
         .eq("id", resolvedDocId)
         .eq("building_id", buildingId)
         .single();
 
-      if (!docError && document && document.body?.sections) {
+      const isAllowedDoc =
+        document &&
+        (isImDocStatusPublic(document.status) || isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id));
+
+      if (!docError && isAllowedDoc && document.body?.sections) {
+        const dbTime = Date.parse(document.updated_at || document.created_at || "") || 0;
+        const qrTime = Date.parse(quickRec?.updatedAt || quickRec?.createdAt || "") || 0;
+        if (quickRec && qrTime > dbTime) {
+          const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
+          if (fallbackIm) {
+            if ((fallbackIm as any).isRevoked) {
+              return NextResponse.json(
+                {
+                  ok: false,
+                  error: {
+                    code: "LINK_REVOKED",
+                    message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+                  },
+                },
+                { status: 403 },
+              );
+            }
+            return NextResponse.json(
+              { ok: true, data: fallbackIm, source: "im_workspace" },
+              { status: 200 },
+            );
+          }
+        }
+
         if (document.body?.is_revoked === true) {
           return NextResponse.json(
             {
@@ -156,12 +246,19 @@ export async function GET(
             { status: 403 },
           );
         }
-        // Fetch Broker Profile
-        const { data: brokerProfile } = await supabase
-          .from("profiles")
-          .select("id, display_name, company, phone, tagline, photo_url, slug, vibe_template_id")
-          .eq("id", document.owner_id)
-          .single();
+        // Fetch Broker Profile (profiles + broker_profiles)
+        const [{ data: brokerProfile }, { data: brokerMeta }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id, display_name, company, phone, tagline, photo_url")
+            .eq("id", document.owner_id)
+            .maybeSingle(),
+          supabase
+            .from("broker_profiles")
+            .select("slug, vibe_template_id")
+            .eq("user_id", document.owner_id)
+            .maybeSingle(),
+        ]);
 
         const broker = brokerProfile ? {
           userId: brokerProfile.id,
@@ -170,8 +267,8 @@ export async function GET(
           phone: brokerProfile.phone || "",
           tagline: brokerProfile.tagline || "",
           photoUrl: brokerProfile.photo_url || "/default-avatar.png",
-          slug: brokerProfile.slug || "cre-dealcard-default",
-          vibeTemplateId: brokerProfile.vibe_template_id || "default",
+          slug: brokerMeta?.slug || "cre-dealcard-default",
+          vibeTemplateId: brokerMeta?.vibe_template_id || "default",
         } : {
           userId: "system",
           displayName: "담당 중개인",
@@ -179,8 +276,8 @@ export async function GET(
           phone: "",
           tagline: "",
           photoUrl: "/default-avatar.png",
-          slug: "cre-dealcard-default",
-          vibeTemplateId: "default",
+          slug: brokerMeta?.slug || "cre-dealcard-default",
+          vibeTemplateId: brokerMeta?.vibe_template_id || "default",
         };
 
         const ssotSummary = document.body.ssot_summary || {};
@@ -233,6 +330,29 @@ export async function GET(
       }
     }
 
+    // If quickRec exists in workspace/memory when no document_objects row matched, serve it before bare SSoT stub
+    if (quickRec) {
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
+      if (fallbackIm) {
+        if ((fallbackIm as any).isRevoked) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "LINK_REVOKED",
+                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+              },
+            },
+            { status: 403 },
+          );
+        }
+        return NextResponse.json(
+          { ok: true, data: fallbackIm, source: "im_workspace" },
+          { status: 200 },
+        );
+      }
+    }
+
     // ── 3. Real building lookup (Fallback if no docId or doc not found)
     const { data: ssot, error } = await supabase
       .from("building_ssot_lite")
@@ -245,7 +365,7 @@ export async function GET(
       .single();
 
     if (error || !ssot) {
-      const fallbackIm = await fetchIMData(buildingId, docId || undefined, null, token || undefined);
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
       if (fallbackIm) {
         if ((fallbackIm as any).isRevoked) {
           return NextResponse.json(
@@ -272,7 +392,7 @@ export async function GET(
 
     const score = ssot.completeness_score ?? 0;
     if (score < 30) {
-      const fallbackIm = await fetchIMData(buildingId, docId || undefined, null, token || undefined);
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
       if (fallbackIm) {
         if ((fallbackIm as any).isRevoked) {
           return NextResponse.json(
@@ -305,12 +425,19 @@ export async function GET(
       );
     }
 
-    // Fetch Broker Profile
-    const { data: brokerProfile } = await supabase
-      .from("profiles")
-      .select("id, display_name, company, phone, tagline, photo_url, slug, vibe_template_id")
-      .eq("id", ssot.owner_id)
-      .single();
+    // Fetch Broker Profile (profiles + broker_profiles)
+    const [{ data: brokerProfile }, { data: brokerMeta }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, display_name, company, phone, tagline, photo_url")
+        .eq("id", ssot.owner_id)
+        .maybeSingle(),
+      supabase
+        .from("broker_profiles")
+        .select("slug, vibe_template_id")
+        .eq("user_id", ssot.owner_id)
+        .maybeSingle(),
+    ]);
 
     const broker = brokerProfile ? {
       userId: brokerProfile.id,
@@ -319,8 +446,8 @@ export async function GET(
       phone: brokerProfile.phone || "",
       tagline: brokerProfile.tagline || "",
       photoUrl: brokerProfile.photo_url || "/default-avatar.png",
-      slug: brokerProfile.slug || "cre-dealcard-default",
-      vibeTemplateId: brokerProfile.vibe_template_id || "default",
+      slug: brokerMeta?.slug || "cre-dealcard-default",
+      vibeTemplateId: brokerMeta?.vibe_template_id || "default",
     } : {
       userId: "system",
       displayName: "담당 중개인",
@@ -328,8 +455,8 @@ export async function GET(
       phone: "",
       tagline: "",
       photoUrl: "/default-avatar.png",
-      slug: "cre-dealcard-default",
-      vibeTemplateId: "default",
+      slug: brokerMeta?.slug || "cre-dealcard-default",
+      vibeTemplateId: brokerMeta?.vibe_template_id || "default",
     };
 
     const sections = [

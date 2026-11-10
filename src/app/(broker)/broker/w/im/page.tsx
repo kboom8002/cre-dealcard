@@ -38,6 +38,7 @@ interface ImAxiosHighlight {
   headline: string;
   brief: string;
   tone: "amber" | "sky" | "mint";
+  bullets?: string[];
 }
 
 interface ImPhotoEntry {
@@ -248,12 +249,20 @@ interface ImListItem {
   lng?: number;
   floorsAbove?: number;
   floorsBelow?: number;
+  bcrPct?: number;
+  farPct?: number;
+  parkingTotal?: number;
+  elevatorCount?: number;
+  officialLandPricePerSqm?: number;
+  parcels?: any[];
+  closingLine?: string;
   mainPurpose?: string;
   photoNames?: string[];
   photos?: ImPhotoEntry[];
   brokerName?: string;
   brokerageName?: string;
   brokerPhone?: string;
+  brokerExtras?: Record<string, any>;
   brokerExtrasForm?: BrokerExtrasFormState;
   axiosHighlights?: ImAxiosHighlight[];
   isDirty?: boolean;
@@ -281,9 +290,9 @@ const DEFAULT_IM_AXIOS_HIGHLIGHTS: ImAxiosHighlight[] = [
 ];
 
 const BLANK_IM_HIGHLIGHTS: ImAxiosHighlight[] = [
-  { headline: "", brief: "", tone: "amber" },
-  { headline: "", brief: "", tone: "sky" },
-  { headline: "", brief: "", tone: "mint" },
+  { headline: "", brief: "", tone: "amber", bullets: [] },
+  { headline: "", brief: "", tone: "sky", bullets: [] },
+  { headline: "", brief: "", tone: "mint", bullets: [] },
 ];
 
 const INITIAL_IM_LIST: ImListItem[] = [
@@ -303,6 +312,7 @@ const INITIAL_IM_LIST: ImListItem[] = [
     landAreaSqm: "420.5",
     zoning: "제3종일반주거지역",
     handoverNote: "잔금 시 전층 명도 조건 협의 완료",
+    axiosHighlights: DEFAULT_IM_AXIOS_HIGHLIGHTS,
     photoNames: [],
     rentRoll: [
       {
@@ -407,7 +417,7 @@ function ImWorkspaceInner() {
   const [imTitle, setImTitle] = useState<string>(currentItem?.title || "");
   const [address, setAddress] = useState<string>(currentItem?.address || "");
   const [askingPriceManwon, setAskingPriceManwon] = useState<number>(
-    currentItem?.askingPriceManwon ?? 950000
+    currentItem?.askingPriceManwon ?? 0
   );
   const [rentRoll, setRentRoll] = useState<RentRollRowItem[]>(
     currentItem?.rentRoll || generateFloorScaffolding(3, 1)
@@ -426,6 +436,20 @@ function ImWorkspaceInner() {
   const [handoverNote, setHandoverNote] = useState<string>(
     currentItem?.handoverNote || ""
   );
+  const [bcrPct, setBcrPct] = useState<number | undefined>(currentItem?.bcrPct);
+  const [farPct, setFarPct] = useState<number | undefined>(currentItem?.farPct);
+  const [parkingTotal, setParkingTotal] = useState<number | undefined>(
+    currentItem?.parkingTotal
+  );
+  const [elevatorCount, setElevatorCount] = useState<number | undefined>(
+    currentItem?.elevatorCount
+  );
+  const [officialLandPricePerSqm, setOfficialLandPricePerSqm] = useState<
+    number | undefined
+  >(currentItem?.officialLandPricePerSqm);
+  const [parcels, setParcels] = useState<any[] | undefined>(
+    currentItem?.parcels
+  );
   const [photoNames, setPhotoNames] = useState<string[]>(
     currentItem?.photoNames || []
   );
@@ -442,7 +466,10 @@ function ImWorkspaceInner() {
     currentItem?.brokerExtrasForm || { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [] }
   );
   const [axiosHighlights, setAxiosHighlights] = useState<ImAxiosHighlight[]>(
-    currentItem?.axiosHighlights || DEFAULT_IM_AXIOS_HIGHLIGHTS
+    currentItem?.axiosHighlights ||
+      (currentItem?.id === "im-1" || currentItem?.id === "im-doc-01"
+        ? DEFAULT_IM_AXIOS_HIGHLIGHTS
+        : BLANK_IM_HIGHLIGHTS.map((h) => ({ ...h, bullets: [...(h.bullets || [])] })))
   );
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [bottomSheetBuildingId, setBottomSheetBuildingId] = useState<string>(
@@ -476,6 +503,12 @@ function ImWorkspaceInner() {
     setLandAreaSqm(item.landAreaSqm ?? "");
     setZoning(item.zoning ?? "");
     setHandoverNote(item.handoverNote ?? "");
+    setBcrPct(item.bcrPct);
+    setFarPct(item.farPct);
+    setParkingTotal(item.parkingTotal);
+    setElevatorCount(item.elevatorCount);
+    setOfficialLandPricePerSqm(item.officialLandPricePerSqm);
+    setParcels(item.parcels);
     if (Array.isArray(item.photos) && item.photos.length > 0) {
       setPhotoEntries(
         item.photos.map((p: any, idx: number) => {
@@ -525,10 +558,22 @@ function ImWorkspaceInner() {
     setBrokerPhone(
       cleanBrokerPlaceholder(item.brokerPhone) || profileDefaultsRef.current.brokerPhone || ""
     );
-    setBrokerExtrasForm(
-      item.brokerExtrasForm || { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [] }
+    setBrokerExtrasForm((prev) => ({
+      ...prev,
+      ...EMPTY_BROKER_EXTRAS_FORM,
+      ...(item.brokerExtrasForm || item.brokerExtras || {}),
+      closingLine:
+        item.closingLine ??
+        item.brokerExtras?.closingLine ??
+        item.brokerExtrasForm?.closingLine ??
+        "",
+    }));
+    setAxiosHighlights(
+      item.axiosHighlights ||
+        (item.id === "im-1"
+          ? DEFAULT_IM_AXIOS_HIGHLIGHTS
+          : BLANK_IM_HIGHLIGHTS.map((h) => ({ ...h, bullets: [...(h.bullets || [])] })))
     );
-    setAxiosHighlights(item.axiosHighlights || DEFAULT_IM_AXIOS_HIGHLIGHTS);
     setBottomSheetBuildingId(item.buildingId || "bld-01");
   }, []);
 
@@ -679,9 +724,9 @@ function ImWorkspaceInner() {
     },
   });
 
-  const syncCurrentItemPatch = (patch: Partial<ImListItem>) => {
+  const syncCurrentItemPatch = (patch: Partial<ImListItem>, explicitTargetId?: string) => {
     setItems((prev) => {
-      const targetId = currentItem?.id || selectedId;
+      const targetId = explicitTargetId || currentItem?.id || selectedId;
       const next = prev.map((it) => {
         if (it.id !== targetId) return it;
         const nextPrice = patch.askingPriceManwon ?? it.askingPriceManwon ?? 0;
@@ -992,11 +1037,43 @@ function ImWorkspaceInner() {
           typeof (data.buildingName ?? data.bldNm) === "string"
             ? String(data.buildingName ?? data.bldNm).trim()
             : "";
+        const rawBcr = Number(data.bcrPct ?? data.bcRat);
+        const nextBcrPct =
+          Number.isFinite(rawBcr) && rawBcr > 0 ? rawBcr : currentItem?.bcrPct;
+        const rawFar = Number(data.farPct ?? data.vlRat);
+        const nextFarPct =
+          Number.isFinite(rawFar) && rawFar > 0 ? rawFar : currentItem?.farPct;
+        const rawParking = Number(data.parkingSpaces ?? data.parkingTotal ?? data.totPkngCnt);
+        const nextParkingTotal =
+          Number.isFinite(rawParking) && rawParking >= 0
+            ? rawParking
+            : currentItem?.parkingTotal;
+        const rawElevators = Number(data.elevators ?? data.elevatorCount ?? data.rideUseElvtCnt);
+        const nextElevatorCount =
+          Number.isFinite(rawElevators) && rawElevators >= 0
+            ? rawElevators
+            : currentItem?.elevatorCount;
+        const rawOfficialPrice = Number(
+          data.officialLandPricePerSqm ?? data.landPricePerSqm ?? data.officialLandPriceWonSqm
+        );
+        const nextOfficialLandPricePerSqm =
+          Number.isFinite(rawOfficialPrice) && rawOfficialPrice > 0
+            ? rawOfficialPrice
+            : currentItem?.officialLandPricePerSqm;
+        const nextParcels = Array.isArray(data.parcels) ? data.parcels : currentItem?.parcels;
 
         if (nextGfa) setGfaSqm(String(nextGfa));
         if (nextLand) setLandAreaSqm(String(nextLand));
         if (nextZoning) setZoning(String(nextZoning));
         if (nextCompletion) setCompletionDate(String(nextCompletion));
+        if (nextBcrPct !== undefined) setBcrPct(nextBcrPct);
+        if (nextFarPct !== undefined) setFarPct(nextFarPct);
+        if (nextParkingTotal !== undefined) setParkingTotal(nextParkingTotal);
+        if (nextElevatorCount !== undefined) setElevatorCount(nextElevatorCount);
+        if (nextOfficialLandPricePerSqm !== undefined) {
+          setOfficialLandPricePerSqm(nextOfficialLandPricePerSqm);
+        }
+        if (nextParcels !== undefined) setParcels(nextParcels);
 
         // If user looked up a new address on an untouched sample item, clear sample remnants
         const isSampleOrigin =
@@ -1014,6 +1091,14 @@ function ImWorkspaceInner() {
           ...(nextFloorsAbove !== undefined ? { floorsAbove: nextFloorsAbove } : {}),
           ...(nextFloorsBelow !== undefined ? { floorsBelow: nextFloorsBelow } : {}),
           ...(nextMainPurpose !== undefined ? { mainPurpose: nextMainPurpose } : {}),
+          ...(nextBcrPct !== undefined ? { bcrPct: nextBcrPct } : {}),
+          ...(nextFarPct !== undefined ? { farPct: nextFarPct } : {}),
+          ...(nextParkingTotal !== undefined ? { parkingTotal: nextParkingTotal } : {}),
+          ...(nextElevatorCount !== undefined ? { elevatorCount: nextElevatorCount } : {}),
+          ...(nextOfficialLandPricePerSqm !== undefined
+            ? { officialLandPricePerSqm: nextOfficialLandPricePerSqm }
+            : {}),
+          ...(nextParcels !== undefined ? { parcels: nextParcels } : {}),
         };
 
         if (
@@ -1241,7 +1326,7 @@ function ImWorkspaceInner() {
     setActionAlert(null);
     try {
       const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
-      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
+      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
       const photosPayload = buildPhotosPayloadForRequest();
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
@@ -1254,9 +1339,9 @@ function ImWorkspaceInner() {
           axiosHighlights,
           rentRoll,
           posture: investmentPosture,
-          gfaSqm: Number(gfaSqm) || undefined,
+          gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
           completionDate: completionDate || undefined,
-          landAreaSqm: Number(landAreaSqm) || undefined,
+          landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
           zoning: zoning || undefined,
           handoverNote: handoverNote || undefined,
           pnu: currentItem?.pnu,
@@ -1264,6 +1349,14 @@ function ImWorkspaceInner() {
           lng: currentItem?.lng,
           floorsAbove: currentItem?.floorsAbove,
           floorsBelow: currentItem?.floorsBelow,
+          bcrPct: bcrPct ?? currentItem?.bcrPct,
+          farPct: farPct ?? currentItem?.farPct,
+          parkingSpaces: parkingTotal ?? currentItem?.parkingTotal,
+          elevators: elevatorCount ?? currentItem?.elevatorCount,
+          officialLandPricePerSqm:
+            officialLandPricePerSqm ?? currentItem?.officialLandPricePerSqm,
+          parcels: parcels ?? currentItem?.parcels,
+          closingLine: brokerExtrasForm.closingLine,
           mainPurpose: currentItem?.mainPurpose,
           brokerName,
           brokerageName,
@@ -1290,19 +1383,16 @@ function ImWorkspaceInner() {
 
   // Open 10-Slide PPTX Studio (provisions DB record first if current buildingId is a non-UUID seed)
   const handleOpenStudio = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    const existingBid = currentItem?.buildingId || "";
-    if (UUID_REGEX.test(existingBid)) {
-      if (pendingPhotoCompressionsRef.current.size > 0) {
-        e.preventDefault();
-        await waitForPendingPhotoCompressions();
-        window.location.href = `/broker/basic-im-studio/${existingBid}`;
-      }
-      return; // Let native anchor navigation proceed
-    }
     e.preventDefault();
     await waitForPendingPhotoCompressions();
+    await autosave.flush();
+    const existingBid = currentItem?.buildingId || "";
 
     if (!address.trim() || !askingPriceManwon || askingPriceManwon <= 0) {
+      if (UUID_REGEX.test(existingBid)) {
+        router.push("/broker/basic-im-studio/" + existingBid);
+        return;
+      }
       setActiveEditorTab("specs");
       setActionAlert("10면 슬라이드 편집을 열려면 주소와 희망 매매가를 먼저 입력해 주세요.");
       return;
@@ -1312,12 +1402,13 @@ function ImWorkspaceInner() {
     setActionAlert(null);
     try {
       const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
-      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
+      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
       const photosPayload = buildPhotosPayloadForRequest();
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          buildingId: UUID_REGEX.test(existingBid) ? existingBid : undefined,
           address: address.trim(),
           askingPriceManwon,
           title: imTitle.trim() || undefined,
@@ -1325,9 +1416,9 @@ function ImWorkspaceInner() {
           axiosHighlights,
           rentRoll,
           posture: investmentPosture,
-          gfaSqm: Number(gfaSqm) || undefined,
+          gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
           completionDate: completionDate || undefined,
-          landAreaSqm: Number(landAreaSqm) || undefined,
+          landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
           zoning: zoning || undefined,
           handoverNote: handoverNote || undefined,
           pnu: currentItem?.pnu,
@@ -1335,6 +1426,14 @@ function ImWorkspaceInner() {
           lng: currentItem?.lng,
           floorsAbove: currentItem?.floorsAbove,
           floorsBelow: currentItem?.floorsBelow,
+          bcrPct: bcrPct ?? currentItem?.bcrPct,
+          farPct: farPct ?? currentItem?.farPct,
+          parkingSpaces: parkingTotal ?? currentItem?.parkingTotal,
+          elevators: elevatorCount ?? currentItem?.elevatorCount,
+          officialLandPricePerSqm:
+            officialLandPricePerSqm ?? currentItem?.officialLandPricePerSqm,
+          parcels: parcels ?? currentItem?.parcels,
+          closingLine: brokerExtrasForm.closingLine,
           mainPurpose: currentItem?.mainPurpose,
           brokerName,
           brokerageName,
@@ -1346,13 +1445,20 @@ function ImWorkspaceInner() {
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.buildingId) {
-        syncCurrentItemPatch({ buildingId: data.buildingId });
-        window.location.href = `/broker/basic-im-studio/${data.buildingId}`;
+        const targetBid = data.buildingId;
+        syncCurrentItemPatch({ buildingId: targetBid });
+        router.push("/broker/basic-im-studio/" + targetBid);
+      } else if (UUID_REGEX.test(existingBid)) {
+        router.push("/broker/basic-im-studio/" + existingBid);
       } else {
         setActionAlert(data?.error || "슬라이드 스튜디오를 준비하지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
     } catch {
-      setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
+      if (UUID_REGEX.test(existingBid)) {
+        router.push("/broker/basic-im-studio/" + existingBid);
+      } else {
+        setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
+      }
     } finally {
       setIsProvisioningSheet(false);
     }
@@ -1376,7 +1482,7 @@ function ImWorkspaceInner() {
     setIsGenerating(true);
     try {
       const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
-      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
+      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
       const photosPayload = buildPhotosPayloadForRequest();
 
       const res = await fetch("/api/broker/im-lite/quick-generate", {
@@ -1393,9 +1499,9 @@ function ImWorkspaceInner() {
           axiosHighlights,
           rentRoll,
           posture: investmentPosture,
-          gfaSqm: Number(gfaSqm) || undefined,
+          gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
           completionDate: completionDate || undefined,
-          landAreaSqm: Number(landAreaSqm) || undefined,
+          landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
           zoning: zoning || undefined,
           handoverNote: handoverNote || undefined,
           pnu: currentItem?.pnu,
@@ -1403,6 +1509,14 @@ function ImWorkspaceInner() {
           lng: currentItem?.lng,
           floorsAbove: currentItem?.floorsAbove,
           floorsBelow: currentItem?.floorsBelow,
+          bcrPct: bcrPct ?? currentItem?.bcrPct,
+          farPct: farPct ?? currentItem?.farPct,
+          parkingSpaces: parkingTotal ?? currentItem?.parkingTotal,
+          elevators: elevatorCount ?? currentItem?.elevatorCount,
+          officialLandPricePerSqm:
+            officialLandPricePerSqm ?? currentItem?.officialLandPricePerSqm,
+          parcels: parcels ?? currentItem?.parcels,
+          closingLine: brokerExtrasForm.closingLine,
           mainPurpose: currentItem?.mainPurpose,
           brokerName,
           brokerageName,
@@ -2271,12 +2385,12 @@ function ImWorkspaceInner() {
               <label htmlFor="im-gfa-input" className="text-sm font-bold text-[#334155]">
                 연면적 (㎡)
               </label>
-              {Number(gfaSqm) > 0 && (
+              {Number(String(gfaSqm || "").replace(/,/g, "")) > 0 && (
                 <span
                   data-testid="im-gfa-pyeong-badge"
                   className="text-sm font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
                 >
-                  약 {Math.round(Number(gfaSqm) * 0.3025).toLocaleString()}평
+                  약 {Math.round(Number(String(gfaSqm || "").replace(/,/g, "")) * 0.3025).toLocaleString()}평
                 </span>
               )}
             </div>
@@ -2299,12 +2413,12 @@ function ImWorkspaceInner() {
               <label htmlFor="im-land-area-input" className="text-sm font-bold text-[#334155]">
                 대지면적 (㎡)
               </label>
-              {Number(landAreaSqm) > 0 && (
+              {Number(String(landAreaSqm || "").replace(/,/g, "")) > 0 && (
                 <span
                   data-testid="im-land-pyeong-badge"
                   className="text-sm font-extrabold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded"
                 >
-                  약 {Math.round(Number(landAreaSqm) * 0.3025).toLocaleString()}평
+                  약 {Math.round(Number(String(landAreaSqm || "").replace(/,/g, "")) * 0.3025).toLocaleString()}평
                 </span>
               )}
             </div>
@@ -3207,7 +3321,7 @@ function ImWorkspaceInner() {
                   <span className="text-sm text-slate-500 block">연면적</span>
                   <strong className="text-slate-900">
                     {gfaSqm
-                      ? `${gfaSqm}㎡ (약 ${Math.round(Number(gfaSqm) * 0.3025)}평)`
+                      ? `${gfaSqm}㎡ (약 ${Math.round(Number(String(gfaSqm || "").replace(/,/g, "")) * 0.3025)}평)`
                       : "—"}
                   </strong>
                 </div>
@@ -3238,7 +3352,7 @@ function ImWorkspaceInner() {
                   <span className="text-sm text-slate-500 block">대지면적</span>
                   <strong className="text-slate-900">
                     {landAreaSqm
-                      ? `${landAreaSqm}㎡ (약 ${Math.round(Number(landAreaSqm) * 0.3025)}평)`
+                      ? `${landAreaSqm}㎡ (약 ${Math.round(Number(String(landAreaSqm || "").replace(/,/g, "")) * 0.3025)}평)`
                       : "—"}
                   </strong>
                 </div>

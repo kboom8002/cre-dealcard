@@ -151,6 +151,7 @@ export async function GET(req: NextRequest) {
 
     const { primaryAddress } = splitMultiParcelAddress(rawAddress);
     const searchTarget = primaryAddress || rawAddress;
+    const safeSearch = searchTarget.replace(/[,()]/g, ' ').trim();
 
     // 1. Resolve address & check Supabase building_ssot_lite in parallel
     const supabase = createServiceClient();
@@ -159,7 +160,7 @@ export async function GET(req: NextRequest) {
       supabase
         .from("building_ssot_lite")
         .select("id, pnu, raw_address, raw_input, ssot_summary, layers")
-        .or(`raw_address.ilike.%${searchTarget}%,raw_input.ilike.%${searchTarget}%`)
+        .or(`raw_address.ilike.%${safeSearch}%,raw_input.ilike.%${safeSearch}%`)
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle(),

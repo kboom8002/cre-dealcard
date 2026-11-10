@@ -14,6 +14,7 @@ import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/type
 import { sanitizeComplianceText } from '@/domain/building/guardrails';
 import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { resolveTier } from '@/domain/building/im-core';
+import { resolveEnrichmentPayload } from '@/domain/building/im-core/resolve-enrichment';
 import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
@@ -114,7 +115,7 @@ async function uploadDataUriPhotos(
       if (!photo?.url?.startsWith('data:')) return photo;
       try {
         // Parse data URI: data:image/jpeg;base64,<base64data>
-        const match = photo.url.match(/^data:image\/(\w+);base64,(.+)$/);
+        const match = photo.url.match(/^data:image\/([a-zA-Z0-9.+_-]+);base64,([\s\S]+)$/);
         if (!match) return photo;
         const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
         const buffer = Buffer.from(match[2], 'base64');
@@ -1055,19 +1056,7 @@ export async function generateMobileIMHandler(
           }
         : null,
       // Phase 2: V-World / 공공 API 원본 데이터 → PPTX bindFromExternalData 직접 바인딩용
-      enrichment: externalData
-        ? {
-            landUsePlan: externalData.landUsePlan ?? null,
-            landPrice: externalData.landPrice ?? null,
-            buildingRegister: externalData.buildingRegister ?? null,
-            registryData: externalData.registryData ?? null,
-            comparableTransactions: externalData.comparableTransactions ?? null,
-            locationPoi: externalData.locationPoi ?? null,
-            commercialDistrict: externalData.commercialDistrict ?? null,
-            cadastralMapImage: externalData.cadastralMapImage ?? null,
-            locationMapImage: (externalData as any)?.locationMapImage ?? null,
-          }
-        : null,
+      enrichment: resolveEnrichmentPayload(externalData as Record<string, any> | null, writerResult.enrichment),
       // D41 C1: coordinates — geocoding fallback 추가
       coordinates: await (async () => {
         // 1차: externalData (API 조회 결과)

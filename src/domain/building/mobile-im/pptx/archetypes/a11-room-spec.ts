@@ -47,9 +47,17 @@ export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
   ];
   stats.slice(0, 4).forEach((st: any, i: number) => {
     const pos = statPos[i];
-    slide.addShape('rect', { x: pos.x, y: pos.y, w: pos.w, h: pos.h, fill: { color: C.tint }, line: { color: C.brassL, width: 0.5 } });
-    slide.addText(st.label, { x: pos.x + 0.1, y: pos.y + 0.12, w: pos.w - 0.2, h: 0.25, fontFace: KR, fontSize: 9.5, color: C.mute, bold: true });
-    slide.addText(`${st.value}${st.unit ? ' ' + st.unit : ''}`, { x: pos.x + 0.1, y: pos.y + 0.42, w: pos.w - 0.2, h: 0.45, fontFace: NUM, fontSize: 15, bold: true, color: C.brassD });
+    L.stat(
+      slide,
+      pos.x,
+      pos.y,
+      pos.w,
+      String(st.label ?? ''),
+      String(st.value ?? '-'),
+      st.unit ?? '',
+      String(st.sub ?? ''),
+      { h: pos.h, lineCol: i === 0 ? C.brass : C.brassL, valCol: C.brassD },
+    );
   });
   
   if (input.data.violationNote) {

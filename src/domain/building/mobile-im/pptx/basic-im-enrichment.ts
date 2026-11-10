@@ -210,8 +210,6 @@ export async function enrichForBasicIm(
           zoningOverlap: (regs.nationalItems || []).map((i) => i.formatted).filter((n) => n && n !== '도시지역'),
           jibunAddress: regs.jibunAddress,
         };
-      } else if (false) {
-        result.landUsePlan = lup;
       }
       if (regs && (regs.nationalLaw || regs.otherLaws)) {
         result.landUseRegulations = regs;

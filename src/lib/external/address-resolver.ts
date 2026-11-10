@@ -159,13 +159,6 @@ async function geocodeWithRetry(address: string): Promise<{ lat: number; lng: nu
     }
   }
   
-  // 폴백: 로컬 좌표 캐시에서 근사치 검색
-  const fallback = localFallbackGeocode(address);
-  if (fallback) {
-    logger.warn(`API 실패, 로컬 폴백 좌표 사용: ${address}`);
-    return fallback;
-  }
-  
   return null;
 }
 

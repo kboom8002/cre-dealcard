@@ -485,21 +485,21 @@ async function placeLandMapImage(
       let top = 0;
 
       if (srcRatio > targetRatio * 1.02) {
-        extractW = Math.round(meta.height * targetRatio);
-        left = Math.round((meta.width - extractW) / 2);
+        extractW = Math.max(1, Math.min(meta.width, Math.round(meta.height * targetRatio)));
+        left = Math.max(0, Math.min(meta.width - extractW, Math.round((meta.width - extractW) / 2)));
         cropScaleX = meta.width / extractW;
       } else if (srcRatio < targetRatio * 0.98) {
-        extractH = Math.round(meta.width / targetRatio);
-        top = Math.round((meta.height - extractH) / 2);
+        extractH = Math.max(1, Math.min(meta.height, Math.round(meta.width / targetRatio)));
+        top = Math.max(0, Math.min(meta.height - extractH, Math.round((meta.height - extractH) / 2)));
         cropScaleY = meta.height / extractH;
       }
 
       if (left > 0 || top > 0) {
         const croppedBuf = await sharpMod(rawBuf)
           .extract({ left, top, width: extractW, height: extractH })
-          .png()
+          .jpeg({ quality: 85 })
           .toBuffer();
-        finalData = `image/png;base64,${croppedBuf.toString('base64')}`;
+        finalData = `data:image/jpeg;base64,${croppedBuf.toString('base64')}`;
       }
     }
   } catch {
@@ -584,36 +584,40 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
     : [];
 
   const overviewTableY = 1.80;
-  const overviewRowH = 0.32;
+  const overviewRowH = 0.24;
   if (overviewRows.length > 0) {
-    const tblRows = overviewRows.map(([label, val]) => [
-      {
-        text: String(label),
-        options: {
-          fontFace: KR,
-          fontSize: 9,
-          bold: true,
-          color: C.ink2,
-          fill: { color: C.tint },
-          align: 'center' as const,
-          valign: 'middle' as const,
-          margin: [3, 6, 3, 6] as [number, number, number, number],
+    const tblRows = overviewRows.slice(0, 5).map(([label, val]) => {
+      const valText = String(val).replace(/\s*\n\s*/g, ' ').trim();
+      const compactVal = valText.length > 26 ? valText.slice(0, 26) : valText;
+      return [
+        {
+          text: String(label),
+          options: {
+            fontFace: KR,
+            fontSize: 8.5,
+            bold: true,
+            color: C.ink2,
+            fill: { color: C.tint },
+            align: 'center' as const,
+            valign: 'middle' as const,
+            margin: [2, 6, 2, 6] as [number, number, number, number],
+          },
         },
-      },
-      {
-        text: String(val),
-        options: {
-          fontFace: KR,
-          fontSize: 9,
-          bold: false,
-          color: C.ink,
-          fill: { color: C.bg },
-          align: 'left' as const,
-          valign: 'middle' as const,
-          margin: [3, 8, 3, 8] as [number, number, number, number],
+        {
+          text: compactVal,
+          options: {
+            fontFace: KR,
+            fontSize: 8.5,
+            bold: false,
+            color: C.ink,
+            fill: { color: C.bg },
+            align: 'left' as const,
+            valign: 'middle' as const,
+            margin: [2, 8, 2, 8] as [number, number, number, number],
+          },
         },
-      },
-    ]);
+      ];
+    });
 
     s.addTable(tblRows, {
       x: leftX,
@@ -943,10 +947,14 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
     });
 
     let curX = rightX + 0.16;
+    const maxLegendRight = rightX + rightW - 0.10;
     for (const item of legendItems.slice(0, 4)) {
       const swatchW = 0.22;
       const swatchH = 0.14;
       const swatchY = legendY + (legendH - swatchH) / 2;
+      const labelW = Math.max(1.15, item.label.length * 0.14 + 0.25);
+      const badgeW = swatchW + 0.06 + labelW;
+      if (curX + badgeW > maxLegendRight) break;
       s.addShape(input.pres.ShapeType.rect, {
         x: curX,
         y: swatchY,
@@ -955,7 +963,6 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
         fill: { color: item.fillColor },
         line: { color: item.borderColor || C.line, width: 0.75 },
       });
-      const labelW = Math.max(1.15, item.label.length * 0.14 + 0.25);
       s.addText(item.label, {
         x: curX + swatchW + 0.06,
         y: legendY,

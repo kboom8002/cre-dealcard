@@ -656,4 +656,195 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
       expect(pptxRes.buffer.byteLength).toBeGreaterThan(10000);
     });
   });
+
+  // ===========================================================================
+  // Boundary G: 5-Axis Team Audit Hardening Contracts (PC-G1 ~ PC-G6)
+  // ===========================================================================
+  describe("Boundary G: 5-Axis Team Audit Hardening Contracts (PC-G1 ~ PC-G6)", () => {
+    it("PC-G1: buildA16Props guards zero asking price against NaN%/Infinity%/4.0% poison and buildSummaryFromOverview never injects literal 'undefined'", async () => {
+      const { buildA16Props, buildSummaryFromOverview } = await import(
+        "@/domain/building/mobile-im/pptx/binder/archetype-builders"
+      );
+
+      const a16ZeroPrice = buildA16Props("", [], {
+        ssot_summary: {
+          asking_price_manwon: 0,
+          total_deposit_manwon: 5000,
+          monthly_rent_total_manwon: 350,
+        },
+      });
+      const flatCells = (a16ZeroPrice.table1?.rows || []).flat().join(" ");
+      expect(flatCells).not.toContain("NaN%");
+      expect(flatCells).not.toContain("Infinity%");
+      expect(a16ZeroPrice._suppress).toBe(true);
+
+      const summaryNoPrice = buildSummaryFromOverview(
+        "강남 200억대 빌딩 핵심 투자 요약입니다.",
+        [],
+        {
+          ssot_summary: {
+            asking_price_manwon: 0,
+            total_gross_area_sqm: 660,
+            land_area_sqm: 220,
+          },
+          heroCard: {},
+        }
+      );
+      expect(JSON.stringify(summaryNoPrice)).not.toContain("undefined");
+    });
+
+    it("PC-G2: buildA22Props (Rule 32 & 33) never mistakes '월 임대료'/'임대 만기' for leasable area and extracts '96평(약 317.4㎡)' as 96 instead of 96317.4", async () => {
+      const { buildA22Props } = await import(
+        "@/domain/building/mobile-im/pptx/binder/archetype-builders"
+      );
+
+      const a22 = buildA22Props(
+        "",
+        [
+          {
+            headers: ["층수", "업종", "전용면적", "보증금", "월 임대료", "임대 만기"],
+            rows: [
+              ["1F", "커피전문점", "96평(약 317.4㎡)", "5,000만", "450만", "2028.06"],
+            ],
+          },
+        ],
+        [],
+        {
+          ssot_summary: {
+            total_gross_area_sqm: 317.4,
+            land_area_sqm: 200,
+          },
+        }
+      );
+
+      const firstFloor = (a22.stackingPlan || [])[0];
+      expect(firstFloor).toBeDefined();
+      expect(firstFloor.exclusiveAreaPy).toBeCloseTo(96, 1);
+      // Must NOT be overwritten by monthly rent 450 or concatenated to 96317.4
+      expect(firstFloor.floorAreaPy).toBeCloseTo(96, 1);
+      expect(firstFloor.leasableAreaPy).toBeUndefined();
+    });
+
+    it("PC-G3: buildOwnerOccupiedVsLeaseProps has zero 100억 fallback or NaN% ratio, and buildDcfFromIncome/buildLoanFromIncome enforce 2-column Rule 68 parity", async () => {
+      const {
+        buildOwnerOccupiedVsLeaseProps,
+        buildDcfFromIncome,
+        buildLoanFromIncome,
+      } = await import("@/domain/building/mobile-im/pptx/binder/posture-builders");
+
+      const ownerProps = buildOwnerOccupiedVsLeaseProps({
+        ssot_summary: { asking_price_manwon: 0 },
+        heroCard: {},
+      });
+      const ownerJson = JSON.stringify(ownerProps);
+      expect(ownerJson).not.toContain("100.0억");
+      expect(ownerJson).not.toContain("NaN%");
+
+      const multiColTable = [
+        {
+          headers: ["구분", "금액", "비중", "비고"],
+          rows: [["연간 임대수익", "4.8억", "100%", "안정적"]],
+        },
+      ];
+      const dcf = buildDcfFromIncome("", multiColTable as any, {});
+      for (const r of dcf.table1?.rows || []) {
+        expect(r).toHaveLength(2);
+      }
+      const loan = buildLoanFromIncome("", multiColTable as any, {});
+      for (const r of loan.table1?.rows || []) {
+        expect(r).toHaveLength(2);
+      }
+    });
+
+    it("PC-G4: resolveEnrichmentPayload preserves writerResult.enrichment 4 fields when externalData is null (Rule 69) and runQualityGate retains price_opinion_prohibition", async () => {
+      const { resolveEnrichmentPayload } = await import(
+        "@/domain/building/im-core/resolve-enrichment"
+      );
+      const merged = resolveEnrichmentPayload(null, {
+        cadastralMapImage: "data:image/jpeg;base64,AAA",
+        landPriceHistory: [{ year: 2025, pricePerSqm: 9120000 }],
+        landUseRegulations: [{ name: "제2종일반주거지역" }] as any,
+        landUseByParcel: [{ pnu: "1144012000101470008" }] as any,
+        apartmentHouseholds: { totalHouseholds: 420 } as any,
+      });
+
+      expect(merged).not.toBeNull();
+      expect(merged?.cadastralMapImage).toBe("data:image/jpeg;base64,AAA");
+      expect(merged?.landPriceHistory).toHaveLength(1);
+      expect(merged?.landUseRegulations).toHaveLength(1);
+      expect(merged?.landUseByParcel).toHaveLength(1);
+      expect(merged?.apartmentHouseholds).toEqual({ totalHouseholds: 420 });
+    });
+
+    it("PC-G5: buildBasicImSlideDefaults resolves broker_contact, official_land_price_per_sqm, completion_date, and axios_highlights without 'CRE DEAL 파트너스 중개법인'", async () => {
+      const { buildBasicImSlideDefaults } = await import(
+        "@/domain/building/pptx-studio/studio-service"
+      );
+
+      const defaults = buildBasicImSlideDefaults("동교동 빌딩", {
+        ssot_summary: {
+          address: "서울특별시 마포구 동교동 147-8",
+          asking_price_manwon: 770000,
+          official_land_price_per_sqm: 11250000,
+          completion_date: "2019-05-30",
+        },
+        broker_contact: {
+          brokerageName: "한강리얼티 중개법인",
+          brokerName: "김대표",
+          brokerPhone: "010-2222-3333",
+        },
+        axios_highlights: [
+          { title: "홍대입구역 도보 3분", bullets: ["연트럴파크 상권 코너 입지"] },
+        ],
+      });
+
+      expect(defaults.cover?.brokerCompany).toBe("한강리얼티 중개법인");
+      expect(defaults.cover?.brokerCompany).not.toBe("CRE DEAL 파트너스 중개법인");
+      expect(defaults.cover?.brokerName).toBe("김대표");
+      expect(defaults.cover?.brokerPhone).toBe("010-2222-3333");
+      expect(defaults.land?.officialLandPrice).toContain("1,125만원/㎡");
+      expect(defaults.overview?.completionYear).toBe("2019-05-30");
+      expect(defaults.highlights?.keyInvestmentPoint).toContain("홍대입구역 도보 3분");
+    });
+
+    it("PC-G6: updateQuickImCard4 returns null for unknown IDs (no 85억 Yeoksam fabrication) and synthesizeQuickRecordFromImItem preserves bcrPct, farPct, parkingTotal, elevatorCount, officialLandPricePerSqm, parcels, closingLine", async () => {
+      const { updateQuickImCard4 } = await import("@/lib/im-lite/quick-generate-store");
+      const fakeUpdate = updateQuickImCard4("bld-nonexistent-99999", {
+        askingPriceManwon: 900000,
+      } as any);
+      expect(fakeUpdate).toBeNull();
+
+      const rec = synthesizeQuickRecordFromImItem({
+        id: "im-full-21-fields",
+        buildingId: "bld-full-21-fields",
+        title: "21필드 연속성 빌딩",
+        address: "서울특별시 마포구 동교동 147-8",
+        pnu: "1144012000101470008",
+        lat: 37.5562,
+        lng: 126.9241,
+        floorsAbove: 5,
+        floorsBelow: 1,
+        bcrPct: 54.2,
+        farPct: 198.7,
+        parkingTotal: 8,
+        elevatorCount: 1,
+        officialLandPricePerSqm: 11250000,
+        parcels: [{ pnu: "1144012000101470008", jibun: "147-8", areaSqm: 137.2 }],
+        closingLine: "직접 현장 안내 가능합니다.",
+        askingPriceManwon: 770000,
+        gfaSqm: 426.11,
+        landAreaSqm: 137.2,
+        rentRoll: [],
+      });
+
+      expect(rec).not.toBeNull();
+      expect(rec.fullDocBody?.ssot_summary?.bcr_pct).toBe(54.2);
+      expect(rec.fullDocBody?.ssot_summary?.far_pct).toBe(198.7);
+      expect(rec.fullDocBody?.ssot_summary?.parking_total).toBe(8);
+      expect(rec.fullDocBody?.ssot_summary?.elevator_count).toBe(1);
+      expect(rec.fullDocBody?.ssot_summary?.official_land_price_per_sqm).toBe(11250000);
+      expect(rec.fullDocBody?.ssot_summary?.closing_line).toBe("직접 현장 안내 가능합니다.");
+      expect(rec.fullDocBody?.parcels).toHaveLength(1);
+    });
+  });
 });

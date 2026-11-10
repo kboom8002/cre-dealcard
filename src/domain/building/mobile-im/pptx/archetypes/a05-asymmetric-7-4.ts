@@ -88,18 +88,15 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
       // 라벨 절삭 금지: 괄호 약어(Cap Rate, GOP, TI) 보호, 글자수에 따라 폰트 자동 축소
       const safeLabel = (s.label ?? '').trim();
       const labelFontSize = safeLabel.length > 20 ? 8.0 : safeLabel.length > 16 ? 8.5 : 9.5;
-      const rawValue = s.value ?? '';
-      // value가 서술형 장문(20자 초과 + 한글 포함)이면 핵심 수치만 추출 시도
+      const rawValue = String(s.value ?? '');
+      // value가 서술형 장문(20자 초과 + 한글 포함)이면 핵심 수치만 추출 시도하되 '…' 수동 절단은 금지 (Rule 62 L.stat 동적 피팅에 위임)
       let safeValue = rawValue;
       if (rawValue.length > 20 && /[가-힣]/.test(rawValue)) {
-        // 괄호 안의 수치나 퍼센트를 먼저 시도
         const numMatch = rawValue.match(/[\d,.]+\s*[%억만원㎡평]+/);
-        safeValue = numMatch ? numMatch[0] : rawValue.slice(0, 20) + '…';
-      } else if (rawValue.length > 24) {
-        safeValue = rawValue.slice(0, 23) + '…';
+        if (numMatch) safeValue = numMatch[0];
       }
       const safeSub = (s.sub ?? '').slice(0, 40);
-      L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH1, vs: 22, labelFontSize });
+      L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH1, labelFontSize });
     });
     contentY += cardH1 + cardGap;
 
@@ -111,16 +108,14 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
         const x = L.colX(i, cardW, cardGap);
         const safeLabel = (s.label ?? '').trim();
         const labelFontSize = safeLabel.length > 20 ? 8.0 : safeLabel.length > 16 ? 8.5 : 9.5;
-        const rawValue = s.value ?? '';
+        const rawValue = String(s.value ?? '');
         let safeValue = rawValue;
         if (rawValue.length > 20 && /[가-힣]/.test(rawValue)) {
           const numMatch = rawValue.match(/[\d,.]+\s*[%억만원㎡평]+/);
-          safeValue = numMatch ? numMatch[0] : rawValue.slice(0, 20) + '…';
-        } else if (rawValue.length > 24) {
-          safeValue = rawValue.slice(0, 23) + '…';
+          if (numMatch) safeValue = numMatch[0];
         }
         const safeSub = (s.sub ?? '').slice(0, 40);
-        L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH2, vs: 18, labelFontSize });
+        L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH2, labelFontSize });
       });
       contentY += cardH2 + cardGap;
     }

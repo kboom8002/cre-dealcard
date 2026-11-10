@@ -14,20 +14,21 @@ import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, fin
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { areaUnitLabel, resolveAreaInputUnit } from "../../rentroll-meta";
 import { formatLeaseAreaCell } from "../../lease-area-cell";
-import { resolveLeaseOccupancy, sumLeasedRentRoll } from "../../lease-vacancy";
+import { resolveLeaseOccupancy, isNonLeasableLeaseRow, sumLeasedRentRoll } from "../../lease-vacancy";
 
 /** 운영 데이터 floor_leases(snake_case · 만원) → 프리미엄 바인더가 읽는 camelCase(원) 형태. 값 변환만 수행하며 없는 값은 만들지 않는다. */
 function normalizeFloorLeaseRow(l: any): Record<string, any> {
   const occupancy = resolveLeaseOccupancy(l);
-  const vacant = occupancy !== '임대중';
+  const nonLeasable = isNonLeasableLeaseRow(l);
+  const vacant = nonLeasable || occupancy !== '임대중';
   const manwon = (v: unknown): number | undefined => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? Math.round(n * 10000) : undefined;
   };
   return {
     unitLabel: l.floor ?? l.unit,
-    tenantName: vacant ? occupancy : (l.tenant_name ?? l.tenantName ?? l.tenant_type),
-    tenantBusiness: vacant ? occupancy : (l.tenant_type ?? l.tenant_name),
+    tenantName: nonLeasable ? (l.tenant_name ?? l.tenantName ?? l.tenant_type ?? occupancy) : vacant ? occupancy : (l.tenant_name ?? l.tenantName ?? l.tenant_type),
+    tenantBusiness: nonLeasable ? (l.tenant_type ?? l.tenant_name ?? occupancy) : vacant ? occupancy : (l.tenant_type ?? l.tenant_name),
     areaSqm: l.area_sqm,
     exclusiveAreaSqm: l.exclusive_area_sqm,
     areaSqmIsProxy: l.area_sqm_is_proxy,
@@ -329,8 +330,8 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
     const areaUnit = resolveAreaInputUnit(body.rent_roll_meta);
     const areaUnitText = areaUnitLabel(areaUnit);
     const mdHeaders = ['층수', '업종', `임대면적(${areaUnitText})`, '보증금 / 월세', '비고'];
-    // 점유 상태 SSOT: 공실·자가사용 행은 임차인·업종 구성·월세 합계에서 제외 (표에는 점유 상태로 남긴다)
-    const leasedRows = floorLeases.filter((l: any) => resolveLeaseOccupancy(l) === '임대중');
+    // 점유 상태 SSOT: 공실·자가사용·비임대 구획(공용/주차 등) 행은 임차인·업종 구성·월세 합계에서 제외 (표에는 점유 상태로 남긴다)
+    const leasedRows = floorLeases.filter((l: any) => !isNonLeasableLeaseRow(l) && resolveLeaseOccupancy(l) === '임대중');
     const mdRows = floorLeases.length > 0
             ? floorLeases.map((l: any) => {
                 const occ = resolveLeaseOccupancy(l);

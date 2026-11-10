@@ -56,10 +56,24 @@ export interface CreateProjectOptions {
 }
 
 export function buildBasicImSlideDefaults(
-  buildingName: string,
-  docBody: Record<string, any> = {},
+  buildingNameOrDocBody: string | Record<string, any>,
+  docBodyArg: Record<string, any> = {},
   brokerInfo?: Record<string, any>
 ): Record<string, Record<string, any>> {
+  const isFirstArgObj =
+    typeof buildingNameOrDocBody === 'object' && buildingNameOrDocBody !== null;
+  const docBody: Record<string, any> = isFirstArgObj
+    ? buildingNameOrDocBody
+    : docBodyArg || {};
+  const buildingName: string = isFirstArgObj
+    ? String(
+        docBody.buildingName ||
+          docBody.title ||
+          docBody.heroTitle ||
+          docBody.ssot_summary?.building_name ||
+          '상업용 빌딩'
+      ).trim()
+    : String(buildingNameOrDocBody || '상업용 빌딩').trim();
   const ssot = docBody.ssot_summary ?? {};
   const enrichment = docBody.enrichment ?? {};
   const br = enrichment.buildingRegister ?? {};
@@ -141,25 +155,88 @@ export function buildBasicImSlideDefaults(
   const jibunStr = ssot.jibun_address || enrichment.landUsePlan?.jibunAddress || '';
   const zoningStr = ssot.zoning || enrichment.landUsePlan?.zoningDistrict || enrichment.landUsePlan?.zoning || br.zoning || '';
 
+  const axiosPoints: string[] = Array.isArray(docBody.axios_highlights)
+    ? docBody.axios_highlights
+        .flatMap((h: any) => {
+          if (typeof h === 'string') return [h.trim()];
+          const title = String(h?.headline || h?.title || '').trim();
+          const brief = String(h?.brief || '').trim();
+          const bullets = Array.isArray(h?.bullets)
+            ? h.bullets.map((b: any) => String(b || '').trim()).filter(Boolean)
+            : [];
+          const combined = [title, brief || bullets.join(' · ')].filter(Boolean).join(' — ').trim();
+          return combined ? [combined] : [];
+        })
+        .filter(Boolean)
+    : [];
+  const handoverNoteStr = String(ssot.handover_note || docBody.handover_note || '').trim();
+
   const invPoints: string[] = Array.isArray(brokerExtras.investment_points) && brokerExtras.investment_points.length > 0
     ? brokerExtras.investment_points
-    : (Array.isArray(hero.keyPoints) && hero.keyPoints.length > 0 ? hero.keyPoints : []);
+    : Array.isArray(hero.keyPoints) && hero.keyPoints.length > 0
+    ? hero.keyPoints
+    : axiosPoints.length > 0
+    ? axiosPoints
+    : handoverNoteStr
+    ? [handoverNoteStr]
+    : [];
 
   const rawLeases = docBody.floor_leases ?? docBody.rentRoll ?? docBody.rent_roll ?? ssot.floor_leases ?? [];
   const rawComps = docBody.manual_comps ?? brokerExtras.market_comps ?? enrichment.comparableTransactions ?? [];
   const rawPhotos = docBody.photos_v2 ?? docBody.photos ?? docBody.buildingPhotos ?? [];
 
   const lph = enrichment.landPriceHistory;
-  const latestOfficialSqm = Number(lph?.latestPricePerSqm ?? ssot.official_land_price_krw ?? 0);
+  const latestOfficialSqm = Number(
+    lph?.latestPricePerSqm ||
+      ssot.official_land_price_krw ||
+      ssot.official_land_price_per_sqm ||
+      docBody.official_land_price_krw ||
+      docBody.official_land_price_per_sqm ||
+      docBody.enrichment?.landPrice?.officialPricePerM2 ||
+      0
+  );
   const officialPriceStr = latestOfficialSqm > 0
     ? `${Math.round(latestOfficialSqm / 10000).toLocaleString()}만원/㎡ (약 ${Math.round((latestOfficialSqm * 3.305785) / 10000).toLocaleString()}만원/평)`
     : '';
 
-  const brokerCompany = brokerInfo?.company_name || docBody.brokerCompany || 'CRE DEAL 파트너스 중개법인';
-  const brokerName = brokerInfo?.display_name || docBody.brokerName || '';
-  const brokerPhone = brokerInfo?.phone || docBody.brokerPhone || '';
+  const factsBrokerOffice = docBody.basicImDocument?.facts?.brokerOffice;
+  const factsBrokerCompany =
+    typeof factsBrokerOffice === 'string'
+      ? factsBrokerOffice
+      : factsBrokerOffice?.name || factsBrokerOffice?.company || '';
+  const brokerCompany =
+    brokerInfo?.company_name ||
+    docBody.brokerCompany ||
+    docBody.broker_contact?.brokerageName ||
+    docBody.broker_contact?.company ||
+    factsBrokerCompany ||
+    docBody.broker?.company ||
+    docBody.broker?.office ||
+    '';
+  const brokerName =
+    brokerInfo?.display_name ||
+    docBody.brokerName ||
+    docBody.broker_contact?.brokerName ||
+    docBody.broker_contact?.name ||
+    (typeof factsBrokerOffice === 'object' ? factsBrokerOffice?.representative : '') ||
+    docBody.broker?.name ||
+    '';
+  const brokerPhone =
+    brokerInfo?.phone ||
+    docBody.brokerPhone ||
+    docBody.broker_contact?.brokerPhone ||
+    docBody.broker_contact?.phone ||
+    (typeof factsBrokerOffice === 'object' ? factsBrokerOffice?.phone : '') ||
+    docBody.broker?.phone ||
+    '';
   const brokerEmail = brokerInfo?.email || docBody.brokerEmail || '';
-  const brokerRegNo = brokerInfo?.registration_no || docBody.brokerRegNo || '';
+  const brokerRegNo =
+    brokerInfo?.registration_no ||
+    docBody.brokerRegNo ||
+    docBody.broker_contact?.registrationNo ||
+    docBody.broker_contact?.registration_no ||
+    (typeof factsBrokerOffice === 'object' ? factsBrokerOffice?.registrationNo : '') ||
+    '';
 
   return {
     cover: {
@@ -173,10 +250,10 @@ export function buildBasicImSlideDefaults(
       brokerPhone,
     },
     highlights: {
-      leadSentence: hero.hookText || invPoints[0] || `${addressStr || buildingName} 핵심 수익형 빌딩 매각 요약`,
+      leadSentence: hero.hookText || invPoints[0] || handoverNoteStr || `${addressStr || buildingName} 핵심 수익형 빌딩 매각 요약`,
       keyInvestmentPoint: invPoints[0] || hero.keyInvestmentPoint || `${transitStr} 입지 및 안정적 임대수익 구조`,
       investmentPoint2: invPoints[1] || (zoningStr ? `${zoningStr} · 대지 ${landPy ? `${landPy}평` : '-'} / 연면적 ${grossPy ? `${grossPy}평` : '-'}` : ''),
-      investmentPoint3: invPoints[2] || (capRateBase ? `현행 수익률 ${capRateBase}${capRateStabilized ? ` → 안정화 시 ${capRateStabilized}` : ''}` : ''),
+      investmentPoint3: invPoints[2] || handoverNoteStr || (capRateBase ? `현행 수익률 ${capRateBase}${capRateStabilized ? ` → 안정화 시 ${capRateStabilized}` : ''}` : ''),
       askingPrice: askEokStr,
       grossYield: capRateBase,
       capRateBase,
@@ -192,7 +269,16 @@ export function buildBasicImSlideDefaults(
       grossArea: grossSqm > 0 ? `${grossSqm.toLocaleString()}㎡ (${grossPy}평)` : '',
       archArea: archSqm > 0 ? `${archSqm.toLocaleString()}㎡ (${archPy}평)` : '',
       floors: floorsStr,
-      completionYear: (() => { const y = String(ssot.completion_year || br.useAprDay?.slice(0, 4) || '').trim(); return /^\d{4}$/.test(y) ? `${y}년` : y; })(),
+      completionYear: (() => {
+        const raw = String(
+          ssot.completion_year ||
+            ssot.completion_date ||
+            docBody.basicImDocument?.propertyOverview?.completionDate ||
+            br.useAprDay?.slice(0, 4) ||
+            ''
+        ).trim();
+        return /^\d{4}$/.test(raw) ? `${raw}년` : raw;
+      })(),
       zoning: zoningStr,
       bcrFar: bcrFarStr,
       parkingElevator: parkElevStr,
@@ -266,7 +352,13 @@ export function buildBasicImSlideDefaults(
       photos: Array.isArray(rawPhotos) ? rawPhotos : [],
     },
     closing: {
-      closingLine: brokerExtras.closing_line || `${buildingName} 매입 검토 및 현장 실사 일정은 아래 담당 중개법인에 문의해 주시기 바랍니다.`,
+      closingLine:
+        brokerExtras.closing_line ||
+        ssot.closing_line ||
+        docBody.closingLine ||
+        docBody.closing_line ||
+        docBody.broker_contact?.closingLine ||
+        `${buildingName} 매입 검토 및 현장 실사 일정은 아래 담당 중개법인에 문의해 주시기 바랍니다.`,
       brokerCompany,
       brokerName,
       brokerPhone,

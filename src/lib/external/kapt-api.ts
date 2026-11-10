@@ -161,7 +161,7 @@ export async function fetchNearbyApartmentHouseholds(params: {
 
   // 2차 폴백: 레거시 K-apt 목록/기본정보 서비스
   const listUrl =
-    `http://apis.data.go.kr/1613000/AptListService3/getLegaldongAptList3` +
+    `https://apis.data.go.kr/1613000/AptListService3/getLegaldongAptList3` +
     `?serviceKey=${encodedKey}&bjdCode=${encodeURIComponent(bjdCode)}&numOfRows=100&pageNo=1&_type=json`;
 
   try {
@@ -194,7 +194,7 @@ export async function fetchNearbyApartmentHouseholds(params: {
         if (!kaptCode) return null;
 
         const infoUrl =
-          `http://apis.data.go.kr/1613000/AptBasisInfoServiceV3/getAphusBassInfoV3` +
+          `https://apis.data.go.kr/1613000/AptBasisInfoServiceV3/getAphusBassInfoV3` +
           `?serviceKey=${encodedKey}&kaptCode=${encodeURIComponent(kaptCode)}&_type=json`;
 
         try {

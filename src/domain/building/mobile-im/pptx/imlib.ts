@@ -1221,7 +1221,6 @@ export function stat(
   opt: StatOpts = {},
 ): void {
   const h = opt.h ?? 1.28;
-  const vs = opt.vs ?? 25;
   const fill = opt.fill ?? (opt.onDark ? CD.card : C.tint);
   const lineCol = opt.lineCol ?? (opt.onDark ? CD.border : C.line);
   const valCol = opt.valCol ?? (opt.onDark ? 'FFFFFF' : C.ink);
@@ -1259,10 +1258,12 @@ export function stat(
   // M-5: 값 상자를 라벨 높이 아래에서 시작 (겹침 방지)
   const valY = labelY + labelH + 0.01;
 
-  // 값 — Dynamic font fitting (OpenXML/PowerPoint 내부 마진 감안 82% 안전 폭 기준 1줄 우선 피팅)
+  // 값 — Dynamic font fitting (Rule 62 다단계 길이 상한 + OpenXML/PowerPoint 내부 마진 감안 82% 안전 폭 기준 1줄 우선 피팅)
   const safeValue = value != null ? String(value) : '';
   const hasKoreanVal = /[\uAC00-\uD7AF]/.test(safeValue);
-  const baseVs = opt.vs ?? 22;
+  const valLen = safeValue.length;
+  const dynamicVs = valLen <= 6 ? 22 : valLen <= 10 ? 18 : valLen <= 16 ? 14 : valLen <= 24 ? 12 : 10;
+  const baseVs = Math.min(opt.vs ?? 25, dynamicVs);
   // D7(b): 값은 '…' 절단 금지 — 1줄(min 10pt) → 불가 시 2줄(min 9pt) 폴백
   let valFit = fitTextToBox(safeValue || '-', safeFitW, 0.44, {
     minFontSize: 10,

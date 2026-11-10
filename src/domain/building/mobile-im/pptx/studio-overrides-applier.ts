@@ -532,11 +532,11 @@ export function applyStudioSlideOverrides(
                 lease_state: cleanedLeaseState,
                 is_vacant: hasRealTenantName ? false : Boolean(r.is_vacant ?? r.isVacant),
                 isVacant: hasRealTenantName ? false : Boolean(r.isVacant ?? r.is_vacant),
-                area_sqm: r.area_sqm ?? r.area_m2 ?? r.area ?? undefined,
-                deposit_manwon: r.deposit_manwon ?? r.deposit ?? undefined,
-                rent_manwon: r.rent_manwon ?? r.monthly_rent_manwon ?? r.monthlyRent ?? r.rent ?? undefined,
-                mgmt_fee_manwon: r.mgmt_fee_manwon ?? r.managementFee ?? r.mgmt ?? undefined,
-                lease_end: r.lease_end ?? r.contract_end ?? r.contractEnd ?? undefined,
+                area_sqm: r.area_sqm ?? r.area_m2 ?? r.areaSqm ?? r.area ?? undefined,
+                deposit_manwon: r.deposit_manwon ?? r.depositManwon ?? r.deposit ?? undefined,
+                rent_manwon: r.rent_manwon ?? r.monthly_rent_manwon ?? r.monthlyRentManwon ?? r.monthlyRent ?? r.rent ?? undefined,
+                mgmt_fee_manwon: r.mgmt_fee_manwon ?? r.maintenanceManwon ?? r.managementFee ?? r.mgmt ?? undefined,
+                lease_end: r.lease_end ?? r.leaseExpiry ?? r.contract_end ?? r.contractEnd ?? undefined,
                 note: r.note ?? '',
               };
             })

@@ -281,7 +281,11 @@ export async function GET(
   const { grantId } = await params;
   const format = req.nextUrl.searchParams.get('format');
   if (format === 'pptx') {
-    return NextResponse.redirect(new URL(`/api/public/im-pro/${grantId}/pptx`, req.url));
+    const pptxUrl = new URL(`/api/public/im-pro/${grantId}/pptx`, req.url);
+    req.nextUrl.searchParams.forEach((value, key) => {
+      if (key !== 'format') pptxUrl.searchParams.set(key, value);
+    });
+    return NextResponse.redirect(pptxUrl);
   }
 
   const supabase = createServiceClient();
@@ -308,14 +312,37 @@ export async function GET(
     buildingId = deal?.asset_id || null;
   }
 
-  const { data: doc } = await supabase
+  const targetBuildingId = buildingId || grant.building_id;
+  const { data: docRows } = await supabase
     .from('document_objects')
     .select('*')
-    .eq('building_id', buildingId || grant.building_id)
-    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser', 'im_pro']) // P-H1: 통일 필터
+    .eq('building_id', targetBuildingId)
+    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'im_pro']) // P-H1: 통일 필터
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(5);
+
+  let doc: any = Array.isArray(docRows)
+    ? docRows.find(
+        (d: any) =>
+          Array.isArray(d?.body?.sections) &&
+          d.body.sections.length > 0 &&
+          !Array.isArray(d?.body?.slides)
+      )
+    : null;
+
+  if (!doc?.body && targetBuildingId) {
+    const { resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
+    const quickRec = await resolveOrSynthesizeQuickImRecord(grant.building_id || targetBuildingId, supabase);
+    if (quickRec?.fullDocBody) {
+      doc = {
+        id: quickRec.documentId,
+        building_id: quickRec.buildingId,
+        owner_id: quickRec.ownerId ?? null,
+        title: quickRec.buildingName,
+        body: { ...quickRec.fullDocBody },
+      };
+    }
+  }
 
   const bodyContent = doc?.body || {};
 

@@ -11,10 +11,11 @@ import { enforceTextBudget, shortenWithoutEllipsis } from "../text-budget";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
-import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+import { sqmToPyeong, pyeongToSqm, extractAreaPyeong } from "@/lib/utils/area-conversion";
 import { isVacantLeaseRow, isOwnerUseLeaseRow, isNonLeasableLeaseRow, sumLeasedRentRoll } from "../../lease-vacancy";
 import { resolveBrokerMemoFacts, resolveHotelOperating, BROKER_STATED_TAG } from "./broker-memo-facts";
 import { resolveDisplayAreas } from "./display-areas";
+import { verifiedLegalLimits } from "./legal-limits";
 import { formatLeaseAreaCompact, areaUnitFromHeader } from "./lease-area-format";
 import { resolveAreaInputUnit, PYEONG_TO_SQM_V15, type AreaInputUnit } from "../../rentroll-meta";
 import { buildYieldSetFromBody, YIELD_LABELS, summaryCapRateSub } from "../../yield-set";
@@ -204,17 +205,23 @@ export function buildA17Props(markdown: string, tables: ParsedTable[], lines: st
     const heroCard = body?.heroCard || {};
     const enrichment = body?.enrichment || {};
     const landPlan = enrichment?.landUsePlan || {};
-    // 대지면적: 해석된 값(heroCard/ssot_summary) > 대장 platArea. 0/NaN 은 누락 → undefined (렌더러가 '-' 표기; '0' 문자열 폴백 금지 — Rule 37)
+    const ssotA17 = body?.ssot_summary ?? {};
+    // 대지면적: 단일 면적 해석기(resolveDisplayAreas — Rule 75) 사용. 0/NaN 은 누락 → undefined (렌더러가 '-' 표기; '0' 문자열 폴백 금지 — Rule 37)
     const posNum = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
-    const platAreaM2 = posNum(heroCard.landAreaM2) || posNum(body?.ssot_summary?.land_area_sqm) || posNum(enrichment?.buildingRegister?.platArea);
+    const pyToSqmA17 = (py: unknown) => (posNum(py) > 0 ? pyeongToSqm(posNum(py)) : undefined);
+    const dispAreasA17 = resolveDisplayAreas({
+      brokerLandSqm: posNum(heroCard.landAreaM2) || posNum(ssotA17.land_area_sqm) || posNum(ssotA17.plat_area_sqm) || pyToSqmA17(body?.landAreaPyeong ?? heroCard.landAreaPyeong ?? ssotA17.land_area_pyeong),
+      brokerGfaSqm: posNum(heroCard.totalGrossAreaM2 ?? heroCard.grossFloorAreaM2) || posNum(ssotA17.total_gross_area_sqm) || posNum(ssotA17.total_area) || pyToSqmA17(heroCard.totalGrossAreaPyeong ?? ssotA17.total_gross_area_pyeong),
+      register: enrichment?.buildingRegister ?? null,
+    });
+    const platAreaM2 = dispAreasA17.landSqm ?? 0;
     const platAreaPyeong = platAreaM2 ? (sqmToPyeong(platAreaM2)).toFixed(1) : (posNum(body?.landAreaPyeong) ? String(body?.landAreaPyeong) : undefined);
     // 예상 신축(계획) 연면적: 개발 스펙의 targetScalePyung 만 사용. 기존(현황) 연면적(total_area)과 절대 혼용하지 않는다.
     // (히어로카드 키는 totalGrossAreaM2 — 과거 grossFloorAreaM2 로 읽어 항상 미스되던 키 불일치 정리)
     const devSpec = (body?.developmentSpec || {}) as Record<string, any>;
     const plannedGfaPy = posNum(devSpec.targetScalePyung) || posNum(devSpec.targetScalePyeong);
     const grossAreaPyeong = plannedGfaPy ? plannedGfaPy.toFixed(1) : undefined;
-    const bcrPct = landPlan.buildingCoverageMax || 50;
-    const farPct = landPlan.floorAreaRatioMax || 250;
+    const { bcrMax: bcrPct, farMax: farPct } = verifiedLegalLimits(landPlan);
     const costBil = body?.constructionCostBil || 0;
     const devMetrics = {
             landAreaPyeong: platAreaPyeong,
@@ -248,7 +255,10 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
       const floorIdx = headers.findIndex(h => h.includes('층'));
       const useIdx = headers.findIndex(h => h.includes('용도'));
       const exclusiveIdx = headers.findIndex(h => h.includes('전용'));
-      const leasableIdx = headers.findIndex(h => h.includes('임대') || h.includes('바닥'));
+      const leasableIdx = headers.findIndex(h =>
+        h.includes('임대면적') || h.includes('계약면적') || h.includes('바닥') ||
+        (h.includes('임대') && !h.includes('료') && !h.includes('만기') && !h.includes('보증금') && !h.includes('차인') && !h.includes('기간') && !h.includes('조건'))
+      );
       const tenantIdx = headers.findIndex(h => h.includes('입주') || h.includes('임차') || h.includes('테넌트') || h.includes('상호'));
       const expiryIdx = headers.findIndex(h => h.includes('만기') || h.includes('종료'));
       // 면적 머리글 단위: '(㎡)' → ㎡, '(평)' → 평, 꼬리표 없음 → 레거시(평)
@@ -260,6 +270,18 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
       }
 
       if (floorIdx !== -1) {
+        const parseAreaCellPy = (rawCell: string | undefined, headerIsSqm: boolean): number | undefined => {
+          const cleaned = stripMarkdown(rawCell || '').trim();
+          if (!cleaned) return undefined;
+          if (/[평㎡]/.test(cleaned)) {
+            const py = extractAreaPyeong(cleaned, false);
+            return py != null && py > 0 ? py : undefined;
+          }
+          const numStr = cleaned.replace(/[^\d.]/g, '');
+          const n = numStr ? parseFloat(numStr) : NaN;
+          if (!Number.isFinite(n) || n <= 0) return undefined;
+          return headerIsSqm ? sqmToPyeong(n) : n;
+        };
         for (const row of t.rows) {
           const rawFloor = stripMarkdown(row[floorIdx] || '').trim();
           if (!rawFloor || rawFloor.includes('층수') || rawFloor.includes('구분') || rawFloor.includes('합계')) {
@@ -267,18 +289,14 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
           }
 
           const use = useIdx !== -1 ? stripMarkdown(row[useIdx] || '').trim() : undefined;
-          const exText = exclusiveIdx !== -1 ? stripMarkdown(row[exclusiveIdx] || '').replace(/[^\d.]/g, '') : '';
-          const leasableText = leasableIdx !== -1 ? stripMarkdown(row[leasableIdx] || '').replace(/[^\d.]/g, '') : '';
           const tenant = tenantIdx !== -1 ? stripMarkdown(row[tenantIdx] || '').trim() : undefined;
           const expiryText = expiryIdx !== -1 ? stripMarkdown(row[expiryIdx] || '').replace(/[^\d]/g, '') : '';
 
-          // v1.5 §9.1: 머리글 '임대면적(㎡)'이면 ㎡, '(평)'이면 평 — 단위 꼬리표 없는 레거시 머리글은 기존대로 평
-          const exAsSqm = exText ? parseFloat(exText) : undefined;
-          const leasableAsSqm = leasableText ? parseFloat(leasableText) : undefined;
-          const exclusiveAreaPy = exText ? (exclusiveSqm ? sqmToPyeong(exAsSqm as number) : parseFloat(exText)) : undefined;
-          const leasableAreaPy = leasableText ? (leasableSqm ? sqmToPyeong(leasableAsSqm as number) : parseFloat(leasableText)) : undefined;
-          const exclusiveAreaM2 = exText ? (exclusiveSqm ? exAsSqm : pyeongToSqm(exclusiveAreaPy as number)) : undefined;
-          const leasableAreaM2 = leasableText ? (leasableSqm ? leasableAsSqm : pyeongToSqm(leasableAreaPy as number)) : undefined;
+          // v1.5 §9.1 & Rule 33: 복합 표기("96평(약 317.4㎡)") 안전 파싱 + 머리글 단위('㎡'|'평') 반영
+          const exclusiveAreaPy = exclusiveIdx !== -1 ? parseAreaCellPy(row[exclusiveIdx], exclusiveSqm) : undefined;
+          const leasableAreaPy = leasableIdx !== -1 ? parseAreaCellPy(row[leasableIdx], leasableSqm) : undefined;
+          const exclusiveAreaM2 = exclusiveAreaPy != null ? pyeongToSqm(exclusiveAreaPy) : undefined;
+          const leasableAreaM2 = leasableAreaPy != null ? pyeongToSqm(leasableAreaPy) : undefined;
           const floorAreaPy = leasableAreaPy ?? exclusiveAreaPy;
           const floorAreaM2 = leasableAreaM2 ?? exclusiveAreaM2;
           let expiryYear = expiryText ? parseInt(expiryText, 10) : undefined;
@@ -399,10 +417,15 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
     const heroCard = body?.heroCard || {};
     const ssotSummary = body?.ssot_summary || {};
     const heroGfaM2 = heroCard.totalGrossAreaM2 ?? heroCard.grossFloorAreaM2;
-    const totalGfaPy = heroGfaM2 ? Math.round(sqmToPyeong(heroGfaM2) * 10) / 10
-            : (ssotSummary.total_gross_area_sqm ? Math.round(sqmToPyeong(ssotSummary.total_gross_area_sqm) * 10) / 10
-            : (ssotSummary.total_area ? Math.round(sqmToPyeong(ssotSummary.total_area) * 10) / 10
-            : Math.round(floors.reduce((acc, f) => acc + (f.floorAreaPy || 0), 0) * 10) / 10));
+    const pyToSqmA22 = (py: unknown) => (Number.isFinite(Number(py)) && Number(py) > 0 ? pyeongToSqm(Number(py)) : undefined);
+    const dispAreasA22 = resolveDisplayAreas({
+      brokerLandSqm: Number(ssotSummary.land_area_sqm) || Number(ssotSummary.plat_area_sqm) || Number(heroCard.landAreaM2) || pyToSqmA22(heroCard.landAreaPyeong ?? ssotSummary.land_area_pyeong),
+      brokerGfaSqm: Number(heroGfaM2) || Number(ssotSummary.total_gross_area_sqm) || Number(ssotSummary.total_area) || pyToSqmA22(heroCard.totalGrossAreaPyeong ?? ssotSummary.total_gross_area_pyeong),
+      register: body?.enrichment?.buildingRegister ?? null,
+    });
+    const totalGfaPy = dispAreasA22.gfaSqm
+            ? Math.round(sqmToPyeong(dispAreasA22.gfaSqm) * 10) / 10
+            : Math.round(floors.reduce((acc, f) => acc + (f.floorAreaPy || 0), 0) * 10) / 10;
     const totalExclusivePy = floors.reduce((acc, f) => acc + (f.exclusiveAreaPy || 0), 0);
     const calculatedExclusiveRate = totalGfaPy > 0 && totalExclusivePy > 0
             ? Math.min(100, Math.round((totalExclusivePy / totalGfaPy) * 1000) / 10)
@@ -1275,9 +1298,15 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       const rawStation = ssotKP.station_name || heroCard.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
       const stationName = normalizeStationName(rawStation);
       const stationMin = ssotKP.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
-      const rawGrossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? (ssotKP.total_gross_area_sqm ? sqmToPyeong(ssotKP.total_gross_area_sqm) : ssotKP.total_gross_area_pyeong ?? 0));
+      const pyToSqmKP = (py: unknown) => (Number.isFinite(Number(py)) && Number(py) > 0 ? pyeongToSqm(Number(py)) : undefined);
+      const dispAreasKP = resolveDisplayAreas({
+        brokerLandSqm: Number(ssotKP.land_area_sqm) || Number(ssotKP.plat_area_sqm) || pyToSqmKP(heroCard.landAreaPyeong ?? ssotKP.land_area_pyeong),
+        brokerGfaSqm: Number(ssotKP.total_gross_area_sqm) || pyToSqmKP(heroCard.totalGrossAreaPyeong ?? ssotKP.total_gross_area_pyeong),
+        register: body?.enrichment?.buildingRegister ?? null,
+      });
+      const rawGrossAreaPy = dispAreasKP.gfaSqm ? sqmToPyeong(dispAreasKP.gfaSqm) : Number(heroCard.totalGrossAreaPyeong ?? (ssotKP.total_gross_area_sqm ? sqmToPyeong(ssotKP.total_gross_area_sqm) : ssotKP.total_gross_area_pyeong ?? 0));
       const grossAreaPy = Number.isFinite(rawGrossAreaPy) && rawGrossAreaPy > 0 ? rawGrossAreaPy : 0;
-      const rawSiteAreaPy = Number(heroCard.landAreaPyeong ?? (ssotKP.land_area_sqm ? sqmToPyeong(ssotKP.land_area_sqm) : ssotKP.land_area_pyeong ?? 0));
+      const rawSiteAreaPy = dispAreasKP.landSqm ? sqmToPyeong(dispAreasKP.landSqm) : Number(heroCard.landAreaPyeong ?? (ssotKP.land_area_sqm ? sqmToPyeong(ssotKP.land_area_sqm) : ssotKP.land_area_pyeong ?? 0));
       const siteAreaPy = Number.isFinite(rawSiteAreaPy) && rawSiteAreaPy > 0 ? rawSiteAreaPy : 0;
       const rawAskManwon = Number(ssotKP.asking_price_manwon || 0);
       const askManwon = Number.isFinite(rawAskManwon) && rawAskManwon > 0 ? rawAskManwon : 0;
@@ -1343,7 +1372,9 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     }
 
     const rawLead = stripMarkdown(heroCard.keyInvestmentPoint || heroCard.hookText || findLeadSentence(lines.filter(l => !l.startsWith('|'))));
-    const cleanLead = rawLead.replace(/\b\d+억대\b/g, askPrice);
+    const cleanLead = askPrice
+      ? rawLead.replace(/\b\d+억대\b/g, String(askPrice))
+      : rawLead.replace(/,?\s*(?:희망가\s*)?\b\d+억대\b/g, '').trim();
     return {
     leadSentence: cleanLead,
     metrics,
@@ -1447,7 +1478,7 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
     }
 
     const annualRentWon = monthlyRentWon * 12;
-    const grossYieldPct = priceWon > 0 ? (annualRentWon / priceWon) * 100 : 4.0;
+    const grossYieldPct = priceWon > 0 ? (annualRentWon / priceWon) * 100 : 0;
     const acqCost = body?.acquisition_cost as { tax_pct?: number; brokerage_manwon?: number; legal_manwon?: number; other_manwon?: number } | undefined;
     const loanScenario = body?.loan_scenario as { ltv_pct?: number; interest_pct?: number; term_years?: number; target_irr_pct?: number } | undefined;
     const taxPct = (acqCost?.tax_pct ?? 4.6) / 100;
@@ -1487,22 +1518,24 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
     const isNegativeLeverage = grossYieldPct < (loanInterestRate * 100);
     const actualTaxPctLabel = ((acqCost?.tax_pct ?? 4.6)).toFixed(1);
     const actualLtvPctLabel = userLtvPct != null ? `${userLtvPct}` : '50';
-    const totalCostPctOfPrice = priceWon > 0 ? ((totalAcquisitionCost / priceWon) * 100).toFixed(1) : '105.5';
+    const pctOfPrice = (amt: number, digits = 1) => priceWon > 0 ? `${((amt / priceWon) * 100).toFixed(digits)}%` : '-';
+    const totalCostPctOfPrice = priceWon > 0 ? `${((totalAcquisitionCost / priceWon) * 100).toFixed(1)}%` : '-';
     const table1Rows: string[][] = [
             ['구분', '금액 (억 원)', '비율'],
-            ['매매 희망가', `${(priceWon / 1e8).toFixed(1)}억`, '100.0%'],
+            ['매매 희망가', `${(priceWon / 1e8).toFixed(1)}억`, priceWon > 0 ? '100.0%' : '-'],
             ['취득세 (' + actualTaxPctLabel + '%)', `${(acquisitionTax / 1e8).toFixed(2)}억`, actualTaxPctLabel + '%'],
             ['중개보수', `${(brokerFeeWon / 1e8).toFixed(2)}억`, `${priceWon > 0 ? ((brokerFeeWon / priceWon) * 100).toFixed(1) : '0.9'}%`],
           ];
-    if (legalFeeWon > 0) table1Rows.push(['법무사비', `${(legalFeeWon / 1e8).toFixed(2)}억`, `${((legalFeeWon / priceWon) * 100).toFixed(2)}%`]);
-    if (otherCostWon > 0) table1Rows.push(['기타 취득비용', `${(otherCostWon / 1e8).toFixed(2)}억`, `${((otherCostWon / priceWon) * 100).toFixed(2)}%`]);
+    if (legalFeeWon > 0) table1Rows.push(['법무사비', `${(legalFeeWon / 1e8).toFixed(2)}억`, pctOfPrice(legalFeeWon, 2)]);
+    if (otherCostWon > 0) table1Rows.push(['기타 취득비용', `${(otherCostWon / 1e8).toFixed(2)}억`, pctOfPrice(otherCostWon, 2)]);
     table1Rows.push(
-    ['총취득원가', `${(totalAcquisitionCost / 1e8).toFixed(1)}억`, `${totalCostPctOfPrice}%`],
-    ['(-) 임대보증금', `${(depositWon / 1e8).toFixed(1)}억`, `${((depositWon / priceWon) * 100).toFixed(1)}%`],
+    ['총취득원가', `${(totalAcquisitionCost / 1e8).toFixed(1)}억`, totalCostPctOfPrice],
+    ['(-) 임대보증금', `${(depositWon / 1e8).toFixed(1)}억`, pctOfPrice(depositWon, 1)],
     [`(-) 담보대출 (${actualLtvPctLabel}%)`, `${(loan / 1e8).toFixed(1)}억`, `${actualLtvPctLabel}%`],
-    ['실투자금 (Net Equity)', `${(equity / 1e8).toFixed(1)}억`, `${((equity / priceWon) * 100).toFixed(1)}%`],
+    ['실투자금 (Net Equity)', `${(equity / 1e8).toFixed(1)}억`, pctOfPrice(equity, 1)],
     );
     return {
+    ...(priceWon <= 0 ? { _suppress: true } : {}),
     kicker: 'CAPITAL STRUCTURE',
     title: '투자 및 자본 조달 구조 분석',
     equityBreakdown: {

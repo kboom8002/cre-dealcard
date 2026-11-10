@@ -240,14 +240,14 @@ describe("E2E Layer 4: External Data Integration", () => {
       expect(code.length).toBe(10);
     });
 
-    test("E2E-S02: 짧은 PNU → 폴백 코드 반환", () => {
+    test("E2E-S02: 짧은 PNU → 빈 문자열 반환 (가짜 역삼동 폴백 금지)", () => {
       const code = pnuToLegalDongCode("123");
-      expect(code).toBe("1168010800"); // 역삼동 폴백
+      expect(code).toBe("");
     });
 
-    test("E2E-S03: 빈 PNU → 폴백", () => {
+    test("E2E-S03: 빈 PNU → 빈 문자열 반환 (가짜 역삼동 폴백 금지)", () => {
       const code = pnuToLegalDongCode("");
-      expect(code).toBe("1168010800");
+      expect(code).toBe("");
     });
   });
 

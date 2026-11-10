@@ -60,14 +60,37 @@ export async function GET(
     const building = buildingData as any;
 
     // Fetch IM document
-    const { data: imDoc } = await supabase
+    const targetBuildingId = grant.deals?.asset_id || grant.building_id || '';
+    const { data: imDocRows } = await supabase
       .from('document_objects')
       .select('*')
-      .eq('building_id', grant.deals?.asset_id || '')
-      .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser', 'im_pro'])
+      .eq('building_id', targetBuildingId)
+      .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'im_pro'])
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(5);
+
+    let imDoc: any = Array.isArray(imDocRows)
+      ? imDocRows.find(
+          (d: any) =>
+            Array.isArray(d?.body?.sections) &&
+            d.body.sections.length > 0 &&
+            !Array.isArray(d?.body?.slides)
+        )
+      : null;
+
+    if (!imDoc?.body && targetBuildingId) {
+      const { resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
+      const quickRec = await resolveOrSynthesizeQuickImRecord(grant.building_id || targetBuildingId, supabase);
+      if (quickRec?.fullDocBody) {
+        imDoc = {
+          id: quickRec.documentId,
+          building_id: quickRec.buildingId,
+          owner_id: quickRec.ownerId ?? null,
+          title: quickRec.buildingName,
+          body: { ...quickRec.fullDocBody },
+        };
+      }
+    }
 
     // Watermark seed via nda-watermark module
     const wm = generateProIMWatermark({

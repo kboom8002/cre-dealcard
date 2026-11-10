@@ -20,13 +20,13 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
   // 항목 추출: data.checkItems 배열 우선, 없으면 markdown 텍스트 파싱
   const cleanItemText = (raw: string) => {
     let s = stripMarkdown(raw).replace(/^\[[\w가-힣 ]+\]\s*/, '').trim();
-    if (s.length > 70) {
-      // 긴 문단이면 마침표 기준 첫 문장 추출
+    if (s.length >= 60) {
+      // 긴 문단이면 마침표 기준 첫 문장 추출 (Rule 36: 60자 미만 예산)
       const firstDot = s.indexOf('. ');
-      if (firstDot > 10 && firstDot <= 65) {
+      if (firstDot > 10 && firstDot <= 56) {
         s = s.slice(0, firstDot + 1);
       } else {
-        s = s.slice(0, 67) + '...';
+        s = s.slice(0, 57) + '...';
       }
     }
     return s;
@@ -134,6 +134,7 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
         color: C.ink,
         valign: 'middle',
         lineSpacingMultiple: 1.10,
+        shrinkText: true,
       });
 
       curY += itemH + 0.08;

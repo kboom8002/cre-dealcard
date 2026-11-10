@@ -206,6 +206,7 @@ function isValidViolationType(type: string): type is CREViolationType {
     "legal_assertion",
     "misleading_comparison",
     "ungrounded_market_claim",
+    "price_opinion_prohibition",
   ];
   return validTypes.includes(type as CREViolationType);
 }

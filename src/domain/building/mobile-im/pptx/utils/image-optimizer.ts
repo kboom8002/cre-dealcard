@@ -20,6 +20,7 @@ import {
 } from './location-map-overlay';
 import { scrubKakaoExitMarkers } from './kakao-basemap-scrub';
 import { C } from '../imlib';
+import { getVWorldReferer } from '@/lib/external/vworld-config';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('image-optimizer');
@@ -616,7 +617,7 @@ export async function generateStaticMapPlaceholder(
         const targetPy = Math.round((((1 - Math.log(Math.tan(latRadOsm) + 1 / Math.cos(latRadOsm)) / Math.PI) / 2) * n - tileY + 1) * tileSize);
         const toPxOsm = (pLat: number, pLng: number) => {
           const r = latlngToPixel(pLat, pLng, lat, lng, osmMeterPerPx, compositeWidth, compositeHeight);
-          return { px: r.px - compositeWidth / 2 + targetPx, py: r.py - compositeHeight / 2 + targetPy };
+          return { px: Math.round(r.px - compositeWidth / 2 + targetPx), py: Math.round(r.py - compositeHeight / 2 + targetPy) };
         };
         const placedOsm = selectAndPlacePois(
           candidatePool, toPxOsm,
@@ -723,10 +724,7 @@ export async function fetchKakaoMapImage(
   const safeW = (typeof w === 'number' && Number.isFinite(w) && w > 0) ? Math.round(w) : 560;
   const safeH = (typeof h === 'number' && Number.isFinite(h) && h > 0) ? Math.round(h) : 450;
   try {
-    const referer = process.env.VWORLD_REFERER
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
-      || process.env.NEXT_PUBLIC_SITE_URL
-      || 'https://cre-dealcard.vercel.app';
+    const referer = getVWorldReferer();
     const response = await fetch(mapUrl, {
       signal: AbortSignal.timeout(8000),
       headers: { Referer: referer },

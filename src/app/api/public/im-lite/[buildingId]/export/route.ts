@@ -5,6 +5,11 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { getServerViewer } from '@/lib/server-viewer';
+import { isOwnerOrAdmin } from '@/domain/public-projection/access';
+import { isImDocStatusPublic, PUBLIC_IM_DOC_STATUSES, NON_PUBLIC_DOCUMENT_STATUSES } from '@/domain/public-projection/visibility';
+import { getInboxState, isUuid, resolveOrSynthesizeQuickImRecord } from '@/lib/im-lite/quick-generate-store';
+import { isBuildingShareLinkRevoked } from '@/lib/security/share-link-tokens';
 
 function escapeHtml(s: string): string {
   if (!s) return '';
@@ -141,7 +146,22 @@ function buildHtmlExport({
 }): string {
   const sections = (content?.sections ?? []) as Array<any>;
   const heroCard = content?.heroCard || {};
-  const photoUrls = (content?.photoUrls || []).slice(0, 4);
+  const rawPhotoList = (
+    Array.isArray(content?.photos_v2) && content.photos_v2.length > 0
+      ? content.photos_v2
+      : Array.isArray(content?.photos) && content.photos.length > 0
+      ? content.photos
+      : Array.isArray(content?.photo_urls) && content.photo_urls.length > 0
+      ? content.photo_urls
+      : Array.isArray(content?.photoUrls)
+      ? content.photoUrls
+      : []
+  ) as Array<any>;
+  const photoUrls = rawPhotoList
+    .filter((p) => p && (typeof p === 'string' || (p.excluded !== true && typeof p.url === 'string')))
+    .map((p) => (typeof p === 'string' ? p : String(p.url)))
+    .filter(Boolean)
+    .slice(0, 4);
   const ancillaryIncomes = content?.ancillaryIncomes;
   const incomeScenarios = content?.incomeScenarios;
 
@@ -176,14 +196,15 @@ function buildHtmlExport({
     .filter((s) => !(content?.hiddenSections || []).includes(s.section_type || s.sectionId))
     .map(
       (s) => {
-        const badgeText = getConfidenceBadge(s.confidence, s.section_type, s.markdown);
+        const mdText = s.markdown || s.content || s.narrative || '';
+        const badgeText = getConfidenceBadge(s.confidence, s.section_type, mdText);
         const confBadge = badgeText ? `<span class="confidence-badge">${badgeText}</span>` : '';
         const boundaryNote = (s.boundary_note || s.confidence_note) ? `<div class="boundary-note">ℹ️ ${escapeHtml(s.boundary_note || s.confidence_note)}</div>` : '';
         return `<section class="im-section">
   <div class="section-header">
     <h2>${escapeHtml(s.title)} ${confBadge}</h2>
   </div>
-  <div class="section-content">${markdownToHtml(s.markdown)}</div>
+  <div class="section-content">${markdownToHtml(mdText)}</div>
   ${boundaryNote}
 </section>`;
       }
@@ -658,61 +679,163 @@ export async function GET(
 ) {
   const { buildingId } = await params;
   const { searchParams } = new URL(req.url);
-  const docId = searchParams.get('doc_id');
 
+  if (searchParams.get('format') === 'pptx') {
+    const pptxUrl = new URL(`/api/public/im-lite/${buildingId}/pptx`, req.url);
+    searchParams.forEach((value, key) => {
+      if (key !== 'format') pptxUrl.searchParams.set(key, value);
+    });
+    return NextResponse.redirect(pptxUrl);
+  }
+
+  const docId = searchParams.get('doc_id') || searchParams.get('docId');
   const supabase = createServiceClient();
 
-  let doc: any = null;
+  let viewer: any = null;
+  try {
+    viewer = await getServerViewer();
+  } catch {
+    viewer = null;
+  }
 
-  if (docId) {
-    // doc_id 명시 시 직접 조회
-    const { data, error } = await supabase
-      .from('document_objects')
-      .select('id, title, body, created_at, owner_id, document_type')
-      .eq('id', docId)
-      .eq('building_id', buildingId)
-      .maybeSingle();
-    if (error || !data) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
-    }
-    doc = data;
-  } else {
-    // doc_id 미제공 시 최신 IM 문서 자동 검색 (PPTX 라우트와 동일 패턴)
-    const { data, error } = await supabase
-      .from('document_objects')
-      .select('id, title, body, created_at, owner_id, document_type')
-      .eq('building_id', buildingId)
-      .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft'])
+  let dbRevoked: boolean | undefined;
+  let dbRevokeTime = 0;
+  try {
+    const { data: govEvents } = await supabase
+      .from('activity_events')
+      .select('event_type, entity_id, metadata, created_at')
+      .in('event_type', ['link_revoked', 'link_restored'])
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error || !data) {
-      return NextResponse.json({ error: 'No IM document found for this building' }, { status: 404 });
+      .limit(80);
+    if (Array.isArray(govEvents)) {
+      for (const row of govEvents) {
+        const meta = (row?.metadata && typeof row.metadata === 'object' ? row.metadata : {}) as Record<string, any>;
+        const evBldId = String(meta.building_id || row?.entity_id || '').trim();
+        if (evBldId !== buildingId) continue;
+        if (row.event_type === 'link_revoked') {
+          dbRevoked = true;
+          dbRevokeTime = Date.parse(String(meta.revoked_at || row.created_at || '')) || 0;
+          break;
+        }
+        if (row.event_type === 'link_restored') {
+          dbRevoked = false;
+          dbRevokeTime = Date.parse(String(meta.restored_at || row.created_at || '')) || 0;
+          break;
+        }
+      }
     }
-    doc = data;
+  } catch {
+    // Non-blocking
+  }
+
+  const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
+  const localRevoked = Boolean(inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId));
+  const localRevokeTime = inboxRevokedEntry?.revokedAt ? Date.parse(inboxRevokedEntry.revokedAt) || 0 : 0;
+  const isRevokedByLink =
+    typeof dbRevoked === 'boolean' && (!localRevokeTime || dbRevokeTime >= localRevokeTime)
+      ? dbRevoked
+      : localRevoked || dbRevoked === true;
+
+  if (isRevokedByLink) {
+    return NextResponse.json({ ok: false, error: 'LINK_REVOKED' }, { status: 403 });
+  }
+
+  let building: any = null;
+  if (isUuid(buildingId)) {
+    const { data: bRow } = await supabase
+      .from('building_ssot_lite')
+      .select('owner_id, area_signal, asset_type, price_band')
+      .eq('id', buildingId)
+      .maybeSingle();
+    building = bRow;
+  }
+  const buildingOwnerId: string | null = building?.owner_id ?? null;
+
+  let dbDoc: any = null;
+  if (isUuid(buildingId)) {
+    if (docId && isUuid(docId)) {
+      const { data } = await supabase
+        .from('document_objects')
+        .select('id, title, body, created_at, updated_at, owner_id, document_type, status')
+        .eq('id', docId)
+        .eq('building_id', buildingId)
+        .maybeSingle();
+      if (data && (isImDocStatusPublic(data.status) || isOwnerOrAdmin(viewer, buildingOwnerId, data.owner_id))) {
+        dbDoc = data;
+      }
+    }
+    if (!dbDoc && !docId) {
+      const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
+      let latestQuery = supabase
+        .from('document_objects')
+        .select('id, title, body, created_at, updated_at, owner_id, document_type, status')
+        .eq('building_id', buildingId)
+        .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft']);
+      latestQuery = privileged
+        ? latestQuery.not('status', 'in', `(${NON_PUBLIC_DOCUMENT_STATUSES.join(',')})`)
+        : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
+      const { data } = await latestQuery
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      dbDoc = data ?? null;
+    }
+  }
+
+  const quickRec = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId || undefined);
+
+  let doc: any = null;
+  if (dbDoc && quickRec?.fullDocBody) {
+    const dbTime = Date.parse(dbDoc.updated_at || dbDoc.created_at || '') || 0;
+    const qrTime = Date.parse(quickRec.updatedAt || quickRec.createdAt || '') || 0;
+    if (qrTime > dbTime) {
+      doc = {
+        id: quickRec.documentId,
+        title: quickRec.buildingName,
+        body: quickRec.fullDocBody,
+        created_at: quickRec.updatedAt || quickRec.createdAt,
+        owner_id: quickRec.ownerId ?? dbDoc.owner_id ?? null,
+        document_type: 'im_lite',
+      };
+    } else {
+      doc = dbDoc;
+    }
+  } else if (dbDoc) {
+    doc = dbDoc;
+  } else if (quickRec?.fullDocBody) {
+    doc = {
+      id: quickRec.documentId,
+      title: quickRec.buildingName,
+      body: quickRec.fullDocBody,
+      created_at: quickRec.updatedAt || quickRec.createdAt,
+      owner_id: quickRec.ownerId ?? null,
+      document_type: 'im_lite',
+    };
+  }
+
+  if (!doc) {
+    return NextResponse.json({ error: docId ? 'Document not found' : 'No IM document found for this building' }, { status: 404 });
+  }
+
+  if (doc.body?.is_revoked === true || quickRec?.isRevoked === true) {
+    return NextResponse.json({ ok: false, error: 'LINK_REVOKED' }, { status: 403 });
   }
 
   if (doc.document_type === 'blind_teaser' || !doc.body || !Array.isArray((doc.body as any).sections)) {
     return NextResponse.json({ error: 'Invalid document type or corrupted IM' }, { status: 400 });
   }
 
-  const { data: building } = await supabase
-    .from('building_ssot_lite')
-    .select('owner_id, area_signal, asset_type, price_band')
-    .eq('id', buildingId)
-    .maybeSingle();
-
   const ownerId = building?.owner_id || doc.owner_id;
 
   const brokerInfo: BrokerInfo = {
-    displayName: '담당 공인중개사',
-    company: '',
-    phone: '',
-    licenseNumber: '',
+    displayName: quickRec?.brokerProfile?.displayName || doc.body?.broker_contact?.name || '담당 공인중개사',
+    company: quickRec?.brokerProfile?.company || doc.body?.broker_contact?.company || '',
+    phone: quickRec?.brokerProfile?.phone || doc.body?.broker_contact?.phone || '',
+    licenseNumber: quickRec?.brokerProfile?.registrationNo ? `등록번호: ${quickRec.brokerProfile.registrationNo}` : '',
     specialty: '',
   };
 
-  if (ownerId) {
+  if (ownerId && isUuid(ownerId)) {
     const [profRes, brokerProfRes] = await Promise.all([
       supabase.from('profiles').select('display_name, company, phone').eq('id', ownerId).maybeSingle(),
       supabase.from('broker_profiles').select('license_number, office_reg_number, specialty_assets, specialty_regions').eq('user_id', ownerId).maybeSingle(),

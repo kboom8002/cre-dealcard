@@ -175,8 +175,8 @@ export function SlideEditor({
         vacantCount += 1;
       } else {
         occupiedCount += 1;
-        totalDeposit += Number(r.deposit_manwon || 0) || 0;
-        totalRent += Number(r.rent_manwon || 0) || 0;
+        totalDeposit += Number(r.deposit_manwon ?? r.depositManwon ?? r.deposit ?? 0) || 0;
+        totalRent += Number(r.rent_manwon ?? r.monthlyRentManwon ?? r.monthly_rent_manwon ?? r.monthlyRent ?? r.rent ?? 0) || 0;
       }
     }
     const totalCount = rawTenantList.length;
@@ -537,7 +537,7 @@ export function SlideEditor({
                               </span>
                             </div>
                             <div className="text-[11px] font-medium text-[#334155]">
-                              보증금 {(r.deposit_manwon ?? 0).toLocaleString()}만 / 월세 {(r.rent_manwon ?? 0).toLocaleString()}만
+                              보증금 {(r.deposit_manwon ?? r.depositManwon ?? r.deposit ?? 0).toLocaleString()}만 / 월세 {(r.rent_manwon ?? r.monthlyRentManwon ?? r.monthly_rent_manwon ?? r.monthlyRent ?? r.rent ?? 0).toLocaleString()}만
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">

@@ -43,10 +43,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { buildingId } = await params;
   const sp = await searchParams;
   const docId = typeof sp.doc === "string" ? sp.doc : undefined;
+  const token = typeof sp.token === "string" ? sp.token : undefined;
 
-  const data = await loadIMData(buildingId, docId);
+  const data = await loadIMData(buildingId, docId, token);
 
-  if (data) {
+  if (data && !(data as any).isRevoked) {
     const ogTitle = data.ogTitle || `${data.blindName} — ${data.priceBand} 투자설명서`;
     const ogDesc = data.ogDescription || `${data.areaSignal} · ${data.assetType} · 모바일 투자설명서`;
     const ogImageUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net'}/api/og/deal/${buildingId}?type=im`;

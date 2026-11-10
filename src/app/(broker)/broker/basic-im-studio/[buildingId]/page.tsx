@@ -15,9 +15,13 @@ import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 function BasicImStudioInner({
   buildingId,
   initialPresetParam,
+  project,
+  setProject,
 }: {
   buildingId: string;
   initialPresetParam?: string | null;
+  project: PptxProject | null;
+  setProject: React.Dispatch<React.SetStateAction<PptxProject | null>>;
 }) {
   const router = useRouter();
   const {
@@ -30,7 +34,6 @@ function BasicImStudioInner({
     hydrateFromProject,
   } = useTheme();
 
-  const [project, setProject] = useState<PptxProject | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [rightTab, setRightTab] = useState<RightPanelTab>('content');
   const [loading, setLoading] = useState(true);
@@ -170,14 +173,16 @@ function BasicImStudioInner({
     if (!project) return;
     setSaving(true);
     try {
+      let currentLockVersion = project.lockVersion;
       for (const s of slides) {
         if (dirtySlideIds.has(s.id)) {
-          await fetch(`/api/broker/basic-im-studio/${project.id}`, {
+          const res = await fetch(`/api/broker/basic-im-studio/${project.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'override',
               slideId: s.id,
+              lockVersion: currentLockVersion,
               overrides: {
                 ...s.slideOverrides,
                 title: s.title,
@@ -186,13 +191,23 @@ function BasicImStudioInner({
               },
             }),
           });
+          if (!res.ok) throw new Error('Save failed');
+          const json = await res.json();
+          if (json?.project?.lockVersion != null) {
+            currentLockVersion = json.project.lockVersion;
+            setProject((prev) =>
+              prev
+                ? { ...prev, ...json.project, lockVersion: json.project.lockVersion }
+                : json.project
+            );
+          }
         }
       }
       clearDirty();
     } finally {
       setSaving(false);
     }
-  }, [project, slides, dirtySlideIds, clearDirty]);
+  }, [project, setProject, slides, dirtySlideIds, clearDirty]);
 
   // Toggle slide visibility (👁️/🚫)
   const handleToggleVisibility = useCallback(
@@ -714,23 +729,34 @@ export default function BasicImStudioPage({
   const { buildingId } = use(params);
   const searchParams = useSearchParams();
   const initialPresetParam = searchParams.get('preset');
+  const [project, setProject] = useState<PptxProject | null>(null);
 
   const handleThemePersist = useCallback(
     async (patch: Record<string, any>) => {
       try {
-        await fetch(`/api/broker/basic-im-studio/${buildingId}`, {
+        const targetId = project?.id || buildingId;
+        const res = await fetch(`/api/broker/basic-im-studio/${targetId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'theme',
             themePatch: patch,
+            lockVersion: project?.lockVersion,
           }),
         });
+        if (res.ok) {
+          const json = await res.json().catch(() => null);
+          if (json?.project?.lockVersion != null) {
+            setProject((prev) =>
+              prev ? { ...prev, lockVersion: json.project.lockVersion } : json.project
+            );
+          }
+        }
       } catch {
         // Non-blocking theme persistence
       }
     },
-    [buildingId]
+    [project?.id, project?.lockVersion, buildingId]
   );
 
   return (
@@ -738,7 +764,12 @@ export default function BasicImStudioPage({
       initialPresetId={initialPresetParam || 'credeal_basic'}
       onThemeChange={handleThemePersist}
     >
-      <BasicImStudioInner buildingId={buildingId} initialPresetParam={initialPresetParam} />
+      <BasicImStudioInner
+        buildingId={buildingId}
+        initialPresetParam={initialPresetParam}
+        project={project}
+        setProject={setProject}
+      />
     </ThemeProvider>
   );
 }

@@ -14,6 +14,7 @@ import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, fin
 import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { resolveHotelOperating } from "./broker-memo-facts";
 import { sumLeasedRentRoll, resolveDevHoldMonthlyRentManwon } from "../../lease-vacancy";
+import { verifiedLegalLimits, verifiedLegalLimitsFromSsot } from "./legal-limits";
 
 export function buildCapitalFromIncome(markdown: string, tables: ParsedTable[], body?: Record<string, any>, building?: Record<string, any>): Record<string, any> {
     return buildA16Props(markdown, tables, body, building);
@@ -29,10 +30,12 @@ export function buildFarUpsideProps(markdown: string, tables: ParsedTable[], bod
             ...ssot,
             ...(building ?? {}),
           };
-    const farMax = lup.floorAreaRatioMax ?? lup.farMax ?? null;
-    const bcrMax = lup.buildingCoverageMax ?? lup.bcrMax ?? null;
-    const currentFar = bldg.floor_area_ratio ?? bldg.far ?? null;
-    const currentBcr = bldg.building_coverage_ratio ?? bldg.bcr ?? null;
+    const lupLimits = verifiedLegalLimits(lup);
+    const ssotLimits = verifiedLegalLimitsFromSsot(ssot);
+    const farMax = lupLimits.farMax ?? ssotLimits.farMax ?? null;
+    const bcrMax = lupLimits.bcrMax ?? ssotLimits.bcrMax ?? null;
+    const currentFar = bldg.far_pct ?? bldg.floor_area_ratio ?? bldg.far ?? null;
+    const currentBcr = bldg.bcr_pct ?? bldg.building_coverage_ratio ?? bldg.bcr ?? null;
     const landAreaP = bldg.land_area_pyung
             ?? bldg.land_area_pyeong
             ?? (bldg.land_area_sqm ? Math.round(sqmToPyeong(bldg.land_area_sqm) * 10) / 10 : 0);
@@ -98,7 +101,8 @@ export function buildDcfFromIncome(markdown: string, tables: ParsedTable[], body
     for (const row of t.rows) {
       const txt = row.join(' ').toLowerCase();
       if (dcfKeywords.some(k => txt.includes(k))) {
-        dcfRows.push(row.map(stripMarkdown));
+        const cleanCells = row.map(stripMarkdown);
+        dcfRows.push([cleanCells[0] || '-', cleanCells.slice(1).filter(Boolean).join(' · ') || '-']);
       }
     }
     }
@@ -210,7 +214,8 @@ export function buildLoanFromIncome(markdown: string, tables: ParsedTable[], bod
     for (const row of t.rows) {
       const txt = row.join(' ').toLowerCase();
       if (loanKeywords.some(k => txt.includes(k))) {
-        loanRows.push(row.map(stripMarkdown));
+        const cleanCells = row.map(stripMarkdown);
+        loanRows.push([cleanCells[0] || '-', cleanCells.slice(1).filter(Boolean).join(' · ') || '-']);
       }
     }
     }
@@ -304,7 +309,8 @@ export function buildOwnerOccupiedVsLeaseProps(body: Record<string, any> = {}, b
     const ssot = body?.ssot_summary || {};
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '핵심 오피스 권역';
     const defaultAsk = (body?.asking_price_manwon ?? ssot?.asking_price_manwon ?? 0);
-    const askPriceManwon = defaultAsk > 0 ? defaultAsk : (parseFloat(String(hero.askingPrice || '').replace(/[^0-9.]/g, '')) * 10000 || 1000000);
+    const parsedHeroAsk = parseFloat(String(hero.askingPrice || '').replace(/[^0-9.]/g, '')) * 10000;
+    const askPriceManwon = defaultAsk > 0 ? defaultAsk : (Number.isFinite(parsedHeroAsk) && parsedHeroAsk > 0 ? parsedHeroAsk : 0);
     const askPriceBil = (askPriceManwon / 10000).toFixed(1);
     const ltv = occ.ltvPercent ? occ.ltvPercent / 100 : 0.6;
     const loanManwon = Math.round(askPriceManwon * ltv);
@@ -321,7 +327,10 @@ export function buildOwnerOccupiedVsLeaseProps(body: Record<string, any> = {}, b
     const annualSubleaseBil = (monthlySubleaseManwon * 12 / 10000).toFixed(2);
     const netAnnualCostBil = (parseFloat(annualInterestBil) - parseFloat(annualSubleaseBil)).toFixed(2);
     const annualSavingsBil = (parseFloat(annualRentBil) - parseFloat(netAnnualCostBil)).toFixed(2);
-    const savingsPercent = Math.max(0, Math.round((parseFloat(annualSavingsBil) / parseFloat(annualRentBil)) * 100));
+    const annualRentBilNum = parseFloat(annualRentBil);
+    const savingsPercent = annualRentBilNum > 0
+      ? Math.max(0, Math.round((parseFloat(annualSavingsBil) / annualRentBilNum) * 100))
+      : 0;
     const tenYearRentTotalBil = (parseFloat(annualRentBil) * 10).toFixed(1);
     const tenYearOwnerCostBil = (parseFloat(netAnnualCostBil) * 10).toFixed(1);
     const tenYearSavingsBil = (parseFloat(tenYearRentTotalBil) - parseFloat(tenYearOwnerCostBil)).toFixed(1);
@@ -427,15 +436,19 @@ export function buildDevelopmentLandDetailProps(body: Record<string, any> = {}, 
     const parcels: any[] = body?.parcels || [];
     const hero = body?.heroCard || {};
     const ssot = body?.ssot_summary || {};
+    const lup = body?.enrichment?.landUsePlan ?? body?.external_data?.landUsePlan ?? {};
+    const lupLimits = verifiedLegalLimits(lup);
+    const ssotLimits = verifiedLegalLimitsFromSsot(ssot);
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '해당 권역';
     const totalLandSqm = parcels.reduce((sum: number, p: any) => sum + (p.areaSqm || 0), 0) || ssot.plat_area_sqm || 0;
     const totalLandPyeong = totalLandSqm > 0 ? (sqmToPyeong(totalLandSqm)).toFixed(1) : '-';
     const zoning = parcels[0]?.zoning || ssot.zoning || hero.zoning || '-';
-    const baseFar = reg.baseFarPct || 200;
-    const relaxedFar = reg.relaxedFarPct || baseFar;
-    const farDisplay = relaxedFar > baseFar
-            ? `기본 ${baseFar}% → 완화 ${relaxedFar}% 적용`
-            : `${baseFar}%`;
+    const baseFar = reg.baseFarPct ?? lupLimits.farMax ?? ssotLimits.farMax ?? null;
+    const relaxedFar = reg.relaxedFarPct ?? baseFar;
+    const farDisplay = baseFar != null
+            ? (relaxedFar != null && relaxedFar > baseFar ? `기본 ${baseFar}% → 완화 ${relaxedFar}% 적용` : `${baseFar}%`)
+            : '-';
+    const bcrVal = reg.buildingCoverageRatePct ?? lupLimits.bcrMax ?? ssotLimits.bcrMax ?? null;
     const askPriceManwon = body?.asking_price_manwon || (body?.askingPrice ? body.askingPrice / 10000 : 0);
     const landPricePerPyeong = hero.landPricePerPyeong
             || (askPriceManwon > 0 && totalLandSqm > 0 ? Math.round(askPriceManwon / (sqmToPyeong(totalLandSqm))) : null);
@@ -444,7 +457,7 @@ export function buildDevelopmentLandDetailProps(body: Record<string, any> = {}, 
             ['용도지역', zoning],
             ['대지면적', totalLandSqm > 0 ? `${totalLandSqm.toLocaleString()}㎡ (약 ${totalLandPyeong}평)` : '-'],
             ['용적률', farDisplay],
-            ['건폐율', `${reg.buildingCoverageRatePct || 60}% 이내`],
+            ['건폐율', bcrVal != null ? `${bcrVal}% 이내` : '-'],
             ['토지 평당가', landPricePerPyeong ? `${landPricePerPyeong.toLocaleString()}만원/평` : '-'],
           ];
     if (parcels.length > 1) {
@@ -454,10 +467,10 @@ export function buildDevelopmentLandDetailProps(body: Record<string, any> = {}, 
     const rightCallouts = [
             {
               kind: 'brass' as const,
-              title: relaxedFar > baseFar ? '용적률 완화 적용 가능' : '용도지역 기준 개발 잠재력',
-              body: relaxedFar > baseFar
+              title: (baseFar != null && relaxedFar != null && relaxedFar > baseFar) ? '용적률 완화 적용 가능' : '용도지역 기준 개발 잠재력',
+              body: (baseFar != null && relaxedFar != null && relaxedFar > baseFar)
                 ? `• ${reg.name || '소규모 건축물 용적률 완화 조례'} 적용\n• 기본 ${baseFar}% → ${relaxedFar}%로 연면적 증가분 확보 가능`
-                : `• ${zoning} 기준 용적률 ${baseFar}% 적용\n• ${areaSignal} 입지의 토지 가치 상승 잠재력 확보`,
+                : `• ${zoning} 기준 용적률 ${baseFar != null ? `${baseFar}%` : '조례 기준'} 적용\n• ${areaSignal} 입지의 토지 가치 상승 잠재력 확보`,
             },
             {
               kind: 'info' as const,
@@ -477,6 +490,9 @@ export function buildDevelopmentScaleProps(body: Record<string, any> = {}, build
     const reg = body?.regulation || {};
     const parcels: any[] = body?.parcels || [];
     const ssot = body?.ssot_summary || {};
+    const lup = body?.enrichment?.landUsePlan ?? body?.external_data?.landUsePlan ?? {};
+    const lupLimits = verifiedLegalLimits(lup);
+    const ssotLimits = verifiedLegalLimitsFromSsot(ssot);
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '해당 권역';
     const totalLandSqm = parcels.reduce((sum: number, p: any) => sum + (p.areaSqm || 0), 0) || ssot.plat_area_sqm || 0;
     const targetScalePyeong = devSpec.targetScalePyung || devSpec.targetScalePyeong || 0;
@@ -490,8 +506,8 @@ export function buildDevelopmentScaleProps(body: Record<string, any> = {}, build
     const floorCount = rawNewFloors != null && String(rawNewFloors).trim() !== ''
             ? (typeof rawNewFloors === 'number' ? `${rawNewFloors}층` : String(rawNewFloors).trim())
             : '설계안 검토 중';
-    const relaxedFar = reg.relaxedFarPct || reg.baseFarPct || 200;
-    const buildableGross = totalLandSqm > 0 ? (totalLandSqm * relaxedFar / 100).toFixed(0) : '-';
+    const relaxedFar = reg.relaxedFarPct ?? reg.baseFarPct ?? lupLimits.farMax ?? ssotLimits.farMax ?? null;
+    const buildableGross = totalLandSqm > 0 && relaxedFar != null ? (totalLandSqm * relaxedFar / 100).toFixed(0) : '-';
     const stats = [
             { label: '목표 연면적', value: targetScalePyeong > 0 ? `${targetScalePyeong.toLocaleString()}평 (${targetScaleSqm}㎡)` : '-' },
             { label: '계획 용도', value: targetUse },
@@ -502,13 +518,13 @@ export function buildDevelopmentScaleProps(body: Record<string, any> = {}, build
             {
               kind: 'good' as const,
               title: '신축 규모 적정성 검토',
-              body: targetScalePyeong > 0 && totalLandSqm > 0
+              body: targetScalePyeong > 0 && totalLandSqm > 0 && relaxedFar != null
                 ? `• 대지면적 대비 용적률 ${relaxedFar}% 적용 시 건축 가능 면적: 약 ${buildableGross}㎡\n• 목표 연면적 ${targetScalePyeong.toLocaleString()}평은 법정 한도 ${totalLandSqm > 0 ? (sqmToPyeong(Number(buildableGross)) >= targetScalePyeong ? '이내' : '초과 — 규모 조정 필요') : '검토 중'}`
-                : `• ${areaSignal} 소재 토지의 용적률 ${relaxedFar}% 기준 건축 가능 면적 검토\n• 목표 용도 및 규모에 따른 인허가 적합성 사전 검토 기준`,
+                : `• ${areaSignal} 소재 토지의 용적률 ${relaxedFar != null ? `${relaxedFar}%` : '조례'} 기준 건축 가능 면적 검토\n• 목표 용도 및 규모에 따른 인허가 적합성 사전 검토 기준`,
             },
           ];
     return {
-    left: { sub: `${areaSignal} 신축 개발 규모 및 층별 용도 계획`, note: `적용 용적률: ${relaxedFar}%` },
+    left: { sub: `${areaSignal} 신축 개발 규모 및 층별 용도 계획`, note: relaxedFar != null ? `적용 용적률: ${relaxedFar}%` : '적용 용적률: 조례 기준' },
     right: { stats, callouts },
     };
 }
@@ -577,12 +593,15 @@ export function buildDevelopmentCostProps(body: Record<string, any> = {}, buildi
     const constRatioPct = totalCostManwon > 0 && estConstCostManwon > 0
             ? Math.round((estConstCostManwon / totalCostManwon) * 100)
             : 0;
+    const otherRatioPct = totalCostManwon > 0
+            ? Math.max(0, 100 - landRatioPct - constRatioPct)
+            : 0;
     const table1Rows: string[][] = [
             ['비용 항목', '금액 (억원)', '비중', '비고'],
-            ['토지 매입비', askPriceBil !== '-' ? `${askPriceBil}억` : '-', `${landRatioPct}%`, '매매대금 기준'],
-            ['건축공사비', estConstCostBil !== '-' ? `${estConstCostBil}억` : '-', `${constRatioPct}%`, `평당 ${constCostPerPyeong.toLocaleString()}만원 × ${targetPyeong > 0 ? targetPyeong.toLocaleString() : '?'}평`],
-            ['기타비용(설계·인허가·금융)', otherCostBil !== '-' ? `${otherCostBil}억` : '-', `${100 - landRatioPct - constRatioPct}%`, '취득세, PF이자, 설계비 등'],
-            ['총 사업비', totalCostBil !== '-' ? `${totalCostBil}억` : '-', '100%', ''],
+            ['토지 매입비', askPriceBil !== '-' ? `${askPriceBil}억` : '-', totalCostManwon > 0 ? `${landRatioPct}%` : '-', '매매대금 기준'],
+            ['건축공사비', estConstCostBil !== '-' ? `${estConstCostBil}억` : '-', totalCostManwon > 0 ? `${constRatioPct}%` : '-', `평당 ${constCostPerPyeong.toLocaleString()}만원 × ${targetPyeong > 0 ? targetPyeong.toLocaleString() : '?'}평`],
+            ['기타비용(설계·인허가·금융)', otherCostBil !== '-' ? `${otherCostBil}억` : '-', totalCostManwon > 0 ? `${otherRatioPct}%` : '-', '취득세, PF이자, 설계비 등'],
+            ['총 사업비', totalCostBil !== '-' ? `${totalCostBil}억` : '-', totalCostManwon > 0 ? '100%' : '-', ''],
           ];
     const callouts = [
             {

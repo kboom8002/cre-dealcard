@@ -105,9 +105,9 @@ export function MobileIMViewer({
       ssotSummary?.asking_price_manwon ??
       layers?.deal_terms?.asking_price_manwon ??
       parsePriceManwon(hero.askingPriceDisplay || initialDoc?.priceBand) ??
-      1000000;
+      0;
 
-    // Extract explicit rent roll units if present, or synthesize realistic 4-row floor breakdown
+    // Extract explicit rent roll units if present (no fake 4-row synthesis)
     const legacyRentSec = Array.isArray(initialDoc?.sections)
       ? initialDoc.sections.find((s: any) =>
           ["06_rentroll", "03_financial", "03_lease", "lease_status", "rentroll"].includes(
@@ -171,7 +171,8 @@ export function MobileIMViewer({
       layers?.rent_roll?.monthly_rent_total_manwon ??
       (layers?.rent_roll?.monthly_rent_total_krw
         ? Math.round(Number(layers.rent_roll.monthly_rent_total_krw) / 10000)
-        : Math.round(baseAskingManwon * 0.0035));
+        : undefined) ??
+      0;
 
     const depositManwon =
       explicitDepositSumManwon ??
@@ -180,7 +181,7 @@ export function MobileIMViewer({
         ? Math.round(Number(ssotSummary.total_deposit_krw) / 10000)
         : undefined) ??
       layers?.rent_roll?.total_deposit_manwon ??
-      Math.round(baseAskingManwon * 0.04);
+      0;
 
     const synthesizedRentRoll = (() => {
       if (Array.isArray(explicitUnits) && explicitUnits.length > 0) {
@@ -232,52 +233,7 @@ export function MobileIMViewer({
           };
         });
       }
-      const d1 = Math.round(depositManwon * 0.25);
-      const d2 = Math.round(depositManwon * 0.25);
-      const d3 = Math.round(depositManwon * 0.25);
-      const d4 = Math.max(0, depositManwon - d1 - d2 - d3);
-      const r1 = Math.round(monthlyRentManwon * 0.25);
-      const r2 = Math.round(monthlyRentManwon * 0.25);
-      const r3 = Math.round(monthlyRentManwon * 0.25);
-      const r4 = Math.max(0, monthlyRentManwon - r1 - r2 - r3);
-      return [
-        {
-          floor: "B1~1F",
-          tenant_name: "리테일/카페",
-          use: "리테일/카페",
-          deposit_manwon: d1,
-          rent_manwon: r1,
-          status: "occupied",
-          expiry_date: "27.06",
-        },
-        {
-          floor: "2F~5F",
-          tenant_name: "메디컬/클리닉",
-          use: "메디컬/클리닉",
-          deposit_manwon: d2,
-          rent_manwon: r2,
-          status: "occupied",
-          expiry_date: "28.03",
-        },
-        {
-          floor: "6F~10F",
-          tenant_name: "IT/디자인 오피스",
-          use: "IT/디자인 오피스",
-          deposit_manwon: d3,
-          rent_manwon: r3,
-          status: "occupied",
-          expiry_date: "27.12",
-        },
-        {
-          floor: "11F~15F",
-          tenant_name: "글로벌 법인 사옥",
-          use: "글로벌 법인 사옥",
-          deposit_manwon: d4,
-          rent_manwon: r4,
-          status: "occupied",
-          expiry_date: "29.05",
-        },
-      ];
+      return [];
     })();
 
     const derivedFloorsAbove = (() => {
@@ -342,7 +298,7 @@ export function MobileIMViewer({
         br.totalArea ??
         layers?.public_data?.total_gross_area_m2 ??
         parsedSizeSqm ??
-        8500,
+        0,
       land_area_sqm:
         ssotSummary?.land_area_sqm ??
         ssotSummary?.land_area_m2 ??
@@ -351,7 +307,7 @@ export function MobileIMViewer({
         landEnrich.land_area_sqm ??
         landEnrich.landArea ??
         layers?.public_data?.land_area_m2 ??
-        1070,
+        0,
       zoning:
         ssotSummary?.zoning ??
         hero.zoningDistrict ??
@@ -359,7 +315,7 @@ export function MobileIMViewer({
         landEnrich.zoning ??
         landEnrich.zoningDistrict ??
         layers?.public_data?.zoning ??
-        "일반상업지역",
+        "-",
       official_land_price_won_sqm:
         ssotSummary?.official_land_price_per_sqm ??
         landEnrich.official_land_price_per_sqm ??
@@ -368,7 +324,7 @@ export function MobileIMViewer({
         enrichment?.officialLandPrice?.pricePerSqm ??
         enrichment?.landPriceHistory?.latestPricePerSqm ??
         layers?.public_data?.official_land_price_won_sqm ??
-        8350000,
+        0,
       floors_above:
         ssotSummary?.floors_above ??
         br.floors_above ??
@@ -376,7 +332,7 @@ export function MobileIMViewer({
         br.grndFlrCnt ??
         layers?.public_data?.floors_above ??
         derivedFloorsAbove ??
-        15,
+        0,
       floors_below:
         ssotSummary?.floors_below ??
         br.floors_below ??
@@ -384,28 +340,28 @@ export function MobileIMViewer({
         br.ugrndFlrCnt ??
         layers?.public_data?.floors_below ??
         derivedFloorsBelow ??
-        4,
+        0,
       building_coverage_ratio_pct:
         ssotSummary?.bcr_pct ??
         br.building_coverage_ratio_pct ??
         br.buildingCoverageRatioPct ??
         br.bcRat ??
         layers?.public_data?.building_coverage_ratio_pct ??
-        58.5,
+        0,
       floor_area_ratio_pct:
         ssotSummary?.far_pct ??
         br.floor_area_ratio_pct ??
         br.floorAreaRatioPct ??
         br.vlRat ??
         layers?.public_data?.floor_area_ratio_pct ??
-        320.0,
+        0,
       parking_spaces:
         ssotSummary?.parking_count ??
         br.parking_spaces ??
         br.parkingSpaces ??
         br.totPkngCnt ??
         layers?.public_data?.parking_spaces ??
-        12,
+        0,
       elevators:
         ssotSummary?.elevator_count ??
         br.elevators ??
@@ -432,7 +388,7 @@ export function MobileIMViewer({
         br.completionDate ??
         br.useAprDay ??
         layers?.public_data?.completion_date ??
-        "2016-05",
+        "-",
       monthly_rent_total_manwon: monthlyRentManwon,
       deposit_total_manwon: depositManwon,
       rent_roll: synthesizedRentRoll,
@@ -1538,7 +1494,7 @@ export function MobileIMViewer({
             <span>💬</span> 카톡 문의
           </button>
           <a
-            href={`/api/public/im-lite/${buildingId}/pptx?direct=1`}
+            href={`/api/public/im-lite/${buildingId}/pptx?direct=1${docId ? `&doc_id=${encodeURIComponent(docId)}` : ""}`}
             data-testid="mobile-im-download-pptx-btn"
             className="min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-[14px] whitespace-nowrap"
             title="PPTX 투자설명서 다운로드"

@@ -101,14 +101,18 @@ export async function POST(req: NextRequest) {
   // ── 작업 ID 생성 + DB 레코드 삽입 ──
   const jobId = `im_${buildingId}_${Date.now()}_${randomUUID().slice(0, 8)}`;
 
-  await supabase.from("im_generation_jobs").upsert({
-    id: jobId,
-    building_id: buildingId,
-    user_id: user.id,
-    status: "processing",
-    input_payload: { supplemental, skipApproval, directData, tier, preset },
-    created_at: new Date().toISOString(),
-  });
+  try {
+    await supabase.from("im_generation_jobs").upsert({
+      id: jobId,
+      building_id: buildingId,
+      user_id: user.id,
+      status: "processing",
+      input_payload: { supplemental, skipApproval, directData, tier, preset },
+      created_at: new Date().toISOString(),
+    });
+  } catch (upsertErr) {
+    log.warn("[im-generate-async] Initial job upsert failed (non-blocking):", upsertErr);
+  }
 
   // ── after(): 응답 반환 후 백그라운드에서 IM 생성 실행 ──
   // iOS Safari 60~75s fetch 타임아웃 문제 해결 — 즉시 jobId 반환
@@ -292,11 +296,15 @@ export async function POST(req: NextRequest) {
       }
     } catch (err: any) {
       log.error("[im-generate-async] Error:", err);
-      await bgSupabase.from("im_generation_jobs").update({
-        status: "failed",
-        result: { error: err?.message ?? "Unknown error" },
-        completed_at: new Date().toISOString(),
-      }).eq("id", jobId);
+      try {
+        await bgSupabase.from("im_generation_jobs").update({
+          status: "failed",
+          result: { error: err?.message ?? "Unknown error" },
+          completed_at: new Date().toISOString(),
+        }).eq("id", jobId);
+      } catch (updateErr) {
+        log.warn("[im-generate-async] Failed status update failed:", updateErr);
+      }
     }
   });
 
