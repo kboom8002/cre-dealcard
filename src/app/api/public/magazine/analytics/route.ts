@@ -195,8 +195,9 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
       actor_role: 'system',
       event_type: kind === 'im_request' ? 'magazine_to_im_click' : 'magazine_view',
       entity_type: 'building_ssot_lite',
-      broker_id: broker.userId,
+      entity_id: broker.userId,
       metadata: {
+        broker_id: broker.userId,
         user_agent_hash: visitorHash,
         ...(editionId ? { edition_id: editionId } : {}),
         ...(legacy ? { legacy_issue_id: legacy.issueId } : {}),
@@ -249,13 +250,13 @@ async function maybeSendHotLeadAlert(
   });
   if (temp.tier.label !== '🔥 적극검토') return 'skipped';
 
-  // 브로커당 시간당 상한
+  // 브로커당 시간당 상한 (actor_id 컬럼 기준)
   const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
   const { count, error: capErr } = await supabase
     .from('activity_events')
     .select('id', { count: 'exact', head: true })
     .eq('event_type', 'hot_lead_alert_sent')
-    .eq('broker_id', deps.brokerUserId)
+    .eq('actor_id', deps.brokerUserId)
     .gte('created_at', hourAgo);
   if (capErr) {
     log.warn('[Hot Lead] 시간당 상한 조회 실패 — 알림 생략', capErr.message);

@@ -97,6 +97,9 @@ export function mergeEditionContent(row: Record<string, any>): MagazineContent {
     headline: content.headline ?? row.title,
   };
   const merged: MagazineContent = { ...content };
+  if (typeof row.id === 'string' && isUuid(row.id)) {
+    merged.id = row.id;
+  }
   for (const [k, v] of Object.entries(fromColumns)) {
     if (merged[k] === undefined || merged[k] === null) {
       if (v !== undefined && v !== null) merged[k] = v;
@@ -129,11 +132,12 @@ export async function findIssueForDate(
     } else if (typeof q.eq === 'function') {
       q = q.eq('broker_id', keys[0]);
     }
+    const lookupCol = isUuid(editionId) ? 'id' : 'edition_label';
     const byId = await q
-      .eq('id', editionId)
+      .eq(lookupCol, editionId)
       .eq('status', 'published')
       .limit(1);
-    if (byId?.error) throw new Error(`edition lookup by id failed: ${byId.error.message}`);
+    if (byId?.error) throw new Error(`edition lookup by ${lookupCol} failed: ${byId.error.message}`);
     const row = Array.isArray(byId?.data) ? byId.data[0] : (byId?.data ?? null);
     if (row) return mergeEditionContent(row);
   }

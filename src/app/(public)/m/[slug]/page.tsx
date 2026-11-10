@@ -63,24 +63,8 @@ export default async function ShortMagazineRedirectPage({ params }: ShortMagazin
       );
     }
 
-    // If a specific edition UUID was requested and not published, do not fall back to another broker's issue
-    if (isUuidSlug) {
-      redirect("/pulse");
-    }
-
-    // 2. 최신 공개 magazine_issues 조회 폴백 (단축 라벨 접근 시에만)
-    const { data: latestIssue } = await supabase
-      .from("magazine_issues")
-      .select("broker_id, issue_date")
-      .order("issue_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestIssue?.broker_id && latestIssue?.issue_date) {
-      redirect(
-        `/magazine/${encodeURIComponent(String(latestIssue.broker_id))}/${encodeURIComponent(String(latestIssue.issue_date))}`
-      );
-    }
+    // C-S1-04: 매칭되는 공개 에디션이 없으면 다른 중개사의 magazine_issues로 폴백하지 않고 안전하게 /pulse로 이동
+    redirect("/pulse");
   } catch (err: unknown) {
     // Next.js redirect() throws NEXT_REDIRECT internally — rethrow it
     if (

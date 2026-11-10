@@ -79,7 +79,7 @@ export function repairUngroundedNumbers(
     const escaped = numToken.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // 숫자+단위 패턴(예: "18.4%", "250억", "3.2%p", "15건")을 정성적 표현으로 치환
     const unitRegex = new RegExp(
-      `${escaped}\\s*(?:%p|%|％|억\\s*원|억|만\\s*원|만원|평|㎡|건|배|개월|bp)`,
+      `${escaped}\\s*(?:%p|%|％|조\\s*원|조|억\\s*원|억|만\\s*원|만원|천\\s*만\\s*원|원|평|㎡|건|배|개월|년|층|세대|호|점|명|bp)`,
       "g",
     );
     if (unitRegex.test(out)) {
@@ -534,8 +534,15 @@ export function repairCommentOutputBlock(
     warnings.push("입력에 없는 숫자가 감지되어 핀포인트 교정되었습니다.");
   }
 
-  const finalComment =
-    repairedText.length > 150 ? `${repairedText.slice(0, 148).trim()}…` : repairedText;
+  let finalComment = repairedText.replace(/…|\.{2,}/g, "").trim();
+  if (finalComment.length > 150) {
+    const sliced = finalComment.slice(0, 148);
+    const lastSpace = sliced.lastIndexOf(" ");
+    const base = (lastSpace >= 95 ? sliced.slice(0, lastSpace) : sliced)
+      .replace(/[,·:：…-]+$/, "")
+      .trim();
+    finalComment = /[.!?。]$/.test(base) ? base : `${base}.`;
+  }
 
   const output: MagazineCommentOutput = {
     comment: finalComment || sanitizeReaderText(inputContext).slice(0, 120),

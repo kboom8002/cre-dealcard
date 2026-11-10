@@ -227,12 +227,12 @@ async function fetchLiveChannelNews(opts: {
 }
 
 export async function GET(req: NextRequest) {
-  try {
-    const { ctx, error: authError } = await requireBrokerContext(req);
-    if (authError || !ctx) {
-      return authError ?? jsonError("UNAUTHORIZED", "로그인이 필요합니다.", 401);
-    }
+  const { ctx, error: authError } = await requireBrokerContext(req);
+  if (authError || !ctx) {
+    return authError ?? jsonError("UNAUTHORIZED", "로그인이 필요합니다.", 401);
+  }
 
+  try {
     const { searchParams } = new URL(req.url);
     const channelParam = (searchParams.get("channel") ?? "all") as NewsChannelId;
     const query = (searchParams.get("q") ?? "").trim();
@@ -361,6 +361,14 @@ export async function POST(req: NextRequest) {
     const rawSummary = cleanNewsText(typeof body.summary === "string" ? body.summary : "");
     const rawSource = cleanNewsText(typeof body.source === "string" ? body.source : "") || "중개사 엄선 브리핑";
     const rawUrl = typeof body.url === "string" && safeHttpUrl(body.url.trim()) ? body.url.trim() : undefined;
+
+    if (!isCreRelevantArticle({ title, summary: rawSummary })) {
+      return jsonError(
+        "IRRELEVANT_ARTICLE",
+        "연예·가십·비부동산 소식은 뉴스레터 큐레이션에 추가할 수 없습니다.",
+        400,
+      );
+    }
 
     const channel: SpecificNewsChannelId = isSpecificChannel(rawChannel)
       ? rawChannel

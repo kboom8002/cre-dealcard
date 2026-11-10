@@ -236,3 +236,38 @@ export function getPreferredChannelLabels(channels: readonly SpecificNewsChannel
     return meta ? meta.shortLabel : id;
   });
 }
+
+const brokerPreferencesMemoryStore = new Map<string, BrokerNewsletterPreferences>();
+
+export function getBrokerPreferencesFromMemory(brokerId: string): BrokerNewsletterPreferences {
+  const key = String(brokerId || "").trim();
+  const cached = key ? brokerPreferencesMemoryStore.get(key) : undefined;
+  if (cached) {
+    return {
+      preferredRegions: [...cached.preferredRegions],
+      preferredChannels: [...cached.preferredChannels],
+      updatedAt: cached.updatedAt ?? null,
+    };
+  }
+  return {
+    preferredRegions: [...DEFAULT_PREFERRED_REGIONS],
+    preferredChannels: [...DEFAULT_PREFERRED_CHANNELS],
+    updatedAt: null,
+  };
+}
+
+export function saveBrokerPreferencesToMemory(
+  brokerId: string,
+  prefs: Partial<BrokerNewsletterPreferences>,
+): BrokerNewsletterPreferences {
+  const normalized = normalizeBrokerPreferences({
+    ...prefs,
+    updatedAt: prefs.updatedAt ?? new Date().toISOString(),
+  });
+  const key = String(brokerId || "").trim();
+  if (key) {
+    brokerPreferencesMemoryStore.set(key, normalized);
+  }
+  return normalized;
+}
+

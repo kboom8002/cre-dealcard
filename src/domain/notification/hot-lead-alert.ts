@@ -21,12 +21,28 @@ export async function checkAndSendHotLeadAlert(
   visitorHash: string,
 ): Promise<boolean> {
   try {
-    // 1. 중복 알림 방지 (24시간 내 동일 방문자에 대한 Hot Lead 알림)
+    // 1. 브로커 정보 먼저 조회 (broker_profiles.user_id UUID 확보 — D-S0-02: activity_events.actor_id 및 entity_id는 UUID)
+    const { data: bp, error: bpError } = await supabase
+      .from('broker_profiles')
+      .select('user_id')
+      .eq('slug', brokerId)
+      .maybeSingle();
+
+    if (bpError) {
+      log.error('[Hot Lead Alert] Broker lookup failed:', bpError.message);
+      return false;
+    }
+    if (!bp) {
+      log.warn(`[Hot Lead Alert] Broker ${brokerId} not found`);
+      return false;
+    }
+
+    // 2. 중복 알림 방지 (24시간 내 동일 방문자에 대한 Hot Lead 알림 — actor_id 컬럼 사용)
     const { count, error: countError } = await supabase
       .from('activity_events')
       .select('id', { count: 'exact', head: true })
       .eq('event_type', 'hot_lead_alert_sent')
-      .eq('broker_id', brokerId)
+      .eq('actor_id', bp.user_id)
       .filter("metadata->>'visitor_hash'", 'eq', visitorHash)
       .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString());
 
@@ -40,29 +56,13 @@ export async function checkAndSendHotLeadAlert(
       return false;
     }
 
-    // 1-b. 발송 킬스위치 / dry-run / allowlist (매거진 발송 정책과 동일 플래그 — G-03)
+    // 2-b. 발송 킬스위치 / dry-run / allowlist (매거진 발송 정책과 동일 플래그 — G-03)
     if (!isMagazineSendEnabled()) {
       log.info('[Hot Lead Alert] SEND_DISABLED — 알림 생략');
       return false;
     }
     if (isMagazineSendDryRun()) {
       log.info('[Hot Lead Alert] dry-run — 알림 미발송');
-      return false;
-    }
-
-    // 2. 브로커 정보 조회 (broker_profiles에는 name 컬럼이 없다 → 표시명은 profiles.display_name)
-    const { data: bp, error: bpError } = await supabase
-      .from('broker_profiles')
-      .select('user_id')
-      .eq('slug', brokerId)
-      .maybeSingle();
-
-    if (bpError) {
-      log.error('[Hot Lead Alert] Broker lookup failed:', bpError.message);
-      return false;
-    }
-    if (!bp) {
-      log.warn(`[Hot Lead Alert] Broker ${brokerId} not found`);
       return false;
     }
 
@@ -131,16 +131,16 @@ export async function checkAndSendHotLeadAlert(
     });
 
 
-    // 6. 알림 발송 기록 적재
+    // 6. 알림 발송 기록 적재 (entity_id는 UUID인 bp.user_id, broker_id 슬러그는 metadata에 저장)
     if (sent) {
       const { error: logError } = await supabase.from('activity_events').insert({
         actor_id: bp.user_id,
         actor_role: 'system',
         event_type: 'hot_lead_alert_sent',
         entity_type: 'broker_profiles',
-        entity_id: brokerId,
-        broker_id: bp.user_id,
+        entity_id: bp.user_id,
         metadata: {
+          broker_id: brokerId,
           visitor_hash: visitorHash,
           score: lead.score,
           touchpoints: lead.touchpoints,

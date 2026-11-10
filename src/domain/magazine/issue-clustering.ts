@@ -130,27 +130,31 @@ function decodeBasicEntities(raw: string): string {
 
 /**
  * 뉴스레터 표지 제목 등을 깔끔한 1줄(single-line)로 정제한다.
- * - 앞쪽 `[매체명]` 제거, 줄바꿈 제거, 불필요한 따옴표·말줄임 정리
+ * - 앞쪽 `[매체명]` 제거, 줄바꿈 제거, 불필요한 따옴표·말줄임 정리 (말줄임표 `…`/`...` 절대 미부착)
  */
 export function formatSingleLineTitle(raw: unknown, maxChars = 38): string {
   if (typeof raw !== 'string') return '';
   const cleaned = decodeBasicEntities(raw)
     .replace(/[\r\n]+/g, ' ')
+    .replace(/…|\.{2,}/g, ', ')
     .replace(/\s+/g, ' ')
+    .replace(/,\s*,+/g, ',')
     .replace(/^\[[^\]]+\]\s*/, '')
     .replace(/^[""'']+|[""'']+$/g, '')
-    .replace(/[.。]+$/, '')
+    .replace(/[.。,·:：-]+$/, '')
     .trim();
 
   if (!cleaned) return '';
   if (cleaned.length <= maxChars) return cleaned;
 
-  const sliced = cleaned.slice(0, maxChars - 1);
+  const sliced = cleaned.slice(0, maxChars);
   const lastSpace = sliced.lastIndexOf(' ');
-  if (lastSpace >= Math.floor(maxChars * 0.6)) {
-    return `${sliced.slice(0, lastSpace).replace(/[,·:：-]+$/, '').trim()}…`;
-  }
-  return `${sliced.trim()}…`;
+  const candidate =
+    lastSpace >= Math.floor(maxChars * 0.55) ? sliced.slice(0, lastSpace) : sliced;
+  return candidate
+    .replace(/[,·:：…-]+$/, '')
+    .replace(/\s+(?:및|과|와|의|에|을|를|은|는|이|가|로|으로)$/, '')
+    .trim();
 }
 
 /**
@@ -168,6 +172,7 @@ export function formatAxiosCardTitle(raw: unknown, maxChars = 52): string {
 export function splitKoreanSentences(text: string): string[] {
   const normalized = decodeBasicEntities(text)
     .replace(/[\r\n]+/g, ' ')
+    .replace(/…|\.{2,}/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   if (!normalized) return [];
@@ -180,23 +185,60 @@ export function splitKoreanSentences(text: string): string[] {
   return rawParts.map((s) => (/[.!?。]$/.test(s) ? s : `${s}.`));
 }
 
+const DANGLING_KO_ENDING_RE =
+  /(?:\s+(?:및|또한|그리고|통해|통한|위한|따른|인한|대한|관한|중심으로|바탕으로|가운데|속에서|높일|낮출|늘릴|줄일)|\s+\S+(?:하고|하며|하는|되는|있는|없는|위한|따른|통한|높일|낮출|늘릴|줄일|의|에|을|를|은|는|이|가|과|와|로|으로|에서|부터|까지))$/;
+
+function ensureCompleteKoreanPredicate(clause: string): string {
+  let base = clause
+    .replace(/[,·:：….-]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!base) return '';
+
+  // 완결 종결어미로 이미 끝나는 경우 마침표만 부착
+  if (/(?:다|요|음|됨|함|임|세요|십시오)$/.test(base)) {
+    return `${base}.`;
+  }
+
+  // 뒤에 불완전한 수식어/조사 어절이 매달려 있으면 최대 2회 제거 후 서술어 보강
+  for (let i = 0; i < 2; i++) {
+    if (DANGLING_KO_ENDING_RE.test(base)) {
+      const stripped = base.replace(DANGLING_KO_ENDING_RE, '').trim();
+      if (stripped.length >= 10) {
+        base = stripped;
+      }
+    }
+  }
+
+  base = base.replace(/(?:의|에|을|를|은|는|이|가|과|와|로|으로|에서|부터|까지)$/, '').trim();
+  if (/(?:다|요|음|됨|함|임|세요|십시오)$/.test(base)) {
+    return `${base}.`;
+  }
+  return `${base}입니다.`;
+}
+
 function condenseSentence(sentence: string, maxLen = 52): string {
   const cleaned = sentence
+    .replace(/…|\.{2,}/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^(?:특히|또한|아울러|한편|이에\s*따라|이와\s*함께)\s*,?\s*/g, '')
     .trim();
+  if (!cleaned) return '';
   if (cleaned.length <= maxLen) {
+    const withoutDot = cleaned.replace(/[.!?。]+$/, '').trim();
+    if (DANGLING_KO_ENDING_RE.test(withoutDot)) {
+      return ensureCompleteKoreanPredicate(withoutDot);
+    }
     return /[.!?。]$/.test(cleaned) ? cleaned : `${cleaned}.`;
   }
 
-  // 쉼표나 연결어미 기준으로 앞부분 핵심 절을 우선 보존하되 마침표(.) 종결형 유지
-  const cut = cleaned.slice(0, maxLen - 1);
+  // 쉼표나 연결어미 기준으로 앞부분 핵심 절을 우선 보존하되 완결된 한국어 서술어로 마감
+  const cut = cleaned.slice(0, Math.max(16, maxLen - 4));
   const lastSpace = cut.lastIndexOf(' ');
-  const base = (lastSpace >= Math.floor(maxLen * 0.6) ? cut.slice(0, lastSpace) : cut)
+  const base = (lastSpace >= Math.floor(cut.length * 0.6) ? cut.slice(0, lastSpace) : cut)
     .replace(/[,·:：…-]+$/, '')
     .trim();
-  if (/[.!?。]$/.test(base)) return base;
-  return `${base}.`;
+  return ensureCompleteKoreanPredicate(base);
 }
 
 const INTERNAL_LABEL_RE =
@@ -204,24 +246,24 @@ const INTERNAL_LABEL_RE =
 
 const CONCISE_CHANNEL_FALLBACKS: Readonly<Record<SpecificNewsChannelId, readonly [string, string]>> = {
   real_estate: [
-    '역세권 우량 중소형 빌딩을 중심으로 실수요 법인과 자산가의 선별 매수세가 이어지고 있습니다.',
-    '표면 수익률과 함께 대지 지분 가치·리모델링 밸류애드 여력을 함께 점검할 시점입니다.',
+    '역세권 우량 빌딩을 중심으로 법인과 자산가의 선별 매수세가 이어집니다.',
+    '표면 수익률과 함께 대지 지분·리모델링 여력을 함께 점검할 시점입니다.',
   ],
   economy_finance: [
-    '기업시설자금 대출 금리와 통화정책 방향성이 빌딩 매수자의 자기자본수익률(CoC)을 좌우하고 있습니다.',
-    '자금 조달 금리 스프레드를 사전 점검하면 협상력과 실질 현금흐름을 동시에 높일 수 있습니다.',
+    '기업대출 금리와 통화정책이 빌딩 매수자의 자기자본수익률을 좌우합니다.',
+    '조달 금리 스프레드를 사전 점검하면 협상력과 현금흐름이 개선됩니다.',
   ],
   tax_wealth: [
-    '비주거용 빌딩의 취득·보유·증여 단계별 세무 구조에 따라 세후 수익률 격차가 벌어지고 있습니다.',
-    '사전 감정평가와 부담부증여·법인 활용 유불리를 전문가와 미리 점검하는 것이 유리합니다.',
+    '빌딩의 취득·보유·증여 세무 구조에 따라 세후 수익률 격차가 벌어집니다.',
+    '사전 감정평가와 부담부증여·법인 활용 유불리를 미리 점검해야 합니다.',
   ],
   culture_lifestyle: [
-    '건물 외관 리노베이션과 문화·전시 콘텐츠 결합이 임차인 집객력과 자산 가치를 높이고 있습니다.',
-    '우량 임차인 유치를 위해 저층부 공간 기획과 건축 디자인을 차별화하는 건물주가 늘고 있습니다.',
+    '외관 리노베이션과 문화 콘텐츠 결합이 임차인 집객력과 가치를 높입니다.',
+    '우량 임차인 유치를 위해 저층 공간 기획을 차별화하는 사례가 늘었습니다.',
   ],
   commercial_trend: [
-    '핵심 상권의 병의원·대형 카페·쇼룸 유입 흐름이 인근 중소형 빌딩 임대료를 견인하고 있습니다.',
-    '공실 위험을 낮추기 위해 층별 업종 구성과 상권 소비 트렌드 변화를 면밀히 살펴야 합니다.',
+    '핵심 상권의 메디컬·대형 카페 유입이 중소형 빌딩 임대료를 견인합니다.',
+    '공실 위험을 낮추려면 층별 업종 구성과 소비 트렌드를 살펴야 합니다.',
   ],
 };
 

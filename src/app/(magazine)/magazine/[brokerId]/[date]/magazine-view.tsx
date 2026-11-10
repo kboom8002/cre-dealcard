@@ -373,7 +373,7 @@ export function MagazineView({
                 ? `연면적 ${gfaPyeong}평`
                 : landPyeong !== null
                 ? `대지 ${landPyeong}평`
-                : deal.areaSignal || null;
+                : null;
 
             // 용도지역 및 층수
             const zoning = deal.zoning ? String(deal.zoning) : null;
@@ -669,7 +669,12 @@ export function MagazineView({
             ? primaryDeal.monthlyRent
             : undefined;
         const rawFloors = primaryDeal?.floors ? String(primaryDeal.floors).replace(/[^\d]/g, "") : "";
-        const defaultTotalFloors = rawFloors ? parseInt(rawFloors, 10) || undefined : undefined;
+        const defaultTotalFloors =
+          typeof primaryDeal?.totalFloors === "number" && primaryDeal.totalFloors > 0
+            ? primaryDeal.totalFloors
+            : rawFloors
+            ? parseInt(rawFloors, 10) || undefined
+            : undefined;
 
         return (
           <Section>

@@ -6,9 +6,11 @@ import {
   BROKER_REGION_PRESETS,
   DEFAULT_PREFERRED_CHANNELS,
   DEFAULT_PREFERRED_REGIONS,
+  getBrokerPreferencesFromMemory,
   normalizeBrokerPreferences,
   normalizePreferredChannels,
   normalizePreferredRegions,
+  saveBrokerPreferencesToMemory,
   type BrokerNewsletterPreferences,
 } from "@/domain/magazine/broker-preferences";
 import { SPECIFIC_NEWS_CHANNELS } from "@/domain/magazine/news-channels";
@@ -35,8 +37,8 @@ export async function loadBrokerNewsletterPreferences(
       supabase
         .from("activity_events")
         .select("metadata, created_at")
-        .eq("user_id", brokerId)
-        .eq("event_type", "newsletter_prefs_upserted")
+        .eq("actor_id", brokerId)
+        .in("event_type", ["newsletter_prefs_upserted", "newsletter_preferences_updated"])
         .order("created_at", { ascending: false })
         .limit(1),
     ]);
@@ -46,18 +48,23 @@ export async function loadBrokerNewsletterPreferences(
       latestEvent?.metadata && typeof latestEvent.metadata === "object"
         ? (latestEvent.metadata as Record<string, unknown>)
         : {};
+    const memPrefs = getBrokerPreferencesFromMemory(brokerId);
 
     const rawRegions =
       Array.isArray(eventMeta.preferredRegions) && eventMeta.preferredRegions.length > 0
         ? eventMeta.preferredRegions
         : Array.isArray(profileRow?.specialty_regions) && profileRow.specialty_regions.length > 0
           ? profileRow.specialty_regions
-          : [...DEFAULT_PREFERRED_REGIONS];
+          : memPrefs.updatedAt
+            ? memPrefs.preferredRegions
+            : [...DEFAULT_PREFERRED_REGIONS];
 
     const rawChannels =
       Array.isArray(eventMeta.preferredChannels) && eventMeta.preferredChannels.length > 0
         ? eventMeta.preferredChannels
-        : [...DEFAULT_PREFERRED_CHANNELS];
+        : memPrefs.updatedAt
+          ? memPrefs.preferredChannels
+          : [...DEFAULT_PREFERRED_CHANNELS];
 
     return normalizeBrokerPreferences({
       preferredRegions: rawRegions,
@@ -156,8 +163,11 @@ export async function PATCH(req: NextRequest) {
         })
         .eq("user_id", brokerId),
       supabase.from("activity_events").insert({
-        user_id: brokerId,
+        actor_id: brokerId,
+        actor_role: "broker",
         event_type: "newsletter_prefs_upserted",
+        entity_type: "broker_profiles",
+        entity_id: brokerId,
         metadata: {
           preferredRegions: finalRegions,
           preferredChannels: nextChannels,
@@ -169,11 +179,11 @@ export async function PATCH(req: NextRequest) {
     log.warn("[preferences] Non-fatal persistence error:", err);
   }
 
-  const preferences: BrokerNewsletterPreferences = {
+  const preferences = saveBrokerPreferencesToMemory(brokerId, {
     preferredRegions: finalRegions,
     preferredChannels: nextChannels,
     updatedAt: nowIso,
-  };
+  });
 
   return NextResponse.json({
     ok: true,

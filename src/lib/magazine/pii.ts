@@ -7,8 +7,10 @@ import { createHash } from 'node:crypto';
 export function normalizeKrPhone(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   let d = raw.replace(/\D/g, '');
-  if (d.startsWith('82') && d.length >= 11) d = '0' + d.slice(2);
-  if (!/^01[016789]\d{7,8}$/.test(d)) return null;
+  if (d.startsWith('82') && d.length >= 11) {
+    d = '0' + d.slice(d.startsWith('820') ? 3 : 2);
+  }
+  if (!/^(?:010\d{8}|01[16789]\d{7,8})$/.test(d)) return null;
   return d;
 }
 

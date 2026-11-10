@@ -94,9 +94,8 @@ export async function GET(request: NextRequest) {
       selfQuery,
       supabase
         .from("magazine_subscribers")
-        .select("id, email, phone", { count: "exact" })
-        .in("broker_id", ctx.brokerKeys)
-        .eq("status", "active"),
+        .select("*", { count: "exact" })
+        .in("broker_id", ctx.brokerKeys),
       loadBrokerNewsletterPreferences(supabase, ctx.userId),
       Promise.resolve(
         supabase
@@ -109,7 +108,7 @@ export async function GET(request: NextRequest) {
           .from("activity_events")
           .select("id, event_type, metadata")
           .eq("actor_id", ctx.userId)
-          .in("event_type", ["custom_client_upserted", "gate_request_approved"])
+          .in("event_type", ["custom_client_upserted", "gate_request_approved", "magazine_unsubscribed"])
           .order("created_at", { ascending: false })
           .limit(100)
       ).catch(() => ({ data: null })),
@@ -127,10 +126,12 @@ export async function GET(request: NextRequest) {
       fallbackId?: unknown
     ): string => {
       const rawPhone = typeof phone === "string" ? phone.trim() : "";
-      const digits = rawPhone.replace(/\D/g, "");
+      let digits = rawPhone.replace(/\D/g, "");
+      if (digits.startsWith("82") && digits.length >= 11) {
+        digits = "0" + digits.slice(digits.startsWith("820") ? 3 : 2);
+      }
       if (digits.length >= 9) {
-        const krNormalized = digits.replace(/^820?10/, "010");
-        return `tel:${krNormalized}`;
+        return `tel:${digits}`;
       }
       const rawEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
       if (rawEmail) return `email:${rawEmail}`;
@@ -142,11 +143,24 @@ export async function GET(request: NextRequest) {
 
     const subscriberKeys = new Set<string>();
     const highInterestKeys = new Set<string>();
+    const unsubscribedKeys = new Set<string>();
 
     const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
     for (const s of subRows) {
-      const k = normalizeSubKey(s?.phone, s?.email, s?.name, s?.id);
-      if (k) subscriberKeys.add(k);
+      const phoneVal = s?.subscriber_phone ?? s?.phone;
+      const emailVal = s?.subscriber_email ?? s?.email;
+      const nameVal = s?.subscriber_name ?? s?.name;
+      const statusVal = String(s?.status ?? "active").toLowerCase();
+      const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
+      if (statusVal === "unsubscribed" || statusVal === "inactive") {
+        if (k) unsubscribedKeys.add(k);
+        const telKey = normalizeSubKey(phoneVal);
+        const emailKey = normalizeSubKey(undefined, emailVal);
+        if (telKey) unsubscribedKeys.add(telKey);
+        if (emailKey) unsubscribedKeys.add(emailKey);
+      } else if (statusVal === "active" && k) {
+        subscriberKeys.add(k);
+      }
     }
     if (subRows.length === 0 && typeof subRes?.count === "number" && subRes.count > 0) {
       for (let i = 0; i < subRes.count; i++) {
@@ -173,7 +187,14 @@ export async function GET(request: NextRequest) {
     const eventRows = Array.isArray((clientEventsRes as any)?.data) ? (clientEventsRes as any).data : [];
     for (const ev of eventRows) {
       const meta = (ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, unknown>;
-      if (ev?.event_type === "custom_client_upserted") {
+      if (ev?.event_type === "magazine_unsubscribed") {
+        const unsubKey = normalizeSubKey(
+          meta.subscriber_phone ?? meta.phone,
+          meta.subscriber_email ?? meta.email,
+          meta.subscriber_name ?? meta.name
+        );
+        if (unsubKey) unsubscribedKeys.add(unsubKey);
+      } else if (ev?.event_type === "custom_client_upserted") {
         const key = normalizeSubKey(
           meta.client_phone ?? meta.phone,
           meta.client_email ?? meta.email,
@@ -185,6 +206,8 @@ export async function GET(request: NextRequest) {
           String(meta.client_grade ?? meta.grade ?? meta.tier ?? "").toUpperCase() === "VIP";
         if (key && subscribed) {
           subscriberKeys.add(key);
+        } else if (key && meta.newsletter_subscribed === false) {
+          unsubscribedKeys.add(key);
         }
         if (key && isVip) {
           highInterestKeys.add(key);
@@ -210,10 +233,17 @@ export async function GET(request: NextRequest) {
       const key = normalizeSubKey(c.clientPhone, undefined, c.clientName, c.id);
       if (key && c.newsletterSubscribed !== false) {
         subscriberKeys.add(key);
+      } else if (key && c.newsletterSubscribed === false) {
+        unsubscribedKeys.add(key);
       }
       if (key && c.clientGrade === "VIP") {
         highInterestKeys.add(key);
       }
+    }
+
+    for (const uk of unsubscribedKeys) {
+      subscriberKeys.delete(uk);
+      highInterestKeys.delete(uk);
     }
 
     return NextResponse.json({

@@ -5,9 +5,13 @@
  * 입력창에서는 하이픈을 자동으로 넣어 보여 준다.
  */
 
-/** 입력값 → 숫자만(최대 11자리). */
+/** 입력값 → 숫자만(최대 11자리, +82 국제번호 자동 국내 010 변환). */
 export function digitsOnly(raw: string): string {
-  return String(raw ?? '').replace(/\D/g, '').slice(0, 11);
+  let d = String(raw ?? '').replace(/\D/g, '');
+  if (d.startsWith('82') && d.length >= 11) {
+    d = '0' + d.slice(d.startsWith('820') ? 3 : 2);
+  }
+  return d.slice(0, 11);
 }
 
 /** 010 1234 5678 → 010-1234-5678 (입력 중 점진 포맷). */

@@ -307,7 +307,7 @@ export function applySimplePreset(
   }
 
   // 고급 섹션 보존 여부 판단
-  const hasTheme = Boolean(str(content.theme_title).trim() && str(content.theme_body_md).trim());
+  const hasTheme = Boolean(str(content.theme_title).trim() || str(content.theme_body_md).trim());
   const hasPoll = isRecord(content.poll) && Boolean(str(content.poll.question).trim());
   const hasTax =
     isRecord(content.tax_clinic) &&

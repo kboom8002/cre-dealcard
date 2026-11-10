@@ -314,36 +314,201 @@ export async function POST(req: NextRequest) {
         typeof body?.publicUrl === 'string' && body.publicUrl.trim()
           ? body.publicUrl.trim()
           : '/magazine';
-      if (resolvedMagazineUrl === '/magazine') {
-        try {
-          const supabase = createServiceClient();
-          const { data: bp } = await supabase
-            .from('broker_profiles')
-            .select('slug')
-            .eq('user_id', userId)
+      const targetSegment =
+        typeof body?.targetSegment === 'string' && body.targetSegment.trim()
+          ? body.targetSegment.trim()
+          : 'all';
+      let recipientCount = 0;
+
+      try {
+        const supabase = createServiceClient();
+        const { data: bp } = await supabase
+          .from('broker_profiles')
+          .select('slug')
+          .eq('user_id', userId)
+          .maybeSingle();
+        const slug = bp?.slug ? String(bp.slug).trim() : '';
+        const brokerKeys = Array.from(new Set([userId, slug].filter(Boolean)));
+
+        if (resolvedMagazineUrl === '/magazine' && slug) {
+          const { data: latestIssue } = await supabase
+            .from('magazine_issues')
+            .select('issue_date')
+            .eq('broker_id', slug)
+            .order('issue_date', { ascending: false })
+            .limit(1)
             .maybeSingle();
-          const slug = bp?.slug ? String(bp.slug).trim() : '';
-          if (slug) {
-            const { data: latestIssue } = await supabase
-              .from('magazine_issues')
-              .select('issue_date')
-              .eq('broker_id', slug)
-              .order('issue_date', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            resolvedMagazineUrl = latestIssue?.issue_date
-              ? `/magazine/${encodeURIComponent(slug)}/${encodeURIComponent(String(latestIssue.issue_date))}`
-              : `/magazine/${encodeURIComponent(slug)}`;
-          }
-        } catch {
-          // non-blocking fallback to /magazine
+          resolvedMagazineUrl = latestIssue?.issue_date
+            ? `/magazine/${encodeURIComponent(slug)}/${encodeURIComponent(String(latestIssue.issue_date))}`
+            : `/magazine/${encodeURIComponent(slug)}`;
         }
+
+        const [subRes, brokerClientsRes, clientEventsRes] = await Promise.all([
+          Promise.resolve(
+            supabase.from('magazine_subscribers').select('*').in('broker_id', brokerKeys)
+          ).catch(() => ({ data: null })),
+          Promise.resolve(
+            supabase
+              .from('broker_clients')
+              .select('id, display_name, phone, tier, tags')
+              .eq('broker_id', userId)
+          ).catch(() => ({ data: null })),
+          Promise.resolve(
+            supabase
+              .from('activity_events')
+              .select('id, event_type, metadata')
+              .eq('actor_id', userId)
+              .in('event_type', ['custom_client_upserted', 'gate_request_approved', 'magazine_unsubscribed'])
+              .order('created_at', { ascending: false })
+              .limit(100)
+          ).catch(() => ({ data: null })),
+        ]);
+
+        const normalizeSubKey = (
+          phone?: unknown,
+          email?: unknown,
+          name?: unknown,
+          fallbackId?: unknown
+        ): string => {
+          const rawPhone = typeof phone === 'string' ? phone.trim() : '';
+          let digits = rawPhone.replace(/\D/g, '');
+          if (digits.startsWith('82') && digits.length >= 11) {
+            digits = '0' + digits.slice(digits.startsWith('820') ? 3 : 2);
+          }
+          if (digits.length >= 9) return `tel:${digits}`;
+          const rawEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+          if (rawEmail) return `email:${rawEmail}`;
+          const rawName = typeof name === 'string' ? name.trim() : '';
+          if (rawName) return `name:${rawName}`;
+          const rawId = typeof fallbackId === 'string' ? fallbackId.trim() : '';
+          return rawId ? `id:${rawId}` : '';
+        };
+
+        const subscriberKeys = new Set<string>();
+        const highInterestKeys = new Set<string>();
+        const unsubscribedKeys = new Set<string>();
+
+        const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
+        for (const s of subRows) {
+          const phoneVal = s?.subscriber_phone ?? s?.phone;
+          const emailVal = s?.subscriber_email ?? s?.email;
+          const nameVal = s?.subscriber_name ?? s?.name;
+          const statusVal = String(s?.status ?? 'active').toLowerCase();
+          const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
+          if (statusVal === 'unsubscribed' || statusVal === 'inactive') {
+            if (k) unsubscribedKeys.add(k);
+            const telKey = normalizeSubKey(phoneVal);
+            const emailKey = normalizeSubKey(undefined, emailVal);
+            if (telKey) unsubscribedKeys.add(telKey);
+            if (emailKey) unsubscribedKeys.add(emailKey);
+          } else if (statusVal === 'active' && k) {
+            subscriberKeys.add(k);
+          }
+        }
+
+        const dbClientRows = Array.isArray((brokerClientsRes as any)?.data)
+          ? (brokerClientsRes as any).data
+          : [];
+        for (const c of dbClientRows) {
+          const tags = Array.isArray(c?.tags) ? c.tags.map((t: unknown) => String(t)) : [];
+          const isVip =
+            String(c?.tier || '').toLowerCase() === 'vip' ||
+            tags.includes('VIP') ||
+            tags.includes('high_interest');
+          const subscribed =
+            isVip || tags.some((t: string) => /뉴스레터|구독|newsletter|subscribe/i.test(t));
+          const key = normalizeSubKey(c?.phone, c?.email, c?.display_name, c?.id);
+          if (key && subscribed) subscriberKeys.add(key);
+          if (key && isVip) highInterestKeys.add(key);
+        }
+
+        const eventRows = Array.isArray((clientEventsRes as any)?.data)
+          ? (clientEventsRes as any).data
+          : [];
+        for (const ev of eventRows) {
+          const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<
+            string,
+            unknown
+          >;
+          if (ev?.event_type === 'magazine_unsubscribed') {
+            const unsubKey = normalizeSubKey(
+              meta.subscriber_phone ?? meta.phone,
+              meta.subscriber_email ?? meta.email,
+              meta.subscriber_name ?? meta.name
+            );
+            if (unsubKey) unsubscribedKeys.add(unsubKey);
+          } else if (ev?.event_type === 'custom_client_upserted') {
+            const key = normalizeSubKey(
+              meta.client_phone ?? meta.phone,
+              meta.client_email ?? meta.email,
+              meta.client_name ?? meta.name,
+              meta.client_id ?? ev.id
+            );
+            const subscribed = meta.newsletter_subscribed !== false;
+            const isVip =
+              String(meta.client_grade ?? meta.grade ?? meta.tier ?? '').toUpperCase() === 'VIP';
+            if (key && subscribed) subscriberKeys.add(key);
+            else if (key && meta.newsletter_subscribed === false) unsubscribedKeys.add(key);
+            if (key && isVip) highInterestKeys.add(key);
+          } else if (ev?.event_type === 'gate_request_approved') {
+            const key = normalizeSubKey(
+              meta.requester_phone,
+              meta.requester_email,
+              meta.requester_name,
+              meta.thread_id || meta.request_id || ev.id
+            );
+            if (key) {
+              subscriberKeys.add(key);
+              highInterestKeys.add(key);
+            }
+          }
+        }
+
+        const inboxCustomClients = (getInboxState().customClients || []).filter(
+          (c) => Boolean(c.ownerId) && c.ownerId === userId
+        );
+        for (const c of inboxCustomClients) {
+          const key = normalizeSubKey(c.clientPhone, undefined, c.clientName, c.id);
+          if (key && c.newsletterSubscribed !== false) subscriberKeys.add(key);
+          else if (key && c.newsletterSubscribed === false) unsubscribedKeys.add(key);
+          if (key && c.clientGrade === 'VIP') highInterestKeys.add(key);
+        }
+
+        for (const uk of unsubscribedKeys) {
+          subscriberKeys.delete(uk);
+          highInterestKeys.delete(uk);
+        }
+
+        recipientCount =
+          targetSegment === 'high_interest' ? highInterestKeys.size : subscriberKeys.size;
+
+        await supabase.from('activity_events').insert({
+          actor_id: userId,
+          actor_role: 'broker',
+          event_type: 'magazine_sent',
+          entity_type: 'broker_profiles',
+          entity_id: userId,
+          metadata: {
+            slug: typeof body?.slug === 'string' ? body.slug : undefined,
+            headline: typeof body?.headline === 'string' ? body.headline : undefined,
+            targetSegment,
+            recipientCount,
+            publicUrl: resolvedMagazineUrl,
+          },
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        // non-blocking fallback to /magazine
       }
+
       return NextResponse.json({
         ok: true,
         action,
         buildingId,
         shareUrl: resolvedMagazineUrl,
+        targetSegment,
+        recipientCount,
+        sentCount: recipientCount,
       });
     }
 

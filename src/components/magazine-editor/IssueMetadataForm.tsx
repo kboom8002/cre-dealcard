@@ -5,6 +5,7 @@ import { Calendar, FileText } from "lucide-react";
 import type { MarketTemperature } from "@/domain/magazine/types";
 import { MARKET_TEMP_CONFIG } from "@/domain/magazine/types";
 import { formatSingleLineTitle } from "@/domain/magazine/issue-clustering";
+import { kstParts } from "@/lib/magazine/kst";
 
 export interface AutoIssueMetadata {
   year: number;
@@ -23,8 +24,9 @@ export function deriveAutoIssueMeta(
   month: number,
   baseYear = 2024,
 ): AutoIssueMetadata {
-  const safeYear = Number.isFinite(year) && year >= 2020 ? Math.floor(year) : 2026;
-  const safeMonth = Number.isFinite(month) ? Math.max(1, Math.min(12, Math.floor(month))) : 11;
+  const nowKst = kstParts();
+  const safeYear = Number.isFinite(year) && year >= 2020 ? Math.floor(year) : nowKst.year;
+  const safeMonth = Number.isFinite(month) ? Math.max(1, Math.min(12, Math.floor(month))) : nowKst.month;
   const mm = String(safeMonth).padStart(2, "0");
   const slug = `${safeYear}-${mm}`;
   const yearMonthLabel = `${safeYear}년 ${safeMonth}월호`;
@@ -40,7 +42,7 @@ export function deriveAutoIssueMeta(
 
 export function parseYearMonthFromSlug(
   editionLabel?: string | null,
-  fallbackDate: Date = new Date("2026-11-08T00:00:00+09:00"),
+  fallbackDate?: Date,
 ): { year: number; month: number } {
   if (typeof editionLabel === "string") {
     const match = editionLabel.trim().match(/^(\d{4})-(\d{2})/);
@@ -51,9 +53,10 @@ export function parseYearMonthFromSlug(
       };
     }
   }
+  const parts = kstParts(fallbackDate ?? new Date());
   return {
-    year: fallbackDate.getFullYear(),
-    month: fallbackDate.getMonth() + 1,
+    year: parts.year,
+    month: parts.month,
   };
 }
 

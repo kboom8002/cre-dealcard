@@ -323,6 +323,7 @@ export async function POST(request: NextRequest) {
         const finance = (layers.finance && typeof layers.finance === "object" ? (layers.finance as Record<string, unknown>) : {}) || {};
         const leaseSummary = (layers.lease_summary && typeof layers.lease_summary === "object" ? (layers.lease_summary as Record<string, unknown>) : {}) || {};
         const locationLayer = (layers.location && typeof layers.location === "object" ? (layers.location as Record<string, unknown>) : {}) || {};
+        const physicalLayer = (layers.physical && typeof layers.physical === "object" ? (layers.physical as Record<string, unknown>) : {}) || {};
 
         const snapTitle = String(snap.title ?? snap.assetType ?? "").trim();
         const rawTitle =
@@ -384,6 +385,103 @@ export async function POST(request: NextRequest) {
               "수익형 근생빌딩"
           ).trim() || "수익형 근생빌딩";
 
+        const qSpecs = ((qRec as unknown as { specs?: Record<string, unknown> })?.specs ?? {}) as Record<string, unknown>;
+        const qVal = ((qRec?.basicImDoc?.facts as unknown as { valuation?: Record<string, unknown> })?.valuation ?? {}) as Record<string, unknown>;
+
+        const landAreaM2 =
+          Number(
+            snap.landAreaM2 ||
+              qSpecs.landAreaM2 ||
+              docSsot.land_area_m2 ||
+              physicalLayer.land_area_m2 ||
+              0
+          ) || undefined;
+        const grossFloorAreaM2 =
+          Number(
+            snap.grossFloorAreaM2 ||
+              qSpecs.grossFloorAreaM2 ||
+              docSsot.gross_floor_area_m2 ||
+              physicalLayer.gross_floor_area_m2 ||
+              0
+          ) || undefined;
+        const landAreaPyeong =
+          typeof snap.landAreaPyeong === "number" && snap.landAreaPyeong > 0
+            ? snap.landAreaPyeong
+            : landAreaM2
+            ? Math.round(landAreaM2 * 0.3025 * 10) / 10
+            : undefined;
+        const grossFloorAreaPyeong =
+          typeof snap.grossFloorAreaPyeong === "number" && snap.grossFloorAreaPyeong > 0
+            ? snap.grossFloorAreaPyeong
+            : grossFloorAreaM2
+            ? Math.round(grossFloorAreaM2 * 0.3025 * 10) / 10
+            : undefined;
+        const zoning =
+          String(
+            snap.zoning ??
+              qSpecs.zoning ??
+              docSsot.zoning ??
+              physicalLayer.zoning ??
+              ""
+          ).trim() || undefined;
+        const floors =
+          String(
+            snap.floors ??
+              qSpecs.floors ??
+              docSsot.floors ??
+              physicalLayer.floors ??
+              ""
+          ).trim() || undefined;
+        const totalFloors =
+          Number(
+            snap.totalFloors ||
+              docSsot.total_floors ||
+              physicalLayer.total_floors ||
+              0
+          ) || undefined;
+
+        const depositManwon =
+          Number(
+            qVal.depositManwon ||
+              docSsot.deposit_manwon ||
+              dealTerms.deposit_manwon ||
+              leaseSummary.deposit_manwon ||
+              finance.deposit_manwon ||
+              0
+          );
+        const depositWon =
+          typeof snap.deposit === "number" && snap.deposit >= 0
+            ? snap.deposit
+            : depositManwon > 0
+            ? depositManwon * 10_000
+            : Number(
+                docSsot.deposit_krw ||
+                  dealTerms.deposit_krw ||
+                  leaseSummary.deposit_krw ||
+                  0
+              ) || undefined;
+
+        const monthlyRentManwon =
+          Number(
+            qVal.monthlyRentManwon ||
+              docSsot.monthly_rent_manwon ||
+              dealTerms.monthly_rent_manwon ||
+              leaseSummary.monthly_rent_manwon ||
+              finance.monthly_rent_manwon ||
+              0
+          );
+        const monthlyRentWon =
+          typeof snap.monthlyRent === "number" && snap.monthlyRent >= 0
+            ? snap.monthlyRent
+            : monthlyRentManwon > 0
+            ? monthlyRentManwon * 10_000
+            : Number(
+                docSsot.monthly_rent_krw ||
+                  dealTerms.monthly_rent_krw ||
+                  leaseSummary.monthly_rent_krw ||
+                  0
+              ) || undefined;
+
         hydratedDeals.push({
           id: dId,
           title: rawTitle,
@@ -392,6 +490,15 @@ export async function POST(request: NextRequest) {
           address: safeAddr,
           price: priceVal,
           ...(askingManwon > 0 ? { priceWon: askingManwon * 10_000 } : {}),
+          ...(depositWon !== undefined ? { deposit: depositWon } : {}),
+          ...(monthlyRentWon !== undefined ? { monthlyRent: monthlyRentWon } : {}),
+          ...(landAreaM2 !== undefined ? { landAreaM2 } : {}),
+          ...(grossFloorAreaM2 !== undefined ? { grossFloorAreaM2 } : {}),
+          ...(landAreaPyeong !== undefined ? { landAreaPyeong } : {}),
+          ...(grossFloorAreaPyeong !== undefined ? { grossFloorAreaPyeong } : {}),
+          ...(zoning ? { zoning } : {}),
+          ...(floors ? { floors } : {}),
+          ...(totalFloors ? { totalFloors } : {}),
           grossYieldNetOfDeposit: yieldNum,
           investmentPoint: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
           point: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
@@ -544,6 +651,7 @@ export async function POST(request: NextRequest) {
       briefing_body_md: cleanedBriefingBody,
       featured_deal_ids: dealIds,
       featured_deals: hydratedDeals,
+      featuredDeals: hydratedDeals,
       dealHighlights: hydratedDeals,
       deal_comments: data.dealComments ?? {},
       ...(newsExplicitlyEnabled && resolvedUnitIssues.length > 0
@@ -615,6 +723,7 @@ export async function POST(request: NextRequest) {
       issueDate,
       publicUrl,
       url: publicUrl,
+      content: finalContent,
     });
   } catch (err: unknown) {
     log.error("[api/magazine/issues]", err instanceof Error ? err.message : String(err));

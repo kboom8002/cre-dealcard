@@ -65,14 +65,14 @@ export const POST = withPublicGuard<PollBody>({
   const brokerParam = body.brokerId;
   const editionDate = body.editionDate;
 
-  // IP + UserAgent 기반 서버측 방문자 해시 산출 (조작 방지 및 rate limiting 보강)
+  // IP + UserAgent + 클라이언트 토큰 기반 서버측 방문자 해시 산출 (조작 방지 및 평문 식별자 저장 차단 — D-S1-04)
   const userAgent = request.headers.get("user-agent");
-  const serverVisitorHash = computeVisitorHash(ip, userAgent);
-
-  const visitorId =
+  const rawClientVisitor =
     sanitizeVisitorId(body.visitorId) ??
-    sanitizeVisitorId(request.headers.get("x-visitor-id")) ??
-    serverVisitorHash;
+    sanitizeVisitorId(request.headers.get("x-visitor-id"));
+  const visitorId = rawClientVisitor
+    ? computeVisitorHash(ip, `${userAgent ?? ""}:${rawClientVisitor}`)
+    : computeVisitorHash(ip, userAgent);
 
   if (!visitorId) return fail(400, "BAD_REQUEST", "방문자를 확인할 수 없습니다.");
 

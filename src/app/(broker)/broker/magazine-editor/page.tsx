@@ -82,6 +82,7 @@ import { AxiosIssuesEditorPanel } from "@/components/magazine-editor/AxiosIssues
 import type { AxiosUnitIssue, EditionType, MarketTemperature } from "@/domain/magazine/types";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
+import { kstParts } from "@/lib/magazine/kst";
 import { MAGAZINE_SEND_DAY_LABEL } from "@/lib/magazine/schedule-labels";
 import { formatPriceKo, sanitizeDealAddress } from "@/lib/magazine/view-helpers";
 import type { HonestSaveState } from "@/lib/ux/lexicon";
@@ -167,10 +168,10 @@ function formatDealPriceLabel(rawWon: unknown, priceBand?: unknown): string {
 }
 
 export default function MagazineEditorPage() {
-  // ── 1. 단계 및 기본 메타 상태 ──
+  // ── 1. 단계 및 기본 메타 상태 (KST 현재 연·월 SSOT) ──
   const [activeStep, setActiveStep] = useState<NewsletterStepKey>("title");
-  const [issueYear, setIssueYear] = useState<number>(2026);
-  const [issueMonth, setIssueMonth] = useState<number>(11);
+  const [issueYear, setIssueYear] = useState<number>(() => kstParts().year);
+  const [issueMonth, setIssueMonth] = useState<number>(() => kstParts().month);
   const autoMeta = useMemo(
     () => deriveAutoIssueMeta(issueYear, issueMonth),
     [issueYear, issueMonth],
@@ -234,6 +235,8 @@ export default function MagazineEditorPage() {
 
   const briefingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const hydratedRef = useRef(false);
+  const restoredLocalIssuesRef = useRef(false);
+  const savingLockRef = useRef(false);
 
   // ── 5. 초기 데이터 및 로컬 초안 복원 (불필요 초기 API 호출 제거) ──
   useEffect(() => {
@@ -252,6 +255,9 @@ export default function MagazineEditorPage() {
         if (typeof parsed.briefingBody === "string") setBriefingBody(parsed.briefingBody);
         if (typeof parsed.issueYear === "number") setIssueYear(parsed.issueYear);
         if (typeof parsed.issueMonth === "number") setIssueMonth(parsed.issueMonth);
+        if (typeof parsed.marketTemp === "string" || parsed.marketTemp === null) {
+          setMarketTemp((parsed.marketTemp as MarketTemperature | null) ?? null);
+        }
         if (Array.isArray(parsed.selectedDealIds)) {
           setSelectedDealIds(parsed.selectedDealIds.filter((v): v is string => typeof v === "string"));
         }
@@ -276,7 +282,10 @@ export default function MagazineEditorPage() {
             { unitIssues: parsed.unitIssues },
             { fallbackFromTopNews: false },
           );
-          if (restoredIssues.length > 0) setUnitIssues(restoredIssues);
+          if (restoredIssues.length > 0) {
+            setUnitIssues(restoredIssues);
+            restoredLocalIssuesRef.current = true;
+          }
         }
         if (parsed.serverPublished === true) {
           if (typeof parsed.editionId === "string" && parsed.editionId) {
@@ -341,10 +350,12 @@ export default function MagazineEditorPage() {
                   draftBrokerSlug !== currentBrokerId;
                 if (idMismatch || slugMismatch) {
                   window.localStorage.removeItem(LOCAL_DRAFT_STORAGE_KEY);
+                  restoredLocalIssuesRef.current = false;
                   setHeadline("");
                   setSummary("");
                   setBriefingTitle("");
                   setBriefingBody("");
+                  setMarketTemp(null);
                   setSelectedDealIds([]);
                   setDealComments({});
                   setEditionId(null);
@@ -364,15 +375,17 @@ export default function MagazineEditorPage() {
               setPreferredRegions(normPrefs.preferredRegions);
               setPreferredChannels(normPrefs.preferredChannels);
               setRegionFocus(normPrefs.preferredRegions.join(", "));
-              setUnitIssues((prev) =>
-                prev.length > 0
-                  ? clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
-                      cadence: "monthly",
-                      preferredRegions: normPrefs.preferredRegions,
-                      preferredChannels: normPrefs.preferredChannels,
-                    })
-                  : prev,
-              );
+              if (!restoredLocalIssuesRef.current) {
+                setUnitIssues((prev) =>
+                  prev.length > 0
+                    ? clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+                        cadence: "monthly",
+                        preferredRegions: normPrefs.preferredRegions,
+                        preferredChannels: normPrefs.preferredChannels,
+                      })
+                    : prev,
+                );
+              }
             }
 
             if (Array.isArray(edJson.editions)) {
@@ -458,7 +471,7 @@ export default function MagazineEditorPage() {
                         : null,
                     selectedDealIds: dealIds,
                     dealComments: dealCommentsMap,
-                    unitIssues: extractedUnitIssues.length > 0 ? extractedUnitIssues : undefined,
+                    unitIssues: extractedUnitIssues,
                     issueDate: rawIssueDate || undefined,
                     publicUrl: computedPublicUrl,
                   };
@@ -479,19 +492,21 @@ export default function MagazineEditorPage() {
             .filter((b): b is Record<string, unknown> => !!b && typeof b === "object")
             .map((b, idx) => {
               const address = sanitizeDealAddress(String(b.address ?? b.dong ?? ""));
-              const rawName = String(b.building_name ?? b.name ?? b.title ?? "").trim();
+              const rawName = String(b.building_name ?? b.buildingName ?? b.name ?? b.title ?? "").trim();
               const title = rawName || address || `등록 매물 ${idx + 1}`;
               const yieldNum =
                 typeof b.cap_rate === "number"
                   ? b.cap_rate
-                  : typeof b.yield === "number"
-                    ? b.yield
-                    : null;
+                  : typeof b.capRatePct === "number"
+                    ? b.capRatePct
+                    : typeof b.yield === "number"
+                      ? b.yield
+                      : null;
               return {
                 id: String(b.id ?? `deal-${idx}`),
                 title,
                 address: address || "주소 미입력",
-                price: formatDealPriceLabel(b.sale_price ?? b.price, b.price_band),
+                price: formatDealPriceLabel(b.sale_price ?? b.askingPriceWon ?? b.price, b.price_band),
                 yield: yieldNum && yieldNum > 0 ? `${yieldNum.toFixed(1)}%` : "-",
                 // P0: 등록된 사진이 없으면 null 유지 (샘플 사진 폴백 금지)
                 photoUrl: typeof b.photo_url === "string" && b.photo_url.trim() ? b.photo_url : null,
@@ -521,6 +536,7 @@ export default function MagazineEditorPage() {
       briefingBody: string;
       issueYear: number;
       issueMonth: number;
+      marketTemp: MarketTemperature | null;
       selectedDealIds: string[];
       dealComments: Record<string, string>;
       preferredRegions: string[];
@@ -538,6 +554,7 @@ export default function MagazineEditorPage() {
             briefingBody: nextPatch?.briefingBody ?? briefingBody,
             issueYear: nextPatch?.issueYear ?? issueYear,
             issueMonth: nextPatch?.issueMonth ?? issueMonth,
+            marketTemp: nextPatch?.marketTemp !== undefined ? nextPatch.marketTemp : marketTemp,
             selectedDealIds: nextPatch?.selectedDealIds ?? selectedDealIds,
             dealComments: nextPatch?.dealComments ?? dealComments,
             preferredRegions: nextPatch?.preferredRegions ?? preferredRegions,
@@ -563,6 +580,7 @@ export default function MagazineEditorPage() {
       briefingBody,
       issueYear,
       issueMonth,
+      marketTemp,
       selectedDealIds,
       dealComments,
       preferredRegions,
@@ -577,6 +595,10 @@ export default function MagazineEditorPage() {
     publicUrl: string | null;
     savedEditionId: string | null;
   }> => {
+    if (savingLockRef.current) {
+      return { ok: false, publicUrl: publishedUrl, savedEditionId: editionId };
+    }
+    savingLockRef.current = true;
     setSaveState("saving");
     const issueSlug = autoMeta.slug;
     const defaultPublicUrl = `${getSiteOrigin()}/magazine/${encodeURIComponent(brokerSlug || "me")}/${encodeURIComponent(issueSlug)}`;
@@ -628,6 +650,9 @@ export default function MagazineEditorPage() {
 
       if (res.ok) {
         const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+        if (typeof json?.brokerSlug === "string" && json.brokerSlug.trim()) {
+          setBrokerSlug(json.brokerSlug.trim());
+        }
         const resolvedUrl =
           typeof json?.publicUrl === "string" && json.publicUrl.trim()
             ? json.publicUrl.trim()
@@ -735,6 +760,8 @@ export default function MagazineEditorPage() {
     } catch {
       setSaveState("error");
       return { ok: false, publicUrl: null, savedEditionId: null };
+    } finally {
+      savingLockRef.current = false;
     }
   }, [
     autoMeta,
@@ -752,7 +779,9 @@ export default function MagazineEditorPage() {
     preferredChannels,
     sections,
     targetSegment,
+    brokerId,
     brokerSlug,
+    publishedUrl,
   ]);
 
   const handleSelectStep = useCallback((nextStep: NewsletterStepKey) => {
@@ -765,16 +794,24 @@ export default function MagazineEditorPage() {
 
   // ── 8. 빠른 시작: 이번 달 뉴스레터 새로 쓰기 / 이전 호 불러오기 ──
   const handleStartNewThisMonth = () => {
-    const now = new Date();
+    const nowKst = kstParts();
     setEditionId(null);
-    setIssueYear(now.getFullYear());
-    setIssueMonth(now.getMonth() + 1);
+    setIssueYear(nowKst.year);
+    setIssueMonth(nowKst.month);
     setHeadline("");
     setSummary("");
     setBriefingTitle("");
     setBriefingBody("");
+    setMarketTemp(null);
     setSelectedDealIds([]);
     setDealComments({});
+    setUnitIssues(
+      clusterArticlesIntoFiveIssues(newsPool, {
+        cadence: "monthly",
+        preferredRegions,
+        preferredChannels,
+      }),
+    );
     setIsPublished(false);
     setPublishedUrl(null);
     setActiveStep("title");
@@ -790,16 +827,14 @@ export default function MagazineEditorPage() {
     const ym = parseYearMonthFromSlug(ed.slug);
     setIssueYear(ym.year);
     setIssueMonth(ym.month);
-    setHeadline(ed.title);
-    if (typeof ed.summary === "string") setSummary(ed.summary);
-    if (typeof ed.briefingTitle === "string") setBriefingTitle(ed.briefingTitle);
-    if (typeof ed.briefingBody === "string") setBriefingBody(ed.briefingBody);
-    if (ed.marketTemp !== undefined) setMarketTemp(ed.marketTemp);
-    if (Array.isArray(ed.selectedDealIds)) setSelectedDealIds(ed.selectedDealIds);
-    if (ed.dealComments && typeof ed.dealComments === "object") setDealComments(ed.dealComments);
-    if (Array.isArray(ed.unitIssues) && ed.unitIssues.length > 0) {
-      setUnitIssues(ed.unitIssues);
-    }
+    setHeadline(ed.title ?? "");
+    setSummary(typeof ed.summary === "string" ? ed.summary : "");
+    setBriefingTitle(typeof ed.briefingTitle === "string" ? ed.briefingTitle : "");
+    setBriefingBody(typeof ed.briefingBody === "string" ? ed.briefingBody : "");
+    setMarketTemp(ed.marketTemp ?? null);
+    setSelectedDealIds(Array.isArray(ed.selectedDealIds) ? ed.selectedDealIds : []);
+    setDealComments(ed.dealComments && typeof ed.dealComments === "object" ? ed.dealComments : {});
+    setUnitIssues(Array.isArray(ed.unitIssues) ? ed.unitIssues : []);
     setIsPublished(ed.status === "published");
     const resolvedPubUrl =
       ed.publicUrl ||
@@ -968,7 +1003,7 @@ export default function MagazineEditorPage() {
     if (savingPrefs) return;
     setSavingPrefs(true);
     try {
-      await fetch("/api/broker/magazine/preferences", {
+      const prefRes = await fetch("/api/broker/magazine/preferences", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -976,6 +1011,13 @@ export default function MagazineEditorPage() {
           preferredChannels,
         }),
       }).catch(() => null);
+      if (prefRes && !prefRes.ok) {
+        setStatusBanner({
+          tone: "error",
+          message: "권역·관심 분야 설정을 서버에 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        });
+        return;
+      }
       await handleAiClusterIssues(preferredRegions, preferredChannels);
     } finally {
       setSavingPrefs(false);
@@ -986,6 +1028,7 @@ export default function MagazineEditorPage() {
     try {
       const qs = new URLSearchParams({
         channel,
+        live: "1",
         regions: preferredRegions.join(","),
         channels: preferredChannels.join(","),
       });
@@ -1002,10 +1045,12 @@ export default function MagazineEditorPage() {
     }
   };
 
-  // ── 11. 정직한 링크 복사 (NL-04: copyText가 true일 때만 성공 메시지) ──
+  // ── 11. 정직한 링크 복사 (NL-04: copyText가 true일 때만 성공 메시지 + 수정 후 재발행 보장) ──
   const handleCopyLink = async () => {
     let targetUrl = publishedUrl;
-    if (!targetUrl) {
+    const needsServerSave =
+      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error";
+    if (needsServerSave) {
       if (!headline.trim()) {
         setActiveStep("title");
         const msg = "표지 제목을 입력하면 바로 보낼 수 있어요";
@@ -1021,7 +1066,7 @@ export default function MagazineEditorPage() {
       targetUrl = saved.publicUrl;
     }
 
-    const copied = await copyText(targetUrl);
+    const copied = await copyText(targetUrl!);
     if (copied) {
       const msg = "링크를 복사했어요";
       setStatusBanner({ tone: "success", message: msg });
@@ -1030,7 +1075,7 @@ export default function MagazineEditorPage() {
     }
   };
 
-  // ── 12. 정직한 카카오톡 공유 (NL-03) ──
+  // ── 12. 정직한 카카오톡 공유 (NL-03 + 수정 후 재발행 보장) ──
   const handleKakaoShare = async () => {
     if (!headline.trim()) {
       setActiveStep("title");
@@ -1040,7 +1085,9 @@ export default function MagazineEditorPage() {
     }
 
     let targetUrl = publishedUrl;
-    if (!targetUrl) {
+    const needsServerSave =
+      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error";
+    if (needsServerSave) {
       const saved = await handleServerSave();
       if (!saved.ok || !saved.publicUrl) {
         const msg = "뉴스레터 저장에 실패해 공유 창을 열지 못했어요. 잠시 후 다시 눌러 주세요.";
@@ -1054,7 +1101,7 @@ export default function MagazineEditorPage() {
       title: headline.trim(),
       description: summary.trim() || `${autoMeta.yearMonthLabel} 뉴스레터`,
       imageUrl: `${getSiteOrigin()}/og-default.png`,
-      url: targetUrl,
+      url: targetUrl!,
       buttonTitle: "뉴스레터 열기",
     });
 
@@ -1073,13 +1120,17 @@ export default function MagazineEditorPage() {
   const handleSendSelected = async () => {
     if (sending) return;
 
+    const enabledNewsCount = sections.some((s) => s.id === "news_curation" && s.enabled)
+      ? unitIssues.length
+      : 0;
     const hint = getNextPublishHint({
       headline,
       briefingBody,
       dealCount: selectedDealIds.length,
+      newsCount: enabledNewsCount,
     });
 
-    if (hint && !headline.trim()) {
+    if (hint) {
       setActiveStep(hint.targetStep);
       setStatusBanner({ tone: "error", message: hint.message });
       return;
@@ -1361,7 +1412,7 @@ export default function MagazineEditorPage() {
                 ? headline.trim().length > 0
                 : tab.key === "content"
                   ? briefingBody.trim().length > 0 || selectedDealIds.length > 0
-                  : isPublished;
+                  : isPublished && saveState === "saved";
             return (
               <button
                 key={tab.key}
@@ -1461,6 +1512,14 @@ export default function MagazineEditorPage() {
               onChangeYearMonth={(meta: AutoIssueMetadata) => {
                 setIssueYear(meta.year);
                 setIssueMonth(meta.month);
+                const existingMatch = editions.find((e) => e.slug === meta.slug);
+                if (existingMatch) {
+                  setEditionId(existingMatch.id);
+                } else {
+                  setEditionId(null);
+                  setIsPublished(false);
+                  setPublishedUrl(null);
+                }
                 persistLocalDraft({ issueYear: meta.year, issueMonth: meta.month });
               }}
               headline={headline}
@@ -1474,7 +1533,10 @@ export default function MagazineEditorPage() {
                 persistLocalDraft({ summary: val });
               }}
               marketTemp={marketTemp}
-              onChangeMarketTemp={setMarketTemp}
+              onChangeMarketTemp={(nextTemp) => {
+                setMarketTemp(nextTemp);
+                persistLocalDraft({ marketTemp: nextTemp });
+              }}
             />
 
             <div className="flex justify-end">
@@ -1706,6 +1768,7 @@ export default function MagazineEditorPage() {
               headline={headline}
               briefingBody={briefingBody}
               dealCount={selectedDealIds.length}
+              newsCount={isSectionEnabled("news_curation") ? unitIssues.length : 0}
               onJumpToStep={(step) => setActiveStep(step)}
             />
 
@@ -1784,6 +1847,7 @@ export default function MagazineEditorPage() {
         headline={headline}
         briefingBody={briefingBody}
         dealCount={selectedDealIds.length}
+        newsCount={isSectionEnabled("news_curation") ? unitIssues.length : 0}
         onJumpToStep={(step) => setActiveStep(step)}
       />
 
