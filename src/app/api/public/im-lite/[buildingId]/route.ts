@@ -11,6 +11,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { createServiceClient } from "@/lib/supabase/service";
+import { fetchIMData } from "@/app/(public)/im-lite/[buildingId]/fetch-im-data";
+import { verifyShareLinkToken } from "@/lib/security/share-link-tokens";
 
 export async function GET(
   req: NextRequest,
@@ -19,6 +21,23 @@ export async function GET(
   try {
     const { buildingId } = await params;
     const docId = req.nextUrl.searchParams.get("doc");
+    const token = req.nextUrl.searchParams.get("token");
+
+    if (token) {
+      const tokenCheck = await verifyShareLinkToken({ token, buildingId });
+      if (!tokenCheck.valid) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: tokenCheck.reason === "revoked" ? "LINK_REVOKED" : "INVALID_TOKEN",
+              message: "담당 중개인에 의해 회수되었거나 유효하지 않은 공유 링크입니다.",
+            },
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     // ── 1. Check demo data first ─────────────────────────────────────
     const demo = getDemoMobileIM(buildingId);
@@ -151,6 +170,25 @@ export async function GET(
       .single();
 
     if (error || !ssot) {
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, null, token || undefined);
+      if (fallbackIm) {
+        if ((fallbackIm as any).isRevoked) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "LINK_REVOKED",
+                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+              },
+            },
+            { status: 403 },
+          );
+        }
+        return NextResponse.json(
+          { ok: true, data: fallbackIm, source: "im_workspace" },
+          { status: 200 },
+        );
+      }
       return NextResponse.json(
         { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
         { status: 404 },
@@ -159,6 +197,13 @@ export async function GET(
 
     const score = ssot.completeness_score ?? 0;
     if (score < 30) {
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, null, token || undefined);
+      if (fallbackIm) {
+        return NextResponse.json(
+          { ok: true, data: fallbackIm, source: "im_workspace" },
+          { status: 200 },
+        );
+      }
       return NextResponse.json(
         {
           ok: false,

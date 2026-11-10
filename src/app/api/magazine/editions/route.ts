@@ -16,6 +16,7 @@ import { defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
 import { loadBrokerNewsletterPreferences } from "@/app/api/broker/magazine/preferences/route";
+import { getInboxState } from "@/lib/im-lite/quick-generate-store";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -89,14 +90,29 @@ export async function GET(request: NextRequest) {
       selfQuery = selfQuery.eq("status", status);
     }
 
-    const [{ data, count, error }, subRes, brokerPreferences] = await Promise.all([
+    const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes] = await Promise.all([
       selfQuery,
       supabase
         .from("magazine_subscribers")
-        .select("id", { count: "exact", head: true })
+        .select("id, email, phone", { count: "exact" })
         .in("broker_id", ctx.brokerKeys)
         .eq("status", "active"),
       loadBrokerNewsletterPreferences(supabase, ctx.userId),
+      Promise.resolve(
+        supabase
+          .from("broker_clients")
+          .select("id, display_name, phone, tier, tags")
+          .eq("broker_id", ctx.userId)
+      ).catch(() => ({ data: null })),
+      Promise.resolve(
+        supabase
+          .from("activity_events")
+          .select("id, event_type, metadata")
+          .eq("actor_id", ctx.userId)
+          .in("event_type", ["custom_client_upserted", "gate_request_approved"])
+          .order("created_at", { ascending: false })
+          .limit(100)
+      ).catch(() => ({ data: null })),
     ]);
 
     if (error) {
@@ -104,13 +120,74 @@ export async function GET(request: NextRequest) {
       return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
     }
 
+    const subscriberKeys = new Set<string>();
+    const highInterestKeys = new Set<string>();
+
+    const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
+    for (const s of subRows) {
+      const k = String(s?.phone || s?.email || s?.id || "").trim();
+      if (k) subscriberKeys.add(k);
+    }
+    if (typeof subRes?.count === "number" && subRes.count > subscriberKeys.size) {
+      for (let i = subscriberKeys.size; i < subRes.count; i++) {
+        subscriberKeys.add(`mag-sub-${i}`);
+      }
+    }
+
+    const dbClientRows = Array.isArray((brokerClientsRes as any)?.data) ? (brokerClientsRes as any).data : [];
+    for (const c of dbClientRows) {
+      const tags = Array.isArray(c?.tags) ? c.tags.map((t: unknown) => String(t)) : [];
+      const subscribed = tags.length === 0 || tags.includes("뉴스레터구독");
+      const key = String(c?.phone || c?.display_name || c?.id || "").trim();
+      if (key && subscribed) {
+        subscriberKeys.add(key);
+      }
+      if (key && (c?.tier === "vip" || tags.includes("VIP"))) {
+        highInterestKeys.add(key);
+      }
+    }
+
+    const eventRows = Array.isArray((clientEventsRes as any)?.data) ? (clientEventsRes as any).data : [];
+    for (const ev of eventRows) {
+      const meta = (ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, unknown>;
+      if (ev?.event_type === "custom_client_upserted") {
+        const key = String(meta.client_phone || meta.client_name || meta.client_id || ev.id || "").trim();
+        const subscribed = meta.newsletter_subscribed !== false;
+        if (key && subscribed) {
+          subscriberKeys.add(key);
+        }
+        if (key && (meta.client_grade === "VIP" || meta.tier === "vip")) {
+          highInterestKeys.add(key);
+        }
+      } else if (ev?.event_type === "gate_request_approved") {
+        const key = String(meta.thread_id || meta.request_id || ev.id || "").trim();
+        if (key) {
+          subscriberKeys.add(key);
+          highInterestKeys.add(key);
+        }
+      }
+    }
+
+    const inboxCustomClients = (getInboxState().customClients || []).filter(
+      (c) => Boolean(c.ownerId) && c.ownerId === ctx.userId
+    );
+    for (const c of inboxCustomClients) {
+      const key = String(c.clientPhone || c.clientName || c.id || "").trim();
+      if (key && c.newsletterSubscribed !== false) {
+        subscriberKeys.add(key);
+      }
+      if (key && c.clientGrade === "VIP") {
+        highInterestKeys.add(key);
+      }
+    }
+
     return NextResponse.json({
       editions: data ?? [],
       total: count ?? 0,
       brokerSlug: ctx.slug ?? ctx.userId,
       brokerName: ctx.displayName ?? "",
-      subscriberCount: subRes.count ?? 0,
-      highInterestCount: 0,
+      subscriberCount: subscriberKeys.size,
+      highInterestCount: highInterestKeys.size,
       brokerPreferences,
     });
   }

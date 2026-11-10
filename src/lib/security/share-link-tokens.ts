@@ -539,9 +539,47 @@ export async function verifyShareLinkToken(
     return { valid: false, reason: 'revoked' };
   }
 
-  // 2. Check Supabase im_share_links table when available
+  const preDecodedBuildingId = token.startsWith('slk.')
+    ? decodeSignedToken(token).payload?.b || ''
+    : '';
+  const targetBuildingId = expectedBuildingId || preDecodedBuildingId;
+
+  // 2. Check Supabase im_share_links & activity_events tables when available (Serverless Cold-Start Resilience)
   try {
     const supabase = createServiceClient();
+    try {
+      let evQuery: any = supabase
+        .from('activity_events')
+        .select('event_type, entity_id, metadata, created_at');
+      if (typeof evQuery.in === 'function') {
+        evQuery = evQuery.in('event_type', ['link_revoked', 'link_restored']);
+      }
+      if (typeof evQuery.order === 'function') {
+        evQuery = evQuery.order('created_at', { ascending: false });
+      }
+      if (typeof evQuery.limit === 'function') {
+        evQuery = evQuery.limit(40);
+      }
+      const evRes = await evQuery;
+      const events = Array.isArray(evRes?.data) ? evRes.data : [];
+      for (const ev of events) {
+        const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, any>;
+        const evToken = String(meta.share_token || meta.token || '').trim();
+        const evBId = String(meta.building_id || ev?.entity_id || '').trim();
+        const matchesToken = Boolean(evToken && evToken === token);
+        const matchesBuilding = Boolean(targetBuildingId && evBId === targetBuildingId);
+        if (!matchesToken && !matchesBuilding) continue;
+        if (ev.event_type === 'link_revoked') {
+          return { valid: false, reason: 'revoked' };
+        }
+        if (ev.event_type === 'link_restored') {
+          break;
+        }
+      }
+    } catch {
+      // non-blocking if activity_events unavailable
+    }
+
     const q: any = supabase
       .from('im_share_links')
       .select('token, building_id, broker_id, recipient_id, status, expires_at, revoked_at')

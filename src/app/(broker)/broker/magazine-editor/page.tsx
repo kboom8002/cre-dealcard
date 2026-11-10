@@ -254,6 +254,13 @@ export default function MagazineEditorPage() {
         if (Array.isArray(parsed.selectedDealIds)) {
           setSelectedDealIds(parsed.selectedDealIds.filter((v): v is string => typeof v === "string"));
         }
+        if (parsed.dealComments && typeof parsed.dealComments === "object") {
+          const restoredComments: Record<string, string> = {};
+          for (const [k, v] of Object.entries(parsed.dealComments as Record<string, unknown>)) {
+            if (typeof v === "string") restoredComments[k] = v;
+          }
+          setDealComments(restoredComments);
+        }
         if (Array.isArray(parsed.preferredRegions) && parsed.preferredRegions.length > 0) {
           const normPrefs = normalizeBrokerPreferences({
             preferredRegions: parsed.preferredRegions,
@@ -270,8 +277,21 @@ export default function MagazineEditorPage() {
           );
           if (restoredIssues.length > 0) setUnitIssues(restoredIssues);
         }
-        setLocalStorageMode("local_only");
-        setSaveState("dirty");
+        if (parsed.serverPublished === true) {
+          if (typeof parsed.editionId === "string" && parsed.editionId) {
+            setEditionId(parsed.editionId);
+          }
+          if (typeof parsed.publishedUrl === "string" && parsed.publishedUrl) {
+            setPublishedUrl(parsed.publishedUrl);
+          }
+          setIsPublished(true);
+          setLocalStorageMode("none");
+          setSaveState("saved");
+          if (typeof parsed.savedAt === "string") setLastSavedAt(parsed.savedAt);
+        } else {
+          setLocalStorageMode("local_only");
+          setSaveState("dirty");
+        }
       }
     } catch {
       // localStorage 사용 불가 환경 무시
@@ -457,6 +477,7 @@ export default function MagazineEditorPage() {
       issueYear: number;
       issueMonth: number;
       selectedDealIds: string[];
+      dealComments: Record<string, string>;
       preferredRegions: string[];
       preferredChannels: SpecificNewsChannelId[];
       unitIssues: AxiosUnitIssue[];
@@ -471,9 +492,11 @@ export default function MagazineEditorPage() {
             issueYear: nextPatch?.issueYear ?? issueYear,
             issueMonth: nextPatch?.issueMonth ?? issueMonth,
             selectedDealIds: nextPatch?.selectedDealIds ?? selectedDealIds,
+            dealComments: nextPatch?.dealComments ?? dealComments,
             preferredRegions: nextPatch?.preferredRegions ?? preferredRegions,
             preferredChannels: nextPatch?.preferredChannels ?? preferredChannels,
             unitIssues: nextPatch?.unitIssues ?? unitIssues,
+            serverPublished: false,
             savedAt: new Date().toISOString(),
           };
           window.localStorage.setItem(LOCAL_DRAFT_STORAGE_KEY, JSON.stringify(payload));
@@ -492,6 +515,7 @@ export default function MagazineEditorPage() {
       issueYear,
       issueMonth,
       selectedDealIds,
+      dealComments,
       preferredRegions,
       preferredChannels,
       unitIssues,
@@ -603,6 +627,32 @@ export default function MagazineEditorPage() {
         setLocalStorageMode("none");
         setSaveState("saved");
         setLastSavedAt(new Date());
+        try {
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(
+              LOCAL_DRAFT_STORAGE_KEY,
+              JSON.stringify({
+                headline: headline.trim(),
+                summary: summary.trim(),
+                briefingTitle: briefingTitle.trim(),
+                briefingBody: briefingBody.trim(),
+                issueYear: autoMeta.year,
+                issueMonth: autoMeta.month,
+                selectedDealIds,
+                dealComments,
+                preferredRegions,
+                preferredChannels,
+                unitIssues,
+                editionId: effectiveId,
+                publishedUrl: resolvedUrl,
+                serverPublished: true,
+                savedAt: nowIso,
+              }),
+            );
+          }
+        } catch {
+          // ignore storage quota errors
+        }
         return { ok: true, publicUrl: resolvedUrl, savedEditionId: nextId ?? null };
       }
 
@@ -749,8 +799,11 @@ export default function MagazineEditorPage() {
   };
 
   const handleChangeDealComment = (dealId: string, comment: string) => {
-    setDealComments((prev) => ({ ...prev, [dealId]: comment }));
-    persistLocalDraft();
+    setDealComments((prev) => {
+      const next = { ...prev, [dealId]: comment };
+      persistLocalDraft({ dealComments: next });
+      return next;
+    });
   };
 
   const handleToggleSection = (sectionId: string, nextEnabled: boolean) => {

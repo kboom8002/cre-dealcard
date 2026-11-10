@@ -642,6 +642,7 @@ export async function GET(req: NextRequest) {
         "link_restored",
         "correction_notice_published",
         "correction_notice_cleared",
+        "custom_client_upserted",
       ]);
     }
     if (typeof brokerActQuery.order === "function") {
@@ -658,7 +659,29 @@ export async function GET(req: NextRequest) {
       const tKey = String(meta.thread_id || meta.request_id || act.entity_id || "");
       const rawKey = String(meta.request_id || meta.raw_client_id || "").trim();
       const bKey = String(meta.building_id || act.entity_id || "").trim();
-      if (
+      if (act.event_type === "custom_client_upserted" && meta.client_name) {
+        const cId = String(meta.client_id || `custom_${act.id}`);
+        const cName = String(meta.client_name).trim();
+        const cPhone = String(meta.client_phone || "").trim();
+        const alreadyInCustom = inboxState.customClients.some(
+          (c) => c.id === cId || (c.clientName === cName && c.clientPhone === cPhone)
+        );
+        if (!alreadyInCustom) {
+          inboxState.customClients.push({
+            id: cId,
+            ownerId: userId,
+            clientName: cName,
+            clientGrade: (meta.client_grade as "VIP" | "일반" | "잠재") || "VIP",
+            clientPhone: cPhone,
+            budget: String(meta.budget || ""),
+            preferredRegion: String(meta.preferred_region || ""),
+            buildingId: String(meta.building_id || ""),
+            buildingTitle: String(meta.building_title || "관심 매물 상담"),
+            newsletterSubscribed: meta.newsletter_subscribed !== false,
+            createdAt: act.created_at || new Date().toISOString(),
+          });
+        }
+      } else if (
         (act.event_type === "gate_request_approved" || act.event_type === "gate_request_rejected") &&
         tKey
       ) {

@@ -1351,3 +1351,270 @@ export const NL_INBOX_GOLDEN_30_ITEMS: Golden30ScenarioItem[] = [
   },
 ];
 
+export interface PseudoGoldenDatasetItem {
+  id: string;
+  category: string;
+  title: string;
+  address: string;
+  askingPriceWon: string;
+  askingPriceReadout: string;
+  rentRollVariant: string;
+  sampleTsv: string;
+  photoVariant: string;
+  aiOracleAssertion: string;
+  targetBlindspot: string;
+}
+
+export const PSEUDO_GOLDEN_12_DATASETS: PseudoGoldenDatasetItem[] = [
+  {
+    id: 'PG-01',
+    category: '실전 Ground-Truth #1',
+    title: '마포구 동교동 189-6 (THE.PARK 빌딩 · 리테일 만실)',
+    address: '서울특별시 마포구 동교동 189-6',
+    askingPriceWon: '7,700,000,000',
+    askingPriceReadout: '77억 원 (770,000만 원)',
+    rentRollVariant: 'CSV_01 원본 (B2~4F 6개 행, 그랑핸드 B1·B2 통합임차)',
+    sampleTsv: CSV_01.replace(/,/g, '\t'),
+    photoVariant: '동교동 4장 (JPG 2 + PNG 1 + WebP 1)',
+    aiOracleAssertion: '보증금 22,000만 / 월세 1,817만 / 관리비 123.5만 · B2F 0원 행 공실 오분류 0건 · 멀티포맷 사진 4장 100% 임베딩',
+    targetBlindspot: '경사지 레벨차 및 통합 호실 0원 행 공실 오판 방지',
+  },
+  {
+    id: 'PG-02',
+    category: '실전 Ground-Truth #2',
+    title: '부천시 심곡동 349-10 (동아빌딩 · 다호실 + 2F 공실)',
+    address: '경기도 부천시 원미구 심곡동 349-10',
+    askingPriceWon: '5,800,000,000',
+    askingPriceReadout: '58억 원 (580,000만 원)',
+    rentRollVariant: 'CSV_02 원본 (17개 호실 · 201호 한마음치과 공실 + 기계식주차 부대수익)',
+    sampleTsv: CSV_02.replace(/,/g, '\t'),
+    photoVariant: '부천 동아빌딩 4장 (JPG 2 + PNG 1 + WebP 1)',
+    aiOracleAssertion: '현행 점유 16개 호실 보증금 45,500만 / 월세 2,230만 / 관리비 601.5만 · 201호 공실 잠재임대료(290만) 분리 정합성',
+    targetBlindspot: '공실 호실(201호) 현행 임대료 중복 합산 방지',
+  },
+  {
+    id: 'PG-03',
+    category: '실전 Ground-Truth #3',
+    title: '강남구 역삼동 648-23 (여삼빌딩 · 프라임 21개 호실)',
+    address: '서울특별시 강남구 역삼동 648-23',
+    askingPriceWon: '200,000,000,000',
+    askingPriceReadout: '2,000억 원 (20,000,000만 원)',
+    rentRollVariant: 'CSV_03 원본 (B1~15F 21개 호실 · 303호 자가사용 + 스파크플러스 마스터리스)',
+    sampleTsv: CSV_03.replace(/,/g, '\t'),
+    photoVariant: '역삼동 여삼빌딩 4장 (JPG 2 + PNG 1 + WebP 1)',
+    aiOracleAssertion: '21개 대형 오피스 테이블 오버플로우 0건 · 303호 자가사용(owner) 분류 · 2,000억 숫자 말줄임(…) 0건',
+    targetBlindspot: '프라임 대형 빌딩 다호실 표 넘침 및 자가사용 분류 검증',
+  },
+  {
+    id: 'PG-04',
+    category: '현장 실측 변이 #1 (보정동 RCA)',
+    title: '용인시 기흥구 보정동 1208-4 (무렌트롤·비파괴 주소 역변환)',
+    address: '경기도 용인시 기흥구 보정동 1208-4',
+    askingPriceWon: '7,700,000,000',
+    askingPriceReadout: '77억 원 (770,000만 원)',
+    rentRollVariant: '0행 (렌트롤 미입력 초기 상태 + 주소 자동 조회)',
+    sampleTsv: '층\t호수\t업종\t보증금\t월세\t관리비\t만기일\t상태\n1F\t101호\t브런치카페\t5000\t380\t35\t2028.05\t임대중',
+    photoVariant: '무사진 (0장 → 카카오 실사 스태틱맵·VWorld 지적도 폴백)',
+    aiOracleAssertion: '제목·매매가 선입력 후 [주소로 건물 정보 자동 채우기] 클릭 시 기존 제목·매매가 100% 보존 + 지도·지적도 실사 이미지 200 OK',
+    targetBlindspot: '보정동 중개사 장애 RCA (E-02 주소 조회 시 입력값 휘발 및 지도 누락 방어)',
+  },
+  {
+    id: 'PG-05',
+    category: '현장 실측 변이 #2 (비정형 층·누락층)',
+    title: '영등포구 당산동5가 11-47 (음수 층 -1, 1, 2, 5 → 3F·4F 공실 자동 합성)',
+    address: '서울특별시 영등포구 당산동5가 11-47',
+    askingPriceWon: '9,500,000,000',
+    askingPriceReadout: '95억 원 (950,000만 원)',
+    rentRollVariant: '비정형 층 표기 (-1, 1, 2, 5) 및 중간 3F·4F 누락 TSV',
+    sampleTsv: [
+      '층\t호수\t업종\t보증금\t월세\t관리비\t만기일\t상태',
+      '-1\tB101호\t구내식당\t3000\t220\t25\t2027.08\t임대중',
+      '1\t101호\t편의점\t5000\t420\t40\t2028.04\t임대중',
+      '2\t201호\t내과의원\t4000\t310\t35\t2027.11\t임대중',
+      '5\t501호\t세무법인\t3000\t240\t30\t2028.02\t임대중',
+    ].join('\n'),
+    photoVariant: '동교동 외관 JPG 1장',
+    aiOracleAssertion: '-1→B1, 1→1F, 2→2F, 5→5F 정규화 및 누락된 3F·4F를 자동으로 공실(vacant) 행으로 합성 (총 6개 층 연속 스태킹)',
+    targetBlindspot: '테스터 A 지적 (GB-04 층 표기 정규화 및 누락 공실층 자동 보정)',
+  },
+  {
+    id: 'PG-06',
+    category: '교차 합성 #1 (원 단위 오타 방어)',
+    title: '동교동 189-6 × 원 단위(50,000,000원) 렌트롤 오타 교차 합성',
+    address: '서울특별시 마포구 동교동 189-6',
+    askingPriceWon: '7,700,000,000',
+    askingPriceReadout: '77억 원 (770,000만 원)',
+    rentRollVariant: '보증금 50,000,000 / 월세 4,800,000 원 단위 입력 오타 TSV',
+    sampleTsv: [
+      '층\t호수\t업종\t보증금\t월세\t관리비\t만기일\t상태',
+      '1층\t101호\t플래그십카페\t50000000\t4800000\t450000\t2028.03\t임대중',
+      '2층\t201호\t디자인스튜디오\t30000000\t2800000\t300000\t2027.09\t임대중',
+    ].join('\n'),
+    photoVariant: '동교동 PNG + WebP 2장',
+    aiOracleAssertion: 'hasUnitMistakes=true 감지 → 보증금 8,000만 / 월세 760만 / 관리비 75만으로 1/10,000 자동 보정 및 안내 토스트 노출',
+    targetBlindspot: '원 단위 입력으로 인한 수익률 10,000배 왜곡(Cap Rate 30,000%) 원천 차단',
+  },
+  {
+    id: 'PG-07',
+    category: '교차 합성 #2 (100% 전층 공실)',
+    title: '부천 심곡동 349-10 × 전층 공실(0% 점유) 밸류애드 합성',
+    address: '경기도 부천시 원미구 심곡동 349-10',
+    askingPriceWon: '5,200,000,000',
+    askingPriceReadout: '52억 원 (520,000만 원)',
+    rentRollVariant: '1F~3F 전층 공실 (보증금 0 / 월세 0)',
+    sampleTsv: [
+      '층\t호수\t업종\t보증금\t월세\t관리비\t만기일\t상태',
+      '1층\t101호\t공실\t0\t0\t0\t-\t공실',
+      '2층\t201호\t공실\t0\t0\t0\t-\t공실',
+      '3층\t301호\t공실\t0\t0\t0\t-\t공실',
+    ].join('\n'),
+    photoVariant: '부천 외관·실내 2장',
+    aiOracleAssertion: 'Zero-Division(NaN / Infinity%) 0건 · 현행 임대수익 0원 표시 및 만실 가정(Stabilized) 수익률 분리 표기',
+    targetBlindspot: '전층 공실 매물에서 0 나누기 오류(NaN%) 방어',
+  },
+  {
+    id: 'PG-08',
+    category: '교차 합성 #3 (100% 사옥직영)',
+    title: '역삼동 648-23 × 전층 사옥직영(owner_occupied) 합성',
+    address: '서울특별시 강남구 역삼동 648-23',
+    askingPriceWon: '200,000,000,000',
+    askingPriceReadout: '2,000억 원 (20,000,000만 원)',
+    rentRollVariant: '전층 본사 사옥직영 (status=owner)',
+    sampleTsv: [
+      '층\t호수\t업종\t보증금\t월세\t관리비\t만기일\t상태',
+      '1층\t101호\t본사 플래그십 쇼룸\t0\t0\t150\t-\t자가사용',
+      '2층\t201호\t본사 R&D 센터\t0\t0\t150\t-\t사옥직영',
+    ].join('\n'),
+    photoVariant: '역삼동 4장 전체',
+    aiOracleAssertion: '사옥용(owner_occupied) 포스처 선택 시 임대수익률 대신 사옥 가용면적·주차·접근성 중심 서사로 자동 전환',
+    targetBlindspot: '포스처 격리(Rule 26~30) 및 자가사옥 매물 임대료 0원 정상 처리',
+  },
+  {
+    id: 'PG-09',
+    category: '교차 합성 #4 (대량 사진 10장 연속 첨부)',
+    title: '보정동 1208-4 × 멀티포맷 사진 10장(JPG·PNG·WebP) 2회 분할 드롭',
+    address: '경기도 용인시 기흥구 보정동 1208-4',
+    askingPriceWon: '7,700,000,000',
+    askingPriceReadout: '77억 원 (770,000만 원)',
+    rentRollVariant: 'CSV_01 (동교동 6개 층 교차 결합)',
+    sampleTsv: CSV_01.replace(/,/g, '\t'),
+    photoVariant: '1차 6장 업로드 후 2차 4장 추가 업로드 (총 10장)',
+    aiOracleAssertion: '기존 사진 덮어쓰기 없이 10장 비파괴 순차 축적(GB-06) + 800px 리사이즈 DataURL 영속화(GB-01)',
+    targetBlindspot: '테스터 A 지적 (GB-06 다중 사진 첨부 시 이전 사진 증발 방지)',
+  },
+  {
+    id: 'PG-10',
+    category: '교차 합성 #5 (500자 장문 오버플로우 방어)',
+    title: '동교동 189-6 × AI 핵심 장점 500자 초장문 입력 하드 캡',
+    address: '서울특별시 마포구 동교동 189-6',
+    askingPriceWon: '7,700,000,000',
+    askingPriceReadout: '77억 원 (770,000만 원)',
+    rentRollVariant: 'CSV_01 원본',
+    sampleTsv: CSV_01.replace(/,/g, '\t'),
+    photoVariant: '동교동 4장',
+    aiOracleAssertion: 'Tab ③ 장점 설명란 maxLength=300자 하드 캡 작동 및 실시간 300/300자 카운터 표시로 PPTX 카드 침범 원천 차단(GB-08)',
+    targetBlindspot: '테스터 A 지적 (GB-08 장문 텍스트 입력 시 PPTX 하단 박스 침범 방어)',
+  },
+  {
+    id: 'PG-11',
+    category: '교차 합성 #6 (세션 만료 & 무버튼 즉시 열람)',
+    title: '부천 심곡동 349-10 × [IM 완성하기] 생략 즉시 열람 및 401 폼 보존',
+    address: '경기도 부천시 원미구 심곡동 349-10',
+    askingPriceWon: '5,800,000,000',
+    askingPriceReadout: '58억 원 (580,000만 원)',
+    rentRollVariant: 'CSV_02 원본',
+    sampleTsv: CSV_02.replace(/,/g, '\t'),
+    photoVariant: '부천 4장',
+    aiOracleAssertion: '[IM 완성하기] 클릭 전 우측 [모바일 IM 열기]/[PPTX 받기] 클릭 시 activity_events 자동 합성(E-01)으로 최신 입력값 100% 반영',
+    targetBlindspot: '테스터 A 최다 실패 원인 (E-01 [IM 완성하기] 생략 시 빈 화면/양평동 노출 방어)',
+  },
+  {
+    id: 'PG-12',
+    category: '교차 합성 #7 (중개사 프로필 SSOT & 모바일 375px)',
+    title: '역삼동 648-23 × 중개사 프로필 SSOT 자동 주입 & 모바일 375px',
+    address: '서울특별시 강남구 역삼동 648-23',
+    askingPriceWon: '200,000,000,000',
+    askingPriceReadout: '2,000억 원 (20,000,000만 원)',
+    rentRollVariant: 'CSV_03 원본',
+    sampleTsv: CSV_03.replace(/,/g, '\t'),
+    photoVariant: '역삼동 4장',
+    aiOracleAssertion: 'Tab ③ 중개법인·성명·연락처에 로그인 프로필 SSOT 자동 주입("담당 공인중개사" 더미 문구 0건, GA-08) 및 375px 가로 스크롤 0px',
+    targetBlindspot: '테스터 A 지적 (GA-08 중개사 이름 미표시 및 L-07 양평동 샘플 잔류 방어)',
+  },
+];
+
+export interface HumanFastTrackCheckItem {
+  id: string;
+  mission: 'Mission H-1 · 3분 무막힘 작성' | 'Mission H-2 · 즉흥 변경 반응성' | 'Mission H-3 · VIP 발송 품격 승인';
+  title: string;
+  guide: string;
+  passCriteria: string;
+}
+
+export const HUMAN_2ND_FASTTRACK_9_CHECKS: HumanFastTrackCheckItem[] = [
+  {
+    id: 'H1-01',
+    mission: 'Mission H-1 · 3분 무막힘 작성',
+    title: '[빈 양식으로 새로 입력] 및 주소 역변환 직관성',
+    guide: 'IM 스튜디오 상단 [🔄 빈 양식으로 새로 입력] 클릭 후, 제목·주소·매매가(원 단위)를 넣고 [주소로 건물 정보 자동 채우기]를 누릅니다.',
+    passCriteria: '먼저 입력한 제목과 매매가가 지워지지 않고 그대로 유지되며, 연면적(왼쪽)·대지면적(오른쪽)·용도지역이 1초 내에 채워진다.',
+  },
+  {
+    id: 'H1-02',
+    mission: 'Mission H-1 · 3분 무막힘 작성',
+    title: '렌트롤 TSV 1초 복붙(또는 CSV 드롭) 및 층별 자동 정렬',
+    guide: '② 층별 임대 현황 탭에서 [엑셀 붙여넣기]로 렌트롤을 붙여넣거나 CSV 파일을 드롭합니다.',
+    passCriteria: '원 단위 오타나 비정형 층(-1, 1, 2, 5)이 있어도 B1, 1F~5F 및 공실층으로 즉시 정리되고 상단 보증금·월세 합계가 즉시 계산된다.',
+  },
+  {
+    id: 'H1-03',
+    mission: 'Mission H-1 · 3분 무막힘 작성',
+    title: 'AI 장점 3가지 1클릭 자동 생성 및 다중 사진 드래그앤드롭',
+    guide: '③ 탭에서 [✨ AI로 3가지 장점 자동 채우기]를 누르고, ④ 탭에서 사진 4장(JPG·PNG·WebP)을 한 번에 끌어다 놓습니다.',
+    passCriteria: '매물 특성에 맞는 3가지 장점이 300자 이내로 깔끔하게 채워지고, 중개사 프로필이 자동 기입되며, 사진 4장이 누락 없이 썸네일로 표시된다.',
+  },
+  {
+    id: 'H2-01',
+    mission: 'Mission H-2 · 즉흥 변경 반응성',
+    title: '희망 매매가 즉흥 변경 시 실시간 평당가·수익률 연동',
+    guide: '① 탭에서 매매가를 낮추거나(예: 77억 → 72억) 높여봅니다.',
+    passCriteria: '입력 즉시 한글 금액 독음(= 72억 원)과 우측 미리보기의 매매가·연환산 수익률(Cap Rate)이 딜레이 없이 갱신된다.',
+  },
+  {
+    id: 'H2-02',
+    mission: 'Mission H-2 · 즉흥 변경 반응성',
+    title: '[IM 완성하기] 버튼을 누르지 않고 우측 [모바일 IM 열기]·[PPTX 받기] 즉시 클릭',
+    guide: '값을 수정한 직후 하단 [IM 완성하기] 버튼을 건너뛰고, 바로 우측(또는 상단) [모바일 IM 열기]와 [PPTX 받기]를 눌러봅니다.',
+    passCriteria: '빈 화면이나 초기 샘플(양평동)이 뜨지 않고, 방금 수정한 최신 가격·렌트롤·사진이 모바일 웹과 PPTX에 100% 반영되어 열린다.',
+  },
+  {
+    id: 'H2-03',
+    mission: 'Mission H-2 · 즉흥 변경 반응성',
+    title: '브라우저 F5 새로고침 후 작업 상태 100% 보존',
+    guide: '작업 도중 브라우저 F5(새로고침)를 눌러봅니다.',
+    passCriteria: '입력했던 제목, 주소, 매매가, 렌트롤, AI 장점, 첨부 사진이 날아가지 않고 그대로 복원된다.',
+  },
+  {
+    id: 'H3-01',
+    mission: 'Mission H-3 · VIP 발송 품격 승인',
+    title: '10면 PPTX 표지 실사진 및 위치·지적도(Slide 3·4) 시각 품격',
+    guide: '다운로드된 10면 PPTX를 열어 표지(Slide 1), 입지 분석(Slide 3), 지적도·토지(Slide 4)를 확인합니다.',
+    passCriteria: '첨부한 외관 실사진이 표지에 선명하게 들어가고, 실사 지도와 지적도가 빈 박스 없이 정교하게 배치되어 있다.',
+  },
+  {
+    id: 'H3-02',
+    mission: 'Mission H-3 · VIP 발송 품격 승인',
+    title: '10면 PPTX 층별 스태킹 차트·임대 현황표 및 텍스트 레이아웃 완결성',
+    guide: 'PPTX의 층별 임대차(Slide 6~7)와 핵심 투자 포인트(Slide 2·8)의 글씨 겹침 여부를 확인합니다.',
+    passCriteria: '층별 현황표와 하단 요약 박스가 서로 겹치지 않으며, 어색한 기계 번역투나 더미 문구("담당 공인중개사", "NaN")가 단 한 곳도 없다.',
+  },
+  {
+    id: 'H3-03',
+    mission: 'Mission H-3 · VIP 발송 품격 승인',
+    title: '모바일 IM 웹뷰(스마트폰 화면) 고객 전달 만족도 최종 판정',
+    guide: '[모바일 IM 열기]로 열린 화면을 스마트폰 폭으로 살펴보고 VIP 매수자에게 카톡으로 바로 보낼 수 있을지 판정합니다.',
+    passCriteria: '핵심 제원·수익률·층별 현황·사진·담당 중개사 연락처가 한눈에 들어오며 현업 발송 품격 기준을 충족한다.',
+  },
+];
+
+

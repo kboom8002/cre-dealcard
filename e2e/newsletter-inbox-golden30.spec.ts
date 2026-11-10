@@ -58,4 +58,10 @@ test.describe('Newsletter & Inbox Golden 30 E2E Verification', () => {
     });
     expect(overflowPx).toBeLessThanOrEqual(0);
   });
+
+  test('4. IB-G09 & SEC-G04 — 유효하지 않거나 회수된 토큰(?token=slk.invalid) 접속 시 매물 데이터 100% 차단 및 잠금 화면 렌더링 검증', async ({ page }) => {
+    await page.goto('/im-lite/im-doc-donggyo-77?token=slk.invalid.revoked');
+    await expect(page.getByTestId('revoked-im-screen')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('revoked-im-screen')).toContainText('열람 제한 안내');
+  });
 });

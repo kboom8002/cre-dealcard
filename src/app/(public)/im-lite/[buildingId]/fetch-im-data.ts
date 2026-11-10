@@ -277,7 +277,10 @@ async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof bui
   }
 }
 
-function hydrateQuickRecordToMobileIM(quickRec: StoredQuickImRecord): MobileIMDocument {
+function hydrateQuickRecordToMobileIM(
+  quickRec: StoredQuickImRecord,
+  dbGovernance?: DbGovernanceOverlay
+): MobileIMDocument {
   const bDoc = quickRec.basicImDoc;
   const facts = bDoc.facts;
   const brokerObj = buildBrokerObject(null);
@@ -397,29 +400,38 @@ function hydrateQuickRecordToMobileIM(quickRec: StoredQuickImRecord): MobileIMDo
   (doc as any).rentRoll = quickRec.rentRoll;
   (doc as any).floor_leases = quickRec.fullDocBody?.floor_leases || quickRec.rentRoll;
   (doc as any).ssotSummary = quickRec.fullDocBody?.ssot_summary;
-  return attachInboxGovernanceOverlay(doc, quickRec.buildingId, quickRec);
+  return attachInboxGovernanceOverlay(doc, quickRec.buildingId, quickRec, dbGovernance);
+}
+
+interface DbGovernanceOverlay {
+  revoked?: boolean;
+  revokedAt?: string | null;
+  correctionNotice?: { message: string; updatedAt: string } | null;
 }
 
 function attachInboxGovernanceOverlay(
   doc: MobileIMDocument,
   buildingId: string,
-  sourceMeta?: Record<string, any>
+  sourceMeta?: Record<string, any>,
+  dbGovernance?: DbGovernanceOverlay
 ): MobileIMDocument {
   const inboxState = getInboxState();
   const revokedInfo = inboxState.revokedBuildings[buildingId];
   const isRevoked =
     Boolean(revokedInfo?.revoked) ||
     isBuildingShareLinkRevoked(buildingId) ||
-    Boolean(sourceMeta?.isRevoked) ||
-    Boolean(sourceMeta?.is_revoked);
+    (dbGovernance?.revoked !== undefined
+      ? dbGovernance.revoked
+      : Boolean(sourceMeta?.isRevoked) || Boolean(sourceMeta?.is_revoked));
   const correctionNotice =
     inboxState.correctionNotices[buildingId] ||
-    sourceMeta?.correctionNotice ||
-    sourceMeta?.correction_notice ||
-    null;
+    (dbGovernance?.correctionNotice !== undefined
+      ? dbGovernance.correctionNotice
+      : sourceMeta?.correctionNotice || sourceMeta?.correction_notice || null);
 
   (doc as any).isRevoked = isRevoked;
-  (doc as any).revokedAt = revokedInfo?.revokedAt || sourceMeta?.revoked_at || null;
+  (doc as any).revokedAt =
+    revokedInfo?.revokedAt || dbGovernance?.revokedAt || sourceMeta?.revoked_at || null;
   (doc as any).correctionNotice = correctionNotice;
   return doc;
 }
@@ -463,69 +475,109 @@ export async function fetchIMData(
       docId = undefined;
     }
   }
+  let supabase: any = null;
+  try {
+    supabase = createServiceClient();
+  } catch {
+    supabase = null;
+  }
+
+  // P0-META-IM-PERSIST-03 & Axis B-2: Check activity_events for latest IM upsert/delete AND serverless governance (link_revoked, correction_notice)
+  let latestImUpsert: { imItem: Record<string, any>; brokerProfile?: Record<string, any> } | null = null;
+  const dbGovernance: DbGovernanceOverlay = {};
+  if (supabase) {
+    try {
+      const { data: imEvents } = await supabase
+        .from("activity_events")
+        .select("event_type, entity_id, metadata, created_at")
+        .in("event_type", [
+          "im_upserted",
+          "im_deleted",
+          "im_restored",
+          "link_revoked",
+          "link_restored",
+          "correction_notice_published",
+          "correction_notice_cleared",
+        ])
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      if (Array.isArray(imEvents)) {
+        let decidedDeleted = false;
+        let decidedRestored = false;
+        let decidedIm = false;
+        let decidedRevoke = false;
+        let decidedCorrection = false;
+
+        for (const ev of imEvents) {
+          const meta = (ev.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, any>;
+          const evBId = String(meta.building_id || ev.entity_id || "");
+          const evImId = String(meta.im_id || meta.im_item?.id || "");
+          const evItemBid = String(meta.im_item?.buildingId || "");
+          if (evBId !== buildingId && evImId !== buildingId && evItemBid !== buildingId) continue;
+
+          if (!decidedRevoke && (ev.event_type === "link_revoked" || ev.event_type === "link_restored")) {
+            decidedRevoke = true;
+            dbGovernance.revoked = ev.event_type === "link_revoked";
+            dbGovernance.revokedAt = ev.event_type === "link_revoked" ? ev.created_at || null : null;
+          }
+
+          if (
+            !decidedCorrection &&
+            (ev.event_type === "correction_notice_published" || ev.event_type === "correction_notice_cleared")
+          ) {
+            decidedCorrection = true;
+            dbGovernance.correctionNotice =
+              ev.event_type === "correction_notice_published" && meta.message
+                ? {
+                    message: String(meta.message),
+                    updatedAt: String(ev.created_at || new Date().toISOString()),
+                  }
+                : null;
+          }
+
+          if (!decidedIm) {
+            if (ev.event_type === "im_deleted") {
+              if (!decidedRestored && !latestImUpsert) {
+                decidedDeleted = true;
+              }
+              decidedIm = true;
+            } else if (ev.event_type === "im_restored") {
+              decidedRestored = true;
+            } else if (ev.event_type === "im_upserted" && meta.im_item) {
+              latestImUpsert = {
+                imItem: meta.im_item as Record<string, any>,
+                brokerProfile: meta.broker_profile as Record<string, any> | undefined,
+              };
+              decidedIm = true;
+            }
+          }
+        }
+        if (decidedDeleted) {
+          return null;
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
+  }
+
   // 0. Quick-Generate Store lookup (non-UUID or matching quick-generate document)
   const earlyQuickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
   if (earlyQuickRec && (!docId || earlyQuickRec.documentId === docId || !isUuid(buildingId))) {
-    return hydrateQuickRecordToMobileIM(earlyQuickRec);
+    return hydrateQuickRecordToMobileIM(earlyQuickRec, dbGovernance);
   }
 
   // 1. Demo data
   const demo = getDemoMobileIM(buildingId);
-  if (demo) return attachInboxGovernanceOverlay(demo, buildingId);
+  if (demo) return attachInboxGovernanceOverlay(demo, buildingId, undefined, dbGovernance);
 
-  const supabase = createServiceClient();
-
-  // P0-META-IM-PERSIST-03: Check activity_events for latest im_upserted / im_deleted / im_restored
-  let latestImUpsert: { imItem: Record<string, any>; brokerProfile?: Record<string, any> } | null = null;
-  try {
-    const { data: imEvents } = await supabase
-      .from("activity_events")
-      .select("event_type, metadata, created_at")
-      .in("event_type", ["im_upserted", "im_deleted", "im_restored"])
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (Array.isArray(imEvents)) {
-      let decidedDeleted = false;
-      let decidedRestored = false;
-      for (const ev of imEvents) {
-        const meta = (ev.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, any>;
-        const evBId = String(meta.building_id || "");
-        const evImId = String(meta.im_id || meta.im_item?.id || "");
-        const evItemBid = String(meta.im_item?.buildingId || "");
-        if (evBId !== buildingId && evImId !== buildingId && evItemBid !== buildingId) continue;
-
-        if (ev.event_type === "im_deleted") {
-          if (!decidedRestored && !latestImUpsert) {
-            decidedDeleted = true;
-          }
-          break;
-        }
-        if (ev.event_type === "im_restored") {
-          decidedRestored = true;
-          continue;
-        }
-        if (ev.event_type === "im_upserted" && meta.im_item) {
-          latestImUpsert = {
-            imItem: meta.im_item as Record<string, any>,
-            brokerProfile: meta.broker_profile as Record<string, any> | undefined,
-          };
-          break;
-        }
-      }
-      if (decidedDeleted) {
-        return null;
-      }
-    }
-  } catch {
-    // Non-blocking
+  if (!supabase) {
+    return null;
   }
 
-  // Non-UUID custom IM IDs: synthesize directly from latestImUpsert or return null before UUID table queries
-  if (!isUuid(buildingId)) {
-    if (!latestImUpsert) {
-      return null;
-    }
+  // Non-UUID custom IM IDs with activity_events upsert: synthesize directly from latestImUpsert
+  if (!isUuid(buildingId) && latestImUpsert) {
     const it = latestImUpsert.imItem;
     const bp = latestImUpsert.brokerProfile;
     const brokerObj = buildBrokerObject(
@@ -616,7 +668,7 @@ export async function fetchIMData(
       completion_date: it.completionDate || "2018-06",
       handover_note: it.handoverNote,
     };
-    return attachInboxGovernanceOverlay(customDoc, buildingId);
+    return attachInboxGovernanceOverlay(customDoc, buildingId, undefined, dbGovernance);
   }
 
   // P0-SEC: building visibility + owner (read directly from the SSoT source table).
@@ -1012,25 +1064,26 @@ export async function fetchIMData(
       delete (mappedResult as any).basicImDocument;
     }
 
-    return attachInboxGovernanceOverlay(mappedResult, buildingId, document.body);
+    return attachInboxGovernanceOverlay(mappedResult, buildingId, document.body, dbGovernance);
   }
 
-  // 3. Fallback: SSoT Lite (순수 읽기)
+  // 3. Fallback: If broker saved/published via IM Workspace (activity_events im_upserted), synthesize directly before bare SSoT stub
+  if (latestImUpsert?.imItem) {
+    const synthRec = synthesizeQuickRecordFromImItem(
+      buildingId,
+      latestImUpsert.imItem,
+      latestImUpsert.brokerProfile
+    );
+    return hydrateQuickRecordToMobileIM(synthRec, dbGovernance);
+  }
+
   const result = await readBuilding(buildingId);
   const ssot = (result?.data ?? result ?? {}) as Record<string, any>;
 
   if (!ssot || Object.keys(ssot).length === 0 || (ssot.completeness_score ?? 0) < 30) {
-    if (latestImUpsert?.imItem) {
-      const synthRec = synthesizeQuickRecordFromImItem(
-        buildingId,
-        latestImUpsert.imItem,
-        latestImUpsert.brokerProfile
-      );
-      return hydrateQuickRecordToMobileIM(synthRec);
-    }
     const quickRec = getQuickImRecord(buildingId) || (docId ? getQuickImRecord(docId) : null);
     if (quickRec) {
-      return hydrateQuickRecordToMobileIM(quickRec);
+      return hydrateQuickRecordToMobileIM(quickRec, dbGovernance);
     }
     return null;
   }
@@ -1156,5 +1209,5 @@ export async function fetchIMData(
       hasVacancy: !!ssot.vacancy_signal,
       hasPhotos: (Array.isArray(layers.photos) && layers.photos.length > 0) || (Array.isArray(ssot.photo_urls) && ssot.photo_urls.length > 0),
     }),
-  }, buildingId);
+  }, buildingId, undefined, dbGovernance);
 }

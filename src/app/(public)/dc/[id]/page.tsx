@@ -114,6 +114,10 @@ const getDealCardData = cache(async (id: string) => {
 
   if (!isUuid(id)) {
     try {
+      const synthesizedNonUuid = await resolveOrSynthesizeQuickImRecord(id, supabase);
+      if (synthesizedNonUuid) {
+        return buildDealCardDataFromQuickRecord(synthesizedNonUuid);
+      }
       let actQuery: any = supabase
         .from("activity_events")
         .select("actor_id, event_type, metadata, created_at");

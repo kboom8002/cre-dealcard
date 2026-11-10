@@ -493,6 +493,23 @@ export async function POST(req: NextRequest) {
         if (insRes?.data?.id) {
           resolvedClientId = `custom_${insRes.data.id}`;
         }
+        await supabase.from('activity_events').insert({
+          actor_id: userId,
+          event_type: 'custom_client_upserted',
+          entity_type: 'building',
+          entity_id: isUuid(buildingId) ? buildingId : userId,
+          metadata: {
+            client_id: resolvedClientId || `custom_${Date.now()}`,
+            client_name: clientName,
+            client_grade: clientGrade,
+            client_phone: clientPhone,
+            budget,
+            preferred_region: preferredRegion,
+            building_id: buildingId,
+            building_title: buildingTitle,
+            newsletter_subscribed: newsletterSubscribed,
+          },
+        });
       } catch {
         // non-blocking
       }
