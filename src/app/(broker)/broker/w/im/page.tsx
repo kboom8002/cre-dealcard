@@ -926,6 +926,16 @@ function ImWorkspaceInner() {
             setHandoverNote("");
             patch.handoverNote = "";
           }
+          if (
+            photoEntries.length > 0 &&
+            photoEntries.every((pe) => !pe.dataUrl) &&
+            photoNames.includes("exterior_front.jpg")
+          ) {
+            setPhotoNames([]);
+            setPhotoEntries([]);
+            patch.photoNames = [];
+            patch.photos = [];
+          }
         }
         syncCurrentItemPatch(patch);
         showUndoToast({
@@ -2371,10 +2381,17 @@ function ImWorkspaceInner() {
                   >
                     {style.label}
                   </label>
+                  <span
+                    data-testid={`im-axios-point-char-count-${idx}`}
+                    className="text-sm font-semibold text-slate-600 tabular-nums"
+                  >
+                    {(item.brief || "").length}/300자
+                  </span>
                 </div>
                 <input
                   id={`im-axios-point-title-${idx}`}
                   type="text"
+                  maxLength={60}
                   data-testid={`im-axios-point-title-${idx}`}
                   value={item.headline}
                   onChange={(e) => {
@@ -2393,11 +2410,12 @@ function ImWorkspaceInner() {
                 <textarea
                   id={`im-axios-point-brief-${idx}`}
                   rows={2}
+                  maxLength={300}
                   data-testid={`im-axios-point-brief-${idx}`}
                   value={item.brief}
                   onChange={(e) => {
                     const next = axiosHighlights.map((h, i) =>
-                      i === idx ? { ...h, brief: e.target.value } : h
+                      i === idx ? { ...h, brief: e.target.value.slice(0, 300) } : h
                     );
                     setAxiosHighlights(next);
                     syncCurrentItemPatch({ axiosHighlights: next });
@@ -2442,7 +2460,7 @@ function ImWorkspaceInner() {
             <div className="font-bold text-base text-[#0F172A]">
               담당 공인중개사 정보
             </div>
-            <span className="text-xs font-semibold text-slate-600">
+            <span className="text-sm font-semibold text-slate-600">
               💡 내 프로필 정보가 기본 적용되며, 칸을 클릭하면 바로 다른 담당자 정보로 바꿀 수 있습니다
             </span>
           </div>

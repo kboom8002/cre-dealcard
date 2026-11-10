@@ -21,6 +21,7 @@ import TestGuidePage from "@/app/testguide/page";
 import {
   getInboxState,
   saveInboxState,
+  resolveOrSynthesizeQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
@@ -280,6 +281,93 @@ describe("6-Axis MECE Human-Physics & Latent Failure Audit Suite (L-01 ~ L-08)",
       expect(thread.hasCorrectionNotice).toBe(true);
       expect(thread.correctionMessage).toBe("2층 임대료가 350만원으로 정정되었습니다.");
     });
+
+    it("E-01 (GB-01): resolveOrSynthesizeQuickImRecord synthesizes complete IM record from activity_events before [IM 완성하기] is clicked", async () => {
+      const mockSupa = {
+        from: (table: string) => {
+          const chain: Record<string, unknown> = {
+            select: () => chain,
+            eq: () => chain,
+            in: () => chain,
+            order: () => chain,
+            limit: async () => {
+              if (table === "activity_events") {
+                return {
+                  data: [
+                    {
+                      actor_id: "broker-lee",
+                      event_type: "im_upserted",
+                      created_at: "2026-11-10T09:30:00Z",
+                      metadata: {
+                        building_id: "bld-autosave-only-99",
+                        im_id: "im-doc-autosave-99",
+                        broker_profile: {
+                          displayName: "이상덕",
+                          company: "JS 부동산 중계법인",
+                          phone: "010-3355-5589",
+                          registrationNo: "11680-2024-00123",
+                        },
+                        im_item: {
+                          id: "im-doc-autosave-99",
+                          buildingId: "bld-autosave-only-99",
+                          title: "마포구 동교동 더파크빌딩",
+                          address: "서울특별시 마포구 동교동 189-6",
+                          askingPriceManwon: 770000,
+                          investmentPosture: "core_income",
+                          gfaSqm: "696.97",
+                          landAreaSqm: "244.60",
+                          zoning: "제2종일반주거지역",
+                          completionDate: "1991-06-21",
+                          photos: [
+                            {
+                              name: "01_exterior.jpg",
+                              url: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+                              dataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+                              category: "exterior",
+                            },
+                          ],
+                          rentRoll: [
+                            {
+                              id: "r-1",
+                              floor: "1F",
+                              unit: "101호",
+                              use: "그랑핸드",
+                              depositManwon: 3000,
+                              monthlyRentManwon: 315,
+                              maintenanceManwon: 23,
+                              status: "occupied",
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                  error: null,
+                };
+              }
+              return { data: [], error: null };
+            },
+          };
+          return chain;
+        },
+      };
+
+      const synthesized = await resolveOrSynthesizeQuickImRecord(
+        "bld-autosave-only-99",
+        mockSupa
+      );
+      expect(synthesized).not.toBeNull();
+      expect(synthesized?.buildingName).toBe("마포구 동교동 더파크빌딩");
+      expect(synthesized?.askingPriceManwon).toBe(770000);
+      expect(synthesized?.specs?.gfaSqm).toBeCloseTo(696.97, 2);
+      expect(synthesized?.specs?.landAreaSqm).toBeCloseTo(244.6, 1);
+      expect(synthesized?.brokerProfile?.displayName).toBe("이상덕");
+      expect(synthesized?.brokerProfile?.company).toBe("JS 부동산 중계법인");
+      expect(synthesized?.basicImDoc.facts.brokerOffice?.representative).toBe("이상덕");
+      expect(synthesized?.basicImDoc.facts.brokerOffice?.representative).not.toBe(
+        "담당 공인중개사"
+      );
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -473,6 +561,179 @@ describe("6-Axis MECE Human-Physics & Latent Failure Audit Suite (L-01 ~ L-08)",
       expect(idxPrice).toBeGreaterThan(-1);
       expect(idxGfa).toBeGreaterThan(idxPrice);
       expect(idxLand).toBeGreaterThan(idxGfa);
+    });
+
+    it("E-02 (GA-07) & E-05 (GA-08, GB-08): reverse address auto-lookup preserves custom title/price/rent-roll, injects broker profile SSOT, and enforces 300-char limit on AI advantages", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/broker/profile")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              ok: true,
+              data: {
+                display_name: "이상덕",
+                company: "JS 부동산 중계법인",
+                phone: "01033555589",
+              },
+            }),
+          } as Response;
+        }
+        if (url.includes("/api/buildings/lookup")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              buildingName: "동교동 더파크빌딩",
+              grossFloorAreaSqm: 696.97,
+              landAreaSqm: 244.6,
+              zoning: "제2종일반주거지역",
+              completionDate: "1991-06-21",
+            }),
+          } as Response;
+        }
+        if (url.includes("/api/broker/im/ai-points")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              ok: true,
+              result: {
+                points: [
+                  {
+                    title: "경의선숲길 공원 정면 코너 입지",
+                    body: "유동인구가 풍부한 연남·동교 상권 핵심 코너 빌딩입니다.",
+                  },
+                  {
+                    title: "우량 임차인 장기 계약으로 안정적 현금흐름",
+                    body: "그랑핸드 플래그십 등 우량 리테일 임차인이 입점해 있습니다.",
+                  },
+                  {
+                    title: "대지 평당가 경쟁력 및 추후 리모델링 밸류애드",
+                    body: "인근 실거래 대비 합리적인 대지 단가로 자본차익이 기대됩니다.",
+                  },
+                ],
+              },
+            }),
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true, ims: [] }),
+        } as Response;
+      });
+
+      await act(async () => {
+        root.render(<ImWorkspacePage />);
+      });
+
+      // 1. Reset initial sample (GA-02)
+      const resetSampleBtn = container.querySelector(
+        '[data-testid="im-reset-sample-btn"]'
+      ) as HTMLButtonElement;
+      expect(resetSampleBtn).not.toBeNull();
+      await act(async () => {
+        resetSampleBtn.click();
+      });
+
+      // 2. Enter custom title, address, and Won-unit price (7,700,000,000) BEFORE address lookup
+      const titleInput = container.querySelector(
+        '[data-testid="im-title-single-line-input"]'
+      ) as HTMLInputElement;
+      const addrInput = container.querySelector(
+        '[data-testid="im-address-input"]'
+      ) as HTMLInputElement;
+      const wonInput = container.querySelector(
+        '[data-testid="im-price-won-input"]'
+      ) as HTMLInputElement;
+
+      const setNativeInput = (el: HTMLInputElement, val: string) => {
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          "value"
+        )?.set;
+        setter?.call(el, val);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+
+      await act(async () => {
+        setNativeInput(titleInput, "동교동 커스텀 타워");
+        setNativeInput(addrInput, "서울특별시 마포구 동교동 189-6");
+        setNativeInput(wonInput, "7,700,000,000");
+      });
+
+      expect(
+        container.querySelector('[data-testid="im-price-readout"]')?.textContent
+      ).toContain("77억");
+
+      // 3. Trigger reverse address lookup (E-02) and verify custom title & asking price are preserved while specs update
+      const lookupBtn = container.querySelector(
+        '[data-testid="im-address-lookup-btn"]'
+      ) as HTMLButtonElement;
+      await act(async () => {
+        lookupBtn.click();
+      });
+
+      const gfaInput = container.querySelector(
+        '[data-testid="im-gfa-input"]'
+      ) as HTMLInputElement;
+      const landInput = container.querySelector(
+        '[data-testid="im-land-area-input"]'
+      ) as HTMLInputElement;
+      expect(gfaInput.value).toBe("696.97");
+      expect(landInput.value).toBe("244.6");
+      expect(titleInput.value).toBe("동교동 커스텀 타워");
+      expect(
+        container.querySelector('[data-testid="im-price-readout"]')?.textContent
+      ).toContain("77억");
+
+      // 4. Switch to Tab 3 (장점 3가지) and verify 1-click AI auto-generation & maxLength=300 (GB-08)
+      const tab3Btn = container.querySelector(
+        '[data-testid="im-editor-tab-axios_brief"]'
+      ) as HTMLButtonElement;
+      await act(async () => {
+        tab3Btn.click();
+      });
+
+      const aiFillBtn = container.querySelector(
+        '[data-testid="im-axios-ai-recluster-btn"]'
+      ) as HTMLButtonElement;
+      expect(aiFillBtn).not.toBeNull();
+      await act(async () => {
+        aiFillBtn.click();
+      });
+
+      const brief0 = container.querySelector(
+        '[data-testid="im-axios-point-brief-0"]'
+      ) as HTMLTextAreaElement;
+      expect(brief0).not.toBeNull();
+      expect(brief0.maxLength).toBe(300);
+      expect(brief0.value).toContain("유동인구가 풍부한 연남·동교 상권");
+
+      // 5. Switch to Tab 4 and verify broker profile SSOT auto-fill (GA-08: zero "담당 공인중개사")
+      const tab4Btn = container.querySelector(
+        '[data-testid="im-editor-tab-media_publish"]'
+      ) as HTMLButtonElement;
+      await act(async () => {
+        tab4Btn.click();
+      });
+
+      const brokerNameInput = container.querySelector(
+        '[data-testid="im-broker-name-input"]'
+      ) as HTMLInputElement;
+      const brokerageInput = container.querySelector(
+        '[data-testid="im-brokerage-name-input"]'
+      ) as HTMLInputElement;
+      const brokerPhoneInput = container.querySelector(
+        '[data-testid="im-broker-phone-input"]'
+      ) as HTMLInputElement;
+
+      expect(brokerNameInput.value).toBe("이상덕");
+      expect(brokerageInput.value).toBe("JS 부동산 중계법인");
+      expect(brokerPhoneInput.value).toBe("010-3355-5589");
     });
   });
 });
