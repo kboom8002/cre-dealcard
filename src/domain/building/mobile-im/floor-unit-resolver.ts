@@ -134,6 +134,24 @@ function parseSingleFloorOrUnitToken(s: string): Omit<ResolvedFloorUnit, 'floorK
     };
   }
 
+  // 음수 층 표기 — "-1", "-2", "-1F", "-2층", "-1 B101호"
+  const negativeFloorMatch = s.match(/^-\s*(\d+)\s*(?:F|층)?(?:\s+(.+))?$/i);
+  if (negativeFloorMatch) {
+    const bFlr = parseInt(negativeFloorMatch[1], 10) || 1;
+    const floor = `B${bFlr}`;
+    const rest = (negativeFloorMatch[2] || '').trim();
+    const isAllFloor = !rest || /^(전층|전체)$/i.test(rest);
+    const unitLabel = isAllFloor ? '' : normalizeUnitSuffix(rest);
+    return {
+      floor,
+      unitLabel,
+      combinedLabel: unitLabel ? `${floor} ${unitLabel}` : floor,
+      order: -bFlr,
+      unitOrder: extractUnitOrder(unitLabel),
+      isSubterranean: true,
+    };
+  }
+
   // 패턴 A: 복합 표기 — "1F 101호", "1층 101호", "지하1층 B101호", "B1 B101호", "2F-201호", "3F(301호)"
   const compoundMatch = s.match(
     /^(?:(B|지하)\s*(\d+)\s*(?:F|층)?|(?:지상\s*)?(\d+)\s*(?:F|층))[\s·,\-–/(]+([B지하]*\d{1,4}(?:[~,\-–]\d{1,4})?\s*(?:호|호실|실)?|[A-Za-z가-하]\s*(?:호|실)?)\)?$/i,

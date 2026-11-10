@@ -13,7 +13,9 @@ export interface RentRollRowItem {
   floor: string;
   unit: string;
   use: string;
+  tenantName?: string;
   areaSqm?: number;
+  exclusiveAreaSqm?: number;
   areaPyeong?: number;
   depositManwon: number;
   monthlyRentManwon: number;
@@ -23,7 +25,10 @@ export interface RentRollRowItem {
   isExpired?: boolean;
   status: RentRollStatus;
   unitMistakeWarning?: string;
+  note?: string;
 }
+
+export type ParsedTsvRentRollRow = RentRollRowItem;
 
 export interface ParsedTsvResult {
   rows: RentRollRowItem[];
@@ -68,25 +73,53 @@ export function parseManwonAmount(input: string | number | null | undefined): {
     return { manwon: 0, isSuspiciousUnitMistake: false };
   }
 
-  // Check Korean combined units like "1억 5000만" or "1.5억" or "5000만"
-  let eok = 0;
-  let man = 0;
+  // Check Korean combined units like "1억 5000만", "1억 5000", "5천만", "1.5억", or "5000만"
+  if (/[억천만]/.test(str)) {
+    let total = 0;
+    let matched = false;
+    let rest = str;
 
-  const eokMatch = str.match(/([\d.]+)\s*억/);
-  if (eokMatch) {
-    const eokVal = parseFloat(eokMatch[1]);
-    eok = isNaN(eokVal) ? 0 : eokVal * 10000;
-  }
+    const eokMatch = rest.match(/([\d.]+)\s*억/);
+    if (eokMatch) {
+      const eokVal = parseFloat(eokMatch[1]);
+      if (!isNaN(eokVal)) {
+        total += eokVal * 10000;
+        matched = true;
+      }
+      rest = rest.slice((eokMatch.index ?? 0) + eokMatch[0].length);
+    }
 
-  const manMatch = str.match(/([\d.]+)\s*만(?:원)?/);
-  if (manMatch) {
-    const manVal = parseFloat(manMatch[1]);
-    man = isNaN(manVal) ? 0 : manVal;
-  }
+    const cheonManMatch = rest.match(/([\d.]+)\s*천\s*만?/);
+    if (cheonManMatch) {
+      const cheonVal = parseFloat(cheonManMatch[1]);
+      if (!isNaN(cheonVal)) {
+        total += cheonVal * 1000;
+        matched = true;
+      }
+      rest = rest.slice((cheonManMatch.index ?? 0) + cheonManMatch[0].length);
+    }
 
-  if (eokMatch || manMatch) {
-    const total = Math.round((eok + man) * 10) / 10;
-    return { manwon: total, isSuspiciousUnitMistake: false };
+    const manMatch = rest.match(/([\d.]+)\s*만(?:원)?/);
+    if (manMatch) {
+      const manVal = parseFloat(manMatch[1]);
+      if (!isNaN(manVal)) {
+        total += manVal;
+        matched = true;
+      }
+      rest = rest.slice((manMatch.index ?? 0) + manMatch[0].length);
+    } else if (eokMatch) {
+      const trailingMatch = rest.match(/([\d.]+)/);
+      if (trailingMatch) {
+        const trailVal = parseFloat(trailingMatch[1]);
+        if (!isNaN(trailVal)) {
+          total += trailVal;
+        }
+      }
+    }
+
+    if (matched) {
+      return { manwon: Math.round(total * 10) / 10, isSuspiciousUnitMistake: false };
+    }
   }
 
   // Pure numeric string
@@ -197,6 +230,8 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
     useIdx?: number;
     tenantIdx?: number;
     areaSqmIdx?: number;
+    exclusiveAreaSqmIdx?: number;
+    exclusiveAreaPyIdx?: number;
     areaPyIdx?: number;
     depositIdx?: number;
     rentIdx?: number;
@@ -214,6 +249,7 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
         c === 'floor' ||
         c === '호수' ||
         c === '호' ||
+        c === '호실' ||
         c === 'unit' ||
         c.includes('보증금') ||
         c.includes('월세') ||
@@ -225,25 +261,62 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
       startIndex = 1;
       headerMap = {};
       firstCells.forEach((col, idx) => {
+        const isAreaDerived =
+          col.includes('전용률') ||
+          col.includes('전용율') ||
+          col.includes('평당') ||
+          col.includes('단가');
+        const isExclusiveCol =
+          !isAreaDerived &&
+          (col.includes('전용') || col.includes('실면적') || col.includes('전유'));
+        const isLeaseOrGenericAreaCol =
+          !isAreaDerived &&
+          !isExclusiveCol &&
+          (col.includes('임대면적') ||
+            col.includes('계약면적') ||
+            col.includes('공급면적') ||
+            col.includes('면적') ||
+            col.includes('㎡') ||
+            col.includes('m2') ||
+            col.includes('제곱') ||
+            col === '평' ||
+            col === 'area');
+
         if (headerMap!.floorIdx === undefined && (col === '층' || col === '층수' || col === '구분' || col === 'floor')) {
           headerMap!.floorIdx = idx;
         } else if (headerMap!.unitIdx === undefined && (col === '호수' || col === '호' || col === '호실' || col === 'unit')) {
           headerMap!.unitIdx = idx;
-        } else if (headerMap!.useIdx === undefined && (col === '용도' || col === '업종' || col === 'use')) {
-          headerMap!.useIdx = idx;
-        } else if (headerMap!.tenantIdx === undefined && (col.includes('임차인') || col === '상호' || col === 'tenant')) {
+        } else if (
+          headerMap!.tenantIdx === undefined &&
+          (col.includes('임차인') || col.includes('상호') || col.includes('입주사') || col === 'tenant') &&
+          !col.includes('업종') &&
+          !col.includes('용도')
+        ) {
           headerMap!.tenantIdx = idx;
-        } else if (headerMap!.areaSqmIdx === undefined && (col.includes('㎡') || col.includes('m2') || col.includes('제곱'))) {
-          headerMap!.areaSqmIdx = idx;
-        } else if (headerMap!.areaPyIdx === undefined && (col.includes('면적(평)') || col.includes('전용(평)') || col.includes('계약면적(평)') || col === '평')) {
-          headerMap!.areaPyIdx = idx;
+        } else if (
+          headerMap!.useIdx === undefined &&
+          (col === '용도' || col === '업종' || col === 'use' || col.includes('업종') || col.includes('용도'))
+        ) {
+          headerMap!.useIdx = idx;
+        } else if (isExclusiveCol) {
+          if (col.includes('평')) {
+            if (headerMap!.exclusiveAreaPyIdx === undefined) headerMap!.exclusiveAreaPyIdx = idx;
+          } else {
+            if (headerMap!.exclusiveAreaSqmIdx === undefined) headerMap!.exclusiveAreaSqmIdx = idx;
+          }
+        } else if (isLeaseOrGenericAreaCol) {
+          if (col.includes('평')) {
+            if (headerMap!.areaPyIdx === undefined) headerMap!.areaPyIdx = idx;
+          } else {
+            if (headerMap!.areaSqmIdx === undefined) headerMap!.areaSqmIdx = idx;
+          }
         } else if (headerMap!.depositIdx === undefined && (col.includes('보증금') || col === 'deposit')) {
           headerMap!.depositIdx = idx;
         } else if (headerMap!.rentIdx === undefined && (col.includes('임대료') || col.includes('월세') || col === 'rent')) {
           headerMap!.rentIdx = idx;
         } else if (headerMap!.maintIdx === undefined && (col.includes('관리비') || col === 'maintenance' || col === 'cam')) {
           headerMap!.maintIdx = idx;
-        } else if (headerMap!.expiryIdx === undefined && (col.includes('만기') || col.includes('계약기간') || col.includes('expiry'))) {
+        } else if (headerMap!.expiryIdx === undefined && (col.includes('만기') || col.includes('계약기간') || col.includes('종료') || col.includes('expiry'))) {
           headerMap!.expiryIdx = idx;
         } else if (headerMap!.statusIdx === undefined && (col.includes('상태') || col.includes('비고') || col.includes('안내') || col === 'status')) {
           headerMap!.statusIdx = idx;
@@ -263,7 +336,10 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
     let floor = '';
     let unit = '';
     let use = '';
+    let tenantName: string | undefined;
     let rawAreaSqm = '';
+    let rawExclusiveAreaSqm = '';
+    let rawExclusiveAreaPy = '';
     let rawAreaPy = '';
     let rawDeposit = '';
     let rawRent = '';
@@ -274,10 +350,19 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
     if (headerMap && headerMap.depositIdx !== undefined && headerMap.rentIdx !== undefined) {
       floor = headerMap.floorIdx !== undefined ? cells[headerMap.floorIdx] || '' : cells[0] || '';
       unit = headerMap.unitIdx !== undefined ? cells[headerMap.unitIdx] || '' : '';
-      const usePart = headerMap.useIdx !== undefined ? cells[headerMap.useIdx] || '' : '';
-      const tenantPart = headerMap.tenantIdx !== undefined ? cells[headerMap.tenantIdx] || '' : '';
-      use = tenantPart && usePart && tenantPart !== usePart ? `${tenantPart}` : tenantPart || usePart;
+      const usePart = headerMap.useIdx !== undefined ? (cells[headerMap.useIdx] || '').trim() : '';
+      const tenantPart = headerMap.tenantIdx !== undefined ? (cells[headerMap.tenantIdx] || '').trim() : '';
+      if (tenantPart) {
+        tenantName = tenantPart;
+      }
+      if (tenantPart && usePart) {
+        use = tenantPart !== usePart ? `${tenantPart} / ${usePart}` : usePart;
+      } else {
+        use = tenantPart || usePart;
+      }
       rawAreaSqm = headerMap.areaSqmIdx !== undefined ? cells[headerMap.areaSqmIdx] || '' : '';
+      rawExclusiveAreaSqm = headerMap.exclusiveAreaSqmIdx !== undefined ? cells[headerMap.exclusiveAreaSqmIdx] || '' : '';
+      rawExclusiveAreaPy = headerMap.exclusiveAreaPyIdx !== undefined ? cells[headerMap.exclusiveAreaPyIdx] || '' : '';
       rawAreaPy = headerMap.areaPyIdx !== undefined ? cells[headerMap.areaPyIdx] || '' : '';
       rawDeposit = cells[headerMap.depositIdx] || '0';
       rawRent = cells[headerMap.rentIdx] || '0';
@@ -338,8 +423,32 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
     const parsedDep = parseManwonAmount(rawDeposit);
     const parsedRent = parseManwonAmount(rawRent);
     const parsedMaint = parseManwonAmount(rawMaintenance);
-    const areaSqmVal = parseFloat(String(rawAreaSqm).replace(/,/g, ''));
-    const areaPyVal = parseFloat(String(rawAreaPy).replace(/,/g, ''));
+    let areaSqmVal = parseFloat(String(rawAreaSqm).replace(/,/g, ''));
+    let exclusiveAreaSqmVal = parseFloat(String(rawExclusiveAreaSqm).replace(/,/g, ''));
+    const exclusiveAreaPyVal = parseFloat(String(rawExclusiveAreaPy).replace(/,/g, ''));
+    let areaPyVal = parseFloat(String(rawAreaPy).replace(/,/g, ''));
+
+    if (
+      (!Number.isFinite(exclusiveAreaSqmVal) || exclusiveAreaSqmVal <= 0) &&
+      Number.isFinite(exclusiveAreaPyVal) &&
+      exclusiveAreaPyVal > 0
+    ) {
+      exclusiveAreaSqmVal = Math.round(exclusiveAreaPyVal * 3.3058 * 100) / 100;
+    }
+
+    if (
+      (!Number.isFinite(areaSqmVal) || areaSqmVal <= 0) &&
+      Number.isFinite(areaPyVal) &&
+      areaPyVal > 0
+    ) {
+      areaSqmVal = Math.round(areaPyVal * 3.3058 * 100) / 100;
+    } else if (
+      (!Number.isFinite(areaSqmVal) || areaSqmVal <= 0) &&
+      Number.isFinite(exclusiveAreaSqmVal) &&
+      exclusiveAreaSqmVal > 0
+    ) {
+      areaSqmVal = exclusiveAreaSqmVal;
+    }
 
     let unitMistakeWarning: string | undefined;
     if (parsedDep.isSuspiciousUnitMistake || parsedRent.isSuspiciousUnitMistake || parsedMaint.isSuspiciousUnitMistake) {
@@ -354,7 +463,11 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
       floor: normalizeFloorName(floor || `${rows.length + 1}F`),
       unit: unit || `${rows.length + 1}호`,
       use: status === 'vacant' && (!use || use === '공실') ? '공실' : (use || '근린생활시설'),
+      ...(tenantName ? { tenantName } : {}),
       ...(Number.isFinite(areaSqmVal) && areaSqmVal > 0 ? { areaSqm: areaSqmVal } : {}),
+      ...(Number.isFinite(exclusiveAreaSqmVal) && exclusiveAreaSqmVal > 0
+        ? { exclusiveAreaSqm: exclusiveAreaSqmVal }
+        : {}),
       ...(Number.isFinite(areaPyVal) && areaPyVal > 0 ? { areaPyeong: areaPyVal } : {}),
       depositManwon: parsedDep.manwon,
       monthlyRentManwon: status === 'vacant' && parsedRent.manwon === 0 ? 0 : parsedRent.manwon,

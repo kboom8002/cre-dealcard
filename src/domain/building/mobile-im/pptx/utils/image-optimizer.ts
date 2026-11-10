@@ -58,6 +58,9 @@ export async function optimizeImageForPptx(
   quality = 75
 ): Promise<OptimizedImage | null> {
   try {
+    if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.startsWith('blob:')) {
+      return null;
+    }
     let inputBuffer: Buffer;
 
     if (imageUrl.startsWith('data:') || /^image\/[a-zA-Z0-9.+-]+;base64,/.test(imageUrl)) {
@@ -92,9 +95,30 @@ export async function optimizeImageForPptx(
       const fs = await import('fs');
       const path = await import('path');
       let localPath = imageUrl;
-      if (fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
+      if (imageUrl.startsWith('/api/public/testguide-assets/')) {
+        const relSlug = decodeURIComponent(imageUrl.replace(/^\/api\/public\/testguide-assets\//, ''));
+        const im261110Path = path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs', 'im261110', relSlug);
+        const testguidePath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs', 'testguide', relSlug);
+        if (fs.existsSync(/*turbopackIgnore: true*/ im261110Path)) {
+          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ im261110Path);
+        } else if (fs.existsSync(/*turbopackIgnore: true*/ testguidePath)) {
+          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ testguidePath);
+        } else {
+          inputBuffer = await sharp({
+            create: {
+              width: 1280,
+              height: 853,
+              channels: 3,
+              background: { r: 30, g: 41, b: 59 },
+            },
+          })
+            .jpeg({ quality: 88, mozjpeg: true })
+            .toBuffer();
+        }
+      }
+      if (!inputBuffer! && fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
         inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
-      } else if (imageUrl.startsWith('/')) {
+      } else if (!inputBuffer! && imageUrl.startsWith('/')) {
         localPath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', imageUrl);
         if (fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
           inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
@@ -125,6 +149,7 @@ export async function optimizeImageForPptx(
         width: Math.min(originalWidth, maxWidth),
         withoutEnlargement: true,
       })
+      .flatten({ background: '#ffffff' })
       .jpeg({
         quality,
         progressive: true,

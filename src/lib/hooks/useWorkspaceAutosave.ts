@@ -90,15 +90,23 @@ export function useWorkspaceAutosave<T>(
 
   const lastSavedJsonRef = useRef<string | null>(null);
   const prevIdRef = useRef<string | null>(id);
+  const latestDataByIdRef = useRef<Map<string, T>>(new Map());
   const pendingSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const intervalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inFlightPromiseRef = useRef<Promise<boolean> | null>(null);
   const isMountedRef = useRef<boolean>(true);
 
+  if (id) {
+    latestDataByIdRef.current.set(id, data);
+  }
+
   // Keep refs up to date
   useEffect(() => {
     dataRef.current = data;
     idRef.current = id;
+    if (id) {
+      latestDataByIdRef.current.set(id, data);
+    }
     readyRef.current = ready;
     enabledRef.current = enabled;
     expectedVersionRef.current = expectedVersion;
@@ -122,11 +130,16 @@ export function useWorkspaceAutosave<T>(
 
   // Execute the actual save
   const executeSave = useCallback(
-    async (ignoreConflict: boolean = false): Promise<boolean> => {
-      const currentId = idRef.current;
+    async (
+      ignoreConflict: boolean = false,
+      overrideId?: string | null,
+      overrideData?: T
+    ): Promise<boolean> => {
+      const currentId = overrideId ?? idRef.current;
       if (!currentId || !readyRef.current || !enabledRef.current) {
         return false;
       }
+      const isOverrideSave = overrideId !== undefined && overrideId !== idRef.current;
 
       // Check offline status
       const currentlyOnline = typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean'
@@ -147,6 +160,7 @@ export function useWorkspaceAutosave<T>(
           if (
             prevOk &&
             !ignoreConflict &&
+            !isOverrideSave &&
             lastSavedJsonRef.current !== null &&
             lastSavedJsonRef.current === JSON.stringify(dataRef.current)
           ) {
@@ -157,7 +171,7 @@ export function useWorkspaceAutosave<T>(
         }
       }
 
-      const payloadData = dataRef.current;
+      const payloadData = overrideData !== undefined ? overrideData : dataRef.current;
       const jsonToSave = JSON.stringify(payloadData);
       const versionToSend = ignoreConflict ? null : expectedVersionRef.current;
 
@@ -176,17 +190,19 @@ export function useWorkspaceAutosave<T>(
 
           if (!isMountedRef.current) return true;
 
-          if (res && typeof res === 'object' && 'savedData' in res && res.savedData !== undefined) {
-            lastSavedJsonRef.current = JSON.stringify(res.savedData);
-          } else {
-            lastSavedJsonRef.current = jsonToSave;
-          }
-          if (pendingSaveTimerRef.current && lastSavedJsonRef.current === JSON.stringify(dataRef.current)) {
-            clearTimeout(pendingSaveTimerRef.current);
-            pendingSaveTimerRef.current = null;
-          }
-          if (res?.version !== undefined && res.version !== null) {
-            expectedVersionRef.current = res.version;
+          if (!isOverrideSave && currentId === idRef.current) {
+            if (res && typeof res === 'object' && 'savedData' in res && res.savedData !== undefined) {
+              lastSavedJsonRef.current = JSON.stringify(res.savedData);
+            } else {
+              lastSavedJsonRef.current = jsonToSave;
+            }
+            if (pendingSaveTimerRef.current && lastSavedJsonRef.current === JSON.stringify(dataRef.current)) {
+              clearTimeout(pendingSaveTimerRef.current);
+              pendingSaveTimerRef.current = null;
+            }
+            if (res?.version !== undefined && res.version !== null) {
+              expectedVersionRef.current = res.version;
+            }
           }
 
           setLastSavedAt(new Date());
@@ -282,14 +298,25 @@ export function useWorkspaceAutosave<T>(
 
   // Debounce effect on data change
   useEffect(() => {
-    if (!ready || !enabled || !id) return;
-    if (prevIdRef.current !== id) {
-      prevIdRef.current = id;
-      lastSavedJsonRef.current = currentJson;
+    if (!ready || !enabled || !id) {
       if (pendingSaveTimerRef.current) {
         clearTimeout(pendingSaveTimerRef.current);
         pendingSaveTimerRef.current = null;
       }
+      return;
+    }
+    if (prevIdRef.current !== id) {
+      const prevId = prevIdRef.current;
+      if (pendingSaveTimerRef.current) {
+        clearTimeout(pendingSaveTimerRef.current);
+        pendingSaveTimerRef.current = null;
+        if (prevId && latestDataByIdRef.current.has(prevId)) {
+          const prevData = latestDataByIdRef.current.get(prevId)!;
+          void executeSave(false, prevId, prevData);
+        }
+      }
+      prevIdRef.current = id;
+      lastSavedJsonRef.current = currentJson;
       setStatus('idle');
       return;
     }
@@ -299,6 +326,10 @@ export function useWorkspaceAutosave<T>(
     }
 
     if (lastSavedJsonRef.current === currentJson) {
+      if (pendingSaveTimerRef.current) {
+        clearTimeout(pendingSaveTimerRef.current);
+        pendingSaveTimerRef.current = null;
+      }
       return;
     }
 
@@ -322,13 +353,6 @@ export function useWorkspaceAutosave<T>(
       pendingSaveTimerRef.current = null;
       void executeSave(false);
     }, debounceMs);
-
-    return () => {
-      if (pendingSaveTimerRef.current) {
-        clearTimeout(pendingSaveTimerRef.current);
-        pendingSaveTimerRef.current = null;
-      }
-    };
   }, [currentJson, ready, enabled, id, debounceMs, executeSave]);
 
   // 30s Periodic save fallback if dirty

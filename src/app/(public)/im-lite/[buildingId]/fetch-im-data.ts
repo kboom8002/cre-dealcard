@@ -20,10 +20,34 @@ import {
   getInboxState,
   getQuickImRecord,
   isUuid,
+  resolveOrSynthesizeQuickImRecord,
   synthesizeQuickRecordFromImItem,
   type StoredQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
 import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+
+function isValidPhotoUrl(url: unknown): url is string {
+  if (typeof url !== "string") return false;
+  const t = url.trim();
+  if (!t || t.startsWith("blob:") || t.includes("/test-images/dangsan")) return false;
+  return (
+    t.startsWith("http://") ||
+    t.startsWith("https://") ||
+    t.startsWith("/") ||
+    t.startsWith("data:image/")
+  );
+}
+
+function formatAxiosHighlights(rawHighlights: unknown): string[] {
+  if (!Array.isArray(rawHighlights)) return [];
+  return rawHighlights
+    .map((h: any) =>
+      typeof h === "string"
+        ? h.trim()
+        : [h?.headline, h?.brief].filter(Boolean).join(" — ").trim()
+    )
+    .filter((s) => s.length > 0);
+}
 
 function isValidKoreanCoord(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
@@ -278,9 +302,21 @@ async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof bui
 }
 
 function hydrateQuickRecordToMobileIM(
-  quickRec: StoredQuickImRecord,
-  dbGovernance?: DbGovernanceOverlay
+  buildingIdOrRec: string | StoredQuickImRecord,
+  recOrGovernance?: StoredQuickImRecord | DbGovernanceOverlay,
+  maybeGovernance?: DbGovernanceOverlay
 ): MobileIMDocument {
+  const quickRec =
+    typeof buildingIdOrRec === "string"
+      ? (recOrGovernance as StoredQuickImRecord)
+      : buildingIdOrRec;
+  const targetBuildingId =
+    typeof buildingIdOrRec === "string" ? buildingIdOrRec : quickRec.buildingId;
+  const dbGovernance =
+    typeof buildingIdOrRec === "string"
+      ? maybeGovernance
+      : (recOrGovernance as DbGovernanceOverlay | undefined);
+
   const bDoc = quickRec.basicImDoc;
   const facts = bDoc.facts;
   const brokerObj = buildBrokerObject(null);
@@ -308,8 +344,26 @@ function hydrateQuickRecordToMobileIM(
     if (quickRec.brokerProfile.bio) brokerObj.bio = quickRec.brokerProfile.bio;
   }
 
+  const rawPhotosList =
+    Array.isArray(quickRec.fullDocBody?.photos) && quickRec.fullDocBody.photos.length > 0
+      ? quickRec.fullDocBody.photos
+      : facts.photos || [];
+  const filteredPhotos = rawPhotosList
+    .filter((p: any) => p && isValidPhotoUrl(p.url))
+    .map((p: any, i: number) => ({
+      url: p.url,
+      type: i === 0 ? ("exterior" as const) : ("interior" as const),
+      label: p.caption || p.label || (i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`),
+    }));
+
+  const resolvedCoords =
+    quickRec.coordinates ||
+    quickRec.fullDocBody?.coordinates ||
+    quickRec.fullDocBody?.ssot_summary?.coordinates ||
+    undefined;
+
   const doc: MobileIMDocument = {
-    buildingId: quickRec.buildingId,
+    buildingId: targetBuildingId,
     blindName: quickRec.buildingName || `${quickRec.card4.region} ${quickRec.card4.use}`,
     fullName: quickRec.buildingName || facts.title,
     areaSignal: quickRec.card4.region,
@@ -343,17 +397,14 @@ function hydrateQuickRecordToMobileIM(
       description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
     },
     protectedFieldsRemoved: ["상세 지번", "소유주명"],
-    photos: (facts.photos || []).map((p, i) => ({
-      url: p.url,
-      type: i === 0 ? ("exterior" as const) : ("interior" as const),
-      label: p.caption || (i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`),
-    })),
+    photos: filteredPhotos,
+    coordinates: resolvedCoords,
     dataQualityBadge: computeDataQualityBadge({
       hasAddress: Boolean(quickRec.address),
       hasPublicData: true,
       hasMonthlyRent: facts.rent.monthlyRentTotalKrw > 0,
       hasVacancy: true,
-      hasPhotos: (facts.photos?.length || 0) > 0,
+      hasPhotos: filteredPhotos.length > 0,
       hasAskingPrice: facts.transaction.askingPriceKrw > 0,
       hasLandArea: facts.land.landAreaSqm > 0,
       hasTotalGrossArea: facts.building.totalGrossAreaSqm > 0,
@@ -400,13 +451,20 @@ function hydrateQuickRecordToMobileIM(
   (doc as any).rentRoll = quickRec.rentRoll;
   (doc as any).floor_leases = quickRec.fullDocBody?.floor_leases || quickRec.rentRoll;
   (doc as any).ssotSummary = quickRec.fullDocBody?.ssot_summary;
-  return attachInboxGovernanceOverlay(doc, quickRec.buildingId, quickRec, dbGovernance);
+  (doc as any).pnu =
+    quickRec.pnu ||
+    quickRec.fullDocBody?.pnu ||
+    quickRec.fullDocBody?.ssot_summary?.pnu ||
+    undefined;
+  return attachInboxGovernanceOverlay(doc, targetBuildingId, quickRec, dbGovernance);
 }
 
 interface DbGovernanceOverlay {
   revoked?: boolean;
   revokedAt?: string | null;
+  revokeDecisionAt?: string | null;
   correctionNotice?: { message: string; updatedAt: string } | null;
+  correctionDecisionAt?: string | null;
 }
 
 function attachInboxGovernanceOverlay(
@@ -417,21 +475,43 @@ function attachInboxGovernanceOverlay(
 ): MobileIMDocument {
   const inboxState = getInboxState();
   const revokedInfo = inboxState.revokedBuildings[buildingId];
-  const isRevoked =
-    Boolean(revokedInfo?.revoked) ||
-    isBuildingShareLinkRevoked(buildingId) ||
-    (dbGovernance?.revoked !== undefined
-      ? dbGovernance.revoked
-      : Boolean(sourceMeta?.isRevoked) || Boolean(sourceMeta?.is_revoked));
-  const correctionNotice =
-    inboxState.correctionNotices[buildingId] ||
-    (dbGovernance?.correctionNotice !== undefined
-      ? dbGovernance.correctionNotice
-      : sourceMeta?.correctionNotice || sourceMeta?.correction_notice || null);
+  const localRevoked = Boolean(revokedInfo?.revoked) || isBuildingShareLinkRevoked(buildingId);
+  const localRevokeTime = revokedInfo?.revokedAt ? new Date(revokedInfo.revokedAt).getTime() : 0;
+  const dbRevokeTime = dbGovernance?.revokeDecisionAt
+    ? new Date(dbGovernance.revokeDecisionAt).getTime()
+    : 0;
+
+  let isRevoked: boolean;
+  if (dbGovernance?.revoked !== undefined && dbRevokeTime >= localRevokeTime) {
+    isRevoked = dbGovernance.revoked;
+  } else {
+    isRevoked =
+      localRevoked ||
+      Boolean(sourceMeta?.isRevoked) ||
+      Boolean(sourceMeta?.is_revoked);
+  }
+
+  const localNotice = inboxState.correctionNotices[buildingId];
+  const localNoticeTime = localNotice?.updatedAt ? new Date(localNotice.updatedAt).getTime() : 0;
+  const dbNoticeTime = dbGovernance?.correctionDecisionAt
+    ? new Date(dbGovernance.correctionDecisionAt).getTime()
+    : 0;
+
+  let correctionNotice: { message: string; updatedAt: string } | null;
+  if (dbGovernance?.correctionNotice !== undefined && dbNoticeTime >= localNoticeTime) {
+    correctionNotice = dbGovernance.correctionNotice;
+  } else {
+    correctionNotice =
+      localNotice ||
+      sourceMeta?.correctionNotice ||
+      sourceMeta?.correction_notice ||
+      null;
+  }
 
   (doc as any).isRevoked = isRevoked;
-  (doc as any).revokedAt =
-    revokedInfo?.revokedAt || dbGovernance?.revokedAt || sourceMeta?.revoked_at || null;
+  (doc as any).revokedAt = isRevoked
+    ? dbGovernance?.revokedAt || revokedInfo?.revokedAt || sourceMeta?.revoked_at || null
+    : null;
   (doc as any).correctionNotice = correctionNotice;
   return doc;
 }
@@ -487,39 +567,32 @@ export async function fetchIMData(
   const dbGovernance: DbGovernanceOverlay = {};
   if (supabase) {
     try {
-      const { data: imEvents } = await supabase
+      // 1) Low-frequency governance events (never evicted by high-frequency im_upserted autosaves — S1-1/S1-2)
+      const { data: govEvents } = await supabase
         .from("activity_events")
         .select("event_type, entity_id, metadata, created_at")
         .in("event_type", [
-          "im_upserted",
-          "im_deleted",
-          "im_restored",
           "link_revoked",
           "link_restored",
           "correction_notice_published",
           "correction_notice_cleared",
         ])
         .order("created_at", { ascending: false })
-        .limit(80);
+        .limit(200);
 
-      if (Array.isArray(imEvents)) {
-        let decidedDeleted = false;
-        let decidedRestored = false;
-        let decidedIm = false;
+      if (Array.isArray(govEvents)) {
         let decidedRevoke = false;
         let decidedCorrection = false;
-
-        for (const ev of imEvents) {
+        for (const ev of govEvents) {
           const meta = (ev.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, any>;
           const evBId = String(meta.building_id || ev.entity_id || "");
-          const evImId = String(meta.im_id || meta.im_item?.id || "");
-          const evItemBid = String(meta.im_item?.buildingId || "");
-          if (evBId !== buildingId && evImId !== buildingId && evItemBid !== buildingId) continue;
+          if (evBId !== buildingId) continue;
 
           if (!decidedRevoke && (ev.event_type === "link_revoked" || ev.event_type === "link_restored")) {
             decidedRevoke = true;
             dbGovernance.revoked = ev.event_type === "link_revoked";
             dbGovernance.revokedAt = ev.event_type === "link_revoked" ? ev.created_at || null : null;
+            dbGovernance.revokeDecisionAt = ev.created_at || new Date().toISOString();
           }
 
           if (
@@ -527,6 +600,7 @@ export async function fetchIMData(
             (ev.event_type === "correction_notice_published" || ev.event_type === "correction_notice_cleared")
           ) {
             decidedCorrection = true;
+            dbGovernance.correctionDecisionAt = ev.created_at || new Date().toISOString();
             dbGovernance.correctionNotice =
               ev.event_type === "correction_notice_published" && meta.message
                 ? {
@@ -535,6 +609,33 @@ export async function fetchIMData(
                   }
                 : null;
           }
+          if (decidedRevoke && decidedCorrection) break;
+        }
+      }
+
+      // 2) IM lifecycle events
+      const { data: imEvents } = await supabase
+        .from("activity_events")
+        .select("event_type, entity_id, metadata, created_at")
+        .in("event_type", [
+          "im_upserted",
+          "im_deleted",
+          "im_restored",
+        ])
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (Array.isArray(imEvents)) {
+        let decidedDeleted = false;
+        let decidedRestored = false;
+        let decidedIm = false;
+
+        for (const ev of imEvents) {
+          const meta = (ev.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, any>;
+          const evBId = String(meta.building_id || ev.entity_id || "");
+          const evImId = String(meta.im_id || meta.im_item?.id || "");
+          const evItemBid = String(meta.im_item?.buildingId || "");
+          if (evBId !== buildingId && evImId !== buildingId && evItemBid !== buildingId) continue;
 
           if (!decidedIm) {
             if (ev.event_type === "im_deleted") {
@@ -563,9 +664,20 @@ export async function fetchIMData(
   }
 
   // 0. Quick-Generate Store lookup (non-UUID or matching quick-generate document)
-  const earlyQuickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
+  const memQuickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
+  const earlyQuickRec =
+    latestImUpsert?.imItem && (memQuickRec || !isUuid(buildingId))
+      ? synthesizeQuickRecordFromImItem(
+          buildingId,
+          latestImUpsert.imItem,
+          latestImUpsert.brokerProfile
+        )
+      : memQuickRec ||
+        (!isUuid(buildingId)
+          ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)
+          : null);
   if (earlyQuickRec && (!docId || earlyQuickRec.documentId === docId || !isUuid(buildingId))) {
-    return hydrateQuickRecordToMobileIM(earlyQuickRec, dbGovernance);
+    return hydrateQuickRecordToMobileIM(buildingId, earlyQuickRec, dbGovernance);
   }
 
   // 1. Demo data
@@ -576,99 +688,18 @@ export async function fetchIMData(
     return null;
   }
 
-  // Non-UUID custom IM IDs with activity_events upsert: synthesize directly from latestImUpsert
-  if (!isUuid(buildingId) && latestImUpsert) {
-    const it = latestImUpsert.imItem;
-    const bp = latestImUpsert.brokerProfile;
-    const brokerObj = buildBrokerObject(
-      bp
-        ? {
-            display_name: bp.displayName,
-            company: bp.company,
-            phone: bp.phone,
-            tagline: bp.tagline,
-            photo_url: bp.photoUrl,
-            slug: bp.slug,
-            specialty_regions: bp.specialtyRegions,
-            specialty_assets: bp.specialtyAssets,
-            bio: bp.bio,
-          }
-        : null
-    );
-    const askManwon = Number(it.askingPriceManwon) || 1000000;
-    const eokStr = `${(askManwon / 10000).toFixed(1).replace(/\.0$/, "")}억 원`;
-    const gfaSqm = Number(it.gfaSqm) || 1200;
-    const landSqm = Number(it.landAreaSqm) || 350;
-    const customDoc: MobileIMDocument = {
-      buildingId,
-      blindName: String(it.title || it.address || "상업용 빌딩"),
-      fullName: String(it.title || it.address || "상업용 빌딩"),
-      areaSignal: String(it.address || "서울시 핵심 권역"),
-      assetType: "근린생활시설·오피스",
-      priceBand: eokStr,
-      sizeSignal: `연면적 ${gfaSqm.toLocaleString()}㎡`,
-      completenessScore: 85,
-      broker: brokerObj,
-      sections: [],
-      generatedAt: new Date().toISOString(),
-      status: "published",
-      disclaimer:
-        "본 자료는 고객 검토용으로 작성되었으며 법적 구속력을 갖지 않습니다.",
-      fullImUpgradeCta: {
-        enabled: true,
-        label: "상세 투자설명서(IM) 요청",
-        description: "상세 투자설명서(IM)는 담당 공인중개사를 통해 안내받으실 수 있습니다.",
-      },
-      protectedFieldsRemoved: [],
-      photos: [],
-      heroCard: {
-        assetType: "근린생활시설·오피스",
-        areaSignal: String(it.address || "서울시 핵심 권역"),
-        askingPriceDisplay: eokStr,
-        capRateBase: Number(it.capRatePct) || 4.2,
-        noiBaseBil: null,
-        keyPoints: Array.isArray(it.axiosHighlights)
-          ? it.axiosHighlights.filter((h: unknown) => typeof h === "string" && h.trim().length > 0)
-          : undefined,
-        keyInvestmentPoint: Array.isArray(it.axiosHighlights) ? it.axiosHighlights[0] : "",
-        keyRisk: "계약 전 법률·세무·물리적 실사를 통한 리스크 확인 권장",
-        equityRequiredBil: null,
-        leveragedYieldPct: null,
-        readinessScore: 85,
-        dcf10YearNpvBil: null,
-        posture: (it.investmentPosture || "core_income") as any,
-        landAreaM2: landSqm,
-        totalGrossAreaM2: gfaSqm,
-        zoning: String(it.zoning || "일반상업지역"),
-        landPricePerPyeong: null,
-        farHeadroom: null,
-        devProfitMarginPct: null,
-        gopMarginPct: null,
-        adr: null,
-        occPct: Number(it.occupancyPct) || 100,
-        revpar: null,
-        ownVsLeaseSavingsBil: null,
-        breakevenYears: null,
-        pricePerPyeong: null,
-        marketDiscountPct: null,
-        targetHprPct: null,
-      },
-      tier: "basic",
-      releaseTier: "fact_om",
-    };
-    (customDoc as any).rentRoll = Array.isArray(it.rentRoll) ? it.rentRoll : undefined;
-    (customDoc as any).floor_leases = Array.isArray(it.rentRoll) ? it.rentRoll : undefined;
-    (customDoc as any).ssotSummary = {
-      address: it.address,
-      investment_posture: it.investmentPosture || "core_income",
-      asking_price_manwon: askManwon,
-      total_gross_area_sqm: gfaSqm,
-      land_area_sqm: landSqm,
-      zoning: it.zoning || "일반상업지역",
-      completion_date: it.completionDate || "2018-06",
-      handover_note: it.handoverNote,
-    };
-    return attachInboxGovernanceOverlay(customDoc, buildingId, undefined, dbGovernance);
+  // Non-UUID custom IM IDs: synthesize via QuickImRecord so full sections are hydrated
+  if (!isUuid(buildingId)) {
+    const quickRec = latestImUpsert?.imItem
+      ? synthesizeQuickRecordFromImItem(
+          buildingId,
+          latestImUpsert.imItem,
+          latestImUpsert.brokerProfile
+        )
+      : await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
+    if (quickRec) {
+      return hydrateQuickRecordToMobileIM(buildingId, quickRec, dbGovernance);
+    }
   }
 
   // P0-SEC: building visibility + owner (read directly from the SSoT source table).
@@ -753,7 +784,7 @@ export async function fetchIMData(
         label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
         caption: undefined as string | undefined,
       }))).filter((p: any) => p?.url && p.excluded !== true // 중개인 'IM 제외' 지정 자산 제거 (PPTX resolvePhotos와 동일)
-        && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/')));
+        && isValidPhotoUrl(p.url));
 
     if (finalCoordinates) {
       const kakaoMapUrl = buildKakaoStaticMapUrl({
@@ -1054,7 +1085,7 @@ export async function fetchIMData(
       if (mappedResult.heroCard) {
         if (it.investmentPosture) (mappedResult.heroCard as any).posture = it.investmentPosture;
         if (Array.isArray(it.axiosHighlights)) {
-          const cleanPts = it.axiosHighlights.filter((h: unknown) => typeof h === "string" && h.trim().length > 0);
+          const cleanPts = formatAxiosHighlights(it.axiosHighlights);
           if (cleanPts.length > 0) {
             mappedResult.heroCard.keyPoints = cleanPts;
             mappedResult.heroCard.keyInvestmentPoint = cleanPts[0];
@@ -1074,16 +1105,16 @@ export async function fetchIMData(
       latestImUpsert.imItem,
       latestImUpsert.brokerProfile
     );
-    return hydrateQuickRecordToMobileIM(synthRec, dbGovernance);
+    return hydrateQuickRecordToMobileIM(buildingId, synthRec, dbGovernance);
   }
 
   const result = await readBuilding(buildingId);
   const ssot = (result?.data ?? result ?? {}) as Record<string, any>;
 
   if (!ssot || Object.keys(ssot).length === 0 || (ssot.completeness_score ?? 0) < 30) {
-    const quickRec = getQuickImRecord(buildingId) || (docId ? getQuickImRecord(docId) : null);
+    const quickRec = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
     if (quickRec) {
-      return hydrateQuickRecordToMobileIM(quickRec, dbGovernance);
+      return hydrateQuickRecordToMobileIM(buildingId, quickRec, dbGovernance);
     }
     return null;
   }
@@ -1200,7 +1231,7 @@ export async function fetchIMData(
           type: i === 0 ? "exterior" : "interior",
           label: i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`,
         }))
-      : []).filter((p: any) => p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/'))),
+      : []).filter((p: any) => p?.url && isValidPhotoUrl(p.url)),
     coordinates: layers.coordinates || undefined,
     dataQualityBadge: computeDataQualityBadge({
       hasAddress: !!(ssot.layers as any)?.asset_identity?.address || !!(ssot.layers as any)?.asset_identity?.raw_address,

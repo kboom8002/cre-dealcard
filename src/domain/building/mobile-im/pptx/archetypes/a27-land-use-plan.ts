@@ -688,15 +688,27 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   }
 
   if (planEntries.length > 0) {
-    const totalWeight = planEntries.reduce((acc, e) => acc + e.weight, 0);
-    const minRowH = hasMultiParcelTable ? 0.36 : 0.44;
-    const rowHeights = planEntries.map((e) => {
-      const maxRowH = e.value.length > 160 ? 1.45 : e.value.length > 80 ? 1.05 : 0.72;
+    const cappedPlanEntries = hasMultiParcelTable ? planEntries.slice(0, 4) : planEntries;
+    const totalWeight = cappedPlanEntries.reduce((acc, e) => acc + e.weight, 0);
+    const minRowH = hasMultiParcelTable ? 0.28 : 0.44;
+    let rowHeights = cappedPlanEntries.map((e) => {
+      const maxRowH = hasMultiParcelTable
+        ? 0.52
+        : e.value.length > 160
+        ? 1.45
+        : e.value.length > 80
+        ? 1.05
+        : 0.72;
       const rawH = (availPlanH * e.weight) / totalWeight;
       return Number(Math.min(maxRowH, Math.max(minRowH, rawH)).toFixed(2));
     });
+    const sumRowH = rowHeights.reduce((acc, h) => acc + h, 0);
+    if (sumRowH > availPlanH && sumRowH > 0) {
+      const scale = availPlanH / sumRowH;
+      rowHeights = rowHeights.map((h) => Number(Math.max(0.24, h * scale).toFixed(2)));
+    }
 
-    const planTblRows = planEntries.map((entry) => [
+    const planTblRows = cappedPlanEntries.map((entry) => [
       {
         text: entry.label,
         options: {
@@ -739,7 +751,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   // 다필지 부속 테이블 (2필지 이상인 경우에만 하단 컴팩트 표시)
   // ─────────────────────────────────────────────────────────────
   if (hasMultiParcelTable) {
-    const pRows: ParcelRowItem[] = d.parcelRows.slice(0, 4);
+    const pRows: ParcelRowItem[] = d.parcelRows.slice(0, 5);
     const mpHeader = ['소재지(지번)', '지목', '면적', '공시지가(㎡)'].map((hText) => ({
       text: hText,
       options: {
@@ -809,7 +821,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
       y: 5.26,
       w: leftW,
       colW: [2.25, 0.80, 1.35, 1.40],
-      rowH: 0.21,
+      rowH: 0.18,
       border: { type: 'solid', pt: 0.5, color: C.line },
     });
   }

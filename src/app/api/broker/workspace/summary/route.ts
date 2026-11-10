@@ -21,6 +21,9 @@ import {
   isDealCardDeleted,
   markDealCardSent,
   isDealCardSent,
+  synthesizeQuickRecordFromImItem,
+  deleteQuickImRecord,
+  resolveKnownTestAssetUrl,
 } from "@/lib/im-lite/quick-generate-store";
 import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
 
@@ -701,7 +704,16 @@ export async function PATCH(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const action = (body?.action as string | undefined) || "upsert";
-  const buildingId = body?.buildingId as string | undefined;
+  const incomingImObj =
+    body?.imItem && typeof body.imItem === "object"
+      ? (body.imItem as Record<string, any>)
+      : body?.item && typeof body.item === "object"
+      ? (body.item as Record<string, any>)
+      : null;
+  const buildingId = (body?.buildingId ||
+    incomingImObj?.buildingId ||
+    incomingImObj?.id ||
+    body?.id) as string | undefined;
   const card4 = body?.card4 as Card4Data | undefined;
 
   if (!buildingId) {
@@ -844,6 +856,10 @@ export async function PATCH(request: NextRequest) {
   // Handle IM delete action (P0-META-IM-DELETE-04)
   if (action === "delete_im") {
     const imId = String(body?.imId || buildingId);
+    deleteQuickImRecord(buildingId);
+    if (imId && imId !== buildingId) {
+      deleteQuickImRecord(imId);
+    }
     try {
       await supabase.from("activity_events").insert({
         actor_id: auth.user.id,
@@ -870,6 +886,9 @@ export async function PATCH(request: NextRequest) {
   if (action === "restore_im") {
     const imId = String(body?.imId || buildingId);
     const imItem = body?.imItem && typeof body.imItem === "object" ? body.imItem : undefined;
+    if (imItem) {
+      synthesizeQuickRecordFromImItem(buildingId, imItem as Record<string, any>, brokerProfileMeta, auth.user.id);
+    }
     try {
       await supabase.from("activity_events").insert({
         actor_id: auth.user.id,
@@ -895,11 +914,79 @@ export async function PATCH(request: NextRequest) {
 
   // Handle IM autosave / upsert action (P0-META-IM-PERSIST-03)
   if (action === "upsert_im") {
-    const imItem = body?.imItem && typeof body.imItem === "object" ? (body.imItem as Record<string, any>) : null;
+    const imItem = incomingImObj;
     if (!imItem) {
       return NextResponse.json({ error: "imItem is required for upsert_im" }, { status: 400 });
     }
     const imId = String(imItem.id || buildingId);
+    const incomingRealPhotos = Array.isArray(imItem.photos)
+      ? imItem.photos
+          .map((p: any) => {
+            const rawU =
+              typeof p === "string" ? p : String(p?.url || p?.dataUrl || p?.previewUrl || "");
+            const resolvedU = resolveKnownTestAssetUrl(p?.name || rawU) || rawU;
+            if (
+              !resolvedU ||
+              resolvedU.trim().length === 0 ||
+              resolvedU.startsWith("blob:") ||
+              resolvedU.startsWith("/test-images/")
+            ) {
+              return null;
+            }
+            return typeof p === "string" ? { url: resolvedU } : { ...p, url: resolvedU };
+          })
+          .filter(Boolean)
+      : [];
+
+    const rawRentRoll = Array.isArray(imItem.rentRoll) ? imItem.rentRoll : [];
+    let monthlyRentTotalManwon = 0;
+    let totalDepositManwon = 0;
+    let totalMaintManwon = 0;
+    let vacantCount = 0;
+    for (const r of rawRentRoll) {
+      if (!r) continue;
+      const isVac =
+        r?.status === "vacant" ||
+        r?.is_vacant === true ||
+        r?.lease_state === "공실" ||
+        r?.use === "공실";
+      const isOwn =
+        !isVac &&
+        (r?.status === "owner" ||
+          r?.lease_state === "자가사용" ||
+          r?.use === "자가사용" ||
+          r?.use === "자가");
+      if (isVac) {
+        vacantCount++;
+      } else if (!isOwn) {
+        totalDepositManwon += Number(r?.depositManwon ?? r?.deposit_manwon ?? 0);
+        monthlyRentTotalManwon += Number(r?.monthlyRentManwon ?? r?.rent_manwon ?? 0);
+        totalMaintManwon += Number(r?.maintenanceManwon ?? r?.mgmt_fee_manwon ?? 0);
+      }
+    }
+    totalDepositManwon = Math.round(totalDepositManwon * 10) / 10;
+    monthlyRentTotalManwon = Math.round(monthlyRentTotalManwon * 10) / 10;
+    totalMaintManwon = Math.round(totalMaintManwon * 10) / 10;
+    const vacancyPct =
+      rawRentRoll.length > 0
+        ? Number(((vacantCount / rawRentRoll.length) * 100).toFixed(1))
+        : 0;
+    const askingPriceManwonNum = Number(imItem.askingPriceManwon) || 0;
+    const grossYieldPct =
+      askingPriceManwonNum > 0 && monthlyRentTotalManwon > 0
+        ? Number((((monthlyRentTotalManwon * 12) / askingPriceManwonNum) * 100).toFixed(2))
+        : 0;
+    const capRatePct =
+      askingPriceManwonNum > 0 && monthlyRentTotalManwon > 0
+        ? Number(
+            (
+              ((monthlyRentTotalManwon * 12) /
+                Math.max(1, askingPriceManwonNum - totalDepositManwon)) *
+              100
+            ).toFixed(2)
+          )
+        : 0;
+
     try {
       if (isUuid(buildingId)) {
         const docQuery = supabase
@@ -933,7 +1020,8 @@ export async function PATCH(request: NextRequest) {
                 p &&
                 typeof p.url === "string" &&
                 p.url.trim().length > 0 &&
-                !p.url.startsWith("/test-images/")
+                !p.url.startsWith("/test-images/") &&
+                !p.url.startsWith("blob:")
             );
             if (valid.length > 0) {
               siblingRealPhotos = valid;
@@ -952,19 +1040,14 @@ export async function PATCH(request: NextRequest) {
           const prevSsot = (prevBody.ssot_summary && typeof prevBody.ssot_summary === "object" ? prevBody.ssot_summary : {}) as Record<string, any>;
           const prevHero = (prevBody.heroCard && typeof prevBody.heroCard === "object" ? prevBody.heroCard : {}) as Record<string, any>;
           const prevFloorLeases = Array.isArray(prevBody.floor_leases) ? prevBody.floor_leases : [];
-          const incomingRealPhotos = Array.isArray(imItem.photos)
-            ? imItem.photos.filter((p: any) => {
-                const u = typeof p === "string" ? p : String(p?.url || p?.dataUrl || p?.previewUrl || "");
-                return u.trim().length > 0 && !u.startsWith("/test-images/");
-              })
-            : [];
           const prevRealPhotos = Array.isArray(prevBody.photos)
             ? prevBody.photos.filter(
                 (p: any) =>
                   p &&
                   typeof p.url === "string" &&
                   p.url.trim().length > 0 &&
-                  !p.url.startsWith("/test-images/")
+                  !p.url.startsWith("/test-images/") &&
+                  !p.url.startsWith("blob:")
               )
             : [];
           const preservedPhotos =
@@ -973,12 +1056,13 @@ export async function PATCH(request: NextRequest) {
                   url: typeof p === "string" ? p : String(p.url || p.dataUrl || p.previewUrl),
                   caption: p?.caption || p?.name || `${imItem.title || "매물"} 현장 사진 ${idx + 1}`,
                   category: p?.category || (idx === 0 ? "exterior" : "interior"),
+                  type: p?.category || p?.type || (idx === 0 ? "exterior" : "interior"),
                   role: idx === 0 ? "cover" : "interior",
                   isHero: idx === 0,
                 }))
               : prevRealPhotos.length > 0
-              ? prevBody.photos
-              : siblingRealPhotos || prevBody.photos;
+              ? prevRealPhotos
+              : siblingRealPhotos || [];
           const cleanHighlights = Array.isArray(imItem.axiosHighlights)
             ? imItem.axiosHighlights
                 .map((h: any, idx: number) => {
@@ -1023,17 +1107,37 @@ export async function PATCH(request: NextRequest) {
                 const rawAreaM2 = Number(
                   r?.areaSqm ?? r?.area_sqm ?? r?.area_m2 ?? prevFl.area_sqm ?? prevFl.area_m2 ?? 0
                 );
-                const areaM2 = rawAreaM2 > 0 && Math.abs(rawAreaM2 - 2.45) > 0.05 ? rawAreaM2 : 0;
+                const rawAreaPy = Number(r?.areaPyeong ?? r?.area_pyeong ?? 0);
+                const areaM2 =
+                  rawAreaM2 > 0 && Math.abs(rawAreaM2 - 2.45) > 0.05
+                    ? rawAreaM2
+                    : rawAreaPy > 0
+                    ? Math.round(rawAreaPy * 3.305785 * 100) / 100
+                    : 0;
                 const exclM2 = Number(
                   r?.exclusiveAreaSqm ?? r?.exclusive_area_sqm ?? prevFl.exclusive_area_sqm ?? 0
                 );
-                const rawUseParts = String(r?.use || prevFl.tenant_type || prevFl.tenant_name || "")
+                const rawUseStr = String(
+                  r?.use || prevFl.use || prevFl.tenant_type || prevFl.tenant_name || ""
+                ).trim();
+                const slashParts = rawUseStr
                   .split(/\s*\/\s*/)
                   .map((s) => s.trim())
                   .filter(Boolean);
-                const dedupLabel =
-                  Array.from(new Set(rawUseParts)).join(" / ") ||
-                  (isVac ? "공실" : isOwn ? "자가사용" : "근린생활시설");
+                const splitTenantName = slashParts.length >= 2 ? slashParts[0] : undefined;
+                const splitTenantType =
+                  slashParts.length >= 2
+                    ? slashParts[0] === slashParts[1]
+                      ? slashParts[0]
+                      : slashParts.slice(1).join(" / ")
+                    : rawUseStr || (isVac ? "공실" : isOwn ? "자가사용" : "근린생활시설");
+                const explicitTenantName = String(r?.tenantName || r?.tenant_name || "").trim();
+                const resolvedTenantName = isVac
+                  ? "공실"
+                  : isOwn
+                  ? explicitTenantName || splitTenantName || "자가사용"
+                  : explicitTenantName || splitTenantName || prevFl.tenant_name || splitTenantType;
+                const resolvedTenantType = isVac ? "공실" : splitTenantType;
                 const rawFlStr = String(r?.floor || prevFl.floor || `${idx + 1}F`).trim();
                 const roomNumMatch = rawFlStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호$/i);
                 const normFloor = roomNumMatch
@@ -1044,13 +1148,17 @@ export async function PATCH(request: NextRequest) {
                 const normUnit = roomNumMatch
                   ? `${roomNumMatch[1] ? "B" : ""}${roomNumMatch[2]}${roomNumMatch[3]}호`
                   : String(r?.unit || r?.unit_label || prevFl.unit_label || `${idx + 1}01호`);
+                const rowNote =
+                  r?.note !== undefined && String(r.note).trim().length > 0
+                    ? String(r.note).trim()
+                    : prevFl.note;
                 return {
                   ...prevFl,
                   floor: normFloor,
                   unit_label: normUnit,
-                  tenant_name: isVac ? "공실" : isOwn ? "자가사용" : "",
-                  tenant_type: isVac ? "공실" : dedupLabel,
-                  use: isVac ? "공실" : dedupLabel,
+                  tenant_name: resolvedTenantName,
+                  tenant_type: resolvedTenantType,
+                  use: resolvedTenantType,
                   ...(areaM2 > 0
                     ? {
                         area_sqm: areaM2,
@@ -1067,34 +1175,125 @@ export async function PATCH(request: NextRequest) {
                   lease_state: isVac ? "공실" : isOwn ? "자가사용" : "임대중",
                   is_vacant: isVac,
                   lease_end: String(r?.leaseExpiry || r?.lease_end || prevFl.lease_end || "2027.12"),
+                  ...(rowNote ? { note: rowNote, remark: rowNote } : {}),
                   source: prevFl.source || "broker",
                 };
               })
             : prevBody.floor_leases;
+
+          const prevBrokerContact = (
+            prevBody.broker_contact && typeof prevBody.broker_contact === "object"
+              ? prevBody.broker_contact
+              : {}
+          ) as Record<string, any>;
+          const nextBrokerName =
+            cleanBrokerField(
+              imItem.brokerName,
+              cleanBrokerField(
+                prevBrokerContact.brokerName || prevBrokerContact.name,
+                brokerProfileMeta?.displayName
+              )
+            ) || "";
+          const nextBrokerageName =
+            cleanBrokerField(
+              imItem.brokerageName,
+              cleanBrokerField(
+                prevBrokerContact.brokerageName || prevBrokerContact.company,
+                brokerProfileMeta?.company
+              )
+            ) || "";
+          const nextBrokerPhone =
+            cleanBrokerField(
+              imItem.brokerPhone,
+              cleanBrokerField(
+                prevBrokerContact.brokerPhone || prevBrokerContact.phone,
+                brokerProfileMeta?.phone
+              )
+            ) || "";
+
+          const resolvedPnu = imItem.pnu || prevSsot.pnu || prevBody.pnu;
+          const resolvedCoordinates =
+            imItem.coordinates ||
+            (Number.isFinite(Number(imItem.lat)) &&
+            Number.isFinite(Number(imItem.lng)) &&
+            Number(imItem.lat) !== 0 &&
+            Number(imItem.lng) !== 0
+              ? { lat: Number(imItem.lat), lng: Number(imItem.lng) }
+              : undefined) ||
+            prevSsot.coordinates ||
+            prevBody.coordinates;
+
+          const effectiveAskManwon =
+            askingPriceManwonNum || Number(prevSsot.asking_price_manwon) || 0;
+          const hasRentRollUpdate = Array.isArray(imItem.rentRoll);
+          const nextMonthlyRentManwon = hasRentRollUpdate
+            ? monthlyRentTotalManwon
+            : Number(prevSsot.monthly_rent_total_manwon ?? 0);
+          const nextTotalDepositManwon = hasRentRollUpdate
+            ? totalDepositManwon
+            : Number(prevSsot.total_deposit_manwon ?? 0);
+          const nextVacancyPct = hasRentRollUpdate
+            ? vacancyPct
+            : Number(prevSsot.vacancy_pct ?? prevSsot.vacancy_rate_pct ?? 0);
+          const nextGrossYieldPct =
+            effectiveAskManwon > 0 && nextMonthlyRentManwon > 0
+              ? Number((((nextMonthlyRentManwon * 12) / effectiveAskManwon) * 100).toFixed(2))
+              : 0;
+          const nextCapRatePct =
+            effectiveAskManwon > 0 && nextMonthlyRentManwon > 0
+              ? Number(
+                  (
+                    ((nextMonthlyRentManwon * 12) /
+                      Math.max(1, effectiveAskManwon - nextTotalDepositManwon)) *
+                    100
+                  ).toFixed(2)
+                )
+              : 0;
+
           const nextBody = {
             ...prevBody,
             heroTitle: imItem.title || prevBody.heroTitle,
+            ...(resolvedPnu ? { pnu: resolvedPnu } : {}),
+            ...(resolvedCoordinates ? { coordinates: resolvedCoordinates } : {}),
             investment_posture: imItem.investmentPosture || prevBody.investment_posture,
             handover_note: imItem.handoverNote ?? prevBody.handover_note,
             axios_highlights: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevBody.axios_highlights,
             rent_roll: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.rent_roll,
             floor_leases: normalizedFloorLeases,
-            ...(Array.isArray(preservedPhotos) && preservedPhotos.length > 0
-              ? {
-                  photos: preservedPhotos,
-                  photo_urls: preservedPhotos.map((p: any) => p?.url).filter(Boolean),
-                }
-              : {}),
+            photos: preservedPhotos,
+            photos_v2: preservedPhotos,
+            photo_urls: preservedPhotos.map((p: any) => p?.url).filter(Boolean),
+            broker_contact: {
+              ...prevBrokerContact,
+              name: nextBrokerName,
+              company: nextBrokerageName,
+              phone: nextBrokerPhone,
+              brokerName: nextBrokerName,
+              brokerageName: nextBrokerageName,
+              brokerPhone: nextBrokerPhone,
+            },
             heroCard: {
               ...prevHero,
               posture: imItem.investmentPosture || prevHero.posture,
+              capRateBase: nextCapRatePct || prevHero.capRateBase,
               keyPoints: cleanKeyPoints && cleanKeyPoints.length > 0 ? cleanKeyPoints : prevHero.keyPoints,
             },
             ssot_summary: {
               ...prevSsot,
               address: imItem.address || prevSsot.address,
+              ...(resolvedPnu ? { pnu: resolvedPnu } : {}),
+              ...(resolvedCoordinates ? { coordinates: resolvedCoordinates } : {}),
               investment_posture: imItem.investmentPosture || prevSsot.investment_posture,
-              asking_price_manwon: Number(imItem.askingPriceManwon) || prevSsot.asking_price_manwon,
+              asking_price_manwon: effectiveAskManwon || prevSsot.asking_price_manwon,
+              monthly_rent_total_manwon: nextMonthlyRentManwon,
+              monthly_rent_total_krw: nextMonthlyRentManwon * 10000,
+              total_deposit_manwon: nextTotalDepositManwon,
+              total_deposit_krw: nextTotalDepositManwon * 10000,
+              vacancy_pct: nextVacancyPct,
+              vacancy_rate_pct: nextVacancyPct,
+              vacancy_signal: nextVacancyPct === 0 ? "만실" : `공실률 ${nextVacancyPct}%`,
+              cap_rate_pct: nextCapRatePct,
+              gross_yield_pct: nextGrossYieldPct,
               total_gross_area_sqm: imItem.gfaSqm ? Number(imItem.gfaSqm) : prevSsot.total_gross_area_sqm,
               land_area_sqm: imItem.landAreaSqm ? Number(imItem.landAreaSqm) : prevSsot.land_area_sqm,
               zoning: imItem.zoning || prevSsot.zoning,
@@ -1151,6 +1350,21 @@ export async function PATCH(request: NextRequest) {
         }
       }
 
+      const nextItem: Record<string, any> = {
+        ...imItem,
+        id: imId,
+        buildingId,
+        ...(incomingRealPhotos.length > 0 ? { photos: incomingRealPhotos } : {}),
+        monthlyRentTotalManwon,
+        totalDepositManwon,
+        vacancyPct,
+        capRatePct,
+        grossYieldPct,
+        isDirty: false,
+      };
+
+      synthesizeQuickRecordFromImItem(buildingId, nextItem, brokerProfileMeta, auth.user.id);
+
       await supabase.from("activity_events").insert({
         actor_id: auth.user.id,
         event_type: "im_upserted",
@@ -1159,15 +1373,25 @@ export async function PATCH(request: NextRequest) {
         metadata: {
           building_id: buildingId,
           im_id: imId,
-          im_item: {
-            ...imItem,
-            isDirty: false,
-          },
+          im_item: nextItem,
           broker_profile: brokerProfileMeta,
         },
       });
     } catch {
       // Non-blocking
+      const fallbackNextItem: Record<string, any> = {
+        ...imItem,
+        id: imId,
+        buildingId,
+        ...(incomingRealPhotos.length > 0 ? { photos: incomingRealPhotos } : {}),
+        monthlyRentTotalManwon,
+        totalDepositManwon,
+        vacancyPct,
+        capRatePct,
+        grossYieldPct,
+        isDirty: false,
+      };
+      synthesizeQuickRecordFromImItem(buildingId, fallbackNextItem, brokerProfileMeta, auth.user.id);
     }
     try {
       revalidatePath(`/im-lite/${buildingId}`);

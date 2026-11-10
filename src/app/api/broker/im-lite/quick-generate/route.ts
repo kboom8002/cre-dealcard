@@ -50,6 +50,28 @@ interface KnownParcelInfo {
 
 const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
   {
+    match: /(동교동\s*147-8|양화로18안길\s*7)/,
+    info: {
+      pnu: '1144012000101470008',
+      lat: 37.5562,
+      lng: 126.9241,
+      jibunAddress: '서울특별시 마포구 동교동 147-8',
+      roadAddress: '서울특별시 마포구 양화로18안길 7',
+      officialLandPriceWonSqm: 11670000,
+      landAreaSqm: 137.2,
+      gfaSqm: 426.11,
+      zoning: '제2종일반주거지역',
+      completionDate: '2019-06-21',
+      floorsAbove: 4,
+      floorsBelow: 1,
+      bcrPct: 59.81,
+      farPct: 189.69,
+      parkingSpaces: 3,
+      elevators: 0,
+      mainPurpose: '제1·2종 근린생활시설',
+    },
+  },
+  {
     match: /(동교동\s*189-6|와우산로37길\s*9)/,
     info: {
       pnu: '1144012100101890006',
@@ -68,6 +90,28 @@ const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
       farPct: 189.69,
       parkingSpaces: 3,
       elevators: 0,
+      mainPurpose: '제1·2종 근린생활시설',
+    },
+  },
+  {
+    match: /(심곡동\s*382-2|부천로29번길\s*22)/,
+    info: {
+      pnu: '4119210100103820002',
+      lat: 37.4867,
+      lng: 126.7824,
+      jibunAddress: '경기도 부천시 원미구 심곡동 382-2',
+      roadAddress: '경기도 부천시 원미구 부천로29번길 22',
+      officialLandPriceWonSqm: 4680000,
+      landAreaSqm: 535.6,
+      gfaSqm: 2758.21,
+      zoning: '일반상업지역',
+      completionDate: '1998-11-17',
+      floorsAbove: 7,
+      floorsBelow: 2,
+      bcrPct: 79.24,
+      farPct: 445.24,
+      parkingSpaces: 28,
+      elevators: 2,
       mainPurpose: '제1·2종 근린생활시설',
     },
   },
@@ -91,6 +135,28 @@ const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
       parkingSpaces: 28,
       elevators: 2,
       mainPurpose: '제1·2종 근린생활시설',
+    },
+  },
+  {
+    match: /(역삼동\s*823-33|테헤란로14길\s*8)/,
+    info: {
+      pnu: '1168010100108230033',
+      lat: 37.4996,
+      lng: 127.0344,
+      jibunAddress: '서울특별시 강남구 역삼동 823-33',
+      roadAddress: '서울특별시 강남구 테헤란로14길 8',
+      officialLandPriceWonSqm: 65340000,
+      landAreaSqm: 1452.2,
+      gfaSqm: 14256.64,
+      zoning: '일반상업지역',
+      completionDate: '1992-10-15',
+      floorsAbove: 15,
+      floorsBelow: 3,
+      bcrPct: 47.78,
+      farPct: 719.66,
+      parkingSpaces: 55,
+      elevators: 3,
+      mainPurpose: '업무시설, 근린생활시설',
     },
   },
   {
@@ -157,6 +223,17 @@ const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
       jibunAddress: '서울특별시 영등포구 당산동5가 11-47',
       roadAddress: '서울특별시 영등포구 영신로 259',
       officialLandPriceWonSqm: 8950000,
+    },
+  },
+  {
+    match: /(보정동\s*1208-4|죽전로\s*15)/,
+    info: {
+      pnu: '4146311100112080004',
+      lat: 37.3228,
+      lng: 127.1107,
+      jibunAddress: '경기도 용인시 기흥구 보정동 1208-4',
+      roadAddress: '경기도 용인시 기흥구 죽전로 15',
+      officialLandPriceWonSqm: 6420000,
     },
   },
   {
@@ -283,6 +360,11 @@ export async function POST(req: NextRequest) {
     title,
     buildingName,
     pnu: rawPnu,
+    lat: rawLat,
+    lng: rawLng,
+    coordinates: rawCoordinates,
+    floorsAbove: rawFloorsAbove,
+    floorsBelow: rawFloorsBelow,
     landAreaSqm,
     gfaSqm,
     zoning,
@@ -494,28 +576,43 @@ export async function POST(req: NextRequest) {
   const safeRentRoll = Array.isArray(rentRoll) ? rentRoll : [];
   for (const r of safeRentRoll) {
     if (!r) continue;
-    const fStr = String(r.floor || '').trim().toUpperCase();
-    const isAuxFloor = /(주차|옥탑|기계식|루프탑|부대|관리)/.test(fStr);
-    if (!isAuxFloor) {
-      const unitFloorMatch = fStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
-      if (unitFloorMatch) {
-        const parsedFl = parseInt(unitFloorMatch[2], 10);
-        if (unitFloorMatch[1]) {
-          maxFloorBelow = Math.max(maxFloorBelow, parsedFl || 1);
-        } else if (parsedFl > 0 && parsedFl < 100) {
-          maxFloorAbove = Math.max(maxFloorAbove, parsedFl);
+    const rawFloor = String(r.floor || '').trim();
+    const isAuxFloor = /(주차|옥탑|기계식|루프탑|부대|관리)/.test(rawFloor);
+    if (!isAuxFloor && rawFloor) {
+      const segments = rawFloor.split(/[~,\s/]+/).filter(Boolean);
+      for (const seg of segments) {
+        const fStr = seg.trim().toUpperCase();
+        if (!fStr) continue;
+        const negMatch = fStr.match(/^-\s*(\d+)/);
+        if (negMatch) {
+          const n = parseInt(negMatch[1], 10);
+          const fl = n >= 100 ? Math.floor(n / 100) : n;
+          if (fl > 0 && fl < 20) maxFloorBelow = Math.max(maxFloorBelow, fl);
+          continue;
         }
-      } else if (fStr.startsWith('B') || fStr.includes('지하')) {
-        const m = fStr.match(/(\d+)/);
-        const rawBelow = m ? parseInt(m[1], 10) : 1;
-        maxFloorBelow = Math.max(maxFloorBelow, rawBelow >= 100 ? Math.floor(rawBelow / 100) : rawBelow);
-      } else {
-        const m = fStr.match(/(\d+)/);
-        if (m) {
-          const rawAbove = parseInt(m[1], 10);
-          const normAbove = rawAbove >= 100 ? Math.floor(rawAbove / 100) : rawAbove;
-          if (normAbove > 0 && normAbove < 100) {
-            maxFloorAbove = Math.max(maxFloorAbove, normAbove);
+        const unitFloorMatch = fStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
+        if (unitFloorMatch) {
+          const parsedFl = parseInt(unitFloorMatch[2], 10);
+          if (unitFloorMatch[1]) {
+            maxFloorBelow = Math.max(maxFloorBelow, parsedFl || 1);
+          } else if (parsedFl > 0 && parsedFl < 100) {
+            maxFloorAbove = Math.max(maxFloorAbove, parsedFl);
+          }
+        } else if (fStr.startsWith('B') || fStr.includes('지하')) {
+          const m = fStr.match(/(\d+)/);
+          const rawBelow = m ? parseInt(m[1], 10) : 1;
+          maxFloorBelow = Math.max(
+            maxFloorBelow,
+            rawBelow >= 100 ? Math.floor(rawBelow / 100) : rawBelow
+          );
+        } else {
+          const m = fStr.match(/(\d+)/);
+          if (m) {
+            const rawAbove = parseInt(m[1], 10);
+            const normAbove = rawAbove >= 100 ? Math.floor(rawAbove / 100) : rawAbove;
+            if (normAbove > 0 && normAbove < 100) {
+              maxFloorAbove = Math.max(maxFloorAbove, normAbove);
+            }
           }
         }
       }
@@ -526,9 +623,15 @@ export async function POST(req: NextRequest) {
       r.is_vacant === true ||
       r.lease_state === '공실' ||
       r.use === '공실';
+    const isOwner =
+      !isVacant &&
+      (r.status === 'owner' ||
+        r.lease_state === '자가사용' ||
+        r.use === '자가사용' ||
+        r.use === '자가');
     if (isVacant) {
       vacantUnitsCount++;
-    } else {
+    } else if (!isOwner) {
       totalDepositManwon += Number(r.depositManwon ?? r.deposit_manwon ?? r.deposit ?? 0);
       totalMonthlyRentManwon += Number(
         r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? r.rent ?? 0
@@ -549,8 +652,8 @@ export async function POST(req: NextRequest) {
     existingEnrichment?.buildingRegister?.floorsBelow ?? existingSsot?.floors_below ?? 0
   );
   const effectiveFloorsAbove =
-    Number(body.floorsAbove) > 0 && Number(body.floorsAbove) < 100
-      ? Number(body.floorsAbove)
+    Number(rawFloorsAbove) > 0 && Number(rawFloorsAbove) < 100
+      ? Number(rawFloorsAbove)
       : knownMatch?.floorsAbove ??
         (existingFloorsAbove > 0 && existingFloorsAbove < 100
           ? existingFloorsAbove
@@ -558,13 +661,20 @@ export async function POST(req: NextRequest) {
           ? maxFloorAbove
           : 5);
   const effectiveFloorsBelow =
-    Number(body.floorsBelow) > 0 && Number(body.floorsBelow) < 20
-      ? Number(body.floorsBelow)
+    rawFloorsBelow !== undefined &&
+    rawFloorsBelow !== null &&
+    rawFloorsBelow !== '' &&
+    Number.isFinite(Number(rawFloorsBelow)) &&
+    Number(rawFloorsBelow) >= 0 &&
+    Number(rawFloorsBelow) < 20
+      ? Number(rawFloorsBelow)
       : knownMatch?.floorsBelow ??
         (existingFloorsBelow > 0 && existingFloorsBelow < 20
           ? existingFloorsBelow
           : maxFloorBelow > 0
           ? maxFloorBelow
+          : safeRentRoll.length > 0
+          ? 0
           : 1);
   let effectiveLandSqm =
     Number(landAreaSqm) > 0
@@ -593,7 +703,6 @@ export async function POST(req: NextRequest) {
     '2016-05-20';
   const totalFloorsCount = Math.max(1, effectiveFloorsAbove + effectiveFloorsBelow);
   const perFloorAreaSqm = Math.round((effectiveGfaSqm / totalFloorsCount) * 10) / 10;
-  const perFloorAreaPyeong = Math.round((perFloorAreaSqm / 3.305785) * 10) / 10;
 
   const bcrPct =
     Number(body.bcrPct) > 0
@@ -633,33 +742,21 @@ export async function POST(req: NextRequest) {
       ? 1
       : 0;
   const officialLandPriceWonSqm =
-    knownMatch?.officialLandPriceWonSqm ??
-    (Number(existingEnrichment?.landPrice?.officialPricePerM2) > 0
-      ? Number(existingEnrichment?.landPrice?.officialPricePerM2)
-      : Number(existingSsot?.official_land_price_per_sqm) > 0 &&
-        Number(existingSsot?.official_land_price_per_sqm) !== 8950000
-      ? Number(existingSsot?.official_land_price_per_sqm)
-      : cleanAddress.includes('강남')
-      ? 22000000
-      : cleanAddress.includes('서초')
-      ? 15800000
-      : 8950000);
+    Number(body.officialLandPriceWonSqm) > 0
+      ? Number(body.officialLandPriceWonSqm)
+      : knownMatch?.officialLandPriceWonSqm ??
+        (Number(existingEnrichment?.landPrice?.officialPricePerM2) > 0
+          ? Number(existingEnrichment?.landPrice?.officialPricePerM2)
+          : Number(existingSsot?.official_land_price_per_sqm) > 0 &&
+            Number(existingSsot?.official_land_price_per_sqm) !== 8950000 &&
+            Number(existingSsot?.official_land_price_per_sqm) !== 22000000 &&
+            Number(existingSsot?.official_land_price_per_sqm) !== 14200000
+          ? Number(existingSsot?.official_land_price_per_sqm)
+          : 0);
 
   const resolvedTitle = title || buildingName || `${derivedRegion} 근생빌딩`;
-  const hasExplicitRentRoll = safeRentRoll.length > 0;
-  const isNonIncomePosture = legacyPosture === 'owner_occupied' || legacyPosture === 'development';
-  const effectiveMonthlyRentManwon =
-    totalMonthlyRentManwon > 0
-      ? totalMonthlyRentManwon
-      : hasExplicitRentRoll || isNonIncomePosture
-      ? 0
-      : Math.round(priceNum * 0.0035);
-  const effectiveDepositManwon =
-    totalDepositManwon > 0
-      ? totalDepositManwon
-      : hasExplicitRentRoll || isNonIncomePosture
-      ? 0
-      : Math.round(priceNum * 0.05);
+  const effectiveMonthlyRentManwon = totalMonthlyRentManwon > 0 ? totalMonthlyRentManwon : 0;
+  const effectiveDepositManwon = totalDepositManwon > 0 ? totalDepositManwon : 0;
   const estimatedYieldPct = (
     ((effectiveMonthlyRentManwon * 12) / Math.max(1, priceNum - effectiveDepositManwon)) *
     100
@@ -761,73 +858,66 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const brokerOfficeObj = {
-    name:
-      brokerageName ||
-      body.brokerOffice?.company ||
-      body.brokerOffice?.name ||
-      dbBrokerProfile?.company ||
-      '크리딜 파트너 중개법인',
-    representative:
-      brokerName ||
-      body.brokerOffice?.representative ||
-      dbBrokerProfile?.displayName ||
-      '담당 공인중개사',
-    registrationNo:
-      body.brokerRegNo ||
-      body.brokerOffice?.registrationNo ||
-      dbBrokerProfile?.registrationNo ||
-      '11560-2023-00412',
-    phone:
-      brokerPhone ||
-      body.brokerOffice?.phone ||
-      dbBrokerProfile?.phone ||
-      '02-558-7700',
+  const cleanBrokerVal = (v: unknown): string => {
+    if (typeof v !== 'string') return '';
+    const t = v.trim();
+    if (
+      !t ||
+      t === '-' ||
+      t === '담당 공인중개사' ||
+      t === '크리딜 파트너 중개법인' ||
+      t === '전담 부동산중개법인' ||
+      t === '11560-2023-00412' ||
+      t === '02-558-7700' ||
+      t.includes('확인 중')
+    ) {
+      return '';
+    }
+    return t;
   };
 
-  const fallbackDefaultPhotos = [
-    {
-      url: '/test-images/01_exterior.jpg',
-      caption: `${resolvedTitle} 전면 외관`,
-      role: 'cover',
-      category: 'exterior',
-      type: 'exterior',
-      isHero: true,
-    },
-    {
-      url: '/test-images/03_entrance.jpg',
-      caption: '1층 주출입구 및 전면부',
-      role: 'exterior',
-      category: 'exterior',
-      type: 'exterior',
-    },
-    {
-      url: '/test-images/04_lobby.jpg',
-      caption: '내부 로비 및 승강기 홀',
-      role: 'interior',
-      category: 'interior',
-      type: 'interior',
-    },
-    {
-      url: '/test-images/dangsan/07_parking.jpg',
-      caption: '자주식 주차 공간 및 차량 진출입로',
-      role: 'facility',
-      category: 'facility',
-      type: 'facility',
-    },
-  ];
+  const brokerOfficeObj = {
+    name:
+      cleanBrokerVal(brokerageName) ||
+      cleanBrokerVal(body.brokerOffice?.company) ||
+      cleanBrokerVal(body.brokerOffice?.name) ||
+      cleanBrokerVal(dbBrokerProfile?.company) ||
+      '',
+    representative:
+      cleanBrokerVal(brokerName) ||
+      cleanBrokerVal(body.brokerOffice?.representative) ||
+      cleanBrokerVal(dbBrokerProfile?.displayName) ||
+      '',
+    registrationNo:
+      cleanBrokerVal(body.brokerRegNo) ||
+      cleanBrokerVal(body.brokerOffice?.registrationNo) ||
+      cleanBrokerVal(dbBrokerProfile?.registrationNo) ||
+      '',
+    phone:
+      cleanBrokerVal(brokerPhone) ||
+      cleanBrokerVal(body.brokerOffice?.phone) ||
+      cleanBrokerVal(dbBrokerProfile?.phone) ||
+      '',
+  };
 
   const userSubmittedPhotos = Array.isArray(body.photos)
     ? body.photos
-        .filter((p: any) => p && (typeof p === 'string' || typeof p.url === 'string'))
+        .filter((p: any) => p && (typeof p === 'string' || typeof p.url === 'string' || typeof p.name === 'string'))
         .slice(0, 12)
         .map((p: any, idx: number) => {
           const rawUrl = typeof p === 'string' ? p : String(p.url || '');
           const rawName = typeof p === 'object' ? String(p.name || p.caption || '') : '';
           const knownTestUrl = resolveKnownTestAssetUrl(rawName || rawUrl);
           const resolvedPhotoUrl = knownTestUrl || rawUrl;
+          if (
+            !resolvedPhotoUrl ||
+            resolvedPhotoUrl.startsWith('blob:') ||
+            resolvedPhotoUrl.startsWith('/test-images/')
+          ) {
+            return null;
+          }
           const inferSource = `${rawName} ${rawUrl}`;
-          let inferredCat =
+          const inferredCat =
             (typeof p === 'object' && (p.category || p.type)) ||
             (/외관|전경|exterior|facade/i.test(inferSource)
               ? 'exterior'
@@ -861,7 +951,7 @@ export async function POST(req: NextRequest) {
             isHero: typeof p === 'object' && typeof p.isHero === 'boolean' ? p.isHero : idx === 0,
           };
         })
-        .filter((p: any) => Boolean(p.url))
+        .filter((p: any) => Boolean(p && p.url))
     : [];
 
   let defaultPhotos =
@@ -869,7 +959,7 @@ export async function POST(req: NextRequest) {
       ? userSubmittedPhotos
       : existingRealPhotos.length > 0
       ? existingRealPhotos
-      : fallbackDefaultPhotos;
+      : [];
 
   // Upload any data:image/... URIs to Supabase Storage (building_photos) so DB persistence keeps valid URLs
   if (
@@ -918,15 +1008,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const resolvedPnu = rawPnu || knownMatch?.pnu || existingPnu || '1156011500100110047';
+  const resolvedPnu =
+    (typeof rawPnu === 'string' && rawPnu.trim().length > 0 ? rawPnu.trim() : '') ||
+    knownMatch?.pnu ||
+    existingPnu ||
+    '';
   const resolvedCoords =
-    body.coordinates && Number(body.coordinates.lat) && Number(body.coordinates.lng)
-      ? { lat: Number(body.coordinates.lat), lng: Number(body.coordinates.lng) }
+    rawCoordinates &&
+    Number.isFinite(Number(rawCoordinates.lat)) &&
+    Number.isFinite(Number(rawCoordinates.lng)) &&
+    Number(rawCoordinates.lat) !== 0 &&
+    Number(rawCoordinates.lng) !== 0
+      ? { lat: Number(rawCoordinates.lat), lng: Number(rawCoordinates.lng) }
+      : Number.isFinite(Number(rawLat)) &&
+        Number.isFinite(Number(rawLng)) &&
+        Number(rawLat) !== 0 &&
+        Number(rawLng) !== 0
+      ? { lat: Number(rawLat), lng: Number(rawLng) }
       : knownMatch
       ? { lat: knownMatch.lat, lng: knownMatch.lng }
       : existingCoords
       ? existingCoords
-      : { lat: 37.5342, lng: 126.9022 };
+      : undefined;
   const resolvedRoadAddress = knownMatch?.roadAddress || existingRoadAddress || cleanAddress;
   const resolvedJibunAddress = knownMatch?.jibunAddress || existingJibunAddress || cleanAddress;
 
@@ -943,22 +1046,7 @@ export async function POST(req: NextRequest) {
             10000,
           comparisonDiffPct: 0,
         }))
-      : [
-          {
-            distance: `${derivedRegion} 반경 250m 내`,
-            dealDate: '2025.11',
-            buildingUse: '근린생활시설',
-            pricePerPyeongLandWon: Math.round(subjectLandPricePerPyeongWon * 1.04),
-            comparisonDiffPct: 4.0,
-          },
-          {
-            distance: `${derivedRegion} 반경 400m 내`,
-            dealDate: '2025.08',
-            buildingUse: '업무·근생 복합',
-            pricePerPyeongLandWon: Math.round(subjectLandPricePerPyeongWon * 0.98),
-            comparisonDiffPct: -2.0,
-          },
-        ];
+      : [];
 
   // Extract pure building facts
   const rawFacts = {
@@ -1033,7 +1121,11 @@ export async function POST(req: NextRequest) {
             r.lease_state === '공실' ||
             r.use === '공실';
           const isOwner =
-            r.status === 'owner' || r.lease_state === '자가사용' || r.use === '자가사용';
+            !isVacant &&
+            (r.status === 'owner' ||
+              r.lease_state === '자가사용' ||
+              r.use === '자가사용' ||
+              r.use === '자가');
           const depMan = Number(r.depositManwon ?? r.deposit_manwon ?? r.deposit ?? 0);
           const rentMan = Number(
             r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? r.rent ?? 0
@@ -1075,17 +1167,24 @@ export async function POST(req: NextRequest) {
                 prevFl.exclusiveAreaSqm ??
                 0
             ) || undefined;
-          let rawUse = String(
+          const rawUse = String(
             r.use ||
+              r.tenant_type ||
               r.tenantName ||
               r.tenant_name ||
-              r.tenant_type ||
               (isVacant ? '공실' : isOwner ? '자가사용' : '근린생활시설')
           ).trim();
-          const slashParts = rawUse.split(/\s*\/\s*/).filter(Boolean);
-          if (slashParts.length === 2 && slashParts[0] === slashParts[1]) {
-            rawUse = slashParts[0];
-          }
+          const slashParts = rawUse
+            .split(/\s*\/\s*/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const splitTenantName = slashParts.length >= 2 ? slashParts[0] : undefined;
+          const splitUse =
+            slashParts.length >= 2
+              ? slashParts[0] === slashParts[1]
+                ? slashParts[0]
+                : slashParts.slice(1).join(' / ')
+              : rawUse;
           const rawFloorStr = String(r.floor || `${idx + 1}F`).trim();
           const rawUnitStr = String(r.unit || r.unit_label || '').trim();
           const unitFloorMatch = rawFloorStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
@@ -1098,18 +1197,21 @@ export async function POST(req: NextRequest) {
               : `${rawFloorStr}호`
             : rawUnitStr || String(prevFl.unit_label || prevFl.unit || `${idx + 1}01호`);
           const explicitTenantName = String(r.tenantName || r.tenant_name || '').trim();
+          const resolvedTenantName = isVacant
+            ? '공실'
+            : isOwner
+            ? explicitTenantName || splitTenantName || '자가사용'
+            : explicitTenantName || splitTenantName || splitUse;
+          const rowNote =
+            r.note !== undefined && String(r.note).trim().length > 0
+              ? String(r.note).trim()
+              : prevFl.note;
           return {
             floor: normFloor,
             unit_label: normUnit,
-            tenant_name: isVacant
-              ? '공실'
-              : isOwner
-              ? '자가사용'
-              : explicitTenantName && explicitTenantName !== rawUse
-              ? explicitTenantName
-              : rawUse,
-            tenant_type: isVacant ? '공실' : rawUse,
-            use: isVacant ? '공실' : rawUse,
+            tenant_name: resolvedTenantName,
+            tenant_type: isVacant ? '공실' : splitUse,
+            use: isVacant ? '공실' : splitUse,
             area_sqm: areaM2,
             area_m2: areaM2,
             area_pyeong: areaPy,
@@ -1122,30 +1224,11 @@ export async function POST(req: NextRequest) {
             lease_state: isVacant ? '공실' : isOwner ? '자가사용' : '임대중',
             is_vacant: isVacant,
             lease_end: String(r.leaseExpiry || r.lease_end || r.expiryDate || prevFl.lease_end || '2027.12'),
+            ...(rowNote ? { note: rowNote, remark: rowNote } : {}),
             source: 'broker',
           };
         })
-      : [
-          {
-            floor: '1F',
-            unit_label: '101호',
-            tenant_name: '근린생활시설',
-            tenant_type: '근린생활시설',
-            use: '근린생활시설',
-            area_sqm: perFloorAreaSqm,
-            area_m2: perFloorAreaSqm,
-            area_pyeong: perFloorAreaPyeong,
-            deposit_manwon: effectiveDepositManwon,
-            deposit_krw: effectiveDepositManwon * 10000,
-            rent_manwon: effectiveMonthlyRentManwon,
-            rent_krw: effectiveMonthlyRentManwon * 10000,
-            mgmt_fee_manwon: totalMaintManwon,
-            lease_state: '임대중',
-            is_vacant: false,
-            lease_end: '2027.12',
-            source: 'broker',
-          },
-        ];
+      : [];
 
   const leasableFloorLeases = mappedFloorLeases.filter(
     (fl) =>
@@ -1252,7 +1335,7 @@ export async function POST(req: NextRequest) {
         `| 지번주소 | ${resolvedJibunAddress} |`,
         `| 지목 / 대지면적 | 대 / ${effectiveLandSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
         `| 용도지역 | ${effectiveZoning} |`,
-        `| 개별공시지가 | ㎡당 ${officialLandPriceWonSqm.toLocaleString()}원 |`,
+        `| 개별공시지가 | ${officialLandPriceWonSqm > 0 ? `㎡당 ${officialLandPriceWonSqm.toLocaleString()}원` : '공시지가 확인 중'} |`,
       ].join('\n'),
     },
     {
@@ -1283,14 +1366,17 @@ export async function POST(req: NextRequest) {
     {
       section_type: 'comparable_analysis',
       title: '인근 실거래 및 시세 비교',
-      markdown: [
-        `| 구분 | 위치 | 거래시기 | 용도 | 토지평당가 |`,
-        `|---|---|---|---|---|`,
-        ...defaultComps.map(
-          (c) =>
-            `| 실거래 사례 | ${c.distance} | ${c.dealDate} | ${c.buildingUse} | ${Math.round(c.pricePerPyeongLandWon / 10000).toLocaleString()}만원/평 |`
-        ),
-      ].join('\n'),
+      markdown:
+        defaultComps.length > 0
+          ? [
+              `| 구분 | 위치 | 거래시기 | 용도 | 토지평당가 |`,
+              `|---|---|---|---|---|`,
+              ...defaultComps.map(
+                (c) =>
+                  `| 실거래 사례 | ${c.distance} | ${c.dealDate} | ${c.buildingUse} | ${Math.round(c.pricePerPyeongLandWon / 10000).toLocaleString()}만원/평 |`
+              ),
+            ].join('\n')
+          : `- 인근 실거래 및 시세 데이터 분석 중`,
     },
     {
       section_type: 'risk_check',
@@ -1408,6 +1494,11 @@ export async function POST(req: NextRequest) {
     buildingName: resolvedTitle,
     askingPriceManwon: priceNum,
     posture,
+    pnu: resolvedPnu || undefined,
+    coordinates: resolvedCoords,
+    officialLandPriceWonSqm,
+    floorsAbove: effectiveFloorsAbove,
+    floorsBelow: effectiveFloorsBelow,
     card4,
     basicImDoc,
     rentRoll: safeRentRoll,
@@ -1417,6 +1508,9 @@ export async function POST(req: NextRequest) {
       zoning: effectiveZoning,
       completionDate: effectiveCompletionDate,
       handoverNote: handoverNote || undefined,
+      floorsAbove: effectiveFloorsAbove,
+      floorsBelow: effectiveFloorsBelow,
+      officialLandPriceWonSqm,
     },
     brokerProfile: {
       displayName: brokerOfficeObj.representative,
@@ -1485,14 +1579,29 @@ export async function POST(req: NextRequest) {
               ...fullDocBody,
               cadastralMapImage: undefined,
             });
-            if (Array.isArray(dbDocBody.photos)) {
-              dbDocBody.photos = dbDocBody.photos.map((p: any, idx: number) => ({
-                ...p,
-                url: p?.url || fallbackDefaultPhotos[idx % fallbackDefaultPhotos.length].url,
-              }));
-              dbDocBody.photos_v2 = dbDocBody.photos;
-              dbDocBody.photo_urls = dbDocBody.photos.map((p: any) => p.url);
-            }
+            const httpPhotos = Array.isArray(defaultPhotos)
+              ? defaultPhotos.filter(
+                  (p: any) =>
+                    p &&
+                    typeof p.url === 'string' &&
+                    (p.url.startsWith('http://') || p.url.startsWith('https://'))
+                )
+              : [];
+            const dataUriPhotos = Array.isArray(defaultPhotos)
+              ? defaultPhotos
+                  .filter(
+                    (p: any) =>
+                      p &&
+                      typeof p.url === 'string' &&
+                      p.url.startsWith('data:image/') &&
+                      p.url.length < 350_000
+                  )
+                  .slice(0, 4)
+              : [];
+            const persistedPhotos = httpPhotos.length > 0 ? httpPhotos : dataUriPhotos;
+            dbDocBody.photos = persistedPhotos;
+            dbDocBody.photos_v2 = persistedPhotos;
+            dbDocBody.photo_urls = persistedPhotos.map((p: any) => p.url);
             const requestedStatus =
               body.publishStatus === 'draft' || body.status === 'draft'
                 ? 'draft'

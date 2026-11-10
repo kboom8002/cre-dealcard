@@ -157,11 +157,11 @@ const SQM_PER_PYEONG_ROUND = 100; // 소수 2자리
 
 /**
  * 금액이 원 단위인지 만원 단위인지 자동 감지 (헤더에 단위가 없을 때만 사용되는 레거시 휴리스틱)
- * 값이 100,000 이상이면 원 단위로 판단
+ * 값이 250,000 이상이면 원 단위로 판단 (150,000만원 = 15억 보증금 오분류 방지)
  */
 function detectAndConvertToManwon(value: number): { manwon: number; unit: "won" | "manwon" } {
-  if (value >= 100000) {
-    return { manwon: Math.round(value / 10000), unit: "won" };
+  if (value >= 250_000) {
+    return { manwon: Math.round((value / 10_000) * 100) / 100, unit: "won" };
   }
   return { manwon: value, unit: "manwon" };
 }
@@ -396,10 +396,20 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
   const depositUnit = amountUnitOfHeader(header[depositIdx]);
   const mgmtUnit = amountUnitOfHeader(header[mgmtIdx]);
 
-  const toManwon = (value: number, unit: AmountUnit): { manwon: number; won: boolean } => {
+  const toManwon = (
+    value: number,
+    unit: AmountUnit,
+    alreadyManwon = false,
+  ): { manwon: number; won: boolean } => {
+    if (alreadyManwon) return { manwon: value, won: false };
     if (unit === "won") return { manwon: Math.round(value / 10000), won: true };
     if (unit === "cheonwon") return { manwon: Math.round(value / 10), won: false };
-    if (unit === "manwon") return { manwon: value, won: false };
+    if (unit === "manwon") {
+      if (value >= 250_000) {
+        return { manwon: Math.round((value / 10_000) * 100) / 100, won: true };
+      }
+      return { manwon: value, won: false };
+    }
     const d = detectAndConvertToManwon(value);
     return { manwon: d.manwon, won: d.unit === "won" };
   };
@@ -466,19 +476,60 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
 
     rowCount++;
 
+    const hasKoreanAmountUnit = (idx: number): boolean => {
+      if (idx < 0 || idx >= cols.length || cols[idx] == null) return false;
+      return /[억천만]/.test(String(cols[idx]));
+    };
+
     const parseNum = (idx: number): number => {
       if (idx < 0 || idx >= cols.length || cols[idx] == null) return 0;
-      const cleaned = String(cols[idx]).replace(/[^0-9.\-]/g, "");
+      if (typeof cols[idx] === "number") return Number.isFinite(cols[idx]) ? cols[idx] : 0;
+      const str = String(cols[idx]).trim().replace(/,/g, "");
+      if (!str || str === "-") return 0;
+      if (/[억천만]/.test(str)) {
+        let totalManwon = 0;
+        let matched = false;
+        let rest = str;
+        const eokMatch = rest.match(/(-?\d+(?:\.\d+)?)\s*억/);
+        if (eokMatch) {
+          totalManwon += (parseFloat(eokMatch[1]) || 0) * 10000;
+          matched = true;
+          rest = rest.slice((eokMatch.index ?? 0) + eokMatch[0].length);
+        }
+        const cheonManMatch = rest.match(/(-?\d+(?:\.\d+)?)\s*천\s*만?/);
+        if (cheonManMatch) {
+          totalManwon += (parseFloat(cheonManMatch[1]) || 0) * 1000;
+          matched = true;
+          rest = rest.slice((cheonManMatch.index ?? 0) + cheonManMatch[0].length);
+        }
+        const manMatch = rest.match(/(-?\d+(?:\.\d+)?)\s*만(?:원)?/);
+        if (manMatch) {
+          totalManwon += parseFloat(manMatch[1]) || 0;
+          matched = true;
+          rest = rest.slice((manMatch.index ?? 0) + manMatch[0].length);
+        } else if (eokMatch) {
+          const trailingMatch = rest.match(/(\d+(?:\.\d+)?)/);
+          if (trailingMatch) {
+            totalManwon += parseFloat(trailingMatch[1]) || 0;
+          }
+        }
+        if (matched) return Math.round(totalManwon * 100) / 100;
+      }
+      const cleaned = str.replace(/[^0-9.\-]/g, "");
       return parseFloat(cleaned) || 0;
     };
 
-    const rawRent = parseNum(rentIdx >= 0 ? rentIdx : 4);
-    const rawDeposit = parseNum(depositIdx >= 0 ? depositIdx : 3);
-    const rawMgmt = parseNum(mgmtIdx >= 0 ? mgmtIdx : -1);
+    const rentColIdx = rentIdx >= 0 ? rentIdx : 4;
+    const depColIdx = depositIdx >= 0 ? depositIdx : 3;
+    const mgmtColIdx = mgmtIdx >= 0 ? mgmtIdx : -1;
 
-    const rentC = toManwon(rawRent, rentUnit);
-    const depC = toManwon(rawDeposit, depositUnit);
-    const mgmtC = toManwon(rawMgmt, mgmtUnit);
+    const rawRent = parseNum(rentColIdx);
+    const rawDeposit = parseNum(depColIdx);
+    const rawMgmt = parseNum(mgmtColIdx);
+
+    const rentC = toManwon(rawRent, rentUnit, hasKoreanAmountUnit(rentColIdx));
+    const depC = toManwon(rawDeposit, depositUnit, hasKoreanAmountUnit(depColIdx));
+    const mgmtC = toManwon(rawMgmt, mgmtUnit, hasKoreanAmountUnit(mgmtColIdx));
     if (rentC.won || depC.won || mgmtC.won) unitDetected = "won";
 
     // 합계는 아래 임대상태 판정 후 '임대중' 행만 누적한다 (공실·자가사용 행의 금액은 수입이 아님)

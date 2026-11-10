@@ -191,11 +191,13 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   });
 
   // ── 우측: 사진 + 콜아웃 (사진 우선) ──
+  const isSafePptxBase64 = (s: unknown): s is string =>
+    typeof s === 'string' && /^(?:data:)?image\/(?:png|jpeg|jpg);base64,/i.test(s);
   const photoCandidate = input.data.photoUrl || right.photoUrl;
   let photoImg: { base64: string; width?: number; height?: number } | null = null;
   if (photoCandidate) {
     const opt = await optimizeImageForPptx(photoCandidate, 1200, 85);
-    photoImg = opt || { base64: photoCandidate };
+    photoImg = opt || (isSafePptxBase64(photoCandidate) ? { base64: photoCandidate } : null);
   }
   if (!photoImg && Array.isArray(input.data.photos) && input.data.photos.length > 0) {
     const kickerLower = (input.data.kicker || '').toLowerCase();
@@ -217,7 +219,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     const url = typeof selectedPhoto === 'string' ? selectedPhoto : selectedPhoto?.url;
     if (url) {
       const opt = await optimizeImageForPptx(url, 1200, 85);
-      photoImg = opt || { base64: url };
+      photoImg = opt || (isSafePptxBase64(url) ? { base64: url } : null);
     }
   }
 

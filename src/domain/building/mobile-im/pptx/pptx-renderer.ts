@@ -181,7 +181,26 @@ export class MobileImPptxRenderer {
     return await withThemeIsolation(theme, async () => {
     try {
       // ── 0. 사진 메타 도출 및 갤러리 플래닝 (v0.6.0) ──
-      const posture = (input.posture ?? 'income') as InvestmentPosture;
+      const rawPosture = String(
+        input.posture
+          ?? input.doc.body?.posture
+          ?? input.doc.body?.investment_posture
+          ?? input.doc.body?.investmentPosture
+          ?? input.doc.body?.ssot_summary?.investment_posture
+          ?? input.building?.investment_posture
+          ?? 'income'
+      ).trim().toLowerCase();
+      const mappedPosture =
+        rawPosture === 'owner_occupier' || rawPosture === 'owner'
+          ? 'owner_occupied'
+          : rawPosture === 'core_income' || rawPosture === 'value_add'
+          ? 'income'
+          : rawPosture;
+      const posture = (
+        ['income', 'trading', 'owner_occupied', 'development', 'operating'].includes(mappedPosture)
+          ? mappedPosture
+          : 'income'
+      ) as InvestmentPosture;
       const resolvedPhotos = resolvePhotos(input.doc.body, input.buildingId);
       const gallerySpecs = planGallerySlides(resolvedPhotos, posture, theme.presetId);
       // D4: 위치도/지구단위계획도/도면은 문서 이미지 — 대표·외관 사진 후보에서 제외 (전용 면으로 렌더)
@@ -290,7 +309,7 @@ export class MobileImPptxRenderer {
           if (fls.length === 0) return 1;
           const physFlCnt = new Set(fls.map((l: any) => splitFloorAndUnit(String(l?.floor ?? ''), l?.unit_label ?? l?.unit_number ?? l?.unit).floorKey)).size;
           const hasPlan = Boolean(readBrokerExtras(input.doc.body)?.post_acquisition_plan);
-          const p1Cap = (physFlCnt >= 11 && fls.length > physFlCnt && fls.length > 12) ? 12 : (hasPlan ? 12 : 15);
+          const p1Cap = (physFlCnt >= 11 && fls.length > physFlCnt && fls.length > 11) ? 11 : (hasPlan ? 11 : 14);
           return fls.length > p1Cap ? Math.min(3, 1 + Math.ceil((fls.length - p1Cap) / 18)) : 1;
         })(),
       };
@@ -322,6 +341,12 @@ export class MobileImPptxRenderer {
         // 레거시: 마크다운 파싱 기반 바인딩
         const normalizedDoc = {
           ...input.doc,
+          body: {
+            ...input.doc.body,
+            preset:
+              input.doc.body?.preset ||
+              (theme.presetId === 'credeal_basic' ? 'credeal_basic' : input.preset),
+          },
           sections: input.doc.sections ?? input.doc.body?.sections ?? [],
         };
         dataMap = bindSectionData(normalizedDoc, input.building, input.preset);
@@ -1334,7 +1359,7 @@ export class MobileImPptxRenderer {
           const fls = Array.isArray(input.doc.body?.floor_leases) ? input.doc.body.floor_leases : [];
           const physFlCnt = new Set(fls.map((l: any) => splitFloorAndUnit(String(l?.floor ?? ''), l?.unit_label ?? l?.unit_number ?? l?.unit).floorKey)).size;
           const hasPlan = Array.isArray(baseRr.brokerPostAcquisitionPlan) && baseRr.brokerPostAcquisitionPlan.length > 0;
-          const p1Cap = (physFlCnt >= 11 && allRrRows.length > physFlCnt && allRrRows.length > 12) ? 12 : (hasPlan ? 12 : 15);
+          const p1Cap = (physFlCnt >= 11 && allRrRows.length > physFlCnt && allRrRows.length > 11) ? 11 : (hasPlan ? 11 : 14);
           if (allRrRows.length > p1Cap) {
             const p1Rows = allRrRows.slice(0, p1Cap);
             const restRows = allRrRows.slice(p1Cap);
@@ -1620,4 +1645,8 @@ export class MobileImPptxRenderer {
       preset: input.preset || 'credeal_pro',
     });
   }
+}
+
+export async function generatePptx(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
+  return new MobileImPptxRenderer().render(input);
 }

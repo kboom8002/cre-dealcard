@@ -112,8 +112,9 @@ async function placeCadastralImage(
   }
   if (!data) {
     const optimizedCadastral = await optimizeImageForPptx(image, 1200, 80);
-    data = optimizedCadastral?.base64 || image;
+    data = optimizedCadastral?.base64 || (/^(?:data:)?image\/(?:png|jpeg|jpg);base64,/i.test(image) ? image : null);
   }
+  if (!data) return;
   slide.addImage({ data, ...slot });
 
   if (meta?.target && imgW > 0 && imgH > 0) {
@@ -221,7 +222,12 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     // 중개인 위치도 배치 완료 — 아래 자동 지도 체인 생략
   } else if (macroTransitImg) {
     const optimizedMacro = await optimizeImageForPptx(macroTransitImg, 1200, 80);
-    slide.addImage({ data: optimizedMacro?.base64 || macroTransitImg, x: M, y: MAP_Y, w: mapW, h: MAP_H });
+    const safeMacroData =
+      optimizedMacro?.base64 ||
+      (/^(?:data:)?image\/(?:png|jpeg|jpg);base64,/i.test(macroTransitImg) ? macroTransitImg : null);
+    if (safeMacroData) {
+      slide.addImage({ data: safeMacroData, x: M, y: MAP_Y, w: mapW, h: MAP_H });
+    }
   } else if (input.data?.cadastralImage) {
     // 0-2차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
     // 슬롯 종횡비 중앙 크롭 + 네이티브 '본건' 라벨 (이미지 내 영문 TARGET 라벨 제거 — Rule 66)
@@ -281,7 +287,11 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         });
         if (transitResult?.base64) {
           const opt = await optimizeImageForPptx(transitResult.base64, 1200, 80);
-          mapImg = opt || { base64: transitResult.base64 };
+          mapImg =
+            opt ||
+            (/^(?:data:)?image\/(?:png|jpeg|jpg);base64,/i.test(transitResult.base64)
+              ? { base64: transitResult.base64 }
+              : null);
         }
       } catch (err) {
         log.warn('[a06-diagram] Auto-generation of macro transit diagram failed:', err);

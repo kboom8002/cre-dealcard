@@ -145,8 +145,28 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   }
 
   // 중개사 문의처 카드 (basic-im-guide.md §2 #9)
-  const broker = input.data.brokerContact || {};
-  const hasBrokerInfo = broker.name || broker.phone || broker.company;
+  const rawBroker = input.data.brokerContact || {};
+  const DUMMY_BROKER_VALUES = new Set([
+    '담당 공인중개사',
+    '전담 부동산중개법인',
+    '크리딜 파트너 중개법인',
+    '11560-2023-00412',
+    '02-558-7700',
+    '-',
+  ]);
+  const cleanBrokerVal = (v: unknown) => {
+    const s = String(v || '').trim();
+    return !s || DUMMY_BROKER_VALUES.has(s) ? '' : s;
+  };
+  const broker = {
+    name: cleanBrokerVal(rawBroker.name).replace(/^담당\s+담당/, '담당'),
+    title: cleanBrokerVal(rawBroker.title),
+    phone: cleanBrokerVal(rawBroker.phone),
+    email: cleanBrokerVal(rawBroker.email),
+    company: cleanBrokerVal(rawBroker.company),
+    registrationNo: cleanBrokerVal(rawBroker.registrationNo),
+  };
+  const hasBrokerInfo = Boolean(broker.name || broker.phone || broker.company);
   let disclaimerStartY = brokerSectionY + 0.36;
 
   if (hasBrokerInfo) {

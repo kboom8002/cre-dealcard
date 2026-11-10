@@ -477,16 +477,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       // R2 10열: [층, 임차인, 용도, 임대면적, 전용면적, 보증금, 월임대료, 관리비, 월합계, 만기일]
       // 레거시 12열: [층, 호실, 용도, 임차인, 면적, …, 만기(11)]
       const is12Col = r.length >= 12;
+      const is7Col = !isR2BinderTable && r.length === 7;
       const tenantRaw = String(r[is12Col ? 3 : 1] || '').trim();
-      const leaseCell = String(r[is12Col ? 4 : 3] || '').trim();
-      const excCell = is12Col ? '' : String(r[4] || '').trim();
-      const expiry = String(r[is12Col ? 11 : 9] || '').trim();
+      const leaseCell = String(r[is12Col ? 4 : is7Col ? 2 : 3] || '').trim();
+      const excCell = is12Col || is7Col ? '' : String(r[4] || '').trim();
+      const expiry = String(r[is12Col ? 11 : is7Col ? 6 : 9] || '').trim();
       // 임대면적 우선, 미기재 시 전용면적 (표에 실제 기입된 값만 사용)
       const areaCell = parseAreaNum(leaseCell) > 0 ? leaseCell : excCell;
       const area = parseAreaNum(areaCell);
       const areaToken = (String(areaCell).match(/\d[\d,]*(?:\.\d+)?/) ?? [''])[0];
       const isVac = tenantRaw.includes('공실') || floor.includes('공실');
-      const useRaw = String(r[2] || '').trim();
+      const useRaw = String(r[is7Col ? 1 : 2] || '').trim();
       const label = !isVac && MASKED_TENANT_RE.test(tenantRaw) && useRaw && useRaw !== '-' ? useRaw : tenantRaw;
       const regUse = resolveFloorUseFromRegister(floor);
       const rawUseHint = regUse || (useRaw && useRaw !== '-' ? `${useRaw} ${tenantRaw}` : tenantRaw);

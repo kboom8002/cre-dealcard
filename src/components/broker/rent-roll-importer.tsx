@@ -498,9 +498,14 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                         type="text" 
                         value={row.floor} 
                         onChange={(e) => {
+                          const rawVal = e.target.value;
+                          const normFloor =
+                            rawVal.trim() && rawVal.trim() !== "-"
+                              ? splitFloorAndUnit(rawVal).floorLabel || rawVal
+                              : rawVal;
                           const newRows = [...parsedPreview.rows];
-                          newRows[idx].floor = e.target.value;
-                          setParsedPreview({ ...parsedPreview, rows: newRows });
+                          newRows[idx] = { ...newRows[idx], floor: normFloor };
+                          updatePreviewTotals(newRows);
                         }}
                         className="w-12 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
                       />
@@ -512,7 +517,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                         placeholder="-"
                         onChange={(e) => {
                           const newRows = [...parsedPreview.rows];
-                          newRows[idx].unit_label = e.target.value || undefined;
+                          newRows[idx] = { ...newRows[idx], unit_label: e.target.value || undefined };
                           updatePreviewTotals(newRows);
                         }}
                         className="w-14 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
@@ -524,8 +529,8 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                         value={row.tenant_type || ''} 
                         onChange={(e) => {
                           const newRows = [...parsedPreview.rows];
-                          newRows[idx].tenant_type = e.target.value;
-                          setParsedPreview({ ...parsedPreview, rows: newRows });
+                          newRows[idx] = { ...newRows[idx], tenant_type: e.target.value };
+                          updatePreviewTotals(newRows);
                         }}
                         className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
                       />

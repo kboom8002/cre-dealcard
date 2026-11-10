@@ -67,8 +67,18 @@ export function resolveTenantAndUse(
 ): { tenant: string; use: string; isVacant: boolean; isMasked: boolean } {
   const clean = (v: unknown) => (v == null ? '' : String(v).trim());
   let name = clean(l.tenant_name) || clean(l.tenant);
-  const explicitUse = clean(l.use);
+  let explicitUse = clean(l.use);
   let biz = clean(l.tenant_type) || clean(l.business_type);
+  const slashSource = [name, explicitUse, biz].find((s) => /\s+\/\s+/.test(s));
+  if (slashSource && (!name || name === slashSource)) {
+    const [leftPart, ...rightParts] = slashSource.split(/\s+\/\s+/);
+    const rightJoined = rightParts.join(' / ').trim();
+    if (leftPart.trim() && rightJoined) {
+      name = leftPart.trim();
+      if (!explicitUse || explicitUse === slashSource) explicitUse = rightJoined;
+      if (!biz || biz === slashSource) biz = rightJoined;
+    }
+  }
   // is_vacant 플래그는 점유 상태 SSOT 로 검증 — 자가사용·통합계약 후행(월세 0 추정)을 '공실'로 표기하지 않는다
   const isVacant = (l.is_vacant === true && isVacantLeaseRow(l as Record<string, any>))
     || VACANT_MARK.test(name) || VACANT_MARK.test(biz)
@@ -200,7 +210,10 @@ export function bindRentRollTable(
   // ─── A24 rentRoll: floor_leases 기반 층별 상세 테이블 직접 빌드 (ssot_summary 합성보다 우선) ───
   const floorLeases: any[] = (doc.body?.floor_leases ?? []).filter(Boolean);
   if (floorLeases.length > 0 && result['rentRoll']) {
-    const isBasicPreset = doc.body?.preset === 'credeal_basic' || doc.body?.tier === 'basic';
+    const isBasicPreset =
+      doc.body?.preset === 'credeal_basic' ||
+      doc.body?.tier === 'basic' ||
+      (!doc.body?.preset && doc.body?.tier !== 'pro');
     // v1.5 §9.1: 렌트롤 표 면적은 입력 단위(G9 → body.rent_roll_meta.area_input_unit, 없으면 sqm)로 표기. 계산 정본은 ㎡.
     const areaUnit: AreaInputUnit = resolveAreaInputUnit(doc.body?.rent_roll_meta);
     (result['rentRoll'] as any).areaInputUnit = areaUnit;
@@ -359,7 +372,13 @@ export function bindRentRollTable(
       }
     }
     // D45 M-2: 사옥형(owner_occupied)은 월세/보증금 0이어도 공실 현황 합성
-    else if (doc.body?.identity?.investmentPosture === 'owner_occupied' || doc.body?.posture === 'owner_occupied') {
+    else if (
+      doc.body?.identity?.investmentPosture === 'owner_occupied' ||
+      doc.body?.posture === 'owner_occupied' ||
+      doc.body?.posture === 'owner_occupier' ||
+      doc.body?.investment_posture === 'owner_occupied' ||
+      doc.body?.investment_posture === 'owner_occupier'
+    ) {
       const vacantMatch = cleanMarkdown.match(/(\d+)\s*개?\s*층?\s*공실/);
       const vacantCount = vacantMatch ? parseInt(vacantMatch[1]) : 0;
       const floorLeases = doc.body?.floor_leases ?? [];

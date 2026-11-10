@@ -6,6 +6,7 @@ import {
   parseTsvRentRoll,
   formatKoreanCurrencyReadout,
   parseManwonAmount,
+  normalizeFloorName,
 } from "@/lib/rent-roll/tsv-parser";
 import { parseLeaseExpiryDate } from "@/lib/rent-roll/date-parser";
 import { MobileRentRollCards } from "./MobileRentRollCards";
@@ -137,20 +138,24 @@ export function RentRollGrid({
   };
 
   const handleAddRow = useCallback(() => {
-    const lastFloor = rows[rows.length - 1];
-    let nextFloorName = `${rows.length + 1}F`;
-    if (lastFloor) {
-      const numMatch = lastFloor.floor.match(/(\d+)/);
-      if (numMatch) {
-        const nextNum = parseInt(numMatch[1], 10) + 1;
-        nextFloorName = lastFloor.floor.startsWith("B") ? `B${nextNum}` : `${nextNum}F`;
+    let maxGround = 0;
+    for (const r of rows) {
+      const norm = normalizeFloorName(r.floor);
+      if (!/^B/i.test(norm)) {
+        const m = norm.match(/(\d+)/);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (n > maxGround) maxGround = n;
+        }
       }
     }
+    const nextFloorNum = maxGround + 1;
+    const nextFloorName = `${nextFloorNum}F`;
 
     const newRow: RentRollRowItem = {
       id: `rr-${Date.now()}-${rows.length}`,
       floor: nextFloorName,
-      unit: `${nextFloorName}01호`,
+      unit: `${nextFloorNum}01호`,
       use: "근린생활시설",
       depositManwon: 0,
       monthlyRentManwon: 0,
@@ -397,6 +402,7 @@ export function RentRollGrid({
                       type="text"
                       value={row.floor}
                       onChange={(e) => handleUpdateRow(idx, { floor: e.target.value })}
+                      onBlur={(e) => handleUpdateRow(idx, { floor: normalizeFloorName(e.target.value) })}
                       onKeyDown={(e) => handleKeyDown(e, idx, "floor")}
                       className="w-full text-center font-bold text-[15px] bg-transparent outline-none border-b border-transparent focus:border-[#1D4ED8]"
                     />
@@ -436,7 +442,12 @@ export function RentRollGrid({
                       placeholder="0"
                       onChange={(e) =>
                         handleUpdateRow(idx, {
-                          depositManwon: parseManwonAmount(e.target.value).manwon,
+                          depositManwon: Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                      onBlur={() =>
+                        handleUpdateRow(idx, {
+                          depositManwon: parseManwonAmount(String(row.depositManwon)).manwon,
                         })
                       }
                       onKeyDown={(e) => handleKeyDown(e, idx, "depositManwon")}
@@ -456,7 +467,12 @@ export function RentRollGrid({
                       placeholder={isVacant ? "0" : "0"}
                       onChange={(e) =>
                         handleUpdateRow(idx, {
-                          monthlyRentManwon: parseManwonAmount(e.target.value).manwon,
+                          monthlyRentManwon: Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                      onBlur={() =>
+                        handleUpdateRow(idx, {
+                          monthlyRentManwon: parseManwonAmount(String(row.monthlyRentManwon)).manwon,
                         })
                       }
                       onKeyDown={(e) => handleKeyDown(e, idx, "monthlyRentManwon")}
@@ -478,7 +494,12 @@ export function RentRollGrid({
                       placeholder={isVacant ? "0" : "0"}
                       onChange={(e) =>
                         handleUpdateRow(idx, {
-                          maintenanceManwon: parseManwonAmount(e.target.value).manwon,
+                          maintenanceManwon: Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                      onBlur={() =>
+                        handleUpdateRow(idx, {
+                          maintenanceManwon: parseManwonAmount(String(row.maintenanceManwon)).manwon,
                         })
                       }
                       onKeyDown={(e) => handleKeyDown(e, idx, "maintenanceManwon")}

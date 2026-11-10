@@ -48,8 +48,8 @@ export async function GET(
   const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
   const presetParam = searchParams.get('preset');
 
-  const { getQuickImRecord, resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
-  let quickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
+  const { getQuickImRecord, resolveOrSynthesizeQuickImRecord, isUuid } = await import('@/lib/im-lite/quick-generate-store');
+  const memRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
 
   // Create Supabase client
   const supabase = createClient(
@@ -57,116 +57,300 @@ export async function GET(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  let quickRec = (await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)) || memRec;
+
   let buildingRow: any = null;
   let viewer: any = null;
   let buildingOwnerId: string | null = null;
   const IM_DOC_TYPES = ['mobile_im', 'im_lite', 'im_lite_draft'];
-  let doc: any = null;
+  let dbDoc: any = null;
 
-  if (quickRec?.fullDocBody) {
+  if (isUuid(buildingId) || !quickRec?.fullDocBody) {
+    try {
+      // 1. Fetch building (owner) first — P0-SEC: 문서 상태/소유자 판정에 사용
+      const { data: bRow } = await supabase
+        .from('building_ssot_lite')
+        .select('*')
+        .eq('id', buildingId)
+        .maybeSingle();
+      buildingRow = bRow;
+
+      // P0-SEC: 요청자 판정 (쿠키 세션). 소유자·admin 만 비공개 상태(draft 등) 문서를 받을 수 있다.
+      viewer = await getServerViewer();
+      buildingOwnerId = (buildingRow?.owner_id as string | null | undefined) ?? null;
+
+      if (docId) {
+        const { data: requested } = await supabase
+          .from('document_objects')
+          .select('*')
+          .eq('building_id', buildingId)
+          .in('document_type', IM_DOC_TYPES)
+          .eq('id', docId)
+          .maybeSingle();
+        // 비공개 상태 doc_id 는 소유자·admin 에게만 — 그 외에는 무시하고 최신 공개본으로 대체
+        if (requested && (isImDocStatusPublic(requested.status) || isOwnerOrAdmin(viewer, buildingOwnerId, requested.owner_id))) {
+          dbDoc = requested;
+        }
+      }
+
+      if (!dbDoc) {
+        const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
+        let latestQuery = supabase
+          .from('document_objects')
+          .select('*')
+          .eq('building_id', buildingId)
+          .in('document_type', IM_DOC_TYPES);
+        latestQuery = privileged
+          ? latestQuery.not('status', 'in', `(${NON_PUBLIC_DOCUMENT_STATUSES.join(',')})`)
+          : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
+        const { data: latest } = await latestQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
+        dbDoc = latest ?? null;
+      }
+    } catch {
+      // Non-blocking fallback for non-UUID or offline DB
+    }
+  }
+
+  let doc: any = null;
+  if (dbDoc?.body && quickRec?.fullDocBody) {
+    const dbBody = dbDoc.body as Record<string, any>;
+    const qrBody = quickRec.fullDocBody as Record<string, any>;
+    const dbTime = Date.parse(dbDoc.updated_at || dbBody.updated_at || dbBody.approved_at || dbDoc.created_at || '') || 0;
+    const memTime = Date.parse(memRec?.updatedAt || memRec?.createdAt || '') || 0;
+    const dbIsNewer = dbTime > 0 && memTime > 0 && dbTime > memTime && quickRec === memRec;
+    const primary = dbIsNewer ? dbBody : qrBody;
+    const secondary = dbIsNewer ? qrBody : dbBody;
+
+    const mergedBody: Record<string, any> = {
+      ...secondary,
+      ...primary,
+      ssot_summary: {
+        ...(secondary.ssot_summary || {}),
+        ...(primary.ssot_summary || {}),
+        coordinates:
+          primary.ssot_summary?.coordinates ||
+          secondary.ssot_summary?.coordinates ||
+          primary.coordinates ||
+          secondary.coordinates,
+        pnu:
+          primary.ssot_summary?.pnu ||
+          secondary.ssot_summary?.pnu ||
+          primary.pnu ||
+          secondary.pnu ||
+          buildingRow?.pnu,
+      },
+      heroCard: {
+        ...(secondary.heroCard || {}),
+        ...(primary.heroCard || {}),
+      },
+      enrichment: primary.enrichment || secondary.enrichment,
+      coordinates:
+        primary.coordinates ||
+        secondary.coordinates ||
+        primary.ssot_summary?.coordinates ||
+        secondary.ssot_summary?.coordinates,
+      pnu:
+        primary.pnu ||
+        secondary.pnu ||
+        primary.ssot_summary?.pnu ||
+        secondary.ssot_summary?.pnu ||
+        buildingRow?.pnu,
+      pnus: primary.pnus || secondary.pnus,
+      parcels: primary.parcels || secondary.parcels,
+      floor_leases:
+        Array.isArray(primary.floor_leases) && primary.floor_leases.length > 0
+          ? primary.floor_leases
+          : Array.isArray(secondary.floor_leases)
+          ? secondary.floor_leases
+          : [],
+      rent_roll:
+        Array.isArray(primary.rent_roll) && primary.rent_roll.length > 0
+          ? primary.rent_roll
+          : Array.isArray(secondary.rent_roll)
+          ? secondary.rent_roll
+          : [],
+      photos_v2:
+        Array.isArray(primary.photos_v2) && primary.photos_v2.length > 0
+          ? primary.photos_v2
+          : Array.isArray(secondary.photos_v2)
+          ? secondary.photos_v2
+          : [],
+      photos:
+        Array.isArray(primary.photos) && primary.photos.length > 0
+          ? primary.photos
+          : Array.isArray(secondary.photos)
+          ? secondary.photos
+          : [],
+      photo_urls:
+        Array.isArray(primary.photo_urls) && primary.photo_urls.length > 0
+          ? primary.photo_urls
+          : Array.isArray(secondary.photo_urls)
+          ? secondary.photo_urls
+          : [],
+      sections:
+        Array.isArray(primary.sections) && primary.sections.length > 0
+          ? primary.sections
+          : Array.isArray(secondary.sections)
+          ? secondary.sections
+          : [],
+      broker_contact: primary.broker_contact || secondary.broker_contact,
+    };
+
+    doc = {
+      ...dbDoc,
+      id: dbIsNewer ? dbDoc.id : (quickRec.documentId || dbDoc.id),
+      building_id: buildingId,
+      owner_id: dbDoc.owner_id ?? quickRec.ownerId ?? null,
+      title: dbIsNewer ? (dbDoc.title || primary.buildingName) : (quickRec.buildingName || primary.buildingName || dbDoc.title),
+      status: dbDoc.status || 'published',
+      body: mergedBody,
+    };
+  } else if (quickRec?.fullDocBody) {
     doc = {
       id: quickRec.documentId,
       building_id: quickRec.buildingId,
       owner_id: quickRec.ownerId ?? null,
       title: quickRec.buildingName,
       status: 'published',
-      body: quickRec.fullDocBody,
+      body: { ...quickRec.fullDocBody },
     };
-  } else {
-    // 1. Fetch building (owner) first — P0-SEC: 문서 상태/소유자 판정에 사용
-    const { data: bRow } = await supabase
-      .from('building_ssot_lite')
-      .select('*')
-      .eq('id', buildingId)
-      .maybeSingle();
-    buildingRow = bRow;
-
-    // P0-SEC: 요청자 판정 (쿠키 세션). 소유자·admin 만 비공개 상태(draft 등) 문서를 받을 수 있다.
-    viewer = await getServerViewer();
-    buildingOwnerId = (buildingRow?.owner_id as string | null | undefined) ?? null;
-
-    if (docId) {
-      const { data: requested } = await supabase
-        .from('document_objects')
-        .select('*')
-        .eq('building_id', buildingId)
-        .in('document_type', IM_DOC_TYPES)
-        .eq('id', docId)
-        .maybeSingle();
-      // 비공개 상태 doc_id 는 소유자·admin 에게만 — 그 외에는 무시하고 최신 공개본으로 대체
-      if (requested && (isImDocStatusPublic(requested.status) || isOwnerOrAdmin(viewer, buildingOwnerId, requested.owner_id))) {
-        doc = requested;
-      }
-    }
-
-    if (!doc) {
-      const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
-      let latestQuery = supabase
-        .from('document_objects')
-        .select('*')
-        .eq('building_id', buildingId)
-        .in('document_type', IM_DOC_TYPES);
-      latestQuery = privileged
-        ? latestQuery.not('status', 'in', `(${NON_PUBLIC_DOCUMENT_STATUSES.join(',')})`)
-        : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
-      const { data: latest } = await latestQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
-      doc = latest ?? null;
-    }
-
-    if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
-      const synthesized = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
-      if (synthesized?.fullDocBody) {
-        quickRec = synthesized;
-        doc = {
-          id: synthesized.documentId,
-          building_id: synthesized.buildingId,
-          owner_id: synthesized.ownerId ?? null,
-          title: synthesized.buildingName,
-          status: 'published',
-          body: synthesized.fullDocBody,
-        };
-      }
-    }
+  } else if (dbDoc) {
+    doc = dbDoc;
   }
 
   if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
     return NextResponse.json({ error: 'Valid IM document not found or document has no sections' }, { status: 404 });
   }
 
+  if (tier !== 'pro') {
+    doc.body.preset = doc.body.preset || 'credeal_basic';
+    doc.body.tier = doc.body.tier || 'basic';
+  }
+
   // 소유자·admin 여부 (워터마크 해제 권한)
   const isPrivilegedViewer = Boolean(quickRec?.fullDocBody) || isOwnerOrAdmin(viewer, buildingOwnerId, doc.owner_id);
 
+  // Poison coordinate / PNU guard (Dangsan 11-47 leak) & on-the-fly geocoding
+  const rawAddr = String(
+    doc.body?.ssot_summary?.address ||
+    doc.body?.resolved_address ||
+    doc.body?.address ||
+    buildingRow?.raw_address ||
+    ''
+  ).trim();
+  let coordLat = Number(doc.body?.coordinates?.lat ?? doc.body?.ssot_summary?.coordinates?.lat ?? buildingRow?.lat ?? 0) || null;
+  let coordLng = Number(doc.body?.coordinates?.lng ?? doc.body?.ssot_summary?.coordinates?.lng ?? buildingRow?.lng ?? 0) || null;
+  let resolvedPnu = String(doc.body?.ssot_summary?.pnu || doc.body?.pnu || buildingRow?.pnu || '').trim() || null;
+
+  const isDangsanAddr = /당산|양평/.test(rawAddr);
+  const isDangsanCoord =
+    coordLat != null &&
+    coordLng != null &&
+    Math.abs(coordLat - 37.5342) < 0.0005 &&
+    Math.abs(coordLng - 126.9022) < 0.0005;
+  const isDangsanPnu = resolvedPnu === '1156011500100110047';
+  if (!isDangsanAddr && (isDangsanCoord || isDangsanPnu)) {
+    coordLat = null;
+    coordLng = null;
+    resolvedPnu = null;
+    if (doc.body?.coordinates) delete doc.body.coordinates;
+    if (doc.body?.ssot_summary?.coordinates) delete doc.body.ssot_summary.coordinates;
+    if (doc.body?.pnu === '1156011500100110047') delete doc.body.pnu;
+    if (doc.body?.ssot_summary?.pnu === '1156011500100110047') delete doc.body.ssot_summary.pnu;
+    if (doc.body?.enrichment?.cadastralMapImage) delete doc.body.enrichment.cadastralMapImage;
+  }
+
+  if ((!coordLat || !coordLng) && rawAddr) {
+    try {
+      const { resolveAddress } = await import('@/lib/external/address-resolver');
+      const geoRes = await Promise.race([
+        resolveAddress(rawAddr),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+      ]);
+      if (geoRes) {
+        if (geoRes.lat && geoRes.lng) {
+          coordLat = geoRes.lat;
+          coordLng = geoRes.lng;
+        }
+        if (!resolvedPnu && geoRes.pnu) {
+          resolvedPnu = geoRes.pnu;
+        }
+      }
+    } catch {
+      // Non-blocking on-the-fly geocoding
+    }
+  }
+
+  if (coordLat && coordLng) {
+    doc.body.coordinates = { lat: coordLat, lng: coordLng };
+    if (doc.body.ssot_summary && typeof doc.body.ssot_summary === 'object') {
+      doc.body.ssot_summary.coordinates = { lat: coordLat, lng: coordLng };
+    }
+  }
+  if (resolvedPnu) {
+    doc.body.pnu = resolvedPnu;
+    if (doc.body.ssot_summary && typeof doc.body.ssot_summary === 'object') {
+      doc.body.ssot_summary.pnu = resolvedPnu;
+    }
+  }
+
   const building = buildingRow ? {
     ...buildingRow,
-    address: doc.body?.ssot_summary?.address || buildingRow.raw_address,
-    pnu: doc.body?.ssot_summary?.pnu || doc.body?.pnu,
-    lat: doc.body?.coordinates?.lat || doc.body?.ssot_summary?.coordinates?.lat,
-    lng: doc.body?.coordinates?.lng || doc.body?.ssot_summary?.coordinates?.lng,
+    address: rawAddr || buildingRow.raw_address,
+    pnu: resolvedPnu,
+    lat: coordLat,
+    lng: coordLng,
     investment_posture: doc.body?.ssot_summary?.investment_posture || doc.body?.investmentPosture || 'income',
   } : (doc.body?.ssot_summary ? {
     id: buildingId,
     owner_id: doc.owner_id ?? null,
-    raw_address: doc.body.ssot_summary.address || doc.body.resolved_address,
-    address: doc.body.ssot_summary.address || doc.body.resolved_address,
-    pnu: doc.body.ssot_summary.pnu || doc.body.pnu,
-    lat: doc.body.coordinates?.lat || doc.body.ssot_summary?.coordinates?.lat,
-    lng: doc.body.coordinates?.lng || doc.body.ssot_summary?.coordinates?.lng,
+    raw_address: rawAddr,
+    address: rawAddr,
+    pnu: resolvedPnu,
+    lat: coordLat,
+    lng: coordLng,
     investment_posture: doc.body.ssot_summary?.investment_posture || doc.body.investmentPosture || 'income',
   } : null);
 
-  // 3. Fetch broker profile (SSoT resolver — 실제 DB 값만, 부재 시 생략)
+  // 3. Fetch broker profile (SSoT resolver — 실제 DB 값만, 부재 시 생략, 더미 문자열 필터링)
+  const DUMMY_BROKER_STRINGS = new Set([
+    '담당 공인중개사',
+    '전담 부동산중개법인',
+    '크리딜 파트너 중개법인',
+    '11560-2023-00412',
+    '02-558-7700',
+    '-',
+  ]);
+  const cleanBrokerStr = (val: unknown): string | undefined => {
+    if (typeof val !== 'string') return undefined;
+    const trimmed = val.trim();
+    if (!trimmed || DUMMY_BROKER_STRINGS.has(trimmed)) return undefined;
+    return trimmed;
+  };
+
   const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
   const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
-  const broker = quickRec?.fullDocBody?.broker_contact
+  const rawDbBroker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId));
+  const quickBrokerContact = quickRec?.fullDocBody?.broker_contact;
+  const broker = quickBrokerContact
     ? {
-        display_name: quickRec.fullDocBody.broker_contact.name as string | undefined,
-        company_name: quickRec.fullDocBody.broker_contact.company as string | undefined,
-        phone: quickRec.fullDocBody.broker_contact.phone as string | undefined,
-        email: undefined as string | undefined,
-        registration_no: quickRec.fullDocBody.broker_contact.registration_no as string | undefined,
-        specialty: undefined as string | undefined,
+        display_name: cleanBrokerStr(quickBrokerContact.name ?? quickBrokerContact.brokerName) || cleanBrokerStr(rawDbBroker?.display_name),
+        company_name: cleanBrokerStr(quickBrokerContact.company ?? quickBrokerContact.brokerageName) || cleanBrokerStr(rawDbBroker?.company_name),
+        phone: cleanBrokerStr(quickBrokerContact.phone ?? quickBrokerContact.brokerPhone) || cleanBrokerStr(rawDbBroker?.phone),
+        email: cleanBrokerStr(rawDbBroker?.email),
+        registration_no: cleanBrokerStr(quickBrokerContact.registration_no ?? quickBrokerContact.registrationNo) || cleanBrokerStr(rawDbBroker?.registration_no),
+        specialty: cleanBrokerStr(rawDbBroker?.specialty),
       }
-    : toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId));
+    : rawDbBroker
+    ? {
+        display_name: cleanBrokerStr(rawDbBroker.display_name),
+        company_name: cleanBrokerStr(rawDbBroker.company_name),
+        phone: cleanBrokerStr(rawDbBroker.phone),
+        email: cleanBrokerStr(rawDbBroker.email),
+        registration_no: cleanBrokerStr(rawDbBroker.registration_no),
+        specialty: cleanBrokerStr(rawDbBroker.specialty),
+      }
+    : null;
 
   // 4. Import and run renderer
   try {
@@ -255,17 +439,28 @@ export async function GET(
     let brandLogoUrl: string | undefined;
     let effectiveBroker = broker;
     const bodyBroker = body.broker_contact || body.basicImDocument?.facts?.brokerOffice;
-    if (bodyBroker && (bodyBroker.brokerName || bodyBroker.brokerageName || bodyBroker.brokerPhone || bodyBroker.name || bodyBroker.representative)) {
-      effectiveBroker = {
-        display_name: bodyBroker.brokerName || bodyBroker.representative || effectiveBroker?.display_name,
-        company_name: bodyBroker.brokerageName || bodyBroker.name || effectiveBroker?.company_name,
-        phone: bodyBroker.brokerPhone || bodyBroker.phone || effectiveBroker?.phone,
-        email: bodyBroker.email || effectiveBroker?.email,
-        registration_no: bodyBroker.registrationNo && bodyBroker.registrationNo !== '-'
-          ? bodyBroker.registrationNo
-          : effectiveBroker?.registration_no,
-        specialty: effectiveBroker?.specialty,
-      };
+    if (bodyBroker) {
+      const bName =
+        cleanBrokerStr(bodyBroker.brokerName) ||
+        cleanBrokerStr(bodyBroker.representative) ||
+        (bodyBroker.company ? cleanBrokerStr(bodyBroker.name) : undefined);
+      const bCompany =
+        cleanBrokerStr(bodyBroker.brokerageName) ||
+        cleanBrokerStr(bodyBroker.company) ||
+        (bodyBroker.representative ? cleanBrokerStr(bodyBroker.name) : undefined);
+      const bPhone = cleanBrokerStr(bodyBroker.brokerPhone) || cleanBrokerStr(bodyBroker.phone);
+      const bEmail = cleanBrokerStr(bodyBroker.email);
+      const bRegNo = cleanBrokerStr(bodyBroker.registrationNo) || cleanBrokerStr(bodyBroker.registration_no);
+      if (bName || bCompany || bPhone || bEmail || bRegNo) {
+        effectiveBroker = {
+          display_name: bName || effectiveBroker?.display_name,
+          company_name: bCompany || effectiveBroker?.company_name,
+          phone: bPhone || effectiveBroker?.phone,
+          email: bEmail || effectiveBroker?.email,
+          registration_no: bRegNo || effectiveBroker?.registration_no,
+          specialty: effectiveBroker?.specialty,
+        };
+      }
     }
     const isCustomPresetId = /^[0-9a-f-]{36}$/i.test(String(visualPreset));
     if (isBasicIM && (visualPreset === 'credeal_basic' || isCustomPresetId)) {

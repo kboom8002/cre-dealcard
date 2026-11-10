@@ -247,12 +247,12 @@ export async function POST(request: NextRequest) {
           const [bRes, dRes] = await Promise.all([
             supabase
               .from("building_ssot_lite")
-              .select("id, address, area_signal, asset_type, price_band, fit_summary, layers")
+              .select("id, owner_id, address, area_signal, asset_type, price_band, fit_summary, layers")
               .in("id", uuidDealIds),
             supabase
               .from("document_objects")
               .select(
-                "id, building_id, title, status, ssot_summary:body->ssot_summary, photos_v2:body->photos_v2, photos:body->photos, photo_urls:body->photo_urls"
+                "id, owner_id, building_id, title, status, ssot_summary:body->ssot_summary, photos_v2:body->photos_v2, photos:body->photos, photo_urls:body->photo_urls"
               )
               .in("building_id", uuidDealIds)
               .neq("status", "archived")
@@ -301,6 +301,21 @@ export async function POST(request: NextRequest) {
             ? (docMeta.ssot_summary as Record<string, unknown>)
             : {}) || {};
         let qRec = (await resolveOrSynthesizeQuickImRecord(dId, supabase)) ?? quickRecords.find((r) => r.buildingId === dId);
+
+        // S1-10: Enforce broker ownership on featuredDealIds
+        if (!(ctx as { isAdmin?: boolean }).isAdmin) {
+          const rowOwner = dbRow?.owner_id ? String(dbRow.owner_id) : "";
+          const docOwner = docMeta?.owner_id ? String(docMeta.owner_id) : "";
+          const qOwner = qRec?.ownerId ? String(qRec.ownerId) : "";
+          if (
+            (rowOwner && !ctx.brokerKeys.includes(rowOwner) && rowOwner !== ctx.userId) ||
+            (docOwner && !ctx.brokerKeys.includes(docOwner) && docOwner !== ctx.userId) ||
+            (qOwner && !ctx.brokerKeys.includes(qOwner) && qOwner !== ctx.userId)
+          ) {
+            continue;
+          }
+        }
+
         const comment = commentsMap[dId]?.trim() || String(snap.investmentPoint ?? snap.point ?? "").trim();
 
         const layers = (dbRow?.layers && typeof dbRow.layers === "object" ? (dbRow.layers as Record<string, unknown>) : {}) || {};
@@ -361,10 +376,19 @@ export async function POST(request: NextRequest) {
           ? snap.photoUrl.trim()
           : docPhotosByBuildingId.get(dId) || qRecRealPhoto || null;
 
+        const resolvedAssetType =
+          String(
+            qRec?.card4?.use ||
+              dbRow?.asset_type ||
+              docSsot.asset_type ||
+              "수익형 근생빌딩"
+          ).trim() || "수익형 근생빌딩";
+
         hydratedDeals.push({
           id: dId,
           title: rawTitle,
-          assetType: rawTitle,
+          assetType: resolvedAssetType,
+          areaSignal: String(qRec?.card4?.region || dbRow?.area_signal || docSsot.area_signal || safeAddr),
           address: safeAddr,
           price: priceVal,
           ...(askingManwon > 0 ? { priceWon: askingManwon * 10_000 } : {}),

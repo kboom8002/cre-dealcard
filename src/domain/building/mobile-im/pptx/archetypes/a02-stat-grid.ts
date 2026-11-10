@@ -135,19 +135,20 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     } else {
       const isFinitePos = (v: any): boolean => {
         if (v == null) return false;
-        const n = typeof v === 'number' ? v : parseFloat(String(v));
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.-]/g, ''));
         return Number.isFinite(n) && n > 0;
       };
       const isFiniteNum = (v: any): boolean => {
         if (v == null) return false;
-        const n = typeof v === 'number' ? v : parseFloat(String(v));
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.-]/g, ''));
         return Number.isFinite(n);
       };
       if (hero.askingPriceDisplay) metrics.push({ label: '매매 희망가', value: hero.askingPriceDisplay });
-      if (isFinitePos(hero.equityRequiredBil)) metrics.push({ label: '필요 실투자금', value: `약 ${hero.equityRequiredBil}억 원` });
-      if (isFinitePos(hero.capRateBase)) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: fmtFixed(hero.capRateBase, 2, '%'), sub: summaryCapRateSub(hero) });
-      if (isFiniteNum(hero.leveragedYieldPct) && Number(hero.leveragedYieldPct) > -100 && Number(hero.leveragedYieldPct) < 1000) {
-        metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
+      if (isFinitePos(hero.equityRequiredBil)) metrics.push({ label: '필요 실투자금', value: `약 ${parseFloat(String(hero.equityRequiredBil).replace(/[^0-9.-]/g, ''))}억 원` });
+      if (isFinitePos(hero.capRateBase)) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: fmtFixed(parseFloat(String(hero.capRateBase).replace(/[^0-9.-]/g, '')), 2, '%'), sub: summaryCapRateSub(hero) });
+      const levNum = parseFloat(String(hero.leveragedYieldPct ?? '').replace(/[^0-9.-]/g, ''));
+      if (isFiniteNum(hero.leveragedYieldPct) && levNum > -100 && levNum < 1000) {
+        metrics.push({ label: '자기자본수익률', value: `${levNum}%` });
       }
       const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
       if (metrics.length < 6 && Number.isFinite(landM2) && landM2 > 0) metrics.push({ label: '대지면적', value: `${formatPyeong(landM2, 1)}평` });
@@ -164,16 +165,18 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       metrics.unshift({ label: '매매 희망가', value: ask });
     }
     if (!metrics.some((m: any) => m.label && (m.label.includes('수익률') || m.label.includes('Cap Rate')))) {
-      const isPosCap = hero.capRateBase != null && Number.isFinite(Number(hero.capRateBase)) && Number(hero.capRateBase) > 0;
-      const cap = isPosCap ? fmtFixed(hero.capRateBase, 2, '%') : (hero.grossYieldDisplay && !String(hero.grossYieldDisplay).includes('Infinity') ? hero.grossYieldDisplay : '-');
+      const capNum = parseFloat(String(hero.capRateBase ?? '').replace(/[^0-9.-]/g, ''));
+      const isPosCap = Number.isFinite(capNum) && capNum > 0;
+      const cap = isPosCap ? fmtFixed(capNum, 2, '%') : (hero.grossYieldDisplay && !String(hero.grossYieldDisplay).includes('Infinity') ? hero.grossYieldDisplay : '-');
       // capRateBase = NOI(base) ÷ 매매가 (FinancialCalculator). grossYieldDisplay는 기준 불명 → 일반 라벨
       metrics.push(isPosCap
         ? { label: YIELD_LABELS.noiCapRate, value: cap, sub: summaryCapRateSub(hero) }
         : { label: '연 수익률', value: cap });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('실투자금'))) {
-      const isPosEq = hero.equityRequiredBil != null && Number.isFinite(Number(hero.equityRequiredBil)) && Number(hero.equityRequiredBil) > 0;
-      const eq = isPosEq ? `약 ${hero.equityRequiredBil}억 원` : '-';
+      const eqNum = parseFloat(String(hero.equityRequiredBil ?? '').replace(/[^0-9.-]/g, ''));
+      const isPosEq = Number.isFinite(eqNum) && eqNum > 0;
+      const eq = isPosEq ? `약 ${eqNum}억 원` : '-';
       metrics.push({ label: '실투자금', value: eq });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('연면적'))) {
@@ -334,8 +337,9 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // 기본 폴백 3대 투자 포인트 — SOTA 중개인 투자 하이라이트 (검증 가능 수치 중심)
   if (keyPoints.length < 3) {
     const area = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
-    const isPosCap = hero?.capRateBase != null && Number.isFinite(Number(hero.capRateBase)) && Number(hero.capRateBase) > 0;
-    const capRate = isPosCap ? `${hero.capRateBase}%` : '';
+    const capNumFb = parseFloat(String(hero?.capRateBase ?? '').replace(/[^0-9.-]/g, ''));
+    const isPosCap = Number.isFinite(capNumFb) && capNumFb > 0;
+    const capRate = isPosCap ? `${capNumFb}%` : '';
     const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? formatPyeong(hero.totalGrossAreaM2, 1) : '');
     const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? formatPyeong(hero.landAreaM2, 1) : '');
 

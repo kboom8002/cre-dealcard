@@ -155,12 +155,25 @@ function readAndCompressPhotoFile(file: File, maxWidth = 1280, quality = 0.82): 
     reader.onerror = () => resolve("");
     reader.onload = () => {
       const rawDataUrl = typeof reader.result === "string" ? reader.result : "";
-      if (!rawDataUrl || typeof window === "undefined" || typeof document === "undefined") {
+      if (
+        !rawDataUrl ||
+        typeof window === "undefined" ||
+        typeof document === "undefined" ||
+        (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || ""))
+      ) {
         resolve(rawDataUrl);
         return;
       }
+      let settled = false;
+      const done = (val: string) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(fallbackTimer);
+        resolve(val);
+      };
+      const fallbackTimer = setTimeout(() => done(rawDataUrl), 1500);
       const img = new window.Image();
-      img.onerror = () => resolve(rawDataUrl);
+      img.onerror = () => done(rawDataUrl);
       img.onload = () => {
         try {
           const w = img.naturalWidth || img.width || 1280;
@@ -172,20 +185,45 @@ function readAndCompressPhotoFile(file: File, maxWidth = 1280, quality = 0.82): 
           canvas.height = targetH;
           const ctx = canvas.getContext("2d");
           if (!ctx) {
-            resolve(rawDataUrl);
+            done(rawDataUrl);
             return;
           }
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, targetW, targetH);
           ctx.drawImage(img, 0, 0, targetW, targetH);
           const compressed = canvas.toDataURL("image/jpeg", quality);
-          resolve(compressed && compressed.startsWith("data:image/") ? compressed : rawDataUrl);
+          done(compressed && compressed.startsWith("data:image/") ? compressed : rawDataUrl);
         } catch {
-          resolve(rawDataUrl);
+          done(rawDataUrl);
         }
       };
       img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   });
+}
+
+function isPersistablePhotoUrl(u?: string | null): u is string {
+  return Boolean(u && typeof u === "string" && !u.startsWith("blob:"));
+}
+
+function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
+  return entries
+    .map((pe) => {
+      const rawUrl = pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name);
+      const rawPreview = pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name);
+      const safeUrl = isPersistablePhotoUrl(rawUrl) ? rawUrl : resolveKnownTestAssetUrl(pe.name);
+      const safePreview = isPersistablePhotoUrl(rawPreview) ? rawPreview : safeUrl;
+      return {
+        name: pe.name,
+        ...(safeUrl ? { url: safeUrl } : {}),
+        ...(safePreview ? { previewUrl: safePreview } : {}),
+        ...(pe.dataUrl ? { dataUrl: pe.dataUrl } : {}),
+        category: pe.category,
+        caption: pe.caption,
+      };
+    })
+    .filter((pe) => Boolean(pe.dataUrl || pe.url || pe.previewUrl));
 }
 
 interface ImListItem {
@@ -205,6 +243,12 @@ interface ImListItem {
   landAreaSqm?: string;
   zoning?: string;
   handoverNote?: string;
+  pnu?: string;
+  lat?: number;
+  lng?: number;
+  floorsAbove?: number;
+  floorsBelow?: number;
+  mainPurpose?: string;
   photoNames?: string[];
   photos?: ImPhotoEntry[];
   brokerName?: string;
@@ -329,9 +373,22 @@ function ImWorkspaceInner() {
   const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
   const [actionAlert, setActionAlert] = useState<string | null>(null);
   const [photoEntries, setPhotoEntries] = useState<ImPhotoEntry[]>([]);
+  const latestPhotoEntriesRef = useRef<ImPhotoEntry[]>([]);
+  const pendingPhotoCompressionsRef = useRef<Set<Promise<any>>>(new Set());
+  const [isCompressingPhotos, setIsCompressingPhotos] = useState(false);
   const [isDraggingPhotos, setIsDraggingPhotos] = useState(false);
   const [wonInputFocused, setWonInputFocused] = useState(false);
   const [wonDraft, setWonDraft] = useState("");
+
+  useEffect(() => {
+    latestPhotoEntriesRef.current = photoEntries;
+  }, [photoEntries]);
+
+  const waitForPendingPhotoCompressions = useCallback(async () => {
+    if (pendingPhotoCompressionsRef.current.size > 0) {
+      await Promise.allSettled(Array.from(pendingPhotoCompressionsRef.current));
+    }
+  }, []);
 
   const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
 
@@ -492,11 +549,21 @@ function ImWorkspaceInner() {
         setBrokerName((prev) => cleanBrokerPlaceholder(prev) || pName);
         setBrokerageName((prev) => cleanBrokerPlaceholder(prev) || pCompany);
         setBrokerPhone((prev) => cleanBrokerPlaceholder(prev) || pPhone);
+        setItems((prev) => {
+          const next = prev.map((it) => ({
+            ...it,
+            brokerName: cleanBrokerPlaceholder(it.brokerName) || pName,
+            brokerageName: cleanBrokerPlaceholder(it.brokerageName) || pCompany,
+            brokerPhone: cleanBrokerPlaceholder(it.brokerPhone) || pPhone,
+          }));
+          persistImItems(next);
+          return next;
+        });
       })
       .catch(() => {
         // Non-blocking fallback
       });
-  }, []);
+  }, [persistImItems]);
 
   // Calculate yield & rent totals
   const totalRentManwon = useMemo(() => {
@@ -894,6 +961,38 @@ function ImWorkspaceInner() {
         const nextLand = data.landAreaSqm || landAreaSqm;
         const nextZoning = data.zoning || zoning;
         const nextCompletion = data.completionDate || data.useAprDay || completionDate;
+        const nextPnu =
+          typeof data.pnu === "string" && data.pnu.trim()
+            ? data.pnu.trim()
+            : currentItem?.pnu;
+        const nextLat =
+          data.lat != null && data.lat !== "" && Number.isFinite(Number(data.lat))
+            ? Number(data.lat)
+            : currentItem?.lat;
+        const nextLng =
+          data.lng != null && data.lng !== "" && Number.isFinite(Number(data.lng))
+            ? Number(data.lng)
+            : currentItem?.lng;
+        const rawFloorsAbove = Number(data.floorsAbove ?? data.grndFlrCnt);
+        const rawFloorsBelow = Number(data.floorsBelow ?? data.ugrndFlrCnt);
+        const nextFloorsAbove =
+          Number.isFinite(rawFloorsAbove) && rawFloorsAbove > 0
+            ? rawFloorsAbove
+            : currentItem?.floorsAbove;
+        const nextFloorsBelow =
+          Number.isFinite(rawFloorsBelow) && rawFloorsBelow >= 0
+            ? rawFloorsBelow
+            : currentItem?.floorsBelow;
+        const rawMainPurpose = data.mainPurpose ?? data.mainPurpsCdNm;
+        const nextMainPurpose =
+          typeof rawMainPurpose === "string" && rawMainPurpose.trim()
+            ? rawMainPurpose.trim()
+            : currentItem?.mainPurpose;
+        const nextBuildingName =
+          typeof (data.buildingName ?? data.bldNm) === "string"
+            ? String(data.buildingName ?? data.bldNm).trim()
+            : "";
+
         if (nextGfa) setGfaSqm(String(nextGfa));
         if (nextLand) setLandAreaSqm(String(nextLand));
         if (nextZoning) setZoning(String(nextZoning));
@@ -909,20 +1008,36 @@ function ImWorkspaceInner() {
           landAreaSqm: nextLand ? String(nextLand) : landAreaSqm,
           zoning: nextZoning ? String(nextZoning) : zoning,
           completionDate: nextCompletion ? String(nextCompletion) : completionDate,
+          ...(nextPnu !== undefined ? { pnu: nextPnu } : {}),
+          ...(nextLat !== undefined ? { lat: nextLat } : {}),
+          ...(nextLng !== undefined ? { lng: nextLng } : {}),
+          ...(nextFloorsAbove !== undefined ? { floorsAbove: nextFloorsAbove } : {}),
+          ...(nextFloorsBelow !== undefined ? { floorsBelow: nextFloorsBelow } : {}),
+          ...(nextMainPurpose !== undefined ? { mainPurpose: nextMainPurpose } : {}),
         };
+
+        if (
+          nextBuildingName &&
+          (!imTitle.trim() || imTitle === "영등포구 양평동 꼬마빌딩" || imTitle === "새 IM")
+        ) {
+          setImTitle(nextBuildingName);
+          patch.title = nextBuildingName;
+        } else if (isSampleOrigin && isDifferentFromSample && imTitle === "영등포구 양평동 꼬마빌딩") {
+          setImTitle(nextBuildingName);
+          patch.title = nextBuildingName;
+        }
+
         if (isSampleOrigin && isDifferentFromSample) {
-          if (imTitle === "영등포구 양평동 꼬마빌딩") {
-            const nextTitle = data.buildingName || "";
-            setImTitle(nextTitle);
-            patch.title = nextTitle;
-          }
           if (askingPriceManwon === 950000) {
             setAskingPriceManwon(0);
             setWonDraft("");
             patch.askingPriceManwon = 0;
           }
           if (rentRoll.some((r) => r.id === "r-b1")) {
-            const freshRows = generateFloorScaffolding(3, 1);
+            const freshRows = generateFloorScaffolding(
+              Number(data.floorsAbove) || 3,
+              Number(data.floorsBelow) || 1
+            );
             setRentRoll(freshRows);
             patch.rentRoll = freshRows;
           }
@@ -937,9 +1052,22 @@ function ImWorkspaceInner() {
           ) {
             setPhotoNames([]);
             setPhotoEntries([]);
+            latestPhotoEntriesRef.current = [];
             patch.photoNames = [];
             patch.photos = [];
           }
+        } else if (
+          rentRoll.every(
+            (r) => r.id.startsWith("scaffold-") && !r.depositManwon && !r.monthlyRentManwon
+          ) &&
+          (Number(data.floorsAbove) > 0 || Number(data.floorsBelow) > 0)
+        ) {
+          const freshRows = generateFloorScaffolding(
+            Number(data.floorsAbove) || 3,
+            Number(data.floorsBelow) || 1
+          );
+          setRentRoll(freshRows);
+          patch.rentRoll = freshRows;
         }
         syncCurrentItemPatch(patch);
         showUndoToast({
@@ -1013,15 +1141,21 @@ function ImWorkspaceInner() {
           if (rentM) rent = parseFloat(rentM[1].replace(/,/g, "")) || 0;
           if (mgmtM) mgmt = parseFloat(mgmtM[1].replace(/,/g, "")) || 0;
         }
+        const tenantNameTrimmed = r.tenant_name?.trim() || undefined;
+        const tenantTypeTrimmed = r.tenant_type?.trim() || undefined;
+        const useLabel =
+          tenantTypeTrimmed && tenantNameTrimmed && tenantTypeTrimmed !== tenantNameTrimmed
+            ? `${tenantNameTrimmed} / ${tenantTypeTrimmed}`
+            : tenantTypeTrimmed || tenantNameTrimmed || (r.is_vacant ? "공실" : "근린생활시설");
         return {
           id: `r-xlsx-${Date.now()}-${idx}`,
           floor: normalizeFloorName(r.floor || `${idx + 1}F`),
           unit: r.unit_label || `${idx + 1}01호`,
-          use:
-            Array.from(
-              new Set([r.tenant_name?.trim(), r.tenant_type?.trim()].filter(Boolean))
-            ).join(" / ") || (r.is_vacant ? "공실" : "근린생활시설"),
+          use: useLabel,
+          tenantName: tenantNameTrimmed,
           areaSqm: r.area_sqm ?? r.exclusive_area_sqm,
+          exclusiveAreaSqm: r.exclusive_area_sqm,
+          note: r.note,
           depositManwon: dep,
           monthlyRentManwon: rent,
           maintenanceManwon: mgmt,
@@ -1038,9 +1172,20 @@ function ImWorkspaceInner() {
       const prevRows = [...rentRoll];
       setRentRoll(finalRows);
       const patch: Partial<ImListItem> = { rentRoll: finalRows };
-      if (payload.askingPriceManwon && payload.askingPriceManwon > 0) {
-        setAskingPriceManwon(payload.askingPriceManwon);
-        patch.askingPriceManwon = payload.askingPriceManwon;
+      const incomingPrice = Number(
+        payload.askingPriceManwon ??
+          (payload as unknown as { askingPrice?: number }).askingPrice
+      );
+      if (
+        Number.isFinite(incomingPrice) &&
+        incomingPrice > 0 &&
+        (!askingPriceManwon ||
+          askingPriceManwon <= 0 ||
+          String(askingPriceManwon) === "68000")
+      ) {
+        setAskingPriceManwon(incomingPrice);
+        setWonDraft((incomingPrice * 10000).toLocaleString("ko-KR"));
+        patch.askingPriceManwon = incomingPrice;
       }
       syncCurrentItemPatch(patch);
       showUndoToast({
@@ -1053,8 +1198,33 @@ function ImWorkspaceInner() {
     }
   };
 
+  const buildPhotosPayloadForRequest = () => {
+    const sourceEntries =
+      latestPhotoEntriesRef.current.length > 0 ? latestPhotoEntriesRef.current : photoEntries;
+    const valid = sourceEntries
+      .map((pe, idx) => {
+        const candidateUrl =
+          pe.dataUrl ||
+          (isPersistablePhotoUrl(pe.previewUrl) ? pe.previewUrl : undefined) ||
+          (isPersistablePhotoUrl(pe.url) ? pe.url : undefined) ||
+          resolveKnownTestAssetUrl(pe.name);
+        if (!isPersistablePhotoUrl(candidateUrl)) return null;
+        return {
+          url: candidateUrl,
+          name: pe.name,
+          caption: pe.caption,
+          category: pe.category || (idx === 0 ? "exterior" : "interior"),
+          role: idx === 0 ? "cover" : undefined,
+          isHero: idx === 0,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    return valid.length > 0 ? valid : undefined;
+  };
+
   // Open Detail Sheet without publishing draft
   const handleOpenBottomSheet = async () => {
+    await waitForPendingPhotoCompressions();
     const existingBid = currentItem?.buildingId || "";
     if (UUID_REGEX.test(existingBid)) {
       setBottomSheetBuildingId(existingBid);
@@ -1070,19 +1240,9 @@ function ImWorkspaceInner() {
     setIsProvisioningSheet(true);
     setActionAlert(null);
     try {
-      const photosPayload =
-        photoEntries.length > 0
-          ? photoEntries
-              .filter((pe) => Boolean(pe.dataUrl || pe.previewUrl))
-              .map((pe, idx) => ({
-                url: pe.dataUrl || pe.previewUrl,
-                name: pe.name,
-                caption: pe.caption,
-                category: pe.category || (idx === 0 ? "exterior" : "interior"),
-                role: idx === 0 ? "cover" : undefined,
-                isHero: idx === 0,
-              }))
-          : undefined;
+      const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
+      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
+      const photosPayload = buildPhotosPayloadForRequest();
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1099,6 +1259,16 @@ function ImWorkspaceInner() {
           landAreaSqm: Number(landAreaSqm) || undefined,
           zoning: zoning || undefined,
           handoverNote: handoverNote || undefined,
+          pnu: currentItem?.pnu,
+          lat: currentItem?.lat,
+          lng: currentItem?.lng,
+          floorsAbove: currentItem?.floorsAbove,
+          floorsBelow: currentItem?.floorsBelow,
+          mainPurpose: currentItem?.mainPurpose,
+          brokerName,
+          brokerageName,
+          brokerPhone,
+          brokerExtras: brokerExtrasPayload,
           photos: photosPayload,
           publishStatus: "draft",
         }),
@@ -1122,9 +1292,15 @@ function ImWorkspaceInner() {
   const handleOpenStudio = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     const existingBid = currentItem?.buildingId || "";
     if (UUID_REGEX.test(existingBid)) {
+      if (pendingPhotoCompressionsRef.current.size > 0) {
+        e.preventDefault();
+        await waitForPendingPhotoCompressions();
+        window.location.href = `/broker/basic-im-studio/${existingBid}`;
+      }
       return; // Let native anchor navigation proceed
     }
     e.preventDefault();
+    await waitForPendingPhotoCompressions();
 
     if (!address.trim() || !askingPriceManwon || askingPriceManwon <= 0) {
       setActiveEditorTab("specs");
@@ -1135,19 +1311,9 @@ function ImWorkspaceInner() {
     setIsProvisioningSheet(true);
     setActionAlert(null);
     try {
-      const photosPayload =
-        photoEntries.length > 0
-          ? photoEntries
-              .filter((pe) => Boolean(pe.dataUrl || pe.previewUrl))
-              .map((pe, idx) => ({
-                url: pe.dataUrl || pe.previewUrl,
-                name: pe.name,
-                caption: pe.caption,
-                category: pe.category || (idx === 0 ? "exterior" : "interior"),
-                role: idx === 0 ? "cover" : undefined,
-                isHero: idx === 0,
-              }))
-          : undefined;
+      const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
+      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
+      const photosPayload = buildPhotosPayloadForRequest();
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1164,9 +1330,16 @@ function ImWorkspaceInner() {
           landAreaSqm: Number(landAreaSqm) || undefined,
           zoning: zoning || undefined,
           handoverNote: handoverNote || undefined,
+          pnu: currentItem?.pnu,
+          lat: currentItem?.lat,
+          lng: currentItem?.lng,
+          floorsAbove: currentItem?.floorsAbove,
+          floorsBelow: currentItem?.floorsBelow,
+          mainPurpose: currentItem?.mainPurpose,
           brokerName,
           brokerageName,
           brokerPhone,
+          brokerExtras: brokerExtrasPayload,
           photos: photosPayload,
           publishStatus: "draft",
         }),
@@ -1187,6 +1360,7 @@ function ImWorkspaceInner() {
 
   // Primary Action: IM 만들기
   const handleQuickGenerate = async () => {
+    await waitForPendingPhotoCompressions();
     setActionAlert(null);
     if (!address.trim()) {
       setActiveEditorTab("specs");
@@ -1203,19 +1377,7 @@ function ImWorkspaceInner() {
     try {
       const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
       const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : undefined;
-      const photosPayload =
-        photoEntries.length > 0
-          ? photoEntries
-              .filter((pe) => Boolean(pe.dataUrl || pe.previewUrl))
-              .map((pe, idx) => ({
-                url: pe.dataUrl || pe.previewUrl,
-                name: pe.name,
-                caption: pe.caption,
-                category: pe.category || (idx === 0 ? "exterior" : "interior"),
-                role: idx === 0 ? "cover" : undefined,
-                isHero: idx === 0,
-              }))
-          : undefined;
+      const photosPayload = buildPhotosPayloadForRequest();
 
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
@@ -1236,6 +1398,12 @@ function ImWorkspaceInner() {
           landAreaSqm: Number(landAreaSqm) || undefined,
           zoning: zoning || undefined,
           handoverNote: handoverNote || undefined,
+          pnu: currentItem?.pnu,
+          lat: currentItem?.lat,
+          lng: currentItem?.lng,
+          floorsAbove: currentItem?.floorsAbove,
+          floorsBelow: currentItem?.floorsBelow,
+          mainPurpose: currentItem?.mainPurpose,
           brokerName,
           brokerageName,
           brokerPhone,
@@ -1251,6 +1419,8 @@ function ImWorkspaceInner() {
         const resolvedTitle =
           imTitle.trim() ||
           (address.split(" ").slice(1, 3).join(" ") || "매물") + " 근생빌딩";
+        const latestPhotos =
+          latestPhotoEntriesRef.current.length > 0 ? latestPhotoEntriesRef.current : photoEntries;
         const nextItems = items.map((it) =>
           it.id === targetId
             ? {
@@ -1270,15 +1440,8 @@ function ImWorkspaceInner() {
                 landAreaSqm,
                 zoning,
                 handoverNote,
-                photoNames,
-                photos: photoEntries.map((pe) => ({
-                  name: pe.name,
-                  url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                  previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                  dataUrl: pe.dataUrl,
-                  category: pe.category,
-                  caption: pe.caption,
-                })),
+                photoNames: Array.from(new Set(latestPhotos.map((p) => p.name))),
+                photos: sanitizePhotosForSync(latestPhotos),
                 brokerName,
                 brokerageName,
                 brokerPhone,
@@ -2318,6 +2481,8 @@ function ImWorkspaceInner() {
             setRentRoll(nextRows);
             syncCurrentItemPatch({ rentRoll: nextRows });
           }}
+          floorsAbove={currentItem?.floorsAbove}
+          floorsBelow={currentItem?.floorsBelow}
           askingPriceManwon={askingPriceManwon}
         />
 
@@ -2606,7 +2771,7 @@ function ImWorkspaceInner() {
                   : knownUrl;
               return {
                 name: f.name,
-                url: knownUrl || blobUrl,
+                url: knownUrl,
                 category: inferred.category,
                 caption: inferred.caption,
                 previewUrl: blobUrl || knownUrl,
@@ -2615,50 +2780,51 @@ function ImWorkspaceInner() {
             const nextNames = Array.from(new Set([...photoNames, ...addedNames]));
             setPhotoNames(nextNames);
             const mergedEntries = [...photoEntries, ...addedEntries];
+            latestPhotoEntriesRef.current = mergedEntries;
             setPhotoEntries(mergedEntries);
             syncCurrentItemPatch({
               photoNames: nextNames,
-              photos: mergedEntries.map((pe) => ({
-                name: pe.name,
-                url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                category: pe.category,
-                caption: pe.caption,
-              })),
+              photos: sanitizePhotosForSync(mergedEntries),
             });
-            void Promise.all(
+            const compressionPromise = Promise.all(
               droppedFiles.map(async (f) => {
                 const dataUrl = await readAndCompressPhotoFile(f);
                 return { name: f.name, dataUrl };
               })
-            ).then((resolvedList) => {
-              setPhotoEntries((prev) => {
-                const updated = prev.map((pe) => {
-                  const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
-                  return matched
-                    ? {
-                        ...pe,
-                        dataUrl: matched.dataUrl,
-                        previewUrl: matched.dataUrl || pe.previewUrl,
-                        url: matched.dataUrl || pe.url,
-                      }
-                    : pe;
+            )
+              .then((resolvedList) => {
+                const applyResolved = (list: ImPhotoEntry[]) =>
+                  list.map((pe) => {
+                    const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
+                    return matched
+                      ? {
+                          ...pe,
+                          dataUrl: matched.dataUrl,
+                          previewUrl: matched.dataUrl || pe.previewUrl,
+                          url: matched.dataUrl || pe.url,
+                        }
+                      : pe;
+                  });
+                latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
+                setPhotoEntries((prev) => {
+                  const next = applyResolved(prev);
+                  latestPhotoEntriesRef.current = next;
+                  const nextNamesFromState = Array.from(new Set(next.map((p) => p.name)));
+                  syncCurrentItemPatch({
+                    photoNames: nextNamesFromState,
+                    photos: sanitizePhotosForSync(next),
+                  });
+                  return next;
                 });
-                syncCurrentItemPatch({
-                  photoNames: nextNames,
-                  photos: updated.map((pe) => ({
-                    name: pe.name,
-                    url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                    previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                    dataUrl: pe.dataUrl,
-                    category: pe.category,
-                    caption: pe.caption,
-                  })),
-                });
-                return updated;
+              })
+              .finally(() => {
+                pendingPhotoCompressionsRef.current.delete(compressionPromise);
+                setIsCompressingPhotos(pendingPhotoCompressionsRef.current.size > 0);
               });
-            });
+            pendingPhotoCompressionsRef.current.add(compressionPromise);
+            setIsCompressingPhotos(true);
           }}
+          data-compressing={isCompressingPhotos ? "true" : "false"}
           className={`p-6 rounded-2xl border-2 border-dashed text-center space-y-4 transition-colors ${
             isDraggingPhotos
               ? "bg-blue-50 border-[#1D4ED8]"
@@ -2688,7 +2854,7 @@ function ImWorkspaceInner() {
                     : knownUrl;
                 return {
                   name: f.name,
-                  url: knownUrl || blobUrl,
+                  url: knownUrl,
                   category: inferred.category,
                   caption: inferred.caption,
                   previewUrl: blobUrl || knownUrl,
@@ -2697,49 +2863,49 @@ function ImWorkspaceInner() {
               const nextNames = Array.from(new Set([...photoNames, ...addedNames]));
               setPhotoNames(nextNames);
               const mergedEntries = [...photoEntries, ...addedEntries];
+              latestPhotoEntriesRef.current = mergedEntries;
               setPhotoEntries(mergedEntries);
               syncCurrentItemPatch({
                 photoNames: nextNames,
-                photos: mergedEntries.map((pe) => ({
-                  name: pe.name,
-                  url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                  previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                  category: pe.category,
-                  caption: pe.caption,
-                })),
+                photos: sanitizePhotosForSync(mergedEntries),
               });
-              void Promise.all(
+              const compressionPromise = Promise.all(
                 files.map(async (f) => {
                   const dataUrl = await readAndCompressPhotoFile(f);
                   return { name: f.name, dataUrl };
                 })
-              ).then((resolvedList) => {
-                setPhotoEntries((prev) => {
-                  const updated = prev.map((pe) => {
-                    const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
-                    return matched
-                      ? {
-                          ...pe,
-                          dataUrl: matched.dataUrl,
-                          previewUrl: matched.dataUrl || pe.previewUrl,
-                          url: matched.dataUrl || pe.url,
-                        }
-                      : pe;
+              )
+                .then((resolvedList) => {
+                  const applyResolved = (list: ImPhotoEntry[]) =>
+                    list.map((pe) => {
+                      const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
+                      return matched
+                        ? {
+                            ...pe,
+                            dataUrl: matched.dataUrl,
+                            previewUrl: matched.dataUrl || pe.previewUrl,
+                            url: matched.dataUrl || pe.url,
+                          }
+                        : pe;
+                    });
+                  latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
+                  setPhotoEntries((prev) => {
+                    const next = applyResolved(prev);
+                    latestPhotoEntriesRef.current = next;
+                    const nextNamesFromState = Array.from(new Set(next.map((p) => p.name)));
+                    syncCurrentItemPatch({
+                      photoNames: nextNamesFromState,
+                      photos: sanitizePhotosForSync(next),
+                    });
+                    return next;
                   });
-                  syncCurrentItemPatch({
-                    photoNames: nextNames,
-                    photos: updated.map((pe) => ({
-                      name: pe.name,
-                      url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                      previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                      dataUrl: pe.dataUrl,
-                      category: pe.category,
-                      caption: pe.caption,
-                    })),
-                  });
-                  return updated;
+                })
+                .finally(() => {
+                  pendingPhotoCompressionsRef.current.delete(compressionPromise);
+                  setIsCompressingPhotos(pendingPhotoCompressionsRef.current.size > 0);
                 });
-              });
+              pendingPhotoCompressionsRef.current.add(compressionPromise);
+              setIsCompressingPhotos(true);
               e.target.value = "";
             }}
           />
@@ -2783,18 +2949,12 @@ function ImWorkspaceInner() {
                       onClick={() => {
                         const next = photoNames.filter((n) => n !== name);
                         const nextEntries = photoEntries.filter((pe) => pe.name !== name);
+                        latestPhotoEntriesRef.current = nextEntries;
                         setPhotoNames(next);
                         setPhotoEntries(nextEntries);
                         syncCurrentItemPatch({
                           photoNames: next,
-                          photos: nextEntries.map((pe) => ({
-                            name: pe.name,
-                            url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                            previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
-                            dataUrl: pe.dataUrl,
-                            category: pe.category,
-                            caption: pe.caption,
-                          })),
+                          photos: sanitizePhotosForSync(nextEntries),
                         });
                       }}
                       className="min-h-[40px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer"

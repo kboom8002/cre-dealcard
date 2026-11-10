@@ -236,8 +236,21 @@ function renderCommonCoverContent(
       fill: { color: C.brass },
     });
 
-    const companyName = String(d.companyName || '').trim();
-    const brokerName = String(d.brokerName || '').trim();
+    const DUMMY_BROKER_VALUES = new Set([
+      '담당 공인중개사',
+      '전담 부동산중개법인',
+      '크리딜 파트너 중개법인',
+      '11560-2023-00412',
+      '02-558-7700',
+      '-',
+    ]);
+    const cleanBrokerVal = (v: unknown) => {
+      const s = String(v || '').trim();
+      return !s || DUMMY_BROKER_VALUES.has(s) ? '' : s;
+    };
+
+    const companyName = cleanBrokerVal(d.companyName);
+    const brokerName = cleanBrokerVal(d.brokerName);
     const primaryBrand = companyName || brokerName || 'INVESTMENT MEMORANDUM';
     slide.addText(primaryBrand, {
       x: M, y: 5.65, w: 7.50, h: 0.36,
@@ -245,12 +258,12 @@ function renderCommonCoverContent(
       fontFace: KR, margin: 0,
     });
 
-    const brokerPhone = String(d.brokerPhone || d.phone || '').trim();
-    const registrationNo = String(d.registrationNo || '').trim();
+    const brokerPhone = cleanBrokerVal(d.brokerPhone || d.phone);
+    const registrationNo = cleanBrokerVal(d.registrationNo);
     const docDate = String(d.documentDate || '').trim();
     const cleanBrokerName = brokerName.replace(/^담당\s*(?:자)?\s*[:：]?\s*/, '').trim();
     const secondaryParts = [
-      companyName && cleanBrokerName ? `담당 ${cleanBrokerName}` : '',
+      companyName && cleanBrokerName && !DUMMY_BROKER_VALUES.has(cleanBrokerName) ? `담당 ${cleanBrokerName}` : '',
       docDate,
       brokerPhone,
       registrationNo ? `등록번호 ${registrationNo}` : '',
