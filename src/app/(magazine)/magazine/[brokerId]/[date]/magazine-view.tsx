@@ -458,8 +458,13 @@ export function MagazineView({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="line-clamp-1 text-[16px] font-bold text-white leading-tight">
-                          {deal.assetType || "상업용 빌딩"}
+                          {deal.title || deal.assetType || "상업용 빌딩"}
                         </h3>
+                        {deal.title && deal.assetType && deal.title !== deal.assetType && (
+                          <span className="mt-0.5 inline-block text-xs font-semibold text-indigo-300">
+                            {deal.assetType}
+                          </span>
+                        )}
                         <p className="mt-0.5 line-clamp-1 text-sm text-slate-300">{safeAddress}</p>
                       </div>
                       <div className="text-right shrink-0">

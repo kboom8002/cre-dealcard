@@ -143,5 +143,18 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
     // Non-blocking
   }
 
-  return <MobileIMViewer document={data} buildingId={buildingId} docId={docId} isBroker={isBroker} />;
+  const safeDocument = (data as any).isRevoked
+    ? ({
+        ...data,
+        priceBand: "비공개",
+        sections: [],
+        rentRoll: [],
+        floor_leases: [],
+        basicImDocument: undefined,
+        ssotSummary: undefined,
+        heroCard: undefined,
+      } as any)
+    : data;
+
+  return <MobileIMViewer document={safeDocument} buildingId={buildingId} docId={docId} isBroker={isBroker} />;
 }

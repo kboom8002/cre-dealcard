@@ -264,7 +264,7 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
       const rec2 = synthesizeQuickRecordFromImItem({
         id: "im-bucheon-17",
         buildingId: "bld-bucheon-17",
-        title: deal2.title,
+        title: deal2.name,
         address: deal2.jibunAddress,
         askingPriceManwon: Number(deal2.askingPriceEok) * 10000,
         gfaSqm: 2758.21,

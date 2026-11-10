@@ -51,12 +51,16 @@ async function verifyBrokerOwnership(params: {
     const supabase = createServiceClient();
     const rawReqId = threadId.replace(/^srv-/, '');
 
-    if (rawReqId && !threadId.startsWith('custom_') && !threadId.startsWith('cli-')) {
-      const { data: gateReq } = await supabase
+    if (rawReqId && isUuid(rawReqId) && !threadId.startsWith('custom_') && !threadId.startsWith('cli-')) {
+      const { data: gateReq, error: gateErr } = await supabase
         .from('gate_requests')
         .select('id, building_id, buildings(owner_id)')
         .eq('id', rawReqId)
         .maybeSingle();
+
+      if (gateErr && gateErr.code !== 'PGRST116') {
+        return { allowed: false, reason: '열람 요청 소유권 확인 중 오류가 발생했습니다.' };
+      }
 
       if (gateReq) {
         const joinedBuilding = Array.isArray((gateReq as any).buildings)
@@ -66,29 +70,72 @@ async function verifyBrokerOwnership(params: {
         if (ownerId && ownerId !== userId) {
           return { allowed: false, reason: '해당 IM 열람 요청의 소유 중개인이 아닙니다.' };
         }
+        if ((gateReq as any).building_id && isUuid((gateReq as any).building_id)) {
+          const { data: reqBld } = await supabase
+            .from('building_ssot_lite')
+            .select('owner_id')
+            .eq('id', (gateReq as any).building_id)
+            .maybeSingle();
+          if (reqBld?.owner_id && reqBld.owner_id !== userId) {
+            return { allowed: false, reason: '해당 IM 열람 요청의 소유 중개인이 아닙니다.' };
+          }
+        }
       }
     }
 
     if (buildingId) {
-      const { data: ssotRow } = await supabase
-        .from('building_ssot_lite')
-        .select('owner_id')
-        .eq('id', buildingId)
-        .maybeSingle();
-
-      if (ssotRow?.owner_id && ssotRow.owner_id !== userId) {
-        return { allowed: false, reason: '해당 빌딩의 소유 중개인이 아닙니다.' };
-      }
-
       if (isUuid(buildingId)) {
-        const { data: bldRow } = await supabase
+        const { data: ssotRow, error: ssotErr } = await supabase
+          .from('building_ssot_lite')
+          .select('owner_id')
+          .eq('id', buildingId)
+          .maybeSingle();
+
+        if (ssotErr && ssotErr.code !== 'PGRST116') {
+          return { allowed: false, reason: '매물 소유권 검증 중 데이터베이스 오류가 발생했습니다.' };
+        }
+
+        if (ssotRow?.owner_id && ssotRow.owner_id !== userId) {
+          return { allowed: false, reason: '해당 빌딩의 소유 중개인이 아닙니다.' };
+        }
+
+        const { data: bldRow, error: bldErr } = await supabase
           .from('buildings')
           .select('owner_id')
           .eq('id', buildingId)
           .maybeSingle();
 
+        if (bldErr && bldErr.code !== 'PGRST116') {
+          return { allowed: false, reason: '매물 소유권 검증 중 데이터베이스 오류가 발생했습니다.' };
+        }
+
         if ((bldRow as any)?.owner_id && (bldRow as any).owner_id !== userId) {
           return { allowed: false, reason: '해당 빌딩의 소유 중개인이 아닙니다.' };
+        }
+      } else if (buildingId !== 'bld-01') {
+        // Non-UUID listing: verify owner from activity_events (Cold-Start Fail-Closed Ownership)
+        let evQ: any = supabase
+          .from('activity_events')
+          .select('actor_id, entity_id, event_type, metadata, created_at');
+        if (typeof evQ.in === 'function') {
+          evQ = evQ.in('event_type', ['im_upserted', 'dealcard_upserted']);
+        }
+        if (typeof evQ.order === 'function') {
+          evQ = evQ.order('created_at', { ascending: false });
+        }
+        const { data: acts, error: actErr } = await evQ;
+        if (actErr) {
+          return { allowed: false, reason: '비-UUID 매물 소유권 검증 중 오류가 발생했습니다.' };
+        }
+        for (const ev of acts || []) {
+          const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, any>;
+          const evBId = String(meta.building_id || meta.im_id || ev?.entity_id || '').trim();
+          if (evBId === buildingId) {
+            if (ev.actor_id && String(ev.actor_id) !== userId) {
+              return { allowed: false, reason: '다른 중개인의 매물에 접근할 수 없습니다.' };
+            }
+            break;
+          }
         }
       }
     }
@@ -119,8 +166,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const action = String(body?.action || '');
     const threadId = String(body?.threadId || '');
-    const buildingId = String(body?.buildingId || 'bld-01');
+    const rawBuildingId = typeof body?.buildingId === 'string' ? body.buildingId.trim() : '';
     const shareToken = String(body?.shareToken || body?.token || '');
+
+    const requiresExplicitBuilding =
+      action === 'revoke_link' ||
+      action === 'revoke' ||
+      action === 'restore_link' ||
+      action === 'unlock_share_link' ||
+      action === 'correction_notice' ||
+      action === 'clear_correction_notice';
+
+    if (requiresExplicitBuilding && !rawBuildingId && !shareToken) {
+      return NextResponse.json(
+        { ok: false, error: '대상 매물 ID(buildingId) 또는 공유 토큰이 필요합니다.' },
+        { status: 400 }
+      );
+    }
+
+    const buildingId = rawBuildingId || 'bld-01';
 
     // Verify ownership across UUID and non-UUID buildingIds / gate_requests / custom clients
     const ownership = await verifyBrokerOwnership({
@@ -156,6 +220,11 @@ export async function POST(req: NextRequest) {
       let issuedShareUrl = `/im-lite/${encodeURIComponent(buildingId)}`;
 
       if (decision === 'approved') {
+        setBuildingRevokedState(buildingId, false);
+        await restoreShareLinkToken({
+          buildingId,
+          brokerId: userId,
+        });
         const issued = await issueShareLinkToken({
           buildingId,
           brokerId: userId,
@@ -174,15 +243,36 @@ export async function POST(req: NextRequest) {
       if (rawId && !threadId.startsWith('custom_') && !threadId.startsWith('cli-')) {
         try {
           const supabase = createServiceClient();
-          await supabase
-            .from('gate_requests')
-            .update({ status: decision })
-            .eq('id', rawId);
+          if (isUuid(rawId)) {
+            await supabase
+              .from('gate_requests')
+              .update({ status: decision })
+              .eq('id', rawId);
+          }
+
+          if (decision === 'approved') {
+            await supabase.from('activity_events').insert({
+              actor_id: userId,
+              event_type: 'link_restored',
+              entity_type: 'building',
+              entity_id: isUuid(buildingId) ? buildingId : userId,
+              metadata: {
+                thread_id: threadId,
+                building_id: buildingId,
+                share_token: issuedToken,
+                revoked: false,
+              },
+            });
+          }
 
           await supabase.from('activity_events').insert({
             actor_id: userId,
             event_type:
-              decision === 'approved' ? 'gate_request_approved' : 'gate_request_rejected',
+              decision === 'approved'
+                ? 'gate_request_approved'
+                : decision === 'rejected'
+                ? 'gate_request_rejected'
+                : 'gate_request_reset',
             entity_type: 'building',
             entity_id: isUuid(buildingId) ? buildingId : isUuid(rawId) ? rawId : userId,
             metadata: {
@@ -493,7 +583,7 @@ export async function POST(req: NextRequest) {
         if (insRes?.data?.id) {
           resolvedClientId = `custom_${insRes.data.id}`;
         }
-        await supabase.from('activity_events').insert({
+        const evRes = await supabase.from('activity_events').insert({
           actor_id: userId,
           event_type: 'custom_client_upserted',
           entity_type: 'building',
@@ -510,6 +600,16 @@ export async function POST(req: NextRequest) {
             newsletter_subscribed: newsletterSubscribed,
           },
         });
+        if (insRes?.error && (evRes as any)?.error) {
+          return NextResponse.json(
+            {
+              ok: false,
+              persisted: false,
+              error: '고객 정보 저장 중 데이터베이스 오류가 발생했습니다.',
+            },
+            { status: 500 }
+          );
+        }
       } catch {
         // non-blocking
       }

@@ -25,6 +25,7 @@ export default defineConfig({
     testTimeout: 30_000,
     restoreMocks: true,
     clearMocks: true,
+    setupFiles: ["src/tests/setup/magazine-env-guard.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["node_modules", ".next"],
     coverage: {

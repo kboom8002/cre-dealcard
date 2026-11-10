@@ -21,7 +21,12 @@ export const MAGAZINE_TEST_ENV: Record<string, string> = {
 
 export function isMagazineTestPath(testPath: string | undefined | null): boolean {
   if (!testPath) return false;
-  return testPath.replace(/\\/g, '/').includes('/src/tests/unit/magazine/');
+  const norm = testPath.replace(/\\/g, '/');
+  return (
+    norm.includes('/src/tests/unit/magazine/') ||
+    norm.includes('/src/tests/magazine/') ||
+    norm.includes('/src/tests/workspace/')
+  );
 }
 
 /** @returns 덮어쓴 키 목록 (경로가 매거진 테스트가 아니면 빈 배열) */
@@ -35,11 +40,15 @@ export function applyMagazineEnvGuard(testPath?: string | null, force = false): 
   return applied;
 }
 
-// setupFiles 로 로드될 때 현재 테스트 파일 경로로 자동 적용 (vitest 전용 API 라 동적으로 접근)
+// setupFiles 로 로드될 때 현재 테스트 파일 경로로 자동 적용
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { expect } = require('vitest') as typeof import('vitest');
-  applyMagazineEnvGuard(expect.getState().testPath);
+  const jestMatchers = (globalThis as Record<symbol, any>)[
+    Symbol.for('$$jest-matchers-object')
+  ];
+  const workerPath =
+    (globalThis as Record<string, any>).__vitest_worker__?.filepath ||
+    jestMatchers?.state?.testPath;
+  applyMagazineEnvGuard(workerPath);
 } catch {
   /* vitest 밖에서 import 되면 무시 */
 }

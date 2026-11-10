@@ -120,16 +120,36 @@ export async function GET(request: NextRequest) {
       return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
     }
 
+    const normalizeSubKey = (
+      phone?: unknown,
+      email?: unknown,
+      name?: unknown,
+      fallbackId?: unknown
+    ): string => {
+      const rawPhone = typeof phone === "string" ? phone.trim() : "";
+      const digits = rawPhone.replace(/\D/g, "");
+      if (digits.length >= 9) {
+        const krNormalized = digits.replace(/^820?10/, "010");
+        return `tel:${krNormalized}`;
+      }
+      const rawEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+      if (rawEmail) return `email:${rawEmail}`;
+      const rawName = typeof name === "string" ? name.trim() : "";
+      if (rawName) return `name:${rawName}`;
+      const rawId = typeof fallbackId === "string" ? fallbackId.trim() : "";
+      return rawId ? `id:${rawId}` : "";
+    };
+
     const subscriberKeys = new Set<string>();
     const highInterestKeys = new Set<string>();
 
     const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
     for (const s of subRows) {
-      const k = String(s?.phone || s?.email || s?.id || "").trim();
+      const k = normalizeSubKey(s?.phone, s?.email, s?.name, s?.id);
       if (k) subscriberKeys.add(k);
     }
-    if (typeof subRes?.count === "number" && subRes.count > subscriberKeys.size) {
-      for (let i = subscriberKeys.size; i < subRes.count; i++) {
+    if (subRows.length === 0 && typeof subRes?.count === "number" && subRes.count > 0) {
+      for (let i = 0; i < subRes.count; i++) {
         subscriberKeys.add(`mag-sub-${i}`);
       }
     }
@@ -137,12 +157,15 @@ export async function GET(request: NextRequest) {
     const dbClientRows = Array.isArray((brokerClientsRes as any)?.data) ? (brokerClientsRes as any).data : [];
     for (const c of dbClientRows) {
       const tags = Array.isArray(c?.tags) ? c.tags.map((t: unknown) => String(t)) : [];
-      const subscribed = tags.length === 0 || tags.includes("뉴스레터구독");
-      const key = String(c?.phone || c?.display_name || c?.id || "").trim();
+      const isVip = String(c?.tier || "").toLowerCase() === "vip" || tags.includes("VIP") || tags.includes("high_interest");
+      const subscribed =
+        isVip ||
+        tags.some((t: string) => /뉴스레터|구독|newsletter|subscribe/i.test(t));
+      const key = normalizeSubKey(c?.phone, c?.email, c?.display_name, c?.id);
       if (key && subscribed) {
         subscriberKeys.add(key);
       }
-      if (key && (c?.tier === "vip" || tags.includes("VIP"))) {
+      if (key && isVip) {
         highInterestKeys.add(key);
       }
     }
@@ -151,16 +174,28 @@ export async function GET(request: NextRequest) {
     for (const ev of eventRows) {
       const meta = (ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, unknown>;
       if (ev?.event_type === "custom_client_upserted") {
-        const key = String(meta.client_phone || meta.client_name || meta.client_id || ev.id || "").trim();
+        const key = normalizeSubKey(
+          meta.client_phone ?? meta.phone,
+          meta.client_email ?? meta.email,
+          meta.client_name ?? meta.name,
+          meta.client_id ?? ev.id
+        );
         const subscribed = meta.newsletter_subscribed !== false;
+        const isVip =
+          String(meta.client_grade ?? meta.grade ?? meta.tier ?? "").toUpperCase() === "VIP";
         if (key && subscribed) {
           subscriberKeys.add(key);
         }
-        if (key && (meta.client_grade === "VIP" || meta.tier === "vip")) {
+        if (key && isVip) {
           highInterestKeys.add(key);
         }
       } else if (ev?.event_type === "gate_request_approved") {
-        const key = String(meta.thread_id || meta.request_id || ev.id || "").trim();
+        const key = normalizeSubKey(
+          meta.requester_phone,
+          meta.requester_email,
+          meta.requester_name,
+          meta.thread_id || meta.request_id || ev.id
+        );
         if (key) {
           subscriberKeys.add(key);
           highInterestKeys.add(key);
@@ -172,7 +207,7 @@ export async function GET(request: NextRequest) {
       (c) => Boolean(c.ownerId) && c.ownerId === ctx.userId
     );
     for (const c of inboxCustomClients) {
-      const key = String(c.clientPhone || c.clientName || c.id || "").trim();
+      const key = normalizeSubKey(c.clientPhone, undefined, c.clientName, c.id);
       if (key && c.newsletterSubscribed !== false) {
         subscriberKeys.add(key);
       }
@@ -184,6 +219,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       editions: data ?? [],
       total: count ?? 0,
+      brokerId: ctx.userId,
       brokerSlug: ctx.slug ?? ctx.userId,
       brokerName: ctx.displayName ?? "",
       subscriberCount: subscriberKeys.size,

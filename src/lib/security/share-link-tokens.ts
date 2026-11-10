@@ -386,21 +386,19 @@ export async function revokeShareLinkToken(
       revokedAt,
       reason,
     };
-    // If revoking by buildingId without a specific token, mark all tokens of that building revoked
-    if (!rawToken) {
-      for (const entry of Object.values(store.tokens)) {
-        if (entry.buildingId === resolvedBuildingId) {
-          entry.status = 'revoked';
-          entry.revokedAt = revokedAt;
-          entry.revokedReason = reason;
-          store.revokedTokens[entry.token] = {
-            token: entry.token,
-            buildingId: resolvedBuildingId,
-            brokerId,
-            revokedAt,
-            reason,
-          };
-        }
+    // Mark all tokens of that building revoked (prevents older tokens T1 from surviving a lock — S1-3)
+    for (const entry of Object.values(store.tokens)) {
+      if (entry.buildingId === resolvedBuildingId) {
+        entry.status = 'revoked';
+        entry.revokedAt = revokedAt;
+        entry.revokedReason = reason;
+        store.revokedTokens[entry.token] = {
+          token: entry.token,
+          buildingId: resolvedBuildingId,
+          brokerId,
+          revokedAt,
+          reason,
+        };
       }
     }
     try {
@@ -412,28 +410,49 @@ export async function revokeShareLinkToken(
 
   persistTokenStore(store);
 
-  // Sync revocation to Supabase im_share_links
+  // Sync revocation to Supabase im_share_links AND activity_events (S0-4 & S1-3)
   try {
     const supabase = createServiceClient();
     const table: any = supabase.from('im_share_links');
     if (rawToken && table && typeof table.update === 'function') {
-      const q = table
+      await table
         .update({
           status: 'revoked',
           revoked_at: revokedAt,
           revoked_reason: reason,
         })
         .eq('token', rawToken);
-      await q;
-    } else if (resolvedBuildingId && table && typeof table.update === 'function') {
-      const q = table
+    }
+    if (resolvedBuildingId && table && typeof table.update === 'function') {
+      await table
         .update({
           status: 'revoked',
           revoked_at: revokedAt,
           revoked_reason: reason,
         })
         .eq('building_id', resolvedBuildingId);
-      await q;
+    }
+    const evTable: any = supabase.from('activity_events');
+    if (evTable && typeof evTable.insert === 'function') {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const entityId =
+        resolvedBuildingId && uuidRe.test(resolvedBuildingId)
+          ? resolvedBuildingId
+          : brokerId && uuidRe.test(brokerId)
+          ? brokerId
+          : '00000000-0000-4000-8000-000000000000';
+      await evTable.insert({
+        actor_id: brokerId && uuidRe.test(brokerId) ? brokerId : entityId,
+        event_type: 'link_revoked',
+        entity_type: 'building',
+        entity_id: entityId,
+        metadata: {
+          building_id: resolvedBuildingId || null,
+          share_token: rawToken || null,
+          reason,
+          revoked: true,
+        },
+      });
     }
   } catch {
     // Non-blocking fallback
@@ -500,7 +519,8 @@ export async function restoreShareLinkToken(input: {
           revoked_reason: null,
         })
         .eq('token', rawToken);
-    } else if (rawBuildingId && table && typeof table.update === 'function') {
+    }
+    if (rawBuildingId && table && typeof table.update === 'function') {
       await table
         .update({
           status: 'active',
@@ -558,7 +578,7 @@ export async function verifyShareLinkToken(
         evQuery = evQuery.order('created_at', { ascending: false });
       }
       if (typeof evQuery.limit === 'function') {
-        evQuery = evQuery.limit(40);
+        evQuery = evQuery.limit(200);
       }
       const evRes = await evQuery;
       const events = Array.isArray(evRes?.data) ? evRes.data : [];

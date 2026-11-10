@@ -141,13 +141,18 @@ export async function GET(req: NextRequest) {
   const offset = Number(url.searchParams.get("offset") || 0);
 
   const rawInboxState = getInboxState();
-  // IB-02: Never leak customClients without matching ownerId === userId
+  // IB-02 & S0-2: Deep-isolate inboxState per broker; never expose global tmpdir maps across tenants
   const ownCustomClients = (rawInboxState.customClients || []).filter(
     (c) => Boolean(c.ownerId) && c.ownerId === userId
   );
-  const inboxState = {
-    ...rawInboxState,
-    customClients: ownCustomClients,
+  const inboxState: ReturnType<typeof getInboxState> = {
+    revokedBuildings: {},
+    correctionNotices: {},
+    gateDecisions: {},
+    callNotes: {},
+    customClients: [...ownCustomClients],
+    deletedDealCardIds: {},
+    sentDealCardIds: {},
   };
 
   const quickRecords = listAllQuickImRecords().filter(
@@ -267,20 +272,21 @@ export async function GET(req: NextRequest) {
     new Set([...buildingIds, ...quickInventory.map((q) => String(q.buildingId)).filter(Boolean)])
   );
 
-  // ── 1. Gate Requests (IM 열람 요청) ──
+  // ── 1. Gate Requests (IM 열람 요청) — S0-3 Fail-Closed: 소유 매물이 있을 때만 조회 ──
   let gateItems: any[] = [];
-  if (
-    (filter === "all" || filter === "requests") &&
-    (!bldgQuerySucceeded || allOwnedBuildingIds.length > 0)
-  ) {
+  if ((filter === "all" || filter === "requests") && allOwnedBuildingIds.length > 0) {
     try {
+      const uuidOwnedIds = allOwnedBuildingIds.filter((id) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      );
+      const queryBuildingIds = uuidOwnedIds.length > 0 ? uuidOwnedIds : allOwnedBuildingIds;
       let grQuery: any = supabase
         .from("gate_requests")
         .select(
           "id, building_id, requester_id, requested_level, requested_fields, reason, status, created_at"
         );
-      if (buildingIds.length > 0 && typeof grQuery.in === "function") {
-        grQuery = grQuery.in("building_id", buildingIds);
+      if (queryBuildingIds.length > 0 && typeof grQuery.in === "function") {
+        grQuery = grQuery.in("building_id", queryBuildingIds);
       }
       if (typeof grQuery.order === "function") {
         grQuery = grQuery.order("created_at", { ascending: false });
@@ -293,11 +299,7 @@ export async function GET(req: NextRequest) {
       const filteredGateRequests = (gateRequests || []).filter((gr: any) => {
         const bldgOwner = gr.building?.owner_id || gr.buildings?.owner_id || gr.broker_id;
         if (bldgOwner && String(bldgOwner) !== userId) return false;
-        if (
-          allOwnedBuildingIds.length > 0 &&
-          gr.building_id &&
-          !allOwnedBuildingIds.includes(String(gr.building_id))
-        ) {
+        if (!gr.building_id || !allOwnedBuildingIds.includes(String(gr.building_id))) {
           return false;
         }
         return true;
@@ -596,7 +598,30 @@ export async function GET(req: NextRequest) {
     // ignore if table not present
   }
 
-  // ── 3-C. 중개인 액션 이벤트 조회 (승인/거절 영속성 및 통화 메모 복원 — P0-INBOX-GATE-01, P0-INBOX-NOTE-03) ──
+  // ── 3-C. 중개인 액션 이벤트 조회 (승인/거절 영속성 및 통화 메모 복원 — P0-INBOX-GATE-01, P0-INBOX-NOTE-03, S0-2 테넌트 격리) ──
+  const ownedThreadKeySet = new Set<string>([
+    ...allOwnedBuildingIds,
+    ...gateItems.map((g: any) => String(g.id)),
+    ...gateItems.map((g: any) => `srv-${g.id}`),
+    ...inquiryItems.map((i: any) => String(i.id)),
+    ...inquiryItems.map((i: any) => `srv-${i.id}`),
+    ...ownCustomClients.map((c: any) => String(c.id)),
+    ...customClientRows.map((c: any) => String(c.id)),
+    ...customClientRows.map((c: any) => `custom_${c.id}`),
+    ...dbClients.map((c: any) => String(c.id)),
+    ...dbClients.map((c: any) => `cli-${c.id}`),
+    ...dbClients.map((c: any) => `custom_${c.id}`),
+  ]);
+
+  for (const bId of allOwnedBuildingIds) {
+    if (rawInboxState.revokedBuildings?.[bId]) {
+      inboxState.revokedBuildings[bId] = { ...rawInboxState.revokedBuildings[bId] };
+    }
+    if (rawInboxState.correctionNotices?.[bId]) {
+      inboxState.correctionNotices[bId] = { ...rawInboxState.correctionNotices[bId] };
+    }
+  }
+
   const decisionByThreadId = new Map<
     string,
     { decision: "approved" | "rejected" | "pending"; shareToken?: string; createdAt?: string }
@@ -606,8 +631,13 @@ export async function GET(req: NextRequest) {
     Array<{ id: string; description: string; timestamp: string }>
   >();
 
-  for (const [k, v] of Object.entries(inboxState.gateDecisions || {})) {
-    if (v?.status) {
+  for (const [k, v] of Object.entries(rawInboxState.gateDecisions || {})) {
+    const decisionBldId = (v as any)?.buildingId ? String((v as any).buildingId) : "";
+    const isOwnedDecision =
+      ownedThreadKeySet.has(k) ||
+      (decisionBldId && allOwnedBuildingIds.includes(decisionBldId));
+    if (isOwnedDecision && v?.status) {
+      inboxState.gateDecisions[k] = { ...v };
       decisionByThreadId.set(k, {
         decision: v.status,
         shareToken: v.shareToken,
@@ -615,8 +645,9 @@ export async function GET(req: NextRequest) {
       });
     }
   }
-  for (const [k, list] of Object.entries(inboxState.callNotes || {})) {
-    if (Array.isArray(list) && list.length > 0) {
+  for (const [k, list] of Object.entries(rawInboxState.callNotes || {})) {
+    if (ownedThreadKeySet.has(k) && Array.isArray(list) && list.length > 0) {
+      inboxState.callNotes[k] = [...list];
       callNotesByThreadId.set(
         k,
         list.map((n: any) => ({
@@ -719,7 +750,10 @@ export async function GET(req: NextRequest) {
         !seenRevokeDecision.has(bKey)
       ) {
         seenRevokeDecision.add(bKey);
-        if (!inboxState.revokedBuildings[bKey]) {
+        const existingRev = inboxState.revokedBuildings[bKey];
+        const actTime = act.created_at ? new Date(act.created_at).getTime() : 0;
+        const memTime = existingRev?.revokedAt ? new Date(existingRev.revokedAt).getTime() : 0;
+        if (!existingRev || actTime >= memTime) {
           inboxState.revokedBuildings[bKey] = {
             revoked: act.event_type === "link_revoked",
             revokedAt: act.created_at,
@@ -733,12 +767,17 @@ export async function GET(req: NextRequest) {
         !seenCorrectionDecision.has(bKey)
       ) {
         seenCorrectionDecision.add(bKey);
-        if (act.event_type === "correction_notice_published" && meta.message) {
-          if (!inboxState.correctionNotices[bKey]) {
+        const existingNotice = inboxState.correctionNotices[bKey];
+        const actTime = act.created_at ? new Date(act.created_at).getTime() : 0;
+        const memTime = existingNotice?.updatedAt ? new Date(existingNotice.updatedAt).getTime() : 0;
+        if (!existingNotice || actTime >= memTime) {
+          if (act.event_type === "correction_notice_published" && meta.message) {
             inboxState.correctionNotices[bKey] = {
               message: String(meta.message),
               updatedAt: act.created_at,
             };
+          } else if (act.event_type === "correction_notice_cleared") {
+            delete inboxState.correctionNotices[bKey];
           }
         }
       }

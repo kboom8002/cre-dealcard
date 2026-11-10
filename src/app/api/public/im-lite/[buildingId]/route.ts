@@ -12,7 +12,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { fetchIMData } from "@/app/(public)/im-lite/[buildingId]/fetch-im-data";
-import { verifyShareLinkToken } from "@/lib/security/share-link-tokens";
+import { getInboxState } from "@/lib/im-lite/quick-generate-store";
+import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 
 export async function GET(
   req: NextRequest,
@@ -54,6 +55,68 @@ export async function GET(
 
     const supabase = createServiceClient();
 
+    // ── 1b. Enforce building-level revocation across all paths (S1-1..S1-5) ──
+    try {
+      const { data: govEvents } = await supabase
+        .from("activity_events")
+        .select("event_type, entity_id, metadata, created_at")
+        .in("event_type", ["link_revoked", "link_restored"])
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      let dbRevoked: boolean | undefined;
+      let dbDecidedAt: string | undefined;
+      if (Array.isArray(govEvents)) {
+        for (const row of govEvents) {
+          const meta =
+            row?.metadata && typeof row.metadata === "object"
+              ? (row.metadata as Record<string, any>)
+              : {};
+          const evBldId = String(meta.building_id || row?.entity_id || "").trim();
+          if (evBldId !== buildingId) continue;
+          if (row.event_type === "link_revoked") {
+            dbRevoked = true;
+            dbDecidedAt = String(meta.revoked_at || row.created_at || "");
+            break;
+          }
+          if (row.event_type === "link_restored") {
+            dbRevoked = false;
+            dbDecidedAt = String(meta.restored_at || row.created_at || "");
+            break;
+          }
+        }
+      }
+
+      const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
+      const localRevoked = Boolean(
+        inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId)
+      );
+      const localTs = inboxRevokedEntry?.revokedAt
+        ? Date.parse(inboxRevokedEntry.revokedAt)
+        : 0;
+      const dbTs = dbDecidedAt ? Date.parse(dbDecidedAt) : 0;
+
+      const effectiveRevoked =
+        typeof dbRevoked === "boolean" && (!localTs || dbTs >= localTs)
+          ? dbRevoked
+          : localRevoked || dbRevoked === true;
+
+      if (effectiveRevoked) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "LINK_REVOKED",
+              message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+    } catch {
+      // Fall through if activity_events query fails
+    }
+
     // ── 2a. Auto-resolve docId if not provided ──────────────────────
     let resolvedDocId = docId;
     if (!resolvedDocId) {
@@ -81,6 +144,18 @@ export async function GET(
         .single();
 
       if (!docError && document && document.body?.sections) {
+        if (document.body?.is_revoked === true) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "LINK_REVOKED",
+                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+              },
+            },
+            { status: 403 },
+          );
+        }
         // Fetch Broker Profile
         const { data: brokerProfile } = await supabase
           .from("profiles")
@@ -199,6 +274,18 @@ export async function GET(
     if (score < 30) {
       const fallbackIm = await fetchIMData(buildingId, docId || undefined, null, token || undefined);
       if (fallbackIm) {
+        if ((fallbackIm as any).isRevoked) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "LINK_REVOKED",
+                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
+              },
+            },
+            { status: 403 },
+          );
+        }
         return NextResponse.json(
           { ok: true, data: fallbackIm, source: "im_workspace" },
           { status: 200 },

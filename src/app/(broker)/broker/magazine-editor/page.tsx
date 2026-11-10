@@ -178,6 +178,7 @@ export default function MagazineEditorPage() {
 
   // ── 2. 뉴스레터 통합 초안 상태 ──
   const [editionId, setEditionId] = useState<string | null>(null);
+  const [brokerId, setBrokerId] = useState<string>("");
   const [brokerSlug, setBrokerSlug] = useState<string>("");
   const [brokerName, setBrokerName] = useState<string>("");
   const [headline, setHeadline] = useState<string>("");
@@ -310,10 +311,54 @@ export default function MagazineEditorPage() {
         if (editionsRes && editionsRes.ok) {
           const edJson = (await editionsRes.json().catch(() => null)) as Record<string, unknown> | null;
           if (edJson) {
-            if (typeof edJson.brokerSlug === "string") setBrokerSlug(edJson.brokerSlug);
+            const currentBrokerId = typeof edJson.brokerId === "string" ? edJson.brokerId.trim() : "";
+            const currentBrokerSlug = typeof edJson.brokerSlug === "string" ? edJson.brokerSlug.trim() : "";
+            if (currentBrokerId) setBrokerId(currentBrokerId);
+            if (currentBrokerSlug) setBrokerSlug(currentBrokerSlug);
             if (typeof edJson.brokerName === "string") setBrokerName(edJson.brokerName);
             if (typeof edJson.subscriberCount === "number") setSubscriberCount(edJson.subscriberCount);
             if (typeof edJson.highInterestCount === "number") setHighInterestCount(edJson.highInterestCount);
+
+            // S1-11 (T4-01): 공용 PC 다중 중개사 교차 오염 방지 — 다른 중개사의 localStorage 초안이면 즉시 폐기
+            try {
+              const rawDraft =
+                typeof window !== "undefined"
+                  ? window.localStorage.getItem(LOCAL_DRAFT_STORAGE_KEY)
+                  : null;
+              if (rawDraft) {
+                const parsedDraft = JSON.parse(rawDraft) as Record<string, unknown>;
+                const draftBrokerId =
+                  typeof parsedDraft.brokerId === "string" ? parsedDraft.brokerId.trim() : "";
+                const draftBrokerSlug =
+                  typeof parsedDraft.brokerSlug === "string" ? parsedDraft.brokerSlug.trim() : "";
+                const idMismatch =
+                  Boolean(draftBrokerId && currentBrokerId) &&
+                  draftBrokerId !== currentBrokerId &&
+                  draftBrokerId !== currentBrokerSlug;
+                const slugMismatch =
+                  Boolean(!draftBrokerId && draftBrokerSlug && currentBrokerSlug) &&
+                  draftBrokerSlug !== currentBrokerSlug &&
+                  draftBrokerSlug !== currentBrokerId;
+                if (idMismatch || slugMismatch) {
+                  window.localStorage.removeItem(LOCAL_DRAFT_STORAGE_KEY);
+                  setHeadline("");
+                  setSummary("");
+                  setBriefingTitle("");
+                  setBriefingBody("");
+                  setSelectedDealIds([]);
+                  setDealComments({});
+                  setEditionId(null);
+                  setPublishedUrl(null);
+                  setIsPublished(false);
+                  setLocalStorageMode("none");
+                  setSaveState("idle");
+                  setLastSavedAt(null);
+                }
+              }
+            } catch {
+              // ignore storage errors
+            }
+
             if (edJson.brokerPreferences && typeof edJson.brokerPreferences === "object") {
               const normPrefs = normalizeBrokerPreferences(edJson.brokerPreferences);
               setPreferredRegions(normPrefs.preferredRegions);
@@ -485,6 +530,8 @@ export default function MagazineEditorPage() {
       try {
         if (typeof window !== "undefined") {
           const payload = {
+            brokerId: brokerId || undefined,
+            brokerSlug: brokerSlug || undefined,
             headline: nextPatch?.headline ?? headline,
             summary: nextPatch?.summary ?? summary,
             briefingTitle: nextPatch?.briefingTitle ?? briefingTitle,
@@ -508,6 +555,8 @@ export default function MagazineEditorPage() {
       setSaveState("dirty");
     },
     [
+      brokerId,
+      brokerSlug,
       headline,
       summary,
       briefingTitle,
@@ -632,6 +681,8 @@ export default function MagazineEditorPage() {
             window.localStorage.setItem(
               LOCAL_DRAFT_STORAGE_KEY,
               JSON.stringify({
+                brokerId: brokerId || undefined,
+                brokerSlug: brokerSlug || undefined,
                 headline: headline.trim(),
                 summary: summary.trim(),
                 briefingTitle: briefingTitle.trim(),

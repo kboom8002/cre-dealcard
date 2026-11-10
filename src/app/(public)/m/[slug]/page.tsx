@@ -13,28 +13,45 @@ interface ShortMagazinePageProps {
 export default async function ShortMagazineRedirectPage({ params }: ShortMagazinePageProps) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug || "").trim();
+  const isUuidSlug = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    decodedSlug
+  );
 
   try {
     const supabase = createServiceClient();
 
-    // 1. edition_label 또는 id 일치 발행본 우선 조회
-    const { data: editions } = await supabase
+    // 1. S0-5: Only match status='published', and never interpolate into .or() or compare non-UUID against id
+    let edQuery: any = supabase
       .from("magazine_editions")
       .select("id, broker_id, edition_label, status, published_at, created_at, content")
-      .or(`edition_label.eq.${decodedSlug},id.eq.${decodedSlug}`)
+      .eq("status", "published");
+
+    if (isUuidSlug) {
+      edQuery = edQuery.eq("id", decodedSlug);
+    } else {
+      edQuery = edQuery.eq("edition_label", decodedSlug);
+    }
+
+    const { data: editions } = await edQuery
       .order("published_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(5);
 
     const matched = Array.isArray(editions) && editions.length > 0 ? editions[0] : null;
-    if (matched && matched.broker_id) {
+    if (matched && matched.broker_id && matched.status === "published") {
       const content =
         matched.content && typeof matched.content === "object"
           ? (matched.content as Record<string, unknown>)
           : {};
-      const rawDate =
-        typeof content.issue_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(content.issue_date)
+      const candidateIssueDate =
+        typeof content.issueDate === "string"
+          ? content.issueDate
+          : typeof content.issue_date === "string"
           ? content.issue_date
+          : "";
+      const rawDate =
+        /^\d{4}-\d{2}-\d{2}$/.test(candidateIssueDate)
+          ? candidateIssueDate
           : typeof matched.published_at === "string" && matched.published_at.length >= 10
           ? matched.published_at.slice(0, 10)
           : typeof matched.created_at === "string" && matched.created_at.length >= 10
@@ -46,7 +63,12 @@ export default async function ShortMagazineRedirectPage({ params }: ShortMagazin
       );
     }
 
-    // 2. 최신 공개 magazine_issues 조회 폴백
+    // If a specific edition UUID was requested and not published, do not fall back to another broker's issue
+    if (isUuidSlug) {
+      redirect("/pulse");
+    }
+
+    // 2. 최신 공개 magazine_issues 조회 폴백 (단축 라벨 접근 시에만)
     const { data: latestIssue } = await supabase
       .from("magazine_issues")
       .select("broker_id, issue_date")

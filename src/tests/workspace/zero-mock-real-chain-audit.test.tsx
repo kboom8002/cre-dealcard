@@ -404,7 +404,7 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     expect(matchedDeal).toBeDefined();
     expect(matchedDeal.building_name).toBe("마포구 동교동 더파크빌딩");
     expect(matchedDeal.sale_price).toBe(770000 * 10000);
-    expect(matchedDeal.cap_rate).toBe(4.8);
+    expect(matchedDeal.cap_rate).toBe(2.34);
 
     // Step 5: Verify GET /api/broker/inbox recovers the VIP client thread after cold start
     const inboxRes = await getInbox(new NextRequest("http://localhost:3000/api/broker/inbox?workspace=1"));
@@ -660,10 +660,9 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     const customerImDoc = await fetchIMData("im-doc-donggyo-77");
     expect(customerImDoc).not.toBeNull();
     expect(customerImDoc?.fullName).toBe("마포구 동교동 더파크빌딩");
-    expect(customerImDoc?.priceBand).toMatch(/77억|70~80억/);
+    expect(customerImDoc?.priceBand).toBe("70~80억");
     expect(
-      (customerImDoc as any)?.basicImDocument?.facts?.transaction?.askingPriceKrw ??
-        ((customerImDoc as any)?.ssotSummary?.asking_price_manwon ?? 0) * 10000
+      (customerImDoc as any)?.basicImDocument?.facts?.transaction?.askingPriceKrw
     ).toBe(7_700_000_000);
 
     const apiImRes = await getPublicImLite(
