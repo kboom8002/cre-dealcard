@@ -181,6 +181,14 @@ export function WorkspaceShell({
   const [mobileView, setMobileView] = useState<"list" | "editor" | "preview">("list");
   const [ariaAnnouncement, setAriaAnnouncement] = useState("");
 
+  useEffect(() => {
+    const handleOpenPreview = () => {
+      setIsPreviewDrawerOpen(true);
+    };
+    window.addEventListener("workspace:open-preview", handleOpenPreview);
+    return () => window.removeEventListener("workspace:open-preview", handleOpenPreview);
+  }, []);
+
   // Draggable 3-column widths state (Req 7)
   const [listColWidth, setListColWidth] = useState<number>(DEFAULT_LIST_WIDTH);
   const [previewColWidth, setPreviewColWidth] = useState<number>(DEFAULT_PREVIEW_WIDTH);
@@ -713,6 +721,16 @@ export function WorkspaceShell({
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {previewTabSlot}
+              {isPreviewDrawerOpen && (
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewDrawerOpen(false)}
+                  aria-label="미리보기 닫기"
+                  className="hidden lg:inline-flex xl:hidden px-2.5 min-h-[38px] items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-extrabold hover:bg-slate-100 cursor-pointer"
+                >
+                  ✕ 닫기
+                </button>
+              )}
               {mobileView === "preview" && (
                 <div className="lg:hidden flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300 shrink-0">
                   <button

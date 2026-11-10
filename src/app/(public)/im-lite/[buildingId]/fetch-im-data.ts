@@ -16,7 +16,13 @@ import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
 import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 import { isOwnerOrAdmin, type Viewer } from "@/domain/public-projection/access";
 import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-projection/visibility";
-import { getInboxState, getQuickImRecord, isUuid, type StoredQuickImRecord } from "@/lib/im-lite/quick-generate-store";
+import {
+  getInboxState,
+  getQuickImRecord,
+  isUuid,
+  synthesizeQuickRecordFromImItem,
+  type StoredQuickImRecord,
+} from "@/lib/im-lite/quick-generate-store";
 import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 
 function isValidKoreanCoord(lat: number, lng: number): boolean {
@@ -486,7 +492,8 @@ export async function fetchIMData(
         const meta = (ev.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, any>;
         const evBId = String(meta.building_id || "");
         const evImId = String(meta.im_id || meta.im_item?.id || "");
-        if (evBId !== buildingId && evImId !== buildingId) continue;
+        const evItemBid = String(meta.im_item?.buildingId || "");
+        if (evBId !== buildingId && evImId !== buildingId && evItemBid !== buildingId) continue;
 
         if (ev.event_type === "im_deleted") {
           if (!decidedRestored && !latestImUpsert) {
@@ -1013,6 +1020,14 @@ export async function fetchIMData(
   const ssot = (result?.data ?? result ?? {}) as Record<string, any>;
 
   if (!ssot || Object.keys(ssot).length === 0 || (ssot.completeness_score ?? 0) < 30) {
+    if (latestImUpsert?.imItem) {
+      const synthRec = synthesizeQuickRecordFromImItem(
+        buildingId,
+        latestImUpsert.imItem,
+        latestImUpsert.brokerProfile
+      );
+      return hydrateQuickRecordToMobileIM(synthRec);
+    }
     const quickRec = getQuickImRecord(buildingId) || (docId ? getQuickImRecord(docId) : null);
     if (quickRec) {
       return hydrateQuickRecordToMobileIM(quickRec);

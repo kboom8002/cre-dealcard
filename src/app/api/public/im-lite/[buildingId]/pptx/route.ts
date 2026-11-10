@@ -48,8 +48,8 @@ export async function GET(
   const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
   const presetParam = searchParams.get('preset');
 
-  const { getQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
-  const quickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
+  const { getQuickImRecord, resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
+  let quickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
 
   // Create Supabase client
   const supabase = createClient(
@@ -111,6 +111,21 @@ export async function GET(
         : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
       const { data: latest } = await latestQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
       doc = latest ?? null;
+    }
+
+    if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
+      const synthesized = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
+      if (synthesized?.fullDocBody) {
+        quickRec = synthesized;
+        doc = {
+          id: synthesized.documentId,
+          building_id: synthesized.buildingId,
+          owner_id: synthesized.ownerId ?? null,
+          title: synthesized.buildingName,
+          status: 'published',
+          body: synthesized.fullDocBody,
+        };
+      }
     }
   }
 

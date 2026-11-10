@@ -24,6 +24,22 @@ import {
 } from "@/lib/im-lite/quick-generate-store";
 import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
 
+function cleanBrokerField(val: unknown, fallback?: string): string | undefined {
+  if (typeof val !== "string") return fallback;
+  const t = val.trim();
+  if (
+    !t ||
+    t === "-" ||
+    t === "담당 공인중개사" ||
+    t.includes("확인 중") ||
+    t === "크리딜 파트너 중개법인" ||
+    t === "전담 부동산중개법인"
+  ) {
+    return fallback;
+  }
+  return t;
+}
+
 function formatRelativeTime(isoString?: string | null): string {
   if (!isoString) return "방금";
   const diffMs = Date.now() - new Date(isoString).getTime();
@@ -333,9 +349,9 @@ export async function GET(request: NextRequest) {
       completionDate: ssotSummary.completion_date || undefined,
       handoverNote: d.handover_note || d.body?.handover_note || ssotSummary.handover_note || undefined,
       axiosHighlights: Array.isArray(rawAxiosHighlights) && rawAxiosHighlights.length > 0 ? rawAxiosHighlights : undefined,
-      brokerName: brokerContact?.brokerName || brokerContact?.name || undefined,
-      brokerageName: brokerContact?.brokerageName || brokerContact?.company || undefined,
-      brokerPhone: brokerContact?.brokerPhone || brokerContact?.phone || undefined,
+      brokerName: cleanBrokerField(brokerContact?.brokerName || brokerContact?.name),
+      brokerageName: cleanBrokerField(brokerContact?.brokerageName || brokerContact?.company),
+      brokerPhone: cleanBrokerField(brokerContact?.brokerPhone || brokerContact?.phone),
     };
   });
 
@@ -533,9 +549,18 @@ export async function GET(request: NextRequest) {
       completionDate: qRec.specs?.completionDate || undefined,
       handoverNote: qRec.specs?.handoverNote || undefined,
       axiosHighlights: undefined as any[] | undefined,
-      brokerName: qRec.brokerProfile?.displayName || qRec.basicImDoc?.facts?.brokerOffice?.representative || undefined,
-      brokerageName: qRec.brokerProfile?.company || qRec.basicImDoc?.facts?.brokerOffice?.name || undefined,
-      brokerPhone: qRec.brokerProfile?.phone || qRec.basicImDoc?.facts?.brokerOffice?.phone || undefined,
+      brokerName: cleanBrokerField(
+        qRec.brokerProfile?.displayName || qRec.basicImDoc?.facts?.brokerOffice?.representative,
+        brokerProfile?.displayName
+      ),
+      brokerageName: cleanBrokerField(
+        qRec.brokerProfile?.company || qRec.basicImDoc?.facts?.brokerOffice?.name,
+        brokerProfile?.company
+      ),
+      brokerPhone: cleanBrokerField(
+        qRec.brokerProfile?.phone || qRec.basicImDoc?.facts?.brokerOffice?.phone,
+        brokerProfile?.phone
+      ),
     };
     if (existingImIdx >= 0) {
       if (qRec.ownerId === userId) {
@@ -600,6 +625,9 @@ export async function GET(request: NextRequest) {
       ...it,
       id: String(it.id || (idx >= 0 ? imList[idx].id : it.buildingId)),
       buildingId: String(it.buildingId || (idx >= 0 ? imList[idx].buildingId : it.id)),
+      brokerName: cleanBrokerField(it.brokerName, brokerProfile?.displayName),
+      brokerageName: cleanBrokerField(it.brokerageName, brokerProfile?.company),
+      brokerPhone: cleanBrokerField(it.brokerPhone, brokerProfile?.phone),
       updatedAt: formatRelativeTime(customImEntry.updatedAt),
     };
     if (idx >= 0) {

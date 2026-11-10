@@ -571,10 +571,16 @@ export default function TestGuidePage() {
                 aria-label="계측 대상 매물 선택"
                 value={timerDealId}
                 onChange={(e) => {
+                  const nextTarget = e.target.value as TimerTargetId;
                   setIsTimerRunning(false);
-                  setTimerDealId(e.target.value as TimerTargetId);
+                  setTimerDealId(nextTarget);
+                  if (nextTarget === "deal1" || nextTarget === "deal2" || nextTarget === "deal3") {
+                    setActiveTab(nextTarget);
+                  } else if (nextTarget === "newsletter" || nextTarget === "inbox") {
+                    setActiveTab("nlinbox");
+                  }
                 }}
-                className="bg-slate-800 text-white font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-xs sm:text-sm outline-none"
+                className="bg-slate-800 text-white font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-xs sm:text-sm outline-none cursor-pointer"
               >
                 <option value="deal1">매물 #1 (동교동 77억 · 목표 ≤8분)</option>
                 <option value="deal2">매물 #2 (부천 58억 · 목표 ≤8분)</option>
@@ -879,57 +885,58 @@ export default function TestGuidePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <CopyFieldRow
-                  label="건물 주소 (지번)"
+                  label="① 표지 제목 (건물명 · 맨 위 첫 번째 입력칸)"
+                  value={activeDeal.name}
+                  subNote="IM 스튜디오 맨 위 '표지 제목 (건물명)' 칸에 붙여넣기"
+                  keyId={`${activeDeal.id}-title`}
+                  highlight
+                />
+                <CopyFieldRow
+                  label="② 1. 건물 주소 (지번 · 두 번째 입력칸)"
                   value={activeDeal.jibunAddress}
                   subNote="주소 입력 후 [주소로 건물 정보 자동 채우기] 클릭!"
                   keyId={`${activeDeal.id}-jibun`}
                   highlight
                 />
                 <CopyFieldRow
-                  label="건물 주소 (도로명)"
+                  label="③ 2. 희망 매매가 ('원' 단위 · 세 번째 입력칸)"
+                  value={(Number(activeDeal.askingPriceManwon) * 10000).toLocaleString()}
+                  subNote={`= ${activeDeal.askingPriceEok}억 원 (${(Number(activeDeal.askingPriceManwon) * 10000).toLocaleString()}원)`}
+                  keyId={`${activeDeal.id}-price`}
+                  highlight
+                />
+                <CopyFieldRow
+                  label="건물 주소 (도로명 · 선택)"
                   value={activeDeal.roadAddress}
                   subNote="지번 대신 도로명 조회도 가능"
                   keyId={`${activeDeal.id}-road`}
                 />
                 <CopyFieldRow
-                  label="표지 제목 (건물명)"
-                  value={activeDeal.name}
-                  keyId={`${activeDeal.id}-title`}
-                  highlight
-                />
-                <CopyFieldRow
-                  label="희망 매매가 ('억' 입력란)"
-                  value={activeDeal.askingPriceEok}
-                  subNote={`= ${activeDeal.askingPriceEok}억 원 (총액 ${activeDeal.askingPriceManwon}만원)`}
-                  keyId={`${activeDeal.id}-price`}
-                  highlight
-                />
-                <CopyFieldRow
-                  label="대지면적 (㎡)"
-                  value={activeDeal.specs.landAreaSqm}
-                  subNote={`= ${activeDeal.specs.landAreaPyeong}평 (대장 자동채움 확인)`}
-                  keyId={`${activeDeal.id}-land`}
-                />
-                <CopyFieldRow
-                  label="연면적 (㎡)"
+                  label="④ 연면적 (㎡) [왼쪽 입력칸]"
                   value={activeDeal.specs.gfaSqm}
-                  subNote={`= ${activeDeal.specs.gfaPyeong}평`}
+                  subNote={`= ${activeDeal.specs.gfaPyeong}평 (대장 자동채움 · 왼쪽 칸 확인)`}
                   keyId={`${activeDeal.id}-gfa`}
                 />
                 <CopyFieldRow
-                  label="용도지역"
+                  label="⑤ 대지면적 (㎡) [오른쪽 입력칸]"
+                  value={activeDeal.specs.landAreaSqm}
+                  subNote={`= ${activeDeal.specs.landAreaPyeong}평 (대장 자동채움 · 오른쪽 칸 확인)`}
+                  keyId={`${activeDeal.id}-land`}
+                />
+                <CopyFieldRow
+                  label="⑥ 용도지역 [왼쪽 입력칸]"
                   value={activeDeal.specs.zoning}
                   keyId={`${activeDeal.id}-zoning`}
                 />
                 <CopyFieldRow
-                  label="사용승인일 (준공일)"
+                  label="⑦ 준공일 (사용승인일) [오른쪽 입력칸]"
                   value={activeDeal.specs.completionDate}
                   keyId={`${activeDeal.id}-completion`}
                 />
               </div>
 
               <CopyFieldRow
-                label="명도 및 인도 조건"
+                label="⑧ 명도 및 인도 조건"
                 value={activeDeal.brokerInfo.handoverNote}
                 keyId={`${activeDeal.id}-handover`}
               />
@@ -1091,8 +1098,8 @@ export default function TestGuidePage() {
                     Step {activeDeal.number}-3. 핵심 장점 3가지 & 담당 공인중개사 정보 원클릭 복사
                   </h3>
                 </div>
-                <span className="text-xs text-slate-500">
-                  💡 [AI로 장점 3가지 자동 작성]을 눌러도 되고, 아래 검증 문구를 그대로 복사해 넣어도 됩니다
+                <span className="text-xs font-bold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200">
+                  ✨ IM 스튜디오에서 [AI로 쓰기] 버튼을 누르면 아래 3가지 검증 문구가 1:1 동일하게 자동 완성됩니다! (직접 복사해 넣어도 동일)
                 </span>
               </div>
 

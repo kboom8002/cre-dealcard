@@ -77,6 +77,13 @@ export async function POST(req: NextRequest) {
             price_band: bldg.price_band,
           },
         };
+      } else {
+        const { resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
+        const synth = await resolveOrSynthesizeQuickImRecord(buildingId, supabase);
+        if (synth) {
+          buildingName = synth.buildingName || buildingName;
+          docBody = synth.fullDocBody || {};
+        }
       }
 
       const ownerId = realDoc?.broker_id ?? realDoc?.owner_id ?? bldg?.owner_id ?? (brokerId !== 'broker-system' ? brokerId : undefined);

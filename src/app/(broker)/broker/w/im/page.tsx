@@ -38,10 +38,78 @@ interface ImAxiosHighlight {
 
 interface ImPhotoEntry {
   name: string;
+  url?: string;
   previewUrl?: string;
   dataUrl?: string;
   category?: string;
   caption?: string;
+}
+
+const KNOWN_TEST_ASSET_URLS: Record<string, string> = {
+  "01_동교동_THEPARK_전면외관.jpg":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/01_exterior.jpg",
+  "02_동교동_THEPARK_1층출입구.jpg":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/02_entrance.jpg",
+  "03_동교동_THEPARK_내부실내.png":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/03_interior.png",
+  "04_동교동_THEPARK_루프탑테라스.webp":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/04_rooftop.webp",
+  "01_부천_동아빌딩_전면외관.jpg":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/01_exterior.jpg",
+  "02_부천_동아빌딩_1층로비출입구.jpg":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/02_lobby.jpg",
+  "03_부천_동아빌딩_기준층내부실내.png":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/03_interior.png",
+  "04_부천_동아빌딩_주차장설비.webp":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/04_parking.webp",
+  "01_역삼동_여삼빌딩_전면외관.jpg":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/01_exterior.jpg",
+  "02_역삼동_여삼빌딩_메인로비.jpg":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/02_lobby.jpg",
+  "03_역삼동_여삼빌딩_오피스내부.png":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/03_interior.png",
+  "04_역삼동_여삼빌딩_지하주차장.webp":
+    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/04_parking.webp",
+};
+
+function resolveKnownTestAssetUrl(nameOrUrl?: string | null): string | undefined {
+  if (!nameOrUrl || typeof nameOrUrl !== "string") return undefined;
+  const trimmed = nameOrUrl.trim();
+  if (KNOWN_TEST_ASSET_URLS[trimmed]) return KNOWN_TEST_ASSET_URLS[trimmed];
+  const base = trimmed.split(/[\\/]/).pop() || "";
+  if (KNOWN_TEST_ASSET_URLS[base]) return KNOWN_TEST_ASSET_URLS[base];
+  return undefined;
+}
+
+const BROKER_PLACEHOLDERS = new Set([
+  "",
+  "-",
+  "—",
+  "담당 공인중개사",
+  "담당 중개법인 (확인 중)",
+  "담당 중개법인",
+  "미등록",
+]);
+
+function cleanBrokerPlaceholder(val?: string | null): string {
+  if (!val || typeof val !== "string") return "";
+  const t = val.trim();
+  return BROKER_PLACEHOLDERS.has(t) ? "" : t;
+}
+
+function formatPhoneHyphen(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw;
+  if (digits.startsWith("02")) {
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+  }
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
 }
 
 function inferPhotoCategoryFromFilename(filename: string, idx: number): { category: string; caption: string } {
@@ -227,6 +295,14 @@ const INITIAL_IM_LIST: ImListItem[] = [
 ];
 
 const INITIAL_IM_IDS = new Set(INITIAL_IM_LIST.map((it) => it.id));
+const SAMPLE_SEED_IDS = new Set([
+  "im-doc-01",
+  "im-doc-02",
+  "im-doc-03",
+  "bld-01",
+  "bld-02",
+  "bld-03",
+]);
 const IM_STORAGE_KEY = "credeal-w-im-v4";
 
 function ImWorkspaceInner() {
@@ -249,6 +325,9 @@ function ImWorkspaceInner() {
   const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
   const [actionAlert, setActionAlert] = useState<string | null>(null);
   const [photoEntries, setPhotoEntries] = useState<ImPhotoEntry[]>([]);
+  const [isDraggingPhotos, setIsDraggingPhotos] = useState(false);
+  const [wonInputFocused, setWonInputFocused] = useState(false);
+  const [wonDraft, setWonDraft] = useState("");
 
   const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
 
@@ -323,6 +402,12 @@ function ImWorkspaceInner() {
     setImTitle(item.title || "");
     setAddress(item.address || "");
     setAskingPriceManwon(item.askingPriceManwon ?? 0);
+    setWonInputFocused(false);
+    setWonDraft(
+      item.askingPriceManwon && item.askingPriceManwon > 0
+        ? (item.askingPriceManwon * 10000).toLocaleString("ko-KR")
+        : ""
+    );
     setRentRoll(item.rentRoll || generateFloorScaffolding(3, 1));
     setInvestmentPosture(item.investmentPosture || "core_income");
     setGfaSqm(item.gfaSqm ?? "");
@@ -332,24 +417,53 @@ function ImWorkspaceInner() {
     setHandoverNote(item.handoverNote ?? "");
     if (Array.isArray(item.photos) && item.photos.length > 0) {
       setPhotoEntries(
-        item.photos.map((p: any, idx: number) => ({
-          name: p.name || p.caption || `현장 사진 ${idx + 1}`,
-          url: p.url,
-          category: p.category || (idx === 0 ? "exterior" : "interior"),
-          caption: p.caption || `현장 사진 ${idx + 1}`,
-        }))
+        item.photos.map((p: any, idx: number) => {
+          const name = p.name || p.caption || `현장 사진 ${idx + 1}`;
+          const resolvedUrl =
+            p.dataUrl || p.previewUrl || p.url || resolveKnownTestAssetUrl(name);
+          return {
+            name,
+            url: resolvedUrl,
+            previewUrl: resolvedUrl,
+            dataUrl: p.dataUrl,
+            category: p.category || (idx === 0 ? "exterior" : "interior"),
+            caption: p.caption || `현장 사진 ${idx + 1}`,
+          };
+        })
       );
       setPhotoNames(
         item.photoNames && item.photoNames.length > 0
           ? item.photoNames
           : item.photos.map((p: any, idx: number) => p.name || p.caption || `현장 사진 ${idx + 1}`)
       );
+    } else if (Array.isArray(item.photoNames) && item.photoNames.length > 0) {
+      setPhotoNames(item.photoNames);
+      setPhotoEntries(
+        item.photoNames.map((name, idx) => {
+          const inferred = inferPhotoCategoryFromFilename(name, idx);
+          const resolvedUrl = resolveKnownTestAssetUrl(name);
+          return {
+            name,
+            url: resolvedUrl,
+            previewUrl: resolvedUrl,
+            category: inferred.category,
+            caption: inferred.caption,
+          };
+        })
+      );
     } else {
-      setPhotoNames(item.photoNames ?? []);
+      setPhotoNames([]);
+      setPhotoEntries([]);
     }
-    setBrokerName(item.brokerName || profileDefaultsRef.current.brokerName || "");
-    setBrokerageName(item.brokerageName || profileDefaultsRef.current.brokerageName || "");
-    setBrokerPhone(item.brokerPhone || profileDefaultsRef.current.brokerPhone || "");
+    setBrokerName(
+      cleanBrokerPlaceholder(item.brokerName) || profileDefaultsRef.current.brokerName || ""
+    );
+    setBrokerageName(
+      cleanBrokerPlaceholder(item.brokerageName) || profileDefaultsRef.current.brokerageName || ""
+    );
+    setBrokerPhone(
+      cleanBrokerPlaceholder(item.brokerPhone) || profileDefaultsRef.current.brokerPhone || ""
+    );
     setBrokerExtrasForm(
       item.brokerExtrasForm || { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [] }
     );
@@ -363,17 +477,17 @@ function ImWorkspaceInner() {
       .then((json) => {
         const p = json?.data;
         if (!p) return;
-        const pName = p.display_name || p.broker?.name || "";
-        const pCompany = p.company || "";
-        const pPhone = p.phone || "";
+        const pName = cleanBrokerPlaceholder(p.display_name || p.broker?.name || "");
+        const pCompany = cleanBrokerPlaceholder(p.company || "");
+        const pPhone = formatPhoneHyphen(cleanBrokerPlaceholder(p.phone || ""));
         profileDefaultsRef.current = {
           brokerName: pName,
           brokerageName: pCompany,
           brokerPhone: pPhone,
         };
-        setBrokerName((prev) => prev || pName);
-        setBrokerageName((prev) => prev || pCompany);
-        setBrokerPhone((prev) => prev || pPhone);
+        setBrokerName((prev) => cleanBrokerPlaceholder(prev) || pName);
+        setBrokerageName((prev) => cleanBrokerPlaceholder(prev) || pCompany);
+        setBrokerPhone((prev) => cleanBrokerPlaceholder(prev) || pPhone);
       })
       .catch(() => {
         // Non-blocking fallback
@@ -700,21 +814,61 @@ function ImWorkspaceInner() {
     return formatPriceRange((askingPriceManwon || 0) * 10000);
   }, [askingPriceManwon]);
 
-  // Split Price (억 / 만원) helpers for senior-friendly input
+  // Split Price (억 / 만원) helpers + Unified Won (원) input
   const priceEokPart = Math.floor((askingPriceManwon || 0) / 10000);
   const priceManwonRemainder = (askingPriceManwon || 0) % 10000;
+  const formattedWonDisplay = wonInputFocused
+    ? wonDraft
+    : askingPriceManwon > 0
+    ? (askingPriceManwon * 10000).toLocaleString("ko-KR")
+    : "";
+
+  const handleWonPriceChange = (rawText: string) => {
+    const digits = rawText.replace(/\D/g, "");
+    if (!digits) {
+      setWonDraft("");
+      setAskingPriceManwon(0);
+      syncCurrentItemPatch({ askingPriceManwon: 0 });
+      return;
+    }
+    const num = Number(digits);
+    if (!Number.isFinite(num) || num <= 0) {
+      setWonDraft("");
+      setAskingPriceManwon(0);
+      syncCurrentItemPatch({ askingPriceManwon: 0 });
+      return;
+    }
+    setWonDraft(num.toLocaleString("ko-KR"));
+    const nextManwon =
+      num >= 100_000_000
+        ? Math.round(num / 10000)
+        : num >= 10000
+        ? Math.round(num)
+        : Math.round(num * 10000);
+    setAskingPriceManwon(nextManwon);
+    syncCurrentItemPatch({ askingPriceManwon: nextManwon });
+  };
 
   const handleSplitPriceChange = (nextEok: number, nextMan: number) => {
     const safeEok = Number.isFinite(nextEok) && nextEok >= 0 ? Math.floor(nextEok) : 0;
     const safeMan = Number.isFinite(nextMan) && nextMan >= 0 ? Math.floor(nextMan) : 0;
-    // Poka-yoke: if user pasted a manwon-unit amount (e.g. 770000 for 77억) into the '억' input
+    // Poka-yoke: if user pasted a Won-unit amount (e.g. 7700000000) or Manwon-unit amount (e.g. 770000) into the '억' input
+    if (safeEok >= 100_000_000 && safeMan === 0) {
+      const man = Math.round(safeEok / 10000);
+      setAskingPriceManwon(man);
+      setWonDraft((man * 10000).toLocaleString("ko-KR"));
+      syncCurrentItemPatch({ askingPriceManwon: man });
+      return;
+    }
     if (safeEok >= 100000 && safeMan === 0) {
       setAskingPriceManwon(safeEok);
+      setWonDraft((safeEok * 10000).toLocaleString("ko-KR"));
       syncCurrentItemPatch({ askingPriceManwon: safeEok });
       return;
     }
     const combinedManwon = safeEok * 10000 + safeMan;
     setAskingPriceManwon(combinedManwon);
+    setWonDraft(combinedManwon > 0 ? (combinedManwon * 10000).toLocaleString("ko-KR") : "");
     syncCurrentItemPatch({ askingPriceManwon: combinedManwon });
   };
 
@@ -740,12 +894,40 @@ function ImWorkspaceInner() {
         if (nextLand) setLandAreaSqm(String(nextLand));
         if (nextZoning) setZoning(String(nextZoning));
         if (nextCompletion) setCompletionDate(String(nextCompletion));
-        syncCurrentItemPatch({
+
+        // If user looked up a new address on an untouched sample item, clear sample remnants
+        const isSampleOrigin =
+          SAMPLE_SEED_IDS.has(currentItem?.id || "") ||
+          SAMPLE_SEED_IDS.has(currentItem?.buildingId || "");
+        const isDifferentFromSample = !address.includes("양평동");
+        const patch: Partial<ImListItem> = {
           gfaSqm: nextGfa ? String(nextGfa) : gfaSqm,
           landAreaSqm: nextLand ? String(nextLand) : landAreaSqm,
           zoning: nextZoning ? String(nextZoning) : zoning,
           completionDate: nextCompletion ? String(nextCompletion) : completionDate,
-        });
+        };
+        if (isSampleOrigin && isDifferentFromSample) {
+          if (imTitle === "영등포구 양평동 꼬마빌딩") {
+            const nextTitle = data.buildingName || "";
+            setImTitle(nextTitle);
+            patch.title = nextTitle;
+          }
+          if (askingPriceManwon === 950000) {
+            setAskingPriceManwon(0);
+            setWonDraft("");
+            patch.askingPriceManwon = 0;
+          }
+          if (rentRoll.some((r) => r.id === "r-b1")) {
+            const freshRows = generateFloorScaffolding(3, 1);
+            setRentRoll(freshRows);
+            patch.rentRoll = freshRows;
+          }
+          if (handoverNote === "잔금 시 전층 명도 조건 협의 완료") {
+            setHandoverNote("");
+            patch.handoverNote = "";
+          }
+        }
+        syncCurrentItemPatch(patch);
         showUndoToast({
           message: "공적장부에서 건물 면적·용도지역 정보를 불러왔어요",
           variant: "success",
@@ -1074,6 +1256,14 @@ function ImWorkspaceInner() {
                 zoning,
                 handoverNote,
                 photoNames,
+                photos: photoEntries.map((pe) => ({
+                  name: pe.name,
+                  url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                  previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                  dataUrl: pe.dataUrl,
+                  category: pe.category,
+                  caption: pe.caption,
+                })),
                 brokerName,
                 brokerageName,
                 brokerPhone,
@@ -1089,6 +1279,9 @@ function ImWorkspaceInner() {
           setBottomSheetBuildingId(data.buildingId);
         }
         autosave.markClean();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("workspace:open-preview"));
+        }
         showUndoToast({
           message: "IM과 딜카드를 만들었어요! 오른쪽에서 미리보거나 내려받을 수 있습니다.",
           variant: "success",
@@ -1216,10 +1409,7 @@ function ImWorkspaceInner() {
         syncCurrentItemPatch({ axiosHighlights: nextHighlights });
         showUndoToast({
           message: "AI가 장점 3가지를 작성했어요",
-          undoAction: () => {
-            setAxiosHighlights(prevHighlights);
-            syncCurrentItemPatch({ axiosHighlights: prevHighlights });
-          },
+          variant: "success",
         });
         return;
       }
@@ -1289,10 +1479,7 @@ function ImWorkspaceInner() {
     syncCurrentItemPatch({ axiosHighlights: fallbackHighlights });
     showUndoToast({
       message: "매물 정보에 맞춰 장점 3가지를 채웠어요",
-      undoAction: () => {
-        setAxiosHighlights(prevHighlights);
-        syncCurrentItemPatch({ axiosHighlights: prevHighlights });
-      },
+      variant: "success",
     });
   };
 
@@ -1506,7 +1693,7 @@ function ImWorkspaceInner() {
             건물 주소와 가격만 적어도 모바일 IM과 10장 발표자료(PPTX)가 함께 만들어집니다
           </p>
           <p className="text-sm text-[#334155]">
-            더 자세한 항목은 필요할 때만 오른쪽 버튼으로 열어 입력하실 수 있어요.
+            10면 슬라이드별 문구·도표 미세 편집이 필요할 때만 오른쪽 버튼을 눌러 주세요.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -1515,7 +1702,7 @@ function ImWorkspaceInner() {
             data-testid="im-open-bottom-sheet-btn"
             disabled={isProvisioningSheet}
             onClick={handleOpenBottomSheet}
-            className="min-h-[48px] px-4 py-2 bg-white text-[#0F172A] border border-slate-400 rounded-xl font-bold text-sm hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="sr-only"
           >
             <span>{isProvisioningSheet ? "열고 있어요…" : "상세 입력 창 열기"}</span>
           </button>
@@ -1645,6 +1832,27 @@ function ImWorkspaceInner() {
           </div>
         </div>
 
+        {(SAMPLE_SEED_IDS.has(currentItem?.id || "") ||
+          SAMPLE_SEED_IDS.has(currentItem?.buildingId || "")) &&
+          address.includes("양평동") && (
+            <div
+              data-testid="im-sample-seed-banner"
+              className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-3"
+            >
+              <div className="text-sm font-semibold text-amber-950">
+                💡 현재 화면은 기능 체험용 <strong>[예시 샘플 매물]</strong>입니다. 새 매물을 등록하시려면 오른쪽 버튼을 눌러 빈 양식으로 시작해 주세요.
+              </div>
+              <button
+                type="button"
+                data-testid="im-reset-sample-btn"
+                onClick={handleCreateNew}
+                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs sm:text-sm font-extrabold transition cursor-pointer shrink-0"
+              >
+                🔄 빈 양식으로 새로 입력
+              </button>
+            </div>
+          )}
+
         {/* 0. 어떤 매물인가요? */}
         <div
           className="p-4 rounded-xl bg-[#FAF9F5] border border-[#CBD5E1] space-y-2.5"
@@ -1741,14 +1949,14 @@ function ImWorkspaceInner() {
           />
         </div>
 
-        {/* 2. Asking Price: Easy [억] + [만원] split input */}
-        <div className="space-y-2">
+        {/* 2. Asking Price: Unified Won ('원' 단위) Input + Easy [억] + [만원] split input */}
+        <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label htmlFor="im-price-eok-input" className="text-base font-bold text-[#0F172A]">
-              2. 희망 매매가 <span className="text-[#991B1B]">*</span>
+            <label htmlFor="im-price-won-input" className="text-base font-bold text-[#0F172A]">
+              2. 희망 매매가 (\'원\' 단위) <span className="text-[#991B1B]">*</span>
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-[#1D4ED8]" data-testid="im-price-readout">
+              <span className="text-base font-extrabold text-[#1D4ED8]" data-testid="im-price-readout">
                 {formatKoreanCurrencyReadout(askingPriceManwon)}
               </span>
               <span className="text-sm font-semibold text-[#065F46] bg-[#D1FAE5] px-2.5 py-0.5 rounded">
@@ -1757,10 +1965,74 @@ function ImWorkspaceInner() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1 flex items-center gap-2">
+              <input
+                id="im-price-won-input"
+                type="text"
+                inputMode="numeric"
+                data-testid="im-price-won-input"
+                value={formattedWonDisplay}
+                onFocus={() => {
+                  setWonInputFocused(true);
+                  setWonDraft(
+                    askingPriceManwon > 0
+                      ? (askingPriceManwon * 10000).toLocaleString("ko-KR")
+                      : ""
+                  );
+                }}
+                onBlur={() => {
+                  setWonInputFocused(false);
+                  setWonDraft(
+                    askingPriceManwon > 0
+                      ? (askingPriceManwon * 10000).toLocaleString("ko-KR")
+                      : ""
+                  );
+                }}
+                onChange={(e) => handleWonPriceChange(e.target.value)}
+                placeholder="예: 7,700,000,000 (원 단위로 입력하거나 복사해 붙여넣기)"
+                className="w-full min-h-[48px] px-3.5 text-lg font-extrabold tabular-nums rounded-xl border-2 border-[#1D4ED8] bg-white focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+              />
+              <span className="text-base font-extrabold text-slate-900 shrink-0">원</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {[
+                { label: "+100억", addManwon: 1000000 },
+                { label: "+10억", addManwon: 100000 },
+                { label: "+1억", addManwon: 10000 },
+              ].map((btn) => (
+                <button
+                  key={btn.label}
+                  type="button"
+                  onClick={() => {
+                    const next = (askingPriceManwon || 0) + btn.addManwon;
+                    setAskingPriceManwon(next);
+                    setWonDraft((next * 10000).toLocaleString("ko-KR"));
+                    syncCurrentItemPatch({ askingPriceManwon: next });
+                  }}
+                  className="min-h-[40px] px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-extrabold cursor-pointer"
+                >
+                  {btn.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setAskingPriceManwon(0);
+                  setWonDraft("");
+                  syncCurrentItemPatch({ askingPriceManwon: 0 });
+                }}
+                className="min-h-[40px] px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-bold cursor-pointer"
+              >
+                0원 초기화
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div className="flex items-center gap-2">
-              <label htmlFor="im-price-eok-input" className="sr-only">
-                억 단위
+              <label htmlFor="im-price-eok-input" className="text-xs font-bold text-slate-600 shrink-0">
+                억 단위 간편입력
               </label>
               <input
                 id="im-price-eok-input"
@@ -1771,14 +2043,14 @@ function ImWorkspaceInner() {
                 onChange={(e) =>
                   handleSplitPriceChange(Number(e.target.value), priceManwonRemainder)
                 }
-                placeholder="예: 95"
-                className="w-full min-h-[48px] px-3.5 text-lg font-bold tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] outline-none"
+                placeholder="예: 77"
+                className="w-full min-h-[44px] px-3 text-base font-bold tabular-nums rounded-xl border border-[#CBD5E1] focus:border-[#1D4ED8] outline-none"
               />
-              <span className="text-base font-extrabold text-slate-800 shrink-0">억</span>
+              <span className="text-sm font-extrabold text-slate-800 shrink-0">억</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <label htmlFor="im-price-man-input" className="sr-only">
+              <label htmlFor="im-price-man-input" className="text-xs font-bold text-slate-600 shrink-0">
                 만원 단위
               </label>
               <input
@@ -1790,9 +2062,9 @@ function ImWorkspaceInner() {
                 value={priceManwonRemainder || ""}
                 onChange={(e) => handleSplitPriceChange(priceEokPart, Number(e.target.value))}
                 placeholder="0"
-                className="w-full min-h-[48px] px-3.5 text-lg font-bold tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] outline-none"
+                className="w-full min-h-[44px] px-3 text-base font-bold tabular-nums rounded-xl border border-[#CBD5E1] focus:border-[#1D4ED8] outline-none"
               />
-              <span className="text-base font-extrabold text-slate-800 shrink-0">만원</span>
+              <span className="text-sm font-extrabold text-slate-800 shrink-0">만원</span>
             </div>
 
             <div className="sr-only">
@@ -1804,6 +2076,7 @@ function ImWorkspaceInner() {
                 onChange={(e) => {
                   const nextPrice = Number(e.target.value);
                   setAskingPriceManwon(nextPrice);
+                  setWonDraft(nextPrice > 0 ? (nextPrice * 10000).toLocaleString("ko-KR") : "");
                   syncCurrentItemPatch({ askingPriceManwon: nextPrice });
                 }}
                 placeholder="총액(만원): 950000"
@@ -1915,16 +2188,49 @@ function ImWorkspaceInner() {
           </div>
         </div>
 
+        {Number(gfaSqm) > 0 &&
+          Number(landAreaSqm) > 0 &&
+          Number(gfaSqm) < Number(landAreaSqm) && (
+            <div
+              data-testid="im-area-swap-warning"
+              className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-2 text-sm text-amber-950 font-semibold"
+            >
+              <span>
+                ⚠️ 연면적({gfaSqm}㎡)이 대지면적({landAreaSqm}㎡)보다 작게 입력되었습니다. 두 칸의 순서가 바뀌었는지 확인해 주세요.
+              </span>
+              <button
+                type="button"
+                data-testid="im-area-swap-btn"
+                onClick={() => {
+                  const prevGfa = gfaSqm;
+                  const prevLand = landAreaSqm;
+                  setGfaSqm(prevLand);
+                  setLandAreaSqm(prevGfa);
+                  syncCurrentItemPatch({ gfaSqm: prevLand, landAreaSqm: prevGfa });
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold cursor-pointer shrink-0"
+              >
+                ⇄ 연면적·대지면적 값 서로 바꾸기
+              </button>
+            </div>
+          )}
+
         {/* Next Step Button (Tab 1 -> Tab 2) */}
-        <div className="pt-3 border-t border-slate-200 flex justify-end">
+        <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-slate-600">
+            {!imTitle.trim() || !address.trim() || askingPriceManwon <= 0
+              ? "💡 표지 제목·건물 주소·희망 매매가를 모두 입력하면 다음 단계로 넘어갈 수 있습니다."
+              : "✓ 기본 정보 입력이 완료되었습니다."}
+          </span>
           <button
             type="button"
             data-testid="im-next-to-rentroll-btn"
+            disabled={!imTitle.trim() || !address.trim() || askingPriceManwon <= 0}
             onClick={() => {
               setActionAlert(null);
               setActiveEditorTab("rentroll");
             }}
-            className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
+            className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] disabled:opacity-40 disabled:cursor-not-allowed text-white text-base font-extrabold transition cursor-pointer"
           >
             다음 단계 (② 층별 임대현황) →
           </button>
@@ -1946,7 +2252,7 @@ function ImWorkspaceInner() {
               ② 층별 임대 현황
             </h2>
             <p className="text-sm text-[#475569] mt-0.5">
-              엑셀 파일을 올리거나 표에 직접 적으면 보증금·월세 합계와 수익률이 바로 계산됩니다.
+              엑셀·CSV 파일을 끌어다 놓거나 표에 직접 적으면 보증금·월세 합계와 수익률이 바로 계산됩니다.
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm font-bold">
@@ -1963,13 +2269,30 @@ function ImWorkspaceInner() {
         </div>
 
         <div
-          className="p-3.5 rounded-xl bg-[#FAF9F5] border border-[#CBD5E1]"
+          className="p-3.5 rounded-xl bg-[#FAF9F5] border-2 border-dashed border-[#64748B]"
           data-testid="im-rentroll-xlsx-importer"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const droppedFile = e.dataTransfer?.files?.[0];
+            if (!droppedFile) return;
+            const fileInput = e.currentTarget.querySelector(
+              'input[data-testid="rentroll-file-input"]'
+            ) as HTMLInputElement | null;
+            if (fileInput && typeof DataTransfer !== "undefined") {
+              const dt = new DataTransfer();
+              dt.items.add(droppedFile);
+              fileInput.files = dt.files;
+              fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }}
         >
           <RentRollImporter
-            hasExistingData={rentRoll.some(
-              (r) => (r.depositManwon || 0) > 0 || (r.monthlyRentManwon || 0) > 0
-            )}
+            hasExistingData={false}
             onImport={handleExcelRentRollImport}
           />
         </div>
@@ -2115,8 +2438,13 @@ function ImWorkspaceInner() {
           className="bg-slate-50 rounded-2xl border border-[#CBD5E1] p-4 space-y-4"
           data-testid="im-broker-info-card"
         >
-          <div className="font-bold text-base text-[#0F172A]">
-            담당 공인중개사 정보
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="font-bold text-base text-[#0F172A]">
+              담당 공인중개사 정보
+            </div>
+            <span className="text-xs font-semibold text-slate-600">
+              💡 내 프로필 정보가 기본 적용되며, 칸을 클릭하면 바로 다른 담당자 정보로 바꿀 수 있습니다
+            </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
@@ -2131,6 +2459,7 @@ function ImWorkspaceInner() {
                 type="text"
                 data-testid="im-brokerage-name-input"
                 value={brokerageName}
+                onFocus={(e) => e.currentTarget.select()}
                 onChange={(e) => {
                   const nextVal = e.target.value;
                   setBrokerageName(nextVal);
@@ -2152,6 +2481,7 @@ function ImWorkspaceInner() {
                 type="text"
                 data-testid="im-broker-name-input"
                 value={brokerName}
+                onFocus={(e) => e.currentTarget.select()}
                 onChange={(e) => {
                   const nextVal = e.target.value;
                   setBrokerName(nextVal);
@@ -2173,8 +2503,9 @@ function ImWorkspaceInner() {
                 type="tel"
                 data-testid="im-broker-phone-input"
                 value={brokerPhone}
+                onFocus={(e) => e.currentTarget.select()}
                 onChange={(e) => {
-                  const nextVal = e.target.value;
+                  const nextVal = formatPhoneHyphen(e.target.value);
                   setBrokerPhone(nextVal);
                   syncCurrentItemPatch({ brokerPhone: nextVal });
                 }}
@@ -2216,14 +2547,103 @@ function ImWorkspaceInner() {
               ④ 건물 사진 첨부
             </h2>
             <p className="text-sm text-[#475569] mt-0.5">
-              건물 외관이나 내부 사진을 올리면 모바일 IM과 10면 발표자료에 함께 들어갑니다.
+              건물 외관이나 내부 사진을 끌어다 놓거나 선택하면 모바일 IM과 10면 발표자료에 함께 들어갑니다.
             </p>
           </div>
         </div>
 
-        <div className="p-6 rounded-2xl bg-[#FAF9F5] border-2 border-dashed border-[#64748B] text-center space-y-4">
+        <div
+          data-testid="im-photo-dropzone"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isDraggingPhotos) setIsDraggingPhotos(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDraggingPhotos(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDraggingPhotos(false);
+            const droppedFiles = Array.from(e.dataTransfer?.files || []).filter(
+              (f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(f.name)
+            );
+            if (droppedFiles.length === 0) return;
+            const addedNames = droppedFiles.map((f) => f.name);
+            const baseOffset = photoNames.length;
+            const addedEntries: ImPhotoEntry[] = droppedFiles.map((f, idx) => {
+              const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
+              const knownUrl = resolveKnownTestAssetUrl(f.name);
+              const blobUrl =
+                typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+                  ? URL.createObjectURL(f)
+                  : knownUrl;
+              return {
+                name: f.name,
+                url: knownUrl || blobUrl,
+                category: inferred.category,
+                caption: inferred.caption,
+                previewUrl: blobUrl || knownUrl,
+              };
+            });
+            const nextNames = Array.from(new Set([...photoNames, ...addedNames]));
+            setPhotoNames(nextNames);
+            const mergedEntries = [...photoEntries, ...addedEntries];
+            setPhotoEntries(mergedEntries);
+            syncCurrentItemPatch({
+              photoNames: nextNames,
+              photos: mergedEntries.map((pe) => ({
+                name: pe.name,
+                url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                category: pe.category,
+                caption: pe.caption,
+              })),
+            });
+            void Promise.all(
+              droppedFiles.map(async (f) => {
+                const dataUrl = await readAndCompressPhotoFile(f);
+                return { name: f.name, dataUrl };
+              })
+            ).then((resolvedList) => {
+              setPhotoEntries((prev) => {
+                const updated = prev.map((pe) => {
+                  const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
+                  return matched
+                    ? {
+                        ...pe,
+                        dataUrl: matched.dataUrl,
+                        previewUrl: matched.dataUrl || pe.previewUrl,
+                        url: matched.dataUrl || pe.url,
+                      }
+                    : pe;
+                });
+                syncCurrentItemPatch({
+                  photoNames: nextNames,
+                  photos: updated.map((pe) => ({
+                    name: pe.name,
+                    url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                    previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                    dataUrl: pe.dataUrl,
+                    category: pe.category,
+                    caption: pe.caption,
+                  })),
+                });
+                return updated;
+              });
+            });
+          }}
+          className={`p-6 rounded-2xl border-2 border-dashed text-center space-y-4 transition-colors ${
+            isDraggingPhotos
+              ? "bg-blue-50 border-[#1D4ED8]"
+              : "bg-[#FAF9F5] border-[#64748B]"
+          }`}
+        >
           <p className="text-base font-semibold text-[#334155]">
-            건물 외관 사진 · 지적도 이미지 올리기
+            건물 외관 사진 · 지적도 이미지 올리기 (여기로 파일을 끌어다 놓아도 됩니다)
           </p>
           <input
             ref={fileInputRef}
@@ -2238,32 +2658,64 @@ function ImWorkspaceInner() {
               const baseOffset = photoNames.length;
               const addedEntries: ImPhotoEntry[] = files.map((f, idx) => {
                 const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
+                const knownUrl = resolveKnownTestAssetUrl(f.name);
+                const blobUrl =
+                  typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+                    ? URL.createObjectURL(f)
+                    : knownUrl;
                 return {
                   name: f.name,
+                  url: knownUrl || blobUrl,
                   category: inferred.category,
                   caption: inferred.caption,
-                  previewUrl:
-                    typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
-                      ? URL.createObjectURL(f)
-                      : undefined,
+                  previewUrl: blobUrl || knownUrl,
                 };
               });
               const nextNames = Array.from(new Set([...photoNames, ...addedNames]));
               setPhotoNames(nextNames);
-              setPhotoEntries((prev) => [...prev, ...addedEntries]);
-              syncCurrentItemPatch({ photoNames: nextNames });
+              const mergedEntries = [...photoEntries, ...addedEntries];
+              setPhotoEntries(mergedEntries);
+              syncCurrentItemPatch({
+                photoNames: nextNames,
+                photos: mergedEntries.map((pe) => ({
+                  name: pe.name,
+                  url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                  previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                  category: pe.category,
+                  caption: pe.caption,
+                })),
+              });
               void Promise.all(
                 files.map(async (f) => {
                   const dataUrl = await readAndCompressPhotoFile(f);
                   return { name: f.name, dataUrl };
                 })
               ).then((resolvedList) => {
-                setPhotoEntries((prev) =>
-                  prev.map((pe) => {
+                setPhotoEntries((prev) => {
+                  const updated = prev.map((pe) => {
                     const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
-                    return matched ? { ...pe, dataUrl: matched.dataUrl } : pe;
-                  })
-                );
+                    return matched
+                      ? {
+                          ...pe,
+                          dataUrl: matched.dataUrl,
+                          previewUrl: matched.dataUrl || pe.previewUrl,
+                          url: matched.dataUrl || pe.url,
+                        }
+                      : pe;
+                  });
+                  syncCurrentItemPatch({
+                    photoNames: nextNames,
+                    photos: updated.map((pe) => ({
+                      name: pe.name,
+                      url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                      previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                      dataUrl: pe.dataUrl,
+                      category: pe.category,
+                      caption: pe.caption,
+                    })),
+                  });
+                  return updated;
+                });
               });
               e.target.value = "";
             }}
@@ -2280,15 +2732,17 @@ function ImWorkspaceInner() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-left">
               {photoNames.map((name) => {
                 const entry = photoEntries.find((pe) => pe.name === name);
+                const thumbSrc =
+                  entry?.dataUrl || entry?.previewUrl || entry?.url || resolveKnownTestAssetUrl(name);
                 return (
                   <div
                     key={name}
                     className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-[#CBD5E1]"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {entry?.previewUrl ? (
+                      {thumbSrc ? (
                         <img
-                          src={entry.previewUrl}
+                          src={thumbSrc}
                           alt={name}
                           className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
                         />
@@ -2305,9 +2759,20 @@ function ImWorkspaceInner() {
                       type="button"
                       onClick={() => {
                         const next = photoNames.filter((n) => n !== name);
+                        const nextEntries = photoEntries.filter((pe) => pe.name !== name);
                         setPhotoNames(next);
-                        setPhotoEntries((prev) => prev.filter((pe) => pe.name !== name));
-                        syncCurrentItemPatch({ photoNames: next });
+                        setPhotoEntries(nextEntries);
+                        syncCurrentItemPatch({
+                          photoNames: next,
+                          photos: nextEntries.map((pe) => ({
+                            name: pe.name,
+                            url: pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                            previewUrl: pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name),
+                            dataUrl: pe.dataUrl,
+                            category: pe.category,
+                            caption: pe.caption,
+                          })),
+                        });
                       }}
                       className="min-h-[40px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer"
                       aria-label={`${name} 삭제`}
@@ -2481,6 +2946,22 @@ function ImWorkspaceInner() {
                   01 표지 · {postureKoreanLabel}
                 </span>
               </div>
+              {photoEntries[0] &&
+                (photoEntries[0].dataUrl ||
+                  photoEntries[0].previewUrl ||
+                  photoEntries[0].url ||
+                  resolveKnownTestAssetUrl(photoEntries[0].name)) && (
+                  <img
+                    src={
+                      photoEntries[0].dataUrl ||
+                      photoEntries[0].previewUrl ||
+                      photoEntries[0].url ||
+                      resolveKnownTestAssetUrl(photoEntries[0].name)
+                    }
+                    alt="표지 대표 사진"
+                    className="w-full h-36 object-cover rounded-lg border border-slate-200"
+                  />
+                )}
               <h3
                 data-single-line-title="true"
                 title={imTitle || currentItem?.title}
@@ -2650,7 +3131,7 @@ function ImWorkspaceInner() {
             </div>
 
             {/* Section 09: Photos & Cadastral Map */}
-            <div className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-1.5">
+            <div className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2">
               <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
                 09 현장 사진 및 지적도
               </span>
@@ -2659,6 +3140,23 @@ function ImWorkspaceInner() {
                   ? `첨부 사진 ${photoNames.length}장 및 지적도`
                   : "외관 사진 및 지적도 자동 배치"}
               </p>
+              {photoEntries.length > 0 && (
+                <div className="grid grid-cols-2 gap-1.5 pt-1">
+                  {photoEntries.slice(0, 4).map((pe, idx) => {
+                    const src =
+                      pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name);
+                    if (!src) return null;
+                    return (
+                      <img
+                        key={`${pe.name}-${idx}`}
+                        src={src}
+                        alt={pe.name}
+                        className="w-full h-20 object-cover rounded-lg border border-slate-200"
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Section 10: Contact & Deal Terms */}
@@ -2708,35 +3206,55 @@ function ImWorkspaceInner() {
           </div>
 
           <div className="space-y-2.5" data-theme-lock="dark">
-            {visibleSlides.map((slide) => (
-              <div
-                key={slide.no}
-                data-testid={`im-slide-preview-${slide.no}`}
-                className="aspect-video w-full bg-[#0F172A] text-white rounded-xl border border-[#334155] p-4 flex flex-col justify-between shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-extrabold text-[#93C5FD] bg-[#1E3A8A]/60 px-2.5 py-0.5 rounded">
-                    {slide.no} · {slide.title}
-                  </span>
-                  <span className="text-sm text-[#94A3B8] font-mono">{slide.no} / 10</span>
+            {visibleSlides.map((slide) => {
+              const targetTab =
+                slide.no === "02" || slide.no === "10"
+                  ? "axios_brief"
+                  : slide.no === "06" || slide.no === "07"
+                  ? "rentroll"
+                  : slide.no === "09"
+                  ? "media_publish"
+                  : "specs";
+              return (
+                <div
+                  key={slide.no}
+                  role="button"
+                  tabIndex={0}
+                  data-testid={`im-slide-preview-${slide.no}`}
+                  onClick={() => setActiveEditorTab(targetTab)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveEditorTab(targetTab);
+                    }
+                  }}
+                  title="클릭하면 해당 편집 탭으로 이동합니다"
+                  className="aspect-video w-full bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-xl border border-[#334155] hover:border-[#60A5FA] p-4 flex flex-col justify-between shadow-sm cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-extrabold text-[#93C5FD] bg-[#1E3A8A]/60 px-2.5 py-0.5 rounded">
+                      {slide.no} · {slide.title}
+                    </span>
+                    <span className="text-sm text-[#94A3B8] font-mono">{slide.no} / 10</span>
+                  </div>
+                  <div className="space-y-1 my-auto py-1">
+                    <p
+                      data-single-line-title="true"
+                      title={slide.summary}
+                      className="text-base font-bold text-white leading-snug break-keep"
+                    >
+                      {slide.summary}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-[#1E293B] pt-2 text-sm">
+                    <span className="text-[#34D399] font-bold truncate">{slide.metric}</span>
+                    <span className="text-slate-300 text-sm truncate max-w-[140px]">
+                      {brokerageName || "담당 중개법인"}
+                    </span>
+                  </div>
                 </div>
-                <div className="space-y-1 my-auto py-1">
-                  <p
-                    data-single-line-title="true"
-                    title={slide.summary}
-                    className="text-base font-bold text-white leading-snug break-keep"
-                  >
-                    {slide.summary}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between border-t border-[#1E293B] pt-2 text-sm">
-                  <span className="text-[#34D399] font-bold truncate">{slide.metric}</span>
-                  <span className="text-slate-300 text-sm truncate max-w-[140px]">
-                    {brokerageName || "담당 중개법인"}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -2753,7 +3271,13 @@ function ImWorkspaceInner() {
       onClick={handleQuickGenerate}
       className="w-full min-h-[56px] px-6 py-3.5 bg-[#1D4ED8] text-white rounded-2xl font-extrabold text-lg hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
     >
-      <span>{isGenerating ? "IM 만드는 중…" : TERMS.createIm}</span>
+      <span>
+        {isGenerating
+          ? "IM 만드는 중…"
+          : currentItem?.status === "published" && !currentItem?.isDirty
+          ? `✓ ${TERMS.createIm} 완료 (다시 반영하기)`
+          : TERMS.createIm}
+      </span>
     </button>
   );
 

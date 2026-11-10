@@ -18,7 +18,7 @@ import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { Card4Schema, computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange } from '@/lib/deal-card/price-band';
-import { saveQuickImRecord } from '@/lib/im-lite/quick-generate-store';
+import { saveQuickImRecord, resolveKnownTestAssetUrl } from '@/lib/im-lite/quick-generate-store';
 import {
   applyBrokerExtrasToSections,
   parseBrokerExtras,
@@ -566,14 +566,19 @@ export async function POST(req: NextRequest) {
           : maxFloorBelow > 0
           ? maxFloorBelow
           : 1);
-  const effectiveLandSqm =
+  let effectiveLandSqm =
     Number(landAreaSqm) > 0
       ? Number(landAreaSqm)
       : knownMatch?.landAreaSqm ?? Number(existingSsot?.land_area_sqm || 479.3);
-  const effectiveGfaSqm =
+  let effectiveGfaSqm =
     Number(gfaSqm) > 0
       ? Number(gfaSqm)
       : knownMatch?.gfaSqm ?? Number(existingSsot?.total_gross_area_sqm || 1649.5);
+  if (effectiveFloorsAbove >= 2 && effectiveGfaSqm > 0 && effectiveLandSqm > 0 && effectiveGfaSqm < effectiveLandSqm) {
+    const tmp = effectiveGfaSqm;
+    effectiveGfaSqm = effectiveLandSqm;
+    effectiveLandSqm = tmp;
+  }
   const effectiveZoning =
     zoning ||
     knownMatch?.zoning ||
@@ -819,6 +824,8 @@ export async function POST(req: NextRequest) {
         .map((p: any, idx: number) => {
           const rawUrl = typeof p === 'string' ? p : String(p.url || '');
           const rawName = typeof p === 'object' ? String(p.name || p.caption || '') : '';
+          const knownTestUrl = resolveKnownTestAssetUrl(rawName || rawUrl);
+          const resolvedPhotoUrl = knownTestUrl || rawUrl;
           const inferSource = `${rawName} ${rawUrl}`;
           let inferredCat =
             (typeof p === 'object' && (p.category || p.type)) ||
@@ -846,7 +853,7 @@ export async function POST(req: NextRequest) {
               ? `${resolvedTitle} 전면 외관`
               : `${resolvedTitle} 현장 사진 ${idx + 1}`;
           return {
-            url: rawUrl,
+            url: resolvedPhotoUrl,
             caption: defaultCaption,
             role: (typeof p === 'object' && p.role) || (idx === 0 ? 'cover' : inferredCat),
             category: inferredCat,

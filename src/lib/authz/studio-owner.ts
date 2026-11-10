@@ -22,9 +22,18 @@ export async function assertStudioDealOwner(
   if (!dealId || typeof dealId !== 'string') {
     return ownershipFailure(404, 'NOT_FOUND', '프로젝트를 찾을 수 없습니다.').response;
   }
-  const result = await assertDealOwner(createServiceClient(), dealId, guard.user.id, {
+  const svc = createServiceClient();
+  const result = await assertDealOwner(svc, dealId, guard.user.id, {
     allowAdmin: true,
     role: guard.role,
   });
-  return result.ok ? null : result.response;
+  if (result.ok) return null;
+  if (result.status === 404) {
+    const { resolveOrSynthesizeQuickImRecord, isUuid } = await import('@/lib/im-lite/quick-generate-store');
+    const quickRec = await resolveOrSynthesizeQuickImRecord(dealId, svc);
+    if (quickRec && (quickRec.ownerId === guard.user.id || guard.role === 'admin' || (!isUuid(dealId) && !quickRec.ownerId))) {
+      return null;
+    }
+  }
+  return result.response;
 }
