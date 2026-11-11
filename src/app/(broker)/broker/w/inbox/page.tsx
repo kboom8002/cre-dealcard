@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
@@ -59,8 +59,12 @@ export interface InboxWorkspacePageProps {
   initialThreads?: InboxThreadItem[];
 }
 
-const STORAGE_KEY = "credeal-w-inbox-v4";
-const LEGACY_STORAGE_KEYS = ["credeal-w-inbox-v3", "credeal-w-inbox-v2"];
+const STORAGE_KEY_PREFIX = "credeal-w-inbox-v5";
+const LEGACY_STORAGE_KEYS = [
+  "credeal-w-inbox-v4",
+  "credeal-w-inbox-v3",
+  "credeal-w-inbox-v2",
+];
 
 function formatPhoneKo(raw: string): string {
   const digits = raw.replace(/\D/g, "");
@@ -133,10 +137,20 @@ function parseRawGateReason(raw: unknown): {
       cleanMessage: bracketMatch[3]?.trim() || "IM 열람을 요청했습니다.",
     };
   }
+  const marketMatch = trimmed.match(
+    /성함\/기업명:\s*([^,\n]+?)(?:,\s*연락처:\s*([^\n]+))?$/
+  );
+  if (marketMatch) {
+    return {
+      requesterName: marketMatch[1]?.trim() || undefined,
+      requesterPhone: sanitizeClientPhone(marketMatch[2]),
+      cleanMessage: "IM 열람을 요청했습니다.",
+    };
+  }
   return { cleanMessage: trimmed };
 }
 
-function normalizeServerThread(raw: any): InboxThreadItem {
+export function normalizeServerThread(raw: any): InboxThreadItem {
   const parsedReason = parseRawGateReason(raw?.detail || raw?.reason || raw?.cleanMessage);
   const rawStatus = String(raw?.status || "active");
   const mappedStatus: InboxThreadItem["status"] =
@@ -160,7 +174,7 @@ function normalizeServerThread(raw: any): InboxThreadItem {
     ).trim() || "이름 미입력 고객";
   const buildingTitle =
     String(raw?.buildingTitle || raw?.building_label || "관심 매물").trim() || "관심 매물";
-  const buildingId = String(raw?.buildingId || raw?.building_id || "bld-01").trim();
+  const buildingId = String(raw?.buildingId || raw?.building_id || "").trim();
   const cleanMessage =
     String(
       raw?.cleanMessage ||
@@ -201,6 +215,16 @@ function normalizeServerThread(raw: any): InboxThreadItem {
           },
         ];
 
+  const shareToken = String(raw?.shareToken || "").trim();
+  const shareUrl =
+    typeof raw?.shareUrl === "string" && raw.shareUrl
+      ? raw.shareUrl
+      : buildingId
+      ? shareToken
+        ? `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(shareToken)}`
+        : `/im-lite/${encodeURIComponent(buildingId)}`
+      : "";
+
   return {
     id: String(raw?.id || `thread-${Date.now()}`),
     clientName,
@@ -227,14 +251,11 @@ function normalizeServerThread(raw: any): InboxThreadItem {
         : "none",
     memo: typeof raw?.memo === "string" ? raw.memo : undefined,
     updatedAt: String(raw?.updatedAt || "방금"),
-    openCount: Math.max(0, Number(raw?.openCount ?? 1)),
+    openCount: Math.max(0, Number(raw?.openCount ?? 0)),
     isRead: Boolean(raw?.isRead),
     status: mappedStatus,
-    shareToken: String(raw?.shareToken || ""),
-    shareUrl:
-      typeof raw?.shareUrl === "string" && raw.shareUrl
-        ? raw.shareUrl
-        : `/im-lite/${encodeURIComponent(buildingId)}`,
+    shareToken,
+    shareUrl,
     events,
     budget: String(raw?.budget || "").trim(),
     preferredRegion: String(raw?.preferredRegion || "").trim(),
@@ -242,7 +263,7 @@ function normalizeServerThread(raw: any): InboxThreadItem {
     hasCorrectionNotice: Boolean(raw?.hasCorrectionNotice),
     correctionMessage:
       typeof raw?.correctionMessage === "string" ? raw.correctionMessage : undefined,
-    newsletterSubscribed: raw?.newsletterSubscribed !== false,
+    newsletterSubscribed: Boolean(raw?.newsletterSubscribed),
   };
 }
 
@@ -267,11 +288,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [showShareSheet, setShowShareSheet] = useState(false);
   // Inline lock confirmation state (replaces window.prompt — IB-16)
   const [confirmLockOpen, setConfirmLockOpen] = useState(false);
-  // Inline correction notice state (IB-G11, IB-G12)
+  // Inline correction notice state (IB-G11, IB-G12 — A-S0-04: never prefill fabricated numbers)
   const [correctionNoticeOpen, setCorrectionNoticeOpen] = useState(false);
-  const [correctionNoticeText, setCorrectionNoticeText] = useState(
-    "3층 임대료가 450만원→480만원으로 정정되었습니다."
-  );
+  const [correctionNoticeText, setCorrectionNoticeText] = useState("");
 
   // Accessible Client Registration Modal state (IB-26)
   const [showNewClientModal, setShowNewClientModal] = useState(false);
@@ -281,41 +300,68 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [newClientBudget, setNewClientBudget] = useState("");
   const [newClientRegion, setNewClientRegion] = useState("");
   const [newClientBuildingTitle, setNewClientBuildingTitle] = useState("");
+  const [newClientNewsletterOptIn, setNewClientNewsletterOptIn] = useState(false);
+  const [currentBrokerId, setCurrentBrokerId] = useState<string>("");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const busyLockRef = useRef<boolean>(false);
+  const appliedQueryThreadRef = useRef<string | null>(null);
   const [, setStatusFeedback] = useState<string | null>(null);
 
-  const persistThreads = (next: InboxThreadItem[]) => {
+  const purgeInboxLocalStorage = () => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith("credeal-w-inbox-")) {
+          keysToRemove.push(k);
+        }
+      }
+      for (const k of [...LEGACY_STORAGE_KEYS, ...keysToRemove]) {
+        window.localStorage.removeItem(k);
+      }
     } catch {
       // ignore storage errors
     }
   };
 
-  // Clear legacy fake-seed storage keys and fetch real server threads
+  const persistThreads = (next: InboxThreadItem[], brokerIdOverride?: string) => {
+    const uid = (brokerIdOverride ?? currentBrokerId).trim();
+    if (!uid) return;
+    try {
+      window.localStorage.setItem(`${STORAGE_KEY_PREFIX}:${uid}`, JSON.stringify(next));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  // Clear legacy unscoped storage keys and fetch real server threads (A-S0-03: per-broker isolation)
   useEffect(() => {
     try {
       for (const legacyKey of LEGACY_STORAGE_KEYS) {
         window.localStorage.removeItem(legacyKey);
-      }
-      if (initialThreads.length === 0) {
-        const savedRaw = window.localStorage.getItem(STORAGE_KEY);
-        if (savedRaw) {
-          const parsed = JSON.parse(savedRaw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const normalized = parsed.map(normalizeServerThread);
-            setThreads(normalized);
-            setSelectedId((prev) => prev || normalized[0]?.id || "");
-          }
-        }
       }
     } catch {
       // ignore
     }
 
     fetch("/api/broker/inbox?workspace=1")
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) {
+          purgeInboxLocalStorage();
+          setCurrentBrokerId("");
+          setThreads([]);
+          setSelectedId("");
+          return null;
+        }
+        return res.ok ? res.json().catch(() => null) : null;
+      })
       .then((data) => {
         if (!data) return;
+
+        const resolvedUid = typeof data.userId === "string" ? data.userId.trim() : "";
+        if (resolvedUid) {
+          setCurrentBrokerId(resolvedUid);
+        }
 
         if (Array.isArray(data.inventory) && data.inventory.length > 0) {
           setInventory(data.inventory);
@@ -325,11 +371,20 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           const serverThreads = data.threads.map(normalizeServerThread);
           setThreads((prev) => {
             if (serverThreads.length === 0) {
-              return prev.length > 0 && initialThreads.length > 0 ? prev : [];
+              if (prev.length > 0 && initialThreads.length > 0) {
+                return prev;
+              }
+              if (resolvedUid) {
+                persistThreads([], resolvedUid);
+              }
+              return [];
             }
+
+            const baseList =
+              initialThreads.length > 0 ? [...serverThreads, ...prev] : serverThreads;
             const byId = new Map<string, InboxThreadItem>();
             const seenCustomClientKeys = new Set<string>();
-            for (const item of [...serverThreads, ...prev]) {
+            for (const item of baseList) {
               if (!item?.id || byId.has(item.id)) continue;
               if (item.id.startsWith("custom_")) {
                 const customKey = `${item.clientName.trim().toLowerCase()}::${item.clientPhone.replace(/\D/g, "")}`;
@@ -339,7 +394,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               byId.set(item.id, item);
             }
             const merged = Array.from(byId.values());
-            persistThreads(merged);
+            if (resolvedUid) {
+              persistThreads(merged, resolvedUid);
+            }
 
             if (initialThreads.length === 0 && merged.length > 0) {
               const hasTodoItems = merged.some(
@@ -377,14 +434,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showNewClientModal]);
 
-  // Sync selection from query params
+  // Sync selection from query params once per query value (A-S1-01: never snap back on thread mutation)
   useEffect(() => {
     const queryId = searchParams.get("thread") || searchParams.get("id");
-    if (queryId) {
-      const match = threads.find((t) => t.id === queryId || t.buildingId === queryId);
-      if (match) {
-        setSelectedId(match.id);
-      }
+    if (!queryId) {
+      appliedQueryThreadRef.current = null;
+      return;
+    }
+    if (appliedQueryThreadRef.current === queryId) return;
+    const match = threads.find((t) => t.id === queryId || t.buildingId === queryId);
+    if (match) {
+      appliedQueryThreadRef.current = queryId;
+      setSelectedId(match.id);
     }
   }, [searchParams, threads]);
 
@@ -430,10 +491,13 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     );
   }, [threads, filteredThreads, selectedId]);
 
-  // When selecting a pending_gate thread, default to "todo" (할 일) tab and reset inline confirmations
+  // When selecting a thread, reset transient drafts and inline confirmations (A-S1-02)
   useEffect(() => {
     setConfirmLockOpen(false);
     setShowShareSheet(false);
+    setCorrectionNoticeOpen(false);
+    setCorrectionNoticeText("");
+    setCallNote("");
     if (!activeThread) return;
     if (activeThread.status === "pending_gate") {
       setActiveEditorTab("todo");
@@ -444,46 +508,84 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     );
   }, [activeThread?.id]);
 
-  // Honest approve & send IM handler (IB-11, IB-14, IB-15)
-  const handleApproveAndSendIm = async (targetThread: InboxThreadItem) => {
-    setStatusFeedback(null);
-    let shareUrl =
-      targetThread.shareUrl || `/im-lite/${encodeURIComponent(targetThread.buildingId)}`;
-    let issuedToken = targetThread.shareToken;
-
+  // Shared honest mutation helper — aborts on HTTP error, json.ok === false, non-JSON 5xx, or network failure (A-S0-01, A-S1-03)
+  const postJsonHonest = async (
+    actionKey: string,
+    url: string,
+    payload: Record<string, unknown>,
+    fallbackError: string
+  ): Promise<{ ok: true; data: Record<string, any> } | { ok: false; error: string }> => {
+    if (busyLockRef.current) {
+      return { ok: false, error: "이전 요청을 처리 중입니다." };
+    }
+    busyLockRef.current = true;
+    setBusyAction(actionKey);
     try {
-      const res = await fetch("/api/broker/inbox/actions", {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "approve_gate",
-          threadId: targetThread.id,
-          buildingId: targetThread.buildingId,
-          shareToken: targetThread.shareToken,
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => null);
-      if (res.ok && json?.ok) {
-        if (typeof json.shareUrl === "string" && json.shareUrl) {
-          shareUrl = json.shareUrl;
-        }
-        if (typeof json.shareToken === "string" && json.shareToken) {
-          issuedToken = json.shareToken;
-        }
-      } else if (res && !res.ok && json?.error) {
-        setStatusFeedback(json.error);
-        showUndoToast(json.error);
-        return;
+      if (!res.ok || json?.ok === false) {
+        const errMsg =
+          typeof json?.error === "string" && json.error.trim()
+            ? json.error.trim()
+            : typeof json?.error?.message === "string" && json.error.message.trim()
+            ? json.error.message.trim()
+            : `${fallbackError} (HTTP ${res.status})`;
+        setStatusFeedback(errMsg);
+        showUndoToast(errMsg);
+        return { ok: false, error: errMsg };
       }
+      return {
+        ok: true,
+        data: json && typeof json === "object" ? (json as Record<string, any>) : {},
+      };
     } catch {
-      // Allow fallback link copy in offline/test environments
+      setStatusFeedback(fallbackError);
+      showUndoToast(fallbackError);
+      return { ok: false, error: fallbackError };
+    } finally {
+      busyLockRef.current = false;
+      setBusyAction(null);
     }
+  };
+
+  // Honest approve & send IM handler (IB-11, IB-14, IB-15, A-S0-01)
+  const handleApproveAndSendIm = async (targetThread: InboxThreadItem) => {
+    setStatusFeedback(null);
+    const apiRes = await postJsonHonest(
+      `approve:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "approve_gate",
+        threadId: targetThread.id,
+        buildingId: targetThread.buildingId,
+        shareToken: targetThread.shareToken,
+      },
+      "IM 열람 승인 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    const json = apiRes.data;
+    const shareUrl =
+      typeof json.shareUrl === "string" && json.shareUrl
+        ? json.shareUrl
+        : targetThread.shareUrl ||
+          (targetThread.buildingId
+            ? `/im-lite/${encodeURIComponent(targetThread.buildingId)}`
+            : "");
+    const issuedToken =
+      typeof json.shareToken === "string" && json.shareToken
+        ? json.shareToken
+        : targetThread.shareToken;
 
     const fullUrl =
       typeof window !== "undefined" && shareUrl.startsWith("/")
         ? `${window.location.origin}${shareUrl}`
         : shareUrl;
-    const copied = await copyText(fullUrl);
+    const copied = fullUrl ? await copyText(fullUrl) : false;
 
     const approvalEvent: RecipientEvent = {
       id: `ev-approve-${Date.now()}`,
@@ -497,7 +599,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         t.id === targetThread.id
           ? {
               ...t,
-              status: "active" as const,
+              status: (t.openCount >= 3 ? "high_interest" : "active") as InboxThreadItem["status"],
               gateStatus: "approved" as const,
               shareToken: issuedToken,
               shareUrl,
@@ -518,28 +620,20 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(msg);
   };
 
-  // Reject Gate Request
+  // Reject Gate Request (A-S0-01)
   const handleRejectRequest = async (targetThread: InboxThreadItem) => {
     setStatusFeedback(null);
-    try {
-      const res = await fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "reject_gate",
-          threadId: targetThread.id,
-          buildingId: targetThread.buildingId,
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (res && !res.ok && json?.error) {
-        setStatusFeedback(json.error);
-        showUndoToast(json.error);
-        return;
-      }
-    } catch {
-      // ignore in test env
-    }
+    const apiRes = await postJsonHonest(
+      `reject:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "reject_gate",
+        threadId: targetThread.id,
+        buildingId: targetThread.buildingId,
+      },
+      "IM 열람 거절 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
 
     setThreads((prev) => {
       const next = prev.map((t) =>
@@ -562,10 +656,24 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(msg);
   };
 
-  // Share material via Kakao or Clipboard (IB-15)
+  // Share material via Kakao or Clipboard (IB-15, A-S0-01, A-S0-02, A-S0-05)
   const handleSendMaterial = async (kind: "im" | "dealcard" | "newsletter") => {
     if (!activeThread) return;
     setStatusFeedback(null);
+
+    if (kind === "im" && activeThread.status === "revoked") {
+      const msg = "잠긴 전용 링크입니다. 먼저 '링크 다시 열기'로 잠금을 해제해 주세요.";
+      setStatusFeedback(msg);
+      showUndoToast(msg);
+      return;
+    }
+
+    if ((kind === "im" || kind === "dealcard") && !activeThread.buildingId) {
+      const msg = "연결된 매물이 없습니다. 매물을 먼저 지정해 주세요.";
+      setStatusFeedback(msg);
+      showUndoToast(msg);
+      return;
+    }
 
     const actionMap = {
       im: "send_im",
@@ -580,37 +688,36 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         ? `/dc/${encodeURIComponent(activeThread.buildingId)}`
         : "/magazine";
 
-    try {
-      const res = await fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: actionMap[kind],
-          threadId: activeThread.id,
-          buildingId: activeThread.buildingId,
-        }),
+    const apiRes = await postJsonHonest(
+      `send:${kind}:${activeThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: actionMap[kind],
+        threadId: activeThread.id,
+        buildingId: activeThread.buildingId,
+      },
+      "자료 링크 준비 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    const json = apiRes.data;
+    if (typeof json.shareUrl === "string" && json.shareUrl) {
+      pathUrl = json.shareUrl;
+      const issuedToken =
+        typeof json.shareToken === "string" ? json.shareToken : "";
+      setThreads((prev) => {
+        const next = prev.map((t) =>
+          t.id === activeThread.id
+            ? {
+                ...t,
+                shareUrl: json.shareUrl,
+                shareToken: issuedToken || t.shareToken,
+              }
+            : t
+        );
+        persistThreads(next);
+        return next;
       });
-      const json = await res.json().catch(() => null);
-      if (res.ok && json?.shareUrl) {
-        pathUrl = json.shareUrl;
-        const issuedToken =
-          typeof json.shareToken === "string" ? json.shareToken : "";
-        setThreads((prev) => {
-          const next = prev.map((t) =>
-            t.id === activeThread.id
-              ? {
-                  ...t,
-                  shareUrl: json.shareUrl,
-                  shareToken: issuedToken || t.shareToken,
-                }
-              : t
-          );
-          persistThreads(next);
-          return next;
-        });
-      }
-    } catch {
-      // continue with local share URL
     }
 
     const origin =
@@ -625,11 +732,15 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       newsletter: "뉴스레터 링크",
     } as const;
 
+    const ogImageUrl = activeThread.buildingId
+      ? `${origin}/api/og/deal/${encodeURIComponent(activeThread.buildingId)}/kakao-v2`
+      : `${origin}/api/og/magazine`;
+
     const shareRes = await shareKakaoFeed({
       title: kakaoHeadline || `[${activeThread.buildingTitle}] ${labelMap[kind]}`,
       description:
         kakaoBrief || `${activeThread.clientName}님을 위한 맞춤 매물 자료입니다.`,
-      imageUrl: `${origin}/api/og/deal/${encodeURIComponent(activeThread.buildingId)}/kakao-v2`,
+      imageUrl: ogImageUrl,
       url: fullUrl,
       buttonTitle: `${labelMap[kind]} 열람하기`,
     });
@@ -649,32 +760,24 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
-  // Inline Lock Share Link (IB-05, IB-16 — no window.prompt)
+  // Inline Lock Share Link (IB-05, IB-16, A-S0-01 — no window.prompt)
   const handleConfirmLockLink = async () => {
     if (!activeThread) return;
     const targetThread = activeThread;
     setConfirmLockOpen(false);
     setStatusFeedback(null);
 
-    try {
-      const res = await fetch("/api/broker/share-links/revoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: targetThread.shareToken || undefined,
-          buildingId: targetThread.buildingId,
-          reason: "broker_locked",
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (res && !res.ok && json?.error) {
-        setStatusFeedback(json.error);
-        showUndoToast(json.error);
-        return;
-      }
-    } catch {
-      // fallback to local state in offline test
-    }
+    const apiRes = await postJsonHonest(
+      `lock:${targetThread.id}`,
+      "/api/broker/share-links/revoke",
+      {
+        token: targetThread.shareToken || undefined,
+        buildingId: targetThread.buildingId,
+        reason: "broker_locked",
+      },
+      "열람 링크 잠금 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
 
     setThreads((prev) => {
       const next = prev.map((t) =>
@@ -698,28 +801,27 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const handleUnlockLink = async () => {
     if (!activeThread) return;
     const targetThread = activeThread;
+    setStatusFeedback(null);
 
-    try {
-      await fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "restore_link",
-          threadId: targetThread.id,
-          buildingId: targetThread.buildingId,
-          shareToken: targetThread.shareToken,
-        }),
-      });
-    } catch {
-      // ignore
-    }
+    const apiRes = await postJsonHonest(
+      `unlock:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "restore_link",
+        threadId: targetThread.id,
+        buildingId: targetThread.buildingId,
+        shareToken: targetThread.shareToken,
+      },
+      "열람 링크 잠금 해제에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
 
     setThreads((prev) => {
       const next = prev.map((t) =>
         t.id === targetThread.id
           ? {
               ...t,
-              status: "active" as const,
+              status: (t.openCount >= 3 ? "high_interest" : "active") as InboxThreadItem["status"],
               latestEvent: "잠근 열람 링크를 다시 열었습니다.",
             }
           : t
@@ -733,7 +835,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(msg);
   };
 
-  // Correction Notice publish & clear (IB-G11, IB-G12)
+  // Correction Notice publish & clear (IB-G11, IB-G12, A-S0-01)
   const handlePublishCorrectionNotice = async (thread?: InboxThreadItem) => {
     const targetThread = thread ?? activeThread;
     if (!targetThread) return;
@@ -741,26 +843,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       correctionNoticeText.trim() ||
       `${targetThread.buildingTitle} 매물 제원 및 임대 현황이 최신 기준으로 업데이트되었습니다.`;
 
-    try {
-      const res = await fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "correction_notice",
-          threadId: targetThread.id,
-          buildingId: targetThread.buildingId,
-          message: msgText,
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (res && !res.ok && json?.error) {
-        setStatusFeedback(json.error);
-        showUndoToast(json.error);
-        return;
-      }
-    } catch {
-      // continue local update in offline test
-    }
+    const apiRes = await postJsonHonest(
+      `corr:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "correction_notice",
+        threadId: targetThread.id,
+        buildingId: targetThread.buildingId,
+        message: msgText,
+      },
+      "수치 정정 안내 게시에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
 
     const newEvent: RecipientEvent = {
       id: `ev-corr-${Date.now()}`,
@@ -771,7 +865,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
     setThreads((prev) => {
       const next = prev.map((t) =>
-        t.buildingId === targetThread.buildingId || t.id === targetThread.id
+        (Boolean(targetThread.buildingId) && t.buildingId === targetThread.buildingId) ||
+        t.id === targetThread.id
           ? {
               ...t,
               hasCorrectionNotice: true,
@@ -795,25 +890,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const targetThread = thread ?? activeThread;
     if (!targetThread) return;
 
-    try {
-      const res = await fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "clear_correction_notice",
-          threadId: targetThread.id,
-          buildingId: targetThread.buildingId,
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (res && !res.ok && json?.error) {
-        setStatusFeedback(json.error);
-        showUndoToast(json.error);
-        return;
-      }
-    } catch {
-      // continue local update in offline test
-    }
+    const apiRes = await postJsonHonest(
+      `corr-clear:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "clear_correction_notice",
+        threadId: targetThread.id,
+        buildingId: targetThread.buildingId,
+      },
+      "수치 정정 안내 해제에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
 
     const newEvent: RecipientEvent = {
       id: `ev-corr-clear-${Date.now()}`,
@@ -824,7 +911,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
     setThreads((prev) => {
       const next = prev.map((t) =>
-        t.buildingId === targetThread.buildingId || t.id === targetThread.id
+        (Boolean(targetThread.buildingId) && t.buildingId === targetThread.buildingId) ||
+        t.id === targetThread.id
           ? {
               ...t,
               hasCorrectionNotice: false,
@@ -843,31 +931,23 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(toastMsg);
   };
 
-  // Call / Consultation Note (honest persistence)
+  // Call / Consultation Note (honest persistence — A-S0-01)
   const handleAddCallNote = async () => {
     if (!activeThread || !callNote.trim()) return;
     const trimmed = callNote.trim();
 
-    try {
-      const res = await fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "log_call",
-          threadId: activeThread.id,
-          buildingId: activeThread.buildingId,
-          note: trimmed,
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (res && !res.ok && json?.error) {
-        setStatusFeedback(json.error);
-        showUndoToast(json.error);
-        return;
-      }
-    } catch {
-      // continue local append in offline test
-    }
+    const apiRes = await postJsonHonest(
+      `note:${activeThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "log_call",
+        threadId: activeThread.id,
+        buildingId: activeThread.buildingId,
+        note: trimmed,
+      },
+      "통화 및 상담 기록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
 
     const newEvent: RecipientEvent = {
       id: `ev-note-${Date.now()}`,
@@ -895,7 +975,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast("통화 및 상담 기록을 저장했습니다.");
   };
 
-  // Create Custom Client (never fabricates fake phone numbers — IB-07, IB-26)
+  // Create Custom Client (never fabricates fake phone numbers or wrong building — IB-07, IB-26, A-S0-01, A-S0-05)
   const handleCreateCustomClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName.trim()) return;
@@ -903,39 +983,37 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     let canonicalId = `custom_${Date.now()}`;
     const cleanPhone = sanitizeClientPhone(newClientPhone);
     const trimmedTitle = newClientBuildingTitle.trim();
-    const matchedInventory =
-      inventory.find(
-        (d) =>
-          (trimmedTitle && d.title === trimmedTitle) ||
-          (trimmedTitle && d.buildingId === trimmedTitle)
-      ) || inventory[0];
-    const resolvedBuildingId = matchedInventory?.buildingId || "bld-01";
+    const matchedInventory = trimmedTitle
+      ? inventory.find(
+          (d) => d.title === trimmedTitle || d.buildingId === trimmedTitle
+        )
+      : undefined;
+    const resolvedBuildingId = matchedInventory?.buildingId || "";
     const resolvedBuildingTitle =
-      trimmedTitle || matchedInventory?.title || "관심 매물 상담";
+      trimmedTitle || matchedInventory?.title || "관심 매물 미지정";
 
-    try {
-      const res = await fetch("/api/broker/inbox/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "upsert_client",
-          clientId: canonicalId,
-          clientName: newClientName.trim(),
-          clientPhone: cleanPhone,
-          clientGrade: newClientGrade,
-          budget: newClientBudget.trim(),
-          preferredRegion: newClientRegion.trim(),
-          buildingId: resolvedBuildingId,
-          buildingTitle: resolvedBuildingTitle,
-          newsletterSubscribed: true,
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (res.ok && typeof json?.clientId === "string" && json.clientId) {
-        canonicalId = json.clientId;
-      }
-    } catch {
-      // ignore in test env
+    const apiRes = await postJsonHonest(
+      "upsert_client",
+      "/api/broker/inbox/actions",
+      {
+        action: "upsert_client",
+        clientId: canonicalId,
+        clientName: newClientName.trim(),
+        clientPhone: cleanPhone,
+        clientGrade: newClientGrade,
+        budget: newClientBudget.trim(),
+        preferredRegion: newClientRegion.trim(),
+        buildingId: resolvedBuildingId,
+        buildingTitle: resolvedBuildingTitle,
+        newsletterSubscribed: newClientNewsletterOptIn,
+      },
+      "고객 등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    const json = apiRes.data;
+    if (typeof json?.clientId === "string" && json.clientId) {
+      canonicalId = json.clientId;
     }
 
     const created: InboxThreadItem = {
@@ -952,11 +1030,13 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       isRead: true,
       status: "active",
       shareToken: "",
-      shareUrl: `/im-lite/${encodeURIComponent(resolvedBuildingId)}`,
+      shareUrl: resolvedBuildingId
+        ? `/im-lite/${encodeURIComponent(resolvedBuildingId)}`
+        : "",
       budget: newClientBudget.trim(),
       preferredRegion: newClientRegion.trim(),
       focusedSections: [],
-      newsletterSubscribed: true,
+      newsletterSubscribed: newClientNewsletterOptIn,
       events: [
         {
           id: `ev-${canonicalId}`,
@@ -990,6 +1070,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     setNewClientBudget("");
     setNewClientRegion("");
     setNewClientBuildingTitle("");
+    setNewClientNewsletterOptIn(false);
     setShowNewClientModal(false);
     showUndoToast(`${created.clientName} 고객이 등록되었습니다.`);
   };
@@ -1417,10 +1498,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   <div className="mt-4 flex flex-wrap gap-2.5">
                     <button
                       type="button"
+                      disabled={activeThread.status === "revoked" || Boolean(busyAction)}
                       onClick={() => handleSendMaterial("im")}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 cursor-pointer"
+                      className={`inline-flex min-h-[48px] items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold ${
+                        activeThread.status === "revoked"
+                          ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
+                          : "bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
+                      }`}
                     >
-                      IM 전용 링크 보내기
+                      {activeThread.status === "revoked"
+                        ? "IM 전용 링크 (잠김)"
+                        : "IM 전용 링크 보내기"}
                     </button>
                     <button
                       type="button"
@@ -1487,10 +1575,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 <button
                   type="button"
                   data-testid="send-im-link-btn"
+                  disabled={activeThread.status === "revoked" || Boolean(busyAction)}
                   onClick={() => handleSendMaterial("im")}
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 cursor-pointer"
+                  className={`inline-flex min-h-[48px] items-center justify-center rounded-xl px-5 py-2.5 text-base font-bold ${
+                    activeThread.status === "revoked"
+                      ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
+                      : "bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
+                  }`}
                 >
-                  IM 전용 링크 보내기
+                  {activeThread.status === "revoked"
+                    ? "IM 전용 링크 (잠김)"
+                    : "IM 전용 링크 보내기"}
                 </button>
                 <button
                   type="button"
@@ -1628,11 +1723,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               </p>
               <button
                 type="button"
+                disabled={activeThread.status === "revoked" || Boolean(busyAction)}
                 onClick={() => handleSendMaterial("im")}
-                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                className={`flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm font-bold ${
+                  activeThread.status === "revoked"
+                    ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                    : "border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100 cursor-pointer"
+                }`}
               >
                 <span>IM 전용 링크 보내기</span>
-                <span className="text-sm text-blue-700">선택 →</span>
+                <span className="text-sm text-blue-700">
+                  {activeThread.status === "revoked" ? "잠김" : "선택 →"}
+                </span>
               </button>
               <button
                 type="button"
@@ -2061,6 +2163,23 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+                <input
+                  id="new-client-newsletter"
+                  data-testid="new-client-newsletter-checkbox"
+                  type="checkbox"
+                  checked={newClientNewsletterOptIn}
+                  onChange={(e) => setNewClientNewsletterOptIn(e.target.checked)}
+                  className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label
+                  htmlFor="new-client-newsletter"
+                  className="text-sm font-semibold text-slate-800 cursor-pointer"
+                >
+                  시장 브리핑 뉴스레터 수신에 동의한 고객입니다 (선택)
+                </label>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">

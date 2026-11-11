@@ -120,6 +120,10 @@ export function SubscribeCard({ brokerId, source, accentColor = '#4f46e5', broke
       setErrorMsg('확인 링크를 받을 올바른 이메일 주소를 입력해주세요.');
       return;
     }
+    if (!consentOk) {
+      setErrorMsg('필수 동의 항목 확인이 필요합니다. 처음 화면에서 동의 후 다시 신청해 주세요.');
+      return;
+    }
     setErrorMsg('');
     setStatus('loading');
     const refParam = getRefParam();
@@ -131,7 +135,7 @@ export function SubscribeCard({ brokerId, source, accentColor = '#4f46e5', broke
       channel: 'both',
       source,
       referrer: refParam || undefined,
-      consent: toConsentPayload(consentOk ? consent : { privacy: true, marketing: true, age14: true }),
+      consent: toConsentPayload(consent),
     });
 
     if (outcome.ok) {

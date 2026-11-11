@@ -72,25 +72,29 @@ export async function checkAndSendIMViewAlert(
     }
 
     // 5. 카카오 알림톡 발송
+    const safeBlindName = String(input.blindName || '매물')
+      .replace(/[\r\n\t]+/g, ' ')
+      .trim()
+      .slice(0, 60);
     const minutes = Math.floor(input.dwellSeconds / 60);
     const seconds = input.dwellSeconds % 60;
     const dwellLabel = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
 
-    const smsMessage = `[CRE Deal] "${input.blindName}" 투자설명서를 누군가 ${dwellLabel}간 상세히 열람했습니다. 잠재 고객의 관심 행동입니다.`;
+    const smsMessage = `[CRE Deal] "${safeBlindName}" 투자설명서를 누군가 ${dwellLabel}간 상세히 열람했습니다. 잠재 고객의 관심 행동입니다.`;
 
     const sent = await sendKakaoAlimtalk({
       recipientPhone: profile.phone,
       templateId: 'TPL_IM_VIEW_ALERT', // Solapi에 사전 등록 필요
       variables: {
         '#{brokerName}': profile.display_name || '브로커',
-        '#{buildingName}': input.blindName,
+        '#{buildingName}': safeBlindName,
         '#{dwellTime}': dwellLabel,
         '#{viewUrl}': `https://www.credeal.net/broker/buildings`,
       },
       fallbackSms: smsMessage,
     });
 
-    // 6. 발송 이력 기록
+    // 6. 발송 이력 기록 (activity_events 실제 스키마 정합 — broker_id는 metadata 내부 기록)
     if (sent) {
       const { error: logError } = await supabase.from('activity_events').insert({
         actor_id: building.owner_id,
@@ -98,8 +102,10 @@ export async function checkAndSendIMViewAlert(
         event_type: 'im_view_alert_sent',
         entity_type: 'building_ssot_lite',
         entity_id: input.buildingId,
-        broker_id: building.owner_id,
         metadata: {
+          broker_id: building.owner_id,
+          building_id: input.buildingId,
+          blind_name: safeBlindName,
           dwell_seconds: input.dwellSeconds,
           visitor_hash: input.visitorHash,
           referrer: input.referrer,

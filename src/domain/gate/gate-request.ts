@@ -85,6 +85,10 @@ export async function createGateRequest(
     throw new Error("건물 정보를 찾을 수 없습니다.");
   }
 
+  if (building?.status === "archived") {
+    throw new Error("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
+  }
+
   // If the Deal Card is backed by QuickImStore / activity_events (non-UUID or not in building_ssot_lite),
   // persist the gate request into activity_events instead of querying UUID-typed gate_requests.building_id
   if (!building && quickRec) {

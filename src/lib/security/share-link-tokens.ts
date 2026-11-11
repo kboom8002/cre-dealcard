@@ -209,7 +209,11 @@ export async function issueShareLinkToken(
   }
   const brokerId = input.brokerId ? String(input.brokerId).trim() : null;
   const recipientId = input.recipientId ? String(input.recipientId).trim() : null;
-  const ttlDays = typeof input.ttlDays === 'number' ? input.ttlDays : 30;
+  const rawTtl =
+    typeof input.ttlDays === 'number' && Number.isFinite(input.ttlDays)
+      ? input.ttlDays
+      : 30;
+  const ttlDays = Math.min(Math.max(rawTtl, 1), 90);
   const expiresAtMs = Date.now() + ttlDays * 86_400_000;
   const expiresAt = new Date(expiresAtMs).toISOString();
 
@@ -468,14 +472,174 @@ export async function revokeShareLinkToken(
   };
 }
 
+export function resolveShareTokenBuildingId(token?: string | null): string {
+  const rawToken = typeof token === 'string' ? token.trim() : '';
+  if (!rawToken) return '';
+  const store = getTokenStore();
+  if (store.tokens[rawToken]?.buildingId) {
+    return store.tokens[rawToken].buildingId;
+  }
+  if (store.revokedTokens[rawToken]?.buildingId) {
+    return String(store.revokedTokens[rawToken].buildingId);
+  }
+  if (rawToken.startsWith('slk.')) {
+    const decoded = decodeSignedToken(rawToken);
+    if (decoded.validSig && decoded.payload?.b) {
+      return decoded.payload.b;
+    }
+  }
+  return '';
+}
+
+export function clearBuildingShareLinkLock(buildingId: string): void {
+  const cleanId = String(buildingId || '').trim();
+  if (!cleanId) return;
+  const store = getTokenStore();
+  if (store.revokedBuildings[cleanId]) {
+    delete store.revokedBuildings[cleanId];
+    persistTokenStore(store);
+  }
+  try {
+    setBuildingRevokedState(cleanId, false);
+  } catch {
+    // ignore
+  }
+}
+
+export async function revokeRecipientShareLinkTokens(
+  recipientId: string,
+  supabaseOverride?: any
+): Promise<number> {
+  const cleanRecipient = String(recipientId || '').trim();
+  if (!cleanRecipient) return 0;
+
+  const revokedAt = new Date().toISOString();
+  const store = getTokenStore();
+  let count = 0;
+
+  for (const entry of Object.values(store.tokens)) {
+    if (entry.recipientId === cleanRecipient) {
+      entry.status = 'revoked';
+      entry.revokedAt = revokedAt;
+      entry.revokedReason = 'gate_expired';
+      store.revokedTokens[entry.token] = {
+        token: entry.token,
+        buildingId: entry.buildingId,
+        brokerId: entry.brokerId,
+        revokedAt,
+        reason: 'gate_expired',
+      };
+      count += 1;
+    }
+  }
+  persistTokenStore(store);
+
+  try {
+    const supabase = supabaseOverride || createServiceClient();
+    const table: any = supabase.from('im_share_links');
+    if (table && typeof table.update === 'function') {
+      await table
+        .update({
+          status: 'revoked',
+          revoked_at: revokedAt,
+          revoked_reason: 'gate_expired',
+        })
+        .eq('recipient_id', cleanRecipient);
+    }
+  } catch {
+    // Non-blocking fallback
+  }
+
+  return count;
+}
+
 export async function restoreShareLinkToken(input: {
   token?: string | null;
   buildingId?: string | null;
   brokerId?: string | null;
-}): Promise<{ ok: boolean; status: number }> {
+  isAdmin?: boolean;
+}): Promise<{ ok: boolean; status: number; buildingId?: string; error?: string }> {
   const rawToken = input.token ? String(input.token).trim() : '';
   const rawBuildingId = input.buildingId ? String(input.buildingId).trim() : '';
+  const brokerId = input.brokerId ? String(input.brokerId).trim() : null;
+  const isAdmin = Boolean(input.isAdmin);
+
+  if (!rawToken && !rawBuildingId) {
+    return {
+      ok: false,
+      status: 400,
+      error: '잠금 해제할 링크 토큰 또는 매물 ID가 필요합니다.',
+    };
+  }
+
   const store = getTokenStore();
+  const existingMem = rawToken ? store.tokens[rawToken] : undefined;
+  const existingRevokedMem = rawToken ? store.revokedTokens[rawToken] : undefined;
+  const decoded = rawToken ? decodeSignedToken(rawToken) : { validSig: false };
+
+  let dbOwnerId: string | null = null;
+  let dbBuildingId: string | null = null;
+  try {
+    const supabase = createServiceClient();
+    if (rawToken) {
+      const q: any = supabase
+        .from('im_share_links')
+        .select('token, building_id, broker_id, status')
+        .eq('token', rawToken);
+      const res = typeof q.maybeSingle === 'function' ? await q.maybeSingle() : await q.single?.();
+      if (res?.data?.broker_id) {
+        dbOwnerId = String(res.data.broker_id);
+      }
+      if (res?.data?.building_id) {
+        dbBuildingId = String(res.data.building_id);
+      }
+    }
+  } catch {
+    // ignore DB lookup error
+  }
+
+  const resolvedBuildingId =
+    rawBuildingId ||
+    dbBuildingId ||
+    existingMem?.buildingId ||
+    existingRevokedMem?.buildingId ||
+    decoded.payload?.b ||
+    '';
+
+  const tokenOwnerId =
+    dbOwnerId ||
+    existingMem?.brokerId ||
+    existingRevokedMem?.brokerId ||
+    (decoded.validSig && decoded.payload?.u ? decoded.payload.u : null);
+
+  if (!isAdmin && brokerId && tokenOwnerId && tokenOwnerId !== brokerId) {
+    return {
+      ok: false,
+      status: 403,
+      error: '다른 중개인이 발급한 공유 링크는 다시 열 수 없습니다.',
+    };
+  }
+
+  if (!isAdmin && brokerId && !tokenOwnerId && resolvedBuildingId) {
+    const revBldgOwner = store.revokedBuildings[resolvedBuildingId]?.brokerId;
+    if (revBldgOwner && revBldgOwner !== brokerId) {
+      return {
+        ok: false,
+        status: 403,
+        error: '다른 중개인의 매물 링크는 다시 열 수 없습니다.',
+      };
+    }
+    const byBldg = Object.values(store.tokens).filter(
+      (t) => t.buildingId === resolvedBuildingId && t.brokerId
+    );
+    if (byBldg.length > 0 && byBldg.every((t) => t.brokerId !== brokerId)) {
+      return {
+        ok: false,
+        status: 403,
+        error: '다른 중개인의 매물 링크는 다시 열 수 없습니다.',
+      };
+    }
+  }
 
   if (rawToken) {
     delete store.revokedTokens[rawToken];
@@ -489,18 +653,20 @@ export async function restoreShareLinkToken(input: {
     }
   }
 
-  if (rawBuildingId) {
-    delete store.revokedBuildings[rawBuildingId];
-    for (const entry of Object.values(store.tokens)) {
-      if (entry.buildingId === rawBuildingId) {
-        entry.status = 'active';
-        entry.revokedAt = null;
-        entry.revokedReason = null;
-        delete store.revokedTokens[entry.token];
+  if (resolvedBuildingId) {
+    delete store.revokedBuildings[resolvedBuildingId];
+    if (!rawToken) {
+      for (const entry of Object.values(store.tokens)) {
+        if (entry.buildingId === resolvedBuildingId) {
+          entry.status = 'active';
+          entry.revokedAt = null;
+          entry.revokedReason = null;
+          delete store.revokedTokens[entry.token];
+        }
       }
     }
     try {
-      setBuildingRevokedState(rawBuildingId, false, rawToken || undefined);
+      setBuildingRevokedState(resolvedBuildingId, false, rawToken || undefined);
     } catch {
       // ignore
     }
@@ -519,21 +685,20 @@ export async function restoreShareLinkToken(input: {
           revoked_reason: null,
         })
         .eq('token', rawToken);
-    }
-    if (rawBuildingId && table && typeof table.update === 'function') {
+    } else if (resolvedBuildingId && table && typeof table.update === 'function') {
       await table
         .update({
           status: 'active',
           revoked_at: null,
           revoked_reason: null,
         })
-        .eq('building_id', rawBuildingId);
+        .eq('building_id', resolvedBuildingId);
     }
   } catch {
     // Non-blocking fallback
   }
 
-  return { ok: true, status: 200 };
+  return { ok: true, status: 200, buildingId: resolvedBuildingId || undefined };
 }
 
 export function isBuildingShareLinkRevoked(buildingId: string): boolean {
@@ -589,11 +754,14 @@ export async function verifyShareLinkToken(
         const matchesToken = Boolean(evToken && evToken === token);
         const matchesBuilding = Boolean(targetBuildingId && evBId === targetBuildingId);
         if (!matchesToken && !matchesBuilding) continue;
+
         if (ev.event_type === 'link_revoked') {
           return { valid: false, reason: 'revoked' };
         }
         if (ev.event_type === 'link_restored') {
-          break;
+          if (matchesToken || meta.scope !== 'recipient_approval') {
+            break;
+          }
         }
       }
     } catch {

@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { isUuid } from '@/lib/im-lite/quick-generate-store';
 import { createHash } from 'node:crypto';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -41,32 +42,40 @@ export async function POST(
 
   try {
     const supabase = createServiceClient();
+    const isBldUuid = isUuid(buildingId);
+    const entityId = isBldUuid ? buildingId : null;
+    const safeDwell =
+      typeof dwellSeconds === 'number' && Number.isFinite(dwellSeconds)
+        ? Math.min(Math.max(Math.round(dwellSeconds), 0), 86400)
+        : undefined;
+    const safeBlindName = blindName ? blindName.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 80) : undefined;
 
-    if (dwellSeconds !== undefined) {
+    if (safeDwell !== undefined) {
       // 체류시간 이탈 기록
       await supabase.from('activity_events').insert([
         {
           entity_type: 'building',
-          entity_id: buildingId,
+          entity_id: entityId,
           event_type: 'im_lite_view',
           metadata: {
+            building_id: buildingId,
             view_type: 'im_lite',
             referrer,
             user_agent_hash: userAgentHash,
-            dwell_seconds: dwellSeconds,
-            blind_name: blindName ?? null,
+            dwell_seconds: safeDwell,
+            blind_name: safeBlindName ?? null,
           },
           created_at: new Date().toISOString(),
         },
       ]);
 
       // 체류시간 60초 이상 시 카카오 알림 발송 검토 및 비동기 발송
-      if (dwellSeconds >= 60) {
+      if (safeDwell >= 60 && isBldUuid) {
         const { checkAndSendIMViewAlert } = await import('@/domain/notification/im-view-alert');
         checkAndSendIMViewAlert(supabase, {
           buildingId,
-          blindName: blindName || '매물',
-          dwellSeconds,
+          blindName: safeBlindName || '매물',
+          dwellSeconds: safeDwell,
           visitorHash: userAgentHash,
           referrer,
         }).catch((err) => {
@@ -78,48 +87,51 @@ export async function POST(
       await supabase.from('activity_events').insert([
         {
           entity_type: 'building',
-          entity_id: buildingId,
+          entity_id: entityId,
           event_type: 'im_lite_view',
           metadata: {
+            building_id: buildingId,
             view_type: 'im_lite',
             referrer,
             user_agent_hash: userAgentHash,
-            section_viewed: sectionViewed ?? null,
+            section_viewed: sectionViewed ? sectionViewed.slice(0, 60) : null,
           },
           created_at: new Date().toISOString(),
         },
       ]);
     }
 
-    // Hot Lead 스코어 검토 및 알림 비동기 트리거
-    const { data: bld } = await supabase
-      .from('building_ssot_lite')
-      .select('owner_id')
-      .eq('id', buildingId)
-      .maybeSingle();
-
-    if (bld?.owner_id) {
-      const { data: brk } = await supabase
-        .from('broker_profiles')
-        .select('slug')
-        .eq('user_id', bld.owner_id)
+    // 관심 열람 스코어 검토 및 알림 비동기 트리거
+    if (isBldUuid) {
+      const { data: bld } = await supabase
+        .from('building_ssot_lite')
+        .select('owner_id')
+        .eq('id', buildingId)
         .maybeSingle();
 
-      if (brk?.slug) {
-        const { calculateLeadScore } = await import('@/domain/analytics/cross-channel-score');
-        const { checkAndSendHotLeadAlert } = await import('@/domain/notification/hot-lead-alert');
+      if (bld?.owner_id) {
+        const { data: brk } = await supabase
+          .from('broker_profiles')
+          .select('slug')
+          .eq('user_id', bld.owner_id)
+          .maybeSingle();
 
-        calculateLeadScore(supabase, brk.slug, userAgentHash)
-          .then((scoreResult) => {
-            if (scoreResult.isHotLead) {
-              checkAndSendHotLeadAlert(supabase, brk.slug, scoreResult, userAgentHash).catch((err) => {
-                log.error('[Hot Lead Alert] Failed to send alert:', err);
-              });
-            }
-          })
-          .catch((err) => {
-            log.error('[Hot Lead Alert] Scoring calculation failed:', err);
-          });
+        if (brk?.slug) {
+          const { calculateLeadScore } = await import('@/domain/analytics/cross-channel-score');
+          const { checkAndSendHotLeadAlert } = await import('@/domain/notification/hot-lead-alert');
+
+          calculateLeadScore(supabase, brk.slug, userAgentHash)
+            .then((scoreResult) => {
+              if (scoreResult.isHotLead) {
+                checkAndSendHotLeadAlert(supabase, brk.slug, scoreResult, userAgentHash).catch((err) => {
+                  log.error('[Hot Lead Alert] Failed to send alert:', err);
+                });
+              }
+            })
+            .catch((err) => {
+              log.error('[Hot Lead Alert] Scoring calculation failed:', err);
+            });
+        }
       }
     }
   } catch (err) {

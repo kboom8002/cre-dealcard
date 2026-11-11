@@ -14,7 +14,6 @@ type InboxFilter = "tab1" | "tab2" | "tab3";
 interface InboxItem {
   id: string;
   type: "gate_request" | "view" | "notification" | "message" | "reaction" | "comment" | "warning";
-  // gate_request fields
   status?: string;
   building_id?: string;
   building_label?: string;
@@ -24,16 +23,13 @@ interface InboxItem {
   requested_level?: string;
   reason?: string;
   is_unread?: boolean;
-  // view fields
   event_type?: string;
   icon?: string;
   label?: string;
   sub_label?: string;
   viewer_info?: string;
-  // notification fields
   notification_type?: string;
   link?: string;
-  // common
   created_at: string;
 }
 
@@ -49,16 +45,29 @@ function timeAgo(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
+function isPendingGateStatus(status?: string): boolean {
+  return status === "submitted" || status === "pending" || status === "broker_review";
+}
+
+function formatGateStatusLabel(status?: string): string {
+  if (status === "approved") return "✅ 승인 완료";
+  if (status === "rejected") return "❌ 거절됨";
+  if (status === "expired") return "⌛ 기간 만료";
+  if (isPendingGateStatus(status)) return "⏳ 승인 대기";
+  return "⏳ 확인 필요";
+}
+
 export default function InboxPage() {
   const [filter, setFilter] = useState<InboxFilter>("tab1");
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchInbox = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/broker/inbox?filter=all&limit=100`);
+      const res = await fetch("/api/broker/inbox?filter=all&limit=100");
       if (res.ok) {
         const data = await res.json();
         setItems(data.items || []);
@@ -68,31 +77,44 @@ export default function InboxPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     fetchInbox();
   }, [fetchInbox]);
 
-  async function handleGateAction(requestId: string, action: "approved" | "rejected") {
-    setActionLoading(requestId);
+  async function handleGateAction(
+    item: InboxItem,
+    decision: "approved" | "rejected"
+  ) {
+    setActionLoading(item.id);
+    setActionError(null);
     try {
-      const res = await fetch(`/api/gate-requests/${requestId}/review`, {
-        method: "PATCH",
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: action }),
+        body: JSON.stringify({
+          action: decision === "approved" ? "approve_gate" : "reject_gate",
+          threadId: item.id,
+          buildingId: item.building_id || "",
+        }),
       });
-      if (res.ok) {
-        setItems((prev) =>
-          prev.map((item) =>
-            item.id === requestId
-              ? { ...item, status: action, is_unread: false }
-              : item
-          )
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.ok === false) {
+        setActionError(
+          typeof json?.error === "string"
+            ? json.error
+            : "요청 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
         );
+        return;
       }
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === item.id ? { ...row, status: decision, is_unread: false } : row
+        )
+      );
     } catch {
-      // silent
+      setActionError("네트워크 오류로 처리하지 못했습니다.");
     } finally {
       setActionLoading(null);
     }
@@ -104,9 +126,11 @@ export default function InboxPage() {
 
   const displayItems = filter === "tab1" ? tab1Items : filter === "tab2" ? tab2Items : tab3Items;
 
-  const tab1Badge = tab1Items.filter(i => i.is_unread || (i.type === "gate_request" && i.status === "submitted")).length;
-  const tab2Badge = tab2Items.filter(i => i.is_unread).length;
-  const tab3Badge = tab3Items.filter(i => i.is_unread).length;
+  const tab1Badge = tab1Items.filter(
+    (i) => i.is_unread || (i.type === "gate_request" && isPendingGateStatus(i.status))
+  ).length;
+  const tab2Badge = tab2Items.filter((i) => i.is_unread).length;
+  const tab3Badge = tab3Items.filter((i) => i.is_unread).length;
 
   const totalUnread = tab1Badge + tab2Badge + tab3Badge;
 
@@ -119,13 +143,12 @@ export default function InboxPage() {
   return (
     <main className="flex flex-col items-center min-h-screen px-4 py-6 pb-28">
       <div className="w-full max-w-md mx-auto space-y-4">
-
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <Link
               href="/broker"
-              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-muted/30 transition-colors"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full hover:bg-muted/30 transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-muted-foreground" />
             </Link>
@@ -133,19 +156,28 @@ export default function InboxPage() {
               <Bell className="w-5 h-5 text-primary" />
               <h1 className="text-lg font-bold text-foreground">소통 관리함</h1>
               {totalUnread > 0 && (
-                <span className="bg-rose-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                <span className="bg-rose-500 text-white text-sm font-bold rounded-full px-2 py-0.5 min-w-[24px] text-center">
                   {totalUnread}
                 </span>
               )}
             </div>
           </div>
-          <button
-            onClick={fetchInbox}
-            className="p-2 rounded-full hover:bg-muted/30 transition-colors text-muted-foreground"
-            title="새로고침"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/broker/w/inbox"
+              className="inline-flex min-h-[44px] items-center rounded-xl bg-slate-900 px-3.5 py-2 text-sm font-bold text-white hover:bg-slate-800"
+            >
+              통합 소통함 열기
+            </Link>
+            <button
+              type="button"
+              onClick={fetchInbox}
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full hover:bg-muted/30 transition-colors text-muted-foreground"
+              title="새로고침"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -153,8 +185,9 @@ export default function InboxPage() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => setFilter(tab.key)}
-              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
+              className={`flex-1 min-h-[44px] py-2 px-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
                 filter === tab.key
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -162,7 +195,7 @@ export default function InboxPage() {
             >
               {tab.label}
               {tab.badge && tab.badge > 0 ? (
-                <span className="bg-rose-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[16px] text-center">
+                <span className="bg-rose-500 text-white text-sm font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
                   {tab.badge}
                 </span>
               ) : null}
@@ -170,28 +203,39 @@ export default function InboxPage() {
           ))}
         </div>
 
-        {/* 60대 친절 소통 코칭 배너 */}
+        {actionError && (
+          <div
+            role="alert"
+            className="rounded-xl border border-rose-300 bg-rose-50 p-3.5 text-sm font-semibold text-rose-900"
+          >
+            {actionError}
+          </div>
+        )}
+
+        {/* 친절 소통 코칭 배너 (금지 용어 제거) */}
         <FieldCoachBanner
           variant="amber"
-          headline="🔔 소통 관리함 & 핫리드(3회 이상 반복 열람) 팔로업 가이드"
-          guidance="고객님이 딜카드나 IM을 열람하거나 상세 자료(G1~G3)를 요청하면 실시간으로 기록됩니다. 특히 3회 이상 열람한 핫리드 고객에게는 전화를 걸기 전 카톡 안부 인사를 먼저 보내시면 미팅 성사율이 높아집니다."
+          headline="🔔 소통 관리함 & 관심 높음(3회 이상 반복 열람) 고객 응대 가이드"
+          guidance="고객님이 딜카드나 IM을 열람하거나 상세 자료(G1~G3)를 요청하면 실시간으로 기록됩니다. 특히 3회 이상 집중 열람한 관심 높음 고객에게는 전화를 걸기 전 카톡 안부 인사를 먼저 보내시면 미팅 성사율이 높아집니다."
           sampleText="대표님 안녕하세요, 공유해 드린 매물 검토해 보시면서 혹시 추가로 궁금하신 점이나 현장 임장 필요하신 일정이 있으실까요? 편하신 시간에 말씀 주시면 상세히 브리핑 드리겠습니다."
-          sampleButtonLabel="📋 핫리드 인사말 복사"
+          sampleButtonLabel="📋 관심 고객 인사말 복사"
           copySample={true}
-          mistakeWarning="자료 요청(NDA) 승인 시 고객의 신원(성함·연락처)을 반드시 확인하신 후 [승인]을 누르세요. 승인 즉시 지번과 렌트롤이 공개됩니다."
+          mistakeWarning="자료 요청 승인 시 고객의 신원(성함·연락처)을 반드시 확인하신 후 [승인]을 누르세요. 승인 즉시 전용 열람 링크가 발급됩니다."
         />
 
         {/* List */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-muted-foreground">불러오는 중...</p>
+            <p className="text-sm text-muted-foreground">불러오는 중...</p>
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Bell className="w-10 h-10 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">새로운 알림이 없습니다</p>
-            <p className="text-xs text-muted-foreground/60">딜카드, IM, 매거진을 공유하면 열람 기록이 여기에 표시됩니다.</p>
+            <p className="text-base font-semibold text-muted-foreground">새로운 알림이 없습니다</p>
+            <p className="text-sm text-muted-foreground/70">
+              딜카드, IM, 뉴스레터를 공유하면 열람 기록이 여기에 표시됩니다.
+            </p>
           </div>
         ) : (
           <div className="space-y-2 relative min-h-[400px]">
@@ -219,206 +263,199 @@ export default function InboxPage() {
                       }`}
                     >
                       {item.type === "gate_request" ? (
-                        // ── Gate Request Card ──
                         <div className="space-y-3">
-                          <div className="flex items-start justify-between">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-2">
                               {item.is_unread && (
                                 <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />
                               )}
                               <div>
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <p className="text-sm font-bold text-foreground">
+                                  <p className="text-base font-bold text-foreground">
                                     📋 상세 자료 요청
                                   </p>
                                   <SeniorTermTooltip termKey="G1~G3 비밀유지 승인" buttonLabel="❓ NDA 안내" />
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  &quot;{item.building_label}&quot; — {item.requested_level} 단계
+                                <p className="text-sm text-muted-foreground mt-0.5">
+                                  &quot;{item.building_label}&quot; — {item.requested_level || "G2"} 단계
                                 </p>
                               </div>
                             </div>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
+                            <span className="text-sm text-muted-foreground shrink-0">
                               {timeAgo(item.created_at)}
                             </span>
                           </div>
 
-                          {/* Requester Info */}
-                          <div className="bg-muted/20 rounded-lg p-2.5 space-y-1">
-                            <p className="text-xs font-medium text-foreground">
-                              요청자: {item.requester_name}
+                          <div className="bg-muted/20 rounded-lg p-3 space-y-1">
+                            <p className="text-sm font-medium text-foreground">
+                              요청자: {item.requester_name || "익명 고객"}
                             </p>
                             {item.requester_phone && (
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-sm text-muted-foreground">
                                 📞 {item.requester_phone}
                               </p>
                             )}
                             {item.requester_email && (
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-sm text-muted-foreground">
                                 ✉️ {item.requester_email}
                               </p>
                             )}
                             {item.reason && (
-                              <p className="text-[11px] text-muted-foreground italic">
+                              <p className="text-sm text-muted-foreground italic">
                                 &quot;{item.reason}&quot;
                               </p>
                             )}
                           </div>
 
-                          {/* Actions */}
-                          {item.status === "submitted" ? (
+                          {isPendingGateStatus(item.status) ? (
                             <div className="flex gap-2">
                               <button
-                                onClick={() => handleGateAction(item.id, "approved")}
+                                type="button"
+                                onClick={() => handleGateAction(item, "approved")}
                                 disabled={actionLoading === item.id}
-                                className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 text-white rounded-lg py-2 text-xs font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 bg-emerald-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50"
                               >
-                                <Check className="w-3.5 h-3.5" />
+                                <Check className="w-4 h-4" />
                                 승인
                               </button>
                               <button
-                                onClick={() => handleGateAction(item.id, "rejected")}
+                                type="button"
+                                onClick={() => handleGateAction(item, "rejected")}
                                 disabled={actionLoading === item.id}
-                                className="flex-1 flex items-center justify-center gap-1.5 bg-secondary text-secondary-foreground rounded-lg py-2 text-xs font-semibold hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 bg-secondary text-secondary-foreground rounded-lg py-2.5 text-sm font-semibold hover:bg-secondary/80 transition-colors disabled:opacity-50"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                <X className="w-4 h-4" />
                                 거절
                               </button>
                               {item.requester_phone && (
                                 <a
                                   href={`tel:${item.requester_phone}`}
-                                  className="flex items-center justify-center w-9 h-9 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                                  className="flex items-center justify-center min-h-[44px] min-w-[44px] bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
                                 >
                                   <Phone className="w-4 h-4" />
                                 </a>
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span
-                                className={`text-[10px] font-semibold px-2 py-1 rounded-full ${
+                                className={`text-sm font-semibold px-2.5 py-1 rounded-full ${
                                   item.status === "approved"
-                                    ? "bg-emerald-500/10 text-emerald-500"
+                                    ? "bg-emerald-500/10 text-emerald-700"
                                     : item.status === "rejected"
-                                    ? "bg-rose-500/10 text-rose-500"
-                                    : "bg-amber-500/10 text-amber-500"
+                                    ? "bg-rose-500/10 text-rose-700"
+                                    : "bg-amber-500/10 text-amber-800"
                                 }`}
                               >
-                                {item.status === "approved"
-                                  ? "✅ 승인 완료"
-                                  : item.status === "rejected"
-                                  ? "❌ 거절됨"
-                                  : `⏳ ${item.status}`}
+                                {formatGateStatusLabel(item.status)}
                               </span>
                               {item.building_id && (
                                 <Link
-                                  href={`/broker/deal-card/${item.building_id}`}
-                                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                                  href={`/broker/w/dealcards?buildingId=${encodeURIComponent(item.building_id)}`}
+                                  className="text-sm text-primary hover:underline flex items-center gap-1"
                                 >
-                                  딜카드 보기 <ExternalLink className="w-3 h-3" />
+                                  딜카드 보기 <ExternalLink className="w-4 h-4" />
                                 </Link>
                               )}
                             </div>
                           )}
                         </div>
                       ) : item.type === "notification" || item.type === "warning" ? (
-                        // ── In-App Notification Card ──
                         <Link
-                          href={item.link || (item.building_id ? `/broker/deal-card/${item.building_id}` : "/broker")}
+                          href={item.link || "/broker/w/inbox"}
                           className="block space-y-1.5"
                         >
-                          <div className="flex items-start justify-between">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-2">
                               {item.is_unread && (
                                 <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />
                               )}
                               <span className="text-base shrink-0">{item.icon || "🔔"}</span>
                               <div>
-                                <p className="text-sm font-bold text-foreground">
+                                <p className="text-base font-bold text-foreground">
                                   {item.label}
                                 </p>
                                 {item.sub_label && (
-                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
                                     {item.sub_label}
                                   </p>
                                 )}
                               </div>
                             </div>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
+                            <span className="text-sm text-muted-foreground shrink-0">
                               {timeAgo(item.created_at)}
                             </span>
                           </div>
                         </Link>
                       ) : (
-                        // ── View Event Card / Message / Reaction ──
-                        <Link
-                          href={item.building_id ? `/broker/deal-card/${item.building_id}` : "/broker"}
-                          className="block space-y-1.5"
-                        >
-                          <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-2">
                               {item.is_unread && (
                                 <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />
                               )}
-                              <span className="text-base shrink-0">{item.icon || (item.type === "message" ? "💬" : item.type === "reaction" ? "❤️" : "👀")}</span>
+                              <span className="text-base shrink-0">
+                                {item.icon ||
+                                  (item.type === "message"
+                                    ? "💬"
+                                    : item.type === "reaction"
+                                    ? "❤️"
+                                    : "👀")}
+                              </span>
                               <div>
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <p className="text-sm font-medium text-foreground">
+                                  <p className="text-base font-medium text-foreground">
                                     {item.label}
                                   </p>
                                   <SeniorTermTooltip termKey="열람 온도(3회 이상 열람)" />
                                 </div>
                                 {item.sub_label && (
-                                  <p className="text-xs text-muted-foreground">
+                                  <p className="text-sm text-muted-foreground">
                                     {item.sub_label}
                                   </p>
                                 )}
                               </div>
                             </div>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
+                            <span className="text-sm text-muted-foreground shrink-0">
                               {timeAgo(item.created_at)}
                             </span>
                           </div>
                           {item.viewer_info && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-muted-foreground">
+                              <span className="text-sm text-muted-foreground">
                                 👤 {item.viewer_info}
                               </span>
                             </div>
                           )}
                           {item.type === "view" && (
-                            <div
-                              className="flex flex-wrap items-center gap-2 mt-2 pt-1 border-t border-border/40"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            >
+                            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-border/40">
                               {item.building_id && (
-                                <span className="text-[10px] text-primary flex items-center gap-0.5">
-                                  딜카드 보기 <ExternalLink className="w-3 h-3" />
-                                </span>
+                                <Link
+                                  href={`/broker/w/dealcards?buildingId=${encodeURIComponent(item.building_id)}`}
+                                  className="inline-flex min-h-[44px] items-center gap-1 px-3 rounded-lg border border-border text-sm font-semibold text-primary hover:bg-muted/30"
+                                >
+                                  딜카드 보기 <ExternalLink className="w-4 h-4" />
+                                </Link>
                               )}
-                              <button
-                                type="button"
-                                className="text-[10px] text-emerald-500 flex items-center gap-0.5 cursor-pointer"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  // TODO: Navigate to buyer registration with pre-filled viewer info
-                                }}
+                              <Link
+                                href={
+                                  item.building_id
+                                    ? `/broker/w/inbox?id=${encodeURIComponent(item.building_id)}`
+                                    : "/broker/w/inbox"
+                                }
+                                className="inline-flex min-h-[44px] items-center gap-1 px-3 rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
                               >
-                                <UserPlus className="w-3 h-3" /> 리드 등록
-                              </button>
+                                <UserPlus className="w-4 h-4" /> 통합 소통함에서 상담
+                              </Link>
                               <KakaoTemplatePicker
                                 defaultTemplateId="tpl-06"
                                 buttonLabel="💬 인사말 복사"
                                 buildingId={item.building_id || undefined}
-                                className="!w-auto !py-1 !px-2.5 !text-xs !rounded-lg"
+                                className="!w-auto !min-h-[44px] !py-2 !px-3 !text-sm !rounded-lg"
                               />
                             </div>
                           )}
-                        </Link>
+                        </div>
                       )}
                     </div>
                   ))

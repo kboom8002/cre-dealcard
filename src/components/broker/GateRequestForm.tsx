@@ -98,7 +98,13 @@ export default function GateRequestForm({
         if (res.ok && json?.error === undefined) {
           setStatus('pending');
         } else {
-          setErrorMsg(json?.error || '요청 처리 중 문제가 발생했습니다.');
+          const extractedErr =
+            typeof json?.error === 'string'
+              ? json.error
+              : typeof json?.error?.message === 'string'
+              ? json.error.message
+              : '요청 처리 중 문제가 발생했습니다.';
+          setErrorMsg(extractedErr);
         }
       }
     } catch {

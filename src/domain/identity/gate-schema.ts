@@ -110,6 +110,21 @@ export interface G2FormData {
   entityType: string;
   name: string;
   phone: string;
+  consent?: boolean;
+}
+
+export function normalizeKoreanMobilePhone(raw: string): string {
+  const trimmed = String(raw || '').trim();
+  const compact = trimmed.replace(/[\s-]/g, '');
+  if (compact.startsWith('+82')) {
+    const rest = compact.slice(3);
+    return rest.startsWith('0') ? rest : `0${rest}`;
+  }
+  if (compact.startsWith('82') && compact.length >= 11) {
+    const rest = compact.slice(2);
+    return rest.startsWith('0') ? rest : `0${rest}`;
+  }
+  return compact;
 }
 
 /**
@@ -117,6 +132,9 @@ export interface G2FormData {
  */
 export function validateG2Form(data: G2FormData): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
+  if (!data || typeof data !== 'object') {
+    return { valid: false, errors: ['폼 데이터가 올바르지 않습니다.'] };
+  }
 
   if (!GATE_G2.budgetBand.options.includes(data.budgetBand as any)) {
     errors.push('투자 예산을 선택해주세요.');
@@ -130,10 +148,11 @@ export function validateG2Form(data: G2FormData): { valid: boolean; errors: stri
   if (!GATE_G2.entityType.options.includes(data.entityType as any)) {
     errors.push('거래 주체를 선택해주세요.');
   }
-  if (!data.name || data.name.length > 20) {
+  if (!data.name || !data.name.trim() || data.name.trim().length > 20) {
     errors.push('성함을 입력해주세요. (20자 이내)');
   }
-  if (!data.phone || !/^01[016789]-?\d{3,4}-?\d{4}$/.test(data.phone.replace(/\s/g, ''))) {
+  const normalizedPhone = normalizeKoreanMobilePhone(data.phone || '');
+  if (!normalizedPhone || !/^01[016789]\d{7,8}$/.test(normalizedPhone)) {
     errors.push('올바른 연락처를 입력해주세요.');
   }
 

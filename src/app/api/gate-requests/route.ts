@@ -11,15 +11,15 @@ import { createGateRequest } from "@/domain/gate/gate-request";
 import { toApiError } from "@/lib/api-error";
 
 const GateRequestCreateSchema = z.object({
-  buildingId: z.string().min(1).optional(),
-  building_id: z.string().min(1).optional(),
+  buildingId: z.string().min(1).max(120).optional(),
+  building_id: z.string().min(1).max(120).optional(),
   requestedLevel: z.enum(["G1", "G2", "G3"]).default("G1"),
-  requestedFields: z.array(z.string()).default([]),
-  reason: z.string().optional(),
-  name: z.string().optional(),
-  phone: z.string().optional(),
-  company: z.string().optional(),
-  message: z.string().optional(),
+  requestedFields: z.array(z.string().max(64)).max(20).default([]),
+  reason: z.string().max(2000).optional(),
+  name: z.string().max(60).optional(),
+  phone: z.string().max(30).optional(),
+  company: z.string().max(100).optional(),
+  message: z.string().max(1000).optional(),
 });
 
 export async function POST(req: Request) {

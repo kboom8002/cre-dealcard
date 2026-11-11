@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordEvent } from "@/domain/analytics/record-event";
+import { revokeRecipientShareLinkTokens } from "@/lib/security/share-link-tokens";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('gate-expiry-cron');
@@ -36,9 +37,10 @@ export async function expireGateRequests(supabase: SupabaseClient): Promise<Expi
 
     const expiredCount = expiredRequests?.length ?? 0;
 
-    // 2. 만료된 건들에 대해 활동 이벤트 기록
+    // 2. 만료된 건들에 대해 공유 토큰 폐기 및 활동 이벤트 기록
     if (expiredRequests && expiredCount > 0) {
       for (const req of expiredRequests) {
+        await revokeRecipientShareLinkTokens(req.id, supabase);
         await recordEvent(supabase, {
           actorId: req.requester_id,
           eventType: "gate_request_reviewed", // or "gate_auto_expired"

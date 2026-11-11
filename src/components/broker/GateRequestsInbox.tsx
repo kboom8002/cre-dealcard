@@ -15,8 +15,12 @@ export interface GateRequestItem {
   requesterCompany?: string | null;
   cleanMessage?: string | null;
   shareUrl?: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  status: 'pending' | 'submitted' | 'broker_review' | 'approved' | 'rejected' | 'completed' | 'expired';
   created_at: string;
+}
+
+function isPendingGateStatus(status: GateRequestItem['status']): boolean {
+  return status === 'pending' || status === 'submitted' || status === 'broker_review';
 }
 
 export function parseGateReasonDisplay(req: GateRequestItem): {
@@ -56,7 +60,16 @@ export function parseGateReasonDisplay(req: GateRequestItem): {
       cleanMessage = cleanMessage || raw;
     }
   } else if (!cleanMessage) {
-    cleanMessage = raw;
+    const marketMatch = raw.match(
+      /^성함\/기업명\s*:\s*([^,]+?)\s*,\s*연락처\s*:\s*(.+)$/
+    );
+    if (marketMatch) {
+      requesterName = requesterName || marketMatch[1].trim();
+      requesterPhone = requesterPhone || marketMatch[2].trim();
+      cleanMessage = '마켓플레이스 IM 열람을 요청했습니다.';
+    } else {
+      cleanMessage = raw;
+    }
   }
 
   if (requesterPhone === '010-0000-0000') {
@@ -181,7 +194,7 @@ export default function GateRequestsInbox({
           </p>
         </div>
         <span className="inline-flex min-h-[36px] items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
-          대기 {requests.filter((r) => r.status === 'pending').length}건
+          대기 {requests.filter((r) => isPendingGateStatus(r.status)).length}건
         </span>
       </div>
 
@@ -203,15 +216,21 @@ export default function GateRequestsInbox({
           });
           const statusLabel: Record<GateRequestItem['status'], string> = {
             pending: 'IM 요청 대기',
+            submitted: 'IM 요청 대기',
+            broker_review: '검토 진행 중',
             approved: '승인 완료',
             rejected: '요청 거절',
             completed: '열람 완료',
+            expired: '기한 만료',
           };
           const statusBadgeClass: Record<GateRequestItem['status'], string> = {
             pending: 'bg-amber-100 text-amber-900 border border-amber-300',
+            submitted: 'bg-amber-100 text-amber-900 border border-amber-300',
+            broker_review: 'bg-amber-100 text-amber-900 border border-amber-300',
             approved: 'bg-emerald-100 text-emerald-900 border border-emerald-300',
             rejected: 'bg-rose-100 text-rose-800 border border-rose-200',
             completed: 'bg-blue-100 text-blue-900 border border-blue-200',
+            expired: 'bg-slate-200 text-slate-700 border border-slate-300',
           };
 
           return (
@@ -272,7 +291,7 @@ export default function GateRequestsInbox({
                   </button>
                 )}
 
-                {req.status === 'pending' && (
+                {isPendingGateStatus(req.status) && (
                   <>
                     <button
                       type="button"
