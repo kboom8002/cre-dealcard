@@ -454,6 +454,8 @@ export async function POST(req: NextRequest) {
             const bLayers = (bRow.layers as Record<string, any>) || {};
             if (validPnu(bRow.pnu)) existingPnu = bRow.pnu;
             else if (validPnu(bLayers.location?.pnu)) existingPnu = bLayers.location.pnu;
+            else if (validPnu(bLayers.location?.canonical_pnu))
+              existingPnu = bLayers.location.canonical_pnu;
             if (validCoords(bLayers.coordinates)) {
               existingCoords = {
                 lat: Number(bLayers.coordinates.lat),
@@ -1631,26 +1633,29 @@ export async function POST(req: NextRequest) {
       if (supabase && typeof supabase.from === 'function') {
         await Promise.race([
           (async () => {
-            const { error: bErr } = await supabase.from('building_ssot_lite').upsert({
+            const buildSsotPayload = (includeIndexPnu: boolean) => ({
               id: buildingId,
               owner_id: auth.user?.id || null,
-              created_by_role: 'broker',
-              input_type: 'manual_form',
+              created_by_role: 'broker' as const,
+              input_type: 'manual_form' as const,
               raw_input: cleanAddress,
               raw_address: cleanAddress,
-              pnu: resolvedPnu || null,
               area_signal: card4.region,
               asset_type: card4.use,
               price_band: card4.priceBand,
               size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
               vacancy_signal: ssotSummary.vacancy_signal,
-              status: 'public_signal_ready',
+              status: 'public_signal_ready' as const,
               layers: {
                 completeness_score: 85,
                 location: {
                   address: cleanAddress,
                   raw_address: cleanAddress,
-                  pnu: resolvedPnu,
+                  ...(includeIndexPnu && resolvedPnu
+                    ? { pnu: resolvedPnu }
+                    : resolvedPnu
+                    ? { canonical_pnu: resolvedPnu }
+                    : {}),
                 },
                 coordinates: resolvedCoords,
                 physical: {
@@ -1666,6 +1671,19 @@ export async function POST(req: NextRequest) {
                 },
               },
             });
+
+            let { error: bErr } = await supabase
+              .from('building_ssot_lite')
+              .upsert(buildSsotPayload(true));
+            // If this broker already has another building_ssot_lite row for the same (owner_id, pnu)
+            // (e.g. creating manual vs .xlsx IM variants for the same parcel), store canonical_pnu in layers
+            // so generated column `pnu` stays NULL and avoids unique index collision while keeping FK intact.
+            if (bErr) {
+              const retryRes = await supabase
+                .from('building_ssot_lite')
+                .upsert(buildSsotPayload(false));
+              bErr = retryRes.error;
+            }
             if (bErr) {
               console.error('[quick-generate] building_ssot_lite upsert error:', bErr.message);
             }
