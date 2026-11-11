@@ -1527,7 +1527,7 @@ export async function POST(req: NextRequest) {
     dataGrade: 'A',
     basicImDocument: basicImDoc,
     card4,
-    rent_roll: safeRentRoll,
+    rent_roll: safeRentRollWithAreas,
     floor_leases: mappedFloorLeases,
     ssot_summary: ssotSummary,
     ...(existingEnrichment ? { enrichment: existingEnrichment } : {}),
@@ -1587,7 +1587,7 @@ export async function POST(req: NextRequest) {
     floorsBelow: effectiveFloorsBelow,
     card4,
     basicImDoc,
-    rentRoll: safeRentRoll,
+    rentRoll: safeRentRollWithAreas,
     specs: {
       gfaSqm: effectiveGfaSqm,
       landAreaSqm: effectiveLandSqm,
@@ -1631,13 +1631,14 @@ export async function POST(req: NextRequest) {
       if (supabase && typeof supabase.from === 'function') {
         await Promise.race([
           (async () => {
-            await supabase.from('building_ssot_lite').upsert({
+            const { error: bErr } = await supabase.from('building_ssot_lite').upsert({
               id: buildingId,
-              owner_id: auth.user?.id || '00000000-0000-0000-0000-000000000000',
+              owner_id: auth.user?.id || null,
               created_by_role: 'broker',
               input_type: 'manual_form',
               raw_input: cleanAddress,
               raw_address: cleanAddress,
+              pnu: resolvedPnu || null,
               area_signal: card4.region,
               asset_type: card4.use,
               price_band: card4.priceBand,
@@ -1665,6 +1666,9 @@ export async function POST(req: NextRequest) {
                 },
               },
             });
+            if (bErr) {
+              console.error('[quick-generate] building_ssot_lite upsert error:', bErr.message);
+            }
             const { stripHeavyBase64ForDb } = await import(
               '@/lib/supabase/jsonb-diet'
             );
@@ -1701,7 +1705,7 @@ export async function POST(req: NextRequest) {
               body.publishStatus === 'draft' || body.status === 'draft'
                 ? 'draft'
                 : 'published';
-            await supabase.from('document_objects').insert({
+            const { error: dErr } = await supabase.from('document_objects').insert({
               id: documentId,
               owner_id: auth.user?.id || null,
               source_type: 'building_ssot_lite',
@@ -1713,16 +1717,19 @@ export async function POST(req: NextRequest) {
               title: resolvedTitle,
               body: dbDocBody,
             });
+            if (dErr) {
+              console.error('[quick-generate] document_objects insert error:', dErr.message);
+            }
             const { pruneSupersededDocumentObjects } = await import(
               '@/lib/supabase/prune-document-objects'
             );
             await pruneSupersededDocumentObjects(supabase, buildingId, 'mobile_im', 2);
           })(),
-          new Promise((resolve) => setTimeout(resolve, 4500)),
+          new Promise((resolve) => setTimeout(resolve, 12000)),
         ]);
       }
-    } catch {
-      // Ignore errors in offline or unmigrated environments
+    } catch (persistErr) {
+      console.error('[quick-generate] Supabase persistence exception:', persistErr);
     }
   }
 

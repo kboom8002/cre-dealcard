@@ -500,24 +500,59 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
   };
 
   const now = new Date().toISOString();
-  const totalFloorsCount = floorsAbove + floorsBelow;
+  const totalFloorsCount = Math.max(1, floorsAbove + floorsBelow);
   const perFloorAreaSqm =
     totalFloorsCount > 0 && params.gfaSqm > 0
       ? Math.round((params.gfaSqm / totalFloorsCount) * 10) / 10
       : 0;
   const perFloorAreaPy =
     perFloorAreaSqm > 0 ? Math.round((perFloorAreaSqm / 3.305785) * 10) / 10 : 0;
+  const normalizeStoreFloorKey = (rawStr: string): string => {
+    const s = String(rawStr || '').trim();
+    const uMatch = s.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
+    if (uMatch) return `${uMatch[1] ? 'B' : ''}${parseInt(uMatch[2], 10)}F`;
+    const bMatch = s.match(/^(?:B|지하)\s*(\d+)/i);
+    if (bMatch) return `B${parseInt(bMatch[1], 10)}`;
+    const fMatch = s.match(/^(\d+)\s*(?:F|층)?$/i);
+    if (fMatch) return `${parseInt(fMatch[1], 10)}F`;
+    return s.toUpperCase();
+  };
+  const floorUnitCounts = new Map<string, number>();
+  params.rentRoll.forEach((r, idx) => {
+    const isAux = /(주차|옥탑|기계식|루프탑|부대)/.test(
+      `${r.floor || ''} ${r.unit || ''} ${r.use || ''}`
+    );
+    if (isAux) return;
+    const fk = normalizeStoreFloorKey(String(r.floor || `${idx + 1}F`));
+    floorUnitCounts.set(fk, (floorUnitCounts.get(fk) || 0) + 1);
+  });
+  const activeFloorCount =
+    floorUnitCounts.size >= Math.max(2, floorsAbove)
+      ? floorUnitCounts.size
+      : Math.max(totalFloorsCount, floorUnitCounts.size || 1);
+  const floorBudgetSqm = params.gfaSqm > 0 ? params.gfaSqm / activeFloorCount : perFloorAreaSqm;
   const mappedFloorLeases = params.rentRoll.map((r, idx) => {
     const isVac = r.status === 'vacant';
     const isOwn = r.status === 'owner';
     const explicitAreaSqm = Number(
       r.areaSqm ??
         (r as any).area_sqm ??
+        (r as any).area_m2 ??
         r.exclusiveAreaSqm ??
         (r as any).exclusive_area_sqm ??
         0
     );
-    const areaSqm = explicitAreaSqm > 0 ? explicitAreaSqm : perFloorAreaSqm;
+    const isAuxRow = /(주차|옥탑|기계식|루프탑|부대)/.test(
+      `${r.floor || ''} ${r.unit || ''} ${r.use || ''}`
+    );
+    const fk = normalizeStoreFloorKey(String(r.floor || `${idx + 1}F`));
+    const unitsOnFloor = Math.max(1, floorUnitCounts.get(fk) || 1);
+    const areaSqm =
+      explicitAreaSqm > 0
+        ? explicitAreaSqm
+        : isAuxRow
+        ? 0
+        : Math.round((floorBudgetSqm / unitsOnFloor) * 100) / 100;
     const areaPy = areaSqm > 0 ? Math.round((areaSqm / 3.305785) * 10) / 10 : perFloorAreaPy;
     const exclusiveAreaSqm =
       Number(r.exclusiveAreaSqm ?? (r as any).exclusive_area_sqm ?? 0) || undefined;

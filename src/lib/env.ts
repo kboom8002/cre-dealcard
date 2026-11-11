@@ -1,5 +1,22 @@
 import { z } from "zod/v4";
 
+function cleanEnvValue(raw: string | undefined): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const cleaned = raw.trim().replace(/^["']+|["']+$/g, "").trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+function cleanUrlEnvValue(raw: string | undefined, fallback: string): string {
+  const cleaned = cleanEnvValue(raw);
+  if (!cleaned) return fallback;
+  const withProto = /^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
+  try {
+    return new URL(withProto).toString().replace(/\/$/, "");
+  } catch {
+    return fallback;
+  }
+}
+
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url("NEXT_PUBLIC_SUPABASE_URL must be a valid URL"),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
@@ -27,9 +44,13 @@ const isTestOrBuild =
   process.env.NEXT_PHASE === "phase-export";
 
 function validatePublicEnv() {
+  const rawSupaUrl = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const payload = {
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || (isTestOrBuild ? "http://mock-supabase.local" : undefined),
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || (isTestOrBuild ? "mock-anon-key" : undefined),
+    NEXT_PUBLIC_SUPABASE_URL:
+      rawSupaUrl || (isTestOrBuild ? "http://mock-supabase.local" : undefined),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY:
+      cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+      (isTestOrBuild ? "mock-anon-key" : undefined),
   };
 
   const parsed = publicEnvSchema.safeParse(payload);
@@ -48,13 +69,24 @@ export function getServerEnv() {
   }
 
   const payload = {
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || (isTestOrBuild ? "mock-service-role-key" : undefined),
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY || (isTestOrBuild ? "mock-openai-key" : undefined),
-    AI_DEFAULT_MODEL: process.env.AI_DEFAULT_MODEL || "gpt-5.6-terra",
-    AI_MODEL_SOL: process.env.AI_MODEL_SOL || "gpt-5.6-sol",
-    AI_MODEL_TERRA: process.env.AI_MODEL_TERRA || "gpt-5.6-terra",
-    AI_MODEL_LUNA: process.env.AI_MODEL_LUNA || "gpt-5.6-luna",
-    APP_BASE_URL: process.env.APP_BASE_URL || "http://localhost:3000",
+    SUPABASE_SERVICE_ROLE_KEY:
+      cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+      (isTestOrBuild ? "mock-service-role-key" : undefined),
+    OPENAI_API_KEY:
+      cleanEnvValue(process.env.OPENAI_API_KEY) ||
+      cleanEnvValue(process.env.GEMINI_API_KEY) ||
+      "not-configured",
+    AI_DEFAULT_MODEL: cleanEnvValue(process.env.AI_DEFAULT_MODEL) || "gpt-5.6-terra",
+    AI_MODEL_SOL: cleanEnvValue(process.env.AI_MODEL_SOL) || "gpt-5.6-sol",
+    AI_MODEL_TERRA: cleanEnvValue(process.env.AI_MODEL_TERRA) || "gpt-5.6-terra",
+    AI_MODEL_LUNA: cleanEnvValue(process.env.AI_MODEL_LUNA) || "gpt-5.6-luna",
+    APP_BASE_URL: cleanUrlEnvValue(
+      process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_BASE_URL,
+      "http://localhost:3000"
+    ),
+    DATA_GO_KR_API_KEY: cleanEnvValue(process.env.DATA_GO_KR_API_KEY),
+    MOLIT_API_KEY: cleanEnvValue(process.env.MOLIT_API_KEY),
+    JUSO_CONFIRM_KEY: cleanEnvValue(process.env.JUSO_CONFIRM_KEY),
   };
 
   const parsed = serverEnvSchema.safeParse(payload);
