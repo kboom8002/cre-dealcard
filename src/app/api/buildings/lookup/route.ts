@@ -22,6 +22,9 @@ const VERIFIED_PUBLIC_REGISTER_BY_PNU: Record<
     lng?: number;
     bcrPct?: number;
     farPct?: number;
+    parkingSpaces?: number;
+    elevators?: number;
+    officialLandPricePerSqm?: number;
   }
 > = {
   "1144012000101470008": {
@@ -122,6 +125,23 @@ const VERIFIED_PUBLIC_REGISTER_BY_PNU: Record<
     bcrPct: 59.2,
     farPct: 196.5,
   },
+  "4146311800113230002": {
+    gfaSqm: 1230.46,
+    landAreaSqm: 440.0,
+    zoning: "제3종일반주거지역",
+    useAprDay: "20041223",
+    mainPurpose: "제1·2종 근린생활시설",
+    floorsAbove: 5,
+    floorsBelow: 1,
+    buildingName: "웰빙프라자",
+    lat: 37.3079134604492,
+    lng: 127.110304201949,
+    bcrPct: 49.91,
+    farPct: 209.24,
+    parkingSpaces: 7,
+    elevators: 1,
+    officialLandPricePerSqm: 2790000,
+  },
 };
 
 function formatUseAprDay(raw?: string | number | null): string | null {
@@ -221,7 +241,9 @@ export async function GET(req: NextRequest) {
         ? "1168010100108230033"
         : /역삼동\s*648-23|테헤란로\s*145|테헤란로7길\s*22/i.test(rawAddress)
         ? "1168010100106480023"
-        : /보정동\s*(1208-4|1323-2)|죽전로\s*15/i.test(rawAddress)
+        : /보정동\s*1323-2|신촌로47번길\s*6/i.test(rawAddress)
+        ? "4146311800113230002"
+        : /보정동\s*1208-4|죽전로\s*15/i.test(rawAddress)
         ? "4146311100112080004"
         : "";
     const isValidResolvedPnu =
@@ -308,6 +330,31 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const parkingSpaces =
+      ((bldReg as any)?.totPkngCnt != null ? Number((bldReg as any).totPkngCnt) : null) ??
+      ((bldReg as any)?.parkingSpaces != null ? Number((bldReg as any).parkingSpaces) : null) ??
+      (ssotSummary.parking_total != null ? Number(ssotSummary.parking_total) : null) ??
+      (ssotSummary.parking_count != null ? Number(ssotSummary.parking_count) : null) ??
+      verifiedFallback?.parkingSpaces ??
+      null;
+
+    const elevators =
+      ((bldReg as any)?.rideUseElvtCnt != null ? Number((bldReg as any).rideUseElvtCnt) : null) ??
+      ((bldReg as any)?.elevators != null ? Number((bldReg as any).elevators) : null) ??
+      (ssotSummary.elevator_count != null ? Number(ssotSummary.elevator_count) : null) ??
+      verifiedFallback?.elevators ??
+      null;
+
+    const officialLandPricePerSqm =
+      (ssotSummary.official_land_price_per_sqm != null
+        ? Number(ssotSummary.official_land_price_per_sqm)
+        : null) ??
+      (ssotSummary.official_land_price_krw != null
+        ? Number(ssotSummary.official_land_price_krw)
+        : null) ??
+      verifiedFallback?.officialLandPricePerSqm ??
+      null;
+
     return NextResponse.json({
       ok: true,
       address: resolved?.jibunAddress || resolved?.roadAddress || ssotRow?.raw_address || rawAddress,
@@ -326,6 +373,9 @@ export async function GET(req: NextRequest) {
       floorsAbove,
       floorsBelow,
       buildingName,
+      parkingSpaces,
+      elevators,
+      officialLandPricePerSqm,
     });
   } catch (err) {
     log.error({ err }, "[buildings/lookup] error:");

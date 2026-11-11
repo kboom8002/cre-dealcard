@@ -1016,7 +1016,7 @@ export async function POST(req: NextRequest) {
               return photo;
             })
           ),
-          new Promise<any[]>((resolve) => setTimeout(() => resolve(defaultPhotos), 3500)),
+          new Promise<any[]>((resolve) => setTimeout(() => resolve(defaultPhotos), 15000)),
         ]);
         if (Array.isArray(uploaded) && uploaded.length === defaultPhotos.length) {
           defaultPhotos = uploaded;
@@ -1641,7 +1641,7 @@ export async function POST(req: NextRequest) {
                       p.url.startsWith('data:') &&
                       p.url.length < 1_500_000
                   )
-                  .slice(0, 8)
+                  .slice(0, 12)
               : [];
             const persistedPhotos = [...urlPhotos, ...dataUriPhotos];
             dbDocBody.photos = persistedPhotos;

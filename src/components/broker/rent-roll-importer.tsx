@@ -627,16 +627,22 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                     </td>
                     <td className="px-2 py-1">
                       <select 
-                        value={row.is_vacant ? '공실' : '임대중'} 
+                        value={row.is_vacant ? '공실' : row.lease_state === '자가사용' ? '자가사용' : '임대중'} 
                         onChange={(e) => {
+                          const nextState = e.target.value as '임대중' | '공실' | '자가사용';
                           const newRows = [...parsedPreview.rows];
-                          newRows[idx].is_vacant = e.target.value === '공실';
+                          newRows[idx] = {
+                            ...newRows[idx],
+                            is_vacant: nextState === '공실',
+                            lease_state: nextState,
+                          };
                           updatePreviewTotals(newRows);
                         }}
                         className="bg-transparent border-none p-0 text-xs focus:ring-1 focus:ring-primary cursor-pointer"
                       >
                         <option value="임대중">임대중</option>
                         <option value="공실">공실</option>
+                        <option value="자가사용">자가사용</option>
                       </select>
                     </td>
                   </tr>

@@ -154,7 +154,15 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
   if (state.kind === "no-broker") notFound();
   // uuid 로 접근했고 slug 가 있으면 정규 URL(slug)로 308 (I-02) — 미리보기 쿼리는 유지
   if (state.kind === "redirect") {
-    permanentRedirect(isPreview ? buildPreviewSrc(state.slug, date, edition) : `/magazine/${state.slug}/${date}`);
+    if (isPreview) {
+      permanentRedirect(buildPreviewSrc(state.slug, date, edition));
+    }
+    const qs = new URLSearchParams();
+    if (edition) qs.set("edition", edition);
+    const rawTarget = Array.isArray(sp.target) ? sp.target[0] : sp.target;
+    if (rawTarget) qs.set("target", rawTarget);
+    const suffix = qs.toString();
+    permanentRedirect(`/magazine/${state.slug}/${date}${suffix ? `?${suffix}` : ""}`);
   }
 
   // 에디터 미리보기(iframe, ?preview=1&edition=): 서버는 공개 데이터를 일절 바꾸지 않는다.

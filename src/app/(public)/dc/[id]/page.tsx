@@ -148,11 +148,15 @@ const getDealCardData = cache(async (id: string) => {
       if (typeof actQuery.in === "function") {
         actQuery = actQuery.in("event_type", [
           "dealcard_upserted",
+          "dealcard_sent",
           "dealcard_restored",
           "dealcard_deleted",
           "link_revoked",
           "link_restored",
         ]);
+      }
+      if (typeof actQuery.contains === "function") {
+        actQuery = actQuery.contains("metadata", { building_id: id });
       }
       if (typeof actQuery.order === "function") {
         actQuery = actQuery.order("created_at", { ascending: false });
@@ -165,7 +169,7 @@ const getDealCardData = cache(async (id: string) => {
         (a: any) => String(a?.metadata?.building_id || a?.entity_id || "").trim() === id
       );
       const latestLifecycle = matchingActs.find((a: any) =>
-        ["dealcard_upserted", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
+        ["dealcard_upserted", "dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
       );
       const latestRevoke = matchingActs.find((a: any) =>
         ["link_revoked", "link_restored"].includes(a?.event_type)
@@ -179,7 +183,9 @@ const getDealCardData = cache(async (id: string) => {
 
       const matched = matchingActs.find(
         (a: any) =>
-          (a?.event_type === "dealcard_upserted" || a?.event_type === "dealcard_restored") &&
+          (a?.event_type === "dealcard_upserted" ||
+            a?.event_type === "dealcard_sent" ||
+            a?.event_type === "dealcard_restored") &&
           a?.metadata?.card4
       );
       if (matched) {
@@ -310,11 +316,15 @@ const getDealCardData = cache(async (id: string) => {
         if (typeof actQuery.in === "function") {
           actQuery = actQuery.in("event_type", [
             "dealcard_upserted",
+            "dealcard_sent",
             "dealcard_restored",
             "dealcard_deleted",
             "link_revoked",
             "link_restored",
           ]);
+        }
+        if (typeof actQuery.contains === "function") {
+          actQuery = actQuery.contains("metadata", { building_id: id });
         }
         if (typeof actQuery.order === "function") {
           actQuery = actQuery.order("created_at", { ascending: false });
@@ -327,7 +337,7 @@ const getDealCardData = cache(async (id: string) => {
           (a: any) => String(a?.metadata?.building_id || a?.entity_id || "").trim() === id
         );
         const latestLifecycle = matchingActs.find((a: any) =>
-          ["dealcard_upserted", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
+          ["dealcard_upserted", "dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
         );
         const latestRevoke = matchingActs.find((a: any) =>
           ["link_revoked", "link_restored"].includes(a?.event_type)
@@ -340,7 +350,9 @@ const getDealCardData = cache(async (id: string) => {
         }
         const matched = matchingActs.find(
           (a: any) =>
-            (a?.event_type === "dealcard_upserted" || a?.event_type === "dealcard_restored") &&
+            (a?.event_type === "dealcard_upserted" ||
+              a?.event_type === "dealcard_sent" ||
+              a?.event_type === "dealcard_restored") &&
             a?.metadata?.card4
         );
         if (matched) {

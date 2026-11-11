@@ -723,14 +723,30 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
       }
     }
 
+    const hasExplicitNumericCell = (idx: number): boolean => {
+      if (idx < 0 || idx >= cols.length || cols[idx] == null) return false;
+      if (typeof cols[idx] === "number") return Number.isFinite(cols[idx]);
+      const rawStr = String(cols[idx]).trim();
+      return rawStr !== "" && rawStr !== "-" && /\d/.test(rawStr);
+    };
+
     parsedRows.push({
       floor: floorVal,
       ...(separateUnitStr ? { unit_label: separateUnitStr } : {}),
       tenant_type: bizVal || undefined,
       tenant_name: tName || undefined,
-      deposit_manwon: depManwon || undefined,
-      rent_manwon: rentManwon || undefined,
-      mgmt_fee_manwon: mgmtManwon || undefined,
+      deposit_manwon:
+        !excludedFromIncome && (depManwon > 0 || hasExplicitNumericCell(depColIdx))
+          ? depManwon
+          : undefined,
+      rent_manwon:
+        !excludedFromIncome && (rentManwon > 0 || hasExplicitNumericCell(rentColIdx))
+          ? rentManwon
+          : undefined,
+      mgmt_fee_manwon:
+        !excludedFromIncome && (mgmtManwon > 0 || hasExplicitNumericCell(mgmtColIdx))
+          ? mgmtManwon
+          : undefined,
       is_vacant: isVacant || undefined,
       area_sqm: areaVal,
       exclusive_area_sqm: exclusiveVal,

@@ -7,8 +7,23 @@
     "src/app/api/broker/im-lite/generate-async/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/broker/im-lite/quick-generate/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/broker/im/upload-photo/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/public/im-lite/[buildingId]/pptx/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/broker/studio/ai-news-cluster/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/broker/studio/ai-draft/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/magazine/issues/route.ts": {
+      "maxDuration": 60
     },
     "src/app/api/cron/weekly-magazine/route.ts": {
       "maxDuration": 300

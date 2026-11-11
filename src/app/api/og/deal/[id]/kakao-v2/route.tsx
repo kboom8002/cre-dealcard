@@ -139,11 +139,15 @@ export async function GET(
         if (typeof actQuery.in === 'function') {
           actQuery = actQuery.in('event_type', [
             'dealcard_upserted',
+            'dealcard_sent',
             'dealcard_restored',
             'dealcard_deleted',
             'link_revoked',
             'link_restored',
           ]);
+        }
+        if (typeof actQuery.contains === 'function') {
+          actQuery = actQuery.contains('metadata', { building_id: id });
         }
         if (typeof actQuery.order === 'function') {
           actQuery = actQuery.order('created_at', { ascending: false });
@@ -159,6 +163,7 @@ export async function GET(
           [
             'dealcard_deleted',
             'dealcard_restored',
+            'dealcard_sent',
             'dealcard_upserted',
             'link_revoked',
             'link_restored',
@@ -249,11 +254,15 @@ export async function GET(
         if (typeof actQuery.in === 'function') {
           actQuery = actQuery.in('event_type', [
             'dealcard_upserted',
+            'dealcard_sent',
             'dealcard_restored',
             'dealcard_deleted',
             'link_revoked',
             'link_restored',
           ]);
+        }
+        if (typeof actQuery.contains === 'function') {
+          actQuery = actQuery.contains('metadata', { building_id: id });
         }
         if (typeof actQuery.order === 'function') {
           actQuery = actQuery.order('created_at', { ascending: false });
@@ -269,6 +278,7 @@ export async function GET(
           [
             'dealcard_deleted',
             'dealcard_restored',
+            'dealcard_sent',
             'dealcard_upserted',
             'link_revoked',
             'link_restored',

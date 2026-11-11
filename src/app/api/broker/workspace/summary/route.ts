@@ -1845,11 +1845,17 @@ export async function PATCH(request: NextRequest) {
         },
       });
       if (isUuid(buildingId) && uuidOwnerVerified) {
-        await supabase
-          .from("document_objects")
-          .update({ status: "published", updated_at: new Date().toISOString() })
-          .eq("building_id", buildingId)
-          .eq("document_type", "blind_teaser");
+        await Promise.allSettled([
+          supabase
+            .from("document_objects")
+            .update({ status: "published", updated_at: new Date().toISOString() })
+            .eq("building_id", buildingId)
+            .eq("document_type", "blind_teaser"),
+          supabase
+            .from("building_signal_cards")
+            .update({ visibility: "public_blind", status: "active" })
+            .eq("building_id", buildingId),
+        ]);
       }
     } catch {
       // Non-blocking

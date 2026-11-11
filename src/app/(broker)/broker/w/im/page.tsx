@@ -186,7 +186,7 @@ function inferPhotoCategoryFromFilename(filename: string, idx: number): { catego
   };
 }
 
-function readAndCompressPhotoFile(file: File, maxWidth = 1280, quality = 0.82): Promise<string> {
+function readAndCompressPhotoFile(file: File, maxDim = 1280, quality = 0.8): Promise<string> {
   return new Promise((resolve) => {
     if (typeof FileReader === "undefined") {
       resolve("");
@@ -212,15 +212,16 @@ function readAndCompressPhotoFile(file: File, maxWidth = 1280, quality = 0.82): 
         clearTimeout(fallbackTimer);
         resolve(val);
       };
-      const fallbackTimer = setTimeout(() => done(rawDataUrl), 1500);
+      const fallbackTimer = setTimeout(() => done(rawDataUrl), 10000);
       const img = new window.Image();
       img.onerror = () => done(rawDataUrl);
       img.onload = () => {
         try {
           const w = img.naturalWidth || img.width || 1280;
           const h = img.naturalHeight || img.height || 853;
-          const targetW = Math.min(w, maxWidth);
-          const targetH = Math.max(1, Math.round((h * targetW) / Math.max(1, w)));
+          const scale = Math.min(1, maxDim / Math.max(1, w, h));
+          const targetW = Math.max(1, Math.round(w * scale));
+          const targetH = Math.max(1, Math.round(h * scale));
           const canvas = document.createElement("canvas");
           canvas.width = targetW;
           canvas.height = targetH;
@@ -244,6 +245,42 @@ function readAndCompressPhotoFile(file: File, maxWidth = 1280, quality = 0.82): 
   });
 }
 
+async function uploadCompressedPhotoIfPossible(
+  dataUrl: string,
+  name: string,
+  buildingId?: string
+): Promise<string | null> {
+  if (
+    !dataUrl ||
+    !dataUrl.startsWith("data:image/") ||
+    typeof window === "undefined" ||
+    typeof fetch !== "function" ||
+    (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || ""))
+  ) {
+    return null;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch("/api/broker/im/upload-photo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl, name, buildingId }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json().catch(() => null)) as { ok?: boolean; url?: string } | null;
+    if (json?.ok && typeof json.url === "string" && /^https?:\/\//i.test(json.url)) {
+      return json.url;
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function isPersistablePhotoUrl(u?: string | null): u is string {
   return Boolean(u && typeof u === "string" && !u.startsWith("blob:"));
 }
@@ -257,19 +294,22 @@ function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
           : undefined) || resolveKnownTestAssetUrl(pe.name);
       const rawUrl = nonDataPersistentUrl || pe.dataUrl;
       const rawPreview =
-        pe.dataUrl ||
         nonDataPersistentUrl ||
+        pe.dataUrl ||
         (isPersistablePhotoUrl(pe.previewUrl)
           ? resolveKnownTestAssetUrl(pe.previewUrl) || pe.previewUrl
           : undefined);
       const safeUrl = isPersistablePhotoUrl(rawUrl) ? rawUrl : resolveKnownTestAssetUrl(pe.name);
-      const safePreview = isPersistablePhotoUrl(rawPreview) ? rawPreview : safeUrl;
+      const safePreview =
+        nonDataPersistentUrl || (isPersistablePhotoUrl(rawPreview) && !rawPreview?.startsWith("data:"))
+          ? rawPreview
+          : undefined;
       return {
         ...(pe.id ? { id: pe.id } : {}),
         name: pe.name,
         ...(safeUrl ? { url: safeUrl } : {}),
-        ...(safePreview ? { previewUrl: safePreview } : {}),
-        ...(pe.dataUrl ? { dataUrl: pe.dataUrl } : {}),
+        ...(safePreview && safePreview !== safeUrl ? { previewUrl: safePreview } : {}),
+        ...(!nonDataPersistentUrl && pe.dataUrl ? { dataUrl: pe.dataUrl } : {}),
         category: pe.category,
         caption: pe.caption,
       };
@@ -1655,7 +1695,12 @@ function ImWorkspaceInner() {
       latestPhotoEntriesRef.current.length > 0 ? latestPhotoEntriesRef.current : photoEntries;
     const valid = sourceEntries
       .map((pe, idx) => {
+        const nonDataUrl =
+          pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+            ? resolveKnownTestAssetUrl(pe.url) || pe.url
+            : undefined;
         const candidateUrl =
+          nonDataUrl ||
           pe.dataUrl ||
           (isPersistablePhotoUrl(pe.previewUrl) ? pe.previewUrl : undefined) ||
           (isPersistablePhotoUrl(pe.url) ? pe.url : undefined) ||
@@ -3562,32 +3607,56 @@ function ImWorkspaceInner() {
                 },
                 targetId
               );
-              const compressionPromise = Promise.all(
-                files.map(async (f, idx) => {
-                  const dataUrl = await readAndCompressPhotoFile(f);
-                  return { id: addedEntries[idx].id, name: f.name, dataUrl };
-                })
-              )
+              const buildingFolderHint = currentItem?.buildingId || targetId;
+              const compressionPromise = (async () => {
+                const resolvedList: Array<{
+                  id?: string;
+                  name: string;
+                  dataUrl: string;
+                  remoteUrl: string | null;
+                }> = [];
+                const BATCH_SIZE = 3;
+                for (let bStart = 0; bStart < files.length; bStart += BATCH_SIZE) {
+                  const slice = files.slice(bStart, bStart + BATCH_SIZE);
+                  const batchOut = await Promise.all(
+                    slice.map(async (f, localIdx) => {
+                      const idx = bStart + localIdx;
+                      const dataUrl = await readAndCompressPhotoFile(f);
+                      const remoteUrl = dataUrl
+                        ? await uploadCompressedPhotoIfPossible(dataUrl, f.name, buildingFolderHint)
+                        : null;
+                      return { id: addedEntries[idx]?.id, name: f.name, dataUrl, remoteUrl };
+                    })
+                  );
+                  resolvedList.push(...batchOut);
+                }
+                return resolvedList;
+              })()
                 .then((resolvedList) => {
                   const applyResolved = (list: ImPhotoEntry[]) =>
                     list.map((pe) => {
                       const matched = resolvedList.find(
                         (r) =>
-                          (pe.id && r.id ? r.id === pe.id : r.name === pe.name) && Boolean(r.dataUrl)
+                          (pe.id && r.id ? r.id === pe.id : r.name === pe.name) &&
+                          Boolean(r.remoteUrl || r.dataUrl)
                       );
-                      return matched
-                        ? {
-                            ...pe,
-                            dataUrl: matched.dataUrl,
-                            previewUrl: matched.dataUrl || pe.previewUrl,
-                            url:
-                              (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
-                                ? resolveKnownTestAssetUrl(pe.url) || pe.url
-                                : undefined) ||
-                              resolveKnownTestAssetUrl(pe.name) ||
-                              matched.dataUrl,
-                          }
-                        : pe;
+                      if (!matched) return pe;
+                      const existingHttpUrl =
+                        pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+                          ? resolveKnownTestAssetUrl(pe.url) || pe.url
+                          : undefined;
+                      const preferredPersistentUrl =
+                        matched.remoteUrl ||
+                        existingHttpUrl ||
+                        resolveKnownTestAssetUrl(pe.name) ||
+                        matched.dataUrl;
+                      const keepInlineDataUrl = !matched.remoteUrl && !existingHttpUrl;
+                      return {
+                        ...pe,
+                        dataUrl: keepInlineDataUrl ? matched.dataUrl : undefined,
+                        previewUrl: matched.remoteUrl || matched.dataUrl || pe.previewUrl,
+                        url: preferredPersistentUrl,
+                      };
                     });
                   if (selectedIdRef.current === targetId) {
                     latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);

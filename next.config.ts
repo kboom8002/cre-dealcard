@@ -123,10 +123,10 @@ const nextConfig: NextConfig = {
         ],
       },
       // ── H-01 보안 헤더 ──
-      // X-Frame-Options: 기본 DENY, 같은 오리진 iframe 미리보기 경로(/magazine/*, /dc/* — LiveDealCardPreviewCard 가 /dc/{id}?preview=1 을 iframe)는 SAMEORIGIN.
+      // X-Frame-Options: 기본 DENY, 같은 오리진 iframe 미리보기 경로(/magazine/*, /dc/*, /im-lite/*)는 SAMEORIGIN.
       // (동일 키 규칙 중복 적용을 피하려고 DENY 규칙에서 해당 경로를 제외)
       {
-        source: '/((?!magazine(?:/|$)|dc(?:/|$)).*)',
+        source: '/((?!magazine(?:/|$)|dc(?:/|$)|im-lite(?:/|$)).*)',
         headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
       },
       {
@@ -135,6 +135,10 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/dc/:path*',
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+      },
+      {
+        source: '/im-lite/:path*',
         headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
       },
       {
