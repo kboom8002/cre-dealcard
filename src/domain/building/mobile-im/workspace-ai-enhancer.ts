@@ -662,12 +662,49 @@ function scrubResidualForbiddenPhrases(text: string): string {
 }
 
 function protectCompactPyeongForHeadline(text: string): string {
-  // 짧은 소제목(<=28자)에서 "120평"이 "120평(약 396.7㎡)"로 불어나 길이 한도를 넘지 않도록 보호
-  return text.replace(/(\d[\d,.]*\s*평)(?!\s*\()/g, (m) => protectBlock(m));
+  // 짧은 소제목(<=28자)에서 "120평"이나 "만실"이 장황한 괄호·서술형으로 불어나 길이 한도를 넘지 않도록 보호
+  return text
+    .replace(/(\d[\d,.]*\s*평)(?!\s*\()/g, (m) => protectBlock(m))
+    .replace(/만실/g, (m) => protectBlock(m));
+}
+
+function harmonizeReplacedPostpositions(text: string): string {
+  const TARGET_STEMS_RE =
+    /(임차인|전문 투자자|법인 실수요자|안정 배당 선호 매수자|임차 업체|예상 현금흐름|하방 안정성|수익성 제고|가치 상승 여력|전면 리모델링)(\([^)]{1,24}\))?(으로|로|이|가|을|를|은|는|과|와)(?=[\s,.;:!?)]|$)/g;
+
+  return text.replace(
+    TARGET_STEMS_RE,
+    (_full, stem: string, paren: string | undefined, josa: string) => {
+      const lastChar = stem.charCodeAt(stem.length - 1);
+      if (lastChar < 0xac00 || lastChar > 0xd7a3) {
+        return `${stem}${paren ?? ''}${josa}`;
+      }
+      const jong = (lastChar - 0xac00) % 28;
+      const hasBatchim = jong > 0;
+      const isRieul = jong === 8;
+
+      let fixed = josa;
+      if (josa === '이' || josa === '가') fixed = hasBatchim ? '이' : '가';
+      else if (josa === '을' || josa === '를') fixed = hasBatchim ? '을' : '를';
+      else if (josa === '은' || josa === '는') fixed = hasBatchim ? '은' : '는';
+      else if (josa === '과' || josa === '와') fixed = hasBatchim ? '과' : '와';
+      else if (josa === '으로' || josa === '로') {
+        fixed = hasBatchim && !isRieul ? '으로' : '로';
+      }
+      return `${stem}${paren ?? ''}${fixed}`;
+    },
+  );
+}
+
+function stripCompactHeadlineGlosses(text: string): string {
+  return text
+    .replace(/\((?:우수\s*신용도|도보\s*\d+분\s*이내)\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
- * 비동기 DB 용어사전(`im_terminology_rules`) + 날조 상호 마스킹 + CRE 문체 위생을 적용한다.
+ * 비동기 DB 용어사전(`im_terminology_rules`) + 날조 상호 마스킹 + 조사 자동 보정 + CRE 문체 위생을 적용한다.
  */
 export async function polishImCopyWithLexicon(
   rawText: string,
@@ -684,7 +721,7 @@ export async function polishImCopyWithLexicon(
   let working = maskFabricatedBrands(rawText, opts.tenantPoolSource ?? []).text;
   working = scrubResidualForbiddenPhrases(working);
 
-  // 2. 마크다운 표(| ... |) 보호 또는 헤드라인 평수 보호
+  // 2. 마크다운 표(| ... |) 보호 또는 헤드라인 평수·만실 보호
   if (opts.preserveLinesAndMarkdown) {
     working = working
       .split('\n')
@@ -694,9 +731,9 @@ export async function polishImCopyWithLexicon(
     working = protectCompactPyeongForHeadline(working);
   }
 
-  // 3. DB 기반 CRE 용어사전 정규화 (5분 메모리 캐시)
+  // 3. DB 기반 CRE 용어사전 정규화 (5분 메모리 캐시) + 조사 조화 보정
   const normRes = await normalizeTerminologyAsync(working);
-  working = normRes.text;
+  working = harmonizeReplacedPostpositions(normRes.text);
 
   // 4. 줄바꿈/마크다운 보존 여부에 따른 마무리 정제
   if (opts.preserveLinesAndMarkdown) {
@@ -708,6 +745,9 @@ export async function polishImCopyWithLexicon(
       .trim();
   } else {
     working = sanitizeTextHygiene(working);
+    if (opts.isCompactHeadline) {
+      working = stripCompactHeadlineGlosses(working);
+    }
   }
 
   if (typeof opts.maxChars === 'number' && Array.from(working).length > opts.maxChars) {
@@ -749,7 +789,7 @@ export function polishImCopyWithLexiconSync(
     working = protectCompactPyeongForHeadline(working);
   }
 
-  working = normalizeTerminology(working).text;
+  working = harmonizeReplacedPostpositions(normalizeTerminology(working).text);
 
   if (opts.preserveLinesAndMarkdown) {
     return working
@@ -760,7 +800,8 @@ export function polishImCopyWithLexiconSync(
       .trim();
   }
 
-  return sanitizeTextHygiene(working);
+  const cleaned = sanitizeTextHygiene(working);
+  return opts.isCompactHeadline ? stripCompactHeadlineGlosses(cleaned) : cleaned;
 }
 
 /**

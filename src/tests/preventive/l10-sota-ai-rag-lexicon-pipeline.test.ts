@@ -107,9 +107,9 @@ describe('Preventive Suite L10 — SOTA AI Content Pipeline (Neuro-Symbolic + CR
     expect(badVal.fabricatedBrands).toContain('스타벅스');
     expect(badVal.forbiddenHits.length).toBeGreaterThanOrEqual(2);
 
-    // Real rent-roll brand (올리브영) is preserved while fabricated brand (스타벅스) is masked and colloquialisms normalized
+    // Real rent-roll brand (올리브영) is preserved while fabricated brand (스타벅스) is masked, colloquialisms normalized, and Korean postpositions harmonized
     const polished = await polishImCopyWithLexicon(
-      '올리브영 성수점 및 스타벅스 세입자가 입점한 60대 자산가용 확실한 수익 매물입니다.',
+      '올리브영 성수점 및 스타벅스 세입자가 입점한 60대 자산가용으로 확실한 수익 매물입니다.',
       {
         tenantPoolSource: sheet.tenantPoolObjects,
         isCompactHeadline: false,
@@ -118,7 +118,10 @@ describe('Preventive Suite L10 — SOTA AI Content Pipeline (Neuro-Symbolic + CR
     expect(polished).toContain('올리브영 성수점');
     expect(polished).not.toContain('스타벅스');
     expect(polished).toContain('임차 업체');
-    expect(polished).toContain('임차인');
+    expect(polished).toContain('임차인이');
+    expect(polished).not.toContain('임차인가');
+    expect(polished).toContain('전문 투자자로');
+    expect(polished).not.toContain('전문 투자자으로');
     expect(polished).not.toContain('세입자');
     expect(polished).not.toContain('60대 자산가');
     expect(polished).not.toContain('확실한 수익');
