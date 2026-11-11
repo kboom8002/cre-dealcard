@@ -94,6 +94,18 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Default CORS baseline for /api/* (must precede conditional `has: Origin` rule because later matching Next.js header rules override earlier keys)
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: 'https://credeal.net' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With' },
+          { key: 'Access-Control-Expose-Headers', value: 'Content-Disposition, Content-Length, X-Slide-Count, X-File-Size, X-Audit-Violations, X-Audit-Layout, X-Audit-Standard, X-Warnings, X-TTS-Source, X-Project-Stage' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
+        ],
+      },
+      // Dynamic Origin reflection for allowlisted apex & www domains (overrides baseline above when Origin matches)
       {
         source: '/api/:path*',
         has: [
@@ -105,17 +117,6 @@ const nextConfig: NextConfig = {
         ],
         headers: [
           { key: 'Access-Control-Allow-Origin', value: ':origin' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With' },
-          { key: 'Access-Control-Expose-Headers', value: 'Content-Disposition, Content-Length, X-Slide-Count, X-File-Size, X-Audit-Violations, X-Audit-Layout, X-Audit-Standard, X-Warnings, X-TTS-Source, X-Project-Stage' },
-          { key: 'Access-Control-Max-Age', value: '86400' },
-        ],
-      },
-      // Fallback for requests without a matching Origin header
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: 'https://credeal.net' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With' },
           { key: 'Access-Control-Expose-Headers', value: 'Content-Disposition, Content-Length, X-Slide-Count, X-File-Size, X-Audit-Violations, X-Audit-Layout, X-Audit-Standard, X-Warnings, X-TTS-Source, X-Project-Stage' },

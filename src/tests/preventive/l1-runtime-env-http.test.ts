@@ -147,9 +147,17 @@ describe("L1 Runtime, Env Sanitization & HTTP Boundary Preventive Suite (PT-101 
     expect(denyRegex.test("/magazine/test-broker/2026-11-11")).toBe(false);
 
     // Verify CORS Origin pattern accepts both apex (credeal.net) and www (www.credeal.net)
-    const corsOriginRule = headerRules.find(
+    // AND dynamic `has: Origin` rule comes AFTER unconditional fallback so Next.js does not clobber `:origin`!
+    const fallbackCorsIdx = headerRules.findIndex(
+      (r) => r.source === "/api/:path*" && (!r.has || r.has.length === 0)
+    );
+    const dynamicCorsIdx = headerRules.findIndex(
       (r) => r.source === "/api/:path*" && Array.isArray(r.has) && r.has.length > 0
     );
+    expect(fallbackCorsIdx).toBeGreaterThanOrEqual(0);
+    expect(dynamicCorsIdx).toBeGreaterThan(fallbackCorsIdx);
+
+    const corsOriginRule = headerRules[dynamicCorsIdx];
     expect(corsOriginRule).toBeDefined();
     const originPattern = (corsOriginRule!.has![0] as { value: string }).value;
     const originRe = new RegExp(`^${originPattern}$`);
