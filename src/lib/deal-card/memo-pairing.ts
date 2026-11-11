@@ -182,7 +182,13 @@ export function parseMemoIntoCard4(
 
   // 1. 매물 유형(posture) 추정
   let posture: DealCardPosture = baseCard4.posture || "income";
-  if (/신축|개발|철거|나대지|부지|재건축|용적률/.test(text) && !/사옥/.test(text)) {
+  if (
+    /(?:신축[·\s/]*개발|신축\s*(?:용\s*)?부지|개발\s*(?:용\s*)?부지|합필\s*신축|나대지|철거\s*후|재건축\s*부지|부지\s*매각)/.test(
+      text
+    )
+  ) {
+    posture = "value_add";
+  } else if (/신축|개발|철거|부지|재건축|용적률/.test(text) && !/사옥/.test(text)) {
     posture = "value_add";
   } else if (/사옥|자가\s*사용|본사|직접\s*입주|통임대\s*사옥/.test(text)) {
     posture = "owner_occupied";

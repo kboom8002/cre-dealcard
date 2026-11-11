@@ -333,6 +333,9 @@ export async function GET(req: NextRequest) {
     }
 
     const parkingSpaces =
+      (bldReg?.parkingCount != null && Number(bldReg.parkingCount) > 0
+        ? Number(bldReg.parkingCount)
+        : null) ??
       ((bldReg as any)?.totPkngCnt != null && Number((bldReg as any).totPkngCnt) > 0
         ? Number((bldReg as any).totPkngCnt)
         : null) ??
@@ -346,10 +349,14 @@ export async function GET(req: NextRequest) {
         ? Number(ssotSummary.parking_count)
         : null) ??
       verifiedFallback?.parkingSpaces ??
+      (bldReg?.parkingCount != null ? Number(bldReg.parkingCount) : null) ??
       ((bldReg as any)?.totPkngCnt != null ? Number((bldReg as any).totPkngCnt) : null) ??
       null;
 
     const elevators =
+      (bldReg?.elevatorCount != null && Number(bldReg.elevatorCount) > 0
+        ? Number(bldReg.elevatorCount)
+        : null) ??
       ((bldReg as any)?.rideUseElvtCnt != null && Number((bldReg as any).rideUseElvtCnt) > 0
         ? Number((bldReg as any).rideUseElvtCnt)
         : null) ??
@@ -360,6 +367,7 @@ export async function GET(req: NextRequest) {
         ? Number(ssotSummary.elevator_count)
         : null) ??
       verifiedFallback?.elevators ??
+      (bldReg?.elevatorCount != null ? Number(bldReg.elevatorCount) : null) ??
       ((bldReg as any)?.rideUseElvtCnt != null ? Number((bldReg as any).rideUseElvtCnt) : null) ??
       null;
 

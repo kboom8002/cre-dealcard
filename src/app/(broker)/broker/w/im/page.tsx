@@ -2081,11 +2081,14 @@ function ImWorkspaceInner() {
         const resolvedTitle =
           reqTitle.trim() ||
           (reqAddress.split(" ").slice(1, 3).join(" ") || "매물") + " 근생빌딩";
+        const nextResolvedId =
+          typeof data?.documentId === "string" && data.documentId ? data.documentId : targetId;
         setItems((prev) => {
           const nextItems = prev.map((it) =>
             it.id === targetId
               ? {
                   ...it,
+                  id: nextResolvedId || it.id,
                   buildingId: data?.buildingId || it.buildingId,
                   ...(data?.documentId ? { documentId: data.documentId } : {}),
                   title: resolvedTitle,
@@ -2102,6 +2105,7 @@ function ImWorkspaceInner() {
                   landAreaSqm: reqLand,
                   zoning: reqZoning,
                   handoverNote: reqHandover,
+                  parcels: parcels ?? it.parcels,
                   photoNames: latestPhotos.map((p) => p.name),
                   photos: sanitizePhotosForSync(latestPhotos),
                   brokerName: reqBrokerName,
@@ -2113,10 +2117,32 @@ function ImWorkspaceInner() {
                 }
               : it
           );
+          itemsRef.current = nextItems;
           persistImItems(nextItems);
           return nextItems;
         });
+        if (
+          originItem?.id &&
+          originItem.buildingId &&
+          !UUID_REGEX.test(originItem.buildingId) &&
+          data?.buildingId &&
+          originItem.buildingId !== data.buildingId
+        ) {
+          fetch("/api/broker/workspace/summary", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "delete_im",
+              buildingId: originItem.buildingId,
+              imId: originItem.id,
+            }),
+          }).catch(() => {});
+        }
         if (selectedIdRef.current === targetId) {
+          if (nextResolvedId && nextResolvedId !== targetId) {
+            selectedIdRef.current = nextResolvedId;
+            setSelectedId(nextResolvedId);
+          }
           if (data?.buildingId) {
             setBottomSheetBuildingId(data.buildingId);
           }

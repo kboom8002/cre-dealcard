@@ -275,7 +275,7 @@ export async function GET(request: NextRequest) {
       ? supabase
           .from("document_objects")
           .select(
-            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, card4Headline:body->card4Headline, card4Points:body->card4Points, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases, axios_highlights:body->axios_highlights, handover_note:body->handover_note, broker_contact:body->broker_contact, investment_posture:body->investment_posture, photos_v2:body->photos_v2, photos:body->photos"
+            "id, building_id, document_type, title, status, updated_at, created_at, card4:body->card4, dealPoints:body->dealPoints, card4Headline:body->card4Headline, card4Points:body->card4Points, ssot_summary:body->ssot_summary, version_no:body->version_no, rent_roll:body->rent_roll, floor_leases:body->floor_leases, axios_highlights:body->axios_highlights, handover_note:body->handover_note, broker_contact:body->broker_contact, investment_posture:body->investment_posture, photos_v2:body->photos_v2, photos:body->photos, parcels:body->parcels, pnus:body->pnus"
           )
           .in("building_id", buildingIds)
       : null;
@@ -289,7 +289,7 @@ export async function GET(request: NextRequest) {
     docQuery = docQuery.order("created_at", { ascending: false });
   }
   const { data: docsData } = docQuery
-    ? await (typeof docQuery.limit === "function" ? docQuery.limit(25) : docQuery)
+    ? await (typeof docQuery.limit === "function" ? docQuery.limit(120) : docQuery)
     : { data: [] as any[] };
 
   const docs = (docsData || []) as any[];
@@ -682,6 +682,8 @@ export async function GET(request: NextRequest) {
           : undefined,
       parcels: Array.isArray(ssotSummary.parcels)
         ? ssotSummary.parcels
+        : Array.isArray((d as any).parcels)
+        ? (d as any).parcels
         : Array.isArray(d.body?.parcels)
         ? d.body.parcels
         : undefined,
@@ -1287,6 +1289,11 @@ export async function GET(request: NextRequest) {
     });
 
   // Apply customImUpsertedByKey overrides & deletedImIds filtering
+  const normImAddr = (s: unknown) =>
+    String(s || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
   for (const [, customImEntry] of customImUpsertedByKey.entries()) {
     const it = customImEntry.item;
     if (!it || (!it.id && !it.buildingId)) continue;
@@ -1295,6 +1302,21 @@ export async function GET(request: NextRequest) {
         (it.id && im.id === it.id) ||
         (it.buildingId && im.buildingId === it.buildingId)
     );
+    if (idx < 0 && !isUuid(String(it.buildingId || ""))) {
+      const candAddr = normImAddr(it.address);
+      if (
+        candAddr &&
+        imList.some(
+          (im) =>
+            isUuid(String(im.buildingId || "")) &&
+            im.status === "published" &&
+            normImAddr(im.address) === candAddr
+        )
+      ) {
+        // Retire unprovisioned pre-publish temporary draft superseded by a published UUID IM
+        continue;
+      }
+    }
     const prevPhotos = idx >= 0 ? (imList[idx] as any).photos : undefined;
     const itPhotos = Array.isArray(it.photos) && it.photos.length > 0 ? it.photos : prevPhotos;
     const mergedIm = {

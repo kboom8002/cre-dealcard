@@ -727,7 +727,9 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
         `| 건축규모 | 지하 ${floorsBelow}층 / 지상 ${floorsAbove}층 |`,
         `| 건폐율 / 용적률 | ${bcrPct}% / ${farPct}% |`,
         `| 사용승인일 | ${params.completionDate} |`,
-        `| 주차 / 승강기 | 자주식 ${parkingSpaces}대 / 승용 ${elevators}대 |`,
+        ...(parkingSpaces > 0 || elevators > 0
+          ? [`| 주차 / 승강기 | 자주식 ${parkingSpaces}대 / 승용 ${elevators}대 |`]
+          : []),
         ``,
         `- **핵심 입지**: ${params.points[0]}`,
         `- **수익 안정성**: ${params.points[1]}`,

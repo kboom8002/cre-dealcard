@@ -560,10 +560,26 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
       }
     } else if (bizTypeIdx >= 0) {
       const bizVal = text(bizTypeIdx);
-      if (bizVal === "" || bizVal === "-" || bizVal === "공실") isVacant = true;
+      if (bizVal === "" || bizVal === "-" || bizVal === "공실") {
+        isVacant = true;
+      } else if (
+        /자가사용|자가점유/.test(`${bizVal} ${rawNoteCell}`) ||
+        (/^(?:자가|직영|오너)$/i.test(rawNoteCell)) ||
+        (/사옥|직영|오너/i.test(`${bizVal} ${rawNoteCell}`) && rawDeposit === 0 && rawRent === 0)
+      ) {
+        leaseState = "자가사용";
+      }
     } else if (tenantNameIdx >= 0) {
       const tVal = text(tenantNameIdx);
-      if (tVal === "" || tVal === "-" || tVal === "공실") isVacant = true;
+      if (tVal === "" || tVal === "-" || tVal === "공실") {
+        isVacant = true;
+      } else if (
+        /자가사용|자가점유/.test(`${tVal} ${rawNoteCell}`) ||
+        (/^(?:자가|직영|오너)$/i.test(rawNoteCell)) ||
+        (/사옥|직영|오너/i.test(`${tVal} ${rawNoteCell}`) && rawDeposit === 0 && rawRent === 0)
+      ) {
+        leaseState = "자가사용";
+      }
     }
     if (isVacant) vacantCount++;
     if (leaseState === "자가사용") ownerUseCount++;

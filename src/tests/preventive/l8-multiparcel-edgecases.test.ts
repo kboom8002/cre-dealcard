@@ -12,6 +12,7 @@ import PptxGenJS from 'pptxgenjs';
 import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import { parseMemoIntoCard4 } from '@/lib/deal-card/memo-pairing';
 import { synthesizeQuickRecordFromImItem } from '@/lib/im-lite/quick-generate-store';
+import { parseRentRollData } from '@/lib/rentroll/parse-rentroll-sheet';
 import {
   buildBasicLandSlideData,
   buildA27LandUsePlan,
@@ -258,5 +259,57 @@ describe('L8 Multi-Parcel Non-Bojeong Edge Cases (PT-801 ~ PT-804)', () => {
     expect(legendLabels).toContain('준주거지역');
     expect(legendLabels).toContain('제2종일반주거지역');
     expect(legendLabels).toContain('본건 필지 경계');
+  });
+
+  it('[PT-805] classifies explicit multi-parcel development site memos as value_add (토지 N평) even when 사옥 is mentioned as a candidate development use, and omits bogus 0대/0대 parking row when unknown', () => {
+    const devWithSaokCandidateMemo = [
+      '마포구 서교동 395-166, 395-165 합필 신축·개발용 부지 매각',
+      '용도지역: 준주거지역(706평) + 제2종일반주거지역(108평)',
+      '토지면적: 706평 + 108평 (기존 건축물 연면적 1,754평)',
+      '매매 희망가 390억 / 합정역 도보 3분 코너',
+      '사옥 및 하이엔드 상업시설 개발 적격 · 즉시 명도 가능',
+    ].join('\n');
+
+    const parsed = parseMemoIntoCard4(devWithSaokCandidateMemo);
+    expect(parsed.posture).toBe('value_add');
+    expect(parsed.landAreaPyung).toBe(814);
+    expect(parsed.area).toBe('토지 814평');
+
+    const recUnknownParking = synthesizeQuickRecordFromImItem('mp-test-no-parking-001', {
+      id: 'mp-test-no-parking-001',
+      buildingId: 'mp-test-no-parking-001',
+      title: '서교동 2필지 개발부지',
+      address: '마포구 서교동 395-166, 395-165',
+      askingPriceManwon: 3900000,
+      gfaSqm: '5798.87',
+      landAreaSqm: '2690.4',
+      zoning: '준주거지역 · 제2종일반주거지역',
+    });
+    const overviewSection = recUnknownParking.fullDocBody?.sections?.find(
+      (s: any) => s.section_type === 'property_overview'
+    );
+    expect(overviewSection?.markdown || '').not.toContain('자주식 0대 / 승용 0대');
+  });
+
+  it('[PT-806] preserves 자가사용 lease_state in custom single-column 업종/상호 .xlsx rent-rolls while keeping paying 사옥 tenants as income-generating', () => {
+    const sheetRows = [
+      ['서교동 합필 빌딩 임대차 현황표'],
+      ['층', '호실', '업종/상호', '전용면적(평)', '보증금(만원)', '월세(만원)', '관리비(만원)', '만기일', '비고'],
+      ['1층', '101호', '스페셜티 카페', 68, 15000, 1350, 130, '2027-08-31', ''],
+      ['4층', '401호', '공실', 130, 0, 0, 0, '', '공실'],
+      ['6층', '601호', 'IT사옥 통임대', 130, 30000, 1900, 190, '2028-05-31', '우량법인'],
+      ['10층', '1001호', '법인 사옥(자가사용)', 115, 0, 0, 0, '', '자가사용'],
+      ['합계', '', '총 4개 호실', 443, 45000, 3250, 320, '', ''],
+    ];
+
+    const parsed = parseRentRollData(sheetRows);
+    expect(parsed.parsedRows).toHaveLength(4);
+    expect(parsed.parsedRows[1].is_vacant).toBe(true);
+    expect(parsed.parsedRows[1].lease_state).toBe('공실');
+    // Paying tenant with "사옥" in name must still count toward rent!
+    expect(parsed.parsedRows[2].lease_state).not.toBe('자가사용');
+    expect(parsed.parsedRows[3].lease_state).toBe('자가사용');
+    expect(parsed.totalDeposit).toBe(45000);
+    expect(parsed.monthlyRent).toBe(3250);
   });
 });
