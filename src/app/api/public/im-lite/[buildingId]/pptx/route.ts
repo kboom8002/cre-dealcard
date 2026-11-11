@@ -52,10 +52,12 @@ export async function GET(
   const { isBuildingShareLinkRevoked } = await import('@/lib/security/share-link-tokens');
   const memRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
 
-  // Create Supabase client
+  // Create Supabase client with sanitized env values (defends against trailing \r\n on serverless)
+  const { env, getServerEnv } = await import('@/lib/env');
+  const srvEnv = getServerEnv();
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    srvEnv.SUPABASE_SERVICE_ROLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
   let viewer: any = null;

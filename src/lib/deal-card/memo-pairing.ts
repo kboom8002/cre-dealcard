@@ -160,13 +160,28 @@ export function extractMemoStructuredFacts(memoText: string): ExtractedMemoFacts
  */
 export function parseMemoIntoCard4(
   memoText: string,
-  prevCard4: Card4Data
+  prevCard4?: Partial<Card4Data>
 ): Card4Data {
+  const baseCard4: Card4Data = {
+    headline: prevCard4?.headline || "",
+    posture: prevCard4?.posture || "income",
+    region: prevCard4?.region || "",
+    use: prevCard4?.use || "",
+    area: prevCard4?.area,
+    gfaPyung: prevCard4?.gfaPyung,
+    landAreaPyung: prevCard4?.landAreaPyung,
+    priceBand: prevCard4?.priceBand || "",
+    points: prevCard4?.points || ["", "", ""],
+    pointTones: prevCard4?.pointTones || ["amber", "sky", "mint"],
+    provenance: prevCard4?.provenance || { points: ["ai", "ai", "ai"] },
+    card4_version: prevCard4?.card4_version ?? 1,
+    ...(prevCard4?.pairedMemoId ? { pairedMemoId: prevCard4.pairedMemoId } : {}),
+  };
   const text = String(memoText || "").trim();
-  if (!text) return prevCard4;
+  if (!text) return baseCard4;
 
   // 1. 매물 유형(posture) 추정
-  let posture: DealCardPosture = prevCard4.posture || "income";
+  let posture: DealCardPosture = baseCard4.posture || "income";
   if (/신축|개발|철거|나대지|부지|재건축|용적률/.test(text) && !/사옥/.test(text)) {
     posture = "value_add";
   } else if (/사옥|자가\s*사용|본사|직접\s*입주|통임대\s*사옥/.test(text)) {
@@ -176,7 +191,7 @@ export function parseMemoIntoCard4(
   }
 
   // 2. 지역(region) 추출 (번지 제외 + 동/구 안전 마스킹)
-  let region = prevCard4.region || "";
+  let region = baseCard4.region || "";
   const guDongMatch = text.match(/([가-힣]{2,6}(?:구|군))\s+([가-힣0-9]{2,8}(?:동|읍|면))/);
   const cityGuMatch = text.match(/([가-힣]{2,6}시)\s+([가-힣]{2,6}(?:구|동|읍|면))/);
   const stationMatch = text.match(/([가-힣0-9]{2,8}역)\s*(?:인근|부근|역세권|도보\s*\d+분)?/);
@@ -218,7 +233,7 @@ export function parseMemoIntoCard4(
   }
 
   // 3. 용도(use) 추출
-  let use = prevCard4.use || "";
+  let use = baseCard4.use || "";
   if (/근린생활시설|근생빌딩|근생상가|올근생|근생|꼬마빌딩/.test(text)) {
     use = "근린생활시설";
   } else if (/지식산업센터/.test(text)) {
@@ -250,11 +265,11 @@ export function parseMemoIntoCard4(
     /(?:대지면적|토지면적|대지|토지)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
   );
   const gfaPyung =
-    (gfaMatch ? toPyung(gfaMatch[1], gfaMatch[2]) : undefined) ?? prevCard4.gfaPyung;
+    (gfaMatch ? toPyung(gfaMatch[1], gfaMatch[2]) : undefined) ?? baseCard4.gfaPyung;
   const landAreaPyung =
-    (landMatch ? toPyung(landMatch[1], landMatch[2]) : undefined) ?? prevCard4.landAreaPyung;
+    (landMatch ? toPyung(landMatch[1], landMatch[2]) : undefined) ?? baseCard4.landAreaPyung;
 
-  let area = prevCard4.area;
+  let area = baseCard4.area;
   if (posture === "value_add" && landAreaPyung) {
     area = `토지 ${landAreaPyung}평`;
   } else if (gfaPyung) {
@@ -264,7 +279,7 @@ export function parseMemoIntoCard4(
   }
 
   // 5. 가격 구간(priceBand) 추출 (보증금/대출 숫자와 구분하여 안전 구간화)
-  let priceBand = prevCard4.priceBand || "";
+  let priceBand = baseCard4.priceBand || "";
   const explicitBandMatch = text.match(/(\d+(?:\.\d+)?)\s*~\s*(\d+(?:\.\d+)?)\s*억/);
   if (explicitBandMatch) {
     priceBand = `${explicitBandMatch[1]}~${explicitBandMatch[2]}억`;
@@ -367,7 +382,7 @@ export function parseMemoIntoCard4(
     value_add: ["신축·리모델링 검토 부지", "가치 상승 여지 보유", "토지 활용도 높은 입지"],
   };
 
-  const existingValid = (prevCard4.points || []).map((p) => p.trim()).filter(Boolean);
+  const existingValid = (baseCard4.points || []).map((p) => p.trim()).filter(Boolean);
   const mergedRawPoints = [...candidatePoints, ...existingValid];
   let points = repairDealCardPoints(mergedRawPoints, {
     fillEmpty: true,
@@ -375,8 +390,8 @@ export function parseMemoIntoCard4(
   });
 
   // 최종 블라인드 안전성 재검증 (동 단위 + 희귀 용도 조합 시 구 단위로 자동 완화 포함)
-  let safeRegion = region || prevCard4.region || "서울 핵심 권역";
-  const safeUse = use || prevCard4.use || "근린생활시설";
+  let safeRegion = region || baseCard4.region || "서울 핵심 권역";
+  const safeUse = use || baseCard4.use || "근린생활시설";
   const blindValidation = validateBlindPoints(points, {
     region: safeRegion,
     assetType: safeUse,
@@ -394,7 +409,7 @@ export function parseMemoIntoCard4(
   const headline = deriveDealCardHeadline({ posture, points });
 
   return {
-    ...prevCard4,
+    ...baseCard4,
     headline,
     posture,
     region: safeRegion,
@@ -402,7 +417,7 @@ export function parseMemoIntoCard4(
     ...(area !== undefined ? { area } : {}),
     ...(gfaPyung !== undefined ? { gfaPyung } : {}),
     ...(landAreaPyung !== undefined ? { landAreaPyung } : {}),
-    priceBand: priceBand || prevCard4.priceBand || "가격 협의",
+    priceBand: priceBand || baseCard4.priceBand || "가격 협의",
     points,
     generationSource: "ai_memo",
     provenance: {

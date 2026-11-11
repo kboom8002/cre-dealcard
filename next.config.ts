@@ -100,7 +100,7 @@ const nextConfig: NextConfig = {
           {
             type: 'header',
             key: 'Origin',
-            value: '(?<origin>https://credeal\\.net|https://dealcard\\.kr|http://localhost:\\d+)',
+            value: '(?<origin>https://(?:www\\.)?credeal\\.net|https://(?:www\\.)?dealcard\\.kr|http://localhost:\\d+)',
           },
         ],
         headers: [

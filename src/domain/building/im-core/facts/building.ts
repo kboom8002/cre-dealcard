@@ -44,16 +44,22 @@ export function extractBuildingSpecs(raw: Record<string, any>): PureBuildingSpec
 
   const buildingCoverageRatioPct = Number(
     raw?.building_coverage_ratio_pct ??
+    raw?.bcr_pct ??
+    raw?.bcrPct ??
     ssot?.building_coverage_ratio_pct ??
     ssot?.building_coverage_ratio ??
+    ssot?.bcr_pct ??
     ssot?.bcr ??
     0
   );
 
   const floorAreaRatioPct = Number(
     raw?.floor_area_ratio_pct ??
+    raw?.far_pct ??
+    raw?.farPct ??
     ssot?.floor_area_ratio_pct ??
     ssot?.floor_area_ratio ??
+    ssot?.far_pct ??
     ssot?.far ??
     0
   );

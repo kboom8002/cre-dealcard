@@ -68,6 +68,73 @@ const BROKER_VIEWER_PLACEHOLDERS = new Set([
   "02-1234-5678",
 ]);
 
+const VIEWER_CATEGORY_KO: Record<string, string> = {
+  exterior: "외관",
+  cover: "전면 외관",
+  hero: "대표 외관",
+  aerial: "항공·드론뷰",
+  entrance: "주출입구",
+  surroundings: "주변 환경",
+  signage: "건물 간판",
+  lobby: "메인 로비",
+  corridor: "복도·공용부",
+  elevator: "승강기 홀",
+  interior: "실내 공간",
+  tenant_space: "임차 공간",
+  parking: "주차·설비",
+  rooftop: "옥상·테라스",
+  mechanical: "기계·설비",
+  storage: "창고·부대시설",
+  floor_plan: "평면도",
+  floorplan: "평면도",
+  map: "위치 지도",
+  location_map: "위치도",
+  cadastral: "지적도",
+};
+
+function sanitizePhotoText(raw?: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw
+    .normalize("NFC")
+    .replace(/\.(?:jpe?g|png|webp|heic|gif|bmp)$/i, "")
+    .replace(/^\d{1,3}[\s_-]+/, "")
+    .replace(/[_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function normalizeViewerGalleryPhoto(p: any, idx: number) {
+  const rawCat = String(
+    p?.category ||
+      p?.type ||
+      (String(p?.url || "").includes("map.kakao.com") ? "map" : idx === 0 ? "exterior" : "interior")
+  )
+    .trim()
+    .toLowerCase();
+  const rawLabelClean = sanitizePhotoText(p?.label);
+  const labelKey = rawLabelClean.toLowerCase().replace(/[\s/-]+/g, "_");
+  const badgeLabel =
+    VIEWER_CATEGORY_KO[labelKey] ||
+    (rawLabelClean && !/^[a-z0-9_ -]+$/i.test(rawLabelClean) ? rawLabelClean : "") ||
+    VIEWER_CATEGORY_KO[rawCat] ||
+    `현장 사진 ${idx + 1}`;
+
+  const rawCapClean = sanitizePhotoText(p?.caption);
+  const capKey = rawCapClean.toLowerCase().replace(/[\s/-]+/g, "_");
+  const cleanCaption =
+    rawCapClean && !VIEWER_CATEGORY_KO[capKey] && rawCapClean !== badgeLabel
+      ? rawCapClean
+      : undefined;
+
+  return {
+    url: p?.url,
+    type: rawCat,
+    label: badgeLabel,
+    caption: cleanCaption,
+    order: p?.order ?? idx,
+  };
+}
+
 function cleanViewerBrokerField(val?: unknown): string {
   if (!val || typeof val !== "string") return "";
   const cleaned = val.replace(/\s*\(확인\s*중\)/g, "").trim();
@@ -652,36 +719,8 @@ export function MobileIMViewer({
   const rawSectionPhotos =
     photosSec?.data?.photos || basicDoc.facts.photos || initialDoc?.photos || [];
   const galleryPhotos = useMemo(() => {
-    const CATEGORY_KO: Record<string, string> = {
-      exterior: "외관",
-      cover: "전면 외관",
-      entrance: "주출입구",
-      lobby: "메인 로비",
-      interior: "실내 공간",
-      parking: "주차·설비",
-      rooftop: "옥상·테라스",
-      floor_plan: "평면도",
-      map: "위치 지도",
-    };
-    return (Array.isArray(rawSectionPhotos) ? rawSectionPhotos : []).map(
-      (p: any, idx: number) => {
-        const rawCat = String(
-          p.category || p.type || (String(p.url || "").includes("map.kakao.com") ? "map" : idx === 0 ? "exterior" : "interior")
-        ).toLowerCase();
-        const badgeLabel = p.label
-          ? String(p.label).replace(/[_]+/g, " ").trim()
-          : CATEGORY_KO[rawCat] || `현장 사진 ${idx + 1}`;
-        const cleanCaption = p.caption
-          ? String(p.caption).replace(/[_]+/g, " ").replace(/\s+/g, " ").trim()
-          : undefined;
-        return {
-          url: p.url,
-          type: rawCat,
-          label: badgeLabel,
-          caption: cleanCaption,
-          order: p.order ?? idx,
-        };
-      }
+    return (Array.isArray(rawSectionPhotos) ? rawSectionPhotos : []).map((p: any, idx: number) =>
+      normalizeViewerGalleryPhoto(p, idx)
     );
   }, [rawSectionPhotos]);
   const handoverCondition =

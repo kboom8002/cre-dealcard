@@ -54,17 +54,21 @@ const MAX_INTAKE_BYTES = 10 * 1024 * 1024; // 10MB intake guard against serverle
  * - WebP → JPEG 강제 변환
  */
 export async function optimizeImageForPptx(
-  imageUrl: string,
+  imageUrl: string | Buffer,
   maxWidth = 1800, // D29 M-11: 실효 dpi 180 기반 (10" × 180dpi)
   quality = 75
 ): Promise<OptimizedImage | null> {
   try {
-    if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.startsWith('blob:')) {
+    if (!imageUrl) {
       return null;
     }
     let inputBuffer: Buffer;
 
-    if (imageUrl.startsWith('data:') || /^image\/[a-zA-Z0-9.+-]+;base64,/.test(imageUrl)) {
+    if (Buffer.isBuffer(imageUrl)) {
+      inputBuffer = imageUrl;
+    } else if (typeof imageUrl !== 'string' || imageUrl.startsWith('blob:')) {
+      return null;
+    } else if (imageUrl.startsWith('data:') || /^image\/[a-zA-Z0-9.+-]+;base64,/.test(imageUrl)) {
       const base64Data = imageUrl.split(',')[1];
       if (base64Data && base64Data.length * 0.75 > MAX_INTAKE_BYTES) {
         log.warn('[optimizeImageForPptx] Data URL exceeds 10MB guard, aborting to prevent OOM');
@@ -157,8 +161,11 @@ export async function optimizeImageForPptx(
     }
 
     const metadata = await sharp(inputBuffer).metadata();
-    const originalWidth = metadata.width || 1280;
-    const originalHeight = metadata.height || 960;
+    const isQuarterTurnRotated = typeof metadata.orientation === 'number' && metadata.orientation >= 5 && metadata.orientation <= 8;
+    const rawW = metadata.width || 1280;
+    const rawH = metadata.height || 960;
+    const originalWidth = isQuarterTurnRotated ? rawH : rawW;
+    const originalHeight = isQuarterTurnRotated ? rawW : rawH;
 
     const resizedBuffer = await sharp(inputBuffer).rotate() // EXIF Orientation 자동 보정 (출력 시 EXIF 제거되므로 필수)
       .resize({
@@ -174,18 +181,20 @@ export async function optimizeImageForPptx(
       .toBuffer();
 
     const resizedMeta = await sharp(resizedBuffer).metadata();
+    const finalW = resizedMeta.width || originalWidth;
+    const finalH = resizedMeta.height || originalHeight;
 
     return {
-      sourceUrl: imageUrl,
+      sourceUrl: typeof imageUrl === 'string' ? imageUrl : undefined,
       buffer: resizedBuffer,
       base64: `image/jpeg;base64,${resizedBuffer.toString('base64')}`,
-      width: resizedMeta.width || originalWidth,
-      height: resizedMeta.height || originalHeight,
+      width: finalW,
+      height: finalH,
       sizeBytes: resizedBuffer.length,
-      // D31 M-1: DPI 메타데이터
+      // D31 M-1: DPI 메타데이터 (EXIF 회전 반영된 실제 표시 기준)
       originalWidth,
       originalHeight,
-      aspectRatio: originalWidth / originalHeight,
+      aspectRatio: finalH > 0 ? finalW / finalH : originalWidth / originalHeight,
     };
   } catch (err) {
     log.warn('[optimizeImageForPptx] Failed:', imageUrl, err);
