@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { copyText } from "@/lib/ux/clipboard";
 import { shareKakaoFeed } from "@/lib/kakao/share";
 
-export type InboxFilterType = "todo" | "views" | "all";
+export type InboxFilterType = "todo" | "views" | "vip" | "all";
 export type InboxEditorTabType = "todo" | "message" | "history";
 
 export interface RecipientEvent {
@@ -150,6 +151,63 @@ function parseRawGateReason(raw: unknown): {
   return { cleanMessage: trimmed };
 }
 
+function parseFilterParam(raw: string | null): InboxFilterType | null {
+  if (!raw) return null;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "todo") return "todo";
+  if (normalized === "viewing" || normalized === "views") return "views";
+  if (normalized === "vip") return "vip";
+  if (normalized === "all") return "all";
+  return null;
+}
+
+function matchesInboxThreadFilter(
+  thread: InboxThreadItem,
+  filter: InboxFilterType,
+  rawQuery: string
+): boolean {
+  const q = rawQuery.trim().toLowerCase();
+  if (q) {
+    const qDigits = q.replace(/\D/g, "");
+    const isPhoneLikeQuery = /^[\d\s\-+()]+$/.test(q) && qDigits.length >= 2;
+    const phoneDigits = thread.clientPhone.replace(/\D/g, "");
+    const callNotesText = [
+      thread.memo || "",
+      ...thread.events.map((ev) => ev.description || ""),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    const matched =
+      thread.clientName.toLowerCase().includes(q) ||
+      thread.clientPhone.toLowerCase().includes(q) ||
+      ((isPhoneLikeQuery || qDigits.length >= 4) &&
+        qDigits.length > 0 &&
+        phoneDigits.includes(qDigits)) ||
+      (thread.clientCompany || "").toLowerCase().includes(q) ||
+      thread.buildingTitle.toLowerCase().includes(q) ||
+      thread.preferredRegion.toLowerCase().includes(q) ||
+      callNotesText.includes(q);
+
+    if (!matched) return false;
+  }
+
+  if (filter === "todo") {
+    return (
+      thread.status === "pending_gate" ||
+      thread.status === "high_interest" ||
+      thread.openCount >= 3
+    );
+  }
+  if (filter === "views") {
+    return thread.openCount > 0;
+  }
+  if (filter === "vip") {
+    return thread.clientGrade === "VIP";
+  }
+  return true;
+}
+
 export function normalizeServerThread(raw: any): InboxThreadItem {
   const parsedReason = parseRawGateReason(raw?.detail || raw?.reason || raw?.cleanMessage);
   const rawStatus = String(raw?.status || "active");
@@ -268,6 +326,8 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
 }
 
 function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
+  const router = useRouter();
+  const pathname = usePathname() || "/broker/w/inbox";
   const searchParams = useSearchParams();
   const { showUndoToast } = useUndoToast();
 
@@ -275,7 +335,21 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     initialThreads.map(normalizeServerThread)
   );
   const [inventory, setInventory] = useState<BrokerInventoryDeal[]>([]);
-  const [activeFilter, setActiveFilter] = useState<InboxFilterType>("todo");
+  const [activeFilter, setActiveFilter] = useState<InboxFilterType>(() => {
+    const fromQuery = parseFilterParam(searchParams.get("filter"));
+    if (fromQuery) return fromQuery;
+    if (initialThreads.length > 0) {
+      const normalized = initialThreads.map(normalizeServerThread);
+      const hasTodo = normalized.some(
+        (t) =>
+          t.status === "pending_gate" ||
+          t.status === "high_interest" ||
+          t.openCount >= 3
+      );
+      return hasTodo ? "todo" : "all";
+    }
+    return "todo";
+  });
   const [activeEditorTab, setActiveEditorTab] = useState<InboxEditorTabType>("todo");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>(initialThreads[0]?.id || "");
@@ -283,6 +357,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [callNote, setCallNote] = useState("");
   const [kakaoHeadline, setKakaoHeadline] = useState("");
   const [kakaoBrief, setKakaoBrief] = useState("");
+  const [inlineActionError, setInlineActionError] = useState<string | null>(null);
 
   // Share material selector sheet in Column 3
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -301,10 +376,22 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [newClientRegion, setNewClientRegion] = useState("");
   const [newClientBuildingTitle, setNewClientBuildingTitle] = useState("");
   const [newClientNewsletterOptIn, setNewClientNewsletterOptIn] = useState(false);
+
+  // Custom client inline edit state (INBOX-12)
+  const [editingClientOpen, setEditingClientOpen] = useState(false);
+  const [editClientName, setEditClientName] = useState("");
+  const [editClientPhone, setEditClientPhone] = useState("");
+  const [editClientGrade, setEditClientGrade] = useState<"VIP" | "일반" | "잠재">("VIP");
+  const [editClientBudget, setEditClientBudget] = useState("");
+  const [editClientRegion, setEditClientRegion] = useState("");
+  const [editClientBuildingTitle, setEditClientBuildingTitle] = useState("");
+
   const [currentBrokerId, setCurrentBrokerId] = useState<string>("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const busyLockRef = useRef<boolean>(false);
-  const appliedQueryThreadRef = useRef<string | null>(null);
+  const lastSyncedQueryKeyRef = useRef<string | null>(null);
+  const lastPushedQueryKeyRef = useRef<string | null>(null);
+  const lastSyncedFilterParamRef = useRef<string | null>(null);
   const [, setStatusFeedback] = useState<string | null>(null);
 
   const purgeInboxLocalStorage = () => {
@@ -334,7 +421,66 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
-  // Clear legacy unscoped storage keys and fetch real server threads (A-S0-03: per-broker isolation)
+  // Explicit thread selection helper — updates selection, locks query sync ref, and updates URL (INBOX-01)
+  const selectThread = (nextId: string, nextFilterOverride?: InboxFilterType) => {
+    if (!nextId) return;
+    const currentRawTarget =
+      searchParams.get("thread") ||
+      searchParams.get("threadId") ||
+      searchParams.get("id") ||
+      searchParams.get("clientId") ||
+      searchParams.get("buildingId") ||
+      "";
+    const currentRawFilter = searchParams.get("filter") || "";
+    const currentKey = `${currentRawTarget}::${currentRawFilter}`;
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("thread", nextId);
+    nextParams.delete("id");
+    nextParams.delete("threadId");
+    nextParams.delete("buildingId");
+    nextParams.delete("clientId");
+    if (nextFilterOverride) {
+      nextParams.set("filter", nextFilterOverride === "views" ? "viewing" : nextFilterOverride);
+    }
+
+    const nextKey = `${nextId}::${nextParams.get("filter") || ""}`;
+    lastSyncedQueryKeyRef.current = currentKey;
+    lastPushedQueryKeyRef.current = nextKey;
+
+    setSelectedId(nextId);
+    setMobileStayOnList(false);
+
+    const qs = nextParams.toString();
+    const targetHref = qs ? `${pathname}?${qs}` : pathname;
+    try {
+      router?.replace?.(targetHref, { scroll: false });
+    } catch {
+      // ignore router errors in isolated test harnesses
+    }
+  };
+
+  const handleSearchChange = (nextQuery: string) => {
+    setSearchQuery(nextQuery);
+    const nextFiltered = threads.filter((t) =>
+      matchesInboxThreadFilter(t, activeFilter, nextQuery)
+    );
+    if (!nextFiltered.some((t) => t.id === selectedId)) {
+      setSelectedId(nextFiltered[0]?.id || "");
+    }
+  };
+
+  const handleFilterChange = (nextFilter: InboxFilterType) => {
+    setActiveFilter(nextFilter);
+    const nextFiltered = threads.filter((t) =>
+      matchesInboxThreadFilter(t, nextFilter, searchQuery)
+    );
+    if (!nextFiltered.some((t) => t.id === selectedId)) {
+      setSelectedId(nextFiltered[0]?.id || "");
+    }
+  };
+
+  // Clear legacy unscoped storage keys and fetch real server threads (A-S0-03 & INBOX-03: per-broker isolation)
   useEffect(() => {
     try {
       for (const legacyKey of LEGACY_STORAGE_KEYS) {
@@ -358,7 +504,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       .then((data) => {
         if (!data) return;
 
-        const resolvedUid = typeof data.userId === "string" ? data.userId.trim() : "";
+        const resolvedUid =
+          (typeof data.userId === "string" && data.userId.trim()) ||
+          (typeof data.viewerBrokerId === "string" && data.viewerBrokerId.trim()) ||
+          "";
         if (resolvedUid) {
           setCurrentBrokerId(resolvedUid);
         }
@@ -381,7 +530,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             }
 
             const baseList =
-              initialThreads.length > 0 ? [...serverThreads, ...prev] : serverThreads;
+              initialThreads.length > 0 ? [...prev, ...serverThreads] : serverThreads;
             const byId = new Map<string, InboxThreadItem>();
             const seenCustomClientKeys = new Set<string>();
             for (const item of baseList) {
@@ -405,7 +554,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   t.status === "high_interest" ||
                   t.openCount >= 3
               );
-              if (!hasTodoItems) {
+              const queryFilter = parseFilterParam(searchParams.get("filter"));
+              if (!hasTodoItems && !queryFilter) {
                 setActiveFilter("all");
               }
               setSelectedId((curr) =>
@@ -424,30 +574,62 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
   // Close client registration modal on Escape key (IB-26)
   useEffect(() => {
-    if (!showNewClientModal) return;
+    if (!showNewClientModal && !editingClientOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setShowNewClientModal(false);
+        setEditingClientOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showNewClientModal]);
+  }, [showNewClientModal, editingClientOpen]);
 
-  // Sync selection from query params once per query value (A-S1-01: never snap back on thread mutation)
+  // Sync selection & filter from URL query params ONCE per URL change (INBOX-01 & A-S1-01: never snap back on thread mutation)
   useEffect(() => {
-    const queryId = searchParams.get("thread") || searchParams.get("id");
-    if (!queryId) {
-      appliedQueryThreadRef.current = null;
+    const rawFilter = searchParams.get("filter");
+    const parsedFilter = parseFilterParam(rawFilter);
+    if (parsedFilter && lastSyncedFilterParamRef.current !== rawFilter) {
+      lastSyncedFilterParamRef.current = rawFilter;
+      setActiveFilter(parsedFilter);
+    } else if (!rawFilter) {
+      lastSyncedFilterParamRef.current = null;
+    }
+
+    const queryTarget =
+      searchParams.get("thread") ||
+      searchParams.get("threadId") ||
+      searchParams.get("id") ||
+      searchParams.get("clientId") ||
+      searchParams.get("buildingId") ||
+      "";
+    const queryKey = `${queryTarget}::${rawFilter || ""}`;
+
+    if (!queryTarget) {
+      lastSyncedQueryKeyRef.current = null;
       return;
     }
-    if (appliedQueryThreadRef.current === queryId) return;
-    const match = threads.find((t) => t.id === queryId || t.buildingId === queryId);
-    if (match) {
-      appliedQueryThreadRef.current = queryId;
-      setSelectedId(match.id);
+    if (
+      lastSyncedQueryKeyRef.current === queryKey ||
+      lastPushedQueryKeyRef.current === queryKey
+    ) {
+      return;
     }
-  }, [searchParams, threads]);
+
+    const match = threads.find(
+      (t) => t.id === queryTarget || (Boolean(t.buildingId) && t.buildingId === queryTarget)
+    );
+    if (match) {
+      lastSyncedQueryKeyRef.current = queryKey;
+      setSelectedId(match.id);
+      setMobileStayOnList(false);
+
+      const effectiveFilter = parsedFilter ?? activeFilter;
+      if (!matchesInboxThreadFilter(match, effectiveFilter, "")) {
+        setActiveFilter("all");
+      }
+    }
+  }, [searchParams, threads, activeFilter]);
 
   const pendingThreads = useMemo(
     () => threads.filter((t) => t.status === "pending_gate"),
@@ -456,48 +638,33 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const pendingCount = pendingThreads.length;
 
   const filteredThreads = useMemo(() => {
-    return threads.filter((t) => {
-      const q = searchQuery.trim().toLowerCase();
-      const matchQuery =
-        !q ||
-        t.clientName.toLowerCase().includes(q) ||
-        t.buildingTitle.toLowerCase().includes(q) ||
-        t.preferredRegion.toLowerCase().includes(q);
-
-      if (!matchQuery) return false;
-
-      if (activeFilter === "todo") {
-        return (
-          t.status === "pending_gate" ||
-          t.status === "high_interest" ||
-          t.openCount >= 3
-        );
-      }
-      if (activeFilter === "views") {
-        return t.openCount > 0;
-      }
-      return true;
-    });
+    return threads.filter((t) =>
+      matchesInboxThreadFilter(t, activeFilter, searchQuery)
+    );
   }, [threads, activeFilter, searchQuery]);
 
   const activeThread = useMemo(() => {
     if (threads.length === 0) return null;
-    return (
-      filteredThreads.find((t) => t.id === selectedId) ||
-      threads.find((t) => t.id === selectedId) ||
-      filteredThreads[0] ||
-      threads[0] ||
-      null
-    );
+    if (selectedId) {
+      return (
+        filteredThreads.find((t) => t.id === selectedId) ||
+        threads.find((t) => t.id === selectedId) ||
+        filteredThreads[0] ||
+        null
+      );
+    }
+    return filteredThreads[0] || null;
   }, [threads, filteredThreads, selectedId]);
 
-  // When selecting a thread, reset transient drafts and inline confirmations (A-S1-02)
+  // Reset transient drafts, inline confirmations & error banners when switching threads (INBOX-02 & A-S1-02)
   useEffect(() => {
     setConfirmLockOpen(false);
     setShowShareSheet(false);
     setCorrectionNoticeOpen(false);
     setCorrectionNoticeText("");
     setCallNote("");
+    setEditingClientOpen(false);
+    setInlineActionError(null);
     if (!activeThread) return;
     if (activeThread.status === "pending_gate") {
       setActiveEditorTab("todo");
@@ -508,7 +675,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     );
   }, [activeThread?.id]);
 
-  // Shared honest mutation helper — aborts on HTTP error, json.ok === false, non-JSON 5xx, or network failure (A-S0-01, A-S1-03)
+  // Shared honest mutation helper — aborts on HTTP error, json.ok === false, non-JSON 5xx, or network failure (A-S0-01, A-S1-03, INBOX-11)
   const postJsonHonest = async (
     actionKey: string,
     url: string,
@@ -520,6 +687,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
     busyLockRef.current = true;
     setBusyAction(actionKey);
+    setInlineActionError(null);
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -535,6 +703,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             ? json.error.message.trim()
             : `${fallbackError} (HTTP ${res.status})`;
         setStatusFeedback(errMsg);
+        setInlineActionError(errMsg);
         showUndoToast(errMsg);
         return { ok: false, error: errMsg };
       }
@@ -544,12 +713,31 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       };
     } catch {
       setStatusFeedback(fallbackError);
+      setInlineActionError(fallbackError);
       showUndoToast(fallbackError);
       return { ok: false, error: fallbackError };
     } finally {
       busyLockRef.current = false;
       setBusyAction(null);
     }
+  };
+
+  // Direct clipboard copy for active IM share link (INBOX-04)
+  const handleCopyActiveShareLink = async () => {
+    if (!activeThread?.shareUrl || activeThread.status === "revoked") return;
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "https://credeal.net";
+    const fullUrl = activeThread.shareUrl.startsWith("/")
+      ? `${origin}${activeThread.shareUrl}`
+      : activeThread.shareUrl;
+    const copied = await copyText(fullUrl);
+    const msg = copied
+      ? `${activeThread.clientName}님 전용 링크가 클립보드에 복사되었습니다.`
+      : "링크 복사에 실패했습니다. 다시 시도해 주세요.";
+    setStatusFeedback(msg);
+    showUndoToast(msg);
   };
 
   // Honest approve & send IM handler (IB-11, IB-14, IB-15, A-S0-01)
@@ -656,19 +844,25 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(msg);
   };
 
-  // Share material via Kakao or Clipboard (IB-15, A-S0-01, A-S0-02, A-S0-05)
-  const handleSendMaterial = async (kind: "im" | "dealcard" | "newsletter") => {
+  // Share material via Kakao or Clipboard — preserves thread IM shareUrl when sending DealCard/Newsletter (INBOX-05, A-S0-01, A-S0-02)
+  const handleSendMaterial = async (
+    kind: "im" | "dealcard" | "newsletter" | "magazine"
+  ) => {
     if (!activeThread) return;
     setStatusFeedback(null);
 
-    if (kind === "im" && activeThread.status === "revoked") {
+    const normalizedKind: "im" | "dealcard" | "newsletter" =
+      kind === "magazine" ? "newsletter" : kind;
+
+    if (normalizedKind === "im" && activeThread.status === "revoked") {
       const msg = "잠긴 전용 링크입니다. 먼저 '링크 다시 열기'로 잠금을 해제해 주세요.";
       setStatusFeedback(msg);
       showUndoToast(msg);
       return;
     }
 
-    if ((kind === "im" || kind === "dealcard") && !activeThread.buildingId) {
+    const cleanBuildingId = activeThread.buildingId.trim();
+    if ((normalizedKind === "im" || normalizedKind === "dealcard") && !cleanBuildingId) {
       const msg = "연결된 매물이 없습니다. 매물을 먼저 지정해 주세요.";
       setStatusFeedback(msg);
       showUndoToast(msg);
@@ -682,19 +876,19 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     } as const;
 
     let pathUrl =
-      kind === "im"
-        ? activeThread.shareUrl || `/im-lite/${encodeURIComponent(activeThread.buildingId)}`
-        : kind === "dealcard"
-        ? `/dc/${encodeURIComponent(activeThread.buildingId)}`
+      normalizedKind === "im"
+        ? activeThread.shareUrl || `/im-lite/${encodeURIComponent(cleanBuildingId)}`
+        : normalizedKind === "dealcard"
+        ? `/dc/${encodeURIComponent(cleanBuildingId)}`
         : "/magazine";
 
     const apiRes = await postJsonHonest(
-      `send:${kind}:${activeThread.id}`,
+      `send:${normalizedKind}:${activeThread.id}`,
       "/api/broker/inbox/actions",
       {
-        action: actionMap[kind],
+        action: actionMap[normalizedKind],
         threadId: activeThread.id,
-        buildingId: activeThread.buildingId,
+        buildingId: cleanBuildingId,
       },
       "자료 링크 준비 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
     );
@@ -703,21 +897,24 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const json = apiRes.data;
     if (typeof json.shareUrl === "string" && json.shareUrl) {
       pathUrl = json.shareUrl;
-      const issuedToken =
-        typeof json.shareToken === "string" ? json.shareToken : "";
-      setThreads((prev) => {
-        const next = prev.map((t) =>
-          t.id === activeThread.id
-            ? {
-                ...t,
-                shareUrl: json.shareUrl,
-                shareToken: issuedToken || t.shareToken,
-              }
-            : t
-        );
-        persistThreads(next);
-        return next;
-      });
+      // INBOX-05: Only update thread.shareUrl / shareToken when sending IM link; never clobber IM link with DealCard/Newsletter URL!
+      if (normalizedKind === "im") {
+        const issuedToken =
+          typeof json.shareToken === "string" ? json.shareToken : "";
+        setThreads((prev) => {
+          const next = prev.map((t) =>
+            t.id === activeThread.id
+              ? {
+                  ...t,
+                  shareUrl: json.shareUrl,
+                  shareToken: issuedToken || t.shareToken,
+                }
+              : t
+          );
+          persistThreads(next);
+          return next;
+        });
+      }
     }
 
     const origin =
@@ -732,35 +929,36 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       newsletter: "뉴스레터 링크",
     } as const;
 
-    const ogImageUrl = activeThread.buildingId
-      ? `${origin}/api/og/deal/${encodeURIComponent(activeThread.buildingId)}/kakao-v2`
-      : `${origin}/api/og/magazine`;
+    const thumbnailImageUrl =
+      normalizedKind !== "newsletter" && cleanBuildingId
+        ? `${origin}/api/og/deal/${encodeURIComponent(cleanBuildingId)}/kakao-v2`
+        : `${origin}/api/og/magazine`;
 
     const shareRes = await shareKakaoFeed({
-      title: kakaoHeadline || `[${activeThread.buildingTitle}] ${labelMap[kind]}`,
+      title: kakaoHeadline || `[${activeThread.buildingTitle}] ${labelMap[normalizedKind]}`,
       description:
         kakaoBrief || `${activeThread.clientName}님을 위한 맞춤 매물 자료입니다.`,
-      imageUrl: ogImageUrl,
+      imageUrl: thumbnailImageUrl,
       url: fullUrl,
-      buttonTitle: `${labelMap[kind]} 열람하기`,
+      buttonTitle: `${labelMap[normalizedKind]} 열람하기`,
     });
 
     if (shareRes === "kakao" || shareRes === "copied") {
       const msg =
         shareRes === "kakao"
-          ? `카카오톡으로 ${labelMap[kind]} 공유 창을 열었습니다.`
-          : `${labelMap[kind]}가 클립보드에 복사되었습니다. 카톡에 붙여넣어 보내세요.`;
+          ? `카카오톡으로 ${labelMap[normalizedKind]} 공유 창을 열었습니다.`
+          : `${labelMap[normalizedKind]}가 클립보드에 복사되었습니다. 카톡에 붙여넣어 보내세요.`;
       setStatusFeedback(msg);
       showUndoToast(msg);
       setShowShareSheet(false);
     } else {
-      const errMsg = `${labelMap[kind]} 복사에 실패했습니다. 다시 시도해 주세요.`;
+      const errMsg = `${labelMap[normalizedKind]} 복사에 실패했습니다. 다시 시도해 주세요.`;
       setStatusFeedback(errMsg);
       showUndoToast(errMsg);
     }
   };
 
-  // Inline Lock Share Link (IB-05, IB-16, A-S0-01 — no window.prompt)
+  // Inline Lock Share Link (IB-05, IB-16, A-S0-01, INBOX-07 — no window.prompt)
   const handleConfirmLockLink = async () => {
     if (!activeThread) return;
     const targetThread = activeThread;
@@ -773,6 +971,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       {
         token: targetThread.shareToken || undefined,
         buildingId: targetThread.buildingId,
+        threadId: targetThread.id,
         reason: "broker_locked",
       },
       "열람 링크 잠금 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
@@ -831,6 +1030,48 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     });
 
     const msg = `${targetThread.clientName}님의 전용 링크를 다시 열었습니다.`;
+    setStatusFeedback(msg);
+    showUndoToast(msg);
+  };
+
+  // Toggle newsletter subscription with honest server persistence & busy guard (INBOX-06, INBOX-11)
+  const handleToggleNewsletter = async () => {
+    if (!activeThread) return;
+    const targetThread = activeThread;
+    const nextSubscribed = !Boolean(targetThread.newsletterSubscribed);
+
+    const apiRes = await postJsonHonest(
+      `newsletter:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "toggle_newsletter",
+        threadId: targetThread.id,
+        clientId: targetThread.id,
+        clientName: targetThread.clientName,
+        clientPhone: targetThread.clientPhone,
+        buildingId: targetThread.buildingId,
+        subscribed: nextSubscribed,
+      },
+      "뉴스레터 수신 설정 변경에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.id === targetThread.id
+          ? {
+              ...t,
+              newsletterSubscribed: nextSubscribed,
+            }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
+
+    const msg = nextSubscribed
+      ? `${targetThread.clientName}님의 뉴스레터 수신 동의가 켜졌습니다.`
+      : `${targetThread.clientName}님의 뉴스레터 수신이 해제되었습니다.`;
     setStatusFeedback(msg);
     showUndoToast(msg);
   };
@@ -931,7 +1172,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(toastMsg);
   };
 
-  // Call / Consultation Note (honest persistence — A-S0-01)
+  // Call / Consultation Note (honest persistence — A-S0-01, INBOX-11)
   const handleAddCallNote = async () => {
     if (!activeThread || !callNote.trim()) return;
     const trimmed = callNote.trim();
@@ -975,7 +1216,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast("통화 및 상담 기록을 저장했습니다.");
   };
 
-  // Create Custom Client (never fabricates fake phone numbers or wrong building — IB-07, IB-26, A-S0-01, A-S0-05)
+  // Create Custom Client (IB-07, IB-26, A-S0-01, A-S0-05, INBOX-14)
   const handleCreateCustomClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName.trim()) return;
@@ -1061,10 +1302,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       persistThreads(next);
       return next;
     });
-    if (activeFilter === "todo" && pendingCount === 0) {
+
+    setSearchQuery("");
+    const shouldSwitchAll =
+      activeFilter === "todo" ||
+      activeFilter === "views" ||
+      (activeFilter === "vip" && created.clientGrade !== "VIP");
+    if (shouldSwitchAll) {
       setActiveFilter("all");
     }
-    setSelectedId(canonicalId);
+    selectThread(canonicalId, shouldSwitchAll ? "all" : undefined);
+
     setNewClientName("");
     setNewClientPhone("");
     setNewClientBudget("");
@@ -1073,6 +1321,142 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     setNewClientNewsletterOptIn(false);
     setShowNewClientModal(false);
     showUndoToast(`${created.clientName} 고객이 등록되었습니다.`);
+  };
+
+  // Open custom client edit form (INBOX-12)
+  const handleOpenEditCustomClient = () => {
+    if (!activeThread || !activeThread.id.startsWith("custom_")) return;
+    setEditClientName(activeThread.clientName);
+    setEditClientPhone(activeThread.clientPhone);
+    setEditClientGrade(activeThread.clientGrade);
+    setEditClientBudget(activeThread.budget);
+    setEditClientRegion(activeThread.preferredRegion);
+    setEditClientBuildingTitle(
+      activeThread.buildingTitle === "관심 매물 미지정"
+        ? ""
+        : activeThread.buildingTitle
+    );
+    setEditingClientOpen(true);
+  };
+
+  // Update custom client (INBOX-12)
+  const handleUpdateCustomClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeThread || !activeThread.id.startsWith("custom_") || !editClientName.trim()) {
+      return;
+    }
+    const targetThread = activeThread;
+    const cleanPhone = sanitizeClientPhone(editClientPhone);
+    const trimmedTitle = editClientBuildingTitle.trim();
+    const matchedInventory = trimmedTitle
+      ? inventory.find((d) => d.title === trimmedTitle || d.buildingId === trimmedTitle)
+      : undefined;
+    const resolvedBuildingId =
+      matchedInventory?.buildingId ??
+      (trimmedTitle === targetThread.buildingTitle ? targetThread.buildingId : "");
+    const resolvedBuildingTitle =
+      trimmedTitle || matchedInventory?.title || "관심 매물 미지정";
+
+    const apiRes = await postJsonHonest(
+      `update_client:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "update_client",
+        clientId: targetThread.id,
+        threadId: targetThread.id,
+        clientName: editClientName.trim(),
+        clientPhone: cleanPhone,
+        clientGrade: editClientGrade,
+        budget: editClientBudget.trim(),
+        preferredRegion: editClientRegion.trim(),
+        buildingId: resolvedBuildingId,
+        buildingTitle: resolvedBuildingTitle,
+        newsletterSubscribed: Boolean(targetThread.newsletterSubscribed),
+      },
+      "고객 정보 수정에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.id === targetThread.id
+          ? {
+              ...t,
+              clientName: editClientName.trim(),
+              clientPhone: cleanPhone,
+              clientGrade: editClientGrade,
+              budget: editClientBudget.trim(),
+              preferredRegion: editClientRegion.trim(),
+              buildingId: resolvedBuildingId,
+              buildingTitle: resolvedBuildingTitle,
+              shareUrl: resolvedBuildingId
+                ? t.shareToken
+                  ? `/im-lite/${encodeURIComponent(resolvedBuildingId)}?token=${encodeURIComponent(t.shareToken)}`
+                  : `/im-lite/${encodeURIComponent(resolvedBuildingId)}`
+                : "",
+            }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
+    setEditingClientOpen(false);
+    showUndoToast(`${editClientName.trim()} 고객 정보를 수정했습니다.`);
+  };
+
+  // Delete custom client with UndoConfirmToast restore (INBOX-12)
+  const handleDeleteCustomClient = async () => {
+    if (!activeThread || !activeThread.id.startsWith("custom_")) return;
+    const deletedSnapshot = { ...activeThread };
+
+    const apiRes = await postJsonHonest(
+      `delete_client:${deletedSnapshot.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "delete_client",
+        clientId: deletedSnapshot.id,
+        threadId: deletedSnapshot.id,
+      },
+      "고객 삭제 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    const remaining = threads.filter((t) => t.id !== deletedSnapshot.id);
+    setThreads(remaining);
+    persistThreads(remaining);
+    setSelectedId(remaining[0]?.id || "");
+
+    showUndoToast({
+      message: `${deletedSnapshot.clientName} 고객을 목록에서 삭제했습니다.`,
+      undoLabel: "되돌리기",
+      undoAction: async () => {
+        const restoreRes = await postJsonHonest(
+          `restore_client:${deletedSnapshot.id}`,
+          "/api/broker/inbox/actions",
+          {
+            action: "upsert_client",
+            clientId: deletedSnapshot.id,
+            clientName: deletedSnapshot.clientName,
+            clientPhone: deletedSnapshot.clientPhone,
+            clientGrade: deletedSnapshot.clientGrade,
+            budget: deletedSnapshot.budget,
+            preferredRegion: deletedSnapshot.preferredRegion,
+            buildingId: deletedSnapshot.buildingId,
+            buildingTitle: deletedSnapshot.buildingTitle,
+            newsletterSubscribed: Boolean(deletedSnapshot.newsletterSubscribed),
+          },
+          "고객 복구에 실패했습니다. 잠시 후 다시 시도해 주세요."
+        );
+        if (!restoreRes.ok) return;
+        setThreads((prev) => {
+          if (prev.some((t) => t.id === deletedSnapshot.id)) return prev;
+          const next = [deletedSnapshot, ...prev];
+          persistThreads(next);
+          return next;
+        });
+        selectThread(deletedSnapshot.id);
+      },
+    });
   };
 
   /* ──────── Column 1: 할 일 요약 카드 + 3개 필터 칩 + 고객 목록 (Apple iOS Frosted Rail) ──────── */
@@ -1112,7 +1496,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             {pendingThreads.slice(0, 1).map((pt) => (
               <div
                 key={`todo-quick-${pt.id}`}
-                className="flex items-center justify-between gap-2 rounded-xl border border-[#FF9500]/22 bg-white/90 px-3 py-2 shadow-2xs"
+                role="button"
+                tabIndex={0}
+                data-testid={`quick-todo-card-${pt.id}`}
+                onClick={() => selectThread(pt.id)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    selectThread(pt.id);
+                  }
+                }}
+                className="flex items-center justify-between gap-2 rounded-xl border border-[#FF9500]/22 bg-white/90 px-3 py-2 shadow-2xs transition hover:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-[#1D1D1F]">
@@ -1125,11 +1520,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 <button
                   type="button"
                   data-testid={`quick-approve-btn-${pt.id}`}
+                  disabled={Boolean(busyAction)}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleApproveAndSendIm(pt);
                   }}
-                  className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-[#24B63E] to-[#188C2C] px-3.5 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_6px_rgba(29,158,52,0.22)] transition hover:brightness-105 cursor-pointer"
+                  className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-[#24B63E] to-[#188C2C] px-3.5 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_6px_rgba(29,158,52,0.22)] transition hover:brightness-105 disabled:opacity-50 cursor-pointer"
                 >
                   자료 보내기
                 </button>
@@ -1158,7 +1554,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             { key: "all", label: "전체 고객" },
           ] as const
         ).map((flt) => {
-          const isSelected = activeFilter === flt.key;
+          const isSelected =
+            activeFilter === flt.key ||
+            (flt.key === "all" && activeFilter === "vip");
           return (
             <button
               key={flt.key}
@@ -1166,7 +1564,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               role="tab"
               aria-selected={isSelected}
               data-testid={`inbox-filter-chip-${flt.key}`}
-              onClick={() => setActiveFilter(flt.key)}
+              onClick={() => handleFilterChange(flt.key)}
               className={`min-h-[44px] rounded-xl px-2.5 py-2 text-sm font-semibold transition-all cursor-pointer ${
                 isSelected
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
@@ -1182,14 +1580,14 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       {/* 검색창 */}
       <div>
         <label htmlFor="inbox-search-input" className="sr-only">
-          고객명 또는 매물명 검색
+          고객명, 연락처, 회사명, 매물명 또는 상담 메모 검색
         </label>
         <input
           id="inbox-search-input"
           type="search"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="고객명, 매물명 검색"
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="고객명, 연락처, 회사명, 매물 검색"
           className="min-h-[48px] w-full rounded-2xl border border-slate-900/[0.12] bg-white/92 px-3.5 py-2.5 text-base text-[#1D1D1F] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 focus:outline-none transition-all"
         />
       </div>
@@ -1226,8 +1624,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             <button
               type="button"
               onClick={() => {
-                setActiveFilter("all");
                 setSearchQuery("");
+                handleFilterChange("all");
               }}
               className="mt-3 inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
             >
@@ -1268,19 +1666,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 key={item.id}
                 role="button"
                 tabIndex={0}
+                aria-current={isSelected ? "true" : undefined}
+                data-selected={isSelected ? "true" : "false"}
                 data-testid={`inbox-thread-row-${item.id}`}
-                onClick={() => {
-                  setSelectedId(item.id);
-                  setMobileStayOnList(false);
-                }}
+                onClick={() => selectThread(item.id)}
                 onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setSelectedId(item.id);
-                    setMobileStayOnList(false);
+                    selectThread(item.id);
                   }
                 }}
-                className={`rounded-xl border p-3.5 transition cursor-pointer ${
+                className={`rounded-xl border p-3.5 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
                   isSelected
                     ? "border-blue-600 bg-blue-50/50 shadow-xs"
                     : "border-slate-200 bg-white hover:border-slate-300"
@@ -1334,7 +1731,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         </div>
       ) : (
         <>
-          {/* 선택된 고객 상단 헤더 */}
+          {inlineActionError && (
+            <div
+              role="alert"
+              data-testid="inbox-action-error-banner"
+              className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900"
+            >
+              {inlineActionError}
+            </div>
+          )}
+
+          {/* 선택된 고객 상단 헤더 + 딜카드/IM 편집 딥링크 (INBOX-04) */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1378,6 +1785,29 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 <p className="mt-1 text-base font-semibold text-slate-800">
                   관심 매물: {activeThread.buildingTitle}
                 </p>
+
+                {activeThread.buildingId.trim().length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/broker/w/dealcards?buildingId=${encodeURIComponent(
+                        activeThread.buildingId.trim()
+                      )}`}
+                      data-testid="inbox-open-dealcard-link"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                    >
+                      📄 딜카드 편집 →
+                    </Link>
+                    <Link
+                      href={`/broker/w/im?buildingId=${encodeURIComponent(
+                        activeThread.buildingId.trim()
+                      )}`}
+                      data-testid="inbox-open-im-link"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                    >
+                      📊 IM 편집 →
+                    </Link>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -1465,16 +1895,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     <button
                       type="button"
                       data-testid="approve-gate-primary-btn"
+                      disabled={Boolean(busyAction)}
                       onClick={() => handleApproveAndSendIm(activeThread)}
-                      className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
+                      className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
                     >
                       자료 보내기(승인)
                     </button>
                     <button
                       type="button"
                       data-testid="reject-gate-btn"
+                      disabled={Boolean(busyAction)}
                       onClick={() => handleRejectRequest(activeThread)}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-base font-bold text-slate-700 transition hover:bg-slate-100 cursor-pointer"
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-base font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
                     >
                       거절
                     </button>
@@ -1503,7 +1935,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                       className={`inline-flex min-h-[48px] items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold ${
                         activeThread.status === "revoked"
                           ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-                          : "bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
+                          : "bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
                       }`}
                     >
                       {activeThread.status === "revoked"
@@ -1512,15 +1944,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     </button>
                     <button
                       type="button"
+                      disabled={Boolean(busyAction)}
                       onClick={() => handleSendMaterial("dealcard")}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                     >
                       딜카드 보내기
                     </button>
                     <button
                       type="button"
+                      disabled={Boolean(busyAction)}
                       onClick={() => handleSendMaterial("newsletter")}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                     >
                       뉴스레터 보내기
                     </button>
@@ -1580,7 +2014,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   className={`inline-flex min-h-[48px] items-center justify-center rounded-xl px-5 py-2.5 text-base font-bold ${
                     activeThread.status === "revoked"
                       ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-                      : "bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
+                      : "bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
                   }`}
                 >
                   {activeThread.status === "revoked"
@@ -1589,15 +2023,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 </button>
                 <button
                   type="button"
+                  disabled={Boolean(busyAction)}
                   onClick={() => handleSendMaterial("dealcard")}
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
                   딜카드 보내기
                 </button>
                 <button
                   type="button"
+                  disabled={Boolean(busyAction)}
                   onClick={() => handleSendMaterial("newsletter")}
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
                   뉴스레터 보내기
                 </button>
@@ -1631,8 +2067,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   <button
                     type="button"
                     data-testid="save-call-note-btn"
+                    disabled={Boolean(busyAction)}
                     onClick={handleAddCallNote}
-                    className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 cursor-pointer"
+                    className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
                   >
                     메모 저장
                   </button>
@@ -1679,14 +2116,15 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     </div>
   );
 
-  /* ──────── Column 3: 단일 주요 CTA + 고객 요약 카드 + 인라인 링크 잠그기 (IB-16) ──────── */
+  /* ──────── Column 3: 단일 주요 CTA + 직접 링크 복사 + 고객 요약 카드 + 인라인 링크 잠그기 ──────── */
   const primaryActionSlot = activeThread ? (
     activeThread.status === "pending_gate" ? (
       <button
         type="button"
         data-testid="primary-cta-approve-im"
+        disabled={Boolean(busyAction)}
         onClick={() => handleApproveAndSendIm(activeThread)}
-        className="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
+        className="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
       >
         승인하고 IM 보내기
       </button>
@@ -1694,8 +2132,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       <button
         type="button"
         data-testid="primary-cta-kakao-send"
+        disabled={Boolean(busyAction)}
         onClick={() => setShowShareSheet((prev) => !prev)}
-        className="min-h-[48px] w-full rounded-xl bg-slate-900 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-slate-800 cursor-pointer"
+        className="min-h-[48px] w-full rounded-xl bg-slate-900 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
       >
         카톡으로 자료 보내기
       </button>
@@ -1712,6 +2151,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         </div>
       ) : (
         <>
+          {/* 전용 링크 즉시 복사 버튼 — 카톡 공유 옆 상시 노출 (INBOX-04) */}
+          {Boolean(activeThread.shareUrl) && activeThread.status !== "revoked" && (
+            <button
+              type="button"
+              data-testid="inbox-copy-share-link-btn"
+              onClick={handleCopyActiveShareLink}
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-900 shadow-2xs transition hover:bg-slate-50 cursor-pointer"
+            >
+              🔗 링크 복사
+            </button>
+          )}
+
           {/* 카톡으로 자료 보내기 선택 시트 */}
           {showShareSheet && (
             <div
@@ -1728,7 +2179,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 className={`flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm font-bold ${
                   activeThread.status === "revoked"
                     ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                    : "border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100 cursor-pointer"
+                    : "border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
                 }`}
               >
                 <span>IM 전용 링크 보내기</span>
@@ -1738,16 +2189,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               </button>
               <button
                 type="button"
+                disabled={Boolean(busyAction)}
                 onClick={() => handleSendMaterial("dealcard")}
-                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
               >
                 <span>딜카드 링크 보내기</span>
                 <span className="text-sm text-blue-700">선택 →</span>
               </button>
               <button
                 type="button"
+                disabled={Boolean(busyAction)}
                 onClick={() => handleSendMaterial("newsletter")}
-                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
               >
                 <span>뉴스레터 보내기</span>
                 <span className="text-sm text-blue-700">선택 →</span>
@@ -1755,7 +2208,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             </div>
           )}
 
-          {/* 고객 요약 카드 (이름 · 연락처 · 관심 매물 · 희망 예산 · 선호 권역 · 열람 횟수) */}
+          {/* 고객 요약 카드 (이름 · 연락처 · 관심 매물 · 희망 예산 · 선호 권역 · 열람 횟수 · 뉴스레터 · 직접등록 수정/삭제) */}
           <div
             data-testid="inbox-client-summary-card"
             className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
@@ -1812,7 +2265,49 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   {activeThread.openCount}회
                 </dd>
               </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <dt className="font-semibold text-slate-500">뉴스레터</dt>
+                <dd>
+                  <button
+                    type="button"
+                    data-testid="toggle-newsletter-btn"
+                    disabled={Boolean(busyAction)}
+                    onClick={handleToggleNewsletter}
+                    className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-bold transition disabled:opacity-50 cursor-pointer ${
+                      activeThread.newsletterSubscribed
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {activeThread.newsletterSubscribed ? "수신 동의" : "미구독"}
+                  </button>
+                </dd>
+              </div>
             </dl>
+
+            {/* 직접 등록 고객 수정 / 삭제 버튼 (INBOX-12) */}
+            {activeThread.id.startsWith("custom_") && (
+              <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
+                <button
+                  type="button"
+                  data-testid="edit-custom-client-btn"
+                  disabled={Boolean(busyAction)}
+                  onClick={handleOpenEditCustomClient}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                >
+                  정보 수정
+                </button>
+                <button
+                  type="button"
+                  data-testid="delete-custom-client-btn"
+                  disabled={Boolean(busyAction)}
+                  onClick={handleDeleteCustomClient}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                >
+                  고객 삭제
+                </button>
+              </div>
+            )}
 
             {/* 전화 걸기 버튼 (번호 있을 때만 활성 — IB-07) */}
             <div className="pt-2">
@@ -1865,8 +2360,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 <button
                   type="button"
                   data-testid="unlock-share-link-btn"
+                  disabled={Boolean(busyAction)}
                   onClick={handleUnlockLink}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
                   링크 다시 열기
                 </button>
@@ -1876,8 +2372,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 <button
                   type="button"
                   data-testid="lock-share-link-trigger-btn"
+                  disabled={Boolean(busyAction)}
                   onClick={() => setConfirmLockOpen(true)}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 cursor-pointer"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
                 >
                   보낸 링크 잠그기
                 </button>
@@ -1894,15 +2391,105 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   <button
                     type="button"
                     data-testid="confirm-lock-link-btn"
+                    disabled={Boolean(busyAction)}
                     onClick={handleConfirmLockLink}
-                    className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-bold text-white hover:bg-rose-700 cursor-pointer"
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
                   >
                     잠그기
                   </button>
+                  <button
+                    type="button"
+                    data-testid="cancel-lock-link-btn"
+                    onClick={() => setConfirmLockOpen(false)}
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 수치 정정 안내 제어 (IB-G11, IB-G12, INBOX-02) */}
+            <div
+              data-testid="inbox-correction-notice-section"
+              className="mt-4 border-t border-slate-200 pt-3.5 space-y-2.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-slate-900">
+                  수치 정정 안내 배너
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${
+                    activeThread.hasCorrectionNotice
+                      ? "bg-amber-100 text-amber-900"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {activeThread.hasCorrectionNotice ? "표시 중" : "꺼짐"}
+                </span>
+              </div>
+
+              {activeThread.hasCorrectionNotice ? (
+                <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-amber-900 leading-snug">
+                    ⚠️{" "}
+                    {activeThread.correctionMessage ||
+                      "매물 제원이 최신 기준으로 정정되었습니다."}
+                  </p>
+                  <button
+                    type="button"
+                    data-testid="clear-correction-notice-btn"
+                    disabled={Boolean(busyAction)}
+                    onClick={() => handleClearCorrectionNotice()}
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-400 bg-white px-4 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+                  >
+                    정정 안내 내리기
+                  </button>
+                </div>
+              ) : !correctionNoticeOpen ? (
+                <button
+                  type="button"
+                  data-testid="open-correction-notice-btn"
+                  disabled={Boolean(busyAction)}
+                  onClick={() => setCorrectionNoticeOpen(true)}
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+                >
+                  ⚠️ 수치 정정 안내 띄우기
+                </button>
+              ) : (
+                <div
+                  data-testid="correction-notice-inline-box"
+                  className="space-y-2.5 rounded-xl border border-amber-300 bg-amber-50/80 p-3.5"
+                >
+                  <label
+                    htmlFor="correction-notice-input"
+                    className="block text-sm font-bold text-amber-950"
+                  >
+                    수신자 화면 상단에 띄울 정정 문구
+                  </label>
+                  <input
+                    id="correction-notice-input"
+                    data-testid="correction-notice-input"
+                    type="text"
+                    value={correctionNoticeText}
+                    onChange={(e) => setCorrectionNoticeText(e.target.value)}
+                    placeholder="예: 3층 임대료 조건이 정정되었습니다."
+                    className="w-full min-h-[48px] rounded-lg border border-amber-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-amber-600 focus:outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      data-testid="cancel-lock-link-btn"
-                      onClick={() => setConfirmLockOpen(false)}
+                      data-testid="submit-correction-notice-btn"
+                      disabled={Boolean(busyAction)}
+                      onClick={() => handlePublishCorrectionNotice()}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-amber-500 px-3 py-2 text-sm font-extrabold text-slate-950 hover:bg-amber-600 disabled:opacity-50 cursor-pointer"
+                    >
+                      정정 안내 게시
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="cancel-correction-notice-btn"
+                      onClick={() => setCorrectionNoticeOpen(false)}
                       className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
                     >
                       취소
@@ -1910,92 +2497,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   </div>
                 </div>
               )}
-
-              {/* 수치 정정 안내 제어 (IB-G11, IB-G12) */}
-              <div
-                data-testid="inbox-correction-notice-section"
-                className="mt-4 border-t border-slate-200 pt-3.5 space-y-2.5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-slate-900">
-                    수치 정정 안내 배너
-                  </span>
-                  <span
-                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${
-                      activeThread.hasCorrectionNotice
-                        ? "bg-amber-100 text-amber-900"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {activeThread.hasCorrectionNotice ? "표시 중" : "꺼짐"}
-                  </span>
-                </div>
-
-                {activeThread.hasCorrectionNotice ? (
-                  <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-                    <p className="text-sm font-semibold text-amber-900 leading-snug">
-                      ⚠️ {activeThread.correctionMessage || "매물 제원이 최신 기준으로 정정되었습니다."}
-                    </p>
-                    <button
-                      type="button"
-                      data-testid="clear-correction-notice-btn"
-                      onClick={() => handleClearCorrectionNotice()}
-                      className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-400 bg-white px-4 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
-                    >
-                      정정 안내 내리기
-                    </button>
-                  </div>
-                ) : !correctionNoticeOpen ? (
-                  <button
-                    type="button"
-                    data-testid="open-correction-notice-btn"
-                    onClick={() => setCorrectionNoticeOpen(true)}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-900 transition hover:bg-amber-100 cursor-pointer"
-                  >
-                    ⚠️ 수치 정정 안내 띄우기
-                  </button>
-                ) : (
-                  <div
-                    data-testid="correction-notice-inline-box"
-                    className="space-y-2.5 rounded-xl border border-amber-300 bg-amber-50/80 p-3.5"
-                  >
-                    <label
-                      htmlFor="correction-notice-input"
-                      className="block text-sm font-bold text-amber-950"
-                    >
-                      수신자 화면 상단에 띄울 정정 문구
-                    </label>
-                    <input
-                      id="correction-notice-input"
-                      data-testid="correction-notice-input"
-                      type="text"
-                      value={correctionNoticeText}
-                      onChange={(e) => setCorrectionNoticeText(e.target.value)}
-                      placeholder="예: 3층 임대료가 450만원→480만원으로 정정되었습니다."
-                      className="w-full min-h-[48px] rounded-lg border border-amber-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-amber-600 focus:outline-none"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        data-testid="submit-correction-notice-btn"
-                        onClick={() => handlePublishCorrectionNotice()}
-                        className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-amber-500 px-3 py-2 text-sm font-extrabold text-slate-950 hover:bg-amber-600 cursor-pointer"
-                      >
-                        정정 안내 게시
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="cancel-correction-notice-btn"
-                        onClick={() => setCorrectionNoticeOpen(false)}
-                        className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
-                      >
-                        취소
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
+          </div>
         </>
       )}
     </div>
@@ -2009,12 +2512,171 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         editorSlot={editorSlot}
         previewSlot={previewSlot}
         primaryActionSlot={primaryActionSlot}
-        selectedBuildingId={activeThread?.id || selectedId || null}
+        selectedBuildingId={selectedId || activeThread?.id || null}
         selectedLabel={activeThread?.clientName}
         navBadges={{ inbox: pendingCount }}
         mobileTabLabels={{ editor: "상담", preview: "고객 정보" }}
         mobileStartOnList={mobileStayOnList}
       />
+
+      {/* 직접 등록 고객 수정 모달 (INBOX-12) */}
+      {editingClientOpen && activeThread && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+          onClick={() => setEditingClientOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inbox-edit-client-dialog-title"
+            data-testid="inbox-edit-client-dialog"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2
+                id="inbox-edit-client-dialog-title"
+                className="text-lg font-extrabold text-slate-900"
+              >
+                고객 정보 수정
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditingClientOpen(false)}
+                className="inline-flex min-h-[48px] items-center justify-center rounded-lg px-3 text-sm font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                닫기
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateCustomClient} className="mt-4 space-y-3.5">
+              <div>
+                <label
+                  htmlFor="edit-client-name"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  고객 성함 (필수)
+                </label>
+                <input
+                  id="edit-client-name"
+                  data-testid="edit-client-name-input"
+                  type="text"
+                  required
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-client-phone"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  연락처
+                </label>
+                <input
+                  id="edit-client-phone"
+                  data-testid="edit-client-phone-input"
+                  type="tel"
+                  value={editClientPhone}
+                  onChange={(e) => setEditClientPhone(e.target.value)}
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-client-grade"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  고객 구분
+                </label>
+                <select
+                  id="edit-client-grade"
+                  value={editClientGrade}
+                  onChange={(e) =>
+                    setEditClientGrade(e.target.value as "VIP" | "일반" | "잠재")
+                  }
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                >
+                  <option value="VIP">VIP</option>
+                  <option value="일반">일반</option>
+                  <option value="잠재">잠재</option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-client-building"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  관심 매물명
+                </label>
+                <input
+                  id="edit-client-building"
+                  list="inbox-inventory-buildings"
+                  type="text"
+                  value={editClientBuildingTitle}
+                  onChange={(e) => setEditClientBuildingTitle(e.target.value)}
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="edit-client-budget"
+                    className="mb-1 block text-sm font-bold text-slate-800"
+                  >
+                    희망 예산
+                  </label>
+                  <input
+                    id="edit-client-budget"
+                    type="text"
+                    value={editClientBudget}
+                    onChange={(e) => setEditClientBudget(e.target.value)}
+                    className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="edit-client-region"
+                    className="mb-1 block text-sm font-bold text-slate-800"
+                  >
+                    선호 권역
+                  </label>
+                  <input
+                    id="edit-client-region"
+                    type="text"
+                    value={editClientRegion}
+                    onChange={(e) => setEditClientRegion(e.target.value)}
+                    className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingClientOpen(false)}
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  data-testid="submit-edit-client-btn"
+                  disabled={Boolean(busyAction)}
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                >
+                  저장하기
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 고객 직접 등록 모달 (role="dialog", aria-modal="true", Escape 닫기, htmlFor/id 연결 — IB-26) */}
       {showNewClientModal && (
@@ -2193,7 +2855,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 <button
                   type="submit"
                   data-testid="submit-new-client-btn"
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 cursor-pointer"
+                  disabled={Boolean(busyAction)}
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
                 >
                   고객 등록하기
                 </button>

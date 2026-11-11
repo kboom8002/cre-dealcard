@@ -36,6 +36,8 @@ const BodySchema = z.object({
   correction: z.boolean().optional(),
   /** 품질 게이트 불합격 콘텐츠를 사람이 검토했음을 확인 */
   acknowledgeQualityGate: z.boolean().optional(),
+  /** 초회 발행 시 명시적 발행일 (KST YYYY-MM-DD) */
+  issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   payload: PayloadSchema.optional(),
 });
 
@@ -114,7 +116,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const nowIso = new Date().toISOString();
     // 정정 발행은 최초 발행일(KST)의 공개 행을 갱신한다
     const issueDate =
-      correction && edition.published_at ? toKstDate(new Date(edition.published_at)) : todayKst();
+      correction && edition.published_at
+        ? toKstDate(new Date(edition.published_at))
+        : parsed.data.issueDate ?? todayKst();
 
     const rawContentSource = payloadContent !== undefined ? payloadContent : edition.content;
     const contentForNormalize =
@@ -229,7 +233,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .then(() => undefined, () => undefined);
     }
 
-    return NextResponse.json({ ok: true, edition: updated, issueDate, correction });
+    const origin = request.nextUrl?.origin || "https://credeal.net";
+    const segList = Array.isArray(payloadColumns.target_segments) ? payloadColumns.target_segments : [];
+    const targetParam = segList[0] && segList[0] !== "all" ? `&target=${encodeURIComponent(segList[0])}` : "";
+    const publicUrl = `${origin}/magazine/${encodeURIComponent(ctx.slug)}/${encodeURIComponent(issueDate)}?edition=${encodeURIComponent(edition.id)}${targetParam}`;
+
+    return NextResponse.json({ ok: true, edition: updated, issueDate, correction, publicUrl, url: publicUrl });
   } catch (err: unknown) {
     log.error("[api/magazine/editions/publish]", err instanceof Error ? err.message : String(err));
     return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);

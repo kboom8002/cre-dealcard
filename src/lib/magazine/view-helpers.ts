@@ -106,12 +106,12 @@ const ORDER_ALL: readonly ViewerSectionId[] = [
   'market_data', 'news_curation', 'auction_picks', 'reports', 'sentiment_index', 'roi_calculator', 'tax_clinic', 'referral',
 ];
 const ORDER_BUYER: readonly ViewerSectionId[] = [
-  'ai_briefing', 'field_note', 'featured_deals', 'theme_of_week', 'poll', 'subscribe_cta', 'broker_profile',
-  'market_data', 'news_curation', 'auction_picks', 'reports', 'sentiment_index', 'roi_calculator', 'tax_clinic', 'referral',
+  'ai_briefing', 'field_note', 'featured_deals', 'roi_calculator', 'theme_of_week', 'poll', 'subscribe_cta', 'broker_profile',
+  'market_data', 'news_curation', 'auction_picks', 'reports', 'sentiment_index', 'tax_clinic', 'referral',
 ];
 const ORDER_SELLER: readonly ViewerSectionId[] = [
   'ai_briefing', 'field_note', 'market_data', 'sentiment_index', 'featured_deals', 'theme_of_week', 'poll',
-  'subscribe_cta', 'broker_profile', 'news_curation', 'auction_picks', 'reports', 'tax_clinic', 'roi_calculator', 'referral',
+  'subscribe_cta', 'broker_profile', 'tax_clinic', 'news_curation', 'auction_picks', 'reports', 'roi_calculator', 'referral',
 ];
 
 export const DEFAULT_SECTIONS: Readonly<Record<ViewerTarget, readonly ViewerSectionId[]>> = {
@@ -120,11 +120,24 @@ export const DEFAULT_SECTIONS: Readonly<Record<ViewerTarget, readonly ViewerSect
   seller: ORDER_SELLER,
 };
 
+function promoteSectionsNearFront(order: string[], promoted: readonly string[]): string[] {
+  const present = promoted.filter((id) => order.includes(id));
+  if (present.length === 0) return order;
+  const rest = order.filter((id) => !present.includes(id));
+  const anchorIdx = rest.includes('field_note')
+    ? rest.indexOf('field_note') + 1
+    : rest.includes('ai_briefing')
+      ? rest.indexOf('ai_briefing') + 1
+      : 0;
+  return [...rest.slice(0, anchorIdx), ...present, ...rest.slice(anchorIdx)];
+}
+
 /**
  * 렌더 순서. 에디션이 `section_order` 를 가지면 그 순서(+구독·프로필을 뒤에 붙임), 없으면 타깃별 기본 순서.
+ * buyer/seller 타깃이 명시된 경우에는 간단 모드 기본 section_order 가 있더라도 핵심 섹션을 앞쪽으로 우선 배치한다.
  * 에디터의 DEFAULT_SECTION_ORDER(12개)에는 'reports'가 누락되어 있을 수 있으므로,
  * customOrder가 주어졌을 때 'reports'가 빠져 있으면 'auction_picks' 바로 뒤(또는 'subscribe_cta' 앞)에 보충한다.
- * 레퍼럴·세무는 항상 맨 뒤쪽(강등, U-05).
+ * 레퍼럴·세무는 기본 순서에서 항상 맨 뒤쪽(강등, U-05).
  */
 export function resolveSectionOrder(
   target: ViewerTarget,
@@ -132,11 +145,16 @@ export function resolveSectionOrder(
 ): string[] {
   if (Array.isArray(customOrder) && customOrder.length > 0) {
     const ids = customOrder.filter((x): x is string => typeof x === 'string');
-    const out = ids.filter((id, i) => ids.indexOf(id) === i);
+    let out = ids.filter((id, i) => ids.indexOf(id) === i);
     if (out.length > 0) {
       if (!out.includes('reports') && out.includes('auction_picks')) {
         const auctionIdx = out.indexOf('auction_picks');
         out.splice(auctionIdx + 1, 0, 'reports');
+      }
+      if (target === 'buyer') {
+        out = promoteSectionsNearFront(out, ['featured_deals', 'roi_calculator']);
+      } else if (target === 'seller') {
+        out = promoteSectionsNearFront(out, ['market_data', 'tax_clinic']);
       }
       for (const tail of ['subscribe_cta', 'broker_profile']) if (!out.includes(tail)) out.push(tail);
       return out;

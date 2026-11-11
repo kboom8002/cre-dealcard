@@ -106,8 +106,8 @@ export function WorkspaceShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // State sync from URL query params (WP-P2-06)
-  const queryBuildingId = searchParams.get("buildingId");
+  // State sync from URL query params (WP-P2-06) — support legacy ?id= alongside ?buildingId=
+  const queryBuildingId = searchParams.get("buildingId") || searchParams.get("id");
   const rawQueryTab = searchParams.get("tab");
   const queryTab = rawQueryTab || "editor";
 
@@ -188,6 +188,27 @@ export function WorkspaceShell({
     window.addEventListener("workspace:open-preview", handleOpenPreview);
     return () => window.removeEventListener("workspace:open-preview", handleOpenPreview);
   }, []);
+
+  // Close <1280px preview drawer on Escape or when viewport widens to >=1280px (xl)
+  useEffect(() => {
+    if (!isPreviewDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsPreviewDrawerOpen(false);
+      }
+    };
+    const handleResize = () => {
+      if (window.innerWidth >= 1280) {
+        setIsPreviewDrawerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isPreviewDrawerOpen]);
 
   // Draggable 3-column widths state (Req 7)
   const [listColWidth, setListColWidth] = useState<number>(DEFAULT_LIST_WIDTH);
@@ -342,6 +363,23 @@ export function WorkspaceShell({
   }, [activeResizer, persistColumnWidths]);
 
   const suppressListQueryRef = useRef(false);
+  const listClickSearchBeforeRef = useRef("");
+  const prevSearchStrRef = useRef(searchParams.toString());
+
+  // If a child list item navigated while leaving ?tab=list in URL, clean tab->editor without losing new entity ID
+  useEffect(() => {
+    const currentStr = searchParams.toString();
+    const searchChanged = prevSearchStrRef.current !== currentStr;
+    prevSearchStrRef.current = currentStr;
+    if (searchChanged && suppressListQueryRef.current && searchParams.get("tab") === "list") {
+      const params = new URLSearchParams(currentStr);
+      if (params.has("buildingId")) {
+        params.delete("id");
+      }
+      params.set("tab", "editor");
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  }, [searchParams, pathname, router]);
 
   // Auto-switch mobile view if a selection is present (unless the page asks to start on the list)
   useEffect(() => {
@@ -366,9 +404,14 @@ export function WorkspaceShell({
     (buildingId: string) => {
       onBuildingSelect?.(buildingId);
 
-      const params = new URLSearchParams(searchParams.toString());
+      const baseSearch =
+        typeof window !== "undefined" && window.location.search
+          ? window.location.search
+          : searchParams.toString();
+      const params = new URLSearchParams(baseSearch);
       params.set("buildingId", buildingId);
-      if (!params.has("tab")) {
+      params.delete("id");
+      if (!params.has("tab") || params.get("tab") === "list") {
         params.set("tab", "editor");
       }
       router.replace(`${pathname}?${params.toString()}`);
@@ -382,7 +425,14 @@ export function WorkspaceShell({
   // Synchronize tab into query string (WP-P2-06)
   const handleSelectTab = useCallback(
     (tab: "editor" | "preview") => {
-      const params = new URLSearchParams(searchParams.toString());
+      const baseSearch =
+        typeof window !== "undefined" && window.location.search
+          ? window.location.search
+          : searchParams.toString();
+      const params = new URLSearchParams(baseSearch);
+      if (params.has("buildingId")) {
+        params.delete("id");
+      }
       params.set("tab", tab);
       router.replace(`${pathname}?${params.toString()}`);
       setMobileView(tab);
@@ -454,7 +504,10 @@ export function WorkspaceShell({
             const isActive =
               link.id === workspace ||
               (link.id === "home" && pathname === "/broker") ||
-              (link.id === "magazine" && (pathname.startsWith("/broker/magazine-editor") || pathname.startsWith("/broker/w/magazine"))) ||
+              (link.id === "magazine" &&
+                (pathname.startsWith("/broker/magazine-editor") ||
+                  pathname.startsWith("/broker/w/magazine") ||
+                  pathname.startsWith("/broker/w/newsletter"))) ||
               (link.id !== "home" && pathname.startsWith(link.href));
             const badge = link.id !== "home" ? effectiveBadges[link.id as "dealcards" | "im" | "magazine" | "inbox"] : undefined;
 
@@ -519,7 +572,7 @@ export function WorkspaceShell({
           } as React.CSSProperties
         }
       >
-        {/* ── Column 1: 목록 (Frosted Sidebar, draggable width, 72px rail collapse) ── */}
+        {/* ── Column 1: 목록 (Frosted Sidebar, draggable width, 72px rail collapse on lg+ only) ── */}
         <aside
           data-testid="workspace-col-list"
           data-col-width={isRailCollapsed ? 72 : listColWidth}
@@ -533,13 +586,15 @@ export function WorkspaceShell({
               : "lg:w-[var(--ws-list-w)]"
           }`}
         >
-          {/* List Header */}
+          {/* List Header — mobile (<1024px) always renders listTitle regardless of isRailCollapsed */}
           <div className="h-14 border-b border-slate-900/[0.06] px-4 flex items-center justify-between gap-2 shrink-0 bg-white/72 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
-            {!isRailCollapsed && (
-              <h2 className="text-lg font-bold text-[#1D1D1F] tracking-tight whitespace-nowrap truncate">
-                {listTitle}
-              </h2>
-            )}
+            <h2
+              className={`text-lg font-bold text-[#1D1D1F] tracking-tight whitespace-nowrap truncate ${
+                isRailCollapsed ? "lg:hidden" : ""
+              }`}
+            >
+              {listTitle}
+            </h2>
             <button
               type="button"
               onClick={() => setIsRailCollapsed(!isRailCollapsed)}
@@ -552,10 +607,10 @@ export function WorkspaceShell({
             </button>
           </div>
 
-          {/* List Content */}
-          {isRailCollapsed ? (
+          {/* List Content — rail compact only on lg+ (>=1024px); <1024px always renders full listSlot */}
+          {isRailCollapsed && (
             <div
-              className="flex-1 flex flex-col items-center py-4 gap-3"
+              className="hidden lg:flex flex-1 flex-col items-center py-4 gap-3"
               data-testid="workspace-rail-compact"
             >
               <button
@@ -568,37 +623,108 @@ export function WorkspaceShell({
                 ☰
               </button>
             </div>
-          ) : (
-            <div
-              className="flex-1 overflow-y-auto p-3"
-              onClick={(e) => {
-                const target = e.target as HTMLElement | null;
-                if (!target) return;
-                if (
-                  target.closest(
-                    '[data-testid*="delete-"], [data-testid*="duplicate-"], [data-testid^="im-posture-tab-"], [data-testid^="dealcard-posture-tab-"], [data-testid^="inbox-filter-"], input, select'
-                  )
-                ) {
-                  return;
-                }
-                if (
-                  target.closest(
-                    '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid^="inbox-item-"], [data-testid="inbox-todo-card"], [data-testid^="issue-card-"], [data-testid^="mag-issue-"], [data-testid^="magazine-edition-item-"], [data-testid="workspace-new-dealcard-btn"], [data-testid="im-create-new-btn"], [data-testid="new-issue-btn"], [data-testid="new-newsletter-btn"]'
-                  )
-                ) {
-                  suppressListQueryRef.current = true;
-                  setMobileView("editor");
-                  if (searchParams.get("tab") === "list") {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set("tab", "editor");
-                    router.replace(`${pathname}?${params.toString()}`);
+          )}
+          <div
+            className={`flex-1 overflow-y-auto p-3 ${isRailCollapsed ? "lg:hidden" : ""}`}
+            onClickCapture={() => {
+              listClickSearchBeforeRef.current =
+                typeof window !== "undefined" ? window.location.search : "";
+            }}
+            onClick={(e) => {
+              if (e.defaultPrevented) return;
+              const target = e.target as HTMLElement | null;
+              if (!target) return;
+              if (
+                target.closest(
+                  '[data-testid*="delete-"], [data-testid*="duplicate-"], [data-testid^="im-posture-tab-"], [data-testid^="dealcard-posture-tab-"], [data-testid^="inbox-filter-"], [data-testid^="edition-filter-"], input, select, textarea'
+                )
+              ) {
+                return;
+              }
+              const matchedItem = target.closest<HTMLElement>(
+                '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid^="inbox-item-"], [data-testid="inbox-todo-card"], [data-testid^="issue-card-"], [data-testid^="mag-issue-"], [data-testid^="magazine-edition-item-"], [data-testid="workspace-new-dealcard-btn"], [data-testid="im-create-new-btn"], [data-testid="new-issue-btn"], [data-testid="new-newsletter-btn"]'
+              );
+              if (matchedItem) {
+                suppressListQueryRef.current = true;
+                setMobileView("editor");
+
+                const searchBefore = listClickSearchBeforeRef.current;
+                const searchAfter =
+                  typeof window !== "undefined" ? window.location.search : "";
+                const beforeParams = new URLSearchParams(
+                  searchBefore || searchParams.toString()
+                );
+                const liveParams = new URLSearchParams(
+                  searchAfter || searchParams.toString()
+                );
+
+                // If child synchronously mutated window.location.search (tab or entity), never overwrite
+                if (searchAfter !== searchBefore) {
+                  if (
+                    liveParams.get("tab") !== "list" ||
+                    liveParams.get("buildingId") !== beforeParams.get("buildingId") ||
+                    liveParams.get("id") !== beforeParams.get("id") ||
+                    liveParams.get("thread") !== beforeParams.get("thread") ||
+                    liveParams.get("threadId") !== beforeParams.get("threadId") ||
+                    liveParams.get("editionId") !== beforeParams.get("editionId")
+                  ) {
+                    return;
                   }
                 }
-              }}
-            >
-              {listSlot}
-            </div>
-          )}
+
+                // If child clicked a create/jump button or a different entity ID than the stale URL's entity,
+                // child's own router.replace handles navigation — do not clobber with stale params!
+                const testId = matchedItem.getAttribute("data-testid") || "";
+                const isCreateOrJumpBtn =
+                  testId === "workspace-new-dealcard-btn" ||
+                  testId === "im-create-new-btn" ||
+                  testId === "new-issue-btn" ||
+                  testId === "new-newsletter-btn" ||
+                  testId === "inbox-todo-card";
+                if (isCreateOrJumpBtn) {
+                  return;
+                }
+
+                const itemPrefixes = [
+                  "dealcard-item-",
+                  "im-item-",
+                  "inbox-thread-",
+                  "inbox-item-",
+                  "issue-card-",
+                  "mag-issue-",
+                  "magazine-edition-item-",
+                ];
+                let clickedItemId: string | null = null;
+                for (const prefix of itemPrefixes) {
+                  if (testId.startsWith(prefix)) {
+                    clickedItemId = testId.slice(prefix.length);
+                    break;
+                  }
+                }
+
+                const urlEntityId =
+                  liveParams.get("buildingId") ||
+                  liveParams.get("id") ||
+                  liveParams.get("thread") ||
+                  liveParams.get("threadId") ||
+                  liveParams.get("editionId");
+
+                if (clickedItemId && clickedItemId !== urlEntityId) {
+                  return;
+                }
+
+                if (liveParams.get("tab") === "list") {
+                  if (liveParams.has("buildingId")) {
+                    liveParams.delete("id");
+                  }
+                  liveParams.set("tab", "editor");
+                  router.replace(`${pathname}?${liveParams.toString()}`);
+                }
+              }
+            }}
+          >
+            {listSlot}
+          </div>
         </aside>
 
         {renderResizer("left")}
@@ -623,7 +749,14 @@ export function WorkspaceShell({
                 onClick={() => {
                   suppressListQueryRef.current = false;
                   setMobileView("list");
-                  const params = new URLSearchParams(searchParams.toString());
+                  const baseSearch =
+                    typeof window !== "undefined" && window.location.search
+                      ? window.location.search
+                      : searchParams.toString();
+                  const params = new URLSearchParams(baseSearch);
+                  if (params.has("buildingId")) {
+                    params.delete("id");
+                  }
                   params.set("tab", "list");
                   router.replace(`${pathname}?${params.toString()}`);
                 }}
@@ -702,6 +835,17 @@ export function WorkspaceShell({
 
         {renderResizer("right")}
 
+        {/* Translucent backdrop behind Column 3 drawer on 1024-1279px (lg only) */}
+        {isPreviewDrawerOpen && (
+          <div
+            data-testid="workspace-preview-drawer-backdrop"
+            data-modal-backdrop="true"
+            aria-hidden="true"
+            onClick={() => setIsPreviewDrawerOpen(false)}
+            className="hidden lg:block xl:hidden fixed inset-0 z-30 bg-slate-900/35 backdrop-blur-[1px]"
+          />
+        )}
+
         {/* ── Column 3: 확인하고 보내기 (Frosted Preview Dock, draggable width) ── */}
         <aside
           data-testid="workspace-col-preview"
@@ -711,7 +855,9 @@ export function WorkspaceShell({
               ? "flex w-full lg:w-[var(--ws-preview-w)] fixed inset-x-0 top-14 bottom-0 lg:static"
               : "hidden xl:flex lg:w-[var(--ws-preview-w)]"
           } ${
-            isPreviewDrawerOpen ? "lg:flex lg:fixed lg:right-0 lg:top-14 lg:bottom-0 lg:w-[var(--ws-preview-w)] lg:shadow-[0_24px_48px_rgba(15,23,42,0.16)]" : ""
+            isPreviewDrawerOpen
+              ? "lg:flex lg:fixed lg:right-0 lg:top-14 lg:bottom-0 lg:z-40 lg:w-[var(--ws-preview-w)] lg:shadow-[0_24px_48px_rgba(15,23,42,0.16)] xl:static xl:inset-auto xl:z-auto xl:w-[380px] xl:shadow-none"
+              : ""
           }`}
         >
           {/* Preview Header */}
@@ -723,7 +869,14 @@ export function WorkspaceShell({
                 onClick={() => {
                   suppressListQueryRef.current = false;
                   setMobileView("list");
-                  const params = new URLSearchParams(searchParams.toString());
+                  const baseSearch =
+                    typeof window !== "undefined" && window.location.search
+                      ? window.location.search
+                      : searchParams.toString();
+                  const params = new URLSearchParams(baseSearch);
+                  if (params.has("buildingId")) {
+                    params.delete("id");
+                  }
                   params.set("tab", "list");
                   router.replace(`${pathname}?${params.toString()}`);
                 }}

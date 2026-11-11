@@ -90,6 +90,24 @@ export async function GET(request: NextRequest) {
       selfQuery = selfQuery.eq("status", status);
     }
 
+    const loadBrokerClientsSafely = async () => {
+      try {
+        const withEmail = await supabase
+          .from("broker_clients")
+          .select("id, display_name, phone, email, tier, tags")
+          .eq("broker_id", ctx.userId);
+        if ((withEmail as any)?.error?.code === "42703") {
+          return await supabase
+            .from("broker_clients")
+            .select("id, display_name, phone, tier, tags")
+            .eq("broker_id", ctx.userId);
+        }
+        return withEmail;
+      } catch {
+        return { data: null };
+      }
+    };
+
     const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes] = await Promise.all([
       selfQuery,
       supabase
@@ -97,16 +115,11 @@ export async function GET(request: NextRequest) {
         .select("*", { count: "exact" })
         .in("broker_id", ctx.brokerKeys),
       loadBrokerNewsletterPreferences(supabase, ctx.userId),
-      Promise.resolve(
-        supabase
-          .from("broker_clients")
-          .select("id, display_name, phone, tier, tags")
-          .eq("broker_id", ctx.userId)
-      ).catch(() => ({ data: null })),
+      loadBrokerClientsSafely(),
       Promise.resolve(
         supabase
           .from("activity_events")
-          .select("id, event_type, metadata")
+          .select("id, event_type, metadata, created_at")
           .eq("actor_id", ctx.userId)
           .in("event_type", ["custom_client_upserted", "gate_request_approved", "magazine_unsubscribed"])
           .order("created_at", { ascending: false })
@@ -143,7 +156,18 @@ export async function GET(request: NextRequest) {
 
     const subscriberKeys = new Set<string>();
     const highInterestKeys = new Set<string>();
-    const unsubscribedKeys = new Set<string>();
+    const dbUnsubscribedAt = new Map<string, number>();
+    const eventUnsubscribedKeys = new Set<string>();
+    const buyerKeys = new Set<string>();
+    const sellerKeys = new Set<string>();
+
+    const recordDbUnsub = (k: string, unsubTs: number) => {
+      if (!k) return;
+      const prev = dbUnsubscribedAt.get(k);
+      if (prev === undefined || unsubTs > prev) {
+        dbUnsubscribedAt.set(k, unsubTs);
+      }
+    };
 
     const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
     for (const s of subRows) {
@@ -151,15 +175,21 @@ export async function GET(request: NextRequest) {
       const emailVal = s?.subscriber_email ?? s?.email;
       const nameVal = s?.subscriber_name ?? s?.name;
       const statusVal = String(s?.status ?? "active").toLowerCase();
+      const segVal = String(s?.segment ?? "investor").toLowerCase();
       const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
       if (statusVal === "unsubscribed" || statusVal === "inactive") {
-        if (k) unsubscribedKeys.add(k);
-        const telKey = normalizeSubKey(phoneVal);
-        const emailKey = normalizeSubKey(undefined, emailVal);
-        if (telKey) unsubscribedKeys.add(telKey);
-        if (emailKey) unsubscribedKeys.add(emailKey);
+        const rawTs = Date.parse(String(s?.unsubscribed_at ?? s?.updated_at ?? ""));
+        const unsubTs = Number.isFinite(rawTs) ? rawTs : Number.POSITIVE_INFINITY;
+        recordDbUnsub(k, unsubTs);
+        recordDbUnsub(normalizeSubKey(phoneVal), unsubTs);
+        recordDbUnsub(normalizeSubKey(undefined, emailVal), unsubTs);
       } else if (statusVal === "active" && k) {
         subscriberKeys.add(k);
+        if (segVal === "seller" || segVal === "owner") {
+          sellerKeys.add(k);
+        } else if (segVal === "buyer" || segVal === "investor") {
+          buyerKeys.add(k);
+        }
       }
     }
     if (subRows.length === 0 && typeof subRes?.count === "number" && subRes.count > 0) {
@@ -178,22 +208,39 @@ export async function GET(request: NextRequest) {
       const key = normalizeSubKey(c?.phone, c?.email, c?.display_name, c?.id);
       if (key && subscribed) {
         subscriberKeys.add(key);
+        if (tags.some((t: string) => /매도|건물주|seller|owner/i.test(t))) {
+          sellerKeys.add(key);
+        } else {
+          buyerKeys.add(key);
+        }
       }
       if (key && isVip) {
         highInterestKeys.add(key);
       }
     }
 
-    const eventRows = Array.isArray((clientEventsRes as any)?.data) ? (clientEventsRes as any).data : [];
+    const rawEventRows = Array.isArray((clientEventsRes as any)?.data) ? (clientEventsRes as any).data : [];
+    const eventRows = [...rawEventRows].sort((a, b) => {
+      const ta = typeof a?.created_at === "string" ? Date.parse(a.created_at) : 0;
+      const tb = typeof b?.created_at === "string" ? Date.parse(b.created_at) : 0;
+      if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return tb - ta;
+      return 0;
+    });
+    const decidedEventKeys = new Set<string>();
+
     for (const ev of eventRows) {
       const meta = (ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, unknown>;
+      const evTs = typeof ev?.created_at === "string" ? Date.parse(ev.created_at) : Number.NaN;
       if (ev?.event_type === "magazine_unsubscribed") {
         const unsubKey = normalizeSubKey(
           meta.subscriber_phone ?? meta.phone,
           meta.subscriber_email ?? meta.email,
           meta.subscriber_name ?? meta.name
         );
-        if (unsubKey) unsubscribedKeys.add(unsubKey);
+        if (unsubKey && !decidedEventKeys.has(unsubKey)) {
+          decidedEventKeys.add(unsubKey);
+          eventUnsubscribedKeys.add(unsubKey);
+        }
       } else if (ev?.event_type === "custom_client_upserted") {
         const key = normalizeSubKey(
           meta.client_phone ?? meta.phone,
@@ -201,15 +248,22 @@ export async function GET(request: NextRequest) {
           meta.client_name ?? meta.name,
           meta.client_id ?? ev.id
         );
+        if (!key || decidedEventKeys.has(key)) continue;
+        decidedEventKeys.add(key);
         const subscribed = meta.newsletter_subscribed !== false;
         const isVip =
           String(meta.client_grade ?? meta.grade ?? meta.tier ?? "").toUpperCase() === "VIP";
-        if (key && subscribed) {
+        if (subscribed) {
+          const prevDbUnsub = dbUnsubscribedAt.get(key);
+          if (prevDbUnsub !== undefined && Number.isFinite(evTs) && evTs > prevDbUnsub) {
+            dbUnsubscribedAt.delete(key);
+          }
           subscriberKeys.add(key);
-        } else if (key && meta.newsletter_subscribed === false) {
-          unsubscribedKeys.add(key);
+          buyerKeys.add(key);
+        } else {
+          eventUnsubscribedKeys.add(key);
         }
-        if (key && isVip) {
+        if (isVip && subscribed) {
           highInterestKeys.add(key);
         }
       } else if (ev?.event_type === "gate_request_approved") {
@@ -219,10 +273,15 @@ export async function GET(request: NextRequest) {
           meta.requester_name,
           meta.thread_id || meta.request_id || ev.id
         );
-        if (key) {
-          subscriberKeys.add(key);
-          highInterestKeys.add(key);
+        if (!key || decidedEventKeys.has(key)) continue;
+        decidedEventKeys.add(key);
+        const prevDbUnsub = dbUnsubscribedAt.get(key);
+        if (prevDbUnsub !== undefined && Number.isFinite(evTs) && evTs > prevDbUnsub) {
+          dbUnsubscribedAt.delete(key);
         }
+        subscriberKeys.add(key);
+        highInterestKeys.add(key);
+        buyerKeys.add(key);
       }
     }
 
@@ -231,29 +290,44 @@ export async function GET(request: NextRequest) {
     );
     for (const c of inboxCustomClients) {
       const key = normalizeSubKey(c.clientPhone, undefined, c.clientName, c.id);
-      if (key && c.newsletterSubscribed !== false) {
+      if (!key || decidedEventKeys.has(key)) continue;
+      const cTs = typeof c.createdAt === "string" ? Date.parse(c.createdAt) : Number.NaN;
+      if (c.newsletterSubscribed !== false) {
+        const prevDbUnsub = dbUnsubscribedAt.get(key);
+        if (prevDbUnsub !== undefined && Number.isFinite(cTs) && cTs > prevDbUnsub) {
+          dbUnsubscribedAt.delete(key);
+        }
         subscriberKeys.add(key);
-      } else if (key && c.newsletterSubscribed === false) {
-        unsubscribedKeys.add(key);
+        buyerKeys.add(key);
+      } else {
+        eventUnsubscribedKeys.add(key);
       }
-      if (key && c.clientGrade === "VIP") {
+      if (c.clientGrade === "VIP" && c.newsletterSubscribed !== false) {
         highInterestKeys.add(key);
       }
     }
 
-    for (const uk of unsubscribedKeys) {
+    for (const uk of [...dbUnsubscribedAt.keys(), ...eventUnsubscribedKeys]) {
       subscriberKeys.delete(uk);
       highInterestKeys.delete(uk);
+      buyerKeys.delete(uk);
+      sellerKeys.delete(uk);
     }
 
     return NextResponse.json({
       editions: data ?? [],
       total: count ?? 0,
       brokerId: ctx.userId,
-      brokerSlug: ctx.slug ?? ctx.userId,
+      brokerSlug: ctx.slug ?? "",
+      hasSlug: Boolean(ctx.slug),
       brokerName: ctx.displayName ?? "",
       subscriberCount: subscriberKeys.size,
       highInterestCount: highInterestKeys.size,
+      segmentCounts: {
+        all: subscriberKeys.size,
+        buyer: buyerKeys.size,
+        seller: sellerKeys.size,
+      },
       brokerPreferences,
     });
   }
@@ -539,6 +613,60 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ edition: data });
   } catch (err: unknown) {
     log.error("[api/magazine/editions/PATCH]", err);
+    return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/magazine/editions?id=<uuid> (또는 JSON body { id })
+//  - 인증된 브로커 본인의 에디션만 삭제 허용 (타 브로커/미존재 시 404)
+// ---------------------------------------------------------------------------
+const DeleteSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { ctx, error: authError } = await requireBrokerContext(request);
+    if (authError || !ctx) {
+      return authError ?? jsonError("UNAUTHORIZED", "로그인이 필요합니다.", 401);
+    }
+
+    let candidateId = request.nextUrl.searchParams.get("id") ?? undefined;
+    if (!candidateId) {
+      try {
+        const text = await request.text();
+        const body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+        if (typeof body.id === "string") candidateId = body.id;
+      } catch {
+        return jsonError("INVALID_JSON", "요청 본문이 올바른 JSON이 아닙니다.", 400);
+      }
+    }
+
+    const parsed = DeleteSchema.safeParse({ id: candidateId });
+    if (!parsed.success) {
+      return jsonError("INVALID_INPUT", "삭제할 에디션 ID(UUID)가 필요합니다.", 400);
+    }
+    const { id } = parsed.data;
+
+    const supabase = createServiceClient();
+    const owned = await assertOwnsRow<{ id: string }>(supabase, "magazine_editions", id, ctx);
+    if (!owned) return notFoundResponse();
+
+    const { error: deleteErr } = await supabase
+      .from("magazine_editions")
+      .delete()
+      .eq("id", id)
+      .in("broker_id", ctx.brokerKeys);
+
+    if (deleteErr) {
+      log.error("[api/magazine/editions/DELETE]", deleteErr.message);
+      return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+    }
+
+    return NextResponse.json({ ok: true, id });
+  } catch (err: unknown) {
+    log.error("[api/magazine/editions/DELETE]", err);
     return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
   }
 }

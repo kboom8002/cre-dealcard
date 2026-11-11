@@ -20,6 +20,27 @@ export interface RentRollGridProps {
   className?: string;
 }
 
+function parseManwonCellValue(raw: string | number): number {
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 10) / 10 : 0;
+  }
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return 0;
+
+  if (trimmed.includes("억")) {
+    return parseManwonAmount(trimmed).manwon;
+  }
+  if (trimmed.includes("원") && !trimmed.includes("만")) {
+    const digits = trimmed.replace(/[^0-9.]/g, "");
+    const krw = parseFloat(digits);
+    return Number.isFinite(krw) && krw > 0 ? Math.round((krw / 10000) * 10) / 10 : 0;
+  }
+
+  const cleaned = trimmed.replace(/,/g, "").replace(/만\s*원?$/g, "").trim();
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) && num > 0 ? Math.round(num * 10) / 10 : 0;
+}
+
 /**
  * Generates initial scaffolding rows from building register floors (e.g. B1 ~ 5F).
  */
@@ -75,6 +96,8 @@ export function RentRollGrid({
   const [isCompact, setIsCompact] = useState<boolean>(false);
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
   const [activeCell, setActiveCell] = useState<{ rowIdx: number; colKey: string } | null>(null);
+  const [cellDraft, setCellDraft] = useState<{ key: string; value: string } | null>(null);
+  const prevNonVacantRef = useRef<Record<string, { use: string; tenantName?: string }>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
 
@@ -114,18 +137,45 @@ export function RentRollGrid({
   }, [rows, floorsAbove, floorsBelow, onChange]);
 
   const handleUpdateRow = (index: number, patch: Partial<RentRollRowItem>) => {
+    if (index < 0 || index >= rows.length) return;
     const next = [...rows];
     next[index] = { ...next[index], ...patch };
     onChange(next);
   };
 
   const handleStatusChange = (index: number, status: RentRollStatus) => {
+    if (index < 0 || index >= rows.length) return;
     const row = rows[index];
+    if (!row) return;
+    const rowKey = row.id || String(index);
     const isVacant = status === "vacant";
-    handleUpdateRow(index, {
-      status,
-      use: isVacant && (!row.use || row.use === "근린생활시설" || row.use === "업무시설") ? "공실" : (row.use === "공실" ? "근린생활시설" : row.use),
-    });
+
+    if (isVacant) {
+      if (row.status !== "vacant") {
+        prevNonVacantRef.current[rowKey] = {
+          use: row.use && row.use !== "공실" ? row.use : "",
+          tenantName: row.tenantName && row.tenantName !== "공실" ? row.tenantName : undefined,
+        };
+      }
+      handleUpdateRow(index, {
+        status,
+        use: "공실",
+        tenantName: undefined,
+      });
+    } else {
+      const saved = prevNonVacantRef.current[rowKey];
+      const restoredUse = row.status === "vacant"
+        ? (saved?.use ?? (row.use === "공실" ? "" : row.use))
+        : (row.use === "공실" ? "" : row.use);
+      const restoredTenant = row.status === "vacant"
+        ? (saved?.tenantName ?? (row.tenantName === "공실" ? undefined : row.tenantName))
+        : row.tenantName;
+      handleUpdateRow(index, {
+        status,
+        use: restoredUse,
+        tenantName: restoredTenant,
+      });
+    }
   };
 
   const handleExpiryChange = (index: number, rawExpiry: string) => {
@@ -239,6 +289,32 @@ export function RentRollGrid({
     return () => window.removeEventListener("paste", onWindowPaste);
   }, [applyTsvText]);
 
+  const focusGridCell = useCallback((targetRowIdx: number, colKey: string): boolean => {
+    if (!tableRef.current) return false;
+    const direct = tableRef.current.querySelector<HTMLInputElement>(
+      `input[data-rr-row="${targetRowIdx}"][data-rr-col="${colKey}"]`
+    );
+    if (direct && !direct.disabled) {
+      direct.focus();
+      direct.select?.();
+      return true;
+    }
+    const fallback = tableRef.current.querySelector<HTMLInputElement>(
+      `input[data-rr-row="${targetRowIdx}"]:not([disabled])`
+    );
+    if (fallback) {
+      fallback.focus();
+      fallback.select?.();
+      return true;
+    }
+    return false;
+  }, []);
+
+  useEffect(() => {
+    if (!activeCell) return;
+    focusGridCell(activeCell.rowIdx, activeCell.colKey);
+  }, [activeCell, rows.length, focusGridCell]);
+
   // Keyboard navigation across cells
   const handleKeyDown = (
     e: React.KeyboardEvent,
@@ -247,15 +323,18 @@ export function RentRollGrid({
   ) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (rowIdx === rows.length - 1) {
+      if (rowIdx >= rows.length - 1) {
         handleAddRow();
+        setActiveCell({ rowIdx: rowIdx + 1, colKey });
       } else {
         setActiveCell({ rowIdx: rowIdx + 1, colKey });
+        focusGridCell(rowIdx + 1, colKey);
       }
     } else if (e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
       if (rowIdx > 0) {
         setActiveCell({ rowIdx: rowIdx - 1, colKey });
+        focusGridCell(rowIdx - 1, colKey);
       }
     } else if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
       // Ctrl+D copies cell from above row
@@ -388,6 +467,7 @@ export function RentRollGrid({
             {rows.map((row, idx) => {
               const isVacant = row.status === "vacant";
               const isSuspicious = Boolean(row.unitMistakeWarning);
+              const rowKey = row.id || String(idx);
 
               return (
                 <tr
@@ -400,6 +480,9 @@ export function RentRollGrid({
                   <td className="py-1.5 px-1.5 font-bold text-center text-[#0F172A]">
                     <input
                       type="text"
+                      data-rr-cell={`${idx}:floor`}
+                      data-rr-row={idx}
+                      data-rr-col="floor"
                       value={row.floor}
                       onChange={(e) => handleUpdateRow(idx, { floor: e.target.value })}
                       onBlur={(e) => handleUpdateRow(idx, { floor: normalizeFloorName(e.target.value) })}
@@ -412,6 +495,9 @@ export function RentRollGrid({
                   <td className="py-1.5 px-1.5">
                     <input
                       type="text"
+                      data-rr-cell={`${idx}:unit`}
+                      data-rr-row={idx}
+                      data-rr-col="unit"
                       value={row.unit}
                       onChange={(e) => handleUpdateRow(idx, { unit: e.target.value })}
                       onKeyDown={(e) => handleKeyDown(e, idx, "unit")}
@@ -423,6 +509,9 @@ export function RentRollGrid({
                   <td className="py-1.5 px-1.5">
                     <input
                       type="text"
+                      data-rr-cell={`${idx}:use`}
+                      data-rr-row={idx}
+                      data-rr-col="use"
                       disabled={isVacant}
                       value={row.use}
                       placeholder={isVacant ? "공실" : "업종 입력"}
@@ -437,19 +526,36 @@ export function RentRollGrid({
                   {/* Deposit */}
                   <td className="py-1.5 px-1.5 text-right">
                     <input
-                      type="number"
-                      value={row.depositManwon || ""}
+                      type="text"
+                      inputMode="decimal"
+                      data-rr-cell={`${idx}:depositManwon`}
+                      data-rr-row={idx}
+                      data-rr-col="depositManwon"
+                      value={
+                        cellDraft?.key === `${rowKey}:depositManwon`
+                          ? cellDraft.value
+                          : (row.depositManwon || "")
+                      }
                       placeholder="0"
-                      onChange={(e) =>
-                        handleUpdateRow(idx, {
-                          depositManwon: Math.max(0, Number(e.target.value) || 0),
+                      onFocus={() =>
+                        setCellDraft({
+                          key: `${rowKey}:depositManwon`,
+                          value: row.depositManwon ? String(row.depositManwon) : "",
                         })
                       }
-                      onBlur={() =>
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setCellDraft({ key: `${rowKey}:depositManwon`, value: raw });
                         handleUpdateRow(idx, {
-                          depositManwon: parseManwonAmount(String(row.depositManwon)).manwon,
-                        })
-                      }
+                          depositManwon: parseManwonCellValue(raw),
+                        });
+                      }}
+                      onBlur={(e) => {
+                        setCellDraft(null);
+                        handleUpdateRow(idx, {
+                          depositManwon: parseManwonCellValue(e.target.value),
+                        });
+                      }}
                       onKeyDown={(e) => handleKeyDown(e, idx, "depositManwon")}
                       className="w-full text-right font-semibold text-[15px] tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8]"
                     />
@@ -461,20 +567,39 @@ export function RentRollGrid({
                   {/* Monthly Rent */}
                   <td className="py-1.5 px-1.5 text-right">
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
+                      data-rr-cell={`${idx}:monthlyRentManwon`}
+                      data-rr-row={idx}
+                      data-rr-col="monthlyRentManwon"
                       disabled={isVacant}
-                      value={isVacant ? "" : (row.monthlyRentManwon || "")}
-                      placeholder={isVacant ? "0" : "0"}
-                      onChange={(e) =>
-                        handleUpdateRow(idx, {
-                          monthlyRentManwon: Math.max(0, Number(e.target.value) || 0),
+                      value={
+                        isVacant
+                          ? ""
+                          : cellDraft?.key === `${rowKey}:monthlyRentManwon`
+                          ? cellDraft.value
+                          : (row.monthlyRentManwon || "")
+                      }
+                      placeholder="0"
+                      onFocus={() =>
+                        setCellDraft({
+                          key: `${rowKey}:monthlyRentManwon`,
+                          value: row.monthlyRentManwon ? String(row.monthlyRentManwon) : "",
                         })
                       }
-                      onBlur={() =>
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setCellDraft({ key: `${rowKey}:monthlyRentManwon`, value: raw });
                         handleUpdateRow(idx, {
-                          monthlyRentManwon: parseManwonAmount(String(row.monthlyRentManwon)).manwon,
-                        })
-                      }
+                          monthlyRentManwon: parseManwonCellValue(raw),
+                        });
+                      }}
+                      onBlur={(e) => {
+                        setCellDraft(null);
+                        handleUpdateRow(idx, {
+                          monthlyRentManwon: parseManwonCellValue(e.target.value),
+                        });
+                      }}
                       onKeyDown={(e) => handleKeyDown(e, idx, "monthlyRentManwon")}
                       className={`w-full text-right font-semibold text-[15px] tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8] ${
                         isVacant ? "text-[#94A3B8]" : "text-[#0F172A]"
@@ -488,20 +613,39 @@ export function RentRollGrid({
                   {/* Maintenance Fee */}
                   <td className="py-1.5 px-1.5 text-right">
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
+                      data-rr-cell={`${idx}:maintenanceManwon`}
+                      data-rr-row={idx}
+                      data-rr-col="maintenanceManwon"
                       disabled={isVacant}
-                      value={isVacant ? "" : (row.maintenanceManwon || "")}
-                      placeholder={isVacant ? "0" : "0"}
-                      onChange={(e) =>
-                        handleUpdateRow(idx, {
-                          maintenanceManwon: Math.max(0, Number(e.target.value) || 0),
+                      value={
+                        isVacant
+                          ? ""
+                          : cellDraft?.key === `${rowKey}:maintenanceManwon`
+                          ? cellDraft.value
+                          : (row.maintenanceManwon || "")
+                      }
+                      placeholder="0"
+                      onFocus={() =>
+                        setCellDraft({
+                          key: `${rowKey}:maintenanceManwon`,
+                          value: row.maintenanceManwon ? String(row.maintenanceManwon) : "",
                         })
                       }
-                      onBlur={() =>
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setCellDraft({ key: `${rowKey}:maintenanceManwon`, value: raw });
                         handleUpdateRow(idx, {
-                          maintenanceManwon: parseManwonAmount(String(row.maintenanceManwon)).manwon,
-                        })
-                      }
+                          maintenanceManwon: parseManwonCellValue(raw),
+                        });
+                      }}
+                      onBlur={(e) => {
+                        setCellDraft(null);
+                        handleUpdateRow(idx, {
+                          maintenanceManwon: parseManwonCellValue(e.target.value),
+                        });
+                      }}
                       onKeyDown={(e) => handleKeyDown(e, idx, "maintenanceManwon")}
                       className={`w-full text-right font-semibold text-[15px] tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8] ${
                         isVacant ? "text-[#94A3B8]" : "text-[#0F172A]"
@@ -516,6 +660,9 @@ export function RentRollGrid({
                   <td className="py-1.5 px-1.5">
                     <input
                       type="text"
+                      data-rr-cell={`${idx}:leaseExpiry`}
+                      data-rr-row={idx}
+                      data-rr-col="leaseExpiry"
                       disabled={isVacant}
                       value={row.leaseExpiry}
                       placeholder={isVacant ? "-" : "27.05"}

@@ -29,6 +29,7 @@ export interface PreSendConfirmationSheetProps {
   dealId: string;
   isSaved: boolean;
   onFlushSave: () => Promise<boolean>;
+  onAutoMask?: () => void;
   onSendToSelf?: () => Promise<void>;
   onSendToClient?: () => void;
   onCopyLink?: () => void;
@@ -41,6 +42,7 @@ export function PreSendConfirmationSheet({
   dealId,
   isSaved,
   onFlushSave,
+  onAutoMask,
   onSendToClient,
   onCopyLink,
 }: PreSendConfirmationSheetProps) {
@@ -49,7 +51,10 @@ export function PreSendConfirmationSheet({
   );
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<'info' | 'error'>('info');
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const primaryBtnRef = useRef<HTMLButtonElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // Validate points + header fields
   const blindResult = validateBlindPoints(
@@ -66,6 +71,7 @@ export function PreSendConfirmationSheet({
       assetType: card4.use,
     },
   );
+  const sensitiveWarnings = blindResult.violations;
 
   const missingRequired: string[] = [];
   if (!card4.region?.trim()) missingRequired.push(TERMS.regionLabel);
@@ -74,11 +80,50 @@ export function PreSendConfirmationSheet({
 
   useEffect(() => {
     if (!isOpen) return;
+    previousFocusRef.current =
+      typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    const focusInitial = () => {
+      if (primaryBtnRef.current && !primaryBtnRef.current.disabled) {
+        primaryBtnRef.current.focus();
+      } else {
+        closeBtnRef.current?.focus();
+      }
+    };
+    const raf = window.requestAnimationFrame(focusInitial);
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusables = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
   }, [isOpen, onClose]);
 
   const onFlushSaveRef = useRef(onFlushSave);
@@ -108,7 +153,7 @@ export function PreSendConfirmationSheet({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, isSaved]);
+  }, [isOpen, isSaved, card4]);
 
   if (!isOpen) return null;
 
@@ -117,7 +162,8 @@ export function PreSendConfirmationSheet({
   const ogImageUrl = `${origin}/api/og/deal/${dealId}/kakao-v2${
     card4.card4_hash ? `?v=${card4.card4_hash}` : ''
   }`;
-  const areaDisplay = resolveCard4AreaLabel(card4) || '—';
+  const resolvedArea =
+    card4.area !== undefined ? card4.area.trim() : resolveCard4AreaLabel(card4);
   const headlineDisplay =
     repairDealCardLine(card4.headline) ||
     generateAiOgHeadline(card4);
@@ -168,13 +214,21 @@ export function PreSendConfirmationSheet({
 
   return (
     <div
+      data-modal-backdrop="true"
+      style={{ backgroundColor: 'rgba(15, 23, 42, 0.55)' }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
       role="dialog"
       aria-modal="true"
       aria-labelledby="presend-modal-title"
       data-testid="presend-confirmation-sheet"
     >
-      <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-300 shadow-2xl p-6 sm:p-8 space-y-6">
+      <div
+        ref={dialogRef}
+        className="w-full max-w-lg bg-white rounded-3xl border border-slate-300 shadow-2xl p-6 sm:p-8 space-y-6"
+      >
         {/* Header */}
         <div className="flex items-start justify-between border-b border-slate-200 pb-4">
           <div>
@@ -186,10 +240,11 @@ export function PreSendConfirmationSheet({
             </p>
           </div>
           <button
+            ref={closeBtnRef}
             type="button"
             data-testid="presend-close-btn"
             onClick={onClose}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-100 transition"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-100 transition cursor-pointer"
             aria-label="닫기"
           >
             ✕
@@ -216,13 +271,18 @@ export function PreSendConfirmationSheet({
             </div>
           </div>
           <div className="grid grid-cols-2">
-            <div className="p-3.5 border-r border-slate-700 text-center">
-              <p className="text-sm text-slate-400">{TERMS.areaLabel}</p>
-              <p className="text-lg font-extrabold text-slate-100 mt-0.5 break-keep">
-                {areaDisplay}
-              </p>
-            </div>
-            <div className="p-3.5 text-center">
+            {resolvedArea ? (
+              <div
+                data-testid="presend-area-chip"
+                className="p-3.5 border-r border-slate-700 text-center"
+              >
+                <p className="text-sm text-slate-400">{TERMS.areaLabel}</p>
+                <p className="text-lg font-extrabold text-slate-100 mt-0.5 break-keep">
+                  {resolvedArea}
+                </p>
+              </div>
+            ) : null}
+            <div className={`p-3.5 text-center ${resolvedArea ? '' : 'col-span-2'}`}>
               <p className="text-sm text-slate-400">{TERMS.priceLabel}</p>
               <p className="text-lg font-extrabold text-amber-300 mt-0.5 break-keep">
                 {card4.priceBand || '—'}
@@ -248,16 +308,29 @@ export function PreSendConfirmationSheet({
           </div>
         )}
 
-        {!blindResult.isValid && (
+        {(sensitiveWarnings.length > 0 || !blindResult.isValid) && (
           <div
             role="alert"
-            className="p-4 rounded-xl border border-red-300 bg-red-50 text-red-900 space-y-1.5"
+            data-testid="presend-blind-alert"
+            className="p-4 rounded-xl border border-red-300 bg-red-50 text-red-900 space-y-2.5"
           >
-            <p className="text-base font-bold">
-              ⚠ 건물 위치가 드러날 수 있는 표현을 고쳐 주세요
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <p className="text-base font-bold">
+                ⚠ 건물 위치가 드러날 수 있는 표현을 고쳐 주세요
+              </p>
+              {onAutoMask && (
+                <button
+                  type="button"
+                  data-testid="presend-auto-mask-btn"
+                  onClick={onAutoMask}
+                  className="min-h-[44px] px-3.5 py-2 rounded-xl bg-red-700 hover:bg-red-800 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
+                >
+                  민감정보 자동으로 가리기
+                </button>
+              )}
+            </div>
             <ul className="space-y-1">
-              {blindResult.violations.map((v, i) => (
+              {sensitiveWarnings.map((v, i) => (
                 <li key={i} className="text-sm text-red-800 font-medium">
                   • {v.reason}
                 </li>

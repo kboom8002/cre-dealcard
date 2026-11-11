@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
+  isDealCardDeleted,
   isUuid,
   listAllQuickImRecords,
   resolveKnownTestAssetUrl,
@@ -22,6 +23,13 @@ function isRealPhotoUrl(url: unknown): url is string {
 function parsePriceBandToWon(priceBand?: string | null): number | null {
   if (!priceBand) return null;
   const cleaned = String(priceBand).replace(/,/g, "").trim();
+  const rangeMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*~\s*(\d+(?:\.\d+)?)\s*억/);
+  if (rangeMatch) {
+    const low = Number(rangeMatch[1]);
+    const high = Number(rangeMatch[2]);
+    const mid = (low + high) / 2;
+    return Number.isFinite(mid) && mid > 0 ? Math.round(mid * 100_000_000) : null;
+  }
   const match = cleaned.match(/(\d+(?:\.\d+)?)\s*억/);
   if (!match) return null;
   const eok = Number(match[1]);
@@ -29,6 +37,9 @@ function parsePriceBandToWon(priceBand?: string | null): number | null {
 }
 
 function formatWonToPriceBand(won: number | null | undefined, fallback?: string | null): string | null {
+  if (fallback && fallback.includes("~") && fallback.trim() !== "가격 협의") {
+    return fallback.trim();
+  }
   if (typeof won === "number" && Number.isFinite(won) && won > 0) {
     const eok = Math.round((won / 100_000_000) * 10) / 10;
     if (eok > 0) {
@@ -439,36 +450,51 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 5. QuickImStore 레코드도 병합 (소유자 일치 항목)
-  const quickRecords = listAllQuickImRecords().filter((rec) => rec.ownerId === userId);
-  for (const rec of quickRecords) {
-    if (seenIds.has(rec.buildingId) || deletedIds.has(rec.buildingId)) continue;
-    seenIds.add(rec.buildingId);
-    const region = rec.card4?.region || rec.address || "서울 핵심 권역";
-    const use = rec.card4?.use || "근린생활시설";
-    const title = rec.buildingName || `${region} ${use}`.trim();
-    const salePriceWon =
-      rec.askingPriceManwon && rec.askingPriceManwon > 0
-        ? Math.round(rec.askingPriceManwon * 10_000)
-        : parsePriceBandToWon(rec.card4?.priceBand);
-    const capRateRaw = Number(rec.basicImDoc?.facts?.valuation?.capRatePct ?? 0);
-    const firstQuickPhoto = Array.isArray(rec.fullDocBody?.photos)
-      ? rec.fullDocBody.photos.find((p: any) => isRealPhotoUrl(p?.url))?.url
-      : null;
+  // 5. QuickImStore 레코드 병합 (소유자 일치 항목 우선, 보유 매물 0건일 때만 공용 기본 샘플 허용)
+  const allQuickRecords = listAllQuickImRecords();
+  const ownedQuickRecords = allQuickRecords.filter((rec) => rec.ownerId === userId);
+  const appendQuickRecords = (records: typeof allQuickRecords) => {
+    for (const rec of records) {
+      if (
+        seenIds.has(rec.buildingId) ||
+        deletedIds.has(rec.buildingId) ||
+        isDealCardDeleted(rec.buildingId)
+      ) {
+        continue;
+      }
+      seenIds.add(rec.buildingId);
+      const region = rec.card4?.region || rec.address || "서울 핵심 권역";
+      const use = rec.card4?.use || "근린생활시설";
+      const title = rec.buildingName || `${region} ${use}`.trim();
+      const salePriceWon =
+        rec.askingPriceManwon && rec.askingPriceManwon > 0
+          ? Math.round(rec.askingPriceManwon * 10_000)
+          : parsePriceBandToWon(rec.card4?.priceBand);
+      const capRateRaw = Number(rec.basicImDoc?.facts?.valuation?.capRatePct ?? 0);
+      const firstQuickPhoto = Array.isArray(rec.fullDocBody?.photos)
+        ? rec.fullDocBody.photos.find((p: any) => isRealPhotoUrl(p?.url))?.url
+        : null;
 
-    buildings.push({
-      id: rec.buildingId,
-      title,
-      building_name: title,
-      address: rec.address || region,
-      dong: region,
-      sale_price: salePriceWon,
-      price_band: formatWonToPriceBand(salePriceWon, rec.card4?.priceBand || null),
-      cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
-      photo_url: firstQuickPhoto || realPhotoByBuildingId.get(rec.buildingId) || null,
-      status: "draft",
-      updated_at: rec.updatedAt || null,
-    });
+      buildings.push({
+        id: rec.buildingId,
+        title,
+        building_name: title,
+        address: rec.address || region,
+        dong: region,
+        sale_price: salePriceWon,
+        price_band: formatWonToPriceBand(salePriceWon, rec.card4?.priceBand || null),
+        cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
+        photo_url: firstQuickPhoto || realPhotoByBuildingId.get(rec.buildingId) || null,
+        status: "draft",
+        updated_at: rec.updatedAt || null,
+      });
+    }
+  };
+
+  appendQuickRecords(ownedQuickRecords);
+  if (buildings.length === 0) {
+    const seedWorkspaceRecords = allQuickRecords.filter((rec) => !rec.ownerId);
+    appendQuickRecords(seedWorkspaceRecords);
   }
 
   return NextResponse.json({

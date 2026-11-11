@@ -9,7 +9,7 @@
  * 3. 장점 3줄 (각 18자 이내)
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   generateAiOgHeadline,
   reclusterDealCardPointsAsAxios,
@@ -59,14 +59,39 @@ function LineCounter({ text, testId, id }: { text: string; testId: string; id?: 
   );
 }
 
-function LineRepairHint({ text, testId }: { text: string; testId: string }) {
+function LineRepairHint({
+  text,
+  testId,
+  onApply,
+}: {
+  text: string;
+  testId: string;
+  onApply?: (repaired: string) => void;
+}) {
   const a = assessDealCardLine(text);
   if (!text.trim() || a.ok) return null;
   const reason = a.isOver ? '18자를 넘었어요' : a.hasEllipsis ? '말줄임표는 쓰지 않아요' : '문장이 끝나지 않았어요';
   return (
-    <p data-testid={testId} role="status" className="text-sm font-bold text-red-700 break-keep">
-      ⚠ {reason} · 고객 화면에는 「{a.repaired || '—'}」로 보여요 (입력칸을 벗어나면 자동으로 다듬어요)
-    </p>
+    <div
+      data-testid={testId}
+      role="status"
+      className="flex flex-wrap items-center justify-between gap-2 text-sm font-bold text-red-700"
+    >
+      <p className="break-keep">
+        ⚠ {reason} · 고객 화면에는 「{a.repaired || '—'}」로 보여요 (입력칸을 벗어나면 자동으로 다듬어요)
+      </p>
+      {onApply && a.repaired && (
+        <button
+          type="button"
+          data-testid={`${testId}-apply`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onApply(a.repaired)}
+          className="min-h-[36px] px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-900 border border-red-300 text-sm font-extrabold transition cursor-pointer shrink-0"
+        >
+          적용
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -151,6 +176,32 @@ export function Card4ConfirmCard({
   const [aiPointsBusy, setAiPointsBusy] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string | null>(null);
 
+  const isMountedRef = useRef(true);
+  const card4Ref = useRef(card4);
+  const onChangeRef = useRef(onChange);
+  const blurTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  card4Ref.current = card4;
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      for (const timer of blurTimersRef.current) {
+        clearTimeout(timer);
+      }
+      blurTimersRef.current = [];
+    };
+  }, []);
+
+  const shouldDeferBlurRepair = (e: React.FocusEvent<HTMLInputElement>): boolean => {
+    const rt = e.relatedTarget;
+    return Boolean(
+      rt instanceof HTMLElement &&
+        rt.closest('button, a, [role="button"], [role="tab"]')
+    );
+  };
+
   const currentPosture: DealCardPosture = card4.posture || 'income';
   const currentArea = card4.area !== undefined ? card4.area : resolveCard4AreaLabel(card4);
   const currentHeadline = card4.headline ?? '';
@@ -189,9 +240,20 @@ export function Card4ConfirmCard({
     });
   };
 
-  const handleHeadlineBlur = () => {
+  const handleHeadlineBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const raw = card4.headline ?? '';
     if (!raw.trim() || assessDealCardLine(raw).ok) return;
+    if (shouldDeferBlurRepair(e)) {
+      const timer = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        const latest = card4Ref.current;
+        const latestRaw = latest.headline ?? '';
+        if (!latestRaw.trim() || assessDealCardLine(latestRaw).ok) return;
+        onChangeRef.current({ ...latest, headline: repairDealCardLine(latestRaw) });
+      }, 120);
+      blurTimersRef.current.push(timer);
+      return;
+    }
     onChange({ ...card4, headline: repairDealCardLine(raw) });
   };
 
@@ -202,6 +264,7 @@ export function Card4ConfirmCard({
 
   const handleAiHeadlineGenerate = async () => {
     const prevSnapshot: Card4Data = { ...card4, points: [...card4.points] as [string, string, string] };
+    const commitForCard = onChange;
     setAiHeadlineBusy(true);
     setAiFeedback(null);
     try {
@@ -211,59 +274,62 @@ export function Card4ConfirmCard({
         body: JSON.stringify({
           mode: 'headline',
           posture: currentPosture,
-          region: card4.region,
-          use: card4.use,
+          region: prevSnapshot.region,
+          use: prevSnapshot.use,
           area: currentArea,
-          priceBand: card4.priceBand,
+          priceBand: prevSnapshot.priceBand,
           currentHeadline,
-          currentPoints: card4.points,
+          currentPoints: prevSnapshot.points,
         }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok && typeof data.result?.headline === 'string') {
         const nextHeadline = repairDealCardLine(data.result.headline);
-        onChange({
-          ...card4,
+        commitForCard({
+          ...prevSnapshot,
           headline: nextHeadline,
         });
-        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        if (isMountedRef.current && Array.isArray(data.warnings) && data.warnings.length > 0) {
           setAiFeedback(String(data.warnings[0]));
         }
         showUndoToast({
           message: 'AI가 한 줄 제목을 작성했어요',
-          undoAction: () => onChange(prevSnapshot),
+          undoAction: () => commitForCard(prevSnapshot),
         });
-      } else {
+      } else if (isMountedRef.current) {
         setAiFeedback(data?.error?.message || 'AI가 잠시 쉬고 있어요. 잠시 후 다시 눌러 주세요.');
       }
     } catch {
       // Fallback for offline/unit test environment
-      const fallbackHeadline = generateAiOgHeadline(card4);
-      onChange({
-        ...card4,
+      const fallbackHeadline = generateAiOgHeadline(prevSnapshot);
+      commitForCard({
+        ...prevSnapshot,
         headline: fallbackHeadline,
       });
       showUndoToast({
         message: '한 줄 제목을 추천했어요',
-        undoAction: () => onChange(prevSnapshot),
+        undoAction: () => commitForCard(prevSnapshot),
       });
     } finally {
-      setAiHeadlineBusy(false);
+      if (isMountedRef.current) {
+        setAiHeadlineBusy(false);
+      }
     }
   };
 
   const handlePostureChange = (posture: DealCardPosture) => {
     if (posture === currentPosture) return;
     const prevSnapshot: Card4Data = { ...card4, points: [...card4.points] as [string, string, string] };
+    const commitForCard = onChange;
     const nextArea = resolveAreaOnPostureChange(card4, posture);
-    onChange({
+    commitForCard({
       ...card4,
       posture,
       area: nextArea,
     });
     showUndoToast({
       message: `${POSTURE_LABELS[posture].title} 기준으로 전환했어요`,
-      undoAction: () => onChange(prevSnapshot),
+      undoAction: () => commitForCard(prevSnapshot),
     });
   };
 
@@ -285,9 +351,22 @@ export function Card4ConfirmCard({
     });
   };
 
-  const handlePointBlur = (index: 0 | 1 | 2) => {
+  const handlePointBlur = (index: 0 | 1 | 2, e: React.FocusEvent<HTMLInputElement>) => {
     const raw = card4.points[index] ?? '';
     if (!raw.trim() || assessDealCardLine(raw).ok) return;
+    if (shouldDeferBlurRepair(e)) {
+      const timer = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        const latest = card4Ref.current;
+        const latestRaw = latest.points[index] ?? '';
+        if (!latestRaw.trim() || assessDealCardLine(latestRaw).ok) return;
+        const deferredPoints: [string, string, string] = [...latest.points];
+        deferredPoints[index] = repairDealCardLine(latestRaw);
+        onChangeRef.current({ ...latest, points: deferredPoints });
+      }, 120);
+      blurTimersRef.current.push(timer);
+      return;
+    }
     const nextPoints: [string, string, string] = [...card4.points];
     nextPoints[index] = repairDealCardLine(raw);
     onChange({ ...card4, points: nextPoints });
@@ -295,6 +374,7 @@ export function Card4ConfirmCard({
 
   const handleAiRecluster = async () => {
     const prevSnapshot: Card4Data = { ...card4, points: [...card4.points] as [string, string, string] };
+    const commitForCard = onChange;
     setAiPointsBusy(true);
     setAiFeedback(null);
     try {
@@ -304,12 +384,12 @@ export function Card4ConfirmCard({
         body: JSON.stringify({
           mode: currentHeadline.trim() ? 'points' : 'both',
           posture: currentPosture,
-          region: card4.region,
-          use: card4.use,
+          region: prevSnapshot.region,
+          use: prevSnapshot.use,
           area: currentArea,
-          priceBand: card4.priceBand,
+          priceBand: prevSnapshot.priceBand,
           currentHeadline,
-          currentPoints: card4.points,
+          currentPoints: prevSnapshot.points,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -319,33 +399,38 @@ export function Card4ConfirmCard({
           repairDealCardLine(String(data.result.points[1] || '')),
           repairDealCardLine(String(data.result.points[2] || '')),
         ];
-        onChange({
-          ...card4,
+        commitForCard({
+          ...prevSnapshot,
           ...(typeof data.result.headline === 'string' && !currentHeadline.trim()
             ? { headline: repairDealCardLine(data.result.headline) }
             : {}),
           points: nextPts,
           provenance: { points: ['ai', 'ai', 'ai'] },
         });
-        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        if (isMountedRef.current && Array.isArray(data.warnings) && data.warnings.length > 0) {
           setAiFeedback(String(data.warnings[0]));
         }
         showUndoToast({
           message: 'AI가 장점 3줄을 작성했어요',
-          undoAction: () => onChange(prevSnapshot),
+          undoAction: () => commitForCard(prevSnapshot),
         });
-      } else {
+      } else if (isMountedRef.current) {
         setAiFeedback(data?.error?.message || 'AI가 잠시 쉬고 있어요. 잠시 후 다시 눌러 주세요.');
       }
     } catch {
-      const reclustered = reclusterDealCardPointsAsAxios(card4);
-      onChange(reclustered);
+      const reclustered = reclusterDealCardPointsAsAxios(prevSnapshot);
+      commitForCard({
+        ...reclustered,
+        ...(prevSnapshot.area !== undefined ? { area: prevSnapshot.area } : {}),
+      });
       showUndoToast({
         message: '장점 3줄을 추천했어요',
-        undoAction: () => onChange(prevSnapshot),
+        undoAction: () => commitForCard(prevSnapshot),
       });
     } finally {
-      setAiPointsBusy(false);
+      if (isMountedRef.current) {
+        setAiPointsBusy(false);
+      }
     }
   };
 
@@ -364,6 +449,7 @@ export function Card4ConfirmCard({
       ...card4,
       points: [...card4.points] as [string, string, string],
     };
+    const commitForCard = onChange;
     const cleanedPts = cleanBlindPoints(card4.points).map((p) =>
       repairDealCardLine(p)
     ) as [string, string, string];
@@ -375,7 +461,7 @@ export function Card4ConfirmCard({
     const cleanedArea = card4.area ? cleanBlindPoints([card4.area])[0] : card4.area;
     const cleanedPriceBand = card4.priceBand ? cleanBlindPoints([card4.priceBand])[0] : card4.priceBand;
 
-    onChange({
+    commitForCard({
       ...card4,
       region: cleanedRegion,
       use: cleanedUse,
@@ -387,7 +473,7 @@ export function Card4ConfirmCard({
 
     showUndoToast({
       message: '위치가 드러나는 표현을 자동으로 가렸어요',
-      undoAction: () => onChange(prevSnapshot),
+      undoAction: () => commitForCard(prevSnapshot),
     });
   };
 
@@ -483,8 +569,9 @@ export function Card4ConfirmCard({
                 {validation.suggestedRegion && validation.suggestedRegion !== card4.region && (
                   <button
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleFieldChange('region', validation.suggestedRegion!)}
-                    className="mt-2 min-h-[48px] text-sm font-semibold px-4 py-2 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg transition-colors"
+                    className="mt-2 min-h-[48px] text-sm font-semibold px-4 py-2 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg transition-colors cursor-pointer"
                   >
                     &apos;{validation.suggestedRegion}&apos;로 바꾸기
                   </button>
@@ -590,6 +677,7 @@ export function Card4ConfirmCard({
                 data-testid="card4-ai-headline-btn"
                 disabled={aiHeadlineBusy}
                 aria-busy={aiHeadlineBusy}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={handleAiHeadlineGenerate}
                 className="min-h-[48px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white text-sm font-extrabold transition cursor-pointer flex items-center gap-1.5"
               >
@@ -612,7 +700,11 @@ export function Card4ConfirmCard({
               />
               <LineCounter text={currentHeadline} testId="card4-headline-counter" id="card4-headline-counter" />
             </div>
-            <LineRepairHint text={currentHeadline} testId="card4-headline-repair-hint" />
+            <LineRepairHint
+              text={currentHeadline}
+              testId="card4-headline-repair-hint"
+              onApply={(repaired) => onChange({ ...card4, headline: repaired })}
+            />
             {suggestedHeadline && (
               <div
                 data-testid="card4-headline-suggestion"
@@ -627,6 +719,7 @@ export function Card4ConfirmCard({
                 <button
                   type="button"
                   data-testid="card4-headline-suggestion-apply"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={handleApplySuggestedHeadline}
                   className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
                 >
@@ -668,6 +761,7 @@ export function Card4ConfirmCard({
             data-testid="card4-ai-recluster-btn"
             disabled={aiPointsBusy}
             aria-busy={aiPointsBusy}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleAiRecluster}
             className="min-h-[48px] px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-sm font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
@@ -702,6 +796,7 @@ export function Card4ConfirmCard({
               <button
                 type="button"
                 data-testid="card4-blind-clean-btn"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={handleAutoClean}
                 className="min-h-[48px] px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-sm font-extrabold shadow-xs transition cursor-pointer shrink-0"
               >
@@ -748,7 +843,7 @@ export function Card4ConfirmCard({
                     aria-describedby={`card4-point-counter-${idx}`}
                     value={ptText}
                     onChange={(e) => handlePointChange(idx, e.target.value)}
-                    onBlur={() => handlePointBlur(idx)}
+                    onBlur={(e) => handlePointBlur(idx, e)}
                     className={`w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-950 rounded-lg border ${
                       pointViolations.length > 0
                         ? 'border-red-400 bg-red-50/60 focus:ring-red-500'
@@ -762,7 +857,15 @@ export function Card4ConfirmCard({
                     id={`card4-point-counter-${idx}`}
                   />
                 </div>
-                <LineRepairHint text={ptText} testId={`card4-point-repair-hint-${idx}`} />
+                <LineRepairHint
+                  text={ptText}
+                  testId={`card4-point-repair-hint-${idx}`}
+                  onApply={(repaired) => {
+                    const nextPts: [string, string, string] = [...card4.points];
+                    nextPts[idx] = repaired;
+                    onChange({ ...card4, points: nextPts });
+                  }}
+                />
 
                 {/* Point Violations Alert (Blind Guard) */}
                 {pointViolations.length > 0 && (
@@ -787,6 +890,7 @@ export function Card4ConfirmCard({
           <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={onOpenPreSend}
               disabled={!validation.isValid || headerFieldViolations.length > 0}
               className="min-h-[48px] px-6 py-2.5 rounded-xl bg-blue-600 text-white text-base font-bold shadow-sm hover:bg-blue-700 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, use } from 'react';
+import React, { useEffect, useState, useCallback, useRef, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { SlideNavigator } from './components/SlideNavigator';
@@ -36,11 +36,14 @@ function BasicImStudioInner({
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [rightTab, setRightTab] = useState<RightPanelTab>('content');
+  const [mobileStudioPane, setMobileStudioPane] = useState<'slides' | 'canvas' | 'inspector'>('canvas');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [navigatingBack, setNavigatingBack] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showQualityPopover, setShowQualityPopover] = useState(false);
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
 
   const {
     slides,
@@ -53,6 +56,13 @@ function BasicImStudioInner({
     dirtySlideIds,
     clearDirty,
   } = useStudioHistory([]);
+
+  const slidesRef = useRef<PptxSlide[]>(slides);
+  slidesRef.current = slides;
+  const dirtySlideIdsRef = useRef<Set<string>>(dirtySlideIds);
+  dirtySlideIdsRef.current = dirtySlideIds;
+  const projectRef = useRef<PptxProject | null>(project);
+  projectRef.current = project;
 
   useUndoRedoShortcuts({
     onUndo: () => {
@@ -168,15 +178,18 @@ function BasicImStudioInner({
     [project, currentSlide, clearDirty]
   );
 
-  // Save all dirty slides before download or when clicking "전체 저장"
+  // Save all dirty slides before download, navigation back, or when clicking "전체 저장"
   const flushAllDirtySlides = useCallback(async () => {
-    if (!project) return;
+    const activeProject = projectRef.current;
+    const latestSlides = slidesRef.current;
+    const latestDirtyIds = dirtySlideIdsRef.current;
+    if (!activeProject || latestDirtyIds.size === 0) return;
     setSaving(true);
     try {
-      let currentLockVersion = project.lockVersion;
-      for (const s of slides) {
-        if (dirtySlideIds.has(s.id)) {
-          const res = await fetch(`/api/broker/basic-im-studio/${project.id}`, {
+      let currentLockVersion = activeProject.lockVersion;
+      for (const s of latestSlides) {
+        if (latestDirtyIds.has(s.id)) {
+          const res = await fetch(`/api/broker/basic-im-studio/${activeProject.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -207,7 +220,25 @@ function BasicImStudioInner({
     } finally {
       setSaving(false);
     }
-  }, [project, setProject, slides, dirtySlideIds, clearDirty]);
+  }, [setProject, clearDirty]);
+
+  const handleNavigateBack = useCallback(async () => {
+    if (navigatingBack) return;
+    setNavigatingBack(true);
+    try {
+      if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      await Promise.resolve();
+      if (dirtySlideIdsRef.current.size > 0) {
+        await flushAllDirtySlides().catch(() => {
+          // Non-fatal so user is never trapped if network fails
+        });
+      }
+    } finally {
+      router.push(`/broker/w/im?buildingId=${encodeURIComponent(buildingId)}`);
+    }
+  }, [navigatingBack, flushAllDirtySlides, router, buildingId]);
 
   // Toggle slide visibility (👁️/🚫)
   const handleToggleVisibility = useCallback(
@@ -362,7 +393,7 @@ function BasicImStudioInner({
     }
   }, [project, dirtySlideIds.size, flushAllDirtySlides, presetId, coverStyle, layoutStyle, brandAccent, headerFooterConfig]);
 
-  // Keyboard shortcuts: Ctrl+S (save), Alt+ArrowUp/Down/Left/Right (slide nav), Escape (exit fullscreen / close popover)
+  // Keyboard shortcuts: Ctrl+S (save), Alt+ArrowUp/Down/Left/Right (slide nav), ? (shortcut help), Escape (exit fullscreen / close modal & popover)
   useEffect(() => {
     if (loading) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -378,8 +409,42 @@ function BasicImStudioInner({
         return;
       }
       if (e.key === 'Escape') {
-        if (isFullscreen) setIsFullscreen(false);
-        if (showQualityPopover) setShowQualityPopover(false);
+        if (showShortcutHelp) {
+          e.preventDefault();
+          setShowShortcutHelp(false);
+          return;
+        }
+        if (showQualityPopover) {
+          e.preventDefault();
+          setShowQualityPopover(false);
+          return;
+        }
+        if (isFullscreen) {
+          e.preventDefault();
+          setIsFullscreen(false);
+          return;
+        }
+        if (typeof document !== 'undefined') {
+          const remedyDialog = document.querySelector('[aria-label="고객 수정 요청 30초 해결 처방전"]');
+          if (remedyDialog && remedyDialog.parentElement) {
+            e.preventDefault();
+            remedyDialog.parentElement.click();
+          }
+        }
+        return;
+      }
+      if (
+        e.key === '?' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !(
+          e.target instanceof HTMLElement &&
+          (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)
+        )
+      ) {
+        e.preventDefault();
+        setShowShortcutHelp(v => !v);
         return;
       }
       if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowLeft')) {
@@ -401,6 +466,7 @@ function BasicImStudioInner({
     handleSaveSlide,
     isFullscreen,
     showQualityPopover,
+    showShortcutHelp,
     slides.length,
   ]);
 
@@ -504,23 +570,28 @@ function BasicImStudioInner({
   return (
     <div className="flex flex-col h-screen bg-[#F1F5F9] text-[#0F172A]">
       {/* Top Studio Header Bar */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-[#CBD5E1] bg-white shrink-0 shadow-2xs">
+      <header className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-[#CBD5E1] bg-white shrink-0 shadow-2xs">
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
-            onClick={() => router.back()}
-            className="px-3 py-1.5 rounded-lg text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:bg-[#E2E8F0] transition-colors shrink-0"
+            data-testid="studio-back-btn"
+            disabled={navigatingBack}
+            onClick={() => void handleNavigateBack()}
+            className="px-3 py-1.5 rounded-lg text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:bg-[#E2E8F0] disabled:opacity-50 transition-colors shrink-0"
           >
-            ← 돌아가기
+            {navigatingBack ? '저장 후 이동 중…' : '← 돌아가기'}
           </button>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-black text-[#0F172A] break-keep">
                 📐 {project.title}
               </h1>
               <button
                 type="button"
-                onClick={() => setRightTab('theme')}
+                onClick={() => {
+                  setRightTab('theme');
+                  setMobileStudioPane('inspector');
+                }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#1D4ED8] shrink-0"
                 title="클릭하여 프리셋·테마 변경"
               >
@@ -534,8 +605,8 @@ function BasicImStudioInner({
           </div>
         </div>
 
-        {/* Right Toolbar: IM Quality Check / Quick Remedy / Undo / Redo / Save / Download */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Right Toolbar: IM Quality Check / Quick Remedy / Shortcut Help / Undo / Redo / Save / Download */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Live IM Quality Readiness Checklist Popover */}
           <div className="relative">
             <button
@@ -572,6 +643,7 @@ function BasicImStudioInner({
                       onClick={() => {
                         setSelectedIndex(item.targetIdx);
                         setRightTab('content');
+                        setMobileStudioPane('inspector');
                         setShowQualityPopover(false);
                       }}
                       className="w-full px-2.5 py-2 rounded-xl border border-[#E2E8F0] hover:border-[#1D4ED8] hover:bg-[#F8FAFC] flex items-center justify-between text-left transition-all"
@@ -597,9 +669,26 @@ function BasicImStudioInner({
           </div>
 
           <QuickRemedyPopover
-            onOpenThemeTab={() => setRightTab('theme')}
-            onOpenContentTab={() => setRightTab('content')}
+            onOpenThemeTab={() => {
+              setRightTab('theme');
+              setMobileStudioPane('inspector');
+            }}
+            onOpenContentTab={() => {
+              setRightTab('content');
+              setMobileStudioPane('inspector');
+            }}
           />
+
+          <button
+            type="button"
+            data-testid="studio-shortcut-help-btn"
+            onClick={() => setShowShortcutHelp(true)}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:bg-[#E2E8F0] transition-colors shrink-0"
+            title="키보드 단축키 도움말 (?)"
+          >
+            ⌨️ 단축키
+          </button>
+
           <div className="flex items-center rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] p-0.5">
             <button
               type="button"
@@ -644,20 +733,73 @@ function BasicImStudioInner({
         </div>
       </header>
 
-      {/* Main 3-Column Studio Workspace */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Responsive Sub-<1024px Pane Switcher (prevents crushing center 16:9 canvas) */}
+      <div
+        data-testid="studio-mobile-pane-tabs"
+        className="flex lg:hidden items-center gap-1.5 px-3 py-2 bg-white border-b border-[#CBD5E1] shrink-0"
+      >
+        <button
+          type="button"
+          onClick={() => setMobileStudioPane('slides')}
+          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-extrabold border transition-colors ${
+            mobileStudioPane === 'slides'
+              ? 'bg-[#0F172A] text-white border-[#0F172A]'
+              : 'bg-[#F8FAFC] text-[#334155] border-[#CBD5E1]'
+          }`}
+        >
+          📑 슬라이드 목록 ({slides.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileStudioPane('canvas')}
+          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-extrabold border transition-colors ${
+            mobileStudioPane === 'canvas'
+              ? 'bg-[#0F172A] text-white border-[#0F172A]'
+              : 'bg-[#F8FAFC] text-[#334155] border-[#CBD5E1]'
+          }`}
+        >
+          🖼️ 미리보기 ({selectedIndex + 1}/{slides.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileStudioPane('inspector')}
+          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-extrabold border transition-colors ${
+            mobileStudioPane === 'inspector'
+              ? 'bg-[#0F172A] text-white border-[#0F172A]'
+              : 'bg-[#F8FAFC] text-[#334155] border-[#CBD5E1]'
+          }`}
+        >
+          📝 항목·테마 편집{dirtySlideIds.size > 0 ? ` (${dirtySlideIds.size})` : ''}
+        </button>
+      </div>
+
+      {/* Main 3-Column Studio Workspace (responsive tab collapse below lg <1024px) */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: 10-Slide Navigator (Reorder + Show/Hide) */}
-        <SlideNavigator
-          slides={slides}
-          selectedIndex={selectedIndex}
-          dirtySlideIds={dirtySlideIds}
-          onSelect={setSelectedIndex}
-          onToggleVisibility={handleToggleVisibility}
-          onReorder={handleReorderSlides}
-        />
+        <div
+          className={`${
+            mobileStudioPane === 'slides' ? 'flex flex-1 justify-center bg-white' : 'hidden'
+          } lg:flex lg:flex-none h-full overflow-hidden`}
+        >
+          <SlideNavigator
+            slides={slides}
+            selectedIndex={selectedIndex}
+            dirtySlideIds={dirtySlideIds}
+            onSelect={(idx) => {
+              setSelectedIndex(idx);
+              setMobileStudioPane('canvas');
+            }}
+            onToggleVisibility={handleToggleVisibility}
+            onReorder={handleReorderSlides}
+          />
+        </div>
 
         {/* Center: Live 16:9 Slide Preview Canvas with Inline Click-to-Edit */}
-        <main className="flex-1 flex items-center justify-center p-6 bg-[#E2E8F0]/60 overflow-auto">
+        <main
+          className={`${
+            mobileStudioPane === 'canvas' ? 'flex' : 'hidden'
+          } lg:flex flex-1 min-w-0 items-center justify-center p-3 sm:p-6 bg-[#E2E8F0]/60 overflow-auto`}
+        >
           <SlidePreview
             slide={currentSlide}
             totalSlides={slides.length}
@@ -680,18 +822,71 @@ function BasicImStudioInner({
         </main>
 
         {/* Right: 3-Tab Slide Content / Preset Gallery / Header-Footer Editor */}
-        <SlideEditor
-          projectId={project.id}
-          slide={currentSlide}
-          activeTab={rightTab}
-          onTabChange={setRightTab}
-          onChange={handleFieldChange}
-          onLayoutChange={handleLayoutChange}
-          onSave={() => handleSaveSlide(currentSlide)}
-          onResetSlide={handleResetSlide}
-          saving={saving}
-        />
+        <div
+          className={`${
+            mobileStudioPane === 'inspector' ? 'flex flex-1 justify-center bg-white' : 'hidden'
+          } lg:flex lg:flex-none h-full overflow-hidden`}
+        >
+          <SlideEditor
+            projectId={project.id}
+            slide={currentSlide}
+            activeTab={rightTab}
+            onTabChange={setRightTab}
+            onChange={handleFieldChange}
+            onLayoutChange={handleLayoutChange}
+            onSave={() => handleSaveSlide(currentSlide)}
+            onResetSlide={handleResetSlide}
+            saving={saving}
+          />
+        </div>
       </div>
+
+      {/* Keyboard Shortcut Help Modal */}
+      {showShortcutHelp && (
+        <div
+          data-testid="studio-shortcut-help-modal"
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          onClick={() => setShowShortcutHelp(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="단축키 도움말"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-[#CBD5E1] bg-white text-[#0F172A] shadow-2xl p-5 space-y-4"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+              <h2 className="text-base font-black text-[#0F172A]">⌨️ 슬라이드 편집 단축키 도움말</h2>
+              <button
+                type="button"
+                data-testid="studio-shortcut-help-close-btn"
+                onClick={() => setShowShortcutHelp(false)}
+                className="px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-xs font-extrabold text-[#0F172A]"
+              >
+                ✕ 닫기 (Esc)
+              </button>
+            </div>
+            <div className="space-y-2.5 text-sm">
+              <div className="flex items-center justify-between py-1.5 border-b border-[#F1F5F9]">
+                <span className="font-semibold text-[#334155]">변경사항 저장</span>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Ctrl + S</kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-[#F1F5F9]">
+                <span className="font-semibold text-[#334155]">실행 취소 / 다시 실행</span>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Ctrl + Z / Ctrl + Shift + Z</kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-[#F1F5F9]">
+                <span className="font-semibold text-[#334155]">이전 · 다음 슬라이드 이동</span>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Alt + ↑ / ↓</kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5">
+                <span className="font-semibold text-[#334155]">전체화면 · 창 닫기</span>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Esc</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fullscreen Presentation Modal */}
       {isFullscreen && (

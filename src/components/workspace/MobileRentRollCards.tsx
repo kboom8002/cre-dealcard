@@ -1,9 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { RentRollRowItem, RentRollStatus } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout, parseManwonAmount } from "@/lib/rent-roll/tsv-parser";
 import { parseLeaseExpiryDate } from "@/lib/rent-roll/date-parser";
+
+function parseManwonCellValue(raw: string | number): number {
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 10) / 10 : 0;
+  }
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return 0;
+
+  if (trimmed.includes("억")) {
+    return parseManwonAmount(trimmed).manwon;
+  }
+  if (trimmed.includes("원") && !trimmed.includes("만")) {
+    const digits = trimmed.replace(/[^0-9.]/g, "");
+    const krw = parseFloat(digits);
+    return Number.isFinite(krw) && krw > 0 ? Math.round((krw / 10000) * 10) / 10 : 0;
+  }
+
+  const cleaned = trimmed.replace(/,/g, "").replace(/만\s*원?$/g, "").trim();
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) && num > 0 ? Math.round(num * 10) / 10 : 0;
+}
 
 export interface MobileRentRollCardsProps {
   rows: RentRollRowItem[];
@@ -19,25 +40,61 @@ export function MobileRentRollCards({
   className = "",
 }: MobileRentRollCardsProps) {
   const [activeFloorIndex, setActiveFloorIndex] = useState<number>(0);
+  const [cellDraft, setCellDraft] = useState<{ key: string; value: string } | null>(null);
+  const prevNonVacantRef = useRef<Record<string, { use: string; tenantName?: string }>>({});
+
+  const safeFloorIndex = rows.length > 0 ? Math.min(activeFloorIndex, rows.length - 1) : 0;
+
+  useEffect(() => {
+    if (activeFloorIndex !== safeFloorIndex) {
+      setActiveFloorIndex(safeFloorIndex);
+    }
+  }, [activeFloorIndex, safeFloorIndex]);
 
   const handleUpdateRow = (index: number, patch: Partial<RentRollRowItem>) => {
+    if (index < 0 || index >= rows.length) return;
     const next = [...rows];
     next[index] = { ...next[index], ...patch };
     onChange(next);
   };
 
   const handleStatusChange = (index: number, status: RentRollStatus) => {
+    if (index < 0 || index >= rows.length) return;
     const row = rows[index];
+    if (!row) return;
+    const rowKey = row.id || String(index);
     const isVacant = status === "vacant";
-    handleUpdateRow(index, {
-      status,
-      use: isVacant ? "공실" : (row.use === "공실" ? "근린생활시설" : row.use),
-      monthlyRentManwon: isVacant ? 0 : row.monthlyRentManwon,
-      maintenanceManwon: isVacant ? 0 : row.maintenanceManwon,
-    });
+
+    if (isVacant) {
+      if (row.status !== "vacant") {
+        prevNonVacantRef.current[rowKey] = {
+          use: row.use && row.use !== "공실" ? row.use : "",
+          tenantName: row.tenantName && row.tenantName !== "공실" ? row.tenantName : undefined,
+        };
+      }
+      handleUpdateRow(index, {
+        status,
+        use: "공실",
+        tenantName: undefined,
+      });
+    } else {
+      const saved = prevNonVacantRef.current[rowKey];
+      const restoredUse = row.status === "vacant"
+        ? (saved?.use ?? (row.use === "공실" ? "" : row.use))
+        : (row.use === "공실" ? "" : row.use);
+      const restoredTenant = row.status === "vacant"
+        ? (saved?.tenantName ?? (row.tenantName === "공실" ? undefined : row.tenantName))
+        : row.tenantName;
+      handleUpdateRow(index, {
+        status,
+        use: restoredUse,
+        tenantName: restoredTenant,
+      });
+    }
   };
 
   const handleExpiryChange = (index: number, rawExpiry: string) => {
+    if (index < 0 || index >= rows.length) return;
     const parsed = parseLeaseExpiryDate(rawExpiry);
     handleUpdateRow(index, {
       leaseExpiry: rawExpiry,
@@ -47,22 +104,23 @@ export function MobileRentRollCards({
   };
 
   const handleDeleteRow = (index: number) => {
-    if (rows.length <= 1) return;
+    if (rows.length <= 1 || index < 0 || index >= rows.length) return;
     const next = rows.filter((_, idx) => idx !== index);
     onChange(next);
-    if (activeFloorIndex >= next.length) {
+    if (safeFloorIndex >= next.length) {
       setActiveFloorIndex(Math.max(0, next.length - 1));
     }
   };
 
-  const currentFloor = rows[activeFloorIndex] || rows[0];
+  const currentFloor = rows[safeFloorIndex];
+  const currentRowKey = currentFloor ? (currentFloor.id || String(safeFloorIndex)) : String(safeFloorIndex);
 
   return (
     <div className={`space-y-4 ${className}`} data-testid="mobile-rent-roll-cards">
       {/* Floor navigation tabs (<640px) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         {rows.map((row, idx) => {
-          const isActive = idx === activeFloorIndex;
+          const isActive = idx === safeFloorIndex;
           const isVacant = row.status === "vacant";
           return (
             <button
@@ -109,14 +167,14 @@ export function MobileRentRollCards({
                 {currentFloor.floor} 층 입력
               </span>
               <span className="text-[14px] text-[#475569]">
-                ({activeFloorIndex + 1} / {rows.length})
+                ({safeFloorIndex + 1} / {rows.length})
               </span>
             </div>
 
             {rows.length > 1 && (
               <button
                 type="button"
-                onClick={() => handleDeleteRow(activeFloorIndex)}
+                onClick={() => handleDeleteRow(safeFloorIndex)}
                 className="text-[14px] font-semibold text-[#991B1B] hover:underline cursor-pointer min-h-[48px] px-2 flex items-center"
               >
                 삭제
@@ -137,7 +195,7 @@ export function MobileRentRollCards({
                   <button
                     key={st}
                     type="button"
-                    onClick={() => handleStatusChange(activeFloorIndex, st)}
+                    onClick={() => handleStatusChange(safeFloorIndex, st)}
                     className={`min-h-[48px] py-2.5 px-3 rounded-xl text-[16px] font-bold border transition-all cursor-pointer ${
                       isSelected
                         ? "bg-[#0F172A] text-white border-[#0F172A] shadow-sm"
@@ -160,7 +218,7 @@ export function MobileRentRollCards({
               <input
                 type="text"
                 value={currentFloor.floor}
-                onChange={(e) => handleUpdateRow(activeFloorIndex, { floor: e.target.value })}
+                onChange={(e) => handleUpdateRow(safeFloorIndex, { floor: e.target.value })}
                 className="w-full min-h-[48px] px-3 text-[17px] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
             </div>
@@ -171,7 +229,7 @@ export function MobileRentRollCards({
               <input
                 type="text"
                 value={currentFloor.unit}
-                onChange={(e) => handleUpdateRow(activeFloorIndex, { unit: e.target.value })}
+                onChange={(e) => handleUpdateRow(safeFloorIndex, { unit: e.target.value })}
                 className="w-full min-h-[48px] px-3 text-[17px] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
             </div>
@@ -187,7 +245,7 @@ export function MobileRentRollCards({
               disabled={currentFloor.status === "vacant"}
               value={currentFloor.use}
               placeholder={currentFloor.status === "vacant" ? "공실 (입력 불필요)" : "예: 카페, 의원, 사무실"}
-              onChange={(e) => handleUpdateRow(activeFloorIndex, { use: e.target.value })}
+              onChange={(e) => handleUpdateRow(safeFloorIndex, { use: e.target.value })}
               className={`w-full min-h-[48px] px-3 text-[17px] rounded-xl border outline-none ${
                 currentFloor.status === "vacant"
                   ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
@@ -208,14 +266,33 @@ export function MobileRentRollCards({
                 </span>
               </div>
               <input
-                type="number"
-                value={currentFloor.depositManwon || ""}
+                type="text"
+                inputMode="decimal"
+                value={
+                  cellDraft?.key === `${currentRowKey}:deposit`
+                    ? cellDraft.value
+                    : (currentFloor.depositManwon || "")
+                }
                 placeholder="0"
-                onChange={(e) =>
-                  handleUpdateRow(activeFloorIndex, {
-                    depositManwon: parseManwonAmount(e.target.value).manwon,
+                onFocus={() =>
+                  setCellDraft({
+                    key: `${currentRowKey}:deposit`,
+                    value: currentFloor.depositManwon ? String(currentFloor.depositManwon) : "",
                   })
                 }
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setCellDraft({ key: `${currentRowKey}:deposit`, value: raw });
+                  handleUpdateRow(safeFloorIndex, {
+                    depositManwon: parseManwonCellValue(raw),
+                  });
+                }}
+                onBlur={(e) => {
+                  setCellDraft(null);
+                  handleUpdateRow(safeFloorIndex, {
+                    depositManwon: parseManwonCellValue(e.target.value),
+                  });
+                }}
                 className="w-full min-h-[48px] px-3 text-[18px] font-semibold text-right tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
             </div>
@@ -226,19 +303,40 @@ export function MobileRentRollCards({
                   월 임대료 (만 원)
                 </label>
                 <span className="text-[14px] font-bold text-[#1D4ED8]">
-                  {formatKoreanCurrencyReadout(currentFloor.monthlyRentManwon)}
+                  {formatKoreanCurrencyReadout(currentFloor.status === "vacant" ? 0 : currentFloor.monthlyRentManwon)}
                 </span>
               </div>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 disabled={currentFloor.status === "vacant"}
-                value={currentFloor.status === "vacant" ? "" : (currentFloor.monthlyRentManwon || "")}
-                placeholder={currentFloor.status === "vacant" ? "0" : "0"}
-                onChange={(e) =>
-                  handleUpdateRow(activeFloorIndex, {
-                    monthlyRentManwon: parseManwonAmount(e.target.value).manwon,
+                value={
+                  currentFloor.status === "vacant"
+                    ? ""
+                    : cellDraft?.key === `${currentRowKey}:rent`
+                    ? cellDraft.value
+                    : (currentFloor.monthlyRentManwon || "")
+                }
+                placeholder="0"
+                onFocus={() =>
+                  setCellDraft({
+                    key: `${currentRowKey}:rent`,
+                    value: currentFloor.monthlyRentManwon ? String(currentFloor.monthlyRentManwon) : "",
                   })
                 }
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setCellDraft({ key: `${currentRowKey}:rent`, value: raw });
+                  handleUpdateRow(safeFloorIndex, {
+                    monthlyRentManwon: parseManwonCellValue(raw),
+                  });
+                }}
+                onBlur={(e) => {
+                  setCellDraft(null);
+                  handleUpdateRow(safeFloorIndex, {
+                    monthlyRentManwon: parseManwonCellValue(e.target.value),
+                  });
+                }}
                 className={`w-full min-h-[48px] px-3 text-[18px] font-semibold text-right tabular-nums rounded-xl border outline-none ${
                   currentFloor.status === "vacant"
                     ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
@@ -253,19 +351,40 @@ export function MobileRentRollCards({
                   월 관리비 (만 원)
                 </label>
                 <span className="text-[14px] font-bold text-[#1D4ED8]">
-                  {formatKoreanCurrencyReadout(currentFloor.maintenanceManwon)}
+                  {formatKoreanCurrencyReadout(currentFloor.status === "vacant" ? 0 : currentFloor.maintenanceManwon)}
                 </span>
               </div>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 disabled={currentFloor.status === "vacant"}
-                value={currentFloor.status === "vacant" ? "" : (currentFloor.maintenanceManwon || "")}
-                placeholder={currentFloor.status === "vacant" ? "0" : "0"}
-                onChange={(e) =>
-                  handleUpdateRow(activeFloorIndex, {
-                    maintenanceManwon: parseManwonAmount(e.target.value).manwon,
+                value={
+                  currentFloor.status === "vacant"
+                    ? ""
+                    : cellDraft?.key === `${currentRowKey}:maint`
+                    ? cellDraft.value
+                    : (currentFloor.maintenanceManwon || "")
+                }
+                placeholder="0"
+                onFocus={() =>
+                  setCellDraft({
+                    key: `${currentRowKey}:maint`,
+                    value: currentFloor.maintenanceManwon ? String(currentFloor.maintenanceManwon) : "",
                   })
                 }
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setCellDraft({ key: `${currentRowKey}:maint`, value: raw });
+                  handleUpdateRow(safeFloorIndex, {
+                    maintenanceManwon: parseManwonCellValue(raw),
+                  });
+                }}
+                onBlur={(e) => {
+                  setCellDraft(null);
+                  handleUpdateRow(safeFloorIndex, {
+                    maintenanceManwon: parseManwonCellValue(e.target.value),
+                  });
+                }}
                 className={`w-full min-h-[48px] px-3 text-[18px] font-semibold text-right tabular-nums rounded-xl border outline-none ${
                   currentFloor.status === "vacant"
                     ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
@@ -292,7 +411,7 @@ export function MobileRentRollCards({
               disabled={currentFloor.status === "vacant"}
               value={currentFloor.leaseExpiry}
               placeholder="예: 2027.05, 27년 5월, 만기 2년"
-              onChange={(e) => handleExpiryChange(activeFloorIndex, e.target.value)}
+              onChange={(e) => handleExpiryChange(safeFloorIndex, e.target.value)}
               className={`w-full min-h-[48px] px-3 text-[17px] rounded-xl border outline-none ${
                 currentFloor.status === "vacant"
                   ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
@@ -312,10 +431,10 @@ export function MobileRentRollCards({
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
-              disabled={activeFloorIndex === 0}
-              onClick={() => setActiveFloorIndex((prev) => Math.max(0, prev - 1))}
+              disabled={safeFloorIndex === 0}
+              onClick={() => setActiveFloorIndex(Math.max(0, safeFloorIndex - 1))}
               className={`min-h-[48px] px-4 py-2 rounded-xl text-[15px] font-semibold cursor-pointer ${
-                activeFloorIndex === 0
+                safeFloorIndex === 0
                   ? "text-[#94A3B8] cursor-not-allowed"
                   : "text-[#334155] hover:bg-[#F3F2EE]"
               }`}
@@ -323,10 +442,10 @@ export function MobileRentRollCards({
               ‹ 이전 층
             </button>
 
-            {activeFloorIndex < rows.length - 1 ? (
+            {safeFloorIndex < rows.length - 1 ? (
               <button
                 type="button"
-                onClick={() => setActiveFloorIndex((prev) => prev + 1)}
+                onClick={() => setActiveFloorIndex(Math.min(rows.length - 1, safeFloorIndex + 1))}
                 className="min-h-[48px] px-5 py-2.5 rounded-xl text-[16px] font-bold bg-[#1D4ED8] text-white hover:bg-[#1E40AF] cursor-pointer shadow-sm"
               >
                 다음 층 ›

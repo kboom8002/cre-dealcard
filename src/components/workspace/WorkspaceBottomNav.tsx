@@ -57,13 +57,19 @@ export function WorkspaceBottomNav({
     >
       <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1.5 py-1 gap-1">
         {tabs.map((tab) => {
-          const isActive = activeTabId
-            ? activeTabId === tab.id
-            : tab.href === "/broker"
-            ? pathname === "/broker"
-            : tab.id === "magazine"
-            ? pathname.startsWith("/broker/magazine-editor") || pathname.startsWith("/broker/w/magazine")
-            : pathname.startsWith(tab.href);
+          const matchesPath =
+            tab.href === "/broker"
+              ? pathname === "/broker"
+              : tab.id === "magazine"
+              ? pathname.startsWith("/broker/magazine-editor") ||
+                pathname.startsWith("/broker/w/magazine") ||
+                pathname.startsWith("/broker/w/newsletter")
+              : pathname.startsWith(tab.href);
+          const isActive =
+            activeTabId && activeTabId !== "common"
+              ? activeTabId === tab.id ||
+                (tab.id === "magazine" && pathname.startsWith("/broker/w/newsletter"))
+              : matchesPath;
 
           return (
             <Link

@@ -8,7 +8,7 @@
  * - 내부 이중 스크롤을 제거하여 3열 전체가 위에서 아래로 자연스럽게 스크롤됨
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   resolveCard4AreaLabel,
   type Card4Data,
@@ -42,10 +42,33 @@ export function KakaoBubblePreview({
   className = '',
 }: KakaoBubblePreviewProps) {
   const [viewFilter, setViewFilter] = useState<'all' | 'bubble' | 'detail'>('all');
+  const [previewHint, setPreviewHint] = useState<string | null>(null);
+  const previewHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewHintTimerRef.current) {
+        clearTimeout(previewHintTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showPreviewHint = (msg: string) => {
+    setPreviewHint(msg);
+    if (previewHintTimerRef.current) {
+      clearTimeout(previewHintTimerRef.current);
+    }
+    previewHintTimerRef.current = setTimeout(() => {
+      setPreviewHint(null);
+      previewHintTimerRef.current = null;
+    }, 3000);
+  };
 
   const regionText = card4.region?.trim() || '—';
   const useText = card4.use?.trim() || '—';
-  const areaText = resolveCard4AreaLabel(card4) || '—';
+  const resolvedArea =
+    card4.area !== undefined ? card4.area.trim() : resolveCard4AreaLabel(card4);
+  const areaText = resolvedArea || '—';
   const priceText = card4.priceBand?.trim() || '—';
 
   const hasCardContent = Boolean(
@@ -217,10 +240,19 @@ export function KakaoBubblePreview({
                 <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-sky-400 break-keep">
                   {useText}
                 </div>
-                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-slate-200 break-keep">
-                  {areaText}
-                </div>
-                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-amber-400 break-keep">
+                {resolvedArea ? (
+                  <div
+                    data-testid="dealcard-detail-area-chip"
+                    className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-slate-200 break-keep"
+                  >
+                    {resolvedArea}
+                  </div>
+                ) : null}
+                <div
+                  className={`py-2 px-2.5 rounded-lg bg-slate-800/90 text-amber-400 break-keep ${
+                    resolvedArea ? '' : 'col-span-2'
+                  }`}
+                >
                   {priceText}
                 </div>
               </div>
@@ -301,7 +333,12 @@ export function KakaoBubblePreview({
               <a
                 href={brokerPhone ? `tel:${brokerPhone.replace(/[^0-9]/g, '')}` : '#call'}
                 onClick={(e) => {
-                  if (!brokerPhone) e.preventDefault();
+                  if (!brokerPhone) {
+                    e.preventDefault();
+                    showPreviewHint(
+                      '미리보기 화면입니다 — 중개사 연락처가 연결되면 고객이 바로 전화를 걸 수 있습니다.'
+                    );
+                  }
                 }}
                 data-testid="preview-cta-call-btn"
                 className="min-h-[48px] py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
@@ -311,11 +348,26 @@ export function KakaoBubblePreview({
               <button
                 type="button"
                 data-testid="preview-cta-im-request-btn"
+                onClick={() =>
+                  showPreviewHint(
+                    '미리보기 화면입니다 — 실제 고객이 누르면 소통함에 상세 자료(IM) 요청이 도착합니다.'
+                  )
+                }
                 className="min-h-[48px] py-3 px-3 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-sm font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <span>{TERMS.recipientImRequestCta}</span>
               </button>
             </div>
+            {previewHint && (
+              <p
+                role="status"
+                aria-live="polite"
+                data-testid="preview-cta-im-request-hint"
+                className="text-sm font-semibold text-amber-200 bg-amber-500/15 border border-amber-400/30 rounded-xl px-3.5 py-2.5 break-keep"
+              >
+                {previewHint}
+              </p>
+            )}
           </div>
         </div>
       )}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ErrorState } from "@/components/ui/error-state";
 
 /**
- * 콘텐츠 스튜디오 에러 경계 (U-04).
+ * 뉴스레터 작업 화면 에러 경계 (U-04).
  * 내부 에러 메시지는 그대로 노출하지 않고(console 에만 기록) 사용자 문구 + 재시도를 보여준다.
  * 작성 중이던 내용은 서버 초안에 자동 저장되어 있다는 점을 알려 불안을 줄인다.
  */
@@ -24,7 +24,7 @@ export default function MagazineEditorError({
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#FAF9F5] p-6 text-[#0F172A]">
       <ErrorState
         className="w-full max-w-md"
-        title="콘텐츠 스튜디오를 열지 못했습니다"
+        title="뉴스레터 화면을 열지 못했습니다"
         description="일시적인 오류일 수 있습니다. 작성 중이던 내용은 초안으로 자동 저장되어 있습니다. 다시 시도해 주세요."
         onRetry={reset}
         retryLabel="다시 불러오기"

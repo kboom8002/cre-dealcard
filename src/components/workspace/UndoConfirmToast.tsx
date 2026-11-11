@@ -182,7 +182,7 @@ function UndoToastOverlay({
     <div
       role="alert"
       data-testid="undo-confirm-toast"
-      className="fixed z-50 bottom-6 left-1/2 -translate-x-1/2 max-w-lg w-[calc(100%-2rem)] px-2"
+      className="fixed z-50 bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 max-w-lg w-[calc(100%-2rem)] px-2"
     >
       <div
         className={`bg-white text-[#0F172A] border border-slate-300 shadow-xl rounded-xl p-4 flex items-center justify-between gap-3 ${borderVariantClass}`}

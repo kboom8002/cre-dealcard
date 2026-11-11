@@ -157,19 +157,6 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       vacancyPct: vacPct,
       areaSummary: summarizeRentRollAreas(newRows),
     } : null);
-
-    // 실시간 수정 내용도 상위 폼에 즉시 반영 (V12 차단 중에는 반영하지 않는다)
-    if (parsedPreview && !isBlocked) {
-      onImport(buildPayload({
-        rows: newRows,
-        monthlyRent: totRent,
-        totalDeposit: totDep,
-        mgmtFeeTotal: totMgmt,
-        vacancyPct: vacPct,
-        meta: parsedPreview.meta,
-        issues: parsedPreview.issues,
-      }, overrideReason));
-    }
   };
 
   const handleTextParse = async () => {
@@ -221,10 +208,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       setOverrideReason(null);
       setParsedPreview(preview);
 
-      // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력
-      onImport(buildPayload(preview, null));
-
-      setResult("✅ AI 분석이 완료되었습니다. 폼에 금액이 자동 입력되었습니다.");
+      setResult("✅ AI 분석이 완료되었습니다. 아래 미리보기를 확인한 뒤 [적용]을 눌러 반영해 주세요.");
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "텍스트 파싱 실패"}`);
@@ -303,8 +287,6 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       setParsedPreview(preview);
 
       const blocked = parsed.issues.some((i) => i.level === "blocking");
-      // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력 — V12 차단 시에는 해제 사유 전까지 보류
-      if (!blocked) onImport(buildPayload(preview, null));
 
       const unitLabel = parsed.unitDetected === "won" ? "(원→만원 자동변환)" : "(만원 단위)";
       const a = parsed.areaSummary;
@@ -313,9 +295,9 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         : "";
       if (blocked) {
         setIsError(true);
-        setResult(`⛔ ${parsed.rowCount}개 호실을 읽었지만 면적 단위 확인이 필요해 폼에는 아직 반영하지 않았습니다.`);
+        setResult(`⛔ ${parsed.rowCount}개 호실을 읽었지만 면적 단위 확인이 필요해 아직 반영할 수 없습니다.`);
       } else {
-        setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}.${areaLabel} 폼에 금액이 자동 입력되었습니다.`);
+        setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}.${areaLabel} 아래 미리보기를 확인한 뒤 [적용]을 눌러 반영해 주세요.`);
       }
     } catch (err: any) {
       setIsError(true);
@@ -708,8 +690,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                       if (!reason || !parsedPreview) return;
                       setOverrideReason(reason);
                       setIsError(false);
-                      setResult("✅ 사유를 기록하고 V12를 해제했습니다. 폼에 금액이 자동 입력되었습니다.");
-                      onImport(buildPayload(parsedPreview, reason));
+                      setResult("✅ 사유를 기록하고 V12를 해제했습니다. 아래 [적용]을 눌러 반영해 주세요.");
                     }}
                     className="w-full bg-rose-500 text-white py-1 rounded text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -741,11 +722,15 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
           <div className="flex gap-2">
             <button 
               type="button"
+              data-testid="rent-roll-import-confirm-btn"
               disabled={isBlocked}
               onClick={() => {
                 if (isBlocked) return;
                 onImport(buildPayload(parsedPreview, overrideReason));
                 setParsedPreview(null);
+                setOverrideDraft("");
+                setOverrideReason(null);
+                setIsError(false);
                 setResult("✅ 데이터가 성공적으로 반영되었습니다.");
               }} 
               className="flex-1 bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
@@ -754,9 +739,14 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
             </button>
             <button 
               type="button"
+              data-testid="rent-roll-import-cancel-btn"
               onClick={() => {
                 setParsedPreview(null);
+                setOverrideDraft("");
+                setOverrideReason(null);
+                setIsError(false);
                 setResult("");
+                if (fileInputRef.current) fileInputRef.current.value = "";
               }} 
               className="flex-1 bg-muted text-foreground py-1.5 rounded text-xs font-medium hover:bg-muted/80 transition-colors"
             >

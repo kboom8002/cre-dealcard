@@ -30,6 +30,8 @@ const log = createModuleLogger('distribute-magazine');
 export interface DistributeMagazineEditionInput {
   id?: string;
   title: string;
+  /** 발행 주기 구분 ('daily' | 'weekly' | 'monthly' | 'special'). 생략 시 하위 호환 'weekly' */
+  editionType?: string;
   /** 발행일 YYYY-MM-DD (KST). 없으면 todayKst() */
   date?: string;
   headline?: string;
@@ -116,12 +118,23 @@ export async function distributeMagazine(
   const baseUrl = resolveBaseUrl();
   const targets = planTargets(subscribers, { allowKakao: isPaid }, tally);
 
+  const rawId = edition.id?.trim() ?? '';
+  const rawType = edition.editionType?.trim() ?? '';
+  const isUuidEditionId = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(rawId);
+  const baseSlot = rawType || (rawId ? 'weekly' : 'issue');
+  const slotToken = isUuidEditionId
+    ? `${baseSlot}:${rawId}`
+    : rawType
+      ? `${rawType}${rawId ? `:${rawId}` : ''}`
+      : baseSlot;
+  const targetQuery = target !== 'all' ? `?target=${encodeURIComponent(target)}` : '';
+
   await runTargets(
     {
       supabase,
       broker,
-      kind: 'weekly',
-      editionKey: `${broker.slug}:${issueDate}:weekly`,
+      kind: rawType === 'special' ? 'flash' : 'weekly',
+      editionKey: `${broker.slug}:${issueDate}:${slotToken}`,
       editionId: edition.id ?? null,
       baseUrl,
       edition: {
@@ -129,7 +142,7 @@ export async function distributeMagazine(
         headline: edition.headline ?? '',
         marketTemp: edition.market_temp ?? '',
         date: issueDate,
-        url: `${baseUrl}/magazine/${broker.slug}/${issueDate}`,
+        url: `${baseUrl}/magazine/${broker.slug}/${issueDate}${targetQuery}`,
       },
       kakaoTemplateId: KAKAO_TEMPLATE_WEEKLY_ISSUE,
       gateDeps: deps,

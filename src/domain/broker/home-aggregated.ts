@@ -280,10 +280,24 @@ export async function getAggregatedBrokerHomeData(
       a.event_type === "blind_teaser_view" ||
       a.event_type === "magazine_view"
   ).length;
+  let publishedEditionsCount = 0;
+  try {
+    const edRes = await dbClient
+      .from("magazine_editions")
+      .select("id, status")
+      .eq("broker_id", userId)
+      .eq("status", "published")
+      .limit(50);
+    if (Array.isArray(edRes?.data)) {
+      publishedEditionsCount = edRes.data.length;
+    }
+  } catch {
+    // Non-blocking fallback
+  }
   const rawMagazineCount = activities.filter(
     (a) => a.entity_type === "magazine" || a.event_type === "magazine_published"
   ).length;
-  const magazineCount = rawMagazineCount > 0 ? rawMagazineCount : 3;
+  const magazineCount = Math.max(publishedEditionsCount, rawMagazineCount);
 
   const inboxBadgeCount = pendingInboxCount > 0 ? pendingInboxCount : viewsCount;
   const inboxBadgeLabel =

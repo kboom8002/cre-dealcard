@@ -256,7 +256,7 @@ export async function GET(req: NextRequest) {
   const deletedBuildingSet = new Set<string>();
   const buildingTitleById = new Map<string, string>();
 
-  if (isUuid(userId)) {
+  if (userId) {
     try {
       const bldgQuery: any = supabase
         .from("building_ssot_lite")
@@ -294,7 +294,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 0-B. activity_events 기반 내 매물 병합 (삭제 이벤트 존중 + B-S0-01 교차 검증) ──
-  if (isUuid(userId)) {
+  if (userId) {
     try {
       let ownedActQuery: any = supabase
         .from("activity_events")
@@ -427,7 +427,9 @@ export async function GET(req: NextRequest) {
   // ── 1. Gate Requests (IM 열람 요청) — Fail-Closed ──
   let gateItems: any[] = [];
   if (filter === "all" || filter === "requests") {
-    const uuidOwnedIds = allOwnedBuildingIds.filter((id) => isUuid(id));
+    const uuidOwnedIds = isUuid(userId)
+      ? allOwnedBuildingIds.filter((id) => isUuid(id))
+      : allOwnedBuildingIds;
 
     if (uuidOwnedIds.length > 0) {
       try {
@@ -967,7 +969,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (isUuid(userId)) {
+  if (userId) {
     try {
       let govActQuery: any = supabase
         .from("activity_events")

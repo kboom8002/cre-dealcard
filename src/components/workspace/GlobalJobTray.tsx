@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export interface JobStage {
@@ -50,14 +50,37 @@ export function GlobalJobTray({
   }, [jobs, propActiveJob]);
 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isDismissed, setIsDismissed] = useState(false);
   const [cancellingIds, setCancellingIds] = useState<Record<string, boolean>>({});
   const [lastAnnouncedStage, setLastAnnouncedStage] = useState<string>('');
+  const seenRunningJobIdsRef = useRef<Set<string>>(new Set());
 
   const runningJobs = allJobs.filter((j) => j.status === 'running' || j.status === 'queued');
   const completedJobs = allJobs.filter((j) => j.status === 'completed');
   const failedJobs = allJobs.filter((j) => j.status === 'failed');
 
   const currentJob = runningJobs[0] || failedJobs[0] || completedJobs[0] || allJobs[0];
+
+  // Auto-reopen dismissed tray whenever a new active/running job arrives
+  useEffect(() => {
+    const activeIds = new Set(runningJobs.map((j) => j.id));
+    for (const prevId of Array.from(seenRunningJobIdsRef.current)) {
+      if (!activeIds.has(prevId)) {
+        seenRunningJobIdsRef.current.delete(prevId);
+      }
+    }
+    let hasNewRunning = false;
+    for (const activeId of activeIds) {
+      if (!seenRunningJobIdsRef.current.has(activeId)) {
+        seenRunningJobIdsRef.current.add(activeId);
+        hasNewRunning = true;
+      }
+    }
+    if (hasNewRunning) {
+      setIsDismissed(false);
+      setIsExpanded(true);
+    }
+  }, [runningJobs]);
 
   // Announce stage changes via aria-live
   useEffect(() => {
@@ -88,14 +111,14 @@ export function GlobalJobTray({
     [onCancel]
   );
 
-  if (allJobs.length === 0) {
+  if (allJobs.length === 0 || isDismissed) {
     return null;
   }
 
   return (
     <aside
       aria-label="서버 작업 진행 상태 트레이"
-      className="fixed bottom-4 right-4 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-96 select-none"
+      className="fixed bottom-20 lg:bottom-20 right-4 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-96 select-none"
     >
       <div
         role="status"
@@ -109,30 +132,45 @@ export function GlobalJobTray({
 
       <div className="bg-white text-slate-900 rounded-2xl shadow-2xl border-2 border-[#64748B] overflow-hidden">
         {/* Tray Header */}
-        <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div
+          data-theme-lock="dark"
+          className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between gap-2"
+        >
+          <div className="flex items-center gap-2 min-w-0">
             {runningJobs.length > 0 ? (
-              <span className="inline-block w-3 h-3 rounded-full bg-amber-400 animate-pulse" />
+              <span className="inline-block w-3 h-3 shrink-0 rounded-full bg-amber-400 animate-pulse" />
             ) : completedJobs.length > 0 ? (
-              <span className="inline-block w-3 h-3 rounded-full bg-emerald-400" />
+              <span className="inline-block w-3 h-3 shrink-0 rounded-full bg-emerald-400" />
             ) : (
-              <span className="inline-block w-3 h-3 rounded-full bg-rose-400" />
+              <span className="inline-block w-3 h-3 shrink-0 rounded-full bg-rose-400" />
             )}
-            <h3 className="font-extrabold text-[16px] tracking-tight">
+            <h3 className="font-extrabold text-[16px] tracking-tight truncate">
               {runningJobs.length > 0
                 ? `진행 중인 작업 (${runningJobs.length}건)`
                 : '작업 완료'}
             </h3>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-sm font-bold text-slate-300 hover:text-white px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 transition"
-            aria-expanded={isExpanded}
-          >
-            {isExpanded ? '접기 ▲' : '자세히 보기 ▼'}
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-sm font-bold text-slate-200 hover:text-white px-2.5 py-1 min-h-[36px] rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+              aria-expanded={isExpanded}
+            >
+              {isExpanded ? '접기 ▲' : '자세히 보기 ▼'}
+            </button>
+            <button
+              type="button"
+              data-testid="global-job-tray-dismiss-btn"
+              onClick={() => setIsDismissed(true)}
+              aria-label="작업 상태 창 닫기"
+              title="닫기"
+              className="min-h-[36px] min-w-[36px] flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Tray Content */}

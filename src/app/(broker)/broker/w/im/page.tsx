@@ -8,6 +8,7 @@ import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import {
   formatKoreanCurrencyReadout,
   normalizeFloorName,
+  parseManwonAmount,
   synthesizeMissingVacantFloors,
 } from "@/lib/rent-roll/tsv-parser";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
@@ -42,6 +43,7 @@ interface ImAxiosHighlight {
 }
 
 interface ImPhotoEntry {
+  id?: string;
   name: string;
   url?: string;
   previewUrl?: string;
@@ -216,6 +218,7 @@ function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
       const safeUrl = isPersistablePhotoUrl(rawUrl) ? rawUrl : resolveKnownTestAssetUrl(pe.name);
       const safePreview = isPersistablePhotoUrl(rawPreview) ? rawPreview : safeUrl;
       return {
+        ...(pe.id ? { id: pe.id } : {}),
         name: pe.name,
         ...(safeUrl ? { url: safeUrl } : {}),
         ...(safePreview ? { previewUrl: safePreview } : {}),
@@ -227,9 +230,29 @@ function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
     .filter((pe) => Boolean(pe.dataUrl || pe.url || pe.previewUrl));
 }
 
+export function parseKrwInputToManwon(raw: string): number {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return 0;
+
+  if (/[억천백만]/.test(trimmed)) {
+    const normalized = trimmed.replace(/([\d.]+)\s*백\s*만?/g, (_, n) => {
+      const v = parseFloat(n);
+      return Number.isFinite(v) ? `${v * 100}만` : "";
+    });
+    return Math.round(parseManwonAmount(normalized).manwon);
+  }
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return 0;
+  const krw = Number(digits);
+  if (!Number.isFinite(krw) || krw <= 0) return 0;
+  return Math.round(krw / 10_000);
+}
+
 interface ImListItem {
   id: string;
   buildingId: string;
+  documentId?: string;
   title: string;
   address: string;
   askingPriceManwon?: number;
@@ -377,6 +400,17 @@ function ImWorkspaceInner() {
   >("specs");
   const [activeSlideFilter, setActiveSlideFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string>(items[0]?.id || "");
+  const selectedIdRef = useRef<string>(selectedId);
+  selectedIdRef.current = selectedId;
+  const itemsRef = useRef<ImListItem[]>(items);
+  itemsRef.current = items;
+  const userInteractedRef = useRef<boolean>(false);
+  const lastAppliedQueryIdRef = useRef<string | null>(null);
+  const pendingUrlBuildingIdRef = useRef<string | null>(null);
+  const inFlightSelfUrlIdsRef = useRef<Set<string>>(new Set());
+  const initialHydrationDoneRef = useRef<boolean>(false);
+  const storageQuotaNotifiedRef = useRef<boolean>(false);
+
   const [previewTab, setPreviewTab] = useState<"mobile" | "pptx">("mobile");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAiPointsBusy, setIsAiPointsBusy] = useState(false);
@@ -403,12 +437,99 @@ function ImWorkspaceInner() {
   const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
 
   const persistImItems = useCallback((next: ImListItem[]) => {
+    if (typeof window === "undefined" || !window.localStorage) return;
     try {
       window.localStorage.setItem(IM_STORAGE_KEY, JSON.stringify(next));
     } catch {
-      // ignore
+      // QuotaExceededError fallback 1: strip large data:image base64 from non-active items
+      const stripDataUrls = (list: ImListItem[], keepActiveId?: string): ImListItem[] =>
+        list.map((it) => {
+          if (keepActiveId && it.id === keepActiveId) return it;
+          if (!Array.isArray(it.photos) || it.photos.length === 0) return it;
+          return {
+            ...it,
+            photos: it.photos.map((pe) => ({
+              ...(pe.id ? { id: pe.id } : {}),
+              name: pe.name,
+              category: pe.category,
+              caption: pe.caption,
+              ...(pe.url && !pe.url.startsWith("data:") ? { url: pe.url } : {}),
+              ...(pe.previewUrl && !pe.previewUrl.startsWith("data:")
+                ? { previewUrl: pe.previewUrl }
+                : {}),
+            })),
+          };
+        });
+      try {
+        window.localStorage.setItem(
+          IM_STORAGE_KEY,
+          JSON.stringify(stripDataUrls(next, selectedIdRef.current))
+        );
+      } catch {
+        try {
+          window.localStorage.setItem(IM_STORAGE_KEY, JSON.stringify(stripDataUrls(next)));
+          if (!storageQuotaNotifiedRef.current) {
+            storageQuotaNotifiedRef.current = true;
+            setActionAlert(
+              "브라우저 저장 용량이 가득 차 사진 원본은 현재 화면과 서버 저장본으로 유지하고 텍스트·임대현황을 우선 저장했어요."
+            );
+          }
+        } catch {
+          // Final safe fallback if storage is completely blocked
+        }
+      }
     }
   }, []);
+
+  const selectImItem = useCallback(
+    (
+      nextId: string,
+      options?: { syncUrl?: boolean; listSnapshot?: ImListItem[] }
+    ) => {
+      if (!nextId) return;
+      userInteractedRef.current = true;
+      const sourceList = options?.listSnapshot || itemsRef.current;
+      const matched = sourceList.find(
+        (i) => i.id === nextId || i.buildingId === nextId
+      );
+      const resolvedId = matched ? matched.id : nextId;
+      const urlTargetId = matched?.buildingId || resolvedId;
+
+      selectedIdRef.current = resolvedId;
+      setSelectedId(resolvedId);
+
+      // Mark current queryId as handled and track pending URL update so neither static Vitest mocks nor async Next router transitions snap back
+      const currentQueryId =
+        searchParams.get("buildingId") || searchParams.get("id");
+      if (currentQueryId) {
+        inFlightSelfUrlIdsRef.current.add(currentQueryId);
+      }
+      inFlightSelfUrlIdsRef.current.add(urlTargetId);
+      lastAppliedQueryIdRef.current = currentQueryId || urlTargetId;
+      pendingUrlBuildingIdRef.current = urlTargetId;
+
+      if (options?.syncUrl !== false) {
+        try {
+          const baseSearch =
+            typeof window !== "undefined"
+              ? window.location.search
+              : searchParams.toString();
+          const nextParams = new URLSearchParams(baseSearch);
+          nextParams.set("buildingId", urlTargetId);
+          nextParams.delete("id");
+          if (nextParams.get("tab") === "list") {
+            nextParams.set("tab", "editor");
+          }
+          router?.replace?.(`/broker/w/im?${nextParams.toString()}`, {
+            scroll: false,
+          });
+        } catch {
+          // Safe no-op if router mock or window is unavailable
+        }
+      }
+    },
+    [router, searchParams]
+  );
 
   const currentItem = useMemo(() => {
     return items.find((i) => i.id === selectedId) || items[0];
@@ -510,44 +631,47 @@ function ImWorkspaceInner() {
     setOfficialLandPricePerSqm(item.officialLandPricePerSqm);
     setParcels(item.parcels);
     if (Array.isArray(item.photos) && item.photos.length > 0) {
-      setPhotoEntries(
-        item.photos.map((p: any, idx: number) => {
-          const name = p.name || p.caption || `현장 사진 ${idx + 1}`;
-          const resolvedUrl =
-            p.dataUrl || p.previewUrl || p.url || resolveKnownTestAssetUrl(name);
-          return {
-            name,
-            url: resolvedUrl,
-            previewUrl: resolvedUrl,
-            dataUrl: p.dataUrl,
-            category: p.category || (idx === 0 ? "exterior" : "interior"),
-            caption: p.caption || `현장 사진 ${idx + 1}`,
-          };
-        })
-      );
+      const hydratedEntries: ImPhotoEntry[] = item.photos.map((p: any, idx: number) => {
+        const name = p.name || p.caption || `현장 사진 ${idx + 1}`;
+        const resolvedUrl =
+          p.dataUrl || p.previewUrl || p.url || resolveKnownTestAssetUrl(name);
+        return {
+          id: p.id || `photo-item-${item.id}-${idx}-${name}`,
+          name,
+          url: resolvedUrl,
+          previewUrl: resolvedUrl,
+          dataUrl: p.dataUrl,
+          category: p.category || (idx === 0 ? "exterior" : "interior"),
+          caption: p.caption || `현장 사진 ${idx + 1}`,
+        };
+      });
+      setPhotoEntries(hydratedEntries);
+      latestPhotoEntriesRef.current = hydratedEntries;
       setPhotoNames(
         item.photoNames && item.photoNames.length > 0
           ? item.photoNames
-          : item.photos.map((p: any, idx: number) => p.name || p.caption || `현장 사진 ${idx + 1}`)
+          : hydratedEntries.map((p) => p.name)
       );
     } else if (Array.isArray(item.photoNames) && item.photoNames.length > 0) {
       setPhotoNames(item.photoNames);
-      setPhotoEntries(
-        item.photoNames.map((name, idx) => {
-          const inferred = inferPhotoCategoryFromFilename(name, idx);
-          const resolvedUrl = resolveKnownTestAssetUrl(name);
-          return {
-            name,
-            url: resolvedUrl,
-            previewUrl: resolvedUrl,
-            category: inferred.category,
-            caption: inferred.caption,
-          };
-        })
-      );
+      const hydratedEntries: ImPhotoEntry[] = item.photoNames.map((name, idx) => {
+        const inferred = inferPhotoCategoryFromFilename(name, idx);
+        const resolvedUrl = resolveKnownTestAssetUrl(name);
+        return {
+          id: `photo-item-${item.id}-${idx}-${name}`,
+          name,
+          url: resolvedUrl,
+          previewUrl: resolvedUrl,
+          category: inferred.category,
+          caption: inferred.caption,
+        };
+      });
+      setPhotoEntries(hydratedEntries);
+      latestPhotoEntriesRef.current = hydratedEntries;
     } else {
       setPhotoNames([]);
       setPhotoEntries([]);
+      latestPhotoEntriesRef.current = [];
     }
     setBrokerName(
       cleanBrokerPlaceholder(item.brokerName) || profileDefaultsRef.current.brokerName || ""
@@ -691,7 +815,7 @@ function ImWorkspaceInner() {
             const cleanedIm = imParsed.map((it: any) =>
               it.id === draftItem.id ? { ...it, isDirty: false } : it
             );
-            window.localStorage.setItem(IM_STORAGE_KEY, JSON.stringify(cleanedIm));
+            persistImItems(cleanedIm);
           }
         }
         const dcRaw = window.localStorage.getItem("credeal-w-dealcards-v5");
@@ -725,8 +849,11 @@ function ImWorkspaceInner() {
   });
 
   const syncCurrentItemPatch = (patch: Partial<ImListItem>, explicitTargetId?: string) => {
+    if (!explicitTargetId || explicitTargetId === selectedIdRef.current) {
+      userInteractedRef.current = true;
+    }
     setItems((prev) => {
-      const targetId = explicitTargetId || currentItem?.id || selectedId;
+      const targetId = explicitTargetId || currentItem?.id || selectedIdRef.current;
       const next = prev.map((it) => {
         if (it.id !== targetId) return it;
         const nextPrice = patch.askingPriceManwon ?? it.askingPriceManwon ?? 0;
@@ -755,7 +882,7 @@ function ImWorkspaceInner() {
           ...patch,
           grossYieldPct: nextYield,
           updatedAt: "방금",
-          isDirty: true,
+          isDirty: patch.isDirty ?? true,
         };
       });
       persistImItems(next);
@@ -764,6 +891,10 @@ function ImWorkspaceInner() {
   };
 
   useEffect(() => {
+    if (initialHydrationDoneRef.current) return;
+    initialHydrationDoneRef.current = true;
+
+    const initialQueryId = buildingIdParam;
     let initialTargetId: string | null = null;
     try {
       const savedRaw = window.localStorage.getItem(IM_STORAGE_KEY);
@@ -771,13 +902,18 @@ function ImWorkspaceInner() {
         const parsed = JSON.parse(savedRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setItems(parsed);
-          const match = buildingIdParam
+          const explicitMatch = initialQueryId
             ? parsed.find(
-                (i: ImListItem) => i.id === buildingIdParam || i.buildingId === buildingIdParam
-              ) || parsed[0]
-            : parsed[0];
+                (i: ImListItem) => i.id === initialQueryId || i.buildingId === initialQueryId
+              )
+            : undefined;
+          const match = explicitMatch || parsed[0];
           if (match) {
             initialTargetId = match.id;
+            if (explicitMatch && initialQueryId) {
+              lastAppliedQueryIdRef.current = initialQueryId;
+            }
+            selectedIdRef.current = match.id;
             setSelectedId(match.id);
             applyItemToFormState(match);
           }
@@ -787,7 +923,7 @@ function ImWorkspaceInner() {
       // ignore
     }
 
-    const suffix = buildingIdParam ? `?buildingId=${encodeURIComponent(buildingIdParam)}` : "";
+    const suffix = initialQueryId ? `?buildingId=${encodeURIComponent(initialQueryId)}` : "";
     fetch(`/api/broker/workspace/summary${suffix}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -843,6 +979,9 @@ function ImWorkspaceInner() {
                 ...(local?.isDirty ? local : {}),
                 id: srv.id,
                 buildingId: srv.buildingId || local?.buildingId || srv.id,
+                ...(srv.documentId || local?.documentId
+                  ? { documentId: srv.documentId || local?.documentId }
+                  : {}),
                 axiosHighlights: resolvedAxiosHighlights,
                 handoverNote: resolvedHandoverNote,
                 brokerExtrasForm: local?.brokerExtrasForm || srv.brokerExtrasForm,
@@ -854,11 +993,14 @@ function ImWorkspaceInner() {
             const localOnlyItems: ImListItem[] = [];
             for (const loc of prev) {
               const isExplicitlyRequested =
-                Boolean(buildingIdParam) &&
-                (loc.id === buildingIdParam || loc.buildingId === buildingIdParam);
+                Boolean(initialQueryId) &&
+                (loc.id === initialQueryId || loc.buildingId === initialQueryId);
+              const isCurrentlySelectedByUser =
+                userInteractedRef.current &&
+                (loc.id === selectedIdRef.current || loc.buildingId === selectedIdRef.current);
               const isUserCreatedOrEdited = !INITIAL_IM_IDS.has(loc.id) || Boolean(loc.isDirty);
               if (
-                (isUserCreatedOrEdited || isExplicitlyRequested) &&
+                (isUserCreatedOrEdited || isExplicitlyRequested || isCurrentlySelectedByUser) &&
                 !srvItems.some((s) => s.id === loc.id || s.buildingId === loc.buildingId)
               ) {
                 localOnlyItems.push(loc);
@@ -873,13 +1015,40 @@ function ImWorkspaceInner() {
               return true;
             });
             persistImItems(merged);
-            const targetMatch = buildingIdParam
-              ? merged.find((i) => i.id === buildingIdParam || i.buildingId === buildingIdParam) ||
-                merged[0]
-              : (initialTargetId && merged.find((i) => i.id === initialTargetId || i.buildingId === initialTargetId)) || merged[0];
-            if (targetMatch) {
-              setSelectedId(targetMatch.id);
-              applyItemToFormState(targetMatch);
+
+            // Guard against async hydration clobbering user's selection or active form edits
+            if (!userInteractedRef.current) {
+              const explicitSrvMatch = initialQueryId
+                ? merged.find((i) => i.id === initialQueryId || i.buildingId === initialQueryId)
+                : undefined;
+              const targetMatch = explicitSrvMatch
+                ? explicitSrvMatch
+                : (initialTargetId &&
+                    merged.find(
+                      (i) => i.id === initialTargetId || i.buildingId === initialTargetId
+                    )) ||
+                  merged[0];
+              if (targetMatch) {
+                if (explicitSrvMatch && initialQueryId) {
+                  lastAppliedQueryIdRef.current = initialQueryId;
+                }
+                selectedIdRef.current = targetMatch.id;
+                setSelectedId(targetMatch.id);
+                applyItemToFormState(targetMatch);
+              }
+            } else if (!merged.some((i) => i.id === selectedIdRef.current)) {
+              const remapped =
+                (pendingUrlBuildingIdRef.current &&
+                  merged.find(
+                    (i) =>
+                      i.id === pendingUrlBuildingIdRef.current ||
+                      i.buildingId === pendingUrlBuildingIdRef.current
+                  )) ||
+                merged[0];
+              if (remapped) {
+                selectedIdRef.current = remapped.id;
+                setSelectedId(remapped.id);
+              }
             }
             return merged;
           });
@@ -894,14 +1063,30 @@ function ImWorkspaceInner() {
   }, [buildingIdParam, applyItemToFormState, persistImItems]);
 
   useEffect(() => {
-    const queryId = searchParams.get("id") || searchParams.get("buildingId");
-    if (queryId) {
-      const match = items.find((i) => i.id === queryId || i.buildingId === queryId);
-      if (match && match.id !== selectedId) {
+    const queryId = searchParams.get("buildingId") || searchParams.get("id");
+    if (!queryId) return;
+    if (queryId === pendingUrlBuildingIdRef.current) {
+      lastAppliedQueryIdRef.current = queryId;
+      pendingUrlBuildingIdRef.current = null;
+      inFlightSelfUrlIdsRef.current.clear();
+      return;
+    }
+    if (
+      queryId === lastAppliedQueryIdRef.current ||
+      (pendingUrlBuildingIdRef.current !== null &&
+        inFlightSelfUrlIdsRef.current.has(queryId))
+    ) {
+      return;
+    }
+    const match = items.find((i) => i.id === queryId || i.buildingId === queryId);
+    if (match) {
+      lastAppliedQueryIdRef.current = queryId;
+      if (match.id !== selectedIdRef.current) {
+        selectedIdRef.current = match.id;
         setSelectedId(match.id);
       }
     }
-  }, [searchParams, items, selectedId]);
+  }, [searchParams, items]);
 
   useEffect(() => {
     if (currentItem) {
@@ -940,27 +1125,29 @@ function ImWorkspaceInner() {
     : "";
 
   const handleWonPriceChange = (rawText: string) => {
-    const digits = rawText.replace(/\D/g, "");
-    if (!digits) {
+    const trimmed = rawText.trim();
+    if (!trimmed) {
       setWonDraft("");
       setAskingPriceManwon(0);
       syncCurrentItemPatch({ askingPriceManwon: 0 });
       return;
     }
-    const num = Number(digits);
-    if (!Number.isFinite(num) || num <= 0) {
-      setWonDraft("");
-      setAskingPriceManwon(0);
-      syncCurrentItemPatch({ askingPriceManwon: 0 });
-      return;
+
+    if (/[억천백만]/.test(trimmed)) {
+      setWonDraft(rawText);
+    } else {
+      const digits = trimmed.replace(/\D/g, "");
+      if (!digits) {
+        setWonDraft("");
+        setAskingPriceManwon(0);
+        syncCurrentItemPatch({ askingPriceManwon: 0 });
+        return;
+      }
+      const krwNum = Number(digits);
+      setWonDraft(Number.isFinite(krwNum) && krwNum > 0 ? krwNum.toLocaleString("ko-KR") : "");
     }
-    setWonDraft(num.toLocaleString("ko-KR"));
-    const nextManwon =
-      num >= 100_000_000
-        ? Math.round(num / 10000)
-        : num >= 10000
-        ? Math.round(num)
-        : Math.round(num * 10000);
+
+    const nextManwon = parseKrwInputToManwon(trimmed);
     setAskingPriceManwon(nextManwon);
     syncCurrentItemPatch({ askingPriceManwon: nextManwon });
   };
@@ -990,101 +1177,118 @@ function ImWorkspaceInner() {
 
   // Auto-fill building register by address
   const handleLookupAddress = async () => {
-    if (!address.trim()) {
+    const reqAddress = address.trim();
+    if (!reqAddress) {
       setActionAlert("주소를 먼저 입력해 주세요.");
       return;
     }
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const originItem = currentItem;
+    const originTitle = imTitle;
+    const originGfa = gfaSqm;
+    const originLand = landAreaSqm;
+    const originZoning = zoning;
+    const originCompletion = completionDate;
+    const originPrice = askingPriceManwon;
+    const originRentRoll = [...rentRoll];
+    const originHandover = handoverNote;
+    const originPhotoEntries = [...photoEntries];
+    const originPhotoNames = [...photoNames];
+
     setIsLookingUpAddress(true);
     setActionAlert(null);
     try {
       const res = await fetch(
-        `/api/buildings/lookup?address=${encodeURIComponent(address.trim())}`
+        `/api/buildings/lookup?address=${encodeURIComponent(reqAddress)}`
       );
       const data = await res.json().catch(() => null);
       if (res.ok && data) {
-        const nextGfa = data.grossFloorAreaSqm || data.gfaSqm || gfaSqm;
-        const nextLand = data.landAreaSqm || landAreaSqm;
-        const nextZoning = data.zoning || zoning;
-        const nextCompletion = data.completionDate || data.useAprDay || completionDate;
+        const isStillSelected = selectedIdRef.current === targetId;
+        const nextGfa = data.grossFloorAreaSqm || data.gfaSqm || originGfa;
+        const nextLand = data.landAreaSqm || originLand;
+        const nextZoning = data.zoning || originZoning;
+        const nextCompletion = data.completionDate || data.useAprDay || originCompletion;
         const nextPnu =
           typeof data.pnu === "string" && data.pnu.trim()
             ? data.pnu.trim()
-            : currentItem?.pnu;
+            : originItem?.pnu;
         const nextLat =
           data.lat != null && data.lat !== "" && Number.isFinite(Number(data.lat))
             ? Number(data.lat)
-            : currentItem?.lat;
+            : originItem?.lat;
         const nextLng =
           data.lng != null && data.lng !== "" && Number.isFinite(Number(data.lng))
             ? Number(data.lng)
-            : currentItem?.lng;
+            : originItem?.lng;
         const rawFloorsAbove = Number(data.floorsAbove ?? data.grndFlrCnt);
         const rawFloorsBelow = Number(data.floorsBelow ?? data.ugrndFlrCnt);
         const nextFloorsAbove =
           Number.isFinite(rawFloorsAbove) && rawFloorsAbove > 0
             ? rawFloorsAbove
-            : currentItem?.floorsAbove;
+            : originItem?.floorsAbove;
         const nextFloorsBelow =
           Number.isFinite(rawFloorsBelow) && rawFloorsBelow >= 0
             ? rawFloorsBelow
-            : currentItem?.floorsBelow;
+            : originItem?.floorsBelow;
         const rawMainPurpose = data.mainPurpose ?? data.mainPurpsCdNm;
         const nextMainPurpose =
           typeof rawMainPurpose === "string" && rawMainPurpose.trim()
             ? rawMainPurpose.trim()
-            : currentItem?.mainPurpose;
+            : originItem?.mainPurpose;
         const nextBuildingName =
           typeof (data.buildingName ?? data.bldNm) === "string"
             ? String(data.buildingName ?? data.bldNm).trim()
             : "";
         const rawBcr = Number(data.bcrPct ?? data.bcRat);
         const nextBcrPct =
-          Number.isFinite(rawBcr) && rawBcr > 0 ? rawBcr : currentItem?.bcrPct;
+          Number.isFinite(rawBcr) && rawBcr > 0 ? rawBcr : originItem?.bcrPct;
         const rawFar = Number(data.farPct ?? data.vlRat);
         const nextFarPct =
-          Number.isFinite(rawFar) && rawFar > 0 ? rawFar : currentItem?.farPct;
+          Number.isFinite(rawFar) && rawFar > 0 ? rawFar : originItem?.farPct;
         const rawParking = Number(data.parkingSpaces ?? data.parkingTotal ?? data.totPkngCnt);
         const nextParkingTotal =
           Number.isFinite(rawParking) && rawParking >= 0
             ? rawParking
-            : currentItem?.parkingTotal;
+            : originItem?.parkingTotal;
         const rawElevators = Number(data.elevators ?? data.elevatorCount ?? data.rideUseElvtCnt);
         const nextElevatorCount =
           Number.isFinite(rawElevators) && rawElevators >= 0
             ? rawElevators
-            : currentItem?.elevatorCount;
+            : originItem?.elevatorCount;
         const rawOfficialPrice = Number(
           data.officialLandPricePerSqm ?? data.landPricePerSqm ?? data.officialLandPriceWonSqm
         );
         const nextOfficialLandPricePerSqm =
           Number.isFinite(rawOfficialPrice) && rawOfficialPrice > 0
             ? rawOfficialPrice
-            : currentItem?.officialLandPricePerSqm;
-        const nextParcels = Array.isArray(data.parcels) ? data.parcels : currentItem?.parcels;
+            : originItem?.officialLandPricePerSqm;
+        const nextParcels = Array.isArray(data.parcels) ? data.parcels : originItem?.parcels;
 
-        if (nextGfa) setGfaSqm(String(nextGfa));
-        if (nextLand) setLandAreaSqm(String(nextLand));
-        if (nextZoning) setZoning(String(nextZoning));
-        if (nextCompletion) setCompletionDate(String(nextCompletion));
-        if (nextBcrPct !== undefined) setBcrPct(nextBcrPct);
-        if (nextFarPct !== undefined) setFarPct(nextFarPct);
-        if (nextParkingTotal !== undefined) setParkingTotal(nextParkingTotal);
-        if (nextElevatorCount !== undefined) setElevatorCount(nextElevatorCount);
-        if (nextOfficialLandPricePerSqm !== undefined) {
-          setOfficialLandPricePerSqm(nextOfficialLandPricePerSqm);
+        if (isStillSelected) {
+          if (nextGfa) setGfaSqm(String(nextGfa));
+          if (nextLand) setLandAreaSqm(String(nextLand));
+          if (nextZoning) setZoning(String(nextZoning));
+          if (nextCompletion) setCompletionDate(String(nextCompletion));
+          if (nextBcrPct !== undefined) setBcrPct(nextBcrPct);
+          if (nextFarPct !== undefined) setFarPct(nextFarPct);
+          if (nextParkingTotal !== undefined) setParkingTotal(nextParkingTotal);
+          if (nextElevatorCount !== undefined) setElevatorCount(nextElevatorCount);
+          if (nextOfficialLandPricePerSqm !== undefined) {
+            setOfficialLandPricePerSqm(nextOfficialLandPricePerSqm);
+          }
+          if (nextParcels !== undefined) setParcels(nextParcels);
         }
-        if (nextParcels !== undefined) setParcels(nextParcels);
 
         // If user looked up a new address on an untouched sample item, clear sample remnants
         const isSampleOrigin =
-          SAMPLE_SEED_IDS.has(currentItem?.id || "") ||
-          SAMPLE_SEED_IDS.has(currentItem?.buildingId || "");
-        const isDifferentFromSample = !address.includes("양평동");
+          SAMPLE_SEED_IDS.has(originItem?.id || "") ||
+          SAMPLE_SEED_IDS.has(originItem?.buildingId || "");
+        const isDifferentFromSample = !reqAddress.includes("양평동");
         const patch: Partial<ImListItem> = {
-          gfaSqm: nextGfa ? String(nextGfa) : gfaSqm,
-          landAreaSqm: nextLand ? String(nextLand) : landAreaSqm,
-          zoning: nextZoning ? String(nextZoning) : zoning,
-          completionDate: nextCompletion ? String(nextCompletion) : completionDate,
+          gfaSqm: nextGfa ? String(nextGfa) : originGfa,
+          landAreaSqm: nextLand ? String(nextLand) : originLand,
+          zoning: nextZoning ? String(nextZoning) : originZoning,
+          completionDate: nextCompletion ? String(nextCompletion) : originCompletion,
           ...(nextPnu !== undefined ? { pnu: nextPnu } : {}),
           ...(nextLat !== undefined ? { lat: nextLat } : {}),
           ...(nextLng !== undefined ? { lng: nextLng } : {}),
@@ -1103,46 +1307,50 @@ function ImWorkspaceInner() {
 
         if (
           nextBuildingName &&
-          (!imTitle.trim() || imTitle === "영등포구 양평동 꼬마빌딩" || imTitle === "새 IM")
+          (!originTitle.trim() || originTitle === "영등포구 양평동 꼬마빌딩" || originTitle === "새 IM")
         ) {
-          setImTitle(nextBuildingName);
+          if (isStillSelected) setImTitle(nextBuildingName);
           patch.title = nextBuildingName;
-        } else if (isSampleOrigin && isDifferentFromSample && imTitle === "영등포구 양평동 꼬마빌딩") {
-          setImTitle(nextBuildingName);
+        } else if (isSampleOrigin && isDifferentFromSample && originTitle === "영등포구 양평동 꼬마빌딩") {
+          if (isStillSelected) setImTitle(nextBuildingName);
           patch.title = nextBuildingName;
         }
 
         if (isSampleOrigin && isDifferentFromSample) {
-          if (askingPriceManwon === 950000) {
-            setAskingPriceManwon(0);
-            setWonDraft("");
+          if (originPrice === 950000) {
+            if (isStillSelected) {
+              setAskingPriceManwon(0);
+              setWonDraft("");
+            }
             patch.askingPriceManwon = 0;
           }
-          if (rentRoll.some((r) => r.id === "r-b1")) {
+          if (originRentRoll.some((r) => r.id === "r-b1")) {
             const freshRows = generateFloorScaffolding(
               Number(data.floorsAbove) || 3,
               Number(data.floorsBelow) || 1
             );
-            setRentRoll(freshRows);
+            if (isStillSelected) setRentRoll(freshRows);
             patch.rentRoll = freshRows;
           }
-          if (handoverNote === "잔금 시 전층 명도 조건 협의 완료") {
-            setHandoverNote("");
+          if (originHandover === "잔금 시 전층 명도 조건 협의 완료") {
+            if (isStillSelected) setHandoverNote("");
             patch.handoverNote = "";
           }
           if (
-            photoEntries.length > 0 &&
-            photoEntries.every((pe) => !pe.dataUrl) &&
-            photoNames.includes("exterior_front.jpg")
+            originPhotoEntries.length > 0 &&
+            originPhotoEntries.every((pe) => !pe.dataUrl) &&
+            originPhotoNames.includes("exterior_front.jpg")
           ) {
-            setPhotoNames([]);
-            setPhotoEntries([]);
-            latestPhotoEntriesRef.current = [];
+            if (isStillSelected) {
+              setPhotoNames([]);
+              setPhotoEntries([]);
+              latestPhotoEntriesRef.current = [];
+            }
             patch.photoNames = [];
             patch.photos = [];
           }
         } else if (
-          rentRoll.every(
+          originRentRoll.every(
             (r) => r.id.startsWith("scaffold-") && !r.depositManwon && !r.monthlyRentManwon
           ) &&
           (Number(data.floorsAbove) > 0 || Number(data.floorsBelow) > 0)
@@ -1151,23 +1359,25 @@ function ImWorkspaceInner() {
             Number(data.floorsAbove) || 3,
             Number(data.floorsBelow) || 1
           );
-          setRentRoll(freshRows);
+          if (isStillSelected) setRentRoll(freshRows);
           patch.rentRoll = freshRows;
         }
-        syncCurrentItemPatch(patch);
+        syncCurrentItemPatch(patch, targetId);
         showUndoToast({
           message: "공적장부에서 건물 면적·용도지역 정보를 불러왔어요",
           variant: "success",
         });
-      } else {
+      } else if (selectedIdRef.current === targetId) {
         setActionAlert(
           "공적장부 자동 조회 결과가 없어요. 아래 칸에 면적과 용도지역을 직접 적어 주세요."
         );
       }
     } catch {
-      setActionAlert(
-        "공적장부 조회에 연결하지 못했어요. 아래 칸에 직접 입력해 주세요."
-      );
+      if (selectedIdRef.current === targetId) {
+        setActionAlert(
+          "공적장부 조회에 연결하지 못했어요. 아래 칸에 직접 입력해 주세요."
+        );
+      }
     } finally {
       setIsLookingUpAddress(false);
     }
@@ -1175,10 +1385,11 @@ function ImWorkspaceInner() {
 
   // Create new blank IM
   const handleCreateNew = () => {
-    const newId = `im-doc-${Date.now()}`;
+    const stamp = Date.now();
+    const newId = `im-doc-${stamp}`;
     const newItem: ImListItem = {
       id: newId,
-      buildingId: `bld-${Date.now()}`,
+      buildingId: `bld-${stamp}`,
       title: "새 IM",
       address: "",
       askingPriceManwon: 0,
@@ -1202,9 +1413,10 @@ function ImWorkspaceInner() {
     };
 
     const next = [newItem, ...items];
+    itemsRef.current = next;
     setItems(next);
     persistImItems(next);
-    setSelectedId(newId);
+    selectImItem(newId, { listSnapshot: next });
     applyItemToFormState(newItem);
     showUndoToast({
       message: "빈 IM을 새로 열었어요. 건물 주소와 희망 매매가부터 적어 보세요.",
@@ -1214,6 +1426,7 @@ function ImWorkspaceInner() {
 
   const handleExcelRentRollImport = (payload: RentRollImportPayload) => {
     if (Array.isArray(payload.floorLeases) && payload.floorLeases.length > 0) {
+      const targetId = currentItem?.id || selectedIdRef.current;
       const mappedRows: RentRollRowItem[] = payload.floorLeases.map((r, idx) => {
         let dep = Number(r.deposit_manwon ?? 0);
         let rent = Number(r.rent_manwon ?? 0);
@@ -1255,6 +1468,8 @@ function ImWorkspaceInner() {
       });
       const finalRows = synthesizeMissingVacantFloors(mappedRows);
       const prevRows = [...rentRoll];
+      const prevPrice = askingPriceManwon;
+      let didUpdatePrice = false;
       setRentRoll(finalRows);
       const patch: Partial<ImListItem> = { rentRoll: finalRows };
       const incomingPrice = Number(
@@ -1268,16 +1483,27 @@ function ImWorkspaceInner() {
           askingPriceManwon <= 0 ||
           String(askingPriceManwon) === "68000")
       ) {
+        didUpdatePrice = true;
         setAskingPriceManwon(incomingPrice);
         setWonDraft((incomingPrice * 10000).toLocaleString("ko-KR"));
         patch.askingPriceManwon = incomingPrice;
       }
-      syncCurrentItemPatch(patch);
+      syncCurrentItemPatch(patch, targetId);
       showUndoToast({
         message: `엑셀 임대 현황 ${finalRows.length}개 층을 반영했어요`,
         undoAction: () => {
-          setRentRoll(prevRows);
-          syncCurrentItemPatch({ rentRoll: prevRows });
+          const undoPatch: Partial<ImListItem> = {
+            rentRoll: prevRows,
+            ...(didUpdatePrice ? { askingPriceManwon: prevPrice } : {}),
+          };
+          if (selectedIdRef.current === targetId) {
+            setRentRoll(prevRows);
+            if (didUpdatePrice) {
+              setAskingPriceManwon(prevPrice);
+              setWonDraft(prevPrice > 0 ? (prevPrice * 10000).toLocaleString("ko-KR") : "");
+            }
+          }
+          syncCurrentItemPatch(undoPatch, targetId);
         },
       });
     }
@@ -1309,11 +1535,15 @@ function ImWorkspaceInner() {
 
   // Open Detail Sheet without publishing draft
   const handleOpenBottomSheet = async () => {
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const originItem = currentItem;
     await waitForPendingPhotoCompressions();
-    const existingBid = currentItem?.buildingId || "";
+    const existingBid = originItem?.buildingId || "";
     if (UUID_REGEX.test(existingBid)) {
-      setBottomSheetBuildingId(existingBid);
-      setIsBottomSheetOpen(true);
+      if (selectedIdRef.current === targetId) {
+        setBottomSheetBuildingId(existingBid);
+        setIsBottomSheetOpen(true);
+      }
       return;
     }
 
@@ -1322,45 +1552,49 @@ function ImWorkspaceInner() {
       return;
     }
 
+    const reqPayload = {
+      address: address.trim(),
+      askingPriceManwon,
+      title: imTitle.trim() || undefined,
+      investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
+      axiosHighlights,
+      rentRoll,
+      posture: investmentPosture,
+      gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
+      completionDate: completionDate || undefined,
+      landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
+      zoning: zoning || undefined,
+      handoverNote: handoverNote || undefined,
+      pnu: originItem?.pnu,
+      lat: originItem?.lat,
+      lng: originItem?.lng,
+      floorsAbove: originItem?.floorsAbove,
+      floorsBelow: originItem?.floorsBelow,
+      bcrPct: bcrPct ?? originItem?.bcrPct,
+      farPct: farPct ?? originItem?.farPct,
+      parkingSpaces: parkingTotal ?? originItem?.parkingTotal,
+      elevators: elevatorCount ?? originItem?.elevatorCount,
+      officialLandPricePerSqm:
+        officialLandPricePerSqm ?? originItem?.officialLandPricePerSqm,
+      parcels: parcels ?? originItem?.parcels,
+      closingLine: brokerExtrasForm.closingLine,
+      mainPurpose: originItem?.mainPurpose,
+      brokerName,
+      brokerageName,
+      brokerPhone,
+    };
+    const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
+    const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
+    const photosPayload = buildPhotosPayloadForRequest();
+
     setIsProvisioningSheet(true);
     setActionAlert(null);
     try {
-      const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
-      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
-      const photosPayload = buildPhotosPayloadForRequest();
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          address: address.trim(),
-          askingPriceManwon,
-          title: imTitle.trim() || undefined,
-          investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
-          axiosHighlights,
-          rentRoll,
-          posture: investmentPosture,
-          gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
-          completionDate: completionDate || undefined,
-          landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
-          zoning: zoning || undefined,
-          handoverNote: handoverNote || undefined,
-          pnu: currentItem?.pnu,
-          lat: currentItem?.lat,
-          lng: currentItem?.lng,
-          floorsAbove: currentItem?.floorsAbove,
-          floorsBelow: currentItem?.floorsBelow,
-          bcrPct: bcrPct ?? currentItem?.bcrPct,
-          farPct: farPct ?? currentItem?.farPct,
-          parkingSpaces: parkingTotal ?? currentItem?.parkingTotal,
-          elevators: elevatorCount ?? currentItem?.elevatorCount,
-          officialLandPricePerSqm:
-            officialLandPricePerSqm ?? currentItem?.officialLandPricePerSqm,
-          parcels: parcels ?? currentItem?.parcels,
-          closingLine: brokerExtrasForm.closingLine,
-          mainPurpose: currentItem?.mainPurpose,
-          brokerName,
-          brokerageName,
-          brokerPhone,
+          ...reqPayload,
           brokerExtras: brokerExtrasPayload,
           photos: photosPayload,
           publishStatus: "draft",
@@ -1368,95 +1602,23 @@ function ImWorkspaceInner() {
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.buildingId && UUID_REGEX.test(data.buildingId)) {
-        setBottomSheetBuildingId(data.buildingId);
-        syncCurrentItemPatch({ buildingId: data.buildingId });
-        setIsBottomSheetOpen(true);
-      } else {
+        syncCurrentItemPatch(
+          {
+            buildingId: data.buildingId,
+            ...(data.documentId ? { documentId: data.documentId } : {}),
+            isDirty: false,
+          },
+          targetId
+        );
+        if (selectedIdRef.current === targetId) {
+          setBottomSheetBuildingId(data.buildingId);
+          setIsBottomSheetOpen(true);
+        }
+      } else if (selectedIdRef.current === targetId) {
         setActionAlert(data?.error || "상세 편집 창을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
     } catch {
-      setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
-    } finally {
-      setIsProvisioningSheet(false);
-    }
-  };
-
-  // Open 10-Slide PPTX Studio (provisions DB record first if current buildingId is a non-UUID seed)
-  const handleOpenStudio = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    await waitForPendingPhotoCompressions();
-    await autosave.flush();
-    const existingBid = currentItem?.buildingId || "";
-
-    if (!address.trim() || !askingPriceManwon || askingPriceManwon <= 0) {
-      if (UUID_REGEX.test(existingBid)) {
-        router.push("/broker/basic-im-studio/" + existingBid);
-        return;
-      }
-      setActiveEditorTab("specs");
-      setActionAlert("10면 슬라이드 편집을 열려면 주소와 희망 매매가를 먼저 입력해 주세요.");
-      return;
-    }
-
-    setIsProvisioningSheet(true);
-    setActionAlert(null);
-    try {
-      const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
-      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
-      const photosPayload = buildPhotosPayloadForRequest();
-      const res = await fetch("/api/broker/im-lite/quick-generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          buildingId: UUID_REGEX.test(existingBid) ? existingBid : undefined,
-          address: address.trim(),
-          askingPriceManwon,
-          title: imTitle.trim() || undefined,
-          investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
-          axiosHighlights,
-          rentRoll,
-          posture: investmentPosture,
-          gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
-          completionDate: completionDate || undefined,
-          landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
-          zoning: zoning || undefined,
-          handoverNote: handoverNote || undefined,
-          pnu: currentItem?.pnu,
-          lat: currentItem?.lat,
-          lng: currentItem?.lng,
-          floorsAbove: currentItem?.floorsAbove,
-          floorsBelow: currentItem?.floorsBelow,
-          bcrPct: bcrPct ?? currentItem?.bcrPct,
-          farPct: farPct ?? currentItem?.farPct,
-          parkingSpaces: parkingTotal ?? currentItem?.parkingTotal,
-          elevators: elevatorCount ?? currentItem?.elevatorCount,
-          officialLandPricePerSqm:
-            officialLandPricePerSqm ?? currentItem?.officialLandPricePerSqm,
-          parcels: parcels ?? currentItem?.parcels,
-          closingLine: brokerExtrasForm.closingLine,
-          mainPurpose: currentItem?.mainPurpose,
-          brokerName,
-          brokerageName,
-          brokerPhone,
-          brokerExtras: brokerExtrasPayload,
-          photos: photosPayload,
-          publishStatus: "draft",
-        }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok && data?.buildingId) {
-        const targetBid = data.buildingId;
-        syncCurrentItemPatch({ buildingId: targetBid });
-        router.push("/broker/basic-im-studio/" + targetBid);
-      } else if (UUID_REGEX.test(existingBid)) {
-        router.push("/broker/basic-im-studio/" + existingBid);
-      } else {
-        setActionAlert(data?.error || "슬라이드 스튜디오를 준비하지 못했어요. 잠시 후 다시 시도해 주세요.");
-      }
-    } catch {
-      if (UUID_REGEX.test(existingBid)) {
-        router.push("/broker/basic-im-studio/" + existingBid);
-      } else {
+      if (selectedIdRef.current === targetId) {
         setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
       }
     } finally {
@@ -1464,8 +1626,175 @@ function ImWorkspaceInner() {
     }
   };
 
+  // Shared helper to ensure unprovisioned or dirty local IM items are saved to DB with a valid UUID + documentId
+  const ensureProvisionedImTarget = async (
+    actionLabel: string
+  ): Promise<{ buildingId: string; documentId?: string } | null> => {
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const originItem = currentItem;
+    await waitForPendingPhotoCompressions();
+    await autosave.flush();
+    const existingBid = originItem?.buildingId || "";
+    const existingDocId = originItem?.documentId;
+    const reqAddress = address.trim();
+    const reqPrice = askingPriceManwon;
+
+    if (!reqAddress || !reqPrice || reqPrice <= 0) {
+      if (UUID_REGEX.test(existingBid)) {
+        return { buildingId: existingBid, documentId: existingDocId };
+      }
+      setActiveEditorTab("specs");
+      setActionAlert(`${actionLabel}을(를) 열려면 주소와 희망 매매가를 먼저 입력해 주세요.`);
+      return null;
+    }
+
+    const reqPayload = {
+      buildingId: UUID_REGEX.test(existingBid) ? existingBid : undefined,
+      address: reqAddress,
+      askingPriceManwon: reqPrice,
+      title: imTitle.trim() || undefined,
+      investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
+      axiosHighlights,
+      rentRoll,
+      posture: investmentPosture,
+      gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
+      completionDate: completionDate || undefined,
+      landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
+      zoning: zoning || undefined,
+      handoverNote: handoverNote || undefined,
+      pnu: originItem?.pnu,
+      lat: originItem?.lat,
+      lng: originItem?.lng,
+      floorsAbove: originItem?.floorsAbove,
+      floorsBelow: originItem?.floorsBelow,
+      bcrPct: bcrPct ?? originItem?.bcrPct,
+      farPct: farPct ?? originItem?.farPct,
+      parkingSpaces: parkingTotal ?? originItem?.parkingTotal,
+      elevators: elevatorCount ?? originItem?.elevatorCount,
+      officialLandPricePerSqm:
+        officialLandPricePerSqm ?? originItem?.officialLandPricePerSqm,
+      parcels: parcels ?? originItem?.parcels,
+      closingLine: brokerExtrasForm.closingLine,
+      mainPurpose: originItem?.mainPurpose,
+      brokerName,
+      brokerageName,
+      brokerPhone,
+    };
+    const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
+    const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
+    const photosPayload = buildPhotosPayloadForRequest();
+
+    setIsProvisioningSheet(true);
+    setActionAlert(null);
+    try {
+      const res = await fetch("/api/broker/im-lite/quick-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...reqPayload,
+          brokerExtras: brokerExtrasPayload,
+          photos: photosPayload,
+          publishStatus: originItem?.status === "published" ? "published" : "draft",
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.buildingId) {
+        const targetBid: string = data.buildingId;
+        const targetDocId: string | undefined =
+          typeof data.documentId === "string" && data.documentId
+            ? data.documentId
+            : existingDocId;
+        syncCurrentItemPatch(
+          {
+            buildingId: targetBid,
+            ...(targetDocId ? { documentId: targetDocId } : {}),
+            isDirty: false,
+          },
+          targetId
+        );
+        return { buildingId: targetBid, documentId: targetDocId };
+      }
+      if (UUID_REGEX.test(existingBid)) {
+        return { buildingId: existingBid, documentId: existingDocId };
+      }
+      if (selectedIdRef.current === targetId) {
+        setActionAlert(
+          data?.error || `${actionLabel} 준비 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.`
+        );
+      }
+      return null;
+    } catch {
+      if (UUID_REGEX.test(existingBid)) {
+        return { buildingId: existingBid, documentId: existingDocId };
+      }
+      if (selectedIdRef.current === targetId) {
+        setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
+      }
+      return null;
+    } finally {
+      setIsProvisioningSheet(false);
+    }
+  };
+
+  // Open 10-Slide Studio (provisions DB record first if current buildingId is a non-UUID seed)
+  const handleOpenStudio = async (e: React.MouseEvent<HTMLElement>) => {
+    e.preventDefault();
+    if (isProvisioningSheet) return;
+    const target = await ensureProvisionedImTarget("10면 슬라이드 편집");
+    if (target) {
+      router.push("/broker/basic-im-studio/" + target.buildingId);
+    }
+  };
+
+  const handleDownloadPptx = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isProvisioningSheet) {
+      e.preventDefault();
+      return;
+    }
+    const existingBid = currentItem?.buildingId || "";
+    if (UUID_REGEX.test(existingBid) && !currentItem?.isDirty) {
+      return;
+    }
+    e.preventDefault();
+    const target = await ensureProvisionedImTarget("PPTX 내려받기");
+    if (!target) return;
+    const docQs = target.documentId
+      ? `&doc=${encodeURIComponent(target.documentId)}&doc_id=${encodeURIComponent(target.documentId)}`
+      : "";
+    const url = `/api/public/im-lite/${encodeURIComponent(target.buildingId)}/pptx?direct=1${docQs}`;
+    if (typeof document !== "undefined") {
+      const a = document.createElement("a");
+      a.href = url;
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  };
+
+  const handleOpenFullscreen = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isProvisioningSheet) {
+      e.preventDefault();
+      return;
+    }
+    const existingBid = currentItem?.buildingId || "";
+    if (UUID_REGEX.test(existingBid) && !currentItem?.isDirty) {
+      return;
+    }
+    e.preventDefault();
+    const target = await ensureProvisionedImTarget("전체화면 미리보기");
+    if (!target) return;
+    const docQs = target.documentId ? `?doc=${encodeURIComponent(target.documentId)}` : "";
+    const url = `/im-lite/${encodeURIComponent(target.buildingId)}${docQs}`;
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   // Primary Action: IM 만들기
   const handleQuickGenerate = async () => {
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const originItem = currentItem;
     await waitForPendingPhotoCompressions();
     setActionAlert(null);
     if (!address.trim()) {
@@ -1479,48 +1808,67 @@ function ImWorkspaceInner() {
       return;
     }
 
+    const reqTitle = imTitle;
+    const reqAddress = address.trim();
+    const reqPrice = askingPriceManwon;
+    const reqYield = Number(calculatedYield.toFixed(2));
+    const reqRentRoll = [...rentRoll];
+    const reqPosture = investmentPosture;
+    const reqGfa = gfaSqm;
+    const reqCompletion = completionDate;
+    const reqLand = landAreaSqm;
+    const reqZoning = zoning;
+    const reqHandover = handoverNote;
+    const reqBrokerName = brokerName;
+    const reqBrokerageName = brokerageName;
+    const reqBrokerPhone = brokerPhone;
+    const reqExtrasForm = { ...brokerExtrasForm };
+    const reqHighlights = axiosHighlights.map((h) => ({ ...h }));
+    const latestPhotos =
+      latestPhotoEntriesRef.current.length > 0 ? [...latestPhotoEntriesRef.current] : [...photoEntries];
+
     setIsGenerating(true);
     try {
-      const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
-      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
+      const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(reqExtrasForm));
+      const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : reqExtrasForm;
       const photosPayload = buildPhotosPayloadForRequest();
 
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          buildingId: UUID_REGEX.test(currentItem?.buildingId || "")
-            ? currentItem?.buildingId
+          buildingId: UUID_REGEX.test(originItem?.buildingId || "")
+            ? originItem?.buildingId
             : undefined,
-          title: imTitle.trim() || undefined,
-          address: address.trim(),
-          askingPriceManwon,
-          investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
-          axiosHighlights,
-          rentRoll,
-          posture: investmentPosture,
-          gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
-          completionDate: completionDate || undefined,
-          landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
-          zoning: zoning || undefined,
-          handoverNote: handoverNote || undefined,
-          pnu: currentItem?.pnu,
-          lat: currentItem?.lat,
-          lng: currentItem?.lng,
-          floorsAbove: currentItem?.floorsAbove,
-          floorsBelow: currentItem?.floorsBelow,
-          bcrPct: bcrPct ?? currentItem?.bcrPct,
-          farPct: farPct ?? currentItem?.farPct,
-          parkingSpaces: parkingTotal ?? currentItem?.parkingTotal,
-          elevators: elevatorCount ?? currentItem?.elevatorCount,
+          title: reqTitle.trim() || undefined,
+          address: reqAddress,
+          askingPriceManwon: reqPrice,
+          investmentPoints: reqHighlights.map((h) => h.headline).filter(Boolean),
+          axiosHighlights: reqHighlights,
+          rentRoll: reqRentRoll,
+          posture: reqPosture,
+          gfaSqm: Number(String(reqGfa || "").replace(/,/g, "")) || undefined,
+          completionDate: reqCompletion || undefined,
+          landAreaSqm: Number(String(reqLand || "").replace(/,/g, "")) || undefined,
+          zoning: reqZoning || undefined,
+          handoverNote: reqHandover || undefined,
+          pnu: originItem?.pnu,
+          lat: originItem?.lat,
+          lng: originItem?.lng,
+          floorsAbove: originItem?.floorsAbove,
+          floorsBelow: originItem?.floorsBelow,
+          bcrPct: bcrPct ?? originItem?.bcrPct,
+          farPct: farPct ?? originItem?.farPct,
+          parkingSpaces: parkingTotal ?? originItem?.parkingTotal,
+          elevators: elevatorCount ?? originItem?.elevatorCount,
           officialLandPricePerSqm:
-            officialLandPricePerSqm ?? currentItem?.officialLandPricePerSqm,
-          parcels: parcels ?? currentItem?.parcels,
-          closingLine: brokerExtrasForm.closingLine,
-          mainPurpose: currentItem?.mainPurpose,
-          brokerName,
-          brokerageName,
-          brokerPhone,
+            officialLandPricePerSqm ?? originItem?.officialLandPricePerSqm,
+          parcels: parcels ?? originItem?.parcels,
+          closingLine: reqExtrasForm.closingLine,
+          mainPurpose: originItem?.mainPurpose,
+          brokerName: reqBrokerName,
+          brokerageName: reqBrokerageName,
+          brokerPhone: reqBrokerPhone,
           brokerExtras: brokerExtrasPayload,
           photos: photosPayload,
           publishStatus: "published",
@@ -1529,62 +1877,66 @@ function ImWorkspaceInner() {
 
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success) {
-        const targetId = currentItem?.id || selectedId;
         const resolvedTitle =
-          imTitle.trim() ||
-          (address.split(" ").slice(1, 3).join(" ") || "매물") + " 근생빌딩";
-        const latestPhotos =
-          latestPhotoEntriesRef.current.length > 0 ? latestPhotoEntriesRef.current : photoEntries;
-        const nextItems = items.map((it) =>
-          it.id === targetId
-            ? {
-                ...it,
-                buildingId: data?.buildingId || it.buildingId,
-                title: resolvedTitle,
-                address,
-                askingPriceManwon,
-                grossYieldPct: Number(calculatedYield.toFixed(2)) || it.grossYieldPct,
-                status: "published" as const,
-                versionLabel: "발행됨",
-                updatedAt: "방금",
-                rentRoll,
-                investmentPosture,
-                gfaSqm,
-                completionDate,
-                landAreaSqm,
-                zoning,
-                handoverNote,
-                photoNames: Array.from(new Set(latestPhotos.map((p) => p.name))),
-                photos: sanitizePhotosForSync(latestPhotos),
-                brokerName,
-                brokerageName,
-                brokerPhone,
-                brokerExtrasForm,
-                axiosHighlights,
-                isDirty: false,
-              }
-            : it
-        );
-        setItems(nextItems);
-        persistImItems(nextItems);
-        if (data?.buildingId) {
-          setBottomSheetBuildingId(data.buildingId);
-        }
-        autosave.markClean();
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("workspace:open-preview"));
+          reqTitle.trim() ||
+          (reqAddress.split(" ").slice(1, 3).join(" ") || "매물") + " 근생빌딩";
+        setItems((prev) => {
+          const nextItems = prev.map((it) =>
+            it.id === targetId
+              ? {
+                  ...it,
+                  buildingId: data?.buildingId || it.buildingId,
+                  ...(data?.documentId ? { documentId: data.documentId } : {}),
+                  title: resolvedTitle,
+                  address: reqAddress,
+                  askingPriceManwon: reqPrice,
+                  grossYieldPct: reqYield || it.grossYieldPct,
+                  status: "published" as const,
+                  versionLabel: "발행됨",
+                  updatedAt: "방금",
+                  rentRoll: reqRentRoll,
+                  investmentPosture: reqPosture,
+                  gfaSqm: reqGfa,
+                  completionDate: reqCompletion,
+                  landAreaSqm: reqLand,
+                  zoning: reqZoning,
+                  handoverNote: reqHandover,
+                  photoNames: latestPhotos.map((p) => p.name),
+                  photos: sanitizePhotosForSync(latestPhotos),
+                  brokerName: reqBrokerName,
+                  brokerageName: reqBrokerageName,
+                  brokerPhone: reqBrokerPhone,
+                  brokerExtrasForm: reqExtrasForm,
+                  axiosHighlights: reqHighlights,
+                  isDirty: false,
+                }
+              : it
+          );
+          persistImItems(nextItems);
+          return nextItems;
+        });
+        if (selectedIdRef.current === targetId) {
+          if (data?.buildingId) {
+            setBottomSheetBuildingId(data.buildingId);
+          }
+          autosave.markClean();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("workspace:open-preview"));
+          }
         }
         showUndoToast({
           message: "IM과 딜카드를 만들었어요! 오른쪽에서 미리보거나 내려받을 수 있습니다.",
           variant: "success",
         });
-      } else {
+      } else if (selectedIdRef.current === targetId) {
         setActionAlert(
           data?.error || "IM을 만드는 중 문제가 생겼어요. 입력 내용을 확인하고 다시 눌러 주세요."
         );
       }
     } catch {
-      setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
+      if (selectedIdRef.current === targetId) {
+        setActionAlert("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -1592,11 +1944,13 @@ function ImWorkspaceInner() {
 
   const handleDuplicateIm = (source: ImListItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const newId = `im-doc-${Date.now().toString().slice(-4)}`;
+    const stamp = Date.now().toString().slice(-4);
+    const newId = `im-doc-${stamp}`;
     const cloned: ImListItem = {
       ...source,
       id: newId,
-      buildingId: `bld-${Date.now().toString().slice(-4)}`,
+      buildingId: `bld-${stamp}`,
+      documentId: undefined,
       title: `${source.title} (사본)`,
       status: "draft",
       versionLabel: "작성 중",
@@ -1604,9 +1958,11 @@ function ImWorkspaceInner() {
       isDirty: true,
     };
     const next = [cloned, ...items];
+    itemsRef.current = next;
     setItems(next);
     persistImItems(next);
-    setSelectedId(newId);
+    selectImItem(newId, { listSnapshot: next });
+    applyItemToFormState(cloned);
     showUndoToast({
       message: `'${source.title}' IM을 복제했어요`,
       variant: "success",
@@ -1622,10 +1978,11 @@ function ImWorkspaceInner() {
     const prevItems = [...items];
     const prevSelectedId = selectedId;
     const next = items.filter((it) => it.id !== target.id);
+    itemsRef.current = next;
     setItems(next);
     persistImItems(next);
     if (selectedId === target.id && next[0]) {
-      setSelectedId(next[0].id);
+      selectImItem(next[0].id, { listSnapshot: next });
       applyItemToFormState(next[0]);
     }
     void fetch("/api/broker/workspace/summary", {
@@ -1641,9 +1998,10 @@ function ImWorkspaceInner() {
     showUndoToast({
       message: `'${target.title || "새 IM"}' IM을 삭제했습니다`,
       undoAction: () => {
+        itemsRef.current = prevItems;
         setItems(prevItems);
         persistImItems(prevItems);
-        setSelectedId(prevSelectedId);
+        selectImItem(prevSelectedId, { listSnapshot: prevItems });
         const restored = prevItems.find((i) => i.id === prevSelectedId);
         if (restored) applyItemToFormState(restored);
         void fetch("/api/broker/workspace/summary", {
@@ -1661,12 +2019,47 @@ function ImWorkspaceInner() {
   };
 
   const handleReclusterImAxios = async () => {
-    const prevHighlights = axiosHighlights.map((h) => ({ ...h }));
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const prevHighlights = axiosHighlights.map((h) => ({
+      ...h,
+      ...(h.bullets ? { bullets: [...h.bullets] } : {}),
+    }));
+    const reqAddress = address;
+    const reqTitle = imTitle;
+    const reqPosture = investmentPosture;
+    const reqPrice = askingPriceManwon;
+    const reqGfa = gfaSqm;
+    const reqLand = landAreaSqm;
+    const reqZoning = zoning;
+    const reqCompletion = completionDate;
+    const reqHandover = handoverNote;
+    const reqRentRoll = [...rentRoll];
+    const reqTotalRent = totalRentManwon;
+    const reqTotalDep = totalDepositManwon;
+    const reqYield = calculatedYield;
+
+    const commitGeneratedHighlights = (nextHighlights: ImAxiosHighlight[], message: string) => {
+      if (selectedIdRef.current === targetId) {
+        setAxiosHighlights(nextHighlights);
+      }
+      syncCurrentItemPatch({ axiosHighlights: nextHighlights }, targetId);
+      showUndoToast({
+        message,
+        variant: "success",
+        undoAction: () => {
+          if (selectedIdRef.current === targetId) {
+            setAxiosHighlights(prevHighlights);
+          }
+          syncCurrentItemPatch({ axiosHighlights: prevHighlights }, targetId);
+        },
+      });
+    };
+
     setIsAiPointsBusy(true);
     setActionAlert(null);
 
     try {
-      const rentSummary = rentRoll
+      const rentSummary = reqRentRoll
         .map(
           (r) =>
             `${r.floor} ${r.use} 보증금 ${r.depositManwon || 0}만/월세 ${r.monthlyRentManwon || 0}만`
@@ -1676,14 +2069,14 @@ function ImWorkspaceInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          address,
-          title: imTitle,
-          posture: investmentPosture,
-          askingPriceManwon,
-          gfaSqm,
-          landAreaSqm,
-          zoning,
-          completionDate,
+          address: reqAddress,
+          title: reqTitle,
+          posture: reqPosture,
+          askingPriceManwon: reqPrice,
+          gfaSqm: reqGfa,
+          landAreaSqm: reqLand,
+          zoning: reqZoning,
+          completionDate: reqCompletion,
           rentRollSummary: rentSummary,
         }),
       });
@@ -1697,12 +2090,7 @@ function ImWorkspaceInner() {
             tone: tones[idx] || "amber",
           })
         );
-        setAxiosHighlights(nextHighlights);
-        syncCurrentItemPatch({ axiosHighlights: nextHighlights });
-        showUndoToast({
-          message: "AI가 장점 3가지를 작성했어요",
-          variant: "success",
-        });
+        commitGeneratedHighlights(nextHighlights, "AI가 장점 3가지를 작성했어요");
         return;
       }
     } catch {
@@ -1711,10 +2099,10 @@ function ImWorkspaceInner() {
       setIsAiPointsBusy(false);
     }
 
-    const regionPart = address.split(" ").slice(1, 3).join(" ") || "핵심 지역";
-    const priceEok = ((askingPriceManwon || 0) / 10000).toFixed(1);
-    const yieldStr = calculatedYield.toFixed(2);
-    const normP = normalizePostureForSelector(investmentPosture);
+    const regionPart = reqAddress.split(" ").slice(1, 3).join(" ") || "핵심 지역";
+    const priceEok = ((reqPrice || 0) / 10000).toFixed(1);
+    const yieldStr = reqYield.toFixed(2);
+    const normP = normalizePostureForSelector(reqPosture);
 
     const fallbackHighlights: ImAxiosHighlight[] =
       normP === "owner_occupied"
@@ -1722,18 +2110,18 @@ function ImWorkspaceInner() {
             {
               headline: `${regionPart} 사옥 추천 · 가시성 우수한 단독 건물`,
               brief: `${regionPart} 주요 도로 인접 입지로 방문객 접근성과 출퇴근 여건이 뛰어납니다.${
-                gfaSqm ? ` 연면적 ${gfaSqm}㎡ 규모로 사옥 활용에 적합합니다.` : ""
+                reqGfa ? ` 연면적 ${reqGfa}㎡ 규모로 사옥 활용에 적합합니다.` : ""
               }`,
               tone: "amber",
             },
             {
-              headline: `${handoverNote || "입주 일정 협의 가능"} · 사옥 이전 용이`,
+              headline: `${reqHandover || "입주 일정 협의 가능"} · 사옥 이전 용이`,
               brief: `명도 및 입주 일정 협의가 가능하여 계획적인 사옥 이전이 가능합니다.`,
               tone: "sky",
             },
             {
               headline: `${priceEok !== "0.0" ? `매매가 ${priceEok}억 · ` : ""}${
-                zoning || "우수 용도지역"
+                reqZoning || "우수 용도지역"
               } 토지 가치`,
               brief: `반듯한 대지 여건을 갖추어 실사용 가치는 물론 중장기 자산가치 보존에 유리합니다.`,
               tone: "mint",
@@ -1741,38 +2129,33 @@ function ImWorkspaceInner() {
           ]
         : [
             {
-              headline: `${regionPart} 상권 · 총 ${rentRoll.length}개 층 임차 운영`,
-              brief: `총 ${rentRoll.length}개 층에 안정적인 업종이 입점해 운영 중입니다.${
-                totalRentManwon > 0
-                  ? ` 월 임대료 합계 ${totalRentManwon.toLocaleString()}만 원입니다.`
+              headline: `${regionPart} 상권 · 총 ${reqRentRoll.length}개 층 임차 운영`,
+              brief: `총 ${reqRentRoll.length}개 층에 안정적인 업종이 입점해 운영 중입니다.${
+                reqTotalRent > 0
+                  ? ` 월 임대료 합계 ${reqTotalRent.toLocaleString()}만 원입니다.`
                   : ""
               }`,
               tone: "amber",
             },
             {
               headline:
-                calculatedYield > 0
+                reqYield > 0
                   ? `순투자금 대비 연 ${yieldStr}% 임대 수익`
                   : `안정적인 보증금·임대료 수익 구조`,
               brief:
-                calculatedYield > 0
-                  ? `보증금 합계 ${totalDepositManwon.toLocaleString()}만 원을 제외한 순투자금 기준 연 ${yieldStr}% 수익률입니다.`
+                reqYield > 0
+                  ? `보증금 합계 ${reqTotalDep.toLocaleString()}만 원을 제외한 순투자금 기준 연 ${yieldStr}% 수익률입니다.`
                   : `임대차 구조가 안정적이어서 꾸준한 배당 수익을 기대할 수 있습니다.`,
               tone: "sky",
             },
             {
-              headline: `${zoning || "핵심 상권"} 토지 가치 및 가치 상승 여력`,
+              headline: `${reqZoning || "핵심 상권"} 토지 가치 및 가치 상승 여력`,
               brief: `향후 임대차 갱신 및 건물 관리 개선을 통한 추가 가치 상승 여력이 있습니다.`,
               tone: "mint",
             },
           ];
 
-    setAxiosHighlights(fallbackHighlights);
-    syncCurrentItemPatch({ axiosHighlights: fallbackHighlights });
-    showUndoToast({
-      message: "매물 정보에 맞춰 장점 3가지를 채웠어요",
-      variant: "success",
-    });
+    commitGeneratedHighlights(fallbackHighlights, "매물 정보에 맞춰 장점 3가지를 채웠어요");
   };
 
   /* ──────── Column 1: Item List (Apple iOS Frosted Rail) ──────── */
@@ -1859,7 +2242,7 @@ function ImWorkspaceInner() {
 
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1" role="list">
         {filteredItems.map((item) => {
-          const isSelected = item.id === selectedId;
+          const isSelected = item.id === (currentItem?.id || selectedId);
           const itemPostureLabel =
             IM_POSTURE_LABELS[item.investmentPosture || "core_income"] || "임대수익용";
 
@@ -1869,17 +2252,19 @@ function ImWorkspaceInner() {
               role="button"
               tabIndex={0}
               data-testid={`im-item-${item.id}`}
+              data-selected={isSelected ? "true" : "false"}
               aria-current={isSelected ? "true" : undefined}
-              onClick={() => setSelectedId(item.id)}
+              onClick={() => selectImItem(item.id)}
               onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setSelectedId(item.id);
+                  selectImItem(item.id);
                 }
               }}
-              className={`w-full min-h-[88px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ios-glass-card ${
+              className={`w-full min-h-[88px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
                 isSelected
-                  ? "bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
+                  ? "ios-glass-card-active bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
                   : "bg-white/82 border-slate-900/[0.075] hover:bg-white/95"
               }`}
             >
@@ -1998,14 +2383,16 @@ function ImWorkspaceInner() {
           >
             <span>{isProvisioningSheet ? "열고 있어요…" : "상세 입력 창 열기"}</span>
           </button>
-          <a
-            href={`/broker/basic-im-studio/${currentItem?.buildingId || "bld-01"}`}
+          <button
+            type="button"
             data-testid="im-open-studio-btn"
+            disabled={isProvisioningSheet}
+            aria-busy={isProvisioningSheet}
             onClick={handleOpenStudio}
-            className="min-h-[48px] px-4 py-2 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-bold text-sm hover:bg-[#EFF6FF] transition-colors flex items-center gap-1.5"
+            className="min-h-[48px] px-4 py-2 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-bold text-sm hover:bg-[#EFF6FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <span>10면 슬라이드 편집</span>
-          </a>
+            <span>{isProvisioningSheet ? "슬라이드 준비 중…" : "10면 슬라이드 편집"}</span>
+          </button>
         </div>
       </div>
 
@@ -2023,7 +2410,7 @@ function ImWorkspaceInner() {
         role="tablist"
         aria-label="IM 작성 단계"
         data-testid="im-editor-primary-tabs"
-        className="sticky top-0 z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/95 backdrop-blur-xs border border-slate-300 shadow-xs"
+        className="sticky top-14 z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/95 backdrop-blur-xs border border-slate-300 shadow-xs"
       >
         {(
           [
@@ -2245,7 +2632,7 @@ function ImWorkspaceInner() {
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label htmlFor="im-price-won-input" className="text-base font-bold text-[#0F172A]">
-              2. 희망 매매가 (\'원\' 단위) <span className="text-[#991B1B]">*</span>
+              2. 희망 매매가 (&apos;원&apos; 단위) <span className="text-[#991B1B]">*</span>
             </label>
             <div className="flex items-center gap-2">
               <span className="text-base font-extrabold text-[#1D4ED8]" data-testid="im-price-readout">
@@ -2584,6 +2971,7 @@ function ImWorkspaceInner() {
           }}
         >
           <RentRollImporter
+            key={currentItem?.id || selectedId}
             hasExistingData={false}
             onImport={handleExcelRentRollImport}
           />
@@ -2874,8 +3262,9 @@ function ImWorkspaceInner() {
               (f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(f.name)
             );
             if (droppedFiles.length === 0) return;
-            const addedNames = droppedFiles.map((f) => f.name);
-            const baseOffset = photoNames.length;
+            const targetId = currentItem?.id || selectedIdRef.current;
+            const baseEntries = latestPhotoEntriesRef.current;
+            const baseOffset = baseEntries.length;
             const addedEntries: ImPhotoEntry[] = droppedFiles.map((f, idx) => {
               const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
               const knownUrl = resolveKnownTestAssetUrl(f.name);
@@ -2884,6 +3273,7 @@ function ImWorkspaceInner() {
                   ? URL.createObjectURL(f)
                   : knownUrl;
               return {
+                id: `photo-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
                 name: f.name,
                 url: knownUrl,
                 category: inferred.category,
@@ -2891,25 +3281,31 @@ function ImWorkspaceInner() {
                 previewUrl: blobUrl || knownUrl,
               };
             });
-            const nextNames = Array.from(new Set([...photoNames, ...addedNames]));
-            setPhotoNames(nextNames);
-            const mergedEntries = [...photoEntries, ...addedEntries];
+            const mergedEntries = [...baseEntries, ...addedEntries];
+            const nextNames = mergedEntries.map((p) => p.name);
             latestPhotoEntriesRef.current = mergedEntries;
             setPhotoEntries(mergedEntries);
-            syncCurrentItemPatch({
-              photoNames: nextNames,
-              photos: sanitizePhotosForSync(mergedEntries),
-            });
+            setPhotoNames(nextNames);
+            syncCurrentItemPatch(
+              {
+                photoNames: nextNames,
+                photos: sanitizePhotosForSync(mergedEntries),
+              },
+              targetId
+            );
             const compressionPromise = Promise.all(
-              droppedFiles.map(async (f) => {
+              droppedFiles.map(async (f, idx) => {
                 const dataUrl = await readAndCompressPhotoFile(f);
-                return { name: f.name, dataUrl };
+                return { id: addedEntries[idx].id, name: f.name, dataUrl };
               })
             )
               .then((resolvedList) => {
                 const applyResolved = (list: ImPhotoEntry[]) =>
                   list.map((pe) => {
-                    const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
+                    const matched = resolvedList.find(
+                      (r) =>
+                        (pe.id && r.id ? r.id === pe.id : r.name === pe.name) && Boolean(r.dataUrl)
+                    );
                     return matched
                       ? {
                           ...pe,
@@ -2919,17 +3315,42 @@ function ImWorkspaceInner() {
                         }
                       : pe;
                   });
-                latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
-                setPhotoEntries((prev) => {
-                  const next = applyResolved(prev);
-                  latestPhotoEntriesRef.current = next;
-                  const nextNamesFromState = Array.from(new Set(next.map((p) => p.name)));
-                  syncCurrentItemPatch({
-                    photoNames: nextNamesFromState,
-                    photos: sanitizePhotosForSync(next),
+                if (selectedIdRef.current === targetId) {
+                  latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
+                  setPhotoEntries((prev) => {
+                    const next = applyResolved(prev);
+                    latestPhotoEntriesRef.current = next;
+                    const nextNamesFromState = next.map((p) => p.name);
+                    setPhotoNames(nextNamesFromState);
+                    syncCurrentItemPatch(
+                      {
+                        photoNames: nextNamesFromState,
+                        photos: sanitizePhotosForSync(next),
+                      },
+                      targetId
+                    );
+                    return next;
                   });
-                  return next;
-                });
+                } else {
+                  setItems((prev) => {
+                    const next = prev.map((it) => {
+                      if (it.id !== targetId) return it;
+                      const existingPhotos: ImPhotoEntry[] =
+                        Array.isArray(it.photos) && it.photos.length > 0
+                          ? it.photos
+                          : mergedEntries;
+                      const updatedPhotos = sanitizePhotosForSync(applyResolved(existingPhotos));
+                      return {
+                        ...it,
+                        photoNames: updatedPhotos.map((p) => p.name),
+                        photos: updatedPhotos,
+                        isDirty: true,
+                      };
+                    });
+                    persistImItems(next);
+                    return next;
+                  });
+                }
               })
               .finally(() => {
                 pendingPhotoCompressionsRef.current.delete(compressionPromise);
@@ -2957,8 +3378,9 @@ function ImWorkspaceInner() {
             onChange={(e) => {
               const files = Array.from(e.target.files || []);
               if (files.length === 0) return;
-              const addedNames = files.map((f) => f.name);
-              const baseOffset = photoNames.length;
+              const targetId = currentItem?.id || selectedIdRef.current;
+              const baseEntries = latestPhotoEntriesRef.current;
+              const baseOffset = baseEntries.length;
               const addedEntries: ImPhotoEntry[] = files.map((f, idx) => {
                 const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
                 const knownUrl = resolveKnownTestAssetUrl(f.name);
@@ -2967,6 +3389,7 @@ function ImWorkspaceInner() {
                     ? URL.createObjectURL(f)
                     : knownUrl;
                 return {
+                  id: `photo-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
                   name: f.name,
                   url: knownUrl,
                   category: inferred.category,
@@ -2974,25 +3397,31 @@ function ImWorkspaceInner() {
                   previewUrl: blobUrl || knownUrl,
                 };
               });
-              const nextNames = Array.from(new Set([...photoNames, ...addedNames]));
-              setPhotoNames(nextNames);
-              const mergedEntries = [...photoEntries, ...addedEntries];
+              const mergedEntries = [...baseEntries, ...addedEntries];
+              const nextNames = mergedEntries.map((p) => p.name);
               latestPhotoEntriesRef.current = mergedEntries;
               setPhotoEntries(mergedEntries);
-              syncCurrentItemPatch({
-                photoNames: nextNames,
-                photos: sanitizePhotosForSync(mergedEntries),
-              });
+              setPhotoNames(nextNames);
+              syncCurrentItemPatch(
+                {
+                  photoNames: nextNames,
+                  photos: sanitizePhotosForSync(mergedEntries),
+                },
+                targetId
+              );
               const compressionPromise = Promise.all(
-                files.map(async (f) => {
+                files.map(async (f, idx) => {
                   const dataUrl = await readAndCompressPhotoFile(f);
-                  return { name: f.name, dataUrl };
+                  return { id: addedEntries[idx].id, name: f.name, dataUrl };
                 })
               )
                 .then((resolvedList) => {
                   const applyResolved = (list: ImPhotoEntry[]) =>
                     list.map((pe) => {
-                      const matched = resolvedList.find((r) => r.name === pe.name && r.dataUrl);
+                      const matched = resolvedList.find(
+                        (r) =>
+                          (pe.id && r.id ? r.id === pe.id : r.name === pe.name) && Boolean(r.dataUrl)
+                      );
                       return matched
                         ? {
                             ...pe,
@@ -3002,17 +3431,42 @@ function ImWorkspaceInner() {
                           }
                         : pe;
                     });
-                  latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
-                  setPhotoEntries((prev) => {
-                    const next = applyResolved(prev);
-                    latestPhotoEntriesRef.current = next;
-                    const nextNamesFromState = Array.from(new Set(next.map((p) => p.name)));
-                    syncCurrentItemPatch({
-                      photoNames: nextNamesFromState,
-                      photos: sanitizePhotosForSync(next),
+                  if (selectedIdRef.current === targetId) {
+                    latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
+                    setPhotoEntries((prev) => {
+                      const next = applyResolved(prev);
+                      latestPhotoEntriesRef.current = next;
+                      const nextNamesFromState = next.map((p) => p.name);
+                      setPhotoNames(nextNamesFromState);
+                      syncCurrentItemPatch(
+                        {
+                          photoNames: nextNamesFromState,
+                          photos: sanitizePhotosForSync(next),
+                        },
+                        targetId
+                      );
+                      return next;
                     });
-                    return next;
-                  });
+                  } else {
+                    setItems((prev) => {
+                      const next = prev.map((it) => {
+                        if (it.id !== targetId) return it;
+                        const existingPhotos: ImPhotoEntry[] =
+                          Array.isArray(it.photos) && it.photos.length > 0
+                            ? it.photos
+                            : mergedEntries;
+                        const updatedPhotos = sanitizePhotosForSync(applyResolved(existingPhotos));
+                        return {
+                          ...it,
+                          photoNames: updatedPhotos.map((p) => p.name),
+                          photos: updatedPhotos,
+                          isDirty: true,
+                        };
+                      });
+                      persistImItems(next);
+                      return next;
+                    });
+                  }
                 })
                 .finally(() => {
                   pendingPhotoCompressionsRef.current.delete(compressionPromise);
@@ -3031,15 +3485,24 @@ function ImWorkspaceInner() {
             + 사진 파일 선택
           </button>
 
-          {photoNames.length > 0 && (
+          {(photoEntries.length > 0 || photoNames.length > 0) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-left">
-              {photoNames.map((name) => {
-                const entry = photoEntries.find((pe) => pe.name === name);
+              {(photoEntries.length > 0
+                ? photoEntries
+                : photoNames.map(
+                    (n, idx): ImPhotoEntry => ({
+                      id: `legacy-${idx}-${n}`,
+                      name: n,
+                      url: resolveKnownTestAssetUrl(n),
+                    })
+                  )
+              ).map((entry, idx) => {
+                const name = entry.name;
                 const thumbSrc =
-                  entry?.dataUrl || entry?.previewUrl || entry?.url || resolveKnownTestAssetUrl(name);
+                  entry.dataUrl || entry.previewUrl || entry.url || resolveKnownTestAssetUrl(name);
                 return (
                   <div
-                    key={name}
+                    key={entry.id || `${name}-${idx}`}
                     className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-[#CBD5E1]"
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -3061,15 +3524,27 @@ function ImWorkspaceInner() {
                     <button
                       type="button"
                       onClick={() => {
-                        const next = photoNames.filter((n) => n !== name);
-                        const nextEntries = photoEntries.filter((pe) => pe.name !== name);
+                        const targetId = currentItem?.id || selectedIdRef.current;
+                        const nextEntries =
+                          photoEntries.length > 0
+                            ? photoEntries.filter((pe, i) =>
+                                entry.id && pe.id ? pe.id !== entry.id : i !== idx
+                              )
+                            : [];
+                        const nextNames =
+                          photoEntries.length > 0
+                            ? nextEntries.map((pe) => pe.name)
+                            : photoNames.filter((_, i) => i !== idx);
                         latestPhotoEntriesRef.current = nextEntries;
-                        setPhotoNames(next);
+                        setPhotoNames(nextNames);
                         setPhotoEntries(nextEntries);
-                        syncCurrentItemPatch({
-                          photoNames: next,
-                          photos: sanitizePhotosForSync(nextEntries),
-                        });
+                        syncCurrentItemPatch(
+                          {
+                            photoNames: nextNames,
+                            photos: sanitizePhotosForSync(nextEntries),
+                          },
+                          targetId
+                        );
                       }}
                       className="min-h-[40px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer"
                       aria-label={`${name} 삭제`}
@@ -3208,18 +3683,36 @@ function ImWorkspaceInner() {
         </span>
         <div className="flex items-center gap-2 shrink-0">
           <a
-            href={`/api/public/im-lite/${currentItem?.buildingId || "bld-01"}/pptx?direct=1`}
+            href={`/api/public/im-lite/${encodeURIComponent(
+              currentItem?.buildingId || "bld-01"
+            )}/pptx?direct=1${
+              currentItem?.documentId
+                ? `&doc=${encodeURIComponent(currentItem.documentId)}&doc_id=${encodeURIComponent(
+                    currentItem.documentId
+                  )}`
+                : ""
+            }`}
             data-testid="im-download-pptx-btn"
-            className="min-h-[40px] text-sm font-extrabold text-[#065F46] bg-[#D1FAE5] px-3 py-1.5 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors"
+            aria-disabled={isProvisioningSheet}
+            onClick={handleDownloadPptx}
+            className={`min-h-[40px] text-sm font-extrabold text-[#065F46] bg-[#D1FAE5] px-3 py-1.5 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors ${
+              isProvisioningSheet ? "opacity-50 pointer-events-none" : ""
+            }`}
           >
-            <span>PPTX 내려받기</span>
+            <span>{isProvisioningSheet ? "준비 중…" : "PPTX 내려받기"}</span>
           </a>
           <a
-            href={`/im-lite/${currentItem?.buildingId || "bld-01"}`}
+            href={`/im-lite/${encodeURIComponent(currentItem?.buildingId || "bld-01")}${
+              currentItem?.documentId ? `?doc=${encodeURIComponent(currentItem.documentId)}` : ""
+            }`}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="im-open-fullscreen-link"
-            className="min-h-[40px] text-sm font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1 px-2"
+            aria-disabled={isProvisioningSheet}
+            onClick={handleOpenFullscreen}
+            className={`min-h-[40px] text-sm font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1 px-2 ${
+              isProvisioningSheet ? "opacity-50 pointer-events-none" : ""
+            }`}
           >
             <span>전체화면</span>
           </a>
@@ -3597,7 +4090,7 @@ function ImWorkspaceInner() {
         }}
         selectedBuildingId={selectedId}
         selectedLabel={imTitle || currentItem?.title || "새 IM"}
-        onBuildingSelect={setSelectedId}
+        onBuildingSelect={(id) => selectImItem(id)}
       />
       <ImDataBottomSheet
         key={bottomSheetBuildingId}
