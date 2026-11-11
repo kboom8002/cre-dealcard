@@ -651,19 +651,39 @@ export function MobileIMViewer({
 
   const rawSectionPhotos =
     photosSec?.data?.photos || basicDoc.facts.photos || initialDoc?.photos || [];
-  const galleryPhotos = useMemo(
-    () =>
-      (Array.isArray(rawSectionPhotos) ? rawSectionPhotos : []).map(
-        (p: any, idx: number) => ({
+  const galleryPhotos = useMemo(() => {
+    const CATEGORY_KO: Record<string, string> = {
+      exterior: "외관",
+      cover: "전면 외관",
+      entrance: "주출입구",
+      lobby: "메인 로비",
+      interior: "실내 공간",
+      parking: "주차·설비",
+      rooftop: "옥상·테라스",
+      floor_plan: "평면도",
+      map: "위치 지도",
+    };
+    return (Array.isArray(rawSectionPhotos) ? rawSectionPhotos : []).map(
+      (p: any, idx: number) => {
+        const rawCat = String(
+          p.category || p.type || (String(p.url || "").includes("map.kakao.com") ? "map" : idx === 0 ? "exterior" : "interior")
+        ).toLowerCase();
+        const badgeLabel = p.label
+          ? String(p.label).replace(/[_]+/g, " ").trim()
+          : CATEGORY_KO[rawCat] || `현장 사진 ${idx + 1}`;
+        const cleanCaption = p.caption
+          ? String(p.caption).replace(/[_]+/g, " ").replace(/\s+/g, " ").trim()
+          : undefined;
+        return {
           url: p.url,
-          type: p.type || (String(p.url || "").includes("map.kakao.com") ? "map" : "exterior"),
-          label: p.label || p.caption || `현장 사진 ${idx + 1}`,
-          caption: p.caption,
+          type: rawCat,
+          label: badgeLabel,
+          caption: cleanCaption,
           order: p.order ?? idx,
-        })
-      ),
-    [rawSectionPhotos]
-  );
+        };
+      }
+    );
+  }, [rawSectionPhotos]);
   const handoverCondition =
     (basicDoc.facts.transaction as any)?.handoverCondition ||
     photosSec?.data?.handoverCondition ||
@@ -961,14 +981,18 @@ export function MobileIMViewer({
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {(summarySec?.data?.metrics || []).map((m: any, idx: number) => (
-              <div key={idx} className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] text-center">
-                <span className="text-[14px] font-semibold text-[#64748B] block mb-0.5">{m.label}</span>
-                <strong className="text-[16px] font-extrabold text-[#0F172A] tabular-nums block">
-                  {m.value}
-                </strong>
-              </div>
-            ))}
+            {(summarySec?.data?.metrics || []).map((m: any, idx: number) => {
+              const displayMetricVal =
+                m.label === "매매 희망가" && askingManwon > 0 ? priceLabel : m.value;
+              return (
+                <div key={idx} className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] text-center">
+                  <span className="text-[14px] font-semibold text-[#64748B] block mb-0.5">{m.label}</span>
+                  <strong className="text-[16px] font-extrabold text-[#0F172A] tabular-nums block">
+                    {displayMetricVal}
+                  </strong>
+                </div>
+              );
+            })}
           </div>
 
           <div className="p-4 bg-[#F8FAFC] rounded-md border border-[#E2E8F0] space-y-2">
@@ -1028,13 +1052,27 @@ export function MobileIMViewer({
             <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
               <span className="text-[#64748B]">건폐율 / 용적률</span>
               <span className="font-bold text-[#0F172A] tabular-nums">
-                {basicDoc.facts.building.buildingCoverageRatioPct}% / {basicDoc.facts.building.floorAreaRatioPct}%
+                {basicDoc.facts.building.buildingCoverageRatioPct ||
+                  Number((initialDoc as any)?.ssotSummary?.bcr_pct || 0)}
+                % /{" "}
+                {basicDoc.facts.building.floorAreaRatioPct ||
+                  Number((initialDoc as any)?.ssotSummary?.far_pct || 0)}
+                %
               </span>
             </div>
             <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
               <span className="text-[#64748B]">주차 / 승강기</span>
               <span className="font-bold text-[#0F172A]">
-                {basicDoc.facts.building.parkingSpaces}대 / {basicDoc.facts.building.elevators}대
+                {basicDoc.facts.building.parkingSpaces ||
+                  Number(
+                    (initialDoc as any)?.ssotSummary?.parking_total ??
+                      (initialDoc as any)?.ssotSummary?.parking_count ??
+                      0
+                  )}
+                대 /{" "}
+                {basicDoc.facts.building.elevators ||
+                  Number((initialDoc as any)?.ssotSummary?.elevator_count ?? 0)}
+                대
               </span>
             </div>
           </div>

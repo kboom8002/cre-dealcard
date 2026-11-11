@@ -55,41 +55,47 @@ async function fetchParcelPolygon(
   apiKey: string,
 ): Promise<Array<[number, number][]> | null> {
   try {
-    const referer = getVWorldReferer();
+    const primaryDomain = getVWorldDomain();
+    const altDomain = primaryDomain.startsWith('www.')
+      ? primaryDomain.slice(4)
+      : `www.${primaryDomain}`;
+    const domainCandidates = [
+      { domain: primaryDomain, referer: getVWorldReferer() },
+      { domain: altDomain, referer: `https://${altDomain}/` },
+    ];
     // PNU 부번이 0000이면 본번 필지 → BONBUN 레이어 우선
     const isBonbun = pnu.length >= 19 && pnu.slice(15) === '0000';
-    const primaryLayer = isBonbun ? 'LP_PA_CBND_BONBUN' : 'LP_PA_CBND_BUBUN';
-    const fallbackLayer = isBonbun ? 'LP_PA_CBND_BUBUN' : 'LP_PA_CBND_BONBUN';
+    const layerOrder = isBonbun
+      ? ['LP_PA_CBND_BONBUN', 'LP_PA_CBND_BUBUN']
+      : ['LP_PA_CBND_BUBUN', 'LP_PA_CBND_BONBUN'];
 
-    const buildUrl = (layer: string) => `https://api.vworld.kr/req/data?service=data&request=GetFeature` +
-      `&data=${layer}&key=${apiKey}&domain=${encodeURIComponent(getVWorldDomain())}` +
-      `&format=json&geometry=true&attribute=true&crs=EPSG:4326` +
-      `&attrFilter=pnu:=:${pnu}`;
+    let features: any[] | undefined;
+    let lastStatus = 0;
 
-    let res = await fetch(buildUrl(primaryLayer), {
-      headers: { 'Referer': referer },
-      signal: AbortSignal.timeout(8_000),
-    });
-    
-    let json = res.ok ? await res.json() : null;
-    let features = json?.response?.result?.featureCollection?.features;
-
-    if (!features || features.length === 0) {
-      res = await fetch(buildUrl(fallbackLayer), {
-        headers: { 'Referer': referer },
-        signal: AbortSignal.timeout(8_000),
-      });
-      json = res.ok ? await res.json() : null;
-      features = json?.response?.result?.featureCollection?.features;
+    outer: for (const cand of domainCandidates) {
+      for (const layer of layerOrder) {
+        const url =
+          `https://api.vworld.kr/req/data?service=data&request=GetFeature` +
+          `&data=${layer}&key=${apiKey}&domain=${encodeURIComponent(cand.domain)}` +
+          `&format=json&geometry=true&attribute=true&crs=EPSG:4326` +
+          `&attrFilter=pnu:=:${pnu}`;
+        const res = await fetch(url, {
+          headers: { Referer: cand.referer },
+          signal: AbortSignal.timeout(6_000),
+        });
+        lastStatus = res.status;
+        if (!res.ok) continue;
+        const json = await res.json().catch(() => null);
+        const found = json?.response?.result?.featureCollection?.features;
+        if (Array.isArray(found) && found.length > 0) {
+          features = found;
+          break outer;
+        }
+      }
     }
 
-    if (!res.ok) {
-      log.warn(`[vworld-wfs] Data API 오류 (${res.status})`);
-      return null;
-    }
-
     if (!features || features.length === 0) {
-      log.warn(`[vworld-wfs] PNU ${pnu}에 해당하는 필지 없음`);
+      log.warn(`[vworld-wfs] PNU ${pnu} 필지 조회 없음 (status=${lastStatus})`);
       return null;
     }
 
@@ -383,49 +389,71 @@ export async function fetchCadastralMapImage(
     const ne = fromEpsg3857(bboxEpsg3857.maxX, bboxEpsg3857.maxY);
     const bboxWgs84: [number, number, number, number] = [sw.lng, sw.lat, ne.lng, ne.lat];
 
-    // ── WMS GetMap 요청 (지적도 투명 PNG) — bbox 반올림 금지 (1단위≈0.8m → 고배율에서 수십 px 오차) ──
-    const params = new URLSearchParams({
-      SERVICE: 'WMS',
-      REQUEST: 'GetMap',
-      VERSION: '1.3.0',
-      LAYERS: 'lp_pa_cbnd_bonbun,lp_pa_cbnd_bubun',
-      STYLES: ',',  // 기본 스타일 = 필지별 색상 채움 + 경계선 (D45: _line은 선화만)
-      CRS: 'EPSG:3857',
-      BBOX: [bboxEpsg3857.minX, bboxEpsg3857.minY, bboxEpsg3857.maxX, bboxEpsg3857.maxY].map(v => v.toFixed(2)).join(','),
-      WIDTH: String(w),
-      HEIGHT: String(h),
-      FORMAT: 'image/png',
-      TRANSPARENT: 'TRUE',
-      KEY: apiKey,
-      DOMAIN: getVWorldDomain(),
-    });
+    const primaryDomain = getVWorldDomain();
+    const altDomain = primaryDomain.startsWith('www.')
+      ? primaryDomain.replace(/^www\./, '')
+      : `www.${primaryDomain}`;
+    const candidateAuths = [
+      { domain: primaryDomain, referer: getVWorldReferer() },
+      { domain: altDomain, referer: `https://${altDomain}` },
+    ];
 
-    const url = `https://api.vworld.kr/req/wms?${params.toString()}`;
-    const referer = getVWorldReferer();
-
-    // WMS + 배경 타일 병렬 취득
-    const [res, baseTile] = await Promise.all([
-      fetch(url, {
-        headers: { 'Referer': referer },
+    const fetchWmsOnce = async (domainVal: string, refererVal: string) => {
+      const p = new URLSearchParams({
+        SERVICE: 'WMS',
+        REQUEST: 'GetMap',
+        VERSION: '1.3.0',
+        LAYERS: 'lp_pa_cbnd_bonbun,lp_pa_cbnd_bubun',
+        STYLES: ',', // 기본 스타일 = 필지별 색상 채움 + 경계선 (D45: _line은 선화만)
+        CRS: 'EPSG:3857',
+        BBOX: [bboxEpsg3857.minX, bboxEpsg3857.minY, bboxEpsg3857.maxX, bboxEpsg3857.maxY]
+          .map((v) => v.toFixed(2))
+          .join(','),
+        WIDTH: String(w),
+        HEIGHT: String(h),
+        FORMAT: 'image/png',
+        TRANSPARENT: 'TRUE',
+        KEY: apiKey,
+        DOMAIN: domainVal,
+      });
+      const reqUrl = `https://api.vworld.kr/req/wms?${p.toString()}`;
+      const r = await fetch(reqUrl, {
+        headers: { Referer: refererVal },
         signal: AbortSignal.timeout(10_000),
-      }),
+      });
+      const ct = r.headers.get('content-type') ?? '';
+      return { res: r, contentType: ct, url: reqUrl, params: p };
+    };
+
+    // WMS + 배경 타일 병렬 취득 (1차 도메인 실패 시 www/non-www 교차 재시도)
+    const [firstAttempt, baseTile] = await Promise.all([
+      fetchWmsOnce(candidateAuths[0].domain, candidateAuths[0].referer).catch(() => null),
       sharp ? fetchBaseMapTile(bboxEpsg3857, w, h).catch(() => null) : Promise.resolve(null),
     ]);
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      log.warn({ text, url, params: Object.fromEntries(params) }, `[vworld-wms] WMS 응답 오류 (${res.status}):`);
+    let wmsAttempt = firstAttempt;
+    if (!wmsAttempt || !wmsAttempt.res.ok || !wmsAttempt.contentType.includes('image')) {
+      wmsAttempt = await fetchWmsOnce(candidateAuths[1].domain, candidateAuths[1].referer).catch(
+        () => wmsAttempt,
+      );
+    }
+
+    if (!wmsAttempt || !wmsAttempt.res.ok) {
+      const text = wmsAttempt ? await wmsAttempt.res.text().catch(() => '') : 'network_error';
+      log.warn(
+        { text, url: wmsAttempt?.url },
+        `[vworld-wms] WMS 응답 오류 (${wmsAttempt?.res.status ?? 'ERR'}):`,
+      );
       return null;
     }
 
-    const contentType = res.headers.get('content-type') ?? '';
-    if (!contentType.includes('image')) {
-      const text = await res.text().catch(() => '');
-      log.warn({ text, url, params: Object.fromEntries(params) }, '[vworld-wms] WMS 에러 응답:');
+    if (!wmsAttempt.contentType.includes('image')) {
+      const text = await wmsAttempt.res.text().catch(() => '');
+      log.warn({ text, url: wmsAttempt.url }, '[vworld-wms] WMS 에러 응답:');
       return null;
     }
 
-    const arrayBuffer = await res.arrayBuffer();
+    const arrayBuffer = await wmsAttempt.res.arrayBuffer();
     const cadastralBuffer = Buffer.from(arrayBuffer);
 
     // ── 본건 마커 위치: 필지 합집합 면적 가중 중심, 폴리곤이 없으면 실제 좌표 ──

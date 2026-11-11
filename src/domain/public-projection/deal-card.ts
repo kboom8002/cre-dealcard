@@ -158,7 +158,10 @@ const asRecord = (v: unknown): Record<string, any> =>
  * Collects exact-location / tenant-identity strings from the raw building row so that any
  * accidental copy inside free text (AI teaser copy, hook copy, deal points) can be masked.
  */
-export function collectSensitiveNeedles(building: Record<string, any> | null | undefined): string[] {
+export function collectSensitiveNeedles(
+  building: Record<string, any> | null | undefined,
+  explicitPublicRegion?: string,
+): string[] {
   if (!building) return [];
   const attrs = asRecord(building.attrs);
   const layers = asRecord(building.layers ?? attrs.layers);
@@ -166,10 +169,24 @@ export function collectSensitiveNeedles(building: Record<string, any> | null | u
   const assetIdentity = asRecord(layers.asset_identity);
   const needles = new Set<string>();
 
+  const publicArea = str(explicitPublicRegion || building.area_signal || attrs.areaSignal || '').trim();
+  const publicAsset = str(building.asset_type || building.main_usage || attrs.assetType || '').trim();
+  const genericCombo = `${publicArea} ${publicAsset}`.trim();
+  const isSafePublicRegionLabel = (candidate: string): boolean => {
+    if (!candidate) return false;
+    if (/\d{1,5}-\d{1,5}|\d{1,5}번지/.test(candidate)) return false;
+    return (
+      candidate === publicArea ||
+      candidate === publicAsset ||
+      candidate === genericCombo ||
+      candidate === `${genericCombo} 매각`
+    );
+  };
+
   const addAddress = (v: unknown) => {
     if (typeof v !== 'string') return;
     const t = v.trim();
-    if (t.length >= 6) needles.add(t);
+    if (t.length >= 6 && !isSafePublicRegionLabel(t)) needles.add(t);
     // Exact jibun / building-number tokens such as "117-3번지", "117-3", "12번지"
     for (const m of t.matchAll(/\d{1,5}-\d{1,5}(?:번지)?|\d{1,5}번지/g)) needles.add(m[0]);
     // Road-name + building-number patterns (e.g. "테헤란로 152", "도산대로45길 18")
@@ -197,10 +214,6 @@ export function collectSensitiveNeedles(building: Record<string, any> | null | u
   addAddress(assetIdentity.raw_address);
   addAddress(assetIdentity.road_address);
   addAddress(assetIdentity.jibun_address);
-
-  const publicArea = str(building.area_signal || attrs.areaSignal || '').trim();
-  const publicAsset = str(building.asset_type || building.main_usage || attrs.assetType || '').trim();
-  const genericCombo = `${publicArea} ${publicAsset}`.trim();
 
   const addName = (v: unknown) => {
     if (typeof v !== 'string') return;
@@ -306,7 +319,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
   };
   const teaserView = projectToTeaser(attrs);
 
-  const needles = collectSensitiveNeedles(building ?? null);
+  const needles = collectSensitiveNeedles(building ?? null, str(card4.region));
   const clean = (s: string) => maskNeedles(s, needles);
 
   const hasMinimalData = !!(

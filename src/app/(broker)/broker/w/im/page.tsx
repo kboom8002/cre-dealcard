@@ -158,7 +158,12 @@ function formatPhoneHyphen(raw: string): string {
 }
 
 function inferPhotoCategoryFromFilename(filename: string, idx: number): { category: string; caption: string } {
-  const base = filename.replace(/\.[^.]+$/, "").replace(/^[0-9]+[_-\s]*/, "");
+  const base = filename
+    .replace(/\.[^.]+$/, "")
+    .replace(/^[0-9]+[_-\s]*/, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (/외관|전경|파사드|exterior|facade|front/i.test(filename)) {
     return { category: "exterior", caption: base || "건물 전면 외관" };
   }

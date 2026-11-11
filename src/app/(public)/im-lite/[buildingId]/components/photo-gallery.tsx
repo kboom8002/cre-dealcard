@@ -139,7 +139,7 @@ export function PhotoGallery({
               </div>
 
               {/* Caption overlay (bottom) */}
-              {item.caption && (
+              {item.caption && item.caption.trim() !== (item.label || "").trim() && (
                 <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                   <p className="text-white text-xs leading-snug line-clamp-2">
                     {item.caption}

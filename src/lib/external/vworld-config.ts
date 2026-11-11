@@ -6,16 +6,19 @@
 
 /** V-World API Referer 헤더를 반환합니다. V-World 인증은 등록된 도메인(credeal.net / cre-dealcard.vercel.app)만 허용합니다. */
 export function getVWorldReferer(): string {
-  return (
-    process.env.VWORLD_REFERER ||
-    
-    'https://credeal.net'
-  );
+  const raw = (process.env.VWORLD_REFERER || 'https://credeal.net')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  return raw || 'https://credeal.net';
 }
 
 /** V-World API 키를 대문자로 변환하여 반환합니다. */
 export function getVWorldApiKey(): string {
-  const key = process.env.VWORLD_API_KEY || process.env.NEXT_PUBLIC_VWORLD_KEY || '';
+  const key = (process.env.VWORLD_API_KEY || process.env.NEXT_PUBLIC_VWORLD_KEY || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .trim();
   return key.toUpperCase();
 }
 

@@ -331,28 +331,62 @@ export async function GET(req: NextRequest) {
     }
 
     const parkingSpaces =
-      ((bldReg as any)?.totPkngCnt != null ? Number((bldReg as any).totPkngCnt) : null) ??
-      ((bldReg as any)?.parkingSpaces != null ? Number((bldReg as any).parkingSpaces) : null) ??
-      (ssotSummary.parking_total != null ? Number(ssotSummary.parking_total) : null) ??
-      (ssotSummary.parking_count != null ? Number(ssotSummary.parking_count) : null) ??
+      ((bldReg as any)?.totPkngCnt != null && Number((bldReg as any).totPkngCnt) > 0
+        ? Number((bldReg as any).totPkngCnt)
+        : null) ??
+      ((bldReg as any)?.parkingSpaces != null && Number((bldReg as any).parkingSpaces) > 0
+        ? Number((bldReg as any).parkingSpaces)
+        : null) ??
+      (ssotSummary.parking_total != null && Number(ssotSummary.parking_total) > 0
+        ? Number(ssotSummary.parking_total)
+        : null) ??
+      (ssotSummary.parking_count != null && Number(ssotSummary.parking_count) > 0
+        ? Number(ssotSummary.parking_count)
+        : null) ??
       verifiedFallback?.parkingSpaces ??
+      ((bldReg as any)?.totPkngCnt != null ? Number((bldReg as any).totPkngCnt) : null) ??
       null;
 
     const elevators =
-      ((bldReg as any)?.rideUseElvtCnt != null ? Number((bldReg as any).rideUseElvtCnt) : null) ??
-      ((bldReg as any)?.elevators != null ? Number((bldReg as any).elevators) : null) ??
-      (ssotSummary.elevator_count != null ? Number(ssotSummary.elevator_count) : null) ??
+      ((bldReg as any)?.rideUseElvtCnt != null && Number((bldReg as any).rideUseElvtCnt) > 0
+        ? Number((bldReg as any).rideUseElvtCnt)
+        : null) ??
+      ((bldReg as any)?.elevators != null && Number((bldReg as any).elevators) > 0
+        ? Number((bldReg as any).elevators)
+        : null) ??
+      (ssotSummary.elevator_count != null && Number(ssotSummary.elevator_count) > 0
+        ? Number(ssotSummary.elevator_count)
+        : null) ??
       verifiedFallback?.elevators ??
+      ((bldReg as any)?.rideUseElvtCnt != null ? Number((bldReg as any).rideUseElvtCnt) : null) ??
       null;
 
     const officialLandPricePerSqm =
-      (ssotSummary.official_land_price_per_sqm != null
+      (ssotSummary.official_land_price_per_sqm != null &&
+      Number(ssotSummary.official_land_price_per_sqm) > 0
         ? Number(ssotSummary.official_land_price_per_sqm)
         : null) ??
-      (ssotSummary.official_land_price_krw != null
+      (ssotSummary.official_land_price_krw != null &&
+      Number(ssotSummary.official_land_price_krw) > 0
         ? Number(ssotSummary.official_land_price_krw)
         : null) ??
       verifiedFallback?.officialLandPricePerSqm ??
+      null;
+
+    const resolvedBcrPct =
+      (bldReg?.bcRat != null && Number(bldReg.bcRat) > 0 ? Number(bldReg.bcRat) : null) ??
+      (ssotSummary.bcr_pct != null && Number(ssotSummary.bcr_pct) > 0
+        ? Number(ssotSummary.bcr_pct)
+        : null) ??
+      verifiedFallback?.bcrPct ??
+      null;
+
+    const resolvedFarPct =
+      (bldReg?.vlRat != null && Number(bldReg.vlRat) > 0 ? Number(bldReg.vlRat) : null) ??
+      (ssotSummary.far_pct != null && Number(ssotSummary.far_pct) > 0
+        ? Number(ssotSummary.far_pct)
+        : null) ??
+      verifiedFallback?.farPct ??
       null;
 
     return NextResponse.json({
@@ -365,8 +399,8 @@ export async function GET(req: NextRequest) {
       gfaSqm: gfaSqm ? Math.round(Number(gfaSqm) * 100) / 100 : null,
       landAreaSqm: landAreaSqm ? Math.round(Number(landAreaSqm) * 100) / 100 : null,
       zoning: zoning || null,
-      bcrPct: bldReg?.bcRat ?? verifiedFallback?.bcrPct ?? null,
-      farPct: bldReg?.vlRat ?? verifiedFallback?.farPct ?? null,
+      bcrPct: resolvedBcrPct,
+      farPct: resolvedFarPct,
       completionDate: completionDate || null,
       useAprDay: rawUseAprDay ? String(rawUseAprDay) : null,
       mainPurpose,

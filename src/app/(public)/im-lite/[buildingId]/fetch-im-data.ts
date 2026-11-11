@@ -1133,6 +1133,7 @@ export async function fetchIMData(
       (mappedResult as any).basicImDocument = document.body.basicImDocument || document.body;
       (mappedResult as any).schemaVersion = '3.0';
     }
+    (mappedResult as any).ssotSummary = ssotSummary;
     if (document.body?.card4) {
       (mappedResult as any).card4 = document.body.card4;
     }

@@ -744,7 +744,7 @@ function DealCardsWorkspaceInner() {
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5500);
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
         const res = await fetch("/api/broker/deal-card/ai-copy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -17,6 +17,7 @@ import { requireBroker } from '@/lib/auth-guard';
 import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { Card4Schema, computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { formatPriceRange } from '@/lib/deal-card/price-band';
 import { saveQuickImRecord, resolveKnownTestAssetUrl } from '@/lib/im-lite/quick-generate-store';
 import {
@@ -725,10 +726,11 @@ export async function POST(req: NextRequest) {
     rawParkingSpaces !== undefined &&
     rawParkingSpaces !== null &&
     rawParkingSpaces !== '' &&
-    Number.isFinite(Number(rawParkingSpaces))
+    Number.isFinite(Number(rawParkingSpaces)) &&
+    (Number(rawParkingSpaces) > 0 || !knownMatch?.parkingSpaces)
       ? Number(rawParkingSpaces)
       : knownMatch?.parkingSpaces ??
-        (Number.isFinite(Number(existingEnrichment?.buildingRegister?.parkingSpaces))
+        (Number(existingEnrichment?.buildingRegister?.parkingSpaces) > 0
           ? Number(existingEnrichment?.buildingRegister?.parkingSpaces)
           : Number(existingSsot?.parking_total ?? existingSsot?.parking_count ?? 0));
   const rawElevators = body.elevators ?? body.elevatorCount;
@@ -736,11 +738,12 @@ export async function POST(req: NextRequest) {
     rawElevators !== undefined &&
     rawElevators !== null &&
     rawElevators !== '' &&
-    Number.isFinite(Number(rawElevators))
+    Number.isFinite(Number(rawElevators)) &&
+    (Number(rawElevators) > 0 || !knownMatch?.elevators)
       ? Number(rawElevators)
       : knownMatch?.elevators !== undefined
       ? knownMatch.elevators
-      : Number.isFinite(Number(existingEnrichment?.buildingRegister?.elevators))
+      : Number(existingEnrichment?.buildingRegister?.elevators) > 0
       ? Number(existingEnrichment?.buildingRegister?.elevators)
       : Number(existingSsot?.elevator_count ?? 0);
   const rawOfficialLandPrice = Number(
@@ -955,9 +958,9 @@ export async function POST(req: NextRequest) {
               : 'interior');
           const defaultCaption =
             typeof p === 'object' && p.caption
-              ? String(p.caption)
+              ? String(p.caption).replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim()
               : rawName
-              ? rawName.replace(/\.[^.]+$/, '').replace(/^[0-9]+[_-\s]*/, '').replace(/[_-]+/g, ' ')
+              ? rawName.replace(/\.[^.]+$/, '').replace(/^[0-9]+[_-\s]*/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
               : idx === 0
               ? `${resolvedTitle} 전면 외관`
               : `${resolvedTitle} 현장 사진 ${idx + 1}`;
@@ -1067,6 +1070,75 @@ export async function POST(req: NextRequest) {
         }))
       : [];
 
+  // Pre-compute per-floor unit counts so manual rent-roll rows without explicit unit area
+  // share their floor's gross area proportionally instead of duplicating full floor area per unit
+  const normalizeRentFloorKey = (rawStr: string): string => {
+    const s = String(rawStr || '').trim();
+    const uMatch = s.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
+    if (uMatch) return `${uMatch[1] ? 'B' : ''}${parseInt(uMatch[2], 10)}F`;
+    const bMatch = s.match(/^(?:B|지하)\s*(\d+)/i);
+    if (bMatch) return `B${parseInt(bMatch[1], 10)}`;
+    const fMatch = s.match(/^(\d+)\s*(?:F|층)?$/i);
+    if (fMatch) return `${parseInt(fMatch[1], 10)}F`;
+    return s.toUpperCase();
+  };
+  const floorUnitCounts = new Map<string, number>();
+  safeRentRoll.forEach((r: any, idx: number) => {
+    const isAux = /(주차|옥탑|기계식|루프탑|부대)/.test(
+      `${r.floor || ''} ${r.unit || ''} ${r.use || ''}`
+    );
+    if (isAux) return;
+    const fk = normalizeRentFloorKey(String(r.floor || `${idx + 1}F`));
+    floorUnitCounts.set(fk, (floorUnitCounts.get(fk) || 0) + 1);
+  });
+  const activeFloorCount =
+    floorUnitCounts.size >= Math.max(2, effectiveFloorsAbove)
+      ? floorUnitCounts.size
+      : Math.max(totalFloorsCount, floorUnitCounts.size || 1);
+  const floorBudgetSqm = effectiveGfaSqm > 0 ? effectiveGfaSqm / activeFloorCount : perFloorAreaSqm;
+  const safeRentRollWithAreas = safeRentRoll.map((r: any, idx: number) => {
+    const prevFl =
+      existingFloorLeases.length === safeRentRoll.length ? existingFloorLeases[idx] || {} : {};
+    const rawExplicitM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? 0);
+    const prevM2 = Number(prevFl.area_sqm ?? prevFl.area_m2 ?? prevFl.exclusive_area_sqm ?? 0);
+    const explicitM2 =
+      rawExplicitM2 > 0 && Math.abs(rawExplicitM2 - 2.45) > 0.05
+        ? rawExplicitM2
+        : prevM2 > 0 && Math.abs(prevM2 - 2.45) > 0.05
+        ? prevM2
+        : 0;
+    const rawExplicitPy = Number(r.area_pyeong ?? r.areaPyeong ?? 0);
+    const explicitPy =
+      rawExplicitPy > 0 && Math.abs(rawExplicitPy - 0.8) > 0.05 ? rawExplicitPy : 0;
+    const isAuxRow = /(주차|옥탑|기계식|루프탑|부대)/.test(
+      `${r.floor || ''} ${r.unit || ''} ${r.use || ''}`
+    );
+    const fk = normalizeRentFloorKey(String(r.floor || `${idx + 1}F`));
+    const unitsOnFloor = Math.max(1, floorUnitCounts.get(fk) || 1);
+    const computedM2 =
+      explicitM2 > 0
+        ? explicitM2
+        : explicitPy > 0
+        ? Math.round(explicitPy * 3.305785 * 100) / 100
+        : isAuxRow
+        ? 0
+        : Math.round((floorBudgetSqm / unitsOnFloor) * 100) / 100;
+    const computedPy =
+      explicitPy > 0
+        ? explicitPy
+        : computedM2 > 0
+        ? Math.round((computedM2 / 3.305785) * 10) / 10
+        : 0;
+    return {
+      ...r,
+      area_m2: computedM2,
+      area_sqm: computedM2,
+      areaSqm: computedM2,
+      area_pyeong: computedPy,
+      areaPyeong: computedPy,
+    };
+  });
+
   // Extract pure building facts
   const rawFacts = {
     id: buildingId,
@@ -1091,7 +1163,7 @@ export async function POST(req: NextRequest) {
     completion_date: effectiveCompletionDate,
     monthly_rent_total_manwon: effectiveMonthlyRentManwon,
     deposit_total_manwon: effectiveDepositManwon,
-    rent_roll: safeRentRoll,
+    rent_roll: safeRentRollWithAreas,
     points: defaultPoints,
     photos: defaultPhotos,
     comps: defaultComps,
@@ -1104,12 +1176,13 @@ export async function POST(req: NextRequest) {
   // Auto-generate 4-item Deal Card
   const priceBand = formatPriceRange(priceNum * 10000);
   const points: [string, string, string] = [
-    defaultPoints[0].slice(0, 28),
-    defaultPoints[1].slice(0, 28),
-    (basicImDoc.facts.valuation.grossYieldPct > 0
-      ? `연 수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% 안정 배당`
-      : defaultPoints[2]
-    ).slice(0, 28),
+    repairDealCardLine(defaultPoints[0]) || defaultPoints[0].slice(0, 18),
+    repairDealCardLine(defaultPoints[1]) || defaultPoints[1].slice(0, 18),
+    repairDealCardLine(
+      basicImDoc.facts.valuation.grossYieldPct > 0
+        ? `연 수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% 배당`
+        : defaultPoints[2]
+    ) || defaultPoints[2].slice(0, 18),
   ];
 
   const card4Draft = {
@@ -1131,9 +1204,12 @@ export async function POST(req: NextRequest) {
 
   // Build PPTX-compatible floor_leases, ssot_summary, and sections
   const mappedFloorLeases =
-    safeRentRoll.length > 0
-      ? safeRentRoll.map((r: any, idx: number) => {
-          const prevFl = existingFloorLeases[idx] || {};
+    safeRentRollWithAreas.length > 0
+      ? safeRentRollWithAreas.map((r: any, idx: number) => {
+          const prevFl =
+            existingFloorLeases.length === safeRentRollWithAreas.length
+              ? existingFloorLeases[idx] || {}
+              : {};
           const isVacant =
             r.status === 'vacant' ||
             r.is_vacant === true ||
@@ -1150,34 +1226,8 @@ export async function POST(req: NextRequest) {
             r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? r.rent ?? 0
           );
           const mgmtMan = Number(r.maintenanceManwon ?? r.mgmt_fee_manwon ?? r.maintenance ?? 0);
-          const rawExplicitM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? 0);
-          const prevM2 = Number(prevFl.area_sqm ?? prevFl.area_m2 ?? prevFl.exclusive_area_sqm ?? 0);
-          const explicitM2 =
-            rawExplicitM2 > 0 && Math.abs(rawExplicitM2 - 2.45) > 0.05
-              ? rawExplicitM2
-              : prevM2 > 0 && Math.abs(prevM2 - 2.45) > 0.05
-              ? prevM2
-              : 0;
-          const rawExplicitPy = Number(r.area_pyeong ?? r.areaPyeong ?? 0);
-          const explicitPy =
-            rawExplicitPy > 0 && Math.abs(rawExplicitPy - 0.8) > 0.05 ? rawExplicitPy : 0;
-          const isAuxRow = /(주차|옥탑|기계식|루프탑|부대)/.test(
-            `${r.floor || ''} ${r.unit || ''} ${r.use || ''}`
-          );
-          const areaM2 =
-            explicitM2 > 0
-              ? explicitM2
-              : explicitPy > 0
-              ? Math.round(explicitPy * 3.305785 * 100) / 100
-              : isAuxRow
-              ? 0
-              : perFloorAreaSqm;
-          const areaPy =
-            explicitPy > 0
-              ? explicitPy
-              : areaM2 > 0
-              ? Math.round((areaM2 / 3.305785) * 10) / 10
-              : 0;
+          const areaM2 = Number(r.area_m2 ?? r.area_sqm ?? r.areaSqm ?? 0);
+          const areaPy = Number(r.area_pyeong ?? r.areaPyeong ?? 0);
           const exclusiveSqm =
             Number(
               r.exclusiveAreaSqm ??

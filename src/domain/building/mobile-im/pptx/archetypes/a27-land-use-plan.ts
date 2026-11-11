@@ -437,6 +437,17 @@ export function buildBasicLandSlideData(params: {
     existingLandData?.photoUrl ||
     null;
 
+  const resolvedCoordinates =
+    existingLandData?.coordinates ||
+    body?.coordinates ||
+    ssot?.coordinates ||
+    (Number.isFinite(Number(building?.lat)) &&
+    Number.isFinite(Number(building?.lng)) &&
+    Number(building?.lat) !== 0 &&
+    Number(building?.lng) !== 0
+      ? { lat: Number(building.lat), lng: Number(building.lng) }
+      : null);
+
   const brokerRegulationText = formatBrokerRegulationNotes(body);
 
   return {
@@ -449,6 +460,7 @@ export function buildBasicLandSlideData(params: {
     parcelRows: parcelRows.length >= 2 ? parcelRows : undefined,
     zoningLegend,
     zoningShares,
+    coordinates: resolvedCoordinates,
     cadastralImage: resolvedMapImg,
     zoningMapImage: resolvedMapImg,
     mapImageUrl: resolvedMapImg,
@@ -499,13 +511,16 @@ async function placeLandMapImage(
           .extract({ left, top, width: extractW, height: extractH })
           .jpeg({ quality: 85 })
           .toBuffer();
-        finalData = `data:image/jpeg;base64,${croppedBuf.toString('base64')}`;
+        finalData = `image/jpeg;base64,${croppedBuf.toString('base64')}`;
       }
     }
   } catch {
     // sharp 실패 시 원본 비율 유지
   }
 
+  if (finalData.startsWith('data:')) {
+    finalData = finalData.replace(/^data:/, '');
+  }
   s.addImage({ data: finalData, x, y, w, h });
 
   // Rule 66: 네이티브 본건 마커 배지
@@ -865,6 +880,56 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   let imgPlaced = false;
   if (imgSrc) {
     imgPlaced = await placeLandMapImage(s, imgSrc, rightX, mapY, rightW, mapH);
+  }
+  if (!imgPlaced) {
+    const fbCoords =
+      d.coordinates ||
+      d.body?.coordinates ||
+      d.ssot?.coordinates ||
+      (Number.isFinite(Number(d.building?.lat)) &&
+      Number.isFinite(Number(d.building?.lng)) &&
+      Number(d.building?.lat) !== 0 &&
+      Number(d.building?.lng) !== 0
+        ? { lat: Number(d.building.lat), lng: Number(d.building.lng) }
+        : null);
+    if (fbCoords && Number.isFinite(Number(fbCoords.lat)) && Number.isFinite(Number(fbCoords.lng))) {
+      try {
+        const kakaoKey = (process.env.KAKAO_REST_API_KEY || '').trim();
+        if (kakaoKey) {
+          const lat = Number(fbCoords.lat);
+          const lng = Number(fbCoords.lng);
+          const kakaoUrl = `https://dapi.kakao.com/v2/maps/staticmap?center=${lng},${lat}&size=180x135&level=2`;
+          const kRes = await fetch(kakaoUrl, {
+            headers: { Authorization: `KakaoAK ${kakaoKey}` },
+            signal: AbortSignal.timeout(6000),
+          });
+          if (kRes.ok) {
+            const kBuf = Buffer.from(await kRes.arrayBuffer());
+            const sharpMod = (await import('sharp')).default;
+            const ringSvg = Buffer.from(
+              `<svg width="1120" height="840" viewBox="0 0 1120 840" xmlns="http://www.w3.org/2000/svg">` +
+                `<rect x="462" y="340" width="196" height="160" rx="8" fill="#DC2626" fill-opacity="0.14" stroke="#DC2626" stroke-width="3.5" stroke-dasharray="10,6"/>` +
+                `</svg>`
+            );
+            const parcelBuf = await sharpMod(kBuf)
+              .resize(1120, 840, { fit: 'fill' })
+              .composite([{ input: ringSvg, left: 0, top: 0 }])
+              .jpeg({ quality: 86 })
+              .toBuffer();
+            imgPlaced = await placeLandMapImage(
+              s,
+              `data:image/jpeg;base64,${parcelBuf.toString('base64')}`,
+              rightX,
+              mapY,
+              rightW,
+              mapH,
+            );
+          }
+        }
+      } catch {
+        // graceful fallback to text placeholder below
+      }
+    }
   }
   if (!imgPlaced) {
     s.addText('지적도 · 용도지역도\n(국토교통부 V-World 공간정보)', {

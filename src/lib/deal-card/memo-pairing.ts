@@ -304,28 +304,54 @@ export function parseMemoIntoCard4(
     }
   }
 
-  // 6. 장점 3줄 추출 (블라인드 정제 + 18자 어절 경계 교정)
-  const rawClauses = text
-    .split(/[\n,;/·]+/)
+  // 6. 장점 3줄 추출 (블라인드 정제 + 천단위 쉼표 보존 + 18자 어절 경계 교정)
+  const sanitizedForClauses = text
+    // 괄호 안 연락처·소유주 비공개 메모 제거 (앞부분 핵심 장점 문구는 살림)
+    .replace(/\([^)]*(?:01[016789]|\d{2,3}-\d{3,4}-\d{4}|사장님|대표님|소유주|건물주|연락처|비공개)[^)]*\)/g, "")
+    .replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g, "");
+
+  // 천단위 숫자 쉼표(예: 2억7,950만 / 1,230평)와 단어 내부 가운뎃점(예: 학원·카페)은 분할하지 않음
+  const rawClauses = sanitizedForClauses
+    .split(/\r?\n|;|,(?!\d{3}(?:\D|$))|\s+[\/·]\s+/)
     .map((c) => c.trim())
     .filter((c) => c.length >= 3);
 
+  const compactRentClause = (clause: string): string => {
+    // 예: "보증금 2억7,950만 월세 809만" (20자) -> 18자 이내에서 월세 핵심이 잘리지 않도록 정돈
+    if (clause.length <= 18) return clause;
+    const rentMatch = clause.match(/월세\s*([\d,.]+\s*(?:억(?:\s*[\d,.]+\s*만)?|만|천만?))\s*(?:원)?/);
+    const depEokManMatch = clause.match(/보증금\s*(\d+)\s*억\s*(\d[\d,]*)\s*만/);
+    if (depEokManMatch && rentMatch) {
+      const eok = parseInt(depEokManMatch[1], 10);
+      const man = parseInt(depEokManMatch[2].replace(/,/g, ""), 10);
+      const roundedEok = Math.round((eok + man / 10000) * 10) / 10;
+      const compact = `보증금 ${roundedEok}억·월세 ${rentMatch[1].replace(/\s+/g, "")}`;
+      if (compact.length <= 18) return compact;
+    }
+    if (rentMatch) {
+      return `월세 ${rentMatch[1].replace(/\s+/g, "")} 임대수익`;
+    }
+    return clause;
+  };
+
   const candidatePoints: string[] = [];
-  for (const clause of rawClauses) {
-    if (/^(?:주소|소재지|위치|매매가|매각가|희망가|매가|보증금|연락처|전화|소유주|건물주)\s*[:：]/.test(clause)) {
+  for (const rawClause of rawClauses) {
+    const clause = compactRentClause(rawClause);
+    if (/^(?:주소|소재지|위치|매매가|매각가|희망가|매가|연락처|전화|소유주|건물주)\s*[:：]/.test(clause)) {
       continue;
     }
-    if (/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/.test(clause)) continue;
-    // 가격/면적만 있는 단순 스펙 절은 이미 썸네일 4칩에 들어가므로 장점 후보에서 후순위 처리
-    if (/^(?:대지|토지|연면적|건평|매가|매매가|희망가)\s*[\d,.]+\s*(?:평|㎡|억)/.test(clause)) {
+    // 가격/면적만 있는 단순 스펙 절은 이미 썸네일 4칩에 들어가므로 장점 후보에서 제외
+    if (/^(?:대지|토지|대지면적|토지면적|연면적|건평|매가|매매가|매각가|희망가)\s*[\d,.]+\s*(?:평|㎡|m2|억)/i.test(clause)) {
       continue;
     }
+    // 주소+건물명+희망가 헤더 절(마스킹 후 ●●● 잔존)은 장점 문구로 부적합하므로 제외
     const cleaned = cleanBlindPoints([clause])[0]?.trim() || "";
-    if (!cleaned) continue;
+    if (!cleaned || cleaned.includes("●●●")) continue;
     const repaired = repairDealCardLine(cleaned);
     if (
       repaired &&
       repaired.length >= 3 &&
+      !repaired.includes("●●●") &&
       repaired !== region &&
       repaired !== use &&
       !candidatePoints.includes(repaired)
