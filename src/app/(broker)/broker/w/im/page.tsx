@@ -2289,9 +2289,19 @@ function ImWorkspaceInner() {
       const rentSummary = reqRentRoll
         .map(
           (r) =>
-            `${r.floor} ${r.use} 보증금 ${r.depositManwon || 0}만/월세 ${r.monthlyRentManwon || 0}만`
+            `${r.floor} ${r.tenantName ? `${r.tenantName}(${r.use})` : r.use} 보증금 ${r.depositManwon || 0}만/월세 ${r.monthlyRentManwon || 0}만${r.status === "vacant" ? " [공실]" : r.status === "owner" ? " [자가사용]" : ""}`
         )
-        .join(", ");
+        .join(", ")
+        .slice(0, 1150);
+      const reqTenantNames = Array.from(
+        new Set(
+          reqRentRoll
+            .map((r) => String(r.tenantName || r.use || "").trim())
+            .filter((n) => n.length >= 2 && n !== "공실" && n !== "자가사용")
+        )
+      ).slice(0, 30);
+      const reqVacantCount = reqRentRoll.filter((r) => r.status === "vacant").length;
+      const reqOwnerCount = reqRentRoll.filter((r) => r.status === "owner").length;
       const res = await fetch("/api/broker/im/ai-points", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2305,6 +2315,21 @@ function ImWorkspaceInner() {
           zoning: reqZoning,
           completionDate: reqCompletion,
           rentRollSummary: rentSummary,
+          totalDepositManwon: reqTotalDep,
+          totalRentManwon: reqTotalRent,
+          calculatedYieldPct: Number.isFinite(reqYield) && reqYield > 0 ? Number(reqYield.toFixed(2)) : undefined,
+          ...(reqHandover ? { handoverNote: reqHandover } : {}),
+          ...(typeof bcrPct === "number" && bcrPct > 0 ? { bcrPct } : {}),
+          ...(typeof farPct === "number" && farPct > 0 ? { farPct } : {}),
+          ...(typeof parkingTotal === "number" && parkingTotal >= 0 ? { parkingSpaces: parkingTotal } : {}),
+          ...(typeof elevatorCount === "number" && elevatorCount >= 0 ? { elevators: elevatorCount } : {}),
+          ...(typeof officialLandPricePerSqm === "number" && officialLandPricePerSqm > 0
+            ? { officialLandPriceWonSqm: officialLandPricePerSqm }
+            : {}),
+          ...(Array.isArray(parcels) && parcels.length >= 2 ? { parcelsCount: parcels.length } : {}),
+          ...(reqTenantNames.length > 0 ? { tenantNames: reqTenantNames } : {}),
+          vacantCount: reqVacantCount,
+          ownerUseCount: reqOwnerCount,
         }),
       });
       const data = await res.json().catch(() => null);

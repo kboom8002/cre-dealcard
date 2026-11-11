@@ -14,7 +14,7 @@ interface AiTextGeneratorProps {
 const TONE_OPTIONS = [
   { id: 'conservative' as const, label: '보수적 · 공부기반', badge: '기관·법인용' },
   { id: 'balanced' as const, label: '균형 · 표준 브리핑', badge: '추천' },
-  { id: 'aggressive' as const, label: '적극 · 밸류애드 강조', badge: '수익 극대화' },
+  { id: 'aggressive' as const, label: '적극 · 밸류애드 강조', badge: '가치개선 강조' },
 ];
 
 export function AiTextGenerator({

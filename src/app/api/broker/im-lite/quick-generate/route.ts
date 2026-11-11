@@ -11,7 +11,7 @@
  * 6. Returns { buildingId, documentId, docHash, card4, status: 'succeeded' }.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { requireBroker } from '@/lib/auth-guard';
 import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
@@ -30,6 +30,9 @@ import {
   summarizeParcels,
   type BrokerParcel,
 } from '@/domain/building/mobile-im/parcel-input';
+import { evaluateRAGIndexingEligibility } from '@/domain/building/mobile-im/rag-hygiene';
+import { indexIMSections } from '@/domain/building/mobile-im/im-embedding-indexer';
+import { polishImCopyWithLexiconSync } from '@/domain/building/mobile-im/workspace-ai-enhancer';
 import { padNumber, splitMultiParcelAddress } from '@/lib/external/address-resolver';
 
 // In-memory idempotency cache for quick-generate calls
@@ -806,7 +809,7 @@ export async function POST(req: NextRequest) {
       parsedExtras = parsed.value;
     }
   }
-  const closingLine = String(
+  const rawClosingLine = String(
     body.closingLine ||
       body.brokerExtras?.closingLine ||
       body.brokerExtras?.closing_line ||
@@ -814,6 +817,16 @@ export async function POST(req: NextRequest) {
       existingSsot?.closing_line ||
       ''
   ).trim();
+  const earlyTenantPool = safeRentRoll.map((r: any) => ({
+    tenant_name: String(r?.tenantName ?? r?.tenant_name ?? r?.use ?? ''),
+    note: String(r?.note ?? ''),
+  }));
+  const closingLine = rawClosingLine
+    ? polishImCopyWithLexiconSync(rawClosingLine, {
+        tenantPoolSource: earlyTenantPool,
+        isCompactHeadline: false,
+      })
+    : '';
 
   const subjectLandPyeongEarly = Math.max(1, effectiveLandSqm / 3.305785);
   const subjectLandPricePerPyeongManwon = Math.round(priceNum / subjectLandPyeongEarly);
@@ -835,18 +848,32 @@ export async function POST(req: NextRequest) {
       )
     : axiosHeadlinePoints;
 
-  const defaultPoints: [string, string, string] = [
+  const rawDefaultPoints: [string, string, string] = [
     customPoints[0] || parsedExtras?.investment_points?.[0] || `${derivedRegion} 핵심 상권 역세권 가시성 우수`,
     customPoints[1] ||
       parsedExtras?.investment_points?.[1] ||
       (totalMonthlyRentManwon > 0
         ? `월 임대수익 ${totalMonthlyRentManwon.toLocaleString()}만원 안정 운용`
-        : '우량 임차인 및 사옥·밸류애드 활용 적격'),
+        : '안정적 임차인 및 사옥·가치개선 활용 적격'),
     customPoints[2] ||
       parsedExtras?.investment_points?.[2] ||
       (effectiveMonthlyRentManwon > 0
         ? `연 수익률 ${estimatedYieldPct}% 기대 배당 자산`
         : `토지 평당 ${subjectLandPricePerPyeongManwon.toLocaleString()}만원 자산가치 우수`),
+  ];
+  const defaultPoints: [string, string, string] = [
+    polishImCopyWithLexiconSync(rawDefaultPoints[0], {
+      tenantPoolSource: earlyTenantPool,
+      isCompactHeadline: true,
+    }) || rawDefaultPoints[0],
+    polishImCopyWithLexiconSync(rawDefaultPoints[1], {
+      tenantPoolSource: earlyTenantPool,
+      isCompactHeadline: true,
+    }) || rawDefaultPoints[1],
+    polishImCopyWithLexiconSync(rawDefaultPoints[2], {
+      tenantPoolSource: earlyTenantPool,
+      isCompactHeadline: true,
+    }) || rawDefaultPoints[2],
   ];
 
   // Fetch authenticated broker's saved profile from Supabase if available
@@ -1202,6 +1229,84 @@ export async function POST(req: NextRequest) {
           comparisonDiffPct: 0,
         }))
       : [];
+
+  // SOTA Fast-Path Spatial POI & MOLIT DB Comparable Micro-Enrichment (strict <=2,200ms non-blocking race)
+  let liveLocationPoi: Record<string, any> | null =
+    existingEnrichment?.locationPoi && typeof existingEnrichment.locationPoi === 'object'
+      ? existingEnrichment.locationPoi
+      : null;
+  let liveDbComps: Array<{
+    location: string;
+    dealDate: string;
+    buildingUse: string;
+    transactionPriceManwon: number;
+    gfaPerPyManwon: number;
+  }> = [];
+
+  if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+    try {
+      await Promise.race([
+        Promise.all([
+          (async () => {
+            if (!liveLocationPoi && resolvedCoords?.lat && resolvedCoords?.lng) {
+              const { fetchLocationPoi } = await import('@/lib/external/kakao-map-api');
+              const poi = await fetchLocationPoi(resolvedCoords.lat, resolvedCoords.lng);
+              if (poi) {
+                liveLocationPoi = poi as unknown as Record<string, any>;
+              }
+            }
+          })().catch(() => {}),
+          (async () => {
+            if (defaultComps.length === 0) {
+              const dongMatch = (resolvedJibunAddress || cleanAddress).match(
+                /([가-힣0-9]+(?:구|군|시))\s+([가-힣0-9]+(?:동|가|읍|면))/,
+              );
+              const districtHint = dongMatch?.[1] || derivedRegion.split(/\s+/)[0] || '';
+              const dongHint = dongMatch?.[2] || '';
+              if (districtHint) {
+                const { createServiceClient } = await import('@/lib/supabase/service');
+                const sb = createServiceClient();
+                if (sb && typeof sb.from === 'function') {
+                  let q = sb
+                    .from('external_transactions')
+                    .select('address, district, dong, transaction_price, building_area, usage_type, transaction_date')
+                    .ilike('district', `%${districtHint}%`)
+                    .gte('transaction_price', 1_000_000_000)
+                    .order('transaction_date', { ascending: false })
+                    .limit(4);
+                  if (dongHint) {
+                    q = q.ilike('dong', `%${dongHint}%`);
+                  }
+                  const { data: compRows } = await q;
+                  if (Array.isArray(compRows) && compRows.length > 0) {
+                    liveDbComps = compRows
+                      .filter((r: any) => Number(r?.transaction_price) > 0)
+                      .slice(0, 3)
+                      .map((r: any) => {
+                        const txManwon = Math.round(Number(r.transaction_price) / 10_000);
+                        const bldPy = Number(r.building_area) > 0 ? Number(r.building_area) / 3.305785 : 0;
+                        return {
+                          location:
+                            [r.district, r.dong, r.address].filter(Boolean).join(' ').trim() ||
+                            `${derivedRegion} 인근`,
+                          dealDate: String(r.transaction_date || '-').slice(0, 10),
+                          buildingUse: String(r.usage_type || '근린생활·업무시설'),
+                          transactionPriceManwon: txManwon,
+                          gfaPerPyManwon: bldPy > 0 ? Math.round(txManwon / bldPy) : 0,
+                        };
+                      });
+                  }
+                }
+              }
+            }
+          })().catch(() => {}),
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 2200)),
+      ]);
+    } catch {
+      // Non-blocking spatial/comparable micro-enrichment fallback
+    }
+  }
 
   // Pre-compute per-floor unit counts so manual rent-roll rows without explicit unit area
   // share their floor's gross area proportionally instead of duplicating full floor area per unit
@@ -1560,9 +1665,29 @@ export async function POST(req: NextRequest) {
       title: '입지 및 교통 여건',
       markdown: [
         `- **소재지**: ${cleanAddress} (${resolvedRoadAddress})`,
-        `- **대중교통 접근성**: 주요 지하철역 도보권 역세권 입지로 직장인 및 상권 유동인구 유입이 활발합니다.`,
-        `- **도로 및 가시성**: 전면 도로 접면이 우수하여 차량 진출입과 상업적 가시성이 뛰어납니다.`,
-        `- **배후 상권**: 업무·상업·주거 배후수요가 밀집된 핵심 권역으로 임차 수요가 견고합니다.`,
+        liveLocationPoi?.nearestStation?.name
+          ? `- **대중교통 접근성**: ${liveLocationPoi.nearestStation.name} 약 ${Number(
+              liveLocationPoi.nearestStation.distanceM || 0
+            ).toLocaleString()}m${
+              liveLocationPoi.nearestStation.walkMinutes
+                ? ` (도보 약 ${liveLocationPoi.nearestStation.walkMinutes}분)`
+                : ''
+            } 역세권 동선으로 출퇴근 및 방문객 접근성이 우수합니다.`
+          : `- **대중교통 접근성**: 주요 지하철역 및 간선 대중교통 노선 인접 입지로 직장인·상권 유동인구 유입이 원활합니다.`,
+        `- **도로 및 가시성**: 전면 도로 접면이 양호하여 차량 진출입과 상업적 가시성이 확보되어 있습니다.`,
+        liveLocationPoi?.poiCounts &&
+        (Number(liveLocationPoi.poiCounts.cafe || 0) +
+          Number(liveLocationPoi.poiCounts.restaurant || 0) >
+          0)
+          ? `- **배후 상권**: 반경 500m 내 음식점·카페 ${
+              Number(liveLocationPoi.poiCounts.restaurant || 0) +
+              Number(liveLocationPoi.poiCounts.cafe || 0)
+            }개소${
+              Number(liveLocationPoi.poiCounts.busStop || 0) > 0
+                ? `, 버스정류장 ${Number(liveLocationPoi.poiCounts.busStop)}개소`
+                : ''
+            }가 밀집된 활성 상권으로 임차 수요가 견고합니다.`
+          : `- **배후 상권**: 업무·상업·주거 배후수요가 결합된 권역으로 임차 수요가 견고합니다.`,
       ].join('\n'),
     },
     {
@@ -1615,6 +1740,19 @@ export async function POST(req: NextRequest) {
                   `| 실거래 사례 | ${c.distance} | ${c.dealDate} | ${c.buildingUse} | ${Math.round(c.pricePerPyeongLandWon / 10000).toLocaleString()}만원/평 |`
               ),
             ].join('\n')
+          : liveDbComps.length > 0
+          ? [
+              `| 구분 | 인근 소재지 | 거래시기 | 용도 | 거래금액 / 건물평당가 |`,
+              `|---|---|---|---|---|`,
+              ...liveDbComps.map(
+                (c) =>
+                  `| 국토부 실거래 | ${c.location} | ${c.dealDate} | ${c.buildingUse} | ${(
+                    Math.round((c.transactionPriceManwon / 10_000) * 100) / 100
+                  ).toLocaleString()}억${
+                    c.gfaPerPyManwon > 0 ? ` (건물 ${c.gfaPerPyManwon.toLocaleString()}만원/평)` : ''
+                  } |`
+              ),
+            ].join('\n')
           : `- 인근 실거래 및 시세 데이터 분석 중`,
     },
     {
@@ -1650,24 +1788,53 @@ export async function POST(req: NextRequest) {
     applyBrokerExtrasToSections(pptxSections, parsedExtras);
   }
 
+  // Apply CRE Lexicon & Fabricated-Brand Hygiene across all section narratives (protecting Markdown pipe tables)
+  for (const sec of pptxSections) {
+    sec.markdown = polishImCopyWithLexiconSync(sec.markdown, {
+      tenantPoolSource: mappedFloorLeases,
+      preserveLinesAndMarkdown: true,
+    });
+  }
+
   const nowIso = new Date().toISOString();
 
   const normalizedAxiosHighlights = Array.isArray(body.axiosHighlights)
     ? body.axiosHighlights
         .slice(0, 3)
-        .map((h: any, idx: number) => ({
-          headline: String(h?.headline || defaultPoints[idx] || ''),
-          brief: String(h?.brief || ''),
-          tone:
-            h?.tone === 'sky' || h?.tone === 'mint'
-              ? h.tone
-              : idx === 1
-              ? 'sky'
-              : idx === 2
-              ? 'mint'
-              : 'amber',
-        }))
+        .map((h: any, idx: number) => {
+          const rawHl = String(h?.headline || defaultPoints[idx] || '');
+          const rawBr = String(h?.brief || '');
+          return {
+            headline:
+              polishImCopyWithLexiconSync(rawHl, {
+                tenantPoolSource: mappedFloorLeases,
+                isCompactHeadline: true,
+              }) || rawHl,
+            brief: rawBr
+              ? polishImCopyWithLexiconSync(rawBr, {
+                  tenantPoolSource: mappedFloorLeases,
+                  isCompactHeadline: false,
+                })
+              : '',
+            tone:
+              h?.tone === 'sky' || h?.tone === 'mint'
+                ? h.tone
+                : idx === 1
+                ? 'sky'
+                : idx === 2
+                ? 'mint'
+                : 'amber',
+          };
+        })
     : undefined;
+
+  const mergedEnrichment =
+    existingEnrichment || liveLocationPoi
+      ? {
+          ...(existingEnrichment || {}),
+          ...(liveLocationPoi ? { locationPoi: liveLocationPoi } : {}),
+        }
+      : undefined;
 
   const fullDocBody = {
     schemaVersion: '3.0',
@@ -1687,7 +1854,7 @@ export async function POST(req: NextRequest) {
     rent_roll: safeRentRollWithAreas,
     floor_leases: mappedFloorLeases,
     ssot_summary: ssotSummary,
-    ...(existingEnrichment ? { enrichment: existingEnrichment } : {}),
+    ...(mergedEnrichment ? { enrichment: mergedEnrichment } : {}),
     ...(normalizedAxiosHighlights ? { axios_highlights: normalizedAxiosHighlights } : {}),
     ...(handoverNote ? { handover_note: String(handoverNote) } : {}),
     heroCard: {
@@ -1898,6 +2065,48 @@ export async function POST(req: NextRequest) {
               '@/lib/supabase/prune-document-objects'
             );
             await pruneSupersededDocumentObjects(supabase, buildingId, 'mobile_im', 2);
+
+            // SOTA Closed-Loop RAG Hygiene & Vector Indexing (S0-T3):
+            // Only broker-published IMs pass evaluateRAGIndexingEligibility and feed im_documents pgvector asynchronously via after()
+            if (!dErr) {
+              const fullMarkdownForRag = pptxSections
+                .map((s) => `[${s.title}]\n${s.markdown}`)
+                .join('\n\n');
+              const ragGate = evaluateRAGIndexingEligibility({
+                id: documentId,
+                buildingId,
+                status: requestedStatus,
+                isBrokerApproved: requestedStatus === 'published',
+                content: fullMarkdownForRag,
+                assetType: card4.use,
+                regionCode: resolvedPnu ? resolvedPnu.slice(0, 5) : undefined,
+              });
+              if (ragGate.eligibleForIndexing) {
+                try {
+                  after(async () => {
+                    try {
+                      await indexIMSections(
+                        supabase as any,
+                        buildingId,
+                        pptxSections as any,
+                        {
+                          status: requestedStatus,
+                          brokerApproved: true,
+                          assetType: card4.use,
+                          address: cleanAddress,
+                          posture,
+                          documentId,
+                        },
+                      );
+                    } catch {
+                      // Non-blocking vector store indexing
+                    }
+                  });
+                } catch {
+                  // Safe fallback when invoked outside Next.js request async context
+                }
+              }
+            }
           })(),
           new Promise((resolve) => setTimeout(resolve, 12000)),
         ]);
