@@ -562,8 +562,9 @@ export async function POST(request: NextRequest) {
     }
 
     const newsExplicitlyEnabled =
-      Array.isArray(data.sections) &&
-      data.sections.some((s) => s.id === "news_curation" && s.enabled === true);
+      Array.isArray(data.sections) && data.sections.some((s) => s.id === "news_curation")
+        ? data.sections.some((s) => s.id === "news_curation" && s.enabled === true)
+        : true;
 
     const preferredRegions = normalizePreferredRegions(data.preferredRegions);
     const preferredChannels = normalizePreferredChannels(data.preferredChannels);

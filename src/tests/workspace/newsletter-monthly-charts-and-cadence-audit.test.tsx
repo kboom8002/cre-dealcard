@@ -293,4 +293,173 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
     expect(dbHydrated[0].isPlaceholder).toBe(false);
     expect(dbHydrated[1].isPlaceholder).toBe(false);
   });
+
+  it("[T6] [1] 월간 뉴스레터는 첫 머리 통계 2개 → 핵심 이슈 5개 브리핑 → 추천 매물 → 중개사 연락처 순서로 구성되며, 구형 주간 에디션(이슈 0건)이나 빈 로컬 슬롯에서 월간으로 전환해도 이슈 5선이 자동 복원된다", async () => {
+    // 1. 오염된 미저장 월간 로컬 슬롯(unitIssues: [])과 이슈 0건 구형 주간 에디션이 함께 존재하는 실전 시나리오 재현
+    window.localStorage.setItem(
+      "cre-newsletter-slot-v1:new:monthly:2026-11",
+      JSON.stringify({
+        cadence: "monthly",
+        issueYear: 2026,
+        issueMonth: 11,
+        editionId: null,
+        unitIssues: [],
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/magazine/editions")) {
+          return Response.json({
+            ok: true,
+            brokerId: "11111111-1111-4111-8111-111111111111",
+            brokerSlug: "gangnam-ace",
+            brokerName: "이상은",
+            brokerOffice: "JS 부동산중개법인",
+            brokerPhone: "02-555-1234",
+            subscriberCount: 18,
+            highInterestCount: 5,
+            editions: [
+              {
+                id: "ed-legacy-w43",
+                slug: "W43-2026",
+                edition_type: "weekly",
+                status: "draft",
+                headline: "W43-2026 뉴스레터",
+                summary: "",
+                content: {
+                  kind: "weekly",
+                  edition_type: "weekly",
+                  unitIssues: [],
+                  featured_deals: [],
+                },
+              },
+            ],
+          });
+        }
+        if (url.includes("/api/broker/buildings")) {
+          return Response.json({
+            ok: true,
+            buildings: [
+              {
+                id: "deal-1",
+                building_name: "코너 입지 돋보이는 개발 자산",
+                address: "잠원권역",
+                sale_price: 8_500_000_000,
+                cap_rate: 4.2,
+                photo_url: null,
+              },
+            ],
+          });
+        }
+        if (url.includes("/api/broker/magazine/monthly-stats")) {
+          return Response.json({
+            ok: true,
+            regionKey: "gbd",
+            liveDbAvailable: false,
+            charts: buildDefaultMonthlyGraphicPair("gbd"),
+          });
+        }
+        return Response.json({ ok: true });
+      }),
+    );
+
+    render(<MagazineEditorPage />);
+
+    // 2. 먼저 구형 주간 에디션(unitIssues: [])을 클릭한 뒤 '월간' 탭으로 전환
+    const legacyBtn = await screen.findByTestId("magazine-edition-item-ed-legacy-w43");
+    await act(async () => {
+      fireEvent.click(legacyBtn);
+    });
+    expect(screen.queryByTestId("preview-axios-postit-section")).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("quickstart-cadence-monthly"));
+    });
+
+    // 3. 월간 핵심 시장 이슈 5선이 5장 모두 자동 복원되고 빈 회색 시장 브리핑 박스는 없어야 함
+    const statsSection = await screen.findByTestId("preview-monthly-stats-section");
+    const issuesSection = await screen.findByTestId("preview-axios-postit-section");
+    const dealsSection = await screen.findByTestId("preview-featured-deals-section");
+    const contactSection = await screen.findByTestId("preview-broker-contact-section");
+
+    expect(issuesSection.textContent).toContain("월간 핵심 시장 이슈 5선");
+    expect(screen.getAllByTestId(/^preview-postit-card-/)).toHaveLength(5);
+    expect(screen.queryByTestId("preview-market-briefing-section")).toBeNull();
+    expect(contactSection.textContent).toContain("이상은");
+    expect(contactSection.textContent).toContain("JS 부동산중개법인");
+    expect(contactSection.textContent).toContain("02-555-1234");
+
+    // 4. 에디터 우측 미리보기 DOM 순서: [첫 머리 통계 2개 → 이슈 5개 브리핑 → 추천 매물 → 중개사 연락처]
+    expect(Boolean(statsSection.compareDocumentPosition(issuesSection) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(Boolean(issuesSection.compareDocumentPosition(dealsSection) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(Boolean(dealsSection.compareDocumentPosition(contactSection) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+
+    // 5. 공개 고객 뷰어(MagazineView + applySimplePreset)에서도 동일한 섹션 순서 보장
+    const simpleMonthly = applySimplePreset(
+      {
+        kind: "monthly",
+        edition_type: "monthly",
+        headline: "2026년 11월 강남 빌딩 월간 리포트",
+        briefing: "이번 달 강남권 빌딩 시장은 선별 매수 흐름입니다.",
+        field_note: { comment: "역세권 코너 매물 문의가 꾸준합니다." },
+        monthlyRegion: "gbd",
+        monthlyCharts: buildDefaultMonthlyGraphicPair("gbd"),
+        unitIssues: clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, { cadence: "monthly" }),
+        featured_deals: [
+          { id: "deal-1", assetType: "근생빌딩", address: "강남구 역삼동", price: 8_500_000_000 },
+        ],
+        broker: { name: "이상은", company: "JS 부동산중개법인", phone: "02-555-1234" },
+      },
+      { brokerName: "이상은" },
+    );
+
+    const publicHtml = renderToStaticMarkup(
+      <MagazineView
+        data={simpleMonthly}
+        brokerId="gangnam-ace"
+        brokerSlug="gangnam-ace"
+        date="2026-11-01"
+        dateLabel="2026년 11월호"
+      />,
+    );
+
+    const pStatsIdx = publicHtml.indexOf('data-testid="monthly-regional-charts-section"');
+    const pIssuesIdx = publicHtml.indexOf('data-testid="axios-postit-list"');
+    const pBriefingIdx = publicHtml.indexOf("공인중개사 현장 브리핑");
+    const pDealsIdx = publicHtml.indexOf("주목 매물 하이라이트");
+    const pContactIdx = publicHtml.lastIndexOf("02-555-1234");
+
+    expect(pStatsIdx).toBeGreaterThan(0);
+    expect(pStatsIdx).toBeLessThan(pIssuesIdx);
+    expect(pIssuesIdx).toBeLessThan(pBriefingIdx);
+    expect(pBriefingIdx).toBeLessThan(pDealsIdx);
+    expect(pDealsIdx).toBeLessThan(pContactIdx);
+  });
+
+  it("[T7] [1-2] 뉴스 큐레이션 관심 분야 및 주력 권역 선택 단추는 .broker-paper-theme 역전 규칙(bg-slate-900)과 충돌하지 않고 선택/비선택 모두 고대비 텍스트 색상을 명시한다", async () => {
+    render(<MagazineEditorPage />);
+
+    const activeChannelChip = await screen.findByTestId("pref-channel-chip-real_estate");
+    const inactiveChannelChip = await screen.findByTestId("pref-channel-chip-culture_lifestyle");
+
+    // 1. .broker-paper-theme 에서 흰 배경으로 강제 역전되는 bg-slate-900 클래스를 절대 사용하지 않음
+    expect(activeChannelChip.className).not.toContain("bg-slate-900");
+    expect(activeChannelChip.getAttribute("aria-pressed")).toBe("true");
+    expect(activeChannelChip.getAttribute("data-active-pill")).toBe("true");
+
+    // 2. 선택 상태: 로열 블루 배경(rgb(29, 78, 216) / #1D4ED8) + 순백 텍스트(rgb(255, 255, 255) / #FFFFFF)
+    expect(activeChannelChip.style.backgroundColor).toMatch(/#1d4ed8|rgb\(29,\s*78,\s*216\)/i);
+    const activeLabelSpan = activeChannelChip.querySelectorAll("span")[1] as HTMLElement;
+    expect(activeLabelSpan.textContent).toBe("부동산·빌딩");
+    expect(activeLabelSpan.style.color).toMatch(/#ffffff|rgb\(255,\s*255,\s*255\)/i);
+
+    // 3. 비선택 상태: 밝은 슬레이트 배경(#F8FAFC) + 짙은 잉크 텍스트(#1E293B)
+    expect(inactiveChannelChip.getAttribute("aria-pressed")).toBe("false");
+    const inactiveLabelSpan = inactiveChannelChip.querySelectorAll("span")[1] as HTMLElement;
+    expect(inactiveLabelSpan.textContent).toBe("문화·예술·라이프");
+    expect(inactiveLabelSpan.style.color).toMatch(/#1e293b|rgb\(30,\s*41,\s*59\)/i);
+  });
 });

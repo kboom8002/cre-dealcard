@@ -203,9 +203,9 @@ export function parseCadenceAnchor(
 
 /**
  * 주기별 기획 기본 코너 활성화 구성:
- *  - 일간(daily): [헤더 + 제목 + 일간 핵심 이슈 5선 + 추천 매물] (바쁜 아침 1분 속독형 — 장문 브리핑·월간 통계 기본 비활성)
- *  - 주간(weekly): [헤더 + 제목 + 주간 시장 브리핑 + 주간 핵심 이슈 5선 + 추천 매물] (월간 통계 비활성)
- *  - 월간(monthly): [헤더 + 제목 + 상단 주요 통계 그래픽 2선 + 월간 시장 브리핑 + 월간 핵심 이슈 5선 + 추천 매물]
+ *  - 일간(daily): [헤더 + 제목 + 일간 핵심 이슈 5선 + 추천 매물 + 연락처] (바쁜 아침 1분 속독형 — 장문 브리핑·월간 통계 기본 비활성)
+ *  - 주간(weekly): [헤더 + 제목 + 주간 시장 브리핑 + 주간 핵심 이슈 5선 + 추천 매물 + 연락처] (월간 통계 비활성)
+ *  - 월간(monthly): [헤더 + 제목 + 상단 주요 통계 그래픽 2선 + 월간 핵심 이슈 5선 + (선택) 시장 브리핑 + 추천 매물 + 연락처]
  */
 export function getDefaultSectionsForCadence(
   cadence: NewsletterCadence,
@@ -228,8 +228,8 @@ export function getDefaultSectionsForCadence(
   }
   return [
     { id: "market_data", enabled: true },
-    { id: "field_note", enabled: true },
     { id: "news_curation", enabled: true },
+    { id: "field_note", enabled: true },
     { id: "featured_deals", enabled: true },
   ];
 }

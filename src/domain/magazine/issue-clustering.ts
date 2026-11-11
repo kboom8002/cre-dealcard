@@ -228,31 +228,37 @@ const TRAILING_PUNCT_RE = /[\s,，·:：…\-–—|;]+$/;
 
 /* ── 한국어 어절 판별기 (제목·해설 공용) ─────────────────────────────── */
 
-/** 단독으로 끝나면 문장이 매달리는 접속·후치 어절 */
+/** 단독으로 끝나면 문장이 매달리는 접속·후치·부정·의존명사 어절 */
 const DANGLING_STANDALONE_RE =
-  /^(?:및|또|또한|그리고|그러나|하지만|등|등의|통해|위해|대해|따라|관련|중심|가운데|vs|VS|대비|위한|따른|대한|인한|통한|관한|향한)$/;
-/** 관형형·연결형으로 끝나 뒤 어절이 필요한 어미 */
+  /^(?:및|또|또한|그리고|그러나|하지만|등|등의|통해|위해|대해|따라|관련|중심|가운데|vs|VS|대비|위한|따른|대한|인한|통한|관한|향한|안|못|수|순|건|걸|바|셈|듯|채|뿐|체|측|시|간|별)$/;
+/** 관형형·연결형·보조용언 선행형(축약형 '~해선/~돼선/~보단/~치곤/~할순' 포함)으로 끝나 뒤 어절이 필요한 어미 */
 const DANGLING_MODIFIER_SUFFIX_RE =
-  /(?:따른|위한|대한|인한|통한|관한|향한|앞둔|맞은|하는|되는|있는|없는|이는|라는|이라는|하던|되던|에서의|으로의|와의|과의|하고|하며|하면서|되며|되고|되면서|이며|이고|이자|돼|면서|지만|는데)$/;
+  /(?:따른|위한|대한|인한|통한|관한|향한|앞둔|맞은|하는|되는|있는|없는|이는|라는|이라는|하던|되던|에서의|으로의|와의|과의|하고|하며|하면서|되며|되고|되면서|이며|이고|이자|돼|면서|지만|는데|해선|돼선|해서는|돼서는|와선|가선|봐선|서선|에선|로선|으로선|만으론|만으로는|에겐|한테선|보단|치곤|라곤|하긴|되긴|있긴|없긴|할순|될순|볼순|갈순|하면|되면|오면|가면|보면|크면|높으면|낮으면|해야|돼야|해봐야|하다간|했다간|않아|않고|않은|않는|못해|못한|못할|말고|말아야|없이|아닌|같은)$/;
 /** 관형형 1음절 어미 (명사 예외는 별도 처리) */
 const DANGLING_ADNOMINAL_RE = /(?:한|된|할|될|던|의)$/;
 const ADNOMINAL_NOUN_EXCEPTION_RE =
-  /(?:제한|기한|권한|상한|하한|무한|유한|역할|합의|협의|회의|논의|동의|건의|심의|문의|강의|주의|정의|의의|창의|호의|편의|유의|대의|민의)$/;
+  /(?:제한|기한|권한|상한|하한|무한|유한|역할|합의|협의|회의|논의|동의|건의|심의|문의|강의|주의|정의|의의|창의|호의|편의|유의|대의|민의|전환|교환|순환|반환|상환|소환)$/;
 /** 매달린 조사 (어절 끝) */
-const DANGLING_PARTICLE_RE = /(?:을|를|은|는|에|에서|으로|에게|부터|까지|조차|마저|와|과|로|보다|처럼|만큼|이나|라도)$/;
+const DANGLING_PARTICLE_RE =
+  /(?:을|를|은|는|에|에서|으로|에게|부터|까지|조차|마저|와|과|로|보다|처럼|만큼|이나|라도|만은|에는|에서는|으로는|로의)$/;
 /** 주격 조사 이/가 — 받침 규칙으로만 판별 (물가·주가·길이 등 명사 예외) */
 function endsWithSubjectParticle(core: string): boolean {
   const chars = Array.from(core);
   if (chars.length < 2) return false;
   const tail = chars[chars.length - 1];
   const prev = chars[chars.length - 2];
-  if (tail === '이') return hasBatchim(prev) && !/(?:길이|높이|깊이|넓이|놀이|먹이)$/.test(core);
+  if (tail === '이') return hasBatchim(prev) && !/(?:길이|높이|깊이|넓이|놀이|먹이|차이|추이|전이)$/.test(core);
   if (tail === '가') {
-    return !hasBatchim(prev) && !/^(?:유가|요가|주가|시가|지가|호가|대가|고가|저가|매가|추가|감가|부가|차가|소가|평가)$/.test(core) && !/(?:투자가|애호가)$/.test(core);
+    return (
+      !hasBatchim(prev) &&
+      !/^(?:유가|요가|주가|시가|지가|호가|대가|고가|저가|매가|추가|감가|부가|차가|소가|평가|단가|원가|상가|허가|인가|국가|여가|증가)$/.test(core) &&
+      !/(?:투자가|애호가|전문가|자산가|건축가|사업가)$/.test(core)
+    );
   }
   return false;
 }
-const PARTICLE_NOUN_EXCEPTION_RE = /(?:가을|마을|노을|고을|효과|결과|성과|사과|과정|도로|경로|통로|진로|선로|항로|노로|기와)$/;
+const PARTICLE_NOUN_EXCEPTION_RE =
+  /(?:가을|마을|노을|고을|효과|결과|성과|사과|과정|도로|경로|통로|진로|선로|항로|노로|기와|규모|수요|공급|창구)$/;
 
 function hasBatchim(syllable: string): boolean {
   const code = syllable.charCodeAt(0);
@@ -264,7 +270,7 @@ function stripWordPunct(word: string): string {
   return word.replace(/^[\s'"‘’“”「」『』(（[\]]+|[\s'"‘’“”「」『』)）\]]+$/g, '').replace(TRAILING_PUNCT_RE, '');
 }
 
-/** 마지막 어절이 문장을 매달리게 만드는 수식·접속·조사 어절인지 판별 */
+/** 마지막 어절이 문장을 매달리게 만드는 수식·접속·보조용언·조사 어절인지 판별 */
 export function isDanglingKoreanWord(word: string): boolean {
   const core = stripWordPunct(word);
   if (!core) return true;
@@ -304,16 +310,25 @@ function balanceQuotes(text: string): string {
   return out.replace(/\s+/g, ' ').trim();
 }
 
-/** 제목 끝에 매달린 조사·관형형·접속 어절을 최대 3개까지 걷어낸다 */
+/** 제목 끝에 매달린 조사·관형형·보조용언·접속 어절을 완결될 때까지 정리한다 */
 function tidyTitleTail(text: string, minChars = 8): string {
   let words = balanceQuotes(text.replace(TRAILING_PUNCT_RE, '')).split(' ').filter(Boolean);
-  for (let i = 0; i < 3 && words.length > 1; i++) {
+  for (let i = 0; i < 6 && words.length > 1; i++) {
     const last = words[words.length - 1];
     const core = stripWordPunct(last);
-    // 인용 관형형 '~다는' → 종결형 '~다' (예: 수천만원을 가른다는 → 가른다)
+    // 인용 관형형 '~다는/~라는' → 종결형 '~다/~라' (예: 수천만원을 가른다는 → 가른다)
     if (/[가-힣]다는$/.test(core)) {
       words[words.length - 1] = core.replace(/는$/, '');
       break;
+    }
+    // 부정·당위 보조용언이 잘려 '~해선/~해서는/~돼선/~하면'만 남은 경우: 명사 어간이면 '~금물/주의'로 완결 복원
+    const negStemMatch = core.match(/^([가-힣]{2,})(?:해선|해서는|돼선|돼서는)$/);
+    if (negStemMatch) {
+      const candidate = [...words.slice(0, -1), `${negStemMatch[1]} 주의`].join(' ');
+      if (charLength(candidate) >= minChars) {
+        words = [...words.slice(0, -1), `${negStemMatch[1]} 주의`];
+        break;
+      }
     }
     // 주격 조사로 끝나면 어절은 살리고 조사만 제거 (예: 영수증이 → 영수증)
     if (endsWithSubjectParticle(core)) {
@@ -322,16 +337,66 @@ function tidyTitleTail(text: string, minChars = 8): string {
     }
     if (!isDanglingKoreanWord(last)) break;
     const next = words.slice(0, -1);
-    if (charLength(next.join(' ')) < minChars) break;
+    if (charLength(next.join(' ')) < minChars) {
+      // 더 이상 어절을 뺄 수 없을 때는 마지막 명사에 붙은 격조사만 벗겨 명사구로 마감
+      const strippedLast = stripTrailingParticle(last);
+      if (strippedLast !== last && !isDanglingKoreanWord(strippedLast)) {
+        words[words.length - 1] = strippedLast;
+      }
+      break;
+    }
     words = next;
   }
   return balanceQuotes(words.join(' ').replace(TRAILING_PUNCT_RE, ''));
 }
 
 /**
+ * 장문 한국어 문장형 헤드라인을 의미 손실 없이 신문 편집장 스타일로 다이어트한다.
+ * - 예: "일부 '공간'의 호황을 건물 전체의 임대수입으로 계산해서는 안 된다" (37자)
+ *   → "일부 공간 호황을 건물 전체 임대수입으로 계산해선 안 된다" (32자, 100% 완결 문장 보존!)
+ * - 여전히 길 경우 문미 서술 관용구('~해선 안 된다' → '~금물', '~해야 한다' → '~필수')를 완결 압축한다.
+ */
+function dietHeadlineProse(text: string, maxChars: number): string {
+  let out = text
+    // 1~6자 명사를 감싼 장식용 작은따옴표 제거 ('공간'의 → 공간의)
+    .replace(/['‘’]([가-힣A-Za-z0-9·]{1,6})['‘’]/g, '$1')
+    // 축약 가능한 보조용언·연결구 정리
+    .replace(/해서는\s*안\s*된다/g, '해선 안 된다')
+    .replace(/돼서는\s*안\s*된다/g, '돼선 안 된다')
+    .replace(/\s*(?:에\s+따른|에\s+대한|로\s+인한)\s+/g, ' ')
+    // 문미 인용 보도 투('~다는 전문가 조언/분석/지적')를 완결 평서형('~다')으로 직결
+    .replace(/([가-힣])다는\s+(?:세무\s*|부동산\s*|시장\s*)?(?:전문가\s*)?(?:조언|분석|전망|지적|경고|보도|평가)(?:이\s*나왔다)?$/g, '$1다')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (charLength(out) <= maxChars) return out;
+
+  // 명사 사이 관형격 조사 '의' 다이어트 (단, '주의/논의/합의' 등 한자어 명사는 보존)
+  out = out
+    .replace(/([가-힣]{2,})의\s+(?=[가-힣])/g, (full, stem: string) =>
+      ADNOMINAL_NOUN_EXCEPTION_RE.test(`${stem}의`) ? full : `${stem} `,
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (charLength(out) <= maxChars) return out;
+
+  // 문미 복합 부정·당위 서술어를 완결 명사형 헤드라인 술어로 압축 (절단 시 의미 반전 원천 차단!)
+  out = out
+    .replace(/([가-힣]{2,})으?로\s+([가-힣]{2,})(?:해선|해서는|하면)\s*안\s*(?:된다|돼|됩니다|됨)(?:고\s*[가-힣]+)?$/, '$1 $2 금물')
+    .replace(/([가-힣]{2,})(?:해선|해서는|하면)\s*안\s*(?:된다|돼|됩니다|됨)(?:고\s*[가-힣]+)?$/, '$1 금물')
+    .replace(/([가-힣]{2,})(?:해야|돼야)\s*(?:한다|합니다)$/, '$1 필수')
+    .replace(/([가-힣]{2,})할\s*수\s*없다$/, '$1 불가')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return out;
+}
+
+/**
  * 한국어 헤드라인을 글자 수 예산 이내로 "자르지 않고" 압축한다.
- * 1) 괄호 보조설명 제거 → 2) '및/그리고' 가운뎃점 축약 → 3) 쉼표·대시 절 단위 조합
- * → 4) 어절 경계 누적 + 매달린 어절 제거. 말줄임표(…)는 절대 붙이지 않는다.
+ * 1) 괄호 보조설명 제거 → 2) '및/그리고' 가운뎃점 축약 → 3) 조사·따옴표·문미 서술구 다이어트
+ * → 4) 쉼표·대시 완결 절 조합 → 5) 어절 경계 누적 + 매달린 어절 제거. 말줄임표(…)는 절대 붙이지 않는다.
  */
 function compressKoreanTitle(input: string, maxChars: number): string {
   let s = input.replace(/\s+/g, ' ').trim();
@@ -354,6 +419,10 @@ function compressKoreanTitle(input: string, maxChars: number): string {
   if (compact) s = compact;
   if (charLength(s) <= maxChars) return tidyTitleTail(s);
 
+  const dieted = dietHeadlineProse(s, maxChars);
+  if (dieted) s = dieted;
+  if (charLength(s) <= maxChars) return tidyTitleTail(s);
+
   const clauses = s.split(/\s*(?:,|，|—|–|\s-\s|:|：|\||;)\s*/).filter(Boolean);
   if (clauses.length > 1) {
     let acc = '';
@@ -362,8 +431,13 @@ function compressKoreanTitle(input: string, maxChars: number): string {
       if (charLength(next) <= maxChars) acc = next;
       else break;
     }
-    if (acc && charLength(acc) >= Math.min(14, Math.floor(maxChars * 0.45))) {
-      return tidyTitleTail(acc);
+    const tidiedAcc = acc ? tidyTitleTail(acc) : '';
+    if (
+      tidiedAcc &&
+      charLength(tidiedAcc) >= Math.min(14, Math.floor(maxChars * 0.45)) &&
+      !isDanglingKoreanWord(tidiedAcc.split(' ').pop() ?? '')
+    ) {
+      return tidiedAcc;
     }
   }
 
@@ -441,23 +515,106 @@ export function splitKoreanSentences(text: string): string[] {
 
 /* ── 해설(Deck) 완결 서술어 엔진 ─────────────────────────────────────── */
 
-const COMPLETE_ENDING_RE = /(?:다|요|음|됨|함|임|세요|십시오|죠)$/;
+const COMPLETE_ENDING_RE = /(?:다|요|세요|십시오|죠)$/;
 const CONNECTIVE_WORD_RE = /(?:면서|으며|며|고|지만|는데|어서|아서|해서|돼서|여서|므로|으므로|니까|으니)$/;
 
-/** 연결어미(…하며/…되면서/…있고/…지며)를 종결형(…합니다/…됩니다/…있습니다/…집니다)으로 바꾼다 */
-function convertConnectiveToFinal(clause: string): string | null {
-  const rules: Array<[RegExp, string]> = [
-    [/^(.*)있(?:으며|으면서|고|지만|는데|어서|어|으므로|으니까|으니)$/, '$1있습니다'],
-    [/^(.*)없(?:으며|으면서|고|지만|는데|어서|어|으므로|으니까|으니)$/, '$1없습니다'],
-    [/^(.*)(?:하|해)(?:면서|며|고|지만|는데|서|여서|여|므로|니까|니)$/, '$1합니다'],
-    [/^(.*)(?:되|돼)(?:면서|며|고|지만|는데|서|어서|어|므로|니까|니)$/, '$1됩니다'],
-    [/^(.*[가-힣])지(?:면서|며|고|지만|는데)$/, '$1집니다'],
-    [/^(.*[가-힣])이(?:며|고|지만|는데)$/, '$1입니다'],
+const TELEGRAPHIC_HADA_ROOT_RE =
+  /(?:필요|중요|유리|불리|가능|불가|뚜렷|분명|긴밀|민감|취약|유효|부족|충분|유사|상이|동일|저렴|과도|불안|견고|꾸준|활발|저조|부진|양호|우수|탁월|심각|시급|절실|불가피|바람직|적절|적합|유망|위험|안전|편리|불편|복잡|단순|명확|불투명|급증|급감|상승|하락|증가|감소|발생|지속|유지|선호|주목|집중|기록|전망|예상|분석|지적|강조|권고|당부|요구|시사|의미|좌우|결정|견인)$/;
+
+/** 개조식 명사형 종결('~있음', '~안 됨', '~해야 함' 등)을 완결된 한국어 평서문('~습니다/~다')으로 변환한다 */
+function normalizeTelegraphicEnding(clause: string, maxBodyChars?: number): string | null {
+  const choose = (polite: string, plain: string): string => {
+    if (maxBodyChars !== undefined && charLength(polite) > maxBodyChars && charLength(plain) <= maxBodyChars) {
+      return plain;
+    }
+    return polite;
+  };
+
+  if (/있음$/.test(clause)) {
+    return choose(clause.replace(/있음$/, '있습니다'), clause.replace(/있음$/, '있다'));
+  }
+  if (/없음$/.test(clause)) {
+    return choose(clause.replace(/없음$/, '없습니다'), clause.replace(/없음$/, '없다'));
+  }
+  if (/않음$/.test(clause)) {
+    return choose(clause.replace(/않음$/, '않습니다'), clause.replace(/않음$/, '않다'));
+  }
+  if (/못함$/.test(clause)) {
+    return choose(clause.replace(/못함$/, '못합니다'), clause.replace(/못함$/, '못한다'));
+  }
+  if (/됨$/.test(clause)) {
+    return choose(clause.replace(/됨$/, '됩니다'), clause.replace(/됨$/, '된다'));
+  }
+  if (/많음$/.test(clause)) {
+    return choose(clause.replace(/많음$/, '많습니다'), clause.replace(/많음$/, '많다'));
+  }
+  if (/적음$/.test(clause)) {
+    return choose(clause.replace(/적음$/, '적습니다'), clause.replace(/적음$/, '적다'));
+  }
+  if (/높음$/.test(clause)) {
+    return choose(clause.replace(/높음$/, '높습니다'), clause.replace(/높음$/, '높다'));
+  }
+  if (/낮음$/.test(clause)) {
+    return choose(clause.replace(/낮음$/, '낮습니다'), clause.replace(/낮음$/, '낮다'));
+  }
+  if (/같음$/.test(clause)) {
+    return choose(clause.replace(/같음$/, '같습니다'), clause.replace(/같음$/, '같다'));
+  }
+  if (/(?:[가-힣]\s+|가능성이|영향이|변동성이|위험이|부담이|비중이|격차가|차이가)큼$/.test(clause)) {
+    return choose(clause.replace(/큼$/, '큽니다'), clause.replace(/큼$/, '크다'));
+  }
+  if (/(?:야|아야|어야|해야|돼야|봐서야)\s*함$/.test(clause)) {
+    return choose(clause.replace(/함$/, '합니다'), clause.replace(/함$/, '한다'));
+  }
+  const hadaMatch = clause.match(/^(.*)함$/);
+  if (hadaMatch && TELEGRAPHIC_HADA_ROOT_RE.test(hadaMatch[1])) {
+    return choose(`${hadaMatch[1]}합니다`, `${hadaMatch[1]}한다`);
+  }
+  const imMatch = clause.match(/^(.*(?:중|뿐|셈|터|바|것|수준|시점|상황|전망|예정|계획|추세|흐름|요인|원인|결과|특징|핵심|필수|유리|불리|가능|불가))임$/);
+  if (imMatch) {
+    return choose(`${imMatch[1]}입니다`, `${imMatch[1]}이다`);
+  }
+  if (/(?:보임|돋보임|선보임)$/.test(clause)) {
+    return choose(clause.replace(/임$/, '입니다'), clause.replace(/임$/, '인다'));
+  }
+  if (/늘어남$/.test(clause)) {
+    return choose(clause.replace(/남$/, '납니다'), clause.replace(/남$/, '난다'));
+  }
+  if (/줄어듦$/.test(clause)) {
+    return choose(clause.replace(/듦$/, '듭니다'), clause.replace(/듦$/, '든다'));
+  }
+  return null;
+}
+
+/** 연결어미·미완결 보조용언('…하며/…되면서/…해선 안/…할 수')을 완결 종결형('…합니다/…됩니다/…있습니다')으로 바꾼다 */
+function convertConnectiveToFinal(clause: string, maxBodyChars?: number): string | null {
+  const tele = normalizeTelegraphicEnding(clause, maxBodyChars);
+  if (tele && charLength(tele) >= 6) return tele;
+
+  const rules: Array<[RegExp, string, string]> = [
+    [/^(.*[가-힣])(?:해선|해서는|하면)\s*안(?:\s*되[가-힣]*)?$/, '$1하면 안 됩니다', '$1해선 안 된다'],
+    [/^(.*[가-힣])(?:돼선|돼서는|되면)\s*안(?:\s*되[가-힣]*)?$/, '$1되면 안 됩니다', '$1돼선 안 된다'],
+    [/^(.*[가-힣])(?:해선|해서는)$/, '$1하면 안 됩니다', '$1해선 안 된다'],
+    [/^(.*[가-힣])(?:돼선|돼서는)$/, '$1되면 안 됩니다', '$1돼선 안 된다'],
+    [/^(.*[가-힣])\s*할\s*수$/, '$1 가능합니다', '$1 가능하다'],
+    [/^(.*[가-힣])해야$/, '$1해야 합니다', '$1해야 한다'],
+    [/^(.*[가-힣])돼야$/, '$1돼야 합니다', '$1돼야 한다'],
+    [/^(.*)있(?:으며|으면서|고|지만|는데|어서|어|으므로|으니까|으니)$/, '$1있습니다', '$1있다'],
+    [/^(.*)없(?:으며|으면서|고|지만|는데|어서|어|으므로|으니까|으니)$/, '$1없습니다', '$1없다'],
+    [/^(.*)(?:하|해)(?:면서|며|고|지만|는데|서|여서|여|므로|니까|니)$/, '$1합니다', '$1한다'],
+    [/^(.*)(?:되|돼)(?:면서|며|고|지만|는데|서|어서|어|므로|니까|니)$/, '$1됩니다', '$1된다'],
+    [/^(.*[가-힣])지(?:면서|며|고|지만|는데)$/, '$1집니다', '$1진다'],
+    [/^(.*[가-힣])이(?:며|고|지만|는데)$/, '$1입니다', '$1이다'],
   ];
-  for (const [re, rep] of rules) {
+  for (const [re, politeRep, plainRep] of rules) {
     if (re.test(clause)) {
-      const out = clause.replace(re, rep).trim();
-      return charLength(out) >= 6 ? out : null;
+      const politeOut = clause.replace(re, politeRep).replace(/\s+/g, ' ').trim();
+      const plainOut = clause.replace(re, plainRep).replace(/\s+/g, ' ').trim();
+      const chosen =
+        maxBodyChars !== undefined && charLength(politeOut) > maxBodyChars && charLength(plainOut) <= maxBodyChars
+          ? plainOut
+          : politeOut;
+      return charLength(chosen) >= 6 ? chosen : null;
     }
   }
   return null;
@@ -475,7 +632,7 @@ function stripTrailingParticle(base: string): string {
   const chars = Array.from(last);
   if (chars.length < 2) return base;
 
-  const multi = last.match(/^(.+?)(에서|으로|에게|부터|까지|조차|마저)$/);
+  const multi = last.match(/^(.+?)(에서|으로|에게|부터|까지|조차|마저|에서는|으로는|에는|만은|보다|처럼|만큼)$/);
   if (multi && charLength(multi[1]) >= 1) {
     words[words.length - 1] = multi[1];
     return words.join(' ');
@@ -491,8 +648,8 @@ function stripTrailingParticle(base: string): string {
   if (
     tail === '가' &&
     !hasBatchim(prev) &&
-    !/^(?:유가|요가|주가|시가|지가|호가|대가|고가|저가|매가|추가|감가|부가|차가|소가|평가)$/.test(last) &&
-    !/(?:투자가|애호가)$/.test(last)
+    !/^(?:유가|요가|주가|시가|지가|호가|대가|고가|저가|매가|추가|감가|부가|차가|소가|평가|단가|원가|상가|허가|인가|국가|여가|증가)$/.test(last) &&
+    !/(?:투자가|애호가|전문가|자산가|건축가|사업가)$/.test(last)
   ) {
     strip = true;
   }
@@ -508,8 +665,9 @@ function stripTrailingParticle(base: string): string {
   return base;
 }
 
-/** 명사구·연결형으로 끝난 절을 완결된 한국어 평서문(…다.)으로 마감한다 */
-function finalizeKoreanSentence(clause: string, minChars = 8): string {
+/** 명사구·연결형·개조식으로 끝난 절을 완결된 한국어 평서문(…다.)으로 마감한다 */
+function finalizeKoreanSentence(clause: string, minChars = 8, maxLen?: number): string {
+  const maxBodyChars = maxLen !== undefined ? Math.max(4, maxLen - 1) : undefined;
   let base = clause
     .replace(/[,·:：….\-–—]+$/, '')
     .replace(/\s+/g, ' ')
@@ -518,11 +676,11 @@ function finalizeKoreanSentence(clause: string, minChars = 8): string {
   base = balanceQuotes(base);
   if (COMPLETE_ENDING_RE.test(base)) return `${base}.`;
 
-  const converted = convertConnectiveToFinal(base);
+  const converted = convertConnectiveToFinal(base, maxBodyChars);
   if (converted) return `${converted}.`;
 
-  // 관형형·접속 어절이 매달려 있으면 최대 3개까지 걷어낸다 (조사는 아래에서 어절 내부만 제거)
-  for (let i = 0; i < 3; i++) {
+  // 관형형·접속·보조용언 선행 어절이 매달려 있으면 최대 5개까지 걷어낸다 (조사는 아래에서 어절 내부만 제거)
+  for (let i = 0; i < 5; i++) {
     const words = base.split(' ');
     if (words.length < 2) break;
     const last = stripWordPunct(words[words.length - 1]);
@@ -530,22 +688,31 @@ function finalizeKoreanSentence(clause: string, minChars = 8): string {
       DANGLING_STANDALONE_RE.test(last) ||
       DANGLING_MODIFIER_SUFFIX_RE.test(last) ||
       (DANGLING_ADNOMINAL_RE.test(last) && !/의$/.test(last) && !ADNOMINAL_NOUN_EXCEPTION_RE.test(last)) ||
-      (CONNECTIVE_WORD_RE.test(last) && !convertConnectiveToFinal(last));
+      (CONNECTIVE_WORD_RE.test(last) && !convertConnectiveToFinal(last, maxBodyChars));
     if (!isModifierOrConj) break;
     const stripped = words.slice(0, -1).join(' ').replace(TRAILING_PUNCT_RE, '');
     if (charLength(stripped) < minChars) break;
     base = stripped;
     if (COMPLETE_ENDING_RE.test(base)) return `${base}.`;
-    const conv = convertConnectiveToFinal(base);
+    const conv = convertConnectiveToFinal(base, maxBodyChars);
     if (conv) return `${conv}.`;
   }
 
   base = stripTrailingParticle(base).replace(TRAILING_PUNCT_RE, '');
   if (COMPLETE_ENDING_RE.test(base)) return `${base}.`;
-  if (/중$/.test(base)) return `${base}입니다.`;
-  if (HADA_VERBAL_NOUN_RE.test(base)) return `${base}합니다.`;
-  if (DOEDA_VERBAL_NOUN_RE.test(base)) return `${base}됩니다.`;
-  return `${base}입니다.`;
+  const postTele = convertConnectiveToFinal(base, maxBodyChars);
+  if (postTele) return `${postTele}.`;
+  const pickSuffix = (polite: string, plain: string) => {
+    const p = `${base}${polite}.`;
+    if (maxLen !== undefined && charLength(p) > maxLen && charLength(`${base}${plain}.`) <= maxLen) {
+      return `${base}${plain}.`;
+    }
+    return p;
+  };
+  if (/중$/.test(base)) return pickSuffix('입니다', '이다');
+  if (HADA_VERBAL_NOUN_RE.test(base)) return pickSuffix('합니다', '한다');
+  if (DOEDA_VERBAL_NOUN_RE.test(base)) return pickSuffix('됩니다', '된다');
+  return pickSuffix('입니다', '이다');
 }
 
 /**
@@ -563,14 +730,14 @@ function condenseSentence(sentence: string, maxLen = AXIOS_BRIEF_MAX_CHARS): str
   const body = cleaned.replace(/[.!?。]+$/, '').trim();
   if (!body) return '';
 
-  const direct = finalizeKoreanSentence(body);
+  const direct = finalizeKoreanSentence(body, 8, maxLen);
   if (charLength(direct) <= maxLen) return direct;
 
   const commaParts = body.split(/\s*,\s*/).filter(Boolean);
   for (let n = commaParts.length - 1; n >= 1; n--) {
     const head = commaParts.slice(0, n).join(', ');
     if (charLength(head) < 10) continue;
-    const fin = finalizeKoreanSentence(head);
+    const fin = finalizeKoreanSentence(head, 8, maxLen);
     if (charLength(fin) <= maxLen) return fin;
   }
 
@@ -579,16 +746,16 @@ function condenseSentence(sentence: string, maxLen = AXIOS_BRIEF_MAX_CHARS): str
     const lastWord = stripWordPunct(words[i - 1]);
     if (!CONNECTIVE_WORD_RE.test(lastWord)) continue;
     const head = words.slice(0, i).join(' ');
-    const conv = convertConnectiveToFinal(head);
+    const conv = convertConnectiveToFinal(head, maxLen - 1);
     if (conv && charLength(conv) + 1 <= maxLen) return `${conv}.`;
   }
 
   for (let i = words.length - 1; i >= 2; i--) {
-    const fin = finalizeKoreanSentence(words.slice(0, i).join(' '));
+    const fin = finalizeKoreanSentence(words.slice(0, i).join(' '), 8, maxLen);
     if (fin && charLength(fin) <= maxLen) return fin;
   }
 
-  return finalizeKoreanSentence(Array.from(body).slice(0, Math.max(10, maxLen - 6)).join(''), 4);
+  return finalizeKoreanSentence(Array.from(body).slice(0, Math.max(10, maxLen - 6)).join(''), 4, maxLen);
 }
 
 /**
@@ -672,15 +839,20 @@ export function formatAxiosTwoLineBrief(
 ): string {
   const maxTotalChars = Math.min(opts.maxTotalChars ?? AXIOS_BRIEF_MAX_CHARS, AXIOS_BRIEF_MAX_CHARS);
   const raw = typeof rawSummary === 'string' ? decodeBasicEntities(rawSummary).trim() : '';
-  const titleKey = (opts.title ?? '').replace(/\s+/g, '');
+  const normalizeRepeatKey = (t: string) =>
+    t
+      .replace(/\s+/g, '')
+      .replace(/['"‘’“”.,!?·:：\-–—]/g, '')
+      .replace(/(?:입니다|합니다|됩니다|있습니다|없습니다|이다|한다|된다|있다|없다)$/, '');
+  const titleKey = normalizeRepeatKey(opts.title ?? '');
   const sentences: string[] = [];
 
   const pushCondensed = (s: string) => {
     const condensed = condenseSentence(s, maxTotalChars);
     if (!condensed) return;
     const key = condensed.replace(/\s+/g, '');
-    // 제목을 그대로 반복하는 해설은 정보 가치가 없으므로 건너뛴다
-    if (titleKey && key.replace(/[.]$/, '') === titleKey) return;
+    // 제목을 그대로 반복하거나 '제목 + 입니다.'로만 바꾼 해설은 정보 가치가 없으므로 건너뛴다
+    if (titleKey && normalizeRepeatKey(condensed) === titleKey) return;
     if (!sentences.some((x) => x.replace(/\s+/g, '') === key)) sentences.push(condensed);
   };
 

@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes] = await Promise.all([
+    const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes, brokerProfileRes] = await Promise.all([
       selfQuery,
       supabase
         .from("magazine_subscribers")
@@ -124,6 +124,13 @@ export async function GET(request: NextRequest) {
           .in("event_type", ["custom_client_upserted", "gate_request_approved", "magazine_unsubscribed"])
           .order("created_at", { ascending: false })
           .limit(100)
+      ).catch(() => ({ data: null })),
+      Promise.resolve(
+        supabase
+          .from("broker_profiles")
+          .select("office_name, phone, display_name")
+          .eq("user_id", ctx.userId)
+          .maybeSingle()
       ).catch(() => ({ data: null })),
     ]);
 
@@ -314,13 +321,21 @@ export async function GET(request: NextRequest) {
       sellerKeys.delete(uk);
     }
 
+    const profileRow = (brokerProfileRes?.data ?? null) as {
+      office_name?: string | null;
+      phone?: string | null;
+      display_name?: string | null;
+    } | null;
+
     return NextResponse.json({
       editions: data ?? [],
       total: count ?? 0,
       brokerId: ctx.userId,
       brokerSlug: ctx.slug ?? "",
       hasSlug: Boolean(ctx.slug),
-      brokerName: ctx.displayName ?? "",
+      brokerName: ctx.displayName || profileRow?.display_name?.trim() || "",
+      brokerOffice: profileRow?.office_name?.trim() ?? "",
+      brokerPhone: profileRow?.phone?.trim() ?? "",
       subscriberCount: subscriberKeys.size,
       highInterestCount: highInterestKeys.size,
       segmentCounts: {

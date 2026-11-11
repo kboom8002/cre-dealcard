@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
+import { isDanglingKoreanWord } from "@/domain/magazine/issue-clustering";
 
 export const SPECIFIC_CHANNEL_IDS = [
   "real_estate",
@@ -39,8 +40,25 @@ export type MagazineDraftOutput = z.infer<typeof MagazineDraftOutputSchema>;
 /** 카드뉴스 이슈 제목 36자 · 해설 48자 (issue-clustering AXIOS_TITLE_MAX_CHARS / AXIOS_BRIEF_MAX_CHARS 와 동일) */
 export const AxiosIssueItemSchema = z.object({
   id: z.string().min(1),
-  title: z.string().min(8).max(36),
-  brief: z.string().min(12).max(48),
+  title: z
+    .string()
+    .min(8)
+    .max(36)
+    .refine(
+      (val) => {
+        const words = val.trim().split(/\s+/);
+        const last = words[words.length - 1] ?? "";
+        return !/…|\.\.\./.test(val) && !isDanglingKoreanWord(last);
+      },
+      { message: "이슈 제목이 미완결 서술어·조사·말줄임으로 잘려 있습니다." },
+    ),
+  brief: z
+    .string()
+    .min(12)
+    .max(48)
+    .refine((val) => !/…|\.\.\./.test(val) && /(?:다|요|죠)\.$/.test(val.trim()), {
+      message: "이슈 해설은 개조식(~음/~됨)이나 잘림 없이 완결된 한국어 평서문(~다.)으로 끝나야 합니다.",
+    }),
   memoTone: z.enum(POST_IT_TONE_IDS),
   channel: z.enum(SPECIFIC_CHANNEL_IDS),
   topic: z.string().optional(),

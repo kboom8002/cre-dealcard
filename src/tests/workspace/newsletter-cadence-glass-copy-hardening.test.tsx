@@ -483,4 +483,58 @@ describe("[Prompt] 뉴스레터 아이템 TF8(AI Core) 프롬프트 하드닝", 
     expect(charLength(result.briefingTitle)).toBeLessThanOrEqual(30);
     expect(result.headline).not.toMatch(ELLIPSIS_RE);
   });
+
+  it("[2] 라이브 스크린샷 회귀 방지: 서술어 중간 절단('~계산해선')·개조식 종결('~있음.', '~됨.')·제목 동어반복('~최대입니다.')을 100% 완결 문장으로 교정한다", () => {
+    // 1. ISSUE 02 실전 절단 사례: 37~38자 서술형 헤드라인이 '계산해선'에서 잘리지 않고 '안 된다'까지 완결 유지
+    const liveIssue2Variants = [
+      "일부 '공간'의 호황을 건물 전체의 임대수입으로 계산해서는 안 된다",
+      "[칼럼] 일부 '공간'의 호황을 건물 전체 임대수입으로 계산해선 안 된다",
+      "상가 매수 시 일부 '공간'의 호황을 건물 전체 임대수입으로 계산해선 안 된다",
+      "일부 '공간'의 호황을 건물 전체 임대수입으로 계산해선",
+    ];
+    for (const raw of liveIssue2Variants) {
+      const formatted = formatAxiosCardTitle(raw);
+      assertCompleteTitle(formatted);
+      expect(formatted).not.toMatch(/계산해선$|계산해서는$/);
+    }
+
+    // 2. ISSUE 01 / ISSUE 02 개조식 해설('~할 수 있음.', '~계산하면 안 됨.') → 완결 평서문('~다.') 변환
+    const brief1 = formatAxiosTwoLineBrief(
+      "10년 전 공사비 영수증이 꼬마빌딩 양도세를 수천만원 좌우할 수 있음.",
+      { title: "꼬마빌딩 양도세, 10년 전 공사비 영수증이 수천만원을 가른다", channel: "tax_wealth" },
+    );
+    assertCompleteBrief(brief1);
+    expect(brief1).not.toMatch(/음\.$/);
+    expect(brief1).toContain("좌우할 수 있습니다.");
+
+    const brief2 = formatAxiosTwoLineBrief(
+      "일부 공간 호황을 건물 전체 임대수입으로 계산하면 안 됨.",
+      { title: "일부 공간 호황을 건물 전체 임대수입으로 계산해선 안 된다", channel: "real_estate" },
+    );
+    assertCompleteBrief(brief2);
+    expect(brief2).not.toMatch(/됨\.$/);
+
+    // 3. ISSUE 03 제목 동어반복('서울 상가 공실률 9.4%, 5년 만에 최대입니다.') 제거 후 실질 해설 채택
+    const brief3 = formatAxiosTwoLineBrief(
+      "서울 상가 공실률 9.4%, 5년 만에 최대입니다. 업종 재편과 임차인 유치가 수익률을 가릅니다.",
+      { title: "서울 상가 공실률 9.4%, 5년 만에 최대", channel: "real_estate" },
+    );
+    assertCompleteBrief(brief3);
+    expect(brief3).toContain("업종 재편과 임차인 유치가 수익률을 가릅니다.");
+    expect(brief3).not.toContain("5년 만에 최대입니다.");
+
+    // 4. AI Core 스키마 게이트가 잘린 제목('~계산해선')과 개조식 해설('~있음.')을 즉시 거부하는지 검증
+    const badSchemaCheck = AxiosClusterOutputSchema.safeParse({
+      unitIssues: [
+        {
+          id: "bad-1",
+          title: "일부 공간의 호황을 건물 전체 임대수입으로 계산해선",
+          brief: "10년 전 공사비 영수증이 양도세를 좌우할 수 있음.",
+          memoTone: "sky",
+          channel: "real_estate",
+        },
+      ],
+    });
+    expect(badSchemaCheck.success).toBe(false);
+  });
 });

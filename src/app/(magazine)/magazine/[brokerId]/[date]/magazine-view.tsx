@@ -740,21 +740,21 @@ export function MagazineView({
   };
 
   // 주기별 구조 공식 정렬:
-  // - 일간(daily): 헤더+제목+이슈 5건(news_curation)+딜카드(featured_deals)
-  // - 주간(weekly): 헤더+제목+중개인 브리핑(ai_briefing/field_note)+이슈 5건+딜카드
-  // - 월간(monthly): 헤더+제목+권역별 유용한 통계 2건 그래프(market_data)+브리핑+월간 이슈 5건(news_curation)+딜카드(featured_deals)
+  // - 일간(daily): 헤더+제목+이슈 5건(news_curation)+딜카드(featured_deals)+중개사 연락(broker_profile)
+  // - 주간(weekly): 헤더+제목+중개인 브리핑(ai_briefing/field_note)+이슈 5건+딜카드+중개사 연락
+  // - 월간(monthly): 헤더+제목+첫 머리 주요 통계 2건(market_data)+월간 이슈 5건 브리핑(news_curation)+(선택 브리핑)+딜카드(featured_deals)+중개사 연락(broker_profile)
   const defaultOrderForCadence =
     !Array.isArray(data.section_order) && editionKind === "monthly"
       ? [
           "market_data",
+          "news_curation",
           "ai_briefing",
           "field_note",
-          "news_curation",
           "featured_deals",
+          "broker_profile",
+          "subscribe_cta",
           "theme_of_week",
           "poll",
-          "subscribe_cta",
-          "broker_profile",
           "roi_calculator",
           "tax_clinic",
           "referral",
@@ -765,9 +765,9 @@ export function MagazineView({
           "featured_deals",
           "ai_briefing",
           "field_note",
-          "theme_of_week",
-          "subscribe_cta",
           "broker_profile",
+          "subscribe_cta",
+          "theme_of_week",
           "roi_calculator",
           "referral",
         ]
@@ -775,8 +775,20 @@ export function MagazineView({
 
   const baseResolvedOrder = resolveSectionOrder(target, defaultOrderForCadence);
   const cadenceAlignedOrder = (() => {
-    if (editionKind === "monthly" && monthlyCharts.length > 0 && baseResolvedOrder.includes("market_data")) {
-      return ["market_data", ...baseResolvedOrder.filter((id) => id !== "market_data")];
+    if (editionKind === "monthly") {
+      const lead = (
+        target === "all"
+          ? [
+              ...(monthlyCharts.length > 0 ? ["market_data"] : []),
+              "news_curation",
+              "ai_briefing",
+              "field_note",
+              "featured_deals",
+              "broker_profile",
+            ]
+          : [...(monthlyCharts.length > 0 ? ["market_data"] : []), "news_curation"]
+      ).filter((id) => baseResolvedOrder.includes(id));
+      return [...lead, ...baseResolvedOrder.filter((id) => !lead.includes(id))];
     }
     if (editionKind === "daily") {
       const lead = ["news_curation", "featured_deals"].filter((id) => baseResolvedOrder.includes(id));

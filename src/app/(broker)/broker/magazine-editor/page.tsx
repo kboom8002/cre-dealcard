@@ -443,6 +443,8 @@ function MagazineEditorWorkspace() {
   const [brokerId, setBrokerId] = useState<string>("");
   const [brokerSlug, setBrokerSlug] = useState<string>("");
   const [brokerName, setBrokerName] = useState<string>("");
+  const [brokerOffice, setBrokerOffice] = useState<string>("");
+  const [brokerPhone, setBrokerPhone] = useState<string>("");
   const [headline, setHeadline] = useState<string>("");
   const [summary, setSummary] = useState<string>("");
   const [briefingTitle, setBriefingTitle] = useState<string>("");
@@ -552,6 +554,16 @@ function MagazineEditorWorkspace() {
         typeof parsed.cadence === "string"
           ? normalizeNewsletterCadence(parsed.cadence)
           : "monthly";
+      const parsedPrefs =
+        Array.isArray(parsed.preferredRegions) && parsed.preferredRegions.length > 0
+          ? normalizeBrokerPreferences({
+              preferredRegions: parsed.preferredRegions,
+              preferredChannels: parsed.preferredChannels,
+            })
+          : {
+              preferredRegions: [...DEFAULT_PREFERRED_REGIONS],
+              preferredChannels: [...DEFAULT_PREFERRED_CHANNELS],
+            };
       if (parsed.isExplicitNewSlot === true) {
         setCadence(nextCadence);
         if (typeof parsed.issueYear === "number") setIssueYear(parsed.issueYear);
@@ -573,6 +585,13 @@ function MagazineEditorWorkspace() {
         setSections(buildDefaultEditorSections(nextCadence));
         setMonthlyPairId("reb_molit");
         setMonthlyCharts(buildDefaultMonthlyGraphicPair("gbd", "reb_molit"));
+        setUnitIssues(
+          clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+            cadence: nextCadence,
+            preferredRegions: parsedPrefs.preferredRegions,
+            preferredChannels: parsedPrefs.preferredChannels,
+          }),
+        );
         setIsPublished(false);
         setPublishedUrl(null);
         setLocalStorageMode("none");
@@ -640,6 +659,13 @@ function MagazineEditorWorkspace() {
         setPreferredChannels(normPrefs.preferredChannels);
         setRegionFocus(normPrefs.preferredRegions.join(", "));
       }
+      const effectiveSections = normSections ?? buildDefaultEditorSections(nextCadence);
+      const newsEnabledInDraft = effectiveSections.some(
+        (s) => s.id === "news_curation" && s.enabled,
+      );
+      const hasSavedServerEdition =
+        typeof parsed.editionId === "string" && parsed.editionId.trim().length > 0;
+
       if (Array.isArray(parsed.unitIssues)) {
         if (parsed.unitIssues.length > 0) {
           const restoredIssues = resolveUnitIssuesFromData(
@@ -650,6 +676,16 @@ function MagazineEditorWorkspace() {
             setUnitIssues(restoredIssues);
             restoredLocalIssuesRef.current = true;
           }
+        } else if (!hasSavedServerEdition && newsEnabledInDraft) {
+          // 미저장 신규 슬롯이 빈 배열로 오염되어 있던 경우 즉시 핵심 이슈 5선을 자동 복원한다
+          setUnitIssues(
+            clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+              cadence: nextCadence,
+              preferredRegions: parsedPrefs.preferredRegions,
+              preferredChannels: parsedPrefs.preferredChannels,
+            }),
+          );
+          restoredLocalIssuesRef.current = true;
         } else {
           setUnitIssues([]);
           restoredLocalIssuesRef.current = true;
@@ -1020,21 +1056,42 @@ function MagazineEditorWorkspace() {
             initialDraftKey = urlSlotKey;
           }
         }
+        const explicitUrlCadence =
+          !initialUrlEditionId &&
+          (initialUrlCadence === "daily" ||
+            initialUrlCadence === "weekly" ||
+            initialUrlCadence === "monthly")
+            ? initialUrlCadence
+            : null;
         if (!initialDraft) {
           const lastSessionKey = window.sessionStorage.getItem(LAST_ACTIVE_SLOT_SESSION_KEY);
           if (lastSessionKey) {
             const rawSessionSlot = window.localStorage.getItem(lastSessionKey);
             if (rawSessionSlot) {
-              initialDraft = JSON.parse(rawSessionSlot) as Record<string, unknown>;
-              initialDraftKey = lastSessionKey;
+              const candidateDraft = JSON.parse(rawSessionSlot) as Record<string, unknown>;
+              const candCadence =
+                typeof candidateDraft.cadence === "string"
+                  ? normalizeNewsletterCadence(candidateDraft.cadence)
+                  : null;
+              if (!explicitUrlCadence || candCadence === explicitUrlCadence) {
+                initialDraft = candidateDraft;
+                initialDraftKey = lastSessionKey;
+              }
             }
           }
         }
         if (!initialDraft && !initialUrlEditionId) {
           const savedLegacy = window.localStorage.getItem(LEGACY_DRAFT_STORAGE_KEY);
           if (savedLegacy) {
-            initialDraft = JSON.parse(savedLegacy) as Record<string, unknown>;
-            initialDraftKey = LEGACY_DRAFT_STORAGE_KEY;
+            const candidateLegacy = JSON.parse(savedLegacy) as Record<string, unknown>;
+            const candCadence =
+              typeof candidateLegacy.cadence === "string"
+                ? normalizeNewsletterCadence(candidateLegacy.cadence)
+                : null;
+            if (!explicitUrlCadence || candCadence === explicitUrlCadence) {
+              initialDraft = candidateLegacy;
+              initialDraftKey = LEGACY_DRAFT_STORAGE_KEY;
+            }
           }
         }
         if (!initialDraft && !initialUrlEditionId) {
@@ -1093,6 +1150,8 @@ function MagazineEditorWorkspace() {
             if (currentBrokerId) setBrokerId(currentBrokerId);
             setBrokerSlug(currentBrokerSlug);
             if (typeof edJson.brokerName === "string") setBrokerName(edJson.brokerName);
+            if (typeof edJson.brokerOffice === "string") setBrokerOffice(edJson.brokerOffice);
+            if (typeof edJson.brokerPhone === "string") setBrokerPhone(edJson.brokerPhone);
             if (typeof edJson.subscriberCount === "number") {
               setSubscriberCount(edJson.subscriberCount);
             }
@@ -1325,9 +1384,24 @@ function MagazineEditorWorkspace() {
                 !sessionKey.slice(SLOT_DRAFT_PREFIX.length).includes(":")
                   ? sessionKey.slice(SLOT_DRAFT_PREFIX.length)
                   : null;
+              const explicitUrlCadenceForServer =
+                !initialUrlEditionId &&
+                (initialUrlCadence === "daily" ||
+                  initialUrlCadence === "weekly" ||
+                  initialUrlCadence === "monthly")
+                  ? initialUrlCadence
+                  : null;
+              const allowedSessionEditionId =
+                sessionEditionId &&
+                (!explicitUrlCadenceForServer ||
+                  mapped.some(
+                    (e) => e.id === sessionEditionId && e.cadence === explicitUrlCadenceForServer,
+                  ))
+                  ? sessionEditionId
+                  : null;
               const desiredEditionId =
                 initialUrlEditionId ||
-                sessionEditionId ||
+                allowedSessionEditionId ||
                 (initialDraft && typeof initialDraft.editionId === "string"
                   ? initialDraft.editionId
                   : null);
@@ -2014,15 +2088,35 @@ function MagazineEditorWorkspace() {
   /** 발행 주기 전환: 이전 슬롯을 먼저 보존하고, 대상 주기에 저장본이 있으면 전체 필드를 불러온다 (NL-03) */
   const handleChangeCadence = (nextCadence: NewsletterCadence) => {
     if (nextCadence === cadence) return;
+    const leavingSavedEdition = editionId !== null;
     persistCurrentSlotIfDirty();
     setDraftSlotSlugOverride(null);
-    const nextMeta = deriveCadenceIssueMeta(nextCadence, {
-      year: issueYear,
-      month: issueMonth,
-      dateStr: issueDateStr,
+    let nextYear = issueYear;
+    let nextMonth = issueMonth;
+    let nextDateStr = issueDateStr;
+    let nextMeta = deriveCadenceIssueMeta(nextCadence, {
+      year: nextYear,
+      month: nextMonth,
+      dateStr: nextDateStr,
     });
+    let match = findEditionFor(nextCadence, nextMeta.slug);
+    if (!match && leavingSavedEdition) {
+      const nowKst = kstParts();
+      const today = todayKst();
+      nextYear = nowKst.year;
+      nextMonth = nowKst.month;
+      nextDateStr = today;
+      setIssueYear(nextYear);
+      setIssueMonth(nextMonth);
+      setIssueDateStr(nextDateStr);
+      nextMeta = deriveCadenceIssueMeta(nextCadence, {
+        year: nextYear,
+        month: nextMonth,
+        dateStr: nextDateStr,
+      });
+      match = findEditionFor(nextCadence, nextMeta.slug);
+    }
     setCadence(nextCadence);
-    const match = findEditionFor(nextCadence, nextMeta.slug);
     if (match) {
       applyEditionToEditorState(match);
     } else {
@@ -2055,11 +2149,27 @@ function MagazineEditorWorkspace() {
               )
             : baseSections;
         setSections(nextSections);
+        const nextIssues =
+          unitIssues.length > 0
+            ? unitIssues
+            : clusterArticlesIntoFiveIssues(newsPool, {
+                cadence: nextCadence,
+                preferredRegions,
+                preferredChannels,
+                dealKeywords: deals.map((d) => `${d.title} ${d.address}`),
+              });
+        if (unitIssues.length === 0) {
+          setUnitIssues(nextIssues);
+        }
         persistLocalDraft({
           editionId: null,
           slotSlug: null,
           cadence: nextCadence,
+          issueYear: nextYear,
+          issueMonth: nextMonth,
+          issueDateStr: nextDateStr,
           sections: nextSections,
+          unitIssues: nextIssues,
         });
       }
       syncUrlParams(null, nextCadence);
@@ -2882,15 +2992,23 @@ function MagazineEditorWorkspace() {
                 key={preset.id}
                 type="button"
                 data-testid={`pref-region-chip-${preset.id}`}
+                data-active-pill={active ? "true" : undefined}
                 aria-pressed={active}
                 onClick={() => handleTogglePreferredRegion(preset.label)}
+                style={{
+                  backgroundColor: active ? "#1D4ED8" : "#F8FAFC",
+                  borderColor: active ? "#1E40AF" : "#CBD5E1",
+                  color: active ? "#FFFFFF" : "#1E293B",
+                }}
                 className={`min-h-[40px] rounded-xl border px-3.5 py-1.5 text-sm font-extrabold transition ${
                   active
-                    ? "border-blue-600 bg-blue-700 text-white shadow-2xs"
-                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    ? "border-blue-700 bg-blue-700 text-white shadow-xs"
+                    : "border-slate-300 bg-slate-50 text-slate-800 hover:bg-slate-100"
                 }`}
               >
-                {preset.label}
+                <span style={{ color: active ? "#FFFFFF" : "#1E293B" }}>
+                  {preset.label}
+                </span>
               </button>
             );
           })}
@@ -2910,16 +3028,24 @@ function MagazineEditorWorkspace() {
                 key={ch.id}
                 type="button"
                 data-testid={`pref-channel-chip-${ch.id}`}
+                data-active-pill={active ? "true" : undefined}
                 aria-pressed={active}
                 onClick={() => handleTogglePreferredChannel(ch.id)}
+                style={{
+                  backgroundColor: active ? "#1D4ED8" : "#F8FAFC",
+                  borderColor: active ? "#1E40AF" : "#CBD5E1",
+                  color: active ? "#FFFFFF" : "#1E293B",
+                }}
                 className={`min-h-[40px] rounded-xl border px-3.5 py-1.5 text-sm font-extrabold transition flex items-center gap-1.5 ${
                   active
-                    ? "border-slate-900 bg-slate-900 text-white shadow-2xs"
-                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    ? "border-blue-700 bg-blue-700 text-white shadow-xs"
+                    : "border-slate-300 bg-slate-50 text-slate-800 hover:bg-slate-100"
                 }`}
               >
                 <span aria-hidden="true">{ch.emoji}</span>
-                <span>{ch.label}</span>
+                <span style={{ color: active ? "#FFFFFF" : "#1E293B" }}>
+                  {ch.label}
+                </span>
               </button>
             );
           })}
@@ -3093,23 +3219,32 @@ function MagazineEditorWorkspace() {
           aria-label="이전 호 주기별 보기"
           className="flex flex-wrap gap-1.5"
         >
-          {filterTabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={editionCadenceFilter === tab.key}
-              data-testid={`edition-filter-${tab.key}`}
-              onClick={() => setEditionCadenceFilter(tab.key)}
-              className={`min-h-[36px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
-                editionCadenceFilter === tab.key
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {filterTabs.map((tab) => {
+            const activeFilter = editionCadenceFilter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeFilter}
+                data-testid={`edition-filter-${tab.key}`}
+                data-active-pill={activeFilter ? "true" : undefined}
+                onClick={() => setEditionCadenceFilter(tab.key)}
+                style={
+                  activeFilter
+                    ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" }
+                    : { backgroundColor: "#F1F5F9", color: "#334155" }
+                }
+                className={`min-h-[36px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
+                  activeFilter
+                    ? "bg-blue-700 text-white"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {visibleEditions.length === 0 ? (
@@ -3398,9 +3533,10 @@ function MagazineEditorWorkspace() {
                 type="button"
                 data-testid="next-to-content-btn"
                 onClick={() => handleSelectStep("content")}
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-extrabold text-white hover:bg-slate-800"
+                style={{ backgroundColor: "#1D4ED8", borderColor: "#1E40AF", color: "#FFFFFF" }}
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-blue-700 bg-blue-700 px-5 py-3 text-base font-extrabold text-white hover:bg-blue-800"
               >
-                <span>다음: ② 내용 작성하기</span>
+                <span style={{ color: "#FFFFFF" }}>다음: ② 내용 작성하기</span>
                 <ArrowRight className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
@@ -3775,9 +3911,10 @@ function MagazineEditorWorkspace() {
                 type="button"
                 data-testid="next-to-send-btn"
                 onClick={() => handleSelectStep("send")}
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-extrabold text-white hover:bg-slate-800"
+                style={{ backgroundColor: "#1D4ED8", borderColor: "#1E40AF", color: "#FFFFFF" }}
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-blue-700 bg-blue-700 px-5 py-3 text-base font-extrabold text-white hover:bg-blue-800"
               >
-                <span>다음: ③ 보내기</span>
+                <span style={{ color: "#FFFFFF" }}>다음: ③ 보내기</span>
                 <ArrowRight className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
@@ -3942,7 +4079,7 @@ function MagazineEditorWorkspace() {
           )}
         </header>
 
-        {/* 1) 월간 전용: 상단 주요 통계 그래픽 2선 미리보기 (기획 복원 — 헤더 직후 최상단 배치) */}
+        {/* 1) 월간 전용: 첫 머리 주요 통계 그래픽 2선 (market_data — 헤더 직후 최상단 배치) */}
         {cadence === "monthly" && isSectionEnabled("market_data") && (
           <section
             data-testid="preview-monthly-stats-section"
@@ -3970,23 +4107,24 @@ function MagazineEditorWorkspace() {
           </section>
         )}
 
-        {/* 2) 시장 브리핑 미리보기 (field_note) */}
-        {isSectionEnabled("field_note") && (
-          <section
-            data-testid="preview-market-briefing-section"
-            className="space-y-2"
-          >
-            <h3 className="text-base font-extrabold text-slate-900">
-              {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
-            </h3>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 whitespace-pre-line leading-relaxed">
-              {formattedPreviewBriefing.trim() ||
-                "② 내용 단계에서 시장 브리핑 글을 작성하면 고객에게 보일 모양 그대로 미리 확인할 수 있습니다."}
-            </div>
-          </section>
-        )}
+        {/* 주간 전용: 작성된 주간 시장 브리핑이 있으면 이슈 5선 앞에 배치 */}
+        {cadence === "weekly" &&
+          isSectionEnabled("field_note") &&
+          formattedPreviewBriefing.trim().length > 0 && (
+            <section
+              data-testid="preview-market-briefing-section"
+              className="space-y-2"
+            >
+              <h3 className="text-base font-extrabold text-slate-900">
+                {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
+              </h3>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 whitespace-pre-line leading-relaxed">
+                {formattedPreviewBriefing.trim()}
+              </div>
+            </section>
+          )}
 
-        {/* 3) 핵심 이슈 5선 미리보기 (news_curation) */}
+        {/* 2) 핵심 이슈 5선 브리핑 미리보기 (news_curation — 월간은 통계 2선 직후 배치) */}
         {isSectionEnabled("news_curation") && unitIssues.length > 0 && (
           <section
             data-testid="preview-axios-postit-section"
@@ -4032,9 +4170,26 @@ function MagazineEditorWorkspace() {
           </section>
         )}
 
+        {/* 3) 시장 브리핑 칼럼 (월간·일간·호외 — 실제 작성된 글이 있을 때만 표시, 빈 안내 박스 미노출) */}
+        {cadence !== "weekly" &&
+          isSectionEnabled("field_note") &&
+          formattedPreviewBriefing.trim().length > 0 && (
+            <section
+              data-testid="preview-market-briefing-section"
+              className="space-y-2"
+            >
+              <h3 className="text-base font-extrabold text-slate-900">
+                {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
+              </h3>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 whitespace-pre-line leading-relaxed">
+                {formattedPreviewBriefing.trim()}
+              </div>
+            </section>
+          )}
+
         {/* 4) 추천 매물 미리보기 (featured_deals) */}
         {isSectionEnabled("featured_deals") && (
-          <section className="space-y-3">
+          <section data-testid="preview-featured-deals-section" className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-extrabold text-slate-900">
                 추천 매물 소개
@@ -4086,6 +4241,38 @@ function MagazineEditorWorkspace() {
             )}
           </section>
         )}
+
+        {/* 5) 중개사 문의 · 연락처 카드 (broker_profile — 고객 화면 하단 문의 영역과 1:1 정렬) */}
+        <section
+          data-testid="preview-broker-contact-section"
+          className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-2"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {brokerName.trim() || "담당 공인중개사"}
+                </h3>
+                <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-sm font-bold text-blue-900">
+                  문의 · 상담
+                </span>
+              </div>
+              {brokerOffice.trim() && (
+                <p className="text-sm font-bold text-slate-700">
+                  {brokerOffice.trim()}
+                </p>
+              )}
+            </div>
+            {brokerPhone.trim() && (
+              <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-extrabold text-emerald-900">
+                전화 {brokerPhone.trim()}
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-medium text-slate-600 leading-relaxed">
+            추천 매물 상세 자료(IM) 열람이나 매수·임대·자산관리 상담이 필요하시면 언제든 편하게 문의해 주세요.
+          </p>
+        </section>
       </article>
     </div>
   );

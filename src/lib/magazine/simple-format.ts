@@ -322,9 +322,26 @@ export function applySimplePreset(
 
   const baseSimpleOrder: readonly string[] =
     cadenceKind === 'monthly'
-      ? ['market_data', 'ai_briefing', 'field_note', 'news_curation', 'featured_deals', 'roi_calculator']
+      ? [
+          'market_data',
+          'news_curation',
+          'ai_briefing',
+          'field_note',
+          'featured_deals',
+          'broker_profile',
+          'subscribe_cta',
+          'roi_calculator',
+        ]
       : cadenceKind === 'daily'
-        ? ['news_curation', 'featured_deals', 'ai_briefing', 'field_note', 'roi_calculator']
+        ? [
+            'news_curation',
+            'featured_deals',
+            'ai_briefing',
+            'field_note',
+            'broker_profile',
+            'subscribe_cta',
+            'roi_calculator',
+          ]
         : SIMPLE_SECTION_ORDER;
 
   const hasBriefingCopy = Boolean(str(content.briefing).trim() || str(content.ai_briefing).trim() || comment);

@@ -196,10 +196,11 @@ export function AxiosIssuesEditorPanel({
             type="button"
             data-testid="seed-five-issues-empty-btn"
             onClick={handleSeedInitialIssues}
-            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-sm font-extrabold text-white shadow-xs transition-colors"
+            style={{ backgroundColor: "#1D4ED8", borderColor: "#1E40AF", color: "#FFFFFF" }}
+            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl border border-blue-700 bg-blue-700 hover:bg-blue-800 px-4 py-2.5 text-sm font-extrabold text-white shadow-xs transition-colors"
           >
             <Sparkles className="w-4 h-4" aria-hidden="true" />
-            <span>핵심 이슈 5선 자동 채우기</span>
+            <span style={{ color: "#FFFFFF" }}>핵심 이슈 5선 자동 채우기</span>
           </button>
         </div>
       ) : (
