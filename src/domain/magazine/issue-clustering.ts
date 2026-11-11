@@ -49,106 +49,159 @@ export interface PostItToneMeta {
   titleColor: string;
   bodyColor: string;
   metaColor: string;
-  /** 글래스모피즘 카드뉴스 배경 (다크 베이스 + 톤 메시 그래디언트) */
+  /** 글래스모피즘 카드뉴스 배경 (루미너스 파스텔 오로라 메시 그래디언트 — WCAG AAA 시인성) */
   glassBackground: string;
-  /** 카드 강조 포인트 색 (번호 칩 점 · 구분선 · 글로우 오브) */
+  /** 글래스 카드 광학 헤어라인 테두리 색 */
+  glassBorder: string;
+  /** 글래스 배지 반투명 표면 색 */
+  glassPillBg: string;
+  /** 글래스 배지 미세 링 테두리 색 */
+  glassPillBorder: string;
+  /** 카드 강조 포인트 색 (번호 칩 점 · 좌측 시그니처 스트립 · 구분선 · 스와치) */
   glassAccent: string;
-  /** 카드 외곽 은은한 톤 글로우 그림자 */
+  /** 카드 외곽 은은한 톤 글로우 + 상단 스페큘러 림 그림자 */
   glassGlow: string;
 }
 
 /**
- * 다크 베이스 위에 톤 컬러 오브 2개를 겹친 메시 그래디언트 (카드뉴스형 글래스모피즘 배경)
- * - 흰색 본문 텍스트 대비(WCAG AA 4.5:1 이상)를 보장하도록 베이스는 짙은 남색 계열로 고정
+ * SOTA 뉴스/금융 앱(Apple News+ · Toss · Axios · Radix Step 1~3) 기준
+ * 루미너스 데이라이트 파스텔 오로라 메시 그래디언트:
+ *  - L* 95~98 고명도 펄-파스텔 베이스 위에 듀얼 파스텔 오브를 얹어 현대적 카드뉴스 질감 구현
+ *  - 짙은 잉크(#0F172A 제목 15:1+, #1E293B 해설 12:1+)와 결합해 난시·노안 빛번짐(Halation) 없이 WCAG AAA 시인성 보장
  */
 function buildGlassMesh(orbA: string, orbB: string, baseFrom: string, baseTo: string): string {
   return [
-    `radial-gradient(120% 95% at 0% 0%, ${orbA} 0%, rgba(0,0,0,0) 58%)`,
-    `radial-gradient(95% 85% at 100% 100%, ${orbB} 0%, rgba(0,0,0,0) 62%)`,
-    `linear-gradient(140deg, ${baseFrom} 0%, ${baseTo} 100%)`,
+    `radial-gradient(125% 95% at 0% 0%, ${orbA} 0%, rgba(255,255,255,0) 60%)`,
+    `radial-gradient(100% 90% at 100% 100%, ${orbB} 0%, rgba(255,255,255,0) 62%)`,
+    `linear-gradient(145deg, ${baseFrom} 0%, ${baseTo} 100%)`,
   ].join(', ');
 }
 
 export const POST_IT_TONE_META: Readonly<Record<PostItTone, PostItToneMeta>> = {
   amber: {
     tone: 'amber',
-    label: '옐로우 포스트잇',
+    label: '샴페인 골드',
     emoji: '🟨',
-    cardBg: '#FEF9C3',
-    cardBorder: '#FDE047',
-    accentBar: '#CA8A04',
-    badgeBg: '#FEF08A',
-    badgeText: '#854D0E',
+    cardBg: '#FFFBEB',
+    cardBorder: '#FDE68A',
+    accentBar: '#D97706',
+    badgeBg: '#FEF3C7',
+    badgeText: '#78350F',
     titleColor: '#0F172A',
-    bodyColor: '#334155',
-    metaColor: '#713F12',
-    glassBackground: buildGlassMesh('rgba(251,191,36,0.62)', 'rgba(249,115,22,0.42)', '#2A1A06', '#0F172A'),
-    glassAccent: '#FCD34D',
-    glassGlow: '0 18px 40px -18px rgba(245,158,11,0.55)',
+    bodyColor: '#1E293B',
+    metaColor: '#78350F',
+    glassBackground: buildGlassMesh(
+      'rgba(253, 230, 138, 0.68)',
+      'rgba(254, 215, 170, 0.48)',
+      '#FFFDF7',
+      '#FEF7E0',
+    ),
+    glassBorder: 'rgba(217, 119, 6, 0.26)',
+    glassPillBg: 'rgba(254, 243, 199, 0.90)',
+    glassPillBorder: 'rgba(217, 119, 6, 0.30)',
+    glassAccent: '#D97706',
+    glassGlow:
+      '0 14px 30px -16px rgba(217, 119, 6, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.94)',
   },
   sky: {
     tone: 'sky',
-    label: '스카이 포스트잇',
+    label: '세룰리안 스카이',
     emoji: '🟦',
-    cardBg: '#E0F2FE',
-    cardBorder: '#7DD3FC',
+    cardBg: '#F0F9FF',
+    cardBorder: '#BAE6FD',
     accentBar: '#0284C7',
-    badgeBg: '#BAE6FD',
-    badgeText: '#075985',
+    badgeBg: '#E0F2FE',
+    badgeText: '#0C4A6E',
     titleColor: '#0F172A',
     bodyColor: '#1E293B',
     metaColor: '#0369A1',
-    glassBackground: buildGlassMesh('rgba(56,189,248,0.60)', 'rgba(99,102,241,0.45)', '#06213A', '#0F172A'),
-    glassAccent: '#7DD3FC',
-    glassGlow: '0 18px 40px -18px rgba(14,165,233,0.55)',
+    glassBackground: buildGlassMesh(
+      'rgba(186, 230, 253, 0.72)',
+      'rgba(199, 210, 254, 0.50)',
+      '#F8FCFF',
+      '#EAF5FF',
+    ),
+    glassBorder: 'rgba(2, 132, 199, 0.26)',
+    glassPillBg: 'rgba(224, 242, 254, 0.90)',
+    glassPillBorder: 'rgba(2, 132, 199, 0.30)',
+    glassAccent: '#0284C7',
+    glassGlow:
+      '0 14px 30px -16px rgba(2, 132, 199, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.94)',
   },
   mint: {
     tone: 'mint',
-    label: '민트 포스트잇',
+    label: '셀라돈 민트',
     emoji: '🟩',
-    cardBg: '#DCFCE7',
-    cardBorder: '#86EFAC',
-    accentBar: '#16A34A',
-    badgeBg: '#BBF7D0',
-    badgeText: '#166534',
+    cardBg: '#ECFDF5',
+    cardBorder: '#A7F3D0',
+    accentBar: '#059669',
+    badgeBg: '#D1FAE5',
+    badgeText: '#064E3B',
     titleColor: '#0F172A',
     bodyColor: '#1E293B',
-    metaColor: '#15803D',
-    glassBackground: buildGlassMesh('rgba(52,211,153,0.58)', 'rgba(34,211,238,0.40)', '#062A22', '#0F172A'),
-    glassAccent: '#6EE7B7',
-    glassGlow: '0 18px 40px -18px rgba(16,185,129,0.55)',
+    metaColor: '#047857',
+    glassBackground: buildGlassMesh(
+      'rgba(167, 243, 208, 0.66)',
+      'rgba(153, 246, 228, 0.46)',
+      '#F7FEFB',
+      '#E8FAF1',
+    ),
+    glassBorder: 'rgba(5, 150, 105, 0.26)',
+    glassPillBg: 'rgba(209, 250, 229, 0.90)',
+    glassPillBorder: 'rgba(5, 150, 105, 0.30)',
+    glassAccent: '#059669',
+    glassGlow:
+      '0 14px 30px -16px rgba(5, 150, 105, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.94)',
   },
   lavender: {
     tone: 'lavender',
-    label: '라벤더 포스트잇',
+    label: '아이리스 라벤더',
     emoji: '🟪',
-    cardBg: '#F3E8FF',
-    cardBorder: '#D8B4FE',
-    accentBar: '#9333EA',
-    badgeBg: '#E9D5FF',
-    badgeText: '#6B21A8',
-    titleColor: '#1E1B4B',
-    bodyColor: '#312E81',
-    metaColor: '#6B21A8',
-    glassBackground: buildGlassMesh('rgba(167,139,250,0.62)', 'rgba(236,72,153,0.40)', '#1E0E3A', '#0F172A'),
-    glassAccent: '#C4B5FD',
-    glassGlow: '0 18px 40px -18px rgba(139,92,246,0.55)',
+    cardBg: '#F5F3FF',
+    cardBorder: '#DDD6FE',
+    accentBar: '#7C3AED',
+    badgeBg: '#EDE9FE',
+    badgeText: '#2E1065',
+    titleColor: '#0F172A',
+    bodyColor: '#1E293B',
+    metaColor: '#5B21B6',
+    glassBackground: buildGlassMesh(
+      'rgba(221, 214, 254, 0.72)',
+      'rgba(245, 208, 254, 0.48)',
+      '#FCFAFF',
+      '#F2EEFF',
+    ),
+    glassBorder: 'rgba(124, 58, 237, 0.25)',
+    glassPillBg: 'rgba(237, 233, 254, 0.90)',
+    glassPillBorder: 'rgba(124, 58, 237, 0.30)',
+    glassAccent: '#7C3AED',
+    glassGlow:
+      '0 14px 30px -16px rgba(124, 58, 237, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.94)',
   },
   peach: {
     tone: 'peach',
-    label: '피치 포스트잇',
+    label: '로즈 피치',
     emoji: '🟧',
-    cardBg: '#FFE4E6',
-    cardBorder: '#FDA4AF',
+    cardBg: '#FFF1F2',
+    cardBorder: '#FECDD3',
     accentBar: '#E11D48',
-    badgeBg: '#FECDD3',
-    badgeText: '#9F1239',
+    badgeBg: '#FFE4E6',
+    badgeText: '#881337',
     titleColor: '#0F172A',
-    bodyColor: '#334155',
+    bodyColor: '#1E293B',
     metaColor: '#BE123C',
-    glassBackground: buildGlassMesh('rgba(251,113,133,0.60)', 'rgba(251,146,60,0.40)', '#330B18', '#0F172A'),
-    glassAccent: '#FDA4AF',
-    glassGlow: '0 18px 40px -18px rgba(244,63,94,0.55)',
+    glassBackground: buildGlassMesh(
+      'rgba(254, 205, 211, 0.68)',
+      'rgba(254, 215, 170, 0.46)',
+      '#FFF9FA',
+      '#FFEDF1',
+    ),
+    glassBorder: 'rgba(225, 29, 72, 0.24)',
+    glassPillBg: 'rgba(255, 228, 230, 0.90)',
+    glassPillBorder: 'rgba(225, 29, 72, 0.28)',
+    glassAccent: '#E11D48',
+    glassGlow:
+      '0 14px 30px -16px rgba(225, 29, 72, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.94)',
   },
 };
 

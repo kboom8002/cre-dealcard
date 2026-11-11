@@ -1,8 +1,11 @@
 /**
  * src/components/magazine/MonthlyGlassStatCard.tsx
  *
- * 월간 뉴스레터 상단 주요 통계 그래픽 2선 — 모던 글래스모피즘 · 메시 그래디언트 카드뉴스형 통계 그래픽
+ * 월간 뉴스레터 상단 주요 통계 그래픽 2선 — SOTA 루미너스 프로스티드 글래스 카드뉴스형 데이터 그래픽
  * (에디터 우측 실시간 미리보기 & 고객 공개 뷰어 공용 SSOT)
+ *  - Apple Stocks · Toss Securities · Radix Color Scale(Step 1~3 표면 + Step 11~12 잉크) 기반:
+ *    고명도 파스텔 오로라 메시 + 프로스티드 펄 글래스(backdrop-blur-xl) + #0F172A(15:1+) 초고대비 타이포그래피로
+ *    라이트 워크스페이스(.broker-paper-theme)와 다크 뷰어(.dark) 어디서든 일관된 WCAG AAA 시인성 보장
  */
 import React from "react";
 import type { MonthlyRegionalChart } from "@/domain/magazine/types";
@@ -20,19 +23,31 @@ export interface MonthlyGlassStatCardProps {
 const STAT_THEMES = [
   {
     glassBackground:
-      "radial-gradient(120% 120% at 0% 0%, rgba(56, 189, 248, 0.34) 0%, rgba(14, 165, 233, 0.14) 42%, rgba(15, 23, 42, 0.96) 100%), linear-gradient(135deg, #0f172a 0%, #0c4a6e 52%, #0f172a 100%)",
-    glassGlow: "0 18px 38px -18px rgba(14, 165, 233, 0.45), inset 0 1px 0 rgba(255,255,255,0.22)",
-    accent: "#38bdf8",
-    barActive: "linear-gradient(180deg, #67e8f9 0%, #0ea5e9 100%)",
-    barMuted: "linear-gradient(180deg, rgba(125, 211, 252, 0.72) 0%, rgba(3, 105, 161, 0.65) 100%)",
+      "radial-gradient(125% 95% at 0% 0%, rgba(186, 230, 253, 0.72) 0%, rgba(255,255,255,0) 60%), radial-gradient(100% 90% at 100% 100%, rgba(199, 210, 254, 0.48) 0%, rgba(255,255,255,0) 62%), linear-gradient(145deg, #F8FCFF 0%, #EAF5FF 100%)",
+    glassBorder: "rgba(2, 132, 199, 0.26)",
+    glassGlow:
+      "0 14px 30px -16px rgba(2, 132, 199, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.95)",
+    accent: "#0284C7",
+    pillBg: "rgba(224, 242, 254, 0.92)",
+    pillBorder: "rgba(2, 132, 199, 0.30)",
+    pillInk: "#0C4A6E",
+    barActive: "linear-gradient(180deg, #0EA5E9 0%, #0284C7 100%)",
+    barMuted: "linear-gradient(180deg, #93C5FD 0%, #60A5FA 100%)",
+    focalLabelInk: "#0369A1",
   },
   {
     glassBackground:
-      "radial-gradient(120% 120% at 100% 0%, rgba(167, 139, 250, 0.34) 0%, rgba(99, 102, 241, 0.16) 44%, rgba(15, 23, 42, 0.96) 100%), linear-gradient(135deg, #0f172a 0%, #312e81 52%, #0f172a 100%)",
-    glassGlow: "0 18px 38px -18px rgba(129, 140, 248, 0.45), inset 0 1px 0 rgba(255,255,255,0.22)",
-    accent: "#a78bfa",
-    barActive: "linear-gradient(180deg, #c4b5fd 0%, #6366f1 100%)",
-    barMuted: "linear-gradient(180deg, rgba(165, 180, 252, 0.72) 0%, rgba(67, 56, 202, 0.65) 100%)",
+      "radial-gradient(125% 95% at 100% 0%, rgba(221, 214, 254, 0.72) 0%, rgba(255,255,255,0) 60%), radial-gradient(100% 90% at 0% 100%, rgba(199, 210, 254, 0.50) 0%, rgba(255,255,255,0) 62%), linear-gradient(145deg, #FCFAFF 0%, #F1EEFF 100%)",
+    glassBorder: "rgba(99, 102, 241, 0.26)",
+    glassGlow:
+      "0 14px 30px -16px rgba(99, 102, 241, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.95)",
+    accent: "#4F46E5",
+    pillBg: "rgba(238, 242, 255, 0.92)",
+    pillBorder: "rgba(99, 102, 241, 0.30)",
+    pillInk: "#312E81",
+    barActive: "linear-gradient(180deg, #818CF8 0%, #4F46E5 100%)",
+    barMuted: "linear-gradient(180deg, #C4B5FD 0%, #818CF8 100%)",
+    focalLabelInk: "#4338CA",
   },
 ] as const;
 
@@ -42,7 +57,7 @@ const SOURCE_BADGE_LABEL: Record<string, string> = {
   broker_custom: "중개사 직접 입력",
 };
 
-const TITLE_SHADOW = "0 1px 2px rgba(2, 6, 23, 0.5)";
+const TITLE_SHADOW = "0 1px 0 rgba(255, 255, 255, 0.88)";
 
 export function MonthlyGlassStatCard({
   index,
@@ -74,14 +89,20 @@ export function MonthlyGlassStatCard({
     <div
       data-testid={cardTestId}
       data-card-style="glass"
+      data-contrast-tier="wcag-aaa"
       data-source-mode={chart.sourceMode ?? "default"}
-      className="relative isolate overflow-hidden rounded-3xl border border-white/15"
-      style={{ background: theme.glassBackground, boxShadow: theme.glassGlow }}
+      className="relative isolate overflow-hidden rounded-3xl border"
+      style={{
+        background: theme.glassBackground,
+        borderColor: theme.glassBorder,
+        boxShadow: theme.glassGlow,
+        color: "#0F172A",
+      }}
     >
-      {/* 상단 하이라이트 라인 & 코너 오브 */}
+      {/* 상단 하이라이트 라인 & 코너 소프트 오로라 오브 */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full opacity-35 blur-3xl"
+        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-18 blur-2xl"
         style={{ background: theme.accent }}
       />
       <span
@@ -89,28 +110,49 @@ export function MonthlyGlassStatCard({
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
         style={{
           background:
-            "linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.55), rgba(255,255,255,0))",
+            "linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.95), rgba(255,255,255,0.2))",
         }}
       />
 
       <div
-        className={`relative m-[3px] rounded-[1.35rem] bg-white/[0.06] ring-1 ring-inset ring-white/10 backdrop-blur-xl space-y-3.5 ${
+        className={`relative m-[3px] rounded-[1.35rem] backdrop-blur-xl space-y-3.5 ${
           isPreview ? "p-4" : "p-5"
         }`}
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.62)",
+          boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.94)",
+        }}
       >
         {/* 1. 상단 칩 & 출처 */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-sm font-black tracking-[0.06em] text-white ring-1 ring-inset ring-white/25">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-black tracking-[0.04em]"
+              style={{
+                backgroundColor: theme.pillBg,
+                borderColor: theme.pillBorder,
+                color: theme.pillInk,
+              }}
+            >
               <span
                 aria-hidden="true"
                 className="h-2 w-2 rounded-full"
-                style={{ background: theme.accent, boxShadow: `0 0 8px ${theme.accent}` }}
+                style={{
+                  background: theme.accent,
+                  boxShadow: `0 0 6px ${theme.accent}66`,
+                }}
               />
               통계 {statNo} · {chart.regionLabel}
             </span>
             {sourceBadge && (
-              <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-sm font-bold text-sky-100 ring-1 ring-inset ring-white/15">
+              <span
+                className="rounded-full border px-2.5 py-0.5 text-sm font-bold"
+                style={{
+                  backgroundColor: "rgba(255, 255, 255, 0.88)",
+                  borderColor: "rgba(15, 23, 42, 0.12)",
+                  color: "#1E293B",
+                }}
+              >
                 {sourceBadge}
               </span>
             )}
@@ -118,7 +160,8 @@ export function MonthlyGlassStatCard({
 
           <span
             data-testid={sourceTestId}
-            className="text-sm font-semibold text-slate-200/90"
+            className="text-sm font-semibold"
+            style={{ color: "#475569" }}
           >
             {authority} ({chart.asOf})
           </span>
@@ -128,15 +171,22 @@ export function MonthlyGlassStatCard({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-1">
             <h3
-              className={`break-keep font-extrabold leading-snug text-white ${
+              className={`break-keep font-extrabold leading-snug text-slate-900 ${
                 isPreview ? "text-base" : "text-lg"
               }`}
-              style={{ wordBreak: "keep-all", textShadow: TITLE_SHADOW }}
+              style={{
+                color: "#0F172A",
+                wordBreak: "keep-all",
+                textShadow: TITLE_SHADOW,
+              }}
             >
               {chart.title}
             </h3>
             {chart.subtitle && (
-              <p className="break-keep text-sm font-medium text-slate-200/85">
+              <p
+                className="break-keep text-sm font-medium"
+                style={{ color: "#334155" }}
+              >
                 {chart.subtitle}
                 {chart.unit ? ` · 단위: ${chart.unit}` : ""}
               </p>
@@ -144,15 +194,31 @@ export function MonthlyGlassStatCard({
           </div>
 
           {chart.highlightMetric && (
-            <div className="shrink-0 rounded-2xl border border-white/20 bg-white/10 px-3.5 py-2 text-right backdrop-blur-md">
-              <span className="block text-sm font-semibold text-slate-200">
+            <div
+              className="shrink-0 rounded-2xl border px-3.5 py-2 text-right backdrop-blur-md"
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.86)",
+                borderColor: theme.pillBorder,
+                boxShadow: "0 2px 8px -4px rgba(15, 23, 42, 0.08)",
+              }}
+            >
+              <span
+                className="block text-sm font-semibold"
+                style={{ color: "#475569" }}
+              >
                 {chart.highlightMetric.label}
               </span>
-              <span className="block text-base font-extrabold text-white tabular-nums">
+              <span
+                className="block text-base font-extrabold tabular-nums"
+                style={{ color: "#0F172A" }}
+              >
                 {chart.highlightMetric.value}
               </span>
               {chart.highlightMetric.deltaText && (
-                <span className="block text-sm font-bold text-emerald-300">
+                <span
+                  className="block text-sm font-bold"
+                  style={{ color: "#047857" }}
+                >
                   {chart.highlightMetric.deltaText}
                 </span>
               )}
@@ -162,7 +228,13 @@ export function MonthlyGlassStatCard({
 
         {/* 3. 막대 비교 그래픽 */}
         {series.length > 0 ? (
-          <div className="rounded-2xl border border-white/15 bg-slate-950/45 px-3 py-3.5">
+          <div
+            className="rounded-2xl border px-3 py-3.5"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.80)",
+              borderColor: "rgba(15, 23, 42, 0.10)",
+            }}
+          >
             <div
               className="grid items-end gap-2 pt-2"
               style={{
@@ -189,7 +261,10 @@ export function MonthlyGlassStatCard({
                     data-testid="monthly-stat-bar"
                     className="flex flex-col items-center justify-end gap-1 text-center"
                   >
-                    <span className="text-sm font-extrabold text-white tabular-nums leading-tight">
+                    <span
+                      className="text-sm font-extrabold tabular-nums leading-tight"
+                      style={{ color: isFocal ? theme.pillInk : "#0F172A" }}
+                    >
                       {primaryText}
                     </span>
                     <div
@@ -197,14 +272,20 @@ export function MonthlyGlassStatCard({
                       style={{
                         height: `${barHeightPx}px`,
                         background: isFocal ? theme.barActive : theme.barMuted,
-                        boxShadow: isFocal ? `0 0 14px -2px ${theme.accent}` : undefined,
+                        boxShadow: isFocal ? `0 4px 12px -2px ${theme.accent}55` : undefined,
                       }}
                     />
-                    <span className="mt-0.5 text-sm font-bold text-slate-100 leading-tight break-keep">
+                    <span
+                      className="mt-0.5 text-sm font-bold leading-tight break-keep"
+                      style={{ color: "#1E293B" }}
+                    >
                       {pt.label}
                     </span>
                     {secondaryText && (
-                      <span className="text-sm font-semibold text-amber-200/95 tabular-nums leading-tight break-keep">
+                      <span
+                        className="text-sm font-semibold tabular-nums leading-tight break-keep"
+                        style={{ color: isFocal ? theme.focalLabelInk : "#475569" }}
+                      >
                         {secondaryText}
                       </span>
                     )}
@@ -214,15 +295,31 @@ export function MonthlyGlassStatCard({
             </div>
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/15 bg-slate-950/40 px-3.5 py-3 text-sm font-medium text-slate-200">
+          <div
+            className="rounded-2xl border px-3.5 py-3 text-sm font-medium"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.80)",
+              borderColor: "rgba(15, 23, 42, 0.10)",
+              color: "#334155",
+            }}
+          >
             {chart.placeholderNotice || chart.buyerImplication}
           </div>
         )}
 
         {/* 4. 매수자 핵심 시사점 */}
         {chart.buyerImplication && series.length > 0 && (
-          <div className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3.5 py-2.5 text-sm font-medium leading-relaxed text-emerald-50 break-keep">
-            <strong className="font-extrabold text-emerald-200">💡 매수자 체크포인트:</strong>{" "}
+          <div
+            className="rounded-2xl border px-3.5 py-2.5 text-sm font-medium leading-relaxed break-keep"
+            style={{
+              backgroundColor: "rgba(236, 253, 245, 0.88)",
+              borderColor: "rgba(5, 150, 105, 0.26)",
+              color: "#064E3B",
+            }}
+          >
+            <strong className="font-extrabold" style={{ color: "#065F46" }}>
+              💡 매수자 체크포인트:
+            </strong>{" "}
             {chart.buyerImplication}
           </div>
         )}

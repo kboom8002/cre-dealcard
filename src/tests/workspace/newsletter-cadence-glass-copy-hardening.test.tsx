@@ -184,24 +184,50 @@ describe("[1.1/1.2] 카드 카피 예산 엔진 — 제목 36자 · 해설 48자
   });
 });
 
-describe("[1.3] 고객 화면 카드뉴스 글래스모피즘 표면 + 한 단계 작은 폰트 + 잘림 없는 렌더링", () => {
-  it("5톤 모두 다크 베이스 메시 그래디언트·강조색·글로우를 가진다", () => {
+function hexRelativeLuminance(hex: string): number {
+  const clean = hex.replace("#", "").trim();
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function wcagContrastRatio(fgHex: string, bgHex: string): number {
+  const l1 = hexRelativeLuminance(fgHex);
+  const l2 = hexRelativeLuminance(bgHex);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+describe("[1.3] 고객 화면 카드뉴스 글래스모피즘 표면 + SOTA 시인성(WCAG AAA) + 잘림 없는 렌더링", () => {
+  it("5톤 모두 루미너스 파스텔 오로라 메시 그래디언트·강조색·글로우와 WCAG AAA(7:1+) 명도비를 보장한다", () => {
     for (const tone of ["amber", "sky", "mint", "lavender", "peach"] as const) {
       const meta = POST_IT_TONE_META[tone];
       expect(meta.glassBackground).toMatch(/radial-gradient/);
       expect(meta.glassBackground).toMatch(/linear-gradient/);
       expect(meta.glassAccent).toMatch(/^#/);
       expect(meta.glassGlow).toMatch(/rgba/);
+
+      // 고명도 파스텔 베이스(L > 0.85) + 초고대비 잉크(제목 >= 12:1, 해설 >= 10:1, 배지 >= 7:1 WCAG AAA)
+      expect(hexRelativeLuminance(meta.cardBg)).toBeGreaterThan(0.85);
+      expect(wcagContrastRatio(meta.titleColor, meta.cardBg)).toBeGreaterThanOrEqual(12);
+      expect(wcagContrastRatio(meta.bodyColor, meta.cardBg)).toBeGreaterThanOrEqual(10);
+      expect(wcagContrastRatio(meta.badgeText, meta.badgeBg)).toBeGreaterThanOrEqual(7);
     }
   });
 
-  it("고객 뷰어 NewsSection: glass 카드 5장, backdrop-blur 글래스 패널, 흰 텍스트+섀도, line-clamp/truncate 0건", () => {
+  it("고객 뷰어 NewsSection: glass 카드 5장, backdrop-blur 글래스 패널, .broker-paper-theme 캐스케이드 충돌(text-white) 0건, line-clamp/truncate 0건", () => {
     const issues = clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, { cadence: "weekly" });
     const html = renderToStaticMarkup(<NewsSection items={[]} unitIssues={issues} cadence="weekly" />);
     expect(html).toContain("주간 핵심 시장 이슈 5선");
     expect((html.match(/data-card-style="glass"/g) ?? []).length).toBe(5);
+    expect((html.match(/data-contrast-tier="wcag-aaa"/g) ?? []).length).toBe(5);
     expect(html).toContain("backdrop-blur-xl");
     expect(html).toMatch(/text-shadow/);
+    // .broker-paper-theme 에서 #1D1D1F 로 강제 반전되는 .text-white 클래스를 카드 내부에 사용하지 않음
+    expect(html).not.toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*\btext-white\b/);
     expect(html).not.toMatch(/data-testid="axios-postit-(?:title|brief)"[^>]*class="[^"]*(?:line-clamp|truncate|whitespace-nowrap)/);
     // 폰트 한 단계 축소: 제목 19/21px → 17/19px, 해설 15/16px → 14/15px
     expect(html).toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*text-\[17px\] sm:text-\[19px\]/);
