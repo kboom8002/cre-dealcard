@@ -163,6 +163,7 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               prefetch={true}
               id="broker-top-tutorial-btn"
               data-testid="broker-top-tutorial-btn"
+              data-active-pill={pathname.startsWith("/broker/tutorial") ? "true" : undefined}
               className={
                 pathname.startsWith("/broker/tutorial")
                   ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-semibold bg-gradient-to-b from-[#24B63E] to-[#188C2C] text-white shadow-sm transition-all"
@@ -193,6 +194,7 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
             <Link
               href="/broker/profile"
               data-testid="workspace-nav-profile"
+              data-active-pill={pathname.startsWith("/broker/profile") ? "true" : undefined}
               className={
                 pathname.startsWith("/broker/profile")
                   ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-sm transition-all"

@@ -743,7 +743,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   // Honest approve & send IM handler (IB-11, IB-14, IB-15, A-S0-01)
   const handleApproveAndSendIm = async (targetThread: InboxThreadItem) => {
     setStatusFeedback(null);
-    const apiRes = await postJsonHonest(
+    let apiRes = await postJsonHonest(
       `approve:${targetThread.id}`,
       "/api/broker/inbox/actions",
       {
@@ -754,7 +754,42 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       },
       "IM 열람 승인 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
     );
-    if (!apiRes.ok) return;
+
+    // Legacy / long-pending gate requests (e.g. 117 days old with DB status='expired'):
+    // automatically run reset_gate -> approve_gate so the broker's 1-click approval succeeds cleanly.
+    if (!apiRes.ok && apiRes.error.includes("만료된 열람 요청")) {
+      const resetRes = await postJsonHonest(
+        `reset:${targetThread.id}`,
+        "/api/broker/inbox/actions",
+        {
+          action: "reset_gate",
+          threadId: targetThread.id,
+          buildingId: targetThread.buildingId,
+        },
+        "만료된 열람 요청 초기화에 실패했습니다. 잠시 후 다시 시도해 주세요."
+      );
+      if (!resetRes.ok) return;
+
+      apiRes = await postJsonHonest(
+        `approve:${targetThread.id}`,
+        "/api/broker/inbox/actions",
+        {
+          action: "approve_gate",
+          threadId: targetThread.id,
+          buildingId: targetThread.buildingId,
+          shareToken: targetThread.shareToken,
+        },
+        "IM 열람 승인 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
+      );
+    }
+
+    if (!apiRes.ok) {
+      if (apiRes.error.includes("연결된 매물이 없습니다")) {
+        setSelectedId(targetThread.id);
+        setActiveEditorTab("todo");
+      }
+      return;
+    }
 
     const json = apiRes.data;
     const shareUrl =

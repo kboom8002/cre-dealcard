@@ -109,6 +109,7 @@ export default function TestGuidePage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showLegacyAiChecks, setShowLegacyAiChecks] = useState<boolean>(false);
+  const [showScorecardModal, setShowScorecardModal] = useState<boolean>(false);
 
   // Stopwatch state
   const [timerDealId, setTimerDealId] = useState<TimerTargetId>("deal1");
@@ -1636,11 +1637,24 @@ export default function TestGuidePage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="text-xs font-extrabold text-slate-600">
-                  📄 자동 생성된 v4.0 최종 검수 리포트 미리보기:
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs font-extrabold text-slate-700">
+                    📄 자동 생성된 v4.0 최종 검수 리포트 미리보기:
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="open-scorecard-modal-btn"
+                    onClick={() => setShowScorecardModal(true)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span>🔍 리포트 전문 팝업으로 크게 보기</span>
+                  </button>
                 </div>
-                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto select-all">
+                <pre
+                  data-testid="scorecard-markdown-preview"
+                  className="dark-scrollbar p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono whitespace-pre-wrap max-h-72 overflow-y-auto select-all border border-slate-700"
+                >
                   {generateScorecardMarkdown()}
                 </pre>
               </div>
@@ -1648,6 +1662,69 @@ export default function TestGuidePage() {
           </div>
         )}
       </main>
+
+      {showScorecardModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="검수 리포트 전문 보기"
+          data-testid="scorecard-full-modal"
+          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowScorecardModal(false);
+          }}
+        >
+          <div className="bg-white rounded-2xl border border-slate-300 shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                  📄 v4.0 최종 검수 리포트 전문
+                </h3>
+                <p className="text-xs text-slate-500">
+                  전체 내용을 넓은 화면에서 확인하고 바로 클립보드 복사 또는 마크다운(.md) 파일로 저장할 수 있습니다.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="scorecard-modal-copy-btn"
+                  onClick={() =>
+                    handleCopy(
+                      generateScorecardMarkdown(),
+                      "검수 리포트 전문",
+                      "scorecard-modal-copy"
+                    )
+                  }
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                >
+                  {copiedKey === "scorecard-modal-copy" ? "✅ 복사됨!" : "📋 전문 복사"}
+                </button>
+                <button
+                  type="button"
+                  data-testid="scorecard-modal-download-btn"
+                  onClick={handleDownloadScorecardMd}
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                >
+                  ⬇️ .md 저장
+                </button>
+                <button
+                  type="button"
+                  data-testid="close-scorecard-modal-btn"
+                  onClick={() => setShowScorecardModal(false)}
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-900 text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+            <div className="p-5 flex-1 overflow-hidden flex flex-col bg-slate-950">
+              <pre className="dark-scrollbar flex-1 p-5 rounded-xl bg-slate-900 text-slate-100 text-xs sm:text-sm font-mono whitespace-pre-wrap overflow-y-auto select-all border border-slate-700 leading-relaxed">
+                {generateScorecardMarkdown()}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

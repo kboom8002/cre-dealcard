@@ -105,16 +105,31 @@ export async function optimizeImageForPptx(
         } else if (fs.existsSync(/*turbopackIgnore: true*/ testguidePath)) {
           inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ testguidePath);
         } else {
-          inputBuffer = await sharp({
-            create: {
-              width: 1280,
-              height: 853,
-              channels: 3,
-              background: { r: 30, g: 41, b: 59 },
-            },
-          })
-            .jpeg({ quality: 88, mozjpeg: true })
-            .toBuffer();
+          const baseFilename = path.basename(relSlug);
+          try {
+            const { TESTGUIDE_IMAGE_CDN_MAP } = await import('@/lib/testguide/testguide-data');
+            const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[baseFilename];
+            if (cdnUrl) {
+              const upstream = await fetch(cdnUrl);
+              if (upstream.ok) {
+                inputBuffer = Buffer.from(await upstream.arrayBuffer());
+              }
+            }
+          } catch {
+            // Fall through to deterministic sharp placeholder
+          }
+          if (!inputBuffer!) {
+            inputBuffer = await sharp({
+              create: {
+                width: 1280,
+                height: 853,
+                channels: 3,
+                background: { r: 30, g: 41, b: 59 },
+              },
+            })
+              .jpeg({ quality: 88, mozjpeg: true })
+              .toBuffer();
+          }
         }
       }
       if (!inputBuffer! && fs.existsSync(/*turbopackIgnore: true*/ localPath)) {

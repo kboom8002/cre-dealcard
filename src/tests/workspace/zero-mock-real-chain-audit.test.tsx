@@ -56,7 +56,7 @@ interface InMemoryTables {
 }
 
 let db: InMemoryTables;
-let activeBrokerUser = { id: "broker-lee-uuid", email: "lee@credeal.net" };
+let activeBrokerUser = { id: "00000000-0000-4000-8000-000000000077", email: "lee@credeal.net" };
 
 function resetInMemoryDb() {
   db = {
@@ -86,7 +86,7 @@ function resetInMemoryDb() {
     ],
     profiles: [
       {
-        id: "broker-lee-uuid",
+        id: "00000000-0000-4000-8000-000000000077",
         display_name: "이상덕",
         company: "JS 부동산 중개법인",
         phone: "010-3355-5589",
@@ -96,7 +96,7 @@ function resetInMemoryDb() {
     ],
     broker_profiles: [
       {
-        user_id: "broker-lee-uuid",
+        user_id: "00000000-0000-4000-8000-000000000077",
         name: "이상덕",
         slug: "js-realty",
         company: "JS 부동산 중개법인",

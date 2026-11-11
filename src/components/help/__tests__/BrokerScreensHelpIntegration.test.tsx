@@ -45,6 +45,7 @@ vi.mock("motion/react", () => ({
       <button {...props}>{children}</button>
     ),
   },
+  MotionConfig: ({ children }: any) => <>{children}</>,
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
@@ -82,6 +83,10 @@ describe("BrokerScreensHelpIntegration", () => {
   });
 
   describe("BrokerSeniorLayout Global Helper Toggle Integration", () => {
+    beforeEach(() => {
+      currentPathname = "/broker/profile";
+    });
+
     it("renders topbar buttons: contextual help, feedback modal, and helper toggle", async () => {
       await act(async () => {
         root.render(

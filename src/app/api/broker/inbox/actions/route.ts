@@ -405,9 +405,13 @@ export async function POST(req: NextRequest) {
 
       const memDecision = rawId ? getInboxState().gateDecisions?.[rawId] : undefined;
       const nowMs = Date.now();
+      // Match GET /api/broker/inbox classification: 'submitted' requests waiting for broker review
+      // remain actionable ('submitted'), whereas explicitly 'expired' rows or expired 'approved' grants
+      // are treated as 'expired' (preserving C-S0-02 expired gate invariant).
       const effectiveCurrentStatus = existingGateRow
         ? existingGateRow.status === 'expired' ||
-          (existingGateRow.expires_at &&
+          (existingGateRow.status === 'approved' &&
+            existingGateRow.expires_at &&
             toSafeEpochMs(existingGateRow.expires_at) > 0 &&
             toSafeEpochMs(existingGateRow.expires_at) <= nowMs)
           ? 'expired'
@@ -691,34 +695,7 @@ export async function POST(req: NextRequest) {
           }
         };
 
-        // 1) magazine_subscribers (explicit opt-in / opt-out rows)
-        const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
-        for (const s of subRows) {
-          const phoneVal = s?.subscriber_phone ?? s?.phone;
-          const emailVal = s?.subscriber_email ?? s?.email;
-          const nameVal = s?.subscriber_name ?? s?.name;
-          const statusVal = String(s?.status ?? 'active').toLowerCase();
-          const ts = toSafeEpochMs(s?.unsubscribed_at || s?.updated_at || s?.created_at);
-          const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
-          const segRaw = String(s?.segment || s?.client_type || '').toLowerCase();
-          const cType: 'buyer' | 'seller' | 'both' =
-            segRaw === 'seller' || segRaw === 'owner'
-              ? 'seller'
-              : segRaw === 'both'
-              ? 'both'
-              : 'buyer';
-          if (statusVal === 'unsubscribed' || statusVal === 'inactive') {
-            applyConsentState(k, false, ts, false, cType);
-            const telKey = normalizeSubKey(phoneVal);
-            const emailKey = normalizeSubKey(undefined, emailVal);
-            if (telKey) applyConsentState(telKey, false, ts, false, cType);
-            if (emailKey) applyConsentState(emailKey, false, ts, false, cType);
-          } else if (statusVal === 'active' && k) {
-            applyConsentState(k, true, ts, Boolean(s?.is_vip), cType);
-          }
-        }
-
-        // 2) broker_clients — C-S1-03: ONLY explicit newsletter tag counts as consent (never untagged VIP!)
+        // 1) broker_clients — C-S1-03: ONLY explicit newsletter tag counts as base CRM consent (never untagged VIP!)
         const dbClientRows = Array.isArray((brokerClientsRes as any)?.data)
           ? (brokerClientsRes as any).data
           : [];
@@ -749,6 +726,33 @@ export async function POST(req: NextRequest) {
           const key = normalizeSubKey(c?.phone, c?.email, c?.display_name, c?.id);
           const ts = toSafeEpochMs(c?.created_at);
           applyConsentState(key, hasExplicitOptIn && !hasExplicitOptOut, ts, isVip, cType);
+        }
+
+        // 2) magazine_subscribers (explicit opt-in / opt-out rows — authoritative over static broker_clients tags)
+        const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
+        for (const s of subRows) {
+          const phoneVal = s?.subscriber_phone ?? s?.phone;
+          const emailVal = s?.subscriber_email ?? s?.email;
+          const nameVal = s?.subscriber_name ?? s?.name;
+          const statusVal = String(s?.status ?? 'active').toLowerCase();
+          const ts = toSafeEpochMs(s?.unsubscribed_at || s?.updated_at || s?.created_at);
+          const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
+          const segRaw = String(s?.segment || s?.client_type || '').toLowerCase();
+          const cType: 'buyer' | 'seller' | 'both' =
+            segRaw === 'seller' || segRaw === 'owner'
+              ? 'seller'
+              : segRaw === 'both'
+              ? 'both'
+              : 'buyer';
+          if (statusVal === 'unsubscribed' || statusVal === 'inactive') {
+            applyConsentState(k, false, ts, false, cType);
+            const telKey = normalizeSubKey(phoneVal);
+            const emailKey = normalizeSubKey(undefined, emailVal);
+            if (telKey) applyConsentState(telKey, false, ts, false, cType);
+            if (emailKey) applyConsentState(emailKey, false, ts, false, cType);
+          } else if (statusVal === 'active' && k) {
+            applyConsentState(k, true, ts, Boolean(s?.is_vip), cType);
+          }
         }
 
         // 3) In-memory customClients owned by userId (explicit boolean newsletterSubscribed === true)

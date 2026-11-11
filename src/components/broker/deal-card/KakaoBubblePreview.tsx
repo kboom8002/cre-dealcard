@@ -86,19 +86,19 @@ export function KakaoBubblePreview({
 
   return (
     <div
-      className={`flex flex-col items-center bg-slate-100 rounded-2xl border border-slate-300 p-4 space-y-4 ${className}`}
+      className={`w-full max-w-full min-w-0 overflow-hidden flex flex-col items-center bg-slate-100 rounded-2xl border border-slate-300 p-3.5 space-y-4 ${className}`}
       data-testid="kakao-bubble-preview"
     >
       {/* Top Controls: View Filter */}
-      <div className="w-full flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
-        <span className="text-sm font-extrabold text-slate-800">
+      <div className="w-full min-w-0 flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
+        <span className="text-sm font-extrabold text-slate-800 shrink-0">
           미리보기
         </span>
 
         <div
           role="tablist"
           aria-label="미리보기 화면 전환"
-          className="inline-flex rounded-xl bg-slate-200 p-1 border border-slate-300 text-sm shrink-0"
+          className="inline-flex max-w-full overflow-x-auto no-scrollbar rounded-xl bg-slate-200 p-1 border border-slate-300 text-sm"
         >
           <button
             type="button"
@@ -206,9 +206,19 @@ export function KakaoBubblePreview({
                 className="font-extrabold text-slate-900 text-base"
               />
 
-              <div className="w-full py-2.5 bg-slate-100 text-slate-800 rounded-lg text-center font-bold text-sm border border-slate-200">
+              <button
+                type="button"
+                data-testid="kakao-bubble-detail-btn"
+                onClick={() => {
+                  setViewFilter('detail');
+                  showPreviewHint(
+                    '고객이 카톡 말풍선에서 [자세히 보기]를 눌렀을 때 열리는 상세 화면입니다.'
+                  );
+                }}
+                className="w-full min-h-[42px] py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center font-bold text-sm border border-slate-200 transition-colors cursor-pointer"
+              >
                 자세히 보기
-              </div>
+              </button>
             </div>
           </div>
         </div>

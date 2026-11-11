@@ -7,6 +7,7 @@ import { WorkspaceBottomNav, DEFAULT_WORKSPACE_TABS } from "./WorkspaceBottomNav
 import { SAVE_STATE_LABELS, formatRelativeKo, type HonestSaveState } from "@/lib/ux/lexicon";
 
 const COL_WIDTHS_STORAGE_KEY = "credeal-workspace-col-widths-v1";
+const FONT_SCALE_STORAGE_KEY = "credeal-workspace-font-scale-v1";
 const DEFAULT_LIST_WIDTH = 310;
 const MIN_LIST_WIDTH = 220;
 const MAX_LIST_WIDTH = 480;
@@ -112,6 +113,35 @@ export function WorkspaceShell({
   const queryTab = rawQueryTab || "editor";
 
   const activeBuildingId = selectedBuildingId ?? queryBuildingId;
+
+  // Desktop workspace font density preference ("normal" = 17px, "compact" = 15px)
+  const [fontScale, setFontScale] = useState<"normal" | "compact">("normal");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(FONT_SCALE_STORAGE_KEY);
+      if (saved === "compact" || saved === "normal") {
+        setFontScale(saved);
+        document.documentElement.dataset.fontScale = saved;
+      }
+    } catch {
+      // ignore storage failure
+    }
+  }, []);
+
+  const handleFontScaleChange = useCallback((nextScale: "normal" | "compact") => {
+    setFontScale(nextScale);
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.fontScale = nextScale;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, nextScale);
+      } catch {
+        // ignore storage failure
+      }
+    }
+  }, []);
 
   // Re-render every 30s so "3분 전" stays truthful
   const [, setNowTick] = useState(0);
@@ -541,6 +571,41 @@ export function WorkspaceShell({
 
         {/* Right tools / indicators (Translucent Glass Pills) */}
         <div className="hidden sm:flex items-center gap-2 shrink-0">
+          {/* Font Density Toggle (표준 15px / 큰글씨 17px) */}
+          <div
+            role="group"
+            aria-label="화면 글자 크기 선택"
+            data-testid="workspace-font-scale-toggle"
+            className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-0.5 rounded-xl border border-white/60"
+          >
+            <button
+              type="button"
+              data-testid="workspace-font-scale-compact"
+              aria-pressed={fontScale === "compact"}
+              onClick={() => handleFontScaleChange("compact")}
+              className={`px-2.5 min-h-[38px] rounded-[10px] text-sm font-semibold transition-all cursor-pointer ${
+                fontScale === "compact"
+                  ? "ios-segmented-pill bg-white text-[#007AFF]"
+                  : "text-[#3A3A3C] hover:text-[#1D1D1F]"
+              }`}
+            >
+              표준 글씨
+            </button>
+            <button
+              type="button"
+              data-testid="workspace-font-scale-normal"
+              aria-pressed={fontScale === "normal"}
+              onClick={() => handleFontScaleChange("normal")}
+              className={`px-2.5 min-h-[38px] rounded-[10px] text-sm font-semibold transition-all cursor-pointer ${
+                fontScale === "normal"
+                  ? "ios-segmented-pill bg-white text-[#007AFF]"
+                  : "text-[#3A3A3C] hover:text-[#1D1D1F]"
+              }`}
+            >
+              큰글씨
+            </button>
+          </div>
+
           {/* Desktop Preview Drawer Toggle (when 1024px-1279px) */}
           <button
             type="button"
@@ -740,80 +805,82 @@ export function WorkspaceShell({
               : "flex"
           }`}
         >
-          {/* Editor Header */}
-          <div className="h-14 border-b border-slate-900/[0.07] px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0 bg-white/78 backdrop-blur-2xl backdrop-saturate-[190%] sticky top-0 z-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_2px_12px_-2px_rgba(15,23,42,0.03)]">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <button
-                type="button"
-                data-testid="workspace-mobile-back-to-list-btn"
-                onClick={() => {
-                  suppressListQueryRef.current = false;
-                  setMobileView("list");
-                  const baseSearch =
-                    typeof window !== "undefined" && window.location.search
-                      ? window.location.search
-                      : searchParams.toString();
-                  const params = new URLSearchParams(baseSearch);
-                  if (params.has("buildingId")) {
-                    params.delete("id");
-                  }
-                  params.set("tab", "list");
-                  router.replace(`${pathname}?${params.toString()}`);
-                }}
-                className="lg:hidden px-2.5 sm:px-3 min-h-[44px] sm:min-h-[48px] rounded-xl ios-glass-pill bg-white/80 border border-slate-900/[0.08] text-sm sm:text-base font-semibold text-[#1D1D1F] hover:bg-white whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                ‹ 목록
-              </button>
-              <h2 className="text-base sm:text-xl font-bold text-[#1D1D1F] tracking-tight whitespace-nowrap truncate">
-                {editorTitle}
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {renderedSaveStatus && (
-                <div
-                  data-testid="workspace-save-status"
-                  data-save-state={saveState}
-                  role="status"
-                  aria-live="polite"
-                  className={`flex items-center gap-1.5 text-sm sm:text-base font-semibold px-2.5 sm:px-3 py-1 rounded-full border whitespace-nowrap shrink-0 ${saveTone}`}
+          {/* Editor Header — aligned on the exact same max-w-4xl horizontal axis as Editor Body */}
+          <div className="h-14 border-b border-slate-900/[0.07] px-3 sm:px-5 flex items-center shrink-0 bg-white/78 backdrop-blur-2xl backdrop-saturate-[190%] sticky top-0 z-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_2px_12px_-2px_rgba(15,23,42,0.03)]">
+            <div className="w-full max-w-4xl mx-auto flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button
+                  type="button"
+                  data-testid="workspace-mobile-back-to-list-btn"
+                  onClick={() => {
+                    suppressListQueryRef.current = false;
+                    setMobileView("list");
+                    const baseSearch =
+                      typeof window !== "undefined" && window.location.search
+                        ? window.location.search
+                        : searchParams.toString();
+                    const params = new URLSearchParams(baseSearch);
+                    if (params.has("buildingId")) {
+                      params.delete("id");
+                    }
+                    params.set("tab", "list");
+                    router.replace(`${pathname}?${params.toString()}`);
+                  }}
+                  className="lg:hidden px-2.5 sm:px-3 min-h-[44px] sm:min-h-[48px] rounded-xl ios-glass-pill bg-white/80 border border-slate-900/[0.08] text-sm sm:text-base font-semibold text-[#1D1D1F] hover:bg-white whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <span>{renderedSaveStatus}</span>
-                </div>
-              )}
+                  ‹ 목록
+                </button>
+                <h2 className="text-base sm:text-xl font-bold text-[#1D1D1F] tracking-tight whitespace-nowrap truncate">
+                  {editorTitle}
+                </h2>
+              </div>
 
-              <button
-                type="button"
-                data-testid="workspace-editor-preview-drawer-btn"
-                onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
-                aria-expanded={isPreviewDrawerOpen}
-                className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[40px] rounded-xl border border-[#007AFF]/25 bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-sm font-semibold text-[#0040DD] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all cursor-pointer shrink-0"
-              >
-                <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {renderedSaveStatus && (
+                  <div
+                    data-testid="workspace-save-status"
+                    data-save-state={saveState}
+                    role="status"
+                    aria-live="polite"
+                    className={`flex items-center gap-1.5 text-sm sm:text-base font-semibold px-2.5 sm:px-3 py-1 rounded-full border whitespace-nowrap shrink-0 ${saveTone}`}
+                  >
+                    <span>{renderedSaveStatus}</span>
+                  </div>
+                )}
 
-              {mobileView === "editor" && (
-                <div className="lg:hidden flex items-center ios-segmented-track bg-[#767680]/[0.11] p-0.5 rounded-xl border border-white/60 shrink-0">
-                  <button
-                    type="button"
-                    data-testid="mobile-tab-editor"
-                    onClick={() => handleSelectTab("editor")}
-                    aria-pressed={true}
-                    className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
-                  >
-                    {mobileTabLabels.editor}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="mobile-tab-preview"
-                    onClick={() => handleSelectTab("preview")}
-                    aria-pressed={false}
-                    className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
-                  >
-                    {mobileTabLabels.preview}
-                  </button>
-                </div>
-              )}
+                <button
+                  type="button"
+                  data-testid="workspace-editor-preview-drawer-btn"
+                  onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
+                  aria-expanded={isPreviewDrawerOpen}
+                  className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[40px] rounded-xl border border-[#007AFF]/25 bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-sm font-semibold text-[#0040DD] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all cursor-pointer shrink-0"
+                >
+                  <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
+                </button>
+
+                {mobileView === "editor" && (
+                  <div className="lg:hidden flex items-center ios-segmented-track bg-[#767680]/[0.11] p-0.5 rounded-xl border border-white/60 shrink-0">
+                    <button
+                      type="button"
+                      data-testid="mobile-tab-editor"
+                      onClick={() => handleSelectTab("editor")}
+                      aria-pressed={true}
+                      className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
+                    >
+                      {mobileTabLabels.editor}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="mobile-tab-preview"
+                      onClick={() => handleSelectTab("preview")}
+                      aria-pressed={false}
+                      className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
+                    >
+                      {mobileTabLabels.preview}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -856,13 +923,13 @@ export function WorkspaceShell({
               : "hidden xl:flex lg:w-[var(--ws-preview-w)]"
           } ${
             isPreviewDrawerOpen
-              ? "lg:flex lg:fixed lg:right-0 lg:top-14 lg:bottom-0 lg:z-40 lg:w-[var(--ws-preview-w)] lg:shadow-[0_24px_48px_rgba(15,23,42,0.16)] xl:static xl:inset-auto xl:z-auto xl:w-[380px] xl:shadow-none"
+              ? "lg:flex lg:fixed lg:right-0 lg:top-14 lg:bottom-0 lg:z-40 lg:w-[var(--ws-preview-w)] lg:shadow-[0_24px_48px_rgba(15,23,42,0.16)] xl:static xl:inset-auto xl:z-auto xl:w-[var(--ws-preview-w)] xl:shadow-none"
               : ""
           }`}
         >
           {/* Preview Header */}
-          <div className="h-14 border-b border-slate-900/[0.06] px-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/72 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="min-h-14 py-1.5 border-b border-slate-900/[0.06] px-3 flex flex-wrap items-center justify-between gap-1.5 shrink-0 bg-white/72 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+            <div className="flex items-center gap-2 min-w-0">
               <button
                 type="button"
                 data-testid="mobile-preview-back-btn"
@@ -884,7 +951,7 @@ export function WorkspaceShell({
               >
                 ‹ 목록
               </button>
-              <h2 className="text-base sm:text-lg font-bold text-[#1D1D1F] tracking-tight whitespace-nowrap truncate">
+              <h2 className={`${previewTabSlot ? "text-sm" : "text-base sm:text-lg"} font-bold text-[#1D1D1F] tracking-tight whitespace-nowrap`}>
                 {previewTitle}
               </h2>
             </div>

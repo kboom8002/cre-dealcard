@@ -190,10 +190,9 @@ function buildImageList(
 ): TestGuideImageAsset[] {
   return items.map((it) => {
     const apiBaseUrl = `/api/public/testguide-assets/images/${encodeURIComponent(folder)}/${encodeURIComponent(it.filename)}`;
-    const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[it.filename] || apiBaseUrl;
     return {
       ...it,
-      previewUrl: cdnUrl,
+      previewUrl: apiBaseUrl,
       downloadUrl: `${apiBaseUrl}?download=1`,
     };
   });

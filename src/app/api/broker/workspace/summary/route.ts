@@ -330,7 +330,32 @@ export async function GET(request: NextRequest) {
     const landSqmRaw = Number(layersObj.building_register?.land_area_sqm || 0);
     const gfaPyung = bodyCard4?.gfaPyung || (gfaSqmRaw > 0 ? Math.round(gfaSqmRaw / 3.3058) : undefined);
     const landAreaPyung = bodyCard4?.landAreaPyung || (landSqmRaw > 0 ? Math.round(landSqmRaw / 3.3058) : undefined);
-    const posture: DealCardPosture = bodyCard4?.posture || "income";
+    const imDocForBld = docs.find(
+      (d) =>
+        d.building_id === b.id &&
+        (d.document_type === "mobile_im" ||
+          d.document_type === "im_lite" ||
+          d.document_type === "im_lite_draft")
+    );
+    const rawImPosture = String(
+      imDocForBld?.investment_posture ||
+        imDocForBld?.ssot_summary?.investment_posture ||
+        imDocForBld?.body?.investment_posture ||
+        layersObj.deal_terms?.investment_posture ||
+        ""
+    ).trim();
+    const mappedImPosture: DealCardPosture | undefined =
+      rawImPosture === "owner_occupied" || rawImPosture === "owner_occupier"
+        ? "owner_occupied"
+        : rawImPosture === "value_add" ||
+          rawImPosture === "development" ||
+          rawImPosture === "redevelopment" ||
+          rawImPosture === "reconstruction"
+        ? "value_add"
+        : rawImPosture
+        ? "income"
+        : undefined;
+    const posture: DealCardPosture = bodyCard4?.posture || mappedImPosture || "income";
     const area = resolveCard4AreaLabel(
       { ...bodyCard4, posture, gfaPyung, landAreaPyung },
       { gfaPyung, landAreaPyung }
@@ -340,7 +365,7 @@ export async function GET(request: NextRequest) {
     const headline =
       repairDealCardLine(bodyCard4?.headline) ||
       repairDealCardLine(typeof teaserCard4Headline === "string" ? teaserCard4Headline : "") ||
-      generateAiOgHeadline({ posture: bodyCard4?.posture || "income", points });
+      generateAiOgHeadline({ posture, points });
 
     const card4: Card4Data = {
       headline,
@@ -571,6 +596,7 @@ export async function GET(request: NextRequest) {
     const normalizedDocPhotos =
       effectiveRawPhotos.length > 0
         ? effectiveRawPhotos.map((p: any, idx: number) => ({
+            ...(p.name ? { name: String(p.name) } : {}),
             url: String(p.url),
             caption: String(p.caption || p.label || `현장 사진 ${idx + 1}`),
             category: String(p.category || p.type || (idx === 0 ? "exterior" : "interior")),
@@ -1060,6 +1086,29 @@ export async function GET(request: NextRequest) {
     );
     const qDocBody = ((qRec as any).docBody || qRec.fullDocBody || {}) as Record<string, any>;
     const qSsot = (qDocBody.ssot_summary || {}) as Record<string, any>;
+    const qRawPhotos = Array.isArray(qDocBody.photos_v2) && qDocBody.photos_v2.length > 0
+      ? qDocBody.photos_v2
+      : Array.isArray(qDocBody.photos) && qDocBody.photos.length > 0
+      ? qDocBody.photos
+      : Array.isArray(qRec.basicImDoc?.facts?.photos)
+      ? qRec.basicImDoc.facts.photos
+      : [];
+    const qNormalizedPhotos = qRawPhotos
+      .filter(
+        (p: any) =>
+          p &&
+          typeof p.url === "string" &&
+          p.url.trim().length > 0 &&
+          !p.url.startsWith("/test-images/") &&
+          !p.url.startsWith("blob:")
+      )
+      .map((p: any, idx: number) => ({
+        ...(p.name ? { name: String(p.name) } : {}),
+        url: String(p.url),
+        caption: String(p.caption || p.label || `현장 사진 ${idx + 1}`),
+        category: String(p.category || p.type || (idx === 0 ? "exterior" : "interior")),
+        isHero: Boolean(p.isHero ?? idx === 0),
+      }));
     const mappedIm: ImSummaryItem = {
       id: qRec.documentId,
       buildingId: qRec.buildingId,
@@ -1071,6 +1120,7 @@ export async function GET(request: NextRequest) {
       versionLabel: qRec.ownerId === userId ? "v1 생성 완료" : "v1 작성 중",
       updatedAt: formatRelativeTime(qRec.updatedAt),
       rentRoll: qRec.rentRoll,
+      ...(qNormalizedPhotos.length > 0 ? { photos: qNormalizedPhotos } : {}),
       investmentPosture: qRec.posture || "core_income",
       gfaSqm: qRec.specs?.gfaSqm ? String(qRec.specs.gfaSqm) : undefined,
       landAreaSqm: qRec.specs?.landAreaSqm ? String(qRec.specs.landAreaSqm) : undefined,
@@ -1265,9 +1315,19 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const seenSummaryImIds = new Set<string>();
+  const seenSummaryImBldIds = new Set<string>();
   const finalImList = imList.filter((im) => {
     if (deletedImIds.has(im.id) || (im.buildingId && deletedImIds.has(im.buildingId))) {
       return false;
+    }
+    if (im.id) {
+      if (seenSummaryImIds.has(im.id)) return false;
+      seenSummaryImIds.add(im.id);
+    }
+    if (im.buildingId && isUuid(im.buildingId)) {
+      if (seenSummaryImBldIds.has(im.buildingId)) return false;
+      seenSummaryImBldIds.add(im.buildingId);
     }
     return true;
   });

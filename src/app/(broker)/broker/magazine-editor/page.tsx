@@ -3607,25 +3607,55 @@ function MagazineEditorWorkspace() {
               className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-blue-700" aria-hidden="true" />
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    시장 브리핑 글
-                  </h3>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-blue-700" aria-hidden="true" />
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      시장 브리핑 글
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600">
+                    ①단계 표지 제목·한줄소개와 별도로 본문 상단에 실리는 칼럼입니다. 아래 버튼으로 표지 내용을 바로 가져와 다듬을 수 있습니다.
+                  </p>
                 </div>
-                <AiCommentRecommendButton
-                  currentValue={briefingBody}
-                  fallbackContext={
-                    [autoMeta.yearMonthLabel, regionFocus, headline, summary]
-                      .filter(Boolean)
-                      .join(" · ") || "이번 달 상업용 빌딩 시장 분위기"
-                  }
-                  onChangeValue={(next) => {
-                    setBriefingBody(next);
-                    persistLocalDraft({ briefingBody: next });
-                  }}
-                  label="AI로 추천글 쓰기"
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  {(headline.trim() || summary.trim()) && (
+                    <button
+                      type="button"
+                      data-testid="copy-cover-to-briefing-btn"
+                      onClick={() => {
+                        const nextTitle = headline.trim() || briefingTitle;
+                        const nextBody = summary.trim() || briefingBody;
+                        setBriefingTitle(nextTitle);
+                        setBriefingBody(nextBody);
+                        persistLocalDraft({
+                          briefingTitle: nextTitle,
+                          briefingBody: nextBody,
+                        });
+                        setStatusBanner({
+                          tone: "info",
+                          message: "①단계 표지 제목·한줄소개를 시장 브리핑 초안으로 가져왔습니다.",
+                        });
+                      }}
+                      className="min-h-[44px] rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-extrabold text-blue-800 hover:bg-blue-100 transition-colors cursor-pointer"
+                    >
+                      ① 표지 제목·소개 가져오기
+                    </button>
+                  )}
+                  <AiCommentRecommendButton
+                    currentValue={briefingBody}
+                    fallbackContext={
+                      [autoMeta.yearMonthLabel, regionFocus, headline, summary]
+                        .filter(Boolean)
+                        .join(" · ") || "이번 달 상업용 빌딩 시장 분위기"
+                    }
+                    onChangeValue={(next) => {
+                      setBriefingBody(next);
+                      persistLocalDraft({ briefingBody: next });
+                    }}
+                    label="AI로 추천글 쓰기"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

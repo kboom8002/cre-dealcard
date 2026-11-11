@@ -51,6 +51,29 @@ const CANONICAL_SECTION_CHIPS = [
   { id: "10_contact", label: "10 문의" },
 ] as const;
 
+const BROKER_VIEWER_PLACEHOLDERS = new Set([
+  "",
+  "-",
+  "—",
+  "담당 공인중개사",
+  "담당 중개인",
+  "담당 중개법인 (확인 중)",
+  "담당 중개법인",
+  "전담 중개법인",
+  "김대표",
+  "미등록",
+  "11680-2024-00123",
+  "11680-2024-00001",
+  "02-555-1234",
+  "02-1234-5678",
+]);
+
+function cleanViewerBrokerField(val?: unknown): string {
+  if (!val || typeof val !== "string") return "";
+  const cleaned = val.replace(/\s*\(확인\s*중\)/g, "").trim();
+  return BROKER_VIEWER_PLACEHOLDERS.has(cleaned) ? "" : cleaned;
+}
+
 export function MobileIMViewer({
   document: initialDoc,
   buildingId,
@@ -263,15 +286,15 @@ export function MobileIMViewer({
 
     const brokerInfo = {
       name:
-        initialDoc?.broker?.office ||
-        initialDoc?.broker?.company ||
-        "전담 중개법인",
+        cleanViewerBrokerField(initialDoc?.broker?.office) ||
+        cleanViewerBrokerField(initialDoc?.broker?.company) ||
+        "전담 중개사무소",
       representative:
-        initialDoc?.broker?.name ||
-        initialDoc?.broker?.displayName ||
+        cleanViewerBrokerField(initialDoc?.broker?.name) ||
+        cleanViewerBrokerField(initialDoc?.broker?.displayName) ||
         "담당 공인중개사",
-      registrationNo: initialDoc?.broker?.registrationNo || "-",
-      phone: initialDoc?.broker?.phone || "-",
+      registrationNo: cleanViewerBrokerField(initialDoc?.broker?.registrationNo) || "-",
+      phone: cleanViewerBrokerField(initialDoc?.broker?.phone) || "-",
     };
 
     const rawFacts = {
@@ -646,42 +669,46 @@ export function MobileIMViewer({
     photosSec?.data?.handoverCondition ||
     "일반 매매 · 잔금 일정 및 명도 조건 협의 가능";
 
-  // [A2-02] Sanitized broker contact info (never fall back to fake 김대표 / 11680-2024-00123 / 02-555-1234)
-  const rawBroker =
-    contactSec?.data?.brokerOffice ||
-    basicDoc.facts.brokerOffice ||
-    initialDoc?.broker;
-  const rawBrokerOfficeName =
-    rawBroker?.name ||
-    rawBroker?.office ||
-    rawBroker?.company ||
-    initialDoc?.broker?.office ||
-    initialDoc?.broker?.company ||
-    "전담 중개법인";
-  const brokerOfficeName = String(rawBrokerOfficeName)
-    .replace(/\s*\(확인\s*중\)/g, "")
-    .trim() || "전담 중개법인";
-  const rawRepresentative =
-    rawBroker?.representative ||
-    rawBroker?.displayName ||
-    initialDoc?.broker?.name ||
-    initialDoc?.broker?.displayName ||
-    "담당 공인중개사";
-  const brokerRepresentative =
-    rawRepresentative === "김대표"
-      ? initialDoc?.broker?.name || initialDoc?.broker?.displayName || "담당 공인중개사"
-      : rawRepresentative;
-  const rawRegistrationNo =
-    rawBroker?.registrationNo || initialDoc?.broker?.registrationNo || "-";
-  const brokerRegistrationNo =
-    rawRegistrationNo === "11680-2024-00123" || rawRegistrationNo === "11680-2024-00001"
-      ? initialDoc?.broker?.registrationNo || "-"
-      : rawRegistrationNo;
-  const rawPhone = rawBroker?.phone || initialDoc?.broker?.phone || "-";
-  const brokerPhone =
-    rawPhone === "02-555-1234" || rawPhone === "02-1234-5678"
-      ? initialDoc?.broker?.phone || "-"
-      : rawPhone;
+  // [A2-02] Sanitized per-field broker contact info (never let a placeholder in one layer shadow real profile fields)
+  const contactBrokerObj = contactSec?.data?.brokerOffice;
+  const factsBrokerObj = basicDoc.facts.brokerOffice;
+  const legacyBrokerContact = (initialDoc as any)?.broker_contact;
+  const topBrokerObj = initialDoc?.broker;
+
+  const realBrokerOfficeName =
+    cleanViewerBrokerField(contactBrokerObj?.name) ||
+    cleanViewerBrokerField(contactBrokerObj?.office) ||
+    cleanViewerBrokerField(contactBrokerObj?.company) ||
+    cleanViewerBrokerField(factsBrokerObj?.name) ||
+    cleanViewerBrokerField(legacyBrokerContact?.brokerageName) ||
+    cleanViewerBrokerField(topBrokerObj?.company) ||
+    cleanViewerBrokerField(topBrokerObj?.office);
+  const brokerOfficeName = realBrokerOfficeName || "전담 중개사무소";
+
+  const realBrokerRepresentative =
+    cleanViewerBrokerField(contactBrokerObj?.representative) ||
+    cleanViewerBrokerField(contactBrokerObj?.displayName) ||
+    cleanViewerBrokerField(factsBrokerObj?.representative) ||
+    cleanViewerBrokerField(legacyBrokerContact?.brokerName) ||
+    cleanViewerBrokerField(topBrokerObj?.displayName) ||
+    cleanViewerBrokerField(topBrokerObj?.name);
+  const brokerRepresentative = realBrokerRepresentative || "담당 공인중개사";
+
+  const realBrokerRegistrationNo =
+    cleanViewerBrokerField(contactBrokerObj?.registrationNo) ||
+    cleanViewerBrokerField(factsBrokerObj?.registrationNo) ||
+    cleanViewerBrokerField(legacyBrokerContact?.registrationNo) ||
+    cleanViewerBrokerField(legacyBrokerContact?.officeRegNumber) ||
+    cleanViewerBrokerField(topBrokerObj?.registrationNo);
+  const brokerRegistrationNo = realBrokerRegistrationNo || "-";
+
+  const realBrokerPhone =
+    cleanViewerBrokerField(contactBrokerObj?.phone) ||
+    cleanViewerBrokerField(factsBrokerObj?.phone) ||
+    cleanViewerBrokerField(legacyBrokerContact?.brokerPhone) ||
+    cleanViewerBrokerField(topBrokerObj?.phone);
+  const brokerPhone = realBrokerPhone || "-";
+  const isMissingBrokerContact = !realBrokerOfficeName || !realBrokerPhone;
   const contactDisclaimer =
     contactSec?.data?.disclaimer ||
     initialDoc?.disclaimer ||
@@ -1353,12 +1380,36 @@ export function MobileIMViewer({
           </div>
 
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">담당 중개사무소</h2>
-          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-1 text-[15px]">
+          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-1.5 text-[15px]">
             <p className="font-extrabold text-[#0F172A]">{brokerOfficeName}</p>
             <p className="text-[#475569]">
-              대표: {brokerRepresentative} · 등록번호: {brokerRegistrationNo}
+              대표: {brokerRepresentative}
+              {realBrokerRegistrationNo ? ` · 등록번호: ${realBrokerRegistrationNo}` : ""}
             </p>
-            <p className="text-[#1D4ED8] font-bold">연락처: {brokerPhone}</p>
+            <p className="text-[#1D4ED8] font-bold">
+              연락처:{" "}
+              {realBrokerPhone ? (
+                <a href={`tel:${realBrokerPhone.replace(/[^0-9+]/g, "")}`} className="hover:underline">
+                  {realBrokerPhone}
+                </a>
+              ) : (
+                <span className="text-[#64748B] font-semibold">문의 시 안내</span>
+              )}
+            </p>
+            {isBroker && isMissingBrokerContact && (
+              <div
+                data-testid="mobile-im-broker-profile-nudge"
+                className="mt-2 pt-2 border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2 text-[14px] text-[#475569]"
+              >
+                <span>중개사무소 상호·연락처·등록번호를 입력하면 고객 열람본에 자동 반영됩니다.</span>
+                <Link
+                  href="/broker/profile"
+                  className="font-bold text-[#1D4ED8] hover:underline shrink-0"
+                >
+                  내 프로필에서 설정하기 →
+                </Link>
+              </div>
+            )}
           </div>
 
           <p className="text-[14px] text-[#64748B] leading-relaxed pt-2">

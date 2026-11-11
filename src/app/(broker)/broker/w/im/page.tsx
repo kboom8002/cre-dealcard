@@ -52,40 +52,78 @@ interface ImPhotoEntry {
   caption?: string;
 }
 
+const buildTestguideAssetUrl = (folder: string, filename: string): string =>
+  `/api/public/testguide-assets/images/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`;
+
 const KNOWN_TEST_ASSET_URLS: Record<string, string> = {
-  "01_동교동_THEPARK_전면외관.jpg":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/01_exterior.jpg",
-  "02_동교동_THEPARK_1층출입구.jpg":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/02_entrance.jpg",
-  "03_동교동_THEPARK_내부실내.png":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/03_interior.png",
-  "04_동교동_THEPARK_루프탑테라스.webp":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/04_rooftop.webp",
-  "01_부천_동아빌딩_전면외관.jpg":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/01_exterior.jpg",
-  "02_부천_동아빌딩_1층로비출입구.jpg":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/02_lobby.jpg",
-  "03_부천_동아빌딩_기준층내부실내.png":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/03_interior.png",
-  "04_부천_동아빌딩_주차장설비.webp":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/04_parking.webp",
-  "01_역삼동_여삼빌딩_전면외관.jpg":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/01_exterior.jpg",
-  "02_역삼동_여삼빌딩_메인로비.jpg":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/02_lobby.jpg",
-  "03_역삼동_여삼빌딩_오피스내부.png":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/03_interior.png",
-  "04_역삼동_여삼빌딩_지하주차장.webp":
-    "https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/04_parking.webp",
+  "01_동교동_THEPARK_전면외관.jpg": buildTestguideAssetUrl("01_동교동_THEPARK", "01_동교동_THEPARK_전면외관.jpg"),
+  "02_동교동_THEPARK_1층출입구.jpg": buildTestguideAssetUrl("01_동교동_THEPARK", "02_동교동_THEPARK_1층출입구.jpg"),
+  "03_동교동_THEPARK_내부실내.png": buildTestguideAssetUrl("01_동교동_THEPARK", "03_동교동_THEPARK_내부실내.png"),
+  "04_동교동_THEPARK_루프탑테라스.webp": buildTestguideAssetUrl("01_동교동_THEPARK", "04_동교동_THEPARK_루프탑테라스.webp"),
+  "01_부천_동아빌딩_전면외관.jpg": buildTestguideAssetUrl("02_부천_동아빌딩", "01_부천_동아빌딩_전면외관.jpg"),
+  "02_부천_동아빌딩_1층로비출입구.jpg": buildTestguideAssetUrl("02_부천_동아빌딩", "02_부천_동아빌딩_1층로비출입구.jpg"),
+  "03_부천_동아빌딩_기준층내부실내.png": buildTestguideAssetUrl("02_부천_동아빌딩", "03_부천_동아빌딩_기준층내부실내.png"),
+  "04_부천_동아빌딩_주차장설비.webp": buildTestguideAssetUrl("02_부천_동아빌딩", "04_부천_동아빌딩_주차장설비.webp"),
+  "01_역삼동_여삼빌딩_전면외관.jpg": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "01_역삼동_여삼빌딩_전면외관.jpg"),
+  "02_역삼동_여삼빌딩_메인로비.jpg": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "02_역삼동_여삼빌딩_메인로비.jpg"),
+  "03_역삼동_여삼빌딩_오피스내부.png": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "03_역삼동_여삼빌딩_오피스내부.png"),
+  "04_역삼동_여삼빌딩_지하주차장.webp": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "04_역삼동_여삼빌딩_지하주차장.webp"),
+  // Legacy Supabase Storage testguide paths -> heal to first-party zero-404 asset route
+  "testguide/deal1/01_exterior.jpg": buildTestguideAssetUrl("01_동교동_THEPARK", "01_동교동_THEPARK_전면외관.jpg"),
+  "testguide/deal1/02_entrance.jpg": buildTestguideAssetUrl("01_동교동_THEPARK", "02_동교동_THEPARK_1층출입구.jpg"),
+  "testguide/deal1/03_interior.png": buildTestguideAssetUrl("01_동교동_THEPARK", "03_동교동_THEPARK_내부실내.png"),
+  "testguide/deal1/04_rooftop.webp": buildTestguideAssetUrl("01_동교동_THEPARK", "04_동교동_THEPARK_루프탑테라스.webp"),
+  "testguide/deal2/01_exterior.jpg": buildTestguideAssetUrl("02_부천_동아빌딩", "01_부천_동아빌딩_전면외관.jpg"),
+  "testguide/deal2/02_lobby.jpg": buildTestguideAssetUrl("02_부천_동아빌딩", "02_부천_동아빌딩_1층로비출입구.jpg"),
+  "testguide/deal2/03_interior.png": buildTestguideAssetUrl("02_부천_동아빌딩", "03_부천_동아빌딩_기준층내부실내.png"),
+  "testguide/deal2/04_parking.webp": buildTestguideAssetUrl("02_부천_동아빌딩", "04_부천_동아빌딩_주차장설비.webp"),
+  "testguide/deal3/01_exterior.jpg": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "01_역삼동_여삼빌딩_전면외관.jpg"),
+  "testguide/deal3/02_lobby.jpg": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "02_역삼동_여삼빌딩_메인로비.jpg"),
+  "testguide/deal3/03_interior.png": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "03_역삼동_여삼빌딩_오피스내부.png"),
+  "testguide/deal3/04_parking.webp": buildTestguideAssetUrl("03_역삼동_여삼빌딩", "04_역삼동_여삼빌딩_지하주차장.webp"),
 };
+
+function stripDuplicateBrowserSuffix(filename: string): string {
+  return filename.replace(/\s*\(\d+\)(?=\.[^.]+$)/, "").trim();
+}
 
 function resolveKnownTestAssetUrl(nameOrUrl?: string | null): string | undefined {
   if (!nameOrUrl || typeof nameOrUrl !== "string") return undefined;
   const trimmed = nameOrUrl.trim();
   if (KNOWN_TEST_ASSET_URLS[trimmed]) return KNOWN_TEST_ASSET_URLS[trimmed];
-  const base = trimmed.split(/[\\/]/).pop() || "";
-  if (KNOWN_TEST_ASSET_URLS[base]) return KNOWN_TEST_ASSET_URLS[base];
+  const legacyMatch = trimmed.match(/testguide\/deal[123]\/[^?#\s]+/);
+  if (legacyMatch && KNOWN_TEST_ASSET_URLS[legacyMatch[0]]) {
+    return KNOWN_TEST_ASSET_URLS[legacyMatch[0]];
+  }
+  const rawBase = trimmed.split(/[\\/]/).pop() || "";
+  let decodedBase = rawBase;
+  try {
+    decodedBase = decodeURIComponent(rawBase);
+  } catch {
+    // ignore malformed URI sequence
+  }
+  for (const candidate of [
+    rawBase,
+    stripDuplicateBrowserSuffix(rawBase),
+    decodedBase,
+    stripDuplicateBrowserSuffix(decodedBase),
+  ]) {
+    if (candidate && KNOWN_TEST_ASSET_URLS[candidate]) {
+      return KNOWN_TEST_ASSET_URLS[candidate];
+    }
+  }
   return undefined;
+}
+
+function resolveRenderablePhotoSrc(pe?: Partial<ImPhotoEntry> | null): string | undefined {
+  if (!pe) return undefined;
+  if (pe.dataUrl && pe.dataUrl.startsWith("data:")) return pe.dataUrl;
+  const healedKnown =
+    resolveKnownTestAssetUrl(pe.url) ||
+    resolveKnownTestAssetUrl(pe.previewUrl) ||
+    resolveKnownTestAssetUrl(pe.name);
+  if (healedKnown) return healedKnown;
+  return pe.previewUrl || pe.url || undefined;
 }
 
 const BROKER_PLACEHOLDERS = new Set([
@@ -213,8 +251,17 @@ function isPersistablePhotoUrl(u?: string | null): u is string {
 function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
   return entries
     .map((pe) => {
-      const rawUrl = pe.dataUrl || pe.url || resolveKnownTestAssetUrl(pe.name);
-      const rawPreview = pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name);
+      const nonDataPersistentUrl =
+        (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+          ? resolveKnownTestAssetUrl(pe.url) || pe.url
+          : undefined) || resolveKnownTestAssetUrl(pe.name);
+      const rawUrl = nonDataPersistentUrl || pe.dataUrl;
+      const rawPreview =
+        pe.dataUrl ||
+        nonDataPersistentUrl ||
+        (isPersistablePhotoUrl(pe.previewUrl)
+          ? resolveKnownTestAssetUrl(pe.previewUrl) || pe.previewUrl
+          : undefined);
       const safeUrl = isPersistablePhotoUrl(rawUrl) ? rawUrl : resolveKnownTestAssetUrl(pe.name);
       const safePreview = isPersistablePhotoUrl(rawPreview) ? rawPreview : safeUrl;
       return {
@@ -395,6 +442,7 @@ function ImWorkspaceInner() {
   const [items, setItems] = useState<ImListItem[]>(INITIAL_IM_LIST);
   const [searchQuery, setSearchQuery] = useState("");
   const [postureFilter, setPostureFilter] = useState<"all" | "income" | "owner" | "value_dev">("all");
+  const [fullscreenModalUrl, setFullscreenModalUrl] = useState<string | null>(null);
   const [activeEditorTab, setActiveEditorTab] = useState<
     "specs" | "rentroll" | "axios_brief" | "media_publish"
   >("specs");
@@ -448,16 +496,24 @@ function ImWorkspaceInner() {
           if (!Array.isArray(it.photos) || it.photos.length === 0) return it;
           return {
             ...it,
-            photos: it.photos.map((pe) => ({
-              ...(pe.id ? { id: pe.id } : {}),
-              name: pe.name,
-              category: pe.category,
-              caption: pe.caption,
-              ...(pe.url && !pe.url.startsWith("data:") ? { url: pe.url } : {}),
-              ...(pe.previewUrl && !pe.previewUrl.startsWith("data:")
-                ? { previewUrl: pe.previewUrl }
-                : {}),
-            })),
+            photos: it.photos.map((pe) => {
+              const fallbackUrl =
+                pe.url && !pe.url.startsWith("data:")
+                  ? resolveKnownTestAssetUrl(pe.url) || pe.url
+                  : resolveKnownTestAssetUrl(pe.name);
+              const fallbackPreview =
+                pe.previewUrl && !pe.previewUrl.startsWith("data:")
+                  ? resolveKnownTestAssetUrl(pe.previewUrl) || pe.previewUrl
+                  : fallbackUrl;
+              return {
+                ...(pe.id ? { id: pe.id } : {}),
+                name: pe.name,
+                category: pe.category,
+                caption: pe.caption,
+                ...(fallbackUrl ? { url: fallbackUrl } : {}),
+                ...(fallbackPreview ? { previewUrl: fallbackPreview } : {}),
+              };
+            }),
           };
         });
       try {
@@ -633,13 +689,20 @@ function ImWorkspaceInner() {
     if (Array.isArray(item.photos) && item.photos.length > 0) {
       const hydratedEntries: ImPhotoEntry[] = item.photos.map((p: any, idx: number) => {
         const name = p.name || p.caption || `현장 사진 ${idx + 1}`;
-        const resolvedUrl =
-          p.dataUrl || p.previewUrl || p.url || resolveKnownTestAssetUrl(name);
+        const healedKnownUrl =
+          resolveKnownTestAssetUrl(p.url) ||
+          resolveKnownTestAssetUrl(p.previewUrl) ||
+          resolveKnownTestAssetUrl(name);
+        const persistentUrl =
+          healedKnownUrl ||
+          (p.url && !String(p.url).startsWith("data:") ? p.url : undefined) ||
+          p.dataUrl;
+        const resolvedPreview = p.dataUrl || healedKnownUrl || p.previewUrl || p.url;
         return {
           id: p.id || `photo-item-${item.id}-${idx}-${name}`,
           name,
-          url: resolvedUrl,
-          previewUrl: resolvedUrl,
+          url: persistentUrl || resolvedPreview,
+          previewUrl: resolvedPreview,
           dataUrl: p.dataUrl,
           category: p.category || (idx === 0 ? "exterior" : "interior"),
           caption: p.caption || `현장 사진 ${idx + 1}`,
@@ -974,6 +1037,32 @@ function ImWorkspaceInner() {
                   ...(nextArea ? { areaSqm: nextArea } : {}),
                 };
               });
+              const mergedPhotos: ImPhotoEntry[] | undefined =
+                local?.photos && local.photos.length > 0
+                  ? local.photos.map((lp, idx) => {
+                      const srvMatch =
+                        srv.photos?.find((sp) => sp.name && sp.name === lp.name) ||
+                        srv.photos?.[idx];
+                      const bestUrl =
+                        resolveKnownTestAssetUrl(lp.url) ||
+                        resolveKnownTestAssetUrl(lp.name) ||
+                        (lp.url && !lp.url.startsWith("data:") ? lp.url : undefined) ||
+                        srvMatch?.url ||
+                        lp.dataUrl;
+                      const bestPreview =
+                        lp.dataUrl ||
+                        bestUrl ||
+                        lp.previewUrl ||
+                        srvMatch?.previewUrl;
+                      return {
+                        ...srvMatch,
+                        ...lp,
+                        ...(bestUrl ? { url: bestUrl } : {}),
+                        ...(bestPreview ? { previewUrl: bestPreview } : {}),
+                      };
+                    })
+                  : srv.photos;
+
               return {
                 ...srv,
                 ...(local?.isDirty ? local : {}),
@@ -986,10 +1075,19 @@ function ImWorkspaceInner() {
                 handoverNote: resolvedHandoverNote,
                 brokerExtrasForm: local?.brokerExtrasForm || srv.brokerExtrasForm,
                 photoNames: local?.photoNames?.length ? local.photoNames : srv.photoNames,
-                photos: local?.photos?.length ? local.photos : srv.photos,
+                photos: mergedPhotos,
                 rentRoll: cleanedRentRoll,
               };
             });
+            const normalizeDedupeKey = (it: Pick<ImListItem, "address" | "title">) => {
+              const a = (it.address || "").replace(/\s+/g, " ").trim().toLowerCase();
+              const t = (it.title || "").replace(/\s+/g, " ").trim().toLowerCase();
+              if (!a || !t || t === "새 im") return "";
+              return `${a}::${t}`;
+            };
+            const srvAddressTitleKeys = new Set(
+              srvItems.map((s) => normalizeDedupeKey(s)).filter(Boolean)
+            );
             const localOnlyItems: ImListItem[] = [];
             for (const loc of prev) {
               const isExplicitlyRequested =
@@ -999,7 +1097,15 @@ function ImWorkspaceInner() {
                 userInteractedRef.current &&
                 (loc.id === selectedIdRef.current || loc.buildingId === selectedIdRef.current);
               const isUserCreatedOrEdited = !INITIAL_IM_IDS.has(loc.id) || Boolean(loc.isDirty);
+              const locKey = normalizeDedupeKey(loc);
+              const hasSameServerDeal =
+                Boolean(locKey) &&
+                !loc.isDirty &&
+                !isExplicitlyRequested &&
+                !isCurrentlySelectedByUser &&
+                srvAddressTitleKeys.has(locKey);
               if (
+                !hasSameServerDeal &&
                 (isUserCreatedOrEdited || isExplicitlyRequested || isCurrentlySelectedByUser) &&
                 !srvItems.some((s) => s.id === loc.id || s.buildingId === loc.buildingId)
               ) {
@@ -1007,10 +1113,16 @@ function ImWorkspaceInner() {
               }
             }
             const seenBldIds = new Set<string>();
+            const seenAddrTitleKeys = new Set<string>();
             const merged = [...localOnlyItems, ...srvItems].filter((it) => {
               if (it.buildingId && UUID_REGEX.test(it.buildingId)) {
                 if (seenBldIds.has(it.buildingId)) return false;
                 seenBldIds.add(it.buildingId);
+              }
+              const key = normalizeDedupeKey(it);
+              if (key && !it.title.includes("(사본)")) {
+                if (seenAddrTitleKeys.has(key)) return false;
+                seenAddrTitleKeys.add(key);
               }
               return true;
             });
@@ -1094,22 +1206,51 @@ function ImWorkspaceInner() {
     }
   }, [currentItem?.id, applyItemToFormState]);
 
+  const matchesImPostureTab = useCallback(
+    (item: ImListItem, tab: "all" | "income" | "owner" | "value_dev") => {
+      const normP = normalizePostureForSelector(item.investmentPosture);
+      return (
+        tab === "all" ||
+        (tab === "income" && normP === "income") ||
+        (tab === "owner" && normP === "owner_occupied") ||
+        (tab === "value_dev" &&
+          (normP === "development" || normP === "trading" || normP === "operating"))
+      );
+    },
+    []
+  );
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const matchQuery =
         !searchQuery ||
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.address.toLowerCase().includes(searchQuery.toLowerCase());
-      const normP = normalizePostureForSelector(item.investmentPosture);
-      const matchPosture =
-        postureFilter === "all" ||
-        (postureFilter === "income" && normP === "income") ||
-        (postureFilter === "owner" && normP === "owner_occupied") ||
-        (postureFilter === "value_dev" &&
-          (normP === "development" || normP === "trading" || normP === "operating"));
-      return matchQuery && matchPosture;
+      return matchQuery && matchesImPostureTab(item, postureFilter);
     });
-  }, [items, searchQuery, postureFilter]);
+  }, [items, searchQuery, postureFilter, matchesImPostureTab]);
+
+  const handleImPostureFilterChange = useCallback(
+    (nextTab: "all" | "income" | "owner" | "value_dev") => {
+      setPostureFilter(nextTab);
+      if (nextTab === "all") return;
+      const nextMatches = itemsRef.current.filter((item) => {
+        const matchQuery =
+          !searchQuery ||
+          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.address.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchQuery && matchesImPostureTab(item, nextTab);
+      });
+      if (
+        nextMatches.length > 0 &&
+        !nextMatches.some((it) => it.id === (currentItem?.id || selectedIdRef.current))
+      ) {
+        selectImItem(nextMatches[0].id, { listSnapshot: itemsRef.current });
+        applyItemToFormState(nextMatches[0]);
+      }
+    },
+    [currentItem?.id, matchesImPostureTab, searchQuery, selectImItem, applyItemToFormState]
+  );
 
   const priceBandStr = useMemo(() => {
     return formatPriceRange((askingPriceManwon || 0) * 10000);
@@ -1773,22 +1914,29 @@ function ImWorkspaceInner() {
   };
 
   const handleOpenFullscreen = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
     if (isProvisioningSheet) {
-      e.preventDefault();
       return;
     }
     const existingBid = currentItem?.buildingId || "";
+    const existingDocQs = currentItem?.documentId
+      ? `?doc=${encodeURIComponent(currentItem.documentId)}`
+      : "";
     if (UUID_REGEX.test(existingBid) && !currentItem?.isDirty) {
+      setFullscreenModalUrl(`/im-lite/${encodeURIComponent(existingBid)}${existingDocQs}`);
       return;
     }
-    e.preventDefault();
     const target = await ensureProvisionedImTarget("전체화면 미리보기");
-    if (!target) return;
-    const docQs = target.documentId ? `?doc=${encodeURIComponent(target.documentId)}` : "";
-    const url = `/im-lite/${encodeURIComponent(target.buildingId)}${docQs}`;
-    if (typeof window !== "undefined") {
-      window.open(url, "_blank", "noopener,noreferrer");
+    if (!target) {
+      if (previewTab === "pptx") {
+        setFullscreenModalUrl(
+          `/im-lite/${encodeURIComponent(existingBid || "bld-01")}${existingDocQs}`
+        );
+      }
+      return;
     }
+    const docQs = target.documentId ? `?doc=${encodeURIComponent(target.documentId)}` : "";
+    setFullscreenModalUrl(`/im-lite/${encodeURIComponent(target.buildingId)}${docQs}`);
   };
 
   // Primary Action: IM 만들기
@@ -2219,7 +2367,7 @@ function ImWorkspaceInner() {
               role="tab"
               aria-selected={active}
               data-testid={`im-posture-tab-${tab.id}`}
-              onClick={() => setPostureFilter(tab.id)}
+              onClick={() => handleImPostureFilterChange(tab.id)}
               className={`min-h-[44px] px-1.5 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
                 active
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
@@ -2362,7 +2510,7 @@ function ImWorkspaceInner() {
 
   /* ──────── Column 2: 4 Top Tabs + Editor Panels ──────── */
   const editorSlot = (
-    <div className="p-4 sm:p-6 space-y-5 max-w-4xl mx-auto" data-testid="im-editor-slot">
+    <div className="space-y-5 w-full" data-testid="im-editor-slot">
       {/* Top Action Bar (Cupertino Liquid Glass Banner) */}
       <div className="ios-glass-card bg-white/86 backdrop-blur-2xl rounded-3xl border border-[#007AFF]/20 p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_10px_28px_-6px_rgba(0,122,255,0.08)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
@@ -3311,7 +3459,12 @@ function ImWorkspaceInner() {
                           ...pe,
                           dataUrl: matched.dataUrl,
                           previewUrl: matched.dataUrl || pe.previewUrl,
-                          url: matched.dataUrl || pe.url,
+                          url:
+                            (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+                              ? resolveKnownTestAssetUrl(pe.url) || pe.url
+                              : undefined) ||
+                            resolveKnownTestAssetUrl(pe.name) ||
+                            matched.dataUrl,
                         }
                       : pe;
                   });
@@ -3427,7 +3580,12 @@ function ImWorkspaceInner() {
                             ...pe,
                             dataUrl: matched.dataUrl,
                             previewUrl: matched.dataUrl || pe.previewUrl,
-                            url: matched.dataUrl || pe.url,
+                            url:
+                              (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+                                ? resolveKnownTestAssetUrl(pe.url) || pe.url
+                                : undefined) ||
+                              resolveKnownTestAssetUrl(pe.name) ||
+                              matched.dataUrl,
                           }
                         : pe;
                     });
@@ -3498,8 +3656,7 @@ function ImWorkspaceInner() {
                   )
               ).map((entry, idx) => {
                 const name = entry.name;
-                const thumbSrc =
-                  entry.dataUrl || entry.previewUrl || entry.url || resolveKnownTestAssetUrl(name);
+                const thumbSrc = resolveRenderablePhotoSrc(entry);
                 return (
                   <div
                     key={entry.id || `${name}-${idx}`}
@@ -3510,6 +3667,14 @@ function ImWorkspaceInner() {
                         <img
                           src={thumbSrc}
                           alt={name}
+                          onError={(e) => {
+                            const fallback = resolveKnownTestAssetUrl(name);
+                            if (fallback && e.currentTarget.src !== window.location.origin + fallback) {
+                              e.currentTarget.src = fallback;
+                            } else {
+                              e.currentTarget.style.display = "none";
+                            }
+                          }}
                           className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
                         />
                       ) : (
@@ -3669,10 +3834,166 @@ function ImWorkspaceInner() {
     },
   ];
 
-  const visibleSlides =
-    activeSlideFilter === "all"
-      ? basicImSlides
-      : basicImSlides.filter((s) => s.no === activeSlideFilter);
+  const renderSlideVisualCard = (slide: (typeof basicImSlides)[number]) => {
+    const targetTab =
+      slide.no === "02" || slide.no === "10"
+        ? "axios_brief"
+        : slide.no === "06" || slide.no === "07"
+        ? "rentroll"
+        : slide.no === "09"
+        ? "media_publish"
+        : "specs";
+    const coverSrc = photoEntries[0] ? resolveRenderablePhotoSrc(photoEntries[0]) : undefined;
+
+    return (
+      <div
+        key={slide.no}
+        role="button"
+        tabIndex={0}
+        data-testid={`im-slide-preview-${slide.no}`}
+        onClick={() => {
+          setActiveEditorTab(targetTab);
+          if (fullscreenModalUrl) setFullscreenModalUrl(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setActiveEditorTab(targetTab);
+            if (fullscreenModalUrl) setFullscreenModalUrl(null);
+          }
+        }}
+        title="클릭하면 해당 편집 탭으로 이동합니다"
+        className="aspect-video w-full bg-white hover:bg-[#FAF9F5] text-[#0F172A] rounded-xl border border-slate-300 hover:border-[#007AFF] overflow-hidden flex flex-col justify-between shadow-sm cursor-pointer transition-all"
+      >
+        {/* Slide Header Band */}
+        <div
+          data-theme-lock="dark"
+          className="bg-[#0F172A] text-white px-3 py-1.5 flex items-center justify-between shrink-0"
+        >
+          <span className="text-sm font-extrabold text-[#93C5FD] truncate">
+            {slide.no} · {slide.title}
+          </span>
+          <span className="text-sm text-slate-300 font-mono shrink-0">{slide.no} / 10</span>
+        </div>
+
+        {/* Visual Slide Canvas Body */}
+        <div className="px-3 py-2 flex-1 min-h-0 flex flex-col justify-center gap-1.5 overflow-hidden">
+          {slide.no === "01" && coverSrc ? (
+            <div className="grid grid-cols-5 gap-2 items-center h-full min-h-0">
+              <div className="col-span-3 space-y-1 min-w-0">
+                <span className="inline-block text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
+                  {postureKoreanLabel}
+                </span>
+                <p
+                  data-single-line-title="true"
+                  title={slide.summary}
+                  className="text-sm font-extrabold text-[#0F172A] leading-snug line-clamp-2 break-keep"
+                >
+                  {slide.summary}
+                </p>
+              </div>
+              <img
+                src={coverSrc}
+                alt="표지 슬라이드 사진"
+                className="col-span-2 w-full h-16 object-cover rounded-lg border border-slate-200"
+              />
+            </div>
+          ) : slide.no === "02" ? (
+            <div className="space-y-1">
+              <p
+                data-single-line-title="true"
+                title={slide.summary}
+                className="sr-only"
+              >
+                {slide.summary}
+              </p>
+              {axiosHighlights.slice(0, 3).map((hl, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-50 border-l-4 border-[#007AFF] text-sm font-semibold text-slate-800 truncate"
+                >
+                  <span className="text-[#0040DD] font-extrabold">0{idx + 1}</span>
+                  <span className="truncate">{hl.headline || `핵심 장점 ${idx + 1}`}</span>
+                </div>
+              ))}
+            </div>
+          ) : slide.no === "06" && rentRoll.length > 0 ? (
+            <div className="space-y-1">
+              <p
+                data-single-line-title="true"
+                title={slide.summary}
+                className="text-sm font-bold text-[#0F172A] truncate"
+              >
+                {slide.summary}
+              </p>
+              <div className="rounded border border-slate-200 bg-slate-50/80 px-2 py-1 space-y-0.5 text-sm">
+                {rentRoll.slice(0, 2).map((r, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-2 truncate">
+                    <span className="font-bold text-slate-800">{r.floor} · {r.use || "임대"}</span>
+                    <span className="font-mono text-slate-700 shrink-0">
+                      {(r.depositManwon ?? 0).toLocaleString()}/{(r.monthlyRentManwon ?? 0).toLocaleString()}만
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : slide.no === "09" && photoEntries.length > 0 ? (
+            <div className="space-y-1">
+              <p
+                data-single-line-title="true"
+                title={slide.summary}
+                className="text-sm font-bold text-[#0F172A] truncate"
+              >
+                {slide.summary}
+              </p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {photoEntries.slice(0, 3).map((pe, idx) => {
+                  const pSrc = resolveRenderablePhotoSrc(pe);
+                  return pSrc ? (
+                    <img
+                      key={idx}
+                      src={pSrc}
+                      alt={pe.name}
+                      className="w-full h-10 object-cover rounded border border-slate-200"
+                    />
+                  ) : null;
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <p
+                data-single-line-title="true"
+                title={slide.summary}
+                className="text-base font-extrabold text-[#0F172A] leading-snug line-clamp-2 break-keep"
+              >
+                {slide.summary}
+              </p>
+              {(slide.no === "03" || slide.no === "05" || slide.no === "07") && (
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-sm font-semibold text-slate-700 truncate">
+                    {slide.no === "03"
+                      ? `용도지역: ${zoning || "확인 중"}`
+                      : slide.no === "05"
+                      ? `연면적: ${gfaSqm || "—"}㎡`
+                      : `월임대료 ${totalRentManwon.toLocaleString()}만원`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Slide Footer Band */}
+        <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 text-sm shrink-0">
+          <span className="text-[#065F46] font-extrabold truncate">{slide.metric}</span>
+          <span className="text-slate-500 text-sm truncate max-w-[130px]">
+            {brokerageName || "전담 중개사무소"}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   const previewSlot = (
     <div className="p-3.5 space-y-3.5 max-w-sm mx-auto" data-testid="im-preview-slot">
@@ -3736,22 +4057,21 @@ function ImWorkspaceInner() {
                   01 표지 · {postureKoreanLabel}
                 </span>
               </div>
-              {photoEntries[0] &&
-                (photoEntries[0].dataUrl ||
-                  photoEntries[0].previewUrl ||
-                  photoEntries[0].url ||
-                  resolveKnownTestAssetUrl(photoEntries[0].name)) && (
-                  <img
-                    src={
-                      photoEntries[0].dataUrl ||
-                      photoEntries[0].previewUrl ||
-                      photoEntries[0].url ||
-                      resolveKnownTestAssetUrl(photoEntries[0].name)
+              {photoEntries[0] && resolveRenderablePhotoSrc(photoEntries[0]) && (
+                <img
+                  src={resolveRenderablePhotoSrc(photoEntries[0])}
+                  alt="표지 대표 사진"
+                  onError={(e) => {
+                    const fallback = resolveKnownTestAssetUrl(photoEntries[0]?.name);
+                    if (fallback && e.currentTarget.src !== window.location.origin + fallback) {
+                      e.currentTarget.src = fallback;
+                    } else {
+                      e.currentTarget.style.display = "none";
                     }
-                    alt="표지 대표 사진"
-                    className="w-full h-36 object-cover rounded-lg border border-slate-200"
-                  />
-                )}
+                  }}
+                  className="w-full h-36 object-cover rounded-lg border border-slate-200"
+                />
+              )}
               <h3
                 data-single-line-title="true"
                 title={imTitle || currentItem?.title}
@@ -3933,14 +4253,21 @@ function ImWorkspaceInner() {
               {photoEntries.length > 0 && (
                 <div className="grid grid-cols-2 gap-1.5 pt-1">
                   {photoEntries.slice(0, 4).map((pe, idx) => {
-                    const src =
-                      pe.dataUrl || pe.previewUrl || pe.url || resolveKnownTestAssetUrl(pe.name);
+                    const src = resolveRenderablePhotoSrc(pe);
                     if (!src) return null;
                     return (
                       <img
                         key={`${pe.name}-${idx}`}
                         src={src}
                         alt={pe.name}
+                        onError={(e) => {
+                          const fallback = resolveKnownTestAssetUrl(pe.name);
+                          if (fallback && e.currentTarget.src !== window.location.origin + fallback) {
+                            e.currentTarget.src = fallback;
+                          } else {
+                            e.currentTarget.style.display = "none";
+                          }
+                        }}
                         className="w-full h-20 object-cover rounded-lg border border-slate-200"
                       />
                     );
@@ -3995,56 +4322,11 @@ function ImWorkspaceInner() {
             ))}
           </div>
 
-          <div className="space-y-2.5" data-theme-lock="dark">
-            {visibleSlides.map((slide) => {
-              const targetTab =
-                slide.no === "02" || slide.no === "10"
-                  ? "axios_brief"
-                  : slide.no === "06" || slide.no === "07"
-                  ? "rentroll"
-                  : slide.no === "09"
-                  ? "media_publish"
-                  : "specs";
-              return (
-                <div
-                  key={slide.no}
-                  role="button"
-                  tabIndex={0}
-                  data-testid={`im-slide-preview-${slide.no}`}
-                  onClick={() => setActiveEditorTab(targetTab)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setActiveEditorTab(targetTab);
-                    }
-                  }}
-                  title="클릭하면 해당 편집 탭으로 이동합니다"
-                  className="aspect-video w-full bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-xl border border-[#334155] hover:border-[#60A5FA] p-4 flex flex-col justify-between shadow-sm cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-[#93C5FD] bg-[#1E3A8A]/60 px-2.5 py-0.5 rounded">
-                      {slide.no} · {slide.title}
-                    </span>
-                    <span className="text-sm text-[#94A3B8] font-mono">{slide.no} / 10</span>
-                  </div>
-                  <div className="space-y-1 my-auto py-1">
-                    <p
-                      data-single-line-title="true"
-                      title={slide.summary}
-                      className="text-base font-bold text-white leading-snug break-keep"
-                    >
-                      {slide.summary}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-[#1E293B] pt-2 text-sm">
-                    <span className="text-[#34D399] font-bold truncate">{slide.metric}</span>
-                    <span className="text-slate-300 text-sm truncate max-w-[140px]">
-                      {brokerageName || "담당 중개법인"}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="space-y-2.5">
+            {(activeSlideFilter === "all"
+              ? basicImSlides
+              : basicImSlides.filter((s) => s.no === activeSlideFilter)
+            ).map((slide) => renderSlideVisualCard(slide))}
           </div>
         </div>
       )}
@@ -4103,6 +4385,85 @@ function ImWorkspaceInner() {
         prefillMonthlyRent={totalRentManwon}
         initialInvestmentPosture={normalizedPosture}
       />
+      {fullscreenModalUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="IM 전체화면 미리보기"
+          data-testid="im-fullscreen-preview-modal"
+          className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setFullscreenModalUrl(null);
+          }}
+        >
+          <div className="bg-[#F5F5F7] rounded-3xl border border-white/80 shadow-2xl w-full max-w-6xl h-[90dvh] flex flex-col overflow-hidden">
+            <div className="h-16 px-4 sm:px-6 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <h3 className="text-base sm:text-lg font-extrabold text-[#0F172A] truncate">
+                  {imTitle || currentItem?.title || "IM 전체화면 미리보기"}
+                </h3>
+                <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab("mobile")}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
+                      previewTab === "mobile"
+                        ? "bg-white text-[#007AFF] shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    모바일 IM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab("pptx")}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
+                      previewTab === "pptx"
+                        ? "bg-white text-[#007AFF] shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    발표자료 10면
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={fullscreenModalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="im-fullscreen-open-newtab-link"
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#1D4ED8] border border-blue-200 text-sm font-extrabold flex items-center gap-1"
+                >
+                  <span>새 탭에서 열기 ↗</span>
+                </a>
+                <button
+                  type="button"
+                  data-testid="im-fullscreen-close-btn"
+                  onClick={() => setFullscreenModalUrl(null)}
+                  className="min-h-[40px] px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold cursor-pointer"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {previewTab === "mobile" ? (
+                <iframe
+                  src={fullscreenModalUrl}
+                  title="모바일 IM 전체화면 미리보기"
+                  data-testid="im-fullscreen-iframe"
+                  className="w-full h-full min-h-[560px] rounded-2xl border border-slate-300 bg-white shadow-sm"
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto">
+                  {basicImSlides.map((slide) => renderSlideVisualCard(slide))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

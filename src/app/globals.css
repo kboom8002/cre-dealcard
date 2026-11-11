@@ -443,6 +443,27 @@
   background: var(--muted-foreground);
 }
 
+/* High-contrast light scrollbar for dark code/report blocks (e.g. /testguide scorecard preview) */
+.dark-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 232, 240, 0.55) rgba(15, 23, 42, 0.6);
+}
+.dark-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(226, 232, 240, 0.52);
+  border-radius: 4px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(248, 250, 252, 0.78);
+}
+
 /* Print Utilities */
 @media print {
   .no-print {
@@ -968,10 +989,15 @@
   .bg-cyan-600, .bg-cyan-700, .bg-sky-600, .bg-sky-700,
   .bg-primary, .bg-grade-s, .bg-grade-a,
   .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
-  .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
-  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\],
+  .bg-\[\#1D1D1F\], .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
+  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\], .bg-\[\#0062CC\],
   .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\], .bg-\[\#1D9E34\],
   .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\], .bg-\[\#5856D6\],
+  .from-\[\#1A88FF\], .to-\[\#007AFF\],
+  .from-\[\#24B63E\], .to-\[\#188C2C\],
+  .from-\[\#6B69E6\], .to-\[\#4A48C4\],
+  .from-\[\#FFAA00\], .to-\[\#E68600\], .to-\[\#FF9500\],
+  .from-\[\#FF3B5C\], .to-\[\#FF2D55\],
   .from-blue-500, .from-blue-600, .from-blue-700,
   .from-indigo-500, .from-indigo-600, .from-indigo-700,
   .from-emerald-500, .from-emerald-600, .from-emerald-700,
@@ -999,10 +1025,15 @@
   .bg-cyan-600, .bg-cyan-700, .bg-sky-600, .bg-sky-700,
   .bg-primary, .bg-grade-s, .bg-grade-a,
   .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
-  .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
-  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\],
+  .bg-\[\#1D1D1F\], .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
+  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\], .bg-\[\#0062CC\],
   .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\], .bg-\[\#1D9E34\],
   .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\], .bg-\[\#5856D6\],
+  .from-\[\#1A88FF\], .to-\[\#007AFF\],
+  .from-\[\#24B63E\], .to-\[\#188C2C\],
+  .from-\[\#6B69E6\], .to-\[\#4A48C4\],
+  .from-\[\#FFAA00\], .to-\[\#E68600\], .to-\[\#FF9500\],
+  .from-\[\#FF3B5C\], .to-\[\#FF2D55\],
   .from-blue-500, .from-blue-600, .from-blue-700,
   .from-indigo-500, .from-indigo-600, .from-indigo-700,
   .from-emerald-500, .from-emerald-600, .from-emerald-700,
@@ -1014,6 +1045,12 @@
   .bg-black\/60, .bg-black\/65, .bg-black\/70, .bg-black\/80, .bg-black\/90,
   [data-active-pill="true"]
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) *:not(.bg-white, .bg-white *, .bg-slate-50, .bg-slate-50 *, .bg-slate-100, .bg-slate-100 *, .bg-amber-400, .bg-amber-400 *, .bg-amber-500, .bg-amber-500 *) {
+  color: #FFFFFF !important;
+}
+
+/* Structural safeguard: any solid hex-gradient button/badge explicitly paired with .text-white stays pure white */
+.broker-paper-theme.broker-paper-theme [class*="from-[#"].text-white:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
+.broker-paper-theme.broker-paper-theme [class*="from-[#"].text-white:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) *:not(.bg-white, .bg-white *, .bg-slate-50, .bg-slate-50 *, .bg-slate-100, .bg-slate-100 *) {
   color: #FFFFFF !important;
 }
 
@@ -1188,6 +1225,19 @@
 }
 
 /* 10. Senior Typography Scaling & Touch Targets (WP-P2-01 — 100% Preserved) */
+[data-font-scale="compact"] {
+  font-size: 15px;
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-lg: 1.0625rem;   /* 17px */
+  --text-xl: 1.25rem;     /* 20px */
+}
+[data-font-scale="compact"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+[data-font-scale="compact"] textarea,
+[data-font-scale="compact"] select {
+  font-size: 15px !important;
+}
 [data-font-scale="normal"] {
   font-size: 17px;
 }

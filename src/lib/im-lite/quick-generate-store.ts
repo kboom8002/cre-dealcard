@@ -169,55 +169,74 @@ export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_REGEX.test(value.trim());
 }
 
+const buildTestguideApiAssetPath = (folder: string, filename: string): string =>
+  `/api/public/testguide-assets/images/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`;
+
 const KNOWN_TEST_ASSET_PATHS: Record<string, string> = {
-  '01_동교동_THEPARK_전면외관.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/01_exterior.jpg',
-  '02_동교동_THEPARK_1층출입구.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/02_entrance.jpg',
-  '03_동교동_THEPARK_내부실내.png':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/03_interior.png',
-  '04_동교동_THEPARK_루프탑테라스.webp':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal1/04_rooftop.webp',
-  '01_부천_동아빌딩_전면외관.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/01_exterior.jpg',
-  '02_부천_동아빌딩_1층로비출입구.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/02_lobby.jpg',
-  '03_부천_동아빌딩_기준층내부실내.png':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/03_interior.png',
-  '04_부천_동아빌딩_주차장설비.webp':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/04_parking.webp',
-  '01_역삼동_여삼빌딩_전면외관.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/01_exterior.jpg',
-  '02_역삼동_여삼빌딩_메인로비.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/02_lobby.jpg',
-  '03_역삼동_여삼빌딩_오피스내부.png':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/03_interior.png',
-  '04_역삼동_여삼빌딩_지하주차장.webp':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/04_parking.webp',
-  '01_부천_골든타워_전면외관.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/01_exterior.jpg',
-  '02_부천_골든타워_1층로비.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/02_lobby.jpg',
-  '03_부천_골든타워_학원내부.png':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/03_interior.png',
-  '04_부천_골든타워_주차설비.webp':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal2/04_parking.webp',
-  '01_역삼_제1역삼빌딩_전면외관.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/01_exterior.jpg',
-  '02_역삼_제1역삼빌딩_1층로비.jpg':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/02_lobby.jpg',
-  '03_역삼_제1역삼빌딩_기준층오피스.png':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/03_interior.png',
-  '04_역삼_제1역삼빌딩_기계식주차.webp':
-    'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/building_photos/testguide/deal3/04_parking.webp',
+  '01_동교동_THEPARK_전면외관.jpg': buildTestguideApiAssetPath('01_동교동_THEPARK', '01_동교동_THEPARK_전면외관.jpg'),
+  '02_동교동_THEPARK_1층출입구.jpg': buildTestguideApiAssetPath('01_동교동_THEPARK', '02_동교동_THEPARK_1층출입구.jpg'),
+  '03_동교동_THEPARK_내부실내.png': buildTestguideApiAssetPath('01_동교동_THEPARK', '03_동교동_THEPARK_내부실내.png'),
+  '04_동교동_THEPARK_루프탑테라스.webp': buildTestguideApiAssetPath('01_동교동_THEPARK', '04_동교동_THEPARK_루프탑테라스.webp'),
+  '01_부천_동아빌딩_전면외관.jpg': buildTestguideApiAssetPath('02_부천_동아빌딩', '01_부천_동아빌딩_전면외관.jpg'),
+  '02_부천_동아빌딩_1층로비출입구.jpg': buildTestguideApiAssetPath('02_부천_동아빌딩', '02_부천_동아빌딩_1층로비출입구.jpg'),
+  '03_부천_동아빌딩_기준층내부실내.png': buildTestguideApiAssetPath('02_부천_동아빌딩', '03_부천_동아빌딩_기준층내부실내.png'),
+  '04_부천_동아빌딩_주차장설비.webp': buildTestguideApiAssetPath('02_부천_동아빌딩', '04_부천_동아빌딩_주차장설비.webp'),
+  '01_역삼동_여삼빌딩_전면외관.jpg': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '01_역삼동_여삼빌딩_전면외관.jpg'),
+  '02_역삼동_여삼빌딩_메인로비.jpg': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '02_역삼동_여삼빌딩_메인로비.jpg'),
+  '03_역삼동_여삼빌딩_오피스내부.png': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '03_역삼동_여삼빌딩_오피스내부.png'),
+  '04_역삼동_여삼빌딩_지하주차장.webp': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '04_역삼동_여삼빌딩_지하주차장.webp'),
+  '01_부천_골든타워_전면외관.jpg': buildTestguideApiAssetPath('02_부천_동아빌딩', '01_부천_동아빌딩_전면외관.jpg'),
+  '02_부천_골든타워_1층로비.jpg': buildTestguideApiAssetPath('02_부천_동아빌딩', '02_부천_동아빌딩_1층로비출입구.jpg'),
+  '03_부천_골든타워_학원내부.png': buildTestguideApiAssetPath('02_부천_동아빌딩', '03_부천_동아빌딩_기준층내부실내.png'),
+  '04_부천_골든타워_주차설비.webp': buildTestguideApiAssetPath('02_부천_동아빌딩', '04_부천_동아빌딩_주차장설비.webp'),
+  '01_역삼_제1역삼빌딩_전면외관.jpg': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '01_역삼동_여삼빌딩_전면외관.jpg'),
+  '02_역삼_제1역삼빌딩_1층로비.jpg': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '02_역삼동_여삼빌딩_메인로비.jpg'),
+  '03_역삼_제1역삼빌딩_기준층오피스.png': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '03_역삼동_여삼빌딩_오피스내부.png'),
+  '04_역삼_제1역삼빌딩_기계식주차.webp': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '04_역삼동_여삼빌딩_지하주차장.webp'),
+  // Legacy direct Supabase Storage testguide paths -> heal to resilient first-party route
+  'testguide/deal1/01_exterior.jpg': buildTestguideApiAssetPath('01_동교동_THEPARK', '01_동교동_THEPARK_전면외관.jpg'),
+  'testguide/deal1/02_entrance.jpg': buildTestguideApiAssetPath('01_동교동_THEPARK', '02_동교동_THEPARK_1층출입구.jpg'),
+  'testguide/deal1/03_interior.png': buildTestguideApiAssetPath('01_동교동_THEPARK', '03_동교동_THEPARK_내부실내.png'),
+  'testguide/deal1/04_rooftop.webp': buildTestguideApiAssetPath('01_동교동_THEPARK', '04_동교동_THEPARK_루프탑테라스.webp'),
+  'testguide/deal2/01_exterior.jpg': buildTestguideApiAssetPath('02_부천_동아빌딩', '01_부천_동아빌딩_전면외관.jpg'),
+  'testguide/deal2/02_lobby.jpg': buildTestguideApiAssetPath('02_부천_동아빌딩', '02_부천_동아빌딩_1층로비출입구.jpg'),
+  'testguide/deal2/03_interior.png': buildTestguideApiAssetPath('02_부천_동아빌딩', '03_부천_동아빌딩_기준층내부실내.png'),
+  'testguide/deal2/04_parking.webp': buildTestguideApiAssetPath('02_부천_동아빌딩', '04_부천_동아빌딩_주차장설비.webp'),
+  'testguide/deal3/01_exterior.jpg': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '01_역삼동_여삼빌딩_전면외관.jpg'),
+  'testguide/deal3/02_lobby.jpg': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '02_역삼동_여삼빌딩_메인로비.jpg'),
+  'testguide/deal3/03_interior.png': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '03_역삼동_여삼빌딩_오피스내부.png'),
+  'testguide/deal3/04_parking.webp': buildTestguideApiAssetPath('03_역삼동_여삼빌딩', '04_역삼동_여삼빌딩_지하주차장.webp'),
 };
+
+function stripDuplicateFileSuffix(filename: string): string {
+  return filename.replace(/\s*\(\d+\)(?=\.[^.]+$)/, '').trim();
+}
 
 export function resolveKnownTestAssetUrl(nameOrUrl?: string | null): string | undefined {
   if (!nameOrUrl || typeof nameOrUrl !== 'string') return undefined;
   const trimmed = nameOrUrl.trim();
   if (KNOWN_TEST_ASSET_PATHS[trimmed]) return KNOWN_TEST_ASSET_PATHS[trimmed];
-  const basename = trimmed.split(/[\\/]/).pop() || '';
-  if (KNOWN_TEST_ASSET_PATHS[basename]) return KNOWN_TEST_ASSET_PATHS[basename];
+  const legacyMatch = trimmed.match(/testguide\/deal[123]\/[^?#\s]+/);
+  if (legacyMatch && KNOWN_TEST_ASSET_PATHS[legacyMatch[0]]) {
+    return KNOWN_TEST_ASSET_PATHS[legacyMatch[0]];
+  }
+  const rawBase = trimmed.split(/[\\/]/).pop() || '';
+  let decodedBase = rawBase;
+  try {
+    decodedBase = decodeURIComponent(rawBase);
+  } catch {
+    // ignore malformed URI sequence
+  }
+  for (const candidate of [
+    rawBase,
+    stripDuplicateFileSuffix(rawBase),
+    decodedBase,
+    stripDuplicateFileSuffix(decodedBase),
+  ]) {
+    if (candidate && KNOWN_TEST_ASSET_PATHS[candidate]) {
+      return KNOWN_TEST_ASSET_PATHS[candidate];
+    }
+  }
   return undefined;
 }
 

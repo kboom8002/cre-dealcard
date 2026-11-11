@@ -1482,6 +1482,19 @@ function DealCardsWorkspaceInner() {
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
   // 딜카드 필터링 (공개 필드 + 페어링된 비공개 원본 메모 통합 검색!)
+  const matchesDealCardPostureTab = useCallback(
+    (it: BuildingListItem, filter: "all" | "income" | "owner_value") => {
+      const itemPosture = it.card4.posture || "income";
+      return (
+        filter === "all" ||
+        (filter === "income" && itemPosture === "income") ||
+        (filter === "owner_value" &&
+          (itemPosture === "owner_occupied" || itemPosture === "value_add"))
+      );
+    },
+    []
+  );
+
   const filteredDealCards = items.filter((it) => {
     const searchable = [
       it.title,
@@ -1498,14 +1511,39 @@ function DealCardsWorkspaceInner() {
       .join(" ")
       .toLowerCase();
     const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery);
-    const itemPosture = it.card4.posture || "income";
-    const matchesPosture =
-      postureFilter === "all" ||
-      (postureFilter === "income" && itemPosture === "income") ||
-      (postureFilter === "owner_value" &&
-        (itemPosture === "owner_occupied" || itemPosture === "value_add"));
-    return matchesQuery && matchesPosture;
+    return matchesQuery && matchesDealCardPostureTab(it, postureFilter);
   });
+
+  const handleDealCardPostureFilterChange = (
+    nextFilter: "all" | "income" | "owner_value"
+  ) => {
+    setPostureFilter(nextFilter);
+    if (nextFilter === "all") return;
+    const nextMatches = items.filter((it) => {
+      const searchable = [
+        it.title,
+        it.region,
+        it.use,
+        it.priceBand,
+        it.card4.region || "",
+        it.card4.use || "",
+        it.card4.priceBand || "",
+        it.card4.headline || "",
+        it.card4.points.join(" "),
+        it.memoText || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery);
+      return matchesQuery && matchesDealCardPostureTab(it, nextFilter);
+    });
+    if (
+      nextMatches.length > 0 &&
+      (selectedMemoOnly || !nextMatches.some((it) => it.id === resolvedActiveId))
+    ) {
+      selectDealCard(nextMatches[0].id);
+    }
+  };
 
   const aiMemoDealCards = filteredDealCards.filter(
     (it) => classifyDealCardOriginGroup(it) === "ai_memo"
@@ -1533,6 +1571,8 @@ function DealCardsWorkspaceInner() {
       ? filteredUnconvertedMemos.length
       : originGroupFilter === "manual"
       ? manualDealCards.length
+      : postureFilter !== "all"
+      ? filteredDealCards.length
       : filteredDealCards.length + filteredUnconvertedMemos.length;
 
   const isBlankCard =
@@ -1568,6 +1608,14 @@ function DealCardsWorkspaceInner() {
           item.card4.priceBand || "",
           item.card4.headline || "",
         ]);
+    const isCardReady =
+      !item.awaitingMemoGeneration &&
+      itemBlind.isValid &&
+      Boolean(item.card4.region?.trim()) &&
+      Boolean(item.card4.use?.trim()) &&
+      Boolean(item.card4.area?.trim()) &&
+      Boolean(item.card4.priceBand?.trim()) &&
+      item.card4.points.some((p) => Boolean(p?.trim()));
 
     return (
       <div
@@ -1612,11 +1660,23 @@ function DealCardsWorkspaceInner() {
               : item.title || "새 딜카드"}
           </h3>
           <span
+            data-testid={`dealcard-status-badge-${item.id}`}
+            title={
+              !itemBlind.isValid
+                ? "지번·건물명 등 비공개 식별 정보를 확인해 주세요"
+                : item.status === "sent"
+                ? "고객에게 카톡·링크로 발송된 딜카드입니다"
+                : isCardReady
+                ? "필수 항목 입력 완료 — 오른쪽에서 카톡으로 보내면 '보냄'으로 전환됩니다"
+                : "권역·용도·면적·가격대와 장점 1개 이상을 입력하면 '준비 완료'가 됩니다"
+            }
             className={`text-sm px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${
               !itemBlind.isValid
                 ? "bg-[#FF2D55]/12 text-[#C8102E] border-[#FF2D55]/25"
                 : item.status === "sent"
                 ? "bg-[#28CD41]/12 text-[#116B22] border-[#28CD41]/25"
+                : isCardReady
+                ? "bg-[#007AFF]/12 text-[#0040DD] border-[#007AFF]/25"
                 : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08]"
             }`}
           >
@@ -1624,6 +1684,8 @@ function DealCardsWorkspaceInner() {
               ? "⚠ 확인 필요"
               : item.status === "sent"
               ? TERMS.statusSent
+              : isCardReady
+              ? "준비 완료"
               : TERMS.statusDraft}
           </span>
         </div>
@@ -1838,7 +1900,7 @@ function DealCardsWorkspaceInner() {
               role="tab"
               aria-selected={active}
               data-testid={`dealcard-posture-tab-${tab.id}`}
-              onClick={() => setPostureFilter(tab.id)}
+              onClick={() => handleDealCardPostureFilterChange(tab.id)}
               className={`min-h-[42px] px-2 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
                 active
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
