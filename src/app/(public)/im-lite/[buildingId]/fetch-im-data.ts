@@ -512,6 +512,14 @@ function hydrateQuickRecordToMobileIM(
   (doc as any).rentRoll = quickRec.rentRoll;
   (doc as any).floor_leases = quickRec.fullDocBody?.floor_leases || quickRec.rentRoll;
   (doc as any).ssotSummary = quickRec.fullDocBody?.ssot_summary;
+  const resolvedQuickParcels =
+    quickRec.parcels ||
+    quickRec.specs?.parcels ||
+    quickRec.fullDocBody?.parcels ||
+    quickRec.fullDocBody?.ssot_summary?.parcels;
+  if (Array.isArray(resolvedQuickParcels) && resolvedQuickParcels.length > 0) {
+    (doc as any).parcels = resolvedQuickParcels;
+  }
   (doc as any).pnu =
     quickRec.pnu ||
     quickRec.fullDocBody?.pnu ||
@@ -1134,6 +1142,11 @@ export async function fetchIMData(
       (mappedResult as any).schemaVersion = '3.0';
     }
     (mappedResult as any).ssotSummary = ssotSummary;
+    const resolvedDbParcels =
+      document.body?.parcels || ssotSummary?.parcels;
+    if (Array.isArray(resolvedDbParcels) && resolvedDbParcels.length > 0) {
+      (mappedResult as any).parcels = resolvedDbParcels;
+    }
     if (document.body?.card4) {
       (mappedResult as any).card4 = document.body.card4;
     }

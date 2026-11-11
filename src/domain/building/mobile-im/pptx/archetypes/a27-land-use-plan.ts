@@ -245,9 +245,17 @@ export function buildBasicLandSlideData(params: {
     ssot?.address || building?.address || body?.address || '',
   ).trim();
 
-  let locationText = rawJibun || roadAddress;
+  let locationText = (rawJibun || roadAddress)
+    .replace(/\s*\((?:\s*(?:산\s*)?\d+(?:-\d+)?\s*[,/·\s]*)+\)\s*$/, '')
+    .trim();
   if (parcelSummary.isMulti && parcelSummary.count > 1) {
-    if (locationText && !locationText.includes('외 ') && !locationText.includes('필지')) {
+    const hasExplicitMultiLots = /\d+(?:-\d+)?\s*[,/]\s*(?:산\s*)?\d+/.test(locationText);
+    if (
+      locationText &&
+      !locationText.includes('외 ') &&
+      !locationText.includes('필지') &&
+      !hasExplicitMultiLots
+    ) {
       locationText = `${locationText} 외 ${parcelSummary.count - 1}필지`;
     }
   }
@@ -310,7 +318,15 @@ export function buildBasicLandSlideData(params: {
   let priceYear = 0;
   let priceMonth = 1;
 
-  if (histLatestPrice > 0) {
+  if (
+    parcelSummary.isMulti &&
+    parcelSummary.weightedOfficialPricePerM2 &&
+    parcelSummary.weightedOfficialPricePerM2 > 0
+  ) {
+    pricePerSqm = parcelSummary.weightedOfficialPricePerM2;
+    priceYear = histLatestYear || lupYear;
+    priceMonth = lupMonth || 1;
+  } else if (histLatestPrice > 0) {
     pricePerSqm = histLatestPrice;
     priceYear = histLatestYear || lupYear;
     priceMonth = lupMonth || 1;
@@ -384,8 +400,8 @@ export function buildBasicLandSlideData(params: {
         }))
       : [];
 
-  // 조건부 용도지역 비율 콜아웃 (2개 이상 용도지역 비율이 명시된 경우에만 활성화)
-  const rawShares =
+  // 조건부 용도지역 비율 콜아웃 (2개 이상 용도지역 비율이 명시된 경우 또는 다필지 이종 용도지역인 경우 활성화)
+  let rawShares =
     existingLandData?.zoningShares ||
     existingLandData?.landUseConfirm?.zoningShares ||
     body?.landUseConfirm?.zoningShares ||
@@ -395,6 +411,39 @@ export function buildBasicLandSlideData(params: {
     ssot?.zoningShares ||
     enrichment?.landUsePlan?.zoningShares ||
     undefined;
+
+  if (
+    (!Array.isArray(rawShares) || rawShares.length < 2) &&
+    Array.isArray(enrichment?.landUseByParcel) &&
+    enrichment.landUseByParcel.length >= 2
+  ) {
+    const zoneAreaMap = new Map<string, number>();
+    let totalMappedArea = 0;
+    for (const entry of enrichment.landUseByParcel) {
+      const zName = String(entry?.zoningDistrict || '').trim();
+      if (!zName || zName === '도시지역') continue;
+      const matchedParcel = parcels.find((p) => p.pnu && p.pnu === entry.pnu);
+      const area =
+        typeof matchedParcel?.areaM2 === 'number' && matchedParcel.areaM2 > 0
+          ? matchedParcel.areaM2
+          : effectiveAreaSqm > 0
+            ? effectiveAreaSqm / enrichment.landUseByParcel.length
+            : 1;
+      zoneAreaMap.set(zName, (zoneAreaMap.get(zName) || 0) + area);
+      totalMappedArea += area;
+    }
+    if (zoneAreaMap.size >= 2 && totalMappedArea > 0) {
+      rawShares = Array.from(zoneAreaMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([zoneName, areaSqm]) => ({
+          zoneName,
+          areaSqm: Math.round(areaSqm * 10) / 10,
+          totalAreaSqm: Math.round(totalMappedArea * 10) / 10,
+          ratioPct: Math.round((areaSqm / totalMappedArea) * 1000) / 10,
+        }));
+    }
+  }
+
   const zoningShares = normalizeZoningShares(rawShares, effectiveAreaSqm);
 
   // 용도지역 범례
@@ -405,6 +454,10 @@ export function buildBasicLandSlideData(params: {
       building?.zoning ||
       (landUseConfirm.nationalItems.find((i) => i.code.startsWith('UQA') && i.name !== '도시지역')?.name ?? ''),
   ).trim();
+  const splitDistrictTokens = zoningDistrict
+    .split(/\s*[·,/]\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   const zoningOverlap: string[] = Array.isArray(enrichment?.landUsePlan?.zoningOverlap)
     ? enrichment.landUsePlan.zoningOverlap.filter(Boolean)
     : [];
@@ -412,7 +465,7 @@ export function buildBasicLandSlideData(params: {
 
   const zoningLegend: ZoningLegendItem[] = [];
   const seenLegend = new Set<string>();
-  for (const z of [zoningDistrict, ...zoningOverlap, ...shareZoneNames]) {
+  for (const z of [...splitDistrictTokens, ...zoningOverlap, ...shareZoneNames]) {
     if (!z || z === '도시지역' || seenLegend.has(z)) continue;
     seenLegend.add(z);
     const swatch = resolveZoningSwatchColor(z);
@@ -602,8 +655,16 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   const overviewRowH = 0.24;
   if (overviewRows.length > 0) {
     const tblRows = overviewRows.slice(0, 5).map(([label, val]) => {
-      const valText = String(val).replace(/\s*\n\s*/g, ' ').trim();
-      const compactVal = valText.length > 26 ? valText.slice(0, 26) : valText;
+      let valText = String(val).replace(/\s*\n\s*/g, ' ').trim();
+      if (valText.length > 32) {
+        valText = valText.replace(
+          /'(\d{2})년\s*(\d{1,2})월\s*기준/g,
+          (_m, yy, mm) => `'${yy}.${String(mm).padStart(2, '0')}`,
+        );
+      }
+      const compactVal =
+        valText.length > 42 ? `${valText.slice(0, 41).trimEnd()}…` : valText;
+      const valueFontSize = compactVal.length > 33 ? 8.0 : 8.5;
       return [
         {
           text: String(label),
@@ -622,7 +683,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
           text: compactVal,
           options: {
             fontFace: KR,
-            fontSize: 8.5,
+            fontSize: valueFontSize,
             bold: false,
             color: C.ink,
             fill: { color: C.bg },

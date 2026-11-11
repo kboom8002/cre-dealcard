@@ -25,6 +25,12 @@ import {
   parseBrokerExtras,
   type BrokerExtras,
 } from '@/domain/building/mobile-im/broker-extras';
+import {
+  parseBrokerParcels,
+  summarizeParcels,
+  type BrokerParcel,
+} from '@/domain/building/mobile-im/parcel-input';
+import { padNumber, splitMultiParcelAddress } from '@/lib/external/address-resolver';
 
 // In-memory idempotency cache for quick-generate calls
 const IDEMPOTENCY_CACHE = new Map<string, any>();
@@ -409,6 +415,7 @@ export async function POST(req: NextRequest) {
 
   // Preserve existing DB metadata (PNU, coordinates, enrichment, photos, floor_leases) when regenerating an existing IM
   let existingPnu: string | undefined;
+  let existingAllPnus: string[] = [];
   let existingCoords: { lat: number; lng: number } | undefined;
   let existingRoadAddress: string | undefined;
   let existingJibunAddress: string | undefined;
@@ -541,6 +548,9 @@ export async function POST(req: NextRequest) {
           if (!existingPnu && resolved.pnu && /^\d{19}$/.test(resolved.pnu)) {
             existingPnu = resolved.pnu;
           }
+          if (Array.isArray(resolved.allPnus) && resolved.allPnus.length > 0) {
+            existingAllPnus = resolved.allPnus.filter((p) => /^\d{19}$/.test(p));
+          }
           if (!existingCoords && resolved.lat && resolved.lng) {
             existingCoords = { lat: Number(resolved.lat), lng: Number(resolved.lng) };
           }
@@ -557,15 +567,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Derive region from address (e.g. "서울특별시 영등포구 당산동5가 11-47" -> "영등포구 당산동5가")
-  const addrParts = cleanAddress.split(/\s+/);
+  // Derive blind-safe region from address without leaking lot numbers when si/do prefix is omitted
+  const { primaryAddress: cleanPrimaryAddr, secondaryLots: parsedSecondaryLots } =
+    splitMultiParcelAddress(cleanAddress);
+  const guDongRegionMatch = cleanPrimaryAddr.match(
+    /([가-힣]{2,6}(?:구|군))\s+([가-힣0-9]{2,8}(?:동|읍|면|리|가))/
+  );
+  const cityRegionMatch = cleanPrimaryAddr.match(
+    /([가-힣]{2,6}시)\s+([가-힣0-9]{2,8}(?:구|동|읍|면))/
+  );
   let derivedRegion = '수도권';
-  if (addrParts.length >= 3) {
-    derivedRegion = `${addrParts[1]} ${addrParts[2]}`;
-  } else if (addrParts.length === 2) {
-    derivedRegion = `${addrParts[0]} ${addrParts[1]}`;
+  if (guDongRegionMatch) {
+    derivedRegion = `${guDongRegionMatch[1]} ${guDongRegionMatch[2]}`;
+  } else if (cityRegionMatch && !cityRegionMatch[1].startsWith('서울')) {
+    derivedRegion = `${cityRegionMatch[1]} ${cityRegionMatch[2]}`;
   } else {
-    derivedRegion = addrParts[0] || '서울 도심';
+    const safeAddrTokens = cleanPrimaryAddr
+      .split(/[\s,]+/)
+      .filter((tok) => tok && !/^\d/.test(tok) && !/^산\d/.test(tok));
+    if (safeAddrTokens.length >= 3) {
+      derivedRegion = `${safeAddrTokens[1]} ${safeAddrTokens[2]}`;
+    } else if (safeAddrTokens.length === 2) {
+      derivedRegion = `${safeAddrTokens[0]} ${safeAddrTokens[1]}`;
+    } else {
+      derivedRegion = safeAddrTokens[0] || '서울 도심';
+    }
   }
 
   // Compute rent totals and floor structure from rentRoll
@@ -1057,6 +1083,111 @@ export async function POST(req: NextRequest) {
   const resolvedRoadAddress = knownMatch?.roadAddress || existingRoadAddress || cleanAddress;
   const resolvedJibunAddress = knownMatch?.jibunAddress || existingJibunAddress || cleanAddress;
 
+  // Normalize & enrich multi-parcel input (body.parcels + secondary lots in address)
+  const rawParcelsInput = Array.isArray(body.parcels)
+    ? body.parcels
+    : Array.isArray(existingSsot?.parcels)
+    ? existingSsot.parcels
+    : undefined;
+  const candidateAllPnus: string[] = [];
+  if (resolvedPnu && /^\d{19}$/.test(resolvedPnu)) {
+    candidateAllPnus.push(resolvedPnu);
+  }
+  if (Array.isArray(body.pnus)) {
+    for (const p of body.pnus) {
+      const s = String(p || '').trim();
+      if (/^\d{19}$/.test(s) && !candidateAllPnus.includes(s)) candidateAllPnus.push(s);
+    }
+  }
+  for (const p of existingAllPnus) {
+    if (/^\d{19}$/.test(p) && !candidateAllPnus.includes(p)) candidateAllPnus.push(p);
+  }
+  if (parsedSecondaryLots.length > 0 && resolvedPnu && /^\d{19}$/.test(resolvedPnu)) {
+    const dongCd = resolvedPnu.slice(0, 10);
+    for (const lot of parsedSecondaryLots) {
+      const secPnu = `${dongCd}${lot.isMount ? '2' : '1'}${padNumber(lot.bun)}${padNumber(lot.ji)}`;
+      if (/^\d{19}$/.test(secPnu) && !candidateAllPnus.includes(secPnu)) {
+        candidateAllPnus.push(secPnu);
+      }
+    }
+  }
+
+  const parsedParcelsRes = parseBrokerParcels(rawParcelsInput);
+  let normalizedParcels: Array<BrokerParcel & { jibun?: string }> = parsedParcelsRes.ok
+    ? parsedParcelsRes.parcels.map((p, idx) => ({
+        ...p,
+        ...(typeof rawParcelsInput?.[idx]?.jibun === 'string' && rawParcelsInput[idx].jibun.trim()
+          ? { jibun: rawParcelsInput[idx].jibun.trim() }
+          : {}),
+      }))
+    : [];
+
+  if (
+    process.env.NODE_ENV !== 'test' &&
+    !process.env.VITEST &&
+    (candidateAllPnus.length >= 2 ||
+      normalizedParcels.some(
+        (p) => p.pnu && (p.areaM2 === undefined || !p.landCategory || p.officialPricePerM2 === undefined)
+      ))
+  ) {
+    try {
+      const { defaultParcelLookupDeps, fillParcelsFromPublicData } = await import(
+        '@/domain/building/mobile-im/parcel-enrichment'
+      );
+      const deps = await defaultParcelLookupDeps();
+      const enriched = await Promise.race([
+        fillParcelsFromPublicData(normalizedParcels, candidateAllPnus, deps, 250),
+        new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+      ]);
+      if (enriched && enriched.parcels.length > 0) {
+        const dongMatch = (resolvedJibunAddress || cleanAddress).match(
+          /(?:^|\s)([가-힣0-9]+(?:동|읍|면|리|가))(?=\s+\d|\s+산\s*\d)/
+        );
+        const dongLabel = dongMatch ? dongMatch[1] : '';
+        normalizedParcels = enriched.parcels.map((p) => {
+          const prevJibun = normalizedParcels.find((np) => np.pnu === p.pnu)?.jibun;
+          let jibun = prevJibun;
+          if (!jibun && p.pnu && /^\d{19}$/.test(p.pnu)) {
+            const san = p.pnu[10] === '2' ? '산 ' : '';
+            const bon = parseInt(p.pnu.slice(11, 15), 10);
+            const bu = parseInt(p.pnu.slice(15, 19), 10);
+            const lot = bu > 0 ? `${san}${bon}-${bu}` : `${san}${bon}`;
+            jibun = dongLabel ? `${dongLabel} ${lot}` : `${lot}번지`;
+          }
+          return {
+            ...p,
+            shareRatio: p.shareRatio ?? 1,
+            ...(jibun ? { jibun } : {}),
+          };
+        });
+      }
+    } catch {
+      // Non-blocking parcel enrichment fallback
+    }
+  }
+
+  const parcelSummary = summarizeParcels(normalizedParcels);
+  const resolvedAllPnus = Array.from(new Set([...parcelSummary.pnus, ...candidateAllPnus])).filter((p) =>
+    /^\d{19}$/.test(p)
+  );
+  if (parcelSummary.isMulti && parcelSummary.totalAreaM2 && parcelSummary.totalAreaM2 > 0) {
+    const firstParcelArea = Number(normalizedParcels[0]?.areaM2 || 0);
+    if (
+      !(Number(landAreaSqm) > 0) ||
+      (firstParcelArea > 0 && Math.abs(Number(landAreaSqm) - firstParcelArea) <= 1.0)
+    ) {
+      effectiveLandSqm = parcelSummary.totalAreaM2;
+    }
+  }
+  const effectiveOfficialLandPriceWonSqm =
+    rawOfficialLandPrice > 0
+      ? rawOfficialLandPrice
+      : parcelSummary.weightedOfficialPricePerM2 && parcelSummary.weightedOfficialPricePerM2 > 0
+      ? parcelSummary.weightedOfficialPricePerM2
+      : officialLandPriceWonSqm;
+  const resolvedLandCategory = parcelSummary.landCategoryLabel || '대';
+  const resolvedParcels = normalizedParcels.length > 0 ? normalizedParcels : rawParcelsInput;
+
   const subjectLandPyeong = Math.max(1, effectiveLandSqm / 3.305785);
   const subjectLandPricePerPyeongWon = Math.round((priceNum * 10000) / subjectLandPyeong);
   const defaultComps =
@@ -1155,7 +1286,7 @@ export async function POST(req: NextRequest) {
     gross_floor_area_sqm: effectiveGfaSqm,
     total_gross_area_sqm: effectiveGfaSqm,
     zoning: effectiveZoning,
-    official_land_price_won_sqm: officialLandPriceWonSqm,
+    official_land_price_won_sqm: effectiveOfficialLandPriceWonSqm,
     floors_above: effectiveFloorsAbove,
     floors_below: effectiveFloorsBelow,
     building_coverage_ratio_pct: bcrPct,
@@ -1187,9 +1318,32 @@ export async function POST(req: NextRequest) {
     ) || defaultPoints[2].slice(0, 18),
   ];
 
+  const card4Posture =
+    posture === 'development' || posture === 'value_add'
+      ? ('value_add' as const)
+      : posture === 'owner_occupier'
+      ? ('owner_occupied' as const)
+      : ('income' as const);
+  const card4Area =
+    card4Posture === 'value_add' && facts.land.landAreaPyeong > 0
+      ? `토지 ${facts.land.landAreaPyeong}평`
+      : facts.building.totalGrossAreaPyeong > 0
+      ? `연면적 ${facts.building.totalGrossAreaPyeong}평`
+      : facts.land.landAreaPyeong > 0
+      ? `토지 ${facts.land.landAreaPyeong}평`
+      : undefined;
+
   const card4Draft = {
+    posture: card4Posture,
     region: derivedRegion.slice(0, 14),
     use: '근린생활시설',
+    ...(card4Area ? { area: card4Area } : {}),
+    ...(facts.building.totalGrossAreaPyeong > 0
+      ? { gfaPyung: facts.building.totalGrossAreaPyeong }
+      : {}),
+    ...(facts.land.landAreaPyeong > 0
+      ? { landAreaPyung: facts.land.landAreaPyeong }
+      : {}),
     priceBand,
     points,
     provenance: {
@@ -1317,18 +1471,15 @@ export async function POST(req: NextRequest) {
   const exactEokNum = Math.round((priceNum / 10000) * 100) / 100;
   const exactEokDisplay = `${exactEokNum}억 원`;
 
-  const resolvedParcels = Array.isArray(body.parcels)
-    ? body.parcels
-    : Array.isArray(existingSsot?.parcels)
-    ? existingSsot.parcels
-    : undefined;
-
   const ssotSummary = {
     address: cleanAddress,
     raw_address: cleanAddress,
     road_address: resolvedRoadAddress,
     jibun_address: resolvedJibunAddress,
     pnu: resolvedPnu,
+    ...(resolvedAllPnus.length > 0
+      ? { pnus: resolvedAllPnus, parcel_count: resolvedAllPnus.length }
+      : {}),
     coordinates: resolvedCoords,
     building_name: resolvedTitle,
     asset_type: '근린생활시설',
@@ -1345,7 +1496,8 @@ export async function POST(req: NextRequest) {
     total_gross_area_m2: effectiveGfaSqm,
     size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
     zoning: effectiveZoning,
-    land_category: '대',
+    land_category: resolvedLandCategory,
+    jimok: resolvedLandCategory,
     completion_date: effectiveCompletionDate,
     floors_above: effectiveFloorsAbove,
     floors_below: effectiveFloorsBelow,
@@ -1356,7 +1508,7 @@ export async function POST(req: NextRequest) {
     elevator_count: elevators,
     main_usage: body.mainPurpose || knownMatch?.mainPurpose || '제1·2종 근린생활시설',
     structure: '철근콘크리트구조',
-    official_land_price_per_sqm: officialLandPriceWonSqm,
+    official_land_price_per_sqm: effectiveOfficialLandPriceWonSqm,
     ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
     vacancy_pct: vacancyPct,
     vacancy_signal: vacancyPct === 0 ? '만실' : `공실률 ${vacancyPct}%`,
@@ -1418,9 +1570,9 @@ export async function POST(req: NextRequest) {
         `| 항목 | 내용 |`,
         `|---|---|`,
         `| 지번주소 | ${resolvedJibunAddress} |`,
-        `| 지목 / 대지면적 | 대 / ${effectiveLandSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
+        `| 지목 / 대지면적 | ${resolvedLandCategory} / ${effectiveLandSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
         `| 용도지역 | ${effectiveZoning} |`,
-        `| 개별공시지가 | ${officialLandPriceWonSqm > 0 ? `㎡당 ${officialLandPriceWonSqm.toLocaleString()}원` : '공시지가 확인 중'} |`,
+        `| 개별공시지가 | ${effectiveOfficialLandPriceWonSqm > 0 ? `㎡당 ${effectiveOfficialLandPriceWonSqm.toLocaleString()}원` : '공시지가 확인 중'} |`,
       ].join('\n'),
     },
     {
@@ -1523,6 +1675,7 @@ export async function POST(req: NextRequest) {
     buildingName: resolvedTitle,
     resolved_address: cleanAddress,
     pnu: resolvedPnu,
+    ...(resolvedAllPnus.length > 0 ? { pnus: resolvedAllPnus } : {}),
     coordinates: resolvedCoords,
     investment_posture: legacyPosture,
     posture: legacyPosture,
@@ -1584,7 +1737,8 @@ export async function POST(req: NextRequest) {
     posture,
     pnu: resolvedPnu || undefined,
     coordinates: resolvedCoords,
-    officialLandPriceWonSqm,
+    officialLandPriceWonSqm: effectiveOfficialLandPriceWonSqm,
+    ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
     floorsAbove: effectiveFloorsAbove,
     floorsBelow: effectiveFloorsBelow,
     card4,
@@ -1598,7 +1752,7 @@ export async function POST(req: NextRequest) {
       handoverNote: handoverNote || undefined,
       floorsAbove: effectiveFloorsAbove,
       floorsBelow: effectiveFloorsBelow,
-      officialLandPriceWonSqm,
+      officialLandPriceWonSqm: effectiveOfficialLandPriceWonSqm,
       bcrPct,
       farPct,
       parkingSpaces,

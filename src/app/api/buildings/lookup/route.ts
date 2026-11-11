@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { resolveAddress, splitMultiParcelAddress } from "@/lib/external/address-resolver";
+import { padNumber, resolveAddress, splitMultiParcelAddress } from "@/lib/external/address-resolver";
 import { fetchBuildingRegister } from "@/lib/external/building-register-api";
 import { fetchLandUsePlan } from "@/lib/external/land-use-api";
+import { defaultParcelLookupDeps, fillParcelsFromPublicData } from "@/domain/building/mobile-im/parcel-enrichment";
+import { summarizeParcels, type BrokerParcel } from "@/domain/building/mobile-im/parcel-input";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("buildings-lookup");
@@ -169,7 +171,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { primaryAddress } = splitMultiParcelAddress(rawAddress);
+    const { primaryAddress, secondaryLots } = splitMultiParcelAddress(rawAddress);
     const searchTarget = primaryAddress || rawAddress;
     const safeSearch = searchTarget.replace(/[,()]/g, ' ').trim();
 
@@ -361,7 +363,10 @@ export async function GET(req: NextRequest) {
       ((bldReg as any)?.rideUseElvtCnt != null ? Number((bldReg as any).rideUseElvtCnt) : null) ??
       null;
 
-    const officialLandPricePerSqm =
+    const officialLandPricePerSqmRaw =
+      (landUse?.pblntfPclnd != null && Number(landUse.pblntfPclnd) > 0
+        ? Number(landUse.pblntfPclnd)
+        : null) ??
       (ssotSummary.official_land_price_per_sqm != null &&
       Number(ssotSummary.official_land_price_per_sqm) > 0
         ? Number(ssotSummary.official_land_price_per_sqm)
@@ -372,6 +377,124 @@ export async function GET(req: NextRequest) {
         : null) ??
       verifiedFallback?.officialLandPricePerSqm ??
       null;
+
+    // 4. Multi-parcel enrichment (when 2+ lots are present in address or resolved.allPnus)
+    const candidatePnus: string[] = [];
+    if (effectivePnu && /^\d{19}$/.test(effectivePnu)) {
+      candidatePnus.push(effectivePnu);
+    }
+    if (Array.isArray(resolved?.allPnus)) {
+      for (const p of resolved.allPnus) {
+        if (/^\d{19}$/.test(p) && !candidatePnus.includes(p)) {
+          candidatePnus.push(p);
+        }
+      }
+    }
+    if (secondaryLots.length > 0 && effectivePnu && /^\d{19}$/.test(effectivePnu)) {
+      const dongCd = effectivePnu.slice(0, 10);
+      for (const lot of secondaryLots) {
+        const secPnu = `${dongCd}${lot.isMount ? "2" : "1"}${padNumber(lot.bun)}${padNumber(lot.ji)}`;
+        if (/^\d{19}$/.test(secPnu) && !candidatePnus.includes(secPnu)) {
+          candidatePnus.push(secPnu);
+        }
+      }
+    }
+
+    let resolvedParcels: Array<BrokerParcel & { jibun?: string }> | undefined;
+    let effectiveLandAreaSqm = landAreaSqm;
+    let effectiveZoning = zoning;
+    let officialLandPricePerSqm = officialLandPricePerSqmRaw;
+    let zoningShares: Array<{ zoneName: string; areaSqm?: number; ratioPct: number }> | undefined;
+
+    if (candidatePnus.length >= 2) {
+      try {
+        const deps = await defaultParcelLookupDeps();
+        const dongMatch = (resolved?.jibunAddress || rawAddress).match(
+          /(?:^|\s)([가-힣0-9]+(?:동|읍|면|리|가))(?=\s+\d|\s+산\s*\d)/
+        );
+        const dongLabel = dongMatch ? dongMatch[1] : "";
+        const formatPnuJibun = (pnuStr: string) => {
+          const san = pnuStr[10] === "2" ? "산 " : "";
+          const bon = parseInt(pnuStr.slice(11, 15), 10);
+          const bu = parseInt(pnuStr.slice(15, 19), 10);
+          const lot = bu > 0 ? `${san}${bon}-${bu}` : `${san}${bon}`;
+          return dongLabel ? `${dongLabel} ${lot}` : `${lot}번지`;
+        };
+
+        const [enrichedRes, secLandUseList] = await Promise.race([
+          Promise.all([
+            fillParcelsFromPublicData([], candidatePnus, deps, 250),
+            Promise.all(
+              candidatePnus.slice(0, 6).map((p, idx) =>
+                idx === 0 && landUse
+                  ? Promise.resolve({ pnu: p, lup: landUse })
+                  : fetchLandUsePlan(p)
+                      .then((lup) => ({ pnu: p, lup }))
+                      .catch(() => ({ pnu: p, lup: null }))
+              )
+            ),
+          ]),
+          new Promise<[null, []]>((r) => setTimeout(() => r([null, []]), 6500)),
+        ]);
+
+        if (enrichedRes && enrichedRes.parcels.length >= 2) {
+          resolvedParcels = enrichedRes.parcels.map((p) => ({
+            ...p,
+            shareRatio: p.shareRatio ?? 1,
+            ...(p.pnu ? { jibun: formatPnuJibun(p.pnu) } : {}),
+          }));
+          const summary = summarizeParcels(resolvedParcels);
+          if (summary.totalAreaM2 && summary.totalAreaM2 > 0) {
+            effectiveLandAreaSqm = Math.max(Number(landAreaSqm || 0), summary.totalAreaM2);
+          } else if (summary.partialAreaM2 && summary.partialAreaM2 > Number(landAreaSqm || 0)) {
+            effectiveLandAreaSqm = summary.partialAreaM2;
+          }
+          if (summary.weightedOfficialPricePerM2 && summary.weightedOfficialPricePerM2 > 0) {
+            officialLandPricePerSqm = summary.weightedOfficialPricePerM2;
+          }
+
+          // Cross-parcel multi-zoning aggregation (e.g. 준주거지역 + 제2종일반주거지역)
+          const zoneAreaMap = new Map<string, number>();
+          const zoneOrder: string[] = [];
+          for (const entry of secLandUseList) {
+            const zName = entry.lup?.zoningDistrict?.trim();
+            if (!zName || zName === "지정되지않음" || zName === "도시지역") continue;
+            if (!zoneOrder.includes(zName)) zoneOrder.push(zName);
+            const matchParcel = resolvedParcels.find((rp) => rp.pnu === entry.pnu);
+            const pArea = Number(matchParcel?.areaM2 || entry.lup?.landArea || 0);
+            if (pArea > 0) {
+              zoneAreaMap.set(zName, (zoneAreaMap.get(zName) || 0) + pArea);
+            }
+          }
+          if (zoneOrder.length >= 2) {
+            effectiveZoning = zoneOrder.join(" · ");
+            const sumZoneArea = [...zoneAreaMap.values()].reduce((s, v) => s + v, 0);
+            if (sumZoneArea > 0 && zoneAreaMap.size >= 2) {
+              zoningShares = [...zoneAreaMap.entries()].map(([zoneName, areaVal]) => ({
+                zoneName,
+                areaSqm: Math.round(areaVal * 10) / 10,
+                ratioPct: Math.round((areaVal / sumZoneArea) * 1000) / 10,
+              }));
+            }
+          }
+        }
+      } catch (mpErr) {
+        log.warn({ err: mpErr }, "[buildings/lookup] multi-parcel enrichment skipped");
+      }
+    } else if (!officialLandPricePerSqm && effectivePnu && /^\d{19}$/.test(effectivePnu)) {
+      try {
+        const { fetchLandPrice } = await import("@/lib/external/land-price-api");
+        const lp = await Promise.race([
+          fetchLandPrice(effectivePnu),
+          new Promise<null>((r) => setTimeout(() => r(null), 3000)),
+        ]);
+        if (lp?.pricePerSqm && lp.pricePerSqm > 0) {
+          officialLandPricePerSqm = lp.pricePerSqm;
+        }
+      } catch {
+        // ignore non-blocking price lookup
+      }
+    }
 
     const resolvedBcrPct =
       (bldReg?.bcRat != null && Number(bldReg.bcRat) > 0 ? Number(bldReg.bcRat) : null) ??
@@ -389,16 +512,22 @@ export async function GET(req: NextRequest) {
       verifiedFallback?.farPct ??
       null;
 
+    const parcelSummaryOut = resolvedParcels ? summarizeParcels(resolvedParcels) : null;
+
     return NextResponse.json({
       ok: true,
       address: resolved?.jibunAddress || resolved?.roadAddress || ssotRow?.raw_address || rawAddress,
       pnu: effectivePnu || null,
+      ...(candidatePnus.length >= 2 ? { pnus: candidatePnus } : {}),
+      ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
+      ...(parcelSummaryOut?.landCategoryLabel ? { landCategoryLabel: parcelSummaryOut.landCategoryLabel } : {}),
+      ...(zoningShares ? { zoningShares } : {}),
       lat: resolved?.lat ?? verifiedFallback?.lat ?? null,
       lng: resolved?.lng ?? verifiedFallback?.lng ?? null,
       grossFloorAreaSqm: gfaSqm ? Math.round(Number(gfaSqm) * 100) / 100 : null,
       gfaSqm: gfaSqm ? Math.round(Number(gfaSqm) * 100) / 100 : null,
-      landAreaSqm: landAreaSqm ? Math.round(Number(landAreaSqm) * 100) / 100 : null,
-      zoning: zoning || null,
+      landAreaSqm: effectiveLandAreaSqm ? Math.round(Number(effectiveLandAreaSqm) * 100) / 100 : null,
+      zoning: effectiveZoning || null,
       bcrPct: resolvedBcrPct,
       farPct: resolvedFarPct,
       completionDate: completionDate || null,

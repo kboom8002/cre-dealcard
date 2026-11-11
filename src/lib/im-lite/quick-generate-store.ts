@@ -12,6 +12,7 @@ import {
   type DealCardPosture,
 } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange } from '@/lib/deal-card/price-band';
+import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
 
 export interface QuickImRentRollRow {
   floor: string;
@@ -635,6 +636,14 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     : 0;
   const buildingRegisterSource =
     params.bcrPct || params.farPct ? 'api' : params.isSynthesized ? 'manual' : 'api';
+  const parcelSummary = summarizeParcels(params.parcels);
+  const resolvedLandCategory = parcelSummary.landCategoryLabel || '대';
+  const resolvedAllPnus = Array.from(
+    new Set([
+      ...(params.pnu && /^\d{19}$/.test(params.pnu) ? [params.pnu] : []),
+      ...parcelSummary.pnus,
+    ])
+  ).filter((p) => /^\d{19}$/.test(p));
 
   const ssotSummary = {
     address: params.address,
@@ -642,6 +651,9 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     road_address: params.address,
     jibun_address: params.address,
     pnu: params.pnu,
+    ...(resolvedAllPnus.length > 0
+      ? { pnus: resolvedAllPnus, parcel_count: resolvedAllPnus.length }
+      : {}),
     coordinates: resolvedCoords,
     lat: resolvedCoords?.lat ?? params.lat,
     lng: resolvedCoords?.lng ?? params.lng,
@@ -661,7 +673,8 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     total_gross_area_m2: params.gfaSqm,
     size_signal: `연면적 ${params.gfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
     zoning: params.zoning,
-    land_category: '대',
+    land_category: resolvedLandCategory,
+    jimok: resolvedLandCategory,
     completion_date: params.completionDate,
     floors_above: floorsAbove,
     floors_below: floorsBelow,
@@ -738,7 +751,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
         `| 항목 | 내용 |`,
         `|---|---|`,
         `| 지번주소 | ${params.address} |`,
-        `| 지목 / 대지면적 | 대 / ${params.landAreaSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
+        `| 지목 / 대지면적 | ${resolvedLandCategory} / ${params.landAreaSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
         `| 용도지역 | ${params.zoning} |`,
         `| 개별공시지가 | ${officialLandPriceWonSqm > 0 ? `㎡당 ${officialLandPriceWonSqm.toLocaleString()}원` : '공시지가 확인 중'} |`,
       ].join('\n'),
@@ -809,6 +822,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     buildingName: params.buildingName,
     resolved_address: params.address,
     pnu: params.pnu,
+    ...(resolvedAllPnus.length > 0 ? { pnus: resolvedAllPnus } : {}),
     coordinates: resolvedCoords,
     lat: resolvedCoords?.lat ?? params.lat,
     lng: resolvedCoords?.lng ?? params.lng,
@@ -1105,12 +1119,15 @@ export function synthesizeQuickRecordFromImItem(
 
   const address = String(imItem.address || '').trim();
   const title = String(imItem.title || imItem.buildingName || '상업용 근생빌딩').trim();
-  const region =
-    address
-      .replace(/^(서울특별시|서울시|경기도|인천광역시)\s*/, '')
-      .split(/\s+/)
-      .slice(0, 2)
-      .join(' ') || '서울시 핵심권역';
+  const region = (() => {
+    const tokens = address
+      .replace(/^(?:서울특별시|서울시|서울|경기도|경기|인천광역시|인천|부산광역시|대구광역시|대전광역시|광주광역시|울산광역시)\s*/, '')
+      .replace(/\([^)]*\)/g, ' ')
+      .split(/[\s,]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0 && !/^(?:산\s*)?\d/.test(t) && !/^외$/.test(t) && !/필지/.test(t));
+    return tokens.slice(0, 2).join(' ') || '서울시 핵심권역';
+  })();
 
   const askingPriceManwon = Number(imItem.askingPriceManwon) || 0;
 

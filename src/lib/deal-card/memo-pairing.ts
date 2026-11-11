@@ -252,7 +252,7 @@ export function parseMemoIntoCard4(
     use = "신축부지";
   }
 
-  // 4. 면적(gfaPyung / landAreaPyung / area) 추출
+  // 4. 면적(gfaPyung / landAreaPyung / area) 추출 — 다필지 합계/가산식 최우선 인식
   const toPyung = (rawNum: string, unit: string): number | undefined => {
     const n = parseFloat(rawNum.replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return undefined;
@@ -260,22 +260,70 @@ export function parseMemoIntoCard4(
     return Math.round(n);
   };
 
-  const gfaMatch = text.match(/(?:연면적|건평)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
-  const landMatch = text.match(
-    /(?:대지면적|토지면적|대지|토지)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+  const toExactPyungFloat = (rawNum: string, unit: string): number | undefined => {
+    const n = parseFloat(rawNum.replace(/,/g, ""));
+    if (!Number.isFinite(n) || n <= 0) return undefined;
+    return /㎡|m2/i.test(unit) ? n / 3.3058 : n;
+  };
+
+  const gfaTotalMatch =
+    text.match(
+      /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?(?:합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+    ) ||
+    text.match(/(?:총|합계|통합)\s*(?:연면적|건평)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
+  const gfaSingleMatch = text.match(
+    /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
   );
+
+  const landTotalMatch =
+    text.match(
+      /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?(?:합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+    ) ||
+    text.match(
+      /(?:합계|총|전체|통합)\s*(?:대지면적|토지면적|대지|토지)(?:\s*\d+\s*필지)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+    );
+  const landPlusExprMatch = text.match(
+    /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?[:：]?\s*((?:(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2)\s*\+\s*)+(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2))/i
+  );
+  const landSingleMatch = text.match(
+    /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+  );
+
+  let summedLandPyung: number | undefined;
+  if (!landTotalMatch && landPlusExprMatch) {
+    const terms = Array.from(
+      landPlusExprMatch[1].matchAll(/([\d,.]+)\s*(평|㎡|m2)/gi)
+    );
+    const vals = terms
+      .map((m) => toExactPyungFloat(m[1], m[2]))
+      .filter((v): v is number => v !== undefined);
+    if (vals.length >= 2) {
+      summedLandPyung = Math.round(vals.reduce((s, v) => s + v, 0));
+    }
+  }
+
   const gfaPyung =
-    (gfaMatch ? toPyung(gfaMatch[1], gfaMatch[2]) : undefined) ?? baseCard4.gfaPyung;
+    (gfaTotalMatch
+      ? toPyung(gfaTotalMatch[1], gfaTotalMatch[2])
+      : gfaSingleMatch
+      ? toPyung(gfaSingleMatch[1], gfaSingleMatch[2])
+      : undefined) ?? baseCard4.gfaPyung;
   const landAreaPyung =
-    (landMatch ? toPyung(landMatch[1], landMatch[2]) : undefined) ?? baseCard4.landAreaPyung;
+    (landTotalMatch
+      ? toPyung(landTotalMatch[1], landTotalMatch[2])
+      : summedLandPyung !== undefined
+      ? summedLandPyung
+      : landSingleMatch
+      ? toPyung(landSingleMatch[1], landSingleMatch[2])
+      : undefined) ?? baseCard4.landAreaPyung;
 
   let area = baseCard4.area;
   if (posture === "value_add" && landAreaPyung) {
-    area = `토지 ${landAreaPyung}평`;
+    area = `토지 ${landAreaPyung.toLocaleString("ko-KR")}평`;
   } else if (gfaPyung) {
-    area = `연면적 ${gfaPyung}평`;
+    area = `연면적 ${gfaPyung.toLocaleString("ko-KR")}평`;
   } else if (landAreaPyung) {
-    area = `토지 ${landAreaPyung}평`;
+    area = `토지 ${landAreaPyung.toLocaleString("ko-KR")}평`;
   }
 
   // 5. 가격 구간(priceBand) 추출 (보증금/대출 숫자와 구분하여 안전 구간화)
@@ -355,18 +403,35 @@ export function parseMemoIntoCard4(
     if (/^(?:주소|소재지|위치|매매가|매각가|희망가|매가|연락처|전화|소유주|건물주)\s*[:：]/.test(clause)) {
       continue;
     }
-    // 가격/면적만 있는 단순 스펙 절은 이미 썸네일 4칩에 들어가므로 장점 후보에서 제외
-    if (/^(?:대지|토지|대지면적|토지면적|연면적|건평|매가|매매가|매각가|희망가)\s*[\d,.]+\s*(?:평|㎡|m2|억)/i.test(clause)) {
+    // 다필지 부속 지번 조각(예: "315-3", "315-7 외 1필지", "1필지 82평")이나 가격/면적 스펙 절은 장점 후보에서 제외
+    if (
+      /^(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*외\s*\d*\s*필지)?$/.test(clause) ||
+      /^(?:\d+\s*필지|(?:대지|토지|대지면적|토지면적|연면적|건평|매가|매매가|매각가|희망가)(?:\s*\d+\s*필지)?(?:\s*합계|\s*총)?)\s*[:：]?\s*(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2|억)/i.test(
+        clause
+      )
+    ) {
       continue;
     }
-    // 주소+건물명+희망가 헤더 절(마스킹 후 ●●● 잔존)은 장점 문구로 부적합하므로 제외
+    // 주소+건물명+희망가 헤더 절(마스킹 후 ●●●/OO-OO/OO번지 잔존 또는 단순 행정동 인근 표기)은 장점 문구로 부적합하므로 제외
     const cleaned = cleanBlindPoints([clause])[0]?.trim() || "";
-    if (!cleaned || cleaned.includes("●●●")) continue;
+    if (
+      !cleaned ||
+      cleaned.includes("●●●") ||
+      cleaned.includes("OO-OO") ||
+      cleaned.includes("OO번지") ||
+      /^(?:서울(?:특별시|시)?|경기(?:도)?|인천(?:광역시|시)?|부산(?:광역시|시)?|[가-힣]{2,6}(?:시|도|구|군))(?:\s+[가-힣0-9]{2,8}(?:구|군|시|동|읍|면|리|가))*\s*인근(?:\s*외\s*\d*\s*필지|\s*다필지)?$/.test(
+        cleaned
+      )
+    ) {
+      continue;
+    }
     const repaired = repairDealCardLine(cleaned);
     if (
       repaired &&
       repaired.length >= 3 &&
       !repaired.includes("●●●") &&
+      !repaired.includes("OO-OO") &&
+      !repaired.includes("OO번지") &&
       repaired !== region &&
       repaired !== use &&
       !candidatePoints.includes(repaired)

@@ -222,15 +222,18 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     }
   }
 
-  // 2c. Dong + parcel number: e.g. "역삼동 823", "역삼동 147-8"
+  // 2c. Dong + single or multi-parcel numbers: e.g. "역삼동 823", "성수동2가 315-4, 315-3, 315-7", "양평동4가 117, 134 외 1필지"
   const dongParcelRegex =
-    /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:번지|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))/g;
+    /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*[,/·]\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?)*)(?:\s*외\s*\d*\s*필지(?:\s*\((?:\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?\s*[,/·]?\s*)+\))?)?(?![0-9-]|\s*(?:층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))/g;
   let dMatch: RegExpExecArray | null;
   while ((dMatch = dongParcelRegex.exec(text)) !== null) {
     const parcelNum = dMatch[2];
-    const alreadyCaught = violations.some(
-      (v) => v.keyword && (v.keyword.includes(parcelNum) || dMatch![0].includes(v.keyword)),
-    );
+    const hasSecondaryLots = /[,/·]|\s외\s*\d*\s*필지/.test(dMatch[0]);
+    const alreadyCaught =
+      !hasSecondaryLots &&
+      violations.some(
+        (v) => v.keyword && (v.keyword.includes(parcelNum) || dMatch![0].includes(v.keyword)),
+      );
     if (!alreadyCaught) {
       violations.push({
         pointIndex,
@@ -355,15 +358,14 @@ export function validateBlindPoints(
   options?: BlindGuardOptions,
 ): BlindValidationResult {
   const violations: BlindViolation[] = [];
-  const cleanedPoints: string[] = [];
+  const trimmedPoints = points.map((pt) => (pt || '').trim());
 
-  points.forEach((pt, idx) => {
-    const ptClean = (pt || '').trim();
-    cleanedPoints.push(ptClean);
+  trimmedPoints.forEach((ptClean, idx) => {
     const pointViolations = checkSensitivePoint(ptClean, idx);
     violations.push(...pointViolations);
   });
 
+  const cleanedPoints = cleanBlindPoints(trimmedPoints);
   const kAnon = checkAreaKAnonymity(options?.region, options?.assetType, options?.buildingCountInRegion);
 
   return {
@@ -383,9 +385,17 @@ export function cleanBlindPoints(points: string[]): string[] {
   return points.map((text) => {
     let cleaned = text;
 
+    // Mask dong + single or multi-parcel numbers FIRST so secondary comma-separated jibuns
+    // (including integer-only jibuns like "양평동4가 117, 134 외 1필지" or "성수동2가 315-4, 315-3, 315-7")
+    // collapse cleanly into "${dong} 인근" without leaving dangling OO-OO or unmasked secondary lots
+    cleaned = cleaned.replace(
+      /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*[,/·]\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?)*)(?:\s*외\s*\d*\s*필지(?:\s*\((?:\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?\s*[,/·]?\s*)+\))?)?(?![0-9-]|\s*(?:층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))(\s*인근)?/g,
+      (_match, dongPart: string) => `${dongPart.trim()} 인근`,
+    );
+
     // Mask parcel numbers: e.g. "11-47번지" -> "OO번지"
     cleaned = cleaned.replace(
-      /(?:산\s*)?(?:\b|^)\d{1,5}(?:-\d{1,5})?\s*번지(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/g,
+      /(?:산\s*)?(?:\b|^)\d{1,5}(?:-\d{1,5})?\s*번지(?:\s*외\s*\d*\s*필지)?(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/g,
       'OO번지',
     );
 
@@ -399,13 +409,13 @@ export function cleanBlindPoints(points: string[]): string[] {
     );
 
     cleaned = cleaned.replace(/\b\d{1,5}-\d{1,5}\b/g, (match) => {
-      return isForbiddenParcelNumber(match, text) ? 'OO-OO' : match;
+      return isForbiddenParcelNumber(match, cleaned) ? 'OO-OO' : match;
     });
 
-    // Mask dong + single parcel number: e.g. "역삼동 823" -> "역삼동 인근"
+    // Clean parenthesized lot-number lists after "외 N필지": e.g. "외 2필지 (315-3, 315-7)" -> "다필지"
     cleaned = cleaned.replace(
-      /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:번지|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))(\s*인근)?/g,
-      (_match, dongPart: string) => `${dongPart.trim()} 인근`,
+      /외\s*\d+\s*필지\s*\((?:\s*(?:산\s*)?(?:OO-OO|\d{1,5}(?:-\d{1,5})?)\s*[,/·]?\s*)+\)/g,
+      '다필지',
     );
 
     // Mask building names

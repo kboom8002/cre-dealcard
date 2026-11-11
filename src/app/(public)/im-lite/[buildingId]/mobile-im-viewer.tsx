@@ -680,6 +680,17 @@ export function MobileIMViewer({
   const landZoning = landSec?.data?.zoning || basicDoc.facts.land.zoning;
   const landTerrainShape =
     landSec?.data?.terrainShape || basicDoc.facts.land.terrainShape || "세로장방형 평지";
+  const multiParcels: any[] = useMemo(() => {
+    const raw =
+      (initialDoc as any)?.parcels ||
+      (initialDoc as any)?.ssotSummary?.parcels ||
+      [];
+    return Array.isArray(raw) ? raw : [];
+  }, [initialDoc]);
+  const landCategoryLabel =
+    (initialDoc as any)?.ssotSummary?.land_category ||
+    (initialDoc as any)?.ssotSummary?.jimok ||
+    "대";
   const officialLandPriceWonSqm = Number(
     landSec?.data?.officialLandPriceWonSqm ?? basicDoc.facts.land.officialLandPriceWonSqm ?? 0
   );
@@ -1178,9 +1189,11 @@ export function MobileIMViewer({
           <h2 className="text-[20px] font-extrabold text-[#0F172A]">토지 이용 계획</h2>
           <div className="grid grid-cols-2 gap-3 text-[15px]">
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">대지면적</span>
+              <span className="text-[14px] font-semibold text-[#64748B] block">
+                {multiParcels.length >= 2 ? `대지면적 (${multiParcels.length}필지 합계)` : "대지면적"}
+              </span>
               <strong className="text-[16px] text-[#0F172A] tabular-nums">
-                {landAreaSqm}㎡ ({landAreaPyeong}평)
+                {Number(landAreaSqm).toLocaleString()}㎡ ({Number(landAreaPyeong).toLocaleString()}평)
               </strong>
             </div>
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
@@ -1188,11 +1201,17 @@ export function MobileIMViewer({
               <strong className="text-[16px] text-[#0F172A]">{landZoning}</strong>
             </div>
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">지형·형상</span>
-              <strong className="text-[15px] text-[#0F172A]">{landTerrainShape}</strong>
+              <span className="text-[14px] font-semibold text-[#64748B] block">
+                {multiParcels.length >= 2 ? "지목 구성" : "지형·형상"}
+              </span>
+              <strong className="text-[15px] text-[#0F172A]">
+                {multiParcels.length >= 2 ? landCategoryLabel : landTerrainShape}
+              </strong>
             </div>
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">개별공시지가</span>
+              <span className="text-[14px] font-semibold text-[#64748B] block">
+                {multiParcels.length >= 2 ? "개별공시지가 (가중평균)" : "개별공시지가"}
+              </span>
               <strong className="text-[15px] text-[#0F172A] tabular-nums">
                 {officialLandPriceWonSqm > 0
                   ? `㎡당 ${officialLandPriceWonSqm.toLocaleString()}원 (평당 약 ${Math.round(
@@ -1202,6 +1221,53 @@ export function MobileIMViewer({
               </strong>
             </div>
           </div>
+
+          {multiParcels.length >= 2 && (
+            <div
+              data-testid="mobile-im-multiparcel-table"
+              className="overflow-x-auto rounded-md border border-[#CBD5E1]"
+            >
+              <table className="w-full text-left text-[13px]">
+                <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
+                  <tr>
+                    <th className="py-2 px-3">필지(지번)</th>
+                    <th className="py-2 px-3">지목</th>
+                    <th className="py-2 px-3 text-right">면적</th>
+                    <th className="py-2 px-3 text-right">공시지가(㎡)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2E8F0]">
+                  {multiParcels.map((p: any, idx: number) => {
+                    const jibunText =
+                      p?.jibun ||
+                      (typeof p?.pnu === "string" && /^\d{19}$/.test(p.pnu)
+                        ? `${parseInt(p.pnu.slice(11, 15), 10)}${
+                            parseInt(p.pnu.slice(15, 19), 10) > 0
+                              ? `-${parseInt(p.pnu.slice(15, 19), 10)}`
+                              : ""
+                          }번지`
+                        : `필지 ${idx + 1}`);
+                    return (
+                      <tr key={p?.pnu || idx}>
+                        <td className="py-2 px-3 font-semibold text-[#0F172A]">{jibunText}</td>
+                        <td className="py-2 px-3 text-[#334155]">{p?.landCategory || "-"}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-[#0F172A]">
+                          {typeof p?.areaM2 === "number" && p.areaM2 > 0
+                            ? `${Number(p.areaM2).toLocaleString()}㎡`
+                            : "-"}
+                        </td>
+                        <td className="py-2 px-3 text-right tabular-nums text-[#334155]">
+                          {typeof p?.officialPricePerM2 === "number" && p.officialPricePerM2 > 0
+                            ? `${Math.round(p.officialPricePerM2).toLocaleString()}원`
+                            : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {/* Section 06: Rent Roll (A24) */}

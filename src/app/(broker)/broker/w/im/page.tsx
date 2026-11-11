@@ -1448,7 +1448,10 @@ function ImWorkspaceInner() {
           Number.isFinite(rawOfficialPrice) && rawOfficialPrice > 0
             ? rawOfficialPrice
             : originItem?.officialLandPricePerSqm;
-        const nextParcels = Array.isArray(data.parcels) ? data.parcels : originItem?.parcels;
+        const nextParcels =
+          Array.isArray(data.parcels) && data.parcels.length > 0
+            ? data.parcels
+            : undefined;
 
         if (isStillSelected) {
           if (nextGfa) setGfaSqm(String(nextGfa));
@@ -1462,7 +1465,7 @@ function ImWorkspaceInner() {
           if (nextOfficialLandPricePerSqm !== undefined) {
             setOfficialLandPricePerSqm(nextOfficialLandPricePerSqm);
           }
-          if (nextParcels !== undefined) setParcels(nextParcels);
+          setParcels(nextParcels);
         }
 
         // If user looked up a new address on an untouched sample item, clear sample remnants
@@ -1488,7 +1491,7 @@ function ImWorkspaceInner() {
           ...(nextOfficialLandPricePerSqm !== undefined
             ? { officialLandPricePerSqm: nextOfficialLandPricePerSqm }
             : {}),
-          ...(nextParcels !== undefined ? { parcels: nextParcels } : {}),
+          parcels: nextParcels,
         };
 
         if (
@@ -2824,6 +2827,49 @@ function ImWorkspaceInner() {
             placeholder="예: 서울특별시 영등포구 양평동 11-47"
             className="w-full min-h-[48px] px-3.5 text-lg rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
           />
+          {Array.isArray(parcels) && parcels.length >= 2 && (
+            <div
+              data-testid="im-multiparcel-summary"
+              className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 py-2.5 text-sm text-[#1E3A8A] space-y-1.5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-extrabold">
+                  다필지 자동 인식 ({parcels.length}필지 합산 반영)
+                </span>
+                <span className="text-xs font-semibold text-[#1D4ED8]">
+                  지적도 합필 경계 · 가중평균 공시지가 적용
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {parcels.map((p: any, idx: number) => {
+                  const jibunLabel =
+                    p?.jibun ||
+                    (typeof p?.pnu === "string" && /^\d{19}$/.test(p.pnu)
+                      ? `${parseInt(p.pnu.slice(11, 15), 10)}${
+                          parseInt(p.pnu.slice(15, 19), 10) > 0
+                            ? `-${parseInt(p.pnu.slice(15, 19), 10)}`
+                            : ""
+                        }`
+                      : `필지 ${idx + 1}`);
+                  const catLabel = p?.landCategory ? ` · ${p.landCategory}` : "";
+                  const areaLabel =
+                    typeof p?.areaM2 === "number" && p.areaM2 > 0
+                      ? ` · ${Number(p.areaM2).toLocaleString()}㎡`
+                      : "";
+                  return (
+                    <span
+                      key={p?.pnu || idx}
+                      className="inline-flex items-center rounded-md bg-white border border-[#93C5FD] px-2 py-0.5 text-xs font-semibold text-[#0F172A] tabular-nums"
+                    >
+                      {jibunLabel}
+                      {catLabel}
+                      {areaLabel}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 2. Asking Price: Unified Won ('원' 단위) Input + Easy [억] + [만원] split input */}
