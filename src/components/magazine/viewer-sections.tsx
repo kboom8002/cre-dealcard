@@ -12,6 +12,7 @@ import { BrokerAvatar } from "@/components/magazine/BrokerAvatar";
 import { GlossaryText } from "@/components/magazine/GlossaryText";
 import { DataBadge, SectionCard } from "@/components/magazine/viewer-primitives";
 import { AxiosGlassIssueCard } from "@/components/magazine/AxiosGlassIssueCard";
+import { MonthlyGlassStatCard } from "@/components/magazine/MonthlyGlassStatCard";
 import { isSingleCommentFieldNote } from "@/lib/magazine/simple-format";
 import {
   cleanNewsSummaryText,
@@ -268,7 +269,7 @@ function Stat({ value, label, tone, small }: { value: string; label: string; ton
   );
 }
 
-// ── 월간 권역별 유용한 통계 2건 그래프 섹션 (국토교통부 실거래가 공개시스템 · 한국부동산원 · 통계청 KOSIS) ──
+// ── 월간 권역별 유용한 통계 2건 그래프 섹션 (모던 글래스모피즘 카드뉴스형 바 그래픽) ──
 export function MonthlyRegionalChartsSection({
   charts,
 }: {
@@ -279,107 +280,22 @@ export function MonthlyRegionalChartsSection({
 
   return (
     <SectionCard
-      title="권역별 핵심 통계 브리핑 (2건)"
+      title="권역별 핵심 통계 그래픽 2선"
       icon={<BarChart3 className="h-4 w-4 text-sky-300" aria-hidden="true" />}
       badge={<DataBadge type="public" />}
       defaultOpen
     >
       <div className="space-y-4" data-testid="monthly-regional-charts-section">
-        {topTwo.map((chart, idx) => {
-          let maxPrimary = 1;
-          for (const p of chart.series) {
-            if (p.primaryValue > maxPrimary) maxPrimary = p.primaryValue;
-          }
-          const authority = chart.authorityLabel || (chart as AnyRec).agencySource || "공공통계";
-          return (
-            <div
-              key={chart.id || idx}
-              data-testid="monthly-regional-chart-card"
-              className="rounded-2xl border border-sky-500/25 bg-slate-900/80 p-4 space-y-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded-md border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-caption font-extrabold text-sky-200">
-                  📊 그래프 {idx + 1} · {chart.regionLabel}
-                </span>
-                <span
-                  data-testid="monthly-chart-source"
-                  className="text-caption font-semibold text-slate-300"
-                >
-                  {authority} ({chart.asOf})
-                </span>
-              </div>
-
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-extrabold text-white leading-snug">
-                    {chart.title}
-                  </h3>
-                  <p className="mt-0.5 text-caption text-slate-300">
-                    {chart.subtitle} · 단위: {chart.unit}
-                  </p>
-                </div>
-                {chart.highlightMetric && (
-                  <div className="shrink-0 rounded-xl border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-right">
-                    <span className="block text-xs font-semibold text-slate-300">
-                      {chart.highlightMetric.label}
-                    </span>
-                    <span className="block text-sm font-extrabold text-sky-200">
-                      {chart.highlightMetric.value}
-                    </span>
-                    <span className="block text-xs font-bold text-emerald-300">
-                      {chart.highlightMetric.deltaText}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* 막대 그래프 시각화 */}
-              <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                <div className="grid grid-cols-6 gap-2 items-end h-28 pt-4">
-                  {chart.series.map((pt, i) => {
-                    const rawPct = Math.round((pt.primaryValue / maxPrimary) * 100);
-                    const ratio = rawPct < 18 ? 18 : rawPct > 100 ? 100 : rawPct;
-                    const isLatest = i === chart.series.length - 1;
-                    const periodLabel = pt.label || (pt as AnyRec).period || "";
-                    const primaryText = pt.displayPrimary || String(pt.primaryValue);
-                    const secondaryText =
-                      pt.displaySecondary ||
-                      (pt.secondaryValue !== undefined ? String(pt.secondaryValue) : "");
-                    return (
-                      <div key={i} className="flex flex-col items-center gap-1 h-full justify-end">
-                        <span className="text-xs font-extrabold text-white tabular-nums">
-                          {primaryText}
-                        </span>
-                        <div
-                          className={`w-full rounded-t-md ${
-                            isLatest ? "bg-sky-400" : "bg-indigo-500/60"
-                          }`}
-                          style={{ height: `${ratio}%` }}
-                        />
-                        <span className="text-xs font-bold text-slate-300">
-                          {periodLabel}
-                        </span>
-                        {secondaryText && (
-                          <span className="text-xs font-semibold text-amber-300 tabular-nums">
-                            {secondaryText}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 매수자 시사점 */}
-              {chart.buyerImplication && (
-                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-caption leading-relaxed text-emerald-100 font-medium">
-                  💡 <strong className="font-extrabold text-emerald-200">매수자 시사점:</strong>{" "}
-                  {chart.buyerImplication}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {topTwo.map((chart, idx) => (
+          <MonthlyGlassStatCard
+            key={chart.id || idx}
+            index={idx}
+            chart={chart}
+            size="viewer"
+            cardTestId="monthly-regional-chart-card"
+            sourceTestId="monthly-chart-source"
+          />
+        ))}
       </div>
     </SectionCard>
   );

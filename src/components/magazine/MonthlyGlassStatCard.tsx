@@ -1,0 +1,232 @@
+/**
+ * src/components/magazine/MonthlyGlassStatCard.tsx
+ *
+ * 월간 뉴스레터 상단 주요 통계 그래픽 2선 — 모던 글래스모피즘 · 메시 그래디언트 카드뉴스형 통계 그래픽
+ * (에디터 우측 실시간 미리보기 & 고객 공개 뷰어 공용 SSOT)
+ */
+import React from "react";
+import type { MonthlyRegionalChart } from "@/domain/magazine/types";
+
+export type MonthlyGlassStatSize = "preview" | "viewer";
+
+export interface MonthlyGlassStatCardProps {
+  index: number;
+  chart: MonthlyRegionalChart;
+  size?: MonthlyGlassStatSize;
+  cardTestId?: string;
+  sourceTestId?: string;
+}
+
+const STAT_THEMES = [
+  {
+    glassBackground:
+      "radial-gradient(120% 120% at 0% 0%, rgba(56, 189, 248, 0.34) 0%, rgba(14, 165, 233, 0.14) 42%, rgba(15, 23, 42, 0.96) 100%), linear-gradient(135deg, #0f172a 0%, #0c4a6e 52%, #0f172a 100%)",
+    glassGlow: "0 18px 38px -18px rgba(14, 165, 233, 0.45), inset 0 1px 0 rgba(255,255,255,0.22)",
+    accent: "#38bdf8",
+    barActive: "linear-gradient(180deg, #67e8f9 0%, #0ea5e9 100%)",
+    barMuted: "linear-gradient(180deg, rgba(125, 211, 252, 0.72) 0%, rgba(3, 105, 161, 0.65) 100%)",
+  },
+  {
+    glassBackground:
+      "radial-gradient(120% 120% at 100% 0%, rgba(167, 139, 250, 0.34) 0%, rgba(99, 102, 241, 0.16) 44%, rgba(15, 23, 42, 0.96) 100%), linear-gradient(135deg, #0f172a 0%, #312e81 52%, #0f172a 100%)",
+    glassGlow: "0 18px 38px -18px rgba(129, 140, 248, 0.45), inset 0 1px 0 rgba(255,255,255,0.22)",
+    accent: "#a78bfa",
+    barActive: "linear-gradient(180deg, #c4b5fd 0%, #6366f1 100%)",
+    barMuted: "linear-gradient(180deg, rgba(165, 180, 252, 0.72) 0%, rgba(67, 56, 202, 0.65) 100%)",
+  },
+] as const;
+
+const SOURCE_BADGE_LABEL: Record<string, string> = {
+  public_db: "공공 DB 실측 집계",
+  reference_benchmark: "시장 기준 참고치",
+  broker_custom: "중개사 직접 입력",
+};
+
+const TITLE_SHADOW = "0 1px 2px rgba(2, 6, 23, 0.5)";
+
+export function MonthlyGlassStatCard({
+  index,
+  chart,
+  size = "viewer",
+  cardTestId,
+  sourceTestId,
+}: MonthlyGlassStatCardProps) {
+  const theme = STAT_THEMES[index % STAT_THEMES.length];
+  const statNo = String(index + 1).padStart(2, "0");
+  const series = Array.isArray(chart.series) ? chart.series : [];
+
+  let maxPrimary = 1;
+  for (const pt of series) {
+    if (typeof pt.primaryValue === "number" && pt.primaryValue > maxPrimary) {
+      maxPrimary = pt.primaryValue;
+    }
+  }
+
+  const authority =
+    chart.authorityLabel ||
+    ((chart as unknown as Record<string, unknown>).agencySource as string) ||
+    "시장 기준 통계";
+  const sourceBadge = chart.sourceMode ? SOURCE_BADGE_LABEL[chart.sourceMode] : null;
+  const colCount = Math.max(2, Math.min(6, series.length || 4));
+  const isPreview = size === "preview";
+
+  return (
+    <div
+      data-testid={cardTestId}
+      data-card-style="glass"
+      data-source-mode={chart.sourceMode ?? "default"}
+      className="relative isolate overflow-hidden rounded-3xl border border-white/15"
+      style={{ background: theme.glassBackground, boxShadow: theme.glassGlow }}
+    >
+      {/* 상단 하이라이트 라인 & 코너 오브 */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full opacity-35 blur-3xl"
+        style={{ background: theme.accent }}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.55), rgba(255,255,255,0))",
+        }}
+      />
+
+      <div
+        className={`relative m-[3px] rounded-[1.35rem] bg-white/[0.06] ring-1 ring-inset ring-white/10 backdrop-blur-xl space-y-3.5 ${
+          isPreview ? "p-4" : "p-5"
+        }`}
+      >
+        {/* 1. 상단 칩 & 출처 */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-sm font-black tracking-[0.06em] text-white ring-1 ring-inset ring-white/25">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 rounded-full"
+                style={{ background: theme.accent, boxShadow: `0 0 8px ${theme.accent}` }}
+              />
+              통계 {statNo} · {chart.regionLabel}
+            </span>
+            {sourceBadge && (
+              <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-sm font-bold text-sky-100 ring-1 ring-inset ring-white/15">
+                {sourceBadge}
+              </span>
+            )}
+          </div>
+
+          <span
+            data-testid={sourceTestId}
+            className="text-sm font-semibold text-slate-200/90"
+          >
+            {authority} ({chart.asOf})
+          </span>
+        </div>
+
+        {/* 2. 제목 & 대표 핵심 지표 박스 */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <h3
+              className={`break-keep font-extrabold leading-snug text-white ${
+                isPreview ? "text-base" : "text-lg"
+              }`}
+              style={{ wordBreak: "keep-all", textShadow: TITLE_SHADOW }}
+            >
+              {chart.title}
+            </h3>
+            {chart.subtitle && (
+              <p className="break-keep text-sm font-medium text-slate-200/85">
+                {chart.subtitle}
+                {chart.unit ? ` · 단위: ${chart.unit}` : ""}
+              </p>
+            )}
+          </div>
+
+          {chart.highlightMetric && (
+            <div className="shrink-0 rounded-2xl border border-white/20 bg-white/10 px-3.5 py-2 text-right backdrop-blur-md">
+              <span className="block text-sm font-semibold text-slate-200">
+                {chart.highlightMetric.label}
+              </span>
+              <span className="block text-base font-extrabold text-white tabular-nums">
+                {chart.highlightMetric.value}
+              </span>
+              {chart.highlightMetric.deltaText && (
+                <span className="block text-sm font-bold text-emerald-300">
+                  {chart.highlightMetric.deltaText}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 3. 막대 비교 그래픽 */}
+        {series.length > 0 ? (
+          <div className="rounded-2xl border border-white/15 bg-slate-950/45 px-3 py-3.5">
+            <div
+              className="grid items-end gap-2 pt-2"
+              style={{
+                gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+                minHeight: isPreview ? "7.5rem" : "8.5rem",
+              }}
+            >
+              {series.map((pt, idx) => {
+                const rawPct = Math.round((pt.primaryValue / maxPrimary) * 100);
+                const barHeightPx = Math.max(
+                  20,
+                  Math.min(isPreview ? 64 : 76, Math.round(((isPreview ? 64 : 76) * Math.max(24, rawPct)) / 100)),
+                );
+                const isFocal =
+                  pt.displaySecondary === "선택 권역" || idx === series.length - 1;
+                const primaryText = pt.displayPrimary || String(pt.primaryValue);
+                const secondaryText =
+                  pt.displaySecondary ||
+                  (pt.secondaryValue !== undefined ? String(pt.secondaryValue) : "");
+
+                return (
+                  <div
+                    key={`${pt.label}-${idx}`}
+                    data-testid="monthly-stat-bar"
+                    className="flex flex-col items-center justify-end gap-1 text-center"
+                  >
+                    <span className="text-sm font-extrabold text-white tabular-nums leading-tight">
+                      {primaryText}
+                    </span>
+                    <div
+                      className="w-full max-w-[44px] rounded-t-lg transition-all"
+                      style={{
+                        height: `${barHeightPx}px`,
+                        background: isFocal ? theme.barActive : theme.barMuted,
+                        boxShadow: isFocal ? `0 0 14px -2px ${theme.accent}` : undefined,
+                      }}
+                    />
+                    <span className="mt-0.5 text-sm font-bold text-slate-100 leading-tight break-keep">
+                      {pt.label}
+                    </span>
+                    {secondaryText && (
+                      <span className="text-sm font-semibold text-amber-200/95 tabular-nums leading-tight break-keep">
+                        {secondaryText}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/15 bg-slate-950/40 px-3.5 py-3 text-sm font-medium text-slate-200">
+            {chart.placeholderNotice || chart.buyerImplication}
+          </div>
+        )}
+
+        {/* 4. 매수자 핵심 시사점 */}
+        {chart.buyerImplication && series.length > 0 && (
+          <div className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3.5 py-2.5 text-sm font-medium leading-relaxed text-emerald-50 break-keep">
+            <strong className="font-extrabold text-emerald-200">💡 매수자 체크포인트:</strong>{" "}
+            {chart.buyerImplication}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

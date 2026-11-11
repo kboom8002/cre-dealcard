@@ -147,20 +147,52 @@ export function MagazineView({
   const featuredDeals: any[] = Array.isArray(data.featured_deals) ? data.featured_deals : Array.isArray(data.dealHighlights) ? data.dealHighlights : []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   // ── Cadence Kind & Monthly Charts / AXIOS Unit Issues ──
-  const editionKind = typeof data.kind === "string" ? data.kind : "weekly";
+  const editionKind =
+    typeof data.kind === "string"
+      ? data.kind
+      : typeof data.edition_type === "string"
+      ? data.edition_type
+      : "weekly";
   const unitIssues: AxiosUnitIssue[] = Array.isArray(data.unit_issues)
     ? data.unit_issues
     : Array.isArray(data.unitIssues)
     ? data.unitIssues
     : [];
-  const monthlyCharts: MonthlyRegionalChart[] =
-    Array.isArray(data.monthly_charts) && data.monthly_charts.length > 0
+  const isPopulatedChart = (chart: MonthlyRegionalChart | null | undefined): chart is MonthlyRegionalChart =>
+    Boolean(
+      chart &&
+        chart.isPlaceholder !== true &&
+        Array.isArray(chart.series) &&
+        chart.series.length > 0,
+    );
+
+  const explicitMonthlyCharts: MonthlyRegionalChart[] | null =
+    editionKind !== "monthly"
+      ? null
+      : Array.isArray(data.monthly_charts) && data.monthly_charts.length > 0
       ? data.monthly_charts
       : Array.isArray(data.monthlyCharts) && data.monthlyCharts.length > 0
       ? data.monthlyCharts
-      : editionKind === "monthly"
+      : null;
+
+  const isPublishedEditionPayload =
+    data.format === "simple" || data.format === "full" || typeof data.schemaVersion === "number";
+
+  const rawMonthlyCharts: MonthlyRegionalChart[] =
+    editionKind !== "monthly"
+      ? []
+      : explicitMonthlyCharts !== null
+      ? explicitMonthlyCharts
+      : preview
       ? resolveMonthlyChartsFromData(data)
       : [];
+
+  const monthlyCharts: MonthlyRegionalChart[] =
+    editionKind !== "monthly"
+      ? []
+      : preview || (!isPublishedEditionPayload && explicitMonthlyCharts !== null)
+      ? rawMonthlyCharts
+      : rawMonthlyCharts.filter(isPopulatedChart);
 
   // ── Market data ── (더미 폴백 금지: 데이터가 없으면 섹션을 숨긴다 — P0-05 T3-03)
   const recentTxs: any[] = Array.isArray(data.recentTransactions) ? data.recentTransactions : []; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -583,7 +615,7 @@ export function MagazineView({
 
   const sectionNode = (id: string): React.ReactNode => {
     switch (id) {
-      case "ai_briefing": return data.briefing || data.headline ? renderAiBriefing() : null;
+      case "ai_briefing": return normBriefing ? renderAiBriefing() : null;
       case "field_note": return hasFieldNote ? renderFieldNote() : null;
       case "theme_of_week": return themeTitle && !isDuplicateTheme ? renderThemeOfWeek() : null;
       case "featured_deals": return featuredDeals.length > 0 ? renderFeaturedDeals() : null;
@@ -710,11 +742,13 @@ export function MagazineView({
   // 주기별 구조 공식 정렬:
   // - 일간(daily): 헤더+제목+이슈 5건(news_curation)+딜카드(featured_deals)
   // - 주간(weekly): 헤더+제목+중개인 브리핑(ai_briefing/field_note)+이슈 5건+딜카드
-  // - 월간(monthly): 헤더+제목+권역별 유용한 통계 2건 그래프(market_data)+월간 이슈 5건(news_curation)+딜카드(featured_deals)
+  // - 월간(monthly): 헤더+제목+권역별 유용한 통계 2건 그래프(market_data)+브리핑+월간 이슈 5건(news_curation)+딜카드(featured_deals)
   const defaultOrderForCadence =
     !Array.isArray(data.section_order) && editionKind === "monthly"
       ? [
           "market_data",
+          "ai_briefing",
+          "field_note",
           "news_curation",
           "featured_deals",
           "theme_of_week",
@@ -729,6 +763,8 @@ export function MagazineView({
       ? [
           "news_curation",
           "featured_deals",
+          "ai_briefing",
+          "field_note",
           "theme_of_week",
           "subscribe_cta",
           "broker_profile",
@@ -737,7 +773,19 @@ export function MagazineView({
         ]
       : data.section_order;
 
-  const order = resolveSectionOrder(target, defaultOrderForCadence).filter((id) =>
+  const baseResolvedOrder = resolveSectionOrder(target, defaultOrderForCadence);
+  const cadenceAlignedOrder = (() => {
+    if (editionKind === "monthly" && monthlyCharts.length > 0 && baseResolvedOrder.includes("market_data")) {
+      return ["market_data", ...baseResolvedOrder.filter((id) => id !== "market_data")];
+    }
+    if (editionKind === "daily") {
+      const lead = ["news_curation", "featured_deals"].filter((id) => baseResolvedOrder.includes(id));
+      return [...lead, ...baseResolvedOrder.filter((id) => !lead.includes(id) && id !== "market_data")];
+    }
+    return baseResolvedOrder;
+  })();
+
+  const order = cadenceAlignedOrder.filter((id) =>
     isSectionEnabled(data.sections, id)
   );
   const rendered = order

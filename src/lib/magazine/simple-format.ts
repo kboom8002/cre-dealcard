@@ -16,9 +16,9 @@ export type EditionFormat = 'simple' | 'full';
 export const SIMPLE_SECTION_ORDER = [
   'ai_briefing',
   'field_note',
-  'featured_deals',
   'market_data',
   'news_curation',
+  'featured_deals',
   'roi_calculator',
 ] as const;
 
@@ -313,9 +313,31 @@ export function applySimplePreset(
     isRecord(content.tax_clinic) &&
     Boolean(str(content.tax_clinic.question).trim() || str(content.tax_clinic.title).trim());
 
+  const cadenceKind =
+    content.kind === 'monthly' || content.edition_type === 'monthly'
+      ? 'monthly'
+      : content.kind === 'daily' || content.edition_type === 'daily'
+        ? 'daily'
+        : 'weekly';
+
+  const baseSimpleOrder: readonly string[] =
+    cadenceKind === 'monthly'
+      ? ['market_data', 'ai_briefing', 'field_note', 'news_curation', 'featured_deals', 'roi_calculator']
+      : cadenceKind === 'daily'
+        ? ['news_curation', 'featured_deals', 'ai_briefing', 'field_note', 'roi_calculator']
+        : SIMPLE_SECTION_ORDER;
+
+  const hasBriefingCopy = Boolean(str(content.briefing).trim() || str(content.ai_briefing).trim() || comment);
+
   const enabledMap: Record<string, boolean> = {};
   for (const id of SIMPLE_SECTION_ORDER) {
-    enabledMap[id] = true;
+    if (cadenceKind === 'daily' && id === 'market_data') {
+      enabledMap[id] = false;
+    } else if (cadenceKind === 'daily' && (id === 'ai_briefing' || id === 'field_note')) {
+      enabledMap[id] = hasBriefingCopy;
+    } else {
+      enabledMap[id] = true;
+    }
   }
   for (const id of SIMPLE_HIDDEN_SECTIONS) {
     if (id === 'theme_of_week' && hasTheme) enabledMap[id] = true;
@@ -325,7 +347,8 @@ export function applySimplePreset(
   }
 
   const orderedIds: string[] = [
-    ...SIMPLE_SECTION_ORDER,
+    ...baseSimpleOrder,
+    ...SIMPLE_SECTION_ORDER.filter((id) => !baseSimpleOrder.includes(id)),
     ...SIMPLE_HIDDEN_SECTIONS.filter((id) => !SIMPLE_SECTION_ORDER.includes(id as never)),
   ];
 

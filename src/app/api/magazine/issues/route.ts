@@ -26,6 +26,10 @@ import {
   normalizePreferredChannels,
   normalizePreferredRegions,
 } from "@/domain/magazine/broker-preferences";
+import {
+  buildDefaultMonthlyGraphicPair,
+  mapPreferredRegionsToMonthlyKey,
+} from "@/domain/magazine/monthly-stats-hydration";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-issues");
@@ -42,15 +46,18 @@ export const dynamic = "force-dynamic";
 
 const IssueBodySchema = z.object({
   editionId: z.string().max(100).nullable().optional(),
-  /** 발행 주기 (1.4 회고: monthly 하드코딩 제거 — 일간·주간·월간 모두 지원) */
-  editionType: z.enum(["daily", "weekly", "monthly"]).optional(),
+  /** 발행 주기 (일간·주간·월간·호외 지원) */
+  editionType: z.enum(["daily", "weekly", "monthly", "special"]).optional(),
   /** 일간·주간 기준 날짜 (KST YYYY-MM-DD, 표시·감사용) */
   issueAnchorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** 명시적 공개 발행일 (KST YYYY-MM-DD) */
+  issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   slug: z.string().max(60).optional(),
+  issueSlug: z.string().max(60).optional(),
   issueNumber: z.number().int().optional(),
   year: z.number().int().min(2020).max(2100).optional(),
   month: z.number().int().min(1).max(12).optional(),
-  headline: z.string().trim().min(1).max(300),
+  headline: z.string().trim().max(300).optional(),
   summary: z.string().max(1000).optional(),
   briefingTitle: z.string().max(300).optional(),
   briefingBody: z.string().max(30000).optional(),
@@ -59,6 +66,8 @@ const IssueBodySchema = z.object({
   featuredDeals: z.array(z.record(z.string(), z.unknown())).max(50).optional(),
   dealComments: z.record(z.string(), z.string().max(1000)).optional(),
   unitIssues: z.array(z.record(z.string(), z.unknown())).max(10).optional(),
+  monthlyRegion: z.string().max(40).optional(),
+  monthlyCharts: z.array(z.record(z.string(), z.unknown())).max(6).optional(),
   preferredRegions: z.array(z.string().max(40)).max(8).optional(),
   preferredChannels: z.array(z.string().max(40)).max(5).optional(),
   sections: z
@@ -71,6 +80,9 @@ const IssueBodySchema = z.object({
     .max(30)
     .optional(),
   targetSegment: z.enum(["all", "buyer", "seller"]).optional(),
+  saveAsDraft: z.boolean().optional(),
+  status: z.enum(["draft", "published"]).optional(),
+  createDistinctIfPublished: z.boolean().optional(),
 });
 
 async function ensureBrokerSlug(
@@ -135,6 +147,13 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parsed.data;
+    const isDraftRequest = data.saveAsDraft === true || data.status === "draft";
+    const headlineText = (data.headline ?? "").trim();
+    if (!isDraftRequest && !headlineText) {
+      return jsonError("INVALID_INPUT", "표지 제목 등 필수 입력값을 확인해 주세요.", 400);
+    }
+    const effectiveHeadline = headlineText || "작성 중인 뉴스레터 초안";
+
     const supabase = createServiceClient();
 
     const brokerSlug = await ensureBrokerSlug(
@@ -148,14 +167,15 @@ export async function POST(request: NextRequest) {
     const editionType = data.editionType ?? "monthly";
     const rawLabel =
       data.slug?.trim() ||
+      data.issueSlug?.trim() ||
       (editionType === "monthly" && data.year && data.month
         ? `${data.year}-${String(data.month).padStart(2, "0")}`
         : defaultLabelForEditionType(editionType));
-    const safeLabel = /^[A-Za-z0-9가-힣][A-Za-z0-9가-힣 _.\-]{0,39}$/.test(rawLabel)
+    let safeLabel = /^[A-Za-z0-9가-힣][A-Za-z0-9가-힣 _.\-]{0,39}$/.test(rawLabel)
       ? rawLabel
       : defaultLabelForEditionType(editionType);
 
-    // 1. 기존 에디션 확인 또는 주기별(일간·주간·월간) 초안 생성
+    // 1. 기존 에디션 확인 또는 주기별(일간·주간·월간·호외) 초안 생성
     let targetEdition: Record<string, unknown> | null = null;
     if (data.editionId) {
       targetEdition = await assertOwnsRow<Record<string, unknown>>(
@@ -168,7 +188,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!targetEdition) {
-      const { edition } = await getOrCreateDraftEdition(
+      const firstLookup = await getOrCreateDraftEdition(
         supabase,
         { slug: brokerSlug, brokerKeys },
         {
@@ -177,12 +197,40 @@ export async function POST(request: NextRequest) {
           format: "simple",
         }
       );
-      targetEdition = edition;
+      if (
+        firstLookup.edition.status === "published" &&
+        (isDraftRequest || data.createDistinctIfPublished === true)
+      ) {
+        const baseLabel = safeLabel.slice(0, 34);
+        for (let suffix = 2; suffix <= 9; suffix++) {
+          const candidateLabel = `${baseLabel}-${suffix}`;
+          const nextAttempt = await getOrCreateDraftEdition(
+            supabase,
+            { slug: brokerSlug, brokerKeys },
+            {
+              editionType,
+              editionLabel: candidateLabel,
+              format: "simple",
+            }
+          );
+          if (nextAttempt.edition.status !== "published") {
+            safeLabel = candidateLabel;
+            targetEdition = nextAttempt.edition;
+            break;
+          }
+        }
+      }
+      if (!targetEdition) {
+        targetEdition = firstLookup.edition;
+      }
     }
 
     const editionId = String(targetEdition.id);
     const nowIso = new Date().toISOString();
-    const issueDate = todayKst();
+    const issueDate =
+      data.issueDate ||
+      (editionType === "daily" && data.issueAnchorDate ? data.issueAnchorDate : undefined) ||
+      todayKst();
 
     // 2. 브로커 공개 프로필 조회
     const resolvedBroker = await resolveBroker(supabase, brokerSlug).catch(() => null);
@@ -211,7 +259,7 @@ export async function POST(request: NextRequest) {
     const effectiveBriefing =
       composedBriefingBody ||
       cleanedSummary ||
-      `${data.headline.trim()} 핵심 내용을 정리해 전해드립니다.`;
+      `${effectiveHeadline} 핵심 내용을 정리해 전해드립니다.`;
 
     const hasDistinctSummaryAndBody =
       Boolean(cleanedSummary) &&
@@ -548,10 +596,63 @@ export async function POST(request: NextRequest) {
       resolvedUnitIssues = [];
     }
 
+    const clientSectionMap = new Map<string, boolean>();
+    if (Array.isArray(data.sections)) {
+      for (const s of data.sections) {
+        clientSectionMap.set(s.id, s.enabled);
+      }
+    }
+
+    const marketDataToggleEnabled =
+      editionType === "monthly"
+        ? clientSectionMap.has("market_data")
+          ? clientSectionMap.get("market_data")!
+          : true
+        : false;
+
+    const resolvedMonthlyRegion =
+      typeof data.monthlyRegion === "string" && data.monthlyRegion.trim()
+        ? data.monthlyRegion.trim()
+        : typeof sanitizedExistingContent.monthlyRegion === "string"
+        ? sanitizedExistingContent.monthlyRegion
+        : typeof sanitizedExistingContent.monthly_region === "string"
+        ? sanitizedExistingContent.monthly_region
+        : editionType === "monthly"
+        ? mapPreferredRegionsToMonthlyKey(preferredRegions)
+        : undefined;
+
+    const incomingCharts = Array.isArray(data.monthlyCharts)
+      ? data.monthlyCharts
+      : Array.isArray(sanitizedExistingContent.monthlyCharts)
+      ? (sanitizedExistingContent.monthlyCharts as Array<Record<string, unknown>>)
+      : Array.isArray(sanitizedExistingContent.monthly_charts)
+      ? (sanitizedExistingContent.monthly_charts as Array<Record<string, unknown>>)
+      : [];
+
+    const filteredIncomingCharts = incomingCharts.filter(
+      (c) =>
+        c &&
+        typeof c === "object" &&
+        c.isPlaceholder !== true &&
+        Array.isArray(c.series) &&
+        c.series.length > 0
+    );
+
+    const populatedMonthlyCharts =
+      editionType !== "monthly" || !marketDataToggleEnabled
+        ? []
+        : filteredIncomingCharts.length > 0
+        ? filteredIncomingCharts
+        : (buildDefaultMonthlyGraphicPair(resolvedMonthlyRegion ?? "gbd") as unknown as Array<
+            Record<string, unknown>
+          >);
+
     const rawContentForNormalize: Record<string, unknown> = {
       ...sanitizedExistingContent,
       format: "simple",
-      headline: data.headline.trim(),
+      kind: editionType,
+      edition_type: editionType,
+      headline: effectiveHeadline,
       summary: cleanedSummary,
       briefing_title: cleanedBriefingTitle,
       briefing: primaryBriefingText,
@@ -564,6 +665,12 @@ export async function POST(request: NextRequest) {
       featured_deals: hydratedDeals,
       dealHighlights: hydratedDeals,
       deal_comments: commentsMap,
+      ...(resolvedMonthlyRegion
+        ? { monthlyRegion: resolvedMonthlyRegion, monthly_region: resolvedMonthlyRegion }
+        : {}),
+      ...(populatedMonthlyCharts.length > 0
+        ? { monthlyCharts: populatedMonthlyCharts, monthly_charts: populatedMonthlyCharts }
+        : { monthlyCharts: undefined, monthly_charts: undefined }),
       ...(newsExplicitlyEnabled && resolvedUnitIssues.length > 0
         ? { unitIssues: resolvedUnitIssues, unit_issues: resolvedUnitIssues }
         : {}),
@@ -615,23 +722,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Merge client section toggles (3 items) into the normalized 13-section array without wiping hidden section flags
+    // Merge client section toggles into the normalized section array without wiping hidden section flags
     const baseSections = Array.isArray(normalized.content.sections)
       ? (normalized.content.sections as Array<{ id: string; enabled: boolean }>)
       : [];
-    const clientSectionMap = new Map<string, boolean>();
-    if (Array.isArray(data.sections)) {
-      for (const s of data.sections) {
-        clientSectionMap.set(s.id, s.enabled);
-      }
-    }
     const briefingToggleEnabled = clientSectionMap.has("field_note")
       ? clientSectionMap.get("field_note")!
+      : editionType === "daily"
+      ? Boolean(primaryBriefingText)
       : true;
 
     const mergedSections = baseSections.map((sec) => {
+      if (sec.id === "market_data") {
+        return { id: sec.id, enabled: marketDataToggleEnabled };
+      }
       if (sec.id === "ai_briefing") {
-        return { id: sec.id, enabled: briefingToggleEnabled };
+        return { id: sec.id, enabled: briefingToggleEnabled && Boolean(primaryBriefingText) };
       }
       if (sec.id === "field_note") {
         return { id: sec.id, enabled: briefingToggleEnabled && Boolean(secondaryFieldComment) };
@@ -648,9 +754,14 @@ export async function POST(request: NextRequest) {
       return sec;
     });
 
+    const targetAlreadyPublished = targetEdition.status === "published";
+    const nextStatus: "draft" | "published" =
+      isDraftRequest && !targetAlreadyPublished ? "draft" : "published";
+
     const finalContent: Record<string, unknown> = {
       ...normalized.content,
       id: editionId,
+      headline: nextStatus === "draft" ? headlineText : effectiveHeadline,
       summary: cleanedSummary,
       briefing_title: cleanedBriefingTitle,
       briefing_body_md: cleanedBriefingBody,
@@ -659,6 +770,12 @@ export async function POST(request: NextRequest) {
       featuredDeals: hydratedDeals,
       dealHighlights: hydratedDeals,
       deal_comments: data.dealComments ?? {},
+      ...(resolvedMonthlyRegion
+        ? { monthlyRegion: resolvedMonthlyRegion, monthly_region: resolvedMonthlyRegion }
+        : {}),
+      ...(populatedMonthlyCharts.length > 0
+        ? { monthlyCharts: populatedMonthlyCharts, monthly_charts: populatedMonthlyCharts }
+        : { monthlyCharts: undefined, monthly_charts: undefined }),
       ...(newsExplicitlyEnabled && resolvedUnitIssues.length > 0
         ? { unitIssues: resolvedUnitIssues, unit_issues: resolvedUnitIssues }
         : { unitIssues: undefined, unit_issues: undefined }),
@@ -667,19 +784,22 @@ export async function POST(request: NextRequest) {
         preferredChannels,
       },
       sections: mergedSections,
+      target_segment: data.targetSegment ?? "all",
     };
 
     const editionUpdate: Record<string, unknown> = {
-      title: data.headline.trim(),
+      title: nextStatus === "draft" ? headlineText : effectiveHeadline,
       market_temp: data.marketTemp ?? null,
       field_note: fieldNote,
       theme_title: cleanedBriefingTitle || null,
       theme_body_md: cleanedBriefingBody || effectiveBriefing,
       featured_deal_ids: data.featuredDealIds ?? [],
       target_segments: [data.targetSegment ?? "all"],
-      status: "published",
+      status: nextStatus,
       published_at:
-        typeof targetEdition.published_at === "string" && targetEdition.published_at
+        nextStatus === "draft"
+          ? null
+          : typeof targetEdition.published_at === "string" && targetEdition.published_at
           ? targetEdition.published_at
           : nowIso,
       content: finalContent,
@@ -699,7 +819,22 @@ export async function POST(request: NextRequest) {
       return jsonError("PUBLISH_FAILED", "뉴스레터 발행 저장에 실패했습니다.", 500);
     }
 
-    // 3. 공개 뷰어 테이블(magazine_issues) 동기화
+    if (nextStatus === "draft") {
+      return NextResponse.json({
+        ok: true,
+        id: editionId,
+        editionId,
+        editionLabel: safeLabel,
+        status: "draft",
+        brokerSlug,
+        issueDate,
+        publicUrl: null,
+        url: null,
+        content: finalContent,
+      });
+    }
+
+    // 3. 공개 뷰어 테이블(magazine_issues) 동기화 (실제 발행본만 반영)
     const { error: issueErr } = await supabase
       .from("magazine_issues")
       .upsert(
@@ -718,12 +853,18 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = request.nextUrl.origin || "https://credeal.net";
-    const publicUrl = `${origin}/magazine/${encodeURIComponent(brokerSlug)}/${encodeURIComponent(issueDate)}?edition=${encodeURIComponent(editionId)}`;
+    const targetSuffix =
+      data.targetSegment && data.targetSegment !== "all"
+        ? `&target=${encodeURIComponent(data.targetSegment)}`
+        : "";
+    const publicUrl = `${origin}/magazine/${encodeURIComponent(brokerSlug)}/${encodeURIComponent(issueDate)}?edition=${encodeURIComponent(editionId)}${targetSuffix}`;
 
     return NextResponse.json({
       ok: true,
       id: editionId,
       editionId,
+      editionLabel: safeLabel,
+      status: "published",
       brokerSlug,
       issueDate,
       publicUrl,

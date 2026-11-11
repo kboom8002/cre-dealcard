@@ -324,6 +324,8 @@ export interface MonthlyChartSeriesPoint {
   displaySecondary?: string;
 }
 
+export type MonthlyChartSourceMode = 'public_db' | 'reference_benchmark' | 'broker_custom';
+
 /** 월간 뉴스레터용 권역별 국토부·통계청 핵심 통계 그래프 카드 */
 export interface MonthlyRegionalChart {
   id: string;
@@ -344,6 +346,9 @@ export interface MonthlyRegionalChart {
   };
   series: MonthlyChartSeriesPoint[];
   buyerImplication: string;
+  isPlaceholder?: boolean;
+  placeholderNotice?: string;
+  sourceMode?: MonthlyChartSourceMode;
 }
 
 export interface EditionContentBroker {

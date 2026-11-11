@@ -36,6 +36,8 @@ export interface AxiosIssuesEditorPanelProps {
   onAiClusterIssues?: () => Promise<void> | void;
   isAiClustering?: boolean;
   onRefreshLiveChannel?: (channel: NewsChannelId) => void;
+  canUndoRecluster?: boolean;
+  onUndoRecluster?: () => void;
 }
 
 export function AxiosIssuesEditorPanel({
@@ -49,27 +51,24 @@ export function AxiosIssuesEditorPanel({
   onAiClusterIssues,
   isAiClustering = false,
   onRefreshLiveChannel,
+  canUndoRecluster = false,
+  onUndoRecluster,
 }: AxiosIssuesEditorPanelProps) {
   const [swappingIndex, setSwappingIndex] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState<NewsChannelId>("all");
 
-  // 항상 5건 유지 보장
-  const issues: AxiosUnitIssue[] =
-    unitIssues.length >= ISSUE_CARD_COUNT
-      ? unitIssues.slice(0, ISSUE_CARD_COUNT)
-      : (() => {
-          const fallback = clusterArticlesIntoFiveIssues(newsPool, {
-            preferredRegions,
-            preferredChannels,
-            dealKeywords: dealTitles,
-          });
-          const merged = [...unitIssues];
-          for (const f of fallback) {
-            if (merged.length >= ISSUE_CARD_COUNT) break;
-            if (!merged.some((m) => m.id === f.id)) merged.push(f);
-          }
-          return merged.slice(0, ISSUE_CARD_COUNT);
-        })();
+  // 실제 상태(unitIssues)와 화면 표시를 1:1 일치시켜 미저장 유령 카드 발생을 원천 차단한다
+  const issues: AxiosUnitIssue[] = unitIssues.slice(0, ISSUE_CARD_COUNT);
+
+  const handleSeedInitialIssues = () => {
+    const clustered = clusterArticlesIntoFiveIssues(newsPool, {
+      preferredRegions,
+      preferredChannels,
+      dealKeywords: dealTitles,
+    });
+    onChangeUnitIssues(clustered);
+    editorToast.success("핵심 시장 이슈 5선을 채웠습니다.");
+  };
 
   const handleUpdateIssue = (idx: number, patch: Partial<AxiosUnitIssue>) => {
     const next = issues.map((item, i) => (i === idx ? { ...item, ...patch } : item));
@@ -119,7 +118,10 @@ export function AxiosIssuesEditorPanel({
       ...(item.url ? { url: item.url } : {}),
       articleCount: 1,
     };
-    const next = issues.map((iss, i) => (i === idx ? replacement : iss));
+    const next =
+      issues.length > idx
+        ? issues.map((iss, i) => (i === idx ? replacement : iss))
+        : [...issues, replacement];
     onChangeUnitIssues(next);
     setSwappingIndex(null);
     editorToast.success(`${idx + 1}번 핵심 이슈를 교체했습니다.`);
@@ -143,7 +145,7 @@ export function AxiosIssuesEditorPanel({
                 {cadenceLabel} 핵심 시장 이슈 포스트잇 5선
               </h2>
               <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-sm font-extrabold text-blue-800 whitespace-nowrap">
-                5건 고정
+                {issues.length > 0 ? `${issues.length}건 구성됨` : "미작성"}
               </span>
             </div>
             <p className="mt-1 text-sm font-medium text-slate-600">
@@ -151,22 +153,56 @@ export function AxiosIssuesEditorPanel({
             </p>
           </div>
 
-          <button
-            type="button"
-            data-testid="recluster-five-issues-btn"
-            disabled={isAiClustering}
-            onClick={() => void handleReclusterAll()}
-            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 px-3.5 py-2 text-sm font-extrabold text-white shadow-xs transition-colors whitespace-nowrap shrink-0"
-          >
-            <Sparkles className="w-4 h-4" aria-hidden="true" />
-            <span>
-              {isAiClustering ? "AI 맞춤 이슈 생성 중..." : "AI 핵심 이슈 5선 자동 재구성"}
-            </span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {canUndoRecluster && onUndoRecluster && (
+              <button
+                type="button"
+                data-testid="undo-recluster-issues-btn"
+                onClick={onUndoRecluster}
+                className="min-h-11 inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-2 text-sm font-extrabold text-amber-900 transition-colors whitespace-nowrap"
+              >
+                <span>이전 이슈 복원</span>
+              </button>
+            )}
+            <button
+              type="button"
+              data-testid="recluster-five-issues-btn"
+              disabled={isAiClustering}
+              onClick={() => void handleReclusterAll()}
+              className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 px-3.5 py-2 text-sm font-extrabold text-white shadow-xs transition-colors whitespace-nowrap"
+            >
+              <Sparkles className="w-4 h-4" aria-hidden="true" />
+              <span>
+                {isAiClustering ? "AI 맞춤 이슈 생성 중..." : "AI 핵심 이슈 5선 자동 재구성"}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 5개의 핵심 이슈 카드 편집 리스트 */}
+      {/* 핵심 이슈 카드 편집 리스트 또는 빈 상태 안내 */}
+      {issues.length === 0 ? (
+        <div
+          data-testid="axios-issues-empty-state"
+          className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/80 p-6 text-center space-y-3"
+        >
+          <p className="text-base font-extrabold text-slate-900">
+            아직 등록된 핵심 시장 이슈가 없습니다
+          </p>
+          <p className="text-sm font-medium text-slate-600">
+            아래 버튼을 누르면 내 권역·관심 분야 기사를 바탕으로 핵심 이슈 5선을 바로 채워 넣습니다.
+          </p>
+          <button
+            type="button"
+            data-testid="seed-five-issues-empty-btn"
+            onClick={handleSeedInitialIssues}
+            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-sm font-extrabold text-white shadow-xs transition-colors"
+          >
+            <Sparkles className="w-4 h-4" aria-hidden="true" />
+            <span>핵심 이슈 5선 자동 채우기</span>
+          </button>
+        </div>
+      ) : (
       <div className="space-y-3.5">
         {issues.map((issue, idx) => {
           const toneMeta = POST_IT_TONE_META[issue.memoTone] ?? POST_IT_TONE_META.amber;
@@ -437,6 +473,7 @@ export function AxiosIssuesEditorPanel({
           );
         })}
       </div>
+      )}
     </div>
   );
 }

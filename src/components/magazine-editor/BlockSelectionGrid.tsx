@@ -28,8 +28,8 @@ export const DEFAULT_NEWSLETTER_BLOCKS: readonly Omit<NewsletterBlockItem, "enab
   },
   {
     id: "market_data",
-    label: "권역별 월간 통계",
-    description: "실거래·임대동향 참고 통계 코너 (필요할 때만 켜서 표시)",
+    label: "상단 주요 통계 그래픽 2선",
+    description: "월간 뉴스레터 상단에 권역별 핵심 비교 그래픽 2개를 배치합니다",
   },
 ] as const;
 
@@ -37,13 +37,19 @@ export interface BlockSelectionGridProps {
   sections: { id: string; enabled: boolean }[];
   onToggleSection: (sectionId: string, nextEnabled: boolean) => void;
   availableBlocks?: readonly Omit<NewsletterBlockItem, "enabled">[];
+  cadence?: "daily" | "weekly" | "monthly";
 }
 
 export function BlockSelectionGrid({
   sections,
   onToggleSection,
   availableBlocks = DEFAULT_NEWSLETTER_BLOCKS,
+  cadence,
 }: BlockSelectionGridProps) {
+  const visibleBlocks =
+    cadence && cadence !== "monthly"
+      ? availableBlocks.filter((b) => b.id !== "market_data")
+      : availableBlocks;
   const isEnabled = (id: string) => {
     const found = sections.find((s) => s.id === id);
     return found ? found.enabled : true;
@@ -68,7 +74,7 @@ export function BlockSelectionGrid({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {availableBlocks.map((block) => {
+        {visibleBlocks.map((block) => {
           const enabled = isEnabled(block.id);
           return (
             <button

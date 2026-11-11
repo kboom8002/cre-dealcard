@@ -145,11 +145,19 @@ export function MagazineQuickDraftCard({
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-700" aria-hidden="true" />
             <h3 className="text-base font-extrabold text-slate-900">
-              AI로 이번 달 뉴스레터 초안 빠르게 잡기
+              {cadence === "daily"
+                ? "AI로 오늘 일간 뉴스레터 초안 빠르게 잡기"
+                : cadence === "weekly"
+                  ? "AI로 이번 주 주간 뉴스레터 초안 빠르게 잡기"
+                  : "AI로 이번 달 뉴스레터 초안 빠르게 잡기"}
             </h3>
           </div>
           <p className="text-sm font-medium text-slate-600">
-            선택한 연·월과 내 주력 권역·관심 분야, 추천 매물 제목을 바탕으로 표지 제목·한 줄 소개·시장 브리핑 초안을 함께 작성합니다.
+            {cadence === "daily"
+              ? "선택한 발행일과 내 주력 권역·관심 분야, 추천 매물 제목을 바탕으로 오늘의 표지 제목·한 줄 소개·요약 초안을 작성합니다."
+              : cadence === "weekly"
+                ? "선택한 발행 주와 내 주력 권역·관심 분야, 추천 매물 제목을 바탕으로 이번 주 표지 제목·한 줄 소개·시장 브리핑 초안을 작성합니다."
+                : "선택한 연·월과 내 주력 권역·관심 분야, 추천 매물 제목을 바탕으로 표지 제목·한 줄 소개·시장 브리핑 초안을 함께 작성합니다."}
           </p>
         </div>
 
