@@ -15,6 +15,7 @@ const ROOT = process.cwd();
 
 const FILES: string[] = [
   'src/app/(broker)/broker/w/dealcards/page.tsx',
+  'src/components/broker/deal-card/PairedMemoTopCard.tsx',
   'src/components/broker/deal-card/Card4ConfirmCard.tsx',
   'src/components/broker/deal-card/KakaoBubblePreview.tsx',
   'src/components/broker/deal-card/PreSendConfirmationSheet.tsx',

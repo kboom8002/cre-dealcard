@@ -4,20 +4,33 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } fr
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
+import { PairedMemoTopCard } from "@/components/broker/deal-card/PairedMemoTopCard";
 import { KakaoBubblePreview } from "@/components/broker/deal-card/KakaoBubblePreview";
 import { PreSendConfirmationSheet } from "@/components/broker/deal-card/PreSendConfirmationSheet";
 import { MemoImportModal } from "@/components/broker/deal-card/MemoImportModal";
 import {
   resolveCard4AreaLabel,
   type Card4Data,
-  type DealCardPosture,
+  type DealCardGenerationSource,
 } from "@/lib/deal-card/card4-schema";
+import {
+  classifyDealCardOriginGroup,
+  extractMemoStructuredFacts,
+  isDealCandidateMemo,
+  parseMemoIntoCard4,
+  summarizeMemoOneLine,
+  type DealCardOriginGroup,
+  type UnconvertedMemoItem,
+} from "@/lib/deal-card/memo-pairing";
 import { cleanBlindPoints, validateBlindPoints } from "@/lib/deal-card/blind-guard";
 import {
   deriveDealCardHeadline,
+  isCompleteDealCardLine,
   normalizeDealCardCopy,
   repairDealCardLine,
   repairDealCardPoints,
+  stripChipRepetition,
+  stripUngroundedNumbers,
 } from "@/lib/deal-card/copy-limits";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
@@ -26,7 +39,7 @@ import { POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
 /**
  * 서버/로컬에서 불러온 카드의 문구를 18자 SSOT 로 맞춘다.
  * - 장점 3줄: 어절 경계 교정 (하드 절단 금지)
- * - 한 줄 제목이 비어 있고 카드 내용이 있으면, 미리보기/OG 가 쓰던 파생 제목을 **같은 입력 필드**에 채운다.
+ * - 한 줄 제목이 비어 있고 카드 내용이 있으면, 미리보기/OG 가 쓰던 파생 제목을 같은 입력 필드에 채운다.
  * - 면적(area)이 아직 초기화되지 않은(undefined) 경우에만 스펙에서 초기 라벨을 채운다 (사용자가 "" 로 비운 값은 보존).
  */
 function hydrateCard4(card4: Card4Data): Card4Data {
@@ -45,204 +58,6 @@ function hydrateItem<T extends { card4: Card4Data }>(item: T): T {
   return card4 === item.card4 ? item : { ...item, card4 };
 }
 
-/**
- * 카톡·문자·메모 원문에서 딜카드 4항목 + 장점 3줄 + 한 줄 제목을 안전하게 추출한다.
- * - 번지/건물명/상호 등 민감 식별자는 cleanBlindPoints 로 자동 마스킹
- * - 원문에 없는 수익률 등 숫자는 절대 날조하지 않는다
- */
-function parseMemoIntoCard4(memoText: string, prevCard4: Card4Data): Card4Data {
-  const text = memoText.trim();
-  if (!text) return prevCard4;
-
-  // 1. 매물 성격(posture) 추정
-  let posture: DealCardPosture = prevCard4.posture || "income";
-  if (/신축|개발|철거|나대지|부지|재건축|용적률/.test(text) && !/사옥/.test(text)) {
-    posture = "value_add";
-  } else if (/사옥|자가\s*사용|본사|직접\s*입주/.test(text)) {
-    posture = "owner_occupied";
-  } else if (/임대|수익|월세|만실|보증금/.test(text)) {
-    posture = "income";
-  }
-
-  // 2. 지역(region) 추출 (번지 제외)
-  let region = prevCard4.region || "";
-  const guDongMatch = text.match(/([가-힣]{2,6}(?:구|군))\s+([가-힣]{2,8}(?:동|읍|면))/);
-  const cityGuMatch = text.match(/([가-힣]{2,6}시)\s+([가-힣]{2,6}(?:구|동|읍|면))/);
-  const stationMatch = text.match(/([가-힣]{2,8}역)\s*(?:인근|부근|역세권|도보\s*\d+분)?/);
-  const singleGuOrDongMatch = text.match(
-    /(?:^|[\s,·/])([가-힣]{2,6}(?:구|동))(?=\s|,|·|\/|\d|$)/
-  );
-  const falsePositiveDong = new Set([
-    "근린생활동",
-    "유동",
-    "변동",
-    "가동",
-    "이동",
-    "공동",
-    "활동",
-    "자동",
-    "수동",
-    "입구",
-    "출구",
-    "창구",
-    "지구",
-    "가구",
-  ]);
-
-  if (guDongMatch) {
-    region = `${guDongMatch[1]} ${guDongMatch[2]}`;
-  } else if (cityGuMatch && !cityGuMatch[1].startsWith("서울")) {
-    region = `${cityGuMatch[1]} ${cityGuMatch[2]}`;
-  } else if (singleGuOrDongMatch && !falsePositiveDong.has(singleGuOrDongMatch[1])) {
-    region = singleGuOrDongMatch[1];
-  } else if (stationMatch) {
-    region = stationMatch[1].endsWith("인근") ? stationMatch[1] : `${stationMatch[1]} 인근`;
-  }
-  if (region) {
-    region = cleanBlindPoints([region])[0]?.trim() || region;
-  }
-
-  // 3. 용도(use) 추출
-  let use = prevCard4.use || "";
-  if (/근린생활시설|근생빌딩|근생상가|올근생|근생/.test(text)) {
-    use = "근린생활시설";
-  } else if (/지식산업센터/.test(text)) {
-    use = "지식산업센터";
-  } else if (/업무시설|오피스빌딩|오피스|사옥빌딩|사옥/.test(text)) {
-    use = "업무시설";
-  } else if (/숙박시설|호텔|모텔/.test(text)) {
-    use = "숙박시설";
-  } else if (/물류센터|창고시설|물류|창고/.test(text)) {
-    use = "창고시설";
-  } else if (/메디컬빌딩|병원|의원/.test(text)) {
-    use = "메디컬빌딩";
-  } else if (/상가주택|다가구/.test(text)) {
-    use = "상가주택";
-  } else if (/나대지|신축\s*부지|개발\s*부지/.test(text)) {
-    use = "신축부지";
-  }
-
-  // 4. 면적(gfaPyung / landAreaPyung / area) 추출
-  const toPyung = (rawNum: string, unit: string): number | undefined => {
-    const n = parseFloat(rawNum.replace(/,/g, ""));
-    if (!Number.isFinite(n) || n <= 0) return undefined;
-    if (/㎡|m2/i.test(unit)) return Math.round(n / 3.3058);
-    return Math.round(n);
-  };
-
-  const gfaMatch = text.match(/(?:연면적|건평)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
-  const landMatch = text.match(/(?:대지면적|토지면적|대지|토지)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
-  const gfaPyung = (gfaMatch ? toPyung(gfaMatch[1], gfaMatch[2]) : undefined) ?? prevCard4.gfaPyung;
-  const landAreaPyung =
-    (landMatch ? toPyung(landMatch[1], landMatch[2]) : undefined) ?? prevCard4.landAreaPyung;
-
-  let area = prevCard4.area;
-  if (posture === "value_add" && landAreaPyung) {
-    area = `토지 ${landAreaPyung}평`;
-  } else if (gfaPyung) {
-    area = `연면적 ${gfaPyung}평`;
-  } else if (landAreaPyung) {
-    area = `토지 ${landAreaPyung}평`;
-  }
-
-  // 5. 가격 구간(priceBand) 추출 (보증금/대출 숫자와 구분)
-  let priceBand = prevCard4.priceBand || "";
-  const explicitBandMatch = text.match(/(\d+(?:\.\d+)?)\s*~\s*(\d+(?:\.\d+)?)\s*억/);
-  if (explicitBandMatch) {
-    priceBand = `${explicitBandMatch[1]}~${explicitBandMatch[2]}억`;
-  } else {
-    const explicitAskMatch = text.match(
-      /(?:매매가|매각가|희망가|매가|매매)\s*[:：]?\s*(?:약\s*)?(\d+(?:[.,]\d+)?)\s*억(?:\s*(\d+)\s*천)?/
-    );
-    let askEok: number | null = null;
-    if (explicitAskMatch) {
-      askEok =
-        parseFloat(explicitAskMatch[1].replace(/,/g, "")) +
-        (explicitAskMatch[2] ? parseFloat(explicitAskMatch[2]) * 0.1 : 0);
-    } else {
-      const strippedSubAmounts = text.replace(
-        /(?:보증금|전세금|대출|융자|근저당)\s*[:：]?\s*(?:약\s*)?\d+(?:[.,]\d+)?\s*억/g,
-        ""
-      );
-      const allEok = Array.from(strippedSubAmounts.matchAll(/(\d+(?:[.,]\d+)?)\s*억/g))
-        .map((m) => parseFloat(m[1].replace(/,/g, "")))
-        .filter((n) => Number.isFinite(n) && n > 0);
-      if (allEok.length > 0) {
-        askEok = Math.max(...allEok);
-      }
-    }
-
-    if (askEok !== null && askEok > 0) {
-      if (askEok >= 100) {
-        const low = Math.floor(askEok / 10) * 10;
-        priceBand = `${low}~${low + 10}억`;
-      } else if (askEok >= 20) {
-        const low = Math.floor(askEok / 5) * 5;
-        priceBand = `${low}~${low + 5}억`;
-      } else {
-        const low = Math.max(1, Math.floor(askEok));
-        priceBand = `${low}~${low + 2}억`;
-      }
-    }
-  }
-
-  // 6. 장점 3줄 추출 (블라인드 정제 + 18자 어절 경계 교정)
-  const rawClauses = text
-    .split(/[\n,;/·]+/)
-    .map((c) => c.trim())
-    .filter((c) => c.length >= 3);
-
-  const candidatePoints: string[] = [];
-  for (const clause of rawClauses) {
-    if (/^(?:주소|소재지|위치|매매가|매각가|보증금|연락처|전화)\s*[:：]/.test(clause)) continue;
-    if (/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/.test(clause)) continue;
-    const cleaned = cleanBlindPoints([clause])[0]?.trim() || "";
-    if (!cleaned) continue;
-    const repaired = repairDealCardLine(cleaned);
-    if (
-      repaired &&
-      repaired.length >= 3 &&
-      repaired !== region &&
-      repaired !== use &&
-      !candidatePoints.includes(repaired)
-    ) {
-      candidatePoints.push(repaired);
-    }
-    if (candidatePoints.length >= 3) break;
-  }
-
-  const fallbackByPosture: Record<DealCardPosture, [string, string, string]> = {
-    income: ["접근성 좋은 입지", "안정적 임차 구성", "꾸준한 임대수익 구조"],
-    owner_occupied: ["사옥 활용 쉬운 구조", "출퇴근 편한 입지", "즉시 검토 가능 매물"],
-    value_add: ["신축·리모델링 검토 부지", "가치 상승 여지 보유", "토지 활용도 높은 입지"],
-  };
-
-  const existingValid = prevCard4.points.map((p) => p.trim()).filter(Boolean);
-  const mergedRawPoints = [...candidatePoints, ...existingValid];
-  const points = repairDealCardPoints(mergedRawPoints, {
-    fillEmpty: true,
-    fallbacks: fallbackByPosture[posture],
-  });
-
-  const headline = deriveDealCardHeadline({ posture, points });
-
-  return {
-    ...prevCard4,
-    headline,
-    posture,
-    region: region || prevCard4.region,
-    use: use || prevCard4.use,
-    ...(area !== undefined ? { area } : {}),
-    ...(gfaPyung !== undefined ? { gfaPyung } : {}),
-    ...(landAreaPyung !== undefined ? { landAreaPyung } : {}),
-    priceBand: priceBand || prevCard4.priceBand,
-    points,
-    provenance: {
-      points: ["broker", "broker", "broker"],
-    },
-  };
-}
-
 interface BuildingListItem {
   id: string;
   title: string;
@@ -252,7 +67,16 @@ interface BuildingListItem {
   status: "draft" | "sent" | "archived";
   updatedAt: string;
   card4: Card4Data;
+  /** 중개사 전용 비공개 원본 메모 — 고객 카톡·공유 링크(/dc/[id])·썸네일에는 절대 노출되지 않음 */
+  memoText?: string;
+  pairedMemoId?: string;
+  generationSource?: DealCardGenerationSource;
+  /** 신규 생성 직후 아직 메모에서 딜카드 생성을 실행하기 전인 1단계 상태 */
+  awaitingMemoGeneration?: boolean;
 }
+
+const SAMPLE_MEMO_TEXT =
+  "영등포구 양평동4가 대로변 코너 근생빌딩, 대지 127평 / 연면적 439평, 매매 희망가 95억, 역세권 도보 3분 코너 입지, 전층 우량 임차인 만실 운영 중";
 
 const SAMPLE_CARD4: Card4Data = {
   headline: "대로변 코너 만실 운영 매물",
@@ -272,6 +96,7 @@ const SAMPLE_CARD4: Card4Data = {
   provenance: {
     points: ["public", "broker", "ai"],
   },
+  generationSource: "ai_memo",
   card4_version: 1,
 };
 
@@ -300,11 +125,15 @@ const INITIAL_BUILDINGS: BuildingListItem[] = [
     status: "draft",
     updatedAt: "방금",
     card4: SAMPLE_CARD4,
+    memoText: SAMPLE_MEMO_TEXT,
+    generationSource: "ai_memo",
+    awaitingMemoGeneration: false,
   },
 ];
 
 const INITIAL_IDS = new Set(INITIAL_BUILDINGS.map((b) => b.id));
 const STORAGE_KEY = "credeal-w-dealcards-v5";
+const UNCONVERTED_MEMO_STORAGE_KEY = "credeal-w-dealcards-memos-v1";
 
 interface BrokerProfileSummary {
   displayName: string;
@@ -315,6 +144,14 @@ interface BrokerProfileSummary {
   photoUrl: string | null;
 }
 
+const ROUTING_TYPE_BADGE: Record<string, string> = {
+  new_deal: "매물 메모",
+  update_building: "매물 보강",
+  general_note: "일반 메모",
+  buyer_condition: "매수 조건",
+  schedule_event: "일정 메모",
+};
+
 function DealCardsWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -322,29 +159,58 @@ function DealCardsWorkspaceInner() {
 
   const rawBuildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
   const buildingIdParam = rawBuildingIdParam ? rawBuildingIdParam.trim() || null : null;
+  const rawMemoIdParam = searchParams.get("memoId");
+  const memoIdParam = rawMemoIdParam ? rawMemoIdParam.trim() || null : null;
   const isNewParam = searchParams.get("new") === "true";
 
   const [items, setItems] = useState<BuildingListItem[]>(INITIAL_BUILDINGS);
+  const [unconvertedMemos, setUnconvertedMemos] = useState<UnconvertedMemoItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(
     () => buildingIdParam || INITIAL_BUILDINGS[0]?.id || null
+  );
+  const [selectedMemoOnlyId, setSelectedMemoOnlyId] = useState<string | null>(
+    () => memoIdParam || null
   );
   const [syncedServerIds, setSyncedServerIds] = useState<Set<string>>(() => new Set());
   const [brokerProfile, setBrokerProfile] = useState<BrokerProfileSummary | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [originGroupFilter, setOriginGroupFilter] = useState<"all" | DealCardOriginGroup>("all");
   const [postureFilter, setPostureFilter] = useState<"all" | "income" | "owner_value">("all");
+  const [showOtherMemos, setShowOtherMemos] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<DealCardOriginGroup, boolean>>({
+    ai_memo: false,
+    unconverted_memo: false,
+    manual: false,
+  });
+
+  const [isGeneratingFromMemo, setIsGeneratingFromMemo] = useState(false);
+  const [memoSaveStatus, setMemoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
 
+  const memoTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const memoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasHandledNewRef = useRef(false);
   const initialBuildingIdParamRef = useRef<string | null>(buildingIdParam);
+  const initialMemoIdParamRef = useRef<string | null>(memoIdParam);
   const lastSyncedQueryIdRef = useRef<string | null>(null);
   const userInteractedRef = useRef<boolean>(false);
   const userEditedIdsRef = useRef<Set<string>>(new Set());
+  const itemsRef = useRef<BuildingListItem[]>(items);
+  itemsRef.current = items;
 
   const persistItems = useCallback((nextItems: BuildingListItem[]) => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const persistUnconvertedMemos = useCallback((nextMemos: UnconvertedMemoItem[]) => {
+    try {
+      window.localStorage.setItem(UNCONVERTED_MEMO_STORAGE_KEY, JSON.stringify(nextMemos));
     } catch {
       // ignore
     }
@@ -370,8 +236,15 @@ function DealCardsWorkspaceInner() {
     });
   }, []);
 
+  // 선택된 미생성 메모 (좌측 '📝 딜카드 미생성 메모' 클릭 시 활성화)
+  const selectedMemoOnly = useMemo(() => {
+    if (!selectedMemoOnlyId) return null;
+    return unconvertedMemos.find((m) => m.id === selectedMemoOnlyId) ?? null;
+  }, [unconvertedMemos, selectedMemoOnlyId]);
+
   // SSOT activeItem & resolvedActiveId — 유령 buildingId 로 인한 입력 동결 및 0-하이라이트 원천 차단 (DC-01)
   const activeItem = useMemo(() => {
+    if (selectedMemoOnly) return null;
     if (selectedId) {
       const bySelected = items.find((it) => it.id === selectedId);
       if (bySelected) return bySelected;
@@ -381,7 +254,7 @@ function DealCardsWorkspaceInner() {
       if (byQuery) return byQuery;
     }
     return items[0] ?? null;
-  }, [items, selectedId, buildingIdParam]);
+  }, [items, selectedId, buildingIdParam, selectedMemoOnly]);
 
   const resolvedActiveId = activeItem?.id ?? null;
 
@@ -391,8 +264,11 @@ function DealCardsWorkspaceInner() {
   const [syncedBuildingId, setSyncedBuildingId] = useState<string>(
     () => activeItem?.id || ""
   );
-  const effectiveCard4 =
-    activeItem && activeItem.id !== syncedBuildingId ? activeItem.card4 : currentCard4;
+  const effectiveCard4 = selectedMemoOnly
+    ? EMPTY_CARD4
+    : activeItem && activeItem.id !== syncedBuildingId
+    ? activeItem.card4
+    : currentCard4;
 
   const resolvedActiveIdRef = useRef<string | null>(resolvedActiveId);
   const currentCard4Ref = useRef<Card4Data>(effectiveCard4);
@@ -403,7 +279,9 @@ function DealCardsWorkspaceInner() {
     (nextId: string, options?: { syncUrl?: boolean }) => {
       if (!nextId) return;
       userInteractedRef.current = true;
+      setSelectedMemoOnlyId(null);
       setSelectedId(nextId);
+      setMemoSaveStatus("idle");
       if (options?.syncUrl ?? true) {
         router.replace(`/broker/w/dealcards?buildingId=${encodeURIComponent(nextId)}&tab=editor`);
       }
@@ -411,8 +289,33 @@ function DealCardsWorkspaceInner() {
     [router]
   );
 
+  const selectUnconvertedMemo = useCallback(
+    (memo: UnconvertedMemoItem) => {
+      userInteractedRef.current = true;
+      setSelectedMemoOnlyId(memo.id);
+      setMemoSaveStatus("idle");
+      router.replace(`/broker/w/dealcards?memoId=${encodeURIComponent(memo.id)}&tab=editor`);
+      setTimeout(() => {
+        memoTextareaRef.current?.focus();
+      }, 30);
+    },
+    [router]
+  );
+
   // 마운트 시 1회만 서버 요약 조회 + 미동기화 로컬 초안/인메모리 편집 보존 병합 (DC-02)
   useEffect(() => {
+    try {
+      const savedMemosRaw = window.localStorage.getItem(UNCONVERTED_MEMO_STORAGE_KEY);
+      if (savedMemosRaw) {
+        const parsedMemos = JSON.parse(savedMemosRaw);
+        if (Array.isArray(parsedMemos)) {
+          setUnconvertedMemos(parsedMemos);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     try {
       const savedRaw = window.localStorage.getItem(STORAGE_KEY);
       if (savedRaw) {
@@ -421,12 +324,13 @@ function DealCardsWorkspaceInner() {
           const hydratedLocal = parsed.map((it: BuildingListItem) =>
             it?.card4 ? hydrateItem(it) : it
           );
+          itemsRef.current = hydratedLocal;
           setItems(hydratedLocal);
           const initTargetId = initialBuildingIdParamRef.current;
           const initMatch =
             (initTargetId && hydratedLocal.find((it) => it.id === initTargetId)) ||
             hydratedLocal[0];
-          if (initMatch && !userInteractedRef.current) {
+          if (initMatch && !userInteractedRef.current && !initialMemoIdParamRef.current) {
             setSelectedId(initMatch.id);
             setCurrentCard4(initMatch.card4);
             setSyncedBuildingId(initMatch.id);
@@ -444,6 +348,23 @@ function DealCardsWorkspaceInner() {
       .then((data) => {
         if (data?.brokerProfile) {
           setBrokerProfile(data.brokerProfile);
+        }
+        if (data?.ok && Array.isArray(data.unconvertedMemos)) {
+          setUnconvertedMemos((prevLocalMemos) => {
+            const srvIds = new Set(
+              (data.unconvertedMemos as UnconvertedMemoItem[]).map((m) => m.id)
+            );
+            const localOnly = prevLocalMemos.filter((m) => !srvIds.has(m.id));
+            const mergedMemos = [...(data.unconvertedMemos as UnconvertedMemoItem[]), ...localOnly];
+            persistUnconvertedMemos(mergedMemos);
+            if (
+              initialMemoIdParamRef.current &&
+              mergedMemos.some((m) => m.id === initialMemoIdParamRef.current)
+            ) {
+              setSelectedMemoOnlyId(initialMemoIdParamRef.current);
+            }
+            return mergedMemos;
+          });
         }
         if (data?.ok && Array.isArray(data.dealcards)) {
           const serverIds = new Set<string>();
@@ -468,25 +389,37 @@ function DealCardsWorkspaceInner() {
                   srv.status === "sent" || local?.status === "sent"
                     ? ("sent" as const)
                     : srv.status;
-                // 인메모리 편집이 이미 시작되었거나 로컬 버전이 더 최신이면 사용자 수정을 보존
                 if (
                   local &&
                   (userEditedIdsRef.current.has(srv.id) ||
                     (local.card4.card4_version || 1) > (srv.card4.card4_version || 1))
                 ) {
                   return {
+                    ...srv,
                     ...local,
+                    memoText: local.memoText ?? srv.memoText,
+                    pairedMemoId: local.pairedMemoId ?? srv.pairedMemoId,
+                    generationSource:
+                      local.generationSource ??
+                      srv.generationSource ??
+                      classifyDealCardOriginGroup(srv),
                     status: effectiveStatus,
                   };
                 }
                 return {
                   ...srv,
+                  memoText: srv.memoText ?? local?.memoText,
+                  pairedMemoId: srv.pairedMemoId ?? local?.pairedMemoId,
+                  generationSource:
+                    srv.generationSource ??
+                    local?.generationSource ??
+                    classifyDealCardOriginGroup(srv),
+                  awaitingMemoGeneration: false,
                   status: effectiveStatus,
                 };
               }
             );
 
-            // 서버에 아직 없는 모든 미동기화 로컬 초안 보존 (초기 샘플 미편집분만 서버 목록 존재 시 교체)
             const unsyncedLocals = prev.filter(
               (loc) =>
                 !serverIds.has(loc.id) &&
@@ -497,22 +430,25 @@ function DealCardsWorkspaceInner() {
 
             const finalMerged = [...unsyncedLocals, ...mergedServer];
             if (finalMerged.length > 0) {
+              itemsRef.current = finalMerged;
               persistItems(finalMerged);
-              const preferredId = userInteractedRef.current
-                ? resolvedActiveIdRef.current
-                : (initQueryId && finalMerged.some((m) => m.id === initQueryId)
-                    ? initQueryId
-                    : finalMerged[0]?.id) ?? null;
-              const targetItem =
-                (preferredId && finalMerged.find((m) => m.id === preferredId)) ||
-                finalMerged[0];
-              if (targetItem) {
-                if (!userInteractedRef.current) {
-                  setSelectedId(targetItem.id);
-                }
-                if (!userEditedIdsRef.current.has(targetItem.id)) {
-                  setCurrentCard4(targetItem.card4);
-                  setSyncedBuildingId(targetItem.id);
+              if (!initialMemoIdParamRef.current) {
+                const preferredId = userInteractedRef.current
+                  ? resolvedActiveIdRef.current
+                  : (initQueryId && finalMerged.some((m) => m.id === initQueryId)
+                      ? initQueryId
+                      : finalMerged[0]?.id) ?? null;
+                const targetItem =
+                  (preferredId && finalMerged.find((m) => m.id === preferredId)) ||
+                  finalMerged[0];
+                if (targetItem) {
+                  if (!userInteractedRef.current) {
+                    setSelectedId(targetItem.id);
+                  }
+                  if (!userEditedIdsRef.current.has(targetItem.id)) {
+                    setCurrentCard4(targetItem.card4);
+                    setSyncedBuildingId(targetItem.id);
+                  }
                 }
               }
               return finalMerged;
@@ -527,10 +463,11 @@ function DealCardsWorkspaceInner() {
       .finally(() => {
         setIsHydrated(true);
       });
-  }, [persistItems]);
+  }, [persistItems, persistUnconvertedMemos]);
 
   // 외부 URL 쿼리(?buildingId=) 변경 동기화 및 존재하지 않는 ID 정규화 (DC-01)
   useEffect(() => {
+    if (selectedMemoOnly) return;
     if (!buildingIdParam) {
       lastSyncedQueryIdRef.current = null;
       return;
@@ -554,11 +491,22 @@ function DealCardsWorkspaceInner() {
         );
       }
     }
-  }, [buildingIdParam, items, activeItem, isHydrated, router]);
+  }, [buildingIdParam, items, activeItem, isHydrated, router, selectedMemoOnly]);
 
   const performServerSave = useCallback(
     async ({ id, data: payloadCard4 }: { id: string; data: Card4Data }) => {
       if (!id) throw new Error("Missing buildingId");
+      const matchedItem = itemsRef.current.find((it) => it.id === id);
+      // 아직 메모에서 딜카드 생성을 실행하지 않은 빈 초안은 서버 upsert 생략
+      if (
+        matchedItem?.awaitingMemoGeneration &&
+        !payloadCard4.region?.trim() &&
+        !payloadCard4.use?.trim() &&
+        !payloadCard4.priceBand?.trim()
+      ) {
+        return { version: payloadCard4.card4_version ?? 1 };
+      }
+
       const res = await fetch("/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -566,6 +514,11 @@ function DealCardsWorkspaceInner() {
           action: "upsert",
           buildingId: id,
           card4: payloadCard4,
+          ...(matchedItem?.memoText !== undefined ? { memoText: matchedItem.memoText } : {}),
+          ...(matchedItem?.pairedMemoId ? { pairedMemoId: matchedItem.pairedMemoId } : {}),
+          ...(matchedItem?.generationSource
+            ? { generationSource: matchedItem.generationSource }
+            : {}),
         }),
       });
       if (!res.ok) {
@@ -595,30 +548,66 @@ function DealCardsWorkspaceInner() {
   );
 
   const autosave = useWorkspaceAutosave<Card4Data>({
-    id: resolvedActiveId,
-    ready: isHydrated,
+    id: selectedMemoOnly ? null : resolvedActiveId,
+    ready: isHydrated && !activeItem?.awaitingMemoGeneration,
     data: effectiveCard4,
     debounceMs: 900,
     onSave: performServerSave,
   });
 
   useEffect(() => {
-    if (activeItem) {
-      setCurrentCard4(activeItem.card4);
-      setSyncedBuildingId(activeItem.id);
+    if (!resolvedActiveId) return;
+    if (syncedBuildingId !== resolvedActiveId) {
+      const latest = itemsRef.current.find((it) => it.id === resolvedActiveId);
+      if (latest) {
+        setCurrentCard4(latest.card4);
+        setSyncedBuildingId(latest.id);
+      }
     }
-  }, [resolvedActiveId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resolvedActiveId, syncedBuildingId]);
+
+  useEffect(() => {
+    return () => {
+      if (memoSaveTimerRef.current) {
+        clearTimeout(memoSaveTimerRef.current);
+      }
+    };
+  }, []);
 
   // 카드 ID 별 격리된 업데이트 핸들러 — 비동기 AI / 실행 취소 시 타 카드 오염 원천 차단 (DC-03)
   const handleCardChangeFor = useCallback(
-    (targetId: string, updated: Card4Data) => {
+    (
+      targetId: string,
+      updated: Card4Data,
+      pairingOverride?: {
+        memoText?: string;
+        pairedMemoId?: string;
+        generationSource?: DealCardGenerationSource;
+        awaitingMemoGeneration?: boolean;
+      }
+    ) => {
       if (!targetId) return;
       userEditedIdsRef.current.add(targetId);
+      const existingItem = itemsRef.current.find((it) => it.id === targetId);
+      const effectiveGenSource =
+        pairingOverride?.generationSource !== undefined
+          ? pairingOverride.generationSource
+          : existingItem?.generationSource ?? existingItem?.card4?.generationSource;
+      const effectivePairedMemoId =
+        pairingOverride?.pairedMemoId !== undefined
+          ? pairingOverride.pairedMemoId
+          : existingItem?.pairedMemoId ?? existingItem?.card4?.pairedMemoId;
+
       const nextVersion = (updated.card4_version || 1) + 1;
       const withMeta: Card4Data = {
         ...updated,
+        generationSource: effectiveGenSource,
+        ...(effectivePairedMemoId ? { pairedMemoId: effectivePairedMemoId } : {}),
         card4_version: nextVersion,
       };
+      if (!effectiveGenSource) {
+        delete withMeta.generationSource;
+      }
 
       if (targetId === resolvedActiveIdRef.current) {
         setCurrentCard4(withMeta);
@@ -637,9 +626,23 @@ function DealCardsWorkspaceInner() {
                 priceBand: withMeta.priceBand,
                 updatedAt: "방금",
                 card4: withMeta,
+                ...(pairingOverride?.memoText !== undefined
+                  ? { memoText: pairingOverride.memoText }
+                  : {}),
+                ...(pairingOverride?.pairedMemoId !== undefined
+                  ? { pairedMemoId: pairingOverride.pairedMemoId }
+                  : {}),
+                ...(pairingOverride?.generationSource !== undefined
+                  ? { generationSource: pairingOverride.generationSource }
+                  : {}),
+                awaitingMemoGeneration:
+                  pairingOverride?.awaitingMemoGeneration !== undefined
+                    ? pairingOverride.awaitingMemoGeneration
+                    : false,
               }
             : it
         );
+        itemsRef.current = next;
         persistItems(next);
         return next;
       });
@@ -650,6 +653,459 @@ function DealCardsWorkspaceInner() {
     },
     [persistItems, performServerSave]
   );
+
+  // 최상단 원본 메모 텍스트 변경 — 기존 딜카드의 제목/장점 3줄은 절대 덮어쓰지 않고 메모만 독립 자동저장
+  const handleMemoTextChange = useCallback(
+    (nextText: string) => {
+      if (selectedMemoOnly) {
+        setUnconvertedMemos((prev) => {
+          const next = prev.map((m) =>
+            m.id === selectedMemoOnly.id
+              ? { ...m, memoText: nextText, updatedAt: new Date().toISOString() }
+              : m
+          );
+          persistUnconvertedMemos(next);
+          return next;
+        });
+        return;
+      }
+
+      const targetId = resolvedActiveIdRef.current;
+      if (!targetId) return;
+      userEditedIdsRef.current.add(targetId);
+
+      const targetItem = itemsRef.current.find((it) => it.id === targetId);
+      const isAwaiting = Boolean(targetItem?.awaitingMemoGeneration);
+
+      setItems((prev) => {
+        const next = prev.map((it) =>
+          it.id === targetId
+            ? {
+                ...it,
+                memoText: nextText,
+                updatedAt: "방금",
+              }
+            : it
+        );
+        persistItems(next);
+        return next;
+      });
+
+      // Stage 2(이미 생성된 딜카드)에서는 메모만 독립 자동저장 (딜카드 문구 덮어쓰기 없음)
+      if (!isAwaiting) {
+        setMemoSaveStatus("saving");
+        if (memoSaveTimerRef.current) {
+          clearTimeout(memoSaveTimerRef.current);
+        }
+        memoSaveTimerRef.current = setTimeout(() => {
+          const latestItem = itemsRef.current.find((it) => it.id === targetId);
+          void fetch("/api/broker/workspace/summary", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update_memo_only",
+              buildingId: targetId,
+              memoText: nextText,
+              pairedMemoId: latestItem?.pairedMemoId,
+              generationSource: latestItem?.generationSource,
+            }),
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((json) => {
+              if (json?.pairedMemoId) {
+                setItems((prev) => {
+                  const next = prev.map((it) =>
+                    it.id === targetId ? { ...it, pairedMemoId: String(json.pairedMemoId) } : it
+                  );
+                  persistItems(next);
+                  return next;
+                });
+              }
+              setMemoSaveStatus("saved");
+            })
+            .catch(() => {
+              setMemoSaveStatus("idle");
+            });
+        }, 700);
+      }
+    },
+    [persistItems, persistUnconvertedMemos, selectedMemoOnly]
+  );
+
+  /**
+   * 고속 하이브리드 메모→딜카드 생성 엔진:
+   * 1) 결정론 슬롯 매퍼(parseMemoIntoCard4)로 권역·용도·면적·가격·초안 3줄 즉시 추출 + 민감정보 마스킹
+   * 2) /api/broker/deal-card/ai-copy 로 18자 이내 한 줄 제목 + 장점 3줄 정밀 정제 (실패/오프라인 시 1단계 결과 유지)
+   */
+  const runHybridMemoGeneration = useCallback(
+    async (rawMemoText: string, baseCard4: Card4Data): Promise<Card4Data> => {
+      const slotMapped = parseMemoIntoCard4(rawMemoText, baseCard4);
+      const structuredFacts = extractMemoStructuredFacts(rawMemoText);
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5500);
+        const res = await fetch("/api/broker/deal-card/ai-copy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            mode: "both",
+            posture: slotMapped.posture || "income",
+            region: slotMapped.region,
+            use: slotMapped.use,
+            area: slotMapped.area || "",
+            priceBand: slotMapped.priceBand,
+            currentHeadline: slotMapped.headline || "",
+            currentPoints: slotMapped.points,
+            facts: structuredFacts,
+          }),
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const aiJson = await res.json().catch(() => null);
+          if (aiJson?.ok && aiJson?.result) {
+            const factContext = [
+              slotMapped.region,
+              slotMapped.use,
+              slotMapped.area,
+              slotMapped.priceBand,
+              structuredFacts.memoSummary,
+              ...slotMapped.points,
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            let nextPoints = slotMapped.points;
+            if (Array.isArray(aiJson.result.points) && aiJson.result.points.length >= 3) {
+              const sanitizedAiPts = aiJson.result.points.slice(0, 3).map((pt: string) => {
+                const grounded = stripUngroundedNumbers(String(pt || ""), factContext).cleaned;
+                const masked = cleanBlindPoints([grounded])[0] || "";
+                return repairDealCardLine(masked);
+              });
+              nextPoints = repairDealCardPoints(sanitizedAiPts, {
+                fillEmpty: true,
+                fallbacks: slotMapped.points,
+              });
+            }
+
+            let nextHeadline = slotMapped.headline;
+            if (typeof aiJson.result.headline === "string" && aiJson.result.headline.trim()) {
+              const groundedH = stripUngroundedNumbers(
+                aiJson.result.headline,
+                factContext
+              ).cleaned;
+              const maskedH = cleanBlindPoints([groundedH])[0] || "";
+              const noChipH = stripChipRepetition(maskedH, {
+                region: slotMapped.region,
+                use: slotMapped.use,
+              });
+              const repairedH = repairDealCardLine(noChipH);
+              if (isCompleteDealCardLine(repairedH)) {
+                nextHeadline = repairedH;
+              }
+            }
+
+            return {
+              ...slotMapped,
+              headline:
+                nextHeadline ||
+                deriveDealCardHeadline({
+                  posture: slotMapped.posture || "income",
+                  points: nextPoints,
+                }),
+              points: nextPoints,
+              generationSource: "ai_memo",
+              provenance: {
+                points: ["ai", "ai", "ai"],
+              },
+            };
+          }
+        }
+      } catch {
+        // 네트워크/모킹 환경에서는 결정론 슬롯 매퍼 결과를 무중단 그대로 사용
+      }
+
+      return slotMapped;
+    },
+    []
+  );
+
+  // [✨ 메모로 딜카드 생성하기] 또는 [↻ 메모 내용으로 딜카드 다시 채우기]
+  const handleGenerateFromMemo = useCallback(
+    async (explicitMemoOverride?: UnconvertedMemoItem) => {
+      const targetMemoOnly = explicitMemoOverride ?? selectedMemoOnly;
+
+      if (targetMemoOnly) {
+        const rawText = targetMemoOnly.memoText.trim();
+        if (!rawText) return;
+        setIsGeneratingFromMemo(true);
+        try {
+          const generatedCard4 = await runHybridMemoGeneration(rawText, EMPTY_CARD4);
+          const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const cardWithMeta: Card4Data = {
+            ...generatedCard4,
+            pairedMemoId: targetMemoOnly.id,
+            generationSource: "ai_memo",
+            card4_version: 1,
+          };
+          const newDealCardItem: BuildingListItem = {
+            id: newId,
+            title: `${cardWithMeta.region} ${cardWithMeta.use}`.trim() || "새 딜카드",
+            region: cardWithMeta.region,
+            use: cardWithMeta.use,
+            priceBand: cardWithMeta.priceBand,
+            status: "draft",
+            updatedAt: "방금",
+            card4: cardWithMeta,
+            memoText: rawText,
+            pairedMemoId: targetMemoOnly.id,
+            generationSource: "ai_memo",
+            awaitingMemoGeneration: false,
+          };
+
+          userInteractedRef.current = true;
+          userEditedIdsRef.current.add(newId);
+
+          setUnconvertedMemos((prev) => {
+            const remaining = prev.filter((m) => m.id !== targetMemoOnly.id);
+            persistUnconvertedMemos(remaining);
+            return remaining;
+          });
+          setItems((prev) => {
+            const next = [newDealCardItem, ...prev];
+            persistItems(next);
+            return next;
+          });
+          setSelectedMemoOnlyId(null);
+          setSelectedId(newId);
+          setCurrentCard4(cardWithMeta);
+          setSyncedBuildingId(newId);
+          if (originGroupFilter === "unconverted_memo") {
+            setOriginGroupFilter("all");
+          }
+
+          void fetch("/api/broker/workspace/summary", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upsert",
+              buildingId: newId,
+              card4: cardWithMeta,
+              memoText: rawText,
+              pairedMemoId: targetMemoOnly.id,
+              generationSource: "ai_memo",
+            }),
+          })
+            .then((res) => {
+              if (res.ok) markServerSynced(newId);
+            })
+            .catch(() => {});
+
+          router.replace(`/broker/w/dealcards?buildingId=${encodeURIComponent(newId)}&tab=editor`);
+          showUndoToast({
+            message: "메모에서 딜카드를 생성했어요! 아래 항목을 확인하고 다듬어 보세요.",
+            variant: "success",
+          });
+        } finally {
+          setIsGeneratingFromMemo(false);
+        }
+        return;
+      }
+
+      const targetId = resolvedActiveIdRef.current;
+      if (!targetId) return;
+      const targetItem = itemsRef.current.find((it) => it.id === targetId);
+      const rawText = (targetItem?.memoText || "").trim();
+      if (!rawText) return;
+
+      const wasAwaiting = Boolean(targetItem?.awaitingMemoGeneration);
+      const prevCard4Snapshot: Card4Data = {
+        ...currentCard4Ref.current,
+        points: [...currentCard4Ref.current.points] as [string, string, string],
+      };
+      const prevGenSource = targetItem?.generationSource;
+
+      setIsGeneratingFromMemo(true);
+      try {
+        const baseForParse = wasAwaiting ? EMPTY_CARD4 : currentCard4Ref.current;
+        const generatedCard4 = await runHybridMemoGeneration(rawText, baseForParse);
+
+        handleCardChangeFor(targetId, generatedCard4, {
+          memoText: rawText,
+          pairedMemoId: targetItem?.pairedMemoId,
+          generationSource: "ai_memo",
+          awaitingMemoGeneration: false,
+        });
+
+        void fetch("/api/broker/workspace/summary", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "upsert",
+            buildingId: targetId,
+            card4: {
+              ...generatedCard4,
+              card4_version: (prevCard4Snapshot.card4_version || 1) + 1,
+            },
+            memoText: rawText,
+            pairedMemoId: targetItem?.pairedMemoId,
+            generationSource: "ai_memo",
+          }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((json) => {
+            markServerSynced(targetId);
+            if (json?.pairedMemoId) {
+              setItems((prev) => {
+                const next = prev.map((it) =>
+                  it.id === targetId ? { ...it, pairedMemoId: String(json.pairedMemoId) } : it
+                );
+                persistItems(next);
+                return next;
+              });
+            }
+          })
+          .catch(() => {});
+
+        if (wasAwaiting) {
+          showUndoToast({
+            message: "메모에서 딜카드를 생성했어요! 아래 항목을 확인하고 다듬어 보세요.",
+            variant: "success",
+          });
+        } else {
+          showUndoToast({
+            message: "메모 내용으로 딜카드 항목을 다시 채웠어요",
+            variant: "success",
+            undoAction: () => {
+              handleCardChangeFor(targetId, prevCard4Snapshot, {
+                memoText: rawText,
+                generationSource: prevGenSource || "ai_memo",
+                awaitingMemoGeneration: false,
+              });
+            },
+          });
+        }
+      } finally {
+        setIsGeneratingFromMemo(false);
+      }
+    },
+    [
+      handleCardChangeFor,
+      markServerSynced,
+      originGroupFilter,
+      persistItems,
+      persistUnconvertedMemos,
+      router,
+      runHybridMemoGeneration,
+      selectedMemoOnly,
+      showUndoToast,
+    ]
+  );
+
+  // [📝 메모만 저장해두기] — 딜카드 생성 없이 '딜카드 미생성 메모' 그룹에 보관
+  const handleSaveMemoOnly = useCallback(async () => {
+    const rawText = selectedMemoOnly
+      ? selectedMemoOnly.memoText.trim()
+      : (activeItem?.memoText || "").trim();
+    if (!rawText) return;
+
+    const nowIso = new Date().toISOString();
+    let memoId =
+      selectedMemoOnly?.id || `memo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    try {
+      const res = await fetch("/api/broker/workspace/summary", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_memo_only",
+          ...(selectedMemoOnly?.id ? { memoId: selectedMemoOnly.id } : {}),
+          memoText: rawText,
+          routingType: selectedMemoOnly?.routingType || "new_deal",
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (json?.memo?.id) {
+        memoId = String(json.memo.id);
+      }
+    } catch {
+      // 오프라인/로컬 폴백
+    }
+
+    const savedMemoObj: UnconvertedMemoItem = {
+      id: memoId,
+      memoText: rawText,
+      routingType: selectedMemoOnly?.routingType || "new_deal",
+      createdAt: selectedMemoOnly?.createdAt || nowIso,
+      updatedAt: nowIso,
+    };
+
+    setUnconvertedMemos((prev) => {
+      const exists = prev.some((m) => m.id === memoId);
+      const next = exists
+        ? prev.map((m) => (m.id === memoId ? savedMemoObj : m))
+        : [savedMemoObj, ...prev];
+      persistUnconvertedMemos(next);
+      return next;
+    });
+
+    // 임시로 열려 있던 빈 awaitingMemoGeneration 딜카드 껍데기는 정리
+    if (!selectedMemoOnly && activeItem?.awaitingMemoGeneration && itemsRef.current.length > 1) {
+      const draftId = activeItem.id;
+      setItems((prev) => {
+        const remaining = prev.filter((it) => it.id !== draftId);
+        persistItems(remaining);
+        return remaining;
+      });
+    }
+
+    setSelectedMemoOnlyId(memoId);
+    router.replace(`/broker/w/dealcards?memoId=${encodeURIComponent(memoId)}&tab=editor`);
+    showUndoToast({
+      message: "메모를 '딜카드 미생성 메모' 그룹에 저장했어요. 언제든 눌러서 생성할 수 있습니다.",
+      variant: "success",
+    });
+  }, [activeItem, persistItems, persistUnconvertedMemos, router, selectedMemoOnly, showUndoToast]);
+
+  // [메모 없이 직접 입력하기] — 빈 Card4 편집 폼 즉시 펼침 (직접 작성 그룹으로 분류)
+  const handleSkipMemoManual = useCallback(() => {
+    if (selectedMemoOnly) {
+      const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const manualItem: BuildingListItem = {
+        id: newId,
+        title: "새 딜카드",
+        region: "",
+        use: "",
+        priceBand: "",
+        status: "draft",
+        updatedAt: "방금",
+        card4: { ...EMPTY_CARD4, generationSource: "manual" },
+        memoText: selectedMemoOnly.memoText,
+        generationSource: "manual",
+        awaitingMemoGeneration: false,
+      };
+      setItems((prev) => {
+        const next = [manualItem, ...prev];
+        persistItems(next);
+        return next;
+      });
+      setSelectedMemoOnlyId(null);
+      setSelectedId(newId);
+      setCurrentCard4(manualItem.card4);
+      setSyncedBuildingId(newId);
+      return;
+    }
+
+    const targetId = resolvedActiveIdRef.current;
+    if (!targetId) return;
+    handleCardChangeFor(
+      targetId,
+      { ...currentCard4Ref.current, generationSource: "manual" },
+      { generationSource: "manual", awaitingMemoGeneration: false }
+    );
+  }, [handleCardChangeFor, persistItems, selectedMemoOnly]);
 
   const handleFlushSave = useCallback(async (): Promise<boolean> => {
     const activeId = resolvedActiveIdRef.current;
@@ -706,36 +1162,31 @@ function DealCardsWorkspaceInner() {
       priceBand: "",
       status: "draft",
       updatedAt: "방금",
-      card4: { ...EMPTY_CARD4 },
+      card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
+      memoText: "",
+      generationSource: "ai_memo",
+      awaitingMemoGeneration: true,
     };
     userInteractedRef.current = true;
+    setSelectedMemoOnlyId(null);
+    setMemoSaveStatus("idle");
     setItems((prev) => {
       const next = [newItem, ...prev];
       persistItems(next);
       return next;
     });
     setSelectedId(newId);
-    setCurrentCard4({ ...EMPTY_CARD4 });
+    setCurrentCard4({ ...EMPTY_CARD4, generationSource: "ai_memo" });
     setSyncedBuildingId(newId);
-    void fetch("/api/broker/workspace/summary", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "upsert",
-        buildingId: newId,
-        card4: newItem.card4,
-      }),
-    })
-      .then((res) => {
-        if (res.ok) markServerSynced(newId);
-      })
-      .catch(() => {});
     router.replace(`/broker/w/dealcards?buildingId=${encodeURIComponent(newId)}&tab=editor`);
+    setTimeout(() => {
+      memoTextareaRef.current?.focus();
+    }, 30);
     showUndoToast({
-      message: "빈 딜카드를 새로 열었어요. 지역과 용도부터 적어 보세요.",
+      message: "새 딜카드 메모창을 열었어요. 메모를 적고 [메모로 딜카드 생성하기]를 눌러 보세요.",
       variant: "success",
     });
-  }, [markServerSynced, persistItems, router, showUndoToast]);
+  }, [persistItems, router, showUndoToast]);
 
   const handleFillSample = () => {
     const targetId = resolvedActiveId;
@@ -744,10 +1195,24 @@ function DealCardsWorkspaceInner() {
       ...effectiveCard4,
       points: [...effectiveCard4.points] as [string, string, string],
     };
-    handleCardChangeFor(targetId, { ...SAMPLE_CARD4 });
+    const prevMemo = activeItem?.memoText || "";
+    const prevAwaiting = Boolean(activeItem?.awaitingMemoGeneration);
+    handleCardChangeFor(
+      targetId,
+      { ...SAMPLE_CARD4 },
+      {
+        memoText: SAMPLE_MEMO_TEXT,
+        generationSource: "ai_memo",
+        awaitingMemoGeneration: false,
+      }
+    );
     showUndoToast({
-      message: "예시 내용을 채웠어요",
-      undoAction: () => handleCardChangeFor(targetId, prevSnapshot),
+      message: "예시 메모와 딜카드 내용을 채웠어요",
+      undoAction: () =>
+        handleCardChangeFor(targetId, prevSnapshot, {
+          memoText: prevMemo,
+          awaitingMemoGeneration: prevAwaiting,
+        }),
     });
   };
 
@@ -798,22 +1263,40 @@ function DealCardsWorkspaceInner() {
 
   const handleSelectMemo = useCallback(
     (memoText: string) => {
+      const trimmed = memoText.trim();
+      if (!trimmed) return;
+      if (selectedMemoOnly) {
+        handleMemoTextChange(trimmed);
+        return;
+      }
       const targetId = resolvedActiveIdRef.current;
-      if (!targetId || !memoText.trim()) return;
+      if (!targetId) return;
+      const targetItem = itemsRef.current.find((it) => it.id === targetId);
       const base = currentCard4Ref.current;
       const prevSnapshot: Card4Data = {
         ...base,
         points: [...base.points] as [string, string, string],
       };
-      const parsedCard4 = parseMemoIntoCard4(memoText, base);
-      handleCardChangeFor(targetId, parsedCard4);
+      const prevMemo = targetItem?.memoText || "";
+      const prevAwaiting = Boolean(targetItem?.awaitingMemoGeneration);
+
+      const parsedCard4 = parseMemoIntoCard4(trimmed, base);
+      handleCardChangeFor(targetId, parsedCard4, {
+        memoText: trimmed,
+        generationSource: "ai_memo",
+        awaitingMemoGeneration: false,
+      });
       showUndoToast({
-        message: "메모 내용을 딜카드 항목에 채웠어요",
+        message: "불러온 메모로 딜카드 항목을 채우고 원본 메모를 연결했어요",
         variant: "success",
-        undoAction: () => handleCardChangeFor(targetId, prevSnapshot),
+        undoAction: () =>
+          handleCardChangeFor(targetId, prevSnapshot, {
+            memoText: prevMemo,
+            awaitingMemoGeneration: prevAwaiting,
+          }),
       });
     },
-    [handleCardChangeFor, showUndoToast]
+    [handleCardChangeFor, handleMemoTextChange, selectedMemoOnly, showUndoToast]
   );
 
   useEffect(() => {
@@ -832,13 +1315,17 @@ function DealCardsWorkspaceInner() {
       title: `${source.title} (사본)`,
       status: "draft",
       updatedAt: "방금",
+      pairedMemoId: undefined,
+      awaitingMemoGeneration: false,
       card4: {
         ...source.card4,
+        pairedMemoId: undefined,
         headline: source.card4.headline ? repairDealCardLine(source.card4.headline) : "",
         card4_version: 1,
       },
     };
     userInteractedRef.current = true;
+    setSelectedMemoOnlyId(null);
     setItems((prev) => {
       const next = [cloned, ...prev];
       persistItems(next);
@@ -854,6 +1341,8 @@ function DealCardsWorkspaceInner() {
         action: "upsert",
         buildingId: newId,
         card4: cloned.card4,
+        memoText: cloned.memoText,
+        generationSource: cloned.generationSource,
       }),
     })
       .then((res) => {
@@ -869,7 +1358,6 @@ function DealCardsWorkspaceInner() {
 
   const handleDeleteItem = (target: BuildingListItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    // 삭제 직전 대기 중인 디바운스 자동저장을 즉시 취소하여 삭제된 카드 부활 차단 (DC-01 / SH-02)
     (autosave as { cancelPending?: (k?: string) => void }).cancelPending?.(target.id);
     unmarkServerSynced(target.id);
 
@@ -887,7 +1375,10 @@ function DealCardsWorkspaceInner() {
               priceBand: "",
               status: "draft",
               updatedAt: "방금",
-              card4: { ...EMPTY_CARD4 },
+              card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
+              memoText: "",
+              generationSource: "ai_memo",
+              awaitingMemoGeneration: true,
             },
           ];
     userInteractedRef.current = true;
@@ -918,6 +1409,7 @@ function DealCardsWorkspaceInner() {
         userInteractedRef.current = true;
         setItems(prevSnapshot);
         persistItems(prevSnapshot);
+        setSelectedMemoOnlyId(null);
         setSelectedId(target.id);
         setCurrentCard4(target.card4);
         setSyncedBuildingId(target.id);
@@ -941,8 +1433,56 @@ function DealCardsWorkspaceInner() {
     });
   };
 
+  const handleDeleteUnconvertedMemo = (memo: UnconvertedMemoItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const prevSnapshot = [...unconvertedMemos];
+    const remaining = unconvertedMemos.filter((m) => m.id !== memo.id);
+    setUnconvertedMemos(remaining);
+    persistUnconvertedMemos(remaining);
+    if (selectedMemoOnlyId === memo.id) {
+      setSelectedMemoOnlyId(null);
+    }
+
+    void fetch("/api/broker/workspace/summary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete_memo",
+        memoId: memo.id,
+      }),
+    }).catch(() => {});
+
+    showUndoToast({
+      message: "미생성 메모를 목록에서 숨겼어요",
+      undoAction: () => {
+        setUnconvertedMemos(prevSnapshot);
+        persistUnconvertedMemos(prevSnapshot);
+        setSelectedMemoOnlyId(memo.id);
+        void fetch("/api/broker/workspace/summary", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "restore_memo",
+            memoId: memo.id,
+            memoText: memo.memoText,
+            routingType: memo.routingType,
+          }),
+        }).catch(() => {});
+      },
+    });
+  };
+
+  const toggleGroupCollapse = (group: DealCardOriginGroup) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [group]: !prev[group],
+    }));
+  };
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredItems = items.filter((it) => {
+
+  // 딜카드 필터링 (공개 필드 + 페어링된 비공개 원본 메모 통합 검색!)
+  const filteredDealCards = items.filter((it) => {
     const searchable = [
       it.title,
       it.region,
@@ -953,6 +1493,7 @@ function DealCardsWorkspaceInner() {
       it.card4.priceBand || "",
       it.card4.headline || "",
       it.card4.points.join(" "),
+      it.memoText || "",
     ]
       .join(" ")
       .toLowerCase();
@@ -966,12 +1507,240 @@ function DealCardsWorkspaceInner() {
     return matchesQuery && matchesPosture;
   });
 
+  const aiMemoDealCards = filteredDealCards.filter(
+    (it) => classifyDealCardOriginGroup(it) === "ai_memo"
+  );
+  const manualDealCards = filteredDealCards.filter(
+    (it) => classifyDealCardOriginGroup(it) === "manual"
+  );
+
+  // 미생성 메모 필터링 (매수조건/일정은 기본적으로 숨기고 토글 시 표시)
+  const hiddenNonDealMemoCount = unconvertedMemos.filter(
+    (m) => !isDealCandidateMemo(m.routingType, false)
+  ).length;
+
+  const filteredUnconvertedMemos = unconvertedMemos.filter((m) => {
+    if (!isDealCandidateMemo(m.routingType, showOtherMemos)) return false;
+    if (!normalizedQuery) return true;
+    const searchable = `${m.memoText} ${m.routingSummary || ""}`.toLowerCase();
+    return searchable.includes(normalizedQuery);
+  });
+
+  const totalVisibleCount =
+    originGroupFilter === "ai_memo"
+      ? aiMemoDealCards.length
+      : originGroupFilter === "unconverted_memo"
+      ? filteredUnconvertedMemos.length
+      : originGroupFilter === "manual"
+      ? manualDealCards.length
+      : filteredDealCards.length + filteredUnconvertedMemos.length;
+
   const isBlankCard =
     !effectiveCard4.region?.trim() &&
     !effectiveCard4.use?.trim() &&
     !effectiveCard4.priceBand?.trim();
 
-  /* ── Column 1: ① 고르기 목록 ── */
+  const isAwaitingMemoGeneration = Boolean(
+    selectedMemoOnly || activeItem?.awaitingMemoGeneration
+  );
+
+  const activeMemoText = selectedMemoOnly
+    ? selectedMemoOnly.memoText
+    : activeItem?.memoText || "";
+
+  const activeGenerationSource: DealCardGenerationSource = selectedMemoOnly
+    ? "ai_memo"
+    : classifyDealCardOriginGroup(activeItem || {});
+
+  const renderDealCardRow = (item: BuildingListItem) => {
+    const isSelected = !selectedMemoOnly && item.id === resolvedActiveId;
+    const itemPosture = item.card4.posture || "income";
+    const postureLabel = POSTURE_LABELS[itemPosture].shortBadge;
+    const originGroup = classifyDealCardOriginGroup(item);
+    const memoPreview = summarizeMemoOneLine(item.memoText, 34);
+    const itemBlind = item.awaitingMemoGeneration
+      ? { isValid: true }
+      : validateBlindPoints([
+          ...item.card4.points,
+          item.card4.region || "",
+          item.card4.use || "",
+          item.card4.area || "",
+          item.card4.priceBand || "",
+          item.card4.headline || "",
+        ]);
+
+    return (
+      <div
+        key={item.id}
+        role="button"
+        tabIndex={0}
+        aria-current={isSelected ? "true" : undefined}
+        data-selected={isSelected ? "true" : "false"}
+        data-origin-group={originGroup}
+        data-testid={`dealcard-item-${item.id}`}
+        onClick={() => {
+          selectDealCard(item.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selectDealCard(item.id);
+          }
+        }}
+        className={`relative min-h-[88px] p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
+          isSelected
+            ? "ios-glass-card-active bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
+            : "bg-white/82 border-slate-900/[0.075] hover:bg-white/95"
+        }`}
+      >
+        {isSelected && (
+          <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-[#007AFF] rounded-r-full" />
+        )}
+
+        {/* Line 1: Title + Status Badge */}
+        <div className="flex items-center justify-between gap-2 pl-2">
+          <h3
+            data-single-line-title="true"
+            title={item.card4.headline || item.title}
+            className={`text-base break-keep ${
+              isSelected ? "font-bold text-[#0040DD]" : "font-bold text-[#1D1D1F]"
+            }`}
+          >
+            {item.awaitingMemoGeneration && !item.region
+              ? "새 메모 · 딜카드 작성 중"
+              : item.title || "새 딜카드"}
+          </h3>
+          <span
+            className={`text-sm px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${
+              !itemBlind.isValid
+                ? "bg-[#FF2D55]/12 text-[#C8102E] border-[#FF2D55]/25"
+                : item.status === "sent"
+                ? "bg-[#28CD41]/12 text-[#116B22] border-[#28CD41]/25"
+                : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08]"
+            }`}
+          >
+            {!itemBlind.isValid
+              ? "⚠ 확인 필요"
+              : item.status === "sent"
+              ? TERMS.statusSent
+              : TERMS.statusDraft}
+          </span>
+        </div>
+
+        {/* Paired Private Memo 1-Line Preview */}
+        {memoPreview && (
+          <p
+            data-testid={`dealcard-paired-memo-preview-${item.id}`}
+            className="pl-2 mt-1.5 text-sm text-[#515154] bg-slate-100/85 px-2.5 py-1 rounded-lg border border-slate-200/80 break-keep"
+          >
+            📝 {memoPreview}
+          </p>
+        )}
+
+        {/* Line 2: Price + Posture + Quick Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-2">
+          <div className="flex items-center gap-1.5 text-sm text-[#515154] font-medium">
+            <span className="font-bold text-[#1D1D1F]">
+              {item.priceBand || "가격 미입력"}
+            </span>
+            <span>·</span>
+            <span>{postureLabel}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-testid={`dealcard-duplicate-${item.id}`}
+              onClick={(e) => handleDuplicateItem(item, e)}
+              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
+            >
+              복제
+            </button>
+            <button
+              type="button"
+              data-testid={`dealcard-delete-${item.id}`}
+              onClick={(e) => handleDeleteItem(item, e)}
+              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUnconvertedMemoRow = (memo: UnconvertedMemoItem) => {
+    const isSelected = selectedMemoOnly?.id === memo.id;
+    const preview = summarizeMemoOneLine(memo.memoText, 46);
+    const badgeLabel = ROUTING_TYPE_BADGE[memo.routingType] || "매물 메모";
+
+    return (
+      <div
+        key={memo.id}
+        role="button"
+        tabIndex={0}
+        aria-current={isSelected ? "true" : undefined}
+        data-selected={isSelected ? "true" : "false"}
+        data-origin-group="unconverted_memo"
+        data-testid={`unconverted-memo-item-${memo.id}`}
+        onClick={() => selectUnconvertedMemo(memo)}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selectUnconvertedMemo(memo);
+          }
+        }}
+        className={`relative min-h-[88px] p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
+          isSelected
+            ? "ios-glass-card-active bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
+            : "bg-amber-50/45 border-amber-300/70 hover:bg-white/95"
+        }`}
+      >
+        {isSelected && (
+          <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-[#007AFF] rounded-r-full" />
+        )}
+
+        <div className="flex items-start justify-between gap-2 pl-2">
+          <p className="text-sm font-bold text-[#1D1D1F] break-keep leading-snug">
+            📝 {preview || "빈 메모"}
+          </p>
+          <span className="text-sm px-2 py-0.5 rounded-full font-semibold shrink-0 bg-amber-100 text-amber-900 border border-amber-300">
+            미생성
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-2.5">
+          <span className="text-sm text-[#515154] font-medium">{badgeLabel}</span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-testid={`unconverted-memo-generate-${memo.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleGenerateFromMemo(memo);
+              }}
+              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-[#007AFF] hover:bg-[#0062CC] text-white cursor-pointer"
+            >
+              ✨ 딜카드 생성
+            </button>
+            <button
+              type="button"
+              data-testid={`unconverted-memo-delete-${memo.id}`}
+              onClick={(e) => handleDeleteUnconvertedMemo(memo, e)}
+              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-white hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── Column 1: ① 고르기 목록 (3대 생성·페어링 그룹핑) ── */
   const listSlot = (
     <div className="space-y-3" data-testid="dealcard-airtable-list">
       {/* Header Summary */}
@@ -979,11 +1748,9 @@ function DealCardsWorkspaceInner() {
         data-theme-lock="dark"
         className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-[#1D1D1F] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_12px_rgba(15,23,42,0.12)]"
       >
-        <span className="text-sm font-semibold text-white">
-          내 딜카드 목록
-        </span>
+        <span className="text-sm font-semibold text-white">내 딜카드 목록</span>
         <span className="text-sm font-semibold text-[#FFAA00]">
-          총 {filteredItems.length}건
+          총 {totalVisibleCount}건
         </span>
       </div>
 
@@ -998,22 +1765,58 @@ function DealCardsWorkspaceInner() {
         <span>새 딜카드 만들기</span>
       </button>
 
-      {/* Search Input */}
+      {/* Unified Search Input (DealCard + Private Paired Memo) */}
       <div className="relative">
         <label htmlFor="dealcard-search-input" className="sr-only">
-          딜카드 검색
+          딜카드 및 원본 메모 검색
         </label>
         <input
           id="dealcard-search-input"
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="지역, 용도, 가격, 장점 키워드로 찾기..."
+          placeholder="지역, 용도, 번지·원본 메모로 찾기..."
           className="w-full min-h-[48px] px-3.5 rounded-2xl bg-white/92 border border-slate-900/[0.12] text-base text-[#1D1D1F] placeholder:text-[#6E6E73] focus:outline-none focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 transition-all"
         />
       </div>
 
-      {/* 매물 유형 필터 (iOS Segmented Control) */}
+      {/* 생성·페어링 그룹 스위처 (전체 / AI생성 / 미생성 메모 / 직접작성) */}
+      <div
+        role="tablist"
+        aria-label="생성 방식 및 메모 그룹별 보기"
+        data-testid="dealcard-group-switcher"
+        className="grid grid-cols-4 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
+      >
+        {(
+          [
+            { id: "all", label: "전체" },
+            { id: "ai_memo", label: "✨AI생성" },
+            { id: "unconverted_memo", label: "📝미생성" },
+            { id: "manual", label: "✍️직접" },
+          ] as const
+        ).map((tab) => {
+          const active = originGroupFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-testid={`dealcard-group-tab-${tab.id}`}
+              onClick={() => setOriginGroupFilter(tab.id)}
+              className={`min-h-[42px] px-1.5 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
+                active
+                  ? "ios-segmented-pill bg-white text-[#007AFF]"
+                  : "text-[#3A3A3C] hover:text-[#1D1D1F]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 매물 유형 필터 (iOS Segmented Control — 기존 계약 호환 유지) */}
       <div
         role="tablist"
         aria-label="매물 유형별 보기"
@@ -1036,7 +1839,7 @@ function DealCardsWorkspaceInner() {
               aria-selected={active}
               data-testid={`dealcard-posture-tab-${tab.id}`}
               onClick={() => setPostureFilter(tab.id)}
-              className={`min-h-[44px] px-2 py-1.5 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
+              className={`min-h-[42px] px-2 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
                 active
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
                   : "text-[#3A3A3C] hover:text-[#1D1D1F]"
@@ -1048,15 +1851,15 @@ function DealCardsWorkspaceInner() {
         })}
       </div>
 
-      {/* Items List (Spatial Liquid Glass Cards) */}
-      <div className="space-y-2.5 pt-1" role="list">
-        {filteredItems.length === 0 && searchQuery.trim() ? (
+      {/* Grouped Items List */}
+      <div className="space-y-3 pt-1" role="list">
+        {totalVisibleCount === 0 && searchQuery.trim() ? (
           <div
             data-testid="dealcard-empty-search"
             className="p-5 rounded-2xl bg-white/92 border border-slate-200 text-center space-y-3"
           >
             <p className="text-sm font-bold text-[#1D1D1F] break-keep">
-              &lsquo;{searchQuery.trim()}&rsquo; 검색 결과와 일치하는 딜카드가 없습니다.
+              &lsquo;{searchQuery.trim()}&rsquo; 검색 결과와 일치하는 메모·딜카드가 없습니다.
             </p>
             <button
               type="button"
@@ -1067,7 +1870,7 @@ function DealCardsWorkspaceInner() {
               검색어 지우기
             </button>
           </div>
-        ) : filteredItems.length === 0 && postureFilter !== "all" ? (
+        ) : totalVisibleCount === 0 && postureFilter !== "all" ? (
           <div
             data-testid="dealcard-empty-filter"
             className="p-5 rounded-2xl bg-white/92 border border-slate-200 text-center space-y-3"
@@ -1084,114 +1887,116 @@ function DealCardsWorkspaceInner() {
             </button>
           </div>
         ) : (
-          filteredItems.map((item) => {
-            const isSelected = item.id === resolvedActiveId;
-            const itemPosture = item.card4.posture || "income";
-            const postureLabel = POSTURE_LABELS[itemPosture].shortBadge;
-            const itemBlind = validateBlindPoints([
-              ...item.card4.points,
-              item.card4.region || "",
-              item.card4.use || "",
-              item.card4.area || "",
-              item.card4.priceBand || "",
-              item.card4.headline || "",
-            ]);
-
-            return (
+          <>
+            {/* 그룹 1: ✨ AI 메모 생성 딜카드 */}
+            {(originGroupFilter === "all" || originGroupFilter === "ai_memo") && (
               <div
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                aria-current={isSelected ? "true" : undefined}
-                data-selected={isSelected ? "true" : "false"}
-                data-testid={`dealcard-item-${item.id}`}
-                onClick={() => {
-                  selectDealCard(item.id);
-                }}
-                onKeyDown={(e) => {
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    selectDealCard(item.id);
-                  }
-                }}
-                className={`relative min-h-[84px] p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
-                  isSelected
-                    ? "ios-glass-card-active bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
-                    : "bg-white/82 border-slate-900/[0.075] hover:bg-white/95"
-                }`}
+                data-testid="dealcard-group-section-ai_memo"
+                className="space-y-2"
               >
-                {isSelected && (
-                  <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-[#007AFF] rounded-r-full" />
-                )}
-
-                {/* Line 1: Title + Status Badge */}
-                <div className="flex items-center justify-between gap-2 pl-2">
-                  <h3
-                    data-single-line-title="true"
-                    title={item.card4.headline || item.title}
-                    className={`text-base break-keep ${
-                      isSelected ? "font-bold text-[#0040DD]" : "font-bold text-[#1D1D1F]"
-                    }`}
-                  >
-                    {item.title || "새 딜카드"}
-                  </h3>
-                  <span
-                    className={`text-sm px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${
-                      !itemBlind.isValid
-                        ? "bg-[#FF2D55]/12 text-[#C8102E] border-[#FF2D55]/25"
-                        : item.status === "sent"
-                        ? "bg-[#28CD41]/12 text-[#116B22] border-[#28CD41]/25"
-                        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08]"
-                    }`}
-                  >
-                    {!itemBlind.isValid
-                      ? "⚠ 확인 필요"
-                      : item.status === "sent"
-                      ? TERMS.statusSent
-                      : TERMS.statusDraft}
-                  </span>
-                </div>
-
-                {/* Line 2: Price + Posture + Quick Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-2">
-                  <div className="flex items-center gap-1.5 text-sm text-[#515154] font-medium">
-                    <span className="font-bold text-[#1D1D1F]">
-                      {item.priceBand || "가격 미입력"}
-                    </span>
-                    <span>·</span>
-                    <span>{postureLabel}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      data-testid={`dealcard-duplicate-${item.id}`}
-                      onClick={(e) => handleDuplicateItem(item, e)}
-                      className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
-                    >
-                      복제
-                    </button>
-                    <button
-                      type="button"
-                      data-testid={`dealcard-delete-${item.id}`}
-                      onClick={(e) => handleDeleteItem(item, e)}
-                      className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleGroupCollapse("ai_memo")}
+                  aria-expanded={!collapsedGroups.ai_memo}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-blue-50/80 hover:bg-blue-100/70 text-[#0040DD] text-sm font-bold transition cursor-pointer"
+                >
+                  <span>✨ AI 메모 생성 딜카드 ({aiMemoDealCards.length}건)</span>
+                  <span>{collapsedGroups.ai_memo ? "▸" : "▾"}</span>
+                </button>
+                {!collapsedGroups.ai_memo &&
+                  (aiMemoDealCards.length > 0 ? (
+                    <div className="space-y-2.5">
+                      {aiMemoDealCards.map((item) => renderDealCardRow(item))}
+                    </div>
+                  ) : (
+                    originGroupFilter === "ai_memo" && (
+                      <p className="px-3 py-4 rounded-2xl bg-white/80 border border-slate-200 text-sm text-[#515154] text-center break-keep">
+                        상단 메모창에 매물 메모를 적고 [✨ 메모로 딜카드 생성하기]를 누르면 이곳에 표시됩니다.
+                      </p>
+                    )
+                  ))}
               </div>
-            );
-          })
+            )}
+
+            {/* 그룹 2: 📝 딜카드 미생성 메모 */}
+            {(originGroupFilter === "all" || originGroupFilter === "unconverted_memo") && (
+              <div
+                data-testid="dealcard-group-section-unconverted_memo"
+                className="space-y-2"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleGroupCollapse("unconverted_memo")}
+                  aria-expanded={!collapsedGroups.unconverted_memo}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100/70 text-amber-950 text-sm font-bold transition cursor-pointer"
+                >
+                  <span>📝 딜카드 미생성 메모 ({filteredUnconvertedMemos.length}건)</span>
+                  <span>{collapsedGroups.unconverted_memo ? "▸" : "▾"}</span>
+                </button>
+                {!collapsedGroups.unconverted_memo && (
+                  <div className="space-y-2">
+                    {filteredUnconvertedMemos.length > 0 ? (
+                      filteredUnconvertedMemos.map((memo) => renderUnconvertedMemoRow(memo))
+                    ) : (
+                      <p className="px-3 py-3 rounded-2xl bg-white/75 border border-slate-200/80 text-sm text-[#515154] text-center break-keep">
+                        아직 딜카드로 변환하지 않고 보관 중인 매물 메모가 없습니다.
+                      </p>
+                    )}
+
+                    {hiddenNonDealMemoCount > 0 && (
+                      <button
+                        type="button"
+                        data-testid="toggle-other-memos-btn"
+                        onClick={() => setShowOtherMemos((prev) => !prev)}
+                        className="w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition cursor-pointer"
+                      >
+                        {showOtherMemos
+                          ? "매수 조건·일정 메모 숨기기"
+                          : `매수 조건·일정 메모 ${hiddenNonDealMemoCount}건 함께 보기`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 그룹 3: ✍️ 직접 작성 딜카드 */}
+            {(originGroupFilter === "all" || originGroupFilter === "manual") &&
+              (originGroupFilter === "manual" || manualDealCards.length > 0) && (
+                <div
+                  data-testid="dealcard-group-section-manual"
+                  className="space-y-2"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleGroupCollapse("manual")}
+                    aria-expanded={!collapsedGroups.manual}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-[#1D1D1F] text-sm font-bold transition cursor-pointer"
+                  >
+                    <span>✍️ 직접 작성 딜카드 ({manualDealCards.length}건)</span>
+                    <span>{collapsedGroups.manual ? "▸" : "▾"}</span>
+                  </button>
+                  {!collapsedGroups.manual &&
+                    (manualDealCards.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {manualDealCards.map((item) => renderDealCardRow(item))}
+                      </div>
+                    ) : (
+                      <p className="px-3 py-4 rounded-2xl bg-white/80 border border-slate-200 text-sm text-[#515154] text-center break-keep">
+                        메모 없이 직접 입력한 딜카드가 아직 없습니다.
+                      </p>
+                    ))}
+                </div>
+              )}
+          </>
         )}
       </div>
     </div>
   );
 
-  /* ── Column 2: ② 채우기 (Card4 Editor) ── */
+  /* ── Column 2: ② 채우기 (최상단 메모 우선 + 점진적 노출 에디터) ── */
   const isSampleCard =
+    !selectedMemoOnly &&
     resolvedActiveId === "bld-01" &&
     !isBlankCard &&
     (effectiveCard4.region?.includes("양평동") || activeItem?.title?.includes("양평동"));
@@ -1200,48 +2005,13 @@ function DealCardsWorkspaceInner() {
 
   const editorSlot = (
     <div className="space-y-4">
-      {/* Column 2 Top Action Bar: 카톡·메모 붙여넣기 & IM 편집 연동 (DC-07, DC-08) */}
-      <div
-        data-testid="dealcard-editor-toolbar"
-        className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5"
-      >
-        <button
-          type="button"
-          data-testid="dealcard-open-memo-import-btn"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setIsMemoModalOpen(true)}
-          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 text-sm font-extrabold transition cursor-pointer inline-flex items-center gap-1.5"
-        >
-          <span>📋 카톡·메모 붙여넣기</span>
-        </button>
-
-        {activeItem && (
-          <a
-            href={`/broker/w/im?buildingId=${encodeURIComponent(activeItem.id)}`}
-            data-testid="dealcard-open-im-link"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => {
-              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
-                return;
-              }
-              e.preventDefault();
-              void handleFlushSave();
-              router.push(`/broker/w/im?buildingId=${encodeURIComponent(activeItem.id)}`);
-            }}
-            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-sm font-extrabold transition cursor-pointer inline-flex items-center gap-1.5"
-          >
-            <span>📊 이 매물로 IM 편집 →</span>
-          </a>
-        )}
-      </div>
-
       {isSampleCard && (
         <div
           data-testid="dealcard-sample-banner"
           className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-3"
         >
           <p className="text-sm font-bold text-amber-950">
-            💡 현재 예시 딜카드(영등포구 양평동)가 열려 있습니다. 새 매물을 작성하려면 오른쪽 버튼을 눌러 빈 양식으로 시작하세요.
+            💡 현재 예시 딜카드(영등포구 양평동)가 열려 있습니다. 새 매물을 작성하려면 오른쪽 버튼을 눌러 메모부터 시작하세요.
           </p>
           <button
             type="button"
@@ -1254,30 +2024,112 @@ function DealCardsWorkspaceInner() {
           </button>
         </div>
       )}
-      {isBlankCard && (
-        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-base font-bold text-blue-950">
-            처음 작성하시나요? 예시를 불러와서 숫자만 고쳐 쓰실 수도 있어요.
-          </p>
-          <button
-            type="button"
-            data-testid="dealcard-fill-sample-btn"
-            onClick={handleFillSample}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-white hover:bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold transition cursor-pointer"
-          >
-            예시 채우기
-          </button>
+
+      {/* 최상단 고정: 원본 매물 메모 입력 & 1:1 상시 페어링 패널 */}
+      <PairedMemoTopCard
+        mode={isAwaitingMemoGeneration ? "capture" : "paired"}
+        memoText={activeMemoText}
+        onMemoTextChange={handleMemoTextChange}
+        onGenerateFromMemo={() => {
+          void handleGenerateFromMemo();
+        }}
+        onSaveMemoOnly={() => {
+          void handleSaveMemoOnly();
+        }}
+        onSkipMemoManual={handleSkipMemoManual}
+        onOpenMemoImportModal={() => setIsMemoModalOpen(true)}
+        isGenerating={isGeneratingFromMemo}
+        memoSaveStatus={memoSaveStatus}
+        generationSource={activeGenerationSource}
+        textareaRef={memoTextareaRef}
+      />
+
+      {/* Stage 1 대기 안내 카드 (메모 입력 후 [메모로 딜카드 생성하기] 전까지 표시) */}
+      {isAwaitingMemoGeneration ? (
+        <div
+          data-testid="dealcard-awaiting-memo-guide"
+          className="p-5 rounded-2xl bg-white/92 border border-dashed border-slate-300 flex flex-wrap items-center justify-between gap-3"
+        >
+          <div className="space-y-1">
+            <p className="text-base font-extrabold text-[#1D1D1F] break-keep">
+              위 메모창에 매물 메모를 적고 [✨ 메모로 딜카드 생성하기]를 눌러 주세요
+            </p>
+            <p className="text-sm text-[#515154] break-keep">
+              번지·상호는 자동으로 가려지고 ① 매물 유형 · ② 카톡 썸네일 · ③ 장점 3줄이 채워져 아래에 열립니다.
+            </p>
+          </div>
+          {!selectedMemoOnly && (
+            <button
+              type="button"
+              data-testid="dealcard-fill-sample-btn"
+              onClick={handleFillSample}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold transition cursor-pointer shrink-0"
+            >
+              예시 채우기
+            </button>
+          )}
+        </div>
+      ) : (
+        /* Stage 2 보조 액션 바: IM 편집 연동 & 빈 양식일 때 예시 채우기 */
+        <div
+          data-testid="dealcard-editor-toolbar"
+          className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5"
+        >
+          <span className="text-sm font-bold text-[#3A3A3C]">
+            아래 블라인드 딜카드 항목을 확인하고 다듬어 주세요
+          </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {isBlankCard && (
+              <button
+                type="button"
+                data-testid="dealcard-fill-sample-btn"
+                onClick={handleFillSample}
+                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold transition cursor-pointer"
+              >
+                예시 채우기
+              </button>
+            )}
+
+            {activeItem && (
+              <a
+                href={`/broker/w/im?buildingId=${encodeURIComponent(activeItem.id)}`}
+                data-testid="dealcard-open-im-link"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                    return;
+                  }
+                  e.preventDefault();
+                  void handleFlushSave();
+                  router.push(`/broker/w/im?buildingId=${encodeURIComponent(activeItem.id)}`);
+                }}
+                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-sm font-extrabold transition cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <span>📊 이 매물로 IM 편집 →</span>
+              </a>
+            )}
+          </div>
         </div>
       )}
-      <Card4ConfirmCard
-        key={editorTargetId}
-        card4={effectiveCard4}
-        onChange={(next) => handleCardChangeFor(editorTargetId, next)}
-      />
+
+      {/* Stage 2: 파싱·생성 완료 후(또는 직접 입력 선택 시) 펼쳐지는 세부 편집 폼 */}
+      <div
+        data-testid="dealcard-card4-stage"
+        data-collapsed={isAwaitingMemoGeneration ? "true" : "false"}
+        aria-hidden={isAwaitingMemoGeneration ? "true" : undefined}
+        className={isAwaitingMemoGeneration ? "hidden" : "space-y-4"}
+      >
+        <Card4ConfirmCard
+          key={editorTargetId || "memo-only"}
+          card4={effectiveCard4}
+          onChange={(next) => handleCardChangeFor(editorTargetId, next)}
+        />
+      </div>
     </div>
   );
 
-  /* ── Column 3: ③ 확인하고 보내기 ── */
+  /* ── Column 3: ③ 확인하고 보내기 (원본 메모는 절대 노출되지 않는 고객 화면 미리보기) ── */
   const previewSlot = (
     <div className="space-y-4">
       <KakaoBubblePreview
@@ -1295,7 +2147,15 @@ function DealCardsWorkspaceInner() {
     <button
       type="button"
       onMouseDown={(e) => e.preventDefault()}
-      onClick={() => setIsPreSendOpen(true)}
+      onClick={() => {
+        if (selectedMemoOnly) {
+          showUndoToast({
+            message: "먼저 [✨ 메모로 딜카드 생성하기]를 눌러 딜카드를 생성해 주세요.",
+          });
+          return;
+        }
+        setIsPreSendOpen(true);
+      }}
       data-testid="workspace-primary-send-btn"
       className="w-full min-h-[56px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
     >
@@ -1327,7 +2187,11 @@ function DealCardsWorkspaceInner() {
           void handleFlushSave();
         }}
         selectedBuildingId={resolvedActiveId || ""}
-        selectedLabel={activeItem?.title || "새 딜카드"}
+        selectedLabel={
+          selectedMemoOnly
+            ? "미생성 매물 메모"
+            : activeItem?.title || "새 딜카드"
+        }
       />
       <PreSendConfirmationSheet
         isOpen={isPreSendOpen}

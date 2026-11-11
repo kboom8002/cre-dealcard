@@ -20,10 +20,12 @@ import {
 export type ProvenanceSource = 'public' | 'broker' | 'ai';
 export type DealCardPosture = 'income' | 'owner_occupied' | 'value_add';
 export type DealCardPointTone = 'amber' | 'sky' | 'mint' | 'lavender' | 'peach';
+export type DealCardGenerationSource = 'ai_memo' | 'manual';
 
 export const ProvenanceSourceSchema = z.enum(['public', 'broker', 'ai']);
 export const DealCardPostureSchema = z.enum(['income', 'owner_occupied', 'value_add']);
 export const DealCardPointToneSchema = z.enum(['amber', 'sky', 'mint', 'lavender', 'peach']);
+export const DealCardGenerationSourceSchema = z.enum(['ai_memo', 'manual']);
 
 export const Card4ProvenanceSchema = z.object({
   points: z.tuple([
@@ -60,6 +62,8 @@ export const Card4Schema = z.object({
   provenance: Card4ProvenanceSchema.default({
     points: ['public', 'public', 'public'],
   }),
+  pairedMemoId: z.string().optional(),
+  generationSource: DealCardGenerationSourceSchema.optional(),
   card4_version: z.number().int().positive().default(1),
   card4_hash: z.string().length(64).optional(),
 });
@@ -227,6 +231,8 @@ export interface UpdateDealCard4Input {
     provenance?: {
       points: [ProvenanceSource, ProvenanceSource, ProvenanceSource];
     };
+    pairedMemoId?: string;
+    generationSource?: DealCardGenerationSource;
   };
   expectedVersion?: number;
   userId?: string;
@@ -302,6 +308,9 @@ export async function updateDealCard4(
 
   const resolvedPointBriefs = input.card4.pointBriefs ?? currentCard4?.pointBriefs;
   const resolvedPointTones = input.card4.pointTones ?? currentCard4?.pointTones;
+  const resolvedPairedMemoId = input.card4.pairedMemoId ?? currentCard4?.pairedMemoId;
+  const resolvedGenerationSource =
+    input.card4.generationSource ?? currentCard4?.generationSource;
 
   const fullCard4: Card4Data = {
     headline: resolvedHeadline,
@@ -323,6 +332,8 @@ export async function updateDealCard4(
     points: repairedPoints,
     ...(resolvedPointBriefs ? { pointBriefs: resolvedPointBriefs } : {}),
     ...(resolvedPointTones ? { pointTones: resolvedPointTones } : {}),
+    ...(resolvedPairedMemoId ? { pairedMemoId: resolvedPairedMemoId } : {}),
+    ...(resolvedGenerationSource ? { generationSource: resolvedGenerationSource } : {}),
     provenance: input.card4.provenance || currentCard4?.provenance || {
       points: ['broker', 'broker', 'broker'],
     },

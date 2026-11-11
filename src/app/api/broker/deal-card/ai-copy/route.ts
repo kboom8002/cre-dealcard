@@ -99,6 +99,17 @@ export async function POST(req: NextRequest) {
   }
 
   const input = parsed.data;
+  const sanitizedFacts = input.facts
+    ? {
+        ...input.facts,
+        ...(input.facts.memoSummary
+          ? {
+              memoSummary:
+                cleanBlindPoints([input.facts.memoSummary])[0]?.trim() || "",
+            }
+          : {}),
+      }
+    : undefined;
   const postureInfo = POSTURE_LABELS[input.posture];
   const prompt = buildDealCardCopyPrompt({
     mode: input.mode,
@@ -110,7 +121,7 @@ export async function POST(req: NextRequest) {
     priceBand: input.priceBand,
     currentHeadline: input.currentHeadline,
     currentPoints: input.currentPoints,
-    facts: input.facts,
+    facts: sanitizedFacts,
   });
 
   const warnings = new Set<string>();

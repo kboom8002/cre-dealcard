@@ -444,6 +444,7 @@ export function buildDealCardCopyPrompt(input: DealCardCopyPromptInput): {
     subwayWalkMinutes: "역 도보(분)",
     floorsLabel: "층수",
     zoning: "용도지역",
+    memoSummary: "메모 핵심 사실(블라인드 정제)",
   };
 
   const knowledge = [

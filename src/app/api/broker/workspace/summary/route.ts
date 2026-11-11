@@ -9,8 +9,13 @@ import {
   resolveCard4AreaLabel,
   updateDealCard4,
   type Card4Data,
+  type DealCardGenerationSource,
   type DealCardPosture,
 } from "@/lib/deal-card/card4-schema";
+import {
+  classifyDealCardOriginGroup,
+  type UnconvertedMemoItem,
+} from "@/lib/deal-card/memo-pairing";
 import {
   isUuid,
   getQuickImRecord,
@@ -31,6 +36,125 @@ import {
   repairDealCardLine,
   repairDealCardPoints,
 } from "@/lib/deal-card/copy-limits";
+
+interface PrivateMemoPairingRecord {
+  memoText: string;
+  pairedMemoId?: string;
+  generationSource?: DealCardGenerationSource;
+  updatedAt: string;
+}
+
+interface WorkspaceMemoMemoryState {
+  unconvertedByUser: Map<string, Map<string, UnconvertedMemoItem>>;
+  deletedMemoIdsByUser: Map<string, Set<string>>;
+  convertedMemoToBuildingByUser: Map<string, Map<string, string>>;
+  pairingByUserBuilding: Map<string, Map<string, PrivateMemoPairingRecord>>;
+}
+
+function getWorkspaceMemoMemory(): WorkspaceMemoMemoryState {
+  const g = globalThis as unknown as {
+    __creWorkspaceMemoMemory?: WorkspaceMemoMemoryState;
+  };
+  if (!g.__creWorkspaceMemoMemory) {
+    g.__creWorkspaceMemoMemory = {
+      unconvertedByUser: new Map(),
+      deletedMemoIdsByUser: new Map(),
+      convertedMemoToBuildingByUser: new Map(),
+      pairingByUserBuilding: new Map(),
+    };
+  }
+  return g.__creWorkspaceMemoMemory;
+}
+
+function getUserMap<V>(outer: Map<string, Map<string, V>>, userId: string): Map<string, V> {
+  let inner = outer.get(userId);
+  if (!inner) {
+    inner = new Map();
+    outer.set(userId, inner);
+  }
+  return inner;
+}
+
+function getUserSet(outer: Map<string, Set<string>>, userId: string): Set<string> {
+  let inner = outer.get(userId);
+  if (!inner) {
+    inner = new Set();
+    outer.set(userId, inner);
+  }
+  return inner;
+}
+
+async function syncPairedMemoRow(
+  supabase: ReturnType<typeof createServiceClient>,
+  params: {
+    userId: string;
+    buildingId: string;
+    memoText?: string;
+    pairedMemoId?: string;
+  }
+): Promise<string | undefined> {
+  const { userId, buildingId, memoText, pairedMemoId } = params;
+  const trimmedMemo = typeof memoText === "string" ? memoText.trim() : undefined;
+  const pairedTag = `paired:${buildingId}`;
+  let resolvedMemoId = pairedMemoId || undefined;
+
+  try {
+    if (!supabase || typeof supabase.from !== "function") {
+      return resolvedMemoId;
+    }
+
+    if (resolvedMemoId && isUuid(resolvedMemoId)) {
+      const { data: existingMemo } = await supabase
+        .from("broker_memos")
+        .select("id, user_id, tags")
+        .eq("id", resolvedMemoId)
+        .maybeSingle();
+
+      if (existingMemo && existingMemo.user_id === userId) {
+        const prevTags = Array.isArray((existingMemo as any).tags)
+          ? ((existingMemo as any).tags as string[]).filter(
+              (t) => typeof t === "string" && !t.startsWith("paired:")
+            )
+          : [];
+        const nextTags = isUuid(buildingId) ? prevTags : [...prevTags, pairedTag];
+        const updates: Record<string, unknown> = {
+          // status 는 반드시 'saved' 를 유지하여 /broker/memos 에서도 증발하지 않도록 보존한다.
+          status: "saved",
+          converted_to: isUuid(buildingId) ? buildingId : null,
+          tags: nextTags,
+        };
+        if (memoText !== undefined && trimmedMemo && trimmedMemo.length > 0) {
+          updates.memo_text = memoText;
+        }
+        await supabase.from("broker_memos").update(updates).eq("id", resolvedMemoId);
+        return resolvedMemoId;
+      }
+    }
+
+    if (trimmedMemo && trimmedMemo.length > 0) {
+      const insertPayload: Record<string, unknown> = {
+        user_id: userId,
+        memo_text: memoText,
+        routing_type: "new_deal",
+        status: "saved",
+        converted_to: isUuid(buildingId) ? buildingId : null,
+        tags: isUuid(buildingId) ? [] : [pairedTag],
+      };
+      const insQuery: any = supabase.from("broker_memos").insert(insertPayload);
+      const { data: inserted } =
+        typeof insQuery?.select === "function"
+          ? await insQuery.select("id").maybeSingle()
+          : { data: null };
+      if (inserted?.id) {
+        resolvedMemoId = String(inserted.id);
+      }
+    }
+  } catch {
+    // Non-blocking if broker_memos table or mock unavailable
+  }
+
+  return resolvedMemoId;
+}
 
 function cleanBrokerField(val: unknown, fallback?: string): string | undefined {
   if (typeof val !== "string") return fallback;
@@ -109,7 +233,9 @@ export async function GET(request: NextRequest) {
   // 1. Fetch broker's buildings from building_ssot_lite
   let bldQuery = supabase
     .from("building_ssot_lite")
-    .select("id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers")
+    .select(
+      "id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers, input_type, raw_input"
+    )
     .neq("status", "archived")
     .order("updated_at", { ascending: false })
     .limit(20);
@@ -131,7 +257,9 @@ export async function GET(request: NextRequest) {
     if (check.ok) {
       const { data: singleBld } = await supabase
         .from("building_ssot_lite")
-        .select("id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers")
+        .select(
+          "id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers, input_type, raw_input"
+        )
         .eq("id", targetId)
         .maybeSingle();
       if (singleBld) buildings.unshift(singleBld);
@@ -229,9 +357,24 @@ export async function GET(request: NextRequest) {
       provenance: bodyCard4?.provenance || {
         points: ["public", "broker", "ai"],
       },
+      ...(bodyCard4?.pairedMemoId ? { pairedMemoId: bodyCard4.pairedMemoId } : {}),
+      ...(bodyCard4?.generationSource ? { generationSource: bodyCard4.generationSource } : {}),
       card4_version: bodyCard4?.card4_version || 1,
       card4_hash: hash,
     };
+
+    const rawInputMemo =
+      typeof (b as any).raw_input === "string" && (b as any).raw_input.trim().length > 0
+        ? String((b as any).raw_input)
+        : undefined;
+    const inputTypeStr =
+      typeof (b as any).input_type === "string" ? String((b as any).input_type) : undefined;
+    const inferredOrigin = classifyDealCardOriginGroup({
+      card4,
+      generationSource: bodyCard4?.generationSource,
+      inputType: inputTypeStr,
+      pairedMemoId: bodyCard4?.pairedMemoId,
+    });
 
     return {
       id: b.id,
@@ -241,7 +384,13 @@ export async function GET(request: NextRequest) {
       priceBand,
       status: b.status === "published" || teaserDoc?.status === "published" ? "sent" : "draft",
       updatedAt: formatRelativeTime(b.updated_at),
-      card4,
+      card4: {
+        ...card4,
+        generationSource: card4.generationSource || inferredOrigin,
+      },
+      ...(rawInputMemo ? { memoText: rawInputMemo } : {}),
+      ...(bodyCard4?.pairedMemoId ? { pairedMemoId: bodyCard4.pairedMemoId } : {}),
+      generationSource: (card4.generationSource || inferredOrigin) as DealCardGenerationSource,
     };
   });
 
@@ -567,8 +716,27 @@ export async function GET(request: NextRequest) {
   const sentBuildingIds = new Set<string>();
   const customUpsertedByBuilding = new Map<
     string,
-    { card4: Card4Data; updatedAt: string; status?: "draft" | "sent" }
+    {
+      card4: Card4Data;
+      updatedAt: string;
+      status?: "draft" | "sent";
+      memoText?: string;
+      pairedMemoId?: string;
+      generationSource?: DealCardGenerationSource;
+    }
   >();
+  const privateMemoPairingByBuilding = new Map<
+    string,
+    {
+      memoText?: string;
+      pairedMemoId?: string;
+      generationSource?: DealCardGenerationSource;
+    }
+  >();
+  const actUnconvertedMemos = new Map<string, UnconvertedMemoItem>();
+  const actDeletedMemoIds = new Set<string>();
+  const actRestoredMemoIds = new Set<string>();
+  const actConvertedMemoToBuilding = new Map<string, string>();
   const deletedImIds = new Set<string>();
   const restoredOrActiveImIds = new Set<string>();
   const customImUpsertedByKey = new Map<string, { item: Record<string, any>; updatedAt: string }>();
@@ -585,6 +753,12 @@ export async function GET(request: NextRequest) {
           "dealcard_deleted",
           "dealcard_restored",
           "dealcard_sent",
+          "dealcard_memo_paired",
+          "unconverted_memo_saved",
+          "unconverted_memo_deleted",
+          "unconverted_memo_restored",
+          "unconverted_memo_converted",
+          "memo_saved",
           "im_upserted",
           "im_deleted",
           "im_restored",
@@ -594,13 +768,67 @@ export async function GET(request: NextRequest) {
         actQuery = actQuery.order("created_at", { ascending: false });
       }
       if (typeof actQuery.limit === "function") {
-        actQuery = actQuery.limit(100);
+        actQuery = actQuery.limit(120);
       }
       const { data: dcActs } = await actQuery;
       for (const act of dcActs || []) {
         const meta = (act.metadata as Record<string, any>) || {};
         const bId = String(meta.building_id || act.entity_id || "").trim();
         const imKey = String(meta.im_id || meta.building_id || act.entity_id || "").trim();
+        const memoIdKey = String(meta.memo_id || act.id || "").trim();
+
+        if (act.event_type === "unconverted_memo_deleted" && memoIdKey) {
+          if (!actRestoredMemoIds.has(memoIdKey)) {
+            actDeletedMemoIds.add(memoIdKey);
+          }
+          continue;
+        }
+        if (act.event_type === "unconverted_memo_converted" && memoIdKey) {
+          if (bId && !actConvertedMemoToBuilding.has(memoIdKey)) {
+            actConvertedMemoToBuilding.set(memoIdKey, bId);
+          }
+          continue;
+        }
+        if (
+          (act.event_type === "unconverted_memo_saved" ||
+            act.event_type === "unconverted_memo_restored" ||
+            act.event_type === "memo_saved") &&
+          memoIdKey
+        ) {
+          const rawTxt = String(meta.memo_text || meta.memoText || "").trim();
+          if (rawTxt && !actDeletedMemoIds.has(memoIdKey)) {
+            actRestoredMemoIds.add(memoIdKey);
+            if (!actUnconvertedMemos.has(memoIdKey)) {
+              actUnconvertedMemos.set(memoIdKey, {
+                id: memoIdKey,
+                memoText: rawTxt,
+                routingType: String(meta.routing_type || meta.routingType || "new_deal"),
+                routingSummary: meta.routing_summary || meta.routingSummary || null,
+                createdAt: act.created_at,
+                updatedAt: act.created_at,
+              });
+            }
+          }
+          continue;
+        }
+        if (act.event_type === "dealcard_memo_paired" && bId && bId !== userId) {
+          if (!privateMemoPairingByBuilding.has(bId)) {
+            privateMemoPairingByBuilding.set(bId, {
+              memoText:
+                typeof meta.private_memo_text === "string" ? meta.private_memo_text : undefined,
+              pairedMemoId:
+                typeof meta.paired_memo_id === "string" ? meta.paired_memo_id : undefined,
+              generationSource:
+                meta.generation_source === "ai_memo" || meta.generation_source === "manual"
+                  ? meta.generation_source
+                  : undefined,
+            });
+          }
+          if (typeof meta.paired_memo_id === "string" && meta.paired_memo_id) {
+            actConvertedMemoToBuilding.set(meta.paired_memo_id, bId);
+          }
+          continue;
+        }
 
         if (act.event_type === "im_deleted" && imKey) {
           if (!restoredOrActiveImIds.has(imKey)) {
@@ -632,11 +860,34 @@ export async function GET(request: NextRequest) {
         } else if (act.event_type === "dealcard_restored" || act.event_type === "dealcard_upserted") {
           if (!deletedBuildingIds.has(bId)) {
             restoredOrActiveBuildingIds.add(bId);
+            if (!privateMemoPairingByBuilding.has(bId) && (meta.private_memo_text !== undefined || meta.paired_memo_id || meta.generation_source)) {
+              privateMemoPairingByBuilding.set(bId, {
+                memoText:
+                  typeof meta.private_memo_text === "string" ? meta.private_memo_text : undefined,
+                pairedMemoId:
+                  typeof meta.paired_memo_id === "string" ? meta.paired_memo_id : undefined,
+                generationSource:
+                  meta.generation_source === "ai_memo" || meta.generation_source === "manual"
+                    ? meta.generation_source
+                    : undefined,
+              });
+            }
+            if (typeof meta.paired_memo_id === "string" && meta.paired_memo_id) {
+              actConvertedMemoToBuilding.set(meta.paired_memo_id, bId);
+            }
             if (meta.card4 && !customUpsertedByBuilding.has(bId)) {
               customUpsertedByBuilding.set(bId, {
                 card4: meta.card4 as Card4Data,
                 updatedAt: act.created_at,
                 status: meta.status === "sent" ? "sent" : undefined,
+                memoText:
+                  typeof meta.private_memo_text === "string" ? meta.private_memo_text : undefined,
+                pairedMemoId:
+                  typeof meta.paired_memo_id === "string" ? meta.paired_memo_id : undefined,
+                generationSource:
+                  meta.generation_source === "ai_memo" || meta.generation_source === "manual"
+                    ? meta.generation_source
+                    : undefined,
               });
               if (!isUuid(bId)) {
                 updateQuickImCard4(bId, meta.card4 as Card4Data, {
@@ -654,6 +905,97 @@ export async function GET(request: NextRequest) {
   } catch {
     // Non-blocking if activity_events unavailable
   }
+
+  // Query broker_memos for unconverted memos AND 1:1 paired memo resolution
+  const memoMem = getWorkspaceMemoMemory();
+  const memUnconverted = getUserMap(memoMem.unconvertedByUser, userId);
+  const memDeletedMemos = getUserSet(memoMem.deletedMemoIdsByUser, userId);
+  const memConvertedMap = getUserMap(memoMem.convertedMemoToBuildingByUser, userId);
+  const memPairingByBuilding = getUserMap(memoMem.pairingByUserBuilding, userId);
+
+  const pairedMemoRowByBuilding = new Map<
+    string,
+    { id: string; memoText: string; routingType?: string }
+  >();
+  const unconvertedMemoMap = new Map<string, UnconvertedMemoItem>();
+
+  try {
+    if (supabase && typeof supabase.from === "function") {
+      let memoQuery: any = supabase
+        .from("broker_memos")
+        .select(
+          "id, memo_text, routing_type, routing_summary, status, converted_to, tags, is_pinned, created_at, updated_at"
+        )
+        .eq("user_id", userId);
+      if (typeof memoQuery.neq === "function") {
+        memoQuery = memoQuery.neq("status", "archived");
+      }
+      if (typeof memoQuery.order === "function") {
+        memoQuery = memoQuery.order("created_at", { ascending: false });
+      }
+      if (typeof memoQuery.limit === "function") {
+        memoQuery = memoQuery.limit(60);
+      }
+      const { data: mRows } = await memoQuery;
+      for (const m of (mRows || []) as any[]) {
+        if (!m?.id || typeof m.memo_text !== "string") continue;
+        const mId = String(m.id);
+        if (actDeletedMemoIds.has(mId) || memDeletedMemos.has(mId)) continue;
+        const pairedTag = Array.isArray(m.tags)
+          ? m.tags.find((t: unknown) => typeof t === "string" && t.startsWith("paired:"))
+          : undefined;
+        const linkedBuildingId =
+          (typeof m.converted_to === "string" && m.converted_to.trim()) ||
+          (typeof pairedTag === "string" ? pairedTag.slice("paired:".length).trim() : "") ||
+          actConvertedMemoToBuilding.get(mId) ||
+          memConvertedMap.get(mId) ||
+          "";
+        if (linkedBuildingId) {
+          if (!pairedMemoRowByBuilding.has(linkedBuildingId)) {
+            pairedMemoRowByBuilding.set(linkedBuildingId, {
+              id: mId,
+              memoText: m.memo_text,
+              routingType: m.routing_type || "new_deal",
+            });
+          }
+        } else if (m.status !== "converted") {
+          unconvertedMemoMap.set(mId, {
+            id: mId,
+            memoText: m.memo_text,
+            routingType: String(m.routing_type || "new_deal"),
+            routingSummary: m.routing_summary || null,
+            createdAt: m.created_at || new Date().toISOString(),
+            updatedAt: m.updated_at || null,
+            isPinned: Boolean(m.is_pinned),
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-blocking if broker_memos table or mock unavailable
+  }
+
+  for (const [mId, item] of actUnconvertedMemos.entries()) {
+    if (actDeletedMemoIds.has(mId) || memDeletedMemos.has(mId)) continue;
+    if (actConvertedMemoToBuilding.has(mId) || memConvertedMap.has(mId)) continue;
+    if (!unconvertedMemoMap.has(mId)) {
+      unconvertedMemoMap.set(mId, item);
+    }
+  }
+  for (const [mId, item] of memUnconverted.entries()) {
+    if (actDeletedMemoIds.has(mId) || memDeletedMemos.has(mId)) continue;
+    if (actConvertedMemoToBuilding.has(mId) || memConvertedMap.has(mId)) continue;
+    unconvertedMemoMap.set(mId, item);
+  }
+
+  const unconvertedMemos: UnconvertedMemoItem[] = Array.from(unconvertedMemoMap.values()).sort(
+    (a, b) => {
+      const aPin = a.isPinned ? 1 : 0;
+      const bPin = b.isPinned ? 1 : 0;
+      if (aPin !== bPin) return bPin - aPin;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    }
+  );
 
   // Merge QuickImStore records owned by this user (and requested quickTargetRec / default seeds)
   const allQuickRecords = listAllQuickImRecords()
@@ -678,6 +1020,8 @@ export async function GET(request: NextRequest) {
   for (const qRec of [...allQuickRecords].reverse()) {
     const existingDcIdx = dealcards.findIndex((dc) => dc.id === qRec.buildingId);
     const isSent = sentBuildingIds.has(qRec.buildingId) || isDealCardSent(qRec.buildingId);
+    const normalizedQuickCard4 = normalizeDealCardCopy(qRec.card4, { fillHeadline: true });
+    const quickGenSource = classifyDealCardOriginGroup({ card4: normalizedQuickCard4 });
     const mappedDc = {
       id: qRec.buildingId,
       title: `${qRec.card4.region} ${qRec.card4.use}`.trim(),
@@ -686,7 +1030,14 @@ export async function GET(request: NextRequest) {
       priceBand: qRec.card4.priceBand,
       status: (isSent ? "sent" : "draft") as "draft" | "sent",
       updatedAt: formatRelativeTime(qRec.updatedAt),
-      card4: normalizeDealCardCopy(qRec.card4, { fillHeadline: true }),
+      card4: {
+        ...normalizedQuickCard4,
+        generationSource: quickGenSource as DealCardGenerationSource,
+      },
+      ...(normalizedQuickCard4.pairedMemoId
+        ? { pairedMemoId: normalizedQuickCard4.pairedMemoId }
+        : {}),
+      generationSource: quickGenSource as DealCardGenerationSource,
     };
     if (existingDcIdx >= 0) {
       if (qRec.ownerId === userId) {
@@ -800,9 +1151,15 @@ export async function GET(request: NextRequest) {
   // Apply customUpsertedByBuilding overrides and sentBuildingIds / deletedBuildingIds filtering
   for (const [bId, customEntry] of customUpsertedByBuilding.entries()) {
     const idx = dealcards.findIndex((dc) => dc.id === bId);
+    const prevDc = idx >= 0 ? (dealcards[idx] as any) : undefined;
     const isSent = sentBuildingIds.has(bId) || isDealCardSent(bId) || customEntry.status === "sent";
     const c4 = normalizeDealCardCopy(customEntry.card4, { fillHeadline: true });
-    const itemObj = {
+    const resolvedGenSrc = classifyDealCardOriginGroup({
+      card4: c4,
+      generationSource: customEntry.generationSource || prevDc?.generationSource,
+      pairedMemoId: customEntry.pairedMemoId || prevDc?.pairedMemoId,
+    });
+    const itemObj: any = {
       id: bId,
       title: `${c4.region || "새"} ${c4.use || "딜카드"}`.trim(),
       region: c4.region,
@@ -810,7 +1167,19 @@ export async function GET(request: NextRequest) {
       priceBand: c4.priceBand,
       status: (isSent ? "sent" : "draft") as "draft" | "sent",
       updatedAt: formatRelativeTime(customEntry.updatedAt),
-      card4: c4,
+      card4: {
+        ...c4,
+        generationSource: c4.generationSource || resolvedGenSrc,
+      },
+      ...(customEntry.memoText !== undefined
+        ? { memoText: customEntry.memoText }
+        : prevDc?.memoText
+        ? { memoText: prevDc.memoText }
+        : {}),
+      ...(customEntry.pairedMemoId || prevDc?.pairedMemoId
+        ? { pairedMemoId: customEntry.pairedMemoId || prevDc?.pairedMemoId }
+        : {}),
+      generationSource: resolvedGenSrc,
     };
     if (idx >= 0) {
       dealcards[idx] = itemObj;
@@ -825,13 +1194,47 @@ export async function GET(request: NextRequest) {
       if (isDealCardDeleted(dc.id) && !restoredOrActiveBuildingIds.has(dc.id)) return false;
       return true;
     })
-    .map((dc) => ({
-      ...dc,
-      status:
-        dc.status === "sent" || sentBuildingIds.has(dc.id) || isDealCardSent(dc.id)
-          ? ("sent" as const)
-          : ("draft" as const),
-    }));
+    .map((dc: any) => {
+      const memPair = memPairingByBuilding.get(dc.id);
+      const actPair = privateMemoPairingByBuilding.get(dc.id);
+      const rowPair = pairedMemoRowByBuilding.get(dc.id);
+      const resolvedMemoText =
+        memPair?.memoText !== undefined
+          ? memPair.memoText
+          : actPair?.memoText !== undefined
+          ? actPair.memoText
+          : dc.memoText !== undefined
+          ? dc.memoText
+          : rowPair?.memoText;
+      const resolvedPairedMemoId =
+        memPair?.pairedMemoId ||
+        actPair?.pairedMemoId ||
+        dc.pairedMemoId ||
+        dc.card4?.pairedMemoId ||
+        rowPair?.id;
+      const resolvedGenerationSource = classifyDealCardOriginGroup({
+        card4: dc.card4,
+        generationSource:
+          memPair?.generationSource || actPair?.generationSource || dc.generationSource,
+        pairedMemoId: resolvedPairedMemoId,
+      });
+
+      return {
+        ...dc,
+        status:
+          dc.status === "sent" || sentBuildingIds.has(dc.id) || isDealCardSent(dc.id)
+            ? ("sent" as const)
+            : ("draft" as const),
+        card4: {
+          ...dc.card4,
+          ...(resolvedPairedMemoId ? { pairedMemoId: resolvedPairedMemoId } : {}),
+          generationSource: resolvedGenerationSource,
+        },
+        ...(resolvedMemoText !== undefined ? { memoText: resolvedMemoText } : {}),
+        ...(resolvedPairedMemoId ? { pairedMemoId: resolvedPairedMemoId } : {}),
+        generationSource: resolvedGenerationSource,
+      };
+    });
 
   // Apply customImUpsertedByKey overrides & deletedImIds filtering
   for (const [, customImEntry] of customImUpsertedByKey.entries()) {
@@ -872,6 +1275,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     dealcards: finalDealcards,
+    unconvertedMemos,
     imList: finalImList,
     ims: finalImList,
     brokerProfile,
@@ -884,6 +1288,190 @@ export async function PATCH(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const action = (body?.action as string | undefined) || "upsert";
+  const supabase = createServiceClient();
+  const memoMem = getWorkspaceMemoMemory();
+  const memUnconverted = getUserMap(memoMem.unconvertedByUser, auth.user.id);
+  const memDeletedMemos = getUserSet(memoMem.deletedMemoIdsByUser, auth.user.id);
+  const memConvertedMap = getUserMap(memoMem.convertedMemoToBuildingByUser, auth.user.id);
+  const memPairingByBuilding = getUserMap(memoMem.pairingByUserBuilding, auth.user.id);
+
+  // ── Memo-Only Actions (do not require buildingId) ──
+  if (action === "save_memo_only") {
+    const rawMemoText = typeof body?.memoText === "string" ? body.memoText : "";
+    if (!rawMemoText.trim()) {
+      return NextResponse.json({ ok: false, error: "메모 내용을 입력해 주세요." }, { status: 400 });
+    }
+    const routingType =
+      typeof body?.routingType === "string" && body.routingType.trim()
+        ? body.routingType.trim()
+        : "new_deal";
+    const routingSummary =
+      typeof body?.routingSummary === "string" ? body.routingSummary.trim() : "";
+    const nowIso = new Date().toISOString();
+    let memoId =
+      typeof body?.memoId === "string" && body.memoId.trim()
+        ? body.memoId.trim()
+        : `memo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    try {
+      if (supabase && typeof supabase.from === "function") {
+        if (body?.memoId && isUuid(String(body.memoId))) {
+          const { data: existingRow } = await supabase
+            .from("broker_memos")
+            .select("id, user_id")
+            .eq("id", String(body.memoId))
+            .maybeSingle();
+          if (existingRow && existingRow.user_id === auth.user.id) {
+            await supabase
+              .from("broker_memos")
+              .update({
+                memo_text: rawMemoText,
+                routing_type: routingType,
+                routing_summary: routingSummary,
+                status: "saved",
+              })
+              .eq("id", String(body.memoId));
+            memoId = String(body.memoId);
+          }
+        } else {
+          const insQ: any = supabase.from("broker_memos").insert({
+            user_id: auth.user.id,
+            memo_text: rawMemoText,
+            routing_type: routingType,
+            routing_summary: routingSummary,
+            status: "saved",
+          });
+          const { data: insRow } =
+            typeof insQ?.select === "function"
+              ? await insQ.select("id, created_at").maybeSingle()
+              : { data: null };
+          if (insRow?.id) {
+            memoId = String(insRow.id);
+          }
+        }
+      }
+    } catch {
+      // Fallback to activity_events + memory store
+    }
+
+    const savedMemo: UnconvertedMemoItem = {
+      id: memoId,
+      memoText: rawMemoText,
+      routingType,
+      routingSummary: routingSummary || null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    memDeletedMemos.delete(memoId);
+    memUnconverted.set(memoId, savedMemo);
+
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "unconverted_memo_saved",
+        entity_type: "memo",
+        entity_id: isUuid(memoId) ? memoId : auth.user.id,
+        metadata: {
+          memo_id: memoId,
+          memo_text: rawMemoText,
+          routing_type: routingType,
+          routing_summary: routingSummary,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    return NextResponse.json({
+      ok: true,
+      action: "save_memo_only",
+      memo: savedMemo,
+      persisted: true,
+    });
+  }
+
+  if (action === "delete_memo") {
+    const memoId = typeof body?.memoId === "string" ? body.memoId.trim() : "";
+    if (!memoId) {
+      return NextResponse.json({ ok: false, error: "memoId is required" }, { status: 400 });
+    }
+    memUnconverted.delete(memoId);
+    memDeletedMemos.add(memoId);
+    try {
+      if (isUuid(memoId) && supabase && typeof supabase.from === "function") {
+        await supabase
+          .from("broker_memos")
+          .update({ status: "archived" })
+          .eq("id", memoId)
+          .eq("user_id", auth.user.id);
+      }
+    } catch {
+      // Non-blocking
+    }
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "unconverted_memo_deleted",
+        entity_type: "memo",
+        entity_id: isUuid(memoId) ? memoId : auth.user.id,
+        metadata: { memo_id: memoId },
+      });
+    } catch {
+      // Non-blocking
+    }
+    return NextResponse.json({ ok: true, action: "delete_memo", memoId, persisted: true });
+  }
+
+  if (action === "restore_memo") {
+    const memoId = typeof body?.memoId === "string" ? body.memoId.trim() : "";
+    const rawMemoText = typeof body?.memoText === "string" ? body.memoText : "";
+    const routingType =
+      typeof body?.routingType === "string" && body.routingType.trim()
+        ? body.routingType.trim()
+        : "new_deal";
+    if (!memoId) {
+      return NextResponse.json({ ok: false, error: "memoId is required" }, { status: 400 });
+    }
+    const nowIso = new Date().toISOString();
+    memDeletedMemos.delete(memoId);
+    if (rawMemoText) {
+      memUnconverted.set(memoId, {
+        id: memoId,
+        memoText: rawMemoText,
+        routingType,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+    }
+    try {
+      if (isUuid(memoId) && supabase && typeof supabase.from === "function") {
+        await supabase
+          .from("broker_memos")
+          .update({ status: "saved" })
+          .eq("id", memoId)
+          .eq("user_id", auth.user.id);
+      }
+    } catch {
+      // Non-blocking
+    }
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "unconverted_memo_restored",
+        entity_type: "memo",
+        entity_id: isUuid(memoId) ? memoId : auth.user.id,
+        metadata: {
+          memo_id: memoId,
+          memo_text: rawMemoText,
+          routing_type: routingType,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+    return NextResponse.json({ ok: true, action: "restore_memo", memoId, persisted: true });
+  }
+
   const incomingImObj =
     body?.imItem && typeof body.imItem === "object"
       ? (body.imItem as Record<string, any>)
@@ -899,8 +1487,6 @@ export async function PATCH(request: NextRequest) {
   if (!buildingId) {
     return NextResponse.json({ error: "buildingId is required" }, { status: 400 });
   }
-
-  const supabase = createServiceClient();
 
   const existingQuick =
     getQuickImRecord(buildingId) ||
@@ -973,6 +1559,78 @@ export async function PATCH(request: NextRequest) {
     }
   } catch {
     // Non-blocking
+  }
+
+  // Handle broker-private paired memo update WITHOUT modifying public Card4 or running blindCheck on raw memo
+  if (action === "update_memo_only") {
+    const incomingMemoText = typeof body?.memoText === "string" ? body.memoText : "";
+    const incomingPairedMemoId =
+      typeof body?.pairedMemoId === "string" && body.pairedMemoId.trim()
+        ? body.pairedMemoId.trim()
+        : undefined;
+    const incomingGenSource: DealCardGenerationSource | undefined =
+      body?.generationSource === "ai_memo" || body?.generationSource === "manual"
+        ? body.generationSource
+        : undefined;
+
+    const resolvedPairedMemoId = await syncPairedMemoRow(supabase, {
+      userId: auth.user.id,
+      buildingId,
+      memoText: incomingMemoText,
+      pairedMemoId: incomingPairedMemoId,
+    });
+
+    if (resolvedPairedMemoId) {
+      memUnconverted.delete(resolvedPairedMemoId);
+      memConvertedMap.set(resolvedPairedMemoId, buildingId);
+    }
+
+    const prevPair = memPairingByBuilding.get(buildingId);
+    memPairingByBuilding.set(buildingId, {
+      memoText: incomingMemoText,
+      pairedMemoId: resolvedPairedMemoId || prevPair?.pairedMemoId,
+      generationSource: incomingGenSource || prevPair?.generationSource,
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (isUuid(buildingId) && uuidOwnerVerified) {
+      try {
+        await supabase
+          .from("building_ssot_lite")
+          .update({
+            raw_input: incomingMemoText,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", buildingId);
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: auth.user.id,
+        event_type: "dealcard_memo_paired",
+        entity_type: "building",
+        entity_id: isUuid(buildingId) ? buildingId : auth.user.id,
+        metadata: {
+          building_id: buildingId,
+          private_memo_text: incomingMemoText,
+          ...(resolvedPairedMemoId ? { paired_memo_id: resolvedPairedMemoId } : {}),
+          ...(incomingGenSource ? { generation_source: incomingGenSource } : {}),
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    return NextResponse.json({
+      ok: true,
+      action: "update_memo_only",
+      buildingId,
+      pairedMemoId: resolvedPairedMemoId,
+      persisted: true,
+    });
   }
 
   // Handle delete action
@@ -1782,7 +2440,18 @@ export async function PATCH(request: NextRequest) {
 
   markDealCardRestored(buildingId);
 
-  // Server-side blind-guard check
+  const incomingPrivateMemo =
+    typeof body?.memoText === "string" ? body.memoText : undefined;
+  const incomingPairedMemoId =
+    (typeof body?.pairedMemoId === "string" && body.pairedMemoId.trim()) ||
+    card4.pairedMemoId ||
+    undefined;
+  const incomingGenSource: DealCardGenerationSource | undefined =
+    body?.generationSource === "ai_memo" || body?.generationSource === "manual"
+      ? body.generationSource
+      : card4.generationSource;
+
+  // Server-side blind-guard check (PUBLIC Card4 fields ONLY — never broker-private memoText!)
   const blindCheck = validateBlindPoints(
     [
       ...(Array.isArray(card4.points) ? card4.points : []),
@@ -1807,6 +2476,41 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  let syncedPairedMemoId = incomingPairedMemoId;
+  if (incomingPrivateMemo !== undefined || incomingPairedMemoId) {
+    syncedPairedMemoId = await syncPairedMemoRow(supabase, {
+      userId: auth.user.id,
+      buildingId,
+      memoText: incomingPrivateMemo,
+      pairedMemoId: incomingPairedMemoId,
+    });
+    if (syncedPairedMemoId) {
+      memUnconverted.delete(syncedPairedMemoId);
+      memConvertedMap.set(syncedPairedMemoId, buildingId);
+      try {
+        await supabase.from("activity_events").insert({
+          actor_id: auth.user.id,
+          event_type: "unconverted_memo_converted",
+          entity_type: "memo",
+          entity_id: isUuid(syncedPairedMemoId) ? syncedPairedMemoId : auth.user.id,
+          metadata: {
+            memo_id: syncedPairedMemoId,
+            building_id: buildingId,
+          },
+        });
+      } catch {
+        // Non-blocking
+      }
+    }
+    const prevPair = memPairingByBuilding.get(buildingId);
+    memPairingByBuilding.set(buildingId, {
+      memoText: incomingPrivateMemo ?? prevPair?.memoText ?? "",
+      pairedMemoId: syncedPairedMemoId || prevPair?.pairedMemoId,
+      generationSource: incomingGenSource || prevPair?.generationSource,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   // Only enforce DB ownership if buildingId is a real UUID in building_ssot_lite
   if (isUuid(buildingId)) {
     const result = await updateDealCard4(supabase, buildingId, {
@@ -1821,6 +2525,8 @@ export async function PATCH(request: NextRequest) {
         priceBand: card4.priceBand,
         points: card4.points,
         provenance: card4.provenance,
+        ...(syncedPairedMemoId ? { pairedMemoId: syncedPairedMemoId } : {}),
+        ...(incomingGenSource ? { generationSource: incomingGenSource } : {}),
       },
       userId: auth.user.id,
     });
@@ -1830,11 +2536,29 @@ export async function PATCH(request: NextRequest) {
         { status: result.conflict ? 409 : 500 }
       );
     }
+    if (incomingPrivateMemo !== undefined || incomingGenSource === "ai_memo") {
+      try {
+        const bldUpdates: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (incomingPrivateMemo !== undefined) {
+          bldUpdates.raw_input = incomingPrivateMemo;
+        }
+        if (incomingGenSource === "ai_memo") {
+          bldUpdates.input_type = "broker_memo";
+        }
+        await supabase.from("building_ssot_lite").update(bldUpdates).eq("id", buildingId);
+      } catch {
+        // Non-blocking
+      }
+    }
     const mergedUuidCard4: Card4Data | undefined = result.card4
       ? {
           ...result.card4,
           ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
           ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
+          ...(syncedPairedMemoId ? { pairedMemoId: syncedPairedMemoId } : {}),
+          ...(incomingGenSource ? { generationSource: incomingGenSource } : {}),
         }
       : undefined;
     if (mergedUuidCard4) {
@@ -1843,6 +2567,7 @@ export async function PATCH(request: NextRequest) {
         brokerProfile: brokerProfileMeta,
       });
     }
+    const savedPair = memPairingByBuilding.get(buildingId);
     try {
       await supabase.from("activity_events").insert({
         actor_id: auth.user.id,
@@ -1853,6 +2578,13 @@ export async function PATCH(request: NextRequest) {
           building_id: buildingId,
           card4: mergedUuidCard4,
           broker_profile: brokerProfileMeta,
+          ...(incomingPrivateMemo !== undefined
+            ? { private_memo_text: incomingPrivateMemo }
+            : savedPair?.memoText !== undefined
+            ? { private_memo_text: savedPair.memoText }
+            : {}),
+          ...(syncedPairedMemoId ? { paired_memo_id: syncedPairedMemoId } : {}),
+          ...(incomingGenSource ? { generation_source: incomingGenSource } : {}),
         },
       });
     } catch {
@@ -1868,6 +2600,8 @@ export async function PATCH(request: NextRequest) {
       buildingId,
       persisted: true,
       card4: mergedUuidCard4,
+      pairedMemoId: syncedPairedMemoId,
+      generationSource: incomingGenSource,
       version: result.version,
       hash: result.hash,
     });
@@ -1882,6 +2616,8 @@ export async function PATCH(request: NextRequest) {
     ...normalizedCard4,
     ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
     ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
+    ...(syncedPairedMemoId ? { pairedMemoId: syncedPairedMemoId } : {}),
+    ...(incomingGenSource ? { generationSource: incomingGenSource } : {}),
     card4_version: nextVersion,
     card4_hash: hash,
   };
@@ -1889,6 +2625,7 @@ export async function PATCH(request: NextRequest) {
     ownerId: auth.user.id,
     brokerProfile: brokerProfileMeta,
   });
+  const savedPair = memPairingByBuilding.get(buildingId);
   try {
     await supabase.from("activity_events").insert({
       actor_id: auth.user.id,
@@ -1899,6 +2636,13 @@ export async function PATCH(request: NextRequest) {
         building_id: buildingId,
         card4: nextCard4,
         broker_profile: brokerProfileMeta,
+        ...(incomingPrivateMemo !== undefined
+          ? { private_memo_text: incomingPrivateMemo }
+          : savedPair?.memoText !== undefined
+          ? { private_memo_text: savedPair.memoText }
+          : {}),
+        ...(syncedPairedMemoId ? { paired_memo_id: syncedPairedMemoId } : {}),
+        ...(incomingGenSource ? { generation_source: incomingGenSource } : {}),
       },
     });
   } catch {
@@ -1914,6 +2658,8 @@ export async function PATCH(request: NextRequest) {
     buildingId,
     persisted: true,
     card4: nextCard4,
+    pairedMemoId: syncedPairedMemoId,
+    generationSource: incomingGenSource,
     version: nextVersion,
     hash,
   });

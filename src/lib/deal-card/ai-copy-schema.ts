@@ -25,7 +25,8 @@ export const dealCardAiCopyRequestSchema = z.object({
       roadContact: z.string().optional(),
       subwayWalkMinutes: z.number().int().positive().optional(),
       floorsLabel: z.string().optional(),
-       zoning: z.string().optional(),
+      zoning: z.string().optional(),
+      memoSummary: z.string().trim().max(800).optional(),
     })
     .optional(),
 });
