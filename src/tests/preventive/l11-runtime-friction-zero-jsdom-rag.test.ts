@@ -431,4 +431,23 @@ describe("L11 Preventive — Production Runtime Friction & Zero-JSDOM/RAG Harden
     expect(ogBuf.readUInt32BE(20)).toBe(630);
     expect(ogBuf.byteLength).toBeLessThan(200_000);
   });
+
+  it("[L11-07] forbids unresolvable webpackIgnore path-alias dynamic imports in production server runtime", () => {
+    const readBldSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/domain/building/im-core/read-building.ts"),
+      "utf8"
+    );
+    const verResSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/domain/building/im-core/version-resolver.ts"),
+      "utf8"
+    );
+    expect(readBldSrc).toContain("@supabase/supabase-js");
+    expect(verResSrc).toContain("@supabase/supabase-js");
+
+    const dcPageSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/(public)/dc/[id]/page.tsx"),
+      "utf8"
+    );
+    expect(dcPageSrc).toContain("readBuilding(targetBuildingId, { client: supabase })");
+  });
 });

@@ -61,12 +61,30 @@ export async function resolveImVersion(
 ): Promise<ResolvedImVersion | null> {
   let supabase = supabaseClient;
   if (!supabase) {
-    try {
-      const serviceModule = '@/lib/supabase/service';
-      const mod = await import(/* webpackIgnore: true */ serviceModule);
-      supabase = mod.createServiceClient();
-    } catch {
-      return null;
+    if (process.env.VITEST) {
+      try {
+        const serviceModule = '@/lib/supabase/service';
+        const mod = await import(/* webpackIgnore: true */ serviceModule);
+        supabase = mod.createServiceClient();
+      } catch {
+        // Fall through to direct @supabase/supabase-js resolution
+      }
+    }
+    if (!supabase) {
+      try {
+        const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+        const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+        if (!supabaseUrl || !serviceRoleKey) {
+          return null;
+        }
+        const supabasePkg = '@supabase/supabase-js';
+        const mod = await import(/* webpackIgnore: true */ supabasePkg);
+        supabase = mod.createClient(supabaseUrl, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+      } catch {
+        return null;
+      }
     }
   }
   const {

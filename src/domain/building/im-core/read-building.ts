@@ -37,21 +37,42 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  */
 export async function readBuildingPure(
   buildingId: string,
-  options?: { client?: { from: (table: string) => any; [key: string]: any } | any }
+  options?: {
+    client?: { from: (table: string) => any; [key: string]: any } | any;
+    supabase?: { from: (table: string) => any; [key: string]: any } | any;
+  }
 ): Promise<BuildingRecord | null> {
   if (!buildingId || typeof buildingId !== 'string' || !UUID_RE.test(buildingId.trim())) {
     return null;
   }
 
-  let supabase = options?.client;
+  let supabase = options?.client ?? options?.supabase;
   if (!supabase) {
-    try {
-      const serviceModule = '@/lib/supabase/service';
-      const mod = await import(/* webpackIgnore: true */ serviceModule);
-      supabase = mod.createServiceClient();
-    } catch (e) {
-      log.error('Failed to resolve supabase service client:', e);
-      return null;
+    if (process.env.VITEST) {
+      try {
+        const serviceModule = '@/lib/supabase/service';
+        const mod = await import(/* webpackIgnore: true */ serviceModule);
+        supabase = mod.createServiceClient();
+      } catch {
+        // Fall through to direct @supabase/supabase-js resolution
+      }
+    }
+    if (!supabase) {
+      try {
+        const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+        const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+        if (!supabaseUrl || !serviceRoleKey) {
+          return null;
+        }
+        const supabasePkg = '@supabase/supabase-js';
+        const mod = await import(/* webpackIgnore: true */ supabasePkg);
+        supabase = mod.createClient(supabaseUrl, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+      } catch (e) {
+        log.error('Failed to resolve supabase service client:', e);
+        return null;
+      }
     }
   }
 

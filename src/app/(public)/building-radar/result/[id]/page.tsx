@@ -22,7 +22,7 @@ export default async function BuildingRadarResultPage({
   const supabase = createServiceClient();
 
   // Fetch building (public-safe fields only, pure read)
-  const result = await readBuilding(id);
+  const result = await readBuilding(id, { client: supabase });
   const building = (result?.data ?? result) as Record<string, any>;
 
   if (!building) return notFound();

@@ -224,7 +224,7 @@ const getDealCardData = cache(async (id: string) => {
 
   let targetBuildingId = id;
   let [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
-    readBuilding(targetBuildingId),
+    readBuilding(targetBuildingId, { client: supabase }),
     // P0-SEC: owner_id / status 는 SSoT 원천(building_ssot_lite)에서 직접 조회 (assets 에는 없음)
     supabase
       .from("building_ssot_lite")
@@ -270,7 +270,7 @@ const getDealCardData = cache(async (id: string) => {
     if (docLookup?.building_id && isUuid(docLookup.building_id)) {
       targetBuildingId = docLookup.building_id;
       [buildingRes, ssotMetaRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
-        readBuilding(targetBuildingId),
+        readBuilding(targetBuildingId, { client: supabase }),
         supabase
           .from("building_ssot_lite")
           .select("owner_id, status")
