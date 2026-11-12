@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
 
     const headers: Record<string, string> = {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
     };
     if (isDownload) {
       headers["Content-Disposition"] = `attachment; filename="${
@@ -189,7 +189,9 @@ export async function GET(req: NextRequest) {
     const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[cfg.upstreamKey];
     if (cdnUrl) {
       try {
-        const upstream = await fetch(cdnUrl, { next: { revalidate: 86400 } });
+        // Avoid Next.js 2MB Data Cache warning on raw >2MB upstream originals;
+        // Edge CDN caches the resized (<250KB) response via s-maxage=86400 above.
+        const upstream = await fetch(cdnUrl, { cache: "no-store" });
         if (upstream.ok) {
           const rawBuf = Buffer.from(await upstream.arrayBuffer());
           const transformed = sharp(rawBuf).resize(targetW, targetH, {

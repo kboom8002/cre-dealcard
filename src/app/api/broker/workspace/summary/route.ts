@@ -30,7 +30,7 @@ import {
   deleteQuickImRecord,
   resolveKnownTestAssetUrl,
 } from "@/lib/im-lite/quick-generate-store";
-import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
+import { cleanBlindPoints, validateBlindPoints } from "@/lib/deal-card/blind-guard";
 import {
   normalizeDealCardCopy,
   repairDealCardLine,
@@ -44,11 +44,21 @@ interface PrivateMemoPairingRecord {
   updatedAt: string;
 }
 
+interface RecentDealCardUpsertEntry {
+  signature: string;
+  atMs: number;
+  card4?: Card4Data;
+  version?: number;
+  hash?: string;
+  pairedMemoId?: string;
+}
+
 interface WorkspaceMemoMemoryState {
   unconvertedByUser: Map<string, Map<string, UnconvertedMemoItem>>;
   deletedMemoIdsByUser: Map<string, Set<string>>;
   convertedMemoToBuildingByUser: Map<string, Map<string, string>>;
   pairingByUserBuilding: Map<string, Map<string, PrivateMemoPairingRecord>>;
+  recentUpsertByUserBuilding: Map<string, Map<string, RecentDealCardUpsertEntry>>;
 }
 
 function getWorkspaceMemoMemory(): WorkspaceMemoMemoryState {
@@ -61,7 +71,11 @@ function getWorkspaceMemoMemory(): WorkspaceMemoMemoryState {
       deletedMemoIdsByUser: new Map(),
       convertedMemoToBuildingByUser: new Map(),
       pairingByUserBuilding: new Map(),
+      recentUpsertByUserBuilding: new Map(),
     };
+  }
+  if (!g.__creWorkspaceMemoMemory.recentUpsertByUserBuilding) {
+    g.__creWorkspaceMemoMemory.recentUpsertByUserBuilding = new Map();
   }
   return g.__creWorkspaceMemoMemory;
 }
@@ -184,6 +198,181 @@ function formatRelativeTime(isoString?: string | null): string {
   return `${days}일 전`;
 }
 
+function formatBlindPriceBandFromManwon(askingManwon: number): string | undefined {
+  if (!Number.isFinite(askingManwon) || askingManwon <= 0) return undefined;
+  const eok = askingManwon / 10000;
+  if (eok < 1) return "1억 미만";
+  const step = eok >= 100 ? 10 : eok >= 30 ? 5 : 2;
+  const low = Math.floor(eok / step) * step;
+  const high = low + step;
+  return `${low}~${high}억`;
+}
+
+function synthesizeBlindSafeImPoints(params: {
+  imDoc: Record<string, unknown> | undefined;
+  layersObj: Record<string, unknown>;
+  fitSummary: unknown;
+  region: string;
+  use: string;
+  posture: DealCardPosture;
+}): string[] {
+  const { imDoc, layersObj, fitSummary, region, use, posture } = params;
+  const fallback: string[] = [
+    fitSummary ? String(fitSummary) : `${region} 핵심 입지`,
+    `${use} 추천 매물`,
+    "상세 수익률 및 임대현황 확인 가능",
+  ];
+  if (!imDoc) return fallback;
+
+  const imBody =
+    imDoc.body && typeof imDoc.body === "object"
+      ? (imDoc.body as Record<string, unknown>)
+      : {};
+  const imSsot =
+    imDoc.ssot_summary && typeof imDoc.ssot_summary === "object"
+      ? (imDoc.ssot_summary as Record<string, unknown>)
+      : imBody.ssot_summary && typeof imBody.ssot_summary === "object"
+      ? (imBody.ssot_summary as Record<string, unknown>)
+      : {};
+  const imLocation =
+    imBody.location && typeof imBody.location === "object"
+      ? (imBody.location as Record<string, unknown>)
+      : {};
+  const imHero =
+    imBody.heroCard && typeof imBody.heroCard === "object"
+      ? (imBody.heroCard as Record<string, unknown>)
+      : {};
+  const layerTransit =
+    layersObj.transit && typeof layersObj.transit === "object"
+      ? (layersObj.transit as Record<string, unknown>)
+      : {};
+  const layerBldReg =
+    layersObj.building_register && typeof layersObj.building_register === "object"
+      ? (layersObj.building_register as Record<string, unknown>)
+      : {};
+  const layerZoning =
+    layersObj.zoning && typeof layersObj.zoning === "object"
+      ? (layersObj.zoning as Record<string, unknown>)
+      : {};
+
+  const forbiddenTitle = String(
+    imDoc.title || imBody.heroTitle || imBody.building_name || ""
+  ).trim();
+
+  const isSafeCandidate = (rawLine: string): string | null => {
+    const cleaned = cleanBlindPoints([rawLine])[0] || "";
+    const repaired = repairDealCardLine(cleaned);
+    if (!repaired || repaired.length < 5) return null;
+    if (
+      forbiddenTitle.length >= 2 &&
+      repaired.toLowerCase().includes(forbiddenTitle.toLowerCase())
+    ) {
+      return null;
+    }
+    const check = validateBlindPoints([repaired], { region, assetType: use });
+    return check.isValid ? repaired : null;
+  };
+
+  const picked: string[] = [];
+  const pushCandidate = (raw: string | undefined) => {
+    if (!raw || picked.length >= 3) return;
+    const safe = isSafeCandidate(raw);
+    if (safe && !picked.includes(safe)) {
+      picked.push(safe);
+    }
+  };
+
+  const rawStation = String(
+    imSsot.nearest_station ||
+      imBody.nearest_station ||
+      imLocation.nearestStation ||
+      layerTransit.nearest_subway_name ||
+      ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  const walkMin = Number(
+    imSsot.walk_minutes ??
+      imLocation.walkMinutes ??
+      layerTransit.walk_minutes ??
+      0
+  );
+  if (rawStation) {
+    const stationLabel = rawStation.endsWith("역") ? rawStation : `${rawStation}역`;
+    if (walkMin > 0 && walkMin <= 20) {
+      pushCandidate(`${stationLabel} 도보 ${Math.round(walkMin)}분 역세권`);
+    } else {
+      pushCandidate(`${stationLabel} 인접 역세권 입지`);
+    }
+  }
+
+  const capPct = Number(
+    imSsot.cap_rate_pct ?? imHero.capRateBase ?? imSsot.gross_yield_pct ?? 0
+  );
+  const monthlyRentManwon = Number(imSsot.monthly_rent_total_manwon ?? 0);
+  const vacancyPct = imSsot.vacancy_pct ?? imSsot.vacancy_rate_pct;
+
+  if (posture === "owner_occupied") {
+    pushCandidate("사옥·직영 즉시 입주 적합");
+  } else if (posture === "value_add") {
+    pushCandidate("리모델링·밸류애드 가치 우수");
+  } else if (capPct >= 2 && capPct <= 15) {
+    pushCandidate(`연 수익률 ${capPct.toFixed(1)}% 안정 운영`);
+  } else if (monthlyRentManwon >= 100) {
+    pushCandidate(`월임대료 ${Math.round(monthlyRentManwon).toLocaleString()}만 현금흐름`);
+  } else if (vacancyPct === 0 && monthlyRentManwon > 0) {
+    pushCandidate("우량 임차인 전층 만실 운영");
+  }
+
+  const floorsAbove = Number(
+    imSsot.floors_above ?? layerBldReg.grnd_flr_cnt ?? 0
+  );
+  const floorsBelow = Number(
+    imSsot.floors_below ?? layerBldReg.ugrnd_flr_cnt ?? 0
+  );
+  const elevatorCount = Number(
+    imSsot.elevator_count ?? imHero.elevatorCount ?? 0
+  );
+  const zoning = String(imSsot.zoning ?? layerZoning.zone_type ?? "").trim();
+
+  if (floorsAbove >= 2) {
+    pushCandidate(
+      floorsBelow > 0
+        ? `지하${floorsBelow}층·지상${floorsAbove}층 규모`
+        : `지상 ${floorsAbove}층 규모 우량 빌딩`
+    );
+  } else if (elevatorCount > 0) {
+    pushCandidate("승강기 완비 쾌적한 건물 컨디션");
+  } else if (zoning.includes("상업")) {
+    pushCandidate("상업지역 고밀도 활용 가치");
+  }
+
+  const rawHighlights: unknown[] = Array.isArray(imBody.axios_highlights)
+    ? imBody.axios_highlights
+    : Array.isArray(imHero.keyPoints)
+    ? imHero.keyPoints
+    : [];
+  for (const item of rawHighlights) {
+    if (picked.length >= 3) break;
+    if (typeof item === "string") {
+      pushCandidate(item);
+    } else if (item && typeof item === "object") {
+      const rec = item as Record<string, unknown>;
+      if (typeof rec.claim === "string") pushCandidate(rec.claim);
+    }
+  }
+
+  for (const fb of fallback) {
+    if (picked.length >= 3) break;
+    const repairedFb = repairDealCardLine(fb);
+    if (repairedFb && !picked.includes(repairedFb)) {
+      picked.push(repairedFb);
+    }
+  }
+
+  return picked.slice(0, 3);
+}
+
 export interface ImSummaryItem {
   id: string;
   buildingId: string;
@@ -298,38 +487,6 @@ export async function GET(request: NextRequest) {
     const teaserDoc = docs.find(
       (d) => d.building_id === b.id && d.document_type === "blind_teaser"
     );
-    const bodyCard4 = (teaserDoc?.card4 ?? teaserDoc?.body?.card4) as Partial<Card4Data> | undefined;
-    const teaserDealPoints = teaserDoc?.dealPoints ?? teaserDoc?.body?.dealPoints;
-    // from-memo 파이프라인이 생성한 18자 딜카드 전용 문구 (BlindTeaser card4Headline/card4Points)
-    const teaserCard4Points = teaserDoc?.card4Points ?? teaserDoc?.body?.card4Points;
-    const teaserCard4Headline = teaserDoc?.card4Headline ?? teaserDoc?.body?.card4Headline;
-    const region = bodyCard4?.region || b.area_signal || "서울시 핵심 권역";
-    const use = bodyCard4?.use || b.asset_type || "근린생활시설";
-    const priceBand = bodyCard4?.priceBand || b.price_band || "가격 협의";
-    const rawPoints: string[] = Array.isArray(bodyCard4?.points)
-      ? bodyCard4!.points
-      : Array.isArray(teaserCard4Points) && teaserCard4Points.length > 0
-      ? teaserCard4Points
-      : Array.isArray(teaserDealPoints)
-      ? teaserDealPoints
-      : [
-          b.fit_summary ? String(b.fit_summary) : `${region} 핵심 입지`,
-          `${use} 추천 매물`,
-          "상세 수익률 및 임대현황 확인 가능",
-        ];
-    // 18자 SSOT: 하드 절단 대신 어절 경계 교정 (copy-limits)
-    const repairedPoints = repairDealCardPoints(rawPoints);
-    const points: [string, string, string] = [
-      repairedPoints[0] || repairDealCardLine(`${region} 핵심 입지`),
-      repairedPoints[1] || repairDealCardLine(`${use} 추천 매물`),
-      repairedPoints[2] || "안정적 임대수익 기대",
-    ];
-    const hash = bodyCard4?.card4_hash || computeCard4Hash({ region, use, priceBand, points });
-    const layersObj = (b.layers as Record<string, any>) || {};
-    const gfaSqmRaw = Number(layersObj.building_register?.gross_floor_area_sqm || 0);
-    const landSqmRaw = Number(layersObj.building_register?.land_area_sqm || 0);
-    const gfaPyung = bodyCard4?.gfaPyung || (gfaSqmRaw > 0 ? Math.round(gfaSqmRaw / 3.3058) : undefined);
-    const landAreaPyung = bodyCard4?.landAreaPyung || (landSqmRaw > 0 ? Math.round(landSqmRaw / 3.3058) : undefined);
     const imDocForBld = docs.find(
       (d) =>
         d.building_id === b.id &&
@@ -337,6 +494,9 @@ export async function GET(request: NextRequest) {
           d.document_type === "im_lite" ||
           d.document_type === "im_lite_draft")
     );
+    const layersObj = (b.layers as Record<string, any>) || {};
+    const gfaSqmRaw = Number(layersObj.building_register?.gross_floor_area_sqm || 0);
+    const landSqmRaw = Number(layersObj.building_register?.land_area_sqm || 0);
     const rawImPosture = String(
       imDocForBld?.investment_posture ||
         imDocForBld?.ssot_summary?.investment_posture ||
@@ -355,7 +515,50 @@ export async function GET(request: NextRequest) {
         : rawImPosture
         ? "income"
         : undefined;
+
+    const bodyCard4 = (teaserDoc?.card4 ?? teaserDoc?.body?.card4) as Partial<Card4Data> | undefined;
     const posture: DealCardPosture = bodyCard4?.posture || mappedImPosture || "income";
+    const teaserDealPoints = teaserDoc?.dealPoints ?? teaserDoc?.body?.dealPoints;
+    // from-memo 파이프라인이 생성한 18자 딜카드 전용 문구 (BlindTeaser card4Headline/card4Points)
+    const teaserCard4Points = teaserDoc?.card4Points ?? teaserDoc?.body?.card4Points;
+    const teaserCard4Headline = teaserDoc?.card4Headline ?? teaserDoc?.body?.card4Headline;
+    const region = bodyCard4?.region || b.area_signal || "서울시 핵심 권역";
+    const use = bodyCard4?.use || b.asset_type || "근린생활시설";
+    const imAskingManwon = Number(
+      imDocForBld?.ssot_summary?.asking_price_manwon ??
+        imDocForBld?.body?.ssot_summary?.asking_price_manwon ??
+        layersObj.deal_terms?.asking_price_manwon ??
+        0
+    );
+    const priceBand =
+      bodyCard4?.priceBand ||
+      b.price_band ||
+      formatBlindPriceBandFromManwon(imAskingManwon) ||
+      "가격 협의";
+    const rawPoints: string[] = Array.isArray(bodyCard4?.points)
+      ? bodyCard4!.points
+      : Array.isArray(teaserCard4Points) && teaserCard4Points.length > 0
+      ? teaserCard4Points
+      : Array.isArray(teaserDealPoints)
+      ? teaserDealPoints
+      : synthesizeBlindSafeImPoints({
+          imDoc: imDocForBld,
+          layersObj,
+          fitSummary: b.fit_summary,
+          region,
+          use,
+          posture,
+        });
+    // 18자 SSOT: 하드 절단 대신 어절 경계 교정 (copy-limits)
+    const repairedPoints = repairDealCardPoints(rawPoints);
+    const points: [string, string, string] = [
+      repairedPoints[0] || repairDealCardLine(`${region} 핵심 입지`),
+      repairedPoints[1] || repairDealCardLine(`${use} 추천 매물`),
+      repairedPoints[2] || "안정적 임대수익 기대",
+    ];
+    const hash = bodyCard4?.card4_hash || computeCard4Hash({ region, use, priceBand, points });
+    const gfaPyung = bodyCard4?.gfaPyung || (gfaSqmRaw > 0 ? Math.round(gfaSqmRaw / 3.3058) : undefined);
+    const landAreaPyung = bodyCard4?.landAreaPyung || (landSqmRaw > 0 ? Math.round(landSqmRaw / 3.3058) : undefined);
     const area = resolveCard4AreaLabel(
       { ...bodyCard4, posture, gfaPyung, landAreaPyung },
       { gfaPyung, landAreaPyung }
@@ -2566,6 +2769,9 @@ export async function PATCH(request: NextRequest) {
 
   let syncedPairedMemoId = incomingPairedMemoId;
   if (incomingPrivateMemo !== undefined || incomingPairedMemoId) {
+    const alreadyConvertedBeforeSync = Boolean(
+      incomingPairedMemoId && memConvertedMap.get(incomingPairedMemoId) === buildingId
+    );
     syncedPairedMemoId = await syncPairedMemoRow(supabase, {
       userId: auth.user.id,
       buildingId,
@@ -2573,21 +2779,25 @@ export async function PATCH(request: NextRequest) {
       pairedMemoId: incomingPairedMemoId,
     });
     if (syncedPairedMemoId) {
+      const alreadyConvertedSynced =
+        alreadyConvertedBeforeSync || memConvertedMap.get(syncedPairedMemoId) === buildingId;
       memUnconverted.delete(syncedPairedMemoId);
       memConvertedMap.set(syncedPairedMemoId, buildingId);
-      try {
-        await supabase.from("activity_events").insert({
-          actor_id: auth.user.id,
-          event_type: "unconverted_memo_converted",
-          entity_type: "memo",
-          entity_id: isUuid(syncedPairedMemoId) ? syncedPairedMemoId : auth.user.id,
-          metadata: {
-            memo_id: syncedPairedMemoId,
-            building_id: buildingId,
-          },
-        });
-      } catch {
-        // Non-blocking
+      if (!alreadyConvertedSynced) {
+        try {
+          await supabase.from("activity_events").insert({
+            actor_id: auth.user.id,
+            event_type: "unconverted_memo_converted",
+            entity_type: "memo",
+            entity_id: isUuid(syncedPairedMemoId) ? syncedPairedMemoId : auth.user.id,
+            metadata: {
+              memo_id: syncedPairedMemoId,
+              building_id: buildingId,
+            },
+          });
+        } catch {
+          // Non-blocking
+        }
       }
     }
     const prevPair = memPairingByBuilding.get(buildingId);
@@ -2596,6 +2806,40 @@ export async function PATCH(request: NextRequest) {
       pairedMemoId: syncedPairedMemoId || prevPair?.pairedMemoId,
       generationSource: incomingGenSource || prevPair?.generationSource,
       updatedAt: new Date().toISOString(),
+    });
+  }
+
+  const memRecentUpserts = getUserMap(
+    getWorkspaceMemoMemory().recentUpsertByUserBuilding,
+    auth.user.id
+  );
+  const normalizedIncomingForSig = normalizeDealCardCopy(card4, { fillHeadline: true });
+  const incomingSigHash = computeCard4Hash(normalizedIncomingForSig);
+  const upsertSignature = JSON.stringify({
+    h: incomingSigHash,
+    t: card4.pointTones ?? null,
+    b: card4.pointBriefs ?? null,
+    m: incomingPrivateMemo ?? "",
+    p: syncedPairedMemoId ?? "",
+    g: incomingGenSource ?? "",
+  });
+  const recentUpsert = memRecentUpserts.get(buildingId);
+  const isDuplicateRapidUpsert = Boolean(
+    recentUpsert &&
+      recentUpsert.signature === upsertSignature &&
+      Date.now() - recentUpsert.atMs < 5000
+  );
+  if (isDuplicateRapidUpsert && recentUpsert) {
+    return NextResponse.json({
+      ok: true,
+      buildingId,
+      persisted: true,
+      deduplicated: true,
+      card4: recentUpsert.card4,
+      pairedMemoId: syncedPairedMemoId ?? recentUpsert.pairedMemoId,
+      generationSource: incomingGenSource,
+      version: recentUpsert.version,
+      hash: recentUpsert.hash ?? incomingSigHash,
     });
   }
 
@@ -2678,6 +2922,14 @@ export async function PATCH(request: NextRequest) {
     } catch {
       // Non-blocking
     }
+    memRecentUpserts.set(buildingId, {
+      signature: upsertSignature,
+      atMs: Date.now(),
+      card4: mergedUuidCard4,
+      version: result.version,
+      hash: result.hash,
+      pairedMemoId: syncedPairedMemoId,
+    });
     try {
       revalidatePath(`/dc/${buildingId}`);
     } catch {
@@ -2736,6 +2988,14 @@ export async function PATCH(request: NextRequest) {
   } catch {
     // Non-blocking
   }
+  memRecentUpserts.set(buildingId, {
+    signature: upsertSignature,
+    atMs: Date.now(),
+    card4: nextCard4,
+    version: nextVersion,
+    hash,
+    pairedMemoId: syncedPairedMemoId,
+  });
   try {
     revalidatePath(`/dc/${buildingId}`);
   } catch {

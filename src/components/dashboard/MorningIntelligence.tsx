@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useMagazineDraft } from "@/hooks/useMagazineDraft";
 import { MagazineInsightCard } from "@/components/dashboard/MagazineInsightCard";
 import { toast } from "sonner";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtmlAllowlist } from "@/lib/security/sanitize-html-isomorphic";
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 interface Transaction { title: string; desc: string; date: string; tag: string; isMyArea?: boolean; }
@@ -53,7 +53,7 @@ function RichBriefing({ text }: { text: string }) {
         // 핵심 수치 감지
         const hasMetric = /[\d,.]+%(|[억만원])/.test(para);
 
-        const formattedText = DOMPurify.sanitize(
+        const formattedText = sanitizeHtmlAllowlist(
           para
             .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
             .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
@@ -79,9 +79,12 @@ function RichBriefing({ text }: { text: string }) {
           );
         }
         return (
-          <p key={i}
-             className={`text-[12px] leading-relaxed ${hasMetric ? "text-slate-100" : "text-slate-300"}`}
-             ></p>
+          <SafeMarkdownRenderer
+            key={i}
+            as="p"
+            className={`text-[12px] leading-relaxed ${hasMetric ? "text-slate-100" : "text-slate-300"}`}
+            html={formattedText}
+          />
         );
       })}
     </div>

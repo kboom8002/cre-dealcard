@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CRE_DISCLAIMER } from "@/domain/agora/ai-answer-generator";
 import ServiceMatchSection from "@/components/vendor/ServiceMatchSection";
 import type { ServiceCardData } from "@/components/vendor/ServiceCard";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtmlAllowlist } from "@/lib/security/sanitize-html-isomorphic";
 
 interface DealCardPreview {
   id: string;
@@ -42,9 +42,15 @@ export default function AgoraAiAnswer({
 
   // 마크다운 간단 렌더링
   function renderMarkdown(text: string) {
-    return DOMPurify.sanitize(text
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\n/g, "<br />"));
+    return sanitizeHtmlAllowlist(
+      text
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br />"),
+      {
+        ALLOWED_TAGS: ["strong", "br", "em", "b", "i", "p", "ul", "ol", "li", "span"],
+        ALLOWED_ATTR: ["class"],
+      }
+    );
   }
 
   return (

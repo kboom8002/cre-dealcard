@@ -3,15 +3,15 @@
 import React from "react";
 import type { MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
 import { DISPLAY_LABEL_MAP } from "@/domain/building/im-core";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtmlAllowlist } from "@/lib/security/sanitize-html-isomorphic";
 import { SafeMarkdownRenderer } from "@/components/ui/safe-markdown-renderer";
 import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 
 function sanitizeHtml(html: string): string {
   if (!html) return html;
-  return DOMPurify.sanitize(html, {
+  return sanitizeHtmlAllowlist(html, {
     ALLOWED_TAGS: ["a", "strong", "em", "img", "br"],
-    ALLOWED_ATTR: ["href", "src", "alt", "target"],
+    ALLOWED_ATTR: ["href", "src", "alt", "target", "rel", "class"],
   });
 }
 

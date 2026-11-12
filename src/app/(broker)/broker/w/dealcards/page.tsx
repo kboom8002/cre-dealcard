@@ -554,6 +554,10 @@ function DealCardsWorkspaceInner() {
     debounceMs: 900,
     onSave: performServerSave,
   });
+  const autosaveRef = useRef(autosave);
+  useEffect(() => {
+    autosaveRef.current = autosave;
+  });
 
   useEffect(() => {
     if (!resolvedActiveId) return;
@@ -899,7 +903,12 @@ function DealCardsWorkspaceInner() {
             }),
           })
             .then((res) => {
-              if (res.ok) markServerSynced(newId);
+              if (res.ok) {
+                markServerSynced(newId);
+                if (resolvedActiveIdRef.current === newId) {
+                  autosaveRef.current.markClean();
+                }
+              }
             })
             .catch(() => {});
 
@@ -938,6 +947,15 @@ function DealCardsWorkspaceInner() {
           generationSource: "ai_memo",
           awaitingMemoGeneration: false,
         });
+        autosaveRef.current.cancelPending(targetId);
+
+        const syncedCardPayload =
+          itemsRef.current.find((it) => it.id === targetId)?.card4 ?? {
+            ...generatedCard4,
+            generationSource: "ai_memo" as const,
+            ...(targetItem?.pairedMemoId ? { pairedMemoId: targetItem.pairedMemoId } : {}),
+            card4_version: (prevCard4Snapshot.card4_version || 1) + 1,
+          };
 
         void fetch("/api/broker/workspace/summary", {
           method: "PATCH",
@@ -945,10 +963,7 @@ function DealCardsWorkspaceInner() {
           body: JSON.stringify({
             action: "upsert",
             buildingId: targetId,
-            card4: {
-              ...generatedCard4,
-              card4_version: (prevCard4Snapshot.card4_version || 1) + 1,
-            },
+            card4: syncedCardPayload,
             memoText: rawText,
             pairedMemoId: targetItem?.pairedMemoId,
             generationSource: "ai_memo",
@@ -956,7 +971,14 @@ function DealCardsWorkspaceInner() {
         })
           .then((res) => (res.ok ? res.json() : null))
           .then((json) => {
+            if (!json) {
+              autosaveRef.current.markDirty(targetId);
+              return;
+            }
             markServerSynced(targetId);
+            if (resolvedActiveIdRef.current === targetId) {
+              autosaveRef.current.markClean();
+            }
             if (json?.pairedMemoId) {
               setItems((prev) => {
                 const next = prev.map((it) =>
@@ -967,7 +989,9 @@ function DealCardsWorkspaceInner() {
               });
             }
           })
-          .catch(() => {});
+          .catch(() => {
+            autosaveRef.current.markDirty(targetId);
+          });
 
         if (wasAwaiting) {
           showUndoToast({

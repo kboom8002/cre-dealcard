@@ -1,6 +1,6 @@
 "use client";
 import React, { memo } from 'react';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeHtmlAllowlist } from '@/lib/security/sanitize-html-isomorphic';
 
 const ALLOWED_TAGS = ['a', 'strong', 'em', 'b', 'i', 'p', 'br', 'ul', 'ol', 'li',
   'h1', 'h2', 'h3', 'h4', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'img', 'span', 'div'];
@@ -13,12 +13,12 @@ interface SafeMarkdownRendererProps {
 }
 
 function SafeMarkdownRendererBase({ html, className, as: Component = "div" }: SafeMarkdownRendererProps) {
-  const clean = DOMPurify.sanitize(html, {
+  const clean = sanitizeHtmlAllowlist(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOW_DATA_ATTR: false,
   });
-  return <Component className={className} dangerouslySetInnerHTML={{ __html: clean as string }} />;
+  return <Component className={className} dangerouslySetInnerHTML={{ __html: clean }} />;
 }
 
 export const SafeMarkdownRenderer = memo(SafeMarkdownRendererBase);
