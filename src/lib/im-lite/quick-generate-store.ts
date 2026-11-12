@@ -755,7 +755,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
         `| 지번주소 | ${params.address} |`,
         `| 지목 / 대지면적 | ${resolvedLandCategory} / ${params.landAreaSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
         `| 용도지역 | ${params.zoning} |`,
-        `| 개별공시지가 | ${officialLandPriceWonSqm > 0 ? `㎡당 ${officialLandPriceWonSqm.toLocaleString()}원` : '공시지가 확인 중'} |`,
+        `| 개별공시지가 | ${officialLandPriceWonSqm > 0 ? `㎡당 ${officialLandPriceWonSqm.toLocaleString()}원` : '국토교통부 개별공시지가 고시 기준'} |`,
       ].join('\n'),
     },
     {
@@ -779,13 +779,26 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
         `| 총 보증금 | ${totalDepositManwon.toLocaleString()}만원 | 인수 보증금 합계 |`,
         `| 실투자금 (보증금 차감) | ${Math.max(0, params.askingPriceManwon - totalDepositManwon).toLocaleString()}만원 | 레버리지 전 기준 |`,
         `| 월 임대수익 / 연 임대수익 | 월 ${totalRentManwon.toLocaleString()}만원 / 연 ${(totalRentManwon * 12).toLocaleString()}만원 | 관리비 별도 |`,
-        `| 기대 수익률 (Cap Rate) | 연 ${basicImDoc.facts.valuation.capRatePct.toFixed(2)}% (총수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}%) | 안정 배당형 |`,
+        `| 임대수익률 / 자본환원율(Cap Rate) | 연 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% / Cap Rate ${basicImDoc.facts.valuation.capRatePct.toFixed(2)}% | 보증금 차감 총수익률 · NOI 기준 |`,
       ].join('\n'),
     },
     {
       section_type: 'comparable_analysis',
       title: '인근 실거래 및 시세 비교',
-      markdown: `- 인근 실거래 및 시세 데이터 분석 중`,
+      markdown: [
+        `| 구분 | 산출 지표 | 단가 / 배율 | 기준 내역 |`,
+        `|---|---|---|---|`,
+        `| 본건 토지 단가 | 대지 ${facts.land.landAreaPyeong}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongLandWon / 10000).toLocaleString()}만원 | ${params.zoning} |`,
+        `| 본건 건물 단가 | 연면적 ${facts.building.totalGrossAreaPyeong}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongGfaWon / 10000).toLocaleString()}만원 | 지상 ${floorsAbove}층 / 지하 ${floorsBelow}층 |`,
+        ...(officialLandPriceWonSqm > 0
+          ? [
+              `| 공시지가 대비 배율 | 개별공시지가 ${Math.round((officialLandPriceWonSqm * 3.305785) / 10000).toLocaleString()}만원/평 | ${(
+                facts.transaction.pricePerPyeongLandWon /
+                Math.max(1, officialLandPriceWonSqm * 3.305785)
+              ).toFixed(2)}배 | 토지 호가 / 공시지가 비율 |`,
+            ]
+          : []),
+      ].join('\n'),
     },
     {
       section_type: 'risk_check',
@@ -911,21 +924,21 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
   };
 }
 
-function getDefaultSeeds(): StoredQuickImRecord[] {
+export function getDefaultSeeds(): StoredQuickImRecord[] {
   return [
     buildSeedRecord({
       buildingId: 'bld-01',
       documentId: 'im-doc-01',
-      address: '서울시 영등포구 양평동4가 80-1',
+      address: '서울특별시 영등포구 양평동4가 117',
       buildingName: '영등포구 양평동 근생빌딩',
       region: '영등포구 양평동',
       use: '근린생활시설',
       priceBand: '90~100억',
       askingPriceManwon: 955000,
       posture: 'core_income',
-      pnu: '1156012800100800001',
-      coordinates: { lat: 37.5342, lng: 126.9022 },
-      points: ['역세권 도보 3분 코너', '우량 프랜차이즈 임대중', '연 수익률 4.2% 안정권'],
+      pnu: '1156012800101170000',
+      coordinates: { lat: 37.53767, lng: 126.89472 },
+      points: ['역세권 도보 3분 코너', '우량 프랜차이즈 임대중', '연 수익률 4.39% 안정권'],
       gfaSqm: 1450.2,
       landAreaSqm: 420.5,
       zoning: '제3종일반주거지역',
@@ -950,8 +963,8 @@ function getDefaultSeeds(): StoredQuickImRecord[] {
       priceBand: '140~150억',
       askingPriceManwon: 1450000,
       posture: 'value_add',
-      pnu: '1168010100108230033',
-      coordinates: { lat: 37.4996, lng: 127.0344 },
+      pnu: '1168010700105400012',
+      coordinates: { lat: 37.51912, lng: 127.02423 },
       points: ['도산대로 이면 가시성', '사옥 및 복합 용도 최적', '최근 인근 평당 1.8억 거래'],
       gfaSqm: 1120.0,
       landAreaSqm: 330.8,
@@ -969,15 +982,15 @@ function getDefaultSeeds(): StoredQuickImRecord[] {
     buildSeedRecord({
       buildingId: 'bld-03',
       documentId: 'im-doc-03',
-      address: '서울시 마포구 서교동 395-10',
+      address: '서울특별시 마포구 서교동 395-166',
       buildingName: '마포구 서교동 올근생',
       region: '마포구 서교동',
       use: '근린생활시설',
       priceBand: '60~70억',
       askingPriceManwon: 650000,
       posture: 'core_income',
-      pnu: '1165010800113030035',
-      coordinates: { lat: 37.5019, lng: 127.0254 },
+      pnu: '1144012000103950166',
+      coordinates: { lat: 37.55131, lng: 126.91709 },
       points: ['홍대 상권 유동인구 풍부', '전층 만실 공실 위험 낮음', '연 4.5% 배당형 수익'],
       gfaSqm: 890.5,
       landAreaSqm: 265.0,

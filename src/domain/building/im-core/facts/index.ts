@@ -79,7 +79,7 @@ export interface PureBuildingFacts {
  */
 export function extractPureBuildingFacts(raw: Record<string, any>): PureBuildingFacts {
   const ssot = raw?.ssot_summary || raw || {};
-  const rawBody = raw?.body || raw;
+  const rawBody = raw?.body || raw?.doc_body || raw?.docBody || raw;
 
   const rawPosture = String(
     raw?.posture ??
@@ -205,12 +205,24 @@ export function extractPureBuildingFacts(raw: Record<string, any>): PureBuilding
     : [];
 
   const rawBroker = rawBody?.brokerOffice || raw?.brokerOffice || rawBody?.broker_office || raw?.broker_office;
+  const sanitizeBrokerFactText = (val: unknown): string => {
+    if (typeof val !== 'string') return '';
+    const cleaned = val.replace(/\s*\(확인\s*중\)\s*/g, '').trim();
+    if (!cleaned || cleaned === '담당 중개법인') return '';
+    return cleaned;
+  };
+  const rawBrokerObj = typeof rawBroker === 'object' && rawBroker !== null ? rawBroker : null;
+  const rawBrokerNameCandidate =
+    typeof rawBroker === 'string'
+      ? rawBroker
+      : rawBrokerObj?.name || rawBrokerObj?.office_name;
+  const brokerRep = sanitizeBrokerFactText(rawBrokerObj?.representative || rawBrokerObj?.broker_name) || '담당 공인중개사';
   const brokerOffice = {
-    name: rawBroker?.name || rawBroker?.office_name || '담당 중개법인 (확인 중)',
-    representative: rawBroker?.representative || rawBroker?.broker_name || '담당 공인중개사',
-    registrationNo: rawBroker?.registrationNo || rawBroker?.registration_no || '-',
-    phone: rawBroker?.phone || rawBroker?.contact_phone || '-',
-    address: rawBroker?.address || undefined,
+    name: sanitizeBrokerFactText(rawBrokerNameCandidate) || '전담 중개사무소',
+    representative: brokerRep,
+    registrationNo: sanitizeBrokerFactText(rawBrokerObj?.registrationNo || rawBrokerObj?.registration_no) || '-',
+    phone: sanitizeBrokerFactText(rawBrokerObj?.phone || rawBrokerObj?.contact_phone) || '-',
+    address: rawBrokerObj?.address || undefined,
   };
 
   return {

@@ -133,6 +133,7 @@ const BROKER_PLACEHOLDERS = new Set([
   "담당 공인중개사",
   "담당 중개법인 (확인 중)",
   "담당 중개법인",
+  "전담 중개사무소",
   "미등록",
 ]);
 
@@ -191,9 +192,34 @@ function inferPhotoCategoryFromFilename(filename: string, idx: number): { catego
   };
 }
 
+const MAX_SINGLE_INLINE_DATA_URL_CHARS = 350_000;
+const MAX_TOTAL_INLINE_DATA_URL_CHARS = 1_600_000;
+const MULTIPART_DIRECT_CEILING_BYTES = 3_800_000;
+
+export function isHeicLikeFile(file: Pick<File, "name" | "type">): boolean {
+  const mime = (file.type || "").toLowerCase().trim();
+  if (mime === "image/heic" || mime === "image/heif" || mime === "image/heic-sequence" || mime === "image/heif-sequence") {
+    return true;
+  }
+  return /\.(heic|heif)$/i.test(file.name || "");
+}
+
+export function isSafeInlineImageDataUrl(u?: string | null): u is string {
+  if (!u || typeof u !== "string") return false;
+  if (u.length > MAX_SINGLE_INLINE_DATA_URL_CHARS) return false;
+  return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(u);
+}
+
 function readAndCompressPhotoFile(file: File, maxDim = 1280, quality = 0.8): Promise<string> {
   return new Promise((resolve) => {
     if (typeof FileReader === "undefined") {
+      resolve("");
+      return;
+    }
+    const isJsdomEnv =
+      typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
+    // In real browsers, skip futile FileReader+Image decode on .HEIC/.HEIF (handled via binary upload)
+    if (!isJsdomEnv && isHeicLikeFile(file)) {
       resolve("");
       return;
     }
@@ -205,9 +231,9 @@ function readAndCompressPhotoFile(file: File, maxDim = 1280, quality = 0.8): Pro
         !rawDataUrl ||
         typeof window === "undefined" ||
         typeof document === "undefined" ||
-        (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || ""))
+        isJsdomEnv
       ) {
-        resolve(rawDataUrl);
+        resolve(isSafeInlineImageDataUrl(rawDataUrl) ? rawDataUrl : "");
         return;
       }
       let settled = false;
@@ -215,11 +241,11 @@ function readAndCompressPhotoFile(file: File, maxDim = 1280, quality = 0.8): Pro
         if (settled) return;
         settled = true;
         clearTimeout(fallbackTimer);
-        resolve(val);
+        resolve(isSafeInlineImageDataUrl(val) ? val : "");
       };
       const fallbackTimer = setTimeout(() => done(rawDataUrl), 10000);
       const img = new window.Image();
-      img.onerror = () => done(rawDataUrl);
+      img.onerror = () => done("");
       img.onload = () => {
         try {
           const w = img.naturalWidth || img.width || 1280;
@@ -238,7 +264,10 @@ function readAndCompressPhotoFile(file: File, maxDim = 1280, quality = 0.8): Pro
           ctx.fillStyle = "#FFFFFF";
           ctx.fillRect(0, 0, targetW, targetH);
           ctx.drawImage(img, 0, 0, targetW, targetH);
-          const compressed = canvas.toDataURL("image/jpeg", quality);
+          let compressed = canvas.toDataURL("image/jpeg", quality);
+          if (compressed.length > MAX_SINGLE_INLINE_DATA_URL_CHARS) {
+            compressed = canvas.toDataURL("image/jpeg", 0.62);
+          }
           done(compressed && compressed.startsWith("data:image/") ? compressed : rawDataUrl);
         } catch {
           done(rawDataUrl);
@@ -286,21 +315,166 @@ async function uploadCompressedPhotoIfPossible(
   }
 }
 
-function isPersistablePhotoUrl(u?: string | null): u is string {
-  return Boolean(u && typeof u === "string" && !u.startsWith("blob:"));
+async function uploadRawPhotoFileToServer(
+  file: File,
+  buildingId?: string
+): Promise<{ url: string | null; errorMessage?: string }> {
+  if (
+    typeof window === "undefined" ||
+    typeof fetch !== "function" ||
+    (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || ""))
+  ) {
+    return { url: null };
+  }
+
+  // Path A: Large raw file (>3.8MB) -> Signed direct upload to Supabase Storage -> server finalize (avoids Vercel 4.5MB body ceiling)
+  if (file.size > MULTIPART_DIRECT_CEILING_BYTES) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 35000);
+    try {
+      const signRes = await fetch("/api/broker/im/upload-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_signed_upload",
+          name: file.name,
+          buildingId,
+          byteLength: file.size,
+        }),
+        signal: controller.signal,
+      });
+      const signJson = (await signRes.json().catch(() => null)) as {
+        ok?: boolean;
+        signedUrl?: string;
+        tempPath?: string;
+        message?: string;
+      } | null;
+      if (signRes.ok && signJson?.ok && signJson.signedUrl && signJson.tempPath) {
+        const putRes = await fetch(signJson.signedUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: file,
+          signal: controller.signal,
+        });
+        if (putRes.ok) {
+          const finRes = await fetch("/api/broker/im/upload-photo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "finalize_uploaded_raw",
+              tempPath: signJson.tempPath,
+              name: file.name,
+              buildingId,
+            }),
+            signal: controller.signal,
+          });
+          const finJson = (await finRes.json().catch(() => null)) as {
+            ok?: boolean;
+            url?: string;
+            message?: string;
+          } | null;
+          if (finRes.ok && finJson?.ok && typeof finJson.url === "string") {
+            return { url: finJson.url };
+          }
+          return { url: null, errorMessage: finJson?.message };
+        }
+      } else if (signRes.status === 413) {
+        return { url: null, errorMessage: signJson?.message || "파일 용량이 25MB 제한을 초과했습니다." };
+      }
+    } catch {
+      // Fall through to multipart attempt if within browser limits
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Path B: Binary multipart/form-data (1 file per request — zero base64 overhead, transcodes HEIC -> JPEG on server)
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+  try {
+    const fd = new FormData();
+    fd.append("file", file, file.name);
+    fd.append("name", file.name);
+    if (buildingId) fd.append("buildingId", buildingId);
+    const res = await fetch("/api/broker/im/upload-photo", {
+      method: "POST",
+      body: fd,
+      signal: controller.signal,
+    });
+    const json = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      url?: string;
+      message?: string;
+    } | null;
+    if (res.ok && json?.ok && typeof json.url === "string" && /^https?:\/\//i.test(json.url)) {
+      return { url: json.url };
+    }
+    return {
+      url: null,
+      errorMessage:
+        res.status === 413
+          ? "사진 파일 용량이 너무 커서 업로드하지 못했습니다."
+          : json?.message,
+    };
+  } catch {
+    return { url: null };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
+async function processAndUploadPhotoFile(
+  file: File,
+  buildingId?: string
+): Promise<{ dataUrl: string; remoteUrl: string | null; errorMessage?: string }> {
+  const dataUrl = await readAndCompressPhotoFile(file);
+  if (dataUrl) {
+    const remoteUrl = await uploadCompressedPhotoIfPossible(dataUrl, file.name, buildingId);
+    if (remoteUrl) {
+      return { dataUrl, remoteUrl };
+    }
+    // Try binary multipart fallback if JSON upload didn't return a URL
+    const rawUp = await uploadRawPhotoFileToServer(file, buildingId);
+    return { dataUrl, remoteUrl: rawUp.url, errorMessage: rawUp.errorMessage };
+  }
+  // Browser could not canvas-decode (e.g. .HEIC/.HEIF on Chrome/Edge/Windows) -> upload binary for server-side conversion
+  const rawUp = await uploadRawPhotoFileToServer(file, buildingId);
+  return { dataUrl: "", remoteUrl: rawUp.url, errorMessage: rawUp.errorMessage };
+}
+
+function isPersistablePhotoUrl(u?: string | null): u is string {
+  if (!u || typeof u !== "string" || u.startsWith("blob:")) return false;
+  if (u.startsWith("data:")) return isSafeInlineImageDataUrl(u);
+  return true;
+}
+
+export function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
+  let inlineBudgetUsed = 0;
   return entries
     .map((pe) => {
       const nonDataPersistentUrl =
         (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
           ? resolveKnownTestAssetUrl(pe.url) || pe.url
           : undefined) || resolveKnownTestAssetUrl(pe.name);
-      const rawUrl = nonDataPersistentUrl || pe.dataUrl;
+      const safeInlineDataUrl =
+        !nonDataPersistentUrl &&
+        isSafeInlineImageDataUrl(pe.dataUrl) &&
+        inlineBudgetUsed + pe.dataUrl.length <= MAX_TOTAL_INLINE_DATA_URL_CHARS
+          ? pe.dataUrl
+          : !nonDataPersistentUrl &&
+            isSafeInlineImageDataUrl(pe.url) &&
+            inlineBudgetUsed + pe.url.length <= MAX_TOTAL_INLINE_DATA_URL_CHARS
+          ? pe.url
+          : undefined;
+      if (safeInlineDataUrl) {
+        inlineBudgetUsed += safeInlineDataUrl.length;
+      }
+      const rawUrl = nonDataPersistentUrl || safeInlineDataUrl;
       const rawPreview =
         nonDataPersistentUrl ||
-        pe.dataUrl ||
+        safeInlineDataUrl ||
         (isPersistablePhotoUrl(pe.previewUrl)
           ? resolveKnownTestAssetUrl(pe.previewUrl) || pe.previewUrl
           : undefined);
@@ -314,7 +488,7 @@ function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
         name: pe.name,
         ...(safeUrl ? { url: safeUrl } : {}),
         ...(safePreview && safePreview !== safeUrl ? { previewUrl: safePreview } : {}),
-        ...(!nonDataPersistentUrl && pe.dataUrl ? { dataUrl: pe.dataUrl } : {}),
+        ...(safeInlineDataUrl ? { dataUrl: safeInlineDataUrl } : {}),
         category: pe.category,
         caption: pe.caption,
       };
@@ -415,7 +589,10 @@ const INITIAL_IM_LIST: ImListItem[] = [
     id: "im-doc-01",
     buildingId: "bld-01",
     title: "영등포구 양평동 꼬마빌딩",
-    address: "서울특별시 영등포구 양평동 11-47",
+    address: "서울특별시 영등포구 양평동4가 117",
+    pnu: "1156012800101170000",
+    lat: 37.53767,
+    lng: 126.89472,
     askingPriceManwon: 950000,
     grossYieldPct: 4.2,
     status: "draft",
@@ -761,19 +938,22 @@ function ImWorkspaceInner() {
           : hydratedEntries.map((p) => p.name)
       );
     } else if (Array.isArray(item.photoNames) && item.photoNames.length > 0) {
-      setPhotoNames(item.photoNames);
-      const hydratedEntries: ImPhotoEntry[] = item.photoNames.map((name, idx) => {
-        const inferred = inferPhotoCategoryFromFilename(name, idx);
-        const resolvedUrl = resolveKnownTestAssetUrl(name);
-        return {
-          id: `photo-item-${item.id}-${idx}-${name}`,
-          name,
-          url: resolvedUrl,
-          previewUrl: resolvedUrl,
-          category: inferred.category,
-          caption: inferred.caption,
-        };
-      });
+      const hydratedEntries: ImPhotoEntry[] = item.photoNames
+        .map((name, idx) => {
+          const inferred = inferPhotoCategoryFromFilename(name, idx);
+          const resolvedUrl = resolveKnownTestAssetUrl(name);
+          if (!resolvedUrl) return null;
+          return {
+            id: `photo-item-${item.id}-${idx}-${name}`,
+            name,
+            url: resolvedUrl,
+            previewUrl: resolvedUrl,
+            category: inferred.category,
+            caption: inferred.caption,
+          } as ImPhotoEntry;
+        })
+        .filter((pe): pe is ImPhotoEntry => Boolean(pe));
+      setPhotoNames(hydratedEntries.map((pe) => pe.name));
       setPhotoEntries(hydratedEntries);
       latestPhotoEntriesRef.current = hydratedEntries;
     } else {
@@ -902,6 +1082,15 @@ function ImWorkspaceInner() {
     onSave: async ({ data: draftItem }) => {
       if (!draftItem) return;
       const targetBid = draftItem.buildingId || draftItem.id;
+      const sanitizedDraft: ImListItem = {
+        ...draftItem,
+        ...(Array.isArray(draftItem.photos)
+          ? {
+              photos: sanitizePhotosForSync(draftItem.photos),
+              photoNames: sanitizePhotosForSync(draftItem.photos).map((p) => p.name),
+            }
+          : {}),
+      };
       const res = await fetch("/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -909,7 +1098,7 @@ function ImWorkspaceInner() {
           action: "upsert_im",
           buildingId: targetBid,
           imId: draftItem.id,
-          imItem: draftItem,
+          imItem: sanitizedDraft,
         }),
       });
       if (!res.ok) {
@@ -1701,21 +1890,28 @@ function ImWorkspaceInner() {
   const buildPhotosPayloadForRequest = () => {
     const sourceEntries =
       latestPhotoEntriesRef.current.length > 0 ? latestPhotoEntriesRef.current : photoEntries;
+    let inlineBudgetUsed = 0;
     const valid = sourceEntries
       .map((pe, idx) => {
         const nonDataUrl =
           pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
             ? resolveKnownTestAssetUrl(pe.url) || pe.url
             : undefined;
-        const candidateUrl =
+        const rawCandidate =
           nonDataUrl ||
           pe.dataUrl ||
           (isPersistablePhotoUrl(pe.previewUrl) ? pe.previewUrl : undefined) ||
           (isPersistablePhotoUrl(pe.url) ? pe.url : undefined) ||
           resolveKnownTestAssetUrl(pe.name);
-        if (!isPersistablePhotoUrl(candidateUrl)) return null;
+        if (!isPersistablePhotoUrl(rawCandidate)) return null;
+        if (rawCandidate.startsWith("data:")) {
+          if (inlineBudgetUsed + rawCandidate.length > MAX_TOTAL_INLINE_DATA_URL_CHARS) {
+            return null;
+          }
+          inlineBudgetUsed += rawCandidate.length;
+        }
         return {
-          url: candidateUrl,
+          url: rawCandidate,
           name: pe.name,
           caption: pe.caption,
           category: pe.category || (idx === 0 ? "exterior" : "interior"),
@@ -1809,7 +2005,11 @@ function ImWorkspaceInner() {
           setIsBottomSheetOpen(true);
         }
       } else if (selectedIdRef.current === targetId) {
-        setActionAlert(data?.error || "상세 편집 창을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.");
+        setActionAlert(
+          res.status === 413
+            ? "첨부 사진 용량이 전송 한도를 초과했습니다. 사진을 다시 선택하면 자동으로 압축·변환하여 업로드합니다."
+            : data?.error || "상세 편집 창을 준비하지 못했어요. 잠시 후 다시 시도해 주세요."
+        );
       }
     } catch {
       if (selectedIdRef.current === targetId) {
@@ -1913,7 +2113,9 @@ function ImWorkspaceInner() {
       }
       if (selectedIdRef.current === targetId) {
         setActionAlert(
-          data?.error || `${actionLabel} 준비 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.`
+          res.status === 413
+            ? "첨부 사진 용량이 전송 한도를 초과했습니다. 사진을 다시 선택하면 자동으로 압축·변환하여 업로드합니다."
+            : data?.error || `${actionLabel} 준비 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.`
         );
       }
       return null;
@@ -2083,6 +2285,7 @@ function ImWorkspaceInner() {
           (reqAddress.split(" ").slice(1, 3).join(" ") || "매물") + " 근생빌딩";
         const nextResolvedId =
           typeof data?.documentId === "string" && data.documentId ? data.documentId : targetId;
+        const syncedPhotos = sanitizePhotosForSync(latestPhotos);
         setItems((prev) => {
           const nextItems = prev.map((it) =>
             it.id === targetId
@@ -2106,8 +2309,8 @@ function ImWorkspaceInner() {
                   zoning: reqZoning,
                   handoverNote: reqHandover,
                   parcels: parcels ?? it.parcels,
-                  photoNames: latestPhotos.map((p) => p.name),
-                  photos: sanitizePhotosForSync(latestPhotos),
+                  photoNames: syncedPhotos.map((p) => p.name),
+                  photos: syncedPhotos,
                   brokerName: reqBrokerName,
                   brokerageName: reqBrokerageName,
                   brokerPhone: reqBrokerPhone,
@@ -2157,7 +2360,9 @@ function ImWorkspaceInner() {
         });
       } else if (selectedIdRef.current === targetId) {
         setActionAlert(
-          data?.error || "IM을 만드는 중 문제가 생겼어요. 입력 내용을 확인하고 다시 눌러 주세요."
+          res.status === 413
+            ? "첨부 사진 용량이 전송 한도를 초과했습니다. 사진을 다시 선택하면 자동으로 압축·변환하여 업로드합니다."
+            : data?.error || "IM을 만드는 중 문제가 생겼어요. 입력 내용을 확인하고 다시 눌러 주세요."
         );
       }
     } catch {
@@ -2872,10 +3077,24 @@ function ImWorkspaceInner() {
             value={address}
             onChange={(e) => {
               const nextVal = e.target.value;
+              const didChangeAddr = nextVal.trim() !== address.trim();
               setAddress(nextVal);
-              syncCurrentItemPatch({ address: nextVal });
+              if (didChangeAddr) {
+                setParcels(undefined);
+                setOfficialLandPricePerSqm(undefined);
+                syncCurrentItemPatch({
+                  address: nextVal,
+                  pnu: undefined,
+                  lat: undefined,
+                  lng: undefined,
+                  officialLandPricePerSqm: undefined,
+                  parcels: undefined,
+                });
+              } else {
+                syncCurrentItemPatch({ address: nextVal });
+              }
             }}
-            placeholder="예: 서울특별시 영등포구 양평동 11-47"
+            placeholder="예: 서울특별시 영등포구 양평동4가 117"
             className="w-full min-h-[48px] px-3.5 text-lg rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
           />
           {Array.isArray(parcels) && parcels.length >= 2 && (
@@ -3554,7 +3773,9 @@ function ImWorkspaceInner() {
             e.stopPropagation();
             setIsDraggingPhotos(false);
             const droppedFiles = Array.from(e.dataTransfer?.files || []).filter(
-              (f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(f.name)
+              (f) =>
+                f.type.startsWith("image/") ||
+                /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name)
             );
             if (droppedFiles.length === 0) return;
             const targetId = currentItem?.id || selectedIdRef.current;
@@ -3564,7 +3785,9 @@ function ImWorkspaceInner() {
               const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
               const knownUrl = resolveKnownTestAssetUrl(f.name);
               const blobUrl =
-                typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+                !isHeicLikeFile(f) &&
+                typeof URL !== "undefined" &&
+                typeof URL.createObjectURL === "function"
                   ? URL.createObjectURL(f)
                   : knownUrl;
               return {
@@ -3581,56 +3804,86 @@ function ImWorkspaceInner() {
             latestPhotoEntriesRef.current = mergedEntries;
             setPhotoEntries(mergedEntries);
             setPhotoNames(nextNames);
+            const syncedInitial = sanitizePhotosForSync(mergedEntries);
             syncCurrentItemPatch(
               {
-                photoNames: nextNames,
-                photos: sanitizePhotosForSync(mergedEntries),
+                photoNames: syncedInitial.map((p) => p.name),
+                photos: syncedInitial,
               },
               targetId
             );
-            const compressionPromise = Promise.all(
-              droppedFiles.map(async (f, idx) => {
-                const dataUrl = await readAndCompressPhotoFile(f);
-                return { id: addedEntries[idx].id, name: f.name, dataUrl };
-              })
-            )
+            const buildingFolderHint = currentItem?.buildingId || targetId;
+            const compressionPromise = (async () => {
+              const resolvedList: Array<{
+                id?: string;
+                name: string;
+                dataUrl: string;
+                remoteUrl: string | null;
+                errorMessage?: string;
+              }> = [];
+              const BATCH_SIZE = 3;
+              for (let bStart = 0; bStart < droppedFiles.length; bStart += BATCH_SIZE) {
+                const slice = droppedFiles.slice(bStart, bStart + BATCH_SIZE);
+                const batchOut = await Promise.all(
+                  slice.map(async (f, localIdx) => {
+                    const idx = bStart + localIdx;
+                    const out = await processAndUploadPhotoFile(f, buildingFolderHint);
+                    return { id: addedEntries[idx]?.id, name: f.name, ...out };
+                  })
+                );
+                resolvedList.push(...batchOut);
+              }
+              return resolvedList;
+            })()
               .then((resolvedList) => {
+                const failedNames: string[] = [];
                 const applyResolved = (list: ImPhotoEntry[]) =>
-                  list.map((pe) => {
-                    const matched = resolvedList.find(
-                      (r) =>
-                        (pe.id && r.id ? r.id === pe.id : r.name === pe.name) && Boolean(r.dataUrl)
-                    );
-                    return matched
-                      ? {
-                          ...pe,
-                          dataUrl: matched.dataUrl,
-                          previewUrl: matched.dataUrl || pe.previewUrl,
-                          url:
-                            (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
-                              ? resolveKnownTestAssetUrl(pe.url) || pe.url
-                              : undefined) ||
-                            resolveKnownTestAssetUrl(pe.name) ||
-                            matched.dataUrl,
-                        }
-                      : pe;
-                  });
+                  list
+                    .map((pe) => {
+                      const matched = resolvedList.find((r) =>
+                        pe.id && r.id ? r.id === pe.id : r.name === pe.name
+                      );
+                      if (!matched) return pe;
+                      const existingHttpUrl =
+                        pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+                          ? resolveKnownTestAssetUrl(pe.url) || pe.url
+                          : undefined;
+                      const knownAsset = resolveKnownTestAssetUrl(pe.name);
+                      const preferredPersistentUrl =
+                        matched.remoteUrl || existingHttpUrl || knownAsset || matched.dataUrl;
+                      if (!preferredPersistentUrl) {
+                        failedNames.push(pe.name);
+                        return null;
+                      }
+                      const keepInlineDataUrl = !matched.remoteUrl && !existingHttpUrl && !knownAsset;
+                      return {
+                        ...pe,
+                        dataUrl: keepInlineDataUrl ? matched.dataUrl : undefined,
+                        previewUrl: matched.remoteUrl || matched.dataUrl || pe.previewUrl,
+                        url: preferredPersistentUrl,
+                      } as ImPhotoEntry;
+                    })
+                    .filter((pe): pe is ImPhotoEntry => Boolean(pe));
                 if (selectedIdRef.current === targetId) {
-                  latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
-                  setPhotoEntries((prev) => {
-                    const next = applyResolved(prev);
-                    latestPhotoEntriesRef.current = next;
-                    const nextNamesFromState = next.map((p) => p.name);
-                    setPhotoNames(nextNamesFromState);
-                    syncCurrentItemPatch(
-                      {
-                        photoNames: nextNamesFromState,
-                        photos: sanitizePhotosForSync(next),
-                      },
-                      targetId
+                  const next = applyResolved(latestPhotoEntriesRef.current);
+                  latestPhotoEntriesRef.current = next;
+                  setPhotoEntries(next);
+                  const synced = sanitizePhotosForSync(next);
+                  setPhotoNames(next.map((p) => p.name));
+                  syncCurrentItemPatch(
+                    {
+                      photoNames: synced.map((p) => p.name),
+                      photos: synced,
+                    },
+                    targetId
+                  );
+                  if (failedNames.length > 0) {
+                    setActionAlert(
+                      `사진 변환·업로드에 실패한 파일 ${failedNames.length}개(${failedNames
+                        .slice(0, 2)
+                        .join(", ")})를 제외했습니다.`
                     );
-                    return next;
-                  });
+                  }
                 } else {
                   setItems((prev) => {
                     const next = prev.map((it) => {
@@ -3667,13 +3920,13 @@ function ImWorkspaceInner() {
           }`}
         >
           <p className="text-base font-semibold text-[#334155]">
-            건물 외관 사진 · 지적도 이미지 올리기 (여기로 파일을 끌어다 놓아도 됩니다)
+            건물 외관 사진 · 지적도 이미지 올리기 (JPG, PNG, WEBP, 아이폰 HEIC 지원)
           </p>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*"
+            accept="image/*,.heic,.heif,image/heic,image/heif"
             className="hidden"
             onChange={(e) => {
               const files = Array.from(e.target.files || []);
@@ -3685,7 +3938,9 @@ function ImWorkspaceInner() {
                 const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
                 const knownUrl = resolveKnownTestAssetUrl(f.name);
                 const blobUrl =
-                  typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+                  !isHeicLikeFile(f) &&
+                  typeof URL !== "undefined" &&
+                  typeof URL.createObjectURL === "function"
                     ? URL.createObjectURL(f)
                     : knownUrl;
                 return {
@@ -3702,10 +3957,11 @@ function ImWorkspaceInner() {
               latestPhotoEntriesRef.current = mergedEntries;
               setPhotoEntries(mergedEntries);
               setPhotoNames(nextNames);
+              const syncedInitial = sanitizePhotosForSync(mergedEntries);
               syncCurrentItemPatch(
                 {
-                  photoNames: nextNames,
-                  photos: sanitizePhotosForSync(mergedEntries),
+                  photoNames: syncedInitial.map((p) => p.name),
+                  photos: syncedInitial,
                 },
                 targetId
               );
@@ -3716,6 +3972,7 @@ function ImWorkspaceInner() {
                   name: string;
                   dataUrl: string;
                   remoteUrl: string | null;
+                  errorMessage?: string;
                 }> = [];
                 const BATCH_SIZE = 3;
                 for (let bStart = 0; bStart < files.length; bStart += BATCH_SIZE) {
@@ -3723,11 +3980,8 @@ function ImWorkspaceInner() {
                   const batchOut = await Promise.all(
                     slice.map(async (f, localIdx) => {
                       const idx = bStart + localIdx;
-                      const dataUrl = await readAndCompressPhotoFile(f);
-                      const remoteUrl = dataUrl
-                        ? await uploadCompressedPhotoIfPossible(dataUrl, f.name, buildingFolderHint)
-                        : null;
-                      return { id: addedEntries[idx]?.id, name: f.name, dataUrl, remoteUrl };
+                      const out = await processAndUploadPhotoFile(f, buildingFolderHint);
+                      return { id: addedEntries[idx]?.id, name: f.name, ...out };
                     })
                   );
                   resolvedList.push(...batchOut);
@@ -3735,47 +3989,54 @@ function ImWorkspaceInner() {
                 return resolvedList;
               })()
                 .then((resolvedList) => {
+                  const failedNames: string[] = [];
                   const applyResolved = (list: ImPhotoEntry[]) =>
-                    list.map((pe) => {
-                      const matched = resolvedList.find(
-                        (r) =>
-                          (pe.id && r.id ? r.id === pe.id : r.name === pe.name) &&
-                          Boolean(r.remoteUrl || r.dataUrl)
-                      );
-                      if (!matched) return pe;
-                      const existingHttpUrl =
-                        pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
-                          ? resolveKnownTestAssetUrl(pe.url) || pe.url
-                          : undefined;
-                      const preferredPersistentUrl =
-                        matched.remoteUrl ||
-                        existingHttpUrl ||
-                        resolveKnownTestAssetUrl(pe.name) ||
-                        matched.dataUrl;
-                      const keepInlineDataUrl = !matched.remoteUrl && !existingHttpUrl;
-                      return {
-                        ...pe,
-                        dataUrl: keepInlineDataUrl ? matched.dataUrl : undefined,
-                        previewUrl: matched.remoteUrl || matched.dataUrl || pe.previewUrl,
-                        url: preferredPersistentUrl,
-                      };
-                    });
+                    list
+                      .map((pe) => {
+                        const matched = resolvedList.find((r) =>
+                          pe.id && r.id ? r.id === pe.id : r.name === pe.name
+                        );
+                        if (!matched) return pe;
+                        const existingHttpUrl =
+                          pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+                            ? resolveKnownTestAssetUrl(pe.url) || pe.url
+                            : undefined;
+                        const knownAsset = resolveKnownTestAssetUrl(pe.name);
+                        const preferredPersistentUrl =
+                          matched.remoteUrl || existingHttpUrl || knownAsset || matched.dataUrl;
+                        if (!preferredPersistentUrl) {
+                          failedNames.push(pe.name);
+                          return null;
+                        }
+                        const keepInlineDataUrl = !matched.remoteUrl && !existingHttpUrl && !knownAsset;
+                        return {
+                          ...pe,
+                          dataUrl: keepInlineDataUrl ? matched.dataUrl : undefined,
+                          previewUrl: matched.remoteUrl || matched.dataUrl || pe.previewUrl,
+                          url: preferredPersistentUrl,
+                        } as ImPhotoEntry;
+                      })
+                      .filter((pe): pe is ImPhotoEntry => Boolean(pe));
                   if (selectedIdRef.current === targetId) {
-                    latestPhotoEntriesRef.current = applyResolved(latestPhotoEntriesRef.current);
-                    setPhotoEntries((prev) => {
-                      const next = applyResolved(prev);
-                      latestPhotoEntriesRef.current = next;
-                      const nextNamesFromState = next.map((p) => p.name);
-                      setPhotoNames(nextNamesFromState);
-                      syncCurrentItemPatch(
-                        {
-                          photoNames: nextNamesFromState,
-                          photos: sanitizePhotosForSync(next),
-                        },
-                        targetId
+                    const next = applyResolved(latestPhotoEntriesRef.current);
+                    latestPhotoEntriesRef.current = next;
+                    setPhotoEntries(next);
+                    const synced = sanitizePhotosForSync(next);
+                    setPhotoNames(next.map((p) => p.name));
+                    syncCurrentItemPatch(
+                      {
+                        photoNames: synced.map((p) => p.name),
+                        photos: synced,
+                      },
+                      targetId
+                    );
+                    if (failedNames.length > 0) {
+                      setActionAlert(
+                        `사진 변환·업로드에 실패한 파일 ${failedNames.length}개(${failedNames
+                          .slice(0, 2)
+                          .join(", ")})를 제외했습니다.`
                       );
-                      return next;
-                    });
+                    }
                   } else {
                     setItems((prev) => {
                       const next = prev.map((it) => {
@@ -3988,10 +4249,10 @@ function ImWorkspaceInner() {
       no: "09",
       title: "현장 사진 및 지적도",
       summary:
-        photoNames.length > 0
-          ? `첨부 사진 ${photoNames.length}장 (${photoNames.join(", ")})`
+        photoEntries.length > 0
+          ? `첨부 사진 ${photoEntries.length}장 (${photoEntries.map((p) => p.name).join(", ")})`
           : "외관 사진 및 지적도",
-      metric: `${photoNames.length}개 파일`,
+      metric: `${photoEntries.length}개 파일`,
     },
     {
       no: "10",
@@ -4144,7 +4405,7 @@ function ImWorkspaceInner() {
                 <div className="flex items-center gap-1.5 pt-0.5">
                   <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-sm font-semibold text-slate-700 truncate">
                     {slide.no === "03"
-                      ? `용도지역: ${zoning || "확인 중"}`
+                      ? `용도지역: ${zoning || "미입력"}`
                       : slide.no === "05"
                       ? `연면적: ${gfaSqm || "—"}㎡`
                       : `월임대료 ${totalRentManwon.toLocaleString()}만원`}
@@ -4417,8 +4678,8 @@ function ImWorkspaceInner() {
                 09 현장 사진 및 지적도
               </span>
               <p className="text-sm text-slate-700">
-                {photoNames.length > 0
-                  ? `첨부 사진 ${photoNames.length}장 및 지적도`
+                {photoEntries.length > 0
+                  ? `첨부 사진 ${photoEntries.length}장 및 지적도`
                   : "외관 사진 및 지적도 자동 배치"}
               </p>
               {photoEntries.length > 0 && (

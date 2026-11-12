@@ -922,19 +922,19 @@ export async function GET(request: NextRequest) {
           .maybeSingle(),
         supabase
           .from("broker_profiles")
-          .select("office_reg_number, slug, avatar_url, name, display_name, phone, specialty")
+          .select("office_reg_number, license_number, slug, avatar_url, photo_url, name, card_name, contact_email")
           .eq("user_id", userId)
           .maybeSingle(),
       ]);
       if (pRow || bpRow) {
         brokerProfile = {
           displayName:
-            pRow?.display_name || (bpRow as any)?.display_name || (bpRow as any)?.name || undefined,
-          company: pRow?.company || (bpRow as any)?.specialty || undefined,
-          phone: pRow?.phone || (bpRow as any)?.phone || undefined,
+            pRow?.display_name || bpRow?.name || bpRow?.card_name || undefined,
+          company: pRow?.company || undefined,
+          phone: pRow?.phone || undefined,
           registrationNo: bpRow?.office_reg_number || undefined,
           slug: bpRow?.slug || undefined,
-          photoUrl: bpRow?.avatar_url || pRow?.photo_url || undefined,
+          photoUrl: bpRow?.avatar_url || bpRow?.photo_url || pRow?.photo_url || undefined,
         };
       }
     }
@@ -1826,19 +1826,19 @@ export async function PATCH(request: NextRequest) {
           .maybeSingle(),
         supabase
           .from("broker_profiles")
-          .select("office_reg_number, slug, avatar_url, name, display_name, phone, specialty")
+          .select("office_reg_number, license_number, slug, avatar_url, photo_url, name, card_name, contact_email")
           .eq("user_id", auth.user.id)
           .maybeSingle(),
       ]);
       if (pRow || bpRow) {
         brokerProfileMeta = {
           displayName:
-            pRow?.display_name || (bpRow as any)?.display_name || (bpRow as any)?.name || undefined,
-          company: pRow?.company || (bpRow as any)?.specialty || undefined,
-          phone: pRow?.phone || (bpRow as any)?.phone || undefined,
+            pRow?.display_name || bpRow?.name || bpRow?.card_name || undefined,
+          company: pRow?.company || undefined,
+          phone: pRow?.phone || undefined,
           registrationNo: bpRow?.office_reg_number || undefined,
           slug: bpRow?.slug || undefined,
-          photoUrl: bpRow?.avatar_url || pRow?.photo_url || undefined,
+          photoUrl: bpRow?.avatar_url || bpRow?.photo_url || pRow?.photo_url || undefined,
         };
       }
     }

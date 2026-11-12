@@ -47,7 +47,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
   },
-  serverExternalPackages: ['sharp', 'pdf-parse'],
+  serverExternalPackages: ['sharp', 'pdf-parse', 'heic-convert', 'heic-decode', 'libheif-js'],
   outputFileTracingExcludes: {
     "*": [
       "./docs/**",

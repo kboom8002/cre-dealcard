@@ -199,20 +199,29 @@ export function buildBasicImSlideDefaults(
     ? `${Math.round(latestOfficialSqm / 10000).toLocaleString()}만원/㎡ (약 ${Math.round((latestOfficialSqm * 3.305785) / 10000).toLocaleString()}만원/평)`
     : '';
 
+  const cleanStudioBrokerCompany = (val: unknown): string => {
+    if (typeof val !== 'string') return '';
+    const cleaned = val.replace(/\s*\(확인\s*중\)\s*/g, '').trim();
+    if (!cleaned || cleaned === '-' || cleaned === '담당 중개법인' || cleaned === '전담 중개사무소') {
+      return '';
+    }
+    return cleaned;
+  };
   const factsBrokerOffice = docBody.basicImDocument?.facts?.brokerOffice;
-  const factsBrokerCompany =
+  const factsBrokerCompany = cleanStudioBrokerCompany(
     typeof factsBrokerOffice === 'string'
       ? factsBrokerOffice
-      : factsBrokerOffice?.name || factsBrokerOffice?.company || '';
+      : factsBrokerOffice?.name || factsBrokerOffice?.company || ''
+  );
   const brokerCompany =
-    brokerInfo?.company_name ||
-    docBody.brokerCompany ||
-    docBody.broker_contact?.brokerageName ||
-    docBody.broker_contact?.company ||
+    cleanStudioBrokerCompany(brokerInfo?.company_name) ||
+    cleanStudioBrokerCompany(docBody.brokerCompany) ||
+    cleanStudioBrokerCompany(docBody.broker_contact?.brokerageName) ||
+    cleanStudioBrokerCompany(docBody.broker_contact?.company) ||
     factsBrokerCompany ||
-    docBody.broker?.company ||
-    docBody.broker?.office ||
-    '';
+    cleanStudioBrokerCompany(docBody.broker?.company) ||
+    cleanStudioBrokerCompany(docBody.broker?.office) ||
+    '전담 중개사무소';
   const brokerName =
     brokerInfo?.display_name ||
     docBody.brokerName ||

@@ -60,6 +60,7 @@ const BROKER_VIEWER_PLACEHOLDERS = new Set([
   "담당 중개법인 (확인 중)",
   "담당 중개법인",
   "전담 중개법인",
+  "전담 중개사무소",
   "김대표",
   "미등록",
   "11680-2024-00123",
@@ -1473,7 +1474,7 @@ export function MobileIMViewer({
             </div>
           ) : (
             <p className="text-[14px] text-[#475569] p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              인근 실거래 비교사례 데이터 수집 중 · 본건 토지/연면적 평당가 기준 분석
+              본건 대지·연면적 평당 단가 및 개별공시지가 기준 밸류에이션 지표를 참조해 주십시오.
             </p>
           )}
         </section>
