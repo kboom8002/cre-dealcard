@@ -455,6 +455,22 @@ export function WorkspaceShell({
     [searchParams, pathname, router]
   );
 
+  // Bidirectional Preview -> Editor handoff: close <1280px preview drawer and flip mobile preview -> editor
+  useEffect(() => {
+    const handleFocusEditor = (evt: Event) => {
+      const detail = (evt as CustomEvent<{ unitId?: string; label?: string }>).detail;
+      setIsPreviewDrawerOpen(false);
+      if (mobileView === "preview" || searchParams.get("tab") === "preview") {
+        handleSelectTab("editor");
+      }
+      if (detail?.label) {
+        setAriaAnnouncement(`${detail.label} 편집으로 이동`);
+      }
+    };
+    window.addEventListener("workspace:focus-editor", handleFocusEditor);
+    return () => window.removeEventListener("workspace:focus-editor", handleFocusEditor);
+  }, [mobileView, searchParams, handleSelectTab]);
+
   const bottomTabs = DEFAULT_WORKSPACE_TABS.map((t) => {
     const n = effectiveBadges[t.id as keyof typeof effectiveBadges];
     return n && n > 0 ? { ...t, badge: n > 99 ? "99+" : n } : t;
@@ -808,7 +824,7 @@ export function WorkspaceShell({
                   data-testid="workspace-editor-preview-drawer-btn"
                   onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
                   aria-expanded={isPreviewDrawerOpen}
-                  className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[40px] rounded-xl border border-[#007AFF]/25 bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-sm font-semibold text-[#0040DD] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all cursor-pointer shrink-0"
+                  className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[44px] rounded-xl border border-[#007AFF]/25 bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-sm font-semibold text-[#0040DD] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all cursor-pointer shrink-0"
                 >
                   <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
                 </button>
@@ -820,7 +836,7 @@ export function WorkspaceShell({
                       data-testid="mobile-tab-editor"
                       onClick={() => handleSelectTab("editor")}
                       aria-pressed={true}
-                      className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
+                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
                     >
                       {mobileTabLabels.editor}
                     </button>
@@ -829,7 +845,7 @@ export function WorkspaceShell({
                       data-testid="mobile-tab-preview"
                       onClick={() => handleSelectTab("preview")}
                       aria-pressed={false}
-                      className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
+                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
                     >
                       {mobileTabLabels.preview}
                     </button>
@@ -917,7 +933,7 @@ export function WorkspaceShell({
                   type="button"
                   onClick={() => setIsPreviewDrawerOpen(false)}
                   aria-label="미리보기 닫기"
-                  className="hidden lg:inline-flex xl:hidden px-2.5 min-h-[38px] items-center justify-center rounded-xl ios-glass-pill bg-white/85 border border-slate-900/[0.08] text-[#1D1D1F] text-sm font-semibold hover:bg-white cursor-pointer"
+                  className="hidden lg:inline-flex xl:hidden px-2.5 min-h-[44px] items-center justify-center rounded-xl ios-glass-pill bg-white/85 border border-slate-900/[0.08] text-[#1D1D1F] text-sm font-semibold hover:bg-white cursor-pointer"
                 >
                   ✕ 닫기
                 </button>
@@ -929,7 +945,7 @@ export function WorkspaceShell({
                     data-testid="mobile-tab-editor"
                     onClick={() => handleSelectTab("editor")}
                     aria-pressed={false}
-                    className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
+                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
                   >
                     {mobileTabLabels.editor}
                   </button>
@@ -938,7 +954,7 @@ export function WorkspaceShell({
                     data-testid="mobile-tab-preview"
                     onClick={() => handleSelectTab("preview")}
                     aria-pressed={true}
-                    className="px-3 min-h-[38px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
+                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
                   >
                     {mobileTabLabels.preview}
                   </button>

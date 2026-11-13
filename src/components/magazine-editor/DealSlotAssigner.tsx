@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Building2, CheckSquare, Square } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { AiCommentRecommendButton } from "@/components/broker/studio/AiCommentRecommendButton";
 
 export interface AssignableDealItem {
@@ -76,18 +76,18 @@ export function DealSlotAssigner({
                     : "border-slate-200 bg-white hover:bg-slate-50"
                 }`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <label
-                    htmlFor={`deal-checkbox-${deal.id}`}
-                    className="flex min-h-[48px] flex-1 cursor-pointer items-center gap-3"
-                  >
+                <label
+                  htmlFor={`deal-checkbox-${deal.id}`}
+                  className="flex min-h-[48px] w-full cursor-pointer items-center justify-between gap-3"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
                     <input
                       id={`deal-checkbox-${deal.id}`}
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => onToggleDeal(deal.id)}
                       aria-label={`${deal.title} 매물 선택`}
-                      className="h-5 w-5 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
+                      className="h-5 w-5 shrink-0 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
                     />
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                       {deal.photoUrl ? (
@@ -113,31 +113,19 @@ export function DealSlotAssigner({
                         {deal.yield && deal.yield !== "-" ? ` · 연 수익률 ${deal.yield}` : ""}
                       </p>
                     </div>
-                  </label>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => onToggleDeal(deal.id)}
-                    aria-label={`${deal.title} ${isSelected ? "선택 해제" : "선택"}`}
-                    className={`inline-flex min-h-[48px] items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-extrabold transition ${
+                  <span
+                    aria-hidden="true"
+                    className={`shrink-0 inline-flex min-h-[40px] items-center rounded-xl border px-3.5 py-1.5 text-sm font-extrabold transition ${
                       isSelected
                         ? "border-blue-700 bg-blue-700 text-white"
-                        : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                        : "border-slate-300 bg-white text-slate-800"
                     }`}
                   >
-                    {isSelected ? (
-                      <>
-                        <CheckSquare className="h-4 w-4" aria-hidden="true" />
-                        <span>선택됨</span>
-                      </>
-                    ) : (
-                      <>
-                        <Square className="h-4 w-4" aria-hidden="true" />
-                        <span>담기</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                    {isSelected ? "✓ 선택됨" : "+ 담기"}
+                  </span>
+                </label>
 
                 {isSelected && onChangeDealComment && (
                   <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">

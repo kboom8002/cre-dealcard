@@ -25,7 +25,10 @@ vi.mock('next/navigation', () => ({
 }));
 
 const NOW_ISO = new Date().toISOString();
-const YESTERDAY_ISO = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
+const yesterdayNoon = new Date();
+yesterdayNoon.setDate(yesterdayNoon.getDate() - 1);
+yesterdayNoon.setHours(12, 0, 0, 0);
+const YESTERDAY_ISO = yesterdayNoon.toISOString();
 
 const THREADS: InboxThreadItem[] = [
   {

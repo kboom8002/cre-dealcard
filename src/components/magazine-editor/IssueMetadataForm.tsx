@@ -109,6 +109,7 @@ export function IssueMetadataForm({
   issueDate,
   onChangeIssueDate,
 }: IssueMetadataFormProps) {
+  const [isMoodOpen, setIsMoodOpen] = React.useState<boolean>(() => Boolean(marketTemp));
   const nowKst = kstParts();
   const safeYear = typeof year === "number" ? year : nowKst.year;
   const safeMonth = typeof month === "number" ? month : nowKst.month;
@@ -116,6 +117,12 @@ export function IssueMetadataForm({
   const cadenceMeta = deriveCadenceIssueMeta(cadence, { year: safeYear, month: safeMonth, dateStr: issueDate });
   const headlineTooLong = headline.trim().length > 36;
   const summaryTooLong = summary.trim().length > 80;
+
+  React.useEffect(() => {
+    if (marketTemp) {
+      setIsMoodOpen(true);
+    }
+  }, [marketTemp]);
 
   const handleYearChange = (nextYear: number) => {
     const nextMeta = deriveAutoIssueMeta(nextYear, safeMonth);
@@ -307,48 +314,61 @@ export function IssueMetadataForm({
         )}
       </div>
 
-      {/* 4. 시장 분위기 배지 선택 (선택 사항) */}
+      {/* 4. 시장 분위기 배지 선택 (선택 사항 — 접기/펼치기, 내부 DOM 항상 유지) */}
       {onChangeMarketTemp && (
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-extrabold text-slate-800">
-              이번 달 시장 분위기 (선택 사항)
-            </span>
+        <div className="space-y-2.5 pt-1 border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              data-testid="toggle-market-temp-btn"
+              aria-expanded={isMoodOpen}
+              onClick={() => setIsMoodOpen((prev) => !prev)}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-extrabold text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+            >
+              <span>
+                {marketTemp
+                  ? `시장 분위기 배지 선택 (선택 사항) · ${marketTemp}`
+                  : "시장 분위기 배지 선택 (선택 사항)"}
+              </span>
+              <span aria-hidden="true">{isMoodOpen ? "▴" : "▾"}</span>
+            </button>
             {marketTemp && (
               <button
                 type="button"
                 onClick={() => onChangeMarketTemp(null)}
-                className="min-h-[48px] rounded-xl px-3 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                className="min-h-[44px] rounded-xl px-3 text-sm font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 선택 해제
               </button>
             )}
           </div>
-          <div
-            role="group"
-            aria-label="이번 달 시장 분위기 선택"
-            className="grid grid-cols-2 sm:grid-cols-5 gap-2"
-          >
-            {MARKET_TEMP_LIST.map((temp) => {
-              const cfg = MARKET_TEMP_CONFIG[temp];
-              const isSelected = marketTemp === temp;
-              return (
-                <button
-                  key={temp}
-                  type="button"
-                  aria-pressed={isSelected}
-                  onClick={() => onChangeMarketTemp(isSelected ? null : temp)}
-                  className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-                    isSelected
-                      ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span aria-hidden="true">{cfg.emoji}</span>
-                  <span>{temp}</span>
-                </button>
-              );
-            })}
+          <div className={isMoodOpen ? "pt-1" : "hidden"}>
+            <div
+              role="group"
+              aria-label="이번 달 시장 분위기 선택"
+              className="grid grid-cols-2 sm:grid-cols-5 gap-2"
+            >
+              {MARKET_TEMP_LIST.map((temp) => {
+                const cfg = MARKET_TEMP_CONFIG[temp];
+                const isSelected = marketTemp === temp;
+                return (
+                  <button
+                    key={temp}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => onChangeMarketTemp(isSelected ? null : temp)}
+                    className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      isSelected
+                        ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span aria-hidden="true">{cfg.emoji}</span>
+                    <span>{temp}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

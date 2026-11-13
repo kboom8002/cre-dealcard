@@ -63,7 +63,7 @@ function versionBadgeLabel(version: RentrollVersion, unit: AreaInputUnit): strin
 
 const HELP_CONTENT = [
   { icon: "📋", text: "기본 항목: 층·호실, 업종·상호, 보증금, 월세, 계약만료일, 임대상태(임대중/공실)" },
-  { icon: "📐", text: "권장 항목: 임대면적·전용면적(양식 상단 G9 칸에서 ㎡ 또는 평 선택) · 관리비 — 전용률은 자동 계산됩니다" },
+  { icon: "📐", text: "권장 항목: 임대면적·전용면적(양식 상단에서 ㎡ 또는 평 단위 선택) · 관리비 — 전용률은 자동 계산됩니다" },
   { icon: "💰", text: "금액 단위: 표 머리글의 단위(원/만원)를 자동으로 읽어 만원 단위로 변환합니다" },
   { icon: "📄", text: "편리 기능: 위쪽에 건물명·주소·합계 행이 있어도 자동으로 건너뛰고 호실 행만 읽어옵니다" },
   { icon: "🏢", text: "공실 판별: '임대상태(임대중/공실/자가사용)' 칸을 우선 읽고, 없으면 비어 있는 호실을 공실로 자동 계산합니다" },
@@ -309,45 +309,40 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
   };
 
   return (
-    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
+    <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 space-y-3">
       {/* Tab Toggle */}
-      <div className="flex gap-1 p-0.5 bg-muted/50 rounded-lg">
+      <div className="flex gap-1.5 p-1 bg-slate-200/70 rounded-xl">
         <button
           type="button"
           onClick={() => { setMode("excel"); setResult(""); setIsError(false); setParsedPreview(null); }}
-          className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
+          className={`flex-1 min-h-[44px] text-sm font-bold py-2 px-3 rounded-lg transition-all cursor-pointer ${
             mode === "excel"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-white text-primary shadow-xs"
+              : "text-slate-700 hover:text-slate-950"
           }`}
         >
-          📁 엑셀/CSV
+          📁 엑셀/CSV 파일
         </button>
         <button
           type="button"
           onClick={() => { setMode("text"); setResult(""); setIsError(false); setParsedPreview(null); }}
           data-testid="rentroll-mode-text"
-          className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
+          className={`flex-1 min-h-[44px] text-sm font-bold py-2 px-3 rounded-lg transition-all cursor-pointer ${
             mode === "text"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-white text-primary shadow-xs"
+              : "text-slate-700 hover:text-slate-950"
           }`}
         >
-          📝 텍스트 입력
+          📝 텍스트로 붙여넣기
         </button>
       </div>
 
       {/* Excel Mode */}
       {mode === "excel" && (
         <>
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-primary">엑셀 임대차 현황표(렌트롤) 자동 불러오기</p>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                엑셀 파일 업로드 → 층별 보증금·월세·공실률 자동 합산
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-bold text-slate-900">엑셀 임대 현황표 자동 불러오기</p>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <input
                 type="file"
                 accept=".csv,.txt,.xlsx,.xls"
@@ -360,30 +355,31 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 type="button"
                 onClick={() => setShowHelp((v) => !v)}
                 data-testid="rentroll-help-btn"
-                className={`w-7 h-7 rounded-full border text-xs font-bold flex items-center justify-center transition-colors ${
+                className={`min-h-[44px] min-w-[44px] px-3 rounded-xl border text-sm font-bold flex items-center justify-center transition-colors cursor-pointer ${
                   showHelp
                     ? "bg-primary/20 border-primary text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                    : "bg-white border-slate-300 text-slate-700 hover:border-primary/50 hover:text-primary"
                 }`}
                 aria-label="엑셀 작성 가이드"
                 title="엑셀 작성 가이드"
               >
-                ?
+                ? 안내
               </button>
               <a
                 href={TEMPLATE_HREF}
                 download={TEMPLATE_DOWNLOAD_NAME}
                 data-testid="rentroll-template-download"
-                className="border border-primary/30 text-primary px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-primary/10 transition-colors whitespace-nowrap"
-                title="빈 엑셀 양식 다운로드 (임대면적·전용면적·전용률 포함, R1/R2/R3 컬럼 설명 시트 포함)"
+                className="min-h-[44px] inline-flex items-center border border-primary/35 bg-white text-primary px-3.5 py-2 rounded-xl text-sm font-bold hover:bg-primary/10 transition-colors whitespace-nowrap"
+                title="빈 엑셀 양식 다운로드"
               >
                 📥 빈 양식
               </a>
               <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImporting}
                 data-testid="rentroll-upload-btn"
-                className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+                className="min-h-[44px] inline-flex items-center bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap cursor-pointer"
               >
                 {isImporting ? "분석 중..." : "엑셀/CSV 업로드"}
               </button>
@@ -391,18 +387,18 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
           </div>
 
           {showHelp && (
-            <div className="bg-background border border-border rounded-lg p-3 space-y-2 animate-in fade-in duration-150">
-              <p className="text-xs font-bold text-foreground">📋 엑셀 작성 가이드</p>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2 animate-in fade-in duration-150">
+              <p className="text-sm font-bold text-slate-900">📋 엑셀 작성 가이드</p>
               <ul className="space-y-1.5">
                 {HELP_CONTENT.map((item, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
                     <span className="shrink-0">{item.icon}</span>
                     <span>{item.text}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-2 p-2 bg-primary/5 rounded text-[11px] text-primary/80 leading-relaxed">
-                💡 <strong>팁:</strong> 기존 임대차 현황표를 그대로 업로드해보세요! 제목·주소·소계 행이 있어도 자동으로 건너뜁니다.
+              <div className="mt-2 p-2.5 bg-primary/5 rounded-lg text-sm text-primary/90 leading-relaxed">
+                💡 <strong>팁:</strong> 기존 임대차 현황표를 그대로 올려 보세요. 제목·주소·소계 행이 있어도 자동으로 건너뜁니다.
               </div>
             </div>
           )}
@@ -411,24 +407,24 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
 
       {/* Text Mode */}
       {mode === "text" && (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-primary">자연어 렌트롤 입력</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              층별 임대 현황을 자유롭게 입력하면 AI가 자동 분석합니다
+            <p className="text-sm font-bold text-slate-900">글자로 적어서 불러오기</p>
+            <p className="text-sm text-slate-600 mt-0.5">
+              층별 임대 현황을 자유롭게 적거나 붙여넣으면 AI가 표로 정리합니다.
             </p>
           </div>
           <textarea
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             placeholder={`예시:\nB1 라이브펍(5,000/450)\n1F 카페 보증금 8,000 월세 600\n2F 공실\n3~4F 스튜디오(5,000/400)\n\n또는 상세하게:\n1층 약국 보증금 8000만 월세 600만 관리비 50만 계약 2023.03~2026.02`}
-            className="w-full h-28 bg-background border border-input rounded-lg px-3 py-2 text-xs leading-relaxed resize-none outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+            className="w-full h-28 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm leading-relaxed resize-none outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-slate-400"
           />
           <button
             type="button"
             onClick={handleTextParse}
             disabled={isParsing || !textInput.trim()}
-            className="w-full bg-primary text-primary-foreground py-2 rounded-md text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="min-h-[44px] w-full bg-primary text-primary-foreground py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
           >
             {isParsing ? "🔄 AI 분석 중..." : "✨ AI 분석"}
           </button>
@@ -437,8 +433,8 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
 
       {/* Result */}
       {result && !parsedPreview && (
-        <p className={`text-xs font-medium whitespace-pre-line ${
-          isError ? "text-rose-500" : "text-emerald-600 dark:text-emerald-400"
+        <p className={`text-sm font-medium whitespace-pre-line ${
+          isError ? "text-rose-600" : "text-emerald-700"
         }`}>
           {result}
         </p>
@@ -667,17 +663,17 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
             <div
               data-testid="rent-roll-v12-panel"
               role="alert"
-              className="mb-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-2 space-y-1.5"
+              className="mb-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 space-y-2"
             >
-              <p className="text-xs font-bold text-rose-500">⛔ 면적 단위 확인 필요 (V12)</p>
+              <p className="text-sm font-bold text-rose-600">⛔ 면적 단위 확인 필요</p>
               {blockingIssues.map((i, k) => (
-                <p key={k} className="text-[11px] text-rose-500 leading-relaxed">{i.message}</p>
+                <p key={k} className="text-sm text-rose-600 leading-relaxed">{i.message}</p>
               ))}
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                엑셀 G9(면적 단위)를 실제 입력 단위와 맞춰 다시 업로드하는 것이 원칙입니다. 값이 맞다고 확인되면 사유를 남기고 해제할 수 있으며, 단위는 자동으로 보정하지 않습니다.
+              <p className="text-sm text-slate-700 leading-relaxed">
+                엑셀 양식 상단의 면적 단위(㎡ 또는 평)를 실제 입력 단위와 맞춰 다시 업로드하는 것이 원칙입니다. 값이 맞다고 확인되면 사유를 남기고 해제할 수 있으며, 단위는 자동으로 보정하지 않습니다.
               </p>
               {overrideReason ? (
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400">✅ 해제됨 — 사유: {overrideReason}</p>
+                <p className="text-sm text-emerald-700 font-semibold">✅ 해제됨 — 사유: {overrideReason}</p>
               ) : (
                 <>
                   <textarea
@@ -685,7 +681,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                     value={overrideDraft}
                     onChange={(e) => setOverrideDraft(e.target.value)}
                     placeholder="해제 사유 (필수) — 예: 연면적이 실제로 4,764㎡인 대형 필지임을 등기부로 확인"
-                    className="w-full h-14 bg-background border border-input rounded px-2 py-1 text-[11px] resize-none outline-none focus:ring-1 focus:ring-ring"
+                    className="w-full h-16 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/25"
                   />
                   <button
                     type="button"
@@ -696,31 +692,31 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                       if (!reason || !parsedPreview) return;
                       setOverrideReason(reason);
                       setIsError(false);
-                      setResult("✅ 사유를 기록하고 V12를 해제했습니다. 아래 [적용]을 눌러 반영해 주세요.");
+                      setResult("✅ 사유를 기록하고 면적 단위 경고를 해제했습니다. 아래 [적용]을 눌러 반영해 주세요.");
                     }}
-                    className="w-full bg-rose-500 text-white py-1 rounded text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="min-h-[44px] w-full bg-rose-600 text-white py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    사유 기록 후 V12 해제
+                    사유 기록 후 계속 반영하기
                   </button>
                 </>
               )}
             </div>
           )}
           {parsedPreview.meta.asking_price_krw != null && (
-            <p className="text-[11px] text-muted-foreground mb-2" data-testid="rent-roll-asking-price">
-              💴 렌트롤 매각희망가(J3): {Math.round(parsedPreview.meta.asking_price_krw / 10000).toLocaleString()}만원 — 폼의 희망가가 비어 있을 때만 채웁니다
+            <p className="text-sm text-slate-700 mb-2" data-testid="rent-roll-asking-price">
+              💴 엑셀에 적힌 희망 매매가: {Math.round(parsedPreview.meta.asking_price_krw / 10000).toLocaleString()}만원 — 현재 희망 매매가가 비어 있을 때만 채웁니다
             </p>
           )}
           {parsedPreview.warnings.length > 0 && (
-            <ul className="mb-2 space-y-0.5 text-[11px] text-amber-500">
+            <ul className="mb-2 space-y-0.5 text-sm text-amber-700">
               {parsedPreview.warnings.map((w, i) => (
                 <li key={i}>⚠ {w}</li>
               ))}
             </ul>
           )}
           {result && (
-            <p className={`text-xs font-medium whitespace-pre-line mb-3 ${
-              isError ? "text-rose-500" : "text-emerald-600 dark:text-emerald-400"
+            <p className={`text-sm font-medium whitespace-pre-line mb-3 ${
+              isError ? "text-rose-600" : "text-emerald-700"
             }`}>
               {result}
             </p>
@@ -739,7 +735,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 setIsError(false);
                 setResult("✅ 데이터가 성공적으로 반영되었습니다.");
               }} 
-              className="flex-1 bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 min-h-[44px] bg-primary text-primary-foreground py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               적용
             </button>
@@ -754,7 +750,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 setResult("");
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }} 
-              className="flex-1 bg-muted text-foreground py-1.5 rounded text-xs font-medium hover:bg-muted/80 transition-colors"
+              className="flex-1 min-h-[44px] bg-slate-200 text-slate-900 py-2 rounded-xl text-sm font-bold hover:bg-slate-300 transition-colors cursor-pointer"
             >
               취소
             </button>

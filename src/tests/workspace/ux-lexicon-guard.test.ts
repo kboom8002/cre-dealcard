@@ -28,6 +28,12 @@ const FILES: string[] = [
   'src/components/teaser/TrustLine.tsx',
   'src/components/teaser/ContactGateModal.tsx',
   'src/components/workspace/WorkspaceShell.tsx',
+  'src/components/workspace/RentRollGrid.tsx',
+  'src/components/broker/rent-roll-importer.tsx',
+  'src/components/broker/studio/MagazineQuickDraftCard.tsx',
+  'src/components/workspace/preview-sync/PreviewCausalityBar.tsx',
+  'src/components/workspace/preview-sync/PreviewPregenerationCard.tsx',
+  'src/components/workspace/preview-sync/PreviewEditableUnit.tsx',
 ];
 
 function magazineEditorComponents(): string[] {

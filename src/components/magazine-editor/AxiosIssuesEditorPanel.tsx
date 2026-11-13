@@ -38,6 +38,7 @@ export interface AxiosIssuesEditorPanelProps {
   onRefreshLiveChannel?: (channel: NewsChannelId) => void;
   canUndoRecluster?: boolean;
   onUndoRecluster?: () => void;
+  onOpenPreferences?: () => void;
 }
 
 export function AxiosIssuesEditorPanel({
@@ -53,8 +54,10 @@ export function AxiosIssuesEditorPanel({
   onRefreshLiveChannel,
   canUndoRecluster = false,
   onUndoRecluster,
+  onOpenPreferences,
 }: AxiosIssuesEditorPanelProps) {
   const [swappingIndex, setSwappingIndex] = useState<number | null>(null);
+  const [expandedToolsIdx, setExpandedToolsIdx] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState<NewsChannelId>("all");
 
   // 실제 상태(unitIssues)와 화면 표시를 1:1 일치시켜 미저장 유령 카드 발생을 원천 차단한다
@@ -142,24 +145,34 @@ export function AxiosIssuesEditorPanel({
             <div className="flex flex-wrap items-center gap-2">
               <Newspaper className="w-4 h-4 text-blue-700" aria-hidden="true" />
               <h2 className="text-base font-extrabold text-slate-900">
-                {cadenceLabel} 핵심 시장 이슈 포스트잇 5선
+                {cadenceLabel} 핵심 시장 이슈 5선
               </h2>
               <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-sm font-extrabold text-blue-800 whitespace-nowrap">
                 {issues.length > 0 ? `${issues.length}건 구성됨` : "미작성"}
               </span>
             </div>
             <p className="mt-1 text-sm font-medium text-slate-600">
-              내 주력 권역과 관심 분야 기사를 클러스터링하여 <strong>카드뉴스형 제목(36자 이내) + 짧은 해설(48자 이내, AXIOS 스타일)</strong> 글래스 카드로 구성합니다. 글자 수 안에서 쓰면 고객 화면에서 잘리지 않습니다.
+              주요 부동산 뉴스를 읽기 쉽게 5가지 요약 카드로 정리했습니다.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {onOpenPreferences && (
+              <button
+                type="button"
+                data-testid="open-broker-prefs-from-issues-btn"
+                onClick={onOpenPreferences}
+                className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 px-3.5 py-2 text-sm font-extrabold text-slate-800 transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <span>맞춤 상권·분야 변경</span>
+              </button>
+            )}
             {canUndoRecluster && onUndoRecluster && (
               <button
                 type="button"
                 data-testid="undo-recluster-issues-btn"
                 onClick={onUndoRecluster}
-                className="min-h-11 inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-2 text-sm font-extrabold text-amber-900 transition-colors whitespace-nowrap"
+                className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-2 text-sm font-extrabold text-amber-900 transition-colors whitespace-nowrap cursor-pointer"
               >
                 <span>이전 이슈 복원</span>
               </button>
@@ -169,9 +182,9 @@ export function AxiosIssuesEditorPanel({
               data-testid="recluster-five-issues-btn"
               disabled={isAiClustering}
               onClick={() => void handleReclusterAll()}
-              className="min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 px-3.5 py-2 text-sm font-extrabold text-white shadow-xs transition-colors whitespace-nowrap"
+              className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-blue-300 bg-blue-50 hover:bg-blue-100 disabled:opacity-60 px-3.5 py-2 text-sm font-extrabold text-blue-900 shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
             >
-              <Sparkles className="w-4 h-4" aria-hidden="true" />
+              <Sparkles className="w-4 h-4 text-blue-700" aria-hidden="true" />
               <span>
                 {isAiClustering ? "AI 맞춤 이슈 생성 중..." : "AI 핵심 이슈 5선 자동 재구성"}
               </span>
@@ -197,63 +210,97 @@ export function AxiosIssuesEditorPanel({
             data-testid="seed-five-issues-empty-btn"
             onClick={handleSeedInitialIssues}
             style={{ backgroundColor: "#1D4ED8", borderColor: "#1E40AF", color: "#FFFFFF" }}
-            className="min-h-11 inline-flex items-center gap-1.5 rounded-xl border border-blue-700 bg-blue-700 hover:bg-blue-800 px-4 py-2.5 text-sm font-extrabold text-white shadow-xs transition-colors"
+            className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-blue-700 bg-blue-700 hover:bg-blue-800 px-4 py-2.5 text-sm font-extrabold text-white shadow-xs transition-colors"
           >
             <Sparkles className="w-4 h-4" aria-hidden="true" />
             <span style={{ color: "#FFFFFF" }}>핵심 이슈 5선 자동 채우기</span>
           </button>
         </div>
       ) : (
-      <div className="space-y-3.5">
-        {issues.map((issue, idx) => {
-          const toneMeta = POST_IT_TONE_META[issue.memoTone] ?? POST_IT_TONE_META.amber;
-          const chMeta =
-            issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
-              ? NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
-              : NEWS_CHANNEL_MAP.real_estate;
-          const isSwapping = swappingIndex === idx;
+        <div className="space-y-3.5">
+          {issues.map((issue, idx) => {
+            const toneMeta = POST_IT_TONE_META[issue.memoTone] ?? POST_IT_TONE_META.amber;
+            const chMeta =
+              issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
+                ? NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
+                : NEWS_CHANNEL_MAP.real_estate;
+            const isSwapping = swappingIndex === idx;
+            const isToolsOpen = expandedToolsIdx === idx || isSwapping;
+            const titleLen = charLength(issue.title);
+            const briefLen = charLength(issue.brief);
+            const titleOver = titleLen > AXIOS_TITLE_MAX_CHARS;
+            const briefOver = briefLen > AXIOS_BRIEF_MAX_CHARS;
+            const channelForIssue = resolveNewsChannel({
+              title: issue.title,
+              summary: issue.brief,
+              channel: issue.channel,
+            });
 
-          return (
-            <div
-              key={`${issue.id}-${idx}`}
-              data-testid={`axios-issue-card-editor-${idx}`}
-              style={{
-                backgroundColor: toneMeta.cardBg,
-                borderColor: toneMeta.cardBorder,
-                borderLeftColor: toneMeta.accentBar,
-              }}
-              className="rounded-2xl border-2 border-l-[6px] p-4 shadow-2xs transition-all space-y-3"
-            >
-              {/* 카드 상단 메타 바: 번호 + 채널 배지 + 강조색 5톤 선택 + 순서/교체 */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    style={{
-                      backgroundColor: toneMeta.badgeBg,
-                      color: toneMeta.badgeText,
-                    }}
-                    className="rounded px-2.5 py-1 text-sm font-extrabold"
-                  >
-                    ISSUE 0{idx + 1}
-                  </span>
-                  <span className="rounded bg-white/85 border border-slate-300/80 px-2 py-0.5 text-sm font-bold text-slate-800">
-                    {chMeta.emoji} {chMeta.shortLabel}
-                  </span>
-                  {issue.articleCount && issue.articleCount > 1 && (
-                    <span className="rounded bg-white/75 px-2 py-0.5 text-sm font-semibold text-slate-700">
-                      연관 기사 {issue.articleCount}건 클러스터
+            return (
+              <div
+                key={`${issue.id}-${idx}`}
+                data-testid={`axios-issue-card-editor-${idx}`}
+                style={{
+                  backgroundColor: toneMeta.cardBg,
+                  borderColor: toneMeta.cardBorder,
+                  borderLeftColor: toneMeta.accentBar,
+                }}
+                className="rounded-2xl border-2 border-l-[6px] p-4 shadow-2xs transition-all space-y-3"
+              >
+                {/* 카드 상단 메타 바: 번호 + 채널 배지 + 보조 도구 접기/펼치기 */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      style={{
+                        backgroundColor: toneMeta.badgeBg,
+                        color: toneMeta.badgeText,
+                      }}
+                      className="rounded px-2.5 py-1 text-sm font-extrabold"
+                    >
+                      ISSUE 0{idx + 1}
                     </span>
-                  )}
+                    <span className="rounded bg-white/85 border border-slate-300/80 px-2 py-0.5 text-sm font-bold text-slate-800">
+                      {chMeta.emoji} {chMeta.shortLabel}
+                    </span>
+                    {issue.articleCount && issue.articleCount > 1 && (
+                      <span className="rounded bg-white/75 px-2 py-0.5 text-sm font-semibold text-slate-700">
+                        연관 기사 {issue.articleCount}건 묶음
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    data-testid={`toggle-issue-tools-${idx}`}
+                    aria-expanded={isToolsOpen}
+                    onClick={() => {
+                      if (isToolsOpen) {
+                        setExpandedToolsIdx(null);
+                        if (isSwapping) setSwappingIndex(null);
+                      } else {
+                        setExpandedToolsIdx(idx);
+                      }
+                    }}
+                    className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white/90 hover:bg-white px-3 py-1.5 text-sm font-extrabold text-slate-800 cursor-pointer"
+                  >
+                    <span>{isToolsOpen ? "카드 색상·순서·교체 ▴" : "카드 색상·순서·교체 ▾"}</span>
+                  </button>
                 </div>
 
-                {/* 우측 컨트롤: 강조 색상 5종 + 위/아래 + 다른 기사 교체 */}
-                <div className="flex items-center gap-1.5">
+                {/* 보조 도구 모음 (접기 시 hidden 클래스로 DOM 보존) */}
+                <div
+                  className={
+                    isToolsOpen
+                      ? "flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-2.5"
+                      : "hidden"
+                  }
+                >
                   <div
                     role="group"
                     aria-label={`이슈 ${idx + 1} 카드 강조색 선택`}
-                    className="flex items-center gap-1 rounded-lg bg-white/80 border border-slate-300/70 px-1.5 py-1"
+                    className="flex flex-wrap items-center gap-1"
                   >
-                    <Palette className="w-3.5 h-3.5 text-slate-500 mr-0.5" aria-hidden="true" />
+                    <Palette className="w-4 h-4 text-slate-500 mx-1" aria-hidden="true" />
                     {POST_IT_TONES.map((t) => {
                       const m = POST_IT_TONE_META[t];
                       const selected = issue.memoTone === t;
@@ -265,215 +312,216 @@ export function AxiosIssuesEditorPanel({
                           aria-label={m.label}
                           aria-pressed={selected}
                           onClick={() => handleUpdateIssue(idx, { memoTone: t as PostItTone })}
-                          style={{
-                            background: m.glassBackground,
-                            borderColor: selected ? m.glassAccent : "rgba(15,23,42,0.25)",
-                          }}
-                          className={`w-5 h-5 rounded-full border-2 transition-transform ${
-                            selected ? "scale-110 ring-2 ring-slate-900/20" : "opacity-80 hover:opacity-100"
+                          className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border transition cursor-pointer ${
+                            selected
+                              ? "border-slate-900 bg-slate-100 shadow-2xs"
+                              : "border-transparent hover:bg-slate-50"
                           }`}
-                        />
+                        >
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              background: m.glassBackground,
+                              borderColor: selected ? m.glassAccent : "rgba(15,23,42,0.3)",
+                            }}
+                            className={`w-6 h-6 rounded-full border-2 ${
+                              selected ? "scale-110" : ""
+                            }`}
+                          />
+                        </button>
                       );
                     })}
                   </div>
 
-                  <button
-                    type="button"
-                    disabled={idx === 0}
-                    aria-label={`이슈 ${idx + 1} 위로 이동`}
-                    onClick={() => handleMoveIssue(idx, -1)}
-                    className="min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white/80 text-slate-700 hover:bg-white disabled:opacity-40"
-                  >
-                    <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={idx === issues.length - 1}
-                    aria-label={`이슈 ${idx + 1} 아래로 이동`}
-                    onClick={() => handleMoveIssue(idx, 1)}
-                    className="min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white/80 text-slate-700 hover:bg-white disabled:opacity-40"
-                  >
-                    <ArrowDown className="w-3.5 h-3.5" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSwappingIndex(isSwapping ? null : idx)}
-                    className="min-h-9 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white/90 hover:bg-white px-2.5 py-1 text-sm font-extrabold text-slate-800"
-                  >
-                    <RefreshCw className="w-3 h-3" aria-hidden="true" />
-                    <span>{isSwapping ? "닫기" : "교체"}</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      aria-label={`이슈 ${idx + 1} 위로 이동`}
+                      onClick={() => handleMoveIssue(idx, -1)}
+                      className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                    >
+                      <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === issues.length - 1}
+                      aria-label={`이슈 ${idx + 1} 아래로 이동`}
+                      onClick={() => handleMoveIssue(idx, 1)}
+                      className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                    >
+                      <ArrowDown className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSwappingIndex(isSwapping ? null : idx);
+                        if (!isSwapping) setExpandedToolsIdx(idx);
+                      }}
+                      className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3 py-2 text-sm font-extrabold text-slate-800 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{isSwapping ? "닫기" : "교체"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const refined = formatAxiosTwoLineBrief(issue.brief, {
+                          title: issue.title,
+                          channel: channelForIssue,
+                        });
+                        handleUpdateIssue(idx, { brief: refined });
+                        editorToast.success("48자 이내 완결된 해설로 짧고 명확하게 정돈했습니다.");
+                      }}
+                      className="min-h-[44px] px-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-sm font-extrabold text-blue-800 cursor-pointer"
+                    >
+                      ✨ 48자 자동 압축
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* 카드뉴스 제목 입력 (36자 예산 · 실시간 카운터 · 초과 시 경고 + 1-클릭 압축) */}
-              {(() => {
-                const titleLen = charLength(issue.title);
-                const briefLen = charLength(issue.brief);
-                const titleOver = titleLen > AXIOS_TITLE_MAX_CHARS;
-                const briefOver = briefLen > AXIOS_BRIEF_MAX_CHARS;
-                const channelForIssue = resolveNewsChannel({
-                  title: issue.title,
-                  summary: issue.brief,
-                  channel: issue.channel,
-                });
-                return (
-                  <>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label
-                          htmlFor={`axios-issue-title-${idx}`}
-                          className="text-sm font-extrabold text-slate-800"
-                        >
-                          카드뉴스 제목 (36자 이내)
-                        </label>
-                        <span
-                          data-testid={`axios-issue-title-count-${idx}`}
-                          className={`text-sm font-bold ${titleOver ? "text-rose-700" : "text-slate-600"}`}
-                        >
-                          {titleLen}/{AXIOS_TITLE_MAX_CHARS}자
-                        </span>
-                      </div>
-                      <input
-                        id={`axios-issue-title-${idx}`}
-                        type="text"
-                        value={issue.title}
-                        aria-invalid={titleOver}
-                        onChange={(e) =>
-                          handleUpdateIssue(idx, {
-                            title: e.target.value.replace(/[\r\n]+/g, " "),
-                          })
-                        }
-                        onBlur={() => {
-                          if (titleOver) {
-                            handleUpdateIssue(idx, { title: formatAxiosCardTitle(issue.title) });
-                            editorToast.success(`${idx + 1}번 제목을 36자 이내 완결된 문장으로 다듬었습니다.`);
-                          }
-                        }}
-                        placeholder="고객 시선을 끄는 핵심 제목 (36자 이내)"
-                        className={`w-full min-h-11 rounded-lg border bg-white/95 px-3.5 py-2 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none ${
-                          titleOver ? "border-rose-500 focus:border-rose-600" : "border-slate-300/90 focus:border-blue-600"
-                        }`}
-                      />
-                      {titleOver && (
-                        <p role="status" className="text-sm font-bold text-rose-700">
-                          36자를 넘으면 고객 화면에서 길어져요. 입력칸을 벗어나면 자동으로 다듬어 드려요.
-                        </p>
-                      )}
-                    </div>
+                {/* 카드뉴스 제목 입력 (36자 예산) */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor={`axios-issue-title-${idx}`}
+                      className="text-sm font-extrabold text-slate-800"
+                    >
+                      카드뉴스 제목 (36자 이내)
+                    </label>
+                    <span
+                      data-testid={`axios-issue-title-count-${idx}`}
+                      className={`text-sm font-bold ${titleOver ? "text-rose-700" : "text-slate-600"}`}
+                    >
+                      {titleLen}/{AXIOS_TITLE_MAX_CHARS}자
+                    </span>
+                  </div>
+                  <input
+                    id={`axios-issue-title-${idx}`}
+                    type="text"
+                    value={issue.title}
+                    aria-invalid={titleOver}
+                    onChange={(e) =>
+                      handleUpdateIssue(idx, {
+                        title: e.target.value.replace(/[\r\n]+/g, " "),
+                      })
+                    }
+                    onBlur={() => {
+                      if (titleOver) {
+                        handleUpdateIssue(idx, { title: formatAxiosCardTitle(issue.title) });
+                        editorToast.success(`${idx + 1}번 제목을 36자 이내 완결된 문장으로 다듬었습니다.`);
+                      }
+                    }}
+                    placeholder="고객 시선을 끄는 핵심 제목 (36자 이내)"
+                    className={`w-full min-h-[48px] rounded-xl border bg-white/95 px-3.5 py-2.5 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+                      titleOver
+                        ? "border-rose-500 focus:border-rose-600"
+                        : "border-slate-300/90 focus:border-blue-600"
+                    }`}
+                  />
+                  {titleOver && (
+                    <p role="status" className="text-sm font-bold text-rose-700">
+                      36자를 넘으면 고객 화면에서 길어져요. 입력칸을 벗어나면 자동으로 다듬어 드려요.
+                    </p>
+                  )}
+                </div>
 
-                    {/* 짧은 해설 입력 (48자 예산) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <label
-                          htmlFor={`axios-issue-brief-${idx}`}
-                          className="text-sm font-extrabold text-slate-800"
-                        >
-                          짧은 해설 (48자 이내 · 1~2문장)
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <span
-                            data-testid={`axios-issue-brief-count-${idx}`}
-                            className={`text-sm font-bold ${briefOver ? "text-rose-700" : "text-slate-600"}`}
-                          >
-                            {briefLen}/{AXIOS_BRIEF_MAX_CHARS}자
-                          </span>
+                {/* 짧은 해설 입력 (48자 예산 · text-base >=17px) */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor={`axios-issue-brief-${idx}`}
+                      className="text-sm font-extrabold text-slate-800"
+                    >
+                      짧은 해설 (48자 이내 · 1~2문장)
+                    </label>
+                    <span
+                      data-testid={`axios-issue-brief-count-${idx}`}
+                      className={`text-sm font-bold ${briefOver ? "text-rose-700" : "text-slate-600"}`}
+                    >
+                      {briefLen}/{AXIOS_BRIEF_MAX_CHARS}자
+                    </span>
+                  </div>
+                  <textarea
+                    id={`axios-issue-brief-${idx}`}
+                    rows={2}
+                    value={issue.brief}
+                    aria-invalid={briefOver}
+                    onChange={(e) => handleUpdateIssue(idx, { brief: e.target.value })}
+                    onBlur={() => {
+                      if (briefOver) {
+                        handleUpdateIssue(idx, {
+                          brief: formatAxiosTwoLineBrief(issue.brief, {
+                            title: issue.title,
+                            channel: channelForIssue,
+                          }),
+                        });
+                      }
+                    }}
+                    placeholder="핵심 사실이나 시사점을 48자 이내 1~2문장으로 짧게 입력하세요"
+                    className={`w-full rounded-xl border bg-white/95 p-3 text-base font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none resize-y ${
+                      briefOver
+                        ? "border-rose-500 focus:border-rose-600"
+                        : "border-slate-300/90 focus:border-blue-600"
+                    }`}
+                  />
+                </div>
+
+                {/* 기사 교체 드로어 */}
+                {isSwapping && (
+                  <div className="rounded-xl border border-slate-300 bg-white p-3.5 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-extrabold text-slate-900">
+                        다른 뉴스 기사로 이 이슈 교체
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {NEWS_CHANNELS.map((ch) => (
                           <button
+                            key={ch.id}
                             type="button"
                             onClick={() => {
-                              const refined = formatAxiosTwoLineBrief(issue.brief, {
-                                title: issue.title,
-                                channel: channelForIssue,
-                              });
-                              handleUpdateIssue(idx, { brief: refined });
-                              editorToast.success("48자 이내 완결된 해설로 짧고 명확하게 정돈했습니다.");
+                              setChannelFilter(ch.id);
+                              if (ch.id !== "all" && onRefreshLiveChannel) {
+                                onRefreshLiveChannel(ch.id);
+                              }
                             }}
-                            className="text-sm font-bold text-blue-800 hover:underline"
+                            className={`min-h-[44px] px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer ${
+                              channelFilter === ch.id
+                                ? "bg-blue-700 text-white"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            }`}
                           >
-                            ✨ 48자 자동 압축
+                            {ch.emoji} {ch.shortLabel}
                           </button>
-                        </div>
+                        ))}
                       </div>
-                      <textarea
-                        id={`axios-issue-brief-${idx}`}
-                        rows={2}
-                        value={issue.brief}
-                        aria-invalid={briefOver}
-                        onChange={(e) => handleUpdateIssue(idx, { brief: e.target.value })}
-                        onBlur={() => {
-                          if (briefOver) {
-                            handleUpdateIssue(idx, {
-                              brief: formatAxiosTwoLineBrief(issue.brief, {
-                                title: issue.title,
-                                channel: channelForIssue,
-                              }),
-                            });
-                          }
-                        }}
-                        placeholder="핵심 팩트나 시사점을 48자 이내 1~2문장으로 짧게 입력하세요"
-                        className={`w-full rounded-lg border bg-white/95 p-3 text-sm font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none resize-y ${
-                          briefOver ? "border-rose-500 focus:border-rose-600" : "border-slate-300/90 focus:border-blue-600"
-                        }`}
-                      />
                     </div>
-                  </>
-                );
-              })()}
-              {/* 기사 교체 드로어 */}
-              {isSwapping && (
-                <div className="rounded-lg border border-slate-300 bg-white p-3 space-y-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-1.5">
-                    <span className="text-sm font-extrabold text-slate-900">
-                      다른 뉴스 기사로 이 이슈 교체
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                      {NEWS_CHANNELS.map((ch) => (
+                    <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                      {candidatePool.slice(0, 10).map((cand, cIdx) => (
                         <button
-                          key={ch.id}
+                          key={String(cand.id ?? cIdx)}
                           type="button"
-                          onClick={() => {
-                            setChannelFilter(ch.id);
-                            if (ch.id !== "all" && onRefreshLiveChannel) {
-                              onRefreshLiveChannel(ch.id);
-                            }
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-sm font-bold ${
-                            channelFilter === ch.id
-                              ? "bg-blue-700 text-white"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                          }`}
+                          onClick={() => handleReplaceSingleIssue(idx, cand)}
+                          className="w-full min-h-[44px] text-left py-2.5 px-2.5 hover:bg-blue-50 rounded-xl transition-colors flex items-center justify-between gap-2 cursor-pointer"
                         >
-                          {ch.emoji} {ch.shortLabel}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-slate-900 truncate">{cand.title}</p>
+                            {cand.source && (
+                              <p className="text-sm text-slate-500 truncate">{cand.source}</p>
+                            )}
+                          </div>
+                          <span className="shrink-0 rounded-lg bg-blue-50 border border-blue-200 px-3 py-1 text-sm font-extrabold text-blue-700">
+                            선택
+                          </span>
                         </button>
                       ))}
                     </div>
                   </div>
-                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
-                    {candidatePool.slice(0, 10).map((cand, cIdx) => (
-                      <button
-                        key={String(cand.id ?? cIdx)}
-                        type="button"
-                        onClick={() => handleReplaceSingleIssue(idx, cand)}
-                        className="w-full text-left py-2 px-2 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-between gap-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-slate-900 truncate">{cand.title}</p>
-                          {cand.source && (
-                            <p className="text-sm text-slate-500 truncate">{cand.source}</p>
-                          )}
-                        </div>
-                        <span className="shrink-0 rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1 text-sm font-extrabold text-blue-700">
-                          선택
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

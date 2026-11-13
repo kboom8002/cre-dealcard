@@ -262,7 +262,7 @@ export function RentRollGrid({
       // Fallback if clipboard read permission denied
     }
     setPasteNotice(
-      "💡 아래 표의 아무 칸이나 클릭한 뒤 키보드 Ctrl + V 를 눌러 붙여넣어 주세요."
+      "💡 아래 표의 아무 칸이나 클릭한 뒤 복사한 임대 표를 붙여넣어 주세요."
     );
     setTimeout(() => setPasteNotice(null), 6000);
   };
@@ -416,7 +416,7 @@ export function RentRollGrid({
           <button
             type="button"
             onClick={() => setPasteNotice(null)}
-            className="text-[#92400E] font-bold text-[14px] hover:underline cursor-pointer ml-2"
+            className="min-h-[40px] px-2.5 text-[#92400E] font-bold text-sm hover:underline cursor-pointer ml-2"
           >
             닫기
           </button>
@@ -424,23 +424,23 @@ export function RentRollGrid({
       )}
 
       {/* Grid instructions header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[#475569] text-[14px]">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[#475569] text-sm">
         <span>
-          📋 엑셀이나 가이드에서 복사한 렌트롤을 우측 버튼 또는 표 위에서 <strong>Ctrl+V</strong>로 바로 붙여넣을 수 있습니다.
+          📋 엑셀에서 복사한 임대 표를 오른쪽 버튼으로 바로 붙여넣거나 칸에 직접 입력해 주세요.
         </span>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             data-testid="rent-roll-paste-btn"
             onClick={handleClickPasteFromClipboard}
-            className="px-3 py-1.5 rounded-lg bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-[13px] font-extrabold cursor-pointer shadow-2xs transition"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-sm font-extrabold cursor-pointer shadow-2xs transition"
           >
-            📋 복사한 렌트롤 붙여넣기 (Ctrl+V)
+            📋 복사한 임대 표 붙여넣기
           </button>
           <button
             type="button"
             onClick={handleAddRow}
-            className="text-[#1D4ED8] font-bold hover:underline cursor-pointer shrink-0 ml-1"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-blue-50 border border-[#CBD5E1] text-[#1D4ED8] text-sm font-extrabold cursor-pointer shrink-0 transition"
           >
             + 층 추가
           </button>
@@ -449,9 +449,9 @@ export function RentRollGrid({
 
       {/* Table Container */}
       <div className="overflow-x-auto rounded-2xl border-2 border-[#CBD5E1] bg-white shadow-sm">
-        <table ref={tableRef} role="grid" className="w-full border-collapse text-left min-w-[520px]">
+        <table ref={tableRef} role="grid" className="w-full border-collapse text-left min-w-[560px]">
           <thead>
-            <tr className="bg-[#FAF9F5] border-b-2 border-[#CBD5E1] text-[#0F172A] text-[14px] font-extrabold">
+            <tr className="bg-[#FAF9F5] border-b-2 border-[#CBD5E1] text-[#0F172A] text-sm font-extrabold">
               <th className="py-2 px-1.5 w-[48px] text-center">층</th>
               <th className="py-2 px-1.5 w-[64px]">호수</th>
               <th className="py-2 px-1.5 min-w-[84px]">용도/업종</th>
@@ -459,8 +459,8 @@ export function RentRollGrid({
               <th className="py-2 px-1.5 w-[72px] text-right">월세(만)</th>
               <th className="py-2 px-1.5 w-[68px] text-right">관리비(만)</th>
               <th className="py-2 px-1.5 w-[64px]">만기일</th>
-              <th className="py-2 px-1.5 w-[104px] text-center">상태</th>
-              <th className="py-2 px-1 w-[32px] text-center"></th>
+              <th className="py-2 px-1.5 w-[144px] text-center">상태</th>
+              <th className="py-2 px-1 w-[44px] text-center"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E2E8F0] text-[15px]">
@@ -681,7 +681,7 @@ export function RentRollGrid({
 
                   {/* Status 3 pills */}
                   <td className="py-1.5 px-1.5 text-center">
-                    <div className="inline-flex rounded-lg border border-[#CBD5E1] p-0.5 bg-[#FAF9F5]">
+                    <div className="inline-flex rounded-xl border border-[#CBD5E1] p-0.5 bg-[#FAF9F5]">
                       {(["occupied", "vacant", "owner"] as const).map((st) => {
                         const isCur = row.status === st;
                         const label = st === "occupied" ? "임대" : st === "vacant" ? "공실" : "자가";
@@ -690,7 +690,7 @@ export function RentRollGrid({
                             key={st}
                             type="button"
                             onClick={() => handleStatusChange(idx, st)}
-                            className={`px-1.5 py-1 text-[13px] font-bold rounded-md transition-colors cursor-pointer ${
+                            className={`min-h-[40px] px-2.5 py-1.5 text-sm font-bold rounded-lg transition-colors cursor-pointer ${
                               isCur
                                 ? "bg-[#0F172A] text-white shadow-xs"
                                 : "text-[#475569] hover:text-[#0F172A]"
@@ -709,8 +709,8 @@ export function RentRollGrid({
                       type="button"
                       disabled={rows.length <= 1}
                       onClick={() => handleDeleteRow(idx)}
-                      className={`text-[14px] font-bold p-1 cursor-pointer ${
-                        rows.length <= 1 ? "text-[#CBD5E1] cursor-not-allowed" : "text-[#991B1B] hover:bg-[#FEE2E2] rounded"
+                      className={`min-h-[40px] min-w-[40px] inline-flex items-center justify-center text-sm font-bold p-1.5 cursor-pointer ${
+                        rows.length <= 1 ? "text-[#CBD5E1] cursor-not-allowed" : "text-[#991B1B] hover:bg-[#FEE2E2] rounded-lg"
                       }`}
                       title="행 삭제"
                     >
