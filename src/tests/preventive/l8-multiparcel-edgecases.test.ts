@@ -258,7 +258,10 @@ describe('L8 Multi-Parcel Non-Bojeong Edge Cases (PT-801 ~ PT-804)', () => {
     const legendLabels = seogyoSlideData.zoningLegend.map((l: any) => l.label);
     expect(legendLabels).toContain('준주거지역');
     expect(legendLabels).toContain('제2종일반주거지역');
-    expect(legendLabels).toContain('본건 필지 경계');
+    // 36h audit (Slide 05): '본건 필지 경계' is shown only when a cadastral image with a drawn parcel
+    // polygon exists. No map image here → no misleading boundary badge.
+    // Positive case (hasPolygon=true) is covered in src/tests/unit/pptx/a23-a27-36h-audit.test.ts [C-3].
+    expect(legendLabels).not.toContain('본건 필지 경계');
   });
 
   it('[PT-805] classifies explicit multi-parcel development site memos as value_add (토지 N평) even when 사옥 is mentioned as a candidate development use, and omits bogus 0대/0대 parking row when unknown', () => {

@@ -29,6 +29,16 @@ import {
 } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
+  DateGroupedList,
+  ListThumbnail,
+  ListToolbar,
+  SelectedItemActions,
+  SimpleListRow,
+  WorkspaceListPanel,
+  type ActiveFilterChip,
+} from "@/components/workspace/list/WorkspaceList";
+import { useListViewMode } from "@/components/workspace/list/useListViewMode";
+import {
   UndoToastProvider,
   useUndoToast,
 } from "@/components/workspace/UndoConfirmToast";
@@ -422,6 +432,8 @@ function MagazineEditorWorkspace() {
     "all" | "draft" | "published"
   >("all");
   const [editionSearchQuery, setEditionSearchQuery] = useState<string>("");
+  // 좌측 목록 보기 방식 (간단히 | 자세히) — 4개 작업공간 공통 설정
+  const [listViewMode, setListViewMode] = useListViewMode();
   const [issueYear, setIssueYear] = useState<number>(() => kstParts().year);
   const [issueMonth, setIssueMonth] = useState<number>(() => kstParts().month);
   const [draftSlotSlugOverride, setDraftSlotSlugOverride] = useState<string | null>(null);
@@ -3091,7 +3103,7 @@ function MagazineEditorWorkspace() {
       role="radiogroup"
       aria-label="뉴스레터 발행 주기 선택"
       data-testid={`${testIdPrefix}-cadence-selector`}
-      className="grid grid-cols-3 gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1"
+      className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-0.5"
     >
       {NEWSLETTER_CADENCES.map((key) => {
         const meta = NEWSLETTER_CADENCE_META[key];
@@ -3104,7 +3116,7 @@ function MagazineEditorWorkspace() {
             aria-checked={selected}
             data-testid={`${testIdPrefix}-cadence-${key}`}
             onClick={() => handleChangeCadence(key)}
-            className={`min-h-[44px] rounded-lg px-2 py-2 text-sm font-extrabold transition ${
+            className={`min-h-[44px] rounded-lg px-2 py-1.5 text-sm font-extrabold whitespace-nowrap transition ${
               selected
                 ? "bg-blue-700 text-white shadow-xs"
                 : "bg-transparent text-slate-700 hover:bg-white"
@@ -3126,141 +3138,211 @@ function MagazineEditorWorkspace() {
     ...(specialCount > 0 ? [{ key: "special" as const, label: `호외 (${specialCount})` }] : []),
   ];
 
+  const editionCadenceLabelOf = (ed: SavedEditionSummary) =>
+    ed.cadence === "special"
+      ? "호외"
+      : NEWSLETTER_CADENCE_META[ed.cadence ?? "monthly"].label;
+  const editionDisplayTitle = (ed: SavedEditionSummary) =>
+    ed.title || `${ed.slug} 뉴스레터`;
+  /** 목록 날짜: 발행일(issueDate) → 발행 시각(publishedAt) → 수정 시각(updatedAt) */
+  const editionListDate = (ed: SavedEditionSummary) =>
+    ed.issueDate || ed.publishedAt || ed.updatedAt || null;
+
+  const editionActiveFilters: ActiveFilterChip[] = [];
+  if (editionStatusFilter !== "all") {
+    editionActiveFilters.push({
+      key: "status",
+      label: `상태: ${editionStatusFilter === "published" ? "발행됨" : "작성 중"}`,
+      onClear: () => setEditionStatusFilter("all"),
+    });
+  }
+  if (editionCadenceFilter !== "all") {
+    editionActiveFilters.push({
+      key: "cadence",
+      label: `주기: ${
+        editionCadenceFilter === "special"
+          ? "호외"
+          : NEWSLETTER_CADENCE_META[editionCadenceFilter].label
+      }`,
+      onClear: () => setEditionCadenceFilter("all"),
+    });
+  }
+
+  const selectedSavedEdition = editionId
+    ? editions.find((e) => e.id === editionId) ?? null
+    : null;
+
+  const editionEmptyState =
+    visibleEditions.length === 0 ? (
+      <p className="text-sm font-medium text-slate-600 py-2 px-1">
+        {editions.length === 0
+          ? `아직 발행한 이전 호가 없습니다. ${cadenceMeta.periodWord} 첫 ${cadenceMeta.label} 뉴스레터를 시작해 보세요.`
+          : "검색 조건에 맞는 뉴스레터가 없습니다."}
+      </p>
+    ) : null;
+
   const listSlot = (
-    <div
-      data-testid="magazine-list-slot"
-      className="p-4 space-y-4 text-slate-900"
-    >
-      {/* <EditionAirtableList /> 호환 슬롯 — 주기별 탭(일간·주간·월간·호외) 및 검색·복제·삭제 */}
-      {/* 빠른 시작 카드 */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
-        <div className="space-y-1">
-          <p className="text-sm font-bold text-blue-700">빠른 시작 · 발행 주기</p>
-          {cadenceSelector("quickstart")}
+    <WorkspaceListPanel
+      testId="magazine-list-slot"
+      className="text-slate-900"
+      bodyLabel={<>지난 뉴스레터 {visibleEditions.length}건</>}
+      controls={
+        <>
+          {/* <EditionAirtableList /> 호환 슬롯 — 주기별 탭(일간·주간·월간·호외) 및 검색·복제·삭제 */}
+          <button
+            type="button"
+            data-testid="new-newsletter-btn"
+            onClick={() => handleStartNewThisMonth()}
+            className="w-full min-h-[48px] rounded-xl bg-blue-700 px-4 py-2.5 text-base font-extrabold text-white shadow-xs transition hover:bg-blue-800 flex items-center justify-center gap-2"
+          >
+            <FilePlus2 className="h-5 w-5" aria-hidden="true" />
+            <span>{cadenceMeta.newButtonLabel}</span>
+          </button>
           <h2
             data-testid="current-issue-label"
-            className="pt-1 text-base font-extrabold text-slate-900"
+            className="truncate px-1 text-sm font-bold text-slate-600"
           >
             {autoMeta.yearMonthLabel} 뉴스레터
           </h2>
-          <p className="text-sm font-medium text-slate-600">
-            제목·내용·보내기 3단계로 {cadenceMeta.periodWord} {cadenceMeta.label} 뉴스레터를 완성하세요.
-          </p>
-        </div>
 
-        <button
-          type="button"
-          data-testid="new-newsletter-btn"
-          onClick={() => handleStartNewThisMonth()}
-          className="w-full min-h-[48px] rounded-xl bg-blue-700 px-4 py-2.5 text-base font-extrabold text-white shadow-xs transition hover:bg-blue-800 flex items-center justify-center gap-2"
-        >
-          <FilePlus2 className="h-5 w-5" aria-hidden="true" />
-          <span>{cadenceMeta.newButtonLabel}</span>
-        </button>
-      </div>
+          {/* 발행 주기 (새로 쓰기 버튼의 기본 주기) */}
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 whitespace-nowrap text-sm font-bold text-slate-700">
+              발행 주기
+            </span>
+            {cadenceSelector("quickstart")}
+          </div>
 
-      {/* 이전 호 불러오기 목록 (검색 + 상태 필터 + 주기별 필터) */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-slate-800">이전 호 불러오기</h3>
-          <span className="text-sm font-bold text-slate-600">{visibleEditions.length}건</span>
-        </div>
+          {/* 제목·날짜 검색 입력 */}
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={editionSearchQuery}
+              onChange={(e) => setEditionSearchQuery(e.target.value)}
+              placeholder="제목 또는 날짜 검색..."
+              aria-label="이전 호 제목 또는 날짜 검색"
+              data-testid="edition-search-input"
+              className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white pl-9 pr-3 py-1.5 text-base font-semibold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
 
-        {/* 제목·날짜 검색 입력 */}
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
-            aria-hidden="true"
+          <ListToolbar
+            viewMode={listViewMode}
+            onViewModeChange={setListViewMode}
+            activeFilters={editionActiveFilters}
+            filterPanel={
+              <>
+                {/* 상태별 필터 (전체 / 작성 중 / 발행됨) */}
+                <div className="space-y-1">
+                  <p className="px-0.5 text-sm font-bold text-slate-600">상태</p>
+                  <div
+                    role="group"
+                    aria-label="발행 상태별 보기"
+                    className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1"
+                  >
+                    {(
+                      [
+                        { key: "all", label: "전체" },
+                        { key: "draft", label: "작성 중" },
+                        { key: "published", label: "발행됨" },
+                      ] as const
+                    ).map((st) => (
+                      <button
+                        key={st.key}
+                        type="button"
+                        data-testid={`edition-status-filter-${st.key}`}
+                        aria-pressed={editionStatusFilter === st.key}
+                        onClick={() => setEditionStatusFilter(st.key)}
+                        className={`min-h-[40px] rounded-lg px-2 py-1 text-sm font-bold transition ${
+                          editionStatusFilter === st.key
+                            ? "bg-white text-slate-900 shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 주기별 탭 (전체 / 일간 / 주간 / 월간 / 호외) */}
+                <div className="space-y-1">
+                  <p className="px-0.5 text-sm font-bold text-slate-600">주기</p>
+                  <div
+                    role="tablist"
+                    aria-label="이전 호 주기별 보기"
+                    className="flex flex-wrap gap-1.5"
+                  >
+                    {filterTabs.map((tab) => {
+                      const activeFilter = editionCadenceFilter === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={activeFilter}
+                          data-testid={`edition-filter-${tab.key}`}
+                          data-active-pill={activeFilter ? "true" : undefined}
+                          onClick={() => setEditionCadenceFilter(tab.key)}
+                          style={
+                            activeFilter
+                              ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" }
+                              : { backgroundColor: "#F1F5F9", color: "#334155" }
+                          }
+                          className={`min-h-[40px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
+                            activeFilter
+                              ? "bg-blue-700 text-white"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            }
           />
-          <input
-            type="search"
-            value={editionSearchQuery}
-            onChange={(e) => setEditionSearchQuery(e.target.value)}
-            placeholder="제목 또는 날짜 검색..."
-            aria-label="이전 호 제목 또는 날짜 검색"
-            data-testid="edition-search-input"
-            className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:outline-none"
-          />
-        </div>
-
-        {/* 상태별 필터 (전체 / 작성 중 / 발행됨) */}
-        <div
-          role="group"
-          aria-label="발행 상태별 보기"
-          className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1"
-        >
-          {(
-            [
-              { key: "all", label: "전체" },
-              { key: "draft", label: "작성 중" },
-              { key: "published", label: "발행됨" },
-            ] as const
-          ).map((st) => (
-            <button
-              key={st.key}
-              type="button"
-              data-testid={`edition-status-filter-${st.key}`}
-              aria-pressed={editionStatusFilter === st.key}
-              onClick={() => setEditionStatusFilter(st.key)}
-              className={`min-h-[36px] rounded-lg px-2 py-1 text-sm font-bold transition ${
-                editionStatusFilter === st.key
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {st.label}
-            </button>
-          ))}
-        </div>
-
-        {/* 주기별 탭 (전체 / 일간 / 주간 / 월간 / 호외) */}
-        <div
-          role="tablist"
-          aria-label="이전 호 주기별 보기"
-          className="flex flex-wrap gap-1.5"
-        >
-          {filterTabs.map((tab) => {
-            const activeFilter = editionCadenceFilter === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={activeFilter}
-                data-testid={`edition-filter-${tab.key}`}
-                data-active-pill={activeFilter ? "true" : undefined}
-                onClick={() => setEditionCadenceFilter(tab.key)}
-                style={
-                  activeFilter
-                    ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" }
-                    : { backgroundColor: "#F1F5F9", color: "#334155" }
+        </>
+      }
+    >
+      {editionEmptyState ??
+        (listViewMode === "simple" ? (
+          <DateGroupedList
+            items={visibleEditions}
+            getDate={editionListDate}
+            getKey={(ed) => ed.id}
+            ariaLabel="지난 뉴스레터"
+            renderRow={(ed) => (
+              <SimpleListRow
+                testId={`magazine-edition-item-${ed.id}`}
+                title={editionDisplayTitle(ed)}
+                date={editionListDate(ed)}
+                status={
+                  ed.status === "published"
+                    ? { label: "발행됨", tone: "sent" }
+                    : { label: "작성 중", tone: "draft" }
                 }
-                className={`min-h-[36px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
-                  activeFilter
-                    ? "bg-blue-700 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {visibleEditions.length === 0 ? (
-          <p className="text-sm font-medium text-slate-600 py-2">
-            {editions.length === 0
-              ? `아직 발행한 이전 호가 없습니다. ${cadenceMeta.periodWord} 첫 ${cadenceMeta.label} 뉴스레터를 시작해 보세요.`
-              : "검색 조건에 맞는 뉴스레터가 없습니다."}
-          </p>
+                meta={
+                  <span data-testid={`edition-cadence-badge-${ed.id}`}>
+                    {editionCadenceLabelOf(ed)}
+                  </span>
+                }
+                selected={editionId === ed.id}
+                onSelect={() => handleSelectExistingEdition(ed)}
+              />
+            )}
+          />
         ) : (
           <ul className="space-y-2" role="list">
             {visibleEditions.map((ed) => {
               const isCurrent = editionId === ed.id;
-              const edCadenceLabel =
-                ed.cadence === "special"
-                  ? "호외"
-                  : NEWSLETTER_CADENCE_META[ed.cadence ?? "monthly"].label;
+              const edCadenceLabel = editionCadenceLabelOf(ed);
               return (
                 <li key={ed.id}>
                   <div
@@ -3277,50 +3359,56 @@ function MagazineEditorWorkspace() {
                         handleSelectExistingEdition(ed);
                       }
                     }}
-                    className={`w-full min-h-[48px] rounded-xl border p-3 text-left transition space-y-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                    className={`w-full min-h-[48px] rounded-xl border p-3 text-left transition flex items-start gap-3 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       isCurrent
                         ? "border-blue-600 bg-blue-50/70 text-slate-900"
                         : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-extrabold text-slate-900 truncate">
-                        {ed.title || `${ed.slug} 뉴스레터`}
-                      </span>
-                      <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-sm font-bold text-slate-700">
-                        {ed.status === "published" ? "발행됨" : "작성 중"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-slate-600 truncate">
-                        <span
-                          data-testid={`edition-cadence-badge-${ed.id}`}
-                          className="mr-1 rounded bg-blue-50 px-1.5 py-0.5 text-sm font-extrabold text-blue-800"
-                        >
-                          {edCadenceLabel}
+                    <ListThumbnail
+                      fallbackText={edCadenceLabel}
+                      alt={`${editionDisplayTitle(ed)} 표지`}
+                    />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-base font-bold text-slate-900 truncate">
+                          {editionDisplayTitle(ed)}
                         </span>
-                        {ed.slug} · 추천 매물 {ed.dealCount}건
-                      </p>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          data-testid={`edition-duplicate-btn-${ed.id}`}
-                          aria-label={`${ed.title || ed.slug} 복제`}
-                          onClick={(e) => handleDuplicateEdition(ed, e)}
-                          className="min-h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100"
-                        >
-                          복제
-                        </button>
-                        <button
-                          type="button"
-                          data-testid={`edition-delete-btn-${ed.id}`}
-                          aria-label={`${ed.title || ed.slug} 삭제`}
-                          onClick={(e) => void handleDeleteEdition(ed, e)}
-                          className="min-h-[36px] inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-1 text-sm font-bold text-rose-800 hover:bg-rose-100"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>삭제</span>
-                        </button>
+                        <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-sm font-bold text-slate-700">
+                          {ed.status === "published" ? "발행됨" : "작성 중"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-slate-600 truncate">
+                          <span
+                            data-testid={`edition-cadence-badge-${ed.id}`}
+                            className="mr-1 rounded bg-blue-50 px-1.5 py-0.5 text-sm font-extrabold text-blue-800"
+                          >
+                            {edCadenceLabel}
+                          </span>
+                          {ed.slug} · 추천 매물 {ed.dealCount}건
+                        </p>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            data-testid={`edition-duplicate-btn-${ed.id}`}
+                            aria-label={`${ed.title || ed.slug} 복제`}
+                            onClick={(e) => handleDuplicateEdition(ed, e)}
+                            className="min-h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100"
+                          >
+                            복제
+                          </button>
+                          <button
+                            type="button"
+                            data-testid={`edition-delete-btn-${ed.id}`}
+                            aria-label={`${ed.title || ed.slug} 삭제`}
+                            onClick={(e) => void handleDeleteEdition(ed, e)}
+                            className="min-h-[36px] inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-1 text-sm font-bold text-rose-800 hover:bg-rose-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>삭제</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3328,9 +3416,8 @@ function MagazineEditorWorkspace() {
               );
             })}
           </ul>
-        )}
-      </div>
-    </div>
+        ))}
+    </WorkspaceListPanel>
   );
 
   // ════════════════════════════════════════════════════════════════════
@@ -3341,6 +3428,14 @@ function MagazineEditorWorkspace() {
       data-testid="magazine-editor-slot"
       className="p-4 sm:p-6 space-y-5 text-slate-900"
     >
+      {/* 간단히 보기: 선택한 지난 뉴스레터의 복제·삭제를 편집 화면 상단에서 처리 */}
+      {listViewMode === "simple" && selectedSavedEdition ? (
+        <SelectedItemActions
+          itemLabel={editionDisplayTitle(selectedSavedEdition)}
+          onDuplicate={(e) => handleDuplicateEdition(selectedSavedEdition, e)}
+          onDelete={(e) => void handleDeleteEdition(selectedSavedEdition, e)}
+        />
+      ) : null}
       <div data-testid="magazine-three-column-layout" className="space-y-5">
         {/* 상단 3단계 탭 막대 + 서버 임시저장 버튼 (NL-02) */}
         <div className="flex flex-wrap items-center justify-between gap-2">

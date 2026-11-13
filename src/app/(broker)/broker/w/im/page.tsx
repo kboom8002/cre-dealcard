@@ -27,6 +27,15 @@ import {
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
 import { IM_POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
+import { useListViewMode } from "@/components/workspace/list/useListViewMode";
+import {
+  WorkspaceListPanel,
+  ListToolbar,
+  SimpleListRow,
+  DateGroupedList,
+  ListThumbnail,
+  SelectedItemActions,
+} from "@/components/workspace/list/WorkspaceList";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -76,7 +85,7 @@ function buildImItemFromDealCardRecord(dc: any): ImListItem | null {
     grossYieldPct: 0,
     status: "draft",
     versionLabel: "작성 중",
-    updatedAt: "방금",
+    updatedAt: new Date().toISOString(),
     investmentPosture: posture,
     gfaSqm: gfaPyung > 0 ? String(Math.round(gfaPyung * 3.3058 * 10) / 10) : "",
     completionDate: "",
@@ -735,6 +744,7 @@ function ImWorkspaceInner() {
   const [items, setItems] = useState<ImListItem[]>(INITIAL_IM_LIST);
   const [searchQuery, setSearchQuery] = useState("");
   const [postureFilter, setPostureFilter] = useState<"all" | "income" | "owner" | "value_dev">("all");
+  const [viewMode, setViewMode] = useListViewMode();
   const [fullscreenModalUrl, setFullscreenModalUrl] = useState<string | null>(null);
   const [activeEditorTab, setActiveEditorTab] = useState<
     "specs" | "rentroll" | "axios_brief" | "media_publish"
@@ -1251,7 +1261,7 @@ function ImWorkspaceInner() {
           ...it,
           ...patch,
           grossYieldPct: nextYield,
-          updatedAt: "방금",
+          updatedAt: new Date().toISOString(),
           isDirty: patch.isDirty ?? true,
         };
       });
@@ -1884,7 +1894,7 @@ function ImWorkspaceInner() {
       grossYieldPct: 0,
       status: "draft",
       versionLabel: "작성 중",
-      updatedAt: "방금",
+      updatedAt: new Date().toISOString(),
       investmentPosture: "core_income",
       gfaSqm: "",
       completionDate: "",
@@ -2439,7 +2449,7 @@ function ImWorkspaceInner() {
                   grossYieldPct: reqYield || it.grossYieldPct,
                   status: "published" as const,
                   versionLabel: "발행됨",
-                  updatedAt: "방금",
+                  updatedAt: new Date().toISOString(),
                   rentRoll: reqRentRoll,
                   investmentPosture: reqPosture,
                   gfaSqm: reqGfa,
@@ -2525,7 +2535,7 @@ function ImWorkspaceInner() {
       title: `${source.title} (사본)`,
       status: "draft",
       versionLabel: "작성 중",
-      updatedAt: "방금",
+      updatedAt: new Date().toISOString(),
       isDirty: true,
     };
     const next = [cloned, ...items];
@@ -2763,18 +2773,23 @@ function ImWorkspaceInner() {
   };
 
   /* ──────── Column 1: Item List (Apple iOS Frosted Rail) ──────── */
-  const listSlot = (
-    <div className="flex flex-col h-full bg-transparent p-3 space-y-3" data-testid="im-list-slot">
-      {/* Header Banner */}
-      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-[#1D1D1F] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_12px_rgba(15,23,42,0.12)]">
-        <span className="text-sm font-semibold text-white">
-          보유 IM 목록
-        </span>
-        <span className="text-sm font-semibold text-[#FFAA00]">
-          총 {filteredItems.length}건
-        </span>
-      </div>
+  const IM_POSTURE_FILTER_TABS = [
+    { id: "all", label: "전체" },
+    { id: "income", label: "임대수익" },
+    { id: "owner", label: "사옥용" },
+    { id: "value_dev", label: "신축·개발" },
+  ] as const;
+  const activeImPostureTab =
+    postureFilter !== "all"
+      ? IM_POSTURE_FILTER_TABS.find((tab) => tab.id === postureFilter)
+      : undefined;
 
+  const listSlot = (
+    <WorkspaceListPanel
+      testId="im-list-slot"
+      bodyLabel={<>보유 IM 목록 {filteredItems.length}건</>}
+      controls={
+        <>
       {/* Create New Button */}
       <button
         type="button"
@@ -2796,10 +2811,27 @@ function ImWorkspaceInner() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="매물 이름 또는 주소로 찾기..."
-          className="w-full min-h-[48px] px-3.5 bg-white/92 text-base rounded-2xl border border-slate-900/[0.12] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 outline-none transition-all"
+          className="w-full min-h-[48px] px-3.5 bg-white text-base rounded-2xl border border-slate-900/[0.12] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 outline-none transition-all"
         />
       </div>
 
+      <ListToolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        activeFilters={
+          activeImPostureTab
+            ? [
+                {
+                  key: "im-posture",
+                  label: activeImPostureTab.label,
+                  onClear: () => handleImPostureFilterChange("all"),
+                },
+              ]
+            : []
+        }
+        filterPanel={
+          <div className="space-y-1.5">
+            <p className="px-0.5 text-sm font-bold text-[#3A3A3C]">매물 유형</p>
       {/* 매물 유형 필터 (iOS Segmented Control) */}
       <div
         role="tablist"
@@ -2807,14 +2839,7 @@ function ImWorkspaceInner() {
         data-testid="im-posture-switcher"
         className="grid grid-cols-4 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
       >
-        {(
-          [
-            { id: "all", label: "전체" },
-            { id: "income", label: "임대수익" },
-            { id: "owner", label: "사옥용" },
-            { id: "value_dev", label: "신축·개발" },
-          ] as const
-        ).map((tab) => {
+        {IM_POSTURE_FILTER_TABS.map((tab) => {
           const active = postureFilter === tab.id;
           return (
             <button
@@ -2835,12 +2860,16 @@ function ImWorkspaceInner() {
           );
         })}
       </div>
-
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1" role="list">
+          </div>
+        }
+      />
+        </>
+      }
+    >
         {filteredItems.length === 0 ? (
           <div
             data-testid="im-empty-list-state"
-            className="p-5 rounded-2xl bg-white/92 border border-slate-200 text-center space-y-3"
+            className="p-5 rounded-2xl bg-white border border-slate-200 text-center space-y-3"
           >
             <p className="text-sm font-bold text-[#1D1D1F] break-keep">
               등록된 물건이 없습니다
@@ -2856,8 +2885,30 @@ function ImWorkspaceInner() {
               </button>
             )}
           </div>
+        ) : viewMode === "simple" ? (
+          <DateGroupedList
+            items={filteredItems}
+            getDate={(item) => item.updatedAt}
+            getKey={(item) => item.id}
+            ariaLabel="보유 IM 목록"
+            renderRow={(item) => (
+              <SimpleListRow
+                testId={`im-item-${item.id}`}
+                title={item.title || "새 IM"}
+                date={item.updatedAt}
+                status={
+                  item.status === "published"
+                    ? { label: TERMS.statusPublished, tone: "sent" }
+                    : { label: TERMS.statusDraft, tone: "draft" }
+                }
+                selected={item.id === (currentItem?.id || selectedId)}
+                onSelect={() => selectImItem(item.id)}
+              />
+            )}
+          />
         ) : (
-          filteredItems.map((item) => {
+          <div className="space-y-2.5" role="list">
+          {filteredItems.map((item) => {
           const isSelected = item.id === (currentItem?.id || selectedId);
           const itemPostureLabel =
             IM_POSTURE_LABELS[item.investmentPosture || "core_income"] || "임대수익용";
@@ -2887,7 +2938,17 @@ function ImWorkspaceInner() {
               {isSelected && (
                 <div className="absolute left-0 top-3 bottom-3 w-1.5 bg-[#007AFF] rounded-r-full" />
               )}
-              <div className="flex items-center justify-between gap-2 mb-1 pl-2">
+              <div className="flex items-start gap-3 pl-2">
+              <ListThumbnail
+                src={
+                  resolveRenderablePhotoSrc(item.photos?.[0]) ||
+                  resolveKnownTestAssetUrl(item.photoNames?.[0])
+                }
+                fallbackText={(item.title || item.address || "IM").trim()}
+                alt={`${item.title || "새 IM"} 대표 사진`}
+              />
+              <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2 mb-1">
                 <span
                   data-single-line-title="true"
                   title={item.title}
@@ -2905,10 +2966,10 @@ function ImWorkspaceInner() {
                   {item.status === "published" ? TERMS.statusPublished : TERMS.statusDraft}
                 </span>
               </div>
-              <p className="text-sm text-[#515154] pl-2 break-keep">
+              <p className="text-sm text-[#515154] break-keep">
                 {item.address || "주소 미입력"}
               </p>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-[#1D1D1F] mt-2 pt-2 border-t border-slate-900/[0.06] pl-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-[#1D1D1F] mt-2 pt-2 border-t border-slate-900/[0.06]">
                 <div className="flex items-center gap-2">
                   <span>
                     {item.askingPriceManwon && item.askingPriceManwon > 0
@@ -2939,12 +3000,14 @@ function ImWorkspaceInner() {
                   </button>
                 </div>
               </div>
+              </div>
+              </div>
             </div>
           );
-        })
+        })}
+          </div>
         )}
-      </div>
-    </div>
+    </WorkspaceListPanel>
   );
 
   const normalizedPosture = normalizePostureForSelector(investmentPosture);
@@ -2980,6 +3043,13 @@ function ImWorkspaceInner() {
   /* ──────── Column 2: 4 Top Tabs + Editor Panels ──────── */
   const editorSlot = (
     <div className="space-y-5 w-full" data-testid="im-editor-slot">
+      {viewMode === "simple" && currentItem && (
+        <SelectedItemActions
+          itemLabel={currentItem.title || "새 IM"}
+          onDuplicate={(e) => handleDuplicateIm(currentItem, e)}
+          onDelete={(e) => handleDeleteIm(currentItem, e)}
+        />
+      )}
       <button
         type="button"
         data-testid="im-open-bottom-sheet-btn"
@@ -4957,7 +5027,7 @@ function ImWorkspaceInner() {
           onClick={handleOpenStudio}
           className="min-h-[44px] px-3 py-2 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-bold text-sm hover:bg-[#EFF6FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
         >
-          <span>{isProvisioningSheet ? "준비 중…" : "📐 PPTX 스튜디오"}</span>
+          <span>{isProvisioningSheet ? "준비 중…" : "📐 발표자료 꾸미기"}</span>
         </button>
       </div>
     </div>

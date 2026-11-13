@@ -1253,6 +1253,15 @@
   min-width: 48px;
 }
 
+/* Workspace simple list rows: allow 2-line titles in "아주 크게" so long Korean titles stay readable */
+[data-font-scale="xlarge"] .ws-simple-row-title {
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .ws-touch-primary {
   min-height: 56px;
 }

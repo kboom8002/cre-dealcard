@@ -1744,7 +1744,7 @@ export function MobileIMViewer({
               href={`/broker/basic-im-studio/${encodeURIComponent(buildingId)}`}
               data-testid="mobile-im-open-studio-btn"
               className="min-h-[48px] px-3 bg-[#F8FAFC] border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-[14px] whitespace-nowrap shrink-0"
-              title="10면 PPTX 스튜디오 편집"
+              title="10면 발표자료(PPT) 꾸미기"
             >
               <span>📐 스튜디오</span>
             </Link>

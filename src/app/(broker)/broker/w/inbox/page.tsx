@@ -4,6 +4,16 @@ import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
+import {
+  WorkspaceListPanel,
+  ListToolbar,
+  SimpleListRow,
+  DateGroupedList,
+  ListThumbnail,
+  type ListStatusTone,
+} from "@/components/workspace/list/WorkspaceList";
+import { useListViewMode } from "@/components/workspace/list/useListViewMode";
+import { formatListDate } from "@/lib/workspace/list-date";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { copyText } from "@/lib/ux/clipboard";
 import { shareKakaoFeed } from "@/lib/kakao/share";
@@ -336,6 +346,44 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
   };
 }
 
+/** 목록 행 상태 배지 (간단히 · 자세히 보기 공통 문구) */
+function getInboxStatusBadge(item: InboxThreadItem): {
+  text: string;
+  cls: string;
+  tone: ListStatusTone;
+} {
+  const isSubPendingConfirm =
+    item.id.startsWith("sub_") &&
+    !item.newsletterSubscribed &&
+    (item.cleanMessage || "").includes("수신 확인 대기");
+  if (item.status === "pending_gate") {
+    return { text: "IM 요청 대기", cls: "bg-amber-100 text-amber-900 border border-amber-300", tone: "action" };
+  }
+  if (item.status === "revoked") {
+    return { text: "링크 잠김", cls: "bg-rose-100 text-rose-800 border border-rose-200", tone: "warn" };
+  }
+  if (item.gateStatus === "rejected") {
+    return { text: "요청 거절됨", cls: "bg-slate-200 text-slate-700 border border-slate-300", tone: "muted" };
+  }
+  if (item.status === "high_interest" || item.openCount >= 3) {
+    return { text: "관심 높음", cls: "bg-blue-100 text-blue-900 border border-blue-200", tone: "ready" };
+  }
+  if (item.id.startsWith("sub_")) {
+    if (isSubPendingConfirm) {
+      return { text: "수신 확인 대기", cls: "bg-amber-100 text-amber-900 border border-amber-300", tone: "action" };
+    }
+    if (item.newsletterSubscribed) {
+      return { text: "수신 동의 완료", cls: "bg-emerald-100 text-emerald-900 border border-emerald-200", tone: "sent" };
+    }
+    return { text: "수신 거부", cls: "bg-slate-100 text-slate-700 border border-slate-200", tone: "muted" };
+  }
+  return {
+    text: item.openCount > 0 ? `${item.openCount}회 열람` : "등록 고객",
+    cls: "bg-slate-100 text-slate-700 border border-slate-200",
+    tone: "draft",
+  };
+}
+
 function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const router = useRouter();
   const pathname = usePathname() || "/broker/w/inbox";
@@ -647,6 +695,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     [threads]
   );
   const pendingCount = pendingThreads.length;
+  const [viewMode, setViewMode] = useListViewMode();
 
   const filteredThreads = useMemo(() => {
     return threads.filter((t) =>
@@ -1320,7 +1369,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       buildingId: resolvedBuildingId,
       latestEvent: "직접 등록한 고객입니다.",
       cleanMessage: "직접 등록한 고객입니다.",
-      updatedAt: "방금",
+      updatedAt: new Date().toISOString(),
       openCount: 0,
       isRead: true,
       status: "active",
@@ -1540,83 +1589,59 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(msg);
   };
 
-  /* ──────── Column 1: 할 일 요약 카드 + 3개 필터 칩 + 고객 목록 (Apple iOS Frosted Rail) ──────── */
-  const listSlot = (
-    <div
-      className="flex h-full flex-col space-y-3 bg-transparent p-3.5"
-      data-testid="inbox-list-slot"
-    >
-      {/* 1열 상단 고정: "지금 할 일 {N}건" 요약 카드 (IB-11 — Spatial Tinted Glass) */}
+  /* ──────── Column 1: 할 일 막대 + 3개 필터 칩 + 고객 목록 (간단히 / 자세히) ──────── */
+  const firstPendingThread = pendingThreads[0];
+  const listControls = (
+    <>
+      {/* 한 줄 할 일 막대: 누르면 '할 일' 필터 적용 */}
       <div
         data-testid="inbox-todo-summary-card"
-        className="rounded-2xl border border-[#FF9500]/24 bg-[#FF9500]/[0.08] backdrop-blur-xl p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_rgba(255,149,0,0.08)]"
+        className="flex min-h-[48px] flex-wrap items-center gap-2 rounded-xl border border-[#FF9500]/35 bg-[#FFF4E5] px-2.5 py-1"
       >
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-base font-bold text-[#1D1D1F]">
-              지금 할 일 {pendingCount}건
-            </p>
-            <p className="mt-0.5 text-sm text-[#3A3A3C]">
-              {pendingCount > 0
-                ? "승인을 기다리는 IM 열람 요청을 바로 처리해 보세요."
-                : "대기 중인 IM 열람 요청이 없습니다."}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowNewClientModal(true)}
-            data-testid="open-new-client-modal-btn"
-            className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl ios-glass-pill border border-slate-900/[0.08] bg-white/88 px-3.5 py-2 text-sm font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:bg-white cursor-pointer"
+        <button
+          type="button"
+          data-testid="inbox-todo-summary-filter-btn"
+          onClick={() => handleFilterChange("todo")}
+          className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-lg px-1 text-base font-bold text-[#8A4B00] cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
+        >
+          <span aria-hidden="true">🔔</span>
+          <span>지금 할 일 {pendingCount}건</span>
+          <span aria-hidden="true">›</span>
+        </button>
+        {firstPendingThread && (
+          <div
+            key={`todo-quick-${firstPendingThread.id}`}
+            role="button"
+            tabIndex={0}
+            data-testid={`quick-todo-card-${firstPendingThread.id}`}
+            onClick={() => selectThread(firstPendingThread.id)}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                selectThread(firstPendingThread.id);
+              }
+            }}
+            className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
           >
-            + 고객 직접 등록
-          </button>
-        </div>
-
-        {pendingThreads.length > 0 && (
-          <div className="mt-3 space-y-2 border-t border-[#FF9500]/20 pt-3">
-            {pendingThreads.slice(0, 1).map((pt) => (
-              <div
-                key={`todo-quick-${pt.id}`}
-                role="button"
-                tabIndex={0}
-                data-testid={`quick-todo-card-${pt.id}`}
-                onClick={() => selectThread(pt.id)}
-                onKeyDown={(e) => {
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    selectThread(pt.id);
-                  }
-                }}
-                className="flex items-center justify-between gap-2 rounded-xl border border-[#FF9500]/22 bg-white/90 px-3 py-2 shadow-2xs transition hover:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#1D1D1F]">
-                    {pt.clientName} · {pt.buildingTitle}
-                  </p>
-                  <p className="truncate text-sm text-[#515154]">
-                    {pt.cleanMessage || "IM 열람 요청"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  data-testid={`quick-approve-btn-${pt.id}`}
-                  disabled={Boolean(busyAction)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleApproveAndSendIm(pt);
-                  }}
-                  className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-[#24B63E] to-[#188C2C] px-3.5 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_6px_rgba(29,158,52,0.22)] transition hover:brightness-105 disabled:opacity-50 cursor-pointer"
-                >
-                  자료 보내기
-                </button>
-              </div>
-            ))}
-            {pendingThreads.length > 1 && (
-              <p className="px-1 text-sm font-semibold text-[#8A4B00]">
-                외 {pendingThreads.length - 1}건의 대기 요청이 아래 목록에 있습니다.
-              </p>
-            )}
+            <span
+              title={firstPendingThread.clientName}
+              className="min-w-0 truncate text-sm font-bold text-[#1D1D1F]"
+            >
+              {firstPendingThread.clientName}
+            </span>
+            <button
+              type="button"
+              data-testid={`quick-approve-btn-${firstPendingThread.id}`}
+              disabled={Boolean(busyAction)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleApproveAndSendIm(firstPendingThread);
+              }}
+              className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-[#24B63E] to-[#188C2C] px-3 py-1.5 text-sm font-bold text-white shadow-[0_2px_6px_rgba(29,158,52,0.22)] transition hover:brightness-105 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+            >
+              자료 보내기
+            </button>
           </div>
         )}
       </div>
@@ -1669,12 +1694,35 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           value={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="고객명, 연락처, 회사명, 매물 검색"
-          className="min-h-[48px] w-full rounded-2xl border border-slate-900/[0.12] bg-white/92 px-3.5 py-2.5 text-base text-[#1D1D1F] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 focus:outline-none transition-all"
+          className="min-h-[48px] w-full rounded-2xl border border-slate-900/[0.12] bg-white px-3.5 py-2.5 text-base text-[#1D1D1F] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 focus:outline-none transition-all"
         />
       </div>
 
+      <ListToolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        extra={
+          <button
+            type="button"
+            onClick={() => setShowNewClientModal(true)}
+            data-testid="open-new-client-modal-btn"
+            className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-[#1D1D1F] whitespace-nowrap transition-colors hover:bg-slate-50 cursor-pointer"
+          >
+            + 고객 직접 등록
+          </button>
+        }
+      />
+    </>
+  );
+
+  const listSlot = (
+    <WorkspaceListPanel
+      testId="inbox-list-slot"
+      bodyLabel={<>목록 {filteredThreads.length}건</>}
+      controls={listControls}
+    >
       {/* 스레드 목록 또는 친절한 빈 상태 (IB-06) */}
-      <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
+      <div className="space-y-2">
         {threads.length === 0 ? (
           <div
             data-testid="inbox-empty-state"
@@ -1713,53 +1761,32 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               전체 고객 보기
             </button>
           </div>
+        ) : viewMode === "simple" ? (
+          <DateGroupedList
+            items={filteredThreads}
+            getDate={(item) => item.updatedAt}
+            getKey={(item) => item.id}
+            ariaLabel="고객 목록"
+            renderRow={(item) => {
+              const statusBadge = getInboxStatusBadge(item);
+              return (
+                <SimpleListRow
+                  testId={`inbox-thread-row-${item.id}`}
+                  title={item.clientName}
+                  date={item.updatedAt}
+                  status={{ label: statusBadge.text, tone: statusBadge.tone }}
+                  meta={item.buildingTitle}
+                  selected={activeThread?.id === item.id}
+                  onSelect={() => selectThread(item.id)}
+                  dataAttrs={{ "data-unread": item.isRead ? "false" : "true" }}
+                />
+              );
+            }}
+          />
         ) : (
           filteredThreads.map((item) => {
             const isSelected = activeThread?.id === item.id;
-            const isSubPendingConfirm =
-              item.id.startsWith("sub_") &&
-              !item.newsletterSubscribed &&
-              (item.cleanMessage || "").includes("수신 확인 대기");
-            const statusBadge =
-              item.status === "pending_gate"
-                ? {
-                    text: "IM 요청 대기",
-                    cls: "bg-amber-100 text-amber-900 border border-amber-300",
-                  }
-                : item.status === "revoked"
-                ? {
-                    text: "링크 잠김",
-                    cls: "bg-rose-100 text-rose-800 border border-rose-200",
-                  }
-                : item.gateStatus === "rejected"
-                ? {
-                    text: "요청 거절됨",
-                    cls: "bg-slate-200 text-slate-700 border border-slate-300",
-                  }
-                : item.status === "high_interest" || item.openCount >= 3
-                ? {
-                    text: "관심 높음",
-                    cls: "bg-blue-100 text-blue-900 border border-blue-200",
-                  }
-                : item.id.startsWith("sub_")
-                ? isSubPendingConfirm
-                  ? {
-                      text: "수신 확인 대기",
-                      cls: "bg-amber-100 text-amber-900 border border-amber-300",
-                    }
-                  : item.newsletterSubscribed
-                  ? {
-                      text: "수신 동의 완료",
-                      cls: "bg-emerald-100 text-emerald-900 border border-emerald-200",
-                    }
-                  : {
-                      text: "수신 거부",
-                      cls: "bg-slate-100 text-slate-700 border border-slate-200",
-                    }
-                : {
-                    text: item.openCount > 0 ? `${item.openCount}회 열람` : "등록 고객",
-                    cls: "bg-slate-100 text-slate-700 border border-slate-200",
-                  };
+            const statusBadge = getInboxStatusBadge(item);
 
             return (
               <div
@@ -1783,7 +1810,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     : "border-slate-200 bg-white hover:border-slate-300"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-3">
+                  <ListThumbnail
+                    fallbackText={item.clientName.slice(0, 2)}
+                    alt={`${item.clientName} 고객`}
+                  />
+                  <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span
@@ -1804,16 +1836,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                       {item.latestEvent}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm text-slate-500">
-                    {item.updatedAt}
+                  <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
+                    {formatListDate(item.updatedAt)}
                   </span>
+                  </div>
                 </div>
               </div>
             );
           })
         )}
       </div>
-    </div>
+    </WorkspaceListPanel>
   );
 
   /* ──────── Column 2: 3개 탭 (할 일 · 메시지 · 기록) (IB-13, IB-14) ──────── */
@@ -1995,7 +2028,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                       IM 열람 요청
                     </span>
                     <span className="text-sm font-semibold text-amber-900">
-                      {activeThread.updatedAt}
+                      {formatListDate(activeThread.updatedAt)}
                     </span>
                   </div>
                   <h3 className="mt-3 text-base font-bold text-slate-900">

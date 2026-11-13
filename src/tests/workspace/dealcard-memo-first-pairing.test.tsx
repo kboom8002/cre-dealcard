@@ -114,6 +114,8 @@ describe("DealCard Memo-First Authoring, 1:1 Pairing & 3-Group List", () => {
       });
     }) as unknown as typeof fetch;
 
+    // 그룹 섹션(✨/📝/✍️) 마크업은 '자세히' 보기 전용 (기본은 '간단히')
+    window.localStorage.setItem("credeal-ws-list-view-v1", "detailed");
     await act(async () => {
       root.render(<DealCardsWorkspacePage />);
     });
@@ -233,6 +235,8 @@ describe("DealCard Memo-First Authoring, 1:1 Pairing & 3-Group List", () => {
       });
     }) as unknown as typeof fetch;
 
+    // 행 안의 [✨ 딜카드 생성] 1-클릭 버튼과 그룹 섹션은 '자세히' 보기 전용
+    window.localStorage.setItem("credeal-ws-list-view-v1", "detailed");
     await act(async () => {
       root.render(<DealCardsWorkspacePage />);
     });
@@ -427,6 +431,8 @@ describe("DealCard Memo-First Authoring, 1:1 Pairing & 3-Group List", () => {
       );
     }) as unknown as typeof fetch;
 
+    // 3대 그룹 섹션 마크업은 '자세히' 보기 전용
+    window.localStorage.setItem("credeal-ws-list-view-v1", "detailed");
     await act(async () => {
       root.render(<DealCardsWorkspacePage />);
     });

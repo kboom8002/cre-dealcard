@@ -29,6 +29,17 @@ import {
 } from "@/lib/deal-card/blind-guard";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import {
+  DateGroupedList,
+  ListThumbnail,
+  ListToolbar,
+  SelectedItemActions,
+  SimpleListRow,
+  WorkspaceListPanel,
+  type ActiveFilterChip,
+  type ListStatusTone,
+} from "@/components/workspace/list/WorkspaceList";
+import { useListViewMode } from "@/components/workspace/list/useListViewMode";
+import {
   deriveDealCardHeadline,
   isCompleteDealCardLine,
   normalizeDealCardCopy,
@@ -149,6 +160,24 @@ interface BrokerProfileSummary {
   photoUrl: string | null;
 }
 
+/** 좌측 목록 필터 탭 (필터 ▾ 패널 안에 접혀 있음) — chipLabel 은 활성 필터 칩 문구(이모지 제외) */
+const ORIGIN_GROUP_TABS = [
+  { id: "all", label: "전체", chipLabel: "전체" },
+  { id: "ai_memo", label: "✨AI생성", chipLabel: "AI생성" },
+  { id: "unconverted_memo", label: "📝미생성", chipLabel: "미생성" },
+  { id: "manual", label: "✍️직접", chipLabel: "직접" },
+] as const;
+
+const POSTURE_FILTER_TABS = [
+  { id: "all", label: "전체", chipLabel: "전체" },
+  { id: "income", label: "임대수익", chipLabel: "임대수익" },
+  { id: "owner_value", label: "사옥·개발", chipLabel: "사옥·개발" },
+] as const;
+
+type SimpleListEntry =
+  | { kind: "dealcard"; key: string; item: BuildingListItem }
+  | { kind: "memo"; key: string; memo: UnconvertedMemoItem };
+
 const ROUTING_TYPE_BADGE: Record<string, string> = {
   new_deal: "매물 메모",
   update_building: "매물 보강",
@@ -183,6 +212,7 @@ function DealCardsWorkspaceInner() {
   const [originGroupFilter, setOriginGroupFilter] = useState<"all" | DealCardOriginGroup>("all");
   const [postureFilter, setPostureFilter] = useState<"all" | "income" | "owner_value">("all");
   const [showOtherMemos, setShowOtherMemos] = useState(false);
+  const [viewMode, setViewMode] = useListViewMode();
   const [collapsedGroups, setCollapsedGroups] = useState<Record<DealCardOriginGroup, boolean>>({
     ai_memo: false,
     unconverted_memo: false,
@@ -638,7 +668,7 @@ function DealCardsWorkspaceInner() {
                 region: withMeta.region,
                 use: withMeta.use,
                 priceBand: withMeta.priceBand,
-                updatedAt: "방금",
+                updatedAt: new Date().toISOString(),
                 card4: withMeta,
                 ...(pairingOverride?.memoText !== undefined
                   ? { memoText: pairingOverride.memoText }
@@ -697,7 +727,7 @@ function DealCardsWorkspaceInner() {
             ? {
                 ...it,
                 memoText: nextText,
-                updatedAt: "방금",
+                updatedAt: new Date().toISOString(),
               }
             : it
         );
@@ -871,7 +901,7 @@ function DealCardsWorkspaceInner() {
             use: cardWithMeta.use,
             priceBand: cardWithMeta.priceBand,
             status: "draft",
-            updatedAt: "방금",
+            updatedAt: new Date().toISOString(),
             card4: cardWithMeta,
             memoText: rawText,
             pairedMemoId: targetMemoOnly.id,
@@ -1114,7 +1144,7 @@ function DealCardsWorkspaceInner() {
         use: "",
         priceBand: "",
         status: "draft",
-        updatedAt: "방금",
+        updatedAt: new Date().toISOString(),
         card4: { ...EMPTY_CARD4, generationSource: "manual" },
         memoText: selectedMemoOnly.memoText,
         generationSource: "manual",
@@ -1166,7 +1196,9 @@ function DealCardsWorkspaceInner() {
     if (!activeId) return;
     setItems((prev) => {
       const next = prev.map((it) =>
-        it.id === activeId ? { ...it, status: "sent" as const, updatedAt: "방금" } : it
+        it.id === activeId
+          ? { ...it, status: "sent" as const, updatedAt: new Date().toISOString() }
+          : it
       );
       persistItems(next);
       return next;
@@ -1195,7 +1227,7 @@ function DealCardsWorkspaceInner() {
       use: "",
       priceBand: "",
       status: "draft",
-      updatedAt: "방금",
+      updatedAt: new Date().toISOString(),
       card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
       memoText: "",
       generationSource: "ai_memo",
@@ -1348,7 +1380,7 @@ function DealCardsWorkspaceInner() {
       id: newId,
       title: `${source.title} (사본)`,
       status: "draft",
-      updatedAt: "방금",
+      updatedAt: new Date().toISOString(),
       pairedMemoId: undefined,
       awaitingMemoGeneration: false,
       card4: {
@@ -1407,7 +1439,7 @@ function DealCardsWorkspaceInner() {
               use: "",
               priceBand: "",
               status: "draft",
-              updatedAt: "방금",
+              updatedAt: new Date().toISOString(),
               card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
               memoText: "",
               generationSource: "ai_memo",
@@ -1634,12 +1666,8 @@ function DealCardsWorkspaceInner() {
     ? "ai_memo"
     : classifyDealCardOriginGroup(activeItem || {});
 
-  const renderDealCardRow = (item: BuildingListItem) => {
-    const isSelected = !selectedMemoOnly && item.id === resolvedActiveId;
-    const itemPosture = item.card4.posture || "income";
-    const postureLabel = POSTURE_LABELS[itemPosture].shortBadge;
-    const originGroup = classifyDealCardOriginGroup(item);
-    const memoPreview = summarizeMemoOneLine(item.memoText, 34);
+  // 목록 행 상태 판정 (간단히·자세히 공용 SSOT — 문구/툴팁은 기존 배지와 동일)
+  const describeDealCardStatus = (item: BuildingListItem) => {
     const itemBlind = item.awaitingMemoGeneration
       ? { isValid: true }
       : validateBlindPoints([
@@ -1658,6 +1686,40 @@ function DealCardsWorkspaceInner() {
       Boolean(item.card4.area?.trim()) &&
       Boolean(item.card4.priceBand?.trim()) &&
       item.card4.points.some((p) => Boolean(p?.trim()));
+    const statusTitle = !itemBlind.isValid
+      ? "지번·건물명 등 비공개 식별 정보를 확인해 주세요"
+      : item.status === "sent"
+      ? "고객에게 카톡·링크로 발송된 딜카드입니다"
+      : isCardReady
+      ? "필수 항목 입력 완료 — 오른쪽에서 카톡으로 보내면 '보냄'으로 전환됩니다"
+      : "권역·용도·면적·가격대와 장점 1개 이상을 입력하면 '준비 완료'가 됩니다";
+    // 간단히 보기 상태 (warn 톤은 SimpleListRow 가 ▲ 표식을 붙이므로 ⚠ 제외)
+    const simpleStatus: { label: string; tone: ListStatusTone } = !itemBlind.isValid
+      ? { label: "확인 필요", tone: "warn" }
+      : item.status === "sent"
+      ? { label: TERMS.statusSent, tone: "sent" }
+      : isCardReady
+      ? { label: "준비 완료", tone: "ready" }
+      : { label: TERMS.statusDraft, tone: "draft" };
+    const rowTitle =
+      item.awaitingMemoGeneration && !item.region
+        ? "새 메모 · 딜카드 작성 중"
+        : item.title || "새 딜카드";
+    return { itemBlind, isCardReady, statusTitle, simpleStatus, rowTitle };
+  };
+
+  const renderDealCardRow = (item: BuildingListItem) => {
+    const isSelected = !selectedMemoOnly && item.id === resolvedActiveId;
+    const itemPosture = item.card4.posture || "income";
+    const postureLabel = POSTURE_LABELS[itemPosture].shortBadge;
+    const originGroup = classifyDealCardOriginGroup(item);
+    const memoPreview = summarizeMemoOneLine(item.memoText, 34);
+    const { itemBlind, isCardReady } = describeDealCardStatus(item);
+    const thumbFallback =
+      (item.card4.region || item.region || item.title || "").trim().split(/\s+/).pop() || "";
+    const thumbSrc = syncedServerIds.has(item.id)
+      ? `/api/og/deal/${encodeURIComponent(item.id)}/kakao-v2`
+      : null;
 
     return (
       <div
@@ -1688,6 +1750,13 @@ function DealCardsWorkspaceInner() {
           <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-[#007AFF] rounded-r-full" />
         )}
 
+        <div className="flex items-start gap-1.5 pl-1.5">
+          <ListThumbnail
+            src={thumbSrc}
+            fallbackText={thumbFallback}
+            alt={`${item.title || "딜카드"} 카톡 미리보기`}
+          />
+          <div className="min-w-0 flex-1">
         {/* Line 1: Title + Status Badge */}
         <div className="flex items-center justify-between gap-2 pl-2">
           <h3
@@ -1771,6 +1840,8 @@ function DealCardsWorkspaceInner() {
             </button>
           </div>
         </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1844,20 +1915,84 @@ function DealCardsWorkspaceInner() {
     );
   };
 
+  /* ── 간단히 보기: 현재 보이는 딜카드 + 미생성 메모를 날짜순 한 목록으로 (totalVisibleCount 와 동일 집합) ── */
+  const includeMemosInSimpleList =
+    originGroupFilter === "unconverted_memo" ||
+    (originGroupFilter === "all" && postureFilter === "all");
+  const simpleListDealCards =
+    originGroupFilter === "ai_memo"
+      ? aiMemoDealCards
+      : originGroupFilter === "manual"
+      ? manualDealCards
+      : originGroupFilter === "unconverted_memo"
+      ? []
+      : filteredDealCards;
+  const simpleListEntries: SimpleListEntry[] = [
+    ...simpleListDealCards.map(
+      (item): SimpleListEntry => ({ kind: "dealcard", key: `dc:${item.id}`, item })
+    ),
+    ...(includeMemosInSimpleList ? filteredUnconvertedMemos : []).map(
+      (memo): SimpleListEntry => ({ kind: "memo", key: `memo:${memo.id}`, memo })
+    ),
+  ];
+
+  const renderSimpleListRow = (entry: SimpleListEntry) => {
+    if (entry.kind === "memo") {
+      const memo = entry.memo;
+      return (
+        <SimpleListRow
+          testId={`unconverted-memo-item-${memo.id}`}
+          title={summarizeMemoOneLine(memo.memoText, 46) || "빈 메모"}
+          date={memo.updatedAt || memo.createdAt}
+          status={{ label: "메모만 저장", tone: "draft" }}
+          selected={selectedMemoOnly?.id === memo.id}
+          onSelect={() => selectUnconvertedMemo(memo)}
+          dataAttrs={{ "data-origin-group": "unconverted_memo" }}
+        />
+      );
+    }
+    const item = entry.item;
+    const { statusTitle, simpleStatus, rowTitle } = describeDealCardStatus(item);
+    return (
+      <SimpleListRow
+        testId={`dealcard-item-${item.id}`}
+        title={rowTitle}
+        date={item.updatedAt}
+        status={{
+          ...simpleStatus,
+          testId: `dealcard-status-badge-${item.id}`,
+          title: statusTitle,
+        }}
+        selected={!selectedMemoOnly && item.id === resolvedActiveId}
+        onSelect={() => selectDealCard(item.id)}
+        dataAttrs={{ "data-origin-group": classifyDealCardOriginGroup(item) }}
+      />
+    );
+  };
+
+  const activeListFilters: ActiveFilterChip[] = [];
+  if (originGroupFilter !== "all") {
+    activeListFilters.push({
+      key: "origin",
+      label: ORIGIN_GROUP_TABS.find((t) => t.id === originGroupFilter)?.chipLabel || "",
+      onClear: () => setOriginGroupFilter("all"),
+    });
+  }
+  if (postureFilter !== "all") {
+    activeListFilters.push({
+      key: "posture",
+      label: POSTURE_FILTER_TABS.find((t) => t.id === postureFilter)?.chipLabel || "",
+      onClear: () => setPostureFilter("all"),
+    });
+  }
+
   /* ── Column 1: ① 고르기 목록 (3대 생성·페어링 그룹핑) ── */
   const listSlot = (
-    <div className="space-y-3" data-testid="dealcard-airtable-list">
-      {/* Header Summary */}
-      <div
-        data-theme-lock="dark"
-        className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-[#1D1D1F] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_12px_rgba(15,23,42,0.12)]"
-      >
-        <span className="text-sm font-semibold text-white">내 딜카드 목록</span>
-        <span className="text-sm font-semibold text-[#FFAA00]">
-          총 {totalVisibleCount}건
-        </span>
-      </div>
-
+    <WorkspaceListPanel
+      testId="dealcard-airtable-list"
+      bodyLabel={<>내 딜카드 목록 {totalVisibleCount}건</>}
+      controls={
+        <>
       {/* Primary Create Button */}
       <button
         type="button"
@@ -1876,6 +2011,7 @@ function DealCardsWorkspaceInner() {
         </label>
         <input
           id="dealcard-search-input"
+          data-testid="dealcard-search-input"
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -1884,21 +2020,21 @@ function DealCardsWorkspaceInner() {
         />
       </div>
 
+      <ListToolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        activeFilters={activeListFilters}
+        filterPanel={
+          <>
       {/* 생성·페어링 그룹 스위처 (전체 / AI생성 / 미생성 메모 / 직접작성) */}
+      <p className="px-1 text-sm font-bold text-[#3A3A3C]">생성 방식</p>
       <div
         role="tablist"
         aria-label="생성 방식 및 메모 그룹별 보기"
         data-testid="dealcard-group-switcher"
         className="grid grid-cols-4 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
       >
-        {(
-          [
-            { id: "all", label: "전체" },
-            { id: "ai_memo", label: "✨AI생성" },
-            { id: "unconverted_memo", label: "📝미생성" },
-            { id: "manual", label: "✍️직접" },
-          ] as const
-        ).map((tab) => {
+        {ORIGIN_GROUP_TABS.map((tab) => {
           const active = originGroupFilter === tab.id;
           return (
             <button
@@ -1921,19 +2057,14 @@ function DealCardsWorkspaceInner() {
       </div>
 
       {/* 매물 유형 필터 (iOS Segmented Control — 기존 계약 호환 유지) */}
+      <p className="px-1 pt-1 text-sm font-bold text-[#3A3A3C]">매물 유형</p>
       <div
         role="tablist"
         aria-label="매물 유형별 보기"
         data-testid="dealcard-posture-switcher"
         className="grid grid-cols-3 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
       >
-        {(
-          [
-            { id: "all", label: "전체" },
-            { id: "income", label: "임대수익" },
-            { id: "owner_value", label: "사옥·개발" },
-          ] as const
-        ).map((tab) => {
+        {POSTURE_FILTER_TABS.map((tab) => {
           const active = postureFilter === tab.id;
           return (
             <button
@@ -1954,9 +2085,14 @@ function DealCardsWorkspaceInner() {
           );
         })}
       </div>
-
+          </>
+        }
+      />
+        </>
+      }
+    >
       {/* Grouped Items List */}
-      <div className="space-y-3 pt-1" role="list">
+      <div className="space-y-3" role={viewMode === "detailed" ? "list" : undefined}>
         {totalVisibleCount === 0 && searchQuery.trim() ? (
           <div
             data-testid="dealcard-empty-search"
@@ -1990,6 +2126,41 @@ function DealCardsWorkspaceInner() {
               전체 보기
             </button>
           </div>
+        ) : viewMode === "simple" ? (
+          <>
+            {simpleListEntries.length > 0 ? (
+              <DateGroupedList
+                items={simpleListEntries}
+                getDate={(entry) =>
+                  entry.kind === "memo"
+                    ? entry.memo.updatedAt || entry.memo.createdAt
+                    : entry.item.updatedAt
+                }
+                getKey={(entry) => entry.key}
+                renderRow={renderSimpleListRow}
+                ariaLabel="내 딜카드 목록"
+              />
+            ) : (
+              <p
+                data-testid="dealcard-empty-simple"
+                className="px-3 py-4 rounded-xl bg-white border border-slate-200 text-sm font-semibold text-[#515154] text-center"
+              >
+                목록이 비어 있습니다.
+              </p>
+            )}
+            {includeMemosInSimpleList && hiddenNonDealMemoCount > 0 && (
+              <button
+                type="button"
+                data-testid="toggle-other-memos-btn"
+                onClick={() => setShowOtherMemos((prev) => !prev)}
+                className="w-full min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-sm font-semibold transition cursor-pointer"
+              >
+                {showOtherMemos
+                  ? "매수 조건·일정 메모 숨기기"
+                  : `매수 조건·일정 메모 ${hiddenNonDealMemoCount}건 함께 보기`}
+              </button>
+            )}
+          </>
         ) : (
           <>
             {/* 그룹 1: ✨ AI 메모 생성 딜카드 */}
@@ -2095,7 +2266,7 @@ function DealCardsWorkspaceInner() {
           </>
         )}
       </div>
-    </div>
+    </WorkspaceListPanel>
   );
 
   /* ── Column 2: ② 채우기 (최상단 메모 우선 + 점진적 노출 에디터) ── */
@@ -2112,6 +2283,21 @@ function DealCardsWorkspaceInner() {
 
   const editorSlot = (
     <div className="space-y-4">
+      {/* 간단히 보기 전용: 선택 항목 복제·삭제 (자세히 보기에서는 기존 행 버튼 유지) */}
+      {viewMode === "simple" &&
+        (selectedMemoOnly ? (
+          <SelectedItemActions
+            itemLabel="미생성 매물 메모"
+            onDelete={(e) => handleDeleteUnconvertedMemo(selectedMemoOnly, e)}
+          />
+        ) : activeItem ? (
+          <SelectedItemActions
+            itemLabel={activeItem.title || "새 딜카드"}
+            onDuplicate={(e) => handleDuplicateItem(activeItem, e)}
+            onDelete={(e) => handleDeleteItem(activeItem, e)}
+          />
+        ) : null)}
+
       {isSampleCard && (
         <div
           data-testid="dealcard-sample-banner"
