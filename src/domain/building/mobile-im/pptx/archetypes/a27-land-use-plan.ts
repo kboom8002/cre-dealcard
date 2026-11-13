@@ -475,12 +475,6 @@ export function buildBasicLandSlideData(params: {
       borderColor: swatch.border,
     });
   }
-  zoningLegend.push({
-    label: '본건 필지 경계',
-    fillColor: 'FFF3CD',
-    borderColor: 'E03131',
-  });
-
   const resolvedMapImg =
     cadastralImg ||
     enrichment?.cadastralMapImage ||
@@ -489,6 +483,16 @@ export function buildBasicLandSlideData(params: {
     existingLandData?.mapImageUrl ||
     existingLandData?.photoUrl ||
     null;
+
+  const mapMeta = resolvedMapImg ? readMapMarkerMeta(resolvedMapImg) : null;
+  const showParcelLegend = Boolean(resolvedMapImg) && mapMeta?.hasPolygon !== false;
+  if (showParcelLegend) {
+    zoningLegend.push({
+      label: '본건 필지 경계',
+      fillColor: 'FEE2E2',
+      borderColor: 'EF4444',
+    });
+  }
 
   const resolvedCoordinates =
     existingLandData?.coordinates ||

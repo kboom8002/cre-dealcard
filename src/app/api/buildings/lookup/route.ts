@@ -29,7 +29,7 @@ const VERIFIED_PUBLIC_REGISTER_BY_PNU: Record<
     officialLandPricePerSqm?: number;
   }
 > = {
-  "1144012000101470008": {
+  "1144012100101680004": {
     gfaSqm: 426.11,
     landAreaSqm: 137.2,
     zoning: "제2종일반주거지역",
@@ -38,10 +38,11 @@ const VERIFIED_PUBLIC_REGISTER_BY_PNU: Record<
     floorsAbove: 4,
     floorsBelow: 1,
     buildingName: "THE.PARK (더파크 동교)",
-    lat: 37.5562,
-    lng: 126.9241,
+    lat: 37.556828,
+    lng: 126.925088,
     bcrPct: 58.4,
     farPct: 198.2,
+    officialLandPricePerSqm: 14200000,
   },
   "1144012100101890006": {
     gfaSqm: 426.11,
@@ -113,7 +114,7 @@ const VERIFIED_PUBLIC_REGISTER_BY_PNU: Record<
     bcrPct: 59.8,
     farPct: 798.4,
   },
-  "4146311100112080004": {
+  "4146311800112080004": {
     gfaSqm: 1185.4,
     landAreaSqm: 332.0,
     zoning: "제2종일반주거지역",
@@ -231,8 +232,8 @@ export async function GET(req: NextRequest) {
 
     // 3. Extract from ssotRow / verified public register fallback if needed (e.g. data.go.kr 503)
     const inferredPnuByAddr =
-      /동교동\s*147-8|양화로18안길\s*7/i.test(rawAddress)
-        ? "1144012000101470008"
+      /(양화로\s*18안길\s*7\b|동교동\s*(?:147-8|168-4)\b)/i.test(rawAddress)
+        ? "1144012100101680004"
         : /동교동\s*189-6|와우산로37길\s*9/i.test(rawAddress)
         ? "1144012100101890006"
         : /심곡동\s*382-2|부천로29번길\s*22/i.test(rawAddress)
@@ -246,15 +247,15 @@ export async function GET(req: NextRequest) {
         : /보정동\s*1323-2|신촌로47번길\s*6/i.test(rawAddress)
         ? "4146311800113230002"
         : /보정동\s*1208-4|죽전로\s*15/i.test(rawAddress)
-        ? "4146311100112080004"
+        ? "4146311800112080004"
         : "";
     const isValidResolvedPnu =
       resolved?.pnu &&
       resolved.pnu.length === 19 &&
       resolved.pnu.slice(5, 10) !== "00000";
     const effectivePnu =
-      inferredPnuByAddr ||
       (isValidResolvedPnu ? resolved?.pnu : "") ||
+      inferredPnuByAddr ||
       ssotRow?.pnu ||
       resolved?.pnu ||
       "";

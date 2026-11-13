@@ -26,6 +26,7 @@ import {
 } from "@/domain/building/mobile-im/broker-extras";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
 import { IM_POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
+import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,6 +34,76 @@ function normalizePostureForSelector(raw?: string): string {
   if (!raw || raw === "core_income") return "income";
   if (raw === "owner_occupier") return "owner_occupied";
   return raw;
+}
+
+function parseAskingManwonFromPriceBand(band?: string): number {
+  if (!band || typeof band !== "string") return 0;
+  const nums = band.match(/\d+(?:\.\d+)?/g);
+  if (!nums || nums.length === 0) return 0;
+  const parsed = nums.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  if (parsed.length === 0) return 0;
+  const avg =
+    parsed.length >= 2 ? (parsed[0] + parsed[1]) / 2 : parsed[0];
+  return band.includes("억") ? Math.round(avg * 10000) : Math.round(avg);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildImItemFromDealCardRecord(dc: any): ImListItem | null {
+  if (!dc || typeof dc !== "object") return null;
+  const targetBid = String(dc.id || dc.buildingId || "").trim();
+  if (!targetBid) return null;
+  const c4 = (dc.card4 && typeof dc.card4 === "object" ? dc.card4 : {}) as Record<
+    string,
+    any
+  >;
+  const gfaPyung = Number(c4.gfaPyung || 0);
+  const landPyung = Number(c4.landAreaPyung || 0);
+  const postureRaw = String(c4.posture || "");
+  const posture =
+    postureRaw === "owner_occupied"
+      ? "owner_occupier"
+      : postureRaw === "value_add"
+      ? "development"
+      : "core_income";
+  return {
+    id: `im-${targetBid}`,
+    buildingId: targetBid,
+    title: String(dc.title || c4.headline || c4.region || "새 IM"),
+    address: String(dc.address || c4.region || dc.region || ""),
+    askingPriceManwon: parseAskingManwonFromPriceBand(
+      String(c4.priceBand || dc.priceBand || "")
+    ),
+    grossYieldPct: 0,
+    status: "draft",
+    versionLabel: "작성 중",
+    updatedAt: "방금",
+    investmentPosture: posture,
+    gfaSqm: gfaPyung > 0 ? String(Math.round(gfaPyung * 3.3058 * 10) / 10) : "",
+    completionDate: "",
+    landAreaSqm:
+      landPyung > 0 ? String(Math.round(landPyung * 3.3058 * 10) / 10) : "",
+    zoning: "",
+    handoverNote: "",
+    axiosHighlights: BLANK_IM_HIGHLIGHTS,
+    photoNames: [],
+    rentRoll: generateFloorScaffolding(3, 1),
+  };
+}
+
+function tryBuildImItemFromDealCardCache(targetId: string): ImListItem | null {
+  if (typeof window === "undefined" || !window.localStorage) return null;
+  try {
+    const raw = window.localStorage.getItem("credeal-w-dealcards-v5");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    const found = parsed.find(
+      (dc: any) => dc && (dc.id === targetId || dc.buildingId === targetId)
+    );
+    return found ? buildImItemFromDealCardRecord(found) : null;
+  } catch {
+    return null;
+  }
 }
 
 interface ImAxiosHighlight {
@@ -588,11 +659,11 @@ const INITIAL_IM_LIST: ImListItem[] = [
   {
     id: "im-doc-01",
     buildingId: "bld-01",
-    title: "영등포구 양평동 꼬마빌딩",
-    address: "서울특별시 영등포구 양평동4가 117",
-    pnu: "1156012800101170000",
-    lat: 37.53767,
-    lng: 126.89472,
+    title: "마포구 서교동 꼬마빌딩",
+    address: "서울특별시 마포구 서교동 395-166",
+    pnu: "1144012000103950166",
+    lat: 37.5503,
+    lng: 126.9158,
     askingPriceManwon: 950000,
     grossYieldPct: 4.2,
     status: "draft",
@@ -683,6 +754,8 @@ function ImWorkspaceInner() {
 
   const [previewTab, setPreviewTab] = useState<"mobile" | "pptx">("mobile");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
+  const [pendingDeleteIm, setPendingDeleteIm] = useState<ImListItem | null>(null);
   const [isAiPointsBusy, setIsAiPointsBusy] = useState(false);
   const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
   const [actionAlert, setActionAlert] = useState<string | null>(null);
@@ -1195,25 +1268,38 @@ function ImWorkspaceInner() {
     let initialTargetId: string | null = null;
     try {
       const savedRaw = window.localStorage.getItem(IM_STORAGE_KEY);
-      if (savedRaw) {
-        const parsed = JSON.parse(savedRaw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed);
-          const explicitMatch = initialQueryId
-            ? parsed.find(
-                (i: ImListItem) => i.id === initialQueryId || i.buildingId === initialQueryId
-              )
-            : undefined;
-          const match = explicitMatch || parsed[0];
-          if (match) {
-            initialTargetId = match.id;
-            if (explicitMatch && initialQueryId) {
-              lastAppliedQueryIdRef.current = initialQueryId;
-            }
-            selectedIdRef.current = match.id;
-            setSelectedId(match.id);
-            applyItemToFormState(match);
+      const parsed: ImListItem[] = savedRaw ? JSON.parse(savedRaw) : [];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const explicitMatch = initialQueryId
+          ? parsed.find(
+              (i: ImListItem) => i.id === initialQueryId || i.buildingId === initialQueryId
+            )
+          : undefined;
+        const fromDcCache =
+          !explicitMatch && initialQueryId
+            ? tryBuildImItemFromDealCardCache(initialQueryId)
+            : null;
+        const workingList = fromDcCache ? [fromDcCache, ...parsed] : parsed;
+        setItems(workingList);
+        const match = fromDcCache || explicitMatch || workingList[0];
+        if (match) {
+          initialTargetId = match.id;
+          if ((explicitMatch || fromDcCache) && initialQueryId) {
+            lastAppliedQueryIdRef.current = initialQueryId;
           }
+          selectedIdRef.current = match.id;
+          setSelectedId(match.id);
+          applyItemToFormState(match);
+        }
+      } else if (initialQueryId) {
+        const fromDcCache = tryBuildImItemFromDealCardCache(initialQueryId);
+        if (fromDcCache) {
+          setItems([fromDcCache]);
+          initialTargetId = fromDcCache.id;
+          lastAppliedQueryIdRef.current = initialQueryId;
+          selectedIdRef.current = fromDcCache.id;
+          setSelectedId(fromDcCache.id);
+          applyItemToFormState(fromDcCache);
         }
       }
     } catch {
@@ -1362,41 +1448,56 @@ function ImWorkspaceInner() {
             });
             persistImItems(merged);
 
+            const explicitSrvMatch = initialQueryId
+              ? merged.find((i) => i.id === initialQueryId || i.buildingId === initialQueryId)
+              : undefined;
+            const serverDcMatch =
+              !explicitSrvMatch && initialQueryId && Array.isArray(data?.dealcards)
+                ? data.dealcards.find(
+                    (dc: any) => dc && (dc.id === initialQueryId || dc.buildingId === initialQueryId)
+                  )
+                : null;
+            const synthesizedSrvItem = serverDcMatch
+              ? buildImItemFromDealCardRecord(serverDcMatch)
+              : null;
+            const finalMerged = synthesizedSrvItem ? [synthesizedSrvItem, ...merged] : merged;
+            if (synthesizedSrvItem) {
+              persistImItems(finalMerged);
+            }
+
             // Guard against async hydration clobbering user's selection or active form edits
             if (!userInteractedRef.current) {
-              const explicitSrvMatch = initialQueryId
-                ? merged.find((i) => i.id === initialQueryId || i.buildingId === initialQueryId)
-                : undefined;
-              const targetMatch = explicitSrvMatch
-                ? explicitSrvMatch
-                : (initialTargetId &&
-                    merged.find(
-                      (i) => i.id === initialTargetId || i.buildingId === initialTargetId
-                    )) ||
-                  merged[0];
+              const targetMatch =
+                synthesizedSrvItem ||
+                explicitSrvMatch ||
+                (initialTargetId &&
+                  finalMerged.find(
+                    (i) => i.id === initialTargetId || i.buildingId === initialTargetId
+                  )) ||
+                finalMerged[0];
               if (targetMatch) {
-                if (explicitSrvMatch && initialQueryId) {
+                if ((synthesizedSrvItem || explicitSrvMatch) && initialQueryId) {
                   lastAppliedQueryIdRef.current = initialQueryId;
                 }
                 selectedIdRef.current = targetMatch.id;
                 setSelectedId(targetMatch.id);
                 applyItemToFormState(targetMatch);
               }
-            } else if (!merged.some((i) => i.id === selectedIdRef.current)) {
+            } else if (!finalMerged.some((i) => i.id === selectedIdRef.current)) {
               const remapped =
                 (pendingUrlBuildingIdRef.current &&
-                  merged.find(
+                  finalMerged.find(
                     (i) =>
                       i.id === pendingUrlBuildingIdRef.current ||
                       i.buildingId === pendingUrlBuildingIdRef.current
                   )) ||
-                merged[0];
+                finalMerged[0];
               if (remapped) {
                 selectedIdRef.current = remapped.id;
                 setSelectedId(remapped.id);
               }
             }
-            return merged;
+            return finalMerged;
           });
         }
       })
@@ -1661,7 +1762,8 @@ function ImWorkspaceInner() {
         const isSampleOrigin =
           SAMPLE_SEED_IDS.has(originItem?.id || "") ||
           SAMPLE_SEED_IDS.has(originItem?.buildingId || "");
-        const isDifferentFromSample = !reqAddress.includes("양평동");
+        const isDifferentFromSample =
+          !reqAddress.includes("서교동") && !reqAddress.includes("양평동");
         const patch: Partial<ImListItem> = {
           gfaSqm: nextGfa ? String(nextGfa) : originGfa,
           landAreaSqm: nextLand ? String(nextLand) : originLand,
@@ -1685,11 +1787,19 @@ function ImWorkspaceInner() {
 
         if (
           nextBuildingName &&
-          (!originTitle.trim() || originTitle === "영등포구 양평동 꼬마빌딩" || originTitle === "새 IM")
+          (!originTitle.trim() ||
+            originTitle === "마포구 서교동 꼬마빌딩" ||
+            originTitle === "영등포구 양평동 꼬마빌딩" ||
+            originTitle === "새 IM")
         ) {
           if (isStillSelected) setImTitle(nextBuildingName);
           patch.title = nextBuildingName;
-        } else if (isSampleOrigin && isDifferentFromSample && originTitle === "영등포구 양평동 꼬마빌딩") {
+        } else if (
+          isSampleOrigin &&
+          isDifferentFromSample &&
+          (originTitle === "마포구 서교동 꼬마빌딩" ||
+            originTitle === "영등포구 양평동 꼬마빌딩")
+        ) {
           if (isStillSelected) setImTitle(nextBuildingName);
           patch.title = nextBuildingName;
         }
@@ -2142,29 +2252,58 @@ function ImWorkspaceInner() {
     }
   };
 
-  const handleDownloadPptx = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isProvisioningSheet) {
-      e.preventDefault();
+  const handleDownloadPptx = async (e?: React.MouseEvent<HTMLElement>) => {
+    e?.preventDefault();
+    if (isProvisioningSheet || isDownloadingPptx) {
       return;
     }
     const existingBid = currentItem?.buildingId || "";
-    if (UUID_REGEX.test(existingBid) && !currentItem?.isDirty) {
-      return;
+    let targetBuildingId = existingBid;
+    let targetDocId = currentItem?.documentId;
+
+    if (!UUID_REGEX.test(existingBid) || currentItem?.isDirty) {
+      const target = await ensureProvisionedImTarget("PPTX 내려받기");
+      if (!target) return;
+      targetBuildingId = target.buildingId;
+      targetDocId = target.documentId;
     }
-    e.preventDefault();
-    const target = await ensureProvisionedImTarget("PPTX 내려받기");
-    if (!target) return;
-    const docQs = target.documentId
-      ? `&doc=${encodeURIComponent(target.documentId)}&doc_id=${encodeURIComponent(target.documentId)}`
+
+    if (!targetBuildingId) return;
+
+    const docQs = targetDocId
+      ? `&doc=${encodeURIComponent(targetDocId)}&doc_id=${encodeURIComponent(targetDocId)}`
       : "";
-    const url = `/api/public/im-lite/${encodeURIComponent(target.buildingId)}/pptx?direct=1${docQs}`;
-    if (typeof document !== "undefined") {
-      const a = document.createElement("a");
-      a.href = url;
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+    const url = `/api/public/im-lite/${encodeURIComponent(targetBuildingId)}/pptx?direct=1${docQs}`;
+
+    setIsDownloadingPptx(true);
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        setActionAlert("PPTX 파일을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      const blob = await res.blob();
+      if (typeof document !== "undefined") {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        const safeName = (imTitle || currentItem?.title || "투자설명서")
+          .replace(/[\\/:*?"<>|]/g, "_")
+          .trim();
+        a.download = `${safeName || "IM"}_투자설명서.pptx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+      }
+      showUndoToast({
+        message: "📊 PPTX 투자설명서 다운로드를 완료했습니다.",
+        variant: "success",
+      });
+    } catch {
+      setActionAlert("네트워크 오류로 PPTX 다운로드에 실패했습니다.");
+    } finally {
+      setIsDownloadingPptx(false);
     }
   };
 
@@ -2401,8 +2540,7 @@ function ImWorkspaceInner() {
     });
   };
 
-  const handleDeleteIm = (target: ImListItem, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const executeDeleteIm = (target: ImListItem) => {
     if (items.length <= 1) {
       setActionAlert("최소 1개의 IM은 남겨 두어야 합니다.");
       return;
@@ -2448,6 +2586,15 @@ function ImWorkspaceInner() {
         }).catch(() => {});
       },
     });
+  };
+
+  const handleDeleteIm = (target: ImListItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (items.length <= 1) {
+      setActionAlert("최소 1개의 IM은 남겨 두어야 합니다.");
+      return;
+    }
+    setPendingDeleteIm(target);
   };
 
   const handleReclusterImAxios = async () => {
@@ -2689,16 +2836,28 @@ function ImWorkspaceInner() {
         })}
       </div>
 
-      <div
-        data-testid="im-standard-formula-banner"
-        className="px-3.5 py-2.5 rounded-2xl bg-[#007AFF]/[0.08] border border-[#007AFF]/20 text-sm text-[#0040DD] font-medium leading-snug backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
-      >
-        <span className="font-semibold text-[#0040DD]">[모바일·Basic IM 표준 구성]</span>{" "}
-        건물 정보 + 층별 임대 현황 + 핵심 장점 3가지 + 사진·지적도
-      </div>
-
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1" role="list">
-        {filteredItems.map((item) => {
+        {filteredItems.length === 0 ? (
+          <div
+            data-testid="im-empty-list-state"
+            className="p-5 rounded-2xl bg-white/92 border border-slate-200 text-center space-y-3"
+          >
+            <p className="text-sm font-bold text-[#1D1D1F] break-keep">
+              등록된 물건이 없습니다
+            </p>
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                data-testid="im-clear-search-btn"
+                onClick={() => setSearchQuery("")}
+                className="min-h-[40px] px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold transition cursor-pointer"
+              >
+                검색어 지우기
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredItems.map((item) => {
           const isSelected = item.id === (currentItem?.id || selectedId);
           const itemPostureLabel =
             IM_POSTURE_LABELS[item.investmentPosture || "core_income"] || "임대수익용";
@@ -2782,7 +2941,8 @@ function ImWorkspaceInner() {
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );
@@ -2820,38 +2980,26 @@ function ImWorkspaceInner() {
   /* ──────── Column 2: 4 Top Tabs + Editor Panels ──────── */
   const editorSlot = (
     <div className="space-y-5 w-full" data-testid="im-editor-slot">
-      {/* Top Action Bar (Cupertino Liquid Glass Banner) */}
-      <div className="ios-glass-card bg-white/86 backdrop-blur-2xl rounded-3xl border border-[#007AFF]/20 p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_10px_28px_-6px_rgba(0,122,255,0.08)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-base font-bold text-[#1D1D1F]">
-            건물 주소와 가격만 적어도 모바일 IM과 10장 발표자료(PPTX)가 함께 만들어집니다
-          </p>
-          <p className="text-sm text-[#3A3A3C]">
-            10면 슬라이드별 문구·도표 미세 편집이 필요할 때만 오른쪽 버튼을 눌러 주세요.
-          </p>
+      <button
+        type="button"
+        data-testid="im-open-bottom-sheet-btn"
+        disabled={isProvisioningSheet}
+        onClick={handleOpenBottomSheet}
+        className="sr-only"
+      >
+        <span>{isProvisioningSheet ? "열고 있어요…" : "상세 입력 창 열기"}</span>
+      </button>
+
+      {isDownloadingPptx && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="im-pptx-downloading-banner"
+          className="fixed bottom-24 right-5 z-50 px-4 py-3 rounded-2xl bg-[#0F172A] text-white text-sm font-extrabold shadow-xl border border-slate-700 flex items-center gap-2"
+        >
+          <span>📊 PPTX 자료 다운로드 중입니다...</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            data-testid="im-open-bottom-sheet-btn"
-            disabled={isProvisioningSheet}
-            onClick={handleOpenBottomSheet}
-            className="sr-only"
-          >
-            <span>{isProvisioningSheet ? "열고 있어요…" : "상세 입력 창 열기"}</span>
-          </button>
-          <button
-            type="button"
-            data-testid="im-open-studio-btn"
-            disabled={isProvisioningSheet}
-            aria-busy={isProvisioningSheet}
-            onClick={handleOpenStudio}
-            className="min-h-[48px] px-4 py-2 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-bold text-sm hover:bg-[#EFF6FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>{isProvisioningSheet ? "슬라이드 준비 중…" : "10면 슬라이드 편집"}</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {actionAlert && (
         <div
@@ -2970,21 +3118,21 @@ function ImWorkspaceInner() {
 
         {(SAMPLE_SEED_IDS.has(currentItem?.id || "") ||
           SAMPLE_SEED_IDS.has(currentItem?.buildingId || "")) &&
-          address.includes("양평동") && (
+          (address.includes("서교동") || address.includes("양평동")) && (
             <div
               data-testid="im-sample-seed-banner"
-              className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-3"
+              className="px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-3"
             >
               <div className="text-sm font-semibold text-amber-950">
-                💡 현재 화면은 기능 체험용 <strong>[예시 샘플 매물]</strong>입니다. 새 매물을 등록하시려면 오른쪽 버튼을 눌러 빈 양식으로 시작해 주세요.
+                💡 체험용 <strong>[예시 샘플 매물]</strong>입니다.
               </div>
               <button
                 type="button"
                 data-testid="im-reset-sample-btn"
                 onClick={handleCreateNew}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs sm:text-sm font-extrabold transition cursor-pointer shrink-0"
+                className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs sm:text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
               >
-                🔄 빈 양식으로 새로 입력
+                🔄 새 매물 입력
               </button>
             </div>
           )}
@@ -3049,7 +3197,7 @@ function ImWorkspaceInner() {
               setImTitle(nextTitle);
               syncCurrentItemPatch({ title: nextTitle });
             }}
-            placeholder="예: 영등포구 양평동 역세권 코너 빌딩"
+            placeholder="예: 마포구 서교동 역세권 코너 빌딩"
             className="w-full min-h-[48px] px-3.5 text-lg font-extrabold rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
           />
         </div>
@@ -3094,7 +3242,7 @@ function ImWorkspaceInner() {
                 syncCurrentItemPatch({ address: nextVal });
               }
             }}
-            placeholder="예: 서울특별시 영등포구 양평동4가 117"
+            placeholder="예: 서울특별시 마포구 서교동 395-166"
             className="w-full min-h-[48px] px-3.5 text-lg rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
           />
           {Array.isArray(parcels) && parcels.length >= 2 && (
@@ -4446,13 +4594,19 @@ function ImWorkspaceInner() {
                 : ""
             }`}
             data-testid="im-download-pptx-btn"
-            aria-disabled={isProvisioningSheet}
+            aria-disabled={isProvisioningSheet || isDownloadingPptx}
             onClick={handleDownloadPptx}
-            className={`min-h-[40px] text-sm font-extrabold text-[#065F46] bg-[#D1FAE5] px-3 py-1.5 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors ${
-              isProvisioningSheet ? "opacity-50 pointer-events-none" : ""
+            className={`min-h-[40px] text-sm font-extrabold text-[#065F46] bg-[#D1FAE5] px-3 py-1.5 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors whitespace-nowrap ${
+              isProvisioningSheet || isDownloadingPptx ? "opacity-50 pointer-events-none" : ""
             }`}
           >
-            <span>{isProvisioningSheet ? "준비 중…" : "PPTX 내려받기"}</span>
+            <span>
+              {isDownloadingPptx
+                ? "다운로드 중…"
+                : isProvisioningSheet
+                ? "준비 중…"
+                : "PPTX 내려받기"}
+            </span>
           </a>
           <a
             href={`/im-lite/${encodeURIComponent(currentItem?.buildingId || "bld-01")}${
@@ -4765,24 +4919,48 @@ function ImWorkspaceInner() {
     </div>
   );
 
-  /* ── Single Primary CTA in primaryActionSlot ── */
+  /* ── Bottom Action Bar (mounted in Column 3 bottom & sticky mobile bar) ── */
   const primaryActionSlot = (
-    <button
-      type="button"
-      data-testid="im-quick-generate-btn"
-      disabled={isGenerating}
-      aria-busy={isGenerating}
-      onClick={handleQuickGenerate}
-      className="w-full min-h-[56px] px-6 py-3.5 bg-[#1D4ED8] text-white rounded-2xl font-extrabold text-lg hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-    >
-      <span>
-        {isGenerating
-          ? "IM 만드는 중…"
-          : currentItem?.status === "published" && !currentItem?.isDirty
-          ? `✓ ${TERMS.createIm} 완료 (다시 반영하기)`
-          : TERMS.createIm}
-      </span>
-    </button>
+    <div className="w-full space-y-2">
+      <button
+        type="button"
+        data-testid="im-quick-generate-btn"
+        disabled={isGenerating}
+        aria-busy={isGenerating}
+        onClick={handleQuickGenerate}
+        className="w-full min-h-[52px] px-5 py-3 bg-[#1D4ED8] text-white rounded-2xl font-extrabold text-base sm:text-lg hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50 whitespace-nowrap"
+      >
+        <span>
+          {isGenerating
+            ? "IM 만드는 중…"
+            : currentItem?.status === "published" && !currentItem?.isDirty
+            ? `✓ ${TERMS.createIm} 완료 (다시 반영하기)`
+            : TERMS.createIm}
+        </span>
+      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          data-testid="im-bottom-download-pptx-btn"
+          disabled={isProvisioningSheet || isDownloadingPptx}
+          aria-busy={isDownloadingPptx}
+          onClick={handleDownloadPptx}
+          className="min-h-[44px] px-3 py-2 bg-[#ECFDF5] text-[#065F46] border border-[#10B981]/35 rounded-xl font-bold text-sm hover:bg-[#D1FAE5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+        >
+          <span>{isDownloadingPptx ? "PPTX 생성 중…" : "📥 PPTX IM 받기"}</span>
+        </button>
+        <button
+          type="button"
+          data-testid="im-open-studio-btn"
+          disabled={isProvisioningSheet}
+          aria-busy={isProvisioningSheet}
+          onClick={handleOpenStudio}
+          className="min-h-[44px] px-3 py-2 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-bold text-sm hover:bg-[#EFF6FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+        >
+          <span>{isProvisioningSheet ? "준비 중…" : "📐 PPTX 스튜디오"}</span>
+        </button>
+      </div>
+    </div>
   );
 
   return (
@@ -4816,6 +4994,17 @@ function ImWorkspaceInner() {
         prefillTotalDeposit={totalDepositManwon}
         prefillMonthlyRent={totalRentManwon}
         initialInvestmentPosture={normalizedPosture}
+      />
+      <ConfirmDeleteModal
+        isOpen={pendingDeleteIm !== null}
+        title={`'${pendingDeleteIm?.title || "새 IM"}'을(를) 삭제할까요?`}
+        onCancel={() => setPendingDeleteIm(null)}
+        onConfirm={() => {
+          if (pendingDeleteIm) {
+            executeDeleteIm(pendingDeleteIm);
+          }
+          setPendingDeleteIm(null);
+        }}
       />
       {fullscreenModalUrl && (
         <div

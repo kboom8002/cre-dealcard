@@ -20,6 +20,8 @@ export interface MapMarkerMeta {
   /** 원본 이미지 픽셀 크기 */
   imgW?: number;
   imgH?: number;
+  /** 대상 필지 폴리곤 경계 하이라이트 포함 여부 */
+  hasPolygon?: boolean;
 }
 
 let CRC_TABLE: Uint32Array | null = null;

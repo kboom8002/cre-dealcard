@@ -439,3 +439,17 @@ export function cleanBlindPoints(points: string[]): string[] {
     return cleaned;
   });
 }
+
+/**
+ * Sanitizes broker phone numbers for public/preview rendering.
+ * Rejects corrupted email-shaped auth placeholders (e.g. `01092423438@credeal.local`).
+ */
+export function sanitizeBrokerPhone(raw?: string | null): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.includes('@')) return '';
+  const cleaned = trimmed.replace(/[^0-9+\-\s()]/g, '').replace(/\s+/g, ' ').trim();
+  const digits = cleaned.replace(/\D/g, '');
+  if (digits.length < 7) return '';
+  return cleaned;
+}

@@ -475,7 +475,7 @@ describe("6-Axis MECE Human-Physics & Latent Failure Audit Suite (L-01 ~ L-08)",
         '[data-testid="dealcard-sample-banner"]'
       );
       expect(sampleBanner).not.toBeNull();
-      expect(sampleBanner?.textContent).toContain("예시 딜카드(영등포구 양평동)");
+      expect(sampleBanner?.textContent).toContain("예시 딜카드(마포구 서교동)");
 
       const resetBtn = container.querySelector(
         '[data-testid="dealcard-sample-reset-btn"]'

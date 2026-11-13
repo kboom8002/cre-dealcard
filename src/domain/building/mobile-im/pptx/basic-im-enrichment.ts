@@ -152,6 +152,10 @@ export async function enrichForBasicIm(
     if (cadastral) {
       result.cadastralMapImage = cadastral.base64;
       result.hasCadastralMap = true;
+      if (cadastral.resolvedPnu && /^\d{19}$/.test(cadastral.resolvedPnu) && cadastral.resolvedPnu !== pnu) {
+        log.info(`[enrichForBasicIm] PNU 자동 보정 (BOX 폴백): ${pnu || '없음'} → ${cadastral.resolvedPnu}`);
+        pnu = cadastral.resolvedPnu;
+      }
       log.info(`[enrichForBasicIm] 지적도 획득: ${(cadastral.buffer.length / 1024).toFixed(0)}KB`);
     }
   } catch (err) {

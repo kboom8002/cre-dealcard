@@ -77,11 +77,11 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
       const { GET } = await import("@/app/api/buildings/lookup/route");
 
       const testAddresses = [
-        { addr: "서울특별시 마포구 동교동 147-8", expectedPnu: "1144012000101470008", minFloorsAbove: 4 },
+        { addr: "서울특별시 마포구 동교동 168-4", expectedPnu: "1144012100101680004", minFloorsAbove: 4 },
         { addr: "서울특별시 마포구 동교동 189-6", expectedPnu: "1144012100101890006", minFloorsAbove: 4 },
         { addr: "경기도 부천시 원미구 심곡동 382-2", expectedPnu: "4119210100103820002", minFloorsAbove: 7 },
         { addr: "서울특별시 강남구 역삼동 823-33", expectedPnu: "1168010100108230033", minFloorsAbove: 15 },
-        { addr: "경기도 용인시 기흥구 보정동 1208-4", expectedPnu: "4146311100112080004", minFloorsAbove: 4 },
+        { addr: "경기도 용인시 기흥구 보정동 1208-4", expectedPnu: "4146311800112080004", minFloorsAbove: 4 },
       ];
 
       for (const tc of testAddresses) {
@@ -111,10 +111,10 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
         id: "im-donggyo-test",
         buildingId: "bld-donggyo-test",
         title: "동교동 테스트 빌딩",
-        address: "서울특별시 마포구 동교동 147-8",
-        pnu: "1144012000101470008",
-        lat: 37.5562,
-        lng: 126.9241,
+        address: "서울특별시 마포구 동교동 168-4",
+        pnu: "1144012100101680004",
+        lat: 37.556828,
+        lng: 126.925088,
         floorsAbove: 4,
         floorsBelow: 1,
         askingPriceManwon: 770000,
@@ -129,14 +129,14 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
       });
 
       expect(rec).not.toBeNull();
-      expect(rec.pnu).toBe("1144012000101470008");
-      expect(rec.coordinates).toEqual({ lat: 37.5562, lng: 126.9241 });
+      expect(rec.pnu).toBe("1144012100101680004");
+      expect(rec.coordinates).toEqual({ lat: 37.556828, lng: 126.925088 });
       expect(rec.fullDocBody?.preset).toBe("credeal_basic");
       expect(rec.fullDocBody?.tier).toBe("basic");
-      expect(rec.fullDocBody?.pnu).toBe("1144012000101470008");
-      expect(rec.fullDocBody?.coordinates).toEqual({ lat: 37.5562, lng: 126.9241 });
-      expect(rec.fullDocBody?.ssot_summary?.pnu).toBe("1144012000101470008");
-      expect(rec.fullDocBody?.ssot_summary?.coordinates).toEqual({ lat: 37.5562, lng: 126.9241 });
+      expect(rec.fullDocBody?.pnu).toBe("1144012100101680004");
+      expect(rec.fullDocBody?.coordinates).toEqual({ lat: 37.556828, lng: 126.925088 });
+      expect(rec.fullDocBody?.ssot_summary?.pnu).toBe("1144012100101680004");
+      expect(rec.fullDocBody?.ssot_summary?.coordinates).toEqual({ lat: 37.556828, lng: 126.925088 });
       expect(rec.fullDocBody?.ssot_summary?.floors_above).toBe(4);
       expect(rec.fullDocBody?.ssot_summary?.floors_below).toBe(1);
     });
@@ -764,7 +764,7 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
         cadastralMapImage: "data:image/jpeg;base64,AAA",
         landPriceHistory: [{ year: 2025, pricePerSqm: 9120000 }],
         landUseRegulations: [{ name: "제2종일반주거지역" }] as any,
-        landUseByParcel: [{ pnu: "1144012000101470008" }] as any,
+        landUseByParcel: [{ pnu: "1144012100101680004" }] as any,
         apartmentHouseholds: { totalHouseholds: 420 } as any,
       });
 
@@ -818,10 +818,10 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
         id: "im-full-21-fields",
         buildingId: "bld-full-21-fields",
         title: "21필드 연속성 빌딩",
-        address: "서울특별시 마포구 동교동 147-8",
-        pnu: "1144012000101470008",
-        lat: 37.5562,
-        lng: 126.9241,
+        address: "서울특별시 마포구 동교동 168-4",
+        pnu: "1144012100101680004",
+        lat: 37.556828,
+        lng: 126.925088,
         floorsAbove: 5,
         floorsBelow: 1,
         bcrPct: 54.2,
@@ -829,7 +829,7 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
         parkingTotal: 8,
         elevatorCount: 1,
         officialLandPricePerSqm: 11250000,
-        parcels: [{ pnu: "1144012000101470008", jibun: "147-8", areaSqm: 137.2 }],
+        parcels: [{ pnu: "1144012100101680004", jibun: "168-4", areaSqm: 137.2 }],
         closingLine: "직접 현장 안내 가능합니다.",
         askingPriceManwon: 770000,
         gfaSqm: 426.11,

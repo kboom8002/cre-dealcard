@@ -154,6 +154,36 @@ export function MobileIMViewer({
   const [showDiffModal, setShowDiffModal] = useState<boolean>(false);
   const [activeSectionId, setActiveSectionId] = useState<string>("01_cover");
   const [showInquiry, setShowInquiry] = useState<boolean>(false);
+  const [isDownloadingPptx, setIsDownloadingPptx] = useState<boolean>(false);
+
+  const handleMobilePptxDownload = useCallback(
+    async (e: React.MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault();
+      if (isDownloadingPptx) return;
+      const url = `/api/public/im-lite/${encodeURIComponent(buildingId)}/pptx?direct=1${
+        docId ? `&doc_id=${encodeURIComponent(docId)}` : ""
+      }`;
+      setIsDownloadingPptx(true);
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `IM_${buildingId}.pptx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+      } catch {
+        // non-blocking
+      } finally {
+        setIsDownloadingPptx(false);
+      }
+    },
+    [buildingId, docId, isDownloadingPptx]
+  );
 
   // Base (v2) canonical BasicImDocument from real document/SSoT payload (Rule 26 & 34: zero hardcoded building fallbacks)
   const v2Doc = useMemo<BasicImDocument>(() => {
@@ -1669,37 +1699,60 @@ export function MobileIMViewer({
         />
       )}
 
+      {isDownloadingPptx && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="mobile-im-pptx-downloading-toast"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-[#0F172A] text-white text-sm font-extrabold shadow-xl whitespace-nowrap no-print"
+        >
+          📊 PPTX 자료 다운로드 중입니다...
+        </div>
+      )}
+
       {/* ── Fixed Bottom Action Bar (64px) ── */}
       <footer
         className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#CBD5E1] shadow-lg no-print"
         data-testid="floating-action-bar"
       >
-        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between gap-2.5">
           <a
             href={brokerPhone && brokerPhone !== "-" ? `tel:${brokerPhone}` : "#10_contact"}
-            className="flex-1 min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-[15px]"
+            className="flex-1 min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-[15px] whitespace-nowrap"
           >
             <span>📞</span> 전화 문의
           </a>
           <button
             type="button"
             onClick={() => setShowInquiry(true)}
-            className="flex-1 min-h-[48px] bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E40AF] transition-colors cursor-pointer text-[15px]"
+            className="flex-1 min-h-[48px] bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E40AF] transition-colors cursor-pointer text-[15px] whitespace-nowrap"
           >
             <span>💬</span> 카톡 문의
           </button>
           <a
             href={`/api/public/im-lite/${buildingId}/pptx?direct=1${docId ? `&doc_id=${encodeURIComponent(docId)}` : ""}`}
             data-testid="mobile-im-download-pptx-btn"
-            className="min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-[14px] whitespace-nowrap"
+            aria-busy={isDownloadingPptx}
+            onClick={handleMobilePptxDownload}
+            className="min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-[14px] whitespace-nowrap shrink-0"
             title="PPTX 투자설명서 다운로드"
           >
-            <span>📥 PPTX</span>
+            <span>{isDownloadingPptx ? "⏳ 생성 중" : "📥 PPTX"}</span>
           </a>
+          {isBroker && (
+            <Link
+              href={`/broker/basic-im-studio/${encodeURIComponent(buildingId)}`}
+              data-testid="mobile-im-open-studio-btn"
+              className="min-h-[48px] px-3 bg-[#F8FAFC] border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-[14px] whitespace-nowrap shrink-0"
+              title="10면 PPTX 스튜디오 편집"
+            >
+              <span>📐 스튜디오</span>
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => window.print()}
-            className="min-h-[48px] px-3.5 bg-[#FAF9F5] border border-[#64748B] text-[#0F172A] font-bold rounded-xl flex items-center justify-center hover:bg-[#F3F2EE] transition-colors cursor-pointer text-[15px]"
+            className="min-h-[48px] px-3.5 bg-[#FAF9F5] border border-[#64748B] text-[#0F172A] font-bold rounded-xl flex items-center justify-center hover:bg-[#F3F2EE] transition-colors cursor-pointer text-[15px] shrink-0"
             title="A4 인쇄 및 PDF 내보내기"
           >
             <span>🖨️</span>

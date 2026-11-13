@@ -87,6 +87,12 @@ export const FALLBACK_DONG_MAP: Record<string, { sigunguCd: string; bjdongCd: st
   "종로":     { sigunguCd: "11110", bjdongCd: "11500" },
   "용산":     { sigunguCd: "11170", bjdongCd: "10100" },
   "마포":     { sigunguCd: "11440", bjdongCd: "10100" },
+  "서교동":   { sigunguCd: "11440", bjdongCd: "12000" },
+  "동교동":   { sigunguCd: "11440", bjdongCd: "12100" },
+  "합정동":   { sigunguCd: "11440", bjdongCd: "12200" },
+  "망원동":   { sigunguCd: "11440", bjdongCd: "12300" },
+  "연남동":   { sigunguCd: "11440", bjdongCd: "12400" },
+  "상수동":   { sigunguCd: "11440", bjdongCd: "11500" },
   "송파":     { sigunguCd: "11710", bjdongCd: "10100" },
   "을지로":   { sigunguCd: "11140", bjdongCd: "10100" },
   "광화문":   { sigunguCd: "11110", bjdongCd: "14000" },
@@ -365,26 +371,45 @@ function extractBunJi(address: string): { bun: string; ji: string } {
  * 하드코딩 폴백: 주소에서 동이름을 매칭하여 코드를 반환합니다.
  */
 function fallbackParseAddress(address: string): AddressComponents | null {
-  // 지번 패턴 (예: "역삼동 742-1")
-  const regex = /([가-힣]+)\s+(\d{1,4})(?:-(\d{1,4}))?/;
+  // 지번 패턴 (예: "역삼동 742-1", "당산동5가 11-47")
+  const regex = /([가-힣0-9]+)\s+(\d{1,4})(?:-(\d{1,4}))?/;
   const match = address.match(regex);
 
   if (!match) return null;
 
-  const dongName = match[1].replace(/[동로가]/g, ""); // "역삼동" → "역삼"
+  const rawDong = match[1].trim();
+  const dongName = rawDong.replace(/(?:동\d+가|[동로가])$/, ""); // 말미 접미사만 제거 ("동교동" → "동교")
   const bun = match[2];
   const ji = match[3] || "0";
 
-  // 동 이름으로 매핑 탐색
+  // 1차: 정확 일치 (원본 동명 또는 말미 제거 어간 일치 우선)
+  if (FALLBACK_DONG_MAP[rawDong]) {
+    const codes = FALLBACK_DONG_MAP[rawDong];
+    return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
+  }
   for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
-    if (dongName.includes(key) || key.includes(dongName)) {
+    const cleanKey = key.trim().replace(/(?:동\d+가|[동로가])$/, "");
+    if (dongName.length >= 2 && cleanKey === dongName) {
       return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
     }
   }
 
-  // 도로명에서 매핑 시도 (예: "테헤란로 152")
-  for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
-    if (address.includes(key)) {
+  // 2차: 부분 일치 (최소 2글자 이상 어간만 허용)
+  if (dongName.length >= 2) {
+    for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
+      const cleanKey = key.trim();
+      if (dongName.includes(cleanKey) || cleanKey.includes(dongName)) {
+        return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
+      }
+    }
+  }
+
+  // 3차: 도로명에서 매핑 시도 (예: "테헤란로 152") — 더 긴 키 우선 매칭
+  const sortedEntries = Object.entries(FALLBACK_DONG_MAP).sort(
+    (a, b) => b[0].trim().length - a[0].trim().length,
+  );
+  for (const [key, codes] of sortedEntries) {
+    if (address.includes(key.trim())) {
       return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
     }
   }

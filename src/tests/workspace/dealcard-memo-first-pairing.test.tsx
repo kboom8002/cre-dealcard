@@ -355,7 +355,7 @@ describe("DealCard Memo-First Authoring, 1:1 Pairing & 3-Group List", () => {
     });
 
     expect(headlineInput.value).toBe("직접 다듬은 핵심 매력 제목");
-    expect(regionInput.value).toBe("영등포구 양평동");
+    expect(regionInput.value).toBe("마포구 서교동");
   });
 
   it("[MF-04 & MF-05] groups AI / Unconverted / Manual items, hides buyer_condition memos by default, supports private memo keyword search, and allows manual bypass", async () => {

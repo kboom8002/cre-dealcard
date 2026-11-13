@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceBottomNav, DEFAULT_WORKSPACE_TABS } from "./WorkspaceBottomNav";
 import { SAVE_STATE_LABELS, formatRelativeKo, type HonestSaveState } from "@/lib/ux/lexicon";
+import { FontScaleToggle } from "./FontScaleToggle";
 
 const COL_WIDTHS_STORAGE_KEY = "credeal-workspace-col-widths-v1";
-const FONT_SCALE_STORAGE_KEY = "credeal-workspace-font-scale-v1";
 const DEFAULT_LIST_WIDTH = 310;
 const MIN_LIST_WIDTH = 220;
 const MAX_LIST_WIDTH = 480;
@@ -113,35 +113,6 @@ export function WorkspaceShell({
   const queryTab = rawQueryTab || "editor";
 
   const activeBuildingId = selectedBuildingId ?? queryBuildingId;
-
-  // Desktop workspace font density preference ("normal" = 17px, "compact" = 15px)
-  const [fontScale, setFontScale] = useState<"normal" | "compact">("normal");
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const saved = window.localStorage.getItem(FONT_SCALE_STORAGE_KEY);
-      if (saved === "compact" || saved === "normal") {
-        setFontScale(saved);
-        document.documentElement.dataset.fontScale = saved;
-      }
-    } catch {
-      // ignore storage failure
-    }
-  }, []);
-
-  const handleFontScaleChange = useCallback((nextScale: "normal" | "compact") => {
-    setFontScale(nextScale);
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.fontScale = nextScale;
-    }
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, nextScale);
-      } catch {
-        // ignore storage failure
-      }
-    }
-  }, []);
 
   // Re-render every 30s so "3분 전" stays truthful
   const [, setNowTick] = useState(0);
@@ -586,40 +557,8 @@ export function WorkspaceShell({
 
         {/* Right tools / indicators (Translucent Glass Pills) */}
         <div className="hidden sm:flex items-center gap-2 shrink-0">
-          {/* Font Density Toggle (표준 15px / 큰글씨 17px) */}
-          <div
-            role="group"
-            aria-label="화면 글자 크기 선택"
-            data-testid="workspace-font-scale-toggle"
-            className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-0.5 rounded-xl border border-white/60"
-          >
-            <button
-              type="button"
-              data-testid="workspace-font-scale-compact"
-              aria-pressed={fontScale === "compact"}
-              onClick={() => handleFontScaleChange("compact")}
-              className={`px-2.5 min-h-[38px] rounded-[10px] text-sm font-semibold transition-all cursor-pointer ${
-                fontScale === "compact"
-                  ? "ios-segmented-pill bg-white text-[#007AFF]"
-                  : "text-[#3A3A3C] hover:text-[#1D1D1F]"
-              }`}
-            >
-              표준 글씨
-            </button>
-            <button
-              type="button"
-              data-testid="workspace-font-scale-normal"
-              aria-pressed={fontScale === "normal"}
-              onClick={() => handleFontScaleChange("normal")}
-              className={`px-2.5 min-h-[38px] rounded-[10px] text-sm font-semibold transition-all cursor-pointer ${
-                fontScale === "normal"
-                  ? "ios-segmented-pill bg-white text-[#007AFF]"
-                  : "text-[#3A3A3C] hover:text-[#1D1D1F]"
-              }`}
-            >
-              큰글씨
-            </button>
-          </div>
+          {/* Font Density Toggle (표준 15px / 큰글씨 17px / 아주 크게 21px) */}
+          <FontScaleToggle className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-0.5 rounded-xl border border-white/60 shrink-0" />
 
           {/* Desktop Preview Drawer Toggle (when 1024px-1279px) */}
           <button
@@ -627,7 +566,7 @@ export function WorkspaceShell({
             onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
             data-testid="workspace-preview-toggle-btn"
             aria-expanded={isPreviewDrawerOpen}
-            className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer"
+            className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
           >
             <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
           </button>

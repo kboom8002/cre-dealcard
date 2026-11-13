@@ -87,7 +87,7 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
 
     for (const stdrYear of yearsToTry) {
       try {
-        const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=1&pageNo=1`;
+        const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=1&pageNo=1`;
         const res = await fetchWithRetry(url, {
           timeoutMs: 15_000,
           maxRetries: 2,

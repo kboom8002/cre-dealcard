@@ -134,15 +134,7 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
     );
   }
 
-  let isBroker = sp.mode === 'broker';
-  try {
-    const viewer = await getServerViewer();
-    if (viewer.userId) {
-      isBroker = true;
-    }
-  } catch {
-    // Non-blocking
-  }
+  const isBroker = sp.mode === "broker" || Boolean((data as any).isOwner);
 
   const safeDocument = (data as any).isRevoked
     ? ({

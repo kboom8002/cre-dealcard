@@ -22,7 +22,12 @@ import {
   type DealCardOriginGroup,
   type UnconvertedMemoItem,
 } from "@/lib/deal-card/memo-pairing";
-import { cleanBlindPoints, validateBlindPoints } from "@/lib/deal-card/blind-guard";
+import {
+  cleanBlindPoints,
+  sanitizeBrokerPhone,
+  validateBlindPoints,
+} from "@/lib/deal-card/blind-guard";
+import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import {
   deriveDealCardHeadline,
   isCompleteDealCardLine,
@@ -76,19 +81,19 @@ interface BuildingListItem {
 }
 
 const SAMPLE_MEMO_TEXT =
-  "영등포구 양평동4가 대로변 코너 근생빌딩, 대지 127평 / 연면적 439평, 매매 희망가 95억, 역세권 도보 3분 코너 입지, 전층 우량 임차인 만실 운영 중";
+  "마포구 서교동 395-166 대로변 코너 근생빌딩, 대지 127평 / 연면적 439평, 매매 희망가 95억, 합정역 도보 3분 코너 입지, 전층 우량 임차인 만실 운영 중";
 
 const SAMPLE_CARD4: Card4Data = {
   headline: "대로변 코너 만실 운영 매물",
   posture: "income",
-  region: "영등포구 양평동",
+  region: "마포구 서교동",
   use: "근린생활시설",
   area: "연면적 439평",
   gfaPyung: 439,
   landAreaPyung: 127,
   priceBand: "90~100억",
   points: [
-    "역세권 도보 3분 코너",
+    "합정역 도보 3분 코너",
     "우량 임차인 전층 만실",
     "안정적인 임대수익 구조",
   ],
@@ -118,8 +123,8 @@ const EMPTY_CARD4: Card4Data = {
 const INITIAL_BUILDINGS: BuildingListItem[] = [
   {
     id: "bld-01",
-    title: "영등포구 양평동 근린생활시설",
-    region: "영등포구 양평동",
+    title: "마포구 서교동 근린생활시설",
+    region: "마포구 서교동",
     use: "근린생활시설",
     priceBand: "90~100억",
     status: "draft",
@@ -188,6 +193,11 @@ function DealCardsWorkspaceInner() {
   const [memoSaveStatus, setMemoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
+  const [pendingDeleteModal, setPendingDeleteModal] = useState<
+    | { kind: "dealcard"; target: BuildingListItem }
+    | { kind: "memo"; target: UnconvertedMemoItem }
+    | null
+  >(null);
 
   const memoTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const memoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1380,8 +1390,7 @@ function DealCardsWorkspaceInner() {
     });
   };
 
-  const handleDeleteItem = (target: BuildingListItem, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const executeDeleteItem = (target: BuildingListItem) => {
     (autosave as { cancelPending?: (k?: string) => void }).cancelPending?.(target.id);
     unmarkServerSynced(target.id);
 
@@ -1457,8 +1466,12 @@ function DealCardsWorkspaceInner() {
     });
   };
 
-  const handleDeleteUnconvertedMemo = (memo: UnconvertedMemoItem, e: React.MouseEvent) => {
+  const handleDeleteItem = (target: BuildingListItem, e: React.MouseEvent) => {
     e.stopPropagation();
+    setPendingDeleteModal({ kind: "dealcard", target });
+  };
+
+  const executeDeleteUnconvertedMemo = (memo: UnconvertedMemoItem) => {
     const prevSnapshot = [...unconvertedMemos];
     const remaining = unconvertedMemos.filter((m) => m.id !== memo.id);
     setUnconvertedMemos(remaining);
@@ -1494,6 +1507,11 @@ function DealCardsWorkspaceInner() {
         }).catch(() => {});
       },
     });
+  };
+
+  const handleDeleteUnconvertedMemo = (memo: UnconvertedMemoItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPendingDeleteModal({ kind: "memo", target: memo });
   };
 
   const toggleGroupCollapse = (group: DealCardOriginGroup) => {
@@ -2085,7 +2103,10 @@ function DealCardsWorkspaceInner() {
     !selectedMemoOnly &&
     resolvedActiveId === "bld-01" &&
     !isBlankCard &&
-    (effectiveCard4.region?.includes("양평동") || activeItem?.title?.includes("양평동"));
+    (effectiveCard4.region?.includes("서교동") ||
+      activeItem?.title?.includes("서교동") ||
+      effectiveCard4.region?.includes("양평동") ||
+      activeItem?.title?.includes("양평동"));
 
   const editorTargetId = resolvedActiveId || "";
 
@@ -2094,19 +2115,19 @@ function DealCardsWorkspaceInner() {
       {isSampleCard && (
         <div
           data-testid="dealcard-sample-banner"
-          className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-3"
+          className="px-3.5 py-2.5 rounded-2xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-2.5"
         >
           <p className="text-sm font-bold text-amber-950">
-            💡 현재 예시 딜카드(영등포구 양평동)가 열려 있습니다. 새 매물을 작성하려면 오른쪽 버튼을 눌러 메모부터 시작하세요.
+            💡 예시 딜카드(마포구 서교동)입니다.
           </p>
           <button
             type="button"
             data-testid="dealcard-sample-reset-btn"
             data-theme-lock="dark"
             onClick={handleCreateNew}
-            className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
+            className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
           >
-            새 빈 딜카드로 시작하기
+            새 빈 딜카드
           </button>
         </div>
       )}
@@ -2134,22 +2155,17 @@ function DealCardsWorkspaceInner() {
       {isAwaitingMemoGeneration ? (
         <div
           data-testid="dealcard-awaiting-memo-guide"
-          className="p-5 rounded-2xl bg-white/92 border border-dashed border-slate-300 flex flex-wrap items-center justify-between gap-3"
+          className="p-4 rounded-2xl bg-white/92 border border-dashed border-slate-300 flex flex-wrap items-center justify-between gap-3"
         >
-          <div className="space-y-1">
-            <p className="text-base font-extrabold text-[#1D1D1F] break-keep">
-              위 메모창에 매물 메모를 적고 [✨ 메모로 딜카드 생성하기]를 눌러 주세요
-            </p>
-            <p className="text-sm text-[#515154] break-keep">
-              번지·상호는 자동으로 가려지고 ① 매물 유형 · ② 카톡 썸네일 · ③ 장점 3줄이 채워져 아래에 열립니다.
-            </p>
-          </div>
+          <p className="text-sm font-extrabold text-[#1D1D1F] break-keep">
+            위 메모창에 매물 메모를 적고 [✨ 메모로 딜카드 생성하기]를 눌러 주세요.
+          </p>
           {!selectedMemoOnly && (
             <button
               type="button"
               data-testid="dealcard-fill-sample-btn"
               onClick={handleFillSample}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold transition cursor-pointer shrink-0"
+              className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
             >
               예시 채우기
             </button>
@@ -2162,7 +2178,7 @@ function DealCardsWorkspaceInner() {
           className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5"
         >
           <span className="text-sm font-bold text-[#3A3A3C]">
-            아래 블라인드 딜카드 항목을 확인하고 다듬어 주세요
+            블라인드 딜카드 편집
           </span>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -2223,7 +2239,7 @@ function DealCardsWorkspaceInner() {
         dealId={resolvedActiveId || ""}
         brokerName={brokerProfile?.displayName}
         brokerSpecialty={brokerProfile?.company}
-        brokerPhone={brokerProfile?.phone}
+        brokerPhone={sanitizeBrokerPhone(brokerProfile?.phone)}
       />
     </div>
   );
@@ -2302,6 +2318,24 @@ function DealCardsWorkspaceInner() {
         isOpen={isMemoModalOpen}
         onClose={() => setIsMemoModalOpen(false)}
         onSelectMemo={handleSelectMemo}
+      />
+      <ConfirmDeleteModal
+        isOpen={pendingDeleteModal !== null}
+        title={
+          pendingDeleteModal?.kind === "dealcard"
+            ? `'${pendingDeleteModal.target.title || "새 딜카드"}'을(를) 삭제할까요?`
+            : "이 매물 메모를 삭제할까요?"
+        }
+        onCancel={() => setPendingDeleteModal(null)}
+        onConfirm={() => {
+          if (!pendingDeleteModal) return;
+          if (pendingDeleteModal.kind === "dealcard") {
+            executeDeleteItem(pendingDeleteModal.target);
+          } else {
+            executeDeleteUnconvertedMemo(pendingDeleteModal.target);
+          }
+          setPendingDeleteModal(null);
+        }}
       />
     </>
   );

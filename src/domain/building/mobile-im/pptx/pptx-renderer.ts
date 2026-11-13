@@ -1141,6 +1141,14 @@ export class MobileImPptxRenderer {
             // 전 필지 단가 미입력: 단가는 대표 필지 기준으로 표기하고, 전체 면적과 곱하는 토지 비중은 산출하지 않는다.
             return { landPriceHistory: baseLph, landAreaSqm: 0, landPriceBasis: 'representative' };
           })(),
+          officialLandPricePerSqm:
+            Number(
+              enrichment?.landPrice?.officialPricePerM2 ||
+                enrichment?.landUsePlan?.pblntfPclnd ||
+                ssot.official_land_price_per_sqm ||
+                (input.doc.body as any)?.official_land_price_per_sqm ||
+                0,
+            ) || undefined,
           areaSignal: input.building?.area_signal ?? ssot.area_signal ?? '',
           pnu: String(ssot.pnu ?? input.doc.body?.pnu ?? input.building?.pnu ?? ''),
           address: String(dualAddrForDeck.singleLine || ssot.address || input.building?.address || ''),

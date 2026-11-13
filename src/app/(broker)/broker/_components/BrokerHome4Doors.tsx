@@ -14,6 +14,7 @@ import {
   UserCog,
 } from "lucide-react";
 import type { AggregatedBrokerHomeData } from "@/domain/broker/home-aggregated";
+import { FontScaleToggle } from "@/components/workspace/FontScaleToggle";
 
 interface BrokerHome4DoorsProps {
   data: AggregatedBrokerHomeData;
@@ -143,14 +144,17 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
           </p>
         </div>
 
-        <Link
-          href="/broker/profile"
-          data-testid="home-profile-settings-btn"
-          className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-2xl ios-glass-pill bg-white/88 hover:bg-white border border-slate-900/[0.09] text-[#1D1D1F] font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_2px_8px_rgba(15,23,42,0.05)] transition-all shrink-0"
-        >
-          <UserCog className="w-4 h-4 text-[#007AFF]" aria-hidden="true" />
-          <span>내 프로필 · 사무소 설정</span>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <FontScaleToggle />
+          <Link
+            href="/broker/profile"
+            data-testid="home-profile-settings-btn"
+            className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-2xl ios-glass-pill bg-white/88 hover:bg-white border border-slate-900/[0.09] text-[#1D1D1F] font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_2px_8px_rgba(15,23,42,0.05)] transition-all whitespace-nowrap shrink-0"
+          >
+            <UserCog className="w-4 h-4 text-[#007AFF] shrink-0" aria-hidden="true" />
+            <span>내 프로필 · 사무소 설정</span>
+          </Link>
+        </div>
       </header>
 
       {/* ── 2. WP-P2-05: 1-Line "이어서 하기" Spatial Glass Resume Bar ── */}
@@ -181,10 +185,10 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
 
             <Link
               href={resumeItem.href}
-              className="inline-flex items-center justify-center gap-1.5 px-4.5 py-2.5 min-h-[48px] rounded-2xl bg-gradient-to-b from-[#1A88FF] to-[#007AFF] hover:brightness-105 text-white font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_12px_rgba(0,122,255,0.28)] transition-all shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 px-4.5 py-2.5 min-h-[48px] rounded-2xl bg-gradient-to-b from-[#1A88FF] to-[#007AFF] hover:brightness-105 text-white font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_12px_rgba(0,122,255,0.28)] transition-all whitespace-nowrap shrink-0"
             >
               <span>편집 계속하기</span>
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
             </Link>
           </div>
         </section>

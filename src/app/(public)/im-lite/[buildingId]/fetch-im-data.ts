@@ -350,7 +350,8 @@ async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof bui
 function hydrateQuickRecordToMobileIM(
   buildingIdOrRec: string | StoredQuickImRecord,
   recOrGovernance?: StoredQuickImRecord | DbGovernanceOverlay,
-  maybeGovernance?: DbGovernanceOverlay
+  maybeGovernance?: DbGovernanceOverlay,
+  isOwner = false
 ): MobileIMDocument {
   const quickRec =
     typeof buildingIdOrRec === "string"
@@ -526,7 +527,7 @@ function hydrateQuickRecordToMobileIM(
     quickRec.fullDocBody?.pnu ||
     quickRec.fullDocBody?.ssot_summary?.pnu ||
     undefined;
-  return attachInboxGovernanceOverlay(doc, targetBuildingId, quickRec, dbGovernance);
+  return attachInboxGovernanceOverlay(doc, targetBuildingId, quickRec, dbGovernance, isOwner);
 }
 
 interface DbGovernanceOverlay {
@@ -541,7 +542,8 @@ function attachInboxGovernanceOverlay(
   doc: MobileIMDocument,
   buildingId: string,
   sourceMeta?: Record<string, any>,
-  dbGovernance?: DbGovernanceOverlay
+  dbGovernance?: DbGovernanceOverlay,
+  isOwner = false
 ): MobileIMDocument {
   const inboxState = getInboxState();
   const revokedInfo = inboxState.revokedBuildings[buildingId];
@@ -583,6 +585,7 @@ function attachInboxGovernanceOverlay(
     ? dbGovernance?.revokedAt || revokedInfo?.revokedAt || sourceMeta?.revoked_at || null
     : null;
   (doc as any).correctionNotice = correctionNotice;
+  (doc as any).isOwner = Boolean(isOwner);
   return doc;
 }
 
@@ -747,16 +750,38 @@ export async function fetchIMData(
           ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)
           : null);
   if (!isUuid(buildingId) && earlyQuickRec) {
-    return hydrateQuickRecordToMobileIM(buildingId, earlyQuickRec, dbGovernance);
+    const quickOwnerId =
+      (earlyQuickRec as any)?.ownerId ||
+      (latestImUpsert?.brokerProfile as any)?.userId ||
+      null;
+    return hydrateQuickRecordToMobileIM(
+      buildingId,
+      earlyQuickRec,
+      dbGovernance,
+      isOwnerOrAdmin(viewer, quickOwnerId)
+    );
   }
 
   // 1. Demo data
   const demo = getDemoMobileIM(buildingId);
-  if (demo) return attachInboxGovernanceOverlay(demo, buildingId, undefined, dbGovernance);
+  if (demo) {
+    return attachInboxGovernanceOverlay(
+      demo,
+      buildingId,
+      undefined,
+      dbGovernance,
+      isOwnerOrAdmin(viewer, null)
+    );
+  }
 
   if (!supabase) {
     if (earlyQuickRec) {
-      return hydrateQuickRecordToMobileIM(buildingId, earlyQuickRec, dbGovernance);
+      return hydrateQuickRecordToMobileIM(
+        buildingId,
+        earlyQuickRec,
+        dbGovernance,
+        isOwnerOrAdmin(viewer, (earlyQuickRec as any)?.ownerId || null)
+      );
     }
     return null;
   }
@@ -771,7 +796,16 @@ export async function fetchIMData(
         )
       : await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
     if (quickRec) {
-      return hydrateQuickRecordToMobileIM(buildingId, quickRec, dbGovernance);
+      const quickOwnerId =
+        (quickRec as any)?.ownerId ||
+        (latestImUpsert?.brokerProfile as any)?.userId ||
+        null;
+      return hydrateQuickRecordToMobileIM(
+        buildingId,
+        quickRec,
+        dbGovernance,
+        isOwnerOrAdmin(viewer, quickOwnerId)
+      );
     }
   }
 
@@ -1342,7 +1376,13 @@ export async function fetchIMData(
       ).basicImDoc;
     }
 
-    return attachInboxGovernanceOverlay(mappedResult, buildingId, document.body, dbGovernance);
+    return attachInboxGovernanceOverlay(
+      mappedResult,
+      buildingId,
+      document.body,
+      dbGovernance,
+      isOwnerOrAdmin(viewer, buildingOwnerId, document?.owner_id)
+    );
   }
 
   // 3. Fallback: If broker saved/published via IM Workspace (activity_events im_upserted) or in-memory quick store, synthesize directly before bare SSoT stub
@@ -1352,10 +1392,20 @@ export async function fetchIMData(
       latestImUpsert.imItem,
       latestImUpsert.brokerProfile
     );
-    return hydrateQuickRecordToMobileIM(buildingId, synthRec, dbGovernance);
+    return hydrateQuickRecordToMobileIM(
+      buildingId,
+      synthRec,
+      dbGovernance,
+      isOwnerOrAdmin(viewer, buildingOwnerId)
+    );
   }
   if (earlyQuickRec) {
-    return hydrateQuickRecordToMobileIM(buildingId, earlyQuickRec, dbGovernance);
+    return hydrateQuickRecordToMobileIM(
+      buildingId,
+      earlyQuickRec,
+      dbGovernance,
+      isOwnerOrAdmin(viewer, buildingOwnerId)
+    );
   }
 
   const result = await readBuilding(buildingId);
@@ -1364,7 +1414,12 @@ export async function fetchIMData(
   if (!ssot || Object.keys(ssot).length === 0 || (ssot.completeness_score ?? 0) < 30) {
     const quickRec = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
     if (quickRec) {
-      return hydrateQuickRecordToMobileIM(buildingId, quickRec, dbGovernance);
+      return hydrateQuickRecordToMobileIM(
+        buildingId,
+        quickRec,
+        dbGovernance,
+        isOwnerOrAdmin(viewer, buildingOwnerId)
+      );
     }
     return null;
   }
@@ -1490,5 +1545,5 @@ export async function fetchIMData(
       hasVacancy: !!ssot.vacancy_signal,
       hasPhotos: (Array.isArray(layers.photos) && layers.photos.length > 0) || (Array.isArray(ssot.photo_urls) && ssot.photo_urls.length > 0),
     }),
-  }, buildingId, undefined, dbGovernance);
+  }, buildingId, undefined, dbGovernance, isOwnerOrAdmin(viewer, buildingOwnerId || ssot.owner_id));
 }

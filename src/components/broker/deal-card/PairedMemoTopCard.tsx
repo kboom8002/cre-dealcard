@@ -91,10 +91,6 @@ export function PairedMemoTopCard({
               🔒 나만 보는 비공개 메모
             </span>
           </div>
-
-          <p className="text-sm text-[#515154] break-keep">
-            번지·건물명·상호·소유주 연락처를 그대로 적어두셔도 고객 카톡·공유 링크에는 절대 노출되지 않습니다.
-          </p>
         </div>
 
         {/* Header Helper Actions */}

@@ -3,7 +3,7 @@
 // 1차: 브이월드(V-World) 토지특성속성조회 API
 // 2차: data.go.kr 개별공시지가 (레거시 폴백)
 import { fetchWithRetry } from './fetch-with-retry';
-import { getVWorldApiKey, getVWorldReferer } from './vworld-config';
+import { getVWorldApiKey, getVWorldReferer, getVWorldDomain } from './vworld-config';
 import { createModuleLogger } from '@/lib/logger';
 
 const logger = createModuleLogger('land-price-api');
@@ -28,7 +28,7 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
 
     for (const stdrYear of yearsToTry) {
       try {
-        const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=1&pageNo=1`;
+        const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=1&pageNo=1`;
         const res = await fetchWithRetry(url, {
           timeoutMs: 15_000,
           maxRetries: 2,
@@ -107,45 +107,81 @@ export async function fetchLandPriceHistory(
     return null;
   }
 
-  const currentYear = new Date().getFullYear();
-  const yearRange = Array.from({ length: years }, (_, i) => currentYear - i);
+  const resultsByYear = new Map<string, number>();
 
-  // 병렬 호출 (동시 최대 5개 — V-World Rate Limit 고려)
-  const CONCURRENCY = 5;
-  const results: LandPriceHistoryItem[] = [];
-
-  for (let batch = 0; batch < yearRange.length; batch += CONCURRENCY) {
-    const chunk = yearRange.slice(batch, batch + CONCURRENCY);
-    const settled = await Promise.allSettled(
-      chunk.map(async (yr) => {
-        try {
-          const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&pnu=${pnu}&format=json&stdrYear=${yr}&numOfRows=1&pageNo=1`;
-          const res = await fetchWithRetry(url, {
-            timeoutMs: 10_000,
-            maxRetries: 1,
-            headers: { 'Referer': getVWorldReferer() },
-          });
-          if (!res.ok) return null;
-          const data = await res.json();
-          const items = data?.landCharacteristicss?.field;
-          const item = Array.isArray(items) ? items[0] : items;
-          const price = parseFloat(item?.pblntfPclnd || '0');
-          if (price > 0) return { year: String(yr), pricePerSqm: price };
-          return null;
-        } catch {
-          return null;
+  // ── 1차: getIndvdLandPriceAttr (단일 HTTP 요청으로 최근 10개년 일괄 취득) ──
+  try {
+    const attrUrl =
+      `https://api.vworld.kr/ned/data/getIndvdLandPriceAttr` +
+      `?key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}` +
+      `&pnu=${pnu}&format=json&numOfRows=60&pageNo=1`;
+    const attrRes = await fetchWithRetry(attrUrl, {
+      timeoutMs: 8_000,
+      maxRetries: 1,
+      headers: { Referer: getVWorldReferer() },
+    });
+    if (attrRes.ok) {
+      const json = await attrRes.json().catch(() => null);
+      const rawFields = json?.indvdLandPrices?.field ?? json?.landCharacteristicss?.field;
+      const fields = Array.isArray(rawFields) ? rawFields : rawFields ? [rawFields] : [];
+      for (const f of fields) {
+        const yr = String(f?.stdrYear ?? '').trim();
+        const price = parseFloat(String(f?.pblntfPclnd ?? '0'));
+        if (/^\d{4}$/.test(yr) && Number.isFinite(price) && price > 0) {
+          const prev = resultsByYear.get(yr) ?? 0;
+          if (price > prev) resultsByYear.set(yr, price);
         }
-      }),
-    );
-    for (const r of settled) {
-      if (r.status === 'fulfilled' && r.value) {
-        results.push(r.value);
+      }
+    }
+  } catch (err) {
+    logger.warn('[fetchLandPriceHistory] getIndvdLandPriceAttr 호출 실패 (getLandCharacteristics 폴백):', { err });
+  }
+
+  // ── 2차 폴백: getLandCharacteristics 연도별 배치 조회 (1차에서 <2개년일 때만) ──
+  if (resultsByYear.size < 2) {
+    const currentYear = new Date().getFullYear();
+    const yearRange = Array.from({ length: years }, (_, i) => currentYear - i);
+    const CONCURRENCY = 5;
+
+    for (let batch = 0; batch < yearRange.length; batch += CONCURRENCY) {
+      const chunk = yearRange.slice(batch, batch + CONCURRENCY);
+      const settled = await Promise.allSettled(
+        chunk.map(async (yr) => {
+          try {
+            const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}&pnu=${pnu}&format=json&stdrYear=${yr}&numOfRows=1&pageNo=1`;
+            const res = await fetchWithRetry(url, {
+              timeoutMs: 10_000,
+              maxRetries: 1,
+              headers: { Referer: getVWorldReferer() },
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            const items = data?.landCharacteristicss?.field;
+            const item = Array.isArray(items) ? items[0] : items;
+            const price = parseFloat(item?.pblntfPclnd || '0');
+            if (price > 0) return { year: String(yr), pricePerSqm: price };
+            return null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      for (const r of settled) {
+        if (r.status === 'fulfilled' && r.value) {
+          const prev = resultsByYear.get(r.value.year) ?? 0;
+          if (r.value.pricePerSqm > prev) {
+            resultsByYear.set(r.value.year, r.value.pricePerSqm);
+          }
+        }
       }
     }
   }
 
-  // 연도 오름차순 정렬
-  results.sort((a, b) => Number(a.year) - Number(b.year));
+  // 연도 오름차순 정렬 후 최신 N개년 추출
+  const sorted = Array.from(resultsByYear.entries())
+    .map(([year, pricePerSqm]) => ({ year, pricePerSqm }))
+    .sort((a, b) => Number(a.year) - Number(b.year));
+  const results = sorted.slice(-Math.max(2, years));
 
   if (results.length < 2) {
     logger.info(`[fetchLandPriceHistory] PNU ${pnu}: 데이터 ${results.length}건 — CAGR 산출 불가`);

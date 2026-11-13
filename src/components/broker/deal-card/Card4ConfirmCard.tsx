@@ -496,9 +496,6 @@ export function Card4ConfirmCard({
           <h3 className="text-base font-extrabold text-slate-900">
             {TERMS.postureSectionTitle}
           </h3>
-          <span className="text-sm font-semibold text-slate-600">
-            선택한 유형에 맞춰 면적 표시(연면적/토지면적)가 자동으로 바뀝니다
-          </span>
         </div>
 
         <div className="p-5" data-testid="card4-posture-chips">
@@ -547,9 +544,6 @@ export function Card4ConfirmCard({
           <h3 className="text-base font-extrabold text-slate-900">
             {TERMS.thumbnailSectionTitle}
           </h3>
-          <span className="text-sm font-bold text-blue-800">
-            카톡 말풍선 이미지에 4가지 항목이 큰 글씨로 들어갑니다
-          </span>
         </div>
 
         <div className="p-5 space-y-5">
@@ -748,14 +742,9 @@ export function Card4ConfirmCard({
         className="bg-white rounded-2xl border-2 border-indigo-300 shadow-xs overflow-hidden"
       >
         <div className="bg-indigo-50/90 border-b border-indigo-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="text-base font-extrabold text-slate-900">
-              {TERMS.pointsSectionTitle} (각 18자 이내)
-            </h3>
-            <p className="text-sm text-slate-600 mt-0.5">
-              상세 화면에 큰 글씨로 보여줄 장점 3가지를 적어 주세요
-            </p>
-          </div>
+          <h3 className="text-base font-extrabold text-slate-900">
+            {TERMS.pointsSectionTitle} (각 18자 이내)
+          </h3>
           <button
             type="button"
             data-testid="card4-ai-recluster-btn"

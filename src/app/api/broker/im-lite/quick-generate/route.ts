@@ -60,14 +60,14 @@ interface KnownParcelInfo {
 
 const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
   {
-    match: /(동교동\s*147-8|양화로18안길\s*7)/,
+    match: /(양화로\s*18안길\s*7\b|동교동\s*(?:147-8|168-4)\b)/,
     info: {
-      pnu: '1144012000101470008',
-      lat: 37.5562,
-      lng: 126.9241,
-      jibunAddress: '서울특별시 마포구 동교동 147-8',
+      pnu: '1144012100101680004',
+      lat: 37.556828,
+      lng: 126.925088,
+      jibunAddress: '서울특별시 마포구 동교동 168-4',
       roadAddress: '서울특별시 마포구 양화로18안길 7',
-      officialLandPriceWonSqm: 11670000,
+      officialLandPriceWonSqm: 14200000,
       landAreaSqm: 137.2,
       gfaSqm: 426.11,
       zoning: '제2종일반주거지역',
@@ -238,7 +238,7 @@ const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
   {
     match: /(보정동\s*1208-4|죽전로\s*15)/,
     info: {
-      pnu: '4146311100112080004',
+      pnu: '4146311800112080004',
       lat: 37.3228,
       lng: 127.1107,
       jibunAddress: '경기도 용인시 기흥구 보정동 1208-4',

@@ -32,6 +32,11 @@ interface DefectRecord {
 }
 
 const STORAGE_KEY = "credeal-dealcard-im-mece-workbench-v1";
+const WORKBENCH_ID = "dealcard-im-v1";
+
+function createDcImSessionId(): string {
+  return `dcim-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 const INITIAL_TRACK_METRICS: Record<ExecTrackId, TrackRuntimeMetrics> = {
   track1: { seconds: 0, hesitations: 0, misclicks: 0 },
@@ -101,10 +106,30 @@ export default function DealCardImMeceTestPage() {
   const [imInspectInput, setImInspectInput] = useState<string>("");
   const [showEmbeddedImFrame, setShowEmbeddedImFrame] = useState<boolean>(false);
   const hydratedRef = useRef<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
+
+  const [sessionId, setSessionId] = useState<string>(() => createDcImSessionId());
+  const [overallComment, setOverallComment] = useState<string>("");
+  const [serverSyncStatus, setServerSyncStatus] = useState<
+    "idle" | "syncing" | "synced" | "submitted" | "error"
+  >("idle");
+  const [lastServerSyncedAt, setLastServerSyncedAt] = useState<string | null>(null);
+  const [probeLoading, setProbeLoading] = useState<boolean>(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [probeResult, setProbeResult] = useState<Record<string, any> | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Hydrate persisted state asynchronously after client mount
   useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
+      let localSessionId = "";
+      let hasLocalVerdicts = false;
       try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
         if (raw) {
@@ -116,6 +141,7 @@ export default function DealCardImMeceTestPage() {
           }
           if (parsed.verdicts && typeof parsed.verdicts === "object") {
             setVerdicts(parsed.verdicts);
+            hasLocalVerdicts = Object.keys(parsed.verdicts).length > 0;
           }
           if (parsed.defects && typeof parsed.defects === "object") {
             setDefects(parsed.defects);
@@ -132,11 +158,93 @@ export default function DealCardImMeceTestPage() {
           if (typeof parsed.imInspectInput === "string") {
             setImInspectInput(parsed.imInspectInput);
           }
+          if (typeof parsed.sessionId === "string" && parsed.sessionId.trim()) {
+            localSessionId = parsed.sessionId.trim();
+            setSessionId(localSessionId);
+          }
+          if (typeof parsed.overallComment === "string") {
+            setOverallComment(parsed.overallComment);
+          }
         }
       } catch {
         // ignore storage errors
       } finally {
         hydratedRef.current = true;
+      }
+
+      const urlSession =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("session")?.trim() || ""
+          : "";
+      const lookupSessionId = urlSession || localSessionId;
+      if (!hasLocalVerdicts && lookupSessionId && typeof fetch === "function") {
+        try {
+          const p = fetch(
+            `/api/public/qa-workbench?workbenchId=${encodeURIComponent(
+              WORKBENCH_ID
+            )}&sessionId=${encodeURIComponent(lookupSessionId)}`,
+            { cache: "no-store" }
+          );
+          if (p && typeof p.then === "function") {
+            p.then((r) => (r.ok ? r.json() : null))
+              .then((payload) => {
+                if (!isMountedRef.current || !payload?.ok || !payload?.session) return;
+                const srv = payload.session;
+                if (typeof srv.sessionId === "string" && srv.sessionId) {
+                  setSessionId(srv.sessionId);
+                }
+                if (typeof srv.testerName === "string" && srv.testerName) {
+                  setTesterName(srv.testerName);
+                }
+                if (typeof srv.overallComment === "string") {
+                  setOverallComment(srv.overallComment);
+                }
+                if (srv.scratchLinks && typeof srv.scratchLinks === "object") {
+                  if (typeof srv.scratchLinks.dcInspectInput === "string") {
+                    setDcInspectInput(srv.scratchLinks.dcInspectInput);
+                  }
+                  if (typeof srv.scratchLinks.imInspectInput === "string") {
+                    setImInspectInput(srv.scratchLinks.imInspectInput);
+                  }
+                }
+                if (srv.records && typeof srv.records === "object") {
+                  const recoveredVerdicts: Record<string, CheckVerdict> = {};
+                  const recoveredDefects: Record<string, DefectRecord> = {};
+                  for (const [stepId, rec] of Object.entries(
+                    srv.records as Record<string, { status?: string; note?: string; overrideSeverity?: DefectSeverity }>
+                  )) {
+                    if (rec?.status === "PASS" || rec?.status === "FAIL" || rec?.status === "PENDING") {
+                      recoveredVerdicts[stepId] = rec.status;
+                    }
+                    if (rec?.status === "FAIL") {
+                      const stepMeta = CLICK_THROUGH_STEPS.find((s) => s.id === stepId);
+                      recoveredDefects[stepId] = {
+                        id: `def-${stepId}`,
+                        stepId: stepMeta?.stepNo || stepId,
+                        trackLabel: stepMeta?.title || stepId,
+                        severity: rec.overrideSeverity || stepMeta?.defaultSeverityIfFail || "S1",
+                        note: rec.note || "",
+                        updatedAt: "-",
+                      };
+                    }
+                  }
+                  if (Object.keys(recoveredVerdicts).length > 0) {
+                    setVerdicts(recoveredVerdicts);
+                  }
+                  if (Object.keys(recoveredDefects).length > 0) {
+                    setDefects(recoveredDefects);
+                  }
+                }
+                setServerSyncStatus(srv.mode === "submit" ? "submitted" : "synced");
+                if (typeof srv.syncedAt === "string") {
+                  setLastServerSyncedAt(srv.syncedAt);
+                }
+              })
+              .catch(() => {});
+          }
+        } catch {
+          // ignore offline/JSDOM errors
+        }
       }
     });
     return () => window.cancelAnimationFrame(rafId);
@@ -149,6 +257,8 @@ export default function DealCardImMeceTestPage() {
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
+          sessionId,
+          overallComment,
           testerName,
           largeFont,
           viewMode,
@@ -164,6 +274,8 @@ export default function DealCardImMeceTestPage() {
       // ignore storage errors
     }
   }, [
+    sessionId,
+    overallComment,
     testerName,
     largeFont,
     viewMode,
@@ -424,6 +536,151 @@ export default function DealCardImMeceTestPage() {
       gateStatus,
     };
   }, [verdicts, defects, customDefects, trackMetrics]);
+
+  const recordsPayload = useMemo(() => {
+    const out: Record<
+      string,
+      { status: CheckVerdict; note: string; overrideSeverity?: DefectSeverity }
+    > = {};
+    for (const step of CLICK_THROUGH_STEPS) {
+      const status = verdicts[step.id];
+      const def = defects[step.id];
+      if (!status && !def) continue;
+      out[step.id] = {
+        status: status || "PENDING",
+        note: def?.note || "",
+        overrideSeverity: def?.severity,
+      };
+    }
+    return out;
+  }, [verdicts, defects]);
+
+  const totalSecondsRef = useRef<number>(stats.totalSeconds);
+  totalSecondsRef.current = stats.totalSeconds;
+
+  const syncToServer = useCallback(
+    async (mode: "sync" | "submit") => {
+      if (typeof fetch !== "function") {
+        if (mode === "submit") {
+          showToast("⚠️ 현재 환경에서는 로컬 저장 모드로 동작합니다.");
+        }
+        return;
+      }
+      setServerSyncStatus("syncing");
+      try {
+        const res = await fetch("/api/public/qa-workbench", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode,
+            workbenchId: WORKBENCH_ID,
+            sessionId,
+            testerName,
+            elapsedSeconds: totalSecondsRef.current,
+            overallComment,
+            scratchLinks: {
+              dcInspectInput,
+              imInspectInput,
+            },
+            records: recordsPayload,
+          }),
+        });
+        if (!isMountedRef.current) return;
+        if (res && res.ok) {
+          const data = await res.json().catch(() => null);
+          setServerSyncStatus(mode === "submit" ? "submitted" : "synced");
+          setLastServerSyncedAt(
+            typeof data?.syncedAt === "string"
+              ? data.syncedAt
+              : new Date().toISOString()
+          );
+          if (mode === "submit") {
+            showToast("☁️ QA 검수 결과가 서버에 최종 제출·저장되었습니다.");
+          }
+        } else {
+          setServerSyncStatus("error");
+          if (mode === "submit") {
+            showToast("⚠️ 서버 저장 중 오류가 발생했습니다. JSON 파일로도 백업해 주세요.");
+          }
+        }
+      } catch {
+        if (!isMountedRef.current) return;
+        setServerSyncStatus("error");
+        if (mode === "submit") {
+          showToast("⚠️ 네트워크 오류로 서버 제출에 실패했습니다.");
+        }
+      }
+    },
+    [
+      sessionId,
+      testerName,
+      overallComment,
+      dcInspectInput,
+      imInspectInput,
+      recordsPayload,
+      showToast,
+    ]
+  );
+
+  // Debounced auto-sync (1500ms)
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (
+      stats.pass + stats.fail === 0 &&
+      overallComment.trim().length === 0 &&
+      !dcInspectInput.trim() &&
+      !imInspectInput.trim()
+    ) {
+      return;
+    }
+    if (typeof fetch !== "function") return;
+    const t = window.setTimeout(() => {
+      void syncToServer("sync");
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [
+    stats.pass,
+    stats.fail,
+    overallComment,
+    dcInspectInput,
+    imInspectInput,
+    recordsPayload,
+    syncToServer,
+  ]);
+
+  const runLiveProbe = useCallback(async () => {
+    if (!dcInspectInput.trim() && !imInspectInput.trim()) {
+      showToast("검증할 /dc/... 또는 /im-lite/... 링크를 먼저 입력해 주세요.");
+      return;
+    }
+    if (typeof fetch !== "function") return;
+    setProbeLoading(true);
+    try {
+      const res = await fetch("/api/public/qa-workbench", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "probe",
+          dealCardUrl: dcInspectInput.trim() || undefined,
+          imShareUrl: imInspectInput.trim() || undefined,
+        }),
+      });
+      if (!isMountedRef.current) return;
+      const data = res ? await res.json().catch(() => null) : null;
+      if (res && res.ok && data) {
+        setProbeResult(data);
+        showToast("⚡ 서버 실데이터 검증 결과를 업데이트했습니다.");
+      } else {
+        showToast("⚠️ 실데이터 검증 조회에 실패했습니다.");
+      }
+    } catch {
+      if (isMountedRef.current) {
+        showToast("⚠️ 서버 실데이터 검증 중 네트워크 오류가 발생했습니다.");
+      }
+    } finally {
+      if (isMountedRef.current) setProbeLoading(false);
+    }
+  }, [dcInspectInput, imInspectInput, showToast]);
 
   const buildMarkdownReport = useCallback(() => {
     const lines: string[] = [
@@ -813,7 +1070,31 @@ export default function DealCardImMeceTestPage() {
                   <span>고객 딜카드 화면 열기 ↗</span>
                 </a>
               )}
+              <button
+                type="button"
+                data-testid="run-live-probe-btn"
+                disabled={probeLoading}
+                onClick={() => void runLiveProbe()}
+                className="min-h-[46px] px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-extrabold text-sm cursor-pointer"
+              >
+                {probeLoading ? "검증 중…" : "⚡ 서버 실데이터 검증"}
+              </button>
             </div>
+            {probeResult?.dealCardCheck && (
+              <div
+                data-testid="live-probe-dealcard-result"
+                className="p-3 rounded-xl bg-white border border-blue-200 text-sm space-y-1"
+              >
+                <p className="font-extrabold text-slate-900">
+                  서버 판정: {probeResult.dealCardCheck.statusLabel}
+                </p>
+                <p className="text-slate-700">
+                  DB/저장 확인: {probeResult.dealCardCheck.exists ? "✅ 확인" : "⚠️ 미확인"} ·
+                  블라인드: {probeResult.dealCardCheck.addressBlindPass ? "✅ 안전" : "❌ 노출 의심"} ·
+                  중개사 연락처: {probeResult.dealCardCheck.brokerPhonePass ? "✅ 정상" : "❌ 형식 이상(@ 등)"}
+                </p>
+              </div>
+            )}
             {resolvedDealId && (
               <div className="pt-2 space-y-2">
                 <p className="text-sm font-bold text-slate-700">
@@ -868,7 +1149,31 @@ export default function DealCardImMeceTestPage() {
                   </a>
                 </>
               )}
+              <button
+                type="button"
+                data-testid="run-live-probe-btn"
+                disabled={probeLoading}
+                onClick={() => void runLiveProbe()}
+                className="min-h-[46px] px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-extrabold text-sm cursor-pointer"
+              >
+                {probeLoading ? "검증 중…" : "⚡ 서버 실데이터 검증"}
+              </button>
             </div>
+            {probeResult?.shareLinkCheck && (
+              <div
+                data-testid="live-probe-im-result"
+                className="p-3 rounded-xl bg-white border border-emerald-200 text-sm space-y-1"
+              >
+                <p className="font-extrabold text-slate-900">
+                  서버 판정: {probeResult.shareLinkCheck.statusLabel}
+                </p>
+                <p className="text-slate-700">
+                  문서 존재: {probeResult.shareLinkCheck.docExists ? "✅ 확인" : "⚠️ 미확인"} ·
+                  공시지가: {probeResult.shareLinkCheck.hasOfficialLandPrice ? "✅ 확인" : "⚠️ 미확인"} ·
+                  링크 잠금: {probeResult.shareLinkCheck.isLocked ? "🔒 잠김" : "🔓 열람 가능"}
+                </p>
+              </div>
+            )}
             {resolvedImPath && showEmbeddedImFrame && (
               <div className="pt-2 flex justify-center">
                 <iframe
@@ -1065,6 +1370,31 @@ export default function DealCardImMeceTestPage() {
                   : stats.gateStatus === "NOGO"
                   ? `🔴 NO-GO · S0(${stats.s0Count})/S1(${stats.s1Count}) 보완 필요`
                   : `🟡 점검 진행 중 (${stats.pass}/${stats.total} 완료)`}
+              </span>
+              <span
+                data-testid="workbench-sync-badge"
+                title={lastServerSyncedAt || sessionId}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                  serverSyncStatus === "submitted"
+                    ? "bg-blue-50 text-blue-900 border-blue-200"
+                    : serverSyncStatus === "synced"
+                    ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                    : serverSyncStatus === "syncing"
+                    ? "bg-amber-50 text-amber-900 border-amber-200"
+                    : serverSyncStatus === "error"
+                    ? "bg-rose-50 text-rose-900 border-rose-200"
+                    : "bg-slate-100 text-slate-700 border-slate-200"
+                }`}
+              >
+                {serverSyncStatus === "submitted"
+                  ? "☁️ 서버 제출 완료"
+                  : serverSyncStatus === "synced"
+                  ? "☁️ 자동 동기화됨"
+                  : serverSyncStatus === "syncing"
+                  ? "⏳ 서버 동기화 중"
+                  : serverSyncStatus === "error"
+                  ? "⚠️ 로컬 저장만 유지"
+                  : "💾 로컬+서버 대기"}
               </span>
             </div>
 
@@ -1464,6 +1794,17 @@ export default function DealCardImMeceTestPage() {
                   <div className="flex flex-wrap items-center gap-2 print:hidden">
                     <button
                       type="button"
+                      data-testid="submit-qa-report-btn"
+                      disabled={serverSyncStatus === "syncing"}
+                      onClick={() => void syncToServer("submit")}
+                      className="min-h-[46px] px-4 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 text-white font-extrabold text-sm cursor-pointer"
+                    >
+                      {serverSyncStatus === "syncing"
+                        ? "제출 중…"
+                        : "☁️ 검수 결과 서버 제출"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         void handleCopyText(
                           buildMarkdownReport(),
@@ -1497,6 +1838,23 @@ export default function DealCardImMeceTestPage() {
                       초기화
                     </button>
                   </div>
+                </div>
+
+                <div className="space-y-1.5 print:hidden">
+                  <label
+                    htmlFor="dcim-overall-comment"
+                    className="block text-sm font-extrabold text-slate-800"
+                  >
+                    총평 / 추가 검수 의견 (서버 리포트에 함께 저장됩니다)
+                  </label>
+                  <textarea
+                    id="dcim-overall-comment"
+                    rows={2}
+                    value={overallComment}
+                    onChange={(e) => setOverallComment(e.target.value)}
+                    placeholder="테스트 중 발견한 UX 개선점이나 출시 승인 의견을 자유롭게 적어주세요."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-indigo-600"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">

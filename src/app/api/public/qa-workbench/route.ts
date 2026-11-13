@@ -30,6 +30,7 @@ import {
   MECE_36_STEPS,
   type MeceSeverity,
 } from "@/lib/testguide/newsletter-inbox-mece-data";
+import { CLICK_THROUGH_STEPS } from "@/lib/testguide/dealcard-im-mece-guide-data";
 import { createModuleLogger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -171,14 +172,18 @@ function formatDashedKrPhone(digits: string): string {
   return digits;
 }
 
-function computeWorkbenchSummary(rawRecords: unknown) {
+function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
   const recMap =
     rawRecords && typeof rawRecords === "object" && !Array.isArray(rawRecords)
       ? (rawRecords as Record<
           string,
-          { status?: string; note?: string; overrideSeverity?: MeceSeverity }
+          { status?: string; note?: string; overrideSeverity?: string }
         >)
       : {};
+
+  const steps: Array<{ key: string; severity: string }> = workbenchId.startsWith("dealcard-im")
+    ? CLICK_THROUGH_STEPS.map((s) => ({ key: s.id, severity: s.defaultSeverityIfFail }))
+    : MECE_36_STEPS.map((s) => ({ key: s.code, severity: s.severity }));
 
   let passCount = 0;
   let failCount = 0;
@@ -187,18 +192,19 @@ function computeWorkbenchSummary(rawRecords: unknown) {
   let s2FailCount = 0;
   const failedStepCodes: string[] = [];
 
-  for (const step of MECE_36_STEPS) {
-    const entry = recMap[step.code];
+  for (const step of steps) {
+    const entry = recMap[step.key];
     if (!entry || !entry.status || entry.status === "PENDING") continue;
     if (entry.status === "PASS") {
       passCount += 1;
     } else if (entry.status === "FAIL") {
       failCount += 1;
-      failedStepCodes.push(step.code);
+      failedStepCodes.push(step.key);
       const sev =
         entry.overrideSeverity === "S0" ||
         entry.overrideSeverity === "S1" ||
-        entry.overrideSeverity === "S2"
+        entry.overrideSeverity === "S2" ||
+        entry.overrideSeverity === "S3"
           ? entry.overrideSeverity
           : step.severity;
       if (sev === "S0") s0FailCount += 1;
@@ -207,7 +213,7 @@ function computeWorkbenchSummary(rawRecords: unknown) {
     }
   }
 
-  const totalCount = MECE_36_STEPS.length;
+  const totalCount = steps.length;
   const completedCount = passCount + failCount;
 
   let verdictLabel = `점검 진행 중 (${completedCount}/${totalCount})`;
@@ -470,7 +476,7 @@ export async function POST(req: NextRequest) {
           ? (body.records as Record<string, unknown>)
           : {};
 
-      const summary = computeWorkbenchSummary(safeRecords);
+      const summary = computeWorkbenchSummary(safeRecords, workbenchId);
       const brokerUser = await resolveOptionalBrokerUser(req);
       const actorUuid =
         brokerUser?.id && isUuid(brokerUser.id) ? brokerUser.id : null;
@@ -576,6 +582,9 @@ export async function POST(req: NextRequest) {
       ).trim();
       const rawImShareUrl = String(
         body.imShareUrl ?? body.imTokenUrl ?? ""
+      ).trim();
+      const rawDealCardUrl = String(
+        body.dealCardUrl ?? body.dcUrl ?? ""
       ).trim();
       const rawClientContact = String(body.testClientContact ?? "").trim();
 
@@ -867,6 +876,8 @@ export async function POST(req: NextRequest) {
             let dbGovRevoked: boolean | undefined;
             let dbGovTs = 0;
             let docBodyRevoked = false;
+            let dbDocExists = false;
+            let dbHasOfficialLandPrice = false;
 
             if (supabase) {
               try {
@@ -908,23 +919,74 @@ export async function POST(req: NextRequest) {
                     .eq("building_id", buildingId)
                     .order("created_at", { ascending: false })
                     .limit(3);
-                  if (Array.isArray(docRows) && docRows[0]?.body) {
-                    const docBody = docRows[0].body as Record<string, unknown>;
+                  if (Array.isArray(docRows) && docRows.length > 0) {
+                    dbDocExists = true;
+                    const docBody = (docRows[0]?.body || {}) as Record<string, unknown>;
                     if (docBody.is_revoked === true || docBody.isRevoked === true) {
                       docBodyRevoked = true;
+                    }
+                    const basicDoc =
+                      docBody.basicImDocument && typeof docBody.basicImDocument === "object"
+                        ? (docBody.basicImDocument as Record<string, unknown>)
+                        : null;
+                    const basicFacts =
+                      basicDoc?.facts && typeof basicDoc.facts === "object"
+                        ? (basicDoc.facts as Record<string, unknown>)
+                        : null;
+                    const ssotSum =
+                      docBody.ssot_summary && typeof docBody.ssot_summary === "object"
+                        ? (docBody.ssot_summary as Record<string, unknown>)
+                        : null;
+                    const rawPrice = Number(
+                      docBody.officialLandPricePerSqm ??
+                        ssotSum?.officialLandPricePerSqm ??
+                        basicFacts?.officialLandPricePerSqm ??
+                        0
+                    );
+                    if (
+                      (Number.isFinite(rawPrice) && rawPrice > 0) ||
+                      (Array.isArray(docBody.landPriceHistory) &&
+                        docBody.landPriceHistory.length > 0)
+                    ) {
+                      dbHasOfficialLandPrice = true;
                     }
                   }
                 } catch {
                   // non-blocking
                 }
+
+                if (!dbHasOfficialLandPrice) {
+                  try {
+                    const { data: ssotRow } = await supabase
+                      .from("building_ssot_lite")
+                      .select("id, official_land_price_per_sqm, layers")
+                      .eq("id", buildingId)
+                      .maybeSingle();
+                    if (ssotRow) {
+                      dbDocExists = true;
+                      const pubLayer = (ssotRow.layers as Record<string, any>)?.public_data;
+                      const priceVal = Number(
+                        (ssotRow as Record<string, unknown>).official_land_price_per_sqm ??
+                          pubLayer?.officialLandPricePerSqm ??
+                          0
+                      );
+                      if (Number.isFinite(priceVal) && priceVal > 0) {
+                        dbHasOfficialLandPrice = true;
+                      }
+                    }
+                  } catch {
+                    // non-blocking
+                  }
+                }
               }
             }
 
+            const quickRec = getQuickImRecord(buildingId);
             const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
             const localRevoked = Boolean(
               inboxRevokedEntry?.revoked ||
                 isBuildingShareLinkRevoked(buildingId) ||
-                getQuickImRecord(buildingId)?.isRevoked
+                quickRec?.isRevoked
             );
             const localTs = inboxRevokedEntry?.revokedAt
               ? Date.parse(inboxRevokedEntry.revokedAt)
@@ -937,16 +999,33 @@ export async function POST(req: NextRequest) {
 
             const isLocked =
               tokenBlocked || effectiveBuildingRevoked || docBodyRevoked;
+            const docExists = dbDocExists || Boolean(quickRec);
+            const quickAny = quickRec as unknown as Record<string, unknown> | null;
+            const hasOfficialLandPrice =
+              dbHasOfficialLandPrice ||
+              Boolean(
+                quickAny &&
+                  ((typeof quickRec?.officialLandPriceWonSqm === "number" &&
+                    quickRec.officialLandPriceWonSqm > 0) ||
+                    (typeof quickAny.officialLandPricePerSqm === "number" &&
+                      quickAny.officialLandPricePerSqm > 0) ||
+                    (Array.isArray(quickAny.landPriceHistory) &&
+                      quickAny.landPriceHistory.length > 0))
+              );
 
             shareLinkCheck = {
               validUrl: true,
               buildingId,
               hasToken: Boolean(token),
               tokenReason,
+              docExists,
+              hasOfficialLandPrice,
               docRevoked: docBodyRevoked,
               isLocked,
               statusLabel: isLocked
                 ? "잠금 차단 활성 (403 예상)"
+                : docExists
+                ? "열람 허용 · 공적장부 확인 (200 예상)"
                 : "열람 허용 상태 (200 예상)",
             };
           }
@@ -1104,12 +1183,153 @@ export async function POST(req: NextRequest) {
         };
       }
 
+      // ── 2D. DealCard Check (/dc/[id]) ──
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let dealCardCheck: Record<string, any> | null = null;
+      if (rawDealCardUrl) {
+        const normalizedDcInput =
+          /^[a-z0-9-]+$/i.test(rawDealCardUrl) && !rawDealCardUrl.includes("/")
+            ? `/dc/${rawDealCardUrl}`
+            : rawDealCardUrl;
+        const parsedRes = parseSafeSameOriginUrl(normalizedDcInput);
+        if (!parsedRes.ok) {
+          dealCardCheck = {
+            validUrl: false,
+            dealId: "",
+            exists: false,
+            addressBlindPass: false,
+            brokerPhonePass: false,
+            statusLabel: "URL 형식 오류",
+            error: parsedRes.error,
+          };
+        } else {
+          const dcMatch = parsedRes.url.pathname.match(/^\/(?:dc|d)\/([^/?#]+)/i);
+          if (!dcMatch) {
+            dealCardCheck = {
+              validUrl: false,
+              dealId: "",
+              exists: false,
+              addressBlindPass: false,
+              brokerPhonePass: false,
+              statusLabel: "URL 경로 오류 (/dc/<id> 필요)",
+              error: "/dc/<딜카드ID> 형식의 링크 또는 ID를 입력해 주세요.",
+            };
+          } else {
+            const dealId = decodeURIComponent(dcMatch[1]);
+            let exists = false;
+            let addressBlindPass = true;
+            let brokerPhonePass = true;
+            const offendingTexts: string[] = [];
+
+            if (supabase) {
+              try {
+                if (isUuid(dealId)) {
+                  const [ssotRes, cardRes] = await Promise.all([
+                    supabase
+                      .from("building_ssot_lite")
+                      .select("id, area_signal, asset_type, price_band, owner_id")
+                      .eq("id", dealId)
+                      .maybeSingle(),
+                    supabase
+                      .from("building_signal_cards")
+                      .select("id, headline, point_1, point_2, point_3, region")
+                      .eq("building_id", dealId)
+                      .maybeSingle(),
+                  ]);
+                  const ssot = ssotRes.data as Record<string, unknown> | null;
+                  const card = cardRes.data as Record<string, unknown> | null;
+                  if (ssot || card) {
+                    exists = true;
+                    const candidates = [
+                      ssot?.area_signal,
+                      card?.headline,
+                      card?.region,
+                      card?.point_1,
+                      card?.point_2,
+                      card?.point_3,
+                    ];
+                    for (const val of candidates) {
+                      if (typeof val === "string" && hasUnmaskedAddressString(val)) {
+                        addressBlindPass = false;
+                        offendingTexts.push(val.slice(0, 60));
+                      }
+                    }
+                    const ownerId =
+                      typeof ssot?.owner_id === "string" ? ssot.owner_id : null;
+                    if (ownerId) {
+                      const { data: prof } = await supabase
+                        .from("profiles")
+                        .select("phone")
+                        .eq("id", ownerId)
+                        .maybeSingle();
+                      if (
+                        typeof prof?.phone === "string" &&
+                        prof.phone.includes("@")
+                      ) {
+                        brokerPhonePass = false;
+                      }
+                    }
+                  }
+                } else {
+                  const { data: evRows } = await supabase
+                    .from("activity_events")
+                    .select("metadata")
+                    .in("event_type", ["dealcard_saved", "dealcard_created"])
+                    .order("created_at", { ascending: false })
+                    .limit(40);
+                  if (Array.isArray(evRows)) {
+                    for (const row of evRows) {
+                      const meta = (row?.metadata || {}) as Record<string, unknown>;
+                      const cardId = String(
+                        meta.buildingId || meta.building_id || meta.id || ""
+                      );
+                      if (cardId !== dealId) continue;
+                      exists = true;
+                      const c4 = (meta.card4 || {}) as Record<string, unknown>;
+                      const pts = Array.isArray(c4.points) ? c4.points : [];
+                      for (const val of [c4.headline, c4.region, ...pts]) {
+                        if (typeof val === "string" && hasUnmaskedAddressString(val)) {
+                          addressBlindPass = false;
+                          offendingTexts.push(val.slice(0, 60));
+                        }
+                      }
+                      break;
+                    }
+                  }
+                }
+              } catch {
+                // non-blocking
+              }
+            }
+
+            if (!exists && getQuickImRecord(dealId)) {
+              exists = true;
+            }
+
+            dealCardCheck = {
+              validUrl: true,
+              dealId,
+              exists,
+              addressBlindPass,
+              brokerPhonePass,
+              offendingTexts,
+              statusLabel: !exists
+                ? "생성 기록 미확인 (로컬 전용이거나 미저장)"
+                : addressBlindPass && brokerPhonePass
+                ? "블라인드·연락처 검증 통과"
+                : "블라인드/연락처 점검 필요",
+            };
+          }
+        }
+      }
+
       return NextResponse.json({
         ok: true,
         checkedAt: new Date().toISOString(),
         newsletterCheck,
         shareLinkCheck,
         subscriberCheck,
+        dealCardCheck,
       });
     }
 

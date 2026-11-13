@@ -256,10 +256,10 @@ const KNOWN_GOLDEN_PARCELS: Array<{
   officialLandPriceWonSqm?: number;
 }> = [
   {
-    match: /(동교동\s*147-8|양화로18안길\s*7)/,
-    pnu: '1144012000101470008',
-    coordinates: { lat: 37.5562, lng: 126.9241 },
-    officialLandPriceWonSqm: 11670000,
+    match: /(양화로\s*18안길\s*7\b|동교동\s*(?:147-8|168-4)\b)/,
+    pnu: '1144012100101680004',
+    coordinates: { lat: 37.556828, lng: 126.925088 },
+    officialLandPriceWonSqm: 14200000,
   },
   {
     match: /(동교동\s*189-6|와우산로37길\s*9)/,
@@ -293,7 +293,7 @@ const KNOWN_GOLDEN_PARCELS: Array<{
   },
   {
     match: /(보정동\s*1208-4|죽전로\s*15)/,
-    pnu: '4146311100112080004',
+    pnu: '4146311800112080004',
     coordinates: { lat: 37.3228, lng: 127.1107 },
     officialLandPriceWonSqm: 6420000,
   },
