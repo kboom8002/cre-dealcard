@@ -23,14 +23,20 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const saved = window.localStorage.getItem(FONT_SCALE_STORAGE_KEY);
-      if (isValidFontScale(saved)) {
-        setFontScale(saved);
-        document.documentElement.dataset.fontScale = saved;
+    const htmlEl = document.documentElement;
+    const currentAttr = htmlEl.dataset.fontScale;
+    if (isValidFontScale(currentAttr)) {
+      setFontScale(currentAttr);
+    } else {
+      try {
+        const saved = window.localStorage.getItem(FONT_SCALE_STORAGE_KEY);
+        if (isValidFontScale(saved)) {
+          setFontScale(saved);
+          htmlEl.dataset.fontScale = saved;
+        }
+      } catch {
+        // ignore storage failure
       }
-    } catch {
-      // ignore storage failure
     }
 
     const onSync = (e: Event) => {
@@ -40,7 +46,22 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
       }
     };
     window.addEventListener(FONT_SCALE_EVENT, onSync);
-    return () => window.removeEventListener(FONT_SCALE_EVENT, onSync);
+
+    let observer: MutationObserver | null = null;
+    if (typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        const attr = htmlEl.dataset.fontScale;
+        if (isValidFontScale(attr)) {
+          setFontScale((prev) => (prev === attr ? prev : attr));
+        }
+      });
+      observer.observe(htmlEl, { attributes: true, attributeFilter: ["data-font-scale"] });
+    }
+
+    return () => {
+      window.removeEventListener(FONT_SCALE_EVENT, onSync);
+      observer?.disconnect();
+    };
   }, []);
 
   const handleSelect = useCallback((nextScale: UiFontScale) => {
@@ -89,7 +110,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
             data-testid={`workspace-font-scale-${opt.id}`}
             aria-pressed={active}
             onClick={() => handleSelect(opt.id)}
-            className={`px-2.5 min-h-[38px] rounded-[10px] text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`px-2.5 min-h-[44px] rounded-[10px] text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               active
                 ? "ios-segmented-pill bg-white text-[#007AFF]"
                 : "text-[#3A3A3C] hover:text-[#1D1D1F]"

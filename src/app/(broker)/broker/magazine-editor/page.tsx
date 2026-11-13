@@ -2779,8 +2779,7 @@ function MagazineEditorWorkspace() {
         label: "발행 호수 및 주기",
         tab: "title",
         editorSelector: '[data-testid="issue-metadata-form"]',
-        focusSelector:
-          cadence === "monthly" ? "#newsletter-issue-year" : "#newsletter-issue-date",
+        focusSelector: "#newsletter-issue-schedule-toggle",
       },
       "nl-unit-cover": {
         unitId: "nl-unit-cover",
@@ -3623,16 +3622,8 @@ function MagazineEditorWorkspace() {
       data-testid="magazine-editor-slot"
       className="p-4 sm:p-6 space-y-5 text-slate-900"
     >
-      {/* 간단히 보기: 선택한 지난 뉴스레터의 복제·삭제를 편집 화면 상단에서 처리 */}
-      {listViewMode === "simple" && selectedSavedEdition ? (
-        <SelectedItemActions
-          itemLabel={editionDisplayTitle(selectedSavedEdition)}
-          onDuplicate={(e) => handleDuplicateEdition(selectedSavedEdition, e)}
-          onDelete={(e) => void handleDeleteEdition(selectedSavedEdition, e)}
-        />
-      ) : null}
       <div data-testid="magazine-three-column-layout" className="space-y-5">
-        {/* 상단 3단계 탭 막대 + 서버 임시저장 버튼 (NL-02) */}
+        {/* 상단 3단계 탭 막대 + 선택 호 복제·삭제 + 서버 임시저장 버튼 (NL-02) */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div
             role="tablist"
@@ -3657,16 +3648,16 @@ function MagazineEditorWorkspace() {
                   aria-controls={`newsletter-panel-${tab.key}`}
                   data-testid={`step-tab-${tab.key}`}
                   onClick={() => handleSelectStep(tab.key)}
-                  className={`min-h-[48px] rounded-xl px-3 py-2.5 text-base font-extrabold transition flex items-center justify-center gap-2 ${
+                  className={`min-h-[48px] rounded-xl px-2.5 py-2 text-base font-extrabold transition flex flex-wrap items-center justify-center gap-1.5 overflow-hidden ${
                     selected
                       ? "bg-blue-700 text-white shadow-xs"
                       : "bg-white text-slate-700 hover:bg-slate-100"
                   }`}
                 >
-                  <span>{tab.label}</span>
+                  <span className="break-keep">{tab.label}</span>
                   {isDone && (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-sm font-bold ${
+                      className={`rounded-full px-1.5 py-0.5 text-sm font-bold shrink-0 ${
                         selected
                           ? "bg-white/20 text-white"
                           : "bg-emerald-100 text-emerald-900"
@@ -3680,30 +3671,40 @@ function MagazineEditorWorkspace() {
             })}
           </div>
 
-          <button
-            type="button"
-            data-testid="newsletter-draft-save-btn"
-            disabled={saveState === "saving"}
-            onClick={() => void handleDraftSaveClick()}
-            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-extrabold shadow-2xs transition disabled:opacity-60 ${
-              isPublished && previewLifecycle === "published_dirty"
-                ? "border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100"
-                : isPublished && previewLifecycle === "published_clean"
-                  ? "border-emerald-200 bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100/70"
-                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
-            }`}
-          >
-            <Save className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>
-              {saveState === "saving"
-                ? "저장 중…"
-                : isPublished
-                  ? previewLifecycle === "published_dirty"
-                    ? "발행본에 수정 반영"
-                    : "저장됨 ✓"
-                  : "임시저장"}
-            </span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            {listViewMode === "simple" && selectedSavedEdition ? (
+              <SelectedItemActions
+                itemLabel={editionDisplayTitle(selectedSavedEdition)}
+                onDuplicate={(e) => handleDuplicateEdition(selectedSavedEdition, e)}
+                onDelete={(e) => void handleDeleteEdition(selectedSavedEdition, e)}
+              />
+            ) : null}
+
+            <button
+              type="button"
+              data-testid="newsletter-draft-save-btn"
+              disabled={saveState === "saving"}
+              onClick={() => void handleDraftSaveClick()}
+              className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-extrabold shadow-2xs transition disabled:opacity-60 ${
+                isPublished && previewLifecycle === "published_dirty"
+                  ? "border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                  : isPublished && previewLifecycle === "published_clean"
+                    ? "border-emerald-200 bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100/70"
+                    : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              <Save className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                {saveState === "saving"
+                  ? "저장 중…"
+                  : isPublished
+                    ? previewLifecycle === "published_dirty"
+                      ? "발행본에 수정 반영"
+                      : "저장됨 ✓"
+                    : "임시저장"}
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* 상태 알림 배너 */}
@@ -3747,48 +3748,14 @@ function MagazineEditorWorkspace() {
           </div>
         )}
 
-        {/* ━━━ STEP 1: ① 제목 ━━━ */}
+        {/* ━━━ STEP 1: ① 제목 (표지 제목 입력 최상단 배치 → AI 초안 → 맞춤 지역·분야) ━━━ */}
         {activeStep === "title" && (
           <div
             id="newsletter-panel-title"
             role="tabpanel"
             aria-labelledby="newsletter-tab-title"
-            className="space-y-5"
+            className="space-y-4"
           >
-            {brokerPreferencesCard}
-
-            <div onFocusCapture={() => sync.notifyEditorFocus("nl-unit-ai-draft")}>
-              <MagazineQuickDraftCard
-                monthLabel={autoMeta.yearMonthLabel}
-                cadence={cadence}
-                regionFocus={regionFocus}
-                onChangeRegionFocus={setRegionFocus}
-                preferredRegions={preferredRegions}
-                preferredChannels={preferredChannels}
-                dealTitles={selectedDeals.map((d) => d.title)}
-                newsTitles={unitIssues.map((u) => u.title)}
-                currentDraft={{
-                  headline,
-                  summary,
-                  briefingTitle,
-                  briefingBody,
-                }}
-                onApplyDraft={(next: MagazineDraftSnapshot) => {
-                  const nextHeadline = formatSingleLineTitle(next.headline, 80);
-                  setHeadline(nextHeadline);
-                  setSummary(next.summary);
-                  setBriefingTitle(next.briefingTitle);
-                  setBriefingBody(next.briefingBody);
-                  persistLocalDraft({
-                    headline: nextHeadline,
-                    summary: next.summary,
-                    briefingTitle: next.briefingTitle,
-                    briefingBody: next.briefingBody,
-                  });
-                }}
-              />
-            </div>
-
             <div
               onFocusCapture={(e) => {
                 const target = e.target as HTMLElement | null;
@@ -3846,6 +3813,40 @@ function MagazineEditorWorkspace() {
                 }}
               />
             </div>
+
+            <div onFocusCapture={() => sync.notifyEditorFocus("nl-unit-ai-draft")}>
+              <MagazineQuickDraftCard
+                monthLabel={autoMeta.yearMonthLabel}
+                cadence={cadence}
+                regionFocus={regionFocus}
+                onChangeRegionFocus={setRegionFocus}
+                preferredRegions={preferredRegions}
+                preferredChannels={preferredChannels}
+                dealTitles={selectedDeals.map((d) => d.title)}
+                newsTitles={unitIssues.map((u) => u.title)}
+                currentDraft={{
+                  headline,
+                  summary,
+                  briefingTitle,
+                  briefingBody,
+                }}
+                onApplyDraft={(next: MagazineDraftSnapshot) => {
+                  const nextHeadline = formatSingleLineTitle(next.headline, 80);
+                  setHeadline(nextHeadline);
+                  setSummary(next.summary);
+                  setBriefingTitle(next.briefingTitle);
+                  setBriefingBody(next.briefingBody);
+                  persistLocalDraft({
+                    headline: nextHeadline,
+                    summary: next.summary,
+                    briefingTitle: next.briefingTitle,
+                    briefingBody: next.briefingBody,
+                  });
+                }}
+              />
+            </div>
+
+            {brokerPreferencesCard}
 
             <div className="flex justify-end">
               <button
@@ -4406,16 +4407,34 @@ function MagazineEditorWorkspace() {
       data-testid="magazine-preview-slot"
       className="p-4 sm:p-5 space-y-4 text-slate-900"
     >
-      {/* 4단계 생애주기 인과 상태 표시줄 */}
-      <PreviewCausalityBar
-        lifecycle={previewLifecycle}
-        onStartInput={() => sync.focusEditorUnit("nl-unit-cover")}
-        onResyncPublished={() => void handleServerSave({ saveAsDraft: false })}
-        isSyncing={sending || saveState === "saving"}
-      />
+      {/* 4단계 생애주기 인과 상태 표시줄 (상단 고정) */}
+      <div className="sticky top-0 z-20 bg-[#F5F5F7]/95 backdrop-blur-md py-1 -my-1">
+        <PreviewCausalityBar
+          lifecycle={previewLifecycle}
+          onResyncPublished={() => void handleServerSave({ saveAsDraft: false })}
+          isSyncing={sending || saveState === "saving"}
+          liveUrl={isPublished ? activeReaderPreviewUrl : null}
+          liveUrlLabel="공개 독자 화면 보기 ↗"
+          liveLinkTestId="preview-live-reader-link"
+          auxActionSlot={
+            previewLifecycle === "published_dirty" && isPublished && activeReaderPreviewUrl ? (
+              <a
+                href={activeReaderPreviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="preview-live-reader-link"
+                className="inline-flex min-h-[44px] items-center gap-1 px-2 text-sm font-extrabold text-blue-900 hover:underline whitespace-nowrap"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                <span>공개 독자 화면</span>
+              </a>
+            ) : null
+          }
+        />
+      </div>
 
-      {/* 미완료 항목이 있을 때만 1줄 안내 (③ 보내기 탭과 좌우 중복 마운트 방지) */}
-      {activeStep !== "send" && (
+      {/* 미완료 항목이 있을 때만 1줄 안내 (생성 전 중복 차단 + ③ 보내기 탭과 좌우 중복 방지) */}
+      {activeStep !== "send" && previewLifecycle !== "pre_generation" && (
         <MagazinePublishChecklist
           headline={headline}
           briefingBody={briefingBody}
@@ -4426,21 +4445,6 @@ function MagazineEditorWorkspace() {
           newsEnabled={isSectionEnabled("news_curation")}
           onJumpToStep={(step) => setActiveStep(step)}
         />
-      )}
-
-      {isPublished && activeReaderPreviewUrl && (
-        <div className="flex items-center justify-end">
-          <a
-            href={activeReaderPreviewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="preview-live-reader-link"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-extrabold text-blue-900 hover:bg-blue-100"
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            <span>공개 독자 화면 보기</span>
-          </a>
-        </div>
       )}
 
       {/* 생성 전(pre_generation) 정직한 입력 안내 카드 */}
@@ -4474,13 +4478,13 @@ function MagazineEditorWorkspace() {
           </div>
         )}
 
-        <header className="border-b border-slate-200 pb-4 space-y-2">
+        <header className="border-b border-slate-200 pb-4 space-y-3">
           <PreviewEditableUnit
             unitId="nl-unit-issue-meta"
             label="발행 호수 및 주기"
             isActive={sync.activeUnitId === "nl-unit-issue-meta"}
             onActivate={sync.focusEditorUnit}
-            className="rounded-xl p-1 -m-1"
+            className="rounded-xl px-2.5 pt-3.5 pb-2 -mx-2.5"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-900">
@@ -4499,7 +4503,7 @@ function MagazineEditorWorkspace() {
             label="미리보기 대표 헤드라인"
             isActive={sync.activeUnitId === "nl-unit-cover"}
             onActivate={sync.focusEditorUnit}
-            className="rounded-xl p-1 -m-1"
+            className="rounded-xl px-2.5 pt-3.5 pb-2 -mx-2.5"
           >
             <h2
               data-single-line-title="true"
@@ -4515,7 +4519,7 @@ function MagazineEditorWorkspace() {
               label="미리보기 요약 문장"
               isActive={sync.activeUnitId === "nl-unit-summary"}
               onActivate={sync.focusEditorUnit}
-              className="rounded-xl p-1 -m-1"
+              className="rounded-xl px-2.5 pt-3.5 pb-2 -mx-2.5"
             >
               <p className="text-base font-medium text-slate-700 leading-relaxed">
                 {summary}
@@ -4543,7 +4547,7 @@ function MagazineEditorWorkspace() {
                 {MONTHLY_REGION_PRESETS.find((p) => p.key === monthlyRegion)?.shortLabel ?? "강남·서초"} 기준
               </span>
             </div>
-            <div className="space-y-3">
+            <div className="pt-2 space-y-4">
               {monthlyCharts.slice(0, 2).map((chart, idx) => (
                 <PreviewEditableUnit
                   key={chart.id || idx}
@@ -4576,7 +4580,7 @@ function MagazineEditorWorkspace() {
               label="미리보기 브리핑 칼럼"
               isActive={sync.activeUnitId === "nl-unit-briefing"}
               onActivate={sync.focusEditorUnit}
-              className="rounded-xl space-y-2 p-1 -m-1"
+              className="rounded-xl space-y-2 px-2.5 pt-3.5 pb-2 -mx-2.5"
             >
               <h3 className="text-base font-extrabold text-slate-900">
                 {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
@@ -4601,7 +4605,7 @@ function MagazineEditorWorkspace() {
                 {preferredRegions.slice(0, 2).join(" · ")} 맞춤
               </span>
             </div>
-            <div className="space-y-3" role="list">
+            <div className="pt-2 space-y-4" role="list">
               {unitIssues.slice(0, 5).map((issue, idx) => {
                 const chMeta =
                   issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
@@ -4654,7 +4658,7 @@ function MagazineEditorWorkspace() {
               label="미리보기 브리핑 칼럼"
               isActive={sync.activeUnitId === "nl-unit-briefing"}
               onActivate={sync.focusEditorUnit}
-              className="rounded-xl space-y-2 p-1 -m-1"
+              className="rounded-xl space-y-2 px-2.5 pt-3.5 pb-2 -mx-2.5"
             >
               <h3 className="text-base font-extrabold text-slate-900">
                 {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
@@ -4674,7 +4678,7 @@ function MagazineEditorWorkspace() {
             label="추천 매물 고르기"
             isActive={sync.activeUnitId === "nl-unit-deals"}
             onActivate={sync.focusEditorUnit}
-            className="rounded-xl space-y-3 p-1 -m-1"
+            className="rounded-xl space-y-3 px-2.5 pt-3.5 pb-2 -mx-2.5"
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-extrabold text-slate-900">
@@ -4774,21 +4778,45 @@ function MagazineEditorWorkspace() {
   );
 
   // ════════════════════════════════════════════════════════════════════
-  //  단 하나의 주 행동 버튼 (`[구독자에게 보내기]`)
+  //  단 하나의 주 행동 버튼 (생애주기 정직 반영 + 전체 너비 정렬)
   // ════════════════════════════════════════════════════════════════════
   const primaryActionSlot = (
     <button
       type="button"
       data-testid="newsletter-primary-send-btn"
-      onClick={handleSendSelected}
-      disabled={sending}
-      aria-busy={sending}
-      className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-base font-extrabold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-60"
+      onClick={
+        isPublished && previewLifecycle === "published_dirty"
+          ? () => void handleDraftSaveClick()
+          : isPublished && previewLifecycle === "published_clean" && activeStep !== "send"
+            ? () => handleSelectStep("send")
+            : handleSendSelected
+      }
+      disabled={sending || saveState === "saving"}
+      aria-busy={sending || saveState === "saving"}
+      className={`w-full inline-flex min-h-[56px] items-center justify-center gap-2 rounded-2xl px-6 py-3 text-base font-extrabold text-white shadow-sm transition disabled:opacity-60 cursor-pointer ${
+        isPublished && previewLifecycle === "published_dirty"
+          ? "bg-amber-600 hover:bg-amber-700"
+          : isPublished && previewLifecycle === "published_clean"
+            ? "bg-emerald-700 hover:bg-emerald-800"
+            : "bg-blue-700 hover:bg-blue-800"
+      }`}
     >
-      {sending ? (
+      {sending || (isPublished && previewLifecycle === "published_dirty" && saveState === "saving") ? (
         <>
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-          <span>보내는 중…</span>
+          <span>{sending ? "보내는 중…" : "반영 중…"}</span>
+        </>
+      ) : isPublished && previewLifecycle === "published_dirty" ? (
+        <>
+          <Save className="h-5 w-5" aria-hidden="true" />
+          <span>변경사항 발행본에 반영하기</span>
+        </>
+      ) : isPublished && previewLifecycle === "published_clean" ? (
+        <>
+          <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+          <span>
+            {activeStep === "send" ? "발행 완료 · 다시 보내기" : "발행 완료 · 공유 / 다시 보내기"}
+          </span>
         </>
       ) : (
         <>

@@ -140,11 +140,11 @@ export function MagazineQuickDraftCard({
       aria-label="AI로 뉴스레터 초안 쓰기"
       className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-3.5"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1 min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-700 shrink-0" aria-hidden="true" />
-            <h3 className="text-base font-extrabold text-slate-900">
+            <h3 className="text-base font-extrabold text-slate-900 break-keep">
               {cadence === "daily"
                 ? "오늘 일간 뉴스레터 AI 초안 도우미"
                 : cadence === "weekly"
@@ -167,7 +167,7 @@ export function MagazineQuickDraftCard({
           onClick={handleAiDraft}
           disabled={loading}
           aria-busy={loading}
-          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 border-blue-300 bg-blue-50 px-5 py-2.5 text-base font-extrabold text-blue-800 shadow-2xs transition hover:bg-blue-100 disabled:opacity-60 cursor-pointer shrink-0"
+          className="w-full sm:w-auto inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 border-blue-300 bg-blue-50 px-5 py-2.5 text-base font-extrabold text-blue-800 shadow-2xs transition hover:bg-blue-100 disabled:opacity-60 cursor-pointer shrink-0"
         >
           {loading ? (
             <>

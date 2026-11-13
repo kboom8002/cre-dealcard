@@ -17,6 +17,7 @@ export interface RentRollGridProps {
   floorsAbove?: number;
   floorsBelow?: number;
   askingPriceManwon?: number;
+  extraToolbarAction?: React.ReactNode;
   className?: string;
 }
 
@@ -90,16 +91,17 @@ export function RentRollGrid({
   floorsAbove = 5,
   floorsBelow = 1,
   askingPriceManwon,
+  extraToolbarAction,
   className = "",
 }: RentRollGridProps) {
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [isCompact, setIsCompact] = useState<boolean>(false);
+  const [isCompact, setIsCompact] = useState<boolean>(true);
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
   const [activeCell, setActiveCell] = useState<{ rowIdx: number; colKey: string } | null>(null);
   const [cellDraft, setCellDraft] = useState<{ key: string; value: string } | null>(null);
   const prevNonVacantRef = useRef<Record<string, { use: string; tenantName?: string }>>({});
   const containerRef = useRef<HTMLDivElement>(null);
-  const tableRef = useRef<HTMLTableElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   // Responsive width detection (<640px mobile viewport, ResizeObserver for compact container)
   useEffect(() => {
@@ -115,7 +117,7 @@ export function RentRollGrid({
         for (const entry of entries) {
           const w = entry.contentRect.width;
           if (w > 0) {
-            setIsCompact(w < 640);
+            setIsCompact(w < 880);
           }
         }
       });
@@ -290,8 +292,8 @@ export function RentRollGrid({
   }, [applyTsvText]);
 
   const focusGridCell = useCallback((targetRowIdx: number, colKey: string): boolean => {
-    if (!tableRef.current) return false;
-    const direct = tableRef.current.querySelector<HTMLInputElement>(
+    if (!gridRef.current) return false;
+    const direct = gridRef.current.querySelector<HTMLInputElement>(
       `input[data-rr-row="${targetRowIdx}"][data-rr-col="${colKey}"]`
     );
     if (direct && !direct.disabled) {
@@ -299,7 +301,7 @@ export function RentRollGrid({
       direct.select?.();
       return true;
     }
-    const fallback = tableRef.current.querySelector<HTMLInputElement>(
+    const fallback = gridRef.current.querySelector<HTMLInputElement>(
       `input[data-rr-row="${targetRowIdx}"]:not([disabled])`
     );
     if (fallback) {
@@ -384,7 +386,7 @@ export function RentRollGrid({
     return (
       <div onPaste={handlePaste}>
         {pasteNotice && (
-          <div className="p-3 mb-3 bg-[#FEF3C7] text-[#92400E] text-[14px] font-semibold rounded-xl border border-[#FDE68A]">
+          <div className="p-3 mb-3 bg-[#FEF3C7] text-[#92400E] text-sm font-semibold rounded-xl border border-[#FDE68A]">
             {pasteNotice}
           </div>
         )}
@@ -410,25 +412,25 @@ export function RentRollGrid({
       {pasteNotice && (
         <div
           role="alert"
-          className="p-3 bg-[#FEF3C7] text-[#92400E] text-[15px] font-medium rounded-xl border border-[#FDE68A] flex items-center justify-between"
+          className="p-3 bg-[#FEF3C7] text-[#92400E] text-sm font-medium rounded-xl border border-[#FDE68A] flex items-center justify-between"
         >
           <span>{pasteNotice}</span>
           <button
             type="button"
             onClick={() => setPasteNotice(null)}
-            className="min-h-[40px] px-2.5 text-[#92400E] font-bold text-sm hover:underline cursor-pointer ml-2"
+            className="min-h-[44px] px-3 text-[#92400E] font-bold text-sm hover:underline cursor-pointer ml-2 shrink-0"
           >
             닫기
           </button>
         </div>
       )}
 
-      {/* Grid instructions header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[#475569] text-sm">
-        <span>
-          📋 엑셀에서 복사한 임대 표를 오른쪽 버튼으로 바로 붙여넣거나 칸에 직접 입력해 주세요.
+      {/* Unified single-row toolbar (Paste + Optional Excel File + Add Floor) */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] px-3.5 py-2.5 text-[#475569] text-sm">
+        <span className="font-medium text-[#334155]">
+          엑셀 표 복사 붙여넣기 또는 층별 직접 입력
         </span>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             data-testid="rent-roll-paste-btn"
@@ -437,6 +439,7 @@ export function RentRollGrid({
           >
             📋 복사한 임대 표 붙여넣기
           </button>
+          {extraToolbarAction}
           <button
             type="button"
             onClick={handleAddRow}
@@ -447,316 +450,343 @@ export function RentRollGrid({
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="overflow-x-auto rounded-2xl border-2 border-[#CBD5E1] bg-white shadow-sm">
-        <table ref={tableRef} role="grid" className="w-full border-collapse text-left min-w-[560px]">
-          <thead>
-            <tr className="bg-[#FAF9F5] border-b-2 border-[#CBD5E1] text-[#0F172A] text-sm font-extrabold">
-              <th className="py-2 px-1.5 w-[48px] text-center">층</th>
-              <th className="py-2 px-1.5 w-[64px]">호수</th>
-              <th className="py-2 px-1.5 min-w-[84px]">용도/업종</th>
-              <th className="py-2 px-1.5 w-[80px] text-right">보증금(만)</th>
-              <th className="py-2 px-1.5 w-[72px] text-right">월세(만)</th>
-              <th className="py-2 px-1.5 w-[68px] text-right">관리비(만)</th>
-              <th className="py-2 px-1.5 w-[64px]">만기일</th>
-              <th className="py-2 px-1.5 w-[144px] text-center">상태</th>
-              <th className="py-2 px-1 w-[44px] text-center"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#E2E8F0] text-[15px]">
-            {rows.map((row, idx) => {
-              const isVacant = row.status === "vacant";
-              const isSuspicious = Boolean(row.unitMistakeWarning);
-              const rowKey = row.id || String(idx);
+      {/* Spacious 2-Line Floor Row Grid (Zero Clipping on 640px Column 2 & xlarge 21px) */}
+      <div
+        ref={gridRef}
+        role="grid"
+        aria-label="층별 임대 현황 입력표"
+        className="overflow-hidden rounded-2xl border-2 border-[#CBD5E1] bg-white shadow-sm divide-y divide-[#E2E8F0]"
+      >
+        {rows.map((row, idx) => {
+          const isVacant = row.status === "vacant";
+          const isSuspicious = Boolean(row.unitMistakeWarning);
+          const rowKey = row.id || String(idx);
 
-              return (
-                <tr
-                  key={row.id || idx}
-                  className={`hover:bg-[#F8FAFC] transition-colors ${
-                    isVacant ? "bg-[#F8FAFC]/60" : isSuspicious ? "bg-[#FEFCE8]" : ""
-                  }`}
-                >
-                  {/* Floor */}
-                  <td className="py-1.5 px-1.5 font-bold text-center text-[#0F172A]">
-                    <input
-                      type="text"
-                      data-rr-cell={`${idx}:floor`}
-                      data-rr-row={idx}
-                      data-rr-col="floor"
-                      value={row.floor}
-                      onChange={(e) => handleUpdateRow(idx, { floor: e.target.value })}
-                      onBlur={(e) => handleUpdateRow(idx, { floor: normalizeFloorName(e.target.value) })}
-                      onKeyDown={(e) => handleKeyDown(e, idx, "floor")}
-                      className="w-full text-center font-bold text-[15px] bg-transparent outline-none border-b border-transparent focus:border-[#1D4ED8]"
-                    />
-                  </td>
+          return (
+            <div
+              key={row.id || idx}
+              role="row"
+              className={`p-3.5 space-y-2.5 transition-colors ${
+                isVacant
+                  ? "bg-[#F8FAFC]/80"
+                  : isSuspicious
+                  ? "bg-[#FEFCE8]"
+                  : "bg-white hover:bg-[#FAFBFD]"
+              }`}
+            >
+              {/* Line 1: Floor + Unit + Use/Tenant + Status Pills + Delete */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Floor */}
+                <div className="w-[72px] shrink-0">
+                  <input
+                    type="text"
+                    aria-label={`${idx + 1}행 층`}
+                    data-rr-cell={`${idx}:floor`}
+                    data-rr-row={idx}
+                    data-rr-col="floor"
+                    value={row.floor}
+                    onChange={(e) => handleUpdateRow(idx, { floor: e.target.value })}
+                    onBlur={(e) => handleUpdateRow(idx, { floor: normalizeFloorName(e.target.value) })}
+                    onKeyDown={(e) => handleKeyDown(e, idx, "floor")}
+                    className="w-full min-h-[44px] rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-2 text-center font-extrabold text-base text-[#0F172A] outline-none focus:border-[#1D4ED8] focus:bg-white"
+                  />
+                </div>
 
-                  {/* Unit */}
-                  <td className="py-1.5 px-1.5">
-                    <input
-                      type="text"
-                      data-rr-cell={`${idx}:unit`}
-                      data-rr-row={idx}
-                      data-rr-col="unit"
-                      value={row.unit}
-                      onChange={(e) => handleUpdateRow(idx, { unit: e.target.value })}
-                      onKeyDown={(e) => handleKeyDown(e, idx, "unit")}
-                      className="w-full text-[14px] bg-transparent outline-none border-b border-transparent focus:border-[#1D4ED8]"
-                    />
-                  </td>
+                {/* Unit */}
+                <div className="w-[104px] shrink-0">
+                  <input
+                    type="text"
+                    aria-label={`${idx + 1}행 호수`}
+                    data-rr-cell={`${idx}:unit`}
+                    data-rr-row={idx}
+                    data-rr-col="unit"
+                    value={row.unit}
+                    placeholder="호수"
+                    onChange={(e) => handleUpdateRow(idx, { unit: e.target.value })}
+                    onKeyDown={(e) => handleKeyDown(e, idx, "unit")}
+                    className="w-full min-h-[44px] rounded-xl border border-[#E2E8F0] bg-white px-2.5 text-sm font-semibold text-[#0F172A] outline-none focus:border-[#1D4ED8]"
+                  />
+                </div>
 
-                  {/* Use / Tenant */}
-                  <td className="py-1.5 px-1.5">
-                    <input
-                      type="text"
-                      data-rr-cell={`${idx}:use`}
-                      data-rr-row={idx}
-                      data-rr-col="use"
-                      disabled={isVacant}
-                      value={row.use}
-                      placeholder={isVacant ? "공실" : "업종 입력"}
-                      onChange={(e) => handleUpdateRow(idx, { use: e.target.value })}
-                      onKeyDown={(e) => handleKeyDown(e, idx, "use")}
-                      className={`w-full text-[14px] outline-none border-b border-transparent focus:border-[#1D4ED8] ${
-                        isVacant ? "text-[#94A3B8] italic" : "text-[#0F172A]"
-                      }`}
-                    />
-                  </td>
+                {/* Use / Tenant */}
+                <div className="min-w-[140px] flex-1">
+                  <input
+                    type="text"
+                    aria-label={`${idx + 1}행 용도 및 업종`}
+                    data-rr-cell={`${idx}:use`}
+                    data-rr-row={idx}
+                    data-rr-col="use"
+                    disabled={isVacant}
+                    value={row.use}
+                    placeholder={isVacant ? "공실" : "용도·업종 입력 (예: 카페, 의원)"}
+                    onChange={(e) => handleUpdateRow(idx, { use: e.target.value })}
+                    onKeyDown={(e) => handleKeyDown(e, idx, "use")}
+                    className={`w-full min-h-[44px] rounded-xl border border-[#E2E8F0] px-3 text-sm font-semibold outline-none focus:border-[#1D4ED8] ${
+                      isVacant
+                        ? "bg-[#F1F5F9] text-[#64748B] italic"
+                        : "bg-white text-[#0F172A]"
+                    }`}
+                  />
+                </div>
 
-                  {/* Deposit */}
-                  <td className="py-1.5 px-1.5 text-right">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      data-rr-cell={`${idx}:depositManwon`}
-                      data-rr-row={idx}
-                      data-rr-col="depositManwon"
-                      value={
-                        cellDraft?.key === `${rowKey}:depositManwon`
-                          ? cellDraft.value
-                          : (row.depositManwon || "")
-                      }
-                      placeholder="0"
-                      onFocus={() =>
-                        setCellDraft({
-                          key: `${rowKey}:depositManwon`,
-                          value: row.depositManwon ? String(row.depositManwon) : "",
-                        })
-                      }
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        setCellDraft({ key: `${rowKey}:depositManwon`, value: raw });
-                        handleUpdateRow(idx, {
-                          depositManwon: parseManwonCellValue(raw),
-                        });
-                      }}
-                      onBlur={(e) => {
-                        setCellDraft(null);
-                        handleUpdateRow(idx, {
-                          depositManwon: parseManwonCellValue(e.target.value),
-                        });
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, idx, "depositManwon")}
-                      className="w-full text-right font-semibold text-[15px] tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8]"
-                    />
-                    <div className="text-[13px] text-[#1D4ED8] font-bold">
-                      {formatKoreanCurrencyReadout(row.depositManwon)}
-                    </div>
-                  </td>
+                {/* Status 3 pills + Delete */}
+                <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                  <div className="inline-flex rounded-xl border border-[#CBD5E1] p-0.5 bg-[#FAF9F5]">
+                    {(["occupied", "vacant", "owner"] as const).map((st) => {
+                      const isCur = row.status === st;
+                      const label = st === "occupied" ? "임대" : st === "vacant" ? "공실" : "자가";
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => handleStatusChange(idx, st)}
+                          className={`min-h-[44px] px-3 py-1.5 text-sm font-bold rounded-lg transition-colors cursor-pointer ${
+                            isCur
+                              ? "bg-[#0F172A] text-white shadow-xs"
+                              : "text-[#475569] hover:text-[#0F172A]"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                  {/* Monthly Rent */}
-                  <td className="py-1.5 px-1.5 text-right">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      data-rr-cell={`${idx}:monthlyRentManwon`}
-                      data-rr-row={idx}
-                      data-rr-col="monthlyRentManwon"
-                      disabled={isVacant}
-                      value={
-                        isVacant
-                          ? ""
-                          : cellDraft?.key === `${rowKey}:monthlyRentManwon`
-                          ? cellDraft.value
-                          : (row.monthlyRentManwon || "")
-                      }
-                      placeholder="0"
-                      onFocus={() =>
-                        setCellDraft({
-                          key: `${rowKey}:monthlyRentManwon`,
-                          value: row.monthlyRentManwon ? String(row.monthlyRentManwon) : "",
-                        })
-                      }
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        setCellDraft({ key: `${rowKey}:monthlyRentManwon`, value: raw });
-                        handleUpdateRow(idx, {
-                          monthlyRentManwon: parseManwonCellValue(raw),
-                        });
-                      }}
-                      onBlur={(e) => {
-                        setCellDraft(null);
-                        handleUpdateRow(idx, {
-                          monthlyRentManwon: parseManwonCellValue(e.target.value),
-                        });
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, idx, "monthlyRentManwon")}
-                      className={`w-full text-right font-semibold text-[15px] tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8] ${
-                        isVacant ? "text-[#94A3B8]" : "text-[#0F172A]"
-                      }`}
-                    />
-                    <div className="text-[13px] text-[#1D4ED8] font-bold">
-                      {formatKoreanCurrencyReadout(isVacant ? 0 : row.monthlyRentManwon)}
-                    </div>
-                  </td>
+                  <button
+                    type="button"
+                    disabled={rows.length <= 1}
+                    onClick={() => handleDeleteRow(idx)}
+                    className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-sm font-bold p-2 cursor-pointer ${
+                      rows.length <= 1
+                        ? "text-[#CBD5E1] cursor-not-allowed"
+                        : "text-[#991B1B] hover:bg-[#FEE2E2] rounded-xl"
+                    }`}
+                    title="층 삭제"
+                    aria-label={`${row.floor || idx + 1}층 삭제`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
 
-                  {/* Maintenance Fee */}
-                  <td className="py-1.5 px-1.5 text-right">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      data-rr-cell={`${idx}:maintenanceManwon`}
-                      data-rr-row={idx}
-                      data-rr-col="maintenanceManwon"
-                      disabled={isVacant}
-                      value={
-                        isVacant
-                          ? ""
-                          : cellDraft?.key === `${rowKey}:maintenanceManwon`
-                          ? cellDraft.value
-                          : (row.maintenanceManwon || "")
-                      }
-                      placeholder="0"
-                      onFocus={() =>
-                        setCellDraft({
-                          key: `${rowKey}:maintenanceManwon`,
-                          value: row.maintenanceManwon ? String(row.maintenanceManwon) : "",
-                        })
-                      }
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        setCellDraft({ key: `${rowKey}:maintenanceManwon`, value: raw });
-                        handleUpdateRow(idx, {
-                          maintenanceManwon: parseManwonCellValue(raw),
-                        });
-                      }}
-                      onBlur={(e) => {
-                        setCellDraft(null);
-                        handleUpdateRow(idx, {
-                          maintenanceManwon: parseManwonCellValue(e.target.value),
-                        });
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, idx, "maintenanceManwon")}
-                      className={`w-full text-right font-semibold text-[15px] tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8] ${
-                        isVacant ? "text-[#94A3B8]" : "text-[#0F172A]"
-                      }`}
-                    />
-                    <div className="text-[13px] text-[#475569]">
-                      {formatKoreanCurrencyReadout(isVacant ? 0 : row.maintenanceManwon)}
-                    </div>
-                  </td>
+              {/* Line 2: 4-Column Financials & Lease Expiry */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* Deposit */}
+                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]/70 px-3 py-2">
+                  <div className="flex items-center justify-between gap-1 text-sm font-bold text-[#475569]">
+                    <span>보증금(만)</span>
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    data-rr-cell={`${idx}:depositManwon`}
+                    data-rr-row={idx}
+                    data-rr-col="depositManwon"
+                    value={
+                      cellDraft?.key === `${rowKey}:depositManwon`
+                        ? cellDraft.value
+                        : (row.depositManwon || "")
+                    }
+                    placeholder="0"
+                    onFocus={() =>
+                      setCellDraft({
+                        key: `${rowKey}:depositManwon`,
+                        value: row.depositManwon ? String(row.depositManwon) : "",
+                      })
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setCellDraft({ key: `${rowKey}:depositManwon`, value: raw });
+                      handleUpdateRow(idx, {
+                        depositManwon: parseManwonCellValue(raw),
+                      });
+                    }}
+                    onBlur={(e) => {
+                      setCellDraft(null);
+                      handleUpdateRow(idx, {
+                        depositManwon: parseManwonCellValue(e.target.value),
+                      });
+                    }}
+                    onKeyDown={(e) => handleKeyDown(e, idx, "depositManwon")}
+                    className="mt-1 w-full bg-transparent text-right font-extrabold text-base text-[#0F172A] tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8]"
+                  />
+                  <div className="mt-0.5 truncate text-right text-sm text-[#1D4ED8] font-bold">
+                    {formatKoreanCurrencyReadout(row.depositManwon)}
+                  </div>
+                </div>
 
-                  {/* Expiry */}
-                  <td className="py-1.5 px-1.5">
-                    <input
-                      type="text"
-                      data-rr-cell={`${idx}:leaseExpiry`}
-                      data-rr-row={idx}
-                      data-rr-col="leaseExpiry"
-                      disabled={isVacant}
-                      value={row.leaseExpiry}
-                      placeholder={isVacant ? "-" : "27.05"}
-                      onChange={(e) => handleExpiryChange(idx, e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, idx, "leaseExpiry")}
-                      className={`w-full text-[13px] outline-none border-b border-transparent focus:border-[#1D4ED8] ${
-                        row.isExpired ? "text-[#991B1B] font-bold" : "text-[#334155]"
-                      }`}
-                    />
-                    {row.isExpired && (
-                      <div className="text-[13px] text-[#991B1B] font-medium">
-                        만기 지남
-                      </div>
-                    )}
-                  </td>
+                {/* Monthly Rent */}
+                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]/70 px-3 py-2">
+                  <div className="flex items-center justify-between gap-1 text-sm font-bold text-[#475569]">
+                    <span>월세(만)</span>
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    data-rr-cell={`${idx}:monthlyRentManwon`}
+                    data-rr-row={idx}
+                    data-rr-col="monthlyRentManwon"
+                    disabled={isVacant}
+                    value={
+                      isVacant
+                        ? ""
+                        : cellDraft?.key === `${rowKey}:monthlyRentManwon`
+                        ? cellDraft.value
+                        : (row.monthlyRentManwon || "")
+                    }
+                    placeholder="0"
+                    onFocus={() =>
+                      setCellDraft({
+                        key: `${rowKey}:monthlyRentManwon`,
+                        value: row.monthlyRentManwon ? String(row.monthlyRentManwon) : "",
+                      })
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setCellDraft({ key: `${rowKey}:monthlyRentManwon`, value: raw });
+                      handleUpdateRow(idx, {
+                        monthlyRentManwon: parseManwonCellValue(raw),
+                      });
+                    }}
+                    onBlur={(e) => {
+                      setCellDraft(null);
+                      handleUpdateRow(idx, {
+                        monthlyRentManwon: parseManwonCellValue(e.target.value),
+                      });
+                    }}
+                    onKeyDown={(e) => handleKeyDown(e, idx, "monthlyRentManwon")}
+                    className={`mt-1 w-full bg-transparent text-right font-extrabold text-base tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8] ${
+                      isVacant ? "text-[#94A3B8]" : "text-[#0F172A]"
+                    }`}
+                  />
+                  <div className="mt-0.5 truncate text-right text-sm text-[#1D4ED8] font-bold">
+                    {formatKoreanCurrencyReadout(isVacant ? 0 : row.monthlyRentManwon)}
+                  </div>
+                </div>
 
-                  {/* Status 3 pills */}
-                  <td className="py-1.5 px-1.5 text-center">
-                    <div className="inline-flex rounded-xl border border-[#CBD5E1] p-0.5 bg-[#FAF9F5]">
-                      {(["occupied", "vacant", "owner"] as const).map((st) => {
-                        const isCur = row.status === st;
-                        const label = st === "occupied" ? "임대" : st === "vacant" ? "공실" : "자가";
-                        return (
-                          <button
-                            key={st}
-                            type="button"
-                            onClick={() => handleStatusChange(idx, st)}
-                            className={`min-h-[40px] px-2.5 py-1.5 text-sm font-bold rounded-lg transition-colors cursor-pointer ${
-                              isCur
-                                ? "bg-[#0F172A] text-white shadow-xs"
-                                : "text-[#475569] hover:text-[#0F172A]"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </td>
+                {/* Maintenance Fee */}
+                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]/70 px-3 py-2">
+                  <div className="flex items-center justify-between gap-1 text-sm font-bold text-[#475569]">
+                    <span>관리비(만)</span>
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    data-rr-cell={`${idx}:maintenanceManwon`}
+                    data-rr-row={idx}
+                    data-rr-col="maintenanceManwon"
+                    disabled={isVacant}
+                    value={
+                      isVacant
+                        ? ""
+                        : cellDraft?.key === `${rowKey}:maintenanceManwon`
+                        ? cellDraft.value
+                        : (row.maintenanceManwon || "")
+                    }
+                    placeholder="0"
+                    onFocus={() =>
+                      setCellDraft({
+                        key: `${rowKey}:maintenanceManwon`,
+                        value: row.maintenanceManwon ? String(row.maintenanceManwon) : "",
+                      })
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setCellDraft({ key: `${rowKey}:maintenanceManwon`, value: raw });
+                      handleUpdateRow(idx, {
+                        maintenanceManwon: parseManwonCellValue(raw),
+                      });
+                    }}
+                    onBlur={(e) => {
+                      setCellDraft(null);
+                      handleUpdateRow(idx, {
+                        maintenanceManwon: parseManwonCellValue(e.target.value),
+                      });
+                    }}
+                    onKeyDown={(e) => handleKeyDown(e, idx, "maintenanceManwon")}
+                    className={`mt-1 w-full bg-transparent text-right font-extrabold text-base tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8] ${
+                      isVacant ? "text-[#94A3B8]" : "text-[#0F172A]"
+                    }`}
+                  />
+                  <div className="mt-0.5 truncate text-right text-sm text-[#475569] font-semibold">
+                    {formatKoreanCurrencyReadout(isVacant ? 0 : row.maintenanceManwon)}
+                  </div>
+                </div>
 
-                  {/* Delete button */}
-                  <td className="py-1.5 px-1 text-center">
-                    <button
-                      type="button"
-                      disabled={rows.length <= 1}
-                      onClick={() => handleDeleteRow(idx)}
-                      className={`min-h-[40px] min-w-[40px] inline-flex items-center justify-center text-sm font-bold p-1.5 cursor-pointer ${
-                        rows.length <= 1 ? "text-[#CBD5E1] cursor-not-allowed" : "text-[#991B1B] hover:bg-[#FEE2E2] rounded-lg"
-                      }`}
-                      title="행 삭제"
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+                {/* Expiry */}
+                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]/70 px-3 py-2">
+                  <div className="flex items-center justify-between gap-1 text-sm font-bold text-[#475569]">
+                    <span>계약 만기일</span>
+                  </div>
+                  <input
+                    type="text"
+                    data-rr-cell={`${idx}:leaseExpiry`}
+                    data-rr-row={idx}
+                    data-rr-col="leaseExpiry"
+                    disabled={isVacant}
+                    value={row.leaseExpiry}
+                    placeholder={isVacant ? "-" : "예: 2027.05"}
+                    onChange={(e) => handleExpiryChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, idx, "leaseExpiry")}
+                    className={`mt-1 w-full bg-transparent text-right font-bold text-base tabular-nums outline-none border-b border-transparent focus:border-[#1D4ED8] ${
+                      row.isExpired ? "text-[#991B1B]" : "text-[#0F172A]"
+                    }`}
+                  />
+                  <div
+                    className={`mt-0.5 truncate text-right text-sm font-semibold ${
+                      row.isExpired ? "text-[#991B1B]" : "text-[#64748B]"
+                    }`}
+                  >
+                    {row.isExpired ? "만기 지남" : row.normalizedExpiry || "\u00A0"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
-          {/* Sticky summary footer row */}
-          <tfoot>
-            <tr className="bg-[#F8FAFC] border-t-2 border-[#CBD5E1] font-extrabold text-[#0F172A]">
-              <td colSpan={3} className="py-2.5 px-2 text-[15px]">
+        {/* Summary footer card */}
+        <div className="bg-[#F8FAFC] border-t-2 border-[#CBD5E1] p-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-base font-extrabold text-[#0F172A]">
                 합계 ({rows.length}개 층)
-                {totals.capRate !== null && (
-                  <span className="ml-2 text-[13px] font-bold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded-full">
-                    연 수익률: {totals.capRate.toFixed(2)}%
-                  </span>
-                )}
-              </td>
-              <td className="py-2.5 px-1.5 text-right text-[15px] text-[#1D4ED8] tabular-nums">
-                {totals.totalDeposit.toLocaleString()}만
-                <div className="text-[13px] font-bold">
-                  {formatKoreanCurrencyReadout(totals.totalDeposit)}
-                </div>
-              </td>
-              <td className="py-2.5 px-1.5 text-right text-[15px] text-[#1D4ED8] tabular-nums">
-                {totals.totalRent.toLocaleString()}만
-                <div className="text-[13px] font-bold">
-                  {formatKoreanCurrencyReadout(totals.totalRent)}
-                </div>
-              </td>
-              <td className="py-2.5 px-1.5 text-right text-[15px] text-[#475569] tabular-nums">
-                {totals.totalMaintenance.toLocaleString()}만
-                <div className="text-[13px] font-bold">
-                  {formatKoreanCurrencyReadout(totals.totalMaintenance)}
-                </div>
-              </td>
-              <td colSpan={3} className="py-2.5 px-2 text-right text-[13px] text-[#475569]">
-                연간 총 임대수익: {(totals.annualRent).toLocaleString()}만 원
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+              </span>
+              {totals.capRate !== null && (
+                <span className="text-sm font-bold text-[#065F46] bg-[#D1FAE5] px-2.5 py-0.5 rounded-full">
+                  연 수익률 {totals.capRate.toFixed(2)}%
+                </span>
+              )}
+            </div>
+            <span className="text-sm font-extrabold text-[#334155] tabular-nums">
+              연간 총 임대수익 {totals.annualRent.toLocaleString()}만 원
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-[#E2E8F0]">
+            <div className="flex items-baseline justify-between sm:block">
+              <div className="text-sm font-semibold text-[#64748B]">총 보증금</div>
+              <div className="text-base font-extrabold text-[#1D4ED8] tabular-nums">
+                {formatKoreanCurrencyReadout(totals.totalDeposit).replace(/^=\s*/, "") ||
+                  `${totals.totalDeposit.toLocaleString()}만 원`}
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between sm:block">
+              <div className="text-sm font-semibold text-[#64748B]">월 임대료 합계</div>
+              <div className="text-base font-extrabold text-[#1D4ED8] tabular-nums">
+                {formatKoreanCurrencyReadout(totals.totalRent).replace(/^=\s*/, "") ||
+                  `${totals.totalRent.toLocaleString()}만 원`}
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between sm:block">
+              <div className="text-sm font-semibold text-[#64748B]">월 관리비 합계</div>
+              <div className="text-base font-extrabold text-[#334155] tabular-nums">
+                {formatKoreanCurrencyReadout(totals.totalMaintenance).replace(/^=\s*/, "") ||
+                  `${totals.totalMaintenance.toLocaleString()}만 원`}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

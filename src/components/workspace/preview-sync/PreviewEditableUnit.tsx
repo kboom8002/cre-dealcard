@@ -72,10 +72,10 @@ export function PreviewEditableUnit({
     >
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-bold transition-opacity shadow-xs ${
+        className={`pointer-events-none absolute right-3 -top-3 z-20 inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-bold transition-opacity shadow-sm whitespace-nowrap ${
           isActive
-            ? "opacity-100 bg-[#007AFF] text-white"
-            : "opacity-0 group-hover/unit:opacity-100 group-focus-within/unit:opacity-100 bg-white/95 text-[#0040DD] border border-[#007AFF]/35"
+            ? "opacity-100 bg-[#007AFF] text-white border border-[#005FCC]"
+            : "opacity-0 group-hover/unit:opacity-100 group-focus-within/unit:opacity-100 bg-white text-[#0040DD] border border-[#007AFF]/45"
         }`}
       >
         {isActive ? activeBadgeText : badgeText}

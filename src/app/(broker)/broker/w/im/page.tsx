@@ -1547,12 +1547,21 @@ function ImWorkspaceInner() {
                 applyItemToFormState(targetMatch);
               }
             } else if (!finalMerged.some((i) => i.id === selectedIdRef.current)) {
+              const prevSelectedBldId = prev.find((p) => p.id === selectedIdRef.current)?.buildingId;
               const remapped =
                 (pendingUrlBuildingIdRef.current &&
                   finalMerged.find(
                     (i) =>
                       i.id === pendingUrlBuildingIdRef.current ||
                       i.buildingId === pendingUrlBuildingIdRef.current
+                  )) ||
+                (initialQueryId &&
+                  finalMerged.find(
+                    (i) => i.id === initialQueryId || i.buildingId === initialQueryId
+                  )) ||
+                (prevSelectedBldId &&
+                  finalMerged.find(
+                    (i) => i.id === prevSelectedBldId || i.buildingId === prevSelectedBldId
                   )) ||
                 finalMerged[0];
               if (remapped) {
@@ -3294,15 +3303,17 @@ function ImWorkspaceInner() {
   };
 
   /* ──────── Column 2: 4 Top Tabs + Editor Panels ──────── */
+  const selectedItemActionsNode =
+    viewMode === "simple" && currentItem ? (
+      <SelectedItemActions
+        itemLabel={currentItem.title || "새 IM"}
+        onDuplicate={(e) => handleDuplicateIm(currentItem, e)}
+        onDelete={(e) => handleDeleteIm(currentItem, e)}
+      />
+    ) : null;
+
   const editorSlot = (
-    <div className="space-y-5 w-full" data-testid="im-editor-slot">
-      {viewMode === "simple" && currentItem && (
-        <SelectedItemActions
-          itemLabel={currentItem.title || "새 IM"}
-          onDuplicate={(e) => handleDuplicateIm(currentItem, e)}
-          onDelete={(e) => handleDeleteIm(currentItem, e)}
-        />
-      )}
+    <div className="space-y-4 w-full" data-testid="im-editor-slot">
       <button
         type="button"
         data-testid="im-open-bottom-sheet-btn"
@@ -3338,7 +3349,7 @@ function ImWorkspaceInner() {
         role="tablist"
         aria-label="IM 작성 단계"
         data-testid="im-editor-primary-tabs"
-        className="sticky top-14 z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/95 backdrop-blur-xs border border-slate-300 shadow-xs"
+        className="sticky top-2 z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/95 backdrop-blur-xs border border-slate-300 shadow-xs"
       >
         {(
           [
@@ -3385,19 +3396,19 @@ function ImWorkspaceInner() {
                 setActionAlert(null);
                 setActiveEditorTab(tab.id);
               }}
-              className={`min-h-[56px] px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer min-w-0 ${
+              className={`min-h-[56px] px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer min-w-0 overflow-hidden ${
                 isActive
                   ? "bg-[#0F172A] text-white shadow-sm"
                   : "bg-white/90 text-slate-800 hover:bg-white"
               }`}
             >
-              <div className="flex items-center justify-between gap-1">
+              <div className="flex flex-wrap items-center justify-between gap-1">
                 <span className="text-sm font-extrabold leading-tight break-keep">
                   {tab.label}
                 </span>
                 {tab.done && (
                   <span
-                    className={`text-sm font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                    className={`text-sm font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ${
                       isActive
                         ? "bg-emerald-700 text-white"
                         : "bg-emerald-100 text-emerald-800"
@@ -3432,6 +3443,7 @@ function ImWorkspaceInner() {
           <h2 className="text-xl font-extrabold text-[#0F172A]">
             ① 건물 기본 정보
           </h2>
+          {activeEditorTab === "specs" && selectedItemActionsNode}
         </div>
 
         {(SAMPLE_SEED_IDS.has(currentItem?.id || "") ||
@@ -3777,13 +3789,13 @@ function ImWorkspaceInner() {
           </div>
         </div>
 
-        {/* 3. Building & Land Specs */}
+        {/* 3. Building & Land Specs (Crisp 2x2 Baseline-Aligned Grid) */}
         <div
           data-testid="im-building-specs-section"
-          className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
+          className="pt-3 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3.5"
         >
           <div onFocusCapture={() => sync.notifyEditorFocus("im-unit-building")}>
-            <div className="flex items-center justify-between mb-1">
+            <div className="min-h-[28px] flex items-center justify-between mb-1">
               <label htmlFor="im-gfa-input" className="text-sm font-bold text-[#334155]">
                 연면적 (㎡)
               </label>
@@ -3807,11 +3819,11 @@ function ImWorkspaceInner() {
                 syncCurrentItemPatch({ gfaSqm: nextVal });
               }}
               placeholder="예: 1450.2"
-              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none"
+              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
             />
           </div>
           <div onFocusCapture={() => sync.notifyEditorFocus("im-unit-land")}>
-            <div className="flex items-center justify-between mb-1">
+            <div className="min-h-[28px] flex items-center justify-between mb-1">
               <label htmlFor="im-land-area-input" className="text-sm font-bold text-[#334155]">
                 대지면적 (㎡)
               </label>
@@ -3835,16 +3847,18 @@ function ImWorkspaceInner() {
                 syncCurrentItemPatch({ landAreaSqm: nextVal });
               }}
               placeholder="예: 420.5"
-              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none"
+              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
             />
           </div>
           <div onFocusCapture={() => sync.notifyEditorFocus("im-unit-land")}>
-            <label
-              htmlFor="im-zoning-input"
-              className="block text-sm font-bold text-[#334155] mb-1"
-            >
-              용도지역
-            </label>
+            <div className="min-h-[28px] flex items-center justify-between mb-1">
+              <label
+                htmlFor="im-zoning-input"
+                className="text-sm font-bold text-[#334155]"
+              >
+                용도지역
+              </label>
+            </div>
             <input
               id="im-zoning-input"
               type="text"
@@ -3856,16 +3870,18 @@ function ImWorkspaceInner() {
                 syncCurrentItemPatch({ zoning: nextVal });
               }}
               placeholder="예: 제3종일반주거지역"
-              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none"
+              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
             />
           </div>
           <div onFocusCapture={() => sync.notifyEditorFocus("im-unit-building")}>
-            <label
-              htmlFor="im-completion-date-input"
-              className="block text-sm font-bold text-[#334155] mb-1"
-            >
-              준공일 (사용승인일)
-            </label>
+            <div className="min-h-[28px] flex items-center justify-between mb-1">
+              <label
+                htmlFor="im-completion-date-input"
+                className="text-sm font-bold text-[#334155]"
+              >
+                준공일 (사용승인일)
+              </label>
+            </div>
             <input
               id="im-completion-date-input"
               type="text"
@@ -3877,7 +3893,7 @@ function ImWorkspaceInner() {
                 syncCurrentItemPatch({ completionDate: nextVal });
               }}
               placeholder="예: 2018-06-15"
-              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none"
+              className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
             />
           </div>
         </div>
@@ -3941,66 +3957,53 @@ function ImWorkspaceInner() {
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
-          <h2 className="text-xl font-extrabold text-[#0F172A]">
-            ② 층별 임대 현황
-          </h2>
-          <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
-            <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-800">
-              보증금 {totalDepositManwon.toLocaleString()}만
-            </span>
-            <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-900">
-              월세 {totalRentManwon.toLocaleString()}만
-            </span>
-            <span className="px-3 py-1 rounded-lg bg-emerald-100 text-emerald-900">
-              연 {calculatedYield.toFixed(2)}%
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-extrabold text-[#0F172A]">
+              ② 층별 임대 현황
+            </h2>
+            <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold">
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800">
+                보증금 {formatKoreanCurrencyReadout(totalDepositManwon).replace(/^=\s*/, "") || "0원"}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900">
+                월세 {formatKoreanCurrencyReadout(totalRentManwon).replace(/^=\s*/, "") || "0원"}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900">
+                연 {calculatedYield.toFixed(2)}%
+              </span>
+            </div>
           </div>
+          {activeEditorTab === "rentroll" && selectedItemActionsNode}
         </div>
 
-        <div className="space-y-2.5">
-          <button
-            type="button"
-            data-testid="im-rentroll-import-toggle"
-            aria-expanded={isRentRollImportOpen}
-            onClick={() => setIsRentRollImportOpen((prev) => !prev)}
-            className="min-h-[44px] w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-900 text-sm font-extrabold cursor-pointer flex items-center justify-between gap-2 transition-colors"
-          >
-            <span>
-              {isRentRollImportOpen
-                ? "📁 엑셀·복사한 표 불러오기 접기 ▴"
-                : "📁 엑셀·복사한 표 불러오기 ▾"}
-            </span>
-          </button>
-
-          <div
-            className={isRentRollImportOpen ? "block" : "hidden"}
-            data-testid="im-rentroll-xlsx-importer"
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const droppedFile = e.dataTransfer?.files?.[0];
-              if (!droppedFile) return;
-              const fileInput = e.currentTarget.querySelector(
-                'input[data-testid="rentroll-file-input"]'
-              ) as HTMLInputElement | null;
-              if (fileInput && typeof DataTransfer !== "undefined") {
-                const dt = new DataTransfer();
-                dt.items.add(droppedFile);
-                fileInput.files = dt.files;
-                fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-              }
-            }}
-          >
-            <RentRollImporter
-              key={currentItem?.id || selectedId}
-              hasExistingData={false}
-              onImport={handleExcelRentRollImport}
-            />
-          </div>
+        <div
+          className={isRentRollImportOpen ? "block" : "hidden"}
+          data-testid="im-rentroll-xlsx-importer"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const droppedFile = e.dataTransfer?.files?.[0];
+            if (!droppedFile) return;
+            const fileInput = e.currentTarget.querySelector(
+              'input[data-testid="rentroll-file-input"]'
+            ) as HTMLInputElement | null;
+            if (fileInput && typeof DataTransfer !== "undefined") {
+              const dt = new DataTransfer();
+              dt.items.add(droppedFile);
+              fileInput.files = dt.files;
+              fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }}
+        >
+          <RentRollImporter
+            key={currentItem?.id || selectedId}
+            hasExistingData={false}
+            onImport={handleExcelRentRollImport}
+          />
         </div>
 
         <div onFocusCapture={() => sync.notifyEditorFocus("im-unit-rentroll")}>
@@ -4013,6 +4016,21 @@ function ImWorkspaceInner() {
             floorsAbove={currentItem?.floorsAbove}
             floorsBelow={currentItem?.floorsBelow}
             askingPriceManwon={askingPriceManwon}
+            extraToolbarAction={
+              <button
+                type="button"
+                data-testid="im-rentroll-import-toggle"
+                aria-expanded={isRentRollImportOpen}
+                onClick={() => setIsRentRollImportOpen((prev) => !prev)}
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
+              >
+                <span>
+                  {isRentRollImportOpen
+                    ? "📁 엑셀 파일 접기 ▴"
+                    : "📁 엑셀 파일 불러오기 ▾"}
+                </span>
+              </button>
+            }
           />
         </div>
 
@@ -4045,16 +4063,19 @@ function ImWorkspaceInner() {
           <h2 className="text-xl font-extrabold text-[#0F172A]">
             ③ 핵심 장점 3가지 · 담당 중개사 안내
           </h2>
-          <button
-            type="button"
-            data-testid="im-axios-ai-recluster-btn"
-            disabled={isAiPointsBusy}
-            aria-busy={isAiPointsBusy}
-            onClick={handleReclusterImAxios}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-sm font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
-          >
-            <span>{isAiPointsBusy ? TERMS.aiWriting : TERMS.aiWriteButton}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {activeEditorTab === "axios_brief" && selectedItemActionsNode}
+            <button
+              type="button"
+              data-testid="im-axios-ai-recluster-btn"
+              disabled={isAiPointsBusy}
+              aria-busy={isAiPointsBusy}
+              onClick={handleReclusterImAxios}
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-sm font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <span>{isAiPointsBusy ? TERMS.aiWriting : TERMS.aiWriteButton}</span>
+            </button>
+          </div>
         </div>
 
         {/* 3 Core Highlight Cards */}
@@ -4294,6 +4315,7 @@ function ImWorkspaceInner() {
           <h2 className="text-xl font-extrabold text-[#0F172A]">
             ④ 건물 사진 첨부
           </h2>
+          {activeEditorTab === "media_publish" && selectedItemActionsNode}
         </div>
 
         <div
@@ -4800,13 +4822,21 @@ function ImWorkspaceInner() {
     {
       no: "06",
       title: "층별 임대차 현황",
-      summary: `보증금 합계 ${totalDepositManwon.toLocaleString()}만원`,
-      metric: `월 임대수익 ${totalRentManwon.toLocaleString()}만원`,
+      summary: `보증금 합계 ${
+        formatKoreanCurrencyReadout(totalDepositManwon).replace(/^=\s*/, "") || "0원"
+      }`,
+      metric: `월 임대수익 ${
+        formatKoreanCurrencyReadout(totalRentManwon).replace(/^=\s*/, "") || "0원"
+      }`,
     },
     {
       no: "07",
       title: "수지 및 수익률 분석",
-      summary: `순투자금 ${Math.max(0, (askingPriceManwon || 0) - totalDepositManwon).toLocaleString()}만원`,
+      summary: `보증금 차감 매입가 ${
+        formatKoreanCurrencyReadout(
+          Math.max(0, (askingPriceManwon || 0) - totalDepositManwon)
+        ).replace(/^=\s*/, "") || "0원"
+      }`,
       metric: `연 ${calculatedYield.toFixed(2)}%`,
     },
     {
@@ -5015,77 +5045,39 @@ function ImWorkspaceInner() {
 
   const previewSlot = (
     <div className="p-3.5 space-y-3.5 max-w-sm mx-auto" data-testid="im-preview-slot">
-      <PreviewCausalityBar
-        lifecycle={previewLifecycle}
-        onStartInput={() => sync.focusEditorUnit("im-unit-address")}
-        startButtonLabel="주소·가격 입력하기"
-        onResyncPublished={handleQuickGenerate}
-        resyncButtonLabel="변경사항 IM에 다시 반영하기"
-        isSyncing={isGenerating}
-        liveUrl={
-          currentItem?.status === "published" && UUID_REGEX.test(currentItem.buildingId)
-            ? `/im-lite/${encodeURIComponent(currentItem.buildingId)}`
-            : null
-        }
-      />
-
-      {/* Direct Link to Full 10-Section Mobile IM Viewer & PPTX Download */}
-      <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 shadow-xs">
-        <span className="text-sm font-bold text-[#334155]">
-          {previewTab === "mobile" ? "모바일 IM (10개 섹션)" : "발표자료 10면"}
-        </span>
-        <div className="flex items-center gap-2 shrink-0">
-          <a
-            href={`/api/public/im-lite/${encodeURIComponent(
-              currentItem?.buildingId || "bld-01"
-            )}/pptx?direct=1${
-              currentItem?.documentId
-                ? `&doc=${encodeURIComponent(currentItem.documentId)}&doc_id=${encodeURIComponent(
-                    currentItem.documentId
-                  )}`
-                : ""
-            }`}
-            data-testid="im-download-pptx-btn"
-            aria-disabled={
-              isProvisioningSheet || isDownloadingPptx || previewLifecycle === "pre_generation"
-            }
-            onClick={handleDownloadPptx}
-            className={`min-h-[44px] text-sm font-extrabold text-[#065F46] bg-[#D1FAE5] px-3 py-1.5 rounded-lg hover:bg-[#A7F3D0] flex items-center gap-1 transition-colors whitespace-nowrap ${
-              isProvisioningSheet || isDownloadingPptx
-                ? "opacity-50 pointer-events-none"
-                : previewLifecycle === "pre_generation"
-                ? "opacity-50"
-                : ""
-            }`}
-          >
-            <span>
-              {isDownloadingPptx
-                ? "다운로드 중…"
-                : isProvisioningSheet
-                ? "준비 중…"
-                : "PPTX 내려받기"}
-            </span>
-          </a>
-          <a
-            href={`/im-lite/${encodeURIComponent(currentItem?.buildingId || "bld-01")}${
-              currentItem?.documentId ? `?doc=${encodeURIComponent(currentItem.documentId)}` : ""
-            }`}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="im-open-fullscreen-link"
-            aria-disabled={isProvisioningSheet || previewLifecycle === "pre_generation"}
-            onClick={handleOpenFullscreen}
-            className={`min-h-[44px] text-sm font-extrabold text-[#1D4ED8] hover:underline flex items-center gap-1 px-2 ${
-              isProvisioningSheet
-                ? "opacity-50 pointer-events-none"
-                : previewLifecycle === "pre_generation"
-                ? "opacity-50"
-                : ""
-            }`}
-          >
-            <span>전체화면</span>
-          </a>
-        </div>
+      <div className="sticky top-0 z-20 bg-[#F5F5F7]/95 backdrop-blur-md py-1 -my-1">
+        <PreviewCausalityBar
+          lifecycle={previewLifecycle}
+          onResyncPublished={handleQuickGenerate}
+          resyncButtonLabel="변경사항 IM에 다시 반영하기"
+          isSyncing={isGenerating}
+          liveUrl={
+            currentItem?.status === "published" && UUID_REGEX.test(currentItem.buildingId)
+              ? `/im-lite/${encodeURIComponent(currentItem.buildingId)}`
+              : null
+          }
+          auxActionSlot={
+            <a
+              href={`/im-lite/${encodeURIComponent(currentItem?.buildingId || "bld-01")}${
+                currentItem?.documentId ? `?doc=${encodeURIComponent(currentItem.documentId)}` : ""
+              }`}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="im-open-fullscreen-link"
+              aria-disabled={isProvisioningSheet || previewLifecycle === "pre_generation"}
+              onClick={handleOpenFullscreen}
+              className={`min-h-[44px] text-sm font-extrabold text-[#1D4ED8] hover:underline inline-flex items-center gap-1 px-2 whitespace-nowrap ${
+                isProvisioningSheet
+                  ? "opacity-50 pointer-events-none"
+                  : previewLifecycle === "pre_generation"
+                  ? "opacity-50"
+                  : ""
+              }`}
+            >
+              <span>전체화면 ↗</span>
+            </a>
+          }
+        />
       </div>
 
       {previewLifecycle === "pre_generation" ? (
@@ -5113,11 +5105,11 @@ function ImWorkspaceInner() {
         /* Single-scroll Mobile IM Preview (no inner scroll trap) */
         <div
           data-testid="im-mobile-preview-frame"
-          className="bg-[#FAF9F5] rounded-[20px] border-2 border-[#334155] p-3 shadow-md flex flex-col"
+          className="bg-[#FAF9F5] rounded-[20px] border-2 border-[#334155] p-3 pt-4 shadow-md flex flex-col"
         >
           <div
             data-testid="im-mobile-preview-scroll"
-            className="space-y-3"
+            className="space-y-4"
           >
             {/* Section 01: Cover Card */}
             <PreviewEditableUnit
@@ -5475,7 +5467,7 @@ function ImWorkspaceInner() {
             ))}
           </div>
 
-          <div className="space-y-2.5">
+          <div className="pt-2 space-y-4">
             {(activeSlideFilter === "all"
               ? basicImSlides
               : basicImSlides.filter((s) => s.no === activeSlideFilter)
@@ -5502,11 +5494,16 @@ function ImWorkspaceInner() {
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          data-testid="im-bottom-download-pptx-btn"
+          data-testid="im-download-pptx-btn"
           disabled={isProvisioningSheet || isDownloadingPptx}
           aria-busy={isDownloadingPptx}
+          aria-disabled={
+            isProvisioningSheet || isDownloadingPptx || previewLifecycle === "pre_generation"
+          }
           onClick={handleDownloadPptx}
-          className="min-h-[44px] px-3 py-2 bg-[#ECFDF5] text-[#065F46] border border-[#10B981]/35 rounded-xl font-bold text-sm hover:bg-[#D1FAE5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+          className={`min-h-[44px] px-3 py-2 bg-[#ECFDF5] text-[#065F46] border border-[#10B981]/35 rounded-xl font-bold text-sm hover:bg-[#D1FAE5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            previewLifecycle === "pre_generation" ? "opacity-50" : ""
+          }`}
         >
           <span>{isDownloadingPptx ? "PPTX 생성 중…" : "📥 PPTX IM 받기"}</span>
         </button>

@@ -475,7 +475,7 @@ test.describe.serial('3종 실데이터 매물 × 2종 모드 (간편 모드 + �
       // Switch live preview tab to PPTX 10면 and capture screenshot
       await page.locator('button:has-text("🖥 PPTX 10면")').first().click();
       await page.waitForTimeout(300);
-      await expect(page.getByTestId('im-download-pptx-btn')).toBeVisible();
+      await expect(page.getByTestId('im-download-pptx-btn').locator('visible=true')).toBeVisible();
       await page.screenshot({
         path: path.join(propDir, '02-workspace-pptx-preview.png'),
         fullPage: false,

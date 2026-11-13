@@ -38,14 +38,14 @@ export interface AxiosGlassIssueCardProps {
 }
 
 const SIZE_CLASS: Record<AxiosGlassCardSize, { pad: string; title: string; brief: string; chip: string }> = {
-  // 에디터 미리보기: 기존 text-lg → text-base, text-sm → text-[13px] (한 단계 축소)
+  // 에디터 미리보기: rem 비례 스케일링(text-sm)으로 시니어 큰 글씨(xlarge 21px)까지 15px+ 보장
   preview: {
     pad: "p-4",
     title: "text-base leading-[1.42]",
-    brief: "text-[13px] leading-[1.62]",
-    chip: "text-xs",
+    brief: "text-sm leading-[1.6]",
+    chip: "text-sm",
   },
-  // 고객 뷰어: 기존 19/21px → 17/19px, 15/16px → 14/15px (한 단계 축소)
+  // 고객 뷰어: 17/19px 제목 + 14/15px 해설 (모바일 390px 2줄 48자 정밀 예산 유지)
   viewer: {
     pad: "p-5",
     title: "text-[17px] sm:text-[19px] leading-[1.42]",

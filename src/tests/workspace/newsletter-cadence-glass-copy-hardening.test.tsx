@@ -392,7 +392,7 @@ describe("[1.4] 일간·주간·월간 발행 주기 SSOT", () => {
       expect(body.editionId).toBe("ed-weekly-46");
     });
 
-    it("편집기 미리보기 카드도 글래스 카드 + 한 단계 작은 폰트(text-base / 13px) + 36/48자 예산을 지킨다", async () => {
+    it("편집기 미리보기 카드도 글래스 카드 + 시니어 rem 스케일 폰트(text-base / text-sm) + 36/48자 예산을 지킨다", async () => {
       render(<MagazineEditorPage />);
       const card = await screen.findByTestId("preview-postit-card-0");
       expect(card.getAttribute("data-card-style")).toBe("glass");
@@ -401,7 +401,7 @@ describe("[1.4] 일간·주간·월간 발행 주기 SSOT", () => {
         const brief = screen.getByTestId(`preview-postit-brief-${i}`);
         expect(title.className).toContain("text-base");
         expect(title.className).not.toMatch(/line-clamp|truncate|text-lg/);
-        expect(brief.className).toContain("text-[13px]");
+        expect(brief.className).toContain("text-sm");
         expect(brief.className).not.toMatch(/line-clamp|truncate/);
         assertCompleteTitle(title.textContent ?? "");
         assertCompleteBrief(brief.textContent ?? "");

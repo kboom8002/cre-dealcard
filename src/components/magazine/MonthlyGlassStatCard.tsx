@@ -167,8 +167,14 @@ export function MonthlyGlassStatCard({
           </span>
         </div>
 
-        {/* 2. 제목 & 대표 핵심 지표 박스 */}
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        {/* 2. 제목 & 대표 핵심 지표 박스 (좁은 미리보기·모바일 폭에서는 상하 적층으로 세로 줄쪼개짐 원천 차단) */}
+        <div
+          className={
+            isPreview
+              ? "flex flex-col gap-2.5"
+              : "flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+          }
+        >
           <div className="min-w-0 flex-1 space-y-1">
             <h3
               className={`break-keep font-extrabold leading-snug text-slate-900 ${
@@ -195,7 +201,11 @@ export function MonthlyGlassStatCard({
 
           {chart.highlightMetric && (
             <div
-              className="shrink-0 rounded-2xl border px-3.5 py-2 text-right backdrop-blur-md"
+              className={`shrink-0 rounded-2xl border px-3.5 py-2.5 backdrop-blur-md ${
+                isPreview
+                  ? "flex flex-wrap items-baseline justify-between gap-2 w-full"
+                  : "flex flex-wrap items-baseline justify-between gap-2 w-full sm:w-auto sm:block sm:text-right"
+              }`}
               style={{
                 backgroundColor: "rgba(255, 255, 255, 0.86)",
                 borderColor: theme.pillBorder,
@@ -208,20 +218,28 @@ export function MonthlyGlassStatCard({
               >
                 {chart.highlightMetric.label}
               </span>
-              <span
-                className="block text-base font-extrabold tabular-nums"
-                style={{ color: "#0F172A" }}
+              <div
+                className={
+                  isPreview
+                    ? "flex items-baseline gap-2"
+                    : "flex items-baseline gap-2 sm:block"
+                }
               >
-                {chart.highlightMetric.value}
-              </span>
-              {chart.highlightMetric.deltaText && (
                 <span
-                  className="block text-sm font-bold"
-                  style={{ color: "#047857" }}
+                  className="block text-base font-extrabold tabular-nums"
+                  style={{ color: "#0F172A" }}
                 >
-                  {chart.highlightMetric.deltaText}
+                  {chart.highlightMetric.value}
                 </span>
-              )}
+                {chart.highlightMetric.deltaText && (
+                  <span
+                    className="block text-sm font-bold"
+                    style={{ color: "#047857" }}
+                  >
+                    {chart.highlightMetric.deltaText}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>

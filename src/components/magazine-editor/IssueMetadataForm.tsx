@@ -110,6 +110,7 @@ export function IssueMetadataForm({
   onChangeIssueDate,
 }: IssueMetadataFormProps) {
   const [isMoodOpen, setIsMoodOpen] = React.useState<boolean>(() => Boolean(marketTemp));
+  const [isScheduleOpen, setIsScheduleOpen] = React.useState<boolean>(false);
   const nowKst = kstParts();
   const safeYear = typeof year === "number" ? year : nowKst.year;
   const safeMonth = typeof month === "number" ? month : nowKst.month;
@@ -140,15 +141,16 @@ export function IssueMetadataForm({
       aria-label="뉴스레터 표지 기본 정보"
       className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-5"
     >
-      {/* 1. 발행 주기(일간·주간·월간) + 호수 선택 (발행 호수·주소 자동 생성, 입력칸 미노출) */}
+      {/* 1. 표지 제목 (최상단 배치 — 첫 화면에서 스크롤 없이 즉시 입력) */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-blue-700" aria-hidden="true" />
-            <span className="text-base font-extrabold text-slate-900">
-              {onChangeCadence ? "발행 주기 · 호수 선택" : "발행 연·월 선택"}
-            </span>
-          </div>
+          <label
+            htmlFor="newsletter-headline-input"
+            className="flex items-center gap-2 text-base font-extrabold text-slate-900"
+          >
+            <FileText className="h-5 w-5 text-blue-700" aria-hidden="true" />
+            <span>표지 제목</span>
+          </label>
           <span
             data-testid="auto-issue-badge"
             className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-bold text-blue-900"
@@ -158,116 +160,6 @@ export function IssueMetadataForm({
               : `${cadenceMeta.yearMonthLabel} · ${cadenceMeta.rangeLabel} 자동 지정`}
           </span>
         </div>
-
-        {onChangeCadence && (
-          <div
-            role="radiogroup"
-            aria-label="발행 주기 선택"
-            data-testid="metadata-cadence-selector"
-            className="grid grid-cols-3 gap-2"
-          >
-            {NEWSLETTER_CADENCES.map((key) => {
-              const meta = NEWSLETTER_CADENCE_META[key];
-              const selected = cadence === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  data-testid={`metadata-cadence-${key}`}
-                  onClick={() => onChangeCadence(key)}
-                  className={`min-h-[48px] rounded-xl border px-3 py-2 text-left transition ${
-                    selected
-                      ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="block text-sm font-extrabold">{meta.label} 뉴스레터</span>
-                  <span className="block text-sm font-medium text-slate-600">{meta.description}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {cadence === "monthly" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="newsletter-issue-year"
-                className="block text-sm font-bold text-slate-700 mb-1"
-              >
-                발행 연도
-              </label>
-              <select
-                id="newsletter-issue-year"
-                value={autoMeta.year}
-                onChange={(e) => handleYearChange(Number(e.target.value))}
-                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                {YEAR_OPTIONS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}년
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="newsletter-issue-month"
-                className="block text-sm font-bold text-slate-700 mb-1"
-              >
-                발행 월
-              </label>
-              <select
-                id="newsletter-issue-month"
-                value={autoMeta.month}
-                onChange={(e) => handleMonthChange(Number(e.target.value))}
-                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                {MONTH_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}월
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <label
-              htmlFor="newsletter-issue-date"
-              className="block text-sm font-bold text-slate-700 mb-1"
-            >
-              {cadence === "weekly" ? "발행 주 선택 (그 주의 아무 날짜나 고르세요)" : "발행일 선택"}
-            </label>
-            <input
-              id="newsletter-issue-date"
-              data-testid="newsletter-issue-date"
-              type="date"
-              value={cadenceMeta.cadence === "weekly" ? (issueDate ?? cadenceMeta.dateStr) : cadenceMeta.dateStr}
-              onChange={(e) => onChangeIssueDate?.(e.target.value)}
-              className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-            {cadence === "weekly" && (
-              <p className="mt-1 text-sm font-medium text-slate-600">
-                {cadenceMeta.rangeLabel} (월~일) 한 주 소식을 담습니다.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-      {/* 2. 표지 제목 */}
-      <div className="space-y-2">
-        <label
-          htmlFor="newsletter-headline-input"
-          className="flex items-center gap-2 text-base font-extrabold text-slate-900"
-        >
-          <FileText className="h-5 w-5 text-blue-700" aria-hidden="true" />
-          <span>표지 제목</span>
-        </label>
         <input
           id="newsletter-headline-input"
           type="text"
@@ -287,7 +179,7 @@ export function IssueMetadataForm({
         )}
       </div>
 
-      {/* 3. 한 줄 소개 */}
+      {/* 2. 한 줄 소개 */}
       <div className="space-y-2">
         <label
           htmlFor="newsletter-summary-input"
@@ -312,6 +204,134 @@ export function IssueMetadataForm({
             한 줄 소개가 조금 길어요 – 핵심만 짧게 줄여 주세요
           </p>
         )}
+      </div>
+
+      {/* 3. 발행 주기 · 호수 설정 (1열과 중복 방지: 1줄 요약 바 + 필요 시 펼치기, 내부 DOM 항상 유지) */}
+      <div className="space-y-3 pt-3 border-t border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Calendar className="h-5 w-5 text-blue-700 shrink-0" aria-hidden="true" />
+            <span className="text-sm font-extrabold text-slate-800">
+              발행 호수 · 주기:{" "}
+              <span className="text-blue-900">
+                {NEWSLETTER_CADENCE_META[cadence].label} ·{" "}
+                {cadence === "monthly" ? autoMeta.yearMonthLabel : cadenceMeta.yearMonthLabel}
+              </span>
+            </span>
+          </div>
+          <button
+            type="button"
+            id="newsletter-issue-schedule-toggle"
+            data-testid="toggle-issue-schedule-btn"
+            aria-expanded={isScheduleOpen}
+            onClick={() => setIsScheduleOpen((prev) => !prev)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-extrabold text-slate-800 hover:bg-slate-100 transition cursor-pointer shrink-0"
+          >
+            <span>{isScheduleOpen ? "호수·주기 접기 ▴" : "호수·주기 바꾸기 ▾"}</span>
+          </button>
+        </div>
+
+        <div className={isScheduleOpen ? "space-y-3 pt-1" : "hidden"}>
+          {onChangeCadence && (
+            <div
+              role="radiogroup"
+              aria-label="발행 주기 선택"
+              data-testid="metadata-cadence-selector"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+            >
+              {NEWSLETTER_CADENCES.map((key) => {
+                const meta = NEWSLETTER_CADENCE_META[key];
+                const selected = cadence === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    data-testid={`metadata-cadence-${key}`}
+                    onClick={() => onChangeCadence(key)}
+                    className={`min-h-[48px] rounded-xl border px-3 py-2 text-left transition ${
+                      selected
+                        ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="block text-sm font-extrabold">{meta.label} 뉴스레터</span>
+                    <span className="block text-sm font-medium text-slate-600">{meta.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {cadence === "monthly" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="newsletter-issue-year"
+                  className="block text-sm font-bold text-slate-700 mb-1"
+                >
+                  발행 연도
+                </label>
+                <select
+                  id="newsletter-issue-year"
+                  value={autoMeta.year}
+                  onChange={(e) => handleYearChange(Number(e.target.value))}
+                  className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  {YEAR_OPTIONS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}년
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="newsletter-issue-month"
+                  className="block text-sm font-bold text-slate-700 mb-1"
+                >
+                  발행 월
+                </label>
+                <select
+                  id="newsletter-issue-month"
+                  value={autoMeta.month}
+                  onChange={(e) => handleMonthChange(Number(e.target.value))}
+                  className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  {MONTH_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}월
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label
+                htmlFor="newsletter-issue-date"
+                className="block text-sm font-bold text-slate-700 mb-1"
+              >
+                {cadence === "weekly" ? "발행 주 선택 (그 주의 아무 날짜나 고르세요)" : "발행일 선택"}
+              </label>
+              <input
+                id="newsletter-issue-date"
+                data-testid="newsletter-issue-date"
+                type="date"
+                value={cadenceMeta.cadence === "weekly" ? (issueDate ?? cadenceMeta.dateStr) : cadenceMeta.dateStr}
+                onChange={(e) => onChangeIssueDate?.(e.target.value)}
+                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+              {cadence === "weekly" && (
+                <p className="mt-1 text-sm font-medium text-slate-600">
+                  {cadenceMeta.rangeLabel} (월~일) 한 주 소식을 담습니다.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 4. 시장 분위기 배지 선택 (선택 사항 — 접기/펼치기, 내부 DOM 항상 유지) */}
