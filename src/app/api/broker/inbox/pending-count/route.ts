@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
             'dealcard_upserted',
             'dealcard_restored',
             'dealcard_deleted',
+            'deal_deleted',
           ]);
         if (typeof ownedActQ.order === 'function') {
           ownedActQ = ownedActQ.order('created_at', { ascending: false });
@@ -99,6 +100,7 @@ export async function GET(req: NextRequest) {
           if (
             act.event_type === 'im_deleted' ||
             act.event_type === 'dealcard_deleted' ||
+            act.event_type === 'deal_deleted' ||
             isDealCardDeleted(bId)
           ) {
             deletedBuildings.add(bId);
@@ -148,6 +150,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, count: 0, pendingCount: 0 });
     }
 
+    const archivedThreadIds = new Set<string>();
+
     if (isUuid(userId)) {
       try {
         let actQuery: any = supabase
@@ -158,24 +162,42 @@ export async function GET(req: NextRequest) {
             'gate_request_approved',
             'gate_request_rejected',
             'gate_request_reset',
+            'inbox_thread_archived',
+            'inbox_thread_unarchived',
           ]);
         if (typeof actQuery.order === 'function') {
           actQuery = actQuery.order('created_at', { ascending: false });
         }
         if (typeof actQuery.limit === 'function') {
-          actQuery = actQuery.limit(120);
+          actQuery = actQuery.limit(200);
         }
         const actRes: any = await actQuery;
-        const seenKeys = new Set<string>();
+        const seenDecisionKeys = new Set<string>();
+        const seenArchiveKeys = new Set<string>();
         if (Array.isArray(actRes?.data)) {
           for (const ev of actRes.data) {
             const meta = ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {};
             const keys = [meta.request_id, meta.thread_id]
               .filter(Boolean)
               .map((v) => String(v));
+            if (
+              ev.event_type === 'inbox_thread_archived' ||
+              ev.event_type === 'inbox_thread_unarchived'
+            ) {
+              for (const key of keys) {
+                if (seenArchiveKeys.has(key)) continue;
+                seenArchiveKeys.add(key);
+                if (ev.event_type === 'inbox_thread_archived') {
+                  archivedThreadIds.add(key);
+                } else {
+                  archivedThreadIds.delete(key);
+                }
+              }
+              continue;
+            }
             for (const key of keys) {
-              if (seenKeys.has(key)) continue;
-              seenKeys.add(key);
+              if (seenDecisionKeys.has(key)) continue;
+              seenDecisionKeys.add(key);
               if (ev.event_type === 'gate_request_reset') {
                 decidedIds.delete(key);
               } else {
@@ -189,8 +211,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const isArchived = (rawId: string) =>
+      Boolean(rawId) &&
+      (archivedThreadIds.has(rawId) ||
+        archivedThreadIds.has(`srv-${rawId}`) ||
+        archivedThreadIds.has(`thread_${rawId}`));
+
     const isUndecided = (rawId: string) =>
-      Boolean(rawId) && !decidedIds.has(rawId) && !decidedIds.has(`thread_${rawId}`);
+      Boolean(rawId) &&
+      !decidedIds.has(rawId) &&
+      !decidedIds.has(`srv-${rawId}`) &&
+      !decidedIds.has(`thread_${rawId}`) &&
+      !isArchived(rawId);
 
     const pendingIdSet = new Set<string>();
     const uuidBuildingIds = buildingIds.filter((id) => isUuid(id));
@@ -227,23 +259,28 @@ export async function GET(req: NextRequest) {
 
     // 2. Direct IM inquiries (im_inquiry_requests)
     try {
-      const inqRes: any = await supabase
+      let inqRes: any = await supabase
         .from('im_inquiry_requests')
         .select('id, building_id, status')
         .eq('broker_user_id', userId);
+      if (inqRes?.error) {
+        inqRes = await supabase
+          .from('im_inquiry_requests')
+          .select('id, building_id')
+          .eq('broker_user_id', userId);
+      }
       if (Array.isArray(inqRes?.data)) {
         for (const row of inqRes.data) {
           const rId = String(row?.id || '');
           const bId = row?.building_id ? String(row.building_id) : '';
-          if (bId && forbiddenBuildings.has(bId)) continue;
-          const status = typeof row?.status === 'string' ? row.status : 'submitted';
-          if (
-            rId &&
-            status !== 'approved' &&
-            status !== 'rejected' &&
-            status !== 'expired' &&
-            isUndecided(rId)
-          ) {
+          if (bId && (forbiddenBuildings.has(bId) || deletedBuildings.has(bId))) continue;
+          const rawStatus = typeof row?.status === 'string' ? row.status.trim() : '';
+          const isActionableStatus =
+            !rawStatus ||
+            rawStatus === 'submitted' ||
+            rawStatus === 'pending' ||
+            rawStatus === 'broker_review';
+          if (rId && isActionableStatus && isUndecided(rId)) {
             pendingIdSet.add(rId);
           }
         }

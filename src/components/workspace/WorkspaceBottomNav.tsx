@@ -16,7 +16,7 @@ export const DEFAULT_WORKSPACE_TABS: WorkspaceTabItem[] = [
   { id: "home", label: "홈", href: "/broker", icon: "🏠" },
   { id: "dealcards", label: "딜카드", href: "/broker/w/dealcards", icon: "📄" },
   { id: "im", label: "IM", href: "/broker/w/im", icon: "📊" },
-  { id: "magazine", label: "뉴스레터", href: "/broker/magazine-editor", icon: "📰" },
+  { id: "magazine", label: "뉴스레터", href: "/broker/w/newsletter", icon: "📰" },
   { id: "inbox", label: "소통함", href: "/broker/w/inbox", icon: "💬" },
 ];
 
@@ -75,6 +75,7 @@ export function WorkspaceBottomNav({
             <Link
               key={tab.id}
               href={tab.href}
+              prefetch={false}
               data-testid={`workspace-tab-${tab.id}`}
               data-active={isActive ? "true" : undefined}
               className={`relative flex flex-col items-center justify-center min-h-[48px] min-w-[48px] rounded-2xl transition-all py-1 ${

@@ -188,7 +188,7 @@ async function scoreNewsBatch(items: RawNewsItem[]): Promise<ScoredNews[]> {
       userPrompt: newsListText,
       model: "gpt-5.6-luna",
       temperature: 0.15,
-      maxTokens: 800,
+      maxTokens: 2500,
     }, { allowMock: false });
 
     const arrMatch = aiRes.content.match(/\[[\s\S]*\]/);
@@ -224,7 +224,7 @@ async function enhancedSummarize(title: string, content: string): Promise<string
       userPrompt: `제목: ${title}\n내용: ${content}`,
       model: "gpt-5.6-luna",
       temperature: 0.2,
-      maxTokens: 200,
+      maxTokens: 1200,
     }, { allowMock: false });
     return cleanNewsText(aiRes.content) || content.slice(0, 150);
   } catch {

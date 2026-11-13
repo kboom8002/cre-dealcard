@@ -18,7 +18,20 @@ export class OpenAIProvider implements LLMProvider {
     const model = params.model || "gpt-5.6-terra";
     console.log("[OpenAIProvider] model is:", model);
 
-    const attemptChat = async () => {
+    const isReasoningModel =
+      model.includes("o1") ||
+      model.includes("terra") ||
+      model.includes("sol") ||
+      model.includes("luna") ||
+      model.includes("gpt-5.6");
+    const firstTokenBudget = isReasoningModel
+      ? Math.max(params.maxTokens ?? 4096, 2048)
+      : (params.maxTokens ?? 4096);
+    const retryTokenBudget = isReasoningModel
+      ? Math.max((params.maxTokens ?? 4096) * 4, 4096)
+      : (params.maxTokens ?? 4096);
+
+    const attemptChat = async (tokenBudget: number) => {
       const response = await this.openai.chat.completions.create(
         {
           model,
@@ -27,8 +40,8 @@ export class OpenAIProvider implements LLMProvider {
             { role: "user", content: params.userPrompt },
           ],
           response_format: params.responseFormat === "json_object" ? { type: "json_object" } : undefined,
-          temperature: (model.includes("o1") || model.includes("terra") || model.includes("sol") || model.includes("luna") || model.includes("gpt-5.6")) ? 1 : (params.temperature ?? 0.7),
-          max_completion_tokens: params.maxTokens ?? 4096,
+          temperature: isReasoningModel ? 1 : (params.temperature ?? 0.7),
+          max_completion_tokens: tokenBudget,
         },
         {
           signal: params.signal,
@@ -38,13 +51,13 @@ export class OpenAIProvider implements LLMProvider {
     };
 
     try {
-      let response = await attemptChat();
+      let response = await attemptChat(firstTokenBudget);
       let content = response.choices[0]?.message?.content;
 
-      // D12: 빈 응답 시 1회 재시도 (transient empty response 복구)
+      // D12 + B-5: 빈 응답 시 추론 토큰 고갈 방지를 위해 상향된 예산으로 1회 재시도
       if (!content) {
         console.warn("[OpenAIProvider] Empty response, retrying once...");
-        response = await attemptChat();
+        response = await attemptChat(retryTokenBudget);
         content = response.choices[0]?.message?.content;
       }
 

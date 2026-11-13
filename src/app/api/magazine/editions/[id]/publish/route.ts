@@ -7,6 +7,8 @@ import { resolveBroker } from "@/lib/magazine/resolve-broker";
 import { toKstDate, todayKst } from "@/lib/magazine/kst";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { normalizeContentForPublish, needsQualityReview } from "@/lib/magazine/edition-save";
+import { sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
+import { isUuid } from "@/lib/magazine/slug";
 import { kindOfEditionType } from "@/lib/magazine/edition-draft";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
 import { createModuleLogger } from "@/lib/logger";
@@ -111,7 +113,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq("id", ctx.userId)
       .maybeSingle();
     if (profErr) log.warn("profile phone lookup failed", { error: profErr.message });
-    else if (prof && typeof (prof as { phone?: unknown }).phone === "string") phone = (prof as { phone: string }).phone;
+    else if (prof && typeof (prof as { phone?: unknown }).phone === "string") {
+      phone = sanitizeBrokerPhone((prof as { phone: string }).phone);
+    }
 
     const nowIso = new Date().toISOString();
     // 정정 발행은 최초 발행일(KST)의 공개 행을 갱신한다
@@ -174,6 +178,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       status: "published",
       content,
       updated_at: nowIso,
+      ...(isUuid(ctx.userId) ? { broker_user_id: ctx.userId } : {}),
     };
     if (
       content.format === "simple" &&
@@ -186,21 +191,49 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     if (!alreadyPublished) editionUpdate.published_at = nowIso;
 
-    const { data: updated, error: upErr } = await supabase
+    let { data: updated, error: upErr } = await supabase
       .from("magazine_editions")
       .update(editionUpdate)
       .eq("id", edition.id)
       .in("broker_id", ctx.brokerKeys)
       .select()
       .maybeSingle();
+    if (
+      upErr &&
+      ((upErr as { code?: string }).code === "42703" || (upErr as { code?: string }).code === "PGRST204") &&
+      "broker_user_id" in editionUpdate
+    ) {
+      const { broker_user_id: _omitted, ...fallbackEditionUpdate } = editionUpdate;
+      const retryRes = await supabase
+        .from("magazine_editions")
+        .update(fallbackEditionUpdate)
+        .eq("id", edition.id)
+        .in("broker_id", ctx.brokerKeys)
+        .select()
+        .maybeSingle();
+      updated = retryRes.data;
+      upErr = retryRes.error;
+    }
     if (upErr || !updated) {
       log.error("[publish] edition update failed", upErr?.message ?? "no row");
       return jsonError("PUBLISH_FAILED", "발행 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
     }
 
-    const { error: issueErr } = await supabase
+    let { error: issueErr } = await supabase
       .from("magazine_issues")
-      .upsert({ broker_id: ctx.slug, issue_date: issueDate, content }, { onConflict: "broker_id,issue_date" });
+      .upsert(
+        { broker_id: ctx.slug, issue_date: issueDate, content, updated_at: nowIso },
+        { onConflict: "broker_id,issue_date" },
+      );
+    if (
+      issueErr &&
+      ((issueErr as { code?: string }).code === "42703" || (issueErr as { code?: string }).code === "PGRST204")
+    ) {
+      const retryIssue = await supabase
+        .from("magazine_issues")
+        .upsert({ broker_id: ctx.slug, issue_date: issueDate, content }, { onConflict: "broker_id,issue_date" });
+      issueErr = retryIssue.error;
+    }
     if (issueErr) {
       log.error("[publish] magazine_issues upsert failed", issueErr.message);
       // 되돌리기: 공개되지 않은 채 '발행됨'으로 남지 않게 한다

@@ -27,10 +27,74 @@ interface SavedScratchLinks {
   newsletterUrl: string;
   dealcardUrl: string;
   imTokenUrl: string;
+  testClientContact: string;
+}
+
+type ServerSyncState = "idle" | "syncing" | "synced" | "submitted";
+
+interface LiveProbeResponse {
+  ok: boolean;
+  checkedAt?: string;
+  newsletterCheck?: {
+    validUrl: boolean;
+    brokerSlug?: string;
+    issueDate?: string;
+    editionId?: string | null;
+    existsAndPublished: boolean;
+    addressBlindPass: boolean;
+    offendingAddresses: string[];
+    brokerPhonePass: boolean;
+    noRawUuidPass: boolean;
+    offendingUuidTitles: string[];
+    dealCount?: number;
+    error?: string;
+  } | null;
+  shareLinkCheck?: {
+    validUrl: boolean;
+    buildingId: string;
+    hasToken: boolean;
+    tokenReason?: string | null;
+    docRevoked?: boolean;
+    isLocked: boolean;
+    statusLabel: string;
+    error?: string;
+  } | null;
+  subscriberCheck?: {
+    foundInMagazineSubscribers: boolean;
+    status?: string | null;
+    confirmStatus: string | null;
+    foundInBrokerClients: boolean;
+    brokerAuthenticated?: boolean;
+  } | null;
+}
+
+interface SeedAxis456Result {
+  seededInquiryId: string | null;
+  seededBuildingId: string | null;
+  seededSubscriberContact: string;
+  message: string;
 }
 
 const STORAGE_KEY = "credeal-nl-inbox-mece-workbench-v1";
+const WORKBENCH_ID = "newsletter-inbox-mece-v1";
 const TARGET_TOTAL_SECONDS = 40 * 60; // 40분 기준
+
+function createQaSessionId(): string {
+  return `qa-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getSyncStatusLabel(syncState: ServerSyncState): string {
+  switch (syncState) {
+    case "syncing":
+      return "서버 자동저장 중...";
+    case "synced":
+      return "서버 동기화됨 ✓";
+    case "submitted":
+      return "서버 제출 완료 ✓";
+    default:
+      return "로컬 대기";
+  }
+}
 
 function formatDuration(totalSeconds: number): string {
   const mins = Math.floor(totalSeconds / 60);
@@ -73,14 +137,24 @@ export default function NewsletterInboxTestPage() {
   const [showSetupGuide, setShowSetupGuide] = useState<boolean>(true);
   const [showLinkVault, setShowLinkVault] = useState<boolean>(false);
 
+  const [sessionId, setSessionId] = useState<string>(() => createQaSessionId());
   const [records, setRecords] = useState<Record<string, StepRecord>>({});
   const [testerName, setTesterName] = useState<string>("상용화 총괄 검수자");
+  const [testerOrg, setTesterOrg] = useState<string>("");
   const [overallComment, setOverallComment] = useState<string>("");
   const [scratchLinks, setScratchLinks] = useState<SavedScratchLinks>({
     newsletterUrl: "",
     dealcardUrl: "",
     imTokenUrl: "",
+    testClientContact: "",
   });
+
+  const [serverSyncStatus, setServerSyncStatus] = useState<ServerSyncState>("idle");
+  const [isSubmittingServer, setIsSubmittingServer] = useState<boolean>(false);
+  const [isProbing, setIsProbing] = useState<boolean>(false);
+  const [probeResult, setProbeResult] = useState<LiveProbeResponse | null>(null);
+  const [isSeedingAxis456, setIsSeedingAxis456] = useState<boolean>(false);
+  const [seedResult, setSeedResult] = useState<SeedAxis456Result | null>(null);
 
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
@@ -92,13 +166,36 @@ export default function NewsletterInboxTestPage() {
 
   const stepCardTopRef = useRef<HTMLDivElement | null>(null);
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const isMountedRef = useRef<boolean>(true);
+  const elapsedSecondsRef = useRef<number>(0);
 
-  // Hydrate persisted state from localStorage
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    elapsedSecondsRef.current = elapsedSeconds;
+  }, [elapsedSeconds]);
+
+  // Hydrate persisted state from localStorage (and optional ?sessionId= cross-device recovery)
+  useEffect(() => {
+    let querySessionId = "";
     try {
+      if (typeof window !== "undefined" && window.location.search) {
+        const sp = new URLSearchParams(window.location.search);
+        querySessionId = (sp.get("sessionId") || "").trim();
+      }
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
+        if (querySessionId && querySessionId.length >= 6) {
+          setSessionId(querySessionId);
+        } else if (typeof parsed.sessionId === "string" && parsed.sessionId.length >= 6) {
+          setSessionId(parsed.sessionId);
+        }
         if (parsed.records && typeof parsed.records === "object") {
           setRecords(parsed.records);
         }
@@ -107,6 +204,9 @@ export default function NewsletterInboxTestPage() {
         }
         if (typeof parsed.testerName === "string") {
           setTesterName(parsed.testerName);
+        }
+        if (typeof parsed.testerOrg === "string") {
+          setTesterOrg(parsed.testerOrg);
         }
         if (typeof parsed.overallComment === "string") {
           setOverallComment(parsed.overallComment);
@@ -120,11 +220,42 @@ export default function NewsletterInboxTestPage() {
         if (typeof parsed.showSetupGuide === "boolean") {
           setShowSetupGuide(parsed.showSetupGuide);
         }
+      } else if (querySessionId && querySessionId.length >= 6) {
+        setSessionId(querySessionId);
       }
     } catch {
       // Ignore storage read errors
     } finally {
       setHydrated(true);
+    }
+
+    // Recover session from server ONLY when ?sessionId= is explicitly present in URL
+    if (querySessionId && querySessionId.length >= 6 && typeof fetch === "function") {
+      try {
+        const req = fetch(
+          `/api/public/qa-workbench?sessionId=${encodeURIComponent(querySessionId)}`
+        );
+        if (req && typeof req.then === "function") {
+          req
+            .then((r) => (r && r.ok ? r.json() : null))
+            .then((payload) => {
+              if (!isMountedRef.current || !payload?.found || !payload.session) return;
+              const s = payload.session;
+              if (s.records && typeof s.records === "object") setRecords(s.records);
+              if (typeof s.testerName === "string" && s.testerName) setTesterName(s.testerName);
+              if (typeof s.testerOrg === "string") setTesterOrg(s.testerOrg);
+              if (typeof s.overallComment === "string") setOverallComment(s.overallComment);
+              if (s.scratchLinks && typeof s.scratchLinks === "object") {
+                setScratchLinks((prev) => ({ ...prev, ...s.scratchLinks }));
+              }
+              if (typeof s.elapsedSeconds === "number") setElapsedSeconds(s.elapsedSeconds);
+              setServerSyncStatus(s.mode === "submit" ? "submitted" : "synced");
+            })
+            .catch(() => {});
+        }
+      } catch {
+        // Ignore network degradation
+      }
     }
   }, []);
 
@@ -135,9 +266,11 @@ export default function NewsletterInboxTestPage() {
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
+          sessionId,
           records,
           activeStepIdx,
           testerName,
+          testerOrg,
           overallComment,
           scratchLinks,
           elapsedSeconds,
@@ -149,9 +282,11 @@ export default function NewsletterInboxTestPage() {
     }
   }, [
     hydrated,
+    sessionId,
     records,
     activeStepIdx,
     testerName,
+    testerOrg,
     overallComment,
     scratchLinks,
     elapsedSeconds,
@@ -396,6 +531,10 @@ export default function NewsletterInboxTestPage() {
     setIsTimerRunning(false);
     setActiveStepIdx(0);
     setOverallComment("");
+    setProbeResult(null);
+    setSeedResult(null);
+    setServerSyncStatus("idle");
+    setSessionId(createQaSessionId());
     setResetArmed(false);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -404,6 +543,206 @@ export default function NewsletterInboxTestPage() {
     }
     showToast(`↺ 전체 점검 기록과 타이머가 초기화되었습니다.`);
   }, [resetArmed, showToast]);
+
+  // Debounced auto-sync to server after user interaction (1500ms, JSDOM-safe)
+  useEffect(() => {
+    if (!hydrated) return;
+    if (stats.completed === 0 && overallComment.trim().length === 0) return;
+    if (typeof fetch !== "function") return;
+
+    const timerId = window.setTimeout(() => {
+      if (!isMountedRef.current || typeof fetch !== "function") return;
+      setServerSyncStatus("syncing");
+      try {
+        const reqPromise = fetch("/api/public/qa-workbench", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "sync",
+            workbenchId: WORKBENCH_ID,
+            sessionId,
+            testerName,
+            testerOrg,
+            records,
+            scratchLinks,
+            overallComment,
+            elapsedSeconds: elapsedSecondsRef.current,
+          }),
+        });
+        if (!reqPromise || typeof reqPromise.then !== "function") {
+          if (isMountedRef.current) setServerSyncStatus("idle");
+          return;
+        }
+        reqPromise
+          .then((res) => {
+            if (!isMountedRef.current) return;
+            setServerSyncStatus(res && res.ok ? "synced" : "idle");
+          })
+          .catch(() => {
+            if (isMountedRef.current) setServerSyncStatus("idle");
+          });
+      } catch {
+        if (isMountedRef.current) setServerSyncStatus("idle");
+      }
+    }, 1500);
+
+    return () => window.clearTimeout(timerId);
+  }, [
+    hydrated,
+    stats.completed,
+    records,
+    overallComment,
+    testerName,
+    testerOrg,
+    scratchLinks,
+    sessionId,
+  ]);
+
+  const handleSubmitToServer = useCallback(async () => {
+    if (typeof fetch !== "function") {
+      showToast("⚠️ 현재 환경에서는 로컬 저장 모드로 동작합니다.");
+      return;
+    }
+    setIsSubmittingServer(true);
+    setServerSyncStatus("syncing");
+    try {
+      const reqPromise = fetch("/api/public/qa-workbench", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "submit",
+          workbenchId: WORKBENCH_ID,
+          sessionId,
+          testerName,
+          testerOrg,
+          records,
+          scratchLinks,
+          overallComment,
+          elapsedSeconds: elapsedSecondsRef.current,
+        }),
+      });
+      if (!reqPromise || typeof reqPromise.then !== "function") {
+        if (isMountedRef.current) setServerSyncStatus("idle");
+        return;
+      }
+      const res = await reqPromise;
+      if (!isMountedRef.current) return;
+      if (res && res.ok) {
+        setServerSyncStatus("submitted");
+        showToast(`☁️ 서버에 검수결과가 제출되었습니다! (세션: ${sessionId})`);
+      } else {
+        setServerSyncStatus("idle");
+        showToast("⚠️ 서버 제출 중 응답 오류가 발생했습니다. 로컬 기록은 유지됩니다.");
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setServerSyncStatus("idle");
+        showToast("⚠️ 네트워크 오류로 서버 제출에 실패했습니다. 로컬 기록은 유지됩니다.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsSubmittingServer(false);
+      }
+    }
+  }, [overallComment, records, scratchLinks, sessionId, showToast, testerName, testerOrg]);
+
+  const handleRunLiveProbe = useCallback(async () => {
+    if (typeof fetch !== "function") {
+      showToast("⚠️ 현재 환경에서는 실시간 서버 검증을 호출할 수 없습니다.");
+      return;
+    }
+    setIsProbing(true);
+    try {
+      const reqPromise = fetch("/api/public/qa-workbench", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "probe",
+          publicNewsletterUrl: scratchLinks.newsletterUrl,
+          imShareUrl: scratchLinks.imTokenUrl,
+          testClientContact: scratchLinks.testClientContact,
+        }),
+      });
+      if (!reqPromise || typeof reqPromise.then !== "function") {
+        return;
+      }
+      const res = await reqPromise;
+      if (!isMountedRef.current) return;
+      if (!res || !res.ok) {
+        showToast("⚠️ 자동 검증 요청 처리 중 오류가 발생했습니다.");
+        return;
+      }
+      const data = (await res.json()) as LiveProbeResponse;
+      if (!isMountedRef.current) return;
+      setProbeResult(data);
+      if (!data.newsletterCheck && !data.shareLinkCheck && !data.subscriberCheck) {
+        showToast("💡 보관함에 공개 뉴스레터 URL·전용 IM 링크·구독 연락처 중 1개 이상을 입력한 뒤 다시 눌러 주세요.");
+      } else {
+        showToast("🔍 공개 URL · 잠금 상태 · 구독 DB 실시간 자동 검증이 완료되었습니다.");
+      }
+    } catch {
+      if (isMountedRef.current) {
+        showToast("⚠️ 자동 검증 호출 중 네트워크 오류가 발생했습니다.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsProbing(false);
+      }
+    }
+  }, [scratchLinks, showToast]);
+
+  const handleSeedAxis456 = useCallback(async () => {
+    if (typeof fetch !== "function") {
+      showToast("⚠️ 현재 환경에서는 테스트 시드 API를 호출할 수 없습니다.");
+      return;
+    }
+    setIsSeedingAxis456(true);
+    try {
+      const reqPromise = fetch("/api/public/qa-workbench", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "seed_axis456" }),
+      });
+      if (!reqPromise || typeof reqPromise.then !== "function") {
+        return;
+      }
+      const res = await reqPromise;
+      if (!isMountedRef.current) return;
+      if (res.status === 401 || res.status === 403) {
+        showToast("🔐 먼저 창 A에서 중개사 계정으로 로그인한 뒤 [원클릭 생성]을 눌러 주세요.");
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      if (!isMountedRef.current) return;
+      if (res.ok && data?.ok) {
+        const seededContact = String(data.seededSubscriberContact || "010-7777-6666");
+        setSeedResult({
+          seededInquiryId: data.seededInquiryId || null,
+          seededBuildingId: data.seededBuildingId || null,
+          seededSubscriberContact: seededContact,
+          message:
+            data.message ||
+            "테스트 문의 및 구독 시드가 생성되었습니다. 소통관리함(/broker/w/inbox)에서 바로 확인하세요!",
+        });
+        setScratchLinks((prev) =>
+          prev.testClientContact.trim()
+            ? prev
+            : { ...prev, testClientContact: seededContact }
+        );
+        showToast("⚡ Axis 4~6 테스트 문의·구독 원클릭 시드가 생성되었습니다!");
+      } else {
+        showToast(`⚠️ 시드 생성 실패: ${data?.error || "잠시 후 다시 시도해 주세요."}`);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        showToast("⚠️ 시드 생성 요청 중 네트워크 오류가 발생했습니다.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsSeedingAxis456(false);
+      }
+    }
+  }, [showToast]);
 
   // Keyboard shortcuts in walkthrough mode (when not typing inside input/textarea/select)
   useEffect(() => {
@@ -605,6 +944,195 @@ export default function NewsletterInboxTestPage() {
     );
   };
 
+  const renderSyncBadgePill = (testId?: string) => {
+    const label = getSyncStatusLabel(serverSyncStatus);
+    const toneClass =
+      serverSyncStatus === "submitted"
+        ? "bg-indigo-600 text-white border-indigo-700"
+        : serverSyncStatus === "synced"
+          ? "bg-emerald-50 text-emerald-900 border-emerald-300"
+          : serverSyncStatus === "syncing"
+            ? "bg-blue-50 text-blue-900 border-blue-300"
+            : "bg-slate-100 text-slate-700 border-slate-300";
+
+    return (
+      <span
+        {...(testId ? { "data-testid": testId } : {})}
+        className={`px-2.5 py-1 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 ${toneClass}`}
+      >
+        <span>☁️</span>
+        <span>{label}</span>
+      </span>
+    );
+  };
+
+  const renderLiveAutoVerifierPanel = (primaryTestIds: boolean) => {
+    const nl = probeResult?.newsletterCheck;
+    const sl = probeResult?.shareLinkCheck;
+    const sub = probeResult?.subscriberCheck;
+
+    const renderBadge = (state: "PASS" | "FAIL" | "WARN" | "IDLE", text: string) => {
+      if (state === "PASS") {
+        return (
+          <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-extrabold shrink-0">
+            ✅ {text}
+          </span>
+        );
+      }
+      if (state === "FAIL") {
+        return (
+          <span className="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-xs font-extrabold shrink-0">
+            ❌ {text}
+          </span>
+        );
+      }
+      if (state === "WARN") {
+        return (
+          <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 text-xs font-extrabold shrink-0">
+            🔒 {text}
+          </span>
+        );
+      }
+      return (
+        <span className="px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 text-xs font-extrabold shrink-0">
+          ⏳ {text}
+        </span>
+      );
+    };
+
+    return (
+      <div className="p-4 rounded-2xl bg-slate-50 border-2 border-indigo-200 space-y-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div>
+            <h3 className="text-sm sm:text-base font-black text-slate-900">
+              🔍 공개 URL · 잠금 상태 · 구독 DB 실시간 자동 검증기 (Live Auto-Verifier)
+            </h3>
+            <p className="text-xs text-slate-600 font-medium">
+              보관함에 입력된 공개 뉴스레터 URL·전용 IM 링크·구독 연락처를 서버 DB 및 마스킹 산출물 기준으로 즉시 자동 진단합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid={primaryTestIds ? "btn-run-live-probe" : "btn-run-live-probe-vault"}
+            disabled={isProbing}
+            onClick={() => void handleRunLiveProbe()}
+            className="min-h-[42px] px-4 py-2 rounded-xl bg-[#4338CA] hover:bg-[#3730A3] disabled:opacity-60 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs transition"
+          >
+            {isProbing
+              ? "🔍 실시간 검증 중..."
+              : "🔍 공개 URL · 잠금 상태 자동 검증"}
+          </button>
+        </div>
+
+        <div
+          data-testid={primaryTestIds ? "live-probe-results" : "live-probe-results-vault"}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5"
+        >
+          {/* 1. Address Blind Check */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1.5 flex flex-col justify-between">
+            <div className="text-xs font-black text-slate-900">
+              뉴스레터 지번·도로명 번지 블라인드 (NL-302 / SEC-603)
+            </div>
+            <div className="space-y-1">
+              {!nl
+                ? renderBadge("IDLE", "URL 입력 대기")
+                : !nl.validUrl || !nl.existsAndPublished
+                  ? renderBadge("FAIL", nl.error || "미발행·경로 오류")
+                  : nl.addressBlindPass
+                    ? renderBadge("PASS", "PASS (번지 마스킹 정상)")
+                    : renderBadge("FAIL", "FAIL (번지 노출 감지)")}
+              {nl && nl.offendingAddresses?.length > 0 && (
+                <div className="text-[11px] font-bold text-rose-700 break-all">
+                  노출 문자열: {nl.offendingAddresses.join(", ")}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Broker Phone Format Check */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1.5 flex flex-col justify-between">
+            <div className="text-xs font-black text-slate-900">
+              중개사 전화번호(tel:) 포맷 무결성
+            </div>
+            <div>
+              {!nl
+                ? renderBadge("IDLE", "URL 입력 대기")
+                : !nl.validUrl || !nl.existsAndPublished
+                  ? renderBadge("FAIL", "발행본 미확인")
+                  : nl.brokerPhonePass
+                    ? renderBadge("PASS", "PASS (@ 혼입 없음)")
+                    : renderBadge("FAIL", "FAIL (이메일 @ 혼입)")}
+            </div>
+          </div>
+
+          {/* 3. Raw UUID Non-Exposure Check */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1.5 flex flex-col justify-between">
+            <div className="text-xs font-black text-slate-900">
+              UUID 폴백 비노출 (NL-305)
+            </div>
+            <div className="space-y-1">
+              {!nl
+                ? renderBadge("IDLE", "URL 입력 대기")
+                : !nl.validUrl || !nl.existsAndPublished
+                  ? renderBadge("FAIL", "발행본 미확인")
+                  : nl.noRawUuidPass
+                    ? renderBadge("PASS", "PASS (UUID 노출 0건)")
+                    : renderBadge("FAIL", "FAIL (생 UUID 노출)")}
+              {nl && nl.offendingUuidTitles?.length > 0 && (
+                <div className="text-[11px] font-bold text-rose-700 break-all">
+                  검출: {nl.offendingUuidTitles.join(", ")}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 4. IM Share Link Open/Lock Status */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1.5 flex flex-col justify-between">
+            <div className="text-xs font-black text-slate-900">
+              IM 공유 링크 열람/잠금 상태 (IB-505 / SEC-601)
+            </div>
+            <div className="space-y-1">
+              {!sl
+                ? renderBadge("IDLE", "IM 링크 입력 대기")
+                : !sl.validUrl
+                  ? renderBadge("FAIL", sl.error || "URL 오류")
+                  : sl.isLocked
+                    ? renderBadge("WARN", sl.statusLabel)
+                    : renderBadge("PASS", sl.statusLabel)}
+              {sl && sl.validUrl && (
+                <div className="text-[11px] font-semibold text-slate-600">
+                  매물: {sl.buildingId} · {sl.hasToken ? "전용 토큰 포함" : "일반 공개 경로"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 5. Public Subscriber DB Inflow Check */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1.5 flex flex-col justify-between">
+            <div className="text-xs font-black text-slate-900">
+              공개 구독자 DB 유입 상태 (NL-304 / IB-403)
+            </div>
+            <div className="space-y-1">
+              {!sub
+                ? renderBadge("IDLE", "연락처 입력 대기")
+                : sub.foundInMagazineSubscribers
+                  ? renderBadge(
+                      "PASS",
+                      `PASS (${sub.confirmStatus || "유입 확인"})`
+                    )
+                  : renderBadge("FAIL", "미검출 (구독 DB 없음)")}
+              {sub && (
+                <div className="text-[11px] font-semibold text-slate-600">
+                  고객목록 연동: {sub.foundInBrokerClients ? "확인됨 ✓" : "미연동/비로그인"}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       data-testid="newsletter-inbox-test-workbench"
@@ -648,7 +1176,7 @@ export default function NewsletterInboxTestPage() {
             {/* Direct Target Workspace Launchers */}
             <div className="flex flex-wrap items-center gap-1.5 print:hidden">
               <a
-                href="/broker/magazine-editor"
+                href="/broker/w/newsletter"
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="header-launch-newsletter"
@@ -684,14 +1212,14 @@ export default function NewsletterInboxTestPage() {
             </div>
           </div>
 
-          {/* Second Row: Progress Bar + Verdict + Stopwatch + View Mode Tabs */}
+          {/* Second Row: Progress Bar + Verdict + Stopwatch + Server Sync + View Mode Tabs */}
           <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-slate-100 print:hidden">
             {/* Progress & Counters */}
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               {renderVerdictBadge()}
               <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold text-slate-800">
                 <span>진행률 {stats.progressPct}%</span>
-                <div className="w-20 sm:w-28 h-2.5 bg-slate-300 rounded-full overflow-hidden">
+                <div className="w-20 sm:w-24 h-2.5 bg-slate-300 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[#1D4ED8] transition-all duration-300"
                     style={{ width: `${stats.progressPct}%` }}
@@ -729,6 +1257,18 @@ export default function NewsletterInboxTestPage() {
                   {isTimerRunning ? "⏸ 정지" : "▶ 시작"}
                 </button>
               </div>
+
+              {/* Server Sync Status & Direct Submit */}
+              {renderSyncBadgePill("qa-server-sync-status")}
+              <button
+                type="button"
+                data-testid="btn-submit-qa-server"
+                disabled={isSubmittingServer}
+                onClick={() => void handleSubmitToServer()}
+                className="min-h-[36px] px-3 py-1 rounded-xl bg-indigo-700 hover:bg-indigo-800 disabled:opacity-60 text-white text-xs font-extrabold cursor-pointer shadow-2xs transition"
+              >
+                {isSubmittingServer ? "☁️ 제출 중..." : "☁️ 서버에 검수결과 제출"}
+              </button>
             </div>
 
             {/* 3 View Mode Tabs */}
@@ -807,7 +1347,7 @@ export default function NewsletterInboxTestPage() {
                   : "bg-white hover:bg-slate-50 text-slate-900 border-slate-300"
               }`}
             >
-              <span>🔗 내 테스트 링크 보관함 (뉴스레터·딜카드·IM 토큰) {showLinkVault ? "접기 ▲" : "열기 ▼"}</span>
+              <span>🔗 내 테스트 링크 보관함 · 자동 검증기 {showLinkVault ? "접기 ▲" : "열기 ▼"}</span>
             </button>
           </div>
 
@@ -819,38 +1359,75 @@ export default function NewsletterInboxTestPage() {
           </a>
         </div>
 
-        {/* Collapsible Scratch Link Vault (Prevents losing copied URLs during multi-step tests) */}
+        {/* Collapsible Scratch Link Vault + 1-Click Axis 4~6 Seeder + Live Auto-Verifier */}
         {showLinkVault && (
           <section
             data-testid="scratch-link-vault"
-            className="bg-white rounded-2xl border-2 border-slate-800 p-5 shadow-sm space-y-3.5 print:hidden"
+            className="bg-white rounded-2xl border-2 border-slate-800 p-5 shadow-sm space-y-4 print:hidden"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-                  🔗 내 테스트 링크 임시 보관함 (자동 저장됨)
+                  🔗 내 테스트 링크 임시 보관함 & 실시간 자동 검증기 (자동 저장됨)
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600">
-                  점검 도중 함정 문구를 복사하느라 클립보드의 공개 뉴스레터 URL이나 전용 IM 토큰 링크가 덮어써지지 않도록 이곳에 붙여넣어 두고 언제든 1클릭으로 여세요.
+                  점검 도중 함정 문구를 복사하느라 클립보드 URL이 덮어써지지 않도록 보관하고, 원클릭 시드 생성 및 실시간 DB·블라인드 검증을 실행하세요.
                 </p>
               </div>
+              <button
+                type="button"
+                data-testid="btn-seed-axis456"
+                disabled={isSeedingAxis456}
+                onClick={() => void handleSeedAxis456()}
+                className="min-h-[42px] px-4 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] disabled:opacity-60 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs transition"
+              >
+                {isSeedingAxis456
+                  ? "⚡ 테스트 시드 생성 중..."
+                  : "⚡ Axis 4~6 테스트 문의·구독 원클릭 생성"}
+              </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+
+            {seedResult && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs sm:text-sm font-bold text-emerald-950">
+                  {seedResult.message}
+                </div>
+                <a
+                  href="/broker/w/inbox"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <span>💬 소통관리함(/broker/w/inbox) 바로 열기 ↗</span>
+                </a>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {[
                 {
                   key: "newsletterUrl" as const,
                   label: "① 공개 뉴스레터 URL (NL-303~306, SEC-601)",
                   placeholder: "https://www.credeal.net/magazine/...",
+                  inputType: "url" as const,
                 },
                 {
                   key: "dealcardUrl" as const,
                   label: "② 공개 딜카드 URL (NL-305, IB-401)",
                   placeholder: "https://www.credeal.net/dc/...",
+                  inputType: "url" as const,
                 },
                 {
                   key: "imTokenUrl" as const,
                   label: "③ 승인된 전용 IM 링크 (IB-501~504)",
                   placeholder: "https://www.credeal.net/im-lite/...?token=slk...",
+                  inputType: "url" as const,
+                },
+                {
+                  key: "testClientContact" as const,
+                  label: "④ 테스트 구독·문의 연락처 (NL-304, IB-403)",
+                  placeholder: "010-7777-6666 또는 qa-sub@credeal.test",
+                  inputType: "text" as const,
                 },
               ].map((slot) => (
                 <div
@@ -861,7 +1438,7 @@ export default function NewsletterInboxTestPage() {
                     {slot.label}
                   </label>
                   <input
-                    type="url"
+                    type={slot.inputType}
                     value={scratchLinks[slot.key]}
                     onChange={(e) =>
                       setScratchLinks((prev) => ({ ...prev, [slot.key]: e.target.value }))
@@ -877,9 +1454,10 @@ export default function NewsletterInboxTestPage() {
                       }
                       className="flex-1 min-h-[38px] px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-extrabold cursor-pointer"
                     >
-                      {copiedId === `vault-${slot.key}` ? "✅ 복사됨!" : "📋 URL 복사 (창 B용)"}
+                      {copiedId === `vault-${slot.key}` ? "✅ 복사됨!" : "📋 복사"}
                     </button>
-                    {scratchLinks[slot.key].trim().startsWith("http") && (
+                    {(scratchLinks[slot.key].trim().startsWith("http") ||
+                      scratchLinks[slot.key].trim().startsWith("/")) && (
                       <a
                         href={scratchLinks[slot.key].trim()}
                         target="_blank"
@@ -893,6 +1471,8 @@ export default function NewsletterInboxTestPage() {
                 </div>
               ))}
             </div>
+
+            {renderLiveAutoVerifierPanel(viewMode !== "report")}
           </section>
         )}
 
@@ -1142,10 +1722,41 @@ export default function NewsletterInboxTestPage() {
                     {activeAxis.fullTitle}
                   </span>
                 </div>
-                <span className="text-xs font-bold text-amber-300">
-                  권장 소요 약 {activeStep.estimatedMinutes}분
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(activeAxis.id === "axis-4" || activeAxis.id === "axis-5") && (
+                    <button
+                      type="button"
+                      data-testid={!showLinkVault ? "btn-seed-axis456" : "btn-seed-axis456-walkthrough"}
+                      disabled={isSeedingAxis456}
+                      onClick={() => void handleSeedAxis456()}
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-extrabold cursor-pointer transition"
+                    >
+                      {isSeedingAxis456
+                        ? "⚡ 시드 생성 중..."
+                        : "⚡ Axis 4~6 테스트 문의·구독 원클릭 생성"}
+                    </button>
+                  )}
+                  <span className="text-xs font-bold text-amber-300">
+                    권장 소요 약 {activeStep.estimatedMinutes}분
+                  </span>
+                </div>
               </div>
+
+              {(activeAxis.id === "axis-4" || activeAxis.id === "axis-5") && seedResult && (
+                <div className="px-5 sm:px-7 py-3 bg-emerald-50 border-b border-emerald-200 flex flex-wrap items-center justify-between gap-2.5">
+                  <span className="text-xs sm:text-sm font-bold text-emerald-950">
+                    {seedResult.message}
+                  </span>
+                  <a
+                    href="/broker/w/inbox"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[36px] px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold inline-flex items-center gap-1 shrink-0"
+                  >
+                    <span>💬 소통관리함(/broker/w/inbox) 바로 열기 ↗</span>
+                  </a>
+                </div>
+              )}
 
               <div className="p-5 sm:p-7 space-y-6">
                 {/* Badges & Step Title */}
@@ -1502,13 +2113,42 @@ export default function NewsletterInboxTestPage() {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleMarkAxisAllPass(axis.id, axis.shortTitle)}
-                      className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold cursor-pointer shrink-0 print:hidden"
-                    >
-                      ✅ 축 {axis.axisNumber} 전체 PASS
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 print:hidden">
+                      {(axis.id === "axis-4" || axis.id === "axis-5") && (
+                        <button
+                          type="button"
+                          data-testid={
+                            !showLinkVault && axis.id === "axis-4"
+                              ? "btn-seed-axis456"
+                              : `btn-seed-axis456-${axis.id}`
+                          }
+                          disabled={isSeedingAxis456}
+                          onClick={() => void handleSeedAxis456()}
+                          className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-60 text-white text-xs sm:text-sm font-extrabold cursor-pointer"
+                        >
+                          {isSeedingAxis456
+                            ? "⚡ 시드 생성 중..."
+                            : "⚡ Axis 4~6 테스트 문의·구독 원클릭 생성"}
+                        </button>
+                      )}
+                      {(axis.id === "axis-4" || axis.id === "axis-5") && seedResult && (
+                        <a
+                          href="/broker/w/inbox"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white text-emerald-900 text-xs font-extrabold inline-flex items-center"
+                        >
+                          💬 소통관리함 열기 ↗
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleMarkAxisAllPass(axis.id, axis.shortTitle)}
+                        className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold cursor-pointer"
+                      >
+                        ✅ 축 {axis.axisNumber} 전체 PASS
+                      </button>
+                    </div>
                   </div>
 
                   <div className="divide-y divide-slate-200">
@@ -1609,15 +2249,37 @@ export default function NewsletterInboxTestPage() {
             <section className="bg-white rounded-2xl border-2 border-slate-900 p-5 sm:p-7 shadow-sm space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div className="space-y-1">
-                  <span className="inline-block px-2.5 py-0.5 rounded bg-slate-900 text-white text-xs font-extrabold">
-                    상용화 최종 판정 (Sign-Off Gate)
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded bg-slate-900 text-white text-xs font-extrabold">
+                      상용화 최종 판정 (Sign-Off Gate)
+                    </span>
+                    {renderSyncBadgePill()}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleCopy(sessionId, "검수 세션 ID", "copy-qa-session-id")
+                      }
+                      className="px-2.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-bold cursor-pointer"
+                    >
+                      세션: {sessionId} 📋
+                    </button>
+                  </div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                     뉴스레터 · 소통관리함 36문항 MECE 검수 결과서
                   </h2>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 print:hidden">
+                  <button
+                    type="button"
+                    disabled={isSubmittingServer}
+                    onClick={() => void handleSubmitToServer()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 disabled:opacity-60 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                  >
+                    {isSubmittingServer
+                      ? "☁️ 서버 제출 중..."
+                      : "☁️ 서버에 검수결과 제출"}
+                  </button>
                   <button
                     type="button"
                     data-testid="copy-report-md-btn"
@@ -1697,7 +2359,7 @@ export default function NewsletterInboxTestPage() {
               </div>
 
               {/* Tester Metadata Inputs */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-xs sm:text-sm font-extrabold text-slate-800 mb-1.5">
                     검수자 성명 / 직함
@@ -1707,6 +2369,18 @@ export default function NewsletterInboxTestPage() {
                     value={testerName}
                     onChange={(e) => setTesterName(e.target.value)}
                     className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-white text-slate-900 border border-slate-300 text-sm sm:text-base font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-extrabold text-slate-800 mb-1.5">
+                    소속 법인 / 팀명 (선택)
+                  </label>
+                  <input
+                    type="text"
+                    value={testerOrg}
+                    onChange={(e) => setTesterOrg(e.target.value)}
+                    placeholder="예: 상용화 QA팀 / 대표중개인"
+                    className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-white text-slate-900 border border-slate-300 text-sm sm:text-base font-medium"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -1722,6 +2396,9 @@ export default function NewsletterInboxTestPage() {
                   />
                 </div>
               </div>
+
+              {/* Live Auto-Verifier Panel inside Report Tab */}
+              {renderLiveAutoVerifierPanel(true)}
 
               {/* Sign-Off Gate Reference Table */}
               <div className="space-y-2">

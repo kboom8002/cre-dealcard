@@ -27,6 +27,7 @@ export interface RevokeShareLinkInput {
   token?: string | null;
   buildingId?: string | null;
   brokerId?: string | null;
+  threadId?: string | null;
   reason?: string | null;
   isAdmin?: boolean;
 }
@@ -298,6 +299,7 @@ export async function revokeShareLinkToken(
   const rawToken = input.token ? String(input.token).trim() : '';
   const rawBuildingId = input.buildingId ? String(input.buildingId).trim() : '';
   const brokerId = input.brokerId ? String(input.brokerId).trim() : null;
+  const rawThreadId = input.threadId ? String(input.threadId).trim() : '';
   const reason = input.reason ? String(input.reason).trim() : null;
   const isAdmin = Boolean(input.isAdmin);
 
@@ -451,6 +453,7 @@ export async function revokeShareLinkToken(
         entity_type: 'building',
         entity_id: entityId,
         metadata: {
+          thread_id: rawThreadId || null,
           building_id: resolvedBuildingId || null,
           share_token: rawToken || null,
           reason,

@@ -11,6 +11,7 @@
  */
 import type { AxiosUnitIssue, BrokerFieldNote, MonthlyRegionalChart } from '@/domain/magazine/types';
 import { parseEditionContent } from '@/domain/magazine/edition-content.schema';
+import { maskAddressForPublic, sanitizeBrokerPhone } from './public-page-data';
 import {
   applySimplePreset,
   deriveFallbackBriefing,
@@ -519,6 +520,27 @@ export function normalizeContentForPublish(input: NormalizeForPublishInput): Nor
 
   const prevBroker = isRecord(src.broker) ? src.broker : {};
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const titleExplicitAddrRe = /\d+-\d+|(?:대로|번길|로|길)\s+\d+(?!\s*일대)/;
+  const maskDealItems = (arr: unknown): unknown =>
+    Array.isArray(arr)
+      ? arr.map((item) => {
+          if (!isRecord(item)) return item;
+          const next: Record<string, unknown> = { ...item };
+          if (typeof item.address === 'string' && item.address) {
+            next.address = maskAddressForPublic(item.address);
+          }
+          if (typeof item.areaSignal === 'string' && item.areaSignal) {
+            next.areaSignal = maskAddressForPublic(item.areaSignal);
+          }
+          if (typeof item.area_signal === 'string' && item.area_signal) {
+            next.area_signal = maskAddressForPublic(item.area_signal);
+          }
+          if (typeof item.title === 'string' && item.title && titleExplicitAddrRe.test(item.title)) {
+            next.title = maskAddressForPublic(item.title);
+          }
+          return next;
+        })
+      : arr;
 
   const normalized: Record<string, unknown> = {
     ...src,
@@ -531,6 +553,7 @@ export function normalizeContentForPublish(input: NormalizeForPublishInput): Nor
     ai_briefing: briefing,
     broker: {
       ...input.broker,
+      phone: sanitizeBrokerPhone(input.broker.phone),
       totalDeals: num(prevBroker.totalDeals),
       activeDeals: num(prevBroker.activeDeals),
     },
@@ -556,6 +579,12 @@ export function normalizeContentForPublish(input: NormalizeForPublishInput): Nor
             sourceErrors: [],
           },
   };
+
+  for (const dealKey of ['featured_deals', 'featuredDeals', 'dealHighlights'] as const) {
+    if (Array.isArray(normalized[dealKey])) {
+      normalized[dealKey] = maskDealItems(normalized[dealKey]);
+    }
+  }
 
   const finalNormalized = isSimple
     ? applySimplePreset(normalized, { brokerName: input.broker.name })

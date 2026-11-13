@@ -7,6 +7,7 @@ import { resolveBroker } from "@/lib/magazine/resolve-broker";
 import { todayKst } from "@/lib/magazine/kst";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { normalizeContentForPublish, DEFAULT_THEME_COLOR } from "@/lib/magazine/edition-save";
+import { maskAddressForPublic, sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
 import { getOrCreateDraftEdition, defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { sanitizeDealAddress } from "@/lib/magazine/view-helpers";
 import {
@@ -241,7 +242,7 @@ export async function POST(request: NextRequest) {
       .eq("id", ctx.userId)
       .maybeSingle();
     if (prof && typeof (prof as { phone?: unknown }).phone === "string") {
-      phone = (prof as { phone: string }).phone;
+      phone = sanitizeBrokerPhone((prof as { phone: string }).phone);
     }
 
     const cleanedSummary = stripUneditedFormatPlaceholders(data.summary?.trim() || "");
@@ -384,11 +385,16 @@ export async function POST(request: NextRequest) {
           qRec?.buildingName ||
           String(docMeta?.title ?? docSsot.building_name ?? dbRow?.area_signal ?? dbRow?.asset_type ?? "").trim() ||
           "추천 상업용 빌딩";
+        const safeTitle = /\d+-\d+|(?:대로|번길|로|길)\s+\d+(?!\s*일대)/.test(rawTitle)
+          ? maskAddressForPublic(rawTitle) || "추천 상업용 빌딩"
+          : rawTitle;
         const rawAddr =
           String(snap.address ?? "").trim() ||
           qRec?.address ||
           String(docSsot.address ?? locationLayer.road_address ?? locationLayer.address ?? dbRow?.address ?? dbRow?.area_signal ?? "").trim();
-        const safeAddr = sanitizeDealAddress(rawAddr) || "수도권 역세권";
+        const safeAddr = maskAddressForPublic(sanitizeDealAddress(rawAddr)) || "수도권 역세권";
+        const rawAreaSignal = String(qRec?.card4?.region || dbRow?.area_signal || docSsot.area_signal || safeAddr);
+        const safeAreaSignal = maskAddressForPublic(sanitizeDealAddress(rawAreaSignal)) || safeAddr;
 
         const askingManwon =
           Number(qRec?.askingPriceManwon || 0) ||
@@ -537,9 +543,9 @@ export async function POST(request: NextRequest) {
 
         hydratedDeals.push({
           id: dId,
-          title: rawTitle,
+          title: safeTitle,
           assetType: resolvedAssetType,
-          areaSignal: String(qRec?.card4?.region || dbRow?.area_signal || docSsot.area_signal || safeAddr),
+          areaSignal: safeAreaSignal,
           address: safeAddr,
           price: priceVal,
           ...(askingManwon > 0 ? { priceWon: askingManwon * 10_000 } : {}),
@@ -805,15 +811,33 @@ export async function POST(request: NextRequest) {
           : nowIso,
       content: finalContent,
       updated_at: nowIso,
+      ...(isUuid(ctx.userId) ? { broker_user_id: ctx.userId } : {}),
     };
 
-    const { data: updated, error: upErr } = await supabase
+    let { data: updated, error: upErr } = await supabase
       .from("magazine_editions")
       .update(editionUpdate)
       .eq("id", editionId)
       .in("broker_id", brokerKeys)
       .select()
       .maybeSingle();
+
+    if (
+      upErr &&
+      ((upErr as { code?: string }).code === "42703" || (upErr as { code?: string }).code === "PGRST204") &&
+      "broker_user_id" in editionUpdate
+    ) {
+      const { broker_user_id: _omitted, ...fallbackEditionUpdate } = editionUpdate;
+      const retryRes = await supabase
+        .from("magazine_editions")
+        .update(fallbackEditionUpdate)
+        .eq("id", editionId)
+        .in("broker_id", brokerKeys)
+        .select()
+        .maybeSingle();
+      updated = retryRes.data;
+      upErr = retryRes.error;
+    }
 
     if (upErr || !updated) {
       log.error("[api/magazine/issues] edition update failed", upErr?.message ?? "no row");
@@ -836,21 +860,59 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. 공개 뷰어 테이블(magazine_issues) 동기화 (실제 발행본만 반영)
-    const { error: issueErr } = await supabase
+    let { error: issueErr } = await supabase
       .from("magazine_issues")
       .upsert(
         {
           broker_id: brokerSlug,
           issue_date: issueDate,
           content: finalContent,
+          updated_at: nowIso,
         },
         { onConflict: "broker_id,issue_date" }
       );
+
+    if (
+      issueErr &&
+      ((issueErr as { code?: string }).code === "42703" || (issueErr as { code?: string }).code === "PGRST204")
+    ) {
+      const retryIssue = await supabase
+        .from("magazine_issues")
+        .upsert(
+          {
+            broker_id: brokerSlug,
+            issue_date: issueDate,
+            content: finalContent,
+          },
+          { onConflict: "broker_id,issue_date" }
+        );
+      issueErr = retryIssue.error;
+    }
 
     if (issueErr) {
       log.warn("[api/magazine/issues] magazine_issues upsert warning", {
         error: issueErr.message,
       });
+    }
+
+    if (isUuid(ctx.userId)) {
+      await supabase
+        .from("activity_events")
+        .insert({
+          actor_id: ctx.userId,
+          entity_type: "magazine",
+          entity_id: isUuid(editionId) ? editionId : null,
+          event_type: "magazine_published",
+          metadata: {
+            issue_date: issueDate,
+            edition_type: editionType,
+            edition_label: safeLabel,
+            slug: brokerSlug,
+            broker_id: ctx.userId,
+            correction: targetAlreadyPublished,
+          },
+        })
+        .then(() => undefined, () => undefined);
     }
 
     const origin = request.nextUrl.origin || "https://credeal.net";

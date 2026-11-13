@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
         token: token || undefined,
         buildingId: buildingId || undefined,
         brokerId: userId,
+        threadId: threadId || undefined,
         reason,
         isAdmin,
       });
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
     }
 
     // INBOX-07 & C-S1-02: Sync document_objects.body.is_revoked (only on building-wide lock, never per-recipient token)
-    // and record thread_id in activity_events for all thread prefixes (including custom_ / cli- / view_)
+    // and record fallback thread_id in activity_events ONLY when revokeShareLinkToken was not invoked
     try {
       const supabase = createServiceClient();
 
@@ -150,7 +151,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (threadId && isUuid(userId)) {
+      if (!(token || buildingId) && threadId && isUuid(userId)) {
         await supabase.from('activity_events').insert({
           actor_id: userId,
           event_type: 'link_revoked',

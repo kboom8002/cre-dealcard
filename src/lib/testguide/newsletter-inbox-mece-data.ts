@@ -182,6 +182,7 @@ export const MECE_AXES: MeceAxisMeta[] = [
     durationMinutes: 7,
     itemCount: 6,
     codePaths: [
+      "src/app/(broker)/broker/w/newsletter/page.tsx",
       "src/app/(broker)/broker/magazine-editor/page.tsx",
       "src/lib/magazine/newsletter-cadence.ts",
     ],
@@ -288,10 +289,10 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "라이트 테마 CSS 우선순위 충돌로 활성 칩 배경이 흰색으로 덮이면서 흰 글자가 사라졌던(하얀 빈 캡슐) 실전 버그를 방어합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     actionSteps: [
-      "창 A에서 [/broker/magazine-editor] 접속 후 중앙 [② 채우기] → [① 제목] 탭의 '내 주력 권역 · 뉴스 큐레이션 분야 설정' 카드를 찾습니다.",
+      "창 A에서 [/broker/w/newsletter] (구 경로 /broker/magazine-editor 호환) 접속 후 중앙 [② 채우기] → [① 제목] 탭의 '내 주력 권역 · 뉴스 큐레이션 분야 설정' 카드를 찾습니다.",
       "[① 주력 상권·권역 선택] 단추들(강남·서초, 성수·왕십리 등)을 각각 클릭해 선택/해제 상태를 토글합니다.",
       "[② 뉴스 큐레이션 관심 분야 선택] 5개 단추(🏢 부동산·빌딩, 📈 경제·금리·금융, ⚖️ 절세·상속·자산관리, 🎨 문화·예술·라이프, ☕ 상권·트렌드·교양)를 클릭해 선택/해제 상태를 모두 확인합니다.",
     ],
@@ -312,7 +313,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "좌측 보관함 필터 탭의 선택 상태 명도비와 에디션 카드의 추천 매물 건수 표기 정합성을 검증합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     actionSteps: [
       "좌측 [이전 호 불러오기] 영역에서 [전체 / 작성 중 / 발행됨] 상태 필터 탭을 차례로 클릭합니다.",
@@ -336,7 +337,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "이슈가 비어 있던 구형 주간 에디션을 본 뒤 월간으로 전환했을 때 로컬 슬롯 빈 배열이 남아 월간 핵심 이슈 5선이 통째로 사라지던 버그를 방어합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     actionSteps: [
       "좌측 [이전 호 불러오기] 목록에 기존 작성 중이던 주간/과거 에디션이 있다면 한 번 클릭해 불러옵니다.",
@@ -359,7 +360,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "월간 뉴스레터에서 통계 2선 바로 다음에 이슈 5선이 이어져야 하며, 작성하지 않은 브리핑 빈 박스가 흐름을 끊지 않는지 확인합니다.",
     quickLinks: [
-      { label: "📰 월간 모드로 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "📰 월간 모드로 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     copySnippets: [
       {
@@ -390,7 +391,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "일간(속독 브리프)·주간(실전 이슈+코멘트)·월간(통계 리포트+이슈+매물) 3대 주기가 기획대로 명확히 차별화되는지 점검합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     actionSteps: [
       "좌측 상단 발행 주기에서 [주간] 단추를 클릭해 중앙 AI 초안 카드 제목과 우측 미리보기 구성을 확인합니다.",
@@ -413,8 +414,8 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "외부 링크나 북마크로 특정 주기를 지정해 진입했을 때 직전 로컬 세션에 밀리지 않고 URL 주기가 우선 적용되는지 검증합니다.",
     quickLinks: [
-      { label: "🔗 일간 URL(?cadence=daily) 열기", href: "/broker/magazine-editor?cadence=daily", variant: "primary" },
-      { label: "🔗 월간 URL(?cadence=monthly) 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "🔗 일간 URL(?cadence=daily) 열기", href: "/broker/w/newsletter?cadence=daily", variant: "primary" },
+      { label: "🔗 월간 URL(?cadence=monthly) 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     actionSteps: [
       "위 [🔗 일간 URL(?cadence=daily) 열기] 버튼을 눌러 새 탭에서 열린 주기가 '일간'인지 확인합니다.",
@@ -438,7 +439,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "중개사가 선택한 주력 권역과 뉴스 관심 분야가 서버 DB에 저장되고 F5 새로고침 후에도 유지되는지 검증합니다.",
     quickLinks: [
-      { label: "📰 월간 에디터 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "📰 월간 에디터 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     actionSteps: [
       "[① 제목] 탭 상단 개인화 설정에서 주력 권역으로 [성수·왕십리]를 선택하고, 관심 분야는 [🏢 부동산·빌딩]과 [⚖️ 절세·상속·자산관리] 위주로 선택합니다.",
@@ -462,7 +463,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "이번 세션 핵심 수정 사항인 서술어 중간 절단('~계산해선'), 말줄임표('…'), 개조식 종결('~있음.'), 제목 동어반복을 집중 타격 검증합니다.",
     quickLinks: [
-      { label: "📰 월간 에디터 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "📰 월간 에디터 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     copySnippets: [
       {
@@ -500,7 +501,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "자산가·법인 대표에게 발송되는 상업용 부동산 뉴스레터에 연예인 자택 경매나 신변잡기 가십이 섞이는 브랜드 훼손을 차단합니다.",
     quickLinks: [
-      { label: "📰 월간 에디터 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "📰 월간 에디터 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     copySnippets: [
       {
@@ -530,7 +531,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "AI 초안 생성이 기존에 중개사가 직접 적어둔 원고를 실수로 날리지 않도록 1클릭 [되돌리기] 안전장치와 할루시네이션 금지를 확인합니다.",
     quickLinks: [
-      { label: "📰 월간 에디터 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "📰 월간 에디터 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     copySnippets: [
       {
@@ -562,7 +563,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "월간 뉴스레터 상단 핵심 차별점인 통계 그래픽 2선의 권역 전환 동기화와 공공 출처/기준 참고치 표기 정직성을 확인합니다.",
     quickLinks: [
-      { label: "📰 월간 에디터 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "📰 월간 에디터 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     copySnippets: [
       {
@@ -594,7 +595,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "어둡고 칙칙했던 구형 포스트잇 대신 적용된 SOTA 루미너스 파스텔 글래스모피즘 5색 팔레트의 가독성을 육안 검수합니다.",
     quickLinks: [
-      { label: "📰 월간 에디터 열기", href: "/broker/magazine-editor?cadence=monthly", variant: "indigo" },
+      { label: "📰 월간 에디터 열기", href: "/broker/w/newsletter?cadence=monthly", variant: "indigo" },
     ],
     actionSteps: [
       "우측 [③ 확인하고 보내기] 미리보기에서 ISSUE 01 ~ ISSUE 05 카드 5장의 배경 톤과 텍스트 명도비를 차례로 확인합니다.",
@@ -618,7 +619,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "표지 제목을 비운 채 실수로 고객에게 미완성 뉴스레터를 발송하는 사고를 막는 프리플라이트 가드를 검증합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     actionSteps: [
       "[① 제목] 탭에서 표지 제목 입력란의 글자를 잠시 모두 지워 빈칸으로 만듭니다.",
@@ -641,7 +642,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "사진이 없는 매물에 가짜 해외 빌딩 스톡 사진을 씌우거나 AI가 없는 수익률을 지어내던 문제를 방어합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     copySnippets: [
       {
@@ -673,7 +674,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "이미 발행된 호의 제목/내용을 고친 직후 [링크 복사]를 눌렀을 때 수정본이 서버에 자동 재저장되지 않아 고객에게 구버전이 보이던 버그를 검증합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     copySnippets: [
       {
@@ -1165,11 +1166,11 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "공개 뉴스레터에서 유입된 신규 구독자가 에디터 발송 모수와 소통관리함에 실시간 연동되는지 확인합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오 [③ 보내기] 확인", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 [③ 보내기] 확인", href: "/broker/w/newsletter", variant: "indigo" },
       { label: "💬 소통관리함 고객 목록 확인", href: "/broker/w/inbox", variant: "emerald" },
     ],
     actionSteps: [
-      "창 A [/broker/magazine-editor] 새로고침 후 [③ 보내기] 탭의 '받을 고객 확인(전체 구독자 N명)' 숫자를 확인합니다.",
+      "창 A [/broker/w/newsletter] 새로고침 후 [③ 보내기] 탭의 '받을 고객 확인(전체 구독자 N명)' 숫자를 확인합니다.",
       "창 A [/broker/w/inbox]의 [전체 고객] 탭에서도 신규 구독자('강구독 대표' 또는 010-3333-2222)가 수신 동의 상태로 잡히는지 확인합니다.",
     ],
     passCriteria: [
@@ -1189,11 +1190,11 @@ export const MECE_36_STEPS: MeceStepItem[] = [
       "수신거부(unsubscribed)한 고객이 broker_clients 테이블에 남아 있다는 이유로 다시 발송 모수에 합산되던 PIPA 위반 버그를 검증합니다.",
     quickLinks: [
       { label: "💬 소통관리함 열기", href: "/broker/w/inbox", variant: "emerald" },
-      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오 열기", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     actionSteps: [
       "창 A 소통관리함에서 방금 구독한 고객을 선택하고, 우측 요약 카드의 '뉴스레터' 항목에서 [수신 동의] 토글을 클릭해 [미구독](수신거부)으로 변경합니다.",
-      "다시 [/broker/magazine-editor] → [③ 보내기] 탭을 새로고침하여 발송 대상 구독자 수를 확인합니다.",
+      "다시 [/broker/w/newsletter] → [③ 보내기] 탭을 새로고침하여 발송 대상 구독자 수를 확인합니다.",
     ],
     passCriteria: [
       "미구독/수신거부로 전환된 고객은 고객 관리 목록에는 남더라도 뉴스레터 발송 대상 모수에서 즉시 -1명 차감되어 제외됩니다.",
@@ -1235,11 +1236,11 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     quickLinks: [
       { label: "🔐 로그인 화면(/login)", href: "/login", variant: "slate" },
       { label: "💬 소통관리함(/broker/w/inbox)", href: "/broker/w/inbox", variant: "emerald" },
-      { label: "📰 뉴스레터(/broker/magazine-editor)", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터(/broker/w/newsletter)", href: "/broker/w/newsletter", variant: "indigo" },
     ],
     actionSteps: [
       "창 B(시크릿 창)에서 테스트용 **중개사 #2 계정**으로 로그인합니다 (또는 창 A에서 중개사 #1 로그아웃 후 중개사 #2로 로그인).",
-      "중개사 #2 상태에서 ① [/broker/w/inbox]와 ② [/broker/magazine-editor]에 차례로 진입합니다.",
+      "중개사 #2 상태에서 ① [/broker/w/inbox]와 ② [/broker/w/newsletter]에 차례로 진입합니다.",
     ],
     passCriteria: [
       "중개사 #1의 고객('박매수 상무', '최자산 대표' 등)이나 중개사 #1이 작성하던 뉴스레터 제목·이슈 슬롯이 단 1건도 보이지 않고 100% 중개사 #2 본인 데이터만 표시됩니다.",
@@ -1257,7 +1258,7 @@ export const MECE_36_STEPS: MeceStepItem[] = [
     bugContext:
       "외근 중인 중개사와 카톡 인앱 브라우저로 열람하는 매수 고객 모두 모바일 화면(390px)에서 깨짐 없이 사용할 수 있는지 최종 점검합니다.",
     quickLinks: [
-      { label: "📰 뉴스레터 스튜디오", href: "/broker/magazine-editor", variant: "indigo" },
+      { label: "📰 뉴스레터 스튜디오", href: "/broker/w/newsletter", variant: "indigo" },
       { label: "💬 소통관리함", href: "/broker/w/inbox", variant: "emerald" },
     ],
     actionSteps: [

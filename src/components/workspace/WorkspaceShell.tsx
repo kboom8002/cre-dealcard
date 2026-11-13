@@ -63,7 +63,7 @@ export const WS_TOPBAR_LINKS = [
   { id: "home", label: "🏠 홈", href: "/broker" },
   { id: "dealcards", label: "📄 딜카드", href: "/broker/w/dealcards" },
   { id: "im", label: "📊 IM", href: "/broker/w/im" },
-  { id: "magazine", label: "📰 뉴스레터", href: "/broker/magazine-editor" },
+  { id: "magazine", label: "📰 뉴스레터", href: "/broker/w/newsletter" },
   { id: "inbox", label: "💬 소통함", href: "/broker/w/inbox" },
 ] as const;
 
@@ -151,13 +151,16 @@ export function WorkspaceShell({
     return () => clearInterval(t);
   }, [saveState]);
 
-  // 소통함 "처리할 자료 요청" 배지 — 모든 작업공간 공통 (60초 폴링, 실패 시 조용히 숨김)
+  // 소통함 "처리할 자료 요청" 배지 — 모든 작업공간 공통 (60초 폴링, 비활성 탭 정지, 실패 시 조용히 숨김)
   const [inboxPending, setInboxPending] = useState<number>(0);
   useEffect(() => {
     if (navBadges?.inbox !== undefined) return;
     if (typeof window === "undefined" || typeof fetch !== "function") return;
     let cancelled = false;
     const load = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
       fetch("/api/broker/inbox/pending-count", { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
@@ -165,11 +168,22 @@ export function WorkspaceShell({
         })
         .catch(() => {});
     };
+    const onVisibilityChange = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        load();
+      }
+    };
     load();
     const t = setInterval(load, 60_000);
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibilityChange);
+    }
     return () => {
       cancelled = true;
       clearInterval(t);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
     };
   }, [navBadges?.inbox]);
   const effectiveBadges: Partial<Record<"dealcards" | "im" | "magazine" | "inbox", number>> = {
@@ -545,6 +559,7 @@ export function WorkspaceShell({
               <Link
                 key={link.id}
                 href={link.href}
+                prefetch={false}
                 data-testid={`workspace-nav-${link.id}`}
                 data-active-pill={isActive ? "true" : undefined}
                 aria-current={isActive ? "page" : undefined}
@@ -619,6 +634,7 @@ export function WorkspaceShell({
 
           <Link
             href="/broker/profile"
+            prefetch={false}
             data-testid="workspace-nav-profile"
             className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all whitespace-nowrap"
           >

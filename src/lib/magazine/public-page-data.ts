@@ -1,12 +1,10 @@
 /**
- * src/lib/magazine/public-page-data.ts — 공개 매거진 페이지(뷰어/아카이브/구독) 서버측 조회 헬퍼 (I-02, P0-09 T3-08)
+ * src/lib/magazine/public-page-data.ts — 공개 매거진 페이지(뷰어/아카이브/구독) 조회 및 공개 데이터 정제 헬퍼 (I-02, P0-09 T3-08)
  *
- * 서버 컴포넌트 전용 (pii.ts가 node:crypto를 import하므로 클라이언트 컴포넌트에서 import 금지).
- * A2의 `resolveBroker`가 머지되면 `resolvePublicBroker` 호출부를 교체한다 (동일 의미: 형식 분기, `.or()` 보간 금지).
+ * 순수 문자열/날짜 유틸만 참조하므로 클라이언트·서버 공용 안전(노드 전용 import 없음).
  * 모든 DB 호출은 error를 확인한다. 가짜 기본값 없음.
  */
 import { addDays, formatKoreanDate, parseIssueDate, toKstDate, todayKst } from '@/lib/magazine/kst';
-import { maskAddress } from '@/lib/magazine/pii';
 import { SLUG_RE, isUuid } from '@/lib/magazine/slug';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -199,21 +197,104 @@ export async function findLatestIssueDate(
 }
 
 /**
- * 공개 노출용 정제: 정확한 지번이 있는 모든 address 필드를 동 단위로 마스킹(M2-02, P0-05).
+ * 브로커 전화번호 정제 — 이메일(@ 포함)이나 숫자 7자리 미만 문자열은 빈 문자열로 차단(B-3).
+ */
+export function sanitizeBrokerPhone(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.includes('@')) return '';
+  if (trimmed.replace(/\D/g, '').length < 7) return '';
+  return trimmed;
+}
+
+/**
+ * 공개 노출용 주소 마스킹(B-1):
+ *  - 도로명 건물번호("서울 영등포구 영신로 259" → "서울 영등포구 영신로 일대", "테헤란로 152" → "테헤란로 일대")
+ *  - 지번("당산동5가 11-47" → "당산동5가 일대", "서울 영등포구 당산동5가 11-47" → "서울 영등포구 당산동5가 일대")
+ *  - 이미 마스킹된 문자열("... 일대", "당산권역", "마포구 동교동 인근")은 그대로 유지한다.
+ */
+export function maskAddressForPublic(addr: unknown): string {
+  if (typeof addr !== 'string') return '';
+  const normalized = addr.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+
+  let masked = normalized;
+
+  // 1) 도로명 건물번호 마스킹
+  masked = masked.replace(
+    /([가-힣0-9]+(?:대로|번길|로|길))\s*(?:지하\s*)?\d+(?:-\d+)?(?:번지|번)?(?=$|\s|[,()])(?:\s*,?\s*(?:외\s*\d+\s*필지|(?:지하|B)?\d+\s*층|\d+\s*호|\([^)]*\)|일대|인근|부근))*/g,
+    '$1 일대',
+  );
+
+  // 2) 법정동·읍·면·리·가 지번 마스킹
+  masked = masked.replace(
+    /([가-힣0-9]+(?:동|읍|면|리)(?:\s*\d+가)?|[가-힣0-9]+(?:동|로)\s*\d+가)\s*(?:산\s*)?\d+(?:-\d+)?(?:번지)?(?=$|\s|[,()])(?:\s*,?\s*(?:외\s*\d+\s*필지|(?:지하|B)?\d+\s*층|\d+\s*호|\([^)]*\)|일대|인근|부근))*/g,
+    '$1 일대',
+  );
+
+  // 3) 접두 행정구역 없이 남은 명시적 본번-부번 패턴 마스킹 (연도 제외)
+  masked = masked.replace(
+    /(?<![\d-])(?!19\d\d-|20\d\d-)\d{1,4}-\d{1,4}(?:번지)?(?![\d-])(?:\s*(?:(?:지하|B)?\d+\s*층|\d+\s*호))*/g,
+    '일대',
+  );
+
+  return masked
+    .replace(/(?:\s*일대){2,}/g, ' 일대')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const PUBLIC_DEAL_ARRAY_KEYS = [
+  'featured_deals',
+  'featuredDeals',
+  'dealHighlights',
+  'deals',
+  'listings',
+  'auctionPicks',
+  'recentTransactions',
+] as const;
+
+const TITLE_EXPLICIT_ADDR_RE = /\d+-\d+|(?:대로|번길|로|길)\s+\d+(?!\s*일대)/;
+
+/**
+ * 공개 노출용 정제: 정확한 지번·도로명 건물번호가 있는 모든 매물/거래 필드 마스킹 및 broker.phone 정제(M2-02, P0-05, B-1, B-3).
  * 입력은 변경하지 않고 얕은 복사본을 돌려준다.
  */
 export function maskPublicAddresses(data: MagazineContent): MagazineContent {
   const maskList = (v: unknown): unknown =>
     Array.isArray(v)
-      ? v.map((item) =>
-          item && typeof item === 'object' && typeof (item as { address?: unknown }).address === 'string'
-            ? { ...(item as object), address: maskAddress((item as { address: string }).address) }
-            : item,
-        )
+      ? v.map((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+          const rec = item as Record<string, unknown>;
+          const next: Record<string, unknown> = { ...rec };
+          if (typeof rec.address === 'string' && rec.address) {
+            next.address = maskAddressForPublic(rec.address);
+          }
+          if (typeof rec.areaSignal === 'string' && rec.areaSignal) {
+            next.areaSignal = maskAddressForPublic(rec.areaSignal);
+          }
+          if (typeof rec.area_signal === 'string' && rec.area_signal) {
+            next.area_signal = maskAddressForPublic(rec.area_signal);
+          }
+          if (typeof rec.title === 'string' && rec.title && TITLE_EXPLICIT_ADDR_RE.test(rec.title)) {
+            next.title = maskAddressForPublic(rec.title);
+          }
+          return next;
+        })
       : v;
+
   const out: MagazineContent = { ...data };
-  for (const key of ['dealHighlights', 'featured_deals', 'auctionPicks', 'recentTransactions'] as const) {
+  for (const key of PUBLIC_DEAL_ARRAY_KEYS) {
     if (key in out) out[key] = maskList(out[key]);
+  }
+  if (out.broker && typeof out.broker === 'object' && !Array.isArray(out.broker)) {
+    const brokerObj = out.broker as Record<string, unknown>;
+    if ('phone' in brokerObj) {
+      out.broker = {
+        ...brokerObj,
+        phone: sanitizeBrokerPhone(brokerObj.phone),
+      };
+    }
   }
   return out;
 }

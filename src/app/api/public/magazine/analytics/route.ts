@@ -189,6 +189,9 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
   });
 
   // 6) 중앙 퍼널 이벤트 (activity_events) — 열람 1회·IM 요청만, broker 는 서버 결정값
+  // NOTE: actor_id=broker.userId + actor_role='system' 은 public-analytics-route.test.ts 계약 및
+  // Inbox(.or('actor_id.is.null,actor_id.neq.${userId},actor_role.eq.system'))·Home 집계 호환을 위해 유지하며,
+  // 실제 방문자 익명/구독자 구분은 metadata.viewer_role 로 명시한다.
   if (broker?.userId && (body.event_type === 'page_view' || kind === 'im_request')) {
     const { error: actErr } = await supabase.from('activity_events').insert({
       actor_id: broker.userId,
@@ -198,6 +201,7 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
       entity_id: broker.userId,
       metadata: {
         broker_id: broker.userId,
+        viewer_role: subscriber ? 'subscriber' : 'anonymous',
         user_agent_hash: visitorHash,
         ...(editionId ? { edition_id: editionId } : {}),
         ...(legacy ? { legacy_issue_id: legacy.issueId } : {}),

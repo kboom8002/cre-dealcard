@@ -144,6 +144,32 @@ function buildThreadShareUrl(buildingId: string, shareToken: string): string {
   return `/im-lite/${encodeURIComponent(buildingId)}`;
 }
 
+function normalizeKrPhoneDigits(raw: unknown): string {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s || s.includes("@")) return "";
+  let digits = s.replace(/\D/g, "");
+  if (digits.startsWith("82") && digits.length >= 10) {
+    digits = "0" + digits.slice(digits.startsWith("820") ? 3 : 2);
+  }
+  return digits;
+}
+
+function formatKrPhoneDisplay(rawPhone: unknown, fallbackE164: unknown, fallbackEmail: unknown): string {
+  const direct = typeof rawPhone === "string" ? rawPhone.trim() : "";
+  if (direct && !direct.startsWith("+82")) return direct;
+  const digits = normalizeKrPhoneDigits(direct || fallbackE164);
+  if (digits.length === 11 && digits.startsWith("01")) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10 && digits.startsWith("01")) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (direct) return direct;
+  const e164 = typeof fallbackE164 === "string" ? fallbackE164.trim() : "";
+  if (e164) return e164;
+  return typeof fallbackEmail === "string" ? fallbackEmail.trim() : "";
+}
+
 /**
  * GET /api/broker/inbox
  * 소통함 통합 조회 (IB-01, IB-02, IB-09, INBOX-06, Pillar-B S0/S1 Hardening)
@@ -162,6 +188,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const filter = url.searchParams.get("filter") || "all";
+  const includeArchived = url.searchParams.get("includeArchived") === "1";
   const parsedLimit = Number.parseInt(url.searchParams.get("limit") || "50", 10);
   const limit = Number.isFinite(parsedLimit)
     ? Math.min(Math.max(parsedLimit, 1), 100)
@@ -308,6 +335,7 @@ export async function GET(req: NextRequest) {
           "dealcard_upserted",
           "dealcard_restored",
           "dealcard_deleted",
+          "deal_deleted",
         ]);
       }
       if (typeof ownedActQuery.order === "function") {
@@ -332,6 +360,7 @@ export async function GET(req: NextRequest) {
         if (
           act.event_type === "im_deleted" ||
           act.event_type === "dealcard_deleted" ||
+          act.event_type === "deal_deleted" ||
           isDealCardDeleted(bIdStr)
         ) {
           deletedBuildingSet.add(bIdStr);
@@ -723,6 +752,15 @@ export async function GET(req: NextRequest) {
             ? meta.section_title.trim()
             : undefined;
 
+        const visitorFp = String(
+          meta.visitor_fp ||
+            meta.user_agent_hash ||
+            meta.visitor_id ||
+            meta.visitor_hash ||
+            meta.ip_hash ||
+            ""
+        ).trim();
+
         return {
           id: evt.id,
           type: "view" as const,
@@ -732,6 +770,7 @@ export async function GET(req: NextRequest) {
           building_id: evt.entity_id || meta.building_id,
           viewer_info: viewerName,
           viewerName,
+          visitorFp,
           sectionName,
           created_at: evt.created_at,
           is_unread: false,
@@ -782,35 +821,57 @@ export async function GET(req: NextRequest) {
   let shareLinks: any[] = [];
 
   try {
-    const inqQuery: any = supabase
+    let inqQuery: any = supabase
       .from("im_inquiry_requests")
       .select(
-        "id, building_id, requester_name, requester_phone, requester_email, message, created_at"
+        "id, building_id, status, requester_name, requester_phone, requester_email, message, created_at"
       )
       .eq("broker_user_id", userId);
-    const inqRes =
+    let inqRes =
       typeof inqQuery.order === "function"
         ? await inqQuery.order("created_at", { ascending: false }).limit(limit)
         : await inqQuery;
+    if (inqRes?.error) {
+      const fallbackInqQ: any = supabase
+        .from("im_inquiry_requests")
+        .select(
+          "id, building_id, requester_name, requester_phone, requester_email, message, created_at"
+        )
+        .eq("broker_user_id", userId);
+      inqRes =
+        typeof fallbackInqQ.order === "function"
+          ? await fallbackInqQ.order("created_at", { ascending: false }).limit(limit)
+          : await fallbackInqQ;
+    }
     const inquiries = inqRes?.data || [];
     const existingGateIds = new Set(gateItems.map((g: any) => String(g.id)));
     inquiryItems = inquiries
-      .filter((inq: any) => !existingGateIds.has(String(inq.id)))
+      .filter((inq: any) => {
+        if (existingGateIds.has(String(inq.id))) return false;
+        const inqBldId = inq.building_id ? String(inq.building_id) : "";
+        if (inqBldId && forbiddenBuildingSet.has(inqBldId)) return false;
+        return true;
+      })
       .map((inq: any) => {
         const parsed = parseGateRequestReason(inq.message);
+        const bIdStr = inq.building_id ? String(inq.building_id) : "";
+        const isDeletedBld = Boolean(
+          bIdStr && deletedBuildingSet.has(bIdStr) && !allOwnedBuildingIds.includes(bIdStr)
+        );
         const bTitle =
-          buildingTitleById.get(String(inq.building_id)) ||
-          quickInventory.find((q) => q.buildingId === inq.building_id)?.title ||
-          "매물";
+          buildingTitleById.get(bIdStr) ||
+          quickInventory.find((q) => q.buildingId === bIdStr)?.title ||
+          (isDeletedBld ? "삭제된 매물 (과거 문의)" : "매물");
         const rName = inq.requester_name || parsed.requesterName || "매수 문의 고객";
         const rPhone = inq.requester_phone || parsed.requesterPhone || "";
         const cMsg = parsed.cleanMessage || inq.message || "IM 열람을 요청했습니다.";
         const rawStatus =
           typeof inq.status === "string" && inq.status.trim() ? inq.status.trim() : "submitted";
         const isPending =
-          rawStatus === "submitted" ||
-          rawStatus === "pending" ||
-          rawStatus === "broker_review";
+          !isDeletedBld &&
+          (rawStatus === "submitted" ||
+            rawStatus === "pending" ||
+            rawStatus === "broker_review");
         return {
           id: inq.id,
           type: "gate_request" as const,
@@ -831,6 +892,7 @@ export async function GET(req: NextRequest) {
           cleanMessage: cMsg,
           created_at: inq.created_at,
           is_unread: isPending,
+          is_deleted_building: isDeletedBld,
         };
       });
   } catch {
@@ -897,6 +959,83 @@ export async function GET(req: NextRequest) {
     // ignore if table not present
   }
 
+  // ── 3-B2. 공개 뉴스레터 구독자 조회 (C-2: NL-304 ↔ IB-403) ──
+  let brokerSlug = "";
+  const subscriberRows: any[] = [];
+  if (userId) {
+    try {
+      const bpQ: any = supabase
+        .from("broker_profiles")
+        .select("user_id, slug")
+        .eq("user_id", userId);
+      const bpRes =
+        typeof bpQ.maybeSingle === "function" ? await bpQ.maybeSingle() : await bpQ.single?.();
+      if (bpRes?.data?.slug) {
+        brokerSlug = String(bpRes.data.slug).trim();
+      }
+    } catch {
+      // ignore if broker_profiles unavailable
+    }
+
+    const subSelectCols =
+      "id, broker_id, subscriber_name, subscriber_email, subscriber_phone, phone_e164, status, confirm_status, unsubscribed_at, interest_profile, segment, created_at";
+    const seenSubRowIds = new Set<string>();
+    const pushSubRows = (rows: unknown) => {
+      if (!Array.isArray(rows)) return;
+      for (const r of rows) {
+        const rId = String((r as any)?.id || "").trim();
+        if (!rId || seenSubRowIds.has(rId)) continue;
+        seenSubRowIds.add(rId);
+        subscriberRows.push(r);
+      }
+    };
+
+    const brokerKeys = Array.from(new Set([userId, brokerSlug].filter(Boolean)));
+    if (brokerKeys.length > 0) {
+      try {
+        let subQ: any = supabase
+          .from("magazine_subscribers")
+          .select(subSelectCols)
+          .in("broker_id", brokerKeys);
+        if (typeof subQ.order === "function") {
+          subQ = subQ.order("created_at", { ascending: false }).limit(100);
+        }
+        let subRes = await subQ;
+        if (subRes?.error) {
+          let fallbackQ: any = supabase
+            .from("magazine_subscribers")
+            .select("*")
+            .in("broker_id", brokerKeys);
+          if (typeof fallbackQ.order === "function") {
+            fallbackQ = fallbackQ.order("created_at", { ascending: false }).limit(100);
+          }
+          subRes = await fallbackQ;
+        }
+        pushSubRows(subRes?.data);
+      } catch {
+        // ignore if magazine_subscribers unavailable
+      }
+    }
+
+    if (isUuid(userId)) {
+      try {
+        let subByUuidQ: any = supabase
+          .from("magazine_subscribers")
+          .select(subSelectCols)
+          .eq("broker_user_id", userId);
+        if (typeof subByUuidQ.order === "function") {
+          subByUuidQ = subByUuidQ.order("created_at", { ascending: false }).limit(100);
+        }
+        const subByUuidRes = await subByUuidQ;
+        if (!subByUuidRes?.error) {
+          pushSubRows(subByUuidRes?.data);
+        }
+      } catch {
+        // ignore if broker_user_id column does not exist
+      }
+    }
+  }
+
   // ── 3-C. 중개인 액션 이벤트 조회 (B-S1-05: 거버넌스 이벤트와 통화 메모 쿼리 분리) ──
   const ownedThreadKeySet = new Set<string>([
     ...allOwnedBuildingIds,
@@ -910,6 +1049,8 @@ export async function GET(req: NextRequest) {
     ...dbClients.map((c: any) => String(c.id)),
     ...dbClients.map((c: any) => `cli-${c.id}`),
     ...dbClients.map((c: any) => `custom_${c.id}`),
+    ...subscriberRows.map((s: any) => String(s.id)),
+    ...subscriberRows.map((s: any) => `sub_${s.id}`),
   ]);
 
   for (const bId of allOwnedBuildingIds) {
@@ -940,6 +1081,7 @@ export async function GET(req: NextRequest) {
   const issuedTokenByThreadId = new Map<string, string>();
   const newsletterStateByKey = new Map<string, { subscribed: boolean; createdAtMs: number }>();
   const deletedClientIdSet = new Set<string>();
+  const archivedThreadIds = new Set<string>();
 
   for (const [k, v] of Object.entries(rawInboxState.gateDecisions || {})) {
     const decisionBldId = (v as any)?.buildingId ? String((v as any).buildingId) : "";
@@ -980,6 +1122,8 @@ export async function GET(req: NextRequest) {
           "gate_request_approved",
           "gate_request_rejected",
           "gate_request_reset",
+          "inbox_thread_archived",
+          "inbox_thread_unarchived",
           "im_link_sent",
           "link_revoked",
           "link_restored",
@@ -996,11 +1140,12 @@ export async function GET(req: NextRequest) {
         govActQuery = govActQuery.order("created_at", { ascending: false });
       }
       if (typeof govActQuery.limit === "function") {
-        govActQuery = govActQuery.limit(160);
+        govActQuery = govActQuery.limit(220);
       }
       const { data: govActs } = await govActQuery;
 
       const seenDbDecisionKeys = new Set<string>();
+      const seenArchiveDecision = new Set<string>();
       const seenRevokeBuilding = new Set<string>();
       const seenRevokeThread = new Set<string>();
       const seenCorrectionDecision = new Set<string>();
@@ -1099,22 +1244,48 @@ export async function GET(req: NextRequest) {
         } else if (act.event_type === "newsletter_subscription_toggled") {
           const subVal = Boolean(meta.newsletter_subscribed ?? meta.subscribed);
           const cId = String(meta.client_id || meta.thread_id || "").trim();
-          const rawCId = String(meta.raw_client_id || cId.replace(/^(?:custom[-_]|cli-)/, "")).trim();
-          const phoneDigits = String(meta.client_phone || meta.phone || "").replace(/\D/g, "");
+          const rawCId = String(
+            meta.raw_client_id || cId.replace(/^(?:custom[-_]|cli-|sub_)/, "")
+          ).trim();
+          const phoneDigits = normalizeKrPhoneDigits(meta.client_phone || meta.phone || "");
+          const emailNorm = String(meta.client_email || meta.email || "")
+            .trim()
+            .toLowerCase();
           if (cId) recordNewsletterDecision(cId, subVal, act.created_at);
           if (rawCId) {
             recordNewsletterDecision(rawCId, subVal, act.created_at);
             recordNewsletterDecision(`custom_${rawCId}`, subVal, act.created_at);
             recordNewsletterDecision(`cli-${rawCId}`, subVal, act.created_at);
+            recordNewsletterDecision(`sub_${rawCId}`, subVal, act.created_at);
           }
           if (phoneDigits) recordNewsletterDecision(`tel:${phoneDigits}`, subVal, act.created_at);
+          if (emailNorm) recordNewsletterDecision(`email:${emailNorm}`, subVal, act.created_at);
         } else if (
           act.event_type === "magazine_subscribed" ||
           act.event_type === "magazine_unsubscribed"
         ) {
           const subVal = act.event_type === "magazine_subscribed";
-          const phoneDigits = String(meta.subscriber_phone || meta.phone || "").replace(/\D/g, "");
+          const phoneDigits = normalizeKrPhoneDigits(meta.subscriber_phone || meta.phone || "");
+          const emailNorm = String(meta.subscriber_email || meta.email || "")
+            .trim()
+            .toLowerCase();
           if (phoneDigits) recordNewsletterDecision(`tel:${phoneDigits}`, subVal, act.created_at);
+          if (emailNorm) recordNewsletterDecision(`email:${emailNorm}`, subVal, act.created_at);
+        } else if (
+          act.event_type === "inbox_thread_archived" ||
+          act.event_type === "inbox_thread_unarchived"
+        ) {
+          const isArch = act.event_type === "inbox_thread_archived";
+          for (const k of [tKey, rawKey].filter(Boolean)) {
+            if (!seenArchiveDecision.has(k)) {
+              seenArchiveDecision.add(k);
+              if (isArch) {
+                archivedThreadIds.add(k);
+              } else {
+                archivedThreadIds.delete(k);
+              }
+            }
+          }
         } else if (act.event_type === "im_link_sent") {
           const tok = typeof meta.share_token === "string" ? meta.share_token.trim() : "";
           if (tok && tKey && !issuedTokenByThreadId.has(tKey)) {
@@ -1255,14 +1426,34 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  const isThreadArchived = (id: string) => {
+    if (includeArchived || !id) return false;
+    const raw = id.replace(/^srv-/, "");
+    return (
+      archivedThreadIds.has(id) ||
+      archivedThreadIds.has(raw) ||
+      archivedThreadIds.has(`srv-${raw}`)
+    );
+  };
+
+  if (!includeArchived && archivedThreadIds.size > 0) {
+    gateItems = gateItems.filter((g: any) => !isThreadArchived(String(g.id)));
+    inquiryItems = inquiryItems.filter((i: any) => !isThreadArchived(String(i.id)));
+  }
+
   // ── 4. Build Real Threads for Workspace (No Fake Seeds, No Token Bleed!) ──
   const threads: any[] = [];
   const seenThreadIds = new Set<string>();
 
   for (const gr of [...gateItems, ...inquiryItems]) {
     const tid = String(gr.id);
-    if (!tid || seenThreadIds.has(tid)) continue;
+    if (!tid || seenThreadIds.has(tid) || isThreadArchived(tid)) continue;
     seenThreadIds.add(tid);
+
+    const bIdStr = String(gr.building_id || "");
+    const isDeletedBuilding =
+      Boolean(gr.is_deleted_building) ||
+      Boolean(bIdStr && deletedBuildingSet.has(bIdStr) && !allOwnedBuildingIds.includes(bIdStr));
 
     const decisionOverride = decisionByThreadId.get(tid);
     const effectiveStatus =
@@ -1273,9 +1464,10 @@ export async function GET(req: NextRequest) {
         : gr.status;
 
     const isPending =
-      effectiveStatus === "submitted" ||
-      effectiveStatus === "pending" ||
-      effectiveStatus === "broker_review";
+      !isDeletedBuilding &&
+      (effectiveStatus === "submitted" ||
+        effectiveStatus === "pending" ||
+        effectiveStatus === "broker_review");
     const isApproved = effectiveStatus === "approved";
     const isRejected = effectiveStatus === "rejected" || effectiveStatus === "expired";
     gr.status = effectiveStatus;
@@ -1358,7 +1550,6 @@ export async function GET(req: NextRequest) {
     const lastActivityAt =
       threadCallNotes[0]?.createdAt || decisionOverride?.createdAt || gr.created_at || "";
 
-    const bIdStr = String(gr.building_id || "");
     const resolvedShareToken =
       isApproved && !isRevoked
         ? decisionOverride?.shareToken ||
@@ -1374,7 +1565,7 @@ export async function GET(req: NextRequest) {
     const resolvedShareUrl =
       isApproved && !isRevoked ? buildThreadShareUrl(bIdStr, resolvedShareToken) : "";
 
-    const phoneDigits = String(gr.requesterPhone || gr.requester_phone || "").replace(/\D/g, "");
+    const phoneDigits = normalizeKrPhoneDigits(gr.requesterPhone || gr.requester_phone || "");
     const nlDecision =
       newsletterStateByKey.get(tid) ||
       (phoneDigits ? newsletterStateByKey.get(`tel:${phoneDigits}`) : undefined);
@@ -1382,6 +1573,14 @@ export async function GET(req: NextRequest) {
       (bIdStr && inboxState.correctionNotices?.[bIdStr]?.message) ||
       inboxState.correctionNotices?.[tid]?.message ||
       "";
+    const rawBuildingTitle = gr.buildingTitle || gr.building_label || "";
+    const resolvedBuildingTitle = isDeletedBuilding
+      ? !rawBuildingTitle || rawBuildingTitle === "매물"
+        ? "삭제된 매물 (과거 문의)"
+        : rawBuildingTitle.includes("삭제된 매물")
+        ? rawBuildingTitle
+        : `${rawBuildingTitle} (삭제된 매물)`
+      : rawBuildingTitle || "매물";
 
     threads.push({
       id: tid,
@@ -1390,7 +1589,7 @@ export async function GET(req: NextRequest) {
       requesterCompany: gr.requesterCompany || gr.requester_company || "",
       cleanMessage: baseRequestMsg,
       clientGrade: "일반" as const,
-      buildingTitle: gr.buildingTitle || gr.building_label || "매물",
+      buildingTitle: resolvedBuildingTitle,
       buildingId: bIdStr,
       latestEvent: latestEventText,
       detail:
@@ -1450,12 +1649,12 @@ export async function GET(req: NextRequest) {
     ) {
       continue;
     }
-    if (seenThreadIds.has(tid) || seenThreadIds.has(rawId)) continue;
+    if (seenThreadIds.has(tid) || seenThreadIds.has(rawId) || isThreadArchived(tid)) continue;
 
     const name = String(row.display_name || row.name || row.clientName || "").trim();
     if (!name) continue;
     const phone = String(row.phone || row.clientPhone || "").trim();
-    const phoneDigits = phone.replace(/\D/g, "");
+    const phoneDigits = normalizeKrPhoneDigits(phone);
     const identityKey = `${name.toLowerCase()}::${phoneDigits}`;
     if (seenCustomClientIdentity.has(identityKey)) continue;
     seenCustomClientIdentity.add(identityKey);
@@ -1609,20 +1808,212 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Group remaining view events by building + viewer with stable thread IDs (INBOX-06: restore revoke & correction state)
+  // Surface public magazine_subscribers in Inbox CRM (C-2: NL-304 ↔ IB-403)
+  for (const row of subscriberRows) {
+    const rawSubId = String(row?.id || "").trim();
+    if (!rawSubId) continue;
+    const statusLower = String(row?.status || "active").trim().toLowerCase();
+    if (
+      statusLower === "unsubscribed" ||
+      statusLower === "purged" ||
+      statusLower === "deleted" ||
+      Boolean(row?.unsubscribed_at)
+    ) {
+      continue;
+    }
+
+    const phoneDigits = normalizeKrPhoneDigits(row?.subscriber_phone || row?.phone_e164 || "");
+    const emailNorm = String(row?.subscriber_email || "")
+      .trim()
+      .toLowerCase();
+
+    const rawProfile =
+      row?.interest_profile && typeof row.interest_profile === "object"
+        ? (row.interest_profile as Record<string, any>)
+        : {};
+    const rawTags = rawProfile.tags;
+    const regions: string[] = [];
+    const assetTypes: string[] = [];
+    const extraTags: string[] = [];
+    if (Array.isArray(rawTags)) {
+      for (const t of rawTags) {
+        const s = String(t || "").trim();
+        if (s) extraTags.push(s);
+      }
+    } else if (rawTags && typeof rawTags === "object") {
+      if (Array.isArray(rawTags.regions)) {
+        for (const r of rawTags.regions) {
+          const s = String(r || "").trim();
+          if (s) regions.push(s);
+        }
+      }
+      if (Array.isArray(rawTags.assetTypes)) {
+        for (const a of rawTags.assetTypes) {
+          const s = String(a || "").trim();
+          if (s) assetTypes.push(s);
+        }
+      }
+      if (Array.isArray(rawTags.topics)) {
+        for (const tp of rawTags.topics) {
+          const s = String(tp || "").trim();
+          if (s) extraTags.push(s);
+        }
+      }
+    }
+    const allSelectedTags = Array.from(new Set([...regions, ...assetTypes, ...extraTags]));
+
+    const subTid = `sub_${rawSubId}`;
+    const isPendingConfirm = String(row?.confirm_status || "").trim().toLowerCase() === "pending";
+    const baseSubscribed = statusLower === "active" && !isPendingConfirm;
+    const nlOverride =
+      newsletterStateByKey.get(subTid) ||
+      newsletterStateByKey.get(rawSubId) ||
+      (phoneDigits ? newsletterStateByKey.get(`tel:${phoneDigits}`) : undefined) ||
+      (emailNorm ? newsletterStateByKey.get(`email:${emailNorm}`) : undefined);
+    const subCreatedMs = toSafeEpochMs(row?.created_at);
+    const effectiveSubscribed =
+      nlOverride && nlOverride.createdAtMs >= subCreatedMs
+        ? nlOverride.subscribed
+        : baseSubscribed;
+
+    const matchedExisting = threads.find((t) => {
+      const tPhoneDigits = normalizeKrPhoneDigits(t.clientPhone || "");
+      if (phoneDigits.length >= 9 && tPhoneDigits === phoneDigits) return true;
+      const tEmail = String(t.clientPhone || "").includes("@")
+        ? String(t.clientPhone).trim().toLowerCase()
+        : "";
+      if (emailNorm && tEmail === emailNorm) return true;
+      return false;
+    });
+    if (matchedExisting) {
+      if (effectiveSubscribed && !nlOverride) {
+        matchedExisting.newsletterSubscribed = true;
+      } else if (nlOverride && nlOverride.createdAtMs >= subCreatedMs) {
+        matchedExisting.newsletterSubscribed = nlOverride.subscribed;
+      }
+      if (!matchedExisting.preferredRegion && regions.length > 0) {
+        matchedExisting.preferredRegion = regions.join(", ");
+      }
+      continue;
+    }
+
+    if (
+      seenThreadIds.has(subTid) ||
+      isThreadArchived(subTid) ||
+      deletedClientIdSet.has(subTid) ||
+      deletedClientIdSet.has(rawSubId)
+    ) {
+      continue;
+    }
+    seenThreadIds.add(subTid);
+
+    const displayName =
+      String(row?.subscriber_name || "").trim() ||
+      (emailNorm ? emailNorm.split("@")[0] : "뉴스레터 구독자");
+    const displayContact = formatKrPhoneDisplay(
+      row?.subscriber_phone,
+      row?.phone_e164,
+      row?.subscriber_email
+    );
+
+    const consentStatusLabel =
+      nlOverride && !nlOverride.subscribed
+        ? "수신 거부"
+        : isPendingConfirm && !effectiveSubscribed
+        ? "수신 확인 대기"
+        : effectiveSubscribed
+        ? "수신 동의 완료"
+        : "미구독";
+
+    const tagSummary =
+      allSelectedTags.length > 0 ? `관심 태그: ${allSelectedTags.join(" · ")}` : "";
+    const subSummaryMessage = [
+      isPendingConfirm && !effectiveSubscribed
+        ? `공개 뉴스레터 구독 신청 (${consentStatusLabel})`
+        : `공개 뉴스레터 구독자 (${consentStatusLabel})`,
+      tagSummary,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    const subNotes =
+      callNotesByThreadId.get(subTid) ||
+      callNotesByThreadId.get(rawSubId) ||
+      [];
+    const lastSubActivityAt =
+      (subNotes[0] as any)?.createdAt || row?.created_at || "";
+
+    threads.push({
+      id: subTid,
+      clientName: displayName,
+      clientPhone: displayContact,
+      requesterCompany: "",
+      cleanMessage: subSummaryMessage,
+      clientGrade: "일반" as const,
+      buildingTitle:
+        assetTypes.length > 0
+          ? `관심 유형: ${assetTypes.join(", ")}`
+          : "뉴스레터 구독 고객",
+      buildingId: "",
+      latestEvent: subNotes[0]?.description || subSummaryMessage,
+      gateStatus: "none" as const,
+      updatedAt: formatRelativeKo(lastSubActivityAt) || "방금",
+      lastActivityAt: lastSubActivityAt,
+      openCount: 0,
+      isRead: true,
+      status: "active" as const,
+      shareToken: "",
+      shareUrl: "",
+      hasCorrectionNotice: false,
+      correctionMessage: "",
+      budget: "",
+      preferredRegion: regions.join(", "),
+      tags: allSelectedTags,
+      focusedSections: [],
+      newsletterSubscribed: effectiveSubscribed,
+      events: [
+        ...subNotes.map((n: any) => ({
+          id: n.id,
+          eventType: "dwell" as const,
+          description: n.description,
+          timestamp: n.timestamp || "방금",
+        })),
+        {
+          id: `ev-${subTid}`,
+          eventType: "share" as const,
+          description: subSummaryMessage,
+          timestamp: formatRelativeKo(row?.created_at) || "방금",
+        },
+      ],
+    });
+  }
+
+  // Group remaining view events by building + viewer (separating anonymous viewers by visitorFp — C-4)
   const viewGroups = new Map<string, any[]>();
   for (const v of viewItems) {
-    const key = `${v.building_id || "b"}::${v.viewerName || "anon"}`;
+    const isAnon = !v.viewerName || v.viewerName === "익명 열람객";
+    const key = isAnon
+      ? `${v.building_id || "b"}::익명 열람객::${v.visitorFp || "anon_nofp"}`
+      : `${v.building_id || "b"}::${v.viewerName}`;
     const list = viewGroups.get(key) || [];
     list.push(v);
     viewGroups.set(key, list);
   }
   for (const [, group] of viewGroups.entries()) {
     const first = group[0];
-    const tid = `view_${first.building_id || "b"}_${encodeURIComponent(
-      first.viewerName || "anon"
-    )}`;
-    if (seenThreadIds.has(tid)) continue;
+    const isAnon = !first.viewerName || first.viewerName === "익명 열람객";
+    const safeFp = isAnon
+      ? String(first.visitorFp || "")
+          .replace(/[^a-zA-Z0-9_-]/g, "")
+          .slice(0, 16)
+      : "";
+    const tid =
+      isAnon && safeFp
+        ? `view_${first.building_id || "b"}_anon_${safeFp}`
+        : `view_${first.building_id || "b"}_${encodeURIComponent(
+            first.viewerName || "anon"
+          )}`;
+    if (seenThreadIds.has(tid) || isThreadArchived(tid)) continue;
     if (
       first.viewerName !== "익명 열람객" &&
       threads.some(

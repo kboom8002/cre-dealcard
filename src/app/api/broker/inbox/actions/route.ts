@@ -134,6 +134,22 @@ function toSafeEpochMs(isoLike: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isIgnorableSchemaError(err: any): boolean {
+  if (!err) return true;
+  const code = String(err?.code || '');
+  if (
+    code === 'PGRST116' ||
+    code === 'PGRST200' ||
+    code === 'PGRST204' ||
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    code === '42703'
+  ) {
+    return true;
+  }
+  return /relationship|does not exist|schema cache/i.test(String(err?.message || ''));
+}
+
 async function verifyBrokerOwnership(params: {
   userId: string;
   isAdmin: boolean;
@@ -168,25 +184,27 @@ async function verifyBrokerOwnership(params: {
     }
   }
 
-  // 3. Check Supabase ownership for gate_requests, custom clients, and buildings
+  // 3. Check Supabase ownership for gate_requests, im_inquiry_requests, custom clients, subscribers, and buildings
   try {
     const supabase = createServiceClient();
     const rawReqId = threadId.replace(/^srv-/, '');
+    let verifiedViaInquiry = false;
 
     if (
       rawReqId &&
       isUuid(rawReqId) &&
       !threadId.startsWith('custom_') &&
       !threadId.startsWith('cli-') &&
+      !threadId.startsWith('sub_') &&
       !threadId.startsWith('view_')
     ) {
       const { data: gateReq, error: gateErr } = await supabase
         .from('gate_requests')
-        .select('id, building_id, buildings(owner_id)')
+        .select('id, building_id')
         .eq('id', rawReqId)
         .maybeSingle();
 
-      if (gateErr && gateErr.code !== 'PGRST116') {
+      if (gateErr && !isIgnorableSchemaError(gateErr)) {
         return { allowed: false, reason: '열람 요청 소유권 확인 중 오류가 발생했습니다.' };
       }
 
@@ -195,18 +213,53 @@ async function verifyBrokerOwnership(params: {
           ? (gateReq as any).buildings[0]
           : (gateReq as any).buildings;
         const ownerId = joinedBuilding?.owner_id;
-        if (ownerId && ownerId !== userId) {
+        if (ownerId && String(ownerId) !== userId) {
           return { allowed: false, reason: '해당 IM 열람 요청의 소유 중개인이 아닙니다.' };
         }
-        if ((gateReq as any).building_id && isUuid((gateReq as any).building_id)) {
-          const { data: reqBld } = await supabase
+        const gateBldId = (gateReq as any).building_id ? String((gateReq as any).building_id) : '';
+        if (gateBldId && isUuid(gateBldId)) {
+          const { data: reqBld, error: reqBldErr } = await supabase
             .from('building_ssot_lite')
             .select('owner_id')
-            .eq('id', (gateReq as any).building_id)
+            .eq('id', gateBldId)
             .maybeSingle();
-          if (reqBld?.owner_id && reqBld.owner_id !== userId) {
+          if (reqBldErr && !isIgnorableSchemaError(reqBldErr)) {
+            return { allowed: false, reason: '열람 요청 매물 소유권 확인 중 오류가 발생했습니다.' };
+          }
+          if (reqBld?.owner_id && String(reqBld.owner_id) !== userId) {
             return { allowed: false, reason: '해당 IM 열람 요청의 소유 중개인이 아닙니다.' };
           }
+
+          const { data: reqLegacyBld, error: reqLegacyErr } = await supabase
+            .from('buildings')
+            .select('owner_id')
+            .eq('id', gateBldId)
+            .maybeSingle();
+          if (reqLegacyErr && !isIgnorableSchemaError(reqLegacyErr)) {
+            return { allowed: false, reason: '열람 요청 매물 소유권 확인 중 오류가 발생했습니다.' };
+          }
+          if ((reqLegacyBld as any)?.owner_id && String((reqLegacyBld as any).owner_id) !== userId) {
+            return { allowed: false, reason: '해당 IM 열람 요청의 소유 중개인이 아닙니다.' };
+          }
+        }
+      }
+
+      const { data: inqRow, error: inqErr } = await supabase
+        .from('im_inquiry_requests')
+        .select('id, building_id, broker_user_id')
+        .eq('id', rawReqId)
+        .maybeSingle();
+
+      if (inqErr && !isIgnorableSchemaError(inqErr)) {
+        return { allowed: false, reason: '문의 소유권 확인 중 오류가 발생했습니다.' };
+      }
+
+      if (inqRow) {
+        if ((inqRow as any).broker_user_id && String((inqRow as any).broker_user_id) !== userId) {
+          return { allowed: false, reason: '해당 IM 문의의 소유 중개인이 아닙니다.' };
+        }
+        if ((inqRow as any).broker_user_id && String((inqRow as any).broker_user_id) === userId) {
+          verifiedViaInquiry = true;
         }
       }
     }
@@ -225,6 +278,28 @@ async function verifyBrokerOwnership(params: {
       }
     }
 
+    if (targetClientKey && targetClientKey.startsWith('sub_')) {
+      const rawSubId = targetClientKey.replace(/^sub_/, '');
+      if (rawSubId) {
+        const { data: subRow, error: subErr } = await supabase
+          .from('magazine_subscribers')
+          .select('id, broker_id')
+          .eq('id', rawSubId)
+          .maybeSingle();
+        if (!subErr && subRow?.broker_id && String(subRow.broker_id) !== userId) {
+          const { data: bp } = await supabase
+            .from('broker_profiles')
+            .select('slug')
+            .eq('user_id', userId)
+            .maybeSingle();
+          const ownSlug = bp?.slug ? String(bp.slug).trim() : '';
+          if (!ownSlug || String(subRow.broker_id) !== ownSlug) {
+            return { allowed: false, reason: '다른 중개인의 구독 고객 정보에 접근할 수 없습니다.' };
+          }
+        }
+      }
+    }
+
     if (buildingId) {
       if (isUuid(buildingId)) {
         const { data: ssotRow, error: ssotErr } = await supabase
@@ -233,11 +308,11 @@ async function verifyBrokerOwnership(params: {
           .eq('id', buildingId)
           .maybeSingle();
 
-        if (ssotErr && ssotErr.code !== 'PGRST116') {
+        if (ssotErr && !isIgnorableSchemaError(ssotErr)) {
           return { allowed: false, reason: '매물 소유권 검증 중 데이터베이스 오류가 발생했습니다.' };
         }
 
-        if (ssotRow?.owner_id && ssotRow.owner_id !== userId) {
+        if (ssotRow?.owner_id && String(ssotRow.owner_id) !== userId) {
           return { allowed: false, reason: '해당 빌딩의 소유 중개인이 아닙니다.' };
         }
 
@@ -247,12 +322,16 @@ async function verifyBrokerOwnership(params: {
           .eq('id', buildingId)
           .maybeSingle();
 
-        if (bldErr && bldErr.code !== 'PGRST116') {
+        if (bldErr && !isIgnorableSchemaError(bldErr)) {
           return { allowed: false, reason: '매물 소유권 검증 중 데이터베이스 오류가 발생했습니다.' };
         }
 
-        if ((bldRow as any)?.owner_id && (bldRow as any).owner_id !== userId) {
+        if ((bldRow as any)?.owner_id && String((bldRow as any).owner_id) !== userId) {
           return { allowed: false, reason: '해당 빌딩의 소유 중개인이 아닙니다.' };
+        }
+
+        if (!ssotRow && verifiedViaInquiry) {
+          return { allowed: true };
         }
       } else {
         // Non-UUID listing: verify owner from activity_events if claimed
@@ -378,6 +457,7 @@ export async function POST(req: NextRequest) {
       const isClientOrViewThread =
         threadId.startsWith('custom_') ||
         threadId.startsWith('cli-') ||
+        threadId.startsWith('sub_') ||
         threadId.startsWith('view_');
 
       let supabaseClient: ReturnType<typeof createServiceClient> | null = null;
@@ -387,8 +467,9 @@ export async function POST(req: NextRequest) {
         supabaseClient = null;
       }
 
-      // C-S0-02: Validate gate_requests state machine before approving or sending IM
+      // C-S0-02 & C-3: Validate gate_requests / im_inquiry_requests state before approving or sending IM
       let existingGateRow: Record<string, any> | null = null;
+      let existingInqRow: Record<string, any> | null = null;
       if (supabaseClient && rawId && isUuid(rawId) && !isClientOrViewThread) {
         const { data: grRow } = await supabaseClient
           .from('gate_requests')
@@ -400,6 +481,22 @@ export async function POST(req: NextRequest) {
           if (!buildingId && grRow.building_id) {
             buildingId = String(grRow.building_id);
           }
+        }
+
+        try {
+          const { data: inqRow, error: inqErr } = await supabaseClient
+            .from('im_inquiry_requests')
+            .select('id, building_id, status, broker_user_id')
+            .eq('id', rawId)
+            .maybeSingle();
+          if (!inqErr && inqRow) {
+            existingInqRow = inqRow;
+            if (!buildingId && inqRow.building_id) {
+              buildingId = String(inqRow.building_id);
+            }
+          }
+        } catch {
+          // ignore if table unavailable
         }
       }
 
@@ -416,6 +513,8 @@ export async function POST(req: NextRequest) {
             toSafeEpochMs(existingGateRow.expires_at) <= nowMs)
           ? 'expired'
           : String(existingGateRow.status || '')
+        : existingInqRow?.status
+        ? String(existingInqRow.status)
         : memDecision?.status || '';
 
       if (decision === 'approved' && effectiveCurrentStatus === 'expired') {
@@ -477,6 +576,7 @@ export async function POST(req: NextRequest) {
           const shouldUpdateGateStatus =
             action !== 'send_im' ||
             effectiveCurrentStatus === 'submitted' ||
+            effectiveCurrentStatus === 'pending' ||
             effectiveCurrentStatus === 'broker_review';
 
           if (shouldUpdateGateStatus && existingGateRow) {
@@ -494,6 +594,29 @@ export async function POST(req: NextRequest) {
                 },
                 { status: 500 }
               );
+            }
+          }
+
+          if (
+            existingInqRow &&
+            (shouldUpdateGateStatus ||
+              decision === 'approved' ||
+              decision === 'rejected' ||
+              decision === 'submitted')
+          ) {
+            try {
+              const { error: inqUpdErr } = await supabaseClient
+                .from('im_inquiry_requests')
+                .update({ status: decision, updated_at: new Date().toISOString() })
+                .eq('id', rawId);
+              if (inqUpdErr && isIgnorableSchemaError(inqUpdErr)) {
+                await supabaseClient
+                  .from('im_inquiry_requests')
+                  .update({ status: decision })
+                  .eq('id', rawId);
+              }
+            } catch {
+              // non-blocking if minimal mock lacks updated_at or status column
             }
           }
         }
@@ -566,6 +689,75 @@ export async function POST(req: NextRequest) {
         token: issuedToken,
         shareToken: issuedToken,
         shareUrl: issuedShareUrl,
+      });
+    }
+
+    // 1.5 Archive / Unarchive Thread (C-3)
+    if (action === 'archive_thread' || action === 'unarchive_thread') {
+      if (!threadId) {
+        return NextResponse.json(
+          { ok: false, error: '보관 처리할 대화 스레드 ID(threadId)가 필요합니다.' },
+          { status: 400 }
+        );
+      }
+      const isArchive = action === 'archive_thread';
+      const rawId = threadId.replace(/^srv-/, '');
+
+      let supabaseClient: ReturnType<typeof createServiceClient> | null = null;
+      try {
+        supabaseClient = createServiceClient();
+      } catch {
+        supabaseClient = null;
+      }
+
+      if (supabaseClient && isUuid(userId)) {
+        const { error: archEvErr } = await supabaseClient.from('activity_events').insert({
+          actor_id: userId,
+          event_type: isArchive ? 'inbox_thread_archived' : 'inbox_thread_unarchived',
+          entity_type: 'building',
+          entity_id:
+            buildingId && isUuid(buildingId)
+              ? buildingId
+              : isUuid(rawId)
+              ? rawId
+              : userId,
+          metadata: {
+            thread_id: threadId,
+            request_id: rawId || null,
+            building_id: buildingId || null,
+            archived: isArchive,
+          },
+        });
+
+        if (archEvErr && !isIgnorableSchemaError(archEvErr)) {
+          return NextResponse.json(
+            {
+              ok: false,
+              persisted: false,
+              error: '대화 보관 상태를 데이터베이스에 저장하지 못했습니다.',
+            },
+            { status: 500 }
+          );
+        }
+
+        if (isArchive && isUuid(rawId)) {
+          try {
+            await supabaseClient
+              .from('im_inquiry_requests')
+              .update({ status: 'closed' })
+              .eq('id', rawId)
+              .eq('broker_user_id', userId);
+          } catch {
+            // non-blocking best-effort sync
+          }
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        action,
+        threadId,
+        archived: isArchive,
       });
     }
 
@@ -731,10 +923,11 @@ export async function POST(req: NextRequest) {
         // 2) magazine_subscribers (explicit opt-in / opt-out rows — authoritative over static broker_clients tags)
         const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
         for (const s of subRows) {
-          const phoneVal = s?.subscriber_phone ?? s?.phone;
+          const phoneVal = s?.subscriber_phone ?? s?.phone_e164 ?? s?.phone;
           const emailVal = s?.subscriber_email ?? s?.email;
           const nameVal = s?.subscriber_name ?? s?.name;
           const statusVal = String(s?.status ?? 'active').toLowerCase();
+          const confirmStatusVal = String(s?.confirm_status ?? '').toLowerCase();
           const ts = toSafeEpochMs(s?.unsubscribed_at || s?.updated_at || s?.created_at);
           const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
           const segRaw = String(s?.segment || s?.client_type || '').toLowerCase();
@@ -750,7 +943,7 @@ export async function POST(req: NextRequest) {
             const emailKey = normalizeSubKey(undefined, emailVal);
             if (telKey) applyConsentState(telKey, false, ts, false, cType);
             if (emailKey) applyConsentState(emailKey, false, ts, false, cType);
-          } else if (statusVal === 'active' && k) {
+          } else if (statusVal === 'active' && confirmStatusVal !== 'pending' && k) {
             applyConsentState(k, true, ts, Boolean(s?.is_vip), cType);
           }
         }
@@ -877,7 +1070,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Revoke / Restore Share Link (INBOX-07, C-S0-01, C-S1-02)
+    // 3. Revoke / Restore Share Link (INBOX-07, C-S0-01, C-S1-02, C-4)
     if (
       action === 'revoke_link' ||
       action === 'revoke' ||
@@ -885,6 +1078,7 @@ export async function POST(req: NextRequest) {
       action === 'unlock_share_link'
     ) {
       const revoked = action === 'revoke_link' || action === 'revoke';
+      let loggedViaTokenHelper = false;
 
       if (revoked) {
         if (shareToken || buildingId) {
@@ -892,6 +1086,7 @@ export async function POST(req: NextRequest) {
             token: shareToken || undefined,
             buildingId: buildingId || undefined,
             brokerId: userId,
+            threadId: threadId || undefined,
             reason: body?.reason ? String(body.reason) : 'broker_revoked',
             isAdmin,
           });
@@ -904,6 +1099,7 @@ export async function POST(req: NextRequest) {
           if (!buildingId && revokeRes.buildingId) {
             buildingId = revokeRes.buildingId;
           }
+          loggedViaTokenHelper = true;
         }
       } else {
         if (shareToken) {
@@ -952,7 +1148,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        if (isUuid(userId)) {
+        if (isUuid(userId) && !loggedViaTokenHelper) {
           await supabase.from('activity_events').insert({
             actor_id: userId,
             event_type: revoked ? 'link_revoked' : 'link_restored',
@@ -1131,9 +1327,11 @@ export async function POST(req: NextRequest) {
         );
       }
       const subscribed = Boolean(body?.subscribed);
-      const rawClientId = targetKey.replace(/^(?:custom[-_]|cli-)/, '');
+      const rawClientId = targetKey.replace(/^(?:custom[-_]|cli-|sub_)/, '');
       const clientName = typeof body?.clientName === 'string' ? body.clientName.trim() : '';
-      const clientPhone = typeof body?.clientPhone === 'string' ? body.clientPhone.trim() : '';
+      const rawContact = typeof body?.clientPhone === 'string' ? body.clientPhone.trim() : '';
+      const clientEmail = rawContact.includes('@') ? rawContact.toLowerCase() : '';
+      const clientPhone = rawContact.includes('@') ? '' : rawContact;
 
       let supabaseClient: ReturnType<typeof createServiceClient> | null = null;
       try {
@@ -1143,7 +1341,27 @@ export async function POST(req: NextRequest) {
       }
 
       if (supabaseClient && isUuid(userId)) {
-        if (isUuid(rawClientId)) {
+        if (targetKey.startsWith('sub_') && rawClientId) {
+          try {
+            const subPatch: Record<string, any> = subscribed
+              ? { status: 'active', unsubscribed_at: null, confirm_status: 'confirmed' }
+              : { status: 'unsubscribed', unsubscribed_at: new Date().toISOString() };
+            const { error: subUpdErr } = await supabaseClient
+              .from('magazine_subscribers')
+              .update(subPatch)
+              .eq('id', rawClientId);
+            if (subUpdErr && isIgnorableSchemaError(subUpdErr)) {
+              await supabaseClient
+                .from('magazine_subscribers')
+                .update({ status: subscribed ? 'active' : 'unsubscribed' })
+                .eq('id', rawClientId);
+            }
+          } catch {
+            // non-blocking if magazine_subscribers unavailable
+          }
+        }
+
+        if (isUuid(rawClientId) && !targetKey.startsWith('sub_')) {
           try {
             const { data: existingCli } = await supabaseClient
               .from('broker_clients')
@@ -1183,6 +1401,7 @@ export async function POST(req: NextRequest) {
             raw_client_id: rawClientId,
             client_name: clientName || null,
             client_phone: clientPhone || null,
+            client_email: clientEmail || null,
             newsletter_subscribed: subscribed,
             subscribed,
           },

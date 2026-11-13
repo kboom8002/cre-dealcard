@@ -11,6 +11,8 @@ import {
   type BrokerCtx,
 } from "@/lib/magazine/authz";
 import { resolveBroker } from "@/lib/magazine/resolve-broker";
+import { maskPublicAddresses, sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
+import { isUuid } from "@/lib/magazine/slug";
 import { currentWeekLabel } from "@/lib/magazine/kst";
 import { defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
@@ -108,12 +110,72 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes, brokerProfileRes] = await Promise.all([
-      selfQuery,
+    const SUBSCRIBER_SELECT_COLS =
+      "id, broker_id, broker_user_id, subscriber_phone, subscriber_email, subscriber_name, status, confirm_status, unsubscribed_at, interest_profile, segment";
+
+    const brokerProfileRes = await Promise.resolve(
       supabase
-        .from("magazine_subscribers")
-        .select("*", { count: "exact" })
-        .in("broker_id", ctx.brokerKeys),
+        .from("broker_profiles")
+        .select("user_id, slug, name, card_name")
+        .eq("user_id", ctx.userId)
+        .maybeSingle()
+    ).catch(() => ({ data: null }));
+
+    const brokerProfileRow = (brokerProfileRes?.data ?? null) as {
+      user_id?: string | null;
+      slug?: string | null;
+      name?: string | null;
+      card_name?: string | null;
+      office_name?: string | null;
+      company_name?: string | null;
+      phone?: string | null;
+      display_name?: string | null;
+    } | null;
+
+    const brokerSlug = ctx.slug || brokerProfileRow?.slug?.trim() || "";
+    const subBrokerKeys = Array.from(
+      new Set([ctx.userId, brokerSlug, ...ctx.brokerKeys].filter((v): v is string => Boolean(v)))
+    );
+
+    const loadMagazineSubscribersSafely = async () => {
+      const byBrokerIdPromise = Promise.resolve(
+        supabase
+          .from("magazine_subscribers")
+          .select(SUBSCRIBER_SELECT_COLS, { count: "exact" })
+          .in("broker_id", subBrokerKeys)
+      ).catch(() => ({ data: null, count: null }));
+
+      const byBrokerUserIdPromise = isUuid(ctx.userId)
+        ? Promise.resolve(
+            supabase
+              .from("magazine_subscribers")
+              .select(SUBSCRIBER_SELECT_COLS)
+              .eq("broker_user_id", ctx.userId)
+          ).catch(() => ({ data: null }))
+        : Promise.resolve({ data: null });
+
+      const [byIdRes, byUserRes] = await Promise.all([byBrokerIdPromise, byBrokerUserIdPromise]);
+      const merged: Array<Record<string, any>> = [];
+      const seenIds = new Set<string>();
+      for (const row of [
+        ...(Array.isArray((byIdRes as any)?.data) ? (byIdRes as any).data : []),
+        ...(Array.isArray((byUserRes as any)?.data) ? (byUserRes as any).data : []),
+      ]) {
+        if (!row || typeof row !== "object") continue;
+        const rowId = row.id ? String(row.id) : "";
+        if (rowId && seenIds.has(rowId)) continue;
+        if (rowId) seenIds.add(rowId);
+        merged.push(row);
+      }
+      return {
+        data: merged,
+        count: typeof (byIdRes as any)?.count === "number" ? (byIdRes as any).count : null,
+      };
+    };
+
+    const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes, profileRes] = await Promise.all([
+      selfQuery,
+      loadMagazineSubscribersSafely(),
       loadBrokerNewsletterPreferences(supabase, ctx.userId),
       loadBrokerClientsSafely(),
       Promise.resolve(
@@ -121,15 +183,22 @@ export async function GET(request: NextRequest) {
           .from("activity_events")
           .select("id, event_type, metadata, created_at")
           .eq("actor_id", ctx.userId)
-          .in("event_type", ["custom_client_upserted", "gate_request_approved", "magazine_unsubscribed"])
+          .in("event_type", [
+            "custom_client_upserted",
+            "custom_client_deleted",
+            "newsletter_subscription_toggled",
+            "magazine_subscribed",
+            "magazine_subscribe",
+            "magazine_unsubscribed",
+          ])
           .order("created_at", { ascending: false })
-          .limit(100)
+          .limit(160)
       ).catch(() => ({ data: null })),
       Promise.resolve(
         supabase
-          .from("broker_profiles")
-          .select("office_name, phone, display_name")
-          .eq("user_id", ctx.userId)
+          .from("profiles")
+          .select("display_name, company, phone")
+          .eq("id", ctx.userId)
           .maybeSingle()
       ).catch(() => ({ data: null })),
     ]);
@@ -139,30 +208,89 @@ export async function GET(request: NextRequest) {
       return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
     }
 
+    const normalizePhoneKey = (phone?: unknown): string => {
+      const rawPhone = typeof phone === "string" ? phone.trim() : "";
+      let digits = rawPhone.replace(/\D/g, "");
+      if (digits.startsWith("82") && digits.length >= 11) {
+        digits = "0" + digits.slice(digits.startsWith("820") ? 3 : 2);
+      }
+      return digits.length >= 9 ? `tel:${digits}` : "";
+    };
+
+    const normalizeEmailKey = (email?: unknown): string => {
+      const rawEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+      return rawEmail && rawEmail.includes("@") ? `email:${rawEmail}` : "";
+    };
+
+    const phoneToCanonical = new Map<string, string>();
+    const emailToCanonical = new Map<string, string>();
+
     const normalizeSubKey = (
       phone?: unknown,
       email?: unknown,
       name?: unknown,
       fallbackId?: unknown
     ): string => {
-      const rawPhone = typeof phone === "string" ? phone.trim() : "";
-      let digits = rawPhone.replace(/\D/g, "");
-      if (digits.startsWith("82") && digits.length >= 11) {
-        digits = "0" + digits.slice(digits.startsWith("820") ? 3 : 2);
+      const pKey = normalizePhoneKey(phone);
+      const eKey = normalizeEmailKey(email);
+      const existing =
+        (pKey ? phoneToCanonical.get(pKey) : undefined) ||
+        (eKey ? emailToCanonical.get(eKey) : undefined);
+      const canonical =
+        existing ||
+        pKey ||
+        eKey ||
+        (typeof name === "string" && name.trim() ? `name:${name.trim()}` : "") ||
+        (typeof fallbackId === "string" && fallbackId.trim() ? `id:${fallbackId.trim()}` : "");
+      if (canonical) {
+        if (pKey && !phoneToCanonical.has(pKey)) phoneToCanonical.set(pKey, canonical);
+        if (eKey && !emailToCanonical.has(eKey)) emailToCanonical.set(eKey, canonical);
       }
-      if (digits.length >= 9) {
-        return `tel:${digits}`;
-      }
-      const rawEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
-      if (rawEmail) return `email:${rawEmail}`;
-      const rawName = typeof name === "string" ? name.trim() : "";
-      if (rawName) return `name:${rawName}`;
-      const rawId = typeof fallbackId === "string" ? fallbackId.trim() : "";
-      return rawId ? `id:${rawId}` : "";
+      return canonical;
     };
 
+    const extractSubscriberTags = (s: Record<string, any>): string[] => {
+      const out: string[] = [];
+      const ip = s?.interest_profile;
+      if (Array.isArray(ip)) {
+        for (const item of ip) {
+          if (typeof item === "string" && item.trim()) out.push(item.trim());
+        }
+      } else if (ip && typeof ip === "object") {
+        const ipRec = ip as Record<string, unknown>;
+        const rawTags = ipRec.tags;
+        if (Array.isArray(rawTags)) {
+          for (const t of rawTags) {
+            if (typeof t === "string" && t.trim()) out.push(t.trim());
+          }
+        } else if (rawTags && typeof rawTags === "object") {
+          const tagObj = rawTags as Record<string, unknown>;
+          for (const arrKey of ["regions", "assetTypes", "topics"] as const) {
+            const arr = tagObj[arrKey];
+            if (Array.isArray(arr)) {
+              for (const v of arr) if (typeof v === "string" && v.trim()) out.push(v.trim());
+            }
+          }
+        }
+        for (const arrKey of ["regions", "assetTypes", "topics"] as const) {
+          const arr = ipRec[arrKey];
+          if (Array.isArray(arr)) {
+            for (const v of arr) if (typeof v === "string" && v.trim()) out.push(v.trim());
+          }
+        }
+      }
+      if (typeof s?.segment === "string" && s.segment.trim()) {
+        out.push(s.segment.trim());
+      }
+      return out;
+    };
+
+    const hasExplicitNewsletterTag = (tags: readonly string[]): boolean =>
+      tags.some((t) => /뉴스레터|구독|newsletter|subscribe/i.test(t) && !/수신거부|해지|unsub/i.test(t)) &&
+      !tags.some((t) => /수신거부|해지|unsub/i.test(t));
+
     const subscriberKeys = new Set<string>();
-    const highInterestKeys = new Set<string>();
+    const vipCandidateKeys = new Set<string>();
     const dbUnsubscribedAt = new Map<string, number>();
     const eventUnsubscribedKeys = new Set<string>();
     const buyerKeys = new Set<string>();
@@ -176,26 +304,143 @@ export async function GET(request: NextRequest) {
       }
     };
 
+    // 1) activity_events 최신순 파싱: 삭제된 고객(custom_client_deleted) 및 토글 오버라이드(newsletter_subscription_toggled) 수집
+    const rawEventRows = Array.isArray((clientEventsRes as any)?.data) ? (clientEventsRes as any).data : [];
+    const eventRows = [...rawEventRows].sort((a, b) => {
+      const ta = typeof a?.created_at === "string" ? Date.parse(a.created_at) : 0;
+      const tb = typeof b?.created_at === "string" ? Date.parse(b.created_at) : 0;
+      if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return tb - ta;
+      return 0;
+    });
+
+    const deletedClientIds = new Set<string>();
+    const seenClientLifecycle = new Set<string>();
+    const toggleOverrideMap = new Map<string, { subscribed: boolean; ts: number }>();
+    const latestCustomClientEvents: Array<{
+      cId: string;
+      rawCId: string;
+      meta: Record<string, unknown>;
+      ts: number;
+    }> = [];
+
+    const recordToggleOverride = (k: string, subscribed: boolean, ts: number) => {
+      if (!k || toggleOverrideMap.has(k)) return;
+      toggleOverrideMap.set(k, { subscribed, ts });
+    };
+
+    for (const ev of eventRows) {
+      const meta = (ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, unknown>;
+      const rawTs = typeof ev?.created_at === "string" ? Date.parse(ev.created_at) : Number.NaN;
+      const evTs = Number.isFinite(rawTs) ? rawTs : 0;
+
+      if (ev?.event_type === "custom_client_deleted") {
+        const delId = String(meta.client_id ?? "").trim();
+        const rawDelId = String(meta.raw_client_id ?? delId.replace(/^(?:custom[-_]|cli-)/, "")).trim();
+        for (const k of [delId, rawDelId, rawDelId ? `custom_${rawDelId}` : "", rawDelId ? `cli-${rawDelId}` : ""].filter(Boolean)) {
+          if (!seenClientLifecycle.has(k)) {
+            seenClientLifecycle.add(k);
+            deletedClientIds.add(k);
+          }
+        }
+      } else if (ev?.event_type === "newsletter_subscription_toggled") {
+        const subVal = Boolean(meta.newsletter_subscribed ?? meta.subscribed);
+        const cId = String(meta.client_id ?? meta.thread_id ?? "").trim();
+        const rawCId = String(meta.raw_client_id ?? cId.replace(/^(?:custom[-_]|cli-)/, "")).trim();
+        const pKey = normalizePhoneKey(meta.client_phone ?? meta.phone);
+        const eKey = normalizeEmailKey(meta.client_email ?? meta.email);
+        if (cId) recordToggleOverride(cId, subVal, evTs);
+        if (rawCId) {
+          recordToggleOverride(rawCId, subVal, evTs);
+          recordToggleOverride(`custom_${rawCId}`, subVal, evTs);
+          recordToggleOverride(`cli-${rawCId}`, subVal, evTs);
+        }
+        if (pKey) recordToggleOverride(pKey, subVal, evTs);
+        if (eKey) recordToggleOverride(eKey, subVal, evTs);
+      } else if (
+        ev?.event_type === "magazine_subscribed" ||
+        ev?.event_type === "magazine_subscribe" ||
+        ev?.event_type === "magazine_unsubscribed"
+      ) {
+        const subVal = ev.event_type !== "magazine_unsubscribed";
+        const pKey = normalizePhoneKey(meta.subscriber_phone ?? meta.phone);
+        const eKey = normalizeEmailKey(meta.subscriber_email ?? meta.email);
+        const fullKey = normalizeSubKey(
+          meta.subscriber_phone ?? meta.phone,
+          meta.subscriber_email ?? meta.email,
+          meta.subscriber_name ?? meta.name
+        );
+        if (pKey) recordToggleOverride(pKey, subVal, evTs);
+        if (eKey) recordToggleOverride(eKey, subVal, evTs);
+        if (fullKey) recordToggleOverride(fullKey, subVal, evTs);
+      } else if (ev?.event_type === "custom_client_upserted") {
+        const cId = String(meta.client_id ?? `custom_${ev.id}`).trim();
+        const rawCId = cId.replace(/^(?:custom[-_]|cli-)/, "");
+        if (
+          seenClientLifecycle.has(cId) ||
+          (rawCId && seenClientLifecycle.has(rawCId)) ||
+          deletedClientIds.has(cId) ||
+          (rawCId && deletedClientIds.has(rawCId))
+        ) {
+          continue;
+        }
+        seenClientLifecycle.add(cId);
+        if (rawCId) seenClientLifecycle.add(rawCId);
+        latestCustomClientEvents.push({ cId, rawCId, meta, ts: evTs });
+      }
+    }
+
+    const resolveLatestOverride = (...candidateKeys: string[]): { subscribed: boolean; ts: number } | undefined => {
+      let best: { subscribed: boolean; ts: number } | undefined;
+      for (const ck of candidateKeys) {
+        if (!ck) continue;
+        const found = toggleOverrideMap.get(ck);
+        if (found && (!best || found.ts > best.ts)) {
+          best = found;
+        }
+      }
+      return best;
+    };
+
+    // 2) magazine_subscribers 집계 (active && !unsubscribed_at && confirm_status !== "pending")
     const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
     for (const s of subRows) {
       const phoneVal = s?.subscriber_phone ?? s?.phone;
       const emailVal = s?.subscriber_email ?? s?.email;
       const nameVal = s?.subscriber_name ?? s?.name;
       const statusVal = String(s?.status ?? "active").toLowerCase();
+      const confirmVal = String(s?.confirm_status ?? "").toLowerCase();
+      const hasUnsubAt = Boolean(s?.unsubscribed_at);
       const segVal = String(s?.segment ?? "investor").toLowerCase();
       const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
-      if (statusVal === "unsubscribed" || statusVal === "inactive") {
+      const pKey = normalizePhoneKey(phoneVal);
+      const eKey = normalizeEmailKey(emailVal);
+
+      if (statusVal === "unsubscribed" || statusVal === "inactive" || hasUnsubAt) {
         const rawTs = Date.parse(String(s?.unsubscribed_at ?? s?.updated_at ?? ""));
         const unsubTs = Number.isFinite(rawTs) ? rawTs : Number.POSITIVE_INFINITY;
         recordDbUnsub(k, unsubTs);
-        recordDbUnsub(normalizeSubKey(phoneVal), unsubTs);
-        recordDbUnsub(normalizeSubKey(undefined, emailVal), unsubTs);
-      } else if (statusVal === "active" && k) {
+        recordDbUnsub(pKey, unsubTs);
+        recordDbUnsub(eKey, unsubTs);
+      } else if (statusVal === "active" && confirmVal !== "pending" && k) {
+        const subId = s?.id ? String(s.id).trim() : "";
+        const override = resolveLatestOverride(subId ? `sub_${subId}` : "", subId, k, pKey, eKey);
+        if (override && !override.subscribed) {
+          eventUnsubscribedKeys.add(k);
+          continue;
+        }
         subscriberKeys.add(k);
-        if (segVal === "seller" || segVal === "owner") {
+        const subTags = extractSubscriberTags(s);
+        if (
+          segVal === "seller" ||
+          segVal === "owner" ||
+          subTags.some((t) => /매도|건물주|seller|owner/i.test(t))
+        ) {
           sellerKeys.add(k);
-        } else if (segVal === "buyer" || segVal === "investor") {
+        } else {
           buyerKeys.add(k);
+        }
+        if (subTags.some((t) => /^(?:vip|high_interest)$/i.test(t) || /고관심|핫리드/i.test(t))) {
+          vipCandidateKeys.add(k);
         }
       }
     }
@@ -205,90 +450,125 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 3) broker_clients 집계 (PIPA: isVip 자동 opt-in 제거 — 명시적 구독 동의 또는 토글 오버라이드만 인정)
     const dbClientRows = Array.isArray((brokerClientsRes as any)?.data) ? (brokerClientsRes as any).data : [];
     for (const c of dbClientRows) {
+      const rawId = String(c?.id ?? "").trim();
+      const cliKey = rawId ? `cli-${rawId}` : "";
+      const customKey = rawId ? `custom_${rawId}` : "";
+      if (
+        (rawId && deletedClientIds.has(rawId)) ||
+        (cliKey && deletedClientIds.has(cliKey)) ||
+        (customKey && deletedClientIds.has(customKey))
+      ) {
+        continue;
+      }
       const tags = Array.isArray(c?.tags) ? c.tags.map((t: unknown) => String(t)) : [];
-      const isVip = String(c?.tier || "").toLowerCase() === "vip" || tags.includes("VIP") || tags.includes("high_interest");
-      const subscribed =
-        isVip ||
-        tags.some((t: string) => /뉴스레터|구독|newsletter|subscribe/i.test(t));
+      const isVip =
+        String(c?.tier || "").toLowerCase() === "vip" ||
+        tags.some((t: string) => /^(?:vip|high_interest)$/i.test(t) || /고관심|핫리드/i.test(t));
       const key = normalizeSubKey(c?.phone, c?.email, c?.display_name, c?.id);
-      if (key && subscribed) {
+      if (!key) continue;
+      if (isVip) vipCandidateKeys.add(key);
+
+      const pKey = normalizePhoneKey(c?.phone);
+      const eKey = normalizeEmailKey(c?.email);
+      const override = resolveLatestOverride(cliKey, rawId, customKey, key, pKey, eKey);
+      const explicitRowOptIn =
+        (c as Record<string, unknown>)?.newsletter_subscribed === true ||
+        (c as Record<string, unknown>)?.newsletterSubscribed === true ||
+        hasExplicitNewsletterTag(tags);
+      const explicitRowOptOut =
+        (c as Record<string, unknown>)?.newsletter_subscribed === false ||
+        (c as Record<string, unknown>)?.newsletterSubscribed === false ||
+        tags.some((t: string) => /수신거부|해지|unsub/i.test(t));
+
+      const subscribed = override ? override.subscribed : explicitRowOptIn;
+      if (subscribed) {
+        if (override && override.ts > 0) {
+          for (const uk of [key, pKey, eKey].filter(Boolean)) {
+            const prevDbUnsub = dbUnsubscribedAt.get(uk);
+            if (prevDbUnsub !== undefined && override.ts > prevDbUnsub) {
+              dbUnsubscribedAt.delete(uk);
+            }
+          }
+        }
         subscriberKeys.add(key);
         if (tags.some((t: string) => /매도|건물주|seller|owner/i.test(t))) {
           sellerKeys.add(key);
         } else {
           buyerKeys.add(key);
         }
-      }
-      if (key && isVip) {
-        highInterestKeys.add(key);
+      } else if ((override && !override.subscribed) || explicitRowOptOut) {
+        eventUnsubscribedKeys.add(key);
       }
     }
 
-    const rawEventRows = Array.isArray((clientEventsRes as any)?.data) ? (clientEventsRes as any).data : [];
-    const eventRows = [...rawEventRows].sort((a, b) => {
-      const ta = typeof a?.created_at === "string" ? Date.parse(a.created_at) : 0;
-      const tb = typeof b?.created_at === "string" ? Date.parse(b.created_at) : 0;
-      if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return tb - ta;
-      return 0;
-    });
-    const decidedEventKeys = new Set<string>();
+    // 4) custom_client_upserted 및 인메모리 customClients 집계 (PIPA: newsletter_subscribed === true 또는 토글 ON만 인정)
+    const handledCustomIds = new Set<string>();
+    for (const item of latestCustomClientEvents) {
+      const { cId, rawCId, meta, ts } = item;
+      handledCustomIds.add(cId);
+      if (rawCId) handledCustomIds.add(rawCId);
 
-    for (const ev of eventRows) {
-      const meta = (ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, unknown>;
-      const evTs = typeof ev?.created_at === "string" ? Date.parse(ev.created_at) : Number.NaN;
-      if (ev?.event_type === "magazine_unsubscribed") {
-        const unsubKey = normalizeSubKey(
-          meta.subscriber_phone ?? meta.phone,
-          meta.subscriber_email ?? meta.email,
-          meta.subscriber_name ?? meta.name
-        );
-        if (unsubKey && !decidedEventKeys.has(unsubKey)) {
-          decidedEventKeys.add(unsubKey);
-          eventUnsubscribedKeys.add(unsubKey);
-        }
-      } else if (ev?.event_type === "custom_client_upserted") {
-        const key = normalizeSubKey(
-          meta.client_phone ?? meta.phone,
-          meta.client_email ?? meta.email,
-          meta.client_name ?? meta.name,
-          meta.client_id ?? ev.id
-        );
-        if (!key || decidedEventKeys.has(key)) continue;
-        decidedEventKeys.add(key);
-        const subscribed = meta.newsletter_subscribed !== false;
-        const isVip =
-          String(meta.client_grade ?? meta.grade ?? meta.tier ?? "").toUpperCase() === "VIP";
-        if (subscribed) {
-          const prevDbUnsub = dbUnsubscribedAt.get(key);
-          if (prevDbUnsub !== undefined && Number.isFinite(evTs) && evTs > prevDbUnsub) {
-            dbUnsubscribedAt.delete(key);
+      const key = normalizeSubKey(
+        meta.client_phone ?? meta.phone,
+        meta.client_email ?? meta.email,
+        meta.client_name ?? meta.name,
+        cId
+      );
+      if (!key) continue;
+
+      const isVip =
+        String(meta.client_grade ?? meta.grade ?? meta.tier ?? "").toUpperCase() === "VIP";
+      if (isVip) vipCandidateKeys.add(key);
+
+      const pKey = normalizePhoneKey(meta.client_phone ?? meta.phone);
+      const eKey = normalizeEmailKey(meta.client_email ?? meta.email);
+      const customTags = Array.isArray(meta.tags) ? meta.tags.map((t: unknown) => String(t)) : [];
+      const override = resolveLatestOverride(cId, rawCId, rawCId ? `custom_${rawCId}` : "", key, pKey, eKey);
+      const explicitOptIn =
+        meta.newsletter_subscribed === true ||
+        meta.newsletterSubscribed === true ||
+        hasExplicitNewsletterTag(customTags);
+      const explicitOptOut =
+        meta.newsletter_subscribed === false ||
+        meta.newsletterSubscribed === false ||
+        customTags.some((t) => /수신거부|해지|unsub/i.test(t));
+
+      const subscribed = override ? override.subscribed : explicitOptIn;
+      if (subscribed) {
+        const effTs = override?.ts || ts;
+        if (effTs > 0) {
+          for (const uk of [key, pKey, eKey].filter(Boolean)) {
+            const prevDbUnsub = dbUnsubscribedAt.get(uk);
+            if (prevDbUnsub !== undefined && effTs > prevDbUnsub) {
+              dbUnsubscribedAt.delete(uk);
+            }
           }
-          subscriberKeys.add(key);
-          buyerKeys.add(key);
-        } else {
-          eventUnsubscribedKeys.add(key);
-        }
-        if (isVip && subscribed) {
-          highInterestKeys.add(key);
-        }
-      } else if (ev?.event_type === "gate_request_approved") {
-        const key = normalizeSubKey(
-          meta.requester_phone,
-          meta.requester_email,
-          meta.requester_name,
-          meta.thread_id || meta.request_id || ev.id
-        );
-        if (!key || decidedEventKeys.has(key)) continue;
-        decidedEventKeys.add(key);
-        const prevDbUnsub = dbUnsubscribedAt.get(key);
-        if (prevDbUnsub !== undefined && Number.isFinite(evTs) && evTs > prevDbUnsub) {
-          dbUnsubscribedAt.delete(key);
         }
         subscriberKeys.add(key);
-        highInterestKeys.add(key);
         buyerKeys.add(key);
+      } else if ((override && !override.subscribed) || explicitOptOut) {
+        eventUnsubscribedKeys.add(key);
+      }
+    }
+
+    // 이벤트만으로 수신동의한 구독자(magazine_subscribed / magazine_subscribe / toggle ON with tel/email) 반영
+    for (const [ovKey, ovVal] of toggleOverrideMap.entries()) {
+      if (!ovKey.startsWith("tel:") && !ovKey.startsWith("email:")) continue;
+      const canonical =
+        (ovKey.startsWith("tel:") ? phoneToCanonical.get(ovKey) : emailToCanonical.get(ovKey)) || ovKey;
+      if (ovVal.subscribed) {
+        const prevDbUnsub = dbUnsubscribedAt.get(canonical) ?? dbUnsubscribedAt.get(ovKey);
+        if (prevDbUnsub !== undefined && ovVal.ts > 0 && ovVal.ts > prevDbUnsub) {
+          dbUnsubscribedAt.delete(canonical);
+          dbUnsubscribedAt.delete(ovKey);
+        }
+        subscriberKeys.add(canonical);
+        if (!sellerKeys.has(canonical)) buyerKeys.add(canonical);
+      } else {
+        eventUnsubscribedKeys.add(canonical);
       }
     }
 
@@ -296,46 +576,87 @@ export async function GET(request: NextRequest) {
       (c) => Boolean(c.ownerId) && c.ownerId === ctx.userId
     );
     for (const c of inboxCustomClients) {
+      const cId = String(c.id || "").trim();
+      const rawCId = cId.replace(/^(?:custom[-_]|cli-)/, "");
+      if (
+        (cId && (deletedClientIds.has(cId) || handledCustomIds.has(cId))) ||
+        (rawCId && (deletedClientIds.has(rawCId) || handledCustomIds.has(rawCId)))
+      ) {
+        continue;
+      }
       const key = normalizeSubKey(c.clientPhone, undefined, c.clientName, c.id);
-      if (!key || decidedEventKeys.has(key)) continue;
+      if (!key) continue;
+      if (c.clientGrade === "VIP") vipCandidateKeys.add(key);
+
+      const pKey = normalizePhoneKey(c.clientPhone);
+      const override = resolveLatestOverride(cId, rawCId, key, pKey);
+      const subscribed = override ? override.subscribed : c.newsletterSubscribed === true;
       const cTs = typeof c.createdAt === "string" ? Date.parse(c.createdAt) : Number.NaN;
-      if (c.newsletterSubscribed !== false) {
-        const prevDbUnsub = dbUnsubscribedAt.get(key);
-        if (prevDbUnsub !== undefined && Number.isFinite(cTs) && cTs > prevDbUnsub) {
-          dbUnsubscribedAt.delete(key);
+
+      if (subscribed) {
+        const effTs = override?.ts || (Number.isFinite(cTs) ? cTs : 0);
+        if (effTs > 0) {
+          for (const uk of [key, pKey].filter(Boolean)) {
+            const prevDbUnsub = dbUnsubscribedAt.get(uk);
+            if (prevDbUnsub !== undefined && effTs > prevDbUnsub) {
+              dbUnsubscribedAt.delete(uk);
+            }
+          }
         }
         subscriberKeys.add(key);
         buyerKeys.add(key);
-      } else {
+      } else if ((override && !override.subscribed) || c.newsletterSubscribed === false) {
         eventUnsubscribedKeys.add(key);
       }
-      if (c.clientGrade === "VIP" && c.newsletterSubscribed !== false) {
-        highInterestKeys.add(key);
+    }
+
+    for (const rawUk of [...dbUnsubscribedAt.keys(), ...eventUnsubscribedKeys]) {
+      const canonicalUk =
+        (rawUk.startsWith("tel:") ? phoneToCanonical.get(rawUk) : undefined) ||
+        (rawUk.startsWith("email:") ? emailToCanonical.get(rawUk) : undefined) ||
+        rawUk;
+      for (const uk of [rawUk, canonicalUk]) {
+        subscriberKeys.delete(uk);
+        buyerKeys.delete(uk);
+        sellerKeys.delete(uk);
       }
     }
 
-    for (const uk of [...dbUnsubscribedAt.keys(), ...eventUnsubscribedKeys]) {
-      subscriberKeys.delete(uk);
-      highInterestKeys.delete(uk);
-      buyerKeys.delete(uk);
-      sellerKeys.delete(uk);
+    const highInterestKeys = new Set<string>();
+    for (const vk of vipCandidateKeys) {
+      if (subscriberKeys.has(vk)) {
+        highInterestKeys.add(vk);
+      }
     }
 
-    const profileRow = (brokerProfileRes?.data ?? null) as {
-      office_name?: string | null;
-      phone?: string | null;
+    const prof = (profileRes?.data ?? null) as {
       display_name?: string | null;
+      company?: string | null;
+      phone?: string | null;
     } | null;
+
+    const brokerName =
+      ctx.displayName ||
+      brokerProfileRow?.name?.trim() ||
+      prof?.display_name?.trim() ||
+      brokerProfileRow?.display_name?.trim() ||
+      "";
+    const brokerOffice =
+      prof?.company?.trim() ||
+      brokerProfileRow?.office_name?.trim() ||
+      brokerProfileRow?.company_name?.trim() ||
+      "";
+    const brokerPhone = sanitizeBrokerPhone(prof?.phone || brokerProfileRow?.phone || "");
 
     return NextResponse.json({
       editions: data ?? [],
       total: count ?? 0,
       brokerId: ctx.userId,
-      brokerSlug: ctx.slug ?? "",
-      hasSlug: Boolean(ctx.slug),
-      brokerName: ctx.displayName || profileRow?.display_name?.trim() || "",
-      brokerOffice: profileRow?.office_name?.trim() ?? "",
-      brokerPhone: profileRow?.phone?.trim() ?? "",
+      brokerSlug,
+      hasSlug: Boolean(brokerSlug),
+      brokerName,
+      brokerOffice,
+      brokerPhone,
       subscriberCount: subscriberKeys.size,
       highInterestCount: highInterestKeys.size,
       segmentCounts: {
@@ -392,7 +713,16 @@ export async function GET(request: NextRequest) {
     return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
   }
 
-  return NextResponse.json({ editions: data ?? [], total: count ?? 0 });
+  const rawRows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+  const responseEditions = !owner
+    ? rawRows.map((row) =>
+        row && row.content && typeof row.content === "object" && !Array.isArray(row.content)
+          ? { ...row, content: maskPublicAddresses(row.content as Record<string, unknown>) }
+          : row
+      )
+    : rawRows;
+
+  return NextResponse.json({ editions: responseEditions, total: count ?? 0 });
 }
 
 // ---------------------------------------------------------------------------

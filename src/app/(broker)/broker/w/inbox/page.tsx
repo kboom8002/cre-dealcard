@@ -8,7 +8,7 @@ import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConf
 import { copyText } from "@/lib/ux/clipboard";
 import { shareKakaoFeed } from "@/lib/kakao/share";
 
-export type InboxFilterType = "todo" | "views" | "vip" | "all";
+export type InboxFilterType = "todo" | "views" | "vip" | "clients" | "all";
 export type InboxEditorTabType = "todo" | "message" | "history";
 
 export interface RecipientEvent {
@@ -68,6 +68,7 @@ const LEGACY_STORAGE_KEYS = [
 ];
 
 function formatPhoneKo(raw: string): string {
+  if (raw.includes("@")) return raw;
   const digits = raw.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("01")) {
     return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
@@ -157,6 +158,7 @@ function parseFilterParam(raw: string | null): InboxFilterType | null {
   if (normalized === "todo") return "todo";
   if (normalized === "viewing" || normalized === "views") return "views";
   if (normalized === "vip") return "vip";
+  if (normalized === "clients" || normalized === "subscribers") return "clients";
   if (normalized === "all") return "all";
   return null;
 }
@@ -173,6 +175,8 @@ function matchesInboxThreadFilter(
     const phoneDigits = thread.clientPhone.replace(/\D/g, "");
     const callNotesText = [
       thread.memo || "",
+      thread.cleanMessage || "",
+      thread.latestEvent || "",
       ...thread.events.map((ev) => ev.description || ""),
     ]
       .join(" ")
@@ -204,6 +208,13 @@ function matchesInboxThreadFilter(
   }
   if (filter === "vip") {
     return thread.clientGrade === "VIP";
+  }
+  if (filter === "clients") {
+    return (
+      thread.id.startsWith("custom_") ||
+      thread.id.startsWith("cli-") ||
+      thread.id.startsWith("sub_")
+    );
   }
   return true;
 }
@@ -1092,14 +1103,22 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     if (!apiRes.ok) return;
 
     setThreads((prev) => {
-      const next = prev.map((t) =>
-        t.id === targetThread.id
-          ? {
-              ...t,
-              newsletterSubscribed: nextSubscribed,
-            }
-          : t
-      );
+      const next = prev.map((t) => {
+        if (t.id !== targetThread.id) return t;
+        const replaceSubLabel = (txt?: string) =>
+          typeof txt === "string" && t.id.startsWith("sub_")
+            ? txt.replace(
+                /\((?:수신 동의 완료|수신 확인 대기|수신 거부|미구독)\)/g,
+                nextSubscribed ? "(수신 동의 완료)" : "(수신 거부)"
+              )
+            : txt;
+        return {
+          ...t,
+          newsletterSubscribed: nextSubscribed,
+          cleanMessage: replaceSubLabel(t.cleanMessage),
+          latestEvent: replaceSubLabel(t.latestEvent) || t.latestEvent,
+        };
+      });
       persistThreads(next);
       return next;
     });
@@ -1494,6 +1513,33 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     });
   };
 
+  // Archive / Dismiss non-custom-client thread (C-3)
+  const handleArchiveThread = async (targetThread: InboxThreadItem) => {
+    setStatusFeedback(null);
+    const apiRes = await postJsonHonest(
+      `archive:${targetThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "archive_thread",
+        threadId: targetThread.id,
+        buildingId: targetThread.buildingId,
+      },
+      "보관 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    const remaining = threads.filter((t) => t.id !== targetThread.id);
+    setThreads(remaining);
+    persistThreads(remaining);
+    const nextVisible = remaining.filter((t) =>
+      matchesInboxThreadFilter(t, activeFilter, searchQuery)
+    );
+    setSelectedId(nextVisible[0]?.id || remaining[0]?.id || "");
+    const msg = "소통 목록에서 보관(숨김) 처리했습니다.";
+    setStatusFeedback(msg);
+    showUndoToast(msg);
+  };
+
   /* ──────── Column 1: 할 일 요약 카드 + 3개 필터 칩 + 고객 목록 (Apple iOS Frosted Rail) ──────── */
   const listSlot = (
     <div
@@ -1591,7 +1637,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         ).map((flt) => {
           const isSelected =
             activeFilter === flt.key ||
-            (flt.key === "all" && activeFilter === "vip");
+            (flt.key === "all" && (activeFilter === "vip" || activeFilter === "clients"));
           return (
             <button
               key={flt.key}
@@ -1670,6 +1716,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         ) : (
           filteredThreads.map((item) => {
             const isSelected = activeThread?.id === item.id;
+            const isSubPendingConfirm =
+              item.id.startsWith("sub_") &&
+              !item.newsletterSubscribed &&
+              (item.cleanMessage || "").includes("수신 확인 대기");
             const statusBadge =
               item.status === "pending_gate"
                 ? {
@@ -1691,6 +1741,21 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     text: "관심 높음",
                     cls: "bg-blue-100 text-blue-900 border border-blue-200",
                   }
+                : item.id.startsWith("sub_")
+                ? isSubPendingConfirm
+                  ? {
+                      text: "수신 확인 대기",
+                      cls: "bg-amber-100 text-amber-900 border border-amber-300",
+                    }
+                  : item.newsletterSubscribed
+                  ? {
+                      text: "수신 동의 완료",
+                      cls: "bg-emerald-100 text-emerald-900 border border-emerald-200",
+                    }
+                  : {
+                      text: "수신 거부",
+                      cls: "bg-slate-100 text-slate-700 border border-slate-200",
+                    }
                 : {
                     text: item.openCount > 0 ? `${item.openCount}회 열람` : "등록 고객",
                     cls: "bg-slate-100 text-slate-700 border border-slate-200",
@@ -1731,7 +1796,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                       </span>
                     </div>
                     <p className="mt-1 truncate text-sm font-semibold text-slate-700">
-                      {item.buildingTitle}
+                      {item.id.startsWith("sub_") && item.clientPhone
+                        ? `${formatPhoneKo(item.clientPhone)} · ${item.buildingTitle}`
+                        : item.buildingTitle}
                     </p>
                     <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
                       {item.latestEvent}
@@ -1821,31 +1888,45 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   관심 매물: {activeThread.buildingTitle}
                 </p>
 
-                {activeThread.buildingId.trim().length > 0 && (
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/broker/w/dealcards?buildingId=${encodeURIComponent(
-                        activeThread.buildingId.trim()
-                      )}`}
-                      data-testid="inbox-open-dealcard-link"
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
-                    >
-                      📄 딜카드 편집 →
-                    </Link>
-                    <Link
-                      href={`/broker/w/im?buildingId=${encodeURIComponent(
-                        activeThread.buildingId.trim()
-                      )}`}
-                      data-testid="inbox-open-im-link"
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
-                    >
-                      📊 IM 편집 →
-                    </Link>
-                  </div>
-                )}
+                {activeThread.buildingId.trim().length > 0 &&
+                  !activeThread.buildingTitle.includes("삭제된 매물") && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/broker/w/dealcards?buildingId=${encodeURIComponent(
+                          activeThread.buildingId.trim()
+                        )}`}
+                        data-testid="inbox-open-dealcard-link"
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                      >
+                        📄 딜카드 편집 →
+                      </Link>
+                      <Link
+                        href={`/broker/w/im?buildingId=${encodeURIComponent(
+                          activeThread.buildingId.trim()
+                        )}`}
+                        data-testid="inbox-open-im-link"
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                      >
+                        📊 IM 편집 →
+                      </Link>
+                    </div>
+                  )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {!activeThread.id.startsWith("custom_") &&
+                  !activeThread.id.startsWith("cli-") &&
+                  !activeThread.id.startsWith("sub_") && (
+                    <button
+                      type="button"
+                      data-testid="inbox-archive-thread-btn"
+                      disabled={Boolean(busyAction)}
+                      onClick={() => handleArchiveThread(activeThread)}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+                    >
+                      보관(숨김)
+                    </button>
+                  )}
                 {activeThread.clientPhone ? (
                   <a
                     href={`tel:${activeThread.clientPhone}`}
@@ -2311,10 +2392,18 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-bold transition disabled:opacity-50 cursor-pointer ${
                       activeThread.newsletterSubscribed
                         ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                        : activeThread.id.startsWith("sub_") &&
+                          (activeThread.cleanMessage || "").includes("수신 확인 대기")
+                        ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
                         : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    {activeThread.newsletterSubscribed ? "수신 동의" : "미구독"}
+                    {activeThread.newsletterSubscribed
+                      ? "수신 동의"
+                      : activeThread.id.startsWith("sub_") &&
+                        (activeThread.cleanMessage || "").includes("수신 확인 대기")
+                      ? "수신 확인 대기"
+                      : "미구독"}
                   </button>
                 </dd>
               </div>
