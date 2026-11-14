@@ -3,6 +3,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
+import {
+  useEditorPreviewSync,
+  type EditorUnitTarget,
+  type PreviewLifecycleState,
+} from "@/components/workspace/preview-sync/useEditorPreviewSync";
+import { PreviewCausalityBar } from "@/components/workspace/preview-sync/PreviewCausalityBar";
+import { PreviewPregenerationCard } from "@/components/workspace/preview-sync/PreviewPregenerationCard";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
 import { PairedMemoTopCard } from "@/components/broker/deal-card/PairedMemoTopCard";
 import { KakaoBubblePreview } from "@/components/broker/deal-card/KakaoBubblePreview";
@@ -223,6 +230,7 @@ function DealCardsWorkspaceInner() {
   const [memoSaveStatus, setMemoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
+  const [dirtySentIds, setDirtySentIds] = useState<Set<string>>(() => new Set());
   const [pendingDeleteModal, setPendingDeleteModal] = useState<
     | { kind: "dealcard"; target: BuildingListItem }
     | { kind: "memo"; target: UnconvertedMemoItem }
@@ -633,6 +641,14 @@ function DealCardsWorkspaceInner() {
       if (!targetId) return;
       userEditedIdsRef.current.add(targetId);
       const existingItem = itemsRef.current.find((it) => it.id === targetId);
+      if (existingItem?.status === "sent") {
+        setDirtySentIds((prev) => {
+          if (prev.has(targetId)) return prev;
+          const next = new Set(prev);
+          next.add(targetId);
+          return next;
+        });
+      }
       const effectiveGenSource =
         pairingOverride?.generationSource !== undefined
           ? pairingOverride.generationSource
@@ -1194,6 +1210,12 @@ function DealCardsWorkspaceInner() {
   const handleMarkSent = useCallback(() => {
     const activeId = resolvedActiveIdRef.current;
     if (!activeId) return;
+    setDirtySentIds((prev) => {
+      if (!prev.has(activeId)) return prev;
+      const next = new Set(prev);
+      next.delete(activeId);
+      return next;
+    });
     setItems((prev) => {
       const next = prev.map((it) =>
         it.id === activeId
@@ -1217,6 +1239,126 @@ function DealCardsWorkspaceInner() {
       })
       .catch(() => {});
   }, [markServerSynced, persistItems]);
+
+  const dealcardPreviewUnits = useMemo<Record<string, EditorUnitTarget>>(
+    () => ({
+      "dc-unit-memo": {
+        unitId: "dc-unit-memo",
+        label: "원본 매물 메모",
+        editorSelector: '[data-testid="paired-memo-top-card"]',
+        focusSelector: '[data-testid="dealcard-top-memo-textarea"]',
+      },
+      "dc-unit-posture": {
+        unitId: "dc-unit-posture",
+        label: "매물 유형",
+        editorSelector: '[data-testid="card4-section-posture"]',
+        focusSelector: '[data-testid="card4-posture-chip-income"]',
+      },
+      "dc-unit-region": {
+        unitId: "dc-unit-region",
+        label: "권역·동명",
+        editorSelector: "#card4-region-input",
+        focusSelector: "#card4-region-input",
+      },
+      "dc-unit-use": {
+        unitId: "dc-unit-use",
+        label: "건물 용도",
+        editorSelector: "#card4-use-input",
+        focusSelector: "#card4-use-input",
+      },
+      "dc-unit-area": {
+        unitId: "dc-unit-area",
+        label: "핵심 면적",
+        editorSelector: "#card4-area-input",
+        focusSelector: "#card4-area-input",
+      },
+      "dc-unit-price": {
+        unitId: "dc-unit-price",
+        label: "매각 가격대",
+        editorSelector: "#card4-priceband-input",
+        focusSelector: "#card4-priceband-input",
+      },
+      "dc-unit-headline": {
+        unitId: "dc-unit-headline",
+        label: "한 줄 제목",
+        editorSelector: "#card4-headline-input",
+        focusSelector: "#card4-headline-input",
+      },
+      "dc-unit-point-0": {
+        unitId: "dc-unit-point-0",
+        label: "핵심 장점 1",
+        editorSelector: "#card4-point-input-0",
+        focusSelector: "#card4-point-input-0",
+      },
+      "dc-unit-point-1": {
+        unitId: "dc-unit-point-1",
+        label: "핵심 장점 2",
+        editorSelector: "#card4-point-input-1",
+        focusSelector: "#card4-point-input-1",
+      },
+      "dc-unit-point-2": {
+        unitId: "dc-unit-point-2",
+        label: "핵심 장점 3",
+        editorSelector: "#card4-point-input-2",
+        focusSelector: "#card4-point-input-2",
+      },
+    }),
+    []
+  );
+
+  const {
+    activeUnitId: activeDealCardUnitId,
+    focusEditorUnit: focusDealCardEditorUnit,
+    notifyEditorFocus: notifyDealCardEditorFocus,
+  } = useEditorPreviewSync({
+    units: dealcardPreviewUnits,
+    onSelectTab: () => {
+      if (typeof window !== "undefined" && window.innerWidth < 1280 && resolvedActiveIdRef.current) {
+        router.replace(
+          `/broker/w/dealcards?buildingId=${encodeURIComponent(resolvedActiveIdRef.current)}&tab=editor`
+        );
+      }
+    },
+  });
+
+  const handleActivatePreviewUnit = useCallback(
+    (unitId: string) => {
+      if (unitId === "dc-unit-broker") {
+        void handleFlushSave().then(() => {
+          router.push("/broker/settings");
+        });
+        return;
+      }
+      const awaiting = Boolean(selectedMemoOnly || activeItem?.awaitingMemoGeneration);
+      if (awaiting) {
+        handleSkipMemoManual();
+        setTimeout(() => {
+          focusDealCardEditorUnit(unitId);
+        }, 40);
+        return;
+      }
+      focusDealCardEditorUnit(unitId);
+    },
+    [
+      activeItem?.awaitingMemoGeneration,
+      focusDealCardEditorUnit,
+      handleFlushSave,
+      handleSkipMemoManual,
+      router,
+      selectedMemoOnly,
+    ]
+  );
+
+  const handleResyncSentDealCard = useCallback(async () => {
+    const ok = await handleFlushSave();
+    handleMarkSent();
+    showUndoToast({
+      message: ok
+        ? "수정한 내용을 고객 링크 화면에도 바로 반영했어요"
+        : "저장 후 반영할 내용을 정리했어요",
+      variant: "success",
+    });
+  }, [handleFlushSave, handleMarkSent, showUndoToast]);
 
   const handleCreateNew = useCallback(() => {
     const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -1826,7 +1968,7 @@ function DealCardsWorkspaceInner() {
               type="button"
               data-testid={`dealcard-duplicate-${item.id}`}
               onClick={(e) => handleDuplicateItem(item, e)}
-              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
+              className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
             >
               복제
             </button>
@@ -1834,7 +1976,7 @@ function DealCardsWorkspaceInner() {
               type="button"
               data-testid={`dealcard-delete-${item.id}`}
               onClick={(e) => handleDeleteItem(item, e)}
-              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
+              className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
             >
               삭제
             </button>
@@ -1897,7 +2039,7 @@ function DealCardsWorkspaceInner() {
                 e.stopPropagation();
                 void handleGenerateFromMemo(memo);
               }}
-              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-[#007AFF] hover:bg-[#0062CC] text-white cursor-pointer"
+              className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-[#007AFF] hover:bg-[#0062CC] text-white cursor-pointer"
             >
               ✨ 딜카드 생성
             </button>
@@ -1905,7 +2047,7 @@ function DealCardsWorkspaceInner() {
               type="button"
               data-testid={`unconverted-memo-delete-${memo.id}`}
               onClick={(e) => handleDeleteUnconvertedMemo(memo, e)}
-              className="min-h-[36px] text-sm font-bold px-2.5 py-1 rounded-lg bg-white hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
+              className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-white hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
             >
               삭제
             </button>
@@ -2032,7 +2174,7 @@ function DealCardsWorkspaceInner() {
         role="tablist"
         aria-label="생성 방식 및 메모 그룹별 보기"
         data-testid="dealcard-group-switcher"
-        className="grid grid-cols-4 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
+        className="flex flex-wrap gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
       >
         {ORIGIN_GROUP_TABS.map((tab) => {
           const active = originGroupFilter === tab.id;
@@ -2044,7 +2186,7 @@ function DealCardsWorkspaceInner() {
               aria-selected={active}
               data-testid={`dealcard-group-tab-${tab.id}`}
               onClick={() => setOriginGroupFilter(tab.id)}
-              className={`min-h-[42px] px-1.5 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
+              className={`min-h-[44px] flex-1 min-w-[68px] px-2 py-1 rounded-xl text-sm font-semibold leading-snug break-keep text-center flex items-center justify-center transition-all cursor-pointer ${
                 active
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
                   : "text-[#3A3A3C] hover:text-[#1D1D1F]"
@@ -2074,7 +2216,7 @@ function DealCardsWorkspaceInner() {
               aria-selected={active}
               data-testid={`dealcard-posture-tab-${tab.id}`}
               onClick={() => handleDealCardPostureFilterChange(tab.id)}
-              className={`min-h-[42px] px-2 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
+              className={`min-h-[44px] px-2 py-1 rounded-xl text-sm font-semibold leading-snug break-keep text-center flex items-center justify-center transition-all cursor-pointer ${
                 active
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
                   : "text-[#3A3A3C] hover:text-[#1D1D1F]"
@@ -2223,7 +2365,7 @@ function DealCardsWorkspaceInner() {
                         type="button"
                         data-testid="toggle-other-memos-btn"
                         onClick={() => setShowOtherMemos((prev) => !prev)}
-                        className="w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition cursor-pointer"
+                        className="w-full min-h-[44px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition cursor-pointer"
                       >
                         {showOtherMemos
                           ? "매수 조건·일정 메모 숨기기"
@@ -2311,7 +2453,7 @@ function DealCardsWorkspaceInner() {
             data-testid="dealcard-sample-reset-btn"
             data-theme-lock="dark"
             onClick={handleCreateNew}
-            className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
+            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
           >
             새 빈 딜카드
           </button>
@@ -2351,7 +2493,7 @@ function DealCardsWorkspaceInner() {
               type="button"
               data-testid="dealcard-fill-sample-btn"
               onClick={handleFillSample}
-              className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
+              className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
             >
               예시 채우기
             </button>
@@ -2373,7 +2515,7 @@ function DealCardsWorkspaceInner() {
                 type="button"
                 data-testid="dealcard-fill-sample-btn"
                 onClick={handleFillSample}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold transition cursor-pointer"
+                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold transition cursor-pointer"
               >
                 예시 채우기
               </button>
@@ -2392,7 +2534,7 @@ function DealCardsWorkspaceInner() {
                   void handleFlushSave();
                   router.push(`/broker/w/im?buildingId=${encodeURIComponent(activeItem.id)}`);
                 }}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-sm font-extrabold transition cursor-pointer inline-flex items-center gap-1.5"
+                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-sm font-extrabold transition cursor-pointer inline-flex items-center gap-1.5"
               >
                 <span>📊 이 매물로 IM 편집 →</span>
               </a>
@@ -2412,21 +2554,98 @@ function DealCardsWorkspaceInner() {
           key={editorTargetId || "memo-only"}
           card4={effectiveCard4}
           onChange={(next) => handleCardChangeFor(editorTargetId, next)}
+          onFocusUnit={notifyDealCardEditorFocus}
         />
       </div>
     </div>
   );
 
+  const hasAnyPreviewContent = Boolean(
+    effectiveCard4.region?.trim() ||
+      effectiveCard4.use?.trim() ||
+      effectiveCard4.area?.trim() ||
+      effectiveCard4.priceBand?.trim() ||
+      effectiveCard4.headline?.trim() ||
+      effectiveCard4.points.some((p) => Boolean(p?.trim()))
+  );
+
+  const isDealCardPreGeneration = Boolean(
+    isAwaitingMemoGeneration && !hasAnyPreviewContent
+  );
+
+  const isSentDirty = Boolean(
+    resolvedActiveId &&
+      activeItem?.status === "sent" &&
+      dirtySentIds.has(resolvedActiveId)
+  );
+
+  const dealCardPreviewLifecycle: PreviewLifecycleState = isDealCardPreGeneration
+    ? "pre_generation"
+    : activeItem?.status === "sent"
+    ? isSentDirty
+      ? "published_dirty"
+      : "published_clean"
+    : "live_draft";
+
+  const dealCardLiveUrl =
+    resolvedActiveId && activeItem?.status === "sent"
+      ? `/dc/${encodeURIComponent(resolvedActiveId)}`
+      : null;
+
   /* ── Column 3: ③ 확인하고 보내기 (원본 메모는 절대 노출되지 않는 고객 화면 미리보기) ── */
   const previewSlot = (
-    <div className="space-y-4">
-      <KakaoBubblePreview
-        card4={effectiveCard4}
-        dealId={resolvedActiveId || ""}
-        brokerName={brokerProfile?.displayName}
-        brokerSpecialty={brokerProfile?.company}
-        brokerPhone={sanitizeBrokerPhone(brokerProfile?.phone)}
-      />
+    <div className="space-y-4" data-testid="dealcard-preview-slot">
+      <div className="sticky top-0 z-10">
+        <PreviewCausalityBar
+          lifecycle={dealCardPreviewLifecycle}
+          onStartInput={() => memoTextareaRef.current?.focus()}
+          startButtonLabel="왼쪽 메모칸 입력하기"
+          onResyncPublished={() => {
+            void handleResyncSentDealCard();
+          }}
+          resyncButtonLabel="수정한 내용 고객 화면에 반영하기"
+          liveUrl={dealCardLiveUrl}
+          liveUrlLabel="고객 화면 열기 ↗"
+          liveLinkTestId="dealcard-live-link"
+        />
+      </div>
+
+      {isDealCardPreGeneration ? (
+        <PreviewPregenerationCard
+          testId="dealcard-pregeneration-card"
+          title="메모나 매물 정보를 입력하면 미리보기가 만들어집니다"
+          description="왼쪽 메모창에 매물을 붙여넣고 생성하거나 직접 항목을 입력하면 고객에게 보일 카톡 말풍선과 받는 화면이 즉시 만들어집니다."
+          checklist={[
+            {
+              label: "1. 권역·동명 및 매물 용도",
+              done: Boolean(effectiveCard4.region?.trim() && effectiveCard4.use?.trim()),
+              onClick: handleSkipMemoManual,
+            },
+            {
+              label: "2. 희망 가격대 및 핵심 장점",
+              done: Boolean(
+                effectiveCard4.priceBand?.trim() &&
+                  effectiveCard4.points.some((p) => Boolean(p?.trim()))
+              ),
+              onClick: handleSkipMemoManual,
+            },
+          ]}
+          primaryActionLabel="✍️ 메모 없이 직접 입력하기"
+          onPrimaryAction={handleSkipMemoManual}
+          secondaryActionLabel={!selectedMemoOnly ? "💡 예시로 채워보기" : undefined}
+          onSecondaryAction={!selectedMemoOnly ? handleFillSample : undefined}
+        />
+      ) : (
+        <KakaoBubblePreview
+          card4={effectiveCard4}
+          dealId={resolvedActiveId || ""}
+          brokerName={brokerProfile?.displayName}
+          brokerSpecialty={brokerProfile?.company}
+          brokerPhone={sanitizeBrokerPhone(brokerProfile?.phone)}
+          activeUnitId={activeDealCardUnitId}
+          onActivateUnit={handleActivatePreviewUnit}
+        />
+      )}
     </div>
   );
 

@@ -112,21 +112,21 @@ Your goal is to write the Investment Thesis section for a Mobile Information Mem
     this.register("magazine_draft_tf8", {
       id: "magazine_draft_tf8_v3",
       version: "3.0",
-      description: "TaskFlow TF8 cadence-aware (daily/weekly/monthly) newsletter cover & briefing draft prompt with [E] few-shot, [V] self-check and M11 no-slice repair",
+      description: "TaskFlow TF8 cadence-aware (daily/weekly/monthly) 70s-buyer newsletter title (<=45 chars) & 5-line plain briefing (<=500 chars) draft prompt",
       isActive: true,
       isABTesting: false,
       systemPrompt:
-        "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v3.0)\n[T] Task: 일간·주간·월간 주기별 공인중개사 권역·관심 분야 맞춤형 뉴스레터 표지(36자) 및 시장 브리핑 JSON 작성\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation] [No-Internal-Labels] [No-Gossip] [No-Truncation] [Char-Budget] [Cadence-Consistency]\n[V] Self-check: 글자 수·완결 종결어미·미출처 숫자 0건",
+        "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v3.0)\n[T] Task: 70대 매수자 눈높이의 일간·주간·월간 뉴스레터 제목(<=45자) 및 5줄 이내 순수 텍스트 시장 브리핑(<=500자) JSON 작성\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation] [No-Internal-Labels] [No-Gossip] [No-Truncation] [70s-Buyer-Plain-Korean] [Char-Budget] [Cadence-Consistency]\n[V] Self-check: 글자 수·5줄 이내·완결 종결어미·미출처 숫자 0건",
     });
 
     this.register("magazine_axios_cluster_tf8", {
       id: "magazine_axios_cluster_tf8_v3",
       version: "3.0",
-      description: "TaskFlow TF8 AXIOS 5-issue glass card-news clustering prompt (title <=36 chars + brief <=48 chars, no truncation)",
+      description: "TaskFlow TF8 70s-buyer AXIOS 5-issue glass card prompt (2-line title <=44 chars + 3-line detailed brief <=74 chars, plain Korean, no truncation)",
       isActive: true,
       isABTesting: false,
       systemPrompt:
-        "# TaskFlow TF8 Prompt Contract (magazine_axios_cluster_tf8 v3.0)\n[T] Task: 5대 핵심 이슈를 카드뉴스형 제목(<=36자) + AXIOS 부제형 해설(<=48자, 완결 1문장)로 클러스터링 재작성\n[W] Warnings: [No-LLM-Numbers] [No-Internal-Labels] [No-Gossip] [No-Truncation] [Grounding]\n[V] Self-check: 5개 카드 글자 수·종결어미·id 보존",
+        "# TaskFlow TF8 Prompt Contract (magazine_axios_cluster_tf8 v3.0)\n[T] Task: 5대 핵심 이슈를 70대 매수자가 바로 이해하는 2줄 제목(<=44자) + 3줄 상세 해설(<=74자)로 클러스터링 재작성\n[W] Warnings: [No-LLM-Numbers] [No-Internal-Labels] [No-Gossip] [No-Truncation] [70s-Buyer-Plain-Korean] [No-Broker-Coaching] [Grounding]\n[V] Self-check: 5개 카드 글자 수·쉬운 한국어·종결어미·id 보존",
     });
 
     this.register("magazine_comment_tf8", {
@@ -137,6 +137,16 @@ Your goal is to write the Investment Thesis section for a Mobile Information Mem
       isABTesting: false,
       systemPrompt:
         "# TaskFlow TF8 Prompt Contract (magazine_comment_tf8 v2.0)\n[T] Task: 중개사 매물 추천 코멘트 1~2문장 정제\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation]",
+    });
+
+    this.register("magazine_briefing_polish_tf8", {
+      id: "magazine_briefing_polish_tf8_v1",
+      version: "1.0",
+      description: "TaskFlow TF8 70s-buyer market briefing polisher (1~3 lines draft -> 3~5 lines <=500 chars plain text)",
+      isActive: true,
+      isABTesting: false,
+      systemPrompt:
+        "# TaskFlow TF8 Prompt Contract (magazine_briefing_polish_tf8 v1.0)\n[T] Task: 1~3줄 중개사 시장 메모를 70대 매수자 눈높이의 3~5줄·500자 이내 순수 텍스트 시장 브리핑으로 윤문\n[W] Warnings: [No-LLM-Numbers] [No-Solicitation] [70s-Buyer-Plain-Korean] [Strict-5-Line-500-Char]",
     });
   }
 

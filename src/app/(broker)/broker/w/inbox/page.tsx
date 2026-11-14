@@ -5,6 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
+  useEditorPreviewSync,
+  type EditorUnitTarget,
+} from "@/components/workspace/preview-sync/useEditorPreviewSync";
+import { PreviewEditableUnit } from "@/components/workspace/preview-sync/PreviewEditableUnit";
+import {
   WorkspaceListPanel,
   ListToolbar,
   SimpleListRow,
@@ -715,6 +720,52 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
     return filteredThreads[0] || null;
   }, [threads, filteredThreads, selectedId]);
+
+  const inboxPreviewUnits = useMemo<Record<string, EditorUnitTarget<InboxEditorTabType>>>(
+    () => ({
+      "ib-unit-todo": {
+        unitId: "ib-unit-todo",
+        label: "할 일",
+        tab: "todo",
+        editorSelector: '[data-testid="inbox-tab-panel-todo"]',
+        focusSelector: '[data-testid="inbox-tab-panel-todo"]',
+      },
+      "ib-unit-message": {
+        unitId: "ib-unit-message",
+        label: "안내 메시지",
+        tab: "message",
+        editorSelector: '[data-testid="inbox-tab-panel-message"]',
+        focusSelector: "#inbox-kakao-headline-input",
+      },
+      "ib-unit-history": {
+        unitId: "ib-unit-history",
+        label: "열람 및 상담 기록",
+        tab: "history",
+        editorSelector: '[data-testid="inbox-tab-panel-history"]',
+        focusSelector: "#inbox-call-note-input",
+      },
+    }),
+    []
+  );
+
+  const {
+    activeUnitId: activeInboxUnitId,
+    focusEditorUnit: focusInboxEditorUnit,
+    notifyEditorFocus: notifyInboxEditorFocus,
+  } = useEditorPreviewSync<InboxEditorTabType>({
+    units: inboxPreviewUnits,
+    onSelectTab: (tab) => {
+      setMobileStayOnList(false);
+      setActiveEditorTab(tab);
+    },
+  });
+
+  const handleSelectInboxEditorTab = (tab: InboxEditorTabType) => {
+    setActiveEditorTab(tab);
+    if (tab === "todo") notifyInboxEditorFocus("ib-unit-todo");
+    else if (tab === "message") notifyInboxEditorFocus("ib-unit-message");
+    else notifyInboxEditorFocus("ib-unit-history");
+  };
 
   // Reset transient drafts, inline confirmations & error banners when switching threads (INBOX-02 & A-S1-02)
   useEffect(() => {
@@ -1651,7 +1702,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         role="tablist"
         aria-label="고객 소통함 필터"
         data-testid="inbox-filter-tabs"
-        className="grid grid-cols-3 gap-1 rounded-2xl border border-white/60 ios-segmented-track bg-[#767680]/[0.11] p-1"
+        className="flex flex-wrap gap-1 rounded-2xl border border-white/60 ios-segmented-track bg-[#767680]/[0.11] p-1"
       >
         {(
           [
@@ -1671,7 +1722,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               aria-selected={isSelected}
               data-testid={`inbox-filter-chip-${flt.key}`}
               onClick={() => handleFilterChange(flt.key)}
-              className={`min-h-[44px] rounded-xl px-2.5 py-2 text-sm font-semibold transition-all cursor-pointer ${
+              className={`min-h-[44px] flex-1 min-w-[78px] rounded-xl px-2 py-2 text-sm font-semibold leading-snug break-keep text-center transition-all cursor-pointer ${
                 isSelected
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
                   : "bg-transparent text-[#3A3A3C] hover:text-[#1D1D1F]"
@@ -2002,8 +2053,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   role="tab"
                   aria-selected={isSelected}
                   data-testid={`inbox-editor-tab-${tab.id}`}
-                  onClick={() => setActiveEditorTab(tab.id)}
-                  className={`min-h-[48px] rounded-lg px-3 py-2.5 text-base font-bold transition cursor-pointer ${
+                  onClick={() => handleSelectInboxEditorTab(tab.id)}
+                  className={`min-h-[48px] rounded-lg px-2 py-2.5 text-base font-bold leading-snug break-keep transition cursor-pointer ${
                     isSelected
                       ? "bg-white text-slate-900 shadow-xs"
                       : "text-slate-700 hover:bg-white/60 hover:text-slate-900"
@@ -2300,6 +2351,61 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         </div>
       ) : (
         <>
+          {/* Column 3 최상단 연동 요약 바 */}
+          <div
+            data-testid="inbox-causality-bar"
+            className={`sticky top-0 z-10 rounded-xl border px-3.5 py-2.5 shadow-2xs backdrop-blur-md flex flex-col gap-2 ${
+              activeThread.status === "pending_gate"
+                ? "border-amber-400 bg-amber-50/95"
+                : activeThread.status === "revoked"
+                ? "border-rose-300 bg-rose-50/95"
+                : "border-blue-200 bg-blue-50/95"
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-extrabold text-slate-900 break-keep">
+                {activeThread.status === "pending_gate"
+                  ? "⏳ 열람 요청 대기 중"
+                  : activeThread.status === "revoked"
+                  ? "🔒 보낸 링크 잠김"
+                  : activeThread.openCount >= 3 || activeThread.status === "high_interest"
+                  ? `● 관심 고객 · 열람 ${activeThread.openCount}회`
+                  : "● 실시간 고객 정보·링크 관리"}
+              </span>
+              <span className="text-sm font-semibold text-slate-600 shrink-0">
+                눌러서 편집 이동
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeThread.status === "pending_gate" && (
+                <button
+                  type="button"
+                  data-testid="inbox-causality-jump-todo"
+                  onClick={() => focusInboxEditorUnit("ib-unit-todo")}
+                  className="min-h-[44px] flex-1 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 text-sm font-bold text-white cursor-pointer"
+                >
+                  할 일에서 승인/거절 ›
+                </button>
+              )}
+              <button
+                type="button"
+                data-testid="inbox-causality-jump-history"
+                onClick={() => focusInboxEditorUnit("ib-unit-history")}
+                className="min-h-[44px] flex-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 px-3 text-sm font-bold text-slate-800 cursor-pointer"
+              >
+                상담 기록 적기 ›
+              </button>
+              <button
+                type="button"
+                data-testid="inbox-causality-jump-message"
+                onClick={() => focusInboxEditorUnit("ib-unit-message")}
+                className="min-h-[44px] flex-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 px-3 text-sm font-bold text-slate-800 cursor-pointer"
+              >
+                안내 메시지 ›
+              </button>
+            </div>
+          </div>
+
           {/* 전용 링크 즉시 복사 버튼 — 카톡 공유 옆 상시 노출 (INBOX-04) */}
           {Boolean(activeThread.shareUrl) && activeThread.status !== "revoked" && (
             <button
@@ -2408,12 +2514,24 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   </dd>
                 </div>
               )}
-              <div className="flex items-center justify-between gap-2">
-                <dt className="font-semibold text-slate-500">열람 횟수</dt>
-                <dd className="font-bold text-slate-900">
-                  {activeThread.openCount}회
-                </dd>
-              </div>
+              <PreviewEditableUnit
+                unitId="ib-unit-history"
+                label="열람 횟수 및 상담 기록"
+                testId="preview-unit-inbox-history"
+                badgePosition="inside"
+                badgeText="기록 적기 ›"
+                activeBadgeText="기록 탭"
+                isActive={activeInboxUnitId === "ib-unit-history"}
+                onActivate={focusInboxEditorUnit}
+                className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="font-semibold text-slate-600">열람 횟수</dt>
+                  <dd className="font-bold text-slate-900">
+                    {activeThread.openCount}회
+                  </dd>
+                </div>
+              </PreviewEditableUnit>
               <div className="flex items-center justify-between gap-2 pt-1">
                 <dt className="font-semibold text-slate-500">뉴스레터</dt>
                 <dd>

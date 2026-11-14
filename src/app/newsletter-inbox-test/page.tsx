@@ -1209,6 +1209,13 @@ export default function NewsletterInboxTestPage() {
               >
                 <span>📊 IM 스튜디오 ↗</span>
               </a>
+              <a
+                href="/qa-signoff"
+                data-testid="open-qa-signoff-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold shadow-xs transition inline-flex items-center whitespace-nowrap"
+              >
+                <span>⚡ 20분 고속 검수 허브 ↗</span>
+              </a>
             </div>
           </div>
 

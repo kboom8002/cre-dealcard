@@ -86,7 +86,7 @@ function LineRepairHint({
           data-testid={`${testId}-apply`}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onApply(a.repaired)}
-          className="min-h-[36px] px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-900 border border-red-300 text-sm font-extrabold transition cursor-pointer shrink-0"
+          className="min-h-[44px] px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-900 border border-red-300 text-sm font-extrabold transition cursor-pointer shrink-0"
         >
           적용
         </button>
@@ -100,6 +100,7 @@ export interface Card4ConfirmCardProps {
   onChange: (updated: Card4Data) => void;
   onSave?: () => void;
   onOpenPreSend?: () => void;
+  onFocusUnit?: (unitId: string) => void;
   isSaving?: boolean;
   isDirty?: boolean;
   className?: string;
@@ -170,6 +171,7 @@ export function Card4ConfirmCard({
   card4,
   onChange,
   onOpenPreSend,
+  onFocusUnit,
   className = '',
 }: Card4ConfirmCardProps) {
   const [aiHeadlineBusy, setAiHeadlineBusy] = useState(false);
@@ -479,11 +481,38 @@ export function Card4ConfirmCard({
 
   const postureInfo = POSTURE_LABELS[currentPosture];
 
+  const handleFocusCapture = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (!onFocusUnit) return;
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    if (target.id === 'card4-region-input') return onFocusUnit('dc-unit-region');
+    if (target.id === 'card4-use-input') return onFocusUnit('dc-unit-use');
+    if (target.id === 'card4-area-input') return onFocusUnit('dc-unit-area');
+    if (target.id === 'card4-priceband-input') return onFocusUnit('dc-unit-price');
+    if (target.id === 'card4-headline-input') return onFocusUnit('dc-unit-headline');
+    if (target.id === 'card4-point-input-0') return onFocusUnit('dc-unit-point-0');
+    if (target.id === 'card4-point-input-1') return onFocusUnit('dc-unit-point-1');
+    if (target.id === 'card4-point-input-2') return onFocusUnit('dc-unit-point-2');
+    if (target.closest('[data-testid="card4-section-posture"]')) {
+      onFocusUnit('dc-unit-posture');
+    }
+  };
+
+  const handleClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onFocusUnit) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('[data-testid^="card4-posture-chip-"]')) {
+      onFocusUnit('dc-unit-posture');
+    }
+  };
+
   return (
     <div
       className={`space-y-6 ${className}`}
       data-testid="card4-confirm-card"
       data-canvas-mode="zero-tab-single"
+      onFocusCapture={handleFocusCapture}
+      onClickCapture={handleClickCapture}
     >
       {/* ══════════════════════════════════════════════════════════════════
        * SECTION 1: 어떤 매물인가요?

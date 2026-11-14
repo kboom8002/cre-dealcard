@@ -562,6 +562,13 @@ export default function TestGuidePage() {
               >
                 💬 ④ 소통 관리함
               </a>
+              <a
+                href="/qa-signoff"
+                data-testid="open-qa-signoff-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition inline-flex items-center"
+              >
+                ⚡ 20분 고속 검수 허브 ↗
+              </a>
             </div>
           </div>
 

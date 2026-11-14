@@ -165,7 +165,7 @@ export function ListToolbar({
             >
               <span>{filterLabel}</span>
               {activeCount > 0 ? (
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#007AFF] px-1 text-xs font-bold text-white">
+                <span className="inline-flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#007AFF] px-1.5 text-sm font-bold text-white">
                   {activeCount}
                 </span>
               ) : null}
@@ -184,7 +184,7 @@ export function ListToolbar({
               data-testid={`ws-list-active-filter-${f.key}`}
               onClick={f.onClear}
               aria-label={`${f.label} 필터 해제`}
-              className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-[#007AFF]/30 bg-[#EAF3FF] px-3 text-sm font-semibold text-[#0040DD] cursor-pointer hover:bg-[#DCEBFF]"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-[#007AFF]/30 bg-[#EAF3FF] px-3 text-sm font-semibold text-[#0040DD] cursor-pointer hover:bg-[#DCEBFF]"
             >
               <span>{f.label}</span>
               <span aria-hidden="true">✕</span>

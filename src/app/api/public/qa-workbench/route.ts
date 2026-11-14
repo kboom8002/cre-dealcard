@@ -31,7 +31,13 @@ import {
   type MeceSeverity,
 } from "@/lib/testguide/newsletter-inbox-mece-data";
 import { CLICK_THROUGH_STEPS } from "@/lib/testguide/dealcard-im-mece-guide-data";
+import {
+  FASTTRACK_STEPS,
+  QA_SIGNOFF_WORKBENCH_ID,
+} from "@/lib/testguide/qa-signoff-fasttrack-data";
 import { createModuleLogger } from "@/lib/logger";
+import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { parseTsvRentRoll } from "@/lib/rent-roll/tsv-parser";
 
 export const dynamic = "force-dynamic";
 
@@ -71,9 +77,26 @@ interface StoredQaSessionSnapshot {
   records: Record<string, unknown>;
 }
 
+export interface QaFeedbackPin {
+  id: string;
+  sessionId: string;
+  workspace: string;
+  routePath: string;
+  targetSelector: string;
+  targetLabel: string;
+  note: string;
+  severity: "critical" | "major" | "minor";
+  viewport: { width: number; height: number } | null;
+  fontScale: string | null;
+  createdAt: string;
+  authorEmail?: string | null;
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __CRE_QA_WORKBENCH_SESSIONS__: Map<string, StoredQaSessionSnapshot> | undefined;
+  // eslint-disable-next-line no-var
+  var __CRE_QA_WORKBENCH_PINS__: QaFeedbackPin[] | undefined;
 }
 
 function getMemorySessionStore(): Map<string, StoredQaSessionSnapshot> {
@@ -81,6 +104,91 @@ function getMemorySessionStore(): Map<string, StoredQaSessionSnapshot> {
     globalThis.__CRE_QA_WORKBENCH_SESSIONS__ = new Map();
   }
   return globalThis.__CRE_QA_WORKBENCH_SESSIONS__;
+}
+
+function getMemoryPinStore(): QaFeedbackPin[] {
+  if (!globalThis.__CRE_QA_WORKBENCH_PINS__) {
+    globalThis.__CRE_QA_WORKBENCH_PINS__ = [];
+  }
+  return globalThis.__CRE_QA_WORKBENCH_PINS__;
+}
+
+function saveMemoryPin(pin: QaFeedbackPin): void {
+  const store = getMemoryPinStore();
+  const next = [pin, ...store.filter((p) => p.id !== pin.id)].slice(0, 200);
+  globalThis.__CRE_QA_WORKBENCH_PINS__ = next;
+}
+
+async function loadMergedQaPins(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any | null,
+  filterSessionId?: string
+): Promise<QaFeedbackPin[]> {
+  const byId = new Map<string, QaFeedbackPin>();
+  for (const p of getMemoryPinStore()) {
+    byId.set(p.id, p);
+  }
+
+  if (supabase) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase
+        .from("activity_events")
+        .select("id, metadata, created_at")
+        .eq("entity_type", "qa_pin")
+        .eq("event_type", "qa_pin_created");
+      if (typeof q.order === "function") {
+        q = q.order("created_at", { ascending: false });
+      }
+      if (typeof q.limit === "function") {
+        q = q.limit(50);
+      }
+      const res = await q;
+      if (Array.isArray(res?.data)) {
+        for (const row of res.data) {
+          const meta = row?.metadata as Record<string, unknown> | undefined;
+          if (!meta || typeof meta.note !== "string") continue;
+          const pinId = String(meta.id || row?.id || "").trim();
+          if (!pinId) continue;
+          if (!byId.has(pinId)) {
+            byId.set(pinId, {
+              id: pinId,
+              sessionId: String(meta.sessionId || "qa-pin-global"),
+              workspace: String(meta.workspace || "common"),
+              routePath: String(meta.routePath || "/broker/w"),
+              targetSelector: String(meta.targetSelector || "viewport"),
+              targetLabel: String(meta.targetLabel || "화면 전체"),
+              note: meta.note,
+              severity:
+                meta.severity === "critical" || meta.severity === "minor"
+                  ? meta.severity
+                  : "major",
+              viewport:
+                meta.viewport && typeof meta.viewport === "object"
+                  ? (meta.viewport as { width: number; height: number })
+                  : null,
+              fontScale:
+                typeof meta.fontScale === "string" ? meta.fontScale : null,
+              createdAt: String(
+                meta.createdAt || row?.created_at || new Date().toISOString()
+              ),
+              authorEmail:
+                typeof meta.authorEmail === "string" ? meta.authorEmail : null,
+            });
+          }
+        }
+      }
+    } catch {
+      // Fall back to in-memory pins
+    }
+  }
+
+  let list = Array.from(byId.values());
+  if (filterSessionId && filterSessionId !== "all") {
+    list = list.filter((p) => p.sessionId === filterSessionId);
+  }
+  list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  return list.slice(0, 100);
 }
 
 function saveMemorySession(snapshot: StoredQaSessionSnapshot): void {
@@ -181,9 +289,21 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
         >)
       : {};
 
-  const steps: Array<{ key: string; severity: string }> = workbenchId.startsWith("dealcard-im")
-    ? CLICK_THROUGH_STEPS.map((s) => ({ key: s.id, severity: s.defaultSeverityIfFail }))
-    : MECE_36_STEPS.map((s) => ({ key: s.code, severity: s.severity }));
+  const steps: Array<{ key: string; severity: string }> =
+    workbenchId === QA_SIGNOFF_WORKBENCH_ID
+      ? FASTTRACK_STEPS.map((s) => ({
+          key: s.id,
+          severity: s.severityOnFail,
+        }))
+      : workbenchId.startsWith("dealcard-im")
+      ? CLICK_THROUGH_STEPS.map((s) => ({
+          key: s.id,
+          severity: s.defaultSeverityIfFail,
+        }))
+      : MECE_36_STEPS.map((s) => ({ key: s.code, severity: s.severity }));
+
+  const recStatus = (entry: { status?: string } | undefined) =>
+    typeof entry?.status === "string" ? entry.status.toUpperCase() : "";
 
   let passCount = 0;
   let failCount = 0;
@@ -194,10 +314,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
 
   for (const step of steps) {
     const entry = recMap[step.key];
-    if (!entry || !entry.status || entry.status === "PENDING") continue;
-    if (entry.status === "PASS") {
+    const st = recStatus(entry);
+    if (!entry || !st || st === "PENDING") continue;
+    if (st === "PASS") {
       passCount += 1;
-    } else if (entry.status === "FAIL") {
+    } else if (st === "FAIL") {
       failCount += 1;
       failedStepCodes.push(step.key);
       const sev =
@@ -265,7 +386,20 @@ function hasUnmaskedAddressString(val: string): boolean {
  * Recover latest synced or submitted QA workbench session.
  */
 export async function GET(req: NextRequest) {
+  const queryMode = (req.nextUrl.searchParams.get("mode") || "").trim();
   const sessionId = (req.nextUrl.searchParams.get("sessionId") || "").trim();
+
+  if (queryMode === "pins") {
+    const supabase = tryCreateServiceClient();
+    const filterSid =
+      sessionId && SESSION_ID_RE.test(sessionId) ? sessionId : undefined;
+    const pins = await loadMergedQaPins(supabase, filterSid);
+    return NextResponse.json({
+      ok: true,
+      pins,
+    });
+  }
+
   if (!sessionId || !SESSION_ID_RE.test(sessionId)) {
     return NextResponse.json(
       { ok: false, error: "유효한 sessionId 파라미터가 필요합니다." },
@@ -1577,11 +1711,314 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // MODE 4: "pin" (In-App QA Pin Dropped From Workspace ?qa=1 Overlay)
+    // ════════════════════════════════════════════════════════════════════════
+    if (mode === "pin") {
+      const rawNote = typeof body.note === "string" ? body.note.trim() : "";
+      if (!rawNote) {
+        return NextResponse.json(
+          { ok: false, error: "메모 내용을 입력해 주세요." },
+          { status: 400 }
+        );
+      }
+
+      const note = rawNote.slice(0, 1000);
+      const rawSessionId =
+        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
+      const sessionId = SESSION_ID_RE.test(rawSessionId)
+        ? rawSessionId
+        : "qa-pin-global";
+      const severity: "critical" | "major" | "minor" =
+        body.severity === "critical" || body.severity === "minor"
+          ? body.severity
+          : "major";
+      const workspace =
+        typeof body.workspace === "string" && body.workspace.trim()
+          ? body.workspace.trim().slice(0, 40)
+          : "common";
+      const routePath =
+        typeof body.routePath === "string" && body.routePath.trim()
+          ? body.routePath.trim().slice(0, 200)
+          : "/broker/w";
+      const targetSelector =
+        typeof body.targetSelector === "string" && body.targetSelector.trim()
+          ? body.targetSelector.trim().slice(0, 200)
+          : "viewport";
+      const targetLabel =
+        typeof body.targetLabel === "string" && body.targetLabel.trim()
+          ? body.targetLabel.trim().slice(0, 120)
+          : "화면 전체";
+
+      const rawVp =
+        body.viewport && typeof body.viewport === "object"
+          ? (body.viewport as { width?: unknown; height?: unknown })
+          : null;
+      const viewport =
+        rawVp &&
+        Number.isFinite(Number(rawVp.width)) &&
+        Number.isFinite(Number(rawVp.height))
+          ? {
+              width: Math.max(0, Math.round(Number(rawVp.width))),
+              height: Math.max(0, Math.round(Number(rawVp.height))),
+            }
+          : null;
+      const fontScale =
+        typeof body.fontScale === "string" ? body.fontScale.slice(0, 24) : null;
+
+      const brokerUser = await resolveOptionalBrokerUser(req);
+      const actorUuid =
+        brokerUser?.id && isUuid(brokerUser.id) ? brokerUser.id : null;
+      const createdAt = new Date().toISOString();
+      const pin: QaFeedbackPin = {
+        id: `pin-${Date.now().toString(36)}-${Math.random()
+          .toString(36)
+          .slice(2, 6)}`,
+        sessionId,
+        workspace,
+        routePath,
+        targetSelector,
+        targetLabel,
+        note,
+        severity,
+        viewport,
+        fontScale,
+        createdAt,
+        authorEmail: brokerUser?.email ?? null,
+      };
+
+      saveMemoryPin(pin);
+
+      const supabase = tryCreateServiceClient();
+      let persistedToDb = false;
+      if (supabase) {
+        try {
+          const pinEvent = {
+            actor_id: actorUuid,
+            actor_role: brokerUser ? "broker" : "qa_tester",
+            event_type: "qa_pin_created",
+            entity_type: "qa_pin",
+            entity_id: actorUuid,
+            metadata: pin,
+          };
+          const { error: insErr } = await supabase
+            .from("activity_events")
+            .insert(pinEvent);
+          if (!insErr) {
+            persistedToDb = true;
+          } else if (actorUuid && insErr.code === "23503") {
+            const { error: retryErr } = await supabase
+              .from("activity_events")
+              .insert({
+                ...pinEvent,
+                actor_id: null,
+                entity_id: null,
+              });
+            persistedToDb = !retryErr;
+          }
+        } catch {
+          persistedToDb = false;
+        }
+      }
+
+      const pins = await loadMergedQaPins(supabase);
+      return NextResponse.json({
+        ok: true,
+        persistedToDb,
+        pin,
+        pins,
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MODE 5: "auto_probe_all" (1-Click Machine Invariant Probe for /qa-signoff)
+    // ════════════════════════════════════════════════════════════════════════
+    if (mode === "auto_probe_all") {
+      const checkedAt = new Date().toISOString();
+      const brokerUser = await resolveOptionalBrokerUser(req);
+      const supabase = tryCreateServiceClient();
+
+      // 1) DealCard Blind Guard Check
+      let blindPass = false;
+      let blindDetail = "블라인드 방역 검사를 실행하지 못했습니다.";
+      try {
+        const dirtyPoints = ["서울 마포구 동교동 189-6 스타벅스 앞 010-1234-5678"];
+        const detected = validateBlindPoints(dirtyPoints);
+        const cleaned = cleanBlindPoints([
+          "성수동2가 315-4 스타벅스 옆 한신빌딩",
+        ]);
+        const cleanedText = cleaned[0] || "";
+        const blockedUnsafe = !detected.isValid && detected.violations.length > 0;
+        const maskedCleanly =
+          !cleanedText.includes("315-4") &&
+          !cleanedText.includes("스타벅스") &&
+          !cleanedText.includes("한신빌딩");
+        blindPass = blockedUnsafe && maskedCleanly;
+        blindDetail = blindPass
+          ? `지번·브랜드·건물명·연락처 탐지(${detected.violations.length}건) 및 자동 마스킹 정상`
+          : "블라인드 규칙 탐지 또는 마스킹 결과가 기준에 미달합니다.";
+      } catch {
+        blindPass = false;
+      }
+
+      // 2) Rent-Roll TSV Engine + Missing Floor Vacancy Synthesis Check
+      let rentRollPass = false;
+      let rentRollDetail = "렌트롤 TSV 파서 검사를 실행하지 못했습니다.";
+      try {
+        const sampleTsv =
+          "층\t업종\t보증금\t월세\n1층\t카페\t50000000\t350\n3층\t사무실\t3000\t200";
+        const parsed = parseTsvRentRoll(sampleTsv);
+        const has2FVacant = parsed.rows.some(
+          (r) => r.floor === "2F" && r.status === "vacant"
+        );
+        rentRollPass =
+          parsed.hasUnitMistakes === true &&
+          has2FVacant &&
+          parsed.totalDepositManwon === 8000 &&
+          parsed.totalMonthlyRentManwon === 550;
+        rentRollDetail = rentRollPass
+          ? "원→만원 자동 보정, 공실 층(2F) 자동 보간, 합계(8000/550) 일치"
+          : "TSV 단위 보정 또는 공실 층 합산 불일치";
+      } catch {
+        rentRollPass = false;
+      }
+
+      // 3) Share Token Governance & Revocation Check
+      let shareTokenPass = false;
+      let shareTokenDetail = "공유 토큰 검증을 실행하지 못했습니다.";
+      try {
+        const [tamperA, tamperB, revokedNonexistent] = await Promise.all([
+          verifyShareLinkToken({ token: "qa-tampered-invalid-token" }),
+          verifyShareLinkToken({ token: "invalidPayload.invalidSig" }),
+          isBuildingShareLinkRevoked("__qa_probe_nonexistent__"),
+        ]);
+        shareTokenPass =
+          tamperA.valid === false &&
+          tamperB.valid === false &&
+          revokedNonexistent === false;
+        shareTokenDetail = shareTokenPass
+          ? "위조 토큰 거부(invalid) 및 폐기 상태 조회 정상 동작"
+          : "토큰 서명 또는 폐기 조회 응답 이상";
+      } catch {
+        shareTokenPass = false;
+      }
+
+      // 4) Public Address & Broker Phone Placeholder Masking Check
+      let publicMaskPass = false;
+      let publicMaskDetail = "공개 페이지 지번 마스킹 검사를 실행하지 못했습니다.";
+      try {
+        const masked = maskPublicAddresses({
+          featured_deals: [
+            {
+              title: "마포구 동교동 189-6 꼬마빌딩",
+              address: "서울시 마포구 동교동 189-6",
+            },
+          ],
+          broker: { phone: "01092423438@credeal.local" },
+        } as unknown as MagazineContent);
+        const deal0 = Array.isArray(masked.featured_deals)
+          ? (masked.featured_deals[0] as Record<string, unknown> | undefined)
+          : undefined;
+        const addrOut = typeof deal0?.address === "string" ? deal0.address : "";
+        const phoneOut =
+          masked.broker && typeof masked.broker === "object"
+            ? String((masked.broker as Record<string, unknown>).phone || "")
+            : "";
+        publicMaskPass =
+          !addrOut.includes("189-6") && !phoneOut.includes("@");
+        publicMaskDetail = publicMaskPass
+          ? "공개 매물 상세 지번(189-6) 및 이메일형 가짜 연락처 자동 차단 완료"
+          : "공개 데이터 지번 또는 가짜 연락처 마스킹 누락";
+      } catch {
+        publicMaskPass = false;
+      }
+
+      const checks = [
+        {
+          id: "dealcard-blind-guard",
+          title: "딜카드 블라인드 방어 (지번·브랜드·건물명)",
+          passed: blindPass,
+          detail: blindDetail,
+        },
+        {
+          id: "rent-roll-tsv-engine",
+          title: "IM 렌트롤 TSV 단위 보정 & 공실 보간",
+          passed: rentRollPass,
+          detail: rentRollDetail,
+        },
+        {
+          id: "share-token-governance",
+          title: "공유 토큰 서명 위조 차단 & 폐기 상태 검증",
+          passed: shareTokenPass,
+          detail: shareTokenDetail,
+        },
+        {
+          id: "public-address-masking",
+          title: "공개 뉴스레터 지번·계정형 연락처 마스킹",
+          passed: publicMaskPass,
+          detail: publicMaskDetail,
+        },
+      ];
+
+      let liveIm: string | null = null;
+      let liveNewsletter: string | null = null;
+      if (supabase && brokerUser?.id && isUuid(brokerUser.id)) {
+        try {
+          const [bldRes, edRes] = await Promise.all([
+            supabase
+              .from("building_ssot_lite")
+              .select("id")
+              .eq("owner_id", brokerUser.id)
+              .neq("status", "archived")
+              .order("created_at", { ascending: false })
+              .limit(1),
+            supabase
+              .from("magazine_editions")
+              .select("id, edition_label")
+              .eq("broker_id", brokerUser.id)
+              .eq("status", "published")
+              .order("published_at", { ascending: false })
+              .limit(1),
+          ]);
+          const bldId = Array.isArray(bldRes?.data) ? bldRes.data[0]?.id : null;
+          if (bldId) {
+            liveIm = `/broker/w/im?id=${encodeURIComponent(String(bldId))}&qa=1`;
+          }
+          const edRow = Array.isArray(edRes?.data) ? edRes.data[0] : null;
+          if (edRow?.id) {
+            liveNewsletter = `/broker/w/newsletter?id=${encodeURIComponent(
+              String(edRow.id)
+            )}&qa=1`;
+          }
+        } catch {
+          // non-blocking
+        }
+      }
+
+      const passedCount = checks.filter((c) => c.passed).length;
+      return NextResponse.json({
+        ok: true,
+        checkedAt,
+        authenticated: Boolean(brokerUser?.id),
+        passedCount,
+        totalCount: checks.length,
+        checks,
+        readyLinks: {
+          dealcards: "/broker/w/dealcards?qa=1",
+          im: "/broker/w/im?qa=1",
+          newsletter: "/broker/w/newsletter?qa=1",
+          inbox: "/broker/w/inbox?qa=1",
+          liveIm,
+          liveNewsletter,
+        },
+      });
+    }
+
     return NextResponse.json(
       {
         ok: false,
         error:
-          "지원하지 않는 mode입니다. ('sync' | 'submit' | 'probe' | 'seed_axis456')",
+          "지원하지 않는 mode입니다. ('sync' | 'submit' | 'probe' | 'seed_axis456' | 'pin' | 'auto_probe_all')",
       },
       { status: 400 }
     );

@@ -17,6 +17,7 @@ import {
 import { deriveDealCardHeadline, repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { POSTIT_TONE_STYLES } from '@/components/broker/deal-card/Card4ConfirmCard';
 import { DealCardLineText } from '@/components/broker/deal-card/DealCardLineText';
+import { PreviewEditableUnit } from '@/components/workspace/preview-sync/PreviewEditableUnit';
 import { TERMS } from '@/lib/ux/lexicon';
 
 export interface KakaoBubblePreviewProps {
@@ -25,6 +26,8 @@ export interface KakaoBubblePreviewProps {
   brokerName?: string;
   brokerSpecialty?: string;
   brokerPhone?: string;
+  activeUnitId?: string | null;
+  onActivateUnit?: (unitId: string) => void;
   className?: string;
 }
 
@@ -39,6 +42,8 @@ export function KakaoBubblePreview({
   brokerName = '중개사 프로필 미설정',
   brokerSpecialty = '상업용 부동산 중개',
   brokerPhone,
+  activeUnitId = null,
+  onActivateUnit,
   className = '',
 }: KakaoBubblePreviewProps) {
   const [viewFilter, setViewFilter] = useState<'all' | 'bubble' | 'detail'>('all');
@@ -84,6 +89,36 @@ export function KakaoBubblePreview({
     repairDealCardLine(card4.headline) ||
     (hasCardContent ? deriveDealCardHeadline(card4) : '한 줄 제목을 입력해 주세요');
 
+  const wrapUnit = (
+    unitId: string,
+    label: string,
+    node: React.ReactNode,
+    opts?: {
+      testId?: string;
+      badgeText?: string;
+      activeBadgeText?: string;
+      badgePosition?: 'top-rim' | 'inside';
+      className?: string;
+    }
+  ) => {
+    if (!onActivateUnit) return node;
+    return (
+      <PreviewEditableUnit
+        unitId={unitId}
+        label={label}
+        onActivate={onActivateUnit}
+        isActive={activeUnitId === unitId}
+        badgeText={opts?.badgeText}
+        activeBadgeText={opts?.activeBadgeText}
+        badgePosition={opts?.badgePosition}
+        testId={opts?.testId}
+        className={opts?.className}
+      >
+        {node}
+      </PreviewEditableUnit>
+    );
+  };
+
   return (
     <div
       className={`w-full max-w-full min-w-0 overflow-hidden flex flex-col items-center bg-slate-100 rounded-2xl border border-slate-300 p-3.5 space-y-4 ${className}`}
@@ -106,7 +141,7 @@ export function KakaoBubblePreview({
             aria-selected={viewFilter === 'all'}
             data-testid="preview-mode-all"
             onClick={() => setViewFilter('all')}
-            className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
               viewFilter === 'all'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -120,7 +155,7 @@ export function KakaoBubblePreview({
             aria-selected={viewFilter === 'bubble'}
             data-testid="preview-mode-kakao"
             onClick={() => setViewFilter('bubble')}
-            className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
               viewFilter === 'bubble'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -134,7 +169,7 @@ export function KakaoBubblePreview({
             aria-selected={viewFilter === 'detail'}
             data-testid="preview-mode-postit"
             onClick={() => setViewFilter('detail')}
-            className={`min-h-[40px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
               viewFilter === 'detail'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -156,55 +191,136 @@ export function KakaoBubblePreview({
               className="w-full aspect-[1.91/1] bg-slate-900 text-white grid grid-cols-2 grid-rows-2 relative overflow-hidden select-none"
             >
               {/* Item 1 (Top-Left): 지역 */}
-              <div
-                data-testid="og-quadrant-region"
-                className="flex items-center justify-center p-2 border-r border-b border-slate-700/80 text-center"
-              >
-                <span className="font-black text-white leading-tight text-base break-keep">
-                  {regionText}
-                </span>
-              </div>
+              {onActivateUnit ? (
+                <PreviewEditableUnit
+                  unitId="dc-unit-region"
+                  label="권역·동명"
+                  onActivate={onActivateUnit}
+                  isActive={activeUnitId === 'dc-unit-region'}
+                  badgePosition="inside"
+                  badgeText="✎"
+                  activeBadgeText="편집"
+                  testId="og-quadrant-region"
+                  className="flex items-center justify-center p-2 border-r border-b border-slate-700/80 text-center"
+                >
+                  <span className="font-black text-white leading-tight text-base break-keep">
+                    {regionText}
+                  </span>
+                </PreviewEditableUnit>
+              ) : (
+                <div
+                  data-testid="og-quadrant-region"
+                  className="flex items-center justify-center p-2 border-r border-b border-slate-700/80 text-center"
+                >
+                  <span className="font-black text-white leading-tight text-base break-keep">
+                    {regionText}
+                  </span>
+                </div>
+              )}
 
               {/* Item 2 (Top-Right): 용도 */}
-              <div
-                data-testid="og-quadrant-use"
-                className="flex items-center justify-center p-2 border-b border-slate-700/80 text-center"
-              >
-                <span className="font-black text-sky-400 leading-tight text-base break-keep">
-                  {useText}
-                </span>
-              </div>
+              {onActivateUnit ? (
+                <PreviewEditableUnit
+                  unitId="dc-unit-use"
+                  label="건물 용도"
+                  onActivate={onActivateUnit}
+                  isActive={activeUnitId === 'dc-unit-use'}
+                  badgePosition="inside"
+                  badgeText="✎"
+                  activeBadgeText="편집"
+                  testId="og-quadrant-use"
+                  className="flex items-center justify-center p-2 border-b border-slate-700/80 text-center"
+                >
+                  <span className="font-black text-sky-400 leading-tight text-base break-keep">
+                    {useText}
+                  </span>
+                </PreviewEditableUnit>
+              ) : (
+                <div
+                  data-testid="og-quadrant-use"
+                  className="flex items-center justify-center p-2 border-b border-slate-700/80 text-center"
+                >
+                  <span className="font-black text-sky-400 leading-tight text-base break-keep">
+                    {useText}
+                  </span>
+                </div>
+              )}
 
               {/* Item 3 (Bottom-Left): 면적 */}
-              <div
-                data-testid="og-quadrant-area"
-                className="flex items-center justify-center p-2 border-r border-slate-700/80 text-center"
-              >
-                <span className="font-black text-slate-100 leading-tight text-base break-keep">
-                  {areaText}
-                </span>
-              </div>
+              {onActivateUnit ? (
+                <PreviewEditableUnit
+                  unitId="dc-unit-area"
+                  label="핵심 면적"
+                  onActivate={onActivateUnit}
+                  isActive={activeUnitId === 'dc-unit-area'}
+                  badgePosition="inside"
+                  badgeText="✎"
+                  activeBadgeText="편집"
+                  testId="og-quadrant-area"
+                  className="flex items-center justify-center p-2 border-r border-slate-700/80 text-center"
+                >
+                  <span className="font-black text-slate-100 leading-tight text-base break-keep">
+                    {areaText}
+                  </span>
+                </PreviewEditableUnit>
+              ) : (
+                <div
+                  data-testid="og-quadrant-area"
+                  className="flex items-center justify-center p-2 border-r border-slate-700/80 text-center"
+                >
+                  <span className="font-black text-slate-100 leading-tight text-base break-keep">
+                    {areaText}
+                  </span>
+                </div>
+              )}
 
               {/* Item 4 (Bottom-Right): 가격 */}
-              <div
-                data-testid="og-quadrant-price"
-                className="flex items-center justify-center p-2 text-center"
-              >
-                <span className="font-black text-amber-400 leading-tight text-base break-keep">
-                  {priceText}
-                </span>
-              </div>
+              {onActivateUnit ? (
+                <PreviewEditableUnit
+                  unitId="dc-unit-price"
+                  label="매각 가격대"
+                  onActivate={onActivateUnit}
+                  isActive={activeUnitId === 'dc-unit-price'}
+                  badgePosition="inside"
+                  badgeText="✎"
+                  activeBadgeText="편집"
+                  testId="og-quadrant-price"
+                  className="flex items-center justify-center p-2 text-center"
+                >
+                  <span className="font-black text-amber-400 leading-tight text-base break-keep">
+                    {priceText}
+                  </span>
+                </PreviewEditableUnit>
+              ) : (
+                <div
+                  data-testid="og-quadrant-price"
+                  className="flex items-center justify-center p-2 text-center"
+                >
+                  <span className="font-black text-amber-400 leading-tight text-base break-keep">
+                    {priceText}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Bubble Content Area: 18-char Title + CTA Button */}
             <div className="p-3.5 space-y-2.5">
-              <DealCardLineText
-                as="h4"
-                testId="kakao-bubble-og-title"
-                text={bubbleTitle}
-                preRepaired
-                className="font-extrabold text-slate-900 text-base"
-              />
+              {wrapUnit(
+                'dc-unit-headline',
+                '한 줄 제목',
+                <DealCardLineText
+                  as="h4"
+                  testId="kakao-bubble-og-title"
+                  text={bubbleTitle}
+                  preRepaired
+                  className="font-extrabold text-slate-900 text-base"
+                />,
+                {
+                  testId: 'preview-unit-headline',
+                  badgePosition: 'inside',
+                  className: 'rounded-lg px-1.5 py-1 -mx-1.5',
+                }
+              )}
 
               <button
                 type="button"
@@ -215,7 +331,7 @@ export function KakaoBubblePreview({
                     '고객이 카톡 말풍선에서 [자세히 보기]를 눌렀을 때 열리는 상세 화면입니다.'
                   );
                 }}
-                className="w-full min-h-[42px] py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center font-bold text-sm border border-slate-200 transition-colors cursor-pointer"
+                className="w-full min-h-[44px] py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center font-bold text-sm border border-slate-200 transition-colors cursor-pointer"
               >
                 자세히 보기
               </button>
@@ -286,54 +402,75 @@ export function KakaoBubblePreview({
                 const toneStyle = POSTIT_TONE_STYLES[toneKey] || POSTIT_TONE_STYLES.amber;
 
                 return (
-                  <div
-                    key={idx}
-                    data-testid={`dealcard-postit-preview-item-${idx}`}
-                    style={{
-                      backgroundColor: toneStyle.bgHex,
-                      borderColor: toneStyle.borderHex,
-                    }}
-                    className="rounded-xl border border-l-4 px-3.5 py-3 flex items-center gap-2.5 shadow-2xs"
-                  >
-                    <span
-                      style={{
-                        backgroundColor: toneStyle.badgeBgHex,
-                        color: toneStyle.badgeTextHex,
-                      }}
-                      className="text-sm font-extrabold px-2.5 py-0.5 rounded shrink-0"
-                    >
-                      0{idx + 1}
-                    </span>
-                    <DealCardLineText
-                      testId={`dealcard-postit-preview-text-${idx}`}
-                      text={ptTitle}
-                      preRepaired
-                      className="flex-1 text-base font-extrabold text-slate-950"
-                    />
-                  </div>
+                  <React.Fragment key={idx}>
+                    {wrapUnit(
+                      `dc-unit-point-${idx}`,
+                      `핵심 장점 ${idx + 1}`,
+                      <div
+                        data-testid={`dealcard-postit-preview-item-${idx}`}
+                        style={{
+                          backgroundColor: toneStyle.bgHex,
+                          borderColor: toneStyle.borderHex,
+                        }}
+                        className="rounded-xl border border-l-4 px-3.5 py-3 flex items-center gap-2.5 shadow-2xs"
+                      >
+                        <span
+                          style={{
+                            backgroundColor: toneStyle.badgeBgHex,
+                            color: toneStyle.badgeTextHex,
+                          }}
+                          className="text-sm font-extrabold px-2.5 py-0.5 rounded shrink-0"
+                        >
+                          0{idx + 1}
+                        </span>
+                        <DealCardLineText
+                          testId={`dealcard-postit-preview-text-${idx}`}
+                          text={ptTitle}
+                          preRepaired
+                          className="flex-1 text-base font-extrabold text-slate-950"
+                        />
+                      </div>,
+                      {
+                        badgeText: '✎ 눌러서 수정',
+                        activeBadgeText: '수정 중',
+                        className: 'rounded-xl',
+                      }
+                    )}
+                  </React.Fragment>
                 );
               })}
             </div>
 
             {/* 담당 중개사 안내 카드 */}
-            <div
-              data-testid="preview-broker-profile-card"
-              className="rounded-xl bg-[#141A21] border border-slate-700/80 p-3.5 flex items-center justify-between gap-3"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-base font-extrabold text-white break-keep">
-                    {brokerName}
-                  </span>
-                  <span className="text-sm px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold shrink-0">
-                    공인중개사
-                  </span>
+            {wrapUnit(
+              'dc-unit-broker',
+              '내 연락처·중개사 정보',
+              <div
+                data-testid="preview-broker-profile-card"
+                className="rounded-xl bg-[#141A21] border border-slate-700/80 p-3.5 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-base font-extrabold text-white break-keep">
+                      {brokerName}
+                    </span>
+                    <span className="text-sm px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold shrink-0">
+                      공인중개사
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-400 mt-1 break-keep">
+                    {brokerSpecialty}
+                  </p>
                 </div>
-                <p className="text-sm text-slate-400 mt-1 break-keep">
-                  {brokerSpecialty}
-                </p>
-              </div>
-            </div>
+              </div>,
+              {
+                testId: 'preview-unit-broker',
+                badgePosition: 'inside',
+                badgeText: '내 정보 수정 ›',
+                activeBadgeText: '이동 중',
+                className: 'rounded-xl',
+              }
+            )}
 
             {/* 하단 두 버튼 고정: [전화하기] [IM 요청하기] */}
             <div

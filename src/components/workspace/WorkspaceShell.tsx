@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceBottomNav, DEFAULT_WORKSPACE_TABS } from "./WorkspaceBottomNav";
 import { SAVE_STATE_LABELS, formatRelativeKo, type HonestSaveState } from "@/lib/ux/lexicon";
 import { FontScaleToggle } from "./FontScaleToggle";
+import { QaFeedbackPinWidget } from "./QaFeedbackPinWidget";
 
 const COL_WIDTHS_STORAGE_KEY = "credeal-workspace-col-widths-v1";
 const DEFAULT_LIST_WIDTH = 310;
@@ -455,12 +456,13 @@ export function WorkspaceShell({
     [searchParams, pathname, router]
   );
 
-  // Bidirectional Preview -> Editor handoff: close <1280px preview drawer and flip mobile preview -> editor
+  // Bidirectional Preview -> Editor handoff: close <1280px preview drawer and flip mobile preview/list -> editor
   useEffect(() => {
     const handleFocusEditor = (evt: Event) => {
       const detail = (evt as CustomEvent<{ unitId?: string; label?: string }>).detail;
       setIsPreviewDrawerOpen(false);
-      if (mobileView === "preview" || searchParams.get("tab") === "preview") {
+      if (mobileView !== "editor" || searchParams.get("tab") === "preview") {
+        suppressListQueryRef.current = true;
         handleSelectTab("editor");
       }
       if (detail?.label) {
@@ -986,6 +988,9 @@ export function WorkspaceShell({
         activeTabId={workspace}
         hideOnDetail={mobileView !== "list"}
       />
+
+      {/* ── In-App QA Pin Widget (?qa=1 또는 검수 모드 활성화 시 표시) ── */}
+      <QaFeedbackPinWidget workspace={workspace} />
     </div>
   );
 }

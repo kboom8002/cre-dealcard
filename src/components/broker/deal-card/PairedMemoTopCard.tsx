@@ -100,7 +100,7 @@ export function PairedMemoTopCard({
             data-testid="dealcard-open-memo-import-btn"
             onMouseDown={(e) => e.preventDefault()}
             onClick={onOpenMemoImportModal}
-            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 text-sm font-bold transition cursor-pointer inline-flex items-center gap-1.5"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 text-sm font-bold transition cursor-pointer inline-flex items-center gap-1.5"
           >
             <span>📋 저장된 메모 불러오기</span>
           </button>
@@ -111,7 +111,7 @@ export function PairedMemoTopCard({
               data-testid="dealcard-memo-collapse-btn"
               onClick={() => setIsCollapsed((prev) => !prev)}
               aria-expanded={!isCollapsed}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-[#3A3A3C] border border-slate-300 text-sm font-semibold transition cursor-pointer"
+              className="min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-[#3A3A3C] border border-slate-300 text-sm font-semibold transition cursor-pointer"
             >
               {isCollapsed ? "메모 펼치기 ▾" : "접기 ▴"}
             </button>
@@ -224,7 +224,7 @@ export function PairedMemoTopCard({
                 data-testid="dealcard-reparse-memo-btn"
                 disabled={!hasMemo || isGenerating}
                 onClick={onGenerateFromMemo}
-                className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-[#007AFF]/10 hover:bg-[#007AFF]/18 disabled:opacity-45 disabled:cursor-not-allowed text-[#0040DD] border border-[#007AFF]/25 text-sm font-bold transition cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-[#007AFF]/10 hover:bg-[#007AFF]/18 disabled:opacity-45 disabled:cursor-not-allowed text-[#0040DD] border border-[#007AFF]/25 text-sm font-bold transition cursor-pointer inline-flex items-center gap-1.5 shrink-0"
               >
                 <span>↻</span>
                 <span>

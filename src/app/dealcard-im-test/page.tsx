@@ -1400,6 +1400,13 @@ export default function DealCardImMeceTestPage() {
 
             {/* Right Controls: Font Size + View Mode + Workspace Launchers */}
             <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <a
+                href="/qa-signoff"
+                data-testid="open-qa-signoff-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold shadow-xs transition inline-flex items-center whitespace-nowrap"
+              >
+                <span>⚡ 20분 고속 검수 허브 ↗</span>
+              </a>
               <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
                 <button
                   type="button"
