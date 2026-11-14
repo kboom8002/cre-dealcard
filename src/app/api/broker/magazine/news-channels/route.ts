@@ -149,7 +149,7 @@ async function fetchLiveChannelNews(opts: {
             const cleanTitle = parts.join(" - ").trim() || item.title;
             const desc = item.description && item.description !== item.title
               ? item.description.slice(0, 220)
-              : `핵심 팩트: ${cleanTitle} (${press}) | 브로커 임플리케이션: 매수자·건물주 고객과의 상담 시 최신 ${target.query} 동향으로 공유하기 좋습니다.`;
+              : `${cleanTitle} 관련 최신 시장 소식입니다. 건물 매수와 임대차 조건을 점검하실 때 함께 참고하시기 좋습니다.`;
             const ch = resolveNewsChannel({
               channel: target.channel,
               topic: target.topic,
@@ -207,7 +207,7 @@ async function fetchLiveChannelNews(opts: {
               title: item.title,
               summary:
                 item.description ||
-                `핵심 팩트: ${item.title} | 브로커 임플리케이션: ${feed.name} 최신 주요 보도입니다.`,
+                `${item.title} (${feed.name}) 관련 최신 시장 소식입니다. 건물 매수와 보유 관리에 참고해 보세요.`,
               source: feed.name,
               url: item.link,
               sentiment: "neutral",

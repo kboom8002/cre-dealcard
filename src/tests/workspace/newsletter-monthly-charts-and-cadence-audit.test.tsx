@@ -165,21 +165,23 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
     expect(screen.getByTestId("magazine-quick-draft-card").textContent).toContain("이번 달");
     expect(screen.queryByTestId("preview-monthly-stats-section")).not.toBeNull();
 
-    // 주간(weekly) 전환: AI 초안 카드가 '이번 주'로 바뀌고, 월간 통계 그래픽은 숨겨지며 주간 브리핑+이슈5선이 표시됨
+    // 주간(weekly) 전환: AI 초안 카드가 '이번 주'로 바뀌고, 월간 통계 그래픽은 숨겨지며 이슈 5선이 표시됨
     await act(async () => {
       fireEvent.click(screen.getByTestId("quickstart-cadence-weekly"));
     });
     expect(screen.getByTestId("magazine-quick-draft-card").textContent).toContain("이번 주");
     expect(screen.queryByTestId("preview-monthly-stats-section")).toBeNull();
-    expect(screen.getByTestId("preview-axios-postit-section").textContent).toContain("주간 핵심 시장 이슈 5선");
+    expect(screen.getAllByTestId(/^preview-postit-card-/)).toHaveLength(5);
+    expect(screen.getByTestId("preview-axios-postit-section").textContent).not.toContain("주간 핵심 시장 이슈 5선");
 
-    // 일간(daily) 전환: AI 초안 카드가 '오늘'로 바뀌고, 빈 장문 브리핑 박스 없이 일간 핵심 시장 이슈 5선이 바로 상단에 표시됨
+    // 일간(daily) 전환: AI 초안 카드가 '오늘'로 바뀌고, 빈 장문 브리핑 박스 없이 이슈 5선이 바로 상단에 표시됨
     await act(async () => {
       fireEvent.click(screen.getByTestId("quickstart-cadence-daily"));
     });
     expect(screen.getByTestId("magazine-quick-draft-card").textContent).toContain("오늘");
     expect(screen.queryByTestId("preview-monthly-stats-section")).toBeNull();
-    expect(screen.getByTestId("preview-axios-postit-section").textContent).toContain("일간 핵심 시장 이슈 5선");
+    expect(screen.getAllByTestId(/^preview-postit-card-/)).toHaveLength(5);
+    expect(screen.getByTestId("preview-axios-postit-section").textContent).not.toContain("일간 핵심 시장 이슈 5선");
     expect(screen.queryByTestId("preview-market-briefing-section")).toBeNull();
   });
 
@@ -216,15 +218,21 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
       />,
     );
 
-    const statsIdx = monthlyHtml.indexOf('data-testid="monthly-regional-charts-section"');
+    const briefingIdx = monthlyHtml.indexOf('data-section-id="ai_briefing"');
     const issuesIdx = monthlyHtml.indexOf('data-testid="axios-postit-list"');
-    expect(statsIdx).toBeGreaterThan(0);
-    expect(issuesIdx).toBeGreaterThan(0);
-    // 상단 주요 통계 그래픽 2개가 이슈 5선 및 매물보다 반드시 먼저 렌더링되어야 함
-    expect(statsIdx).toBeLessThan(issuesIdx);
-    expect((monthlyHtml.match(/data-testid="monthly-regional-chart-card"/g) ?? []).length).toBe(2);
+    const dealsIdx = monthlyHtml.indexOf('data-section-id="featured_deals"');
+    const contactIdx = monthlyHtml.indexOf('data-section-id="broker_profile"');
+    const optinIdx = monthlyHtml.indexOf('data-testid="minimal-subscribe-optin"');
+    expect(briefingIdx).toBeGreaterThan(0);
+    expect(briefingIdx).toBeLessThan(issuesIdx);
+    expect(issuesIdx).toBeLessThan(dealsIdx);
+    expect(dealsIdx).toBeLessThan(contactIdx);
+    expect(contactIdx).toBeLessThan(optinIdx);
+    expect((monthlyHtml.match(/data-testid="axios-postit-card"/g) ?? []).length).toBe(5);
+    expect(monthlyHtml).not.toContain('data-testid="monthly-regional-charts-section"');
+    expect(monthlyHtml).not.toContain("공인중개사 현장 브리핑");
 
-    // 일간(daily) simple 발행본 검증: 월간 통계 미노출 + 일간 핵심 시장 이슈 5선 정상 노출
+    // 일간(daily) simple 발행본 검증: 동일 통일 5단계(이슈 5선 + 매물 + 연락처 + 최소 옵트인) 정상 노출
     const dailyIssues = clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, { cadence: "daily" });
     const simpleDailyPayload = applySimplePreset(
       {
@@ -253,7 +261,9 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
     );
 
     expect(dailyHtml).not.toContain('data-testid="monthly-regional-charts-section"');
-    expect(dailyHtml).toContain("일간 핵심 시장 이슈 5선");
+    expect((dailyHtml.match(/data-testid="axios-postit-card"/g) ?? []).length).toBe(5);
+    expect(dailyHtml).not.toContain("일간 핵심 시장 이슈 5선");
+    expect(dailyHtml).not.toContain("data-magazine-bottom-bar");
   });
 
   it("[T5] 실거래·임대동향 DB 집계(public_db)와 온톨로지 기준 참고치(reference_benchmark) 및 NL-01 정직성 계약이 모두 공존한다", () => {
@@ -385,7 +395,7 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
     const dealsSection = await screen.findByTestId("preview-featured-deals-section");
     const contactSection = await screen.findByTestId("preview-broker-contact-section");
 
-    expect(issuesSection.textContent).toContain("월간 핵심 시장 이슈 5선");
+    expect(issuesSection.textContent).not.toContain("월간 핵심 시장 이슈 5선");
     expect(screen.getAllByTestId(/^preview-postit-card-/)).toHaveLength(5);
     expect(screen.queryByTestId("preview-market-briefing-section")).toBeNull();
     expect(contactSection.textContent).toContain("이상은");
@@ -426,17 +436,19 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
       />,
     );
 
-    const pStatsIdx = publicHtml.indexOf('data-testid="monthly-regional-charts-section"');
+    const pBriefingIdx = publicHtml.indexOf('data-testid="viewer-market-briefing"');
     const pIssuesIdx = publicHtml.indexOf('data-testid="axios-postit-list"');
-    const pBriefingIdx = publicHtml.indexOf("공인중개사 현장 브리핑");
-    const pDealsIdx = publicHtml.indexOf("주목 매물 하이라이트");
+    const pDealsIdx = publicHtml.indexOf('data-deals-carousel');
     const pContactIdx = publicHtml.lastIndexOf("02-555-1234");
+    const pOptinIdx = publicHtml.indexOf('data-testid="minimal-subscribe-optin"');
 
-    expect(pStatsIdx).toBeGreaterThan(0);
-    expect(pStatsIdx).toBeLessThan(pIssuesIdx);
-    expect(pIssuesIdx).toBeLessThan(pBriefingIdx);
-    expect(pBriefingIdx).toBeLessThan(pDealsIdx);
+    expect(pBriefingIdx).toBeGreaterThan(0);
+    expect(pBriefingIdx).toBeLessThan(pIssuesIdx);
+    expect(pIssuesIdx).toBeLessThan(pDealsIdx);
     expect(pDealsIdx).toBeLessThan(pContactIdx);
+    expect(pContactIdx).toBeLessThan(pOptinIdx);
+    expect(publicHtml).not.toContain("공인중개사 현장 브리핑");
+    expect(publicHtml).not.toContain("주목 매물 하이라이트");
   });
 
   it("[T7] [1-2] 뉴스 큐레이션 관심 분야 및 주력 권역 선택 단추는 .broker-paper-theme 역전 규칙(bg-slate-900)과 충돌하지 않고 선택/비선택 모두 고대비 텍스트 색상을 명시한다", async () => {

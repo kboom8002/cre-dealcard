@@ -214,10 +214,88 @@ function decodeBasicEntities(raw: string): string {
     .replace(/&gt;/gi, '>');
 }
 
-/** 카드뉴스 포스트잇 이슈 제목 최대 글자 수 (중개인 요구 1.1: 36자 이내 · 잘림 0건) */
-export const AXIOS_TITLE_MAX_CHARS = 36;
-/** 카드뉴스 포스트잇 이슈 해설 최대 글자 수 (중개인 요구 1.2: 48자 이내 · 잘림 0건) */
-export const AXIOS_BRIEF_MAX_CHARS = 48;
+/** 카드뉴스 포스트잇 이슈 제목 최대 글자 수 (70대 매수자 2줄 권장 · 모바일 360px 3줄 이내 보장 = 44자) */
+export const AXIOS_TITLE_MAX_CHARS = 44;
+/** 카드뉴스 포스트잇 이슈 해설 최대 글자 수 (70대 매수자 3줄 상세 해설 · 모바일 360px 4줄 이내 보장 = 74자) */
+export const AXIOS_BRIEF_MAX_CHARS = 74;
+
+const BUYER_JARGON_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/자기자본\s*수익률(?:\s*\(ROE\))?/gi, '내 돈 대비 실제 수익률'],
+  [/표면\s*수익률(?:\s*\(Cap\s*Rate\))?/gi, '단순 연 월세 수익률'],
+  [/금리\s*스프레드/gi, '은행 대출금리 차이'],
+  [/조달\s*금리/gi, '대출 이자율'],
+  [/밸류\s*애드|value[\s-]*add/gi, '수리·임차 개선'],
+  [/리파이낸싱/gi, '기존 대출 갈아타기'],
+  [/레버리지\s*비율/gi, '대출 활용 비중'],
+  [/레버리지/gi, '대출 활용'],
+  [/명도\s*여건/gi, '기존 세입자 퇴거 협의'],
+  [/프롭테크/gi, '디지털 건물 관리'],
+  [/아트테크/gi, '미술품 전시·절세'],
+  [/플래그십/gi, '대표 매장'],
+  [/앵커\s*테넌트/gi, '핵심 우량 세입자'],
+];
+
+/** 전문용어·영문 외래어를 70대 매수자도 바로 이해할 수 있는 일상 한국어로 풀어쓴다. */
+export function humanizeBuyerCopy(text: string): string {
+  if (!text) return '';
+  let out = text;
+  for (const [pattern, replacement] of BUYER_JARGON_REPLACEMENTS) {
+    out = out.replace(pattern, replacement);
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 5줄 · 500자 이내 순수 텍스트 시장 브리핑 정규화기
+ * - 별도 브리핑 소제목(■ ...), 강조 마크다운(**), 구분선(───)을 제거하고
+ *   줄바꿈은 최대 maxLines(기본 5줄), 글자 수는 최대 maxChars(기본 500자)로 정돈한다.
+ */
+export function normalizeMarketBriefingPlain(raw: unknown, maxChars = 500, maxLines = 5): string {
+  if (typeof raw !== 'string') return '';
+  const cleanedLines = decodeBasicEntities(raw)
+    .replace(/\r\n?/g, '\n')
+    .replace(/^[■◆▶●★※]\s*[^\n]*(?:\n|$)/gm, '')
+    .replace(/^[─━=\-]{3,}$/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,4}\s*/gm, '')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter(Boolean);
+
+  if (cleanedLines.length === 0) return '';
+
+  const collapsedLines =
+    cleanedLines.length <= maxLines
+      ? cleanedLines
+      : [
+          ...cleanedLines.slice(0, maxLines - 1),
+          cleanedLines.slice(maxLines - 1).join(' '),
+        ];
+
+  let joined = collapsedLines.join('\n').trim();
+  if (charLength(joined) <= maxChars) return joined;
+
+  // 글자 수 초과 시 줄 단위로 먼저 맞추고, 첫 줄조차 넘치면 문장 단위로 안전 압축
+  const fittedLines: string[] = [];
+  for (const line of collapsedLines) {
+    const candidate = fittedLines.length > 0 ? `${fittedLines.join('\n')}\n${line}` : line;
+    if (charLength(candidate) <= maxChars) {
+      fittedLines.push(line);
+    } else if (fittedLines.length === 0) {
+      return condenseKoreanParagraph(line, maxChars, { preserveParagraphs: false });
+    } else {
+      const remaining = maxChars - charLength(fittedLines.join('\n')) - 1;
+      if (remaining >= 24) {
+        const shortened = condenseKoreanParagraph(line, remaining, { preserveParagraphs: false });
+        if (shortened) fittedLines.push(shortened);
+      }
+      break;
+    }
+  }
+  joined = fittedLines.join('\n').trim();
+  return joined || Array.from(collapsedLines[0]).slice(0, maxChars).join('').trim();
+}
 
 /** 서로게이트 쌍(이모지 등)을 1자로 세는 화면 기준 글자 수 */
 export function charLength(text: string): number {
@@ -228,9 +306,9 @@ const TRAILING_PUNCT_RE = /[\s,，·:：…\-–—|;]+$/;
 
 /* ── 한국어 어절 판별기 (제목·해설 공용) ─────────────────────────────── */
 
-/** 단독으로 끝나면 문장이 매달리는 접속·후치·부정·의존명사 어절 */
+/** 단독으로 끝나면 문장이 매달리는 접속·후치·부정·의존명사·1음절 관형사 어절 */
 const DANGLING_STANDALONE_RE =
-  /^(?:및|또|또한|그리고|그러나|하지만|등|등의|통해|위해|대해|따라|관련|중심|가운데|vs|VS|대비|위한|따른|대한|인한|통한|관한|향한|안|못|수|순|건|걸|바|셈|듯|채|뿐|체|측|시|간|별)$/;
+  /^(?:및|또|또한|그리고|그러나|하지만|등|등의|통해|위해|대해|따라|관련|중심|가운데|vs|VS|대비|위한|따른|대한|인한|통한|관한|향한|안|못|수|순|건|걸|바|셈|듯|채|뿐|체|측|시|간|별|한|두|새|헌)$/;
 /** 관형형·연결형·보조용언 선행형(축약형 '~해선/~돼선/~보단/~치곤/~할순' 포함)으로 끝나 뒤 어절이 필요한 어미 */
 const DANGLING_MODIFIER_SUFFIX_RE =
   /(?:따른|위한|대한|인한|통한|관한|향한|앞둔|맞은|하는|되는|있는|없는|이는|라는|이라는|하던|되던|에서의|으로의|와의|과의|하고|하며|하면서|되며|되고|되면서|이며|이고|이자|돼|면서|지만|는데|해선|돼선|해서는|돼서는|와선|가선|봐선|서선|에선|로선|으로선|만으론|만으로는|에겐|한테선|보단|치곤|라곤|하긴|되긴|있긴|없긴|할순|될순|볼순|갈순|하면|되면|오면|가면|보면|크면|높으면|낮으면|해야|돼야|해봐야|하다간|했다간|않아|않고|않은|않는|못해|못한|못할|말고|말아야|없이|아닌|같은)$/;
@@ -258,7 +336,7 @@ function endsWithSubjectParticle(core: string): boolean {
   return false;
 }
 const PARTICLE_NOUN_EXCEPTION_RE =
-  /(?:가을|마을|노을|고을|효과|결과|성과|사과|과정|도로|경로|통로|진로|선로|항로|노로|기와|규모|수요|공급|창구)$/;
+  /(?:가을|마을|노을|고을|효과|결과|성과|사과|과정|도로|경로|통로|진로|선로|항로|노로|기와|규모|수요|공급|창구|한눈에|한번에)$/;
 
 function hasBatchim(syllable: string): boolean {
   const code = syllable.charCodeAt(0);
@@ -469,26 +547,28 @@ function stripWrappingQuotes(text: string): string {
 /**
  * 뉴스레터 표지 제목 등을 깔끔한 1줄(single-line)로 정제한다.
  * - 앞쪽 `[매체명]` 제거, 줄바꿈 제거, 불필요한 따옴표·말줄임 정리 (말줄임표 `…`/`...` 절대 미부착)
- * - 글자 수 초과 시 어절 경계 압축 + 매달린 조사·관형형 제거로 완결된 명사구 유지
+ * - 글자 수 초과 시 어절 경계 압축 + 매달린 조사·관형형 제거로 완결된 표현 유지
  */
-export function formatSingleLineTitle(raw: unknown, maxChars = 38): string {
+export function formatSingleLineTitle(raw: unknown, maxChars = 50): string {
   if (typeof raw !== 'string') return '';
-  const cleaned = decodeBasicEntities(raw)
-    .replace(/[\r\n]+/g, ' ')
-    .replace(/…|\.{2,}/g, ', ')
-    .replace(/\s+/g, ' ')
-    .replace(/,\s*,+/g, ',')
-    .replace(/^\[[^\]]+\]\s*/, '')
-    .replace(/[.。,·:：-]+$/, '')
-    .trim();
+  const cleaned = humanizeBuyerCopy(
+    decodeBasicEntities(raw)
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/…|\.{2,}/g, ', ')
+      .replace(/\s+/g, ' ')
+      .replace(/,\s*,+/g, ',')
+      .replace(/^\[[^\]]+\]\s*/, '')
+      .replace(/[.。,·:：-]+$/, '')
+      .trim(),
+  );
 
   if (!cleaned) return '';
   return compressKoreanTitle(stripWrappingQuotes(cleaned), maxChars);
 }
 
 /**
- * 카드뉴스형 포스트잇 이슈 제목 정제기 (기본 36자 = AXIOS_TITLE_MAX_CHARS)
- * - 고객 화면에서 한 단계 작아진 폰트로 2줄 안에 잘림 없이 읽히도록 36자 예산을 강제한다.
+ * 카드뉴스형 포스트잇 이슈 제목 정제기 (기본 44자 = AXIOS_TITLE_MAX_CHARS)
+ * - 모바일 360~390px 화면에서 2줄 권장 · 3줄 이내로 잘림 없이 읽히도록 44자 예산을 유지한다.
  */
 export function formatAxiosCardTitle(raw: unknown, maxChars = AXIOS_TITLE_MAX_CHARS): string {
   return formatSingleLineTitle(raw, Math.min(maxChars, AXIOS_TITLE_MAX_CHARS));
@@ -801,31 +881,31 @@ const INTERNAL_LABEL_RE =
 
 const CONCISE_CHANNEL_FALLBACKS: Readonly<Record<SpecificNewsChannelId, readonly [string, string]>> = {
   real_estate: [
-    '역세권 우량 빌딩을 중심으로 법인과 자산가의 선별 매수세가 이어집니다.',
-    '표면 수익률과 함께 대지 지분·리모델링 여력을 함께 점검할 시점입니다.',
+    '지하철역 가까운 알짜 빌딩으로 실사용과 임대 목적의 매수 문의가 꾸준히 모이고 있습니다.',
+    '단순 월세 수익뿐 아니라 세입자 계약 기간과 건물 수리 상태를 함께 살피시면 더욱 안전합니다.',
   ],
   economy_finance: [
-    '기업대출 금리와 통화정책이 빌딩 매수자의 자기자본수익률을 좌우합니다.',
-    '조달 금리 스프레드를 사전 점검하면 협상력과 현금흐름이 개선됩니다.',
+    '은행 빌딩 담보대출 이자율 변화에 따라 매달 손에 쥐는 순수익 차이가 크게 벌어집니다.',
+    '매수 전 은행별 대출 한도와 이자 조건을 미리 비교해 두시면 자금 계획이 한결 여유로워집니다.',
   ],
   tax_wealth: [
-    '빌딩의 취득·보유·증여 세무 구조에 따라 세후 수익률 격차가 벌어집니다.',
-    '사전 감정평가와 부담부증여·법인 활용 유불리를 미리 점검해야 합니다.',
+    '빌딩을 사고팔거나 자녀에게 물려줄 때 감정평가 기준에 따라 세금 차이가 크게 납니다.',
+    '계약 전 개인·법인 명의 유불리와 옛 공사비 영수증 보관 여부를 미리 챙기시는 것이 좋습니다.',
   ],
   culture_lifestyle: [
-    '외관 리노베이션과 문화 콘텐츠 결합이 임차인 집객력과 가치를 높입니다.',
-    '우량 임차인 유치를 위해 저층 공간 기획을 차별화하는 사례가 늘었습니다.',
+    '오래된 골목 건물도 외관과 1층 출입구를 깔끔하게 고치면 좋은 세입자가 먼저 찾아옵니다.',
+    '건물 인상이 밝아지면 공실 걱정이 줄고 주변보다 더 나은 임대료를 받기 수월해집니다.',
   ],
   commercial_trend: [
-    '핵심 상권의 메디컬·대형 카페 유입이 중소형 빌딩 임대료를 견인합니다.',
-    '공실 위험을 낮추려면 층별 업종 구성과 소비 트렌드를 살펴야 합니다.',
+    '동네 병의원과 약국, 대형 카페가 들어선 건물은 경기를 덜 타 월세가 꾸준히 들어옵니다.',
+    '엘리베이터와 1층 노출도를 함께 챙기시면 오래 머무는 우량 세입자를 맞추기 유리합니다.',
   ],
 };
 
 /**
- * AXIOS 카드뉴스형 짧은 부제(Deck) 포맷터 — 기본 48자(AXIOS_BRIEF_MAX_CHARS) 이내
- * - 원문 요약(파이프 `|` 구분 구조 포함)에서 핵심 1문장을 완결된 평서문으로 압축하고,
- *   예산이 남을 때만 두 번째 문장을 덧붙인다 (총합 48자 이내 · 잘림 0건 · 말줄임표 0건).
+ * AXIOS 카드뉴스형 3줄 부제(Deck) 포맷터 — 기본 74자(AXIOS_BRIEF_MAX_CHARS) 이내
+ * - 70대 매수자 눈높이에 맞게 전문용어를 일상어로 풀고, 원문 요약에서 제목과 이어지는
+ *   상세 해설을 1~2문장(3줄 분량 · 최대 4줄 미초과 · 말줄임표 0건)으로 다듬어 반환한다.
  * - 내부 라벨(`핵심 팩트:`, `브로커 임플리케이션:`, `추천 액션:`) 및 파이프(`|`) 노출 100% 제거
  */
 export function formatAxiosTwoLineBrief(
@@ -838,7 +918,7 @@ export function formatAxiosTwoLineBrief(
   } = {},
 ): string {
   const maxTotalChars = Math.min(opts.maxTotalChars ?? AXIOS_BRIEF_MAX_CHARS, AXIOS_BRIEF_MAX_CHARS);
-  const raw = typeof rawSummary === 'string' ? decodeBasicEntities(rawSummary).trim() : '';
+  const raw = typeof rawSummary === 'string' ? humanizeBuyerCopy(decodeBasicEntities(rawSummary)).trim() : '';
   const normalizeRepeatKey = (t: string) =>
     t
       .replace(/\s+/g, '')
@@ -870,7 +950,7 @@ export function formatAxiosTwoLineBrief(
   }
 
   if (opts.secondarySummary && sentences.length < 2) {
-    const secRaw = decodeBasicEntities(opts.secondarySummary)
+    const secRaw = humanizeBuyerCopy(decodeBasicEntities(opts.secondarySummary))
       .split('|')[0]
       ?.replace(INTERNAL_LABEL_RE, '')
       .trim();
@@ -894,7 +974,7 @@ export function formatAxiosTwoLineBrief(
 }
 
 /**
- * 하위호환 및 AXIOS 브리프 표준 함수 (48자 이내 짧은 부제형 요약 반환)
+ * 하위호환 및 AXIOS 브리프 표준 함수 (74자 이내 3줄 상세 해설 반환)
  */
 export function formatAxiosBrief(
   rawSummary: unknown,
@@ -908,7 +988,7 @@ export function formatAxiosBrief(
 }
 
 /**
- * 단위 이슈 1건의 제목(36자)·해설(48자) 카피 예산을 강제하는 단일 정규화 진입점
+ * 단위 이슈 1건의 제목(44자)·해설(74자) 카피 예산을 강제하는 단일 정규화 진입점
  * (AI 생성 결과 · 중개사 수동 편집 · 저장 · 고객 뷰어 렌더링 공용)
  */
 export function normalizeAxiosIssueCopy(input: {

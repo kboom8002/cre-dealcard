@@ -127,7 +127,7 @@ export function AxiosIssuesEditorPanel({
         : [...issues, replacement];
     onChangeUnitIssues(next);
     setSwappingIndex(null);
-    editorToast.success(`${idx + 1}번 핵심 이슈를 교체했습니다.`);
+    editorToast.success("이슈 카드를 교체했습니다.");
   };
 
   const candidatePool = newsPool.filter((n) => {
@@ -145,14 +145,14 @@ export function AxiosIssuesEditorPanel({
             <div className="flex flex-wrap items-center gap-2">
               <Newspaper className="w-4 h-4 text-blue-700" aria-hidden="true" />
               <h2 className="text-base font-extrabold text-slate-900">
-                {cadenceLabel} 핵심 시장 이슈 5선
+                {cadenceLabel} 핵심 이슈 브리핑
               </h2>
               <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-sm font-extrabold text-blue-800 whitespace-nowrap">
                 {issues.length > 0 ? `${issues.length}건 구성됨` : "미작성"}
               </span>
             </div>
             <p className="mt-1 text-sm font-medium text-slate-600">
-              주요 부동산 뉴스를 읽기 쉽게 5가지 요약 카드로 정리했습니다.
+              분야별 핵심 뉴스를 매수자가 바로 이해할 수 있는 쉬운 말로 정리했습니다.
             </p>
           </div>
 
@@ -220,10 +220,6 @@ export function AxiosIssuesEditorPanel({
         <div className="space-y-3.5">
           {issues.map((issue, idx) => {
             const toneMeta = POST_IT_TONE_META[issue.memoTone] ?? POST_IT_TONE_META.amber;
-            const chMeta =
-              issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
-                ? NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
-                : NEWS_CHANNEL_MAP.real_estate;
             const isSwapping = swappingIndex === idx;
             const isToolsOpen = expandedToolsIdx === idx || isSwapping;
             const titleLen = charLength(issue.title);
@@ -247,26 +243,30 @@ export function AxiosIssuesEditorPanel({
                 }}
                 className="rounded-2xl border-2 border-l-[6px] p-4 shadow-2xs transition-all space-y-3"
               >
-                {/* 카드 상단 메타 바: 번호 + 채널 배지 + 보조 도구 접기/펼치기 */}
+                {/* 카드 상단 메타 바: 이슈 분야 선택 배지 + 보조 도구 접기/펼치기 */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span
+                    <select
+                      aria-label="이슈 분야 선택"
+                      data-testid={`axios-issue-channel-${idx}`}
+                      value={channelForIssue}
+                      onChange={(e) =>
+                        handleUpdateIssue(idx, {
+                          channel: e.target.value as SpecificNewsChannelId,
+                        })
+                      }
                       style={{
                         backgroundColor: toneMeta.badgeBg,
                         color: toneMeta.badgeText,
                       }}
-                      className="rounded px-2.5 py-1 text-sm font-extrabold"
+                      className="min-h-[44px] rounded-full border border-slate-300/60 px-3 py-1.5 text-sm font-extrabold cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     >
-                      ISSUE 0{idx + 1}
-                    </span>
-                    <span className="rounded bg-white/85 border border-slate-300/80 px-2 py-0.5 text-sm font-bold text-slate-800">
-                      {chMeta.emoji} {chMeta.shortLabel}
-                    </span>
-                    {issue.articleCount && issue.articleCount > 1 && (
-                      <span className="rounded bg-white/75 px-2 py-0.5 text-sm font-semibold text-slate-700">
-                        연관 기사 {issue.articleCount}건 묶음
-                      </span>
-                    )}
+                      {NEWS_CHANNELS.filter((ch) => ch.id !== "all").map((ch) => (
+                        <option key={ch.id} value={ch.id}>
+                          {ch.emoji} {ch.shortLabel}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <button
@@ -297,7 +297,7 @@ export function AxiosIssuesEditorPanel({
                 >
                   <div
                     role="group"
-                    aria-label={`이슈 ${idx + 1} 카드 강조색 선택`}
+                    aria-label="카드 강조색 선택"
                     className="flex flex-wrap items-center gap-1"
                   >
                     <Palette className="w-4 h-4 text-slate-500 mx-1" aria-hidden="true" />
@@ -371,23 +371,23 @@ export function AxiosIssuesEditorPanel({
                           channel: channelForIssue,
                         });
                         handleUpdateIssue(idx, { brief: refined });
-                        editorToast.success("48자 이내 완결된 해설로 짧고 명확하게 정돈했습니다.");
+                        editorToast.success(`${AXIOS_BRIEF_MAX_CHARS}자 이내 상세 해설로 읽기 쉽게 정돈했습니다.`);
                       }}
                       className="min-h-[44px] px-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-sm font-extrabold text-blue-800 cursor-pointer"
                     >
-                      ✨ 48자 자동 압축
+                      ✨ {AXIOS_BRIEF_MAX_CHARS}자 자동 다듬기
                     </button>
                   </div>
                 </div>
 
-                {/* 카드뉴스 제목 입력 (36자 예산) */}
+                {/* 이슈 제목 입력 (2줄 권장 · 44자 예산) */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label
                       htmlFor={`axios-issue-title-${idx}`}
                       className="text-sm font-extrabold text-slate-800"
                     >
-                      카드뉴스 제목 (36자 이내)
+                      이슈 제목 (2줄 권장 · {AXIOS_TITLE_MAX_CHARS}자 이내)
                     </label>
                     <span
                       data-testid={`axios-issue-title-count-${idx}`}
@@ -409,10 +409,10 @@ export function AxiosIssuesEditorPanel({
                     onBlur={() => {
                       if (titleOver) {
                         handleUpdateIssue(idx, { title: formatAxiosCardTitle(issue.title) });
-                        editorToast.success(`${idx + 1}번 제목을 36자 이내 완결된 문장으로 다듬었습니다.`);
+                        editorToast.success(`제목을 ${AXIOS_TITLE_MAX_CHARS}자 이내 완결된 문장으로 다듬었습니다.`);
                       }
                     }}
-                    placeholder="고객 시선을 끄는 핵심 제목 (36자 이내)"
+                    placeholder={`70대 매수자도 바로 이해할 수 있는 쉬운 제목 (${AXIOS_TITLE_MAX_CHARS}자 이내)`}
                     className={`w-full min-h-[48px] rounded-xl border bg-white/95 px-3.5 py-2.5 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none ${
                       titleOver
                         ? "border-rose-500 focus:border-rose-600"
@@ -421,19 +421,19 @@ export function AxiosIssuesEditorPanel({
                   />
                   {titleOver && (
                     <p role="status" className="text-sm font-bold text-rose-700">
-                      36자를 넘으면 고객 화면에서 길어져요. 입력칸을 벗어나면 자동으로 다듬어 드려요.
+                      {AXIOS_TITLE_MAX_CHARS}자를 넘으면 3줄 이상으로 길어질 수 있어요. 입력칸을 벗어나면 자동으로 다듬어 드려요.
                     </p>
                   )}
                 </div>
 
-                {/* 짧은 해설 입력 (48자 예산 · text-base >=17px) */}
+                {/* 상세 해설 입력 (3줄 권장 · 74자 예산 · text-base >=17px) */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor={`axios-issue-brief-${idx}`}
                       className="text-sm font-extrabold text-slate-800"
                     >
-                      짧은 해설 (48자 이내 · 1~2문장)
+                      상세 해설 (3줄 권장 · {AXIOS_BRIEF_MAX_CHARS}자 이내)
                     </label>
                     <span
                       data-testid={`axios-issue-brief-count-${idx}`}
@@ -444,7 +444,7 @@ export function AxiosIssuesEditorPanel({
                   </div>
                   <textarea
                     id={`axios-issue-brief-${idx}`}
-                    rows={2}
+                    rows={3}
                     value={issue.brief}
                     aria-invalid={briefOver}
                     onChange={(e) => handleUpdateIssue(idx, { brief: e.target.value })}
@@ -458,7 +458,7 @@ export function AxiosIssuesEditorPanel({
                         });
                       }
                     }}
-                    placeholder="핵심 사실이나 시사점을 48자 이내 1~2문장으로 짧게 입력하세요"
+                    placeholder={`제목에 이어 매수자에게 어떤 의미인지 3줄 이내로 쉽게 풀어 적어주세요 (${AXIOS_BRIEF_MAX_CHARS}자 이내)`}
                     className={`w-full rounded-xl border bg-white/95 p-3 text-base font-medium leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none resize-y ${
                       briefOver
                         ? "border-rose-500 focus:border-rose-600"

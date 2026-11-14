@@ -79,10 +79,18 @@ describe('60대 독자 UX 개선 — 단위 검증 (ux60-reader-viewer)', () => 
   });
 
   describe('DEFAULT_SECTIONS & ViewerBottomBar SSR 초기 렌더 보장 (R-14)', () => {
-    it('DEFAULT_SECTIONS는 골든 E2E 계약을 그대로 유지한다', () => {
+    it('DEFAULT_SECTIONS는 통일 5단계 핵심 순서를 최우선으로 유지한다', () => {
       expect(DEFAULT_SECTIONS.all[0]).toBe('ai_briefing');
-      expect(DEFAULT_SECTIONS.seller.indexOf('market_data')).toBeLessThan(
-        DEFAULT_SECTIONS.seller.indexOf('featured_deals'),
+      expect(DEFAULT_SECTIONS.all.slice(0, 6)).toEqual([
+        'ai_briefing',
+        'field_note',
+        'news_curation',
+        'featured_deals',
+        'broker_profile',
+        'subscribe_cta',
+      ]);
+      expect(DEFAULT_SECTIONS.seller.indexOf('featured_deals')).toBeLessThan(
+        DEFAULT_SECTIONS.seller.indexOf('market_data'),
       );
     });
 

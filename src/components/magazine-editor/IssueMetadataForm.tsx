@@ -9,6 +9,7 @@ import { kstParts } from "@/lib/magazine/kst";
 import {
   NEWSLETTER_CADENCES,
   NEWSLETTER_CADENCE_META,
+  buildNewsletterTitlePresets,
   deriveCadenceIssueMeta,
   type NewsletterCadence,
 } from "@/lib/magazine/newsletter-cadence";
@@ -72,8 +73,9 @@ export interface IssueMetadataFormProps {
   onChangeYearMonth?: (meta: AutoIssueMetadata) => void;
   headline: string;
   onChangeHeadline: (value: string) => void;
-  summary: string;
-  onChangeSummary: (value: string) => void;
+  summary?: string;
+  onChangeSummary?: (value: string) => void;
+  brokerName?: string;
   marketTemp?: MarketTemperature | null;
   onChangeMarketTemp?: (value: MarketTemperature | null) => void;
   /** 발행 주기 (일간·주간·월간). 미지정 시 월간 */
@@ -100,8 +102,9 @@ export function IssueMetadataForm({
   onChangeYearMonth,
   headline,
   onChangeHeadline,
-  summary,
-  onChangeSummary,
+  summary: _summary = "",
+  onChangeSummary: _onChangeSummary,
+  brokerName,
   marketTemp = null,
   onChangeMarketTemp,
   cadence = "monthly",
@@ -116,8 +119,11 @@ export function IssueMetadataForm({
   const safeMonth = typeof month === "number" ? month : nowKst.month;
   const autoMeta = deriveAutoIssueMeta(safeYear, safeMonth);
   const cadenceMeta = deriveCadenceIssueMeta(cadence, { year: safeYear, month: safeMonth, dateStr: issueDate });
-  const headlineTooLong = headline.trim().length > 36;
-  const summaryTooLong = summary.trim().length > 80;
+  const headlineTooLong = headline.trim().length > 45;
+  const titlePresets = React.useMemo(
+    () => buildNewsletterTitlePresets(brokerName, cadence, safeMonth),
+    [brokerName, cadence, safeMonth],
+  );
 
   React.useEffect(() => {
     if (marketTemp) {
@@ -164,7 +170,7 @@ export function IssueMetadataForm({
           id="newsletter-headline-input"
           type="text"
           value={headline}
-          onChange={(e) => onChangeHeadline(formatSingleLineTitle(e.target.value, 80))}
+          onChange={(e) => onChangeHeadline(formatSingleLineTitle(e.target.value, 50))}
           placeholder="예: 금리 인하 기대감 속 강남 중소형 빌딩 매수 흐름"
           className="w-full min-h-[48px] whitespace-nowrap overflow-hidden text-ellipsis rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         />
@@ -174,36 +180,39 @@ export function IssueMetadataForm({
             data-testid="headline-length-hint"
             className="text-sm font-bold text-amber-800"
           >
-            제목이 길어요 – 한 줄에 들어오도록 줄여 주세요
+            제목이 길어요 – 45자 이내로 줄이면 모바일에서 한눈에 들어옵니다
           </p>
         )}
-      </div>
 
-      {/* 2. 한 줄 소개 */}
-      <div className="space-y-2">
-        <label
-          htmlFor="newsletter-summary-input"
-          className="block text-base font-extrabold text-slate-900"
+        {/* 자주 활용되는 제목 (중개인명 + 제목명) 1-Click 추천 선택 */}
+        <div
+          data-testid="newsletter-title-presets"
+          className="pt-1.5 space-y-2"
         >
-          한 줄 소개
-        </label>
-        <textarea
-          id="newsletter-summary-input"
-          rows={2}
-          value={summary}
-          onChange={(e) => onChangeSummary(e.target.value)}
-          placeholder="예: 이번 달 고객님께 꼭 전해드리고 싶은 시장 분위기와 추천 매물을 담았습니다."
-          className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-y"
-        />
-        {summaryTooLong && (
-          <p
-            role="status"
-            data-testid="summary-length-hint"
-            className="text-sm font-bold text-amber-800"
-          >
-            한 줄 소개가 조금 길어요 – 핵심만 짧게 줄여 주세요
+          <p className="text-sm font-bold text-slate-600">
+            제목이 부담스러우시면 아래에서 바로 고르세요
           </p>
-        )}
+          <div className="flex flex-wrap gap-2">
+            {titlePresets.map((preset, idx) => {
+              const selected = headline.trim() === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  data-testid={`title-preset-chip-${idx}`}
+                  onClick={() => onChangeHeadline(formatSingleLineTitle(preset, 50))}
+                  className={`min-h-[44px] rounded-xl border px-3 py-2 text-left text-sm font-bold transition-colors cursor-pointer ${
+                    selected
+                      ? "border-blue-600 bg-blue-50 text-blue-900"
+                      : "border-slate-300 bg-slate-50 text-slate-800 hover:bg-slate-100"
+                  }`}
+                >
+                  {preset}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* 3. 발행 주기 · 호수 설정 (1열과 중복 방지: 1줄 요약 바 + 필요 시 펼치기, 내부 DOM 항상 유지) */}

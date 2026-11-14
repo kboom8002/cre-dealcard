@@ -13,23 +13,18 @@ export interface NewsletterBlockItem {
 export const DEFAULT_NEWSLETTER_BLOCKS: readonly Omit<NewsletterBlockItem, "enabled">[] = [
   {
     id: "field_note",
-    label: "시장 브리핑 글",
-    description: "중개사가 직접 전하는 이번 달 시장 흐름과 인사말",
+    label: "시장 브리핑",
+    description: "5줄 이내(500자)로 핵심 시장 흐름을 전합니다",
   },
   {
     id: "news_curation",
-    label: "핵심 이슈 포스트잇 5선",
-    description: "내 권역·관심 분야 맞춤형 카드뉴스(2줄 제목 + 2줄 짧은 해설)",
+    label: "핵심 이슈 브리핑",
+    description: "70대 매수자도 쉽게 이해하는 분야별 이슈 카드",
   },
   {
     id: "featured_deals",
-    label: "추천 매물 소개",
-    description: "이번 달 고객에게 소개할 핵심 매물과 한 줄 추천글",
-  },
-  {
-    id: "market_data",
-    label: "상단 주요 통계 그래픽 2선",
-    description: "월간 뉴스레터 상단에 권역별 핵심 비교 그래픽 2개를 배치합니다",
+    label: "추천 매물",
+    description: "고객에게 소개할 핵심 매물과 한 줄 추천글",
   },
 ] as const;
 
@@ -44,12 +39,9 @@ export function BlockSelectionGrid({
   sections,
   onToggleSection,
   availableBlocks = DEFAULT_NEWSLETTER_BLOCKS,
-  cadence,
+  cadence: _cadence,
 }: BlockSelectionGridProps) {
-  const visibleBlocks =
-    cadence && cadence !== "monthly"
-      ? availableBlocks.filter((b) => b.id !== "market_data")
-      : availableBlocks;
+  const visibleBlocks = availableBlocks.filter((b) => b.id !== "market_data");
   const isEnabled = (id: string) => {
     const found = sections.find((s) => s.id === id);
     return found ? found.enabled : true;

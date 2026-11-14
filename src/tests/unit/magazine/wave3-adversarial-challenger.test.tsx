@@ -254,11 +254,9 @@ describe("Wave 3 Adversarial Challenge Suite", () => {
       // 4) motion/react 금지
       expect(content).not.toMatch(/from ['"]motion\/react['"]/);
 
-      // 5) data-prefill-roi 와 data-roi-* 가 데이터 속성으로 안전하게 포함되어 있음
-      expect(content).toContain('data-prefill-roi="true"');
-      expect(content).toContain("data-roi-price=");
-      expect(content).toContain("data-roi-rent=");
-      expect(content).toContain("data-roi-deposit=");
+      // 5) 하단 유틸리티(ViewerBottomBar/ROI)는 제거되고 최소 구독 옵트인(variant="minimal")을 안전하게 포함
+      expect(content).not.toContain("ViewerBottomBar");
+      expect(content).toContain('variant="minimal"');
     });
   });
 
@@ -282,6 +280,7 @@ describe("Wave 3 Adversarial Challenge Suite", () => {
             brokerId="test-broker"
             brokerPhone="010-1234-5678"
             source="magazine"
+            variant="full"
           />
         );
       });

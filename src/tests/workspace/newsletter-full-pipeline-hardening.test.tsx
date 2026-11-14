@@ -711,10 +711,10 @@ describe("Newsletter System Full-Pipeline MECE Audit & Hardening Suite", () => {
     // Must NEVER render neighborhood name under 면적 label
     expect(container.textContent).not.toContain("면적마포구 동교동");
 
-    const roiBtn = container.querySelector("[data-prefill-roi]");
-    expect(roiBtn).toBeTruthy();
-    expect(roiBtn?.getAttribute("data-roi-deposit")).toBe("300000000");
-    expect(roiBtn?.getAttribute("data-roi-rent")).toBe("22000000");
+    // 2026-11 Overhaul: 모바일 뷰어 하단 유틸리티(수익률 계산기 등) 제거 + 최소 뉴스레터 신청 옵트인만 유지
+    expect(container.querySelector("[data-prefill-roi]")).toBeNull();
+    expect(container.querySelector('[data-testid="minimal-subscribe-optin"]')).toBeTruthy();
+    expect(container.querySelector(`a[href="/im-lite/${BUILDING_A_ID}"]`)).toBeTruthy();
 
     // 2. C-S1-02: findIssueForDate with non-UUID editionId ("2026-11") must NOT throw 22P02
     const foundByLabel = await findIssueForDate(

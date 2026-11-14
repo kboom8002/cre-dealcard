@@ -11,6 +11,9 @@ import { z } from 'zod';
 
 export const AI_COMMENT_MAX_LENGTH = 1500;
 
+export const AI_COMMENT_MODES = ['deal_comment', 'market_briefing'] as const;
+export type AiCommentMode = (typeof AI_COMMENT_MODES)[number];
+
 export const aiCommentRequestSchema = z.preprocess(
   (v) => {
     if (v && typeof v === 'object' && !('comment' in v) && 'context' in v) {
@@ -24,6 +27,9 @@ export const aiCommentRequestSchema = z.preprocess(
       .trim()
       .min(1, '코멘트 내용이 필요합니다.')
       .max(AI_COMMENT_MAX_LENGTH, `코멘트는 ${AI_COMMENT_MAX_LENGTH}자 이내로 입력해 주세요.`),
+    mode: z.enum(AI_COMMENT_MODES).optional().default('deal_comment'),
+    draftText: z.string().max(AI_COMMENT_MAX_LENGTH).optional(),
+    cadence: z.enum(['daily', 'weekly', 'monthly']).optional(),
   }),
 );
 

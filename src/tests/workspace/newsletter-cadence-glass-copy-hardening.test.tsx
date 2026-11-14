@@ -221,7 +221,8 @@ describe("[1.3] 고객 화면 카드뉴스 글래스모피즘 표면 + SOTA 시�
   it("고객 뷰어 NewsSection: glass 카드 5장, backdrop-blur 글래스 패널, .broker-paper-theme 캐스케이드 충돌(text-white) 0건, line-clamp/truncate 0건", () => {
     const issues = clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, { cadence: "weekly" });
     const html = renderToStaticMarkup(<NewsSection items={[]} unitIssues={issues} cadence="weekly" />);
-    expect(html).toContain("주간 핵심 시장 이슈 5선");
+    expect(html).not.toContain("ISSUE 01");
+    expect(html).toContain('data-testid="viewer-news-channel-badge"');
     expect((html.match(/data-card-style="glass"/g) ?? []).length).toBe(5);
     expect((html.match(/data-contrast-tier="wcag-aaa"/g) ?? []).length).toBe(5);
     expect(html).toContain("backdrop-blur-xl");
@@ -229,9 +230,9 @@ describe("[1.3] 고객 화면 카드뉴스 글래스모피즘 표면 + SOTA 시�
     // .broker-paper-theme 에서 #1D1D1F 로 강제 반전되는 .text-white 클래스를 카드 내부에 사용하지 않음
     expect(html).not.toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*\btext-white\b/);
     expect(html).not.toMatch(/data-testid="axios-postit-(?:title|brief)"[^>]*class="[^"]*(?:line-clamp|truncate|whitespace-nowrap)/);
-    // 폰트 한 단계 축소: 제목 19/21px → 17/19px, 해설 15/16px → 14/15px
-    expect(html).toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*text-\[17px\] sm:text-\[19px\]/);
-    expect(html).toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*text-\[14px\] sm:text-\[15px\]/);
+    // 70대 매수자 가독성 폰트: 제목 17/18px, 상세 해설 15px
+    expect(html).toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*text-\[17px\] sm:text-\[18px\]/);
+    expect(html).toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*text-\[15px\]/);
     expect(html).not.toContain("text-[21px]");
   });
 });
@@ -424,8 +425,9 @@ describe("[Prompt] 뉴스레터 아이템 TF8(AI Core) 프롬프트 하드닝", 
     for (const tag of ["[T]", "[A]", "[W]", "[O]", "[L]", "[E]", "[V]", "[F]", "[S]", "[K]"]) {
       expect(all).toContain(tag);
     }
-    expect(p.systemPrompt).toContain("36자");
-    expect(p.systemPrompt).toContain("48자");
+    expect(p.systemPrompt).toContain("44자");
+    expect(p.systemPrompt).toContain("74자");
+    expect(p.systemPrompt).toContain("[70s-Buyer-Plain-Korean]");
     expect(p.systemPrompt).toContain("[No-Truncation]");
     expect(p.systemPrompt).toContain("[Grounding]");
     expect(p.systemPrompt).toContain("주간");
@@ -476,11 +478,9 @@ describe("[Prompt] 뉴스레터 아이템 TF8(AI Core) 프롬프트 하드닝", 
       "2026년 11월 2주차 주간호 강남·서초",
       { monthLabel: "2026년 11월 2주차 주간호", preferredRegions: ["강남·서초"] },
     );
-    expect(charLength(result.headline)).toBeLessThanOrEqual(36);
+    expect(charLength(result.headline)).toBeLessThanOrEqual(45);
     expect(isDanglingKoreanWord(lastWord(result.headline))).toBe(false);
-    expect(charLength(result.summary)).toBeLessThanOrEqual(80);
-    expect(result.summary).toMatch(/다\.$/);
-    expect(charLength(result.briefingTitle)).toBeLessThanOrEqual(30);
+    expect(charLength(result.briefingBody)).toBeLessThanOrEqual(500);
     expect(result.headline).not.toMatch(ELLIPSIS_RE);
   });
 

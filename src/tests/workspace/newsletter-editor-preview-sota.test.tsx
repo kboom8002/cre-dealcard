@@ -243,7 +243,8 @@ describe("P2 뉴스레터 에디터 미니멀리스트 인지 최적화 & 양방
     expect(screen.getByTestId("market-briefing-editor-body").classList.contains("hidden")).toBe(
       true,
     );
-    expect(document.querySelector("#newsletter-briefing-title")).not.toBeNull();
+    expect(document.querySelector("#newsletter-briefing-title")).toBeNull();
+    expect(document.querySelector("#newsletter-summary-input")).toBeNull();
     expect(document.querySelector("#newsletter-briefing-body")).not.toBeNull();
 
     // DealSlotAssigner 행 내부에는 중복 <button>("담기"/"선택됨") 없이 단일 체크박스 라벨만 존재

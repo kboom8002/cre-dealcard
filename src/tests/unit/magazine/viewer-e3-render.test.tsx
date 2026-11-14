@@ -72,22 +72,24 @@ describe('MagazineView 렌더 스모크', () => {
     expect(html).not.toContain('수지분석 계산기');
   });
 
-  it('설문이 없으면 poll 섹션이 없다 (기본 설문 하드코딩 금지)', () => {
+  it('하단 유틸리티·설문·세무·시장데이터 잡동사니 없이 통일 5단계 + 최소 옵트인만 렌더한다', () => {
     expect(sectionIds(render(FULL))).not.toContain('poll');
     const withPoll = render({ ...FULL, poll: { question: '고민은?', options: [{ label: '매수' }, { label: '매도', intent: 'seller' }] } });
-    expect(sectionIds(withPoll)).toContain('poll');
+    expect(sectionIds(withPoll)).not.toContain('poll');
   });
 
-  it('타깃별 순서: seller 는 market_data 가 featured_deals 보다 앞, 기본(all)은 반대', () => {
+  it('타깃 무관 통일 순서: featured_deals → broker_profile → subscribe_cta 순서를 유지하고 market_data 미노출', () => {
     const seller = sectionIds(render(FULL, { target: 'seller' }));
-    expect(seller.indexOf('market_data')).toBeLessThan(seller.indexOf('featured_deals'));
+    expect(seller).not.toContain('market_data');
+    expect(seller.indexOf('featured_deals')).toBeLessThan(seller.indexOf('broker_profile'));
     const all = sectionIds(render(FULL));
-    expect(all.indexOf('featured_deals')).toBeLessThan(all.indexOf('market_data'));
+    expect(all).not.toContain('market_data');
+    expect(all.indexOf('featured_deals')).toBeLessThan(all.indexOf('broker_profile'));
   });
 
-  it('buyer 타깃에서는 세무 클리닉을 숨기고, all 에서는 보인다', () => {
+  it('모바일 간소화 원칙에 따라 tax_clinic 유틸리티 카드도 뷰어에서 비노출한다', () => {
     expect(sectionIds(render(FULL, { target: 'buyer' }))).not.toContain('tax_clinic');
-    expect(sectionIds(render(FULL))).toContain('tax_clinic');
+    expect(sectionIds(render(FULL))).not.toContain('tax_clinic');
   });
 
   it('sections[].enabled=false 인 섹션은 렌더하지 않는다', () => {
@@ -116,10 +118,11 @@ describe('MagazineView 렌더 스모크', () => {
     expect(html).toContain('data-track-click="featured_deal"');
   });
 
-  it('U-06: 계산기·전달하기 섬이 SSR 로 렌더된다 (지연 로드여도 초기 HTML 유지)', () => {
+  it('U-06: 하단 계산기·동료 전달 유틸리티를 제거하고 최소 구독 옵트인 카드만 SSR 유지한다', () => {
     const html = render(FULL);
-    expect(html).toContain('수지분석 계산기');
-    expect(html).toContain('동료에게 구독 링크 전달하기');
+    expect(html).not.toContain('수지분석 계산기');
+    expect(html).not.toContain('동료에게 구독 링크 전달하기');
+    expect(html).toContain('data-testid="minimal-subscribe-optin"');
   });
 });
 

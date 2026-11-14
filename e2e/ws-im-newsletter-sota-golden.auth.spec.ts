@@ -466,11 +466,14 @@ test.describe.serial('MECE Golden E2E & Visual Audit — IM & Newsletter SOTA Op
     await page.getByTestId('newsletter-preview-pregeneration-card-primary-btn').click();
     await expect(page.locator('#newsletter-headline-input')).toBeFocused();
 
+    // P0-2: summary 입력칸 완전 제거 + {중개인명} 제목 프리셋 칩 클릭 검증
+    await expect(page.locator('#newsletter-summary-input')).toHaveCount(0);
+    await expect(page.getByTestId('newsletter-title-presets')).toBeVisible();
+    await page.getByTestId('title-preset-chip-0').click();
+    await expect(page.locator('#newsletter-headline-input')).toHaveValue(/중개사의/);
+
     const uniqueNlHeadline = `2026년 11월 강남·마포 빌딩 시장 동향 E2E_${Date.now().toString().slice(-4)}`;
     await page.locator('#newsletter-headline-input').fill(uniqueNlHeadline);
-    await page
-      .locator('#newsletter-summary-input')
-      .fill('금리 안정세 속 역세권 꼬마빌딩 실수요 매수세가 회복되고 있습니다.');
 
     // Immediately transitions to live_draft & removes pre-generation card!
     await expect(page.getByTestId('preview-causality-bar')).toHaveAttribute(
@@ -486,6 +489,9 @@ test.describe.serial('MECE Golden E2E & Visual Audit — IM & Newsletter SOTA Op
     await page.getByTestId('preview-postit-card-2').click();
     await expect(page.locator('#newsletter-panel-content')).toBeVisible();
     await expect(page.locator('#axios-issue-title-2')).toBeFocused();
+    await expect(page.getByTestId('axios-issue-channel-0')).toBeVisible();
+    await expect(page.getByTestId('axios-issues-editor-panel')).not.toContainText(/ISSUE\s*0?[1-5]/i);
+    await expect(page.getByTestId('magazine-preview-slot')).not.toContainText(/ISSUE\s*0?[1-5]/i);
 
     await shot(page, ARTIFACT_DIR, 'sota_11_newsletter_click_to_edit_issue3_1440', shotCounter);
     physicsSnapshots.push(
@@ -501,15 +507,41 @@ test.describe.serial('MECE Golden E2E & Visual Audit — IM & Newsletter SOTA Op
     });
     expect(blockBeforeBriefing).toBe(true);
 
-    // Toggle field_note OFF -> editor body hidden; toggle ON -> visible & write briefing
+    // Verify legacy subheadings / formatting toolbar / copy-cover button are permanently removed
+    await expect(page.locator('#newsletter-briefing-title')).toHaveCount(0);
+    await expect(page.getByTestId('copy-cover-to-briefing-btn')).toHaveCount(0);
+    await expect(page.locator('[data-testid^="format-btn-"]')).toHaveCount(0);
+
+    // Toggle field_note OFF -> editor body hidden; toggle ON -> visible & test 1~3 line draft -> AI 5-line polish (<= 500 chars)
     await page.getByTestId('block-switch-field_note').click();
     await expect(page.getByTestId('briefing-section-disabled-notice')).toBeVisible();
     await expect(page.locator('#newsletter-briefing-body')).toBeHidden();
     await page.getByTestId('enable-briefing-section-btn').click();
     await expect(page.locator('#newsletter-briefing-body')).toBeVisible();
+    await expect(page.getByTestId('briefing-length-counter')).toBeVisible();
     await page
       .locator('#newsletter-briefing-body')
-      .fill('우량 임차인이 확보된 마포·강남 역세권 근생빌딩 중심으로 급매물 소진이 빨라지고 있습니다.');
+      .fill(
+        '강남과 마포 역세권 꼬마빌딩은 급매물이 빠르게 팔리고 있습니다.\n대출 금리 부담이 줄어들며 임대수익이 안정적인 건물로 문의가 모입니다.'
+      );
+    const aiPolishPromise = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/broker/studio/ai-comment') &&
+        res.request().method() === 'POST',
+      { timeout: 35_000 }
+    );
+    await page.getByTestId('ai-polish-briefing-btn').click();
+    const aiPolishRes = await aiPolishPromise;
+    expect(aiPolishRes.status()).toBe(200);
+    await page.waitForTimeout(300);
+    const polishedBriefing = await page.locator('#newsletter-briefing-body').inputValue();
+    expect(polishedBriefing.trim().length).toBeGreaterThan(10);
+    expect(polishedBriefing.length).toBeLessThanOrEqual(500);
+    const polishedLines = polishedBriefing
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    expect(polishedLines.length).toBeLessThanOrEqual(5);
 
     // Click-to-Edit broker contact section -> displays profile guidance banner
     await page.getByTestId('preview-broker-contact-section').click();
@@ -544,28 +576,90 @@ test.describe.serial('MECE Golden E2E & Visual Audit — IM & Newsletter SOTA Op
     ).toContainText('발행 완료');
     await shot(page, ARTIFACT_DIR, 'sota_13_newsletter_published_clean_1440', shotCounter);
 
-    // Open live reader URL on 390x844 mobile reader context to inspect published output visually!
+    // Open live reader URL on 390x844 and 360x800 mobile reader contexts to inspect published output visually!
     const liveLink = page.getByTestId('preview-live-reader-link').first();
-    if ((await liveLink.count()) > 0) {
-      const href = await liveLink.getAttribute('href');
-      if (href) {
+    await expect(liveLink).toBeVisible();
+    const href = await liveLink.getAttribute('href');
+    expect(href).toBeTruthy();
+    if (href) {
+      const targetUrl = href.startsWith('http')
+        ? href
+        : `http://localhost:${process.env.E2E_PORT || 3000}${href}`;
+
+      const readerViewports: Array<{
+        width: number;
+        height: number;
+        shotName: string;
+      }> = [
+        { width: 390, height: 844, shotName: 'sota_14_newsletter_live_reader_mobile_390' },
+        { width: 360, height: 800, shotName: 'sota_14b_newsletter_live_reader_mobile_360' },
+      ];
+
+      for (const vp of readerViewports) {
         const readerCtx = await browser.newContext({
-          viewport: { width: 390, height: 844 },
+          viewport: { width: vp.width, height: vp.height },
           locale: 'ko-KR',
         });
         const readerPage = await readerCtx.newPage();
-        await readerPage.goto(href.startsWith('http') ? href : `http://localhost:${process.env.E2E_PORT || 3000}${href}`, {
-          waitUntil: 'domcontentloaded',
-        });
+        await readerPage.goto(targetUrl, { waitUntil: 'domcontentloaded' });
         await readerPage.waitForTimeout(800);
+
         const readerOverflow = await readerPage.evaluate(
           () => document.documentElement.scrollWidth - document.documentElement.clientWidth
         );
         expect(readerOverflow).toBeLessThanOrEqual(0);
+
+        // Mobile clutter removal: no bottom bar or prefill-roi links; only minimal subscribe opt-in
+        await expect(readerPage.locator('nav[data-magazine-bottom-bar]')).toHaveCount(0);
+        await expect(readerPage.locator('[data-prefill-roi]')).toHaveCount(0);
+        await expect(readerPage.getByTestId('minimal-subscribe-optin')).toBeVisible();
+
         const readerText = await getVisibleText(readerPage);
         expect(readerText).toContain(uniqueNlHeadline.slice(0, 12));
         expect(readerText).not.toMatch(RAW_ERROR_REGEX);
-        await shot(readerPage, ARTIFACT_DIR, 'sota_14_newsletter_live_reader_mobile_390', shotCounter);
+        expect(readerText).not.toMatch(/ISSUE\s*0?[1-5]/i);
+
+        // Verify issue title <= 3 lines and issue brief <= 4 lines at actual mobile widths
+        const lineWrapMetrics = await readerPage.evaluate(() => {
+          const measureLines = (el: Element) => {
+            const style = window.getComputedStyle(el);
+            let lh = parseFloat(style.lineHeight);
+            if (!Number.isFinite(lh) || lh <= 0) {
+              lh = parseFloat(style.fontSize) * 1.45 || 20;
+            }
+            const h = el.getBoundingClientRect().height;
+            return {
+              lines: Math.round(h / lh),
+              text: (el.textContent || '').trim(),
+              height: Math.round(h),
+              lineHeight: lh,
+            };
+          };
+          const titles = Array.from(
+            document.querySelectorAll('[data-testid="axios-postit-title"]')
+          ).map(measureLines);
+          const briefs = Array.from(
+            document.querySelectorAll('[data-testid="axios-postit-brief"]')
+          ).map(measureLines);
+          return { titles, briefs };
+        });
+
+        expect(lineWrapMetrics.titles.length).toBeGreaterThan(0);
+        expect(lineWrapMetrics.briefs.length).toBeGreaterThan(0);
+        for (const t of lineWrapMetrics.titles) {
+          expect(
+            t.lines,
+            `[${vp.width}px] Issue title exceeded 3 lines (${t.lines}): "${t.text}"`
+          ).toBeLessThanOrEqual(3);
+        }
+        for (const b of lineWrapMetrics.briefs) {
+          expect(
+            b.lines,
+            `[${vp.width}px] Issue brief exceeded 4 lines (${b.lines}): "${b.text}"`
+          ).toBeLessThanOrEqual(4);
+        }
+
+        await shot(readerPage, ARTIFACT_DIR, vp.shotName, shotCounter);
         await readerCtx.close();
       }
     }

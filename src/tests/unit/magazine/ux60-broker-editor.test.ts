@@ -122,24 +122,28 @@ describe('U-F1-01 (B-03, B-11): 발행 확인 모달 발송 중지 모순 제거
   });
 });
 
-describe('U-F1-03 & U-F1-04 (B-08, B-14, B-16, B-17, B-20): 에디터 헤더·모바일 탭·미리보기 링크', () => {
+describe('U-F1-03 & U-F1-04 (B-08, B-14, B-16, B-17, B-20): SOTA 3열 스튜디오 · 3단계 탭 · 실시간 인과 미리보기', () => {
   const pageSrc = readSrc('app/(broker)/broker/magazine-editor/page.tsx');
 
-  it('Content Studio h1을 유지하면서 한글 부제 [매거진 만들기]를 함께 표시한다', () => {
-    expect(pageSrc).toContain('aria-label="Content Studio"');
-    expect(pageSrc).toContain('고객 소식지 편집실');
-    expect(pageSrc).toContain('매거진 만들기');
+  it('WorkspaceShell 3열(고르기·채우기·확인하고 보내기)과 3단계 탭을 표시한다', () => {
+    expect(pageSrc).toContain('<WorkspaceShell');
+    expect(pageSrc).toContain('workspace="magazine"');
+    expect(pageSrc).toContain('aria-label="뉴스레터 작성 3단계"');
   });
 
-  it('모바일(390px)에서도 8개 탭 한글 라벨이 숨겨지지 않고(hidden sm:inline 제거) 가로 스크롤된다', () => {
+  it('모바일(390px)에서도 3단계 탭 라벨이 숨겨지지 않고(hidden sm:inline 제거) 3열 그리드로 표시된다', () => {
     expect(pageSrc).not.toContain('hidden sm:inline');
-    expect(pageSrc).toContain('overflow-x-auto scrollbar-hide');
-    expect(pageSrc).toContain('📱 독자 화면 미리보기');
+    expect(pageSrc).toContain('grid-cols-3');
+    expect(pageSrc).toContain('data-testid={`step-tab-${tab.key}`}');
+    expect(pageSrc).toContain('key: "title"');
+    expect(pageSrc).toContain('key: "content"');
+    expect(pageSrc).toContain('key: "send"');
   });
 
-  it('미발행 초안일 때 "📱 실제 화면으로 보기" 링크와 모바일용 "📱 독자 화면 미리보기" 토글을 제공한다', () => {
-    expect(pageSrc).toContain('📱 실제 화면으로 보기');
-    expect(pageSrc).toContain('미발행 안내가 표시되며, 편집 화면은 우측 미리보기에서 확인');
+  it('PreviewCausalityBar를 통해 "공개 독자 화면 보기 ↗" 링크와 발행·미리보기 동기화 상태를 제공한다', () => {
+    expect(pageSrc).toContain('<PreviewCausalityBar');
+    expect(pageSrc).toContain('공개 독자 화면 보기 ↗');
+    expect(pageSrc).toContain('preview-live-reader-link');
   });
 });
 

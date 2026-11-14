@@ -629,13 +629,16 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
 
     const fullText = container.textContent || "";
 
-    // Verify headline, summary, and briefingBody appear cleanly without 1타 3피 triple-duplication
+    // Verify unified 5-part structure (headline + briefingBody) without suppressed summary/briefingTitle clutter
     expect(fullText).toContain("2026년 11월 홍대·연남 핵심 수익형 빌딩 시장 리포트");
-    expect(fullText).toContain("홍대·연남 권역 꼬마빌딩 수익률 및 거래 동향");
+    expect(fullText).not.toContain("금리 인하 기대감 속 마포구 역세권 우량 근생빌딩 매수세 유입 분석");
+    expect(fullText).not.toContain("홍대·연남 권역 꼬마빌딩 수익률 및 거래 동향");
     const briefingOccurrences = fullText.split(
       "연남동 및 동교동 핵심 상권의 공실률이 빠르게 하락하며"
     ).length - 1;
     expect(briefingOccurrences).toBe(1);
+    expect(container.querySelector("nav[data-magazine-bottom-bar]")).toBeNull();
+    expect(container.querySelector('[data-testid="minimal-subscribe-optin"]')).not.toBeNull();
 
     // Verify featured deal hydrated from DB and rendered with real title, price, comment, and /im-lite CTA
     expect(fullText).toContain("마포구 동교동 더파크빌딩");

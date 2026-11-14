@@ -182,7 +182,7 @@ describe("NewsCurationPanel & SimpleNewsPicker & NewsSection 다채널 UI 렌더
     const html = renderToStaticMarkup(React.createElement(NewsSection, { items: topNews }));
     expect(html).toContain('data-testid="viewer-news-channel-badge"');
     expect(html).toContain("문화·라이프");
-    expect(html).toContain("문화·예술");
+    expect(html).not.toContain("ISSUE 01");
     expect(html).toContain("원문 보기 ↗");
     expect(html).toContain('href="https://www.arte.co.kr/sample"');
   });

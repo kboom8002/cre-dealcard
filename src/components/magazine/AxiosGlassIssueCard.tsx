@@ -45,12 +45,12 @@ const SIZE_CLASS: Record<AxiosGlassCardSize, { pad: string; title: string; brief
     brief: "text-sm leading-[1.6]",
     chip: "text-sm",
   },
-  // 고객 뷰어: 17/19px 제목 + 14/15px 해설 (모바일 390px 2줄 48자 정밀 예산 유지)
+  // 고객 뷰어: 17/18px 2줄 제목(44자 한도) + 15px 3줄 상세 해설(74자 한도) · 모바일 여백 절약
   viewer: {
-    pad: "p-5",
-    title: "text-[17px] sm:text-[19px] leading-[1.42]",
-    brief: "text-[14px] sm:text-[15px] leading-[1.62]",
-    chip: "text-caption",
+    pad: "p-4 sm:p-5",
+    title: "text-[17px] sm:text-[18px] leading-[1.4]",
+    brief: "text-[15px] leading-[1.58]",
+    chip: "text-sm",
   },
 };
 
@@ -59,7 +59,7 @@ const TITLE_TEXT_SHADOW = "0 1px 0 rgba(255, 255, 255, 0.88)";
 const BRIEF_TEXT_SHADOW = "0 1px 0 rgba(255, 255, 255, 0.72)";
 
 export function AxiosGlassIssueCard({
-  index,
+  index: _index,
   tone,
   title,
   brief,
@@ -71,7 +71,7 @@ export function AxiosGlassIssueCard({
   topic,
   source,
   safeUrl,
-  clusterCount,
+  clusterCount: _clusterCount,
   cardTestId,
   titleTestId,
   briefTestId,
@@ -81,7 +81,7 @@ export function AxiosGlassIssueCard({
   const meta = POST_IT_TONE_META[tone] ?? POST_IT_TONE_META.amber;
   const s = SIZE_CLASS[size];
   const TitleTag = titleAs;
-  const issueNo = String(index + 1).padStart(2, "0");
+  const categoryText = channelLabel?.trim() || topic?.trim() || "";
 
   return (
     <li
@@ -131,35 +131,26 @@ export function AxiosGlassIssueCard({
       >
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-black tracking-[0.10em] ${s.chip}`}
-              style={{
-                backgroundColor: meta.glassPillBg,
-                borderColor: meta.glassPillBorder,
-                color: meta.badgeText,
-              }}
-            >
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5 rounded-full"
-                style={{
-                  background: meta.glassAccent,
-                  boxShadow: `0 0 6px ${meta.glassAccent}66`,
-                }}
-              />
-              ISSUE {issueNo}
-            </span>
-            {channelLabel && (
+            {categoryText && (
               <span
                 data-testid={channelBadgeTestId}
-                className={`rounded-full border px-2.5 py-0.5 font-bold ${s.chip}`}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-bold ${s.chip}`}
                 style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.86)",
-                  borderColor: "rgba(15, 23, 42, 0.12)",
-                  color: "#1E293B",
+                  backgroundColor: meta.glassPillBg,
+                  borderColor: meta.glassPillBorder,
+                  color: meta.badgeText,
                 }}
               >
-                {channelEmoji && <span aria-hidden="true">{channelEmoji}</span>} {channelLabel}
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    background: meta.glassAccent,
+                    boxShadow: `0 0 6px ${meta.glassAccent}66`,
+                  }}
+                />
+                {channelEmoji && <span aria-hidden="true">{channelEmoji}</span>}
+                <span>{categoryText}</span>
               </span>
             )}
             {sentimentLabel && (
@@ -174,34 +165,14 @@ export function AxiosGlassIssueCard({
                 {sentimentSymbol && <span aria-hidden="true">{sentimentSymbol}</span>} {sentimentLabel}
               </span>
             )}
-            {topic && (
-              <span
-                className={`rounded-full border px-2 py-0.5 font-bold ${s.chip}`}
-                style={{
-                  backgroundColor: "rgba(248, 250, 252, 0.85)",
-                  borderColor: "rgba(15, 23, 42, 0.10)",
-                  color: "#334155",
-                }}
-              >
-                {topic}
-              </span>
-            )}
           </div>
-          {typeof clusterCount === "number" && clusterCount > 1 && (
-            <span
-              className={`font-bold ${s.chip}`}
-              style={{ color: meta.metaColor }}
-            >
-              AI 클러스터링 {clusterCount}건
-            </span>
-          )}
         </div>
 
-        {/* 카드뉴스 헤드라인 — 36자 예산 · #0F172A 15:1+ 초고대비 · 자연 줄바꿈 · 잘림 없음 */}
+        {/* 카드뉴스 헤드라인 — 2줄 44자 예산 · #0F172A 15:1+ 초고대비 · 자연 줄바꿈 · 잘림 없음 */}
         <TitleTag
           data-testid={titleTestId}
           data-axios-headline-lines="2"
-          data-max-chars="36"
+          data-max-chars="44"
           title={title}
           className={`mt-3 break-keep font-extrabold tracking-[-0.02em] text-slate-900 ${s.title}`}
           style={{
@@ -221,12 +192,12 @@ export function AxiosGlassIssueCard({
           }}
         />
 
-        {/* AXIOS 부제형 해설 — 48자 예산 · #1E293B 12:1+ 고대비 · 자연 줄바꿈 · 잘림 없음 */}
+        {/* AXIOS 부제형 상세 해설 — 3줄 74자 예산 · #1E293B 12:1+ 고대비 · 자연 줄바꿈 · 잘림 없음 */}
         {brief && (
           <p
             data-testid={briefTestId}
-            data-axios-brief-lines="2"
-            data-max-chars="48"
+            data-axios-brief-lines="3"
+            data-max-chars="74"
             className={`mt-2 break-keep font-medium text-slate-800 ${s.brief}`}
             style={{
               color: meta.bodyColor,

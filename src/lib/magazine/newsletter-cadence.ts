@@ -202,34 +202,58 @@ export function parseCadenceAnchor(
 }
 
 /**
- * 주기별 기획 기본 코너 활성화 구성:
- *  - 일간(daily): [헤더 + 제목 + 일간 핵심 이슈 5선 + 추천 매물 + 연락처] (바쁜 아침 1분 속독형 — 장문 브리핑·월간 통계 기본 비활성)
- *  - 주간(weekly): [헤더 + 제목 + 주간 시장 브리핑 + 주간 핵심 이슈 5선 + 추천 매물 + 연락처] (월간 통계 비활성)
- *  - 월간(monthly): [헤더 + 제목 + 상단 주요 통계 그래픽 2선 + 월간 핵심 이슈 5선 + (선택) 시장 브리핑 + 추천 매물 + 연락처]
+ * 주기별 기본 코너 구성 (제목 + 시장브리핑 + 이슈 + 매물 + 연락처 통일)
+ * - 일간·주간·월간 모두 시장브리핑(field_note), 핵심 이슈(news_curation), 추천 매물(featured_deals)을
+ *   기본 활성화하고, 복잡한 통계/유틸리티 코너(market_data 등)는 기본 비활성화한다.
  */
 export function getDefaultSectionsForCadence(
-  cadence: NewsletterCadence,
+  _cadence: NewsletterCadence,
 ): Array<{ id: string; enabled: boolean }> {
+  return [
+    { id: "field_note", enabled: true },
+    { id: "news_curation", enabled: true },
+    { id: "featured_deals", enabled: true },
+    { id: "market_data", enabled: false },
+  ];
+}
+
+/**
+ * 중개인 이름 + 자주 쓰는 뉴스레터 제목 프리셋 생성기 (주기별 맞춤)
+ * - 제목 작성이 부담스러운 중개인이 원클릭으로 선택 후 자유롭게 수정할 수 있도록 4종을 반환한다.
+ */
+export function buildNewsletterTitlePresets(
+  brokerName: string | null | undefined,
+  cadence: NewsletterCadence,
+  month?: number,
+): string[] {
+  const raw = typeof brokerName === "string" ? brokerName.trim() : "";
+  const cleanName = raw.replace(/\s*(공인)?중개사(?:의)?$/u, "").trim();
+  const prefix = cleanName ? `${cleanName} 중개사의` : "담당 중개사의";
+  const m =
+    typeof month === "number" && Number.isFinite(month)
+      ? Math.max(1, Math.min(12, Math.floor(month)))
+      : kstParts().month;
+
   if (cadence === "daily") {
     return [
-      { id: "field_note", enabled: false },
-      { id: "news_curation", enabled: true },
-      { id: "featured_deals", enabled: true },
-      { id: "market_data", enabled: false },
+      `${prefix} 오늘의 빌딩 시장 브리핑`,
+      `${prefix} 오늘 아침 알짜 빌딩 소식`,
+      `${prefix} 매수자 맞춤 일간 빌딩 리포트`,
+      `${prefix} 오늘의 상가·빌딩 핵심 동향`,
     ];
   }
   if (cadence === "weekly") {
     return [
-      { id: "field_note", enabled: true },
-      { id: "news_curation", enabled: true },
-      { id: "featured_deals", enabled: true },
-      { id: "market_data", enabled: false },
+      `${prefix} 이번 주 빌딩 시장 브리핑`,
+      `${prefix} 주간 알짜 빌딩·시장 소식`,
+      `${prefix} 이번 주 매수자 체크포인트`,
+      `${prefix} 주간 상업용 빌딩 핵심 동향`,
     ];
   }
   return [
-    { id: "market_data", enabled: true },
-    { id: "news_curation", enabled: true },
-    { id: "field_note", enabled: true },
-    { id: "featured_deals", enabled: true },
+    `${prefix} ${m}월 빌딩 시장 브리핑`,
+    `${prefix} 이달의 알짜 빌딩·시장 소식`,
+    `${prefix} 매수자 맞춤 빌딩 시장 리포트`,
+    `${prefix} ${m}월 상업용 빌딩 핵심 동향`,
   ];
 }

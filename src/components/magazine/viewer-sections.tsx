@@ -6,7 +6,7 @@
  */
 import React from "react";
 import {
-  BarChart3, BookOpen, Globe, Hammer, Lightbulb, Newspaper, PenLine, Quote, ShieldAlert, TrendingUp,
+  BarChart3, BookOpen, Globe, Hammer, Lightbulb, PenLine, Quote, ShieldAlert, TrendingUp,
 } from "lucide-react";
 import { BrokerAvatar } from "@/components/magazine/BrokerAvatar";
 import { GlossaryText } from "@/components/magazine/GlossaryText";
@@ -305,7 +305,7 @@ export function MonthlyRegionalChartsSection({
 export function NewsSection({
   items,
   unitIssues,
-  cadence = "weekly",
+  cadence: _cadence = "weekly",
 }: {
   items: NewsItemView[];
   unitIssues?: AxiosUnitIssue[];
@@ -393,23 +393,9 @@ export function NewsSection({
         };
       });
 
-  const sectionTitle =
-    cadence === "monthly"
-      ? "월간 핵심 시장 이슈 5선"
-      : cadence === "daily"
-      ? "일간 핵심 시장 이슈 5선"
-      : cadence === "weekly"
-      ? "주간 핵심 시장 이슈 5선"
-      : "핵심 이슈 브리프";
-
   return (
-    <SectionCard
-      title={sectionTitle}
-      icon={<Newspaper className="h-4 w-4 text-amber-300" aria-hidden="true" />}
-      badge={<DataBadge type="realtime" />}
-      defaultOpen
-    >
-      {/* 카드뉴스형 글래스모피즘 이슈 카드 (제목 36자 · 해설 48자 · 잘림 없음) */}
+    <div className="space-y-3.5" data-testid="news-section-clean">
+      {/* 카드뉴스형 글래스모피즘 이슈 카드 (제목 44자 · 상세 해설 74자 · 자연 줄바꿈) */}
       <ul className="space-y-3.5" data-testid="axios-postit-list">
         {cards.map((card, i) => (
           <AxiosGlassIssueCard
@@ -420,10 +406,10 @@ export function NewsSection({
             brief={card.brief}
             size="viewer"
             channelEmoji={card.channelMeta?.emoji}
-            channelLabel={card.channelMeta?.shortLabel}
+            channelLabel={card.channelMeta?.shortLabel || card.topic || "부동산·시장"}
             sentimentSymbol={card.sentiment.symbol}
             sentimentLabel={card.sentiment.label}
-            topic={card.topic}
+            topic={undefined}
             source={card.source}
             safeUrl={card.safeUrl}
             clusterCount={card.clusterCount}
@@ -435,7 +421,7 @@ export function NewsSection({
           />
         ))}
       </ul>
-    </SectionCard>
+    </div>
   );
 }
 
@@ -724,9 +710,6 @@ export function BrokerProfileSection({
           </a>
         )}
       </div>
-      <p className="rounded-xl border border-indigo-400/25 bg-indigo-500/10 px-3.5 py-2.5 text-sm leading-relaxed text-indigo-100">
-        💡 하단 &apos;IM 요청&apos; 버튼을 누르시면 중개사 프로필·자료 안내 페이지로 이동합니다
-      </p>
     </div>
   );
 }

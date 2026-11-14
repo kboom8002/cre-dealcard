@@ -180,7 +180,7 @@ describe('applySimplePreset & countPreservedAdvancedItems — 간단 모드 프�
     }
   });
 
-  it('전체 모드에서 이미 작성된 테마·투표·세무 데이터가 있으면 간단 모드에서도 비활성화하지 않고 보존한다', () => {
+  it('통일 5단계 개편 후에도 기존 데이터 필드는 손실 없이 보존하면서 뷰어 섹션은 깔끔한 5단계로 정규화한다', () => {
     const preset = applySimplePreset({
       headline: '직접 쓴 제목',
       field_note: { comment: '한마디' },
@@ -190,10 +190,14 @@ describe('applySimplePreset & countPreservedAdvancedItems — 간단 모드 프�
       tax_clinic: { question: '법인 취득세율은?', answer: '안내입니다.' },
     });
 
-    expect(isSectionEnabled(preset.sections, 'theme_of_week')).toBe(true);
-    expect(isSectionEnabled(preset.sections, 'poll')).toBe(true);
-    expect(isSectionEnabled(preset.sections, 'tax_clinic')).toBe(true);
-    // 작성되지 않은 다른 고급 섹션은 여전히 false
+    expect(preset.theme_title).toBe('역세권 꼬마빌딩 분석');
+    expect((preset.poll as { question?: string }).question).toBe('올해 매수 계획은?');
+    expect(isSectionEnabled(preset.sections, 'news_curation')).toBe(true);
+    expect(isSectionEnabled(preset.sections, 'featured_deals')).toBe(true);
+    // 불필요한 부가 유틸리티·서브코너는 일괄 비노출
+    expect(isSectionEnabled(preset.sections, 'theme_of_week')).toBe(false);
+    expect(isSectionEnabled(preset.sections, 'poll')).toBe(false);
+    expect(isSectionEnabled(preset.sections, 'tax_clinic')).toBe(false);
     expect(isSectionEnabled(preset.sections, 'auction_picks')).toBe(false);
     expect(isSectionEnabled(preset.sections, 'reports')).toBe(false);
   });
@@ -305,7 +309,7 @@ describe('FieldNoteSection & MagazineView — 중개사의 한마디 인용 카�
     expect(html).toContain('중개인 한마디');
   });
 
-  it('간단 모드 발행본 뷰어에서 빠른 이동 바가 실제 렌더된 섹션(한마디·매물·뉴스·계산기)만 노출한다', () => {
+  it('통일 5단계 발행본 뷰어가 유틸리티·하단 바 없이 브리핑·이슈·매물·연락처·최소 구독 옵트인만 노출한다', () => {
     const simpleData = applySimplePreset(
       {
         broker: { name: '김영수', company: '딜카드부동산', phone: '010-1234-5678' },
@@ -332,10 +336,12 @@ describe('FieldNoteSection & MagazineView — 중개사의 한마디 인용 카�
       }),
     );
 
-    expect(html).toContain('💬 중개사의 한마디');
-    expect(html).toContain('🏢 주목 매물');
-    expect(html).toContain('📰 주요 뉴스');
-    expect(html).toContain('🧮 수익률 계산기');
+    expect(html).toContain('data-testid="viewer-market-briefing"');
+    expect(html).toContain('data-testid="axios-postit-card"');
+    expect(html).toContain('모바일 IM 열람');
+    expect(html).toContain('data-testid="minimal-subscribe-optin"');
+    expect(html).not.toContain('data-magazine-bottom-bar');
+    expect(html).not.toContain('수익률 계산기');
     expect(html).not.toContain('💰 세무·법률');
     expect(html).not.toContain('📊 이번 주 투표');
   });

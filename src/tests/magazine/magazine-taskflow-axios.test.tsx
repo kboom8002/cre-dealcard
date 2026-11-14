@@ -125,13 +125,13 @@ describe("1. 중개인 개인 설정(권역 · 뉴스 큐레이션 분야) 및 �
   });
 });
 
-describe("2. 고객 화면 카드뉴스 글래스 뷰 (제목 36자 + 해설 48자, 잘림 0건)", () => {
-  it("formatAxiosCardTitle 은 36자 이내 완결 명사구로 압축하고, formatAxiosTwoLineBrief 는 내부 라벨 없이 48자 이내 완결 문장으로 압축한다", () => {
+describe("2. 고객 화면 카드뉴스 글래스 뷰 (제목 44자 + 해설 74자, 잘림 0건)", () => {
+  it("formatAxiosCardTitle 은 44자 이내 완결 제목으로 압축하고, formatAxiosTwoLineBrief 는 내부 라벨 없이 74자 이내 완결 문장으로 압축한다", () => {
     const title = formatAxiosCardTitle(
       "[한국경제] 강남·서초 역세권 꼬마빌딩, 금리 인하 기대감에 법인 사옥 매수세 뚜렷한 회복",
     );
     expect(title).not.toContain("[한국경제]");
-    expect(Array.from(title).length).toBeLessThanOrEqual(36);
+    expect(Array.from(title).length).toBeLessThanOrEqual(44);
     expect(Array.from(title).length).toBeGreaterThanOrEqual(8);
     expect(title).not.toMatch(/…|\.\.\./);
 
@@ -143,7 +143,7 @@ describe("2. 고객 화면 카드뉴스 글래스 뷰 (제목 36자 + 해설 48�
     expect(brief).not.toContain("핵심 팩트:");
     expect(brief).not.toContain("브로커 임플리케이션:");
     expect(brief).not.toContain("추천 액션:");
-    expect(Array.from(brief).length).toBeLessThanOrEqual(48);
+    expect(Array.from(brief).length).toBeLessThanOrEqual(74);
     expect(brief).toMatch(/다\.$/);
   });
 
@@ -161,11 +161,11 @@ describe("2. 고객 화면 카드뉴스 글래스 뷰 (제목 36자 + 해설 48�
     expect((html.match(/data-testid="axios-postit-card"/g) ?? []).length).toBe(5);
     expect((html.match(/data-card-style="glass"/g) ?? []).length).toBe(5);
     expect(html).toContain('data-axios-headline-lines="2"');
-    expect(html).toContain('data-axios-brief-lines="2"');
+    expect(html).toContain('data-axios-brief-lines="3"');
     expect(html).not.toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*(?:line-clamp|truncate|whitespace-nowrap)/);
     expect(html).not.toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*(?:line-clamp|truncate|whitespace-nowrap)/);
     expect(html).toMatch(/data-testid="axios-postit-title"[^>]*class="[^"]*text-\[17px\]/);
-    expect(html).toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*text-\[14px\]/);
+    expect(html).toMatch(/data-testid="axios-postit-brief"[^>]*class="[^"]*text-\[15px\]/);
   });
 });
 describe("3. AI Core (AgentOutputEnvelope) & TaskFlow (TF8 + M11 핀포인트 교정) 프롬프트 하드닝", () => {
@@ -197,7 +197,7 @@ describe("3. AI Core (AgentOutputEnvelope) & TaskFlow (TF8 + M11 핀포인트 �
       candidateIssues: clusterArticlesIntoFiveIssues([], { preferredRegions: ["강남·서초"] }),
     });
     expect(clusterPrompt.systemPrompt).toContain("[Card-News 2-Line Title]");
-    expect(clusterPrompt.systemPrompt).toContain("[AXIOS 2-Line Subtitle Brief]");
+    expect(clusterPrompt.systemPrompt).toContain("[Detailed 3-Line Subtitle Brief]");
 
     const commentPrompt = buildTf8CommentPrompt({
       comment: "역삼역 도보 3분 코너 빌딩, 사옥 겸 임대 추천",

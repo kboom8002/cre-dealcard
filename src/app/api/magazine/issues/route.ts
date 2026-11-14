@@ -12,7 +12,6 @@ import { getOrCreateDraftEdition, defaultLabelForEditionType } from "@/lib/magaz
 import { sanitizeDealAddress } from "@/lib/magazine/view-helpers";
 import {
   normalizeReadableBriefingText,
-  stripUneditedFormatPlaceholders,
 } from "@/lib/magazine/simple-format";
 import {
   isUuid,
@@ -21,6 +20,7 @@ import {
 } from "@/lib/im-lite/quick-generate-store";
 import {
   clusterArticlesIntoFiveIssues,
+  normalizeMarketBriefingPlain,
   resolveUnitIssuesFromData,
 } from "@/domain/magazine/issue-clustering";
 import {
@@ -245,37 +245,28 @@ export async function POST(request: NextRequest) {
       phone = sanitizeBrokerPhone((prof as { phone: string }).phone);
     }
 
-    const cleanedSummary = stripUneditedFormatPlaceholders(data.summary?.trim() || "");
-    const cleanedBriefingTitle = stripUneditedFormatPlaceholders(data.briefingTitle?.trim() || "");
-    const cleanedBriefingBody = normalizeReadableBriefingText(data.briefingBody?.trim() || "");
-
-    const composedBriefingBody =
-      cleanedBriefingTitle &&
-      cleanedBriefingBody &&
-      !cleanedBriefingBody.startsWith(`■ ${cleanedBriefingTitle}`) &&
-      !cleanedBriefingBody.startsWith(cleanedBriefingTitle)
-        ? `■ ${cleanedBriefingTitle}\n\n${cleanedBriefingBody}`
-        : cleanedBriefingBody || cleanedBriefingTitle;
+    const rawBriefingInput =
+      data.briefingBody?.trim() || data.summary?.trim() || "";
+    const cleanedSummary = "";
+    const cleanedBriefingTitle = "";
+    const cleanedBriefingBody = normalizeMarketBriefingPlain(
+      normalizeReadableBriefingText(rawBriefingInput),
+      500,
+      5,
+    );
 
     const effectiveBriefing =
-      composedBriefingBody ||
-      cleanedSummary ||
+      cleanedBriefingBody ||
       `${effectiveHeadline} 핵심 내용을 정리해 전해드립니다.`;
 
-    const hasDistinctSummaryAndBody =
-      Boolean(cleanedSummary) &&
-      Boolean(composedBriefingBody) &&
-      cleanedSummary.replace(/\s+/g, " ") !== composedBriefingBody.replace(/\s+/g, " ");
-
-    const primaryBriefingText = hasDistinctSummaryAndBody ? cleanedSummary : effectiveBriefing;
-    const secondaryFieldComment = hasDistinctSummaryAndBody ? composedBriefingBody : "";
+    const primaryBriefingText = effectiveBriefing;
 
     const fieldNote = {
       question: "",
       buyerReaction: "",
       sellerReaction: "",
       marketJudgment: "",
-      comment: secondaryFieldComment,
+      comment: "",
     };
 
     const existingContent =
@@ -747,7 +738,7 @@ export async function POST(request: NextRequest) {
         return { id: sec.id, enabled: briefingToggleEnabled && Boolean(primaryBriefingText) };
       }
       if (sec.id === "field_note") {
-        return { id: sec.id, enabled: briefingToggleEnabled && Boolean(secondaryFieldComment) };
+        return { id: sec.id, enabled: false };
       }
       if (sec.id === "theme_of_week") {
         return { id: sec.id, enabled: false };

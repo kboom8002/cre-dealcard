@@ -102,16 +102,16 @@ export const VIEWER_SECTION_IDS = [
 export type ViewerSectionId = (typeof VIEWER_SECTION_IDS)[number];
 
 const ORDER_ALL: readonly ViewerSectionId[] = [
-  'ai_briefing', 'field_note', 'theme_of_week', 'featured_deals', 'poll', 'subscribe_cta', 'broker_profile',
-  'market_data', 'news_curation', 'auction_picks', 'reports', 'sentiment_index', 'roi_calculator', 'tax_clinic', 'referral',
+  'ai_briefing', 'field_note', 'news_curation', 'featured_deals', 'broker_profile', 'subscribe_cta',
+  'theme_of_week', 'market_data', 'poll', 'auction_picks', 'reports', 'sentiment_index', 'roi_calculator', 'tax_clinic', 'referral',
 ];
 const ORDER_BUYER: readonly ViewerSectionId[] = [
-  'ai_briefing', 'field_note', 'featured_deals', 'roi_calculator', 'theme_of_week', 'poll', 'subscribe_cta', 'broker_profile',
-  'market_data', 'news_curation', 'auction_picks', 'reports', 'sentiment_index', 'tax_clinic', 'referral',
+  'ai_briefing', 'field_note', 'news_curation', 'featured_deals', 'broker_profile', 'subscribe_cta',
+  'roi_calculator', 'theme_of_week', 'poll', 'market_data', 'auction_picks', 'reports', 'sentiment_index', 'tax_clinic', 'referral',
 ];
 const ORDER_SELLER: readonly ViewerSectionId[] = [
-  'ai_briefing', 'field_note', 'market_data', 'sentiment_index', 'featured_deals', 'theme_of_week', 'poll',
-  'subscribe_cta', 'broker_profile', 'tax_clinic', 'news_curation', 'auction_picks', 'reports', 'roi_calculator', 'referral',
+  'ai_briefing', 'field_note', 'news_curation', 'featured_deals', 'broker_profile', 'subscribe_cta',
+  'market_data', 'sentiment_index', 'theme_of_week', 'poll', 'tax_clinic', 'auction_picks', 'reports', 'roi_calculator', 'referral',
 ];
 
 export const DEFAULT_SECTIONS: Readonly<Record<ViewerTarget, readonly ViewerSectionId[]>> = {

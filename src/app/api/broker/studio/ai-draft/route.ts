@@ -15,6 +15,7 @@ import {
   charLength,
   condenseKoreanParagraph,
   formatSingleLineTitle,
+  normalizeMarketBriefingPlain,
 } from "@/domain/magazine/issue-clustering";
 import {
   AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
@@ -44,13 +45,14 @@ export function sanitizeInvestmentSolicitation(text: string): string {
 
 export const AI_DRAFT_SYSTEM_PROMPT = [
   "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v3.0)",
-  "[T] Task: 공인중개사가 입력한 발행 연·월, 주력 권역, 관심 큐레이션 분야, 추천 매물, 기존 메모만을 바탕으로 정중하고 신뢰감 있는 한국어 뉴스레터 초안 JSON을 작성하세요.",
-  "[A] Audience: 50~70대 중소형 빌딩 매수 대기자, 법인 사옥 실수요 대표, 건물주.",
+  "[T] Task: 공인중개사가 입력한 발행 연·월, 주력 권역, 관심 큐레이션 분야, 추천 매물, 기존 메모만을 바탕으로 70대 매수자도 쉽게 이해할 수 있는 한국어 뉴스레터 초안 JSON을 작성하세요.",
+  "[A] Audience: 60~70대 중소형 빌딩 매수 검토자, 법인 사옥 실수요 대표, 건물주.",
   "[W] Warnings & Hard Constraints:",
   "1) [No-LLM-Numbers] 입력에 없는 구체 숫자(수익률, 매매가, 공실률, 거래건수, 변동률 등)를 임의로 추가하지 마세요.",
   "2) [No-Solicitation] 투자 권유·단정 표현(원금 보장, 확정 수익, 무조건 상승 등)을 사용하지 마세요.",
-  "3) [O] Output Contract: 반드시 아래 JSON 키만 포함하여 응답하세요:",
-  '   { "headline": "36자 이내 표지 제목", "summary": "80자 이내 한 줄 소개", "briefingTitle": "30자 이내 브리핑 소제목", "briefingBody": "400자 이내 시장 브리핑 본문" }',
+  "3) [70s-Buyer-Plain-Korean] '스프레드', '레버리지', '자기자본수익률', '밸류애드', '리파이낸싱' 대신 쉬운 일상 우리말을 쓰세요.",
+  "4) [O] Output Contract: 반드시 아래 JSON 키만 포함하여 응답하세요:",
+  '   { "headline": "45자 이내 뉴스레터 제목", "summary": "", "briefingTitle": "", "briefingBody": "소제목·기호 없이 3~5줄 이내 500자 이내 순수 텍스트 시장 브리핑" }',
 ].join("\n");
 
 export const aiDraftRequestSchema = z.object({
@@ -66,10 +68,10 @@ export const aiDraftRequestSchema = z.object({
 });
 
 export const aiDraftResultSchema = z.object({
-  headline: z.string().trim().min(1).max(36),
-  summary: z.string().trim().min(1).max(80),
-  briefingTitle: z.string().trim().min(1).max(30),
-  briefingBody: z.string().trim().min(1).max(400),
+  headline: z.string().trim().min(1).max(45),
+  summary: z.string().trim().max(80).optional().default(""),
+  briefingTitle: z.string().trim().max(30).optional().default(""),
+  briefingBody: z.string().trim().min(1).max(500),
 });
 
 export const aiDraftResponseSchema = z.object({
@@ -214,10 +216,17 @@ export async function POST(req: NextRequest) {
     }
 
     const rawCandidate = {
-      headline: clampText(jsonObj.headline, 36, "title"),
-      summary: clampText(jsonObj.summary, 80),
-      briefingTitle: clampText(jsonObj.briefingTitle, 30, "title"),
-      briefingBody: clampMultilineText(jsonObj.briefingBody, 400),
+      headline: clampText(jsonObj.headline, 45, "title"),
+      summary: typeof jsonObj.summary === "string" && jsonObj.summary.trim() ? clampText(jsonObj.summary, 80) : "",
+      briefingTitle:
+        typeof jsonObj.briefingTitle === "string" && jsonObj.briefingTitle.trim()
+          ? clampText(jsonObj.briefingTitle, 30, "title")
+          : "",
+      briefingBody: normalizeMarketBriefingPlain(
+        clampMultilineText(jsonObj.briefingBody, 500),
+        500,
+        5,
+      ),
     };
 
     const validatedRaw = aiDraftResultSchema.safeParse(rawCandidate);

@@ -17,6 +17,8 @@ interface SubscribeCardProps {
   source: 'magazine' | 'vibe_card' | 'im';
   accentColor?: string;
   brokerPhone?: string | null;
+  /** 'minimal': 모바일 뉴스레터 하단 간단 옵트인 (기본), 'full': 전체 3채널 폼 */
+  variant?: 'full' | 'minimal';
 }
 
 /** 채널 토글 라벨: '둘 다' 로 통일 (T2-20). 이모지 없는 짧은 CTA. */
@@ -34,7 +36,14 @@ const CTA_TEXT: Record<Channel, string> = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-export function SubscribeCard({ brokerId, source, accentColor = '#4f46e5', brokerPhone }: SubscribeCardProps) {
+export function SubscribeCard({
+  brokerId,
+  source,
+  accentColor = '#4f46e5',
+  brokerPhone,
+  variant,
+}: SubscribeCardProps) {
+  const effectiveVariant = variant ?? (source === 'magazine' ? 'minimal' : 'full');
   const uid = useId();
   const [channel, setChannel] = useState<Channel>('kakao');
   const [phone, setPhone] = useState('');
@@ -166,6 +175,116 @@ export function SubscribeCard({ brokerId, source, accentColor = '#4f46e5', broke
 
   const inputClass =
     'w-full min-h-12 bg-slate-900/90 border border-slate-500 rounded-xl px-3.5 py-2.5 text-[16px] text-white placeholder:text-slate-300 outline-none focus:border-white transition-colors';
+
+  if (effectiveVariant === 'minimal') {
+    return (
+      <div
+        data-testid="minimal-subscribe-optin"
+        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5 text-left text-slate-100 space-y-3"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[17px] font-bold text-white">뉴스레터 신청</h2>
+            <p className="text-[15px] text-slate-300">
+              새 호가 발행되면 편하게 받아보실 수 있습니다.
+            </p>
+          </div>
+          {status !== 'success' && (
+            <button
+              type="button"
+              onClick={() => {
+                setChannel((prev) => (prev === 'email' ? 'kakao' : 'email'));
+                setStatus('idle');
+                setErrorMsg('');
+              }}
+              className="min-h-[44px] rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-[15px] font-semibold text-slate-200 hover:bg-white/10"
+            >
+              {channel === 'email' ? '휴대폰으로 받기' : '이메일로 받기'}
+            </button>
+          )}
+        </div>
+
+        {status === 'success' ? (
+          <div
+            role="status"
+            data-testid="minimal-subscribe-success"
+            className="rounded-xl border border-emerald-400/50 bg-emerald-950/70 p-4 text-[15px] font-semibold text-emerald-100 leading-relaxed space-y-1"
+          >
+            <p>
+              {done.status === 'pending'
+                ? '뉴스레터 신청이 접수되었습니다. 확인 후 발송됩니다.'
+                : '뉴스레터 신청이 완료되었습니다.'}
+            </p>
+            {done.message && <p className="text-emerald-200">{done.message}</p>}
+          </div>
+        ) : (
+          <form onSubmit={handleSubscribe} className="space-y-3" noValidate>
+            {channel === 'email' ? (
+              <input
+                id={`${uid}-min-email`}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                aria-label="이메일 주소"
+                placeholder="이메일 주소를 입력하세요"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className={inputClass}
+              />
+            ) : (
+              <input
+                id={`${uid}-min-phone`}
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                aria-label="휴대폰 번호"
+                placeholder="휴대폰 번호 (예: 010-1234-5678)"
+                value={phone}
+                onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
+                required
+                className={`${inputClass} font-mono`}
+              />
+            )}
+
+            <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer text-[15px] text-slate-200 select-none">
+              <input
+                type="checkbox"
+                data-testid="minimal-subscribe-consent"
+                checked={consentOk}
+                onChange={(e) => {
+                  const agreed = e.target.checked;
+                  setConsent({ privacy: agreed, marketing: agreed, age14: agreed });
+                }}
+                className="h-5 w-5 rounded border-slate-400 accent-indigo-500 shrink-0"
+              />
+              <span className="break-keep">
+                개인정보 수집·이용 및 뉴스레터 수신에 동의합니다 (필수)
+              </span>
+            </label>
+
+            <TrackingNotice />
+
+            {status === 'error' && (
+              <p role="alert" className="text-[15px] text-rose-200 font-bold">
+                {errorMsg}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              data-testid="minimal-subscribe-submit"
+              disabled={status === 'loading' || !consentOk}
+              className="w-full min-h-[48px] py-2.5 rounded-xl text-[16px] font-bold text-white transition-all active:scale-[0.98] disabled:bg-slate-700 disabled:text-slate-200 disabled:border disabled:border-slate-500 disabled:cursor-not-allowed"
+              style={consentOk && status !== 'loading' ? { background: accentColor } : undefined}
+            >
+              {status === 'loading' ? '신청 중...' : '뉴스레터 신청하기'}
+            </button>
+          </form>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-slate-600 bg-slate-900/95 p-5 space-y-4 text-left text-slate-100">

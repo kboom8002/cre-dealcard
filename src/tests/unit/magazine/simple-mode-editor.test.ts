@@ -263,8 +263,10 @@ describe("Simple Mode Editor (S2) — SimpleEditor UI & Summary Fallback Contrac
     expect((preset.featured_deal_ids as string[]).length).toBe(3);
     expect((preset.selected_news_ids as string[]).length).toBe(3);
     const sections = preset.sections as Array<{ id: string; enabled: boolean }>;
-    expect(sections.find((s) => s.id === "roi_calculator")?.enabled).toBe(true);
-    expect(sections.find((s) => s.id === "poll")?.enabled).toBe(true);
+    expect(sections.find((s) => s.id === "news_curation")?.enabled).toBe(true);
+    expect(sections.find((s) => s.id === "featured_deals")?.enabled).toBe(true);
+    expect(sections.find((s) => s.id === "roi_calculator")?.enabled).toBe(false);
+    expect(sections.find((s) => s.id === "poll")?.enabled).toBe(false);
     expect(sections.find((s) => s.id === "tax_clinic")?.enabled).toBe(false);
 
     const cardHtml = renderToStaticMarkup(

@@ -89,15 +89,13 @@ import {
   type MonthlyChartPairId,
 } from "@/domain/magazine/monthly-stats-hydration";
 import {
-  SIMPLE_FORMAT_ACTIONS,
-  applySimpleTextFormat,
   normalizeReadableBriefingText,
-  type SimpleFormatActionId,
 } from "@/lib/magazine/simple-format";
 import {
   clusterArticlesIntoFiveIssues,
   formatSingleLineTitle,
   normalizeAxiosIssueCopy,
+  normalizeMarketBriefingPlain,
   resolveUnitIssuesFromData,
 } from "@/domain/magazine/issue-clustering";
 import {
@@ -523,7 +521,6 @@ function MagazineEditorWorkspace() {
     fallbackUrl?: string;
   } | null>(null);
 
-  const briefingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const hydratedRef = useRef(false);
   const restoredLocalIssuesRef = useRef(false);
   const savingLockRef = useRef(false);
@@ -2416,36 +2413,7 @@ function MagazineEditorWorkspace() {
     });
   };
 
-  // ── 9. 서식 막대 (소제목 / 강조 / 구분선) ──
-  const handleFormatAction = (action: SimpleFormatActionId) => {
-    const el = briefingTextareaRef.current;
-    const selection = el
-      ? {
-          start: el.selectionStart ?? briefingBody.length,
-          end: el.selectionEnd ?? briefingBody.length,
-        }
-      : undefined;
-    const { text: nextText, selectionStart, selectionEnd } = applySimpleTextFormat(
-      briefingBody,
-      action,
-      selection,
-    );
-    setBriefingBody(nextText);
-    persistLocalDraft({ briefingBody: nextText });
-
-    if (el) {
-      requestAnimationFrame(() => {
-        try {
-          el.focus();
-          el.setSelectionRange(selectionStart, selectionEnd);
-        } catch {
-          // ignore selection error in headless test env
-        }
-      });
-    }
-  };
-
-  // ── 10. 매물, 코너 토글 및 월간 상단 주요 통계 그래픽 2선 편집 ──
+  // ── 9. 매물, 코너 토글 및 월간 상단 주요 통계 그래픽 2선 편집 ──
   const handleChangeMonthlyRegion = (nextRegion: MonthlyRegionKey) => {
     const nextCharts = buildDefaultMonthlyGraphicPair(nextRegion, monthlyPairId);
     setMonthlyRegion(nextRegion);
@@ -2741,15 +2709,13 @@ function MagazineEditorWorkspace() {
     [sections],
   );
   const formattedPreviewBriefing = useMemo(
-    () => normalizeReadableBriefingText(briefingBody),
+    () => normalizeMarketBriefingPlain(normalizeReadableBriefingText(briefingBody), 500, 5),
     [briefingBody],
   );
 
   // ── 생애주기(4단계) 및 양방향 에디터 ↔ 미리보기 동기화 ──
   const hasBrokerAuthoredContent = Boolean(
     headline.trim() ||
-      summary.trim() ||
-      briefingTitle.trim() ||
       briefingBody.trim() ||
       selectedDealIds.length > 0 ||
       marketTemp !== null ||
@@ -2787,13 +2753,6 @@ function MagazineEditorWorkspace() {
         tab: "title",
         editorSelector: '[data-testid="issue-metadata-form"]',
         focusSelector: "#newsletter-headline-input",
-      },
-      "nl-unit-summary": {
-        unitId: "nl-unit-summary",
-        label: "한 줄 소개",
-        tab: "title",
-        editorSelector: '[data-testid="issue-metadata-form"]',
-        focusSelector: "#newsletter-summary-input",
       },
       "nl-unit-stats-0": {
         unitId: "nl-unit-stats-0",
@@ -2972,9 +2931,10 @@ function MagazineEditorWorkspace() {
       targetUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
     }
 
+    const briefingSnippet = briefingBody.trim().replace(/\s+/g, " ").slice(0, 80);
     const shareOutcome = await shareKakaoFeed({
       title: headline.trim(),
-      description: summary.trim() || `${autoMeta.yearMonthLabel} 뉴스레터`,
+      description: briefingSnippet || `${autoMeta.yearMonthLabel} 뉴스레터`,
       imageUrl: `${getSiteOrigin()}/og-default.png`,
       url: targetUrl!,
       buttonTitle: "뉴스레터 열기",
@@ -3033,6 +2993,8 @@ function MagazineEditorWorkspace() {
         return;
       }
 
+      const briefingSnippet = briefingBody.trim().replace(/\s+/g, " ").slice(0, 80);
+
       // 2단계: 구독자 실제 발송 엔진(/api/broker/magazine/distribute) + 활동 기록(/api/broker/inbox/actions)
       let sentCount = 0;
       if (saved.savedEditionId && isUuidLike(saved.savedEditionId)) {
@@ -3044,7 +3006,7 @@ function MagazineEditorWorkspace() {
               editionId: saved.savedEditionId,
               editionType: cadence,
               title: headline.trim(),
-              headline: summary.trim() || headline.trim(),
+              headline: briefingSnippet || headline.trim(),
               market_temp: marketTemp ?? undefined,
               date: saved.savedIssueDate,
               target: targetSegment,
@@ -3084,7 +3046,7 @@ function MagazineEditorWorkspace() {
 
       const shareResult = await shareKakaoFeed({
         title: headline.trim(),
-        description: summary.trim() || `${autoMeta.yearMonthLabel} 뉴스레터`,
+        description: briefingSnippet || `${autoMeta.yearMonthLabel} 뉴스레터`,
         imageUrl: `${getSiteOrigin()}/og-default.png`,
         url: publicUrl,
         buttonTitle: "뉴스레터 열기",
@@ -3761,8 +3723,6 @@ function MagazineEditorWorkspace() {
                 const target = e.target as HTMLElement | null;
                 if (target?.id === "newsletter-headline-input") {
                   sync.notifyEditorFocus("nl-unit-cover");
-                } else if (target?.id === "newsletter-summary-input") {
-                  sync.notifyEditorFocus("nl-unit-summary");
                 } else {
                   sync.notifyEditorFocus("nl-unit-issue-meta");
                 }
@@ -3775,6 +3735,7 @@ function MagazineEditorWorkspace() {
                 onChangeCadence={handleChangeCadence}
                 issueDate={issueDateStr}
                 onChangeIssueDate={handleChangeIssueDate}
+                brokerName={brokerName}
                 onChangeYearMonth={(meta: AutoIssueMetadata) => {
                   persistCurrentSlotIfDirty();
                   setDraftSlotSlugOverride(null);
@@ -3801,11 +3762,6 @@ function MagazineEditorWorkspace() {
                   setHeadline(val);
                   persistLocalDraft({ headline: val });
                 }}
-                summary={summary}
-                onChangeSummary={(val) => {
-                  setSummary(val);
-                  persistLocalDraft({ summary: val });
-                }}
                 marketTemp={marketTemp}
                 onChangeMarketTemp={(nextTemp) => {
                   setMarketTemp(nextTemp);
@@ -3831,16 +3787,21 @@ function MagazineEditorWorkspace() {
                   briefingBody,
                 }}
                 onApplyDraft={(next: MagazineDraftSnapshot) => {
-                  const nextHeadline = formatSingleLineTitle(next.headline, 80);
+                  const nextHeadline = formatSingleLineTitle(next.headline, 50);
+                  const nextBriefing = normalizeMarketBriefingPlain(
+                    next.briefingBody,
+                    500,
+                    5,
+                  );
                   setHeadline(nextHeadline);
-                  setSummary(next.summary);
-                  setBriefingTitle(next.briefingTitle);
-                  setBriefingBody(next.briefingBody);
+                  setSummary("");
+                  setBriefingTitle("");
+                  setBriefingBody(nextBriefing);
                   persistLocalDraft({
                     headline: nextHeadline,
-                    summary: next.summary,
-                    briefingTitle: next.briefingTitle,
-                    briefingBody: next.briefingBody,
+                    summary: "",
+                    briefingTitle: "",
+                    briefingBody: nextBriefing,
                   });
                 }}
               />
@@ -4048,7 +4009,7 @@ function MagazineEditorWorkspace() {
               </section>
             )}
 
-            {/* 시장 브리핑 코너 OFF 안내 배너 (NL-14) */}
+            {/* 1. 시장 브리핑 (5줄 · 500자 이내 평문) */}
             {!isSectionEnabled("field_note") && (
               <div
                 data-testid="briefing-section-disabled-notice"
@@ -4069,10 +4030,9 @@ function MagazineEditorWorkspace() {
               </div>
             )}
 
-            {/* 시장 브리핑 글 + 3버튼 서식 막대 (코너 OFF 시 입력 영역을 hidden으로 보호하되 DOM은 유지) */}
             <section
               data-testid="market-briefing-editor"
-              aria-label="시장 브리핑 글 작성"
+              aria-label="시장 브리핑 작성"
               onFocusCapture={() => sync.notifyEditorFocus("nl-unit-briefing")}
               className={`rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-4 ${
                 !isSectionEnabled("field_note") ? "opacity-75" : ""
@@ -4083,12 +4043,12 @@ function MagazineEditorWorkspace() {
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-blue-700" aria-hidden="true" />
                     <h3 className="text-base font-extrabold text-slate-900">
-                      시장 브리핑 글
+                      시장 브리핑
                     </h3>
                   </div>
                   <p className="text-sm text-slate-600">
                     {isSectionEnabled("field_note")
-                      ? "①단계 표지 제목·한줄소개와 별도로 본문 상단에 실리는 칼럼입니다. 아래 버튼으로 표지 내용을 바로 가져와 다듬을 수 있습니다."
+                      ? "1~3줄만 간단히 적고 [AI로 5줄 윤문하기]를 누르면 70대 매수자도 읽기 쉽게 다듬어 드립니다."
                       : "코너가 꺼져 있어 입력칸을 접어 두었습니다. 위 [코너 켜기]를 누르면 바로 작성할 수 있습니다."}
                   </p>
                 </div>
@@ -4099,138 +4059,97 @@ function MagazineEditorWorkspace() {
                       : "hidden"
                   }
                 >
-                  {(headline.trim() || summary.trim()) && (
-                    <button
-                      type="button"
-                      data-testid="copy-cover-to-briefing-btn"
-                      onClick={() => {
-                        const nextTitle = headline.trim() || briefingTitle;
-                        const nextBody = summary.trim() || briefingBody;
-                        setBriefingTitle(nextTitle);
-                        setBriefingBody(nextBody);
-                        persistLocalDraft({
-                          briefingTitle: nextTitle,
-                          briefingBody: nextBody,
-                        });
-                        setStatusBanner({
-                          tone: "info",
-                          message: "①단계 표지 제목·한줄소개를 시장 브리핑 초안으로 가져왔습니다.",
-                        });
-                      }}
-                      className="min-h-[44px] rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-extrabold text-blue-800 hover:bg-blue-100 transition-colors cursor-pointer"
-                    >
-                      ① 표지 제목·소개 가져오기
-                    </button>
-                  )}
                   <AiCommentRecommendButton
+                    mode="market_briefing"
+                    cadence={cadence}
+                    testId="ai-polish-briefing-btn"
                     currentValue={briefingBody}
                     fallbackContext={
-                      [autoMeta.yearMonthLabel, regionFocus, headline, summary]
+                      [
+                        autoMeta.yearMonthLabel,
+                        regionFocus,
+                        headline,
+                        ...unitIssues.slice(0, 3).map((u) => u.title),
+                      ]
                         .filter(Boolean)
-                        .join(" · ") || "이번 달 상업용 빌딩 시장 분위기"
+                        .join(" / ") || "이번 호 상업용 빌딩 시장 분위기"
                     }
                     onChangeValue={(next) => {
-                      setBriefingBody(next);
-                      persistLocalDraft({ briefingBody: next });
+                      const clean = normalizeMarketBriefingPlain(next, 500, 5);
+                      setBriefingBody(clean);
+                      setBriefingTitle("");
+                      persistLocalDraft({
+                        summary: "",
+                        briefingTitle: "",
+                        briefingBody: clean,
+                      });
                     }}
-                    label="AI로 추천글 쓰기"
+                    label="AI로 5줄 윤문하기"
                   />
                 </div>
               </div>
 
               <div
                 data-testid="market-briefing-editor-body"
-                className={isSectionEnabled("field_note") ? "space-y-4" : "hidden"}
+                className={isSectionEnabled("field_note") ? "space-y-2" : "hidden"}
               >
-                <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label
-                    htmlFor="newsletter-briefing-title"
+                    htmlFor="newsletter-briefing-body"
                     className="block text-sm font-extrabold text-slate-800"
                   >
-                    브리핑 소제목
+                    브리핑 내용 (5줄 · 500자 이내)
                   </label>
-                  <input
-                    id="newsletter-briefing-title"
-                    type="text"
-                    value={briefingTitle}
-                    onChange={(e) => {
-                      setBriefingTitle(e.target.value);
-                      persistLocalDraft({ briefingTitle: e.target.value });
-                    }}
-                    placeholder="예: 이달의 강남·서초 빌딩 매수 분위기"
-                    className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
-                  />
+                  <span
+                    data-testid="briefing-length-counter"
+                    className={`text-sm font-bold ${
+                      Array.from(briefingBody).length > 500 ||
+                      briefingBody.split(/\r?\n/).filter((l) => l.trim()).length > 5
+                        ? "text-rose-700"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {Array.from(briefingBody).length}/500자 ·{" "}
+                    {briefingBody.trim()
+                      ? briefingBody.split(/\r?\n/).filter((l) => l.trim()).length
+                      : 0}
+                    /5줄
+                  </span>
                 </div>
 
-                {/* 3버튼 서식 막대: [소제목] [강조] [구분선] */}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label
-                      htmlFor="newsletter-briefing-body"
-                      className="block text-sm font-extrabold text-slate-800"
-                    >
-                      브리핑 본문
-                    </label>
-                    <div
-                      role="toolbar"
-                      aria-label="본문 서식 도구"
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      {SIMPLE_FORMAT_ACTIONS.map((fmtAction) => (
-                        <button
-                          key={fmtAction.id}
-                          type="button"
-                          data-testid={`format-btn-${fmtAction.id}`}
-                          onClick={() => handleFormatAction(fmtAction.id)}
-                          title={fmtAction.description}
-                          className="min-h-[48px] rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-extrabold text-slate-800 hover:bg-slate-100"
-                        >
-                          {fmtAction.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <textarea
-                    ref={briefingTextareaRef}
-                    id="newsletter-briefing-body"
-                    rows={5}
-                    value={briefingBody}
-                    onChange={(e) => {
-                      setBriefingBody(e.target.value);
-                      persistLocalDraft({ briefingBody: e.target.value });
-                    }}
-                    placeholder="현장에서 느끼신 매수·매도 분위기나 독자에게 전하고 싶은 이야기를 편하게 적어 주세요."
-                    className="w-full rounded-xl border border-slate-300 bg-white p-4 text-base font-medium leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none resize-y"
-                  />
-                </div>
+                <textarea
+                  id="newsletter-briefing-body"
+                  rows={5}
+                  maxLength={500}
+                  value={briefingBody}
+                  onChange={(e) => {
+                    setBriefingBody(e.target.value);
+                    persistLocalDraft({
+                      summary: "",
+                      briefingTitle: "",
+                      briefingBody: e.target.value,
+                    });
+                  }}
+                  onBlur={() => {
+                    const clean = normalizeMarketBriefingPlain(briefingBody, 500, 5);
+                    if (clean !== briefingBody) {
+                      setBriefingBody(clean);
+                      persistLocalDraft({
+                        summary: "",
+                        briefingTitle: "",
+                        briefingBody: clean,
+                      });
+                    }
+                  }}
+                  placeholder={
+                    "예) 이번 주 강남 꼬마빌딩은 금리 안정 기대감으로 문의가 늘고 있습니다.\n급매물 위주로 현장 답사가 활발하니 조건 좋은 매물은 서둘러 살펴보시길 권합니다."
+                  }
+                  className="w-full rounded-xl border border-slate-300 bg-white p-4 text-base font-medium leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none resize-y"
+                />
               </div>
             </section>
 
-            {/* 추천 매물 고르기 */}
-            <div
-              onFocusCapture={(e) => {
-                const target = e.target as HTMLElement | null;
-                const itemEl = target?.closest("[data-testid^='deal-slot-item-']");
-                const testId = itemEl?.getAttribute("data-testid") ?? "";
-                const dealId = testId.replace("deal-slot-item-", "");
-                if (dealId) {
-                  sync.notifyEditorFocus(`nl-unit-deal-${dealId}`);
-                } else {
-                  sync.notifyEditorFocus("nl-unit-deals");
-                }
-              }}
-            >
-              <DealSlotAssigner
-                deals={deals}
-                selectedDealIds={selectedDealIds}
-                onToggleDeal={handleToggleDeal}
-                dealComments={dealComments}
-                onChangeDealComment={handleChangeDealComment}
-              />
-            </div>
-
-            {/* 핵심 이슈 포스트잇 5선 (중복 brokerPreferencesCard 제거, 1열 이동 콜백 연결) */}
+            {/* 2. 핵심 이슈 브리핑 */}
             {isSectionEnabled("news_curation") && (
               <div
                 onFocusCapture={(e) => {
@@ -4266,6 +4185,29 @@ function MagazineEditorWorkspace() {
                 />
               </div>
             )}
+
+            {/* 3. 추천 매물 고르기 */}
+            <div
+              onFocusCapture={(e) => {
+                const target = e.target as HTMLElement | null;
+                const itemEl = target?.closest("[data-testid^='deal-slot-item-']");
+                const testId = itemEl?.getAttribute("data-testid") ?? "";
+                const dealId = testId.replace("deal-slot-item-", "");
+                if (dealId) {
+                  sync.notifyEditorFocus(`nl-unit-deal-${dealId}`);
+                } else {
+                  sync.notifyEditorFocus("nl-unit-deals");
+                }
+              }}
+            >
+              <DealSlotAssigner
+                deals={deals}
+                selectedDealIds={selectedDealIds}
+                onToggleDeal={handleToggleDeal}
+                dealComments={dealComments}
+                onChangeDealComment={handleChangeDealComment}
+              />
+            </div>
 
             <div className="flex items-center justify-between gap-3">
               <button
@@ -4513,19 +4455,6 @@ function MagazineEditorWorkspace() {
             </h2>
           </PreviewEditableUnit>
 
-          {summary.trim() && (
-            <PreviewEditableUnit
-              unitId="nl-unit-summary"
-              label="미리보기 요약 문장"
-              isActive={sync.activeUnitId === "nl-unit-summary"}
-              onActivate={sync.focusEditorUnit}
-              className="rounded-xl px-2.5 pt-3.5 pb-2 -mx-2.5"
-            >
-              <p className="text-base font-medium text-slate-700 leading-relaxed">
-                {summary}
-              </p>
-            </PreviewEditableUnit>
-          )}
           {brokerName && (
             <p className="text-sm font-bold text-slate-600">
               발행인: {brokerName}
@@ -4533,7 +4462,7 @@ function MagazineEditorWorkspace() {
           )}
         </header>
 
-        {/* 1) 월간 전용: 첫 머리 주요 통계 그래픽 2선 (market_data — 헤더 직후 최상단 배치) */}
+        {/* 선택적 상단 통계 그래픽 (기본 OFF) */}
         {cadence === "monthly" && isSectionEnabled("market_data") && (
           <section
             data-testid="preview-monthly-stats-section"
@@ -4569,43 +4498,31 @@ function MagazineEditorWorkspace() {
           </section>
         )}
 
-        {/* 주간 전용: 작성된 주간 시장 브리핑이 있으면 이슈 5선 앞에 배치 */}
-        {cadence === "weekly" &&
-          isSectionEnabled("field_note") &&
+        {/* 2) 시장 브리핑 (모든 발행 주기 통일 · 제목 직후 · 별도 소제목 없음) */}
+        {isSectionEnabled("field_note") &&
           formattedPreviewBriefing.trim().length > 0 && (
             <PreviewEditableUnit
               as="section"
               testId="preview-market-briefing-section"
               unitId="nl-unit-briefing"
-              label="미리보기 브리핑 칼럼"
+              label="시장 브리핑"
               isActive={sync.activeUnitId === "nl-unit-briefing"}
               onActivate={sync.focusEditorUnit}
-              className="rounded-xl space-y-2 px-2.5 pt-3.5 pb-2 -mx-2.5"
+              className="rounded-xl px-2.5 pt-2 pb-2 -mx-2.5"
             >
-              <h3 className="text-base font-extrabold text-slate-900">
-                {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
-              </h3>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 whitespace-pre-line leading-relaxed">
                 {formattedPreviewBriefing.trim()}
               </div>
             </PreviewEditableUnit>
           )}
 
-        {/* 2) 핵심 이슈 5선 브리핑 미리보기 (news_curation — 월간은 통계 2선 직후 배치) */}
+        {/* 3) 핵심 이슈 브리핑 미리보기 (분야 배지만 깔끔히 표시) */}
         {isSectionEnabled("news_curation") && unitIssues.length > 0 && (
           <section
             data-testid="preview-axios-postit-section"
             className="space-y-3"
           >
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {cadenceMeta.label} 핵심 시장 이슈 5선
-              </h3>
-              <span className="text-sm font-bold text-slate-600">
-                {preferredRegions.slice(0, 2).join(" · ")} 맞춤
-              </span>
-            </div>
-            <div className="pt-2 space-y-4" role="list">
+            <div className="space-y-4" role="list">
               {unitIssues.slice(0, 5).map((issue, idx) => {
                 const chMeta =
                   issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
@@ -4620,7 +4537,7 @@ function MagazineEditorWorkspace() {
                   <PreviewEditableUnit
                     key={issue.id || idx}
                     unitId={`nl-unit-issue-${idx}`}
-                    label={`핵심 이슈 ${idx + 1}번 카드`}
+                    label={`${chMeta.shortLabel} 이슈 수정`}
                     isActive={sync.activeUnitId === `nl-unit-issue-${idx}`}
                     onActivate={sync.focusEditorUnit}
                     className="rounded-2xl"
@@ -4633,7 +4550,7 @@ function MagazineEditorWorkspace() {
                         brief={copy.brief}
                         size="preview"
                         channelEmoji={chMeta.emoji}
-                        channelLabel={chMeta.shortLabel}
+                        channelLabel={chMeta.shortLabel || NEWS_CHANNEL_MAP.real_estate.shortLabel}
                         cardTestId={`preview-postit-card-${idx}`}
                         titleTestId={`preview-postit-title-${idx}`}
                         briefTestId={`preview-postit-brief-${idx}`}
@@ -4647,29 +4564,7 @@ function MagazineEditorWorkspace() {
           </section>
         )}
 
-        {/* 3) 시장 브리핑 칼럼 (월간·일간·호외 — 실제 작성된 글이 있을 때만 표시, 빈 안내 박스 미노출) */}
-        {cadence !== "weekly" &&
-          isSectionEnabled("field_note") &&
-          formattedPreviewBriefing.trim().length > 0 && (
-            <PreviewEditableUnit
-              as="section"
-              testId="preview-market-briefing-section"
-              unitId="nl-unit-briefing"
-              label="미리보기 브리핑 칼럼"
-              isActive={sync.activeUnitId === "nl-unit-briefing"}
-              onActivate={sync.focusEditorUnit}
-              className="rounded-xl space-y-2 px-2.5 pt-3.5 pb-2 -mx-2.5"
-            >
-              <h3 className="text-base font-extrabold text-slate-900">
-                {briefingTitle.trim() || cadenceMeta.briefingFallbackTitle}
-              </h3>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 whitespace-pre-line leading-relaxed">
-                {formattedPreviewBriefing.trim()}
-              </div>
-            </PreviewEditableUnit>
-          )}
-
-        {/* 4) 추천 매물 미리보기 (featured_deals) */}
+        {/* 4) 추천 매물 미리보기 */}
         {isSectionEnabled("featured_deals") && (
           <PreviewEditableUnit
             as="section"
@@ -4678,17 +4573,8 @@ function MagazineEditorWorkspace() {
             label="추천 매물 고르기"
             isActive={sync.activeUnitId === "nl-unit-deals"}
             onActivate={sync.focusEditorUnit}
-            className="rounded-xl space-y-3 px-2.5 pt-3.5 pb-2 -mx-2.5"
+            className="rounded-xl space-y-3 px-2.5 pt-2 pb-2 -mx-2.5"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-extrabold text-slate-900">
-                추천 매물 소개
-              </h3>
-              <span className="text-sm font-bold text-slate-600">
-                {selectedDeals.length}건
-              </span>
-            </div>
-
             {selectedDeals.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm font-medium text-slate-600">
                 선택된 추천 매물이 아직 없습니다.

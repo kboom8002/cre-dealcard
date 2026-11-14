@@ -168,29 +168,25 @@ describe('Wave 3 SOTA Mobile Reader & Calculator Enhancements', () => {
         featured_deals: [SAMPLE_DEAL],
       });
 
-      // 모바일 IM 열람 직결 링크
+      // 모바일 IM 열람 직결 링크 유지, 하단 ROI 유틸리티 이동 링크 제거
       expect(html).toContain('href="/im-lite/33333333-3333-4333-8333-333333333333"');
       expect(html).toContain('모바일 IM 열람');
       expect(html).toContain('data-track="im_request"');
-
-      // 이 매물 수지분석 버튼 + ROI prefill data attributes
-      expect(html).toContain('href="#section-roi_calculator"');
-      expect(html).toContain('data-prefill-roi="true"');
-      expect(html).toContain('data-roi-price="12500000000"');
-      expect(html).toContain('data-roi-deposit="800000000"');
-      expect(html).toContain('data-roi-rent="51180000"');
-      expect(html).toContain('이 매물 수지분석');
+      expect(html).not.toContain('href="#section-roi_calculator"');
+      expect(html).not.toContain('data-prefill-roi="true"');
     });
   });
 
-  describe('4. Broker Briefing Label & Senior Typography', () => {
-    it('브리핑 섹션에 강제 노출되던 "🟣 AI 분석" 대신 "✍️ 공인중개사 현장 브리핑"이 표시된다', () => {
+  describe('4. Clean Market Briefing Without Subheading Clutter', () => {
+    it('브리핑 본문만 깔끔히 노출하고 불필요한 소제목("AI 분석", "공인중개사 현장 브리핑")은 제거된다', () => {
       const html = renderMagazine({
         headline: '성수동 카페거리 상권 리포트',
         briefing: '성수역 일대 공실률이 2분기 연속 감소세입니다.',
       });
 
-      expect(html).toContain('✍️ 공인중개사 현장 브리핑');
+      expect(html).toContain('data-testid="viewer-market-briefing"');
+      expect(html).toContain('성수역 일대 공실률이 2분기 연속 감소세입니다.');
+      expect(html).not.toContain('✍️ 공인중개사 현장 브리핑');
       expect(html).not.toContain('AI 마켓 에디터 브리핑');
       expect(html).not.toContain('🟣 AI 분석');
     });
@@ -229,17 +225,27 @@ describe('Wave 3 SOTA Mobile Reader & Calculator Enhancements', () => {
     });
   });
 
-  describe('7. SubscribeCard Positive Warm Confirmation State', () => {
-    it('SubscribeCard 초기 렌더 시 정상 폼이 노출된다', () => {
-      const html = renderToStaticMarkup(
+  describe('7. SubscribeCard Minimal Opt-In & Full Form States', () => {
+    it('SubscribeCard(source="magazine")은 깔끔한 최소 옵트인 폼을, variant="full"은 전체 구독 폼을 노출한다', () => {
+      const minimalHtml = renderToStaticMarkup(
         React.createElement(SubscribeCard, {
           brokerId: 'hong-cre',
           source: 'magazine',
         }),
       );
+      expect(minimalHtml).toContain('data-testid="minimal-subscribe-optin"');
+      expect(minimalHtml).toContain('뉴스레터 신청');
+      expect(minimalHtml).not.toContain('카카오톡으로 받기');
 
-      expect(html).toContain('주간 매거진 구독하기');
-      expect(html).toContain('카카오톡으로 받기');
+      const fullHtml = renderToStaticMarkup(
+        React.createElement(SubscribeCard, {
+          brokerId: 'hong-cre',
+          source: 'magazine',
+          variant: 'full',
+        }),
+      );
+      expect(fullHtml).toContain('주간 매거진 구독하기');
+      expect(fullHtml).toContain('카카오톡으로 받기');
     });
   });
 });

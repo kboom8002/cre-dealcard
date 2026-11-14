@@ -241,11 +241,11 @@ describe("Newsletter Service Advancement (7 Broker Requirements Verification)", 
           .split(/(?<=[.!?。])\s+/)
           .map((s) => s.trim())
           .filter(Boolean);
-        // 2026-11 사용자 스펙: 해설 48자 이내 1~2문장, 제목 36자 이내 (고객 화면 잘림 0건)
+        // 2026-11 Overhaul: 제목 44자 이내(2줄 권장), 상세 해설 74자 이내(3줄 분량)
         expect(sentences.length).toBeGreaterThanOrEqual(1);
         expect(sentences.length).toBeLessThanOrEqual(2);
-        expect(Array.from(issue.brief).length).toBeLessThanOrEqual(48);
-        expect(Array.from(issue.title).length).toBeLessThanOrEqual(36);
+        expect(Array.from(issue.brief).length).toBeLessThanOrEqual(74);
+        expect(Array.from(issue.title).length).toBeLessThanOrEqual(44);
       }
 
       const panelHtml = renderToStaticMarkup(
@@ -258,8 +258,9 @@ describe("Newsletter Service Advancement (7 Broker Requirements Verification)", 
       );
       expect(panelHtml).toContain('data-testid="axios-issues-editor-panel"');
       expect(panelHtml).toContain('data-testid="recluster-five-issues-btn"');
-      expect(panelHtml).toContain("ISSUE 01");
-      expect(panelHtml).toContain("ISSUE 05");
+      expect(panelHtml).not.toContain("ISSUE 01");
+      expect(panelHtml).not.toContain("ISSUE 05");
+      expect(panelHtml).toContain('data-testid="axios-issue-channel-0"');
     });
   });
 
@@ -306,17 +307,14 @@ describe("Newsletter Service Advancement (7 Broker Requirements Verification)", 
         />
       );
 
-      // 6. Single-line title in h1
+      // 6. Clean break-keep title in h1 (avoid horizontal clipping on mobile)
       expect(viewHtml).toContain('data-single-line-title="true"');
-      expect(viewHtml).toMatch(/<h1[^>]*whitespace-nowrap[^>]*>11월 강남·서초 빌딩 실거래 및 공실률 리포트<\/h1>/);
+      expect(viewHtml).toMatch(/<h1[^>]*break-keep[^>]*>11월 강남·서초 빌딩 실거래 및 공실률 리포트<\/h1>/);
 
-      // 4. Monthly 2 regional stat charts rendered before issues & deals
-      expect(viewHtml).toContain('data-testid="monthly-regional-charts-section"');
-      expect((viewHtml.match(/data-testid="monthly-regional-chart-card"/g) ?? []).length).toBe(2);
-
-      // 5. 5 AXIOS Wide Post-it Cards rendered with pastel tones
+      // 5. 5 AXIOS Glass Cards rendered with pastel tones and no ISSUE 01 numbering
       expect(viewHtml).toContain('data-testid="axios-postit-list"');
       expect((viewHtml.match(/data-testid="axios-postit-card"/g) ?? []).length).toBe(5);
+      expect(viewHtml).not.toContain("ISSUE 01");
       for (const tone of POST_IT_TONES) {
         expect(viewHtml).toContain(`data-postit-tone="${tone}"`);
         // 2026-11 사용자 스펙: 포스트잇 → 글래스모피즘·그래디언트 카드뉴스 배경
@@ -324,8 +322,10 @@ describe("Newsletter Service Advancement (7 Broker Requirements Verification)", 
         expect(POST_IT_TONE_META[tone].glassBackground).toMatch(/linear-gradient/);
       }
 
-      // 7. Uncluttered detail view: no 6-button quick-scroll jump bar, no duplicate field_note quote in header
+      // 7. Uncluttered detail view: no bottom utility bar, no 6-button quick-scroll jump bar, no duplicate field_note quote in header
+      expect(viewHtml).not.toContain("data-magazine-bottom-bar");
       expect(viewHtml).not.toContain("data-quick-scroll");
+      expect(viewHtml).toContain('data-testid="minimal-subscribe-optin"');
       const headerHtml = viewHtml.slice(
         viewHtml.indexOf('data-section-id="cover"'),
         viewHtml.indexOf("</header>")

@@ -137,9 +137,9 @@ describe('타깃·섹션 순서·on/off (DC-9, DC-10)', () => {
     expect(parseViewerTarget('<script>')).toBe('all');
   });
 
-  it('seller: 시장 데이터가 매물보다 앞, buyer: 매물이 테마보다 앞', () => {
+  it('통일 5단계 핵심 섹션(브리핑·뉴스·매물·연락처·구독)이 선행 배치되고 부가 섹션은 후순위', () => {
     const seller = resolveSectionOrder('seller');
-    expect(seller.indexOf('market_data')).toBeLessThan(seller.indexOf('featured_deals'));
+    expect(seller.indexOf('featured_deals')).toBeLessThan(seller.indexOf('market_data'));
     const buyer = resolveSectionOrder('buyer');
     expect(buyer.indexOf('featured_deals')).toBeLessThan(buyer.indexOf('theme_of_week'));
   });

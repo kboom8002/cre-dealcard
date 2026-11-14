@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { callLLM, LLMMockNotAllowedError } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 import {
+  buildTf8BriefingPolishPrompt,
   buildTf8CommentPrompt,
+  repairBriefingPolishOutputBlock,
   repairCommentOutputBlock,
 } from "@/ai/prompts/magazine-taskflow";
 import { requireBroker } from "@/lib/auth-guard";
@@ -41,8 +43,16 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return fail(400, "BAD_REQUEST", parsed.error.issues[0]?.message ?? "코멘트 내용이 필요합니다.");
   }
-  const { comment } = parsed.data;
-  const tf8 = buildTf8CommentPrompt({ comment });
+  const { comment, mode, draftText, cadence } = parsed.data;
+  const isBriefingMode = mode === "market_briefing";
+  const groundingContext = [draftText ?? "", comment].filter(Boolean).join(" ");
+  const tf8 = isBriefingMode
+    ? buildTf8BriefingPolishPrompt({
+        draftText: draftText?.trim() || comment,
+        contextText: comment,
+        cadence,
+      })
+    : buildTf8CommentPrompt({ comment });
 
   try {
     const result = await callLLM(
@@ -65,11 +75,13 @@ export async function POST(req: NextRequest) {
     }
 
     const warnings: string[] = [];
-    if (findNumbersNotInContext(text, comment).length > 0) {
+    if (findNumbersNotInContext(text, groundingContext).length > 0) {
       warnings.push(AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT);
     }
 
-    const repaired = repairCommentOutputBlock(text, comment);
+    const repaired = isBriefingMode
+      ? repairBriefingPolishOutputBlock(text, groundingContext)
+      : repairCommentOutputBlock(text, comment);
 
     const body: AiCommentResponse & { envelope?: unknown } = {
       ok: true,

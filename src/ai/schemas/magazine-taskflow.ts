@@ -27,23 +27,23 @@ export const MARKET_TEMP_VALUES = [
 ] as const;
 
 export const MagazineDraftOutputSchema = z.object({
-  headline: z.string().min(6).max(36),
-  summary: z.string().min(15).max(80),
-  briefingTitle: z.string().min(6).max(30),
-  briefingBody: z.string().min(60).max(400),
+  headline: z.string().min(6).max(45),
+  summary: z.string().max(80).optional().default(""),
+  briefingTitle: z.string().max(30).optional().default(""),
+  briefingBody: z.string().min(40).max(500),
   marketTemp: z.enum(MARKET_TEMP_VALUES).optional(),
   coverKeywords: z.array(z.string().min(1).max(18)).max(5).optional(),
 });
 
 export type MagazineDraftOutput = z.infer<typeof MagazineDraftOutputSchema>;
 
-/** 카드뉴스 이슈 제목 36자 · 해설 48자 (issue-clustering AXIOS_TITLE_MAX_CHARS / AXIOS_BRIEF_MAX_CHARS 와 동일) */
+/** 카드뉴스 이슈 제목 44자 (2줄 권장) · 해설 74자 (3줄 상세 해설) — issue-clustering SSOT 동일 */
 export const AxiosIssueItemSchema = z.object({
   id: z.string().min(1),
   title: z
     .string()
-    .min(8)
-    .max(36)
+    .min(10)
+    .max(44)
     .refine(
       (val) => {
         const words = val.trim().split(/\s+/);
@@ -54,8 +54,8 @@ export const AxiosIssueItemSchema = z.object({
     ),
   brief: z
     .string()
-    .min(12)
-    .max(48)
+    .min(28)
+    .max(74)
     .refine((val) => !/…|\.\.\./.test(val) && /(?:다|요|죠)\.$/.test(val.trim()), {
       message: "이슈 해설은 개조식(~음/~됨)이나 잘림 없이 완결된 한국어 평서문(~다.)으로 끝나야 합니다.",
     }),
@@ -80,6 +80,12 @@ export const MagazineCommentOutputSchema = z.object({
 
 export type MagazineCommentOutput = z.infer<typeof MagazineCommentOutputSchema>;
 
+export const MarketBriefingPolishOutputSchema = z.object({
+  comment: z.string().min(20).max(500),
+});
+
+export type MarketBriefingPolishOutput = z.infer<typeof MarketBriefingPolishOutputSchema>;
+
 /**
  * TaskFlow 8-Block (TF8) Prompt Specification:
  * [T] Task / [K] Knowledge (FactBook) / [W] Warnings & Hard Constraints /
@@ -87,7 +93,11 @@ export type MagazineCommentOutput = z.infer<typeof MagazineCommentOutputSchema>;
  * [L] Logic Chain / [F] Fallback & M11 Pinpoint Block Repair
  */
 export interface TaskFlow8PromptSpec {
-  slotKey: "magazine_draft_tf8" | "magazine_axios_cluster_tf8" | "magazine_comment_tf8";
+  slotKey:
+    | "magazine_draft_tf8"
+    | "magazine_axios_cluster_tf8"
+    | "magazine_comment_tf8"
+    | "magazine_briefing_polish_tf8";
   version: string;
   task: string;
   knowledge: string;

@@ -148,12 +148,14 @@ describe('edition-save 간단 모드(format=simple) 저장·복원·발행 정�
     expect(content.dealHighlights).toHaveLength(3);
 
     const sections = content.sections as Array<{ id: string; enabled: boolean }>;
-    expect(sections.find((s) => s.id === 'roi_calculator')?.enabled).toBe(true);
+    expect(sections.find((s) => s.id === 'news_curation')?.enabled).toBe(true);
+    expect(sections.find((s) => s.id === 'featured_deals')?.enabled).toBe(true);
+    expect(sections.find((s) => s.id === 'roi_calculator')?.enabled).toBe(false);
     expect(sections.find((s) => s.id === 'poll')?.enabled).toBe(false);
     expect(sections.find((s) => s.id === 'theme_of_week')?.enabled).toBe(false);
   });
 
-  it('buildContentFromForm: format=simple 이더라도 이미 작성된 테마/투표가 있으면 보존(enabled=true)한다', () => {
+  it('buildContentFromForm: format=simple 이면 통일 5단계 외 테마·투표 부가 섹션은 비활성화(enabled=false)한다', () => {
     const content = buildContentFromForm(
       {},
       makeForm({
@@ -165,8 +167,8 @@ describe('edition-save 간단 모드(format=simple) 저장·복원·발행 정�
       }),
     );
     const sections = content.sections as Array<{ id: string; enabled: boolean }>;
-    expect(sections.find((s) => s.id === 'theme_of_week')?.enabled).toBe(true);
-    expect(sections.find((s) => s.id === 'poll')?.enabled).toBe(true);
+    expect(sections.find((s) => s.id === 'theme_of_week')?.enabled).toBe(false);
+    expect(sections.find((s) => s.id === 'poll')?.enabled).toBe(false);
   });
 
   it('buildPatchPayload: format=simple 이고 headline 이 비어 있으면 폴백 헤드라인을 title 컬럼에도 반영한다', () => {

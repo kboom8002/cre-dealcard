@@ -12,18 +12,20 @@
 export type EditorMode = 'simple' | 'full';
 export type EditionFormat = 'simple' | 'full';
 
-/** 간단 모드 독자 노출 6개 핵심 섹션 (subscribe_cta, broker_profile 은 뷰어가 하단에 고정 부착) */
+/** 간단 모드 독자 노출 핵심 섹션 (제목 → 시장브리핑 → 이슈 → 매물 → 연락처 → 뉴스레터 신청) */
 export const SIMPLE_SECTION_ORDER = [
   'ai_briefing',
   'field_note',
-  'market_data',
   'news_curation',
   'featured_deals',
-  'roi_calculator',
+  'broker_profile',
+  'subscribe_cta',
 ] as const;
 
 /** 간단 모드에서 기본 비활성화되는 섹션 (단, 전체 모드에서 이미 작성된 데이터가 있으면 보존) */
 export const SIMPLE_HIDDEN_SECTIONS = [
+  'market_data',
+  'roi_calculator',
   'theme_of_week',
   'poll',
   'tax_clinic',
@@ -306,67 +308,23 @@ export function applySimplePreset(
     content.dealHighlights = content.dealHighlights.slice(0, SIMPLE_DEAL_LIMIT);
   }
 
-  // 고급 섹션 보존 여부 판단
-  const hasTheme = Boolean(str(content.theme_title).trim() || str(content.theme_body_md).trim());
-  const hasPoll = isRecord(content.poll) && Boolean(str(content.poll.question).trim());
-  const hasTax =
-    isRecord(content.tax_clinic) &&
-    Boolean(str(content.tax_clinic.question).trim() || str(content.tax_clinic.title).trim());
-
-  const cadenceKind =
-    content.kind === 'monthly' || content.edition_type === 'monthly'
-      ? 'monthly'
-      : content.kind === 'daily' || content.edition_type === 'daily'
-        ? 'daily'
-        : 'weekly';
-
-  const baseSimpleOrder: readonly string[] =
-    cadenceKind === 'monthly'
-      ? [
-          'market_data',
-          'news_curation',
-          'ai_briefing',
-          'field_note',
-          'featured_deals',
-          'broker_profile',
-          'subscribe_cta',
-          'roi_calculator',
-        ]
-      : cadenceKind === 'daily'
-        ? [
-            'news_curation',
-            'featured_deals',
-            'ai_briefing',
-            'field_note',
-            'broker_profile',
-            'subscribe_cta',
-            'roi_calculator',
-          ]
-        : SIMPLE_SECTION_ORDER;
-
-  const hasBriefingCopy = Boolean(str(content.briefing).trim() || str(content.ai_briefing).trim() || comment);
+  const baseSimpleOrder: readonly string[] = SIMPLE_SECTION_ORDER;
 
   const enabledMap: Record<string, boolean> = {};
   for (const id of SIMPLE_SECTION_ORDER) {
-    if (cadenceKind === 'daily' && id === 'market_data') {
-      enabledMap[id] = false;
-    } else if (cadenceKind === 'daily' && (id === 'ai_briefing' || id === 'field_note')) {
-      enabledMap[id] = hasBriefingCopy;
+    if (id === 'field_note') {
+      enabledMap[id] = true;
     } else {
       enabledMap[id] = true;
     }
   }
   for (const id of SIMPLE_HIDDEN_SECTIONS) {
-    if (id === 'theme_of_week' && hasTheme) enabledMap[id] = true;
-    else if (id === 'poll' && hasPoll) enabledMap[id] = true;
-    else if (id === 'tax_clinic' && hasTax) enabledMap[id] = true;
-    else enabledMap[id] = false;
+    enabledMap[id] = false;
   }
 
   const orderedIds: string[] = [
     ...baseSimpleOrder,
-    ...SIMPLE_SECTION_ORDER.filter((id) => !baseSimpleOrder.includes(id)),
-    ...SIMPLE_HIDDEN_SECTIONS.filter((id) => !SIMPLE_SECTION_ORDER.includes(id as never)),
+    ...SIMPLE_HIDDEN_SECTIONS.filter((id) => !baseSimpleOrder.includes(id)),
   ];
 
   content.section_order = orderedIds;

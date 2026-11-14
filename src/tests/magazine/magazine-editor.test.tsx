@@ -173,13 +173,13 @@ describe("W2 흐름 단순화 (NL-12 ~ NL-17)", () => {
       <IssueMetadataForm
         year={2026}
         month={11}
-        headline={"가".repeat(40)}
+        headline={"가".repeat(48)}
         onChangeHeadline={() => {}}
         summary=""
         onChangeSummary={() => {}}
       />,
     );
-    expect(longHtml).toContain("제목이 길어요 – 한 줄에 들어오도록 줄여 주세요");
+    expect(longHtml).toContain("제목이 길어요 – 45자 이내로 줄이면 모바일에서 한눈에 들어옵니다");
   });
 
   it("NL-17: MagazinePublishChecklist 는 완료 시 숨겨지고 미완료 시에만 1줄 안내를 표시한다", () => {

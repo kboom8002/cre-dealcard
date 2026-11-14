@@ -34,6 +34,7 @@ const FILES: string[] = [
   'src/components/workspace/preview-sync/PreviewCausalityBar.tsx',
   'src/components/workspace/preview-sync/PreviewPregenerationCard.tsx',
   'src/components/workspace/preview-sync/PreviewEditableUnit.tsx',
+  'src/components/workspace/QaFeedbackPinWidget.tsx',
 ];
 
 function magazineEditorComponents(): string[] {

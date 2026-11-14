@@ -4,44 +4,40 @@
  * - 훅/'use client' 없음: 본문(표지·브리핑·현장노트·테마·매물·시장데이터 …)은 서버에서 HTML 로 렌더되고
  *   클라이언트 번들에는 상호작용 섬만 들어간다.
  *     · ViewerTrackProvider  — 분석(섹션 노출/체류) + `[data-track]` 클릭 위임
- *     · SectionCard          — 아코디언          · GlossaryTerm / BrokerAvatar — 용어 설명 / 사진 폴백
- *     · PollSection          — 설문             · SubscribeCard                — 구독 폼
- *     · LazyRoiCalculator / LazyForwardSection  — next/dynamic 지연 로드 (LazyIslands 클라이언트 래퍼)
- *     · ViewerBottomBar      — 하단 고정 바(공유·Kakao SDK)
+ *     · SubscribeCard (variant="minimal") — 하단 최소형 뉴스레터 신청 옵트인
+ *     · DealInquirySheet                  — 매물 문의 바텀시트
  * - 섬에는 직렬화 가능한 최소 props 만 내려준다(함수·Set 금지). 클릭 추적은 `data-track*` 속성으로 위임한다.
  * - 에디터 미리보기(클라이언트 페이지)에서 import 해도 동작하도록 훅을 쓰지 않는다.
  * - M2-20(테마 LLM 중복 호출)은 뷰어가 읽기 전용 GET 이라 LLM 호출 자체가 없어 해당 없음(N/A).
  */
 import React from "react";
-import {
-  Building2, ArrowRight, Sparkles, Target, Calculator, Newspaper,
-} from "lucide-react";
+import { Building2, Newspaper } from "lucide-react";
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
 import { ActionCardView } from "@/components/im/action-card-view";
 import { PoweredByBadge } from "@/components/ui/PoweredByBadge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InitialAvatar } from "@/components/magazine/InitialAvatar";
 import { TrackingNotice } from "@/components/magazine/TrackingNotice";
-import { PollSection } from "@/components/magazine/PollSection";
-import { ViewerBottomBar } from "@/components/magazine/ViewerBottomBar";
 import { DealInquirySheet } from "@/components/magazine/DealInquirySheet";
 import { ViewerTrackProvider } from "@/components/magazine/viewer-track";
-import { LazyRoiCalculator, LazyForwardSection } from "@/components/magazine/LazyIslands";
-import { Section, DataBadge, SectionCard, RichBriefing } from "@/components/magazine/viewer-primitives";
+import { Section, RichBriefing } from "@/components/magazine/viewer-primitives";
 import {
-  FieldNoteSection, MarketDataSection, MonthlyRegionalChartsSection, NewsSection, AuctionSection, ReportsSection, SentimentSection,
-  TaxClinicSection, BrokerProfileSection,
+  FieldNoteSection,
+  NewsSection,
+  BrokerProfileSection,
 } from "@/components/magazine/viewer-sections";
-import { resolveMonthlyChartsFromData } from "@/domain/magazine/monthly-stats-charts";
-import type { AxiosUnitIssue, MonthlyRegionalChart } from "@/domain/magazine/types";
+import type { AxiosUnitIssue } from "@/domain/magazine/types";
 import { formatKoreanDate } from "@/lib/magazine/kst";
-import { normalizePoll } from "@/lib/magazine/poll-helpers";
-import { isSimpleEdition } from "@/lib/magazine/simple-format";
 import {
-  buildMagazineTitle, cleanScoreText, estimateReadMinutes, filterKeyStatsByEvidence, formatPriceKo,
-  hasAnyViewerContent, hasScoreEvidence, isSectionEnabled,
-  MARKET_TEMP_VIEW, parseViewerTarget, pickTopNews, resolveSectionOrder,
-  sanitizeDealAddress, taxVisibleForTarget, toTelHref, type ViewerTarget,
+  buildMagazineTitle,
+  cleanScoreText,
+  formatPriceKo,
+  hasAnyViewerContent,
+  hasScoreEvidence,
+  isSectionEnabled,
+  parseViewerTarget,
+  pickTopNews,
+  sanitizeDealAddress,
 } from "@/lib/magazine/view-helpers";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -66,14 +62,6 @@ interface MagazineViewProps {
 
 export type MagazineData = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const STAT_TONE: Record<string, string> = {
-  emerald: "text-emerald-300 border-emerald-500/20 bg-emerald-500/10",
-  indigo: "text-indigo-300 border-indigo-500/20 bg-indigo-500/10",
-  rose: "text-rose-300 border-rose-500/20 bg-rose-500/10",
-  amber: "text-amber-300 border-amber-500/20 bg-amber-500/10",
-  slate: "text-ink-muted border-slate-500/20 bg-slate-500/10",
-};
-
 const DEAL_FALLBACK_BG = "linear-gradient(135deg, #1e1b4b, #312e81)";
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
 const PYEONG_RATIO = 0.3025;
@@ -88,65 +76,29 @@ export function MagazineView({
 }: MagazineViewProps) {
   const broker = (data.broker as Record<string, any>) ?? {}; // eslint-disable-line @typescript-eslint/no-explicit-any
   const brokerName: string = typeof broker.name === "string" && broker.name.trim() ? broker.name : "중개사";
-  // 날짜 표시는 서버에서 formatKoreanDate 로 계산한 값을 사용 (hydration 불일치 제거, T3-40).
   const dateLabel = dateLabelProp ?? formatKoreanDate(date);
-  // URL 의 ?target= 이 우선, 없으면 에디션의 target_segment(발송 대상)를 기본 순서로 존중한다.
-  const target: ViewerTarget = targetProp !== undefined ? parseViewerTarget(targetProp) : parseViewerTarget(data.target_segment);
-  // 점수 지표는 근거(generation 메타 + 심리 항목 + 기준일)가 있을 때만 노출 (P0-05: 출처 없는 점수 숫자 금지).
-  // 과거 발행본의 합성 점수(NN/100 형태)는 표지 지표·심리 섹션·본문 토큰 모두에서 걷어낸다.
+  void (targetProp !== undefined ? parseViewerTarget(targetProp) : parseViewerTarget(data.target_segment));
   const scoreEvidence = hasScoreEvidence(data);
   const title = buildMagazineTitle(cleanScoreText(data.headline as string | null | undefined, scoreEvidence), broker.name);
-  const telHref = toTelHref(broker.phone);
 
-  // 투자 심리: 실제 숫자 점수 + 근거가 있을 때만 표시 (고정 기본값 금지, M2-03)
-  const sentiment = (data.sentiment as { score?: unknown; status?: string; asOf?: string } | null) ?? null;
-  const sentimentScore = scoreEvidence && typeof sentiment?.score === "number" && Number.isFinite(sentiment.score) ? sentiment.score : null;
-  const keyStats = Array.isArray(data.keyStats)
-    ? filterKeyStatsByEvidence(data.keyStats as Array<{ value: string; label: string; accent?: string }>, scoreEvidence)
-    : [];
   const briefingText = cleanScoreText((data.briefing as string | undefined) ?? "", scoreEvidence);
   const accent = (data.themeColor as string | undefined) || (data.theme_color as string | undefined) || "#6366f1";
-
-  // ── Cover data ──
-  const marketTemp = data.market_temp as string | null | undefined;
-  const tempConfig = marketTemp ? MARKET_TEMP_VIEW[marketTemp] : null;
-  const coverKeywords = strArray(data.cover_keywords).slice(0, 3);
   const coverImageUrl = data.cover_image_url as string | null | undefined;
 
-  // ── Field note ──
+  // ── Field note (ai_briefing이 없을 때만 폴백으로 표시) ──
   const rawFieldNote = (data.field_note as Record<string, string> | null | undefined) ?? {};
   const fieldNote: Record<string, string> = Object.fromEntries(
     Object.entries(rawFieldNote).map(([k, v]) => [k, typeof v === "string" ? (cleanScoreText(v, scoreEvidence) as string) : v]),
   );
   const normBriefing = briefingText.replace(/\s+/g, " ").trim();
-  const normFieldComment = (fieldNote.comment ?? "").replace(/\s+/g, " ").trim();
-  const aiBriefingWillRender = Boolean(normBriefing) && isSectionEnabled(data.sections, "ai_briefing");
-  const isDuplicateSingleFieldNote =
-    aiBriefingWillRender &&
-    normFieldComment.length > 0 &&
-    normFieldComment === normBriefing &&
-    !fieldNote.question &&
-    !fieldNote.buyerReaction &&
-    !fieldNote.sellerReaction &&
-    !fieldNote.marketJudgment;
   const hasFieldNote =
-    !isDuplicateSingleFieldNote &&
+    !normBriefing &&
     !!(fieldNote.question || fieldNote.buyerReaction || fieldNote.sellerReaction || fieldNote.marketJudgment || fieldNote.comment);
-
-  // ── Theme of week ──
-  const themeTitle = cleanScoreText(data.theme_title as string | null | undefined, scoreEvidence);
-  const themeBodyMd = cleanScoreText(data.theme_body_md as string | null | undefined, scoreEvidence);
-  const themeAssetTypes = strArray(data.theme_asset_types);
-  const normThemeBody = (themeBodyMd ?? "").replace(/\s+/g, " ").trim();
-  const isDuplicateTheme =
-    normThemeBody.length > 0 &&
-    (normThemeBody === normBriefing || normThemeBody === normFieldComment) &&
-    themeAssetTypes.length === 0;
 
   // ── Deals ──
   const featuredDeals: any[] = Array.isArray(data.featured_deals) ? data.featured_deals : Array.isArray(data.dealHighlights) ? data.dealHighlights : []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  // ── Cadence Kind & Monthly Charts / AXIOS Unit Issues ──
+  // ── Cadence Kind & AXIOS Unit Issues ──
   const editionKind =
     typeof data.kind === "string"
       ? data.kind
@@ -158,96 +110,23 @@ export function MagazineView({
     : Array.isArray(data.unitIssues)
     ? data.unitIssues
     : [];
-  const isPopulatedChart = (chart: MonthlyRegionalChart | null | undefined): chart is MonthlyRegionalChart =>
-    Boolean(
-      chart &&
-        chart.isPlaceholder !== true &&
-        Array.isArray(chart.series) &&
-        chart.series.length > 0,
-    );
 
-  const explicitMonthlyCharts: MonthlyRegionalChart[] | null =
-    editionKind !== "monthly"
-      ? null
-      : Array.isArray(data.monthly_charts) && data.monthly_charts.length > 0
-      ? data.monthly_charts
-      : Array.isArray(data.monthlyCharts) && data.monthlyCharts.length > 0
-      ? data.monthlyCharts
-      : null;
-
-  const isPublishedEditionPayload =
-    data.format === "simple" || data.format === "full" || typeof data.schemaVersion === "number";
-
-  const rawMonthlyCharts: MonthlyRegionalChart[] =
-    editionKind !== "monthly"
-      ? []
-      : explicitMonthlyCharts !== null
-      ? explicitMonthlyCharts
-      : preview
-      ? resolveMonthlyChartsFromData(data)
-      : [];
-
-  const monthlyCharts: MonthlyRegionalChart[] =
-    editionKind !== "monthly"
-      ? []
-      : preview || (!isPublishedEditionPayload && explicitMonthlyCharts !== null)
-      ? rawMonthlyCharts
-      : rawMonthlyCharts.filter(isPopulatedChart);
-
-  // ── Market data ── (더미 폴백 금지: 데이터가 없으면 섹션을 숨긴다 — P0-05 T3-03)
-  const recentTxs: any[] = Array.isArray(data.recentTransactions) ? data.recentTransactions : []; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const rentalTrend = data.rentalTrend || null;
-  const commercialDistrict = data.commercialDistrict || null;
-  const monthlySummary = data.monthlySummary || null;
-  const hasMarketData =
-    monthlyCharts.length > 0 ||
-    recentTxs.length > 0 ||
-    !!rentalTrend ||
-    !!commercialDistrict ||
-    !!monthlySummary;
-
-  // ── News / extras ──
+  // ── News ──
   const topNews = pickTopNews(data);
   const hasNewsOrUnitIssues = topNews.length > 0 || unitIssues.length > 0;
-  const auctionPicks: any[] = Array.isArray(data.auctionPicks) ? data.auctionPicks : []; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const reports: any[] = Array.isArray(data.reports) ? data.reports : []; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const taxClinic = (data.tax_clinic as Record<string, any> | null | undefined) ?? null; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const hasTaxClinic = !!(taxClinic && (taxClinic.question || taxClinic.title));
-  const hasPoll = normalizePoll(data.poll) !== null;
-
-  const readTimeMin = estimateReadMinutes([
-    data.briefing, data.headline, themeBodyMd,
-    fieldNote.question, fieldNote.buyerReaction, fieldNote.sellerReaction, fieldNote.marketJudgment, fieldNote.comment,
-    ...topNews.map((n) => `${n.title} ${n.summary}`),
-    ...unitIssues.map((u) => `${u.title} ${u.brief}`),
-  ]);
-
-  // ── Theme-matched deals ──
-  const themeDeals = !themeTitle || featuredDeals.length === 0 || themeAssetTypes.length === 0
-    ? []
-    : featuredDeals
-      .filter((deal) => themeAssetTypes.some((t) => String(deal.assetType ?? "").includes(t)))
-      .slice(0, 3);
 
   // ═══════════════════════════════════════════════════════════════════
-  //  섹션 렌더러
+  //  섹션 렌더러 (제목 + 시장브리핑 + 이슈 + 매물 + 연락처 + 뉴스레터 신청)
   // ═══════════════════════════════════════════════════════════════════
 
   const renderAiBriefing = () => (
     <Section>
-      <div className="overflow-hidden rounded-2xl border border-indigo-500/15" style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.07) 0%, rgba(15,15,35,0.8) 100%)" }}>
-        <div className="flex items-center gap-1.5 border-b border-white/5 px-4 py-3">
-          <Sparkles className="h-4 w-4 text-indigo-300" aria-hidden="true" />
-          <h2 className="text-label font-bold text-indigo-200">공인중개사 현장 브리핑</h2>
-          <div className="ml-auto">
-            <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-sm font-bold text-indigo-200">
-              ✍️ 공인중개사 현장 브리핑
-            </span>
-          </div>
-        </div>
-        <div className="p-4">
-          <RichBriefing text={briefingText} />
-        </div>
+      <div
+        data-testid="viewer-market-briefing"
+        className="overflow-hidden rounded-2xl border border-indigo-500/15 p-4"
+        style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.07) 0%, rgba(15,15,35,0.8) 100%)" }}
+      >
+        <RichBriefing text={briefingText} />
       </div>
     </Section>
   );
@@ -258,82 +137,18 @@ export function MagazineView({
     </Section>
   );
 
-  const renderThemeOfWeek = () => (
-    <Section>
-      <div className="overflow-hidden rounded-2xl border border-amber-500/15" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(15,15,35,0.9))" }}>
-        <div className="flex items-center gap-2 border-b border-amber-500/10 px-4 py-3">
-          <Target className="h-4 w-4 text-amber-300" aria-hidden="true" />
-          <h2 className="text-label font-bold text-amber-200">금주의 테마</h2>
-          <div className="ml-auto"><DataBadge type="ai" /></div>
-        </div>
-        <div className="p-4">
-          <h3 className="mb-3 text-title font-extrabold leading-snug text-white">{themeTitle}</h3>
-          {themeBodyMd && <RichBriefing text={themeBodyMd} />}
-          {themeAssetTypes.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {themeAssetTypes.map((t, i) => (
-                <span key={i} className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-sm font-bold text-amber-300">{t}</span>
-              ))}
-            </div>
-          )}
-        </div>
-        {themeDeals.length > 0 && (
-          <div className="space-y-2 px-4 pb-4">
-            <h3 className="mb-1 text-sm font-bold text-slate-300">테마 관련 매물</h3>
-            {themeDeals.map((deal, i) => {
-              const safeAddress = sanitizeDealAddress(deal.address);
-              const priceLabel = formatPriceKo(deal.price);
-              return (
-                <a
-                  key={i}
-                  href={`#deal-inquiry-${encodeURIComponent(String(deal.id ?? i))}`}
-                  data-deal-inquiry="true"
-                  data-deal-id={String(deal.id ?? "")}
-                  data-deal-asset={String(deal.assetType ?? "상업용 부동산")}
-                  data-deal-address={safeAddress}
-                  data-deal-price={priceLabel}
-                  data-deal-signal={String(deal.areaSignal ?? "")}
-                  data-track-click="theme_deal"
-                  data-track="listing_click"
-                  data-track-listing-id={deal.id}
-                  data-track-from="theme"
-                  className="group flex min-h-12 items-center gap-3 rounded-xl border border-white/10 p-3 transition-all duration-300 hover:border-amber-500/25"
-                  style={{ background: "rgba(255,255,255,0.025)" }}
-                >
-                  <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: DEAL_FALLBACK_BG }}>
-                    {deal.photoUrl
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={deal.photoUrl} alt="" width={48} height={48} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
-                      : <Building2 className="h-5 w-5 text-indigo-300/60" aria-hidden="true" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-1 text-label font-bold text-white">{deal.assetType} · {safeAddress}</p>
-                    <p className="text-body font-extrabold" style={{ color: accent }}>{priceLabel}</p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-amber-300" aria-hidden="true" />
-                </a>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </Section>
-  );
-
   const renderFeaturedDeals = () => (
     <Section>
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Building2 className="h-4 w-4 text-rose-300" aria-hidden="true" />
-          <h2 className="text-label font-bold text-white">주목 매물 하이라이트</h2>
-          <span
-            data-deals-counter=""
-            data-deals-total={featuredDeals.length}
-            className="ml-auto rounded-full border border-rose-500/25 bg-rose-500/15 px-2.5 py-1 text-sm font-bold text-rose-200"
-          >
-            1 / {featuredDeals.length}
-          </span>
-          {featuredDeals.length > 1 && (
+        {featuredDeals.length > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
+            <span
+              data-deals-counter=""
+              data-deals-total={featuredDeals.length}
+              className="rounded-full border border-rose-500/25 bg-rose-500/15 px-2.5 py-1 text-sm font-bold text-rose-200"
+            >
+              1 / {featuredDeals.length}
+            </span>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -352,8 +167,8 @@ export function MagazineView({
                 다음 ▶
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         <ul
           data-deals-carousel=""
           className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2"
@@ -423,22 +238,6 @@ export function MagazineView({
             const dealIdStr = String(deal.id ?? i);
             const isUuidDeal = UUID_PREFIX_RE.test(String(deal.id ?? ""));
             const directImUrl = deal.imUrl || (isUuidDeal ? `/im-lite/${encodeURIComponent(String(deal.id))}` : null);
-
-            // ROI 계산기 프리필 데이터 (원 단위)
-            const depositWon =
-              typeof deal.deposit === "number" && deal.deposit >= 0
-                ? deal.deposit
-                : undefined;
-            const rentWon =
-              typeof deal.monthlyRent === "number" && deal.monthlyRent >= 0
-                ? deal.monthlyRent
-                : undefined;
-            const floorsNum =
-              typeof deal.totalFloors === "number"
-                ? deal.totalFloors
-                : deal.floors
-                ? parseInt(String(deal.floors).replace(/\D/g, ""), 10) || undefined
-                : undefined;
 
             const inquiryProps = {
               "data-deal-inquiry": "true",
@@ -565,22 +364,6 @@ export function MagazineView({
                         <span>모바일 IM 열람</span>
                       </a>
                     )}
-
-                    <a
-                      href="#section-roi_calculator"
-                      data-prefill-roi="true"
-                      data-roi-price={rawPriceWon ? String(rawPriceWon) : undefined}
-                      data-roi-deposit={depositWon !== undefined ? String(depositWon) : undefined}
-                      data-roi-rent={rentWon !== undefined ? String(rentWon) : undefined}
-                      data-roi-floors={floorsNum !== undefined ? String(floorsNum) : undefined}
-                      data-track="calc_simulate"
-                      data-track-click="featured_deal_roi"
-                      data-track-listing-id={deal.id}
-                      className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 text-center text-sm font-extrabold text-emerald-200 transition-colors"
-                    >
-                      <span aria-hidden="true">🧮</span>
-                      <span>이 매물 수지분석</span>
-                    </a>
                   </div>
 
                   <a
@@ -615,24 +398,18 @@ export function MagazineView({
 
   const sectionNode = (id: string): React.ReactNode => {
     switch (id) {
-      case "ai_briefing": return normBriefing ? renderAiBriefing() : null;
-      case "field_note": return hasFieldNote ? renderFieldNote() : null;
-      case "theme_of_week": return themeTitle && !isDuplicateTheme ? renderThemeOfWeek() : null;
-      case "featured_deals": return featuredDeals.length > 0 ? renderFeaturedDeals() : null;
-      case "poll":
-        return hasPoll ? (
+      case "ai_briefing":
+        return normBriefing ? renderAiBriefing() : null;
+      case "field_note":
+        return !normBriefing && hasFieldNote ? renderFieldNote() : null;
+      case "news_curation":
+        return hasNewsOrUnitIssues ? (
           <Section>
-            <PollSection brokerId={brokerId} date={date} poll={data.poll} preview={preview} telHref={telHref} />
+            <NewsSection items={topNews} unitIssues={unitIssues} cadence={editionKind} />
           </Section>
         ) : null;
-      case "subscribe_cta":
-        return (
-          <Section>
-            <div className={preview ? "pointer-events-none select-none" : undefined} aria-hidden={preview || undefined}>
-              <SubscribeCard brokerId={brokerId} source="magazine" accentColor={accent} />
-            </div>
-          </Section>
-        );
+      case "featured_deals":
+        return featuredDeals.length > 0 ? renderFeaturedDeals() : null;
       case "broker_profile":
         return (
           <Section>
@@ -648,90 +425,12 @@ export function MagazineView({
             />
           </Section>
         );
-      case "market_data":
-        return hasMarketData ? (
+      case "subscribe_cta":
+        return (
           <Section>
-            <div className="space-y-4">
-              {monthlyCharts.length > 0 && (
-                <MonthlyRegionalChartsSection charts={monthlyCharts} />
-              )}
-              {(recentTxs.length > 0 || !!rentalTrend || !!commercialDistrict || !!monthlySummary) && (
-                <MarketDataSection
-                  recentTxs={recentTxs}
-                  rentalTrend={rentalTrend}
-                  commercialDistrict={commercialDistrict}
-                  monthlySummary={monthlySummary}
-                  dateLabel={dateLabel}
-                  defaultOpen={target === "seller"}
-                />
-              )}
+            <div className={preview ? "pointer-events-none select-none" : undefined} aria-hidden={preview || undefined}>
+              <SubscribeCard brokerId={brokerId} source="magazine" accentColor={accent} variant="minimal" />
             </div>
-          </Section>
-        ) : null;
-      case "news_curation":
-        return hasNewsOrUnitIssues ? (
-          <Section>
-            <NewsSection items={topNews} unitIssues={unitIssues} cadence={editionKind} />
-          </Section>
-        ) : null;
-      case "auction_picks":
-        return auctionPicks.length > 0 ? <Section><AuctionSection picks={auctionPicks} /></Section> : null;
-      case "reports":
-        return reports.length > 0 ? <Section><ReportsSection reports={reports} /></Section> : null;
-      case "sentiment_index":
-        return sentimentScore !== null ? (
-          <Section>
-            <SentimentSection sentiment={{ score: sentimentScore, status: sentiment?.status, asOf: sentiment?.asOf }} />
-          </Section>
-        ) : null;
-      case "roi_calculator": {
-        const primaryDeal = featuredDeals[0];
-        const defaultPrice =
-          typeof primaryDeal?.priceWon === "number" && primaryDeal.priceWon > 0
-            ? primaryDeal.priceWon
-            : typeof primaryDeal?.price === "number" && primaryDeal.price > 0
-            ? primaryDeal.price
-            : undefined;
-        const defaultDeposit =
-          typeof primaryDeal?.deposit === "number" && primaryDeal.deposit >= 0
-            ? primaryDeal.deposit
-            : undefined;
-        const defaultMonthlyRent =
-          typeof primaryDeal?.monthlyRent === "number" && primaryDeal.monthlyRent >= 0
-            ? primaryDeal.monthlyRent
-            : undefined;
-        const rawFloors = primaryDeal?.floors ? String(primaryDeal.floors).replace(/[^\d]/g, "") : "";
-        const defaultTotalFloors =
-          typeof primaryDeal?.totalFloors === "number" && primaryDeal.totalFloors > 0
-            ? primaryDeal.totalFloors
-            : rawFloors
-            ? parseInt(rawFloors, 10) || undefined
-            : undefined;
-
-        return (
-          <Section>
-            <SectionCard title="수지분석 계산기" icon={<Calculator className="h-4 w-4 text-emerald-300" aria-hidden="true" />} defaultOpen>
-              <LazyRoiCalculator
-                defaultPrice={defaultPrice}
-                defaultDeposit={defaultDeposit}
-                defaultMonthlyRent={defaultMonthlyRent}
-                defaultTotalFloors={defaultTotalFloors}
-                accentColor={accent}
-              />
-            </SectionCard>
-          </Section>
-        );
-      }
-      case "tax_clinic":
-        return hasTaxClinic && taxVisibleForTarget(target) ? (
-          <Section>
-            <TaxClinicSection taxClinic={taxClinic} telHref={telHref} />
-          </Section>
-        ) : null;
-      case "referral":
-        return (
-          <Section>
-            <LazyForwardSection brokerId={brokerId} brokerName={broker.name} date={date} preview={preview} />
           </Section>
         );
       default:
@@ -739,65 +438,17 @@ export function MagazineView({
     }
   };
 
-  // 주기별 구조 공식 정렬:
-  // - 일간(daily): 헤더+제목+이슈 5건(news_curation)+딜카드(featured_deals)+중개사 연락(broker_profile)
-  // - 주간(weekly): 헤더+제목+중개인 브리핑(ai_briefing/field_note)+이슈 5건+딜카드+중개사 연락
-  // - 월간(monthly): 헤더+제목+첫 머리 주요 통계 2건(market_data)+월간 이슈 5건 브리핑(news_curation)+(선택 브리핑)+딜카드(featured_deals)+중개사 연락(broker_profile)
-  const defaultOrderForCadence =
-    !Array.isArray(data.section_order) && editionKind === "monthly"
-      ? [
-          "market_data",
-          "news_curation",
-          "ai_briefing",
-          "field_note",
-          "featured_deals",
-          "broker_profile",
-          "subscribe_cta",
-          "theme_of_week",
-          "poll",
-          "roi_calculator",
-          "tax_clinic",
-          "referral",
-        ]
-      : !Array.isArray(data.section_order) && editionKind === "daily"
-      ? [
-          "news_curation",
-          "featured_deals",
-          "ai_briefing",
-          "field_note",
-          "broker_profile",
-          "subscribe_cta",
-          "theme_of_week",
-          "roi_calculator",
-          "referral",
-        ]
-      : data.section_order;
+  // 통일 5단계 + 최소 옵트인 구조: 제목 → 시장브리핑 → 이슈 → 매물 → 연락처 → 뉴스레터 신청
+  const UNIFIED_VIEWER_ORDER: readonly string[] = [
+    "ai_briefing",
+    "field_note",
+    "news_curation",
+    "featured_deals",
+    "broker_profile",
+    "subscribe_cta",
+  ];
 
-  const baseResolvedOrder = resolveSectionOrder(target, defaultOrderForCadence);
-  const cadenceAlignedOrder = (() => {
-    if (editionKind === "monthly") {
-      const lead = (
-        target === "all"
-          ? [
-              ...(monthlyCharts.length > 0 ? ["market_data"] : []),
-              "news_curation",
-              "ai_briefing",
-              "field_note",
-              "featured_deals",
-              "broker_profile",
-            ]
-          : [...(monthlyCharts.length > 0 ? ["market_data"] : []), "news_curation"]
-      ).filter((id) => baseResolvedOrder.includes(id));
-      return [...lead, ...baseResolvedOrder.filter((id) => !lead.includes(id))];
-    }
-    if (editionKind === "daily") {
-      const lead = ["news_curation", "featured_deals"].filter((id) => baseResolvedOrder.includes(id));
-      return [...lead, ...baseResolvedOrder.filter((id) => !lead.includes(id) && id !== "market_data")];
-    }
-    return baseResolvedOrder;
-  })();
-
-  const order = cadenceAlignedOrder.filter((id) =>
+  const order = UNIFIED_VIEWER_ORDER.filter((id) =>
     isSectionEnabled(data.sections, id)
   );
   const rendered = order
@@ -806,19 +457,10 @@ export function MagazineView({
 
   const renderedIdSet = new Set(rendered.map((r) => r.id));
 
-  // 본문 섹션(구독·프로필·계산기·전달하기 제외)이 하나도 그려지지 않으면 빈 상태 — 데이터 부재뿐 아니라 섹션 off/빈 설문도 포함.
-  const CHROME_ONLY = new Set(["subscribe_cta", "broker_profile", "roi_calculator", "referral"]);
+  // 본문 섹션(구독·프로필 제외)이 하나도 그려지지 않으면 빈 상태
+  const CHROME_ONLY = new Set(["subscribe_cta", "broker_profile"]);
   const isEmpty = !hasAnyViewerContent(data) || !rendered.some((s) => !CHROME_ONLY.has(s.id));
   const Wrapper = preview ? "div" : "main";
-
-  // 간단 모드(format: 'simple') 호환용 빠른 이동 바 (일반 일간/주간/월간 뷰에서는 노출하지 않아 깔끔함 유지)
-  const quickNavItems = [
-    { id: "field_note", label: "💬 중개사의 한마디" },
-    { id: "featured_deals", label: "🏢 주목 매물" },
-    { id: "news_curation", label: "📰 주요 뉴스" },
-    { id: "roi_calculator", label: "🧮 수익률 계산기" },
-  ].filter((item) => renderedIdSet.has(item.id));
-  const showSimpleQuickNav = !isEmpty && isSimpleEdition(data) && quickNavItems.length > 0;
 
   // ═══════════════════════════════════════════════════════════════════
   //  RENDER
@@ -831,9 +473,9 @@ export function MagazineView({
       className="dark min-h-screen w-full text-white"
       style={{ background: "linear-gradient(180deg, #050510 0%, #0a0a1a 40%, #080814 100%)", "--accent": accent, "--foreground": "#F8FAFC" } as React.CSSProperties}
     >
-      <Wrapper id={preview ? undefined : "magazine-main"} className="mx-auto max-w-[440px] px-4 pb-28">
+      <Wrapper id={preview ? undefined : "magazine-main"} className="mx-auto max-w-[440px] px-4 pb-12">
 
-        {/* ── HERO / COVER (깔끔하고 정돈된 헤더 + 1줄 제목 보장) ─────────────────── */}
+        {/* ── HERO / COVER (깔끔한 발행인 · 날짜 · 자연 줄바꿈 제목) ─────────────────── */}
         <header
           className="relative overflow-hidden px-1 pb-5 pt-8"
           data-section-id="cover"
@@ -858,35 +500,18 @@ export function MagazineView({
             </div>
           </div>
 
-          {/* Date + Single-Line Title */}
+          {/* Date + Clean Break-Keep Title */}
           <div className="relative">
             <p className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-300">
               <time dateTime={date}>{dateLabel}</time>
-              <span className="rounded-full border border-indigo-500/25 bg-indigo-500/15 px-2.5 py-0.5 text-sm font-semibold text-indigo-200">⏱ {readTimeMin}분 완독</span>
             </p>
             <h1
               data-single-line-title="true"
               title={title}
-              className="mb-2.5 whitespace-nowrap overflow-hidden text-ellipsis truncate text-xl sm:text-2xl font-extrabold leading-tight tracking-tight text-white"
+              className="mb-1.5 break-keep text-xl sm:text-2xl font-extrabold leading-snug tracking-tight text-white"
             >
               {title}
             </h1>
-
-            {tempConfig && (
-              <div className="mb-2.5 inline-flex flex-wrap items-center gap-1.5 rounded-2xl border px-3 py-1.5" style={{ background: `${tempConfig.color}15`, borderColor: `${tempConfig.color}30` }}>
-                <span className="text-sm" aria-hidden="true">{tempConfig.emoji}</span>
-                <span className="text-sm font-extrabold" style={{ color: tempConfig.color }}>시장 온도 {marketTemp}</span>
-                <span className="text-sm text-slate-200">· {tempConfig.description}</span>
-              </div>
-            )}
-
-            {coverKeywords.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {coverKeywords.map((kw, i) => (
-                  <span key={i} className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-sm font-bold text-white"># {kw}</span>
-                ))}
-              </div>
-            )}
 
             {strArray(broker.specialtyRegions).length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -896,46 +521,7 @@ export function MagazineView({
               </div>
             )}
           </div>
-
-          {/* Key stats */}
-          {keyStats.length > 0 && (
-            <ul className="relative mt-4 grid grid-cols-3 gap-2">
-              {keyStats.map((stat, i) => (
-                <li key={i} className={`rounded-xl border p-2.5 text-center ${STAT_TONE[stat.accent ?? ""] ?? "text-slate-200 border-white/10 bg-white/5"}`}>
-                  <div className="mb-1 text-body font-extrabold leading-none">{stat.value}</div>
-                  <div className="text-sm text-slate-200">{stat.label}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* 주간 호에서 본문에 field_note가 따로 없을 때만 커버 인용구를 표시하여 중복 노출을 방지 */}
-          {fieldNote.comment && !renderedIdSet.has("field_note") && editionKind === "weekly" && (
-            <figure className="relative mt-4 rounded-xl border border-violet-500/15 px-3 py-2.5" style={{ background: "rgba(139,92,246,0.06)" }}>
-              <blockquote className="text-label italic leading-relaxed text-violet-200">&ldquo;{fieldNote.comment}&rdquo;</blockquote>
-              <figcaption className="mt-1 text-sm text-slate-300">— {brokerName}</figcaption>
-            </figure>
-          )}
         </header>
-
-        {/* ── 간단 모드 전용 빠른 이동 바 (일반 일간·주간·월간에서는 비노출) ─── */}
-        {showSimpleQuickNav && (
-          <nav
-            aria-label="섹션 빠른 이동"
-            className="mb-4 flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.04] p-1.5"
-          >
-            {quickNavItems.map((item) => (
-              <a
-                key={item.id}
-                href={`#section-${item.id}`}
-                data-quick-scroll={item.id}
-                className="flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] px-3 py-1.5 text-sm font-bold text-slate-100 hover:bg-indigo-500/20 hover:border-indigo-400/40 transition-colors"
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        )}
 
         {/* ── SECTIONS ──────────────────────────────────────────── */}
         {isEmpty ? (
@@ -971,19 +557,6 @@ export function MagazineView({
           brokerSlug={brokerVibe?.slug ?? brokerSlug ?? brokerId}
         />
       )}
-
-      <ViewerBottomBar
-        phone={broker.phone}
-        kakaoUrl={broker.kakaoUrl ?? broker.kakao_url}
-        brokerSlug={brokerSlug}
-        brokerName={broker.name}
-        brokerId={brokerId}
-        headline={typeof data.headline === "string" ? data.headline : null}
-        date={date}
-        dateLabel={dateLabel}
-        target={target}
-        preview={preview}
-      />
     </ViewerTrackProvider>
   );
 }

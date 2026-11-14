@@ -62,39 +62,36 @@ describe('① 근거 없는 점수 비노출 (실습1)', () => {
     expect(header).not.toContain('매수 과열');
     expect(header).not.toMatch(/>투자자 심리</);
     expect(sectionIds(html)).not.toContain('sentiment_index');
-    // 정당한 지표는 유지, 문장도 유지
-    expect(html).toContain('12건');
     expect(html).toContain('중립 이상입니다.');
     expect(html).toContain('거래는 관망세입니다.');
-    expect(html).toContain('선별 접근이 필요합니다.');
   });
 
-  it('표지 지표 li 수 = 근거 없는 지표를 뺀 keyStats 수', () => {
+  it('표지 헤더는 불필요한 지표 li 배지 없이 작성자·날짜·제목만 간결히 렌더한다', () => {
     const html = render(LEGACY);
     const header = html.slice(html.indexOf('data-section-id="cover"'), html.indexOf('</header>'));
-    expect(Array.from(header.matchAll(/<li /g))).toHaveLength(1);
+    expect(Array.from(header.matchAll(/<li /g))).toHaveLength(0);
   });
 
-  it('근거(generation + 심리 항목 + 기준일)가 있으면 점수를 그대로 보여 준다', () => {
+  it('통일 5단계 개편 후에는 generation·심리 데이터가 있어도 별도 sentiment_index 카드를 비노출한다', () => {
     const html = render({
       ...LEGACY,
       generation: { model: 'gemini', isMock: false },
       sentiment: { score: 62, status: '중립 이상', asOf: '2026-09-20', items: [{ keyword: '성수', score: 60 }] },
     });
-    expect(html).toMatch(/62\s*\/\s*100/);
-    expect(sectionIds(html)).toContain('sentiment_index');
+    expect(sectionIds(html)).not.toContain('sentiment_index');
   });
 });
 
-describe('실습: 섹션 제목 중복 제거', () => {
-  it('수지분석 계산기 제목은 SectionCard 한 곳에만 나온다', () => {
+describe('실습: 하단 유틸리티 제거 및 구독 제목 비중복', () => {
+  it('하단 수지분석 계산기는 비노출(0회)되고 최소 뉴스레터 신청 제목은 한 번만 나온다', () => {
     const html = render({ headline: 'h', briefing: 'b' });
-    expect(html.split('수지분석 계산기').length - 1).toBe(1);
+    expect(html.split('수지분석 계산기').length - 1).toBe(0);
+    expect(html.split('뉴스레터 신청').length - 1).toBeGreaterThanOrEqual(1);
   });
 });
 
 describe('④ 뉴스 표시 정리 (렌더)', () => {
-  it('제목의 &quot; 는 따옴표로, 요약의 내부 라벨·| 조각은 제거', () => {
+  it('제목의 &quot; 는 따옴표로, 요약의 내부 라벨·| 조각은 제거하고 이슈 분야 배지만 깔끔히 표기한다', () => {
     const html = render({
       headline: 'h',
       briefing: 'b',
@@ -108,6 +105,7 @@ describe('④ 뉴스 표시 정리 (렌더)', () => {
     expect(html).not.toContain('핵심 팩트');
     expect(html).not.toContain('브로커 임플리케이션');
     expect(html).toContain('임차 문의 증가');
-    expect(html).toContain('임대·공실');
+    expect(html).toContain('부동산·빌딩');
+    expect(html).not.toContain('ISSUE 01');
   });
 });

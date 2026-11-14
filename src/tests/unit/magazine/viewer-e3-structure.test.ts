@@ -65,14 +65,15 @@ describe('U-06 서버 셸 / 클라이언트 섬 분리', () => {
     }
   });
 
-  it('next/dynamic 은 클라이언트 래퍼(LazyIslands)에서만 호출한다', () => {
+  it('next/dynamic 은 클라이언트 래퍼(LazyIslands)에서만 호출하고 뷰어 셸에는 하단 유틸 바가 없다', () => {
     const lazy = read('components/magazine/LazyIslands.tsx');
     expect(lazy).toMatch(USE_CLIENT);
     expect(lazy).toMatch(/from ['"]next\/dynamic['"]/);
     expect(lazy).toMatch(/LazyRoiCalculator/);
     expect(lazy).toMatch(/LazyForwardSection/);
     for (const rel of SERVER_FILES) expect(read(rel)).not.toMatch(/from ['"]next\/dynamic['"]/);
-    expect(read(SHELL)).toMatch(/@\/components\/magazine\/LazyIslands/);
+    expect(read(SHELL)).not.toContain('ViewerBottomBar');
+    expect(read(SHELL)).toContain('UNIFIED_VIEWER_ORDER');
   });
 
   it('함수 props 를 서버→클라이언트 경계로 넘기지 않는다 (셸에 onTrack/onToggle/onInteract 없음)', () => {
