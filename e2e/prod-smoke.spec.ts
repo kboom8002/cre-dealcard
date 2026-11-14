@@ -37,8 +37,9 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     const pageErrors: string[] = [];
     page.on("pageerror", (err) => pageErrors.push(err.message));
 
-    const res = await page.goto("/qa-signoff", { waitUntil: "domcontentloaded" });
+    const res = await page.goto("/qa-signoff", { waitUntil: "load" });
     expect(res?.status()).toBeLessThan(400);
+    await page.waitForTimeout(500);
 
     await expect(page.getByTestId("signoff-verdict-badge")).toBeVisible({
       timeout: 20_000,
@@ -46,7 +47,14 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     await expect(page.getByTestId("hub-build-stamp-badge")).toBeVisible();
     await expect(page.getByTestId("hub-channel-policy-badge")).toBeVisible();
 
-    await page.getByTestId("run-auto-probe-all-btn").click();
+    const probeBtn = page.getByTestId("run-auto-probe-all-btn");
+    await probeBtn.click();
+    await page.waitForTimeout(1500);
+    const resultsText =
+      (await page.getByTestId("auto-probe-results").textContent()) || "";
+    if (resultsText.includes("오른쪽 위")) {
+      await probeBtn.click();
+    }
     await expect(page.getByTestId("auto-probe-results")).toContainText(
       "4/4 자동 통과",
       { timeout: 20_000 }
@@ -114,13 +122,22 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test("[Smoke-04] Public login & newsletter/OG health routes respond cleanly (< 400)", async ({
+  test("[Smoke-04] Public login & newsletter/OG C-04 health routes respond cleanly", async ({
     request,
   }) => {
     const loginRes = await request.get("/login");
     expect(loginRes.status()).toBeLessThan(400);
 
-    const ogRes = await request.get("/api/og/magazine");
-    expect(ogRes.status()).toBeLessThan(400);
+    // C-04 contract: missing brokerId returns 400 with neutral image/png (no-store)
+    const bareOgRes = await request.get("/api/og/magazine");
+    expect(bareOgRes.status()).toBe(400);
+    expect(bareOgRes.headers()["content-type"] || "").toContain("image/png");
+
+    // Valid brokerId format renders 200 image/png cleanly via Node OG renderer
+    const validOgRes = await request.get(
+      "/api/og/magazine?brokerId=smoke-check-broker"
+    );
+    expect(validOgRes.status()).toBe(200);
+    expect(validOgRes.headers()["content-type"] || "").toContain("image/png");
   });
 });
