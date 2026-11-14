@@ -218,18 +218,20 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
       />,
     );
 
+    const chartsIdx = monthlyHtml.indexOf('data-testid="monthly-regional-charts-section"');
     const briefingIdx = monthlyHtml.indexOf('data-section-id="ai_briefing"');
     const issuesIdx = monthlyHtml.indexOf('data-testid="axios-postit-list"');
     const dealsIdx = monthlyHtml.indexOf('data-section-id="featured_deals"');
     const contactIdx = monthlyHtml.indexOf('data-section-id="broker_profile"');
     const optinIdx = monthlyHtml.indexOf('data-testid="minimal-subscribe-optin"');
-    expect(briefingIdx).toBeGreaterThan(0);
+    expect(chartsIdx).toBeGreaterThan(0);
+    expect(chartsIdx).toBeLessThan(briefingIdx);
     expect(briefingIdx).toBeLessThan(issuesIdx);
     expect(issuesIdx).toBeLessThan(dealsIdx);
     expect(dealsIdx).toBeLessThan(contactIdx);
     expect(contactIdx).toBeLessThan(optinIdx);
     expect((monthlyHtml.match(/data-testid="axios-postit-card"/g) ?? []).length).toBe(5);
-    expect(monthlyHtml).not.toContain('data-testid="monthly-regional-charts-section"');
+    expect(monthlyHtml).toContain('data-testid="monthly-regional-charts-section"');
     expect(monthlyHtml).not.toContain("공인중개사 현장 브리핑");
 
     // 일간(daily) simple 발행본 검증: 동일 통일 5단계(이슈 5선 + 매물 + 연락처 + 최소 옵트인) 정상 노출
@@ -436,13 +438,15 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
       />,
     );
 
+    const pChartsIdx = publicHtml.indexOf('data-testid="monthly-regional-charts-section"');
     const pBriefingIdx = publicHtml.indexOf('data-testid="viewer-market-briefing"');
     const pIssuesIdx = publicHtml.indexOf('data-testid="axios-postit-list"');
     const pDealsIdx = publicHtml.indexOf('data-deals-carousel');
     const pContactIdx = publicHtml.lastIndexOf("02-555-1234");
     const pOptinIdx = publicHtml.indexOf('data-testid="minimal-subscribe-optin"');
 
-    expect(pBriefingIdx).toBeGreaterThan(0);
+    expect(pChartsIdx).toBeGreaterThan(0);
+    expect(pChartsIdx).toBeLessThan(pBriefingIdx);
     expect(pBriefingIdx).toBeLessThan(pIssuesIdx);
     expect(pIssuesIdx).toBeLessThan(pDealsIdx);
     expect(pDealsIdx).toBeLessThan(pContactIdx);

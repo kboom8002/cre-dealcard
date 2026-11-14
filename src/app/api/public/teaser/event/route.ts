@@ -3,6 +3,11 @@ import { createHash } from 'node:crypto';
 import { createTeaserEvent, inferIntentFromEvents } from '@/domain/deal/teaser/teaser-insight';
 import { createServiceClient } from '@/lib/supabase/service';
 import { isUuid } from '@/lib/im-lite/quick-generate-store';
+import {
+  extractShareTokenFromInput,
+  verifyShareLinkToken,
+  type ShareLinkChannel,
+} from '@/lib/security/share-link-tokens';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -11,7 +16,18 @@ const log = createModuleLogger('route');
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { teaserConfigId, visitorFp, eventType, eventData, metadata, buildingId, docId } = body;
+    const {
+      teaserConfigId,
+      visitorFp,
+      eventType,
+      eventData,
+      metadata,
+      buildingId,
+      docId,
+      shareToken,
+      share_token,
+      token,
+    } = body;
     const effectiveEventData = eventData || metadata || {};
 
     if (!eventType) {
@@ -54,9 +70,43 @@ export async function POST(request: Request) {
     // Note: activity_events does NOT have top-level building_ssot_lite_id or building_id columns;
     // store them inside metadata and map 'view' -> 'deal_card_view'.
     const targetBuildingId = buildingId || docId || (teaserConfigId && teaserConfigId !== 'anon-config' ? teaserConfigId : null);
+    const rawShareToken =
+      (typeof shareToken === 'string' && shareToken.trim()) ||
+      (typeof share_token === 'string' && share_token.trim()) ||
+      (typeof token === 'string' && token.trim()) ||
+      extractShareTokenFromInput(typeof effectiveEventData?.url === 'string' ? effectiveEventData.url : null) ||
+      extractShareTokenFromInput(request.headers.get('referer'));
+
+    let verifiedRecipientId: string | null = null;
+    let verifiedBrokerId: string | null = null;
+    let verifiedChannel: ShareLinkChannel | null = null;
+    let hasShareToken = false;
+
+    if (rawShareToken) {
+      try {
+        const verified = await verifyShareLinkToken({
+          token: rawShareToken,
+          buildingId: targetBuildingId ? String(targetBuildingId) : undefined,
+        });
+        if (verified.valid) {
+          hasShareToken = true;
+          verifiedRecipientId = verified.recipientId || null;
+          verifiedBrokerId = verified.brokerId || null;
+          verifiedChannel = verified.channel || null;
+        }
+      } catch {
+        // non-blocking share token attribution fallback
+      }
+    }
+
     if (targetBuildingId) {
       const targetIdStr = String(targetBuildingId);
-      const mappedEventType = eventType === 'view' ? 'deal_card_view' : String(eventType);
+      const mappedEventType =
+        eventType === 'view'
+          ? 'deal_card_view'
+          : eventType === 'dwell'
+            ? 'deal_card_dwell'
+            : String(eventType);
       try {
         await supabase.from('activity_events').insert({
           event_type: mappedEventType,
@@ -69,6 +119,10 @@ export async function POST(request: Request) {
             building_id: String(buildingId || targetIdStr),
             ...(isUuid(targetIdStr) ? { building_ssot_lite_id: targetIdStr } : {}),
             ...(docId ? { doc_id: String(docId) } : {}),
+            ...(verifiedRecipientId ? { recipient_id: verifiedRecipientId } : {}),
+            ...(verifiedBrokerId ? { broker_id: verifiedBrokerId } : {}),
+            ...(verifiedChannel ? { share_token_channel: verifiedChannel } : {}),
+            ...(hasShareToken ? { has_share_token: true } : {}),
             visitor_fp: effectiveVisitorFp,
           },
         });

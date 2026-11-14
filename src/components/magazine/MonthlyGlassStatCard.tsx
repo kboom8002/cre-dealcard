@@ -247,12 +247,30 @@ export function MonthlyGlassStatCard({
         {/* 3. 막대 비교 그래픽 */}
         {series.length > 0 ? (
           <div
-            className="rounded-2xl border px-3 py-3.5"
+            className="rounded-2xl border px-3 py-3.5 space-y-2.5"
             style={{
               backgroundColor: "rgba(255, 255, 255, 0.80)",
               borderColor: "rgba(15, 23, 42, 0.10)",
             }}
           >
+            {chart.referenceLine && (
+              <div
+                data-testid={cardTestId ? `${cardTestId}-ref-line` : undefined}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed px-3 py-1.5"
+                style={{
+                  backgroundColor: theme.pillBg,
+                  borderColor: theme.pillBorder,
+                  color: theme.pillInk,
+                }}
+              >
+                <span className="text-sm font-extrabold">
+                  {chart.referenceLine.label}
+                </span>
+                <span className="text-sm font-black tabular-nums">
+                  {chart.referenceLine.displayValue}
+                </span>
+              </div>
+            )}
             <div
               className="grid items-end gap-2 pt-2"
               style={{

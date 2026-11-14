@@ -81,6 +81,10 @@ export async function fetchMolitTransactions(
     if (isNaN(price) || price < 2_000_000_000) continue; // 20억 미만 제외
     if (price > 30_000_000_000) continue; // 300억 초과 제외
 
+    const buildingType = get('건물유형').trim();
+    if (buildingType === '집합') continue; // 구분소유 호실 제외(통건물 기준)
+    if (get('해제여부').trim() === 'O') continue;
+
     const usageType = get('용도');
     if (!['근린생활시설', '업무시설', '주상복합', '상업용'].some((u) => usageType.includes(u))) continue;
 

@@ -105,11 +105,17 @@ export const monthlyRegionalChartSchema = z
     id: z.string().min(1).max(120),
     regionKey: z.string().min(1).max(60),
     regionLabel: z.string().min(1).max(120),
-    chartType: z.enum(['molit_tx_price_trend', 'reb_vacancy_cap_spread', 'kosis_commercial_vitality']),
+    chartType: z.enum([
+      'molit_tx_price_trend',
+      'reb_vacancy_cap_spread',
+      'kosis_commercial_vitality',
+      'bok_loan_rate_cap_spread',
+      'molit_price_band_mix',
+    ]),
     title: z.string().min(1).max(200),
     subtitle: z.string().max(300),
     authorityLabel: z.string().max(200),
-    asOf: z.string().max(80),
+    asOf: z.string().max(120),
     unit: z.string().max(40),
     secondaryUnit: z.string().max(40).optional(),
     highlightMetric: z.object({
@@ -129,6 +135,13 @@ export const monthlyRegionalChartSchema = z
         }),
       )
       .max(12),
+    referenceLine: z
+      .object({
+        label: z.string().max(100),
+        value: z.number(),
+        displayValue: z.string().max(80),
+      })
+      .optional(),
     buyerImplication: z.string().max(500),
   })
   .passthrough();

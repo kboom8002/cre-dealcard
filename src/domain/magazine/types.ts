@@ -326,12 +326,25 @@ export interface MonthlyChartSeriesPoint {
 
 export type MonthlyChartSourceMode = 'public_db' | 'reference_benchmark' | 'broker_custom';
 
-/** 월간 뉴스레터용 권역별 국토부·통계청 핵심 통계 그래프 카드 */
+export type MonthlyRegionalChartType =
+  | 'molit_tx_price_trend'
+  | 'reb_vacancy_cap_spread'
+  | 'kosis_commercial_vitality'
+  | 'bok_loan_rate_cap_spread'
+  | 'molit_price_band_mix';
+
+export interface MonthlyChartReferenceLine {
+  label: string;
+  value: number;
+  displayValue: string;
+}
+
+/** 월간 뉴스레터용 권역별 국토부·한국은행 핵심 통계 그래프 카드 */
 export interface MonthlyRegionalChart {
   id: string;
   regionKey: string;
   regionLabel: string;
-  chartType: 'molit_tx_price_trend' | 'reb_vacancy_cap_spread' | 'kosis_commercial_vitality';
+  chartType: MonthlyRegionalChartType;
   title: string;
   subtitle: string;
   authorityLabel: string;
@@ -345,6 +358,7 @@ export interface MonthlyRegionalChart {
     tone: 'positive' | 'neutral' | 'caution';
   };
   series: MonthlyChartSeriesPoint[];
+  referenceLine?: MonthlyChartReferenceLine;
   buyerImplication: string;
   isPlaceholder?: boolean;
   placeholderNotice?: string;

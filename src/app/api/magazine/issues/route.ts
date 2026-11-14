@@ -68,6 +68,7 @@ const IssueBodySchema = z.object({
   dealComments: z.record(z.string(), z.string().max(1000)).optional(),
   unitIssues: z.array(z.record(z.string(), z.unknown())).max(10).optional(),
   monthlyRegion: z.string().max(40).optional(),
+  monthlyPairId: z.string().max(40).optional(),
   monthlyCharts: z.array(z.record(z.string(), z.unknown())).max(6).optional(),
   preferredRegions: z.array(z.string().max(40)).max(8).optional(),
   preferredChannels: z.array(z.string().max(40)).max(5).optional(),
@@ -619,6 +620,15 @@ export async function POST(request: NextRequest) {
         ? mapPreferredRegionsToMonthlyKey(preferredRegions)
         : undefined;
 
+    const resolvedMonthlyPairId =
+      typeof data.monthlyPairId === "string" && data.monthlyPairId.trim()
+        ? data.monthlyPairId.trim()
+        : typeof sanitizedExistingContent.monthlyPairId === "string"
+        ? sanitizedExistingContent.monthlyPairId
+        : typeof sanitizedExistingContent.monthly_pair_id === "string"
+        ? sanitizedExistingContent.monthly_pair_id
+        : undefined;
+
     const incomingCharts = Array.isArray(data.monthlyCharts)
       ? data.monthlyCharts
       : Array.isArray(sanitizedExistingContent.monthlyCharts)
@@ -665,6 +675,9 @@ export async function POST(request: NextRequest) {
       deal_comments: commentsMap,
       ...(resolvedMonthlyRegion
         ? { monthlyRegion: resolvedMonthlyRegion, monthly_region: resolvedMonthlyRegion }
+        : {}),
+      ...(resolvedMonthlyPairId
+        ? { monthlyPairId: resolvedMonthlyPairId, monthly_pair_id: resolvedMonthlyPairId }
         : {}),
       ...(populatedMonthlyCharts.length > 0
         ? { monthlyCharts: populatedMonthlyCharts, monthly_charts: populatedMonthlyCharts }
@@ -770,6 +783,9 @@ export async function POST(request: NextRequest) {
       deal_comments: data.dealComments ?? {},
       ...(resolvedMonthlyRegion
         ? { monthlyRegion: resolvedMonthlyRegion, monthly_region: resolvedMonthlyRegion }
+        : {}),
+      ...(resolvedMonthlyPairId
+        ? { monthlyPairId: resolvedMonthlyPairId, monthly_pair_id: resolvedMonthlyPairId }
         : {}),
       ...(populatedMonthlyCharts.length > 0
         ? { monthlyCharts: populatedMonthlyCharts, monthly_charts: populatedMonthlyCharts }

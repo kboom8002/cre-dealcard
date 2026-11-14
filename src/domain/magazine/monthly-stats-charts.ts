@@ -18,7 +18,9 @@ export type MonthlyRegionKey = 'gbd' | 'seongsu' | 'ybd' | 'mapo_yongsan' | 'cbd
 export type MonthlyChartType =
   | 'molit_tx_price_trend'
   | 'reb_vacancy_cap_spread'
-  | 'kosis_commercial_vitality';
+  | 'kosis_commercial_vitality'
+  | 'bok_loan_rate_cap_spread'
+  | 'molit_price_band_mix';
 
 export const MONTHLY_STATS_PREPARING_LABEL = '통계 준비 중' as const;
 
@@ -105,6 +107,18 @@ export const MONTHLY_CHART_TYPE_META: Readonly<
     authority: '통계청 국가통계포털(KOSIS) 서비스업동향 · 상권정보',
     buyerReason: '임차인의 매출 체력과 우량 업종 유입에 따른 임대료 여력을 확인합니다.',
   },
+  bok_loan_rate_cap_spread: {
+    chartType: 'bok_loan_rate_cap_spread',
+    shortTitle: '한국은행 대출금리 추이 vs 권역 기대 임대수익률',
+    authority: '한국은행 ECOS 경제통계시스템 (예금은행 가중평균 대출금리)',
+    buyerReason: '월세로 은행 대출 이자를 충당할 수 있는지와 적정 자기자본 비율을 한눈에 봅니다.',
+  },
+  molit_price_band_mix: {
+    chartType: 'molit_price_band_mix',
+    shortTitle: '국토부 금액대별 통건물 실거래 비중',
+    authority: '국토교통부 실거래가 공개시스템 (상업·업무용)',
+    buyerReason: '50억 미만·50~100억·100억+ 어느 가격대에 매수 거래가 몰리는지 확인합니다.',
+  },
 };
 
 type PlaceholderChartBase = Omit<
@@ -116,6 +130,8 @@ interface RegionChartDataset {
   txPriceTrend: PlaceholderChartBase;
   vacancyCapSpread: PlaceholderChartBase;
   commercialVitality: PlaceholderChartBase;
+  bokLoanRateSpread: PlaceholderChartBase;
+  molitPriceBandMix: PlaceholderChartBase;
 }
 
 function buildPlaceholderChartBase(params: {
@@ -167,6 +183,18 @@ function createRegionPlaceholderDataset(regionShortLabel: string): RegionChartDa
       authorityLabel: '통계청 국가통계포털(KOSIS) 서비스업동향 · 상권정보 (통계 준비 중)',
       unit: 'pt',
     }),
+    bokLoanRateSpread: buildPlaceholderChartBase({
+      title: `${regionShortLabel} 은행 대출금리 추이 vs 기대 임대수익률`,
+      subtitle: '한국은행 월간 기업·담보 대출금리(%)와 권역 기대 임대수익률(%) 비교',
+      authorityLabel: '한국은행 ECOS 경제통계시스템 (통계 준비 중)',
+      unit: '%',
+    }),
+    molitPriceBandMix: buildPlaceholderChartBase({
+      title: `${regionShortLabel} 금액대별 통건물 실거래 비중`,
+      subtitle: '50억 미만 · 50~100억 · 100억 이상 거래 비중(%)',
+      authorityLabel: '국토교통부 실거래가 공개시스템 (통계 준비 중)',
+      unit: '%',
+    }),
   };
 }
 
@@ -214,7 +242,11 @@ export function getMonthlyChartsForRegion(
         ? dataset.txPriceTrend
         : type === 'reb_vacancy_cap_spread'
           ? dataset.vacancyCapSpread
-          : dataset.commercialVitality;
+          : type === 'bok_loan_rate_cap_spread'
+            ? dataset.bokLoanRateSpread
+            : type === 'molit_price_band_mix'
+              ? dataset.molitPriceBandMix
+              : dataset.commercialVitality;
 
     return {
       id: `${regionKey}-${type}`,

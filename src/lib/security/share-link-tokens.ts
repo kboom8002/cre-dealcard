@@ -5,11 +5,16 @@ import path from 'path';
 import { createServiceClient } from '@/lib/supabase/service';
 import { setBuildingRevokedState } from '@/lib/im-lite/quick-generate-store';
 
+export type ShareLinkKind = 'im' | 'dealcard';
+export type ShareLinkChannel = 'copy' | 'email' | 'alimtalk' | 'kakao_share';
+
 export interface IssueShareLinkInput {
   buildingId: string;
   brokerId?: string | null;
   recipientId?: string | null;
   ttlDays?: number;
+  kind?: ShareLinkKind;
+  channel?: ShareLinkChannel | null;
 }
 
 export interface IssuedShareLinkToken {
@@ -17,6 +22,8 @@ export interface IssuedShareLinkToken {
   buildingId: string;
   brokerId: string | null;
   recipientId: string | null;
+  kind: ShareLinkKind;
+  channel: ShareLinkChannel | null;
   status: 'active';
   expiresAt: string;
   shareUrl: string;
@@ -53,6 +60,24 @@ export interface VerifyShareLinkResult {
   buildingId?: string;
   brokerId?: string | null;
   recipientId?: string | null;
+  kind?: ShareLinkKind | null;
+  channel?: ShareLinkChannel | null;
+}
+
+export function extractShareTokenFromInput(raw?: string | null): string | null {
+  const input = typeof raw === 'string' ? raw.trim() : '';
+  if (!input) return null;
+  if (input.startsWith('slk.')) {
+    return input.split(/[\s&#]/)[0] || null;
+  }
+  const match = input.match(/[?&]token=([^&#\s]+)/i);
+  if (!match?.[1]) return null;
+  try {
+    const decoded = decodeURIComponent(match[1]).trim();
+    return decoded || null;
+  } catch {
+    return match[1].trim() || null;
+  }
 }
 
 interface StoredShareTokenEntry {
@@ -159,6 +184,8 @@ interface SignedPayload {
   b: string; // buildingId
   u: string; // brokerId
   r: string; // recipientId
+  k?: ShareLinkKind; // kind ('im' | 'dealcard')
+  ch?: ShareLinkChannel; // channel
   exp: number; // expiresAt ms
   n: string; // nonce
 }
@@ -210,6 +237,8 @@ export async function issueShareLinkToken(
   }
   const brokerId = input.brokerId ? String(input.brokerId).trim() : null;
   const recipientId = input.recipientId ? String(input.recipientId).trim() : null;
+  const kind: ShareLinkKind = input.kind === 'dealcard' ? 'dealcard' : 'im';
+  const channel: ShareLinkChannel | null = input.channel ?? null;
   const rawTtl =
     typeof input.ttlDays === 'number' && Number.isFinite(input.ttlDays)
       ? input.ttlDays
@@ -222,6 +251,8 @@ export async function issueShareLinkToken(
     b: buildingId,
     u: brokerId || '',
     r: recipientId || '',
+    ...(kind !== 'im' ? { k: kind } : {}),
+    ...(channel ? { ch: channel } : {}),
     exp: expiresAtMs,
     n: crypto.randomBytes(6).toString('hex'),
   };
@@ -278,12 +309,17 @@ export async function issueShareLinkToken(
     // Non-blocking fallback when DB is not configured
   }
 
-  const shareUrl = `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(token)}`;
+  const shareUrl =
+    kind === 'dealcard'
+      ? `/dc/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(token)}`
+      : `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(token)}`;
   return {
     token,
     buildingId,
     brokerId,
     recipientId,
+    kind,
+    channel,
     status: 'active',
     expiresAt,
     shareUrl,
@@ -787,11 +823,14 @@ export async function verifyShareLinkToken(
       if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
         return { valid: false, reason: 'expired' };
       }
+      const decodedMeta = token.startsWith('slk.') ? decodeSignedToken(token).payload : undefined;
       return {
         valid: true,
         buildingId: row.building_id,
         brokerId: row.broker_id || null,
         recipientId: row.recipient_id || null,
+        kind: decodedMeta?.k || 'im',
+        channel: decodedMeta?.ch || null,
       };
     }
   } catch {
@@ -804,7 +843,7 @@ export async function verifyShareLinkToken(
     if (!decoded.validSig || !decoded.payload) {
       return { valid: false, reason: 'invalid' };
     }
-    const { b, u, r, exp } = decoded.payload;
+    const { b, u, r, exp, k, ch } = decoded.payload;
     if (expectedBuildingId && b !== expectedBuildingId) {
       return { valid: false, reason: 'invalid' };
     }
@@ -819,6 +858,8 @@ export async function verifyShareLinkToken(
       buildingId: b,
       brokerId: u || null,
       recipientId: r || null,
+      kind: k || 'im',
+      channel: ch || null,
     };
   }
 

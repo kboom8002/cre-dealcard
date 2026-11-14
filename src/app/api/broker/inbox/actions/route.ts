@@ -17,7 +17,18 @@ import {
   issueShareLinkToken,
   restoreShareLinkToken,
   revokeShareLinkToken,
+  type ShareLinkChannel,
 } from '@/lib/security/share-link-tokens';
+import { getBrokerSubscriptionTier } from '@/domain/subscription/tier-gate';
+import {
+  buildInboxCopyBundle,
+  evaluateInboxAlimtalkAccess,
+  normalizeClientEmail,
+  normalizeTransactionalBasis,
+  sendInboxClientEmail,
+  sendInboxTransactionalAlimtalk,
+  type InboxAlimtalkTemplateId,
+} from '@/domain/inbox/inbox-outbound';
 
 function getShareLinkHmacSecret(): string {
   return (
@@ -769,11 +780,24 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      const recipientRef = threadId || clientId || null;
+      const issuedDc = await issueShareLinkToken({
+        buildingId,
+        brokerId: userId,
+        recipientId: recipientRef,
+        ttlDays: Number(body?.ttlDays) > 0 ? Number(body.ttlDays) : 30,
+        kind: 'dealcard',
+        channel:
+          typeof body?.channel === 'string'
+            ? (body.channel as ShareLinkChannel)
+            : 'kakao_share',
+      });
       return NextResponse.json({
         ok: true,
         action,
         buildingId,
-        shareUrl: `/dc/${encodeURIComponent(buildingId)}`,
+        shareToken: issuedDc.token,
+        shareUrl: issuedDc.shareUrl,
       });
     }
 
@@ -1059,11 +1083,17 @@ export async function POST(req: NextRequest) {
         // non-blocking fallback to /magazine
       }
 
+      const recipientRef = threadId || clientId || '';
+      const finalMagazineUrl =
+        recipientRef && !resolvedMagazineUrl.includes('sid=')
+          ? `${resolvedMagazineUrl}${resolvedMagazineUrl.includes('?') ? '&' : '?'}sid=${encodeURIComponent(recipientRef)}`
+          : resolvedMagazineUrl;
+
       return NextResponse.json({
         ok: true,
         action,
         buildingId: buildingId || undefined,
-        shareUrl: resolvedMagazineUrl,
+        shareUrl: finalMagazineUrl,
         targetSegment,
         recipientCount,
         sentCount: recipientCount,
@@ -1456,6 +1486,15 @@ export async function POST(req: NextRequest) {
       const rawPhone = String(body?.clientPhone || '').trim();
       const clientPhone =
         rawPhone === '010-0000-0000' || rawPhone === '01000000000' ? '' : rawPhone;
+      const rawClientEmail = typeof body?.clientEmail === 'string' ? body.clientEmail.trim() : '';
+      const clientEmail = rawClientEmail ? normalizeClientEmail(rawClientEmail) : null;
+      if (rawClientEmail && !clientEmail) {
+        return NextResponse.json(
+          { ok: false, error: '올바른 이메일 주소 형식을 입력해 주세요.' },
+          { status: 400 }
+        );
+      }
+      const transactionalBasis = normalizeTransactionalBasis(body?.transactionalBasis);
       const budget = String(body?.budget || '').trim();
       const preferredRegion = String(body?.preferredRegion || '').trim();
       const buildingTitle = String(
@@ -1483,6 +1522,7 @@ export async function POST(req: NextRequest) {
           budget ? `예산: ${budget}` : '',
           preferredRegion ? `선호권역: ${preferredRegion}` : '',
           buildingTitle ? `관심매물: ${buildingTitle}` : '',
+          transactionalBasis ? `근거: ${transactionalBasis}` : '',
         ]
           .filter(Boolean)
           .join(' / ');
@@ -1490,33 +1530,53 @@ export async function POST(req: NextRequest) {
         let dbWriteRes: any = null;
         if (isUuid(userId)) {
           if (action === 'update_client' && isUuid(rawClientUuidCandidate)) {
-            dbWriteRes = await supabase
-              .from('broker_clients')
-              .update({
-                display_name: clientName,
-                phone: clientPhone || null,
-                tier: tierMap[clientGrade] || 'vip',
-                tags: tagsPayload,
-                notes: notesPayload,
-                linked_building_ids: buildingId && isUuid(buildingId) ? [buildingId] : [],
-              })
-              .eq('id', rawClientUuidCandidate)
-              .eq('broker_id', userId);
-          } else if (action === 'upsert_client' && !isUuid(rawClientUuidCandidate)) {
-            const insQuery: any = supabase.from('broker_clients').insert({
-              broker_id: userId,
-              client_type: 'buyer',
+            const baseUpdatePayload = {
               display_name: clientName,
               phone: clientPhone || null,
               tier: tierMap[clientGrade] || 'vip',
               tags: tagsPayload,
               notes: notesPayload,
               linked_building_ids: buildingId && isUuid(buildingId) ? [buildingId] : [],
-            });
-            dbWriteRes =
-              typeof insQuery?.select === 'function'
+            };
+            dbWriteRes = await supabase
+              .from('broker_clients')
+              .update({
+                ...baseUpdatePayload,
+                ...(clientEmail !== undefined ? { email: clientEmail } : {}),
+              })
+              .eq('id', rawClientUuidCandidate)
+              .eq('broker_id', userId);
+            if (dbWriteRes?.error && isIgnorableSchemaError(dbWriteRes.error)) {
+              dbWriteRes = await supabase
+                .from('broker_clients')
+                .update(baseUpdatePayload)
+                .eq('id', rawClientUuidCandidate)
+                .eq('broker_id', userId);
+            }
+          } else if (action === 'upsert_client' && !isUuid(rawClientUuidCandidate)) {
+            const baseInsertPayload = {
+              broker_id: userId,
+              client_type: 'buyer' as const,
+              display_name: clientName,
+              phone: clientPhone || null,
+              tier: tierMap[clientGrade] || 'vip',
+              tags: tagsPayload,
+              notes: notesPayload,
+              linked_building_ids: buildingId && isUuid(buildingId) ? [buildingId] : [],
+            };
+            const runInsert = async (includeEmail: boolean) => {
+              const insQuery: any = supabase.from('broker_clients').insert({
+                ...baseInsertPayload,
+                ...(includeEmail && clientEmail ? { email: clientEmail } : {}),
+              });
+              return typeof insQuery?.select === 'function'
                 ? await insQuery.select('id').single()
                 : await insQuery;
+            };
+            dbWriteRes = await runInsert(true);
+            if (dbWriteRes?.error && isIgnorableSchemaError(dbWriteRes.error)) {
+              dbWriteRes = await runInsert(false);
+            }
             if (dbWriteRes?.data?.id) {
               resolvedClientId = `custom_${dbWriteRes.data.id}`;
             }
@@ -1532,6 +1592,8 @@ export async function POST(req: NextRequest) {
               client_name: clientName,
               client_grade: clientGrade,
               client_phone: clientPhone,
+              client_email: clientEmail || '',
+              transactional_basis: transactionalBasis || '',
               budget,
               preferred_region: preferredRegion,
               building_id: buildingId,
@@ -1565,6 +1627,8 @@ export async function POST(req: NextRequest) {
         clientName,
         clientGrade,
         clientPhone,
+        clientEmail,
+        transactionalBasis,
         budget,
         preferredRegion,
         buildingId,
@@ -1579,6 +1643,8 @@ export async function POST(req: NextRequest) {
           clientName,
           clientGrade,
           clientPhone,
+          clientEmail,
+          transactionalBasis,
           budget,
           preferredRegion,
           buildingId,
@@ -1669,6 +1735,317 @@ export async function POST(req: NextRequest) {
         persisted: true,
         action,
         deletedId: targetKey,
+      });
+    }
+
+    // 9. Outbound Channel Actions: Copy Bundle (Free+Paid), Email (Free+Paid), Alimtalk (Paid+Basis)
+    if (
+      action === 'prepare_copy_bundle' ||
+      action === 'send_inbox_email' ||
+      action === 'send_inbox_alimtalk'
+    ) {
+      const origin =
+        req.nextUrl?.origin ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        'https://credeal.net';
+      const toAbsoluteUrl = (rawUrl: string) => {
+        if (!rawUrl) return `${origin}/magazine`;
+        if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+        return `${origin}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+      };
+
+      const assetKind: 'im' | 'dealcard' | 'magazine' =
+        body?.assetKind === 'dealcard'
+          ? 'dealcard'
+          : body?.assetKind === 'magazine'
+            ? 'magazine'
+            : 'im';
+      const recipientRef = threadId || clientId || null;
+      const clientName = String(body?.clientName || '고객').trim();
+      const buildingTitle = String(body?.buildingTitle || '추천 빌딩').trim();
+      const headline = typeof body?.headline === 'string' ? body.headline.trim() : '';
+
+      let brokerName = '담당 중개인';
+      let brokerCompany = '';
+      let brokerPhone = '';
+      let brokerSlug = '';
+      let subscriptionInfo: {
+        tier: 'free' | 'pro' | 'premium';
+        isPaid: boolean;
+        status: string;
+      } = { tier: 'free', isPaid: false, status: 'free' };
+
+      const supabase = createServiceClient();
+      try {
+        subscriptionInfo = await getBrokerSubscriptionTier(supabase, userId);
+      } catch {
+        // default free tier on test/offline DB
+      }
+
+      try {
+        if (isUuid(userId)) {
+          const { data: bp } = await supabase
+            .from('broker_profiles')
+            .select('display_name, company, phone, slug')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (bp) {
+            brokerName = String((bp as any).display_name || brokerName).trim();
+            brokerCompany = String((bp as any).company || '').trim();
+            brokerPhone = String((bp as any).phone || '').trim();
+            brokerSlug = String((bp as any).slug || '').trim();
+          }
+        }
+      } catch {
+        // fallback defaults
+      }
+
+      const channel: ShareLinkChannel =
+        action === 'send_inbox_email'
+          ? 'email'
+          : action === 'send_inbox_alimtalk'
+            ? 'alimtalk'
+            : 'copy';
+
+      let resolvedRelativeShareUrl =
+        typeof body?.shareUrl === 'string' && body.shareUrl.trim()
+          ? body.shareUrl.trim()
+          : '';
+      let resolvedShareToken = shareToken || '';
+
+      if (assetKind === 'magazine') {
+        if (!resolvedRelativeShareUrl || resolvedRelativeShareUrl === '/magazine') {
+          resolvedRelativeShareUrl = brokerSlug
+            ? `/magazine/${encodeURIComponent(brokerSlug)}`
+            : '/magazine';
+        }
+        if (recipientRef && !resolvedRelativeShareUrl.includes('sid=')) {
+          resolvedRelativeShareUrl = `${resolvedRelativeShareUrl}${
+            resolvedRelativeShareUrl.includes('?') ? '&' : '?'
+          }sid=${encodeURIComponent(recipientRef)}`;
+        }
+      } else if (buildingId) {
+        const issued = await issueShareLinkToken({
+          buildingId,
+          brokerId: userId,
+          recipientId: recipientRef,
+          ttlDays: Number(body?.ttlDays) > 0 ? Number(body.ttlDays) : 30,
+          kind: assetKind === 'dealcard' ? 'dealcard' : 'im',
+          channel,
+        });
+        resolvedShareToken = issued.token;
+        resolvedRelativeShareUrl = issued.shareUrl;
+      } else if (!resolvedRelativeShareUrl) {
+        resolvedRelativeShareUrl = brokerSlug
+          ? `/magazine/${encodeURIComponent(brokerSlug)}`
+          : '/magazine';
+      }
+
+      const fullShareUrl = toAbsoluteUrl(resolvedRelativeShareUrl);
+
+      if (action === 'prepare_copy_bundle') {
+        const bundle = buildInboxCopyBundle({
+          brokerName,
+          brokerPhone,
+          clientName,
+          buildingTitle,
+          shareUrl: fullShareUrl,
+          headline,
+          assetKind,
+        });
+
+        try {
+          if (isUuid(userId)) {
+            await supabase.from('activity_events').insert({
+              actor_id: userId,
+              event_type: 'inbox_outbound_copied',
+              entity_type: 'building',
+              entity_id: buildingId && isUuid(buildingId) ? buildingId : userId,
+              metadata: {
+                thread_id: recipientRef,
+                building_id: buildingId || null,
+                asset_kind: assetKind,
+                share_token: resolvedShareToken || null,
+                share_url: resolvedRelativeShareUrl,
+              },
+            });
+          }
+        } catch {
+          // non-blocking
+        }
+
+        return NextResponse.json({
+          ok: true,
+          action,
+          shareToken: resolvedShareToken || undefined,
+          shareUrl: resolvedRelativeShareUrl,
+          fullShareUrl,
+          subject: bundle.subject,
+          messageText: bundle.messageText,
+        });
+      }
+
+      if (action === 'send_inbox_email') {
+        const clientEmail = normalizeClientEmail(body?.clientEmail);
+        if (!clientEmail) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: '수신 가능한 이메일 주소를 먼저 등록·입력해 주세요.',
+            },
+            { status: 400 }
+          );
+        }
+
+        const emailRes = await sendInboxClientEmail({
+          toEmail: clientEmail,
+          brokerName,
+          brokerCompany,
+          brokerPhone,
+          clientName,
+          buildingTitle,
+          shareUrl: fullShareUrl,
+          headline,
+          assetKind,
+        });
+
+        if (!emailRes.ok) {
+          return NextResponse.json(
+            { ok: false, error: emailRes.error || '이메일 발송에 실패했습니다.' },
+            { status: 502 }
+          );
+        }
+
+        try {
+          if (isUuid(userId)) {
+            await supabase.from('activity_events').insert({
+              actor_id: userId,
+              event_type: 'inbox_email_sent',
+              entity_type: 'building',
+              entity_id: buildingId && isUuid(buildingId) ? buildingId : userId,
+              metadata: {
+                thread_id: recipientRef,
+                building_id: buildingId || null,
+                to_email: clientEmail,
+                asset_kind: assetKind,
+                share_token: resolvedShareToken || null,
+                simulated: Boolean(emailRes.simulated),
+              },
+            });
+          }
+        } catch {
+          // non-blocking
+        }
+
+        return NextResponse.json({
+          ok: true,
+          action,
+          simulated: Boolean(emailRes.simulated),
+          messageId: emailRes.messageId,
+          toEmail: clientEmail,
+          subject: emailRes.subject,
+          shareToken: resolvedShareToken || undefined,
+          shareUrl: resolvedRelativeShareUrl,
+          fullShareUrl,
+        });
+      }
+
+      // action === 'send_inbox_alimtalk'
+      const clientPhone = String(body?.clientPhone || '').trim();
+      const rawBasis =
+        normalizeTransactionalBasis(body?.transactionalBasis) ||
+        (recipientRef &&
+        !recipientRef.startsWith('custom_') &&
+        !recipientRef.startsWith('sub_') &&
+        !recipientRef.startsWith('view_')
+          ? 'im_request'
+          : null);
+
+      const access = evaluateInboxAlimtalkAccess({
+        tier: subscriptionInfo.tier,
+        isPaid: subscriptionInfo.isPaid,
+        transactionalBasis: rawBasis,
+        clientPhone,
+      });
+
+      if (!access.allowed) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: access.code,
+            tier: subscriptionInfo.tier,
+            error: access.reason,
+          },
+          { status: access.code === 'INVALID_PHONE' ? 400 : 403 }
+        );
+      }
+
+      const validTemplates: InboxAlimtalkTemplateId[] = [
+        'TPL_INBOX_IM_APPROVED',
+        'TPL_INBOX_INQUIRY_REPLY',
+        'TPL_INBOX_TOUR_CONFIRMED',
+        'TPL_INBOX_CORRECTION_NOTICE',
+      ];
+      const requestedTemplate = String(body?.templateId || '');
+      const templateId: InboxAlimtalkTemplateId = validTemplates.includes(
+        requestedTemplate as InboxAlimtalkTemplateId
+      )
+        ? (requestedTemplate as InboxAlimtalkTemplateId)
+        : 'TPL_INBOX_IM_APPROVED';
+
+      const alimRes = await sendInboxTransactionalAlimtalk({
+        recipientPhone: clientPhone,
+        templateId,
+        brokerName,
+        brokerCompany,
+        clientName,
+        buildingTitle,
+        shareUrl: fullShareUrl,
+        customMessage: headline,
+        transactionalBasis: rawBasis!,
+      });
+
+      if (!alimRes.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: alimRes.error || '카카오 알림톡 발송에 실패했습니다.',
+          },
+          { status: 502 }
+        );
+      }
+
+      try {
+        if (isUuid(userId)) {
+          await supabase.from('activity_events').insert({
+            actor_id: userId,
+            event_type: 'inbox_alimtalk_sent',
+            entity_type: 'building',
+            entity_id: buildingId && isUuid(buildingId) ? buildingId : userId,
+            metadata: {
+              thread_id: recipientRef,
+              building_id: buildingId || null,
+              template_id: templateId,
+              transactional_basis: rawBasis,
+              share_token: resolvedShareToken || null,
+              simulated: Boolean(alimRes.simulated),
+            },
+          });
+        }
+      } catch {
+        // non-blocking
+      }
+
+      return NextResponse.json({
+        ok: true,
+        action,
+        simulated: Boolean(alimRes.simulated),
+        messageId: alimRes.messageId,
+        templateId: alimRes.templateId,
+        previewText: alimRes.previewText,
+        shareToken: resolvedShareToken || undefined,
+        shareUrl: resolvedRelativeShareUrl,
+        fullShareUrl,
       });
     }
 

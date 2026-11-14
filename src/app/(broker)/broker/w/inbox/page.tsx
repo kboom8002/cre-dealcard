@@ -38,6 +38,14 @@ export interface InboxThreadItem {
   id: string;
   clientName: string;
   clientPhone: string;
+  clientEmail?: string;
+  transactionalBasis?:
+    | "im_request"
+    | "property_inquiry"
+    | "tour_booking"
+    | "broker_manual"
+    | null;
+  hasTransactionalBasis?: boolean;
   clientCompany?: string;
   clientGrade: "VIP" | "일반" | "잠재";
   buildingTitle: string;
@@ -49,6 +57,8 @@ export interface InboxThreadItem {
   memo?: string;
   updatedAt: string;
   openCount: number;
+  dwellSeconds?: number;
+  lastViewedAt?: string | null;
   isRead: boolean;
   status: "pending_gate" | "high_interest" | "active" | "revoked";
   shareToken: string;
@@ -313,6 +323,25 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
     id: String(raw?.id || `thread-${Date.now()}`),
     clientName,
     clientPhone: phone,
+    clientEmail:
+      typeof raw?.clientEmail === "string"
+        ? raw.clientEmail.trim()
+        : typeof raw?.requester_email === "string"
+        ? raw.requester_email.trim()
+        : "",
+    transactionalBasis:
+      raw?.transactionalBasis === "im_request" ||
+      raw?.transactionalBasis === "property_inquiry" ||
+      raw?.transactionalBasis === "tour_booking" ||
+      raw?.transactionalBasis === "broker_manual"
+        ? raw.transactionalBasis
+        : mappedStatus === "pending_gate"
+        ? "im_request"
+        : null,
+    hasTransactionalBasis:
+      typeof raw?.hasTransactionalBasis === "boolean"
+        ? raw.hasTransactionalBasis
+        : Boolean(raw?.transactionalBasis) || mappedStatus === "pending_gate",
     clientCompany:
       raw?.clientCompany || raw?.requesterCompany || parsedReason.requesterCompany || undefined,
     clientGrade:
@@ -336,6 +365,8 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
     memo: typeof raw?.memo === "string" ? raw.memo : undefined,
     updatedAt: String(raw?.updatedAt || "방금"),
     openCount: Math.max(0, Number(raw?.openCount ?? 0)),
+    dwellSeconds: Math.max(0, Number(raw?.dwellSeconds ?? 0)),
+    lastViewedAt: typeof raw?.lastViewedAt === "string" ? raw.lastViewedAt : null,
     isRead: Boolean(raw?.isRead),
     status: mappedStatus,
     shareToken,
@@ -435,6 +466,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientBasis, setNewClientBasis] = useState<
+    "" | "im_request" | "property_inquiry" | "tour_booking" | "broker_manual"
+  >("");
   const [newClientGrade, setNewClientGrade] = useState<"VIP" | "일반" | "잠재">("VIP");
   const [newClientBudget, setNewClientBudget] = useState("");
   const [newClientRegion, setNewClientRegion] = useState("");
@@ -445,10 +480,30 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [editingClientOpen, setEditingClientOpen] = useState(false);
   const [editClientName, setEditClientName] = useState("");
   const [editClientPhone, setEditClientPhone] = useState("");
+  const [editClientEmail, setEditClientEmail] = useState("");
+  const [editClientBasis, setEditClientBasis] = useState<
+    "" | "im_request" | "property_inquiry" | "tour_booking" | "broker_manual"
+  >("");
   const [editClientGrade, setEditClientGrade] = useState<"VIP" | "일반" | "잠재">("VIP");
   const [editClientBudget, setEditClientBudget] = useState("");
   const [editClientRegion, setEditClientRegion] = useState("");
   const [editClientBuildingTitle, setEditClientBuildingTitle] = useState("");
+
+  // Outbound channel tier & message delivery controls (Free: Copy + Email, Paid: +Kakao Alimtalk)
+  const [subscriptionTier, setSubscriptionTier] = useState<"free" | "pro" | "premium">("free");
+  const [outboundEmail, setOutboundEmail] = useState("");
+  const [outboundBasis, setOutboundBasis] = useState<
+    "" | "im_request" | "property_inquiry" | "tour_booking" | "broker_manual"
+  >("");
+  const [outboundAssetKind, setOutboundAssetKind] = useState<"im" | "dealcard" | "magazine">("im");
+  const [alimtalkTemplateId, setAlimtalkTemplateId] = useState<
+    | "TPL_INBOX_IM_APPROVED"
+    | "TPL_INBOX_INQUIRY_REPLY"
+    | "TPL_INBOX_TOUR_CONFIRMED"
+    | "TPL_INBOX_CORRECTION_NOTICE"
+  >("TPL_INBOX_IM_APPROVED");
+  const [showAlimtalkUpgradeSheet, setShowAlimtalkUpgradeSheet] = useState(false);
+  const [copiedBundlePreview, setCopiedBundlePreview] = useState<string | null>(null);
 
   const [currentBrokerId, setCurrentBrokerId] = useState<string>("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -574,6 +629,16 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           "";
         if (resolvedUid) {
           setCurrentBrokerId(resolvedUid);
+        }
+
+        if (
+          data.subscription?.tier === "pro" ||
+          data.subscription?.tier === "premium" ||
+          data.subscription?.tier === "free"
+        ) {
+          setSubscriptionTier(data.subscription.tier);
+        } else if (data.subscription?.isPaid) {
+          setSubscriptionTier("pro");
         }
 
         if (Array.isArray(data.inventory) && data.inventory.length > 0) {
@@ -776,7 +841,20 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     setCallNote("");
     setEditingClientOpen(false);
     setInlineActionError(null);
-    if (!activeThread) return;
+    setShowAlimtalkUpgradeSheet(false);
+    setCopiedBundlePreview(null);
+    if (!activeThread) {
+      setOutboundEmail("");
+      setOutboundBasis("");
+      return;
+    }
+    setOutboundEmail(activeThread.clientEmail || "");
+    setOutboundBasis(activeThread.transactionalBasis || "");
+    if (!activeThread.buildingId) {
+      setOutboundAssetKind("magazine");
+    } else {
+      setOutboundAssetKind("im");
+    }
     if (activeThread.status === "pending_gate") {
       setActiveEditorTab("todo");
     }
@@ -1104,6 +1182,227 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
+  // Outbound Channel 1 (Free + Paid): Prepare polite greeting + tracked link & copy to clipboard
+  const handlePrepareCopyBundle = async () => {
+    if (!activeThread) return;
+    setStatusFeedback(null);
+    const resolvedAssetKind: "im" | "dealcard" | "magazine" =
+      (outboundAssetKind === "im" || outboundAssetKind === "dealcard") &&
+      !activeThread.buildingId.trim()
+        ? "magazine"
+        : outboundAssetKind;
+
+    const apiRes = await postJsonHonest(
+      `copy-bundle:${activeThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "prepare_copy_bundle",
+        threadId: activeThread.id,
+        clientId: activeThread.id,
+        buildingId: activeThread.buildingId,
+        buildingTitle: activeThread.buildingTitle,
+        clientName: activeThread.clientName,
+        assetKind: resolvedAssetKind,
+        headline: kakaoHeadline,
+        shareUrl: activeThread.shareUrl,
+      },
+      "안내 문구 준비에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    const messageText = String(apiRes.data.messageText || "");
+    const nextShareUrl =
+      typeof apiRes.data.shareUrl === "string" ? apiRes.data.shareUrl : "";
+    const nextShareToken =
+      typeof apiRes.data.shareToken === "string" ? apiRes.data.shareToken : "";
+
+    if (resolvedAssetKind === "im" && nextShareUrl) {
+      setThreads((prev) => {
+        const next = prev.map((t) =>
+          t.id === activeThread.id
+            ? {
+                ...t,
+                shareUrl: nextShareUrl,
+                shareToken: nextShareToken || t.shareToken,
+              }
+            : t
+        );
+        persistThreads(next);
+        return next;
+      });
+    }
+
+    if (messageText) {
+      await copyText(messageText);
+      setCopiedBundlePreview(messageText);
+    }
+    const toastMsg = "안내 문구와 추적 링크를 복사했습니다.";
+    setStatusFeedback(toastMsg);
+    showUndoToast(toastMsg);
+  };
+
+  // Outbound Channel 2 (Free + Paid): Send tracked material directly via Resend email
+  const handleSendInboxEmail = async () => {
+    if (!activeThread) return;
+    setStatusFeedback(null);
+    const targetEmail = outboundEmail.trim() || (activeThread.clientEmail || "").trim();
+    const resolvedAssetKind: "im" | "dealcard" | "magazine" =
+      (outboundAssetKind === "im" || outboundAssetKind === "dealcard") &&
+      !activeThread.buildingId.trim()
+        ? "magazine"
+        : outboundAssetKind;
+
+    const apiRes = await postJsonHonest(
+      `email:${activeThread.id}`,
+      "/api/broker/inbox/actions",
+      {
+        action: "send_inbox_email",
+        threadId: activeThread.id,
+        clientId: activeThread.id,
+        buildingId: activeThread.buildingId,
+        buildingTitle: activeThread.buildingTitle,
+        clientName: activeThread.clientName,
+        clientEmail: targetEmail,
+        assetKind: resolvedAssetKind,
+        headline: kakaoHeadline,
+        shareUrl: activeThread.shareUrl,
+      },
+      "이메일 발송에 실패했습니다. 이메일 주소를 확인해 주세요."
+    );
+    if (!apiRes.ok) return;
+
+    const nextShareUrl =
+      typeof apiRes.data.shareUrl === "string" ? apiRes.data.shareUrl : "";
+    const nextShareToken =
+      typeof apiRes.data.shareToken === "string" ? apiRes.data.shareToken : "";
+
+    setThreads((prev) => {
+      const next = prev.map((t) =>
+        t.id === activeThread.id
+          ? {
+              ...t,
+              clientEmail: targetEmail,
+              ...(resolvedAssetKind === "im" && nextShareUrl
+                ? {
+                    shareUrl: nextShareUrl,
+                    shareToken: nextShareToken || t.shareToken,
+                  }
+                : {}),
+            }
+          : t
+      );
+      persistThreads(next);
+      return next;
+    });
+
+    const msg = apiRes.data.simulated
+      ? `${targetEmail}로 이메일 발송을 접수했습니다(테스트 시뮬레이션).`
+      : `${targetEmail}로 매물 자료 이메일을 발송했습니다.`;
+    setStatusFeedback(msg);
+    showUndoToast(msg);
+  };
+
+  // Outbound Channel 3 (Paid Pro/Premium + Transactional Basis): Kakao Alimtalk
+  const handleSendInboxAlimtalk = async () => {
+    if (!activeThread) return;
+    setStatusFeedback(null);
+    if (subscriptionTier === "free") {
+      setShowAlimtalkUpgradeSheet(true);
+      return;
+    }
+    if (busyLockRef.current) return;
+    busyLockRef.current = true;
+    setBusyAction(`alimtalk:${activeThread.id}`);
+    setInlineActionError(null);
+
+    try {
+      const resolvedBasis = outboundBasis || activeThread.transactionalBasis || "";
+      const resolvedAssetKind: "im" | "dealcard" | "magazine" =
+        (outboundAssetKind === "im" || outboundAssetKind === "dealcard") &&
+        !activeThread.buildingId.trim()
+          ? "magazine"
+          : outboundAssetKind;
+
+      const res = await fetch("/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_inbox_alimtalk",
+          threadId: activeThread.id,
+          clientId: activeThread.id,
+          buildingId: activeThread.buildingId,
+          buildingTitle: activeThread.buildingTitle,
+          clientName: activeThread.clientName,
+          clientPhone: activeThread.clientPhone,
+          transactionalBasis: resolvedBasis,
+          templateId: alimtalkTemplateId,
+          assetKind: resolvedAssetKind,
+          headline: kakaoHeadline,
+          shareUrl: activeThread.shareUrl,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.ok === false) {
+        if (json?.code === "PLAN_UPGRADE_REQUIRED") {
+          setSubscriptionTier("free");
+          setShowAlimtalkUpgradeSheet(true);
+          return;
+        }
+        const errMsg =
+          typeof json?.error === "string" && json.error.trim()
+            ? json.error.trim()
+            : "카카오 알림톡 발송 조건을 확인해 주세요.";
+        setStatusFeedback(errMsg);
+        setInlineActionError(errMsg);
+        showUndoToast(errMsg);
+        return;
+      }
+
+      const nextShareUrl = typeof json?.shareUrl === "string" ? json.shareUrl : "";
+      const nextShareToken =
+        typeof json?.shareToken === "string" ? json.shareToken : "";
+
+      setThreads((prev) => {
+        const next = prev.map((t) =>
+          t.id === activeThread.id
+            ? {
+                ...t,
+                transactionalBasis:
+                  (resolvedBasis as InboxThreadItem["transactionalBasis"]) ||
+                  t.transactionalBasis ||
+                  null,
+                hasTransactionalBasis: Boolean(
+                  resolvedBasis || t.hasTransactionalBasis
+                ),
+                ...(resolvedAssetKind === "im" && nextShareUrl
+                  ? {
+                      shareUrl: nextShareUrl,
+                      shareToken: nextShareToken || t.shareToken,
+                    }
+                  : {}),
+              }
+            : t
+        );
+        persistThreads(next);
+        return next;
+      });
+
+      const okMsg = json?.simulated
+        ? "카카오 정보성 알림톡 발송을 접수했습니다(테스트 시뮬레이션)."
+        : "카카오 정보성 알림톡을 발송했습니다.";
+      setStatusFeedback(okMsg);
+      showUndoToast(okMsg);
+    } catch {
+      const errMsg = "카카오 알림톡 발송 중 오류가 발생했습니다.";
+      setStatusFeedback(errMsg);
+      setInlineActionError(errMsg);
+      showUndoToast(errMsg);
+    } finally {
+      busyLockRef.current = false;
+      setBusyAction(null);
+    }
+  };
+
   // Inline Lock Share Link (IB-05, IB-16, A-S0-01, INBOX-07 — no window.prompt)
   const handleConfirmLockLink = async () => {
     if (!activeThread) return;
@@ -1395,6 +1694,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         clientId: canonicalId,
         clientName: newClientName.trim(),
         clientPhone: cleanPhone,
+        clientEmail: newClientEmail.trim(),
+        transactionalBasis: newClientBasis || undefined,
         clientGrade: newClientGrade,
         budget: newClientBudget.trim(),
         preferredRegion: newClientRegion.trim(),
@@ -1415,6 +1716,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       id: canonicalId,
       clientName: newClientName.trim(),
       clientPhone: cleanPhone,
+      clientEmail: newClientEmail.trim(),
+      transactionalBasis: newClientBasis || null,
+      hasTransactionalBasis: Boolean(newClientBasis),
       clientGrade: newClientGrade,
       buildingTitle: resolvedBuildingTitle,
       buildingId: resolvedBuildingId,
@@ -1422,6 +1726,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       cleanMessage: "직접 등록한 고객입니다.",
       updatedAt: new Date().toISOString(),
       openCount: 0,
+      dwellSeconds: 0,
       isRead: true,
       status: "active",
       shareToken: "",
@@ -1469,6 +1774,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
     setNewClientName("");
     setNewClientPhone("");
+    setNewClientEmail("");
+    setNewClientBasis("");
     setNewClientBudget("");
     setNewClientRegion("");
     setNewClientBuildingTitle("");
@@ -1482,6 +1789,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     if (!activeThread || !activeThread.id.startsWith("custom_")) return;
     setEditClientName(activeThread.clientName);
     setEditClientPhone(activeThread.clientPhone);
+    setEditClientEmail(activeThread.clientEmail || "");
+    setEditClientBasis(activeThread.transactionalBasis || "");
     setEditClientGrade(activeThread.clientGrade);
     setEditClientBudget(activeThread.budget);
     setEditClientRegion(activeThread.preferredRegion);
@@ -1520,6 +1829,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         threadId: targetThread.id,
         clientName: editClientName.trim(),
         clientPhone: cleanPhone,
+        clientEmail: editClientEmail.trim(),
+        transactionalBasis: editClientBasis || undefined,
         clientGrade: editClientGrade,
         budget: editClientBudget.trim(),
         preferredRegion: editClientRegion.trim(),
@@ -1538,6 +1849,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               ...t,
               clientName: editClientName.trim(),
               clientPhone: cleanPhone,
+              clientEmail: editClientEmail.trim(),
+              transactionalBasis: editClientBasis || null,
+              hasTransactionalBasis: Boolean(editClientBasis),
               clientGrade: editClientGrade,
               budget: editClientBudget.trim(),
               preferredRegion: editClientRegion.trim(),
@@ -1554,6 +1868,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       persistThreads(next);
       return next;
     });
+    setOutboundEmail(editClientEmail.trim());
+    setOutboundBasis(editClientBasis);
     setEditingClientOpen(false);
     showUndoToast(`${editClientName.trim()} 고객 정보를 수정했습니다.`);
   };
@@ -2463,7 +2779,194 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             </div>
           )}
 
-          {/* 고객 요약 카드 (이름 · 연락처 · 관심 매물 · 희망 예산 · 선호 권역 · 열람 횟수 · 뉴스레터 · 직접등록 수정/삭제) */}
+          {/* 무료(문구·링크 복사 + 이메일) · 유료(카카오 알림톡) 발송 채널 선택 바 */}
+          <div
+            data-testid="inbox-outbound-channel-bar"
+            className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-extrabold text-slate-900">
+                발송 채널 선택
+              </h3>
+              <span
+                className={`rounded-md px-2.5 py-1 text-sm font-bold ${
+                  subscriptionTier === "free"
+                    ? "border border-slate-200 bg-slate-100 text-slate-700"
+                    : "border border-blue-200 bg-blue-50 text-blue-800"
+                }`}
+              >
+                {subscriptionTier === "free" ? "무료 플랜" : "PRO 플랜"}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              <div>
+                <label
+                  htmlFor="inbox-client-email-input"
+                  className="mb-1 block text-sm font-bold text-slate-700"
+                >
+                  수신 이메일 (무료 발송)
+                </label>
+                <input
+                  id="inbox-client-email-input"
+                  data-testid="inbox-client-email-input"
+                  type="email"
+                  value={outboundEmail}
+                  onChange={(e) => setOutboundEmail(e.target.value)}
+                  placeholder="예: buyer@company.co.kr"
+                  className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="inbox-client-basis-select"
+                  className="mb-1 block text-sm font-bold text-slate-700"
+                >
+                  알림톡 안내 근거 (PRO)
+                </label>
+                <select
+                  id="inbox-client-basis-select"
+                  data-testid="inbox-client-basis-select"
+                  value={outboundBasis}
+                  onChange={(e) =>
+                    setOutboundBasis(
+                      e.target.value as
+                        | ""
+                        | "im_request"
+                        | "property_inquiry"
+                        | "tour_booking"
+                        | "broker_manual"
+                    )
+                  }
+                  className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                >
+                  <option value="">고객 요청·상담 근거 선택</option>
+                  <option value="im_request">고객 IM 열람 요청</option>
+                  <option value="property_inquiry">고객 매물 문의 접수</option>
+                  <option value="tour_booking">현장 임장·미팅 예약</option>
+                  <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+                </select>
+              </div>
+
+              {subscriptionTier !== "free" && (
+                <div>
+                  <label
+                    htmlFor="inbox-alimtalk-template-select"
+                    className="mb-1 block text-sm font-bold text-slate-700"
+                  >
+                    알림톡 양식 선택
+                  </label>
+                  <select
+                    id="inbox-alimtalk-template-select"
+                    data-testid="inbox-alimtalk-template-select"
+                    value={alimtalkTemplateId}
+                    onChange={(e) =>
+                      setAlimtalkTemplateId(
+                        e.target.value as
+                          | "TPL_INBOX_IM_APPROVED"
+                          | "TPL_INBOX_INQUIRY_REPLY"
+                          | "TPL_INBOX_TOUR_CONFIRMED"
+                          | "TPL_INBOX_CORRECTION_NOTICE"
+                      )
+                    }
+                    className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  >
+                    <option value="TPL_INBOX_IM_APPROVED">IM 열람 승인 안내</option>
+                    <option value="TPL_INBOX_INQUIRY_REPLY">매물 문의 답변 안내</option>
+                    <option value="TPL_INBOX_TOUR_CONFIRMED">임장·미팅 일정 안내</option>
+                    <option value="TPL_INBOX_CORRECTION_NOTICE">수정 정정 안내</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 pt-1">
+              <button
+                type="button"
+                data-testid="inbox-copy-bundle-btn"
+                disabled={Boolean(busyAction)}
+                onClick={handlePrepareCopyBundle}
+                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-center text-sm font-bold text-slate-900 whitespace-normal transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+              >
+                📋 인사말 + 추적 링크 복사 (무료)
+              </button>
+              <button
+                type="button"
+                data-testid="inbox-send-email-btn"
+                disabled={Boolean(busyAction)}
+                onClick={handleSendInboxEmail}
+                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-center text-sm font-bold text-blue-900 whitespace-normal transition hover:bg-blue-100 disabled:opacity-50 cursor-pointer"
+              >
+                ✉️ 이메일로 자료 보내기 (무료)
+              </button>
+              <button
+                type="button"
+                data-testid="inbox-send-alimtalk-btn"
+                disabled={Boolean(busyAction)}
+                onClick={handleSendInboxAlimtalk}
+                className={`inline-flex min-h-[48px] w-full items-center justify-center rounded-xl px-3.5 py-2.5 text-center text-sm font-extrabold whitespace-normal transition disabled:opacity-50 cursor-pointer ${
+                  subscriptionTier === "free"
+                    ? "border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                    : "bg-slate-900 text-white hover:bg-slate-800"
+                }`}
+              >
+                {subscriptionTier === "free"
+                  ? "💬 카카오 알림톡 보내기 · PRO"
+                  : "💬 카카오 알림톡 바로 보내기"}
+              </button>
+            </div>
+
+            {copiedBundlePreview && (
+              <div
+                data-testid="inbox-copied-bundle-preview"
+                className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-sm text-slate-800 whitespace-pre-line break-words"
+              >
+                {copiedBundlePreview}
+              </div>
+            )}
+
+            {showAlimtalkUpgradeSheet && (
+              <div
+                data-testid="inbox-alimtalk-upgrade-sheet"
+                className="space-y-2.5 rounded-xl border-2 border-amber-300 bg-amber-50/80 p-3.5"
+              >
+                <p className="text-sm font-extrabold text-amber-950">
+                  카카오 알림톡 원클릭 발송은 Pro 플랜 기능입니다
+                </p>
+                <p className="text-sm leading-relaxed text-amber-900">
+                  별도 비즈니스 채널 심사 없이 공용 알림톡으로 바로 전달됩니다. 무료 플랜에서는 아래 문구 복사나 이메일 발송을 제한 없이 이용하실 수 있습니다.
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    disabled={Boolean(busyAction)}
+                    onClick={handlePrepareCopyBundle}
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-50 cursor-pointer"
+                  >
+                    인사말·링크 복사로 대신 보내기
+                  </button>
+                  <button
+                    type="button"
+                    disabled={Boolean(busyAction)}
+                    onClick={handleSendInboxEmail}
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 cursor-pointer"
+                  >
+                    등록 이메일로 무료 발송하기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAlimtalkUpgradeSheet(false)}
+                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-amber-200 bg-transparent px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                  >
+                    안내 닫기
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 고객 요약 카드 (이름 · 연락처 · 이메일 · 관심 매물 · 희망 예산 · 선호 권역 · 열람 반응 · 뉴스레터 · 직접등록 수정/삭제) */}
           <div
             data-testid="inbox-client-summary-card"
             className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
@@ -2490,6 +2993,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   {activeThread.clientPhone
                     ? formatPhoneKo(activeThread.clientPhone)
                     : "전화번호 없음"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="shrink-0 font-semibold text-slate-500">이메일</dt>
+                <dd className="min-w-0 break-all text-right font-bold text-slate-900">
+                  {activeThread.clientEmail || "이메일 미등록"}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -2525,12 +3034,29 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                 onActivate={focusInboxEditorUnit}
                 className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-2"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="font-semibold text-slate-600">열람 횟수</dt>
-                  <dd className="font-bold text-slate-900">
-                    {activeThread.openCount}회
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <dt className="font-semibold text-slate-600">고객 반응</dt>
+                  <dd
+                    data-testid="inbox-client-reaction-badge"
+                    className={`font-bold ${
+                      activeThread.openCount > 0 ? "text-blue-700" : "text-slate-700"
+                    }`}
+                  >
+                    {activeThread.openCount > 0
+                      ? `열람 ${activeThread.openCount}회${
+                          activeThread.dwellSeconds && activeThread.dwellSeconds > 0
+                            ? ` · 체류 ${activeThread.dwellSeconds}초`
+                            : ""
+                        }`
+                      : "미열람"}
                   </dd>
                 </div>
+                {activeThread.focusedSections &&
+                  activeThread.focusedSections.length > 0 && (
+                    <p className="mt-1 text-sm text-slate-600">
+                      관심 항목: {activeThread.focusedSections.join(" · ")}
+                    </p>
+                  )}
               </PreviewEditableUnit>
               <div className="flex items-center justify-between gap-2 pt-1">
                 <dt className="font-semibold text-slate-500">뉴스레터</dt>
@@ -2862,6 +3388,55 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
               <div>
                 <label
+                  htmlFor="edit-client-email"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  이메일 (선택)
+                </label>
+                <input
+                  id="edit-client-email"
+                  data-testid="edit-client-email-input"
+                  type="email"
+                  value={editClientEmail}
+                  onChange={(e) => setEditClientEmail(e.target.value)}
+                  placeholder="예: buyer@company.co.kr"
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-client-basis"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  상담·안내 근거 (알림톡 발송용)
+                </label>
+                <select
+                  id="edit-client-basis"
+                  data-testid="edit-client-basis-select"
+                  value={editClientBasis}
+                  onChange={(e) =>
+                    setEditClientBasis(
+                      e.target.value as
+                        | ""
+                        | "im_request"
+                        | "property_inquiry"
+                        | "tour_booking"
+                        | "broker_manual"
+                    )
+                  }
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                >
+                  <option value="">미확인 (상담 전)</option>
+                  <option value="im_request">고객 IM 열람 요청</option>
+                  <option value="property_inquiry">고객 매물 문의 접수</option>
+                  <option value="tour_booking">현장 임장·미팅 예약</option>
+                  <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+                </select>
+              </div>
+
+              <div>
+                <label
                   htmlFor="edit-client-grade"
                   className="mb-1 block text-sm font-bold text-slate-800"
                 >
@@ -3019,6 +3594,55 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                   placeholder="예: 010-1234-5678"
                   className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="new-client-email"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  이메일 (선택 · 무료 이메일 발송용)
+                </label>
+                <input
+                  id="new-client-email"
+                  data-testid="new-client-email-input"
+                  type="email"
+                  value={newClientEmail}
+                  onChange={(e) => setNewClientEmail(e.target.value)}
+                  placeholder="예: buyer@company.co.kr"
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="new-client-basis"
+                  className="mb-1 block text-sm font-bold text-slate-800"
+                >
+                  상담·안내 근거 (선택 · 알림톡 발송용)
+                </label>
+                <select
+                  id="new-client-basis"
+                  data-testid="new-client-basis-select"
+                  value={newClientBasis}
+                  onChange={(e) =>
+                    setNewClientBasis(
+                      e.target.value as
+                        | ""
+                        | "im_request"
+                        | "property_inquiry"
+                        | "tour_booking"
+                        | "broker_manual"
+                    )
+                  }
+                  className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                >
+                  <option value="">미확인 (상담 전)</option>
+                  <option value="im_request">고객 IM 열람 요청</option>
+                  <option value="property_inquiry">고객 매물 문의 접수</option>
+                  <option value="tour_booking">현장 임장·미팅 예약</option>
+                  <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+                </select>
               </div>
 
               <div>

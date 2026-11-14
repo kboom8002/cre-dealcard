@@ -153,6 +153,8 @@ export interface StoredInboxState {
     clientName: string;
     clientGrade: 'VIP' | '일반' | '잠재';
     clientPhone: string;
+    clientEmail?: string | null;
+    transactionalBasis?: 'im_request' | 'property_inquiry' | 'tour_booking' | 'broker_manual' | null;
     budget: string;
     preferredRegion: string;
     buildingId: string;
@@ -1894,6 +1896,8 @@ export function upsertCustomInboxClient(client: {
   clientName: string;
   clientGrade: 'VIP' | '일반' | '잠재';
   clientPhone: string;
+  clientEmail?: string | null;
+  transactionalBasis?: 'im_request' | 'property_inquiry' | 'tour_booking' | 'broker_manual' | null;
   budget: string;
   preferredRegion: string;
   buildingId: string;
@@ -1903,18 +1907,27 @@ export function upsertCustomInboxClient(client: {
   const state = getInboxState();
   const id = client.id || `cli-${Date.now()}`;
   const existingIdx = state.customClients.findIndex((c) => c.id === id);
+  const prev = existingIdx >= 0 ? state.customClients[existingIdx] : undefined;
   const entry = {
     id,
     ownerId: client.ownerId,
     clientName: client.clientName,
     clientGrade: client.clientGrade,
     clientPhone: client.clientPhone,
+    clientEmail:
+      client.clientEmail !== undefined
+        ? (client.clientEmail?.trim() || null)
+        : (prev?.clientEmail ?? null),
+    transactionalBasis:
+      client.transactionalBasis !== undefined
+        ? client.transactionalBasis
+        : (prev?.transactionalBasis ?? null),
     budget: client.budget,
     preferredRegion: client.preferredRegion,
     buildingId: client.buildingId,
     buildingTitle: client.buildingTitle,
     newsletterSubscribed: client.newsletterSubscribed ?? true,
-    createdAt: new Date().toISOString(),
+    createdAt: prev?.createdAt ?? new Date().toISOString(),
   };
   if (existingIdx >= 0) {
     state.customClients[existingIdx] = entry;

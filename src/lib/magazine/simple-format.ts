@@ -308,18 +308,38 @@ export function applySimplePreset(
     content.dealHighlights = content.dealHighlights.slice(0, SIMPLE_DEAL_LIMIT);
   }
 
-  const baseSimpleOrder: readonly string[] = SIMPLE_SECTION_ORDER;
+  const rawCharts = Array.isArray(content.monthlyCharts)
+    ? content.monthlyCharts
+    : Array.isArray(content.monthly_charts)
+      ? content.monthly_charts
+      : [];
+  const hasValidMonthlyCharts = rawCharts.some(
+    (c) =>
+      isRecord(c) &&
+      c.isPlaceholder !== true &&
+      Array.isArray(c.series) &&
+      c.series.length > 0,
+  );
+  const rawSections = Array.isArray(rawContent.sections) ? rawContent.sections : [];
+  const marketDataSectionEntry = rawSections.find(
+    (s) => isRecord(s) && s.id === 'market_data' && typeof s.enabled === 'boolean',
+  ) as { id?: string; enabled?: boolean } | undefined;
+  const isMonthlyEdition = content.kind === 'monthly' || content.edition_type === 'monthly';
+  const showMonthlyMarketData =
+    isMonthlyEdition &&
+    hasValidMonthlyCharts &&
+    (marketDataSectionEntry ? marketDataSectionEntry.enabled !== false : true);
+
+  const baseSimpleOrder: readonly string[] = showMonthlyMarketData
+    ? ['market_data', ...SIMPLE_SECTION_ORDER]
+    : SIMPLE_SECTION_ORDER;
 
   const enabledMap: Record<string, boolean> = {};
   for (const id of SIMPLE_SECTION_ORDER) {
-    if (id === 'field_note') {
-      enabledMap[id] = true;
-    } else {
-      enabledMap[id] = true;
-    }
+    enabledMap[id] = true;
   }
   for (const id of SIMPLE_HIDDEN_SECTIONS) {
-    enabledMap[id] = false;
+    enabledMap[id] = id === 'market_data' ? showMonthlyMarketData : false;
   }
 
   const orderedIds: string[] = [

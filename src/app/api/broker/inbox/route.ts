@@ -8,6 +8,28 @@ import {
   listAllQuickImRecords,
 } from "@/lib/im-lite/quick-generate-store";
 import { formatRelativeKo } from "@/lib/ux/lexicon";
+import { getBrokerSubscriptionTier } from "@/domain/subscription/tier-gate";
+import {
+  normalizeClientEmail,
+  normalizeTransactionalBasis,
+  type InboxTransactionalBasis,
+} from "@/domain/inbox/inbox-outbound";
+
+function formatImSectionLabel(sectionId?: string | null): string | undefined {
+  const s = typeof sectionId === "string" ? sectionId.trim() : "";
+  if (!s) return undefined;
+  const map: Record<string, string> = {
+    "01_cover": "표지",
+    "02_summary": "핵심 요약",
+    "03_overview": "건물 개요",
+    "04_location": "입지·교통",
+    "05_tenancy": "임대 현황",
+    "06_financials": "수익률 분석",
+    "07_valuation": "가치 평가",
+    "08_risk": "리스크 점검",
+  };
+  return map[s] || s;
+}
 
 export interface ParsedGateReason {
   requesterName: string | null;
@@ -258,6 +280,21 @@ export async function GET(req: NextRequest) {
       { ok: false, error: "데이터베이스 연결을 초기화할 수 없습니다." },
       { status: 503 }
     );
+  }
+
+  let subscriptionInfo: {
+    tier: "free" | "pro" | "premium";
+    isPaid: boolean;
+    status: string;
+  } = {
+    tier: "free",
+    isPaid: false,
+    status: "free",
+  };
+  try {
+    subscriptionInfo = await getBrokerSubscriptionTier(supabase, userId);
+  } catch {
+    // Non-blocking free fallback when subscription table unavailable in tests
   }
 
   const quickRecords = listAllQuickImRecords().filter(
@@ -772,6 +809,22 @@ export async function GET(req: NextRequest) {
           viewerName,
           visitorFp,
           sectionName,
+          sectionViewed:
+            typeof meta.section_viewed === "string" && meta.section_viewed.trim()
+              ? meta.section_viewed.trim()
+              : null,
+          dwellSeconds:
+            typeof meta.dwell_seconds === "number" && Number.isFinite(meta.dwell_seconds)
+              ? meta.dwell_seconds
+              : 0,
+          recipientId:
+            typeof meta.recipient_id === "string" && meta.recipient_id.trim()
+              ? meta.recipient_id.trim()
+              : null,
+          shareTokenChannel:
+            typeof meta.share_token_channel === "string"
+              ? meta.share_token_channel
+              : null,
           created_at: evt.created_at,
           is_unread: false,
         };
@@ -924,13 +977,25 @@ export async function GET(req: NextRequest) {
       const cliQ: any = supabase
         .from("broker_clients")
         .select(
-          "id, broker_id, display_name, phone, tier, tags, notes, linked_building_ids, created_at"
+          "id, broker_id, display_name, phone, email, tier, tags, notes, linked_building_ids, created_at"
         )
         .eq("broker_id", userId);
-      const cliRes =
+      let cliRes =
         typeof cliQ.order === "function"
           ? await cliQ.order("created_at", { ascending: false }).limit(50)
           : await cliQ;
+      if (cliRes?.error) {
+        const cliFallbackQ: any = supabase
+          .from("broker_clients")
+          .select(
+            "id, broker_id, display_name, phone, tier, tags, notes, linked_building_ids, created_at"
+          )
+          .eq("broker_id", userId);
+        cliRes =
+          typeof cliFallbackQ.order === "function"
+            ? await cliFallbackQ.order("created_at", { ascending: false }).limit(50)
+            : await cliFallbackQ;
+      }
       if (Array.isArray(cliRes?.data)) {
         dbClients = cliRes.data.filter(
           (row: any) => !row.broker_id || String(row.broker_id) === userId
@@ -1225,6 +1290,9 @@ export async function GET(req: NextRequest) {
             clientName: cName,
             clientGrade: (meta.client_grade as "VIP" | "일반" | "잠재") || "VIP",
             clientPhone: cPhone,
+            clientEmail: normalizeClientEmail(meta.client_email) || undefined,
+            transactionalBasis:
+              normalizeTransactionalBasis(meta.transactional_basis) || undefined,
             budget: String(meta.budget || ""),
             preferredRegion: String(meta.preferred_region || ""),
             buildingId: String(meta.building_id || ""),
@@ -1408,21 +1476,81 @@ export async function GET(req: NextRequest) {
     budget: string;
     preferredRegion: string;
     buildingTitle: string;
+    transactionalBasis: InboxTransactionalBasis | null;
     isStructuredMeta: boolean;
   } {
     const text = typeof notesRaw === "string" ? notesRaw.trim() : "";
     if (!text) {
-      return { budget: "", preferredRegion: "", buildingTitle: "", isStructuredMeta: false };
+      return {
+        budget: "",
+        preferredRegion: "",
+        buildingTitle: "",
+        transactionalBasis: null,
+        isStructuredMeta: false,
+      };
     }
     const budgetMatch = text.match(/예산:\s*([^/]+)/);
     const regionMatch = text.match(/선호권역:\s*([^/]+)/);
     const bldgMatch = text.match(/관심매물:\s*([^/]+)/);
-    const isStructuredMeta = Boolean(budgetMatch || regionMatch || bldgMatch);
+    const basisMatch = text.match(/근거:\s*([a-z_]+)/i);
+    const isStructuredMeta = Boolean(
+      budgetMatch || regionMatch || bldgMatch || basisMatch
+    );
     return {
       budget: budgetMatch?.[1]?.trim() || "",
       preferredRegion: regionMatch?.[1]?.trim() || "",
       buildingTitle: bldgMatch?.[1]?.trim() || "",
+      transactionalBasis: normalizeTransactionalBasis(basisMatch?.[1]),
       isStructuredMeta,
+    };
+  }
+
+  function aggregateThreadViews(
+    tid: string,
+    bIdStr: string,
+    allowUnscopedBuildingFallback: boolean
+  ) {
+    const strippedId = tid.replace(/^(?:srv-|custom[-_]|cli-|sub_)/, "");
+    const taggedViews = viewItems.filter(
+      (v) =>
+        v.recipientId &&
+        (v.recipientId === tid || (strippedId && v.recipientId === strippedId))
+    );
+    const scopedViews =
+      taggedViews.length > 0
+        ? taggedViews
+        : allowUnscopedBuildingFallback && bIdStr
+          ? viewItems.filter(
+              (v) =>
+                v.building_id &&
+                String(v.building_id) === bIdStr &&
+                (!v.recipientId || v.recipientId === tid)
+            )
+          : [];
+    const openEvents = scopedViews.filter((v) => !(v.dwellSeconds > 0));
+    const openCount =
+      scopedViews.length === 0
+        ? 0
+        : openEvents.length > 0
+          ? openEvents.length
+          : scopedViews.length;
+    const dwellSeconds = scopedViews.reduce(
+      (acc, v) => acc + (typeof v.dwellSeconds === "number" ? v.dwellSeconds : 0),
+      0
+    );
+    const focusedSections = Array.from(
+      new Set(
+        scopedViews
+          .map((v) => v.sectionName || formatImSectionLabel(v.sectionViewed))
+          .filter((s): s is string => Boolean(s))
+      )
+    );
+    return {
+      scopedViews,
+      openCount,
+      dwellSeconds,
+      focusedSections,
+      lastViewedAt: scopedViews[0]?.created_at || null,
     };
   }
 
@@ -1487,16 +1615,8 @@ export async function GET(req: NextRequest) {
             gr.building_id && inboxState.revokedBuildings?.[String(gr.building_id)]?.revoked
           )));
 
-    const viewEventsForBldg = viewItems.filter(
-      (v) => v.building_id && String(v.building_id) === String(gr.building_id)
-    );
-    const focusedSections = Array.from(
-      new Set(
-        viewEventsForBldg
-          .map((v) => v.sectionName)
-          .filter((s): s is string => Boolean(s))
-      )
-    );
+    const viewStats = aggregateThreadViews(tid, String(gr.building_id || ""), true);
+    const focusedSections = viewStats.focusedSections;
 
     const threadCallNotes = callNotesByThreadId.get(tid) || [];
     const baseRequestMsg = gr.cleanMessage || gr.reason || "IM 열람을 요청했습니다.";
@@ -1586,6 +1706,12 @@ export async function GET(req: NextRequest) {
       id: tid,
       clientName: gr.requesterName || gr.requester_name || "이름 미입력 고객",
       clientPhone: gr.requesterPhone || gr.requester_phone || "",
+      clientEmail:
+        normalizeClientEmail(gr.requester_email || gr.requesterEmail) || "",
+      transactionalBasis: (gr.type === "gate_request"
+        ? "im_request"
+        : "property_inquiry") as InboxTransactionalBasis,
+      hasTransactionalBasis: true,
       requesterCompany: gr.requesterCompany || gr.requester_company || "",
       cleanMessage: baseRequestMsg,
       clientGrade: "일반" as const,
@@ -1607,7 +1733,9 @@ export async function GET(req: NextRequest) {
         : ("none" as const),
       updatedAt: formatRelativeKo(lastActivityAt || gr.created_at) || "방금",
       lastActivityAt,
-      openCount: viewEventsForBldg.length,
+      openCount: viewStats.openCount,
+      dwellSeconds: viewStats.dwellSeconds,
+      lastViewedAt: viewStats.lastViewedAt,
       isRead: !gr.is_unread,
       status: isRevoked
         ? ("revoked" as const)
@@ -1753,8 +1881,22 @@ export async function GET(req: NextRequest) {
         .join(" · ") ||
       (!parsedMeta.isStructuredMeta && row.notes ? String(row.notes) : "직접 등록한 고객입니다.");
 
-    const lastActivityAt =
+    const customViewStats = aggregateThreadViews(tid, bId, false);
+    const resolvedClientEmail =
+      normalizeClientEmail(row.email || row.clientEmail) || "";
+    const resolvedBasis =
+      normalizeTransactionalBasis(
+        row.transactionalBasis || parsedMeta.transactionalBasis
+      ) ||
+      (resolvedShareToken ? ("im_request" as const) : null);
+
+    const baseLastActivityAt =
       (notesList[0] as any)?.createdAt || row.created_at || row.createdAt || "";
+    const lastActivityAt =
+      customViewStats.lastViewedAt &&
+      toSafeEpochMs(customViewStats.lastViewedAt) > toSafeEpochMs(baseLastActivityAt)
+        ? customViewStats.lastViewedAt
+        : baseLastActivityAt;
     const corrMsg =
       (bId && inboxState.correctionNotices?.[bId]?.message) ||
       inboxState.correctionNotices?.[tid]?.message ||
@@ -1764,6 +1906,9 @@ export async function GET(req: NextRequest) {
       id: tid,
       clientName: name,
       clientPhone: phone,
+      clientEmail: resolvedClientEmail,
+      transactionalBasis: resolvedBasis,
+      hasTransactionalBasis: Boolean(resolvedBasis),
       requesterCompany: "",
       cleanMessage: summaryCleanMessage,
       clientGrade:
@@ -1778,19 +1923,35 @@ export async function GET(req: NextRequest) {
       gateStatus: "none" as const,
       updatedAt: formatRelativeKo(lastActivityAt) || "방금",
       lastActivityAt,
-      openCount: 0,
+      openCount: customViewStats.openCount,
+      dwellSeconds: customViewStats.dwellSeconds,
+      lastViewedAt: customViewStats.lastViewedAt,
       isRead: true,
-      status: isRevoked ? ("revoked" as const) : ("active" as const),
+      status: isRevoked
+        ? ("revoked" as const)
+        : customViewStats.openCount >= 3 || customViewStats.dwellSeconds >= 90
+        ? ("high_interest" as const)
+        : ("active" as const),
       shareToken: resolvedShareToken,
       shareUrl: resolvedShareUrl,
       hasCorrectionNotice: Boolean(corrMsg),
       correctionMessage: corrMsg,
       budget,
       preferredRegion,
-      focusedSections: [],
+      focusedSections: customViewStats.focusedSections,
       newsletterSubscribed: resolvedNewsletterSubscribed,
-      events:
-        notesList.length > 0
+      events: [
+        ...customViewStats.scopedViews.map((v: any) => ({
+          id: `ev-view-${v.id}`,
+          eventType: v.dwellSeconds > 0 ? ("dwell" as const) : ("open" as const),
+          description:
+            v.dwellSeconds > 0
+              ? `자료 ${v.dwellSeconds}초 열람${v.sectionViewed ? ` (${formatImSectionLabel(v.sectionViewed)})` : ""}`
+              : `${v.sectionName || formatImSectionLabel(v.sectionViewed) || "추천 매물"} 링크 열람`,
+          timestamp: formatRelativeKo(v.created_at) || "방금",
+          sectionName: v.sectionName || formatImSectionLabel(v.sectionViewed),
+        })),
+        ...(notesList.length > 0
           ? notesList.map((n: any) => ({
               id: n.id,
               eventType: "dwell" as const,
@@ -1804,7 +1965,8 @@ export async function GET(req: NextRequest) {
                 description: "고객 직접 등록 완료",
                 timestamp: formatRelativeKo(row.created_at || row.createdAt) || "방금",
               },
-            ],
+            ]),
+      ],
     });
   }
 
@@ -1943,10 +2105,15 @@ export async function GET(req: NextRequest) {
     const lastSubActivityAt =
       (subNotes[0] as any)?.createdAt || row?.created_at || "";
 
+    const subViewStats = aggregateThreadViews(subTid, "", false);
+
     threads.push({
       id: subTid,
       clientName: displayName,
       clientPhone: displayContact,
+      clientEmail: emailNorm || "",
+      transactionalBasis: null,
+      hasTransactionalBasis: false,
       requesterCompany: "",
       cleanMessage: subSummaryMessage,
       clientGrade: "일반" as const,
@@ -1959,7 +2126,9 @@ export async function GET(req: NextRequest) {
       gateStatus: "none" as const,
       updatedAt: formatRelativeKo(lastSubActivityAt) || "방금",
       lastActivityAt: lastSubActivityAt,
-      openCount: 0,
+      openCount: subViewStats.openCount,
+      dwellSeconds: subViewStats.dwellSeconds,
+      lastViewedAt: subViewStats.lastViewedAt,
       isRead: true,
       status: "active" as const,
       shareToken: "",
@@ -1969,7 +2138,7 @@ export async function GET(req: NextRequest) {
       budget: "",
       preferredRegion: regions.join(", "),
       tags: allSelectedTags,
-      focusedSections: [],
+      focusedSections: subViewStats.focusedSections,
       newsletterSubscribed: effectiveSubscribed,
       events: [
         ...subNotes.map((n: any) => ({
@@ -1991,6 +2160,9 @@ export async function GET(req: NextRequest) {
   // Group remaining view events by building + viewer (separating anonymous viewers by visitorFp — C-4)
   const viewGroups = new Map<string, any[]>();
   for (const v of viewItems) {
+    if (v.recipientId && seenThreadIds.has(v.recipientId)) {
+      continue;
+    }
     const isAnon = !v.viewerName || v.viewerName === "익명 열람객";
     const key = isAnon
       ? `${v.building_id || "b"}::익명 열람객::${v.visitorFp || "anon_nofp"}`
@@ -2043,10 +2215,21 @@ export async function GET(req: NextRequest) {
       !isRevoked && bIdStr ? buildThreadShareUrl(bIdStr, resolvedShareToken) : "";
     const viewCallNotes = callNotesByThreadId.get(tid) || [];
 
+    const viewOpenEvents = group.filter((g) => !(g.dwellSeconds > 0));
+    const viewOpenCount =
+      viewOpenEvents.length > 0 ? viewOpenEvents.length : group.length;
+    const viewDwellSeconds = group.reduce(
+      (sum, g) => sum + (typeof g.dwellSeconds === "number" ? g.dwellSeconds : 0),
+      0
+    );
+
     threads.push({
       id: tid,
       clientName: first.viewerName || "익명 열람객",
       clientPhone: "",
+      clientEmail: "",
+      transactionalBasis: null,
+      hasTransactionalBasis: false,
       requesterCompany: "",
       cleanMessage: "상세 자료를 열람했습니다",
       clientGrade: "일반" as const,
@@ -2065,11 +2248,13 @@ export async function GET(req: NextRequest) {
       gateStatus: "none" as const,
       updatedAt: formatRelativeKo(first.created_at) || "방금",
       lastActivityAt: first.created_at || "",
-      openCount: group.length,
+      openCount: viewOpenCount,
+      dwellSeconds: viewDwellSeconds,
+      lastViewedAt: first.created_at || null,
       isRead: true,
       status: isRevoked
         ? ("revoked" as const)
-        : group.length >= 3
+        : viewOpenCount >= 3 || viewDwellSeconds >= 90
         ? ("high_interest" as const)
         : ("active" as const),
       shareToken: resolvedShareToken,
@@ -2116,6 +2301,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     userId,
+    subscription: {
+      tier: subscriptionInfo.tier,
+      isPaid: subscriptionInfo.isPaid,
+      status: subscriptionInfo.status,
+    },
     threads,
     items: allItems,
     gateRequests: gateItems,

@@ -7,6 +7,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { isUuid } from '@/lib/im-lite/quick-generate-store';
+import {
+  extractShareTokenFromInput,
+  verifyShareLinkToken,
+  type ShareLinkChannel,
+} from '@/lib/security/share-link-tokens';
 import { createHash } from 'node:crypto';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -22,12 +27,15 @@ export async function POST(
   let sectionViewed: string | undefined;
   let dwellSeconds: number | undefined;
   let blindName: string | undefined;
+  let shareTokenInput: string | undefined;
 
   try {
     const body = await req.json().catch(() => ({}));
     sectionViewed = typeof body?.section_viewed === 'string' ? body.section_viewed : undefined;
     dwellSeconds = typeof body?.dwell_seconds === 'number' ? body.dwell_seconds : undefined;
     blindName = typeof body?.blind_name === 'string' ? body.blind_name : undefined;
+    const rawTok = body?.share_token ?? body?.shareToken ?? body?.token;
+    shareTokenInput = typeof rawTok === 'string' ? rawTok.trim() : undefined;
   } catch {
     // ignore parse errors
   }
@@ -35,10 +43,40 @@ export async function POST(
   const userAgent = req.headers.get('user-agent') ?? '';
   const forwardedFor = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? '';
   const referrer = req.headers.get('referer') ?? '';
+  const resolvedShareToken = shareTokenInput || extractShareTokenFromInput(referrer);
+
+  let verifiedRecipientId: string | null = null;
+  let verifiedBrokerId: string | null = null;
+  let verifiedChannel: ShareLinkChannel | null = null;
+  let hasShareToken = false;
+
+  if (resolvedShareToken) {
+    try {
+      const verified = await verifyShareLinkToken({
+        token: resolvedShareToken,
+        buildingId,
+      });
+      if (verified.valid) {
+        hasShareToken = true;
+        verifiedRecipientId = verified.recipientId || null;
+        verifiedBrokerId = verified.brokerId || null;
+        verifiedChannel = verified.channel || null;
+      }
+    } catch {
+      // non-blocking attribution fallback
+    }
+  }
 
   // Hash UA + IP for anonymised fingerprinting (no PII stored)
   const fingerprintRaw = `${userAgent}|${forwardedFor}`;
   const userAgentHash = createHash('sha256').update(fingerprintRaw).digest('hex').slice(0, 16);
+
+  const tokenMeta = {
+    ...(verifiedRecipientId ? { recipient_id: verifiedRecipientId } : {}),
+    ...(verifiedBrokerId ? { broker_id: verifiedBrokerId } : {}),
+    ...(verifiedChannel ? { share_token_channel: verifiedChannel } : {}),
+    ...(hasShareToken ? { has_share_token: true } : {}),
+  };
 
   try {
     const supabase = createServiceClient();
@@ -64,6 +102,8 @@ export async function POST(
             user_agent_hash: userAgentHash,
             dwell_seconds: safeDwell,
             blind_name: safeBlindName ?? null,
+            ...(sectionViewed ? { section_viewed: sectionViewed.slice(0, 60) } : {}),
+            ...tokenMeta,
           },
           created_at: new Date().toISOString(),
         },
@@ -95,6 +135,7 @@ export async function POST(
             referrer,
             user_agent_hash: userAgentHash,
             section_viewed: sectionViewed ? sectionViewed.slice(0, 60) : null,
+            ...tokenMeta,
           },
           created_at: new Date().toISOString(),
         },

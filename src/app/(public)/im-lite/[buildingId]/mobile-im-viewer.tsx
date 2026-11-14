@@ -36,6 +36,7 @@ interface Props {
   ssotData?: Record<string, unknown>;
   docId?: string;
   isBroker?: boolean;
+  shareToken?: string;
 }
 
 const CANONICAL_SECTION_CHIPS = [
@@ -148,6 +149,7 @@ export function MobileIMViewer({
   ssotData,
   docId,
   isBroker = true,
+  shareToken,
 }: Props) {
   // Version state: v1 <-> v2
   const [selectedVersion, setSelectedVersion] = useState<"v1" | "v2">("v2");
@@ -155,6 +157,66 @@ export function MobileIMViewer({
   const [activeSectionId, setActiveSectionId] = useState<string>("01_cover");
   const [showInquiry, setShowInquiry] = useState<boolean>(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState<boolean>(false);
+  const mountedAtRef = useRef<number>(Date.now());
+  const activeSectionRef = useRef<string>("01_cover");
+  const dwellSentRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    activeSectionRef.current = activeSectionId;
+  }, [activeSectionId]);
+
+  useEffect(() => {
+    if (!buildingId) return;
+    const resolvedToken =
+      (shareToken && shareToken.trim()) ||
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("token")?.trim() || undefined
+        : undefined);
+    // Avoid recording owner self-preview clicks unless visiting with an issued recipient share token
+    if (isBroker && !resolvedToken) return;
+
+    mountedAtRef.current = Date.now();
+    dwellSentRef.current = false;
+
+    const endpoint = `/api/public/im-lite/${encodeURIComponent(buildingId)}/view`;
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        section_viewed: activeSectionRef.current,
+        ...(resolvedToken ? { share_token: resolvedToken } : {}),
+      }),
+    }).catch(() => {});
+
+    const sendDwell = () => {
+      if (dwellSentRef.current) return;
+      dwellSentRef.current = true;
+      const dwellSeconds = Math.max(1, Math.round((Date.now() - mountedAtRef.current) / 1000));
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          dwell_seconds: dwellSeconds,
+          section_viewed: activeSectionRef.current,
+          ...(resolvedToken ? { share_token: resolvedToken } : {}),
+        }),
+      }).catch(() => {});
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        sendDwell();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", sendDwell);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", sendDwell);
+    };
+  }, [buildingId, isBroker, shareToken]);
 
   const handleMobilePptxDownload = useCallback(
     async (e: React.MouseEvent<HTMLAnchorElement>) => {

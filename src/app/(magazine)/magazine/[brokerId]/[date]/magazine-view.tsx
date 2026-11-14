@@ -13,6 +13,7 @@
 import React from "react";
 import { Building2, Newspaper } from "lucide-react";
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
+import { MonthlyGlassStatCard } from "@/components/magazine/MonthlyGlassStatCard";
 import { ActionCardView } from "@/components/im/action-card-view";
 import { PoweredByBadge } from "@/components/ui/PoweredByBadge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -26,7 +27,7 @@ import {
   NewsSection,
   BrokerProfileSection,
 } from "@/components/magazine/viewer-sections";
-import type { AxiosUnitIssue } from "@/domain/magazine/types";
+import type { AxiosUnitIssue, MonthlyRegionalChart } from "@/domain/magazine/types";
 import { formatKoreanDate } from "@/lib/magazine/kst";
 import {
   buildMagazineTitle,
@@ -110,6 +111,27 @@ export function MagazineView({
     : Array.isArray(data.unitIssues)
     ? data.unitIssues
     : [];
+
+  // ── Monthly Top-2 Charts (월간 전용 + 유효한 시계열이 있을 때만 노출) ──
+  const rawMonthlyCharts = Array.isArray(data.monthlyCharts)
+    ? data.monthlyCharts
+    : Array.isArray(data.monthly_charts)
+    ? data.monthly_charts
+    : [];
+  const validMonthlyCharts: MonthlyRegionalChart[] =
+    editionKind === "monthly"
+      ? (rawMonthlyCharts as MonthlyRegionalChart[])
+          .filter(
+            (c) =>
+              c &&
+              typeof c === "object" &&
+              typeof c.title === "string" &&
+              c.isPlaceholder !== true &&
+              Array.isArray(c.series) &&
+              c.series.length > 0,
+          )
+          .slice(0, 2)
+      : [];
 
   // ── News ──
   const topNews = pickTopNews(data);
@@ -398,6 +420,36 @@ export function MagazineView({
 
   const sectionNode = (id: string): React.ReactNode => {
     switch (id) {
+      case "market_data":
+        return editionKind === "monthly" && validMonthlyCharts.length > 0 ? (
+          <Section>
+            <div
+              data-testid="monthly-regional-charts-section"
+              className="space-y-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-base font-extrabold text-white">
+                  이달의 주요 시장 그래프 {validMonthlyCharts.length}선
+                </h2>
+                <span className="text-sm font-semibold text-slate-300">
+                  {validMonthlyCharts[0]?.regionLabel ?? "주요 권역"}
+                </span>
+              </div>
+              <div className="space-y-3.5">
+                {validMonthlyCharts.map((chart, idx) => (
+                  <MonthlyGlassStatCard
+                    key={chart.id || idx}
+                    index={idx}
+                    chart={chart}
+                    size="viewer"
+                    cardTestId={`viewer-monthly-chart-card-${idx}`}
+                    sourceTestId={`viewer-monthly-chart-source-${idx}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </Section>
+        ) : null;
       case "ai_briefing":
         return normBriefing ? renderAiBriefing() : null;
       case "field_note":
@@ -438,8 +490,9 @@ export function MagazineView({
     }
   };
 
-  // 통일 5단계 + 최소 옵트인 구조: 제목 → 시장브리핑 → 이슈 → 매물 → 연락처 → 뉴스레터 신청
+  // 통일 5단계 + 월간 상단 그래프 2선 + 최소 옵트인 구조
   const UNIFIED_VIEWER_ORDER: readonly string[] = [
+    "market_data",
     "ai_briefing",
     "field_note",
     "news_curation",

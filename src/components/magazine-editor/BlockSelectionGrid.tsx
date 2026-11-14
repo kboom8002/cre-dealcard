@@ -12,6 +12,11 @@ export interface NewsletterBlockItem {
 
 export const DEFAULT_NEWSLETTER_BLOCKS: readonly Omit<NewsletterBlockItem, "enabled">[] = [
   {
+    id: "market_data",
+    label: "이달의 시장 그래프 2선",
+    description: "월간 전용 · 국토부 실거래 추이와 한국은행 대출금리·수익률 비교",
+  },
+  {
     id: "field_note",
     label: "시장 브리핑",
     description: "5줄 이내(500자)로 핵심 시장 흐름을 전합니다",
@@ -39,9 +44,11 @@ export function BlockSelectionGrid({
   sections,
   onToggleSection,
   availableBlocks = DEFAULT_NEWSLETTER_BLOCKS,
-  cadence: _cadence,
+  cadence = "monthly",
 }: BlockSelectionGridProps) {
-  const visibleBlocks = availableBlocks.filter((b) => b.id !== "market_data");
+  const visibleBlocks = availableBlocks.filter((b) =>
+    cadence === "monthly" ? true : b.id !== "market_data",
+  );
   const isEnabled = (id: string) => {
     const found = sections.find((s) => s.id === id);
     return found ? found.enabled : true;

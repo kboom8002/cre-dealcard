@@ -311,10 +311,16 @@ function normalizeMonthlyRegion(raw: unknown): MonthlyRegionKey | undefined {
 }
 
 function normalizeMonthlyPairId(raw: unknown): MonthlyChartPairId {
-  if (raw === "reb_molit" || raw === "molit_kosis" || raw === "reb_kosis") {
+  if (
+    raw === "molit_bok" ||
+    raw === "molit_band" ||
+    raw === "reb_molit" ||
+    raw === "molit_kosis" ||
+    raw === "reb_kosis"
+  ) {
     return raw;
   }
-  return "reb_molit";
+  return "molit_bok";
 }
 
 function normalizeSavedMonthlyCharts(
@@ -469,9 +475,9 @@ function MagazineEditorWorkspace() {
   const [briefingBody, setBriefingBody] = useState<string>("");
   const [regionFocus, setRegionFocus] = useState<string>("강남·서초");
   const [monthlyRegion, setMonthlyRegion] = useState<MonthlyRegionKey>("gbd");
-  const [monthlyPairId, setMonthlyPairId] = useState<MonthlyChartPairId>("reb_molit");
+  const [monthlyPairId, setMonthlyPairId] = useState<MonthlyChartPairId>("molit_bok");
   const [monthlyCharts, setMonthlyCharts] = useState<MonthlyRegionalChart[]>(() =>
-    buildDefaultMonthlyGraphicPair("gbd", "reb_molit"),
+    buildDefaultMonthlyGraphicPair("gbd", "molit_bok"),
   );
   const [monthlyLiveDbAvailable, setMonthlyLiveDbAvailable] = useState<boolean>(false);
   const [marketTemp, setMarketTemp] = useState<MarketTemperature | null>(null);
@@ -601,8 +607,8 @@ function MagazineEditorWorkspace() {
         setSelectedDealIds([]);
         setDealComments({});
         setSections(buildDefaultEditorSections(nextCadence));
-        setMonthlyPairId("reb_molit");
-        setMonthlyCharts(buildDefaultMonthlyGraphicPair("gbd", "reb_molit"));
+        setMonthlyPairId("molit_bok");
+        setMonthlyCharts(buildDefaultMonthlyGraphicPair("gbd", "molit_bok"));
         setUnitIssues(
           clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
             cadence: nextCadence,
@@ -991,7 +997,7 @@ function MagazineEditorWorkspace() {
       setBriefingBody(typeof ed.briefingBody === "string" ? ed.briefingBody : "");
       setMarketTemp(ed.marketTemp ?? null);
       const nextRegion = ed.monthlyRegion ?? "gbd";
-      const nextPair = ed.monthlyPairId ?? "reb_molit";
+      const nextPair = ed.monthlyPairId ?? "molit_bok";
       setMonthlyRegion(nextRegion);
       setMonthlyPairId(nextPair);
       setMonthlyCharts(
@@ -1215,8 +1221,8 @@ function MagazineEditorWorkspace() {
                   setBriefingBody("");
                   setMarketTemp(null);
                   setMonthlyRegion("gbd");
-                  setMonthlyPairId("reb_molit");
-                  setMonthlyCharts(buildDefaultMonthlyGraphicPair("gbd", "reb_molit"));
+                  setMonthlyPairId("molit_bok");
+                  setMonthlyCharts(buildDefaultMonthlyGraphicPair("gbd", "molit_bok"));
                   setSelectedDealIds([]);
                   setDealComments({});
                   setSections(buildDefaultEditorSections("monthly"));
@@ -1244,7 +1250,7 @@ function MagazineEditorWorkspace() {
                 );
                 setMonthlyRegion(prefMonthlyRegion);
                 setMonthlyCharts(
-                  buildDefaultMonthlyGraphicPair(prefMonthlyRegion, "reb_molit"),
+                  buildDefaultMonthlyGraphicPair(prefMonthlyRegion, "molit_bok"),
                 );
               }
               if (!restoredLocalIssuesRef.current) {
@@ -2044,10 +2050,10 @@ function MagazineEditorWorkspace() {
     setBriefingTitle("");
     setBriefingBody("");
     const mappedRegion = mapPreferredRegionsToMonthlyKey(preferredRegions);
-    const freshMonthlyCharts = buildDefaultMonthlyGraphicPair(mappedRegion, "reb_molit");
+    const freshMonthlyCharts = buildDefaultMonthlyGraphicPair(mappedRegion, "molit_bok");
     setMarketTemp(null);
     setMonthlyRegion(mappedRegion);
-    setMonthlyPairId("reb_molit");
+    setMonthlyPairId("molit_bok");
     setMonthlyCharts(freshMonthlyCharts);
     setSelectedDealIds([]);
     setDealComments({});
@@ -2242,7 +2248,7 @@ function MagazineEditorWorkspace() {
     );
 
     const clonedRegion = ed.monthlyRegion ?? "gbd";
-    const clonedPair = ed.monthlyPairId ?? "reb_molit";
+    const clonedPair = ed.monthlyPairId ?? "molit_bok";
     const clonedCharts =
       ed.monthlyCharts && ed.monthlyCharts.length > 0
         ? [...ed.monthlyCharts]
@@ -3903,7 +3909,7 @@ function MagazineEditorWorkspace() {
                   <p className="text-sm font-extrabold text-slate-800">
                     ② 상단 그래픽 2선 조합 선택
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="group" aria-label="통계 그래픽 2선 조합">
+                  <div className="grid grid-cols-1 gap-2.5" role="group" aria-label="통계 그래픽 2선 조합">
                     {MONTHLY_GRAPHIC_PAIR_PRESETS.map((pairPreset) => {
                       const selected = monthlyPairId === pairPreset.id;
                       return (
@@ -3913,15 +3919,15 @@ function MagazineEditorWorkspace() {
                           data-testid={`monthly-stat-pair-${pairPreset.id}`}
                           aria-pressed={selected}
                           onClick={() => handleChangeMonthlyPair(pairPreset.id)}
-                          className={`min-h-[48px] rounded-xl border p-3 text-left transition space-y-1 ${
+                          className={`min-h-[48px] w-full rounded-xl border p-3.5 text-left transition whitespace-normal ${
                             selected
                               ? "border-blue-600 bg-blue-50 text-blue-950"
                               : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-1.5">
-                            <span className="text-sm font-extrabold">{pairPreset.shortLabel}</span>
-                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-sm font-bold text-slate-700">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-extrabold break-keep">{pairPreset.shortLabel}</span>
+                            <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-sm font-bold text-slate-700">
                               {pairPreset.badge}
                             </span>
                           </div>

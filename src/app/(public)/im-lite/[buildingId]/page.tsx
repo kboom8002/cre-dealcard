@@ -149,5 +149,13 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
       } as any)
     : data;
 
-  return <MobileIMViewer document={safeDocument} buildingId={buildingId} docId={docId} isBroker={isBroker} />;
+  return (
+    <MobileIMViewer
+      document={safeDocument}
+      buildingId={buildingId}
+      docId={docId}
+      isBroker={isBroker}
+      shareToken={token}
+    />
+  );
 }

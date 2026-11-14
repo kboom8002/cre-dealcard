@@ -203,17 +203,17 @@ export function parseCadenceAnchor(
 
 /**
  * 주기별 기본 코너 구성 (제목 + 시장브리핑 + 이슈 + 매물 + 연락처 통일)
- * - 일간·주간·월간 모두 시장브리핑(field_note), 핵심 이슈(news_curation), 추천 매물(featured_deals)을
- *   기본 활성화하고, 복잡한 통계/유틸리티 코너(market_data 등)는 기본 비활성화한다.
+ * - 일간·주간: 시장브리핑(field_note), 핵심 이슈(news_curation), 추천 매물(featured_deals) 기본 활성화
+ * - 월간(monthly): 상단 주요 시장 그래프 2선(market_data)도 기본 활성화
  */
 export function getDefaultSectionsForCadence(
-  _cadence: NewsletterCadence,
+  cadence: NewsletterCadence,
 ): Array<{ id: string; enabled: boolean }> {
   return [
     { id: "field_note", enabled: true },
     { id: "news_curation", enabled: true },
     { id: "featured_deals", enabled: true },
-    { id: "market_data", enabled: false },
+    { id: "market_data", enabled: cadence === "monthly" },
   ];
 }
 

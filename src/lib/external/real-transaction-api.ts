@@ -159,3 +159,114 @@ function getRecentMonths(n: number): string[] {
   }
   return result;
 }
+
+export interface WholeBuildingMonthlyTxItem {
+  ym: string; // YYYY-MM
+  dealYear: number;
+  dealMonth: number;
+  sigunguCode: string;
+  dong: string;
+  dealAmountManwon: number;
+  dealAmountKrw: number;
+  buildingAreaM2: number;
+  landAreaM2: number;
+  buildingType: string;
+}
+
+const MONTHLY_TX_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const MONTHLY_TX_MAX_CACHE = 24;
+const monthlyTxCache = new Map<
+  string,
+  { expiresAt: number; items: WholeBuildingMonthlyTxItem[] }
+>();
+
+/**
+ * 월간 뉴스레터 상단 차트용 — 복수 시군구의 최근 N개월 통건물(일반) 실거래를 일괄 조회한다.
+ * - 계약해제(cdealType === 'O') 및 구분상가·오피스텔 호실(buildingType === '집합') 제외
+ * - 5초 타임아웃 + 6시간 메모리 LRU 캐시
+ */
+export async function fetchMonthlyWholeBuildingTransactions(
+  sigunguCodes: readonly string[],
+  months = 6,
+): Promise<WholeBuildingMonthlyTxItem[]> {
+  const apiKey = (process.env.DATA_GO_KR_API_KEY || process.env.MOLIT_API_KEY || '').trim();
+  if (!apiKey || !Array.isArray(sigunguCodes) || sigunguCodes.length === 0) {
+    return [];
+  }
+
+  const safeMonths = Math.max(2, Math.min(12, Math.floor(months)));
+  const normalizedCodes = Array.from(new Set(sigunguCodes.map((c) => c.trim()).filter(Boolean))).sort();
+  if (normalizedCodes.length === 0) return [];
+
+  const cacheKey = `${normalizedCodes.join(',')}:${safeMonths}`;
+  const nowMs = Date.now();
+  const cached = monthlyTxCache.get(cacheKey);
+  if (cached && cached.expiresAt > nowMs) {
+    return cached.items;
+  }
+
+  const targetMonths = getRecentMonths(safeMonths);
+  const collected: WholeBuildingMonthlyTxItem[] = [];
+
+  await Promise.all(
+    normalizedCodes.flatMap((sigunguCode) =>
+      targetMonths.map(async (ym) => {
+        try {
+          const url = `https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade?ServiceKey=${encodeURIComponent(apiKey)}&LAWD_CD=${encodeURIComponent(sigunguCode)}&DEAL_YMD=${ym}&numOfRows=200&pageNo=1&_type=json`;
+          const res = await fetchWithRetry(url, { timeoutMs: 5000, maxRetries: 0 });
+          if (!res.ok) return;
+          const data = (await res.json().catch(() => null)) as {
+            response?: { body?: { items?: { item?: unknown } } };
+          } | null;
+          const rawItem = data?.response?.body?.items?.item;
+          const itemsArray: Record<string, unknown>[] = Array.isArray(rawItem)
+            ? rawItem
+            : rawItem && typeof rawItem === 'object'
+              ? [rawItem as Record<string, unknown>]
+              : [];
+
+          for (const t of itemsArray) {
+            if (String(t.cdealType || '').trim() === 'O') continue;
+            if (!isWholeBuildingTransactionItem(t)) continue;
+
+            const dealAmtManwon =
+              parseInt(String(t.dealAmount || '0').replace(/,/g, '').trim(), 10) || 0;
+            if (dealAmtManwon <= 0) continue;
+            const dealAmountKrw = dealAmtManwon * 10_000;
+
+            const landAreaM2 = parseFloat(String(t.plottageAr || '0')) || 0;
+            const buildingAreaM2 =
+              parseFloat(String(t.buildingAr || t.bldgArea || t.totArea || t.area || '0')) || 0;
+            if (landAreaM2 <= 0 && buildingAreaM2 <= 0) continue;
+
+            const dealYear = parseInt(String(t.dealYear || ym.slice(0, 4)), 10);
+            const dealMonth = parseInt(String(t.dealMonth || ym.slice(4, 6)), 10);
+            if (!Number.isFinite(dealYear) || !Number.isFinite(dealMonth)) continue;
+
+            collected.push({
+              ym: `${dealYear}-${String(dealMonth).padStart(2, '0')}`,
+              dealYear,
+              dealMonth,
+              sigunguCode,
+              dong: String(t.umdNm || t.dong || '').trim(),
+              dealAmountManwon: dealAmtManwon,
+              dealAmountKrw,
+              buildingAreaM2,
+              landAreaM2,
+              buildingType: String(t.buildingType || '일반').trim() || '일반',
+            });
+          }
+        } catch (err) {
+          logger.warn('Monthly MOLIT fetch failed', { sigunguCode, ym, err });
+        }
+      }),
+    ),
+  );
+
+  if (monthlyTxCache.size >= MONTHLY_TX_MAX_CACHE) {
+    const oldest = monthlyTxCache.keys().next().value;
+    if (oldest) monthlyTxCache.delete(oldest);
+  }
+  monthlyTxCache.set(cacheKey, { expiresAt: nowMs + MONTHLY_TX_CACHE_TTL_MS, items: collected });
+  return collected;
+}
