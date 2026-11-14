@@ -270,111 +270,97 @@ export const BROKER_SESSIONS_4: readonly BrokerSessionSpec[] = [
     id: "S1",
     label: "1회차 · 화요일",
     weekdayLabel: "화",
-    cycleNote: "0주차 준비 완료 → 화요일 첫 점검 (뉴스레터 5단 개편)",
-    focusTitle: "월간 뉴스레터 5단 구성 · 70대 문체 · 상단 통계 2선 판정",
+    cycleNote: "Gate 1 통과 완료 → 화요일 1차 산출물 쇼룸 집중 검수 (뉴스레터 6종 + 딜카드 8종)",
+    focusTitle: "최종 산출물 쇼룸 검수 I: 뉴스레터 6종 · 블라인드 딜카드 8종",
     tasks: [
       {
         id: "S1-T1",
-        title: "월간호 제목 프리셋 · 시장브리핑 5줄 AI 윤문 확인",
+        title: "일간·주간·월간 뉴스레터 6종 쇼룸 실물 판정 (/qa-showcase?tab=newsletter)",
         promptQuestion:
-          "브리핑 소제목 없이 1~3줄 입력 → AI 윤문된 5줄 브리핑과 제목 프리셋을 70대 매수 고객에게 그대로 보내실 수 있나요?",
-        targetHref: "/broker/magazine-editor?qa=1",
+          "5줄 브리핑·이슈 70대 문체·월간 상단 통계 2선(옵션 A/B)·21px 큰글씨·하단 구독 단독 노출까지 실제 매수 고객에게 그대로 보내실 수준인가요?",
+        targetHref: "/qa-showcase?tab=newsletter",
       },
       {
         id: "S1-T2",
-        title: "이슈 카드(번호 소제목 제거 · 70대 평어) 및 월간 상단 통계 2선(옵션 A)",
+        title: "수익형·사옥·밸류애드·블라인드 엣지 딜카드 8종 쇼룸 판정 (/qa-showcase?tab=dealcard)",
         promptQuestion:
-          "상단 '국토부 통건물 실거래 중앙값 + 한국은행 대출금리 vs 기대수익률' 그래프 2건과 이슈 5선 문체가 매수자에게 설득력이 있나요?",
-        targetHref: "/broker/magazine-editor?qa=1",
-      },
-      {
-        id: "S1-T3",
-        title: "모바일 발행 독자 화면(하단 구독만 남김) 열람 확인",
-        promptQuestion:
-          "카톡으로 받은 휴대폰 화면에서 하단이 깔끔해졌고 내 이름·연락처가 신뢰감 있게 보이나요?",
-        targetHref: "/broker/magazine-editor?qa=1",
+          "포스처 3종과 대지0·무사진·민감상호 블라인드·지오코딩 폴백 8종에서 번지·상호·연락처 누출이 없고 카톡 OG 카드가 클릭하고 싶게 나오나요?",
+        targetHref: "/qa-showcase?tab=dealcard",
       },
     ],
     agendaItems: [
-      "월간 통계 2선 옵션 A 유지 vs 금액대별 비중(옵션 B) 선호 결정",
-      "상용화 전 반드시 고쳐야 할 Top 5 우선순위 합의",
-      "목요일(2회차)용 두 번째 실매물 자료 확인",
+      "월간 통계 2선 옵션 A(금리·수익률 비교) vs 옵션 B(금액대별 비중) 확정 및 70대 어휘 Red-Pen 수거",
+      "딜카드 블라인드 수위(동 vs 대로변) 및 문구 손질 Top 5 합의",
+      "목요일(2회차) IM 8종 검수 전 1차 문구·디자인 핫픽스 범위 확정",
     ],
   },
   {
     id: "S2",
     label: "2회차 · 목요일",
     weekdayLabel: "목",
-    cycleNote: "화→목 1.5일 단기 보완 사이클 (문구·수정 확인 중심)",
-    focusTitle: "실매물 IM 수치·지적도·수익률 & Basic PPTX 품격 판정",
+    cycleNote: "화→목 1.5일 1차 핫픽스 반영 + 목요일 IM 8종 전 슬라이드 검수",
+    focusTitle: "1차 수정 재확인 & 모바일·PPTX IM 8종 전 슬라이드 완주 검수 (산출물 최종 확정)",
     tasks: [
       {
         id: "S2-T1",
-        title: "1회차 반영 결과 1장 확인 & 사전 생성된 모바일 IM 수치 대조",
+        title: "화요일 1차 핫픽스 반영 확인 + 모바일·PPTX IM 8종 쇼룸 검수 (/qa-showcase?tab=im)",
         promptQuestion:
-          "대지/연면적·매매가·임대료 합계·수익률이 중개인님이 계산한 숫자와 일치하고 고객에게 믿고 보여줄 수 있나요?",
-        targetHref: "/broker/w/im?qa=1",
+          "3대 포스처·21호실 대형표·TSV 원단위/공실 자동 보간·무사진 폴백까지 PPTX 전 슬라이드와 모바일 IM 숫자가 일치하고 고객에게 제출할 품격인가요?",
+        targetHref: "/qa-showcase?tab=im",
       },
       {
         id: "S2-T2",
-        title: "Basic IM PPTX 다운로드 및 05 토지 지적도 · 07 수익률 슬라이드 검수",
+        title: "PPTX 개별 슬라이드 [✏️ 이 슬라이드 의견] 및 3단 판정 최종 확정",
         promptQuestion:
-          "PPTX 파일 디자인과 지적도 필지 경계, 수익률 페이지 설명이 내 이름으로 법인·자산가에게 보낼 품격인가요?",
-        targetHref: "/broker/w/im?qa=1",
+          "지적도 필지 경계, 수익률 설명, 스태킹 차트 중 손질이 필요한 슬라이드가 있으면 슬라이드 번호로 Red-Pen 의견을 남겨 주세요.",
+        targetHref: "/qa-showcase?tab=im",
       },
     ],
     agendaItems: [
-      "IM 가격·면적·수익률 표현 기준 확정 (취향 항목 옵션화 구분)",
-      "화요일(3회차) 소통함 테스트용 실제 인사말·알림톡 예시 문구 확인",
+      "최종 산출물 22종(뉴스레터 6 + 딜카드 8 + IM 8) 양식·문구 최종 확정",
+      "화요일(3회차) 직접 입력·조작 검수용 실매물 1건 및 테스트 수신 이메일 확인",
     ],
   },
   {
     id: "S3",
     label: "3회차 · 화요일",
     weekdayLabel: "화",
-    cycleNote: "목→화 4.5일 집중 고도화 사이클 (구조·기능 반영)",
-    focusTitle: "딜카드 블라인드 수위 & 소통함 이메일 실발송·고객별 반응 배지",
+    cycleNote: "목→화 4.5일 산출물 손질 마감 → 화요일 에디터 직접 조작 & 이메일 실발송 점검",
+    focusTitle: "확정 양식 기준 에디터 직접 입력 · 이메일 실발송 · 소통함 반응 점검",
     tasks: [
       {
         id: "S3-T1",
-        title: "사전 생성된 블라인드 딜카드 공개 화면(/dc) 확인",
+        title: "딜카드 30초 입력 → 빠른 채우기 → 블라인드 발행 직접 조작 (/broker/w/dealcards?qa=1)",
         promptQuestion:
-          "번지·상호·연락처는 안전하게 가려졌고, 대신 권역·용도·면적·가격만 보고도 매수자가 문의하고 싶어지나요?",
+          "확정된 산출물 품질을 내 손으로 1분 안에 만들 수 있도록 입력 버튼·안내 문구가 직관적인가요?",
         targetHref: "/broker/w/dealcards?qa=1",
       },
       {
         id: "S3-T2",
-        title: "소통함 1클릭 인사말+링크 복사 및 이메일 실발송 점검",
+        title: "뉴스레터 5줄 메모 AI 윤문 & 발행 + 소통함 이메일 실발송·반응 배지 확인",
         promptQuestion:
-          "고객 이메일 등록 → 이메일 발송(실제 수신함 확인)과 1클릭 복사 인사말이 실무에서 실례 없이 자연스러운가요?",
-        targetHref: "/broker/w/inbox?qa=1",
-      },
-      {
-        id: "S3-T3",
-        title: "고객별 열람 횟수·체류시간 배지 & 알림톡 4종 템플릿 문구 검토 (실발송 보류)",
-        promptQuestion:
-          "고객 A/B 반응 숫자를 영업 우선순위 판단에 쓸 수 있는지, 알림톡 4종 문구(드라이런)에 다듬을 곳은 없는지 확인해 주세요.",
+          "1~3줄 메모를 넣었을 때 AI 윤문 결과가 자연스럽고, 소통함에서 이메일 발송(알림톡은 드라이런 유지)과 고객 열람 배지가 한눈에 보이나요?",
         targetHref: "/broker/w/inbox?qa=1",
       },
     ],
     agendaItems: [
-      "이메일·복사(무료) vs 카카오 알림톡(유료 Pro) 경계와 유료 전환 가치 확인",
-      "알림톡 템플릿 검수 신청용 최종 문구 확정",
+      "버튼 위치·명칭·자동 저장·에러 문구 등 입력 UI 불편 사항 최종 수거",
+      "이메일·링크복사(무료) vs 카카오 알림톡(유료 Pro) 경계 및 템플릿 최종 확인",
     ],
   },
   {
     id: "S4",
     label: "4회차 · 목요일",
     weekdayLabel: "목",
-    cycleNote: "화→목 최종 마감 사이클 (전 과정 리허설 & 출시 판정)",
-    focusTitle: "실매물 1건으로 한 주 영업 전 과정 완주 & 상용화 GO 판정",
+    cycleNote: "화→목 UI/UX 최종 보완 마감 (전 과정 단독 리허설 & 상용화 GO 판정)",
+    focusTitle: "조작 UI 패치 재확인 & 매물 1건 전 과정 자율 완주 (상용화 GO)",
     tasks: [
       {
         id: "S4-T1",
-        title: "딜카드 → IM·PPTX → 뉴스레터 추천매물 수록 → 이메일 발송·반응 확인 일괄 수행",
+        title: "화요일 UI 패치 재확인 & 실매물 1건 딜카드 → IM·PPTX → 뉴스레터 → 이메일 발송 일괄 완주",
         promptQuestion:
-          "별도 안내 없이 실무 순서대로 1건 매물의 마케팅·자료 발송을 처음부터 끝까지 막힘없이 끝낼 수 있었나요?",
-        targetHref: "/broker/w/dealcards?qa=1",
+          "별도 가이드 없이 실무 순서대로 1건 매물의 마케팅·자료 발송을 처음부터 끝까지 막힘없이 완주하셨나요?",
+        targetHref: "/qa-signoff",
       },
     ],
     agendaItems: [

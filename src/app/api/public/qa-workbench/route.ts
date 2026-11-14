@@ -42,6 +42,10 @@ import {
   getBuildStampInfo,
   QA_OUTBOUND_CHANNEL_POLICY,
 } from "@/lib/qa/build-stamp";
+import {
+  QA_OUTPUT_SHOWCASE_WORKBENCH_ID,
+  OUTPUT_SHOWCASE_SCENARIOS,
+} from "@/lib/qa/output-showcase-scenarios";
 import { createModuleLogger } from "@/lib/logger";
 import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { parseTsvRentRoll } from "@/lib/rent-roll/tsv-parser";
@@ -342,6 +346,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
           key,
           severity: "S1",
         }))
+      : workbenchId === QA_OUTPUT_SHOWCASE_WORKBENCH_ID
+      ? OUTPUT_SHOWCASE_SCENARIOS.map((s) => ({
+          key: s.id,
+          severity: "S1",
+        }))
       : workbenchId.startsWith("dealcard-im")
       ? CLICK_THROUGH_STEPS.map((s) => ({
           key: s.id,
@@ -353,6 +362,7 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
     typeof entry?.status === "string" ? entry.status.toUpperCase() : "";
 
   let passCount = 0;
+  let polishCount = 0;
   let failCount = 0;
   let s0FailCount = 0;
   let s1FailCount = 0;
@@ -363,9 +373,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
     const entry = recMap[step.key];
     const st = recStatus(entry);
     if (!entry || !st || st === "PENDING") continue;
-    if (st === "PASS") {
+    if (st === "PASS" || st === "PASSED") {
       passCount += 1;
-    } else if (st === "FAIL") {
+    } else if (st === "NEEDS_POLISH") {
+      polishCount += 1;
+    } else if (st === "FAIL" || st === "FAILED") {
       failCount += 1;
       failedStepCodes.push(step.key);
       const sev =
@@ -382,7 +394,7 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
   }
 
   const totalCount = steps.length;
-  const completedCount = passCount + failCount;
+  const completedCount = passCount + polishCount + failCount;
 
   let verdictLabel = `점검 진행 중 (${completedCount}/${totalCount})`;
   if (s0FailCount > 0) {
@@ -391,6 +403,10 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
     verdictLabel = `당일 핫픽스 후 재승인 (S1 ${s1FailCount}건)`;
   } else if (completedCount === totalCount && s2FailCount > 0) {
     verdictLabel = `조건부 상용화 승인 (S2 경미 ${s2FailCount}건)`;
+  } else if (completedCount === totalCount && polishCount > 0) {
+    verdictLabel = `산출물 손질 후 확정 (손질 요청 ${polishCount}건 · ${completedCount}/${totalCount})`;
+  } else if (polishCount > 0) {
+    verdictLabel = `점검 진행 중 (통과 ${passCount} · 손질 ${polishCount}/${totalCount})`;
   } else if (completedCount === totalCount && passCount === totalCount) {
     verdictLabel = `상용화 최종 승인 (GO — ${totalCount}/${totalCount} PASS)`;
   }
@@ -398,6 +414,7 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
   return {
     completedCount,
     passCount,
+    polishCount,
     failCount,
     s0FailCount,
     s1FailCount,
@@ -444,6 +461,57 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       pins,
+    });
+  }
+
+  if (queryMode === "showcase") {
+    const supabase = tryCreateServiceClient();
+    let manifest: Record<string, unknown> | null = null;
+    let publishedAt: string | null = null;
+
+    if (supabase) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q: any = supabase
+          .from("activity_events")
+          .select("id, metadata, created_at")
+          .eq("entity_type", "qa_showcase_manifest")
+          .eq("event_type", "qa_showcase_published");
+        if (typeof q.order === "function") {
+          q = q.order("created_at", { ascending: false });
+        }
+        if (typeof q.limit === "function") {
+          q = q.limit(1);
+        }
+        const res = await q;
+        const row = Array.isArray(res?.data) ? res.data[0] : null;
+        if (row?.metadata && typeof row.metadata === "object") {
+          const meta = row.metadata as Record<string, unknown>;
+          const rawManifest =
+            meta.manifest && typeof meta.manifest === "object"
+              ? (meta.manifest as Record<string, unknown>)
+              : meta.entries && typeof meta.entries === "object"
+              ? meta
+              : null;
+          if (rawManifest) {
+            manifest = rawManifest;
+            publishedAt =
+              typeof rawManifest.generatedAt === "string"
+                ? rawManifest.generatedAt
+                : String(row.created_at || "");
+          }
+        }
+      } catch {
+        manifest = null;
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      manifest,
+      publishedAt,
+      buildStamp: getBuildStampInfo(),
+      channelPolicy: QA_OUTBOUND_CHANNEL_POLICY,
     });
   }
 
@@ -747,6 +815,7 @@ export async function POST(req: NextRequest) {
         summary: {
           completedCount: summary.completedCount,
           passCount: summary.passCount,
+          polishCount: summary.polishCount,
           failCount: summary.failCount,
           s0FailCount: summary.s0FailCount,
           verdictLabel: summary.verdictLabel,

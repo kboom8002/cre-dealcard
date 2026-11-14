@@ -140,4 +140,38 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     expect(validOgRes.status()).toBe(200);
     expect(validOgRes.headers()["content-type"] || "").toContain("image/png");
   });
+
+  test("[Smoke-05] /api/public/qa-workbench?mode=showcase returns 22 deliverables & /qa-showcase?tab=im renders slide PNGs", async ({
+    page,
+    request,
+  }) => {
+    const manifestRes = await request.get("/api/public/qa-workbench?mode=showcase");
+    expect(manifestRes.status()).toBe(200);
+    const manifestJson = await manifestRes.json();
+    expect(manifestJson.ok).toBe(true);
+    expect(manifestJson.manifest?.totalCount).toBe(22);
+
+    const pageErrors: string[] = [];
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+
+    const res = await page.goto("/qa-showcase?tab=im", { waitUntil: "networkidle" });
+    expect(res?.status()).toBeLessThan(400);
+
+    await expect(page.getByTestId("showcase-build-stamp-badge")).toBeVisible({
+      timeout: 20_000,
+    });
+    const slide1Img = page.getByTestId("showcase-slide-img-1");
+    await expect(slide1Img).toBeVisible({ timeout: 20_000 });
+    await expect
+      .poll(
+        async () =>
+          await slide1Img.evaluate((el) => {
+            const img = el as HTMLImageElement;
+            return img.complete ? img.naturalWidth : 0;
+          }),
+        { timeout: 20_000, message: "[Smoke-05] slide-01 naturalWidth" }
+      )
+      .toBeGreaterThan(400);
+    expect(pageErrors).toEqual([]);
+  });
 });

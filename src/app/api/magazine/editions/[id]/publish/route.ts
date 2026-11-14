@@ -118,11 +118,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const nowIso = new Date().toISOString();
-    // 정정 발행은 최초 발행일(KST)의 공개 행을 갱신한다
-    const issueDate =
-      correction && edition.published_at
-        ? toKstDate(new Date(edition.published_at))
-        : parsed.data.issueDate ?? todayKst();
+    // 정정 발행은 명시적 issueDate 또는 기존 콘텐츠의 issueDate, 그 외 최초 발행일(KST)의 공개 행을 갱신한다
+    const existingContentIssueDate =
+      edition.content &&
+      typeof edition.content === "object" &&
+      !Array.isArray(edition.content) &&
+      typeof (edition.content as { issueDate?: unknown }).issueDate === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test((edition.content as { issueDate: string }).issueDate)
+        ? (edition.content as { issueDate: string }).issueDate
+        : null;
+    const issueDate = correction
+      ? parsed.data.issueDate ??
+        existingContentIssueDate ??
+        (edition.published_at ? toKstDate(new Date(edition.published_at)) : todayKst())
+      : parsed.data.issueDate ?? todayKst();
 
     const rawContentSource = payloadContent !== undefined ? payloadContent : edition.content;
     const contentForNormalize =

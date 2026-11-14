@@ -786,6 +786,13 @@ export default function QaSignoffHubPage() {
             className="flex flex-wrap items-center gap-2 pt-1"
           >
             <Link
+              href="/qa-showcase"
+              data-testid="open-qa-showcase-btn"
+              className="min-h-[44px] inline-flex items-center px-3.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 border border-indigo-700 text-[15px] font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
+            >
+              🎯 최종 산출물 22종 쇼룸 열기 (/qa-showcase) ↗
+            </Link>
+            <Link
               href="/dealcard-im-test"
               className="min-h-[44px] inline-flex items-center px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[15px] font-bold text-slate-900 whitespace-nowrap"
             >
