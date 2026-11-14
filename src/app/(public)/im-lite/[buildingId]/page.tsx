@@ -10,7 +10,8 @@
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { cache, Suspense } from "react";
+import { QaFeedbackPinWidget } from "@/components/workspace/QaFeedbackPinWidget";
 import { DEMO_BUILDING_IDS } from "@/lib/demo/mobile-im-demo-data";
 import { MobileIMViewer } from "./mobile-im-viewer";
 import { fetchIMData } from "./fetch-im-data";
@@ -149,13 +150,22 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
       } as any)
     : data;
 
+  const showPublicQaPin = sp.qa === "1";
+
   return (
-    <MobileIMViewer
-      document={safeDocument}
-      buildingId={buildingId}
-      docId={docId}
-      isBroker={isBroker}
-      shareToken={token}
-    />
+    <>
+      <MobileIMViewer
+        document={safeDocument}
+        buildingId={buildingId}
+        docId={docId}
+        isBroker={isBroker}
+        shareToken={token}
+      />
+      {showPublicQaPin && (
+        <Suspense fallback={null}>
+          <QaFeedbackPinWidget workspace="public-im" requireExplicitQueryParam />
+        </Suspense>
+      )}
+    </>
   );
 }

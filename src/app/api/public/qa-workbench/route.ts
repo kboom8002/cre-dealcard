@@ -34,7 +34,14 @@ import { CLICK_THROUGH_STEPS } from "@/lib/testguide/dealcard-im-mece-guide-data
 import {
   FASTTRACK_STEPS,
   QA_SIGNOFF_WORKBENCH_ID,
+  QA_TESTER_MISSIONS_WORKBENCH_ID,
+  QA_BROKER_SESSION_WORKBENCH_ID,
+  TESTER_MISSIONS_8,
 } from "@/lib/testguide/qa-signoff-fasttrack-data";
+import {
+  getBuildStampInfo,
+  QA_OUTBOUND_CHANNEL_POLICY,
+} from "@/lib/qa/build-stamp";
 import { createModuleLogger } from "@/lib/logger";
 import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { parseTsvRentRoll } from "@/lib/rent-roll/tsv-parser";
@@ -90,6 +97,14 @@ export interface QaFeedbackPin {
   fontScale: string | null;
   createdAt: string;
   authorEmail?: string | null;
+  buildSha?: string | null;
+  builtAt?: string | null;
+  userAgent?: string | null;
+  authorRole?: "tester" | "broker";
+  pinMode?: "issue" | "redpen";
+  originalText?: string | null;
+  suggestedText?: string | null;
+  screenshotDataUrl?: string | null;
 }
 
 declare global {
@@ -174,6 +189,28 @@ async function loadMergedQaPins(
               ),
               authorEmail:
                 typeof meta.authorEmail === "string" ? meta.authorEmail : null,
+              buildSha:
+                typeof meta.buildSha === "string" ? meta.buildSha.slice(0, 24) : null,
+              builtAt:
+                typeof meta.builtAt === "string" ? meta.builtAt.slice(0, 40) : null,
+              userAgent:
+                typeof meta.userAgent === "string" ? meta.userAgent.slice(0, 240) : null,
+              authorRole: meta.authorRole === "broker" ? "broker" : "tester",
+              pinMode: meta.pinMode === "redpen" ? "redpen" : "issue",
+              originalText:
+                typeof meta.originalText === "string"
+                  ? meta.originalText.slice(0, 300)
+                  : null,
+              suggestedText:
+                typeof meta.suggestedText === "string"
+                  ? meta.suggestedText.slice(0, 300)
+                  : null,
+              screenshotDataUrl:
+                typeof meta.screenshotDataUrl === "string" &&
+                meta.screenshotDataUrl.startsWith("data:image/") &&
+                meta.screenshotDataUrl.length <= 150_000
+                  ? meta.screenshotDataUrl
+                  : null,
             });
           }
         }
@@ -294,6 +331,16 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
       ? FASTTRACK_STEPS.map((s) => ({
           key: s.id,
           severity: s.severityOnFail,
+        }))
+      : workbenchId === QA_TESTER_MISSIONS_WORKBENCH_ID
+      ? TESTER_MISSIONS_8.map((m) => ({
+          key: m.id,
+          severity: m.mandatoryEveryCycle ? "S0" : "S1",
+        }))
+      : workbenchId === QA_BROKER_SESSION_WORKBENCH_ID
+      ? Object.keys(recMap).map((key) => ({
+          key,
+          severity: "S1",
         }))
       : workbenchId.startsWith("dealcard-im")
       ? CLICK_THROUGH_STEPS.map((s) => ({
@@ -1765,6 +1812,36 @@ export async function POST(req: NextRequest) {
           : null;
       const fontScale =
         typeof body.fontScale === "string" ? body.fontScale.slice(0, 24) : null;
+      const buildSha =
+        typeof body.buildSha === "string" && body.buildSha.trim()
+          ? body.buildSha.trim().slice(0, 24)
+          : getBuildStampInfo().shortSha;
+      const builtAt =
+        typeof body.builtAt === "string" && body.builtAt.trim()
+          ? body.builtAt.trim().slice(0, 40)
+          : getBuildStampInfo().builtAt;
+      const userAgent =
+        typeof body.userAgent === "string" && body.userAgent.trim()
+          ? body.userAgent.trim().slice(0, 240)
+          : null;
+      const authorRole: "tester" | "broker" =
+        body.authorRole === "broker" ? "broker" : "tester";
+      const pinMode: "issue" | "redpen" =
+        body.pinMode === "redpen" ? "redpen" : "issue";
+      const originalText =
+        typeof body.originalText === "string" && body.originalText.trim()
+          ? body.originalText.trim().slice(0, 300)
+          : null;
+      const suggestedText =
+        typeof body.suggestedText === "string" && body.suggestedText.trim()
+          ? body.suggestedText.trim().slice(0, 300)
+          : null;
+      const screenshotDataUrl =
+        typeof body.screenshotDataUrl === "string" &&
+        body.screenshotDataUrl.startsWith("data:image/") &&
+        body.screenshotDataUrl.length <= 150_000
+          ? body.screenshotDataUrl
+          : null;
 
       const brokerUser = await resolveOptionalBrokerUser(req);
       const actorUuid =
@@ -1785,6 +1862,14 @@ export async function POST(req: NextRequest) {
         fontScale,
         createdAt,
         authorEmail: brokerUser?.email ?? null,
+        buildSha,
+        builtAt,
+        userAgent,
+        authorRole,
+        pinMode,
+        originalText,
+        suggestedText,
+        screenshotDataUrl,
       };
 
       saveMemoryPin(pin);
@@ -2003,6 +2088,8 @@ export async function POST(req: NextRequest) {
         passedCount,
         totalCount: checks.length,
         checks,
+        buildStamp: getBuildStampInfo(),
+        channelPolicy: QA_OUTBOUND_CHANNEL_POLICY,
         readyLinks: {
           dealcards: "/broker/w/dealcards?qa=1",
           im: "/broker/w/im?qa=1",

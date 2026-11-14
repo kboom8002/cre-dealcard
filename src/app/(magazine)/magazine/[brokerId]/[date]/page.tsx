@@ -1,6 +1,7 @@
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { QaFeedbackPinWidget } from "@/components/workspace/QaFeedbackPinWidget";
 import { createServiceClient } from "@/lib/supabase/service";
 import { formatKoreanDate } from "@/lib/magazine/kst";
 import {
@@ -23,7 +24,7 @@ import { MagazineView, type MagazineData } from "./magazine-view";
 interface PageProps {
   params: Promise<{ brokerId: string; date: string }>;
   /** ?target= 은 서버에서 읽어 내려준다 — 클라이언트가 location 을 읽으면 hydration 불일치 (U-05). `preview`/`edition` 은 에디터 iframe 미리보기. */
-  searchParams: Promise<{ target?: string | string[]; preview?: string | string[]; edition?: string | string[] }>;
+  searchParams: Promise<{ target?: string | string[]; preview?: string | string[]; edition?: string | string[]; qa?: string | string[] }>;
 }
 
 /** 에디터 iframe 미리보기 쿼리(`?preview=1&edition=`) 해석 — 배열이면 첫 값 */
@@ -152,7 +153,7 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
   const state = await loadPage(brokerId, date, edition);
 
   if (state.kind === "no-broker") notFound();
-  // uuid 로 접근했고 slug 가 있으면 정규 URL(slug)로 308 (I-02) — 미리보기 쿼리는 유지
+  // uuid 로 접근했고 slug 가 있으면 정규 URL(slug)로 308 (I-02) — 미리보기·QA 쿼리는 유지
   if (state.kind === "redirect") {
     if (isPreview) {
       permanentRedirect(buildPreviewSrc(state.slug, date, edition));
@@ -161,6 +162,8 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
     if (edition) qs.set("edition", edition);
     const rawTarget = Array.isArray(sp.target) ? sp.target[0] : sp.target;
     if (rawTarget) qs.set("target", rawTarget);
+    const rawQa = Array.isArray(sp.qa) ? sp.qa[0] : sp.qa;
+    if (rawQa) qs.set("qa", rawQa);
     const suffix = qs.toString();
     permanentRedirect(`/magazine/${state.slug}/${date}${suffix ? `?${suffix}` : ""}`);
   }
@@ -195,16 +198,25 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
 
   // 날짜·요일 표시는 서버(KST)에서 계산 — hydration 불일치 제거 (T3-40)
   const dateLabel = formatKoreanDate(date);
+  const rawQa = Array.isArray(sp.qa) ? sp.qa[0] : sp.qa;
+  const showPublicQaPin = rawQa === "1" && !isPreview;
 
   return (
-    <MagazineView
-      data={state.data as MagazineData}
-      brokerId={state.brokerSlug ?? brokerId}
-      brokerSlug={state.brokerSlug}
-      date={date}
-      dateLabel={dateLabel}
-      brokerVibe={state.brokerVibe}
-      target={sp.target !== undefined ? parseViewerTarget(sp.target) : undefined}
-    />
+    <>
+      <MagazineView
+        data={state.data as MagazineData}
+        brokerId={state.brokerSlug ?? brokerId}
+        brokerSlug={state.brokerSlug}
+        date={date}
+        dateLabel={dateLabel}
+        brokerVibe={state.brokerVibe}
+        target={sp.target !== undefined ? parseViewerTarget(sp.target) : undefined}
+      />
+      {showPublicQaPin && (
+        <Suspense fallback={null}>
+          <QaFeedbackPinWidget workspace="public-newsletter" requireExplicitQueryParam />
+        </Suspense>
+      )}
+    </>
   );
 }

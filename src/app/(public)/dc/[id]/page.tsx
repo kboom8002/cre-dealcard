@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { cache, Suspense } from "react";
+import { QaFeedbackPinWidget } from '@/components/workspace/QaFeedbackPinWidget';
 import { createServiceClient } from "@/lib/supabase/service";
 import { readBuilding } from '@/domain/building/im-core/read-building';
 import { TeaserEventTracker } from '@/components/teaser/TeaserEventTracker';
@@ -664,6 +665,11 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           pptxDownloadUrl={cta.pptxDownloadUrl}
         />
       </div>
+      {sParams.qa === "1" && !isPreviewMode && (
+        <Suspense fallback={null}>
+          <QaFeedbackPinWidget workspace="public-dealcard" requireExplicitQueryParam />
+        </Suspense>
+      )}
     </main>
   );
 }

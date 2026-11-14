@@ -89,6 +89,9 @@ describe("Track B / Wave 2: /qa-signoff Hub & In-App QA Pin Widget", () => {
     expect(json.ok).toBe(true);
     expect(json.totalCount).toBe(4);
     expect(json.passedCount).toBe(4);
+    expect(json.buildStamp?.shortSha).toBeTruthy();
+    expect(json.channelPolicy?.emailLiveAllowed).toBe(true);
+    expect(json.channelPolicy?.alimtalkLiveAllowed).toBe(false);
     expect(Array.isArray(json.checks)).toBe(true);
     for (const chk of json.checks) {
       expect(chk.passed).toBe(true);
@@ -283,5 +286,152 @@ describe("Track B / Wave 2: /qa-signoff Hub & In-App QA Pin Widget", () => {
 
     const badge = container.querySelector('[data-testid="signoff-verdict-badge"]');
     expect(badge?.textContent).toContain("GO · 출시 승인 가능");
+  });
+
+  it("displays qa-build-stamp-badge and supports Red-Pen mode (broker role + before/after copy) through POST/GET pins", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        const res = await POST(buildPostRequest(JSON.parse(String(init.body || "{}"))));
+        return res;
+      }
+      return await GET(new NextRequest(`http://localhost:3000${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await act(async () => {
+      root.render(<QaFeedbackPinWidget workspace="newsletter" />);
+    });
+
+    const buildBadge = container.querySelector('[data-testid="qa-build-stamp-badge"]');
+    expect(buildBadge?.textContent).toContain("빌드 #");
+
+    const fab = container.querySelector('[data-testid="qa-pin-fab"]') as HTMLButtonElement;
+    await act(async () => {
+      fab.click();
+    });
+
+    const roleBrokerBtn = container.querySelector(
+      '[data-testid="qa-pin-role-broker"]'
+    ) as HTMLButtonElement;
+    const redpenModeBtn = container.querySelector(
+      '[data-testid="qa-pin-mode-redpen"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      roleBrokerBtn.click();
+      redpenModeBtn.click();
+    });
+
+    const origInput = container.querySelector(
+      '[data-testid="qa-pin-original-text"]'
+    ) as HTMLTextAreaElement;
+    const suggestedInput = container.querySelector(
+      '[data-testid="qa-pin-suggested-text"]'
+    ) as HTMLTextAreaElement;
+    const submitBtn = container.querySelector(
+      '[data-testid="qa-pin-submit-btn"]'
+    ) as HTMLButtonElement;
+
+    expect(origInput).not.toBeNull();
+    expect(suggestedInput).not.toBeNull();
+
+    await act(async () => {
+      setNativeValue(origInput, "Cap Rate 스프레드가 확대됨");
+      setNativeValue(suggestedInput, "이자 부담보다 월세 수익률이 조금 더 높습니다");
+    });
+
+    await act(async () => {
+      submitBtn.click();
+    });
+
+    const pinsRes = await GET(
+      new NextRequest("http://localhost:3000/api/public/qa-workbench?mode=pins")
+    );
+    const pinsJson = await pinsRes.json();
+    const redpenPin = pinsJson.pins.find(
+      (p: { pinMode?: string; authorRole?: string }) =>
+        p.pinMode === "redpen" && p.authorRole === "broker"
+    );
+    expect(redpenPin).toBeDefined();
+    expect(redpenPin.originalText).toBe("Cap Rate 스프레드가 확대됨");
+    expect(redpenPin.suggestedText).toBe(
+      "이자 부담보다 월세 수익률이 조금 더 높습니다"
+    );
+    expect(redpenPin.buildSha).toBeTruthy();
+  });
+
+  it("switches /qa-signoff between Tester M1~M8 Gate-6 track and Tue/Thu Broker Package track", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, pins: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await act(async () => {
+      root.render(<QaSignoffHubPage />);
+    });
+
+    expect(
+      container.querySelector('[data-testid="hub-build-stamp-badge"]')?.textContent
+    ).toContain("빌드 #");
+    expect(
+      container.querySelector('[data-testid="hub-channel-policy-badge"]')?.textContent
+    ).toContain("이메일 발송 허용");
+
+    const testerTab = container.querySelector(
+      '[data-testid="qa-track-tab-tester"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      testerTab.click();
+    });
+
+    expect(
+      container.querySelector('[data-testid="qa-tester-track-panel"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="tester-mission-card-M6"]')?.textContent
+    ).toContain("매 회차 필수");
+
+    for (const gid of ["RG-01", "RG-02", "RG-03", "RG-04", "RG-05", "RG-06"]) {
+      const btn = container.querySelector(
+        `[data-testid="readiness-gate-btn-${gid}"]`
+      ) as HTMLButtonElement;
+      await act(async () => {
+        btn.click();
+      });
+    }
+    expect(
+      container.querySelector('[data-testid="tester-readiness-gate-badge"]')
+        ?.textContent
+    ).toContain("중개인 전달 가능");
+
+    const brokerTab = container.querySelector(
+      '[data-testid="qa-track-tab-broker"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      brokerTab.click();
+    });
+
+    expect(
+      container.querySelector('[data-testid="qa-broker-track-panel"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="broker-prereq-request-card"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="broker-session-tab-S2"]')?.textContent
+    ).toContain("목요일");
+    expect(
+      container.querySelector('[data-testid="broker-br-row-BR-007"]')
+    ).not.toBeNull();
+
+    const rate5 = container.querySelector(
+      '[data-testid="broker-rubric-send_readiness-5"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      rate5.click();
+    });
+    expect(
+      container.querySelector('[data-testid="broker-rubric-avg-badge"]')?.textContent
+    ).toContain("5.0 / 5.0 (1/6 채점)");
   });
 });

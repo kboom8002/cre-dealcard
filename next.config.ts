@@ -1,4 +1,29 @@
 import type { NextConfig } from "next";
+import { execSync } from "child_process";
+
+function resolveBuildSha(): string {
+  const fromEnv = (
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+    process.env.NEXT_PUBLIC_BUILD_SHA ||
+    ""
+  ).trim();
+  if (fromEnv) return fromEnv.slice(0, 8);
+  try {
+    return execSync("git rev-parse --short HEAD", {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim()
+      .slice(0, 8);
+  } catch {
+    return "local";
+  }
+}
+
+const RESOLVED_BUILD_SHA = resolveBuildSha();
+const RESOLVED_BUILD_TIMESTAMP =
+  process.env.NEXT_PUBLIC_BUILD_TIMESTAMP || new Date().toISOString();
 
 // ── H-01 보안 헤더 (S2-27) ───────────────────────────────────────────────────
 // CSP 는 Report-Only 로만 추가(1주 관찰 후 enforce). 외부 의존은 코드 grep 기준:
@@ -33,6 +58,12 @@ const COMMON_SECURITY_HEADERS = [
 const nextConfig: NextConfig = {
   // E2E 격리: 별도 포트 dev 서버가 사용자 dev 서버와 .next 를 공유하지 않도록 (미설정 시 기본 .next)
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: RESOLVED_BUILD_SHA,
+    NEXT_PUBLIC_BUILD_TIMESTAMP: RESOLVED_BUILD_TIMESTAMP,
+    NEXT_PUBLIC_VERCEL_ENV:
+      process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 3600,

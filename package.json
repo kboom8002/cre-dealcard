@@ -17,6 +17,7 @@
     "test:guard": "vitest run src/tests/unit/boundary-guard.test.ts",
     "test:smoke": "vitest run src/tests/e2e/smoke-v3.test.ts",
     "test:e2e": "npx playwright test",
+    "test:prod-smoke": "node scripts/with-env.mjs PROD_SMOKE=1 -- npx playwright test e2e/prod-smoke.spec.ts --project=prod-smoke --workers=1",
     "test:editor": "npx playwright test e2e/editor --reporter=line",
     "test:visual": "npx tsx scripts/visual-regression.ts",
     "visual:check": "npx tsx scripts/visual-regression-gate.ts",

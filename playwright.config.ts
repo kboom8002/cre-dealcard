@@ -5,12 +5,14 @@ import * as path from 'path';
 // 다른 사람이 3000 에서 돌리는 dev 서버/스펙(LLM_MODE 등 env 상이)과 섞이지 않게 한다. 미설정 시 기존 동작(3000, 재사용).
 const E2E_PORT = Number(process.env.E2E_PORT || 3000);
 const ISOLATED = E2E_PORT !== 3000;
+const IS_PROD_SMOKE = process.env.PROD_SMOKE === '1';
+const PROD_SMOKE_BASE_URL = process.env.PROD_SMOKE_BASE_URL || 'https://credeal.net';
 
 export default defineConfig({
   testDir: './e2e',
   timeout: 60000,
 
-  /* 프로젝트: 인증 셋업 → 인증 필요 테스트 + 비인증 테스트 분리 */
+  /* 프로젝트: 인증 셋업 → 인증 필요 테스트 + 비인증 테스트 + 운영 스모크 분리 */
   projects: [
     // 인증 셋업 (로그인 → storageState 저장)
     {
@@ -29,17 +31,29 @@ export default defineConfig({
     // 비인증 테스트 (뷰어, 반응형, 기존 테스트)
     {
       name: 'default',
-      testIgnore: [/auth\.setup\.ts/, /.*\.auth\.spec\.ts/],
+      testIgnore: [/auth\.setup\.ts/, /.*\.auth\.spec\.ts/, /prod-smoke\.spec\.ts/],
+    },
+    // 운영 사이트 읽기 위주 스모크 (PROD_SMOKE=1 일 때 명시 실행)
+    {
+      name: 'prod-smoke',
+      testMatch: /prod-smoke\.spec\.ts/,
+      use: {
+        baseURL: PROD_SMOKE_BASE_URL,
+      },
     },
   ],
 
-  webServer: {
-    command: ISOLATED ? `npx next dev -p ${E2E_PORT}` : 'npm run dev',
-    port: E2E_PORT,
-    reuseExistingServer: true,
-    timeout: 120000,
-    ...(ISOLATED ? { env: { NEXT_DIST_DIR: `.next/e2e-${E2E_PORT}` } } : {}),
-  },
+  ...(IS_PROD_SMOKE
+    ? {}
+    : {
+        webServer: {
+          command: ISOLATED ? `npx next dev -p ${E2E_PORT}` : 'npm run dev',
+          port: E2E_PORT,
+          reuseExistingServer: true,
+          timeout: 120000,
+          ...(ISOLATED ? { env: { NEXT_DIST_DIR: `.next/e2e-${E2E_PORT}` } } : {}),
+        },
+      }),
   use: {
     baseURL: `http://localhost:${E2E_PORT}`,
     locale: 'ko-KR',
